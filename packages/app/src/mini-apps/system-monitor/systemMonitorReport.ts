@@ -3,7 +3,7 @@ import type {
   PendingWriteQueueItem,
   SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
-import { DOCUMENT_SYNC_TRACE_PATTERN } from "@tearleads/client-sdk";
+import { DOCUMENT_SYNC_TRACE_FRAGMENT } from "@tearleads/client-sdk";
 import {
   formatPaneLogLine,
   type PaneLogEntry,
@@ -76,7 +76,7 @@ export const MAX_REPORT_LOG_ENTRIES = 200;
 // Every trace line is built from anchored tokens (UUIDs, counts, enums) and
 // never carries decrypted content, names, key material, or free-form errors.
 const CLIPBOARD_SAFE_LOG_PATTERN = new RegExp(
-  `(?:^|: )((?:document priming candidates=\\d+ roots=\\d+ primed=\\d+ unroutable=\\d+)|(?:stale root recovery status=(?:already-adopted|ambiguous|context-changed|reassigned|unsupported) candidates=\\d+(?: occurrences=\\d+)?)|(?:interest baseline containers=\\d+)|(?:interest declaration acknowledged)|(?:remote revalidation scheduled reason=(?:reconnect|startup))|(?:remote revalidation result=(?:applied incomingUpdates=\\d+ attachmentSlots=\\d+|unavailable))|(?:${DOCUMENT_SYNC_TRACE_PATTERN.source}))$`,
+  `(?:^|: )((?:document priming candidates=\\d+ roots=\\d+ primed=\\d+ unroutable=\\d+)|(?:stale root recovery status=(?:already-adopted|ambiguous|context-changed|reassigned|unsupported) candidates=\\d+(?: occurrences=\\d+)?)|(?:interest baseline containers=\\d+)|(?:interest declaration acknowledged)|(?:remote revalidation scheduled reason=(?:reconnect|startup))|(?:remote revalidation result=(?:applied incomingUpdates=\\d+ attachmentSlots=\\d+|unavailable))|(?:${DOCUMENT_SYNC_TRACE_FRAGMENT}))$`,
   "u",
 );
 

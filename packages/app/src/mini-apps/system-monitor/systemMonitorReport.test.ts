@@ -284,6 +284,12 @@ test("report retains document sync trace lines and drops decorated ones", () => 
       createLogEntry(9, {
         message: `Documents: document sync healed document=${documentId} epoch=2 accepted=4 title=PRIVATE cardiology scan.pdf`,
       }),
+      // Smuggled tokens inside the enumerated slots must fail closed too —
+      // the pattern enumerates the emitted vocabulary rather than accepting
+      // anything token-shaped.
+      createLogEntry(10, {
+        message: `Documents: document sync submit failed document=${documentId} status=409 code=private_patient_field action=stop`,
+      }),
     ],
     status: createStatus(),
   });
@@ -313,8 +319,9 @@ test("report retains document sync trace lines and drops decorated ones", () => 
     `document sync checkpoint regeneration document=${documentId} checkpoints=1 updates=2`,
   );
   expect(report).not.toContain("PRIVATE");
+  expect(report).not.toContain("private_patient_field");
   expect(report).toContain(
-    "_Omitted 1 free-form log entry to protect decrypted customer data._",
+    "_Omitted 2 free-form log entries to protect decrypted customer data._",
   );
 });
 

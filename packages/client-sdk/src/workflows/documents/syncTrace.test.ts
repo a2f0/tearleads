@@ -64,6 +64,25 @@ test("every emitted trace line matches the clipboard-safe pattern", () => {
   }
 });
 
+test("the validator is anchored and rejects tokens outside the vocabulary", () => {
+  const rejected = [
+    // A trailing leak after a valid line must fail as a whole.
+    `document sync healed document=${DOCUMENT_ID} epoch=2 accepted=4 title=PRIVATE`,
+    // A leading prefix must fail too — composition anchors are the caller's.
+    `PRIVATE document sync healed document=${DOCUMENT_ID} epoch=2 accepted=4`,
+    // Smuggled tokens in the enumerated slots must fail even when they match
+    // the loose token shape.
+    `document sync submit failed document=${DOCUMENT_ID} status=409 code=patient_name action=stop`,
+    `document sync submit failed document=${DOCUMENT_ID} status=409 code=none action=secret`,
+    `document sync heal blocked document=${DOCUMENT_ID} reason=patient-name`,
+    // Non-UUID document ids must fail the strict shape.
+    "document sync healed document=a epoch=2 accepted=4",
+  ];
+  for (const line of rejected) {
+    expect(line).not.toMatch(DOCUMENT_SYNC_TRACE_PATTERN);
+  }
+});
+
 test("unknown failure text emits nothing instead of leaking free-form errors", () => {
   const lines = collect((emit) => {
     traceHealBlocked(emit, {

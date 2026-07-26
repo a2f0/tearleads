@@ -1,13 +1,14 @@
 /**
  * Production-safe trace lines for the document sync workflow.
  *
- * Every line is assembled here from an anchored vocabulary — document UUIDs,
- * integers, HTTP statuses, and enumerated reason/action/code tokens. No
- * decrypted content, names, key material, or free-form error text ever enters
- * a line, so the System Monitor can copy them into support reports verbatim.
- * DOCUMENT_SYNC_TRACE_PATTERN is the single source of truth the monitor's
- * clipboard allowlist composes in; the format test asserts every emitter
- * output matches it, keeping the two in lockstep.
+ * Every line is assembled here from a CLOSED vocabulary — strict document
+ * UUIDs, integers, and enumerated reason/action/code values that appear as
+ * literal alternatives in the pattern below. No decrypted content, names,
+ * key material, or free-form error text can enter a line, and because the
+ * System Monitor validates LINES (it cannot know their emitter), the pattern
+ * itself rejects any token outside that vocabulary rather than trusting
+ * emitter-side sanitization. The format tests assert emitter output and
+ * pattern stay in lockstep, including that leaks fail closed.
  */
 
 import {
@@ -16,30 +17,6 @@ import {
 } from "@tearleads/validators/response";
 
 export type DocumentSyncTraceEmitter = (line: string) => void;
-
-const UUID_FRAGMENT = "[0-9a-fA-F-]{1,64}";
-const TOKEN_FRAGMENT = "[a-z0-9-]{1,64}";
-const CODE_FRAGMENT = "[a-z0-9_]{1,64}";
-
-/**
- * Anchored shape of every emitted trace line. Composed (not copied) into the
- * System Monitor clipboard allowlist.
- */
-export const DOCUMENT_SYNC_TRACE_PATTERN = new RegExp(
-  [
-    `document sync stale bundle document=${UUID_FRAGMENT} epoch=\\d+ pending=\\d+`,
-    `document sync heal planned document=${UUID_FRAGMENT} fromEpoch=\\d+ toEpoch=\\d+ updates=\\d+ heldBack=\\d+`,
-    `document sync stale read document=${UUID_FRAGMENT} epoch=\\d+`,
-    `document sync checkpoint regeneration document=${UUID_FRAGMENT} checkpoints=\\d+ updates=\\d+`,
-    `document sync heal blocked document=${UUID_FRAGMENT} reason=${TOKEN_FRAGMENT}`,
-    `document sync submit failed document=${UUID_FRAGMENT} status=(?:\\d+|none) code=(?:${CODE_FRAGMENT}|none) action=${TOKEN_FRAGMENT}`,
-    `document sync projection failed document=${UUID_FRAGMENT} status=(?:\\d+|none)`,
-    `document sync healed document=${UUID_FRAGMENT} epoch=\\d+ accepted=\\d+`,
-  ]
-    .map((alternative) => `(?:${alternative})`)
-    .join("|"),
-  "u",
-);
 
 /** Fixed thrown messages mapped to enumerated, clipboard-safe reasons. */
 const HEAL_BLOCKED_REASONS: ReadonlyArray<readonly [string, string]> = [
@@ -65,6 +42,63 @@ const HEAL_BLOCKED_REASONS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /**
+ * Only the protocol's own coded values are copied; any other server-provided
+ * string — even one that happens to look like a code — is collapsed to
+ * "other" so a hostile or buggy server can never smuggle text into a report.
+ */
+const SAFE_FAILURE_CODES: ReadonlySet<string> = new Set([
+  ...Object.values(DOCUMENT_SYNC_ERROR_CODES),
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
+]);
+
+type DocumentSyncTraceAction =
+  | "recover-update-ids"
+  | "regenerate-checkpoints"
+  | "retry"
+  | "stop";
+
+const TRACE_ACTIONS: ReadonlyArray<DocumentSyncTraceAction> = [
+  "recover-update-ids",
+  "regenerate-checkpoints",
+  "retry",
+  "stop",
+];
+
+// Every vocabulary below is enumerated into the pattern as literals; the only
+// open-ended slots are a strict UUID and decimal counts.
+const UUID_FRAGMENT =
+  "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const REASON_FRAGMENT = HEAL_BLOCKED_REASONS.map(([, reason]) => reason).join(
+  "|",
+);
+const ACTION_FRAGMENT = TRACE_ACTIONS.join("|");
+const CODE_FRAGMENT = [...SAFE_FAILURE_CODES, "none", "other"].join("|");
+
+/**
+ * Unanchored alternatives for composition into a larger allowlist (the
+ * System Monitor wraps this in its own prefix/suffix anchors). Use
+ * DOCUMENT_SYNC_TRACE_PATTERN to validate a complete line.
+ */
+export const DOCUMENT_SYNC_TRACE_FRAGMENT = [
+  `document sync stale bundle document=${UUID_FRAGMENT} epoch=\\d+ pending=\\d+`,
+  `document sync heal planned document=${UUID_FRAGMENT} fromEpoch=\\d+ toEpoch=\\d+ updates=\\d+ heldBack=\\d+`,
+  `document sync stale read document=${UUID_FRAGMENT} epoch=\\d+`,
+  `document sync checkpoint regeneration document=${UUID_FRAGMENT} checkpoints=\\d+ updates=\\d+`,
+  `document sync heal blocked document=${UUID_FRAGMENT} reason=(?:${REASON_FRAGMENT})`,
+  `document sync submit failed document=${UUID_FRAGMENT} status=(?:\\d+|none) code=(?:${CODE_FRAGMENT}) action=(?:${ACTION_FRAGMENT})`,
+  `document sync projection failed document=${UUID_FRAGMENT} status=(?:\\d+|none)`,
+  `document sync healed document=${UUID_FRAGMENT} epoch=\\d+ accepted=\\d+`,
+]
+  .map((alternative) => `(?:${alternative})`)
+  .join("|");
+
+/** Anchored validator: a string is a trace line in full, or not at all. */
+export const DOCUMENT_SYNC_TRACE_PATTERN = new RegExp(
+  `^(?:${DOCUMENT_SYNC_TRACE_FRAGMENT})$`,
+  "u",
+);
+
+/**
  * Classifies a plan-build failure into an enumerated reason, or null when the
  * message is not one of the fixed protocol strings — unknown errors fail
  * closed and emit nothing rather than leaking free text.
@@ -78,16 +112,6 @@ export function classifyHealBlockedReason(error: unknown): string | null {
   }
   return null;
 }
-
-/**
- * Only the protocol's own coded values are copied; any other server-provided
- * string — even one that happens to look like a code — is collapsed to
- * "other" so a hostile or buggy server can never smuggle text into a report.
- */
-const SAFE_FAILURE_CODES: ReadonlySet<string> = new Set([
-  ...Object.values(DOCUMENT_SYNC_ERROR_CODES),
-  DOCUMENT_NOT_FOUND_ERROR_CODE,
-]);
 
 function safeCode(code: string | undefined): string {
   if (code === undefined) {
@@ -159,7 +183,7 @@ export function traceHealBlocked(
 export function traceSubmitFailed(
   emit: DocumentSyncTraceEmitter | undefined,
   input: {
-    action: "recover-update-ids" | "regenerate-checkpoints" | "retry" | "stop";
+    action: DocumentSyncTraceAction;
     code: string | undefined;
     documentId: string;
     status: number | null;
