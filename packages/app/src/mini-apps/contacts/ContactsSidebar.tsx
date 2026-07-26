@@ -57,20 +57,15 @@ function normalizeContactNamePart(value: string | null | undefined): string {
   return value?.trim() ?? "";
 }
 
+// The list-home rows carry a second line only when the contact's full name says
+// something the display name leaves out — a nickname hiding the real name. Sync
+// and key state stay out of it; the row is for identifying the person.
 function getContactMetadataLabel(entry: ContactEntries[number]): string | null {
   const displayName = getContactDisplayName(entry);
   const firstName = normalizeContactNamePart(entry.firstName);
   const lastName = normalizeContactNamePart(entry.lastName);
   const fullName = `${firstName} ${lastName}`.trim();
-  if (fullName.length > 0 && fullName !== displayName) {
-    return fullName;
-  }
-
-  if (entry.encapsulationPublicKey) {
-    return null;
-  }
-
-  return CONTACTS_LABELS.metadataLocalContact;
+  return fullName.length > 0 && fullName !== displayName ? fullName : null;
 }
 
 function renderContactMetadata(entry: ContactEntries[number]): ReactNode {
