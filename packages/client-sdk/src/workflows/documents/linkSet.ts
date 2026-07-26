@@ -9,9 +9,13 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
-import type { DocumentContentKeyTargetEnvelope } from "@tearleads/validators/request";
+import type {
+  DocumentContentKeyTargetEnvelope,
+  DocumentLinkSetMutationRequest,
+} from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
+  DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { buildDocumentLinkSetEventPlan } from "../../data/documents/shared/events";
@@ -36,6 +40,7 @@ import {
 import {
   type BuildDocumentLinkSetMutationPlanInput,
   type DocumentCreateAuthor,
+  type DocumentLinkSetFailureHandler,
   type DocumentLinkSetMutationApi,
   type DocumentLinkSetMutationOperation,
   type DocumentLinkSetMutationPlan,
@@ -387,6 +392,42 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
   };
 }
 
+async function submitLinkSetMutation(input: {
+  apiClient: DocumentLinkSetMutationApi;
+  documentId: string;
+  onFailure?: DocumentLinkSetFailureHandler | undefined;
+  operation: DocumentLinkSetMutationOperation;
+  request: DocumentLinkSetMutationRequest;
+}): Promise<DocumentLinkSetMutationResponse | null> {
+  const { apiClient } = input;
+  // Prefer the result-returning variants so a failure keeps its HTTP status
+  // instead of collapsing to null — the move-intent queue records it.
+  const resultFn =
+    input.operation === "link"
+      ? apiClient.linkDocumentResult?.bind(apiClient)
+      : apiClient.unlinkDocumentResult?.bind(apiClient);
+  if (resultFn) {
+    const result = await resultFn(input.documentId, input.request);
+    if (result.ok) {
+      return result.data;
+    }
+    input.onFailure?.({ message: result.message, status: result.status });
+    return null;
+  }
+
+  const response =
+    input.operation === "link"
+      ? await apiClient.linkDocument(input.documentId, input.request)
+      : await apiClient.unlinkDocument(input.documentId, input.request);
+  if (!response) {
+    input.onFailure?.({
+      message: `Document ${input.operation} request failed`,
+      status: null,
+    });
+  }
+  return response;
+}
+
 export async function relinkRemoteDocument(input: {
   apiClient: DocumentLinkSetMutationApi;
   author: DocumentCreateAuthor;
@@ -394,6 +435,7 @@ export async function relinkRemoteDocument(input: {
   documentId: string;
   eventId?: string | undefined;
   execSql: ExecSql;
+  onFailure?: DocumentLinkSetFailureHandler | undefined;
   operation: DocumentLinkSetMutationOperation;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   rotationSnapshot?: Uint8Array | undefined;
@@ -416,6 +458,12 @@ export async function relinkRemoteDocument(input: {
     input.apiClient.getContainerWriterProjection(input.targetContainerId),
   ]);
   if (!writerProjection || !targetContainerProjection) {
+    input.onFailure?.({
+      message: writerProjection
+        ? "Container writer projection is unavailable"
+        : "Document writer projection is unavailable",
+      status: null,
+    });
     return null;
   }
 
@@ -441,16 +489,13 @@ export async function relinkRemoteDocument(input: {
     signedAt,
   });
   const completedPlan = { ...materializedPlan.plan, request };
-  const response =
-    input.operation === "link"
-      ? await input.apiClient.linkDocument(
-          completedPlan.documentId,
-          completedPlan.request,
-        )
-      : await input.apiClient.unlinkDocument(
-          completedPlan.documentId,
-          completedPlan.request,
-        );
+  const response = await submitLinkSetMutation({
+    apiClient: input.apiClient,
+    documentId: completedPlan.documentId,
+    onFailure: input.onFailure,
+    operation: input.operation,
+    request: completedPlan.request,
+  });
   if (!response) {
     return null;
   }

@@ -54,6 +54,7 @@ function remoteContainerState(input: {
 }
 
 async function runQueuedDocumentMoveFixture(input: {
+  linkFailure?: { message: string; status: number | null } | undefined;
   testDbName: string;
   unlinkAvailable: boolean;
 }) {
@@ -162,6 +163,15 @@ async function runQueuedDocumentMoveFixture(input: {
         getDocumentWriterProjection: async (documentId: string) =>
           documentId === writerProjection.documentId ? writerProjection : null,
         primeDocumentWriterProjection: () => {},
+        ...(input.linkFailure
+          ? {
+              linkDocumentResult: async () => ({
+                message: input.linkFailure?.message ?? "",
+                ok: false as const,
+                status: input.linkFailure?.status ?? null,
+              }),
+            }
+          : {}),
         linkDocument: async (
           documentId: string,
           request: DocumentLinkSetMutationRequest,
@@ -423,6 +433,141 @@ test("document move sync propagates identity failures without recording a retry"
       await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
     expect(pending).toHaveLength(1);
     expect(pending[0]?.lastError).toBeNull();
+  } finally {
+    close();
+  }
+});
+
+// A remote rejection keeps the HTTP status: a revoked permission must read
+// differently from an offline blip in the write queue.
+test("a rejected document move records the failure detail and status", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    linkFailure: { message: "Forbidden", status: 403 },
+    testDbName: "containerContents-document-move-rejected-status",
+    unlinkAvailable: true,
+  });
+
+  expect(fixture.syncedCount).toBe(0);
+  expect(fixture.pendingIntents).toHaveLength(1);
+  expect(fixture.pendingIntents[0]).toMatchObject({
+    lastError:
+      "Remote document move was rejected or unavailable: Forbidden (403)",
+    syncStatus: "pending",
+  });
+});
+
+// Blocked is a diagnosis, not a verdict: the intent keeps replaying and each
+// pass re-records its outcome, so it recovers the moment the destination
+// appears (hydration, recovery) instead of parking forever.
+test("a blocked document move keeps replaying and re-records its reason", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-move-blocked-replay",
+  );
+  try {
+    await defaultDocumentsPersistence.ensureSchema(execSql);
+    await defaultDocumentsPersistence.saveDocument(execSql, {
+      accessEpoch: 1,
+      accessStateHash: "access-document",
+      containerId: "source",
+      contentKeyBundle: null,
+      documentId: "document",
+      documentKekTargets: null,
+      documentKind: "note",
+      documentManifestBundle: null,
+      id: "local-document",
+      lastCommitLsn: null,
+      loroSnapshot: "",
+      text: "",
+      title: "Document",
+    });
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      documentId: "document",
+      localId: "local-document",
+      sourceContainerId: "source",
+      targetContainerId: "missing-target",
+    });
+
+    const runOnce = () =>
+      syncPendingDocumentMoveIntents({
+        host: {
+          documentWorkflowRuntime: () => null,
+          openDocumentStore: () => ({
+            assertCanRotateContentKey: async () => new Uint8Array(),
+            ensureInitialized: async () => true,
+            relink: async () => null,
+            requestSync: () => undefined,
+            updateRuntime: () => undefined,
+          }),
+        },
+        isRemoteSyncBlocked: () => false,
+        state: {
+          containersById: new Map(),
+          resolveProjectionUserKey: async () => null,
+          runtime: {
+            infra: { execSql },
+            util: { log: () => undefined },
+          } as unknown as ContainerContentsWorkflowRuntime,
+        },
+      });
+
+    await runOnce();
+    const [firstPass] =
+      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    expect(firstPass).toMatchObject({
+      lastError:
+        "Document move intent references a missing destination container",
+      syncStatus: "blocked",
+    });
+    const firstAttemptAt = firstPass?.lastAttemptedAt ?? null;
+    expect(firstAttemptAt).not.toBeNull();
+
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    await runOnce();
+    const [secondPass] =
+      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    expect(secondPass?.syncStatus).toBe("blocked");
+    // The second pass genuinely retried: its attempt timestamp advanced.
+    expect(secondPass?.lastAttemptedAt).not.toBe(firstAttemptAt);
+  } finally {
+    close();
+  }
+});
+
+// A queued move for a deleted document can never replay; the row must go with
+// the document instead of rendering a permanent phantom queue entry.
+test("deleting a document deletes its queued move intents", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-move-delete-cleanup",
+  );
+  try {
+    await defaultDocumentsPersistence.ensureSchema(execSql);
+    await defaultDocumentsPersistence.saveDocument(execSql, {
+      accessEpoch: 1,
+      accessStateHash: "access-document",
+      containerId: "source",
+      contentKeyBundle: null,
+      documentId: "document",
+      documentKekTargets: null,
+      documentKind: "note",
+      documentManifestBundle: null,
+      id: "local-document",
+      lastCommitLsn: null,
+      loroSnapshot: "",
+      text: "",
+      title: "Document",
+    });
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      documentId: "document",
+      localId: "local-document",
+      sourceContainerId: "source",
+      targetContainerId: "target",
+    });
+
+    await defaultDocumentsPersistence.deleteDocument(execSql, "local-document");
+
+    expect(
+      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
+    ).toEqual([]);
   } finally {
     close();
   }

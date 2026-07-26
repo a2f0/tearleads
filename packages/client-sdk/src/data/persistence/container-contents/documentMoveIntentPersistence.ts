@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   documentMoveIntents,
   documentMoveIntentTables,
@@ -150,9 +150,14 @@ export const sqlDocumentMoveIntentPersistence = {
         updatedAt: documentMoveIntents.updatedAt,
       })
       .from(documentMoveIntents)
+      // Blocked intents replay too: "blocked" names the reason the last
+      // attempt could not proceed (missing local doc / destination), not a
+      // terminal verdict. The blocking condition can heal after hydration or
+      // recovery, and re-checking is cheap — a still-blocked intent simply
+      // re-records its reason without counting as lane progress.
       .where(
         and(
-          eq(documentMoveIntents.syncStatus, "pending"),
+          inArray(documentMoveIntents.syncStatus, ["pending", "blocked"]),
           eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
         ),
       )
@@ -203,7 +208,10 @@ export const sqlDocumentMoveIntentPersistence = {
         .where(
           and(
             eq(documentMoveIntents.documentId, input.documentId),
-            eq(documentMoveIntents.syncStatus, "pending"),
+            // Blocked rows must stay updatable: a retried blocked intent
+            // records its fresh outcome, and a transient failure flips it
+            // back to pending instead of freezing it forever.
+            inArray(documentMoveIntents.syncStatus, ["pending", "blocked"]),
             eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
           ),
         )

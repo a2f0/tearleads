@@ -268,6 +268,29 @@ export interface DocumentLinkSetEventPlan {
   eventHash: string;
 }
 
+/**
+ * What a failed link-set mutation could tell the caller: the HTTP status (or
+ * null for network/local failures) and a short message. Threaded up to the
+ * move-intent queue so a permission failure reads as one, instead of the
+ * generic "rejected or unavailable".
+ */
+export interface DocumentLinkSetMutationFailure {
+  readonly message: string;
+  readonly status: number | null;
+}
+
+export type DocumentLinkSetFailureHandler = (
+  failure: DocumentLinkSetMutationFailure,
+) => void;
+
+type DocumentLinkSetMutationResult =
+  | { readonly data: DocumentLinkSetMutationResponse; readonly ok: true }
+  | {
+      readonly message: string;
+      readonly ok: false;
+      readonly status: number | null;
+    };
+
 export interface DocumentLinkSetMutationApi {
   getContainerWriterProjection(
     containerId: string,
@@ -283,10 +306,18 @@ export interface DocumentLinkSetMutationApi {
     documentId: string,
     input: DocumentLinkSetMutationRequest,
   ): Promise<DocumentLinkSetMutationResponse | null>;
+  linkDocumentResult?(
+    documentId: string,
+    input: DocumentLinkSetMutationRequest,
+  ): Promise<DocumentLinkSetMutationResult>;
   unlinkDocument(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
   ): Promise<DocumentLinkSetMutationResponse | null>;
+  unlinkDocumentResult?(
+    documentId: string,
+    input: DocumentLinkSetMutationRequest,
+  ): Promise<DocumentLinkSetMutationResult>;
 }
 
 export interface RelinkRemoteDocumentResult {
