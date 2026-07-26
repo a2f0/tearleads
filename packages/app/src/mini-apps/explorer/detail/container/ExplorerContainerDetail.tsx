@@ -6,13 +6,17 @@ import type {
 } from "@tearleads/client-sdk";
 import { type MouseEvent, useCallback, useEffect, useState } from "react";
 import {
+  MiniAppActions,
   MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { shouldFoldCompactRows } from "../../../../components/mini-app/MiniAppTable";
+import {
+  MiniAppRowActionsButton,
+  shouldFoldCompactRows,
+} from "../../../../components/mini-app/MiniAppTable";
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
@@ -34,10 +38,22 @@ export { getNextExplorerItemSort } from "./explorerContainerItemWindow";
 
 function ExplorerContainerDetailHeader(params: {
   online: boolean;
+  onContainerContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    containerId: string,
+  ) => void;
   selectedNode: ContainerNode;
   showHeaderSyncIndicator: boolean;
 }) {
   const { online, selectedNode, showHeaderSyncIndicator } = params;
+  // The folder you are inside is the one thing on this pane with no row of its
+  // own — the list below shows its children — so its overflow menu belongs on
+  // the header that names it. It opens the same container menu the sidebar row
+  // and the list's blank area do (Get Info, New Folder, Upload, Rename, Move,
+  // Trash), which is the only way to reach a ROOT folder's own actions: a root
+  // has no parent listing to open it from, and the sidebar offers folder actions
+  // by right-click alone.
+  const actionsLabel = `${EXPLORER_LABELS.containerHeaderActionsLabel}: ${selectedNode.name}`;
 
   return (
     <MiniAppHeader>
@@ -54,12 +70,23 @@ function ExplorerContainerDetailHeader(params: {
           <span>{EXPLORER_LABELS.folderType}</span>
         </MiniAppHeaderCopy>
       </div>
-      {showHeaderSyncIndicator ? (
-        <ExplorerSyncStateBadge
-          online={online}
-          syncState={selectedNode.syncState}
+      {/* Group the trailing controls: the header spreads its children apart, so
+          a bare third child would strand the sync badge in the middle. */}
+      <MiniAppActions>
+        {showHeaderSyncIndicator ? (
+          <ExplorerSyncStateBadge
+            online={online}
+            syncState={selectedNode.syncState}
+          />
+        ) : null}
+        <MiniAppRowActionsButton
+          aria-label={actionsLabel}
+          onClick={(event) => {
+            params.onContainerContextMenu(event, selectedNode.id);
+          }}
+          title={actionsLabel}
         />
-      ) : null}
+      </MiniAppActions>
     </MiniAppHeader>
   );
 }
@@ -214,6 +241,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
     >
       <ExplorerContainerDetailHeader
         online={online}
+        onContainerContextMenu={onContainerContextMenu}
         selectedNode={selectedNode}
         showHeaderSyncIndicator={params.showHeaderSyncIndicator}
       />

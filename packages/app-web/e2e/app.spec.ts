@@ -372,3 +372,52 @@ test("same persisted identity can boot in two tabs", async ({
     ),
   ).toBeVisible({ timeout: 20_000 });
 });
+
+// The folder you are inside is the one thing on the Explorer's container pane
+// with no row of its own — the listing shows its children — so its own actions
+// hang off the header that names it. A ROOT folder has no other route to them at
+// all: nothing lists it, so there is no row to right-click anywhere. Driven by
+// the keyboard here, which is also the case the pointer-positioned context menu
+// gets wrong on its own: Enter reports 0,0 client coordinates, and a menu placed
+// there opens in the viewport's corner instead of under the trigger.
+test("the container header kebab reaches the current folder's actions", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/");
+
+  const pane = visiblePane(page);
+  await expect(pane).toBeVisible({ timeout: 30_000 });
+  await pane.click({ button: "right", position: { x: 120, y: 120 } });
+  await page.getByRole("button", { name: "Explorer" }).first().click();
+
+  const explorerWindow = page.locator(".window").first();
+  const header = explorerWindow
+    .locator(".explorer-detail .mini-app-header")
+    .first();
+  await expect(header).toBeVisible({ timeout: 30_000 });
+  const folderName = await header.locator("strong").first().innerText();
+
+  const kebab = header.getByRole("button", {
+    name: `Folder actions: ${folderName}`,
+  });
+  const kebabBox = await kebab.boundingBox();
+  await kebab.focus();
+  await page.keyboard.press("Enter");
+
+  const menu = page.locator(".menu").first();
+  await expect(menu).toBeVisible();
+  const menuBox = await menu.boundingBox();
+  if (!kebabBox || !menuBox) {
+    throw new Error("Expected the header kebab and its menu to be laid out.");
+  }
+  expect(menuBox.x).toBeCloseTo(kebabBox.x, 0);
+  expect(menuBox.y).toBeGreaterThanOrEqual(kebabBox.y + kebabBox.height - 1);
+
+  // Get Info is the entry the header kebab exists for: the current folder's
+  // properties, which the listing's own rows can only reach for their children.
+  await menu.getByText("Get Info", { exact: true }).click();
+  await expect(
+    explorerWindow.getByRole("tab", { name: "General" }),
+  ).toBeVisible();
+});
