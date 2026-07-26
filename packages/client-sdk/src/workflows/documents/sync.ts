@@ -10,6 +10,7 @@ import {
 import {
   emptyVersionVector,
   getImportBlobMetadata,
+  satisfiesVersionVector,
   versionVectorsEqual,
 } from "@tearleads/loro";
 import type {
@@ -349,9 +350,27 @@ async function resolveSyncPlanContentMaterial(
     const ordinaryPendingUpdates = pendingUpdates.filter(
       (update) => update.sourceVersionVector == null,
     );
+    const heldBackCheckpoints = pendingUpdates.filter(
+      (update) => update.sourceVersionVector != null,
+    );
     const recoveryBaseline = await buildStaleRecoveryBaselinePendingUpdate(
       input.buildRotationSnapshot,
     );
+    // Settling a held-back checkpoint deletes its queue row, so the fresh
+    // baseline must PROVABLY subsume it — assumed coverage would silently
+    // drop any ops the checkpoint alone carried.
+    for (const checkpoint of heldBackCheckpoints) {
+      if (
+        !satisfiesVersionVector(
+          recoveryBaseline.partialEndVersionVector,
+          checkpoint.partialEndVersionVector,
+        )
+      ) {
+        throw new Error(
+          "Document stale-bundle recovery snapshot does not cover a queued rotation checkpoint",
+        );
+      }
+    }
     return {
       contentKey,
       contentKeyBundle: await buildRotatedDocumentContentKeyBundle({
@@ -362,9 +381,7 @@ async function resolveSyncPlanContentMaterial(
       documentKekTargets: input.writerProjection.documentKekTargets,
       documentManifest: input.writerProjection.documentManifest,
       healedStaleContentKeyBundle: true,
-      heldBackPendingUpdateIds: pendingUpdates
-        .filter((update) => update.sourceVersionVector != null)
-        .map((update) => update.id),
+      heldBackPendingUpdateIds: heldBackCheckpoints.map((update) => update.id),
       pendingUpdates: [recoveryBaseline, ...ordinaryPendingUpdates],
       staleRecoveryBaselineUpdateId: recoveryBaseline.id,
     };

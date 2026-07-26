@@ -1459,20 +1459,30 @@ test("consumers that cannot heal reject a stale content-key bundle outright", as
   ).rejects.toThrow("Document writer projection content-key bundle is stale");
 });
 
-test("a heal holds back superseded pending rotation checkpoints", async () => {
+test("a heal holds back superseded pending rotation checkpoints it provably covers", async () => {
   const fixture = await createStaleBundleSyncFixture();
-  const pendingEdit = await createLoroPendingUpdate("post-checkpoint edit");
+  // One live document backs the queued edit, the leftover checkpoint, AND the
+  // recovery snapshot — exactly how the stores wire buildRotationSnapshot.
+  const doc = await createDocument("held-back-checkpoint-source");
+  doc.getText("text").update("stale heal edit");
+  doc.commit();
+  const editUpdate = exportAllUpdates(doc);
+  const editVectors = getUpdateVersionVectors(editUpdate);
+  const pendingEdit = createPendingUpdateRecord({
+    updateData: bytesToBase64(editUpdate),
+    ...editVectors,
+  });
   const supersededCheckpoint = createPendingUpdateRecord({
     id: "550e8400-e29b-41d4-a716-446655440777",
-    sourceVersionVector: pendingEdit.partialEndVersionVector,
-    updateData: pendingEdit.updateData,
+    sourceVersionVector: editVectors.partialEndVersionVector,
+    updateData: bytesToBase64(exportFullHistorySnapshot(doc)),
     partialStartVersionVector: "{}",
-    partialEndVersionVector: pendingEdit.partialEndVersionVector,
+    partialEndVersionVector: editVectors.partialEndVersionVector,
   });
 
   const materialized = await buildMaterializedDocumentSyncPlan({
     author: fixture.author,
-    buildRotationSnapshot: createFullHistoryRotationSnapshot,
+    buildRotationSnapshot: async () => exportFullHistorySnapshot(doc),
     localVersionVector: null,
     pendingUpdates: [supersededCheckpoint, pendingEdit],
     signedAt: "2026-07-26T00:00:00.000Z",
@@ -1483,22 +1493,53 @@ test("a heal holds back superseded pending rotation checkpoints", async () => {
 
   expect(materialized.healedStaleContentKeyBundle).toBe(true);
   const { request } = materialized.plan;
-  // Fresh covering baseline + the ordinary edit; the old checkpoint stays
-  // queued for a post-heal pass instead of tripping the server's
-  // covering-baseline gate.
+  // Fresh covering baseline + the ordinary edit; the covered checkpoint is
+  // withheld — submitting it would trip the server's covering-baseline gate,
+  // and resubmitting it post-heal could mask the covering baseline.
   expect(request.outgoingUpdates).toHaveLength(2);
   expect(request.outgoingUpdates[0]?.checkpointKind).toBe("rotate_baseline");
   expect(request.outgoingUpdates.map((update) => update.id)).not.toContain(
     supersededCheckpoint.id,
   );
   expect(request.outgoingUpdates[1]?.id).toBe(pendingEdit.id);
-  // The plan reports what it withheld and which ack is synthetic, so
-  // settlement accounting schedules the post-heal pass instead of counting
-  // the pass as fully settled and going idle.
+  // The plan reports what it withheld (settled by the heal, since the
+  // baseline subsumes it) and which ack is synthetic.
   expect(materialized.heldBackPendingUpdateIds).toEqual([
     supersededCheckpoint.id,
   ]);
   expect(materialized.staleRecoveryBaselineUpdateId).toBe(
     request.outgoingUpdates[0]?.id ?? "",
+  );
+});
+
+test("a heal refuses to settle a checkpoint its snapshot does not cover", async () => {
+  const fixture = await createStaleBundleSyncFixture();
+  // The checkpoint's ops come from a document the recovery snapshot has never
+  // seen — settling it would silently drop those ops.
+  const foreignEdit = await createLoroPendingUpdate("foreign checkpoint ops");
+  const uncoveredCheckpoint = createPendingUpdateRecord({
+    id: "550e8400-e29b-41d4-a716-446655440888",
+    sourceVersionVector: foreignEdit.partialEndVersionVector,
+    updateData: foreignEdit.updateData,
+    partialStartVersionVector: "{}",
+    partialEndVersionVector: foreignEdit.partialEndVersionVector,
+  });
+
+  await expect(
+    buildMaterializedDocumentSyncPlan({
+      author: fixture.author,
+      buildRotationSnapshot: createFullHistoryRotationSnapshot,
+      localVersionVector: null,
+      pendingUpdates: [
+        uncoveredCheckpoint,
+        await createLoroPendingUpdate("stuck edit"),
+      ],
+      signedAt: "2026-07-26T00:00:00.000Z",
+      targetSecretKey: fixture.secretKey,
+      trustedLocalProjection: true,
+      writerProjection: fixture.staleWriterProjection,
+    }),
+  ).rejects.toThrow(
+    "Document stale-bundle recovery snapshot does not cover a queued rotation checkpoint",
   );
 });

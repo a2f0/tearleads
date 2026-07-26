@@ -225,6 +225,35 @@ test("a heal that advances the content-key epoch must carry a newly written base
     "document_sync_state_stale",
   );
 
+  // An idempotent retry of the successful heal (lost ack) is accepted: its
+  // already-committed baseline inserts nothing and cannot regress coverage.
+  const retriedHealResponse = await postDocumentSync(owner, created.id, {
+    ...healedRequestEnvelope,
+    outgoingUpdates: [coveringBaseline],
+  });
+  expect(retriedHealResponse.status).toBe(200);
+
+  // A NEW baseline at the (now current) healed epoch that does not cover the
+  // committed frontier — e.g. a pre-heal checkpoint replayed with a fresh id
+  // after a lost heal ack — must not shadow the covering baseline as the
+  // newest one the redirect reads.
+  const regressingCheckpoint = await createSignedDocumentSyncRequest({
+    checkpoint: true,
+    contentKeyBundle: healedBundle,
+    created,
+    owner,
+    root: revokedRoot,
+  });
+  const regressingResponse = await postDocumentSync(
+    owner,
+    created.id,
+    regressingCheckpoint.request,
+  );
+  expect(regressingResponse.status).toBe(409);
+  expect((await regressingResponse.json()).error).toBe(
+    "Document content-key rotation baseline does not cover the committed frontier",
+  );
+
   // A concurrent healer that lost the race submits its OWN fresh key at the
   // now-occupied epoch. That conflict must be coded stale — the client's
   // retry path refetches the healed projection and resubmits against it —

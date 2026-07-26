@@ -38,7 +38,7 @@ import {
 import { ensureSyncDocumentAccess } from "./syncAccess";
 import { resolveSyncContentKeyBundle } from "./syncContentKeyBundle";
 import { listMissingSyncUpdateEntries } from "./syncResponseUpdates";
-import { assertEpochAdvanceAnchoredByCoveringBaseline } from "./syncRotationAdvance";
+import { assertSyncRotationBaselinesSound } from "./syncRotationAdvance";
 import { lockSyncDocumentWriteFrontier } from "./syncWriteFrontier";
 import type {
   DocumentWriteAuthorizationProof,
@@ -228,8 +228,9 @@ async function syncDocumentTransaction(input: {
     executor: input.tx,
     request: input.request,
   });
-  // Must run before the bundle store below advances the latest epoch.
-  await assertEpochAdvanceAnchoredByCoveringBaseline({
+  // Must run before the bundle store below advances the latest epoch and
+  // before the append inserts any baseline row.
+  await assertSyncRotationBaselinesSound({
     documentId: input.documentId,
     executor: input.tx,
     request: input.request,
