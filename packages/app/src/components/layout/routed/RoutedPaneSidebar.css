@@ -21,16 +21,18 @@
   flex-shrink: 0;
 }
 
+/* The drawer slides in from the leading edge, matching the app bar's sidebar
+   toggle (and the tablet tier's rail-side sidebar column). */
 .routed-pane--mobile .routed-pane-sidebar {
   position: absolute;
   inset-block: 0;
-  inset-inline-end: 0;
+  inset-inline-start: 0;
   z-index: 2;
   width: var(--routed-drawer-width);
-  /* The drawer overlays the screen's trailing edge; keep its content clear of
+  /* The drawer overlays the screen's leading edge; keep its content clear of
      a landscape cutout. */
-  padding-inline-end: var(--safe-area-right);
-  border-left: var(--border-strong);
+  padding-inline-start: var(--safe-area-left);
+  border-right: var(--border-strong);
 }
 
 .routed-pane-sidebar-resize-handle {
