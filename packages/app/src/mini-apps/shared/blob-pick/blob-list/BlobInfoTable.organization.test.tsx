@@ -49,6 +49,7 @@ function renderTable(params?: {
     <BlobInfoTable
       activeBlob={null}
       blobStore={BLOB_STORE}
+      compact={false}
       error={null}
       frameRef={() => undefined}
       isLoading={false}
@@ -56,6 +57,7 @@ function renderTable(params?: {
       onSelectBlob={() => undefined}
       onSort={() => undefined}
       organizationNamesById={params?.organizationNamesById}
+      rowHeight={36}
       rowOffset={0}
       rows={[blob]}
       sort={{ direction: "desc", key: "updated" }}

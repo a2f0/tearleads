@@ -140,10 +140,29 @@ export function MiniAppCompactTableHeader(
   return <MiniAppCompactTableLines {...props} secondaryMuted={false} />;
 }
 
-export function MiniAppCompactTableCell(props: MiniAppCompactTableFieldsProps) {
+export function MiniAppCompactTableCell({
+  visual,
+  ...props
+}: MiniAppCompactTableFieldsProps & {
+  // An optional leading graphic — a blob thumbnail, a type glyph — that spans
+  // both lines instead of taking a share of one. The caller sizes it; the slot
+  // only reserves its intrinsic width.
+  visual?: ReactNode | undefined;
+}) {
+  const lines = (
+    <MiniAppCompactTableLines {...props} accessibleLabels secondaryMuted />
+  );
+
   return (
     <MiniAppTableCell>
-      <MiniAppCompactTableLines {...props} accessibleLabels secondaryMuted />
+      {visual ? (
+        <span className="mini-app-compact-table-summary">
+          <span className="mini-app-compact-table-visual">{visual}</span>
+          {lines}
+        </span>
+      ) : (
+        lines
+      )}
     </MiniAppTableCell>
   );
 }

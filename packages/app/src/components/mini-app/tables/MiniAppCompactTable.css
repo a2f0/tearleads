@@ -19,6 +19,22 @@
   min-width: 0;
 }
 
+/* A row that leads with a graphic (a blob thumbnail, a type glyph) puts it in
+   its own slot spanning both lines, with the lines taking the rest of the cell. */
+.mini-app-compact-table-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.mini-app-compact-table-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .mini-app-compact-table-line--muted {
   opacity: var(--opacity-muted);
 }

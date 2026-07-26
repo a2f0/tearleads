@@ -8,6 +8,7 @@ import {
   type MiniAppColumnMenuOption,
   type MiniAppTableColumn,
 } from "../../../../components/mini-app/MiniAppTable";
+import { BlobListCompactSortHeader } from "./BlobListCompactSortHeader";
 import { BLOB_LIST_LABELS } from "./blobListLabels";
 
 export type BlobInfoColumnId =
@@ -18,6 +19,8 @@ export type BlobInfoColumnId =
   | "references"
   | "updated"
   | "sync";
+
+export type BlobInfoCompactFieldColumnId = Exclude<BlobInfoColumnId, "blob">;
 
 const BLOB_INFO_COLUMN_IDS: ReadonlyArray<BlobInfoColumnId> = [
   "blob",
@@ -78,7 +81,7 @@ function BlobSortableTableHeader(params: {
   );
 }
 
-function getBlobInfoColumnLabel(id: BlobInfoColumnId): string {
+export function getBlobInfoColumnLabel(id: BlobInfoColumnId): string {
   switch (id) {
     case "blob":
       return BLOB_LIST_LABELS.blobColumn;
@@ -186,12 +189,45 @@ function buildBlobInfoColumn(
   }
 }
 
+// The identity column becomes the summary's leading thumbnail rather than one of
+// its text fields, so the folded lines carry every *other* visible column.
+export function getBlobInfoCompactFieldColumnIds(
+  visibleColumnIds: ReadonlyArray<BlobInfoColumnId>,
+): ReadonlyArray<BlobInfoCompactFieldColumnId> {
+  return visibleColumnIds.filter(
+    (id): id is BlobInfoCompactFieldColumnId => id !== "blob",
+  );
+}
+
+function buildBlobInfoSummaryColumn(params: {
+  onSort: (key: BlobInfoSortKey) => void;
+  sort: BlobInfoSort;
+}): MiniAppTableColumn {
+  return {
+    // The selector names both the active field and its direction. The summary
+    // cell beneath it stands for several fields, so an `aria-sort` on the <th>
+    // would announce an incomplete sort state.
+    ariaSort: "none",
+    header: (
+      <BlobListCompactSortHeader onSort={params.onSort} sort={params.sort} />
+    ),
+    id: "summary",
+  };
+}
+
 export function getBlobInfoColumns(params: {
+  // A folded list — a phone, or any pane too narrow for the columns — replaces
+  // the data columns with one two-line summary column.
+  compact: boolean;
   hiddenColumns: ReadonlySet<BlobInfoColumnId>;
   includeSync: boolean;
   onSort: (key: BlobInfoSortKey) => void;
   sort: BlobInfoSort;
 }): ReadonlyArray<MiniAppTableColumn> {
+  if (params.compact) {
+    return [buildBlobInfoSummaryColumn(params)];
+  }
+
   return getVisibleBlobInfoColumnIds(
     params.hiddenColumns,
     params.includeSync,
