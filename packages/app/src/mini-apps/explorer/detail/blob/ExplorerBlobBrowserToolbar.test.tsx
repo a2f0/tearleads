@@ -52,6 +52,13 @@ const TEXT_BLOB = createBlobRow({
   storageKey: "storage-text",
 });
 
+const VIDEO_BLOB = createBlobRow({
+  blobId: "blob-video",
+  mimeType: "video/mp4",
+  name: "clip.mp4",
+  storageKey: "storage-video",
+});
+
 function createBlobStore(overrides: Partial<BlobStore> = {}): BlobStore {
   return {
     deleteBytes: async () => undefined,
@@ -89,7 +96,7 @@ function renderBlobBrowser(input: {
   rows?: ReadonlyArray<BlobInfo> | undefined;
   selectedBlobId?: string | null | undefined;
 }) {
-  const rows = input.rows ?? [IMAGE_BLOB, TEXT_BLOB];
+  const rows = input.rows ?? [IMAGE_BLOB, TEXT_BLOB, VIDEO_BLOB];
 
   return render(
     <WindowMenuProvider>
@@ -195,6 +202,31 @@ test("Open shows an image in the full-screen viewer and Close dismisses it", asy
 
   fireEvent.click(within(viewer).getByRole("button", { name: "Close" }));
   expect(view.queryByRole("dialog")).toBeNull();
+});
+
+test("the inline image preview is itself a way into the viewer", async () => {
+  const view = renderBlobBrowser({ selectedBlobId: IMAGE_BLOB.blobId });
+
+  fireEvent.click(
+    await view.findByRole("button", { name: "Open full screen" }),
+  );
+
+  const viewer = await view.findByRole("dialog");
+  expect(
+    within(viewer)
+      .getByAltText("photo.png")
+      .getAttribute("src")
+      ?.startsWith("blob:"),
+  ).toBe(true);
+});
+
+// Video and audio own their own tap — play/pause, scrub — and the viewer has
+// nothing to show for them either way, so only an image becomes a button.
+test("a playable media preview is left alone", async () => {
+  const view = renderBlobBrowser({ selectedBlobId: VIDEO_BLOB.blobId });
+
+  await view.findByRole("button", { name: "Download" });
+  expect(view.queryByRole("button", { name: "Open full screen" })).toBeNull();
 });
 
 test("a non-image blob still opens in a new tab", async () => {

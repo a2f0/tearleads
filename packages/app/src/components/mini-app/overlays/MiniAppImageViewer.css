@@ -19,40 +19,44 @@
   overscroll-behavior: contain;
 }
 
-.mini-app-image-viewer-toolbar {
+/* The header stacks its control row over the image's name; see
+   ImageViewerChrome for why the name is not on the row itself. */
+.mini-app-image-viewer-chrome {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  min-height: max(
-    var(--window-bar-height),
-    calc(18px + var(--window-bar-block-padding) * 2)
-  );
-  padding-inline: var(--space-sm);
+  flex: 0 0 auto;
+  flex-direction: column;
   background: var(--color-muted);
   border-bottom: var(--border);
   user-select: none;
 }
 
-.mini-app-image-viewer-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
-  opacity: var(--opacity-muted);
+.mini-app-image-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2xs);
+  min-height: max(
+    var(--window-bar-height),
+    calc(18px + var(--window-bar-block-padding) * 2)
+  );
+  padding-inline: var(--space-sm);
 }
 
-.mini-app-image-viewer-actions {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: var(--space-2xs);
+/* An unnamed blob falls back to its id, which is longer than any phone is wide;
+   clip it rather than wrap the header to a third line. */
+.mini-app-image-viewer-title {
+  overflow: hidden;
+  padding: 0 var(--space-sm) var(--space-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  opacity: var(--opacity-muted);
 }
 
 .mini-app-image-viewer-button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   padding: var(--window-bar-padding);
   border: none;
   background: none;
@@ -71,6 +75,26 @@
 .mini-app-image-viewer-button:disabled {
   cursor: default;
   opacity: var(--opacity-disabled);
+}
+
+/*
+ * Touch (routed layout). The viewer is portalled into <body>, so it inherits the
+ * root's `data-navigation-mode` but none of the routed shell's app-bar chrome —
+ * its controls would otherwise stay at the dense windowed size on a phone, which
+ * is the one place this viewer exists to serve. Grow them to the same 44px HIG
+ * hit target (`--control-height`) the routed app bar gives `.routed-pane-iconbutton`.
+ * The glyphs stay at 18px, exactly as the app bar seats its own size={18} icons:
+ * it is the target that has to reach 44px, not the drawing inside it.
+ */
+:root[data-navigation-mode="routed"] .mini-app-image-viewer-toolbar {
+  gap: var(--space-xs);
+  min-height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"] .mini-app-image-viewer-button {
+  min-width: var(--control-height);
+  min-height: var(--control-height);
+  padding: 0;
 }
 
 /* `touch-action: none` hands every touch to the viewer's own pointer handlers.

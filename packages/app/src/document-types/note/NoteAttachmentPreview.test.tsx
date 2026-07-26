@@ -61,7 +61,16 @@ const attachment: DocumentAttachment = {
   slotId: "slot-1",
 };
 
-test("opening a tile reveals the enlarged preview overlay", () => {
+// A type the full-screen image viewer cannot draw, so it exercises the panel
+// preview's own chrome rather than being routed away from it.
+const documentAttachment: DocumentAttachment = {
+  byteLength: 2048,
+  mimeType: "application/pdf",
+  name: "spec.pdf",
+  slotId: "slot-2",
+};
+
+test("opening an image tile reveals the full-screen viewer", () => {
   const view = renderNoteEditorFields({
     attachments: [attachment],
     imageUrlBySlotId: { "slot-1": "blob:preview" },
@@ -70,17 +79,50 @@ test("opening a tile reveals the enlarged preview overlay", () => {
   fireEvent.click(view.getByRole("button", { name: "Open diagram.png" }));
 
   const dialog = view.getByRole("dialog");
-  expect(dialog).toBeTruthy();
-  const previewImage = dialog.querySelector(
-    ".note-attachment-preview-image",
-  ) as HTMLImageElement | null;
-  expect(previewImage?.src).toContain("blob:preview");
+  expect(dialog.classList.contains("mini-app-image-viewer")).toBe(true);
+  expect(within(dialog).getByAltText("diagram.png").getAttribute("src")).toBe(
+    "blob:preview",
+  );
+  // The panel preview's chrome is not what opened.
+  expect(dialog.querySelector(".note-attachment-preview-bar")).toBeNull();
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+  expect(view.queryByRole("dialog")).toBeNull();
 });
 
-test("closing the preview overlay dismisses it", () => {
+test("the viewer downloads the attachment it is showing", () => {
+  const downloaded: string[] = [];
+  const view = renderNoteEditorFields({
+    attachments: [attachment],
+    handleDownloadAttachment: (slotId: string) => downloaded.push(slotId),
+    imageUrlBySlotId: { "slot-1": "blob:preview" },
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Open diagram.png" }));
+  const dialog = view.getByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Download" }));
+
+  expect(downloaded).toEqual(["slot-1"]);
+});
+
+// An image whose bytes have not arrived yet has no URL to hand the viewer, so it
+// falls back to the panel — which is the surface that can say so.
+test("an image with no local bytes yet keeps the panel preview", () => {
   const view = renderNoteEditorFields({ attachments: [attachment] });
 
   fireEvent.click(view.getByRole("button", { name: "Open diagram.png" }));
+
+  const dialog = view.getByRole("dialog");
+  expect(dialog.classList.contains("mini-app-image-viewer")).toBe(false);
+  expect(
+    within(dialog).getByText("No preview available for this file type."),
+  ).toBeTruthy();
+});
+
+test("closing the preview overlay dismisses it", () => {
+  const view = renderNoteEditorFields({ attachments: [documentAttachment] });
+
+  fireEvent.click(view.getByRole("button", { name: "Open spec.pdf" }));
   expect(view.queryByRole("dialog")).toBeTruthy();
 
   fireEvent.click(view.getByRole("button", { name: "Close preview" }));
@@ -89,12 +131,9 @@ test("closing the preview overlay dismisses it", () => {
 
 test("dresses the preview as a floating window in windowed mode", () => {
   document.documentElement.setAttribute("data-navigation-mode", "windowed");
-  const view = renderNoteEditorFields({
-    attachments: [attachment],
-    imageUrlBySlotId: { "slot-1": "blob:preview" },
-  });
+  const view = renderNoteEditorFields({ attachments: [documentAttachment] });
 
-  fireEvent.click(view.getByRole("button", { name: "Open diagram.png" }));
+  fireEvent.click(view.getByRole("button", { name: "Open spec.pdf" }));
 
   const dialog = view.getByRole("dialog");
   // Window chrome: the window manager's own title bar over its compact toolbar
@@ -109,19 +148,19 @@ test("dresses the preview as a floating window in windowed mode", () => {
   // (scoped past the tile's own hover download tool of the same name).
   const actions = within(dialog);
   expect(
-    actions.getByRole("button", { name: "Download diagram.png" }),
+    actions.getByRole("button", { name: "Download spec.pdf" }),
   ).toBeTruthy();
   expect(
-    actions.getByRole("button", { name: "Remove attachment diagram.png" }),
+    actions.getByRole("button", { name: "Remove attachment spec.pdf" }),
   ).toBeTruthy();
   expect(actions.getByRole("button", { name: "Close preview" })).toBeTruthy();
 });
 
 test("keeps the compact single bar in the routed shell", () => {
   document.documentElement.setAttribute("data-navigation-mode", "routed");
-  const view = renderNoteEditorFields({ attachments: [attachment] });
+  const view = renderNoteEditorFields({ attachments: [documentAttachment] });
 
-  fireEvent.click(view.getByRole("button", { name: "Open diagram.png" }));
+  fireEvent.click(view.getByRole("button", { name: "Open spec.pdf" }));
 
   const dialog = view.getByRole("dialog");
   expect(dialog.querySelector(".note-attachment-preview-bar")).toBeTruthy();
@@ -133,8 +172,8 @@ test("keeps the compact single bar in the routed shell", () => {
 
 test("windowed preview close moves focus into the title bar and dismisses", () => {
   document.documentElement.setAttribute("data-navigation-mode", "windowed");
-  const view = renderNoteEditorFields({ attachments: [attachment] });
-  const openButton = view.getByRole("button", { name: "Open diagram.png" });
+  const view = renderNoteEditorFields({ attachments: [documentAttachment] });
+  const openButton = view.getByRole("button", { name: "Open spec.pdf" });
 
   openButton.focus();
   fireEvent.click(openButton);
@@ -150,8 +189,8 @@ test("windowed preview close moves focus into the title bar and dismisses", () =
 });
 
 test("closing the preview restores focus to the opening tile", () => {
-  const view = renderNoteEditorFields({ attachments: [attachment] });
-  const openButton = view.getByRole("button", { name: "Open diagram.png" });
+  const view = renderNoteEditorFields({ attachments: [documentAttachment] });
+  const openButton = view.getByRole("button", { name: "Open spec.pdf" });
 
   openButton.focus();
   fireEvent.click(openButton);

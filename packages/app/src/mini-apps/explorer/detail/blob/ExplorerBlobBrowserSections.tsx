@@ -90,9 +90,10 @@ function BlobMetadataSection(params: {
 
 function BlobPreviewContent(params: {
   blob: BlobInfo;
+  onOpenImage: (() => void) | null;
   preview: BlobPreviewState;
 }) {
-  const { blob, preview } = params;
+  const { blob, onOpenImage, preview } = params;
 
   if (preview.status === "loading") {
     return <MiniAppStatus>{EXPLORER_LABELS.blobBrowserLoading}</MiniAppStatus>;
@@ -118,13 +119,32 @@ function BlobPreviewContent(params: {
 
   const mediaKind = getMediaPreviewKind(blob.mimeType);
   if (preview.url && mediaKind) {
-    return (
+    const media = (
       <MediaPreview
         className="explorer-blob-preview-media"
         kind={mediaKind}
         label={blob.name ?? blob.blobId ?? blob.storageKey}
         url={preview.url}
       />
+    );
+
+    // Tapping the picture is what anyone reaches for first to see it larger —
+    // the toolbar's expand control is the discoverable route, not the only one.
+    // The button carries its own name so the image's alt text (the blob's name,
+    // which the toolbar action does not repeat) stays out of the accessible
+    // name and the two controls remain distinguishable.
+    return mediaKind === "image" && onOpenImage ? (
+      <button
+        aria-label={EXPLORER_LABELS.blobBrowserOpenPreviewAction}
+        className="explorer-blob-preview-open"
+        onClick={onOpenImage}
+        title={EXPLORER_LABELS.blobBrowserOpenPreviewAction}
+        type="button"
+      >
+        {media}
+      </button>
+    ) : (
+      media
     );
   }
 
@@ -146,12 +166,17 @@ function BlobPreviewContent(params: {
 
 function BlobPreviewSection(params: {
   blob: BlobInfo;
+  onOpenImage: (() => void) | null;
   preview: BlobPreviewState;
 }) {
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.blobBrowserPreviewHeading}>
       <div className="explorer-blob-preview-frame">
-        <BlobPreviewContent blob={params.blob} preview={params.preview} />
+        <BlobPreviewContent
+          blob={params.blob}
+          onOpenImage={params.onOpenImage}
+          preview={params.preview}
+        />
       </div>
     </MiniAppInfoSection>
   );
@@ -194,7 +219,11 @@ export function BlobDetail(params: {
         <MiniAppStatus tone="error">{params.downloadMessage}</MiniAppStatus>
       ) : null}
       <MiniAppPanel className="explorer-blob-browser-detail">
-        <BlobPreviewSection blob={blob} preview={preview} />
+        <BlobPreviewSection
+          blob={blob}
+          onOpenImage={toolbar.openImage}
+          preview={preview}
+        />
         <BlobMetadataSection blob={blob} preview={preview} />
         <BlobReferencesSection
           blob={blob}
