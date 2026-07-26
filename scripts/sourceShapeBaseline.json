@@ -293,6 +293,10 @@
       "lines": 592,
       "bytes": 19608
     },
+    "packages/client-sdk/src/stores/documents/documentStore/initialization.ts": {
+      "lines": 503,
+      "bytes": 17576
+    },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 572,
       "bytes": 18250

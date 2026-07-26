@@ -272,18 +272,14 @@ async function createInitialDocumentRecord(
     documentKekTargets: null,
     documentManifestBundle: null,
   };
-  await saveDocumentRecord(state, nextDoc, created);
-  if (
-    state.initialText.length > 0 ||
-    state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND
-  ) {
-    await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
-  }
-  // Seed the durable-history checkpoint at birth: creation may be the only
-  // persist this document sees before a restart (offline note, app closed
-  // pre-sync), and without a checkpoint the reopen falls back to the
-  // shallow snapshot and loses full-history exportability. A fresh document
-  // is tiny, so the export is cheap.
+  // Seed the durable-history checkpoint at birth, BEFORE the record row:
+  // creation may be the only persist this document sees before a restart
+  // (offline note, app closed pre-sync), and initialization only runs this
+  // branch for missing records — a crash after the record write but before
+  // a later checkpoint write would permanently disable durable history for
+  // this document. Written first, a crash instead leaves an orphan
+  // checkpoint that the re-run simply overwrites. A fresh document is tiny,
+  // so the export is cheap.
   await state.persistence.replaceHistoryCheckpoint?.(
     state.runtime.infra.execSql,
     {
@@ -292,6 +288,13 @@ async function createInitialDocumentRecord(
       snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
     },
   );
+  await saveDocumentRecord(state, nextDoc, created);
+  if (
+    state.initialText.length > 0 ||
+    state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND
+  ) {
+    await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
+  }
 }
 
 async function initializeDocumentStore(

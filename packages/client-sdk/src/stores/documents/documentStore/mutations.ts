@@ -1,3 +1,4 @@
+import { bytesToBase64 } from "@tearleads/encoding";
 import { getTextValue } from "@tearleads/loro";
 import {
   projectStoredDocumentState,
@@ -257,7 +258,17 @@ function queueDocumentStructuredFieldWrite(
         return;
       }
 
-      if (!options.deferRemoteSync) {
+      if (options.deferRemoteSync) {
+        // A deferred write persists the snapshot AHEAD of the outgoing queue
+        // (the op is re-derived by the next edit). Keep the durable-history
+        // tail covering it anyway, or the next restart's full-history
+        // restore would lag the shallow snapshot and fall back — parking
+        // durability until an edit happens to re-derive the delta.
+        await state.persistence.appendHistoryUpdates?.(
+          state.runtime.infra.execSql,
+          { localId: state.localId, updates: [bytesToBase64(update)] },
+        );
+      } else {
         await enqueuePendingUpdate(state, update);
         if (!isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)) {
           return;

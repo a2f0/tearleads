@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { exportFullHistorySnapshot, getTextValue } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
@@ -8,7 +9,7 @@ import { DOCUMENT_HISTORY_COMPACTION_MAX_ROWS } from "../../../data/sqlite/docum
 import type { DocumentsRuntime } from "../types";
 import { ensureDocumentStoreReady } from "./initialization";
 import { setDocumentText } from "./mutations";
-import { persistDocument } from "./persistence";
+import { pendingDeltaSinceBase, persistDocument } from "./persistence";
 import { createDocumentStoreState, type DocumentStoreState } from "./state";
 
 const ignoredPersistenceEffects = {
@@ -187,6 +188,40 @@ test("a legacy shallow-only row keeps its behavior and a deferred edit wins over
     const reopened = await openStore(execSql, "deferred-doc");
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("enqueued edit plus deferred");
+  } finally {
+    close();
+  }
+});
+
+test("a deferred write covered by the tail restores with full history", async () => {
+  const { close, execSql } = await createTestExecSql("history-deferred-tail");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const state = await openStore(execSql, "deferred-covered-doc");
+    await setDocumentText(state, () => undefined, "enqueued edit");
+    if (!state.doc) throw new Error("expected live doc");
+
+    // The deferRemoteSync shape: mutate, append the delta to the history
+    // tail, persist — but never enqueue or advance the marker (the op is
+    // re-derived by the next edit).
+    state.doc.getText("text").update("enqueued edit plus deferred");
+    state.doc.commit();
+    const deferredDelta = pendingDeltaSinceBase(state, state.doc);
+    await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      localId: "deferred-covered-doc",
+      updates: [bytesToBase64(deferredDelta)],
+    });
+    await persistDocument(state, state.doc);
+
+    const reopened = await openStore(execSql, "deferred-covered-doc");
+    if (!reopened.doc) throw new Error("expected restored doc");
+    expect(getTextValue(reopened.doc)).toBe("enqueued edit plus deferred");
+    // Because the tail covers the deferred delta, the restore keeps full
+    // history instead of falling back to the shallow snapshot.
+    expect(() => {
+      if (!reopened.doc) throw new Error("expected restored doc");
+      exportFullHistorySnapshot(reopened.doc);
+    }).not.toThrow();
   } finally {
     close();
   }
