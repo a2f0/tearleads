@@ -447,3 +447,43 @@
   width: 1.75rem;
   height: 100%;
 }
+
+/*
+ * The mark inside those rows. Raising the row to the touch target left every
+ * leading glyph on its dense `size={16}` attribute, so a folder or note read as
+ * a small bullet adrift in a 44px row rather than as the row's subject.
+ * `--control-icon-size` (24px) is the shared touch glyph size the app bar,
+ * menus, and the blob thumbnail already take — see the token's note in
+ * @tearleads/ui's styles.routed.css — and author CSS outranks the width/height
+ * presentation attribute Phosphor renders, so no call site changes. The two row
+ * scopes cover every one: the sidebar tree row, and `.explorer-item-name`, the
+ * leading visual of the container item list and of the linked-container rows in
+ * the info panels. Both are centered flex boxes in a `vertical-align: middle`
+ * cell, so nothing has to be re-centered.
+ *
+ * Scoped rather than `.explorer-item-icon` alone: the compact (folded) row
+ * promotes that same icon to a 32px summary visual, which is already larger.
+ */
+:root[data-navigation-mode="routed"]
+  .explorer-sidebar-item
+  .explorer-folder-icon,
+:root[data-navigation-mode="routed"]
+  .explorer-sidebar-item
+  .explorer-document-icon,
+:root[data-navigation-mode="routed"] .explorer-item-name .explorer-folder-icon,
+:root[data-navigation-mode="routed"] .explorer-item-name .explorer-item-icon {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
+}
+
+/* A contact takes its avatar in place of the document glyph, so it takes the
+   same box too — otherwise one contacts container mixes 24px folders with 20px
+   portraits. The silhouette carries no size attribute and so renders at 1em;
+   the multiplier keeps the glyph-to-circle ratio the avatar's own size variants
+   use (12/20, 20/32). */
+:root[data-navigation-mode="routed"] .explorer-sidebar-item .contact-avatar,
+:root[data-navigation-mode="routed"] .explorer-item-name .contact-avatar {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
+  font-size: calc(var(--control-icon-size) * 0.6);
+}
