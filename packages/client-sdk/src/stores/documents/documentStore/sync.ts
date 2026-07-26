@@ -1,3 +1,4 @@
+import { bytesToBase64 } from "@tearleads/encoding";
 import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
 import {
   type DocumentRecord,
@@ -166,6 +167,27 @@ function clearConsumedRemoteUpdateSignal(
   }
 }
 
+/**
+ * Durable-history tail: append pulled updates BEFORE the record persist so
+ * the tail stays a superset of what the snapshot covers (duplicates are
+ * idempotent by op identity; a crash between the writes can only leave the
+ * safe superset).
+ */
+async function appendPulledUpdatesToHistory(
+  state: DocumentStoreState,
+  synced: DocumentSyncAttempt["synced"],
+): Promise<void> {
+  if (synced.decryptedUpdates.length === 0) {
+    return;
+  }
+  await state.persistence.appendHistoryUpdates?.(state.runtime.infra.execSql, {
+    localId: state.localId,
+    updates: synced.decryptedUpdates.map((update) =>
+      bytesToBase64(update.updateData),
+    ),
+  });
+}
+
 async function finalizeDocumentSync(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -220,6 +242,7 @@ async function finalizeDocumentSync(
       syncAttempt,
       generation,
     );
+    await appendPulledUpdatesToHistory(state, synced);
     state.writerProjection = resolveSyncedDocumentWriterProjection(
       state,
       synced,

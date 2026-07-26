@@ -274,12 +274,12 @@
       "bytes": 43292
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
-      "lines": 871,
-      "bytes": 28483
+      "lines": 903,
+      "bytes": 29792
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 829,
-      "bytes": 32748
+      "lines": 874,
+      "bytes": 34420
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 579,
@@ -294,8 +294,8 @@
       "bytes": 19608
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
-      "lines": 549,
-      "bytes": 17477
+      "lines": 572,
+      "bytes": 18250
     },
     "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
       "lines": 511,

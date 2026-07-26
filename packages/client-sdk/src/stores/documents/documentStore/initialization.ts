@@ -1,9 +1,14 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
+  encodeVersionVector,
   exportAllUpdates,
+  exportFullHistorySnapshot,
   exportShallowSnapshot,
+  getImportBlobMetadata,
   importSnapshot,
+  importUpdates,
+  satisfiesVersionVector,
 } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
@@ -158,6 +163,82 @@ async function healLocalAttachmentDetachState(
   }
 }
 
+function importHistoryTailUpdates(
+  doc: DocumentState,
+  tailUpdates: readonly string[],
+): void {
+  // Rotation baselines travel through the tail as snapshot-mode blobs, which
+  // importUpdates would silently ignore — import them individually.
+  const ordinaryUpdates: Uint8Array[] = [];
+  for (const encoded of tailUpdates) {
+    const bytes = base64ToBytes(encoded);
+    if (getImportBlobMetadata(bytes).mode === "snapshot") {
+      importSnapshot(doc, bytes);
+    } else {
+      ordinaryUpdates.push(bytes);
+    }
+  }
+  if (ordinaryUpdates.length > 0) {
+    importUpdates(doc, ordinaryUpdates);
+  }
+}
+
+/**
+ * Restore the persisted content into a fresh document, preferring the
+ * durable full-history state (checkpoint + tail) so a restarted device can
+ * still export the full-history baselines that heals, rotations, and
+ * unlinks require. The legacy shallow snapshot is never imported alongside
+ * it — that would poison the document with a shallow (gc) region — so the
+ * full restore is used only when it provably covers everything the shallow
+ * snapshot held. A deferred local edit persisted ahead of the durable queue
+ * exists ONLY in the shallow snapshot; losing it would drop user data, so
+ * that case falls back to the legacy shallow restore (history durability
+ * resumes at the next compaction once the deferral clears).
+ */
+async function restorePersistedDocumentContent(
+  state: DocumentStoreState,
+  nextDoc: DocumentState,
+  existing: DocumentRecord,
+): Promise<void> {
+  const history = await state.persistence.loadHistoryRestoreState?.(
+    state.runtime.infra.execSql,
+    state.localId,
+  );
+  const shallowSnapshot =
+    existing.loroSnapshot.length > 0
+      ? base64ToBytes(existing.loroSnapshot)
+      : null;
+
+  if (history) {
+    const restored = await createStoredDocument(state);
+    try {
+      importSnapshot(restored, base64ToBytes(history.snapshot));
+      importHistoryTailUpdates(restored, history.tailUpdates);
+      const coversShallow =
+        shallowSnapshot === null ||
+        satisfiesVersionVector(
+          encodeVersionVector(restored),
+          getImportBlobMetadata(shallowSnapshot).partialEndVersionVector,
+        );
+      if (coversShallow) {
+        importSnapshot(nextDoc, exportFullHistorySnapshot(restored));
+        return;
+      }
+      state.runtime.util.log(
+        "Documents: history restore lagged the persisted snapshot; using the shallow snapshot for this session.",
+      );
+    } catch {
+      state.runtime.util.log(
+        "Documents: history restore failed; using the shallow snapshot for this session.",
+      );
+    }
+  }
+
+  if (shallowSnapshot) {
+    importSnapshot(nextDoc, shallowSnapshot);
+  }
+}
+
 async function initializeDocumentStore(
   state: DocumentStoreState,
   scheduleSync: () => void,
@@ -188,10 +269,7 @@ async function initializeDocumentStore(
 
   const existing = persistedState.document;
   if (existing) {
-    if (existing.loroSnapshot.length > 0) {
-      importSnapshot(nextDoc, base64ToBytes(existing.loroSnapshot));
-    }
-
+    await restorePersistedDocumentContent(state, nextDoc, existing);
     state.record = existing;
   } else {
     initializeStoredDocumentKind(

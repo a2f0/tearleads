@@ -1,4 +1,4 @@
-import { base64ToBytes } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   exportFullHistorySnapshot,
   importSnapshot,
@@ -77,5 +77,17 @@ export async function installRebuiltDocument(input: {
   input.state.doc = input.rebuiltDoc;
   input.state.writerProjection =
     input.synced.writerProjection ?? input.state.writerProjection;
-  return exportFullHistorySnapshot(input.state.doc);
+  const fullHistorySnapshot = exportFullHistorySnapshot(input.state.doc);
+  // The rebuild pulled its updates outside the durable-history tail, so the
+  // stored checkpoint may lag the rebuilt document. Replace it with this
+  // export (clearing the tail it subsumes) so a restart keeps the recovered
+  // history instead of restoring the pre-rebuild state.
+  await input.state.persistence.replaceHistoryCheckpoint?.(
+    input.state.runtime.infra.execSql,
+    {
+      localId: input.state.localId,
+      snapshot: bytesToBase64(fullHistorySnapshot),
+    },
+  );
+  return fullHistorySnapshot;
 }

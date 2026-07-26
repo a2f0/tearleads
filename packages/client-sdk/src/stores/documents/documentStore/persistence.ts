@@ -1,4 +1,9 @@
-import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+  exportUpdatesSince,
+} from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
@@ -7,7 +12,10 @@ import {
   type DocumentProjectorRegistry,
   projectStoredDocumentState,
 } from "../../../data/documents/documentKinds";
+
 import {
+  DOCUMENT_HISTORY_COMPACTION_MAX_BYTES,
+  DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
   type DocumentRecord,
   deleteLocalDocumentAttachment,
   deletePendingDocumentAttachment,
@@ -189,7 +197,60 @@ export async function persistDocument(
       ? state.snapshot.structuredFields
       : undefined,
   );
+  // Compaction never fails the persist that triggered it: durable history is
+  // a resilience feature, and a failed export (e.g. a legacy shallow-restored
+  // document) simply keeps the tail growing until a rebuild re-enables it.
+  try {
+    await maybeCompactDocumentHistory(state, currentDoc);
+  } catch (error) {
+    state.runtime.util.log(
+      `Documents: history compaction skipped: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
   return persistedRecord;
+}
+
+/**
+ * Refresh the durable full-history checkpoint when the tail has grown past
+ * the compaction thresholds, or seed the first checkpoint as soon as the
+ * document can export full history (a freshly created or rebuilt document is
+ * cheap to export; waiting for the threshold would leave restarts without
+ * history until then). The snapshot comes from the LIVE document, which has
+ * every tail update imported, so clearing the tail loses nothing.
+ */
+async function maybeCompactDocumentHistory(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+): Promise<void> {
+  const { persistence } = state;
+  if (
+    !persistence.readHistoryTailSize ||
+    !persistence.replaceHistoryCheckpoint
+  ) {
+    return;
+  }
+  const execSql = state.runtime.infra.execSql;
+  const tail = await persistence.readHistoryTailSize(execSql, state.localId);
+  if (
+    tail.hasCheckpoint &&
+    tail.rowCount < DOCUMENT_HISTORY_COMPACTION_MAX_ROWS &&
+    tail.byteLength < DOCUMENT_HISTORY_COMPACTION_MAX_BYTES
+  ) {
+    return;
+  }
+
+  let snapshot: Uint8Array;
+  try {
+    snapshot = exportFullHistorySnapshot(currentDoc);
+  } catch {
+    // Legacy shallow-restored document: full history is not exportable until
+    // a history recovery or rotation rebuild installs a full document.
+    return;
+  }
+  await persistence.replaceHistoryCheckpoint(execSql, {
+    localId: state.localId,
+    snapshot: bytesToBase64(snapshot),
+  });
 }
 
 export async function listPendingUpdates(

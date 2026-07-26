@@ -138,6 +138,34 @@ export interface DocumentsPersistence {
       updatedAt?: string;
     },
   ) => Promise<string>;
+  /**
+   * Durable full-history support (checkpoint + append-only tail). Optional:
+   * implementations that omit these (e.g. container metadata, simple test
+   * doubles) simply keep the legacy shallow-snapshot-only behavior.
+   */
+  appendHistoryUpdates?: (
+    execSql: ExecSql,
+    input: { localId: string; updates: readonly string[] },
+  ) => Promise<void>;
+  loadHistoryRestoreState?: (
+    execSql: ExecSql,
+    localId: string,
+  ) => Promise<{
+    snapshot: string;
+    tailUpdates: readonly string[];
+  } | null>;
+  readHistoryTailSize?: (
+    execSql: ExecSql,
+    localId: string,
+  ) => Promise<{
+    byteLength: number;
+    hasCheckpoint: boolean;
+    rowCount: number;
+  }>;
+  replaceHistoryCheckpoint?: (
+    execSql: ExecSql,
+    input: { localId: string; snapshot: string },
+  ) => Promise<void>;
   saveDocumentAndDeletePendingUpdates: (
     execSql: ExecSql,
     document: StoredDocumentRecord,

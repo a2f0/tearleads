@@ -1,0 +1,162 @@
+import { expect, test } from "bun:test";
+import { exportFullHistorySnapshot, getTextValue } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
+import { createDomainScope } from "../../../data/domainScope";
+import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { DOCUMENT_HISTORY_COMPACTION_MAX_ROWS } from "../../../data/sqlite/documentHistoryPersistence";
+import type { DocumentsRuntime } from "../types";
+import { ensureDocumentStoreReady } from "./initialization";
+import { setDocumentText } from "./mutations";
+import { persistDocument } from "./persistence";
+import { createDocumentStoreState, type DocumentStoreState } from "./state";
+
+const ignoredPersistenceEffects = {
+  emitPersistedDocument: () => undefined,
+  registerDocumentIdentity: () => undefined,
+};
+
+// Offline runtime: history durability is a purely local property, so these
+// tests never touch the network (the store's sync preconditions all fail).
+function offlineRuntime(execSql: DocumentsRuntime["infra"]["execSql"]) {
+  return {
+    apiClient: {} as DocumentsRuntime["apiClient"],
+    auth: { isAuthenticated: false, organizationId: null, userId: null },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: null as never,
+      dbStatus: "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql,
+    },
+    resolveTrustedUserIdentity: async () => null,
+    state: {
+      containerId: "container",
+      domainScope: createDomainScope(),
+      events: [],
+      online: false,
+      peerScope: null,
+    },
+    util: { log: () => undefined },
+  } as unknown as DocumentsRuntime;
+}
+
+async function openStore(
+  execSql: DocumentsRuntime["infra"]["execSql"],
+  localId: string,
+): Promise<DocumentStoreState> {
+  const state = createDocumentStoreState(
+    localId,
+    offlineRuntime(execSql),
+    sqlDocumentsPersistence,
+    ignoredPersistenceEffects,
+    null,
+  );
+  expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+  return state;
+}
+
+test("full history survives a restart via the checkpoint and tail", async () => {
+  const { close, execSql } = await createTestExecSql("history-durability");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const first = await openStore(execSql, "history-doc");
+    await setDocumentText(first, () => undefined, "first line");
+    await setDocumentText(first, () => undefined, "first line and more");
+
+    const reopened = await openStore(execSql, "history-doc");
+    if (!reopened.doc) throw new Error("expected restored doc");
+    expect(getTextValue(reopened.doc)).toBe("first line and more");
+    // The whole point: a restarted device can still export the full-history
+    // baselines that heals, rotations, and unlinks require.
+    expect(() => {
+      if (!reopened.doc) throw new Error("expected restored doc");
+      exportFullHistorySnapshot(reopened.doc);
+    }).not.toThrow();
+  } finally {
+    close();
+  }
+});
+
+test("the tail compacts into a fresh checkpoint past the row threshold", async () => {
+  const { close, execSql } = await createTestExecSql("history-compaction");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const state = await openStore(execSql, "compaction-doc");
+    await setDocumentText(state, () => undefined, "seed");
+
+    // Inflate the tail past the threshold; the rows only need to exist (a
+    // compaction clears them from the live doc's export without replaying
+    // them), so opaque filler is fine here.
+    await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      localId: "compaction-doc",
+      updates: Array.from(
+        { length: DOCUMENT_HISTORY_COMPACTION_MAX_ROWS },
+        (_, index) => `filler-${index}`,
+      ),
+    });
+    if (!state.doc) throw new Error("expected live doc");
+    await persistDocument(state, state.doc);
+
+    const tail = await sqlDocumentsPersistence.readHistoryTailSize?.(
+      execSql,
+      "compaction-doc",
+    );
+    expect(tail).toMatchObject({ hasCheckpoint: true, rowCount: 0 });
+  } finally {
+    close();
+  }
+});
+
+test("a legacy shallow-only row keeps its behavior and a deferred edit wins over the checkpoint", async () => {
+  const { close, execSql } = await createTestExecSql("history-fallbacks");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+
+    // Deferred-edit safety valve: persist a snapshot AHEAD of the durable
+    // queue/tail (deferRemoteSync shape). The restore must prefer the shallow
+    // snapshot over the (lagging) checkpoint+tail — losing the deferred edit
+    // would drop user data.
+    const state = await openStore(execSql, "deferred-doc");
+    await setDocumentText(state, () => undefined, "enqueued edit");
+    if (!state.doc) throw new Error("expected live doc");
+    state.doc.getText("text").update("enqueued edit plus deferred");
+    state.doc.commit();
+    await persistDocument(state, state.doc);
+
+    const reopened = await openStore(execSql, "deferred-doc");
+    if (!reopened.doc) throw new Error("expected restored doc");
+    expect(getTextValue(reopened.doc)).toBe("enqueued edit plus deferred");
+  } finally {
+    close();
+  }
+});
+
+test("deleting a document deletes its history checkpoint and tail", async () => {
+  const { close, execSql } = await createTestExecSql("history-delete");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const state = await openStore(execSql, "deleted-doc");
+    await setDocumentText(state, () => undefined, "short lived");
+    expect(
+      await sqlDocumentsPersistence.loadHistoryRestoreState?.(
+        execSql,
+        "deleted-doc",
+      ),
+    ).not.toBeNull();
+
+    await sqlDocumentsPersistence.deleteDocument(execSql, "deleted-doc");
+    expect(
+      await sqlDocumentsPersistence.loadHistoryRestoreState?.(
+        execSql,
+        "deleted-doc",
+      ),
+    ).toBeNull();
+  } finally {
+    close();
+  }
+});

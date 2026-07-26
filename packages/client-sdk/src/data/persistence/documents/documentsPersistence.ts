@@ -20,6 +20,13 @@ import {
   DEFAULT_DOCUMENT_KIND,
 } from "../../documents/documentConstants";
 import {
+  appendDocumentHistoryUpdates,
+  deleteDocumentHistory,
+  loadDocumentHistoryRestoreState,
+  readDocumentHistoryTailSize,
+  replaceDocumentHistoryCheckpoint,
+} from "../../sqlite/documentHistoryPersistence";
+import {
   clearDocumentSyncFailure,
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
@@ -654,6 +661,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
             lockedExecSql,
             getDocumentScope(localId),
           );
+          await deleteDocumentHistory(lockedExecSql, getDocumentScope(localId));
           await clearDocumentSyncFailure(
             lockedExecSql,
             getDocumentScope(localId),
@@ -730,13 +738,37 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
 
     return rows.map(mapLocalAttachmentRecord);
   },
+  async appendHistoryUpdates(execSql, input) {
+    await appendDocumentHistoryUpdates(
+      execSql,
+      getDocumentScope(input.localId),
+      input.updates,
+    );
+  },
+  async loadHistoryRestoreState(execSql, localId) {
+    return loadDocumentHistoryRestoreState(execSql, getDocumentScope(localId));
+  },
+  async readHistoryTailSize(execSql, localId) {
+    return readDocumentHistoryTailSize(execSql, getDocumentScope(localId));
+  },
+  async replaceHistoryCheckpoint(execSql, input) {
+    await replaceDocumentHistoryCheckpoint(
+      execSql,
+      getDocumentScope(input.localId),
+      input.snapshot,
+    );
+  },
   async enqueuePendingUpdate(execSql, pendingUpdate) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await enqueueDocumentPendingUpdate(
-        lockedExecSql,
-        getDocumentScope(pendingUpdate.localId),
-        pendingUpdate,
-      );
+      const scope = getDocumentScope(pendingUpdate.localId);
+      // Append to the durable history tail FIRST: the tail must be a
+      // superset of what the record snapshot covers, and duplicates are
+      // harmless (Loro imports are idempotent by op identity), so a crash
+      // between the two writes can only leave the safe superset.
+      await appendDocumentHistoryUpdates(lockedExecSql, scope, [
+        pendingUpdate.updateData,
+      ]);
+      await enqueueDocumentPendingUpdate(lockedExecSql, scope, pendingUpdate);
     });
   },
   async saveLocalAttachment(execSql, attachment) {
