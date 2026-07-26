@@ -577,12 +577,13 @@ export async function buildMaterializedDocumentSyncPlan(
       containerKeksByEpochId,
     );
   } catch (error) {
-    // Only a stale-bundle heal or a checkpoint regeneration counts as a
-    // blocked recovery; an ordinary pass failing here (e.g. a healthy bundle
-    // that cannot be unwrapped) must not read as one in a support report.
-    // Enumerated reason only; unknown errors emit nothing (fail closed).
+    // Only a stale-bundle HEAL (write-bearing) or a checkpoint regeneration
+    // counts as a blocked recovery; an ordinary pass or a stale READ failing
+    // here must not read as one in a support report. Enumerated reason only;
+    // unknown errors emit nothing (fail closed).
     if (
-      input.writerProjection.contentKeyBundleStale === true ||
+      (input.writerProjection.contentKeyBundleStale === true &&
+        (input.pendingUpdates ?? []).length > 0) ||
       input.regenerateQueuedCheckpoints === true
     ) {
       traceHealBlocked(input.onSyncTrace, {
