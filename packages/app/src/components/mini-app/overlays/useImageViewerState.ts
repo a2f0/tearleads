@@ -1,5 +1,4 @@
 import {
-  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
   type SyntheticEvent,
@@ -280,9 +279,11 @@ function useImageViewerZoomActions(params: {
     [fitted, setView, viewport],
   );
 
-  // Touch and pen taps are paired here rather than through `dblclick`, which
-  // browsers synthesize inconsistently on a surface that has claimed the gesture
-  // with `touch-action: none`.
+  // Every pointer type pairs its taps here — mouse included — rather than any of
+  // them going through `dblclick`. A touch browser synthesizes `dblclick` after
+  // two taps, so a stage that also listened for it would toggle the zoom twice
+  // per double-tap and land back where it started; leaving that event unhandled
+  // is what makes the ghost harmless instead of something to time out.
   const handleTap = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const point = { x: event.clientX, y: event.clientY };
@@ -308,17 +309,6 @@ function useImageViewerZoomActions(params: {
     clearTapTracking: useCallback(() => {
       lastTapRef.current = null;
     }, []),
-    handleDoubleClick: useCallback(
-      (event: ReactMouseEvent<HTMLDivElement>) => {
-        toggleZoom(
-          getStageAnchor(event.currentTarget, {
-            x: event.clientX,
-            y: event.clientY,
-          }),
-        );
-      },
-      [toggleZoom],
-    ),
     handleTap,
     reset: useCallback(
       () => setView(() => INITIAL_IMAGE_VIEWER_VIEW),
@@ -409,11 +399,10 @@ function useImageViewerPointerHandlers(params: {
       (event: ReactPointerEvent<HTMLDivElement>) => {
         const wasMultiPointerGesture = isMultiPointerGestureRef.current;
         const tracked = releasePointer(event);
-        // Only the last finger up, from a single-pointer gesture whose pointer
-        // never travelled far enough to be a drag, counts toward the double-tap.
+        // Only the last pointer up, from a single-pointer gesture that never
+        // travelled far enough to be a drag, counts toward the double-tap.
         if (
           !wasMultiPointerGesture &&
-          event.pointerType !== "mouse" &&
           tracked &&
           pointersRef.current.size === 0 &&
           getDistance({ x: event.clientX, y: event.clientY }, tracked.origin) <=
@@ -484,7 +473,6 @@ export function useImageViewerState() {
 
   return {
     canZoomIn: view.zoom < IMAGE_VIEWER_MAX_ZOOM,
-    handleDoubleClick: zoomActions.handleDoubleClick,
     handleImageError: useCallback(() => setHasError(true), []),
     handleImageLoad,
     hasError,

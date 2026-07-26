@@ -197,7 +197,6 @@ export function MiniAppImageViewer(params: {
         className="mini-app-image-viewer-stage"
         ref={viewer.stageRef}
         role="application"
-        onDoubleClick={viewer.handleDoubleClick}
         {...viewer.pointerHandlers}
       >
         {viewer.hasError ? (

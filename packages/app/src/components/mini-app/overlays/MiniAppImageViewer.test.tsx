@@ -27,6 +27,23 @@ function renderViewer(
   return { image, stage, view };
 }
 
+// One press-and-release of a pointer, held still. Two of these in quick
+// succession are what the viewer reads as a double-tap / double-click.
+function tap(
+  stage: HTMLElement,
+  input: { pointerId: number; pointerType?: string; timeStamp: number },
+) {
+  const event = {
+    clientX: 10,
+    clientY: 10,
+    pointerId: input.pointerId,
+    pointerType: input.pointerType ?? "touch",
+    timeStamp: input.timeStamp,
+  };
+  fireEvent.pointerDown(stage, event);
+  fireEvent.pointerUp(stage, event);
+}
+
 test("the viewer shows only the image and its toolbar", () => {
   const { image, view } = renderViewer();
 
@@ -72,11 +89,27 @@ test("a double-click zooms in and the next one returns to fit", () => {
 
   expect(image.style.transform).toBe("translate(0px, 0px) scale(1)");
 
-  fireEvent.doubleClick(stage);
+  tap(stage, { pointerId: 1, pointerType: "mouse", timeStamp: 0 });
+  tap(stage, { pointerId: 1, pointerType: "mouse", timeStamp: 100 });
   expect(image.style.transform).toBe("translate(0px, 0px) scale(3)");
 
-  fireEvent.doubleClick(stage);
+  tap(stage, { pointerId: 1, pointerType: "mouse", timeStamp: 400 });
+  tap(stage, { pointerId: 1, pointerType: "mouse", timeStamp: 500 });
   expect(image.style.transform).toBe("translate(0px, 0px) scale(1)");
+});
+
+// A touch browser synthesizes `dblclick` after two taps. The stage handles the
+// taps itself and leaves that event unhandled, so the zoom the double-tap just
+// applied survives instead of being toggled straight back off.
+test("a synthesized double-click after a double-tap changes nothing", () => {
+  const { image, stage } = renderViewer();
+
+  tap(stage, { pointerId: 1, timeStamp: 0 });
+  tap(stage, { pointerId: 1, timeStamp: 120 });
+  expect(image.style.transform).toBe("translate(0px, 0px) scale(3)");
+
+  fireEvent.doubleClick(stage, { clientX: 10, clientY: 10 });
+  expect(image.style.transform).toBe("translate(0px, 0px) scale(3)");
 });
 
 test("a wheel scroll zooms the image", () => {
@@ -102,7 +135,8 @@ test("the zoom controls track what the current view allows", () => {
   expect((zoomOut as HTMLButtonElement).disabled).toBe(true);
   expect((fit as HTMLButtonElement).disabled).toBe(true);
 
-  fireEvent.doubleClick(stage);
+  tap(stage, { pointerId: 1, timeStamp: 0 });
+  tap(stage, { pointerId: 1, timeStamp: 120 });
   expect((zoomOut as HTMLButtonElement).disabled).toBe(false);
   expect((fit as HTMLButtonElement).disabled).toBe(false);
 
@@ -114,58 +148,33 @@ test("the zoom controls track what the current view allows", () => {
 
 test("a pinch does not leave a tap behind for the next one to pair with", () => {
   const { image, stage } = renderViewer();
-  const down = (pointerId: number, timeStamp: number) =>
-    fireEvent.pointerDown(stage, {
-      clientX: 10,
-      clientY: 10,
-      pointerId,
-      pointerType: "touch",
-      timeStamp,
-    });
-  const up = (pointerId: number, timeStamp: number) =>
-    fireEvent.pointerUp(stage, {
-      clientX: 10,
-      clientY: 10,
-      pointerId,
-      pointerType: "touch",
-      timeStamp,
-    });
+  const touch = (pointerId: number, timeStamp: number) => ({
+    clientX: 10,
+    clientY: 10,
+    pointerId,
+    pointerType: "touch",
+    timeStamp,
+  });
 
   // A two-finger pinch whose anchoring finger lifts within the tap slop of where
   // it landed. Neither release is a tap, so the single tap right after it has no
   // partner and must not toggle the zoom.
-  down(1, 0);
-  down(2, 10);
-  up(2, 40);
-  up(1, 50);
+  fireEvent.pointerDown(stage, touch(1, 0));
+  fireEvent.pointerDown(stage, touch(2, 10));
+  fireEvent.pointerUp(stage, touch(2, 40));
+  fireEvent.pointerUp(stage, touch(1, 50));
   expect(image.style.transform).toBe("translate(0px, 0px) scale(1)");
 
-  down(3, 100);
-  up(3, 110);
+  tap(stage, { pointerId: 3, timeStamp: 100 });
   expect(image.style.transform).toBe("translate(0px, 0px) scale(1)");
 });
 
-test("a double-tap zooms without waiting on a synthesized double-click", () => {
+test("a double-tap zooms the point it lands on", () => {
   const { image, stage } = renderViewer();
-  const tap = (timeStamp: number) => {
-    fireEvent.pointerDown(stage, {
-      clientX: 10,
-      clientY: 10,
-      pointerId: 1,
-      pointerType: "touch",
-    });
-    fireEvent.pointerUp(stage, {
-      clientX: 10,
-      clientY: 10,
-      pointerId: 1,
-      pointerType: "touch",
-      timeStamp,
-    });
-  };
 
-  tap(0);
+  tap(stage, { pointerId: 1, timeStamp: 0 });
   expect(image.style.transform).toBe("translate(0px, 0px) scale(1)");
 
-  tap(120);
+  tap(stage, { pointerId: 1, timeStamp: 120 });
   expect(image.style.transform).toBe("translate(0px, 0px) scale(3)");
 });
