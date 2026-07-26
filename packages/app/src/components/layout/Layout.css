@@ -43,3 +43,11 @@
 .tearleads-frame.layout:has(> .billing-banner) .routed-pane-rail {
   padding-top: 0;
 }
+
+/* The mobile drawer takes the inset because it overlays the app bar that
+   normally absorbs it (RoutedPaneSidebar.css); under a banner that bar has
+   already given the inset up, so the drawer must too. */
+.tearleads-frame.layout:has(> .billing-banner) .routed-pane--mobile
+  .routed-pane-sidebar {
+  padding-top: 0;
+}
