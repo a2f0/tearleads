@@ -162,7 +162,10 @@ export interface DocumentsPersistence {
     hasCheckpoint: boolean;
     rowCount: number;
   }>;
-  listHistoryTailIds?: (execSql: ExecSql, localId: string) => Promise<string[]>;
+  listHistoryTailEntries?: (
+    execSql: ExecSql,
+    localId: string,
+  ) => Promise<{ id: string; updateData: string }[]>;
   replaceHistoryCheckpoint?: (
     execSql: ExecSql,
     input: {

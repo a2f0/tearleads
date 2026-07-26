@@ -1,9 +1,11 @@
-import { bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   encodeVersionVector,
   exportFullHistorySnapshot,
   exportUpdatesSince,
+  getImportBlobMetadata,
   isShallowDocument,
+  satisfiesVersionVector,
 } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import type { DocumentSummary } from "../../../data/documentSummary";
@@ -226,7 +228,7 @@ async function maybeCompactDocumentHistory(
 ): Promise<void> {
   const { persistence } = state;
   if (
-    !persistence.listHistoryTailIds ||
+    !persistence.listHistoryTailEntries ||
     !persistence.readHistoryTailSize ||
     !persistence.replaceHistoryCheckpoint
   ) {
@@ -257,11 +259,11 @@ async function maybeCompactDocumentHistory(
     return;
   }
 
-  // Capture the covered rows BEFORE exporting: every append path writes its
-  // tail row after the ops are already in the live document, so these rows
-  // are provably in the export, while a concurrent append lands after the
-  // capture and survives the delete for the next compaction.
-  const coveredTailIds = await persistence.listHistoryTailIds(
+  // Capture the tail BEFORE exporting, then prove coverage per row: another
+  // pane can append ops this pane's document has not merged, so blanket
+  // deletion would discard the only durable copy. Unproven rows survive for
+  // a later compaction by whichever pane holds their ops.
+  const tailEntries = await persistence.listHistoryTailEntries(
     execSql,
     state.localId,
   );
@@ -277,9 +279,36 @@ async function maybeCompactDocumentHistory(
     return;
   }
   await persistence.replaceHistoryCheckpoint(execSql, {
-    coveredTailIds,
+    coveredTailIds: coveredHistoryTailIds(
+      tailEntries,
+      encodeVersionVector(currentDoc),
+    ),
     localId: state.localId,
     snapshot: bytesToBase64(snapshot),
+  });
+}
+
+/**
+ * The tail rows provably covered by a document at `documentVersion`: rows
+ * whose update span the version satisfies, plus rows whose payload cannot be
+ * parsed at all (they could never replay and would only poison restores).
+ */
+export function coveredHistoryTailIds(
+  tailEntries: readonly { id: string; updateData: string }[],
+  documentVersion: string,
+): string[] {
+  return tailEntries.flatMap((entry) => {
+    try {
+      const metadata = getImportBlobMetadata(base64ToBytes(entry.updateData));
+      return satisfiesVersionVector(
+        documentVersion,
+        metadata.partialEndVersionVector,
+      )
+        ? [entry.id]
+        : [];
+    } catch {
+      return [entry.id];
+    }
   });
 }
 

@@ -298,8 +298,8 @@
       "bytes": 18269
     },
     "packages/client-sdk/src/stores/documents/documentStore/persistence.ts": {
-      "lines": 505,
-      "bytes": 16403
+      "lines": 534,
+      "bytes": 17268
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 572,

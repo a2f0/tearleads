@@ -34,15 +34,19 @@ export async function appendDocumentHistoryUpdates(
   await ensureSqlTables(execSql, documentTables);
   const createdAt = new Date().toISOString();
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await db.insert(documentHistoryUpdates).values(
-      updates.map((updateData) => ({
-        id: crypto.randomUUID(),
-        appKind: scope.appKind,
-        localId: scope.localId,
-        updateData,
-        createdAt,
-      })),
-    );
+    // Chunked: a catch-up pull can carry thousands of updates, and a single
+    // multi-row insert would exceed SQLite's bound-variable limit.
+    for (let index = 0; index < updates.length; index += HISTORY_ROW_CHUNK) {
+      await db.insert(documentHistoryUpdates).values(
+        updates.slice(index, index + HISTORY_ROW_CHUNK).map((updateData) => ({
+          id: crypto.randomUUID(),
+          appKind: scope.appKind,
+          localId: scope.localId,
+          updateData,
+          createdAt,
+        })),
+      );
+    }
   });
 }
 
@@ -135,14 +139,27 @@ export async function readDocumentHistoryTailSize(
   };
 }
 
-export async function listDocumentHistoryTailIds(
+interface DocumentHistoryTailEntry {
+  readonly id: string;
+  readonly updateData: string;
+}
+
+/**
+ * The current tail rows WITH their payloads, so a compactor can prove each
+ * row's ops are covered by the snapshot it is about to install (another
+ * pane's append may carry ops this pane's document has not merged yet).
+ */
+export async function listDocumentHistoryTailEntries(
   execSql: ExecSql,
   scope: DocumentScope,
-): Promise<string[]> {
+): Promise<DocumentHistoryTailEntry[]> {
   await ensureSqlTables(execSql, documentTables);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
-    .select({ id: documentHistoryUpdates.id })
+    .select({
+      id: documentHistoryUpdates.id,
+      updateData: documentHistoryUpdates.updateData,
+    })
     .from(documentHistoryUpdates)
     .where(
       and(
@@ -150,10 +167,12 @@ export async function listDocumentHistoryTailIds(
         eq(documentHistoryUpdates.localId, scope.localId),
       ),
     );
-  return rows.flatMap((row) => (row.id === null ? [] : [row.id]));
+  return rows.flatMap((row) =>
+    row.id === null ? [] : [{ id: row.id, updateData: row.updateData }],
+  );
 }
 
-const COVERED_TAIL_DELETE_CHUNK = 400;
+const HISTORY_ROW_CHUNK = 400;
 
 /**
  * Replace the scope's checkpoint with a fresh full-history snapshot and
@@ -193,7 +212,7 @@ export async function replaceDocumentHistoryCheckpoint(
     for (
       let index = 0;
       index < input.coveredTailIds.length;
-      index += COVERED_TAIL_DELETE_CHUNK
+      index += HISTORY_ROW_CHUNK
     ) {
       await tx
         .delete(documentHistoryUpdates)
@@ -203,10 +222,7 @@ export async function replaceDocumentHistoryCheckpoint(
             eq(documentHistoryUpdates.localId, scope.localId),
             inArray(
               documentHistoryUpdates.id,
-              input.coveredTailIds.slice(
-                index,
-                index + COVERED_TAIL_DELETE_CHUNK,
-              ),
+              input.coveredTailIds.slice(index, index + HISTORY_ROW_CHUNK),
             ),
           ),
         );

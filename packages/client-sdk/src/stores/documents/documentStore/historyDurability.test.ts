@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { exportFullHistorySnapshot, getTextValue } from "@tearleads/loro";
+import {
+  createDocument,
+  exportAllUpdates,
+  exportFullHistorySnapshot,
+  getTextValue,
+} from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
@@ -90,11 +95,12 @@ test("compaction deletes only the tail rows captured before its export", async (
       localId: "raced-doc",
       updates: ["covered-row"],
     });
-    const coveredTailIds =
-      (await sqlDocumentsPersistence.listHistoryTailIds?.(
+    const coveredTailIds = (
+      (await sqlDocumentsPersistence.listHistoryTailEntries?.(
         execSql,
         "raced-doc",
-      )) ?? [];
+      )) ?? []
+    ).map((entry) => entry.id);
     // A concurrent append lands after the capture (and after the export it
     // models); the replacement must leave it for the next compaction.
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
@@ -188,6 +194,48 @@ test("a legacy shallow-only row keeps its behavior and a deferred edit wins over
     const reopened = await openStore(execSql, "deferred-doc");
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("enqueued edit plus deferred");
+  } finally {
+    close();
+  }
+});
+
+test("compaction preserves cross-pane tail rows its document does not cover", async () => {
+  const { close, execSql } = await createTestExecSql("history-cross-pane");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const state = await openStore(execSql, "cross-pane-doc");
+    await setDocumentText(state, () => undefined, "pane A edit");
+
+    // A second pane's edit: real ops this pane's document has NOT merged.
+    const paneB = await createDocument("pane-b-peer");
+    paneB.getText("text").update("pane B edit");
+    paneB.commit();
+    await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      localId: "cross-pane-doc",
+      updates: [bytesToBase64(exportAllUpdates(paneB))],
+    });
+    // Push past the threshold with unparseable filler (deleted as poison).
+    await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      localId: "cross-pane-doc",
+      updates: Array.from(
+        { length: DOCUMENT_HISTORY_COMPACTION_MAX_ROWS },
+        (_, index) => `filler-${index}`,
+      ),
+    });
+    if (!state.doc) throw new Error("expected live doc");
+    await persistDocument(state, state.doc);
+
+    // The foreign row survives — deleting it would discard the only durable
+    // copy of pane B's ops.
+    const remaining =
+      (await sqlDocumentsPersistence.listHistoryTailEntries?.(
+        execSql,
+        "cross-pane-doc",
+      )) ?? [];
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]?.updateData).toBe(
+      bytesToBase64(exportAllUpdates(paneB)),
+    );
   } finally {
     close();
   }
