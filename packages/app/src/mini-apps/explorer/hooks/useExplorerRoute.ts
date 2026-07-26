@@ -22,14 +22,29 @@ export interface ExplorerRouteState {
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openNewStructuredDocumentRoute: (containerId: string) => void;
   openSyncLaneDetailRoute: (laneKey: string) => void;
-  openSyncLanesRoute: () => void;
+  openSyncLanesRoute: (options?: ExplorerRouteNavigationOptions) => void;
   openUploadsRoute: () => void;
-  openWriteQueueRoute: () => void;
+  openWriteQueueRoute: (options?: ExplorerRouteNavigationOptions) => void;
   openWriteQueueEntryRoute: (entryKey: string) => void;
   selectCreatedExplorerItem: (id: string) => void;
-  selectExplorerDocument: (localId: string, containerId: string) => void;
+  selectExplorerDocument: (
+    localId: string,
+    containerId: string,
+    options?: ExplorerRouteNavigationOptions,
+  ) => void;
   selectExplorerItem: (id: string | null) => void;
-  showSelectionRoute: () => void;
+  showSelectionRoute: (options?: ExplorerRouteNavigationOptions) => void;
+}
+
+/**
+ * Navigation options for the route actions a detail "Back" fallback uses. That
+ * fallback only exists where the host has NO history entry to pop, so it must
+ * replace the dead-end entry rather than push its parent on top: pushing would
+ * create the single history entry that makes Back alternate between the two
+ * routes forever (see chromeOwnsRouteBackedDetailBack).
+ */
+export interface ExplorerRouteNavigationOptions {
+  replace?: boolean | undefined;
 }
 
 type ExplorerRouteSetter = (
@@ -180,11 +195,13 @@ function useExplorerBlobBrowserRouteActions(params: {
     [setRoute],
   );
 
+  // Only ever reached as a detail "Back" fallback (no history to pop), so every
+  // exit replaces rather than pushes — see ExplorerRouteNavigationOptions.
   const navigateBackFromBlobBrowser = useCallback(() => {
     const origin = blobBrowserOriginRef.current;
     blobBrowserOriginRef.current = null;
     if (origin) {
-      setRoute(origin.route, origin.selectedId);
+      setRoute(origin.route, origin.selectedId, { replace: true });
       return;
     }
 
@@ -211,9 +228,12 @@ function useExplorerBlobBrowserRouteActions(params: {
 // queues, durable writes). Grouped into their own hook so the main actions hook
 // stays small.
 function useExplorerSectionRouteActions(setRoute: ExplorerRouteSetter) {
-  const openSyncLanesRoute = useCallback(() => {
-    setRoute({ view: "sync-lanes" }, undefined);
-  }, [setRoute]);
+  const openSyncLanesRoute = useCallback(
+    (options: ExplorerRouteNavigationOptions = {}) => {
+      setRoute({ view: "sync-lanes" }, undefined, options);
+    },
+    [setRoute],
+  );
 
   const openSyncLaneDetailRoute = useCallback(
     (laneKey: string) => {
@@ -222,9 +242,12 @@ function useExplorerSectionRouteActions(setRoute: ExplorerRouteSetter) {
     [setRoute],
   );
 
-  const openWriteQueueRoute = useCallback(() => {
-    setRoute({ view: "write-queue" }, undefined);
-  }, [setRoute]);
+  const openWriteQueueRoute = useCallback(
+    (options: ExplorerRouteNavigationOptions = {}) => {
+      setRoute({ view: "write-queue" }, undefined, options);
+    },
+    [setRoute],
+  );
 
   const openWriteQueueEntryRoute = useCallback(
     (entryKey: string) => {
@@ -261,9 +284,12 @@ function useExplorerRouteActions(params: {
   });
   const sectionActions = useExplorerSectionRouteActions(setRoute);
 
-  const showSelectionRoute = useCallback(() => {
-    setRoute(DEFAULT_EXPLORER_ROUTE);
-  }, [setRoute]);
+  const showSelectionRoute = useCallback(
+    (options: ExplorerRouteNavigationOptions = {}) => {
+      setRoute(DEFAULT_EXPLORER_ROUTE, undefined, options);
+    },
+    [setRoute],
+  );
 
   const selectExplorerItem = useCallback(
     (id: string | null) => {
@@ -289,7 +315,11 @@ function useExplorerRouteActions(params: {
   );
 
   const selectExplorerDocument = useCallback(
-    (localId: string, containerId: string) => {
+    (
+      localId: string,
+      containerId: string,
+      options: ExplorerRouteNavigationOptions = {},
+    ) => {
       selectDocument(localId, containerId);
       setRoute(
         {
@@ -298,6 +328,7 @@ function useExplorerRouteActions(params: {
           view: "document-selection",
         },
         localId,
+        options,
       );
     },
     [selectDocument, setRoute],

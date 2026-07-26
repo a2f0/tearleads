@@ -294,7 +294,7 @@ export function ContactsDetailPanel(params: {
   importDraftContact: () => Promise<void>;
   isAuthenticated: boolean;
   onAreaContextMenu: ContactsAreaContextMenuHandler;
-  onBackToSelectionRoute: () => void;
+  onBackToSelectionRoute: (options?: { replace?: boolean | undefined }) => void;
   ready: boolean;
   removeContactAvatar: RemoveContactAvatar;
   route: ContactsRoute;
@@ -331,10 +331,11 @@ export function ContactsDetailPanel(params: {
     setDraftUserId,
     updateContact,
   } = params;
-  // Every non-selection contacts route lives in the route, and
-  // onBackToSelectionRoute pushes rather than pops, so this registration must
-  // yield wherever the host has a real Back — otherwise Back alternates between
-  // the detail and the list forever. See chromeOwnsRouteBackedDetailBack.
+  // Every non-selection contacts route lives in the route, so this registration
+  // must yield wherever the host has a real Back — otherwise its push turns the
+  // host's pop into a second entry and Back alternates between the detail and
+  // the list forever. See chromeOwnsRouteBackedDetailBack. What remains is the
+  // no-history fallback, which replaces the dead-end route rather than pushing.
   const { canGoBack: historyCanGoBack } = useMiniAppRouteSegments("contacts");
   const backAction = useMemo(
     () =>
@@ -342,7 +343,7 @@ export function ContactsDetailPanel(params: {
       chromeOwnsRouteBackedDetailBack({ historyCanGoBack })
         ? {
             label: CONTACTS_LABELS.backToContactsAction,
-            onBack: onBackToSelectionRoute,
+            onBack: () => onBackToSelectionRoute({ replace: true }),
           }
         : null,
     [historyCanGoBack, onBackToSelectionRoute, route],

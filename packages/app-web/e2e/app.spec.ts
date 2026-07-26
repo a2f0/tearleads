@@ -285,6 +285,45 @@ test("windowed Back unwinds an Explorer window's route stack", async ({
   await expect(back).toBeDisabled();
 });
 
+// A window opened straight onto a route-backed detail has no history, so the
+// mini-app registers its own fallback Back. That fallback must REPLACE the
+// dead-end route: pushing its parent would create the one history entry that
+// makes Back alternate between the two routes forever.
+test("a deep-linked window's fallback Back does not stack a loop", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/");
+
+  await expect(visiblePane(page)).toBeVisible({ timeout: 30_000 });
+  const syncIndicator = page
+    .getByRole("button", { name: /not yet synced/ })
+    .first();
+  await expect(syncIndicator).toBeVisible({ timeout: 30_000 });
+  await syncIndicator.click();
+  // Opens an Explorer window directly on the write-queue route.
+  await page.getByRole("button", { name: "View write queue" }).click();
+
+  const explorerWindow = page.locator(".window").first();
+  const toolbar = explorerWindow.locator(".window-toolbar");
+  await expect(explorerWindow).toBeVisible({ timeout: 30_000 });
+
+  // No history behind it, so Explorer's own "Back to Explorer" fallback shows.
+  const fallbackBack = toolbar.getByRole("button", {
+    name: "Back to Explorer",
+  });
+  await expect(fallbackBack).toBeVisible();
+
+  await fallbackBack.click();
+
+  // It landed on the container listing, and left NO history entry behind — a
+  // push here would let the next Back walk right back into the write queue.
+  await expect(
+    toolbar.getByRole("button", { name: "Create Child Folder" }),
+  ).toBeVisible();
+  await expect(toolbar.getByRole("button", { name: "Back" })).toBeDisabled();
+});
+
 test("SQLite tables survive a hard reload", async ({ page }) => {
   // Regression coverage for persistent OPFS-SAHPool reloads: the restored
   // identity must reopen its existing SQLite tables, not race a hidden pane or

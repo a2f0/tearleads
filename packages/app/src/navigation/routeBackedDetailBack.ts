@@ -17,6 +17,13 @@
  * link or a freshly opened window sitting on its first route, where the host's
  * caret is dead and this route-derived fallback is the only way out.
  *
+ * **A fallback this gate admits must REPLACE the route it leaves, not push its
+ * parent.** It exists precisely because there was nothing to pop, so pushing
+ * would create the single history entry that re-forms the loop from the other
+ * side: Back lands on the parent, the parent's now-live caret pops back into the
+ * detail, and its fallback pushes the parent again. Every caller therefore
+ * navigates with `{ replace: true }` from these actions.
+ *
  * **This is deliberately not a question about navigation mode.** It used to be:
  * windowed chrome had no history of any kind, so "windowed" was a sound proxy
  * for "nothing to pop". Windows now carry their own Back stack

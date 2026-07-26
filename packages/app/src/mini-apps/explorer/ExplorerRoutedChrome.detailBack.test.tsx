@@ -13,13 +13,17 @@ afterEach(() => cleanup());
 function renderDetailBackChrome({
   historyCanGoBack,
   route,
-  selectDocumentProjection = () => undefined,
+  selectExplorerDocument = () => undefined,
   showSelectionRoute = () => undefined,
 }: {
   historyCanGoBack: boolean;
   route: ExplorerRoute;
-  selectDocumentProjection?: (localId: string, containerId: string) => void;
-  showSelectionRoute?: () => void;
+  selectExplorerDocument?: (
+    localId: string,
+    containerId: string,
+    options?: { replace?: boolean | undefined },
+  ) => void;
+  showSelectionRoute?: (options?: { replace?: boolean | undefined }) => void;
 }) {
   const baseModel = createExplorerModel();
   return render(
@@ -30,9 +34,9 @@ function renderDetailBackChrome({
           routeState: {
             ...baseModel.routeState,
             route,
+            selectExplorerDocument,
             showSelectionRoute,
           },
-          selectDocumentProjection,
         })}
       />
     </WindowMenuProvider>,
@@ -52,12 +56,12 @@ const DOCUMENT_INFO_ROUTE: ExplorerRoute = {
 // host has history — the routed shell's browser history, or a window's own Back
 // stack — the chrome must leave Back alone so each press unwinds one entry.
 test("document info leaves Back to host history", async () => {
-  const selectedDocuments: Array<[string, string]> = [];
+  const selectedDocuments: string[] = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: true,
     route: DOCUMENT_INFO_ROUTE,
-    selectDocumentProjection: (localId, containerId) => {
-      selectedDocuments.push([localId, containerId]);
+    selectExplorerDocument: (localId) => {
+      selectedDocuments.push(localId);
     },
   });
 
@@ -76,13 +80,18 @@ test("document info leaves Back to host history", async () => {
   expect(selectedDocuments).toEqual([]);
 });
 
-test("document info with no history gets a Back fallback", async () => {
-  const selectedDocuments: Array<[string, string]> = [];
+// The fallback REPLACES the info route rather than pushing the document on top
+// of it: pushing would create the one history entry that makes Back alternate
+// between the two routes forever.
+test("document info with no history replaces itself with the document", async () => {
+  const selectedDocuments: Array<
+    [string, string, { replace?: boolean | undefined } | undefined]
+  > = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: false,
     route: DOCUMENT_INFO_ROUTE,
-    selectDocumentProjection: (localId, containerId) => {
-      selectedDocuments.push([localId, containerId]);
+    selectExplorerDocument: (localId, containerId, options) => {
+      selectedDocuments.push([localId, containerId, options]);
     },
   });
 
@@ -92,18 +101,20 @@ test("document info with no history gets a Back fallback", async () => {
     }),
   );
 
-  expect(selectedDocuments).toEqual([["blood-pressure-1", "folder-1"]]);
+  expect(selectedDocuments).toEqual([
+    ["blood-pressure-1", "folder-1", { replace: true }],
+  ]);
 });
 
 // The diagnostics hub routes are route-backed too, so they stranded routed Back
 // the same way: "Back to Explorer" pushed the selection route, whose Back popped
 // straight back into the hub.
 test("diagnostics hub leaves Back to host history", async () => {
-  const returned: number[] = [];
+  const returned: Array<{ replace?: boolean | undefined } | undefined> = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: true,
     route: { view: "write-queue" },
-    showSelectionRoute: () => returned.push(1),
+    showSelectionRoute: (options) => returned.push(options),
   });
 
   await waitFor(() => {
@@ -118,12 +129,12 @@ test("diagnostics hub leaves Back to host history", async () => {
   expect(returned).toEqual([]);
 });
 
-test("diagnostics hub with no history gets a Back fallback", async () => {
-  const returned: number[] = [];
+test("diagnostics hub with no history replaces itself with the list", async () => {
+  const returned: Array<{ replace?: boolean | undefined } | undefined> = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: false,
     route: { view: "write-queue" },
-    showSelectionRoute: () => returned.push(1),
+    showSelectionRoute: (options) => returned.push(options),
   });
 
   fireEvent.click(
@@ -132,5 +143,5 @@ test("diagnostics hub with no history gets a Back fallback", async () => {
     }),
   );
 
-  expect(returned).toEqual([1]);
+  expect(returned).toEqual([{ replace: true }]);
 });

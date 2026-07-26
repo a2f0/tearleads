@@ -345,10 +345,10 @@ function useOrgManagerDetailBackActions(model: OrgManagerModel) {
     selectUser(null);
   }, [selectUser]);
   const backFromGroupDetail = useCallback(() => {
-    selectGroup(null);
+    selectGroup(null, { replace: true });
   }, [selectGroup]);
   const backFromGrantDetail = useCallback(() => {
-    selectGrantRef(null);
+    selectGrantRef(null, { replace: true });
   }, [selectGrantRef]);
 
   return {

@@ -265,7 +265,7 @@ test("document toolbar shows get info before the summary loads", async () => {
   expect(openedDocumentInfo).toEqual([["contact-1", "folder-1"]]);
 });
 
-test("document-info back action returns to the document projection", async () => {
+test("document-info back action returns to the document", async () => {
   const selectedDocuments: Array<[string, string]> = [];
   const baseModel = createExplorerModel();
   const view = render(
@@ -279,9 +279,9 @@ test("document-info back action returns to the document projection", async () =>
               localId: "you-contact",
               view: "document-info",
             },
-          },
-          selectDocumentProjection: (localId, containerId) => {
-            selectedDocuments.push([localId, containerId]);
+            selectExplorerDocument: (localId, containerId) => {
+              selectedDocuments.push([localId, containerId]);
+            },
           },
         })}
       />

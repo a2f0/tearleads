@@ -130,7 +130,7 @@ function ExplorerRouteSelectionHarness() {
       >
         Create Document
       </button>
-      <button type="button" onClick={routeState.openWriteQueueRoute}>
+      <button type="button" onClick={() => routeState.openWriteQueueRoute()}>
         Open Writes
       </button>
       <button type="button" onClick={routeState.openUploadsRoute}>

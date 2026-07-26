@@ -168,11 +168,19 @@ function useExplorerRoutedBackAction({
       return null;
     }
 
+    // Each exit REPLACES the dead-end route it leaves. This branch only runs
+    // when the host has no history entry to pop, so pushing the parent would
+    // create exactly one entry — and Back would then alternate between the two
+    // routes forever, the loop this gate exists to prevent.
     if (route.view === "document-info") {
       return {
         label: EXPLORER_LABELS.documentInfoBackAction,
         onBack: () => {
-          model.selectDocumentProjection(route.localId, route.containerId);
+          model.routeState.selectExplorerDocument(
+            route.localId,
+            route.containerId,
+            { replace: true },
+          );
         },
       };
     }
@@ -180,14 +188,14 @@ function useExplorerRoutedBackAction({
     if (route.view === "sync-lane-detail") {
       return {
         label: EXPLORER_LABELS.syncLanesBackToListAction,
-        onBack: model.routeState.openSyncLanesRoute,
+        onBack: () => model.routeState.openSyncLanesRoute({ replace: true }),
       };
     }
 
     if (route.view === "write-queue-entry") {
       return {
         label: EXPLORER_LABELS.writeQueueBackToListAction,
-        onBack: model.routeState.openWriteQueueRoute,
+        onBack: () => model.routeState.openWriteQueueRoute({ replace: true }),
       };
     }
 
@@ -198,7 +206,7 @@ function useExplorerRoutedBackAction({
     ) {
       return {
         label: EXPLORER_LABELS.syncLanesBackAction,
-        onBack: model.routeState.showSelectionRoute,
+        onBack: () => model.routeState.showSelectionRoute({ replace: true }),
       };
     }
 
@@ -220,8 +228,8 @@ function useExplorerRoutedBackAction({
     model.routeState.navigateBackFromBlobBrowser,
     model.routeState.openSyncLanesRoute,
     model.routeState.openWriteQueueRoute,
+    model.routeState.selectExplorerDocument,
     model.routeState.showSelectionRoute,
-    model.selectDocumentProjection,
     ownsDetailBack,
     route,
   ]);

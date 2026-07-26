@@ -34,6 +34,7 @@ export function createExplorerModel(
       openSyncLanesRoute: () => undefined,
       openWriteQueueRoute: () => undefined,
       route: { view: "selection" },
+      selectExplorerDocument: () => undefined,
       selectExplorerItem: () => undefined,
       showSelectionRoute: () => undefined,
     },
