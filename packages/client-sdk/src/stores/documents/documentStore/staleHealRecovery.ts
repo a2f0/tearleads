@@ -14,6 +14,7 @@ import {
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { importPendingUpdates, installRebuiltDocument } from "./historyRebuild";
+import { chainIdentityWrite } from "./identityWriteChain";
 import { createStoredDocument } from "./initialization";
 import {
   enqueuePendingUpdate,
@@ -21,7 +22,10 @@ import {
   pendingDeltaSinceBase,
 } from "./persistence";
 import type { DocumentStoreState } from "./state";
-import { importSyncedDocumentUpdates } from "./syncUpdateImport";
+import {
+  documentSyncContextMatches,
+  importSyncedDocumentUpdates,
+} from "./syncUpdateImport";
 
 /**
  * Last-resort recovery for a stale-bundle heal blocked on a shallow local
@@ -122,31 +126,51 @@ async function rebuildFullHistoryFromRemote(
     return { kind: "pull-failed" };
   }
 
-  // Do not replace a document that changed while the pull was in flight; the
-  // next blocked pass retries recovery against the newer local state.
-  if (
-    state.doc !== currentDoc ||
-    !versionVectorsEqual(encodeVersionVector(currentDoc), capturedVersion)
-  ) {
-    return { kind: "doc-changed" };
-  }
+  // Install on the identity-write chain so a relink cannot land between the
+  // checks and the persist. The pull's persisted state and writer projection
+  // describe the identity captured above; if a concurrent relink moved the
+  // record (state.doc keeps its version across a relink, so the version
+  // check alone cannot see one), installing would restore the pre-relink
+  // keying metadata. Abort instead; the next blocked pass retries recovery
+  // against the new identity.
+  return chainIdentityWrite(
+    state,
+    async (): Promise<HistoryRecoveryOutcome> => {
+      if (
+        !documentSyncContextMatches(
+          state.record,
+          currentRecord,
+          currentRecord.documentId,
+        ) ||
+        state.doc !== currentDoc ||
+        !versionVectorsEqual(encodeVersionVector(currentDoc), capturedVersion)
+      ) {
+        return { kind: "doc-changed" };
+      }
 
-  try {
-    const rebuiltDoc = await createStoredDocument(state);
-    importSyncedDocumentUpdates(rebuiltDoc, synced.decryptedUpdates);
-    // The read-only pull settles nothing, so the durable queue survives —
-    // replay it (plus any not-yet-enqueued local delta) so the rebuilt
-    // document contains every local op the heal will re-encrypt.
-    importPendingUpdates(rebuiltDoc, pendingUpdates);
-    if (uncoveredLocalDelta.byteLength > 0) {
-      importUpdates(rebuiltDoc, [uncoveredLocalDelta]);
-      await enqueuePendingUpdate(state, uncoveredLocalDelta);
-    }
-    await installRebuiltDocument({ currentRecord, rebuiltDoc, state, synced });
-  } catch {
-    return { kind: "install-failed" };
-  }
-  return { kind: "recovered", updates: synced.decryptedUpdates.length };
+      try {
+        const rebuiltDoc = await createStoredDocument(state);
+        importSyncedDocumentUpdates(rebuiltDoc, synced.decryptedUpdates);
+        // The read-only pull settles nothing, so the durable queue survives —
+        // replay it (plus any not-yet-enqueued local delta) so the rebuilt
+        // document contains every local op the heal will re-encrypt.
+        importPendingUpdates(rebuiltDoc, pendingUpdates);
+        if (uncoveredLocalDelta.byteLength > 0) {
+          importUpdates(rebuiltDoc, [uncoveredLocalDelta]);
+          await enqueuePendingUpdate(state, uncoveredLocalDelta);
+        }
+        await installRebuiltDocument({
+          currentRecord,
+          rebuiltDoc,
+          state,
+          synced,
+        });
+      } catch {
+        return { kind: "install-failed" };
+      }
+      return { kind: "recovered", updates: synced.decryptedUpdates.length };
+    },
+  );
 }
 
 /**
