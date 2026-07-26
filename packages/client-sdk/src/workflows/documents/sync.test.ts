@@ -1618,6 +1618,7 @@ test("syncRemoteDocument regenerates a rejected queued checkpoint and resubmits"
     partialEndVersionVector: vectors.partialEndVersionVector,
   });
   const submittedRequests: DocumentSyncRequest[] = [];
+  const traceLines: string[] = [];
 
   const synced = await syncRemoteDocument({
     apiClient: {
@@ -1658,6 +1659,7 @@ test("syncRemoteDocument regenerates a rejected queued checkpoint and resubmits"
     documentId: writerProjection.documentId,
     execSql,
     localVersionVector: null,
+    onSyncTrace: (line) => traceLines.push(line),
     pendingUpdates: [leftoverCheckpoint],
     resolveProjectionUserKey,
     targetSecretKey: secretKey,
@@ -1679,4 +1681,11 @@ test("syncRemoteDocument regenerates a rejected queued checkpoint and resubmits"
   expect(regenerated?.id).not.toBe(leftoverCheckpoint.id);
   expect(synced?.settledPendingUpdateIds).toContain(leftoverCheckpoint.id);
   expect(synced?.settledPendingUpdateIds).not.toContain(regenerated?.id ?? "");
+  // The pass narrates itself in clipboard-safe trace lines.
+  expect(traceLines).toContain(
+    `document sync submit failed document=${writerProjection.documentId} status=409 code=none action=regenerate-checkpoints`,
+  );
+  expect(traceLines).toContain(
+    `document sync checkpoint regeneration document=${writerProjection.documentId} checkpoints=1 updates=0`,
+  );
 });

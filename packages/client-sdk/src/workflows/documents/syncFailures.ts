@@ -17,6 +17,11 @@ import type {
 } from "../../data/documents/shared/types";
 import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
+import {
+  type DocumentSyncTraceEmitter,
+  traceProjectionFailed,
+  traceSubmitFailed,
+} from "./syncTrace";
 
 const REMOTE_DOCUMENT_DELETED = Symbol("remoteDocumentDeleted");
 
@@ -200,6 +205,32 @@ async function resolveFailedDocumentSyncAction(input: {
   failure: DocumentSyncSubmitFailure;
   maxAttempts: number;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
+  onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
+  pendingUpdates: readonly PendingUpdateRecord[];
+}): Promise<FailedDocumentSyncAction> {
+  const action = await classifyFailedDocumentSyncAction(input);
+  traceSubmitFailed(input.onSyncTrace, {
+    action:
+      action === "retry" || action === "stop"
+        ? action
+        : action.kind === "recover_update_id_conflict"
+          ? "recover-update-ids"
+          : "regenerate-checkpoints",
+    code: input.failure.code,
+    documentId: input.documentId,
+    status: input.failure.status,
+  });
+  return action;
+}
+
+async function classifyFailedDocumentSyncAction(input: {
+  attempt: number;
+  canRegenerateQueuedCheckpoints?: boolean | undefined;
+  documentId: string;
+  failure: DocumentSyncSubmitFailure;
+  maxAttempts: number;
+  onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
 }): Promise<FailedDocumentSyncAction> {
@@ -259,6 +290,7 @@ async function submitDocumentSyncAttempt(input: {
   documentId: string;
   maxAttempts: number;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   plan: DocumentSyncPlan;
@@ -284,6 +316,7 @@ async function submitDocumentSyncAttempt(input: {
     failure: submitted,
     maxAttempts: input.maxAttempts,
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+    onSyncTrace: input.onSyncTrace,
     onTerminalSubmitFailure: input.onTerminalSubmitFailure,
     pendingUpdates: input.pendingUpdates,
   });
@@ -316,6 +349,7 @@ export async function submitDocumentSyncAttemptIfAllowed(
 async function resolveDocumentSyncWriterProjection(input: {
   apiClient: DocumentSyncApi;
   documentId: string;
+  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   /**
    * Invoked when the projection fetch fails terminally. Write-bearing sync
    * passes persist this: without a writer projection their queued writes can
@@ -341,6 +375,10 @@ async function resolveDocumentSyncWriterProjection(input: {
       return REMOTE_DOCUMENT_DELETED;
     }
 
+    traceProjectionFailed(input.onSyncTrace, {
+      documentId: input.documentId,
+      status: result.status,
+    });
     result.report();
     await input.onTerminalFailure?.(result);
     return null;
@@ -356,6 +394,7 @@ export async function retrySyncPlan(input: {
   ) => Promise<MaterializedDocumentSyncPlan>;
   documentId: string;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<
   | readonly [MaterializedDocumentSyncPlan, DocumentWriterProjectionResponse]
@@ -381,6 +420,7 @@ export async function retrySyncPlan(input: {
   const writerProjection = await resolveDocumentSyncWriterProjection({
     apiClient: input.apiClient,
     documentId: input.documentId,
+    onSyncTrace: input.onSyncTrace,
     reusableWriterProjection: null,
   });
   if (writerProjection === REMOTE_DOCUMENT_DELETED) {
@@ -405,6 +445,7 @@ export async function resolveSyncAttemptWriterProjection(input: {
   documentId: string;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncAbandoned?: ((reason: string) => void) | undefined;
+  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
   reusableWriterProjection: DocumentWriterProjectionResponse | null;
 }): Promise<DocumentWriterProjectionResponse | null> {
@@ -431,6 +472,7 @@ export async function retrySyncPlanOrAbandon(input: {
   documentId: string;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncAbandoned?: ((reason: string) => void) | undefined;
+  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<
   | readonly [MaterializedDocumentSyncPlan, DocumentWriterProjectionResponse]

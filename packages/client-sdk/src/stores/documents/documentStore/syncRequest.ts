@@ -118,6 +118,7 @@ export async function requestRemoteDocumentSync(input: {
         currentRecord,
         documentId,
       ),
+    onSyncTrace: (line) => runtime.util.log(`Documents: ${line}`),
     onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
       state,
       generation,

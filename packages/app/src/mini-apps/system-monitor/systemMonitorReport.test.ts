@@ -250,6 +250,81 @@ test("report retains only anchored content-free telemetry", () => {
   );
 });
 
+test("report retains document sync trace lines and drops decorated ones", () => {
+  const documentId = "71ed8e12-fd1d-41fe-9c75-6c3a45b653e3";
+  const report = formatSystemMonitorReport({
+    capturedAt: CAPTURED_AT,
+    environment: [],
+    logEntries: [
+      createLogEntry(1, {
+        message: `Documents: document sync stale bundle document=${documentId} epoch=1 pending=3`,
+      }),
+      createLogEntry(2, {
+        message: `Documents: document sync heal planned document=${documentId} fromEpoch=1 toEpoch=2 updates=3 heldBack=0`,
+      }),
+      createLogEntry(3, {
+        message: `Documents: document sync heal blocked document=${documentId} reason=snapshot-unavailable`,
+      }),
+      createLogEntry(4, {
+        message: `Documents: document sync submit failed document=${documentId} status=409 code=document_sync_state_stale action=retry`,
+      }),
+      createLogEntry(5, {
+        message: `Documents: document sync projection failed document=${documentId} status=none`,
+      }),
+      createLogEntry(6, {
+        message: `Documents: document sync healed document=${documentId} epoch=2 accepted=4`,
+      }),
+      createLogEntry(7, {
+        message: `Container contents: document sync stale read document=${documentId} epoch=1`,
+      }),
+      createLogEntry(8, {
+        message: `Documents: document sync checkpoint regeneration document=${documentId} checkpoints=1 updates=2`,
+      }),
+      // A trace-shaped line with free-form decoration must still fail closed.
+      createLogEntry(9, {
+        message: `Documents: document sync healed document=${documentId} epoch=2 accepted=4 title=PRIVATE cardiology scan.pdf`,
+      }),
+      // Smuggled tokens inside the enumerated slots must fail closed too —
+      // the pattern enumerates the emitted vocabulary rather than accepting
+      // anything token-shaped.
+      createLogEntry(10, {
+        message: `Documents: document sync submit failed document=${documentId} status=409 code=private_patient_field action=stop`,
+      }),
+    ],
+    status: createStatus(),
+  });
+
+  expect(report).toContain(
+    `document sync stale bundle document=${documentId} epoch=1 pending=3`,
+  );
+  expect(report).toContain(
+    `document sync heal planned document=${documentId} fromEpoch=1 toEpoch=2 updates=3 heldBack=0`,
+  );
+  expect(report).toContain(
+    `document sync heal blocked document=${documentId} reason=snapshot-unavailable`,
+  );
+  expect(report).toContain(
+    `document sync submit failed document=${documentId} status=409 code=document_sync_state_stale action=retry`,
+  );
+  expect(report).toContain(
+    `document sync projection failed document=${documentId} status=none`,
+  );
+  expect(report).toContain(
+    `document sync healed document=${documentId} epoch=2 accepted=4`,
+  );
+  expect(report).toContain(
+    `document sync stale read document=${documentId} epoch=1`,
+  );
+  expect(report).toContain(
+    `document sync checkpoint regeneration document=${documentId} checkpoints=1 updates=2`,
+  );
+  expect(report).not.toContain("PRIVATE");
+  expect(report).not.toContain("private_patient_field");
+  expect(report).toContain(
+    "_Omitted 2 free-form log entries to protect decrypted customer data._",
+  );
+});
+
 test("report caps content-free telemetry after filtering", () => {
   const logEntries = Array.from(
     { length: MAX_REPORT_LOG_ENTRIES + 50 },

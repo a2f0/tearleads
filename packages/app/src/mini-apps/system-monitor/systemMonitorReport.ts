@@ -3,6 +3,7 @@ import type {
   PendingWriteQueueItem,
   SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
+import { DOCUMENT_SYNC_TRACE_FRAGMENT } from "@tearleads/client-sdk";
 import {
   formatPaneLogLine,
   type PaneLogEntry,
@@ -70,11 +71,28 @@ interface SystemMonitorReportInput {
  */
 export const MAX_REPORT_LOG_ENTRIES = 200;
 
-const CLIPBOARD_SAFE_LOG_PATTERN =
-  /(?:^|: )((?:document priming candidates=\d+ roots=\d+ primed=\d+ unroutable=\d+)|(?:stale root recovery status=(?:already-adopted|ambiguous|context-changed|reassigned|unsupported) candidates=\d+(?: occurrences=\d+)?)|(?:interest baseline containers=\d+)|(?:interest declaration acknowledged)|(?:remote revalidation scheduled reason=(?:reconnect|startup))|(?:remote revalidation result=(?:applied incomingUpdates=\d+ attachmentSlots=\d+|unavailable)))$/u;
+// Composed, not copied: the sync-trace alternatives come from the SDK module
+// that emits them, so a new trace shape cannot drift out of the allowlist.
+// Every trace line is built from anchored tokens (UUIDs, counts, enums) and
+// never carries decrypted content, names, key material, or free-form errors.
+//
+// Built lazily on first use, NOT at module scope: this module sits in an
+// import cycle with the SDK root barrel, and reading the fragment during
+// module evaluation crashes app boot (the barrel's namespace is not yet
+// initialized). By the time a report is copied, every module is evaluated
+// and the live binding is safe to read.
+let clipboardSafeLogPattern: RegExp | null = null;
+
+function getClipboardSafeLogPattern(): RegExp {
+  clipboardSafeLogPattern ??= new RegExp(
+    `(?:^|: )((?:document priming candidates=\\d+ roots=\\d+ primed=\\d+ unroutable=\\d+)|(?:stale root recovery status=(?:already-adopted|ambiguous|context-changed|reassigned|unsupported) candidates=\\d+(?: occurrences=\\d+)?)|(?:interest baseline containers=\\d+)|(?:interest declaration acknowledged)|(?:remote revalidation scheduled reason=(?:reconnect|startup))|(?:remote revalidation result=(?:applied incomingUpdates=\\d+ attachmentSlots=\\d+|unavailable))|(?:${DOCUMENT_SYNC_TRACE_FRAGMENT}))$`,
+    "u",
+  );
+  return clipboardSafeLogPattern;
+}
 
 function getClipboardSafeLogMessage(message: string): string | null {
-  return CLIPBOARD_SAFE_LOG_PATTERN.exec(message)?.[1] ?? null;
+  return getClipboardSafeLogPattern().exec(message)?.[1] ?? null;
 }
 
 /**
