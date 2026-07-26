@@ -205,3 +205,57 @@ test("mobile context menu items meet the touch type and glyph size", async ({
   expect(glyphBox.width).toBeGreaterThanOrEqual(24);
   expect(glyphBox.height).toBeGreaterThanOrEqual(24);
 });
+
+// A key/value info table gives both of its columns a one-character min-content
+// (the shared cell rule breaks inside words), so at phone width the auto layout
+// hands the space to whichever column wants more of it. On the sync lane detail
+// that is the value column — its timestamps are already wide at the touch type
+// ramp and a lane error string is wider still — which crushed the label column
+// to ~4 characters and stacked "Requested" over three lines. Counting client
+// rects over each label's contents is the assertion that catches it: a label
+// that fits reports one rect per line, and nothing about the cell's box or its
+// text says how many lines the browser actually drew.
+test("mobile sync lane detail keeps its labels on one line", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/app/explorer/sync");
+
+  const laneRow = page.locator(".explorer-sync-lane-table-row").first();
+  await expect(laneRow).toBeVisible({ timeout: 30_000 });
+  await laneRow.locator("button").first().click();
+  await page.getByRole("tab", { name: "Timing" }).click();
+  await expect(
+    page.locator(".explorer-sync-lane-detail th").first(),
+  ).toHaveText("Requested");
+
+  // A lane only carries an error once it has actually failed, so stand one in
+  // and measure inside the same evaluate: the panel re-renders on sync snapshot
+  // changes, not on this write, and layout is up to date within the call.
+  const drawn = await page.evaluate(() => {
+    const detail = document.querySelector(".explorer-sync-lane-detail");
+    const values = Array.from(detail?.querySelectorAll("td") ?? []);
+    const lastError = values.at(-1);
+    if (lastError) {
+      lastError.textContent =
+        "Sync failed: HTTP 500 from https://api.example.test/v1/containers/0123456789abcdef/updates after 3 retries";
+    }
+    const table = detail?.querySelector("table");
+    return {
+      labels: Array.from(detail?.querySelectorAll("th") ?? []).map((cell) => {
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+        return { lines: range.getClientRects().length, text: cell.textContent };
+      }),
+      // Single-line labels must not buy their width with a sideways scroll: the
+      // values wrap anywhere, so the table still has to fit the screen.
+      tableOverflow: table ? table.scrollWidth - table.clientWidth : null,
+      pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+    };
+  });
+
+  expect(drawn.labels.length).toBeGreaterThan(0);
+  expect(drawn.labels.filter((label) => label.lines !== 1)).toEqual([]);
+  expect(drawn.tableOverflow).toBe(0);
+  expect(drawn.pageOverflow).toBeLessThanOrEqual(0);
+});
