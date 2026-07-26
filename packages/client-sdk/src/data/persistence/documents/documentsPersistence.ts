@@ -764,6 +764,9 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
         endVersionVector: input.endVersionVector,
         ...(input.force === undefined ? {} : { force: input.force }),
         snapshot: input.snapshot,
+        ...(input.stillCurrent === undefined
+          ? {}
+          : { stillCurrent: input.stillCurrent }),
       },
     );
   },

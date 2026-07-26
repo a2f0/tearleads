@@ -174,6 +174,7 @@ export interface DocumentsPersistence {
       force?: boolean;
       localId: string;
       snapshot: string;
+      stillCurrent?: () => boolean;
     },
   ) => Promise<void>;
   saveDocumentAndDeletePendingUpdates: (

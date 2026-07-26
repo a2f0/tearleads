@@ -284,6 +284,7 @@ async function maybeCompactDocumentHistory(
     endVersionVector,
     localId: state.localId,
     snapshot: bytesToBase64(snapshot),
+    stillCurrent: () => isSyncGenerationCurrent(state, generation),
   });
 }
 

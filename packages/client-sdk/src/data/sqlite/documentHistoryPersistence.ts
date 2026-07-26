@@ -214,6 +214,13 @@ export async function replaceDocumentHistoryCheckpoint(
      */
     force?: boolean;
     snapshot: string;
+    /**
+     * Re-checked after acquiring the serialized mutation slot (like the
+     * record-save path): a store reset/recreation that happened while this
+     * call waited in the queue must abort the write, or a stale compactor
+     * could install the OLD document's checkpoint over the new identity's.
+     */
+    stillCurrent?: () => boolean;
   },
 ): Promise<void> {
   await ensureSqlTables(execSql, documentTables);
@@ -225,7 +232,10 @@ export async function replaceDocumentHistoryCheckpoint(
   // concurrent compactor between the read and the write: whoever loses the
   // CAS re-reads and re-evaluates the gate against the winner's checkpoint.
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (tx) => {
-    for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (input.stillCurrent?.() === false) {
+      return;
+    }
+    for (let attempt = 0; attempt < CHECKPOINT_CAS_ATTEMPTS; attempt += 1) {
       let replaced: boolean;
       try {
         replaced = await tryReplaceCheckpointOnce(tx, scope, input);
@@ -262,8 +272,15 @@ export async function replaceDocumentHistoryCheckpoint(
       }
       return;
     }
+    // Exhaustion must not read as durable success: creation and rebuild
+    // callers persist shallow records assuming the checkpoint landed.
+    throw new Error(
+      "Document history checkpoint replacement lost every CAS attempt",
+    );
   });
 }
+
+const CHECKPOINT_CAS_ATTEMPTS = 16;
 
 type MutationDb = Parameters<
   Parameters<
