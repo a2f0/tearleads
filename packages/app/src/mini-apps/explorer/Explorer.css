@@ -82,6 +82,31 @@
   padding-top: var(--space-sm);
 }
 
+/*
+ * Mobile: the rule below the detail header reads as the shell's own divider, so
+ * run it to the screen edges instead of stopping it inside the mini-app root's
+ * inline padding — the same full-bleed treatment the container item list already
+ * gets (`mini-app-table-frame--bleed`). The negative margin breaks out of that
+ * padding and the matching inline padding puts the document back exactly where
+ * it was, so only the border moves.
+ *
+ * The inset is restored because the pane also hosts structured documents
+ * (contact, driver's license) whose fields would otherwise sit hard against the
+ * screen.
+ */
+.routed-pane--mobile .explorer-inline-note {
+  margin-inline: calc(-1 * var(--space-md));
+  padding-inline: var(--space-md);
+}
+
+/* A note is the exception: it already supplies its own inline padding (the
+   editor's) and its attachments tray runs to the screen edges. The tray cannot
+   bleed back out through the restored padding — `.note-document-scroll` clips
+   the inline axis on purpose — so the note pane simply keeps the bleed. */
+.routed-pane--mobile .explorer-inline-note:has(.note-document) {
+  padding-inline: 0;
+}
+
 .explorer-linked-container-list {
   display: flex;
   flex-direction: column;
