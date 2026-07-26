@@ -214,8 +214,8 @@
       "bytes": 15065
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 454,
-      "bytes": 20363
+      "lines": 457,
+      "bytes": 20544
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
       "lines": 565,

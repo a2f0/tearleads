@@ -212,11 +212,13 @@
   flex: 0 0 auto;
 }
 
-/* In a detail header the badge is the header's right-hand child, so the title
-   beside it truncates and the glyph pins to the panel's right edge. Matching
-   the title's line box centres the dot on the first line rather than on the
-   header block, whose second line is the subtitle. */
-.mini-app-header > .explorer-sync-badge {
+/* A detail header pins the badge to its trailing edge, so the title beside it
+   truncates and the glyph reaches the panel's right edge. Matching the title's
+   line box centres the dot on the first line rather than on the header block,
+   whose second line is the subtitle. Descendant rather than child selector: the
+   container header nests the badge in a group with its folder kebab (where the
+   kebab's taller touch box, not this line box, sets the pair's centre line). */
+.mini-app-header .explorer-sync-badge {
   min-height: 1lh;
 }
 
