@@ -18,6 +18,7 @@ export {
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdate,
+  enqueueDocumentPendingUpdateWithHistory,
   listDocumentPendingUpdates,
   MAX_PENDING_UPDATE_REKEYS,
   rekeyDocumentPendingUpdate,

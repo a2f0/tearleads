@@ -32,7 +32,7 @@ import {
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
   deleteDocumentRecord,
-  enqueueDocumentPendingUpdate,
+  enqueueDocumentPendingUpdateWithHistory,
   ensureDocumentProjectionTables,
   ensureDocumentTables,
   findLocalIdByDocumentId,
@@ -764,15 +764,11 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   },
   async enqueuePendingUpdate(execSql, pendingUpdate) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      const scope = getDocumentScope(pendingUpdate.localId);
-      // Append to the durable history tail FIRST: the tail must be a
-      // superset of what the record snapshot covers, and duplicates are
-      // harmless (Loro imports are idempotent by op identity), so a crash
-      // between the two writes can only leave the safe superset.
-      await appendDocumentHistoryUpdates(lockedExecSql, scope, [
-        pendingUpdate.updateData,
-      ]);
-      await enqueueDocumentPendingUpdate(lockedExecSql, scope, pendingUpdate);
+      await enqueueDocumentPendingUpdateWithHistory(
+        lockedExecSql,
+        getDocumentScope(pendingUpdate.localId),
+        pendingUpdate,
+      );
     });
   },
   async saveLocalAttachment(execSql, attachment) {

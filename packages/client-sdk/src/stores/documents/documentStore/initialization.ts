@@ -344,6 +344,17 @@ async function initializeDocumentStore(
   const persistedMarker = existing?.pendingBaseVersion ?? null;
   if (persistedMarker !== null) {
     state.pendingBaseVersion = persistedMarker;
+  } else if (existing && existing.loroSnapshot.length > 0) {
+    // No persisted marker, but the durable-history restore may have
+    // resurrected ops the outgoing queue never durably received (a crash
+    // between the tail append and the queue/marker writes). Seeding from the
+    // restored document would classify those ops as covered and orphan them
+    // from sync forever; seed from the SHALLOW snapshot's frontier instead —
+    // the state the record actually persisted — so anything beyond it is
+    // re-derived and enqueued by the next edit.
+    state.pendingBaseVersion = getImportBlobMetadata(
+      base64ToBytes(existing.loroSnapshot),
+    ).partialEndVersionVector;
   } else {
     advancePendingBaseVersion(state, nextDoc);
   }

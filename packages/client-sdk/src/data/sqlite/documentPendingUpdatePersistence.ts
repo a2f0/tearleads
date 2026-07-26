@@ -5,7 +5,7 @@ import type {
   PendingUpdateRecord,
   SelectedPendingUpdateRow,
 } from "./documentPersistenceTypes";
-import { documentPendingUpdates } from "./schema";
+import { documentHistoryUpdates, documentPendingUpdates } from "./schema";
 import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
 import type { ExecSql } from "./sqlSchema";
 
@@ -66,6 +66,46 @@ export async function enqueueDocumentPendingUpdate(
         partialEndVersionVector: pendingUpdate.partialEndVersionVector,
         sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
         createdAt: new Date().toISOString(),
+      })
+      .run();
+  });
+}
+
+/**
+ * Enqueue an outgoing update AND append it to the durable-history tail in a
+ * single transaction. Serialization alone is not enough: a crash between
+ * separate inserts could leave the op restorable from history while missing
+ * from the outgoing queue, and a null-marker restore would then classify it
+ * as covered and never send it.
+ */
+export async function enqueueDocumentPendingUpdateWithHistory(
+  execSql: ExecSql,
+  scope: DocumentScope,
+  pendingUpdate: PendingUpdateFields,
+): Promise<void> {
+  const createdAt = new Date().toISOString();
+  await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
+    await tx
+      .insert(documentHistoryUpdates)
+      .values({
+        id: crypto.randomUUID(),
+        appKind: scope.appKind,
+        localId: scope.localId,
+        updateData: pendingUpdate.updateData,
+        createdAt,
+      })
+      .run();
+    await tx
+      .insert(documentPendingUpdates)
+      .values({
+        id: crypto.randomUUID(),
+        appKind: scope.appKind,
+        localId: scope.localId,
+        updateData: pendingUpdate.updateData,
+        partialStartVersionVector: pendingUpdate.partialStartVersionVector,
+        partialEndVersionVector: pendingUpdate.partialEndVersionVector,
+        sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
+        createdAt,
       })
       .run();
   });
