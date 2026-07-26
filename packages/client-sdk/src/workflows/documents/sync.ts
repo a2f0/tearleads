@@ -284,6 +284,33 @@ async function buildStaleRecoveryBaselinePendingUpdate(
  * read-only pass keeps the stale bundle/targets pair — without unwrapping —
  * so the server can settle the pull against the stored state it actually has.
  */
+/**
+ * The manifest bundle a stale read-only plan must pair with: the one the
+ * stale content-key bundle actually references. A stale bundle normally
+ * still carries the current link-set manifest hash (KEK rotations do not
+ * advance the document manifest), but the projection consistency check
+ * defensively admits a bundle lagging the head as long as it appears in the
+ * manifest history — pair with that historical bundle so the plan's own
+ * identity checks hold.
+ */
+function staleBundleDocumentManifest(
+  writerProjection: DocumentWriterProjectionResponse,
+): DocumentCreateResponse["accessManifest"] {
+  const { contentKeyBundle, documentManifest } = writerProjection;
+  if (contentKeyBundle.linkSetManifestHash === documentManifest.manifestHash) {
+    return documentManifest;
+  }
+  const historicalManifest = writerProjection.documentManifestHistory.find(
+    (bundle) => bundle.manifestHash === contentKeyBundle.linkSetManifestHash,
+  );
+  if (!historicalManifest) {
+    throw new Error(
+      "Document stale bundle manifest is missing from the projection history",
+    );
+  }
+  return historicalManifest;
+}
+
 async function resolveSyncPlanContentMaterial(
   input: Parameters<typeof buildMaterializedDocumentSyncPlan>[0],
   containerKeksByEpochId: ReadonlyMap<string, Uint8Array>,
@@ -291,6 +318,7 @@ async function resolveSyncPlanContentMaterial(
   contentKey: Uint8Array;
   contentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];
+  documentManifest: DocumentCreateResponse["accessManifest"];
   healedStaleContentKeyBundle: boolean;
   heldBackPendingUpdateIds: readonly string[];
   pendingUpdates: readonly PendingUpdateRecord[];
@@ -303,12 +331,12 @@ async function resolveSyncPlanContentMaterial(
   if (staleContentKeyBundle && pendingUpdates.length > 0) {
     const contentKey = crypto.getRandomValues(new Uint8Array(32));
     // A rotation checkpoint left in the queue by an interrupted earlier
-    // recovery is superseded by the fresh covering baseline built below, and
-    // submitting it alongside would trip the server's covering-baseline gate
-    // (every baseline in an epoch-advancing sync must dominate the committed
-    // frontier). Hold it back: it stays queued and unacked, and the reported
-    // held-back ids make the lane schedule a post-heal pass that submits it
-    // as an ordinary, non-advancing checkpoint.
+    // recovery is superseded by the fresh covering baseline built below:
+    // submitting it alongside would trip the server's covering-baseline gate,
+    // and resubmitting it after the heal could become the latest baseline at
+    // the healed epoch and mask the covering one. Hold it out of the request;
+    // on heal success its id is reported settled (the committed baseline
+    // subsumes its full-history content) so the queue row is removed.
     //
     // A heal whose OWN baseline does not cover the committed frontier is
     // rejected by that same gate and surfaces as a terminal queue failure.
@@ -332,6 +360,7 @@ async function resolveSyncPlanContentMaterial(
         writerProjection: input.writerProjection,
       }),
       documentKekTargets: input.writerProjection.documentKekTargets,
+      documentManifest: input.writerProjection.documentManifest,
       healedStaleContentKeyBundle: true,
       heldBackPendingUpdateIds: pendingUpdates
         .filter((update) => update.sourceVersionVector != null)
@@ -348,6 +377,7 @@ async function resolveSyncPlanContentMaterial(
       documentKekTargets: documentKekTargetsFromContentKeyBundle(
         input.writerProjection.contentKeyBundle,
       ),
+      documentManifest: staleBundleDocumentManifest(input.writerProjection),
       healedStaleContentKeyBundle: false,
       heldBackPendingUpdateIds: [],
       pendingUpdates,
@@ -361,6 +391,7 @@ async function resolveSyncPlanContentMaterial(
     ),
     contentKeyBundle: input.writerProjection.contentKeyBundle,
     documentKekTargets: input.writerProjection.documentKekTargets,
+    documentManifest: input.writerProjection.documentManifest,
     healedStaleContentKeyBundle: false,
     heldBackPendingUpdateIds: [],
     pendingUpdates,
@@ -414,6 +445,7 @@ export async function buildMaterializedDocumentSyncPlan(
     contentKey,
     contentKeyBundle,
     documentKekTargets,
+    documentManifest,
     healedStaleContentKeyBundle,
     heldBackPendingUpdateIds,
     pendingUpdates,
@@ -437,7 +469,7 @@ export async function buildMaterializedDocumentSyncPlan(
     contentKeyBundle,
     documentId,
     documentKekTargets,
-    documentManifest: input.writerProjection.documentManifest,
+    documentManifest,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     outgoingUpdates,
@@ -500,17 +532,23 @@ async function syncRemoteDocumentResultFromResponse(input: {
     organizationId: plan.organizationId,
     updates: input.response.updates,
   });
-  // The synthetic heal baseline matches no pending-queue row; counting its
-  // ack as settled would make a held-back checkpoint pass look fully settled
-  // and suppress the follow-up re-arm.
-  const settledPendingUpdateIds = settledPendingUpdateIdsFromSync({
-    decryptedUpdates,
-    recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
-    response: input.response,
-  }).filter(
-    (updateId) =>
-      updateId !== input.materializedPlan.staleRecoveryBaselineUpdateId,
-  );
+  // Two heal-specific corrections: the synthetic heal baseline matches no
+  // pending-queue row, so its ack must not count as a settled pending update;
+  // and checkpoints the heal held back ARE settled by it — the committed
+  // covering baseline subsumes their full-history content, and resubmitting
+  // them post-heal could become the LATEST baseline at the healed epoch and
+  // shrink the redirect's coverage below the pre-heal frontier.
+  const settledPendingUpdateIds = [
+    ...settledPendingUpdateIdsFromSync({
+      decryptedUpdates,
+      recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
+      response: input.response,
+    }).filter(
+      (updateId) =>
+        updateId !== input.materializedPlan.staleRecoveryBaselineUpdateId,
+    ),
+    ...(input.materializedPlan.heldBackPendingUpdateIds ?? []),
+  ];
   const { exhaustedPendingUpdateCount, rekeyedPendingUpdateIds } =
     await rekeyAndReportUnsettledRecoveryPendingUpdates({
       execSql: input.execSql,
@@ -524,8 +562,6 @@ async function syncRemoteDocumentResultFromResponse(input: {
     exhaustedPendingUpdateCount,
     contentKey: input.materializedPlan.contentKey,
     decryptedUpdates,
-    heldBackPendingUpdateIds:
-      input.materializedPlan.heldBackPendingUpdateIds ?? [],
     persistedState,
     plan,
     rekeyedPendingUpdateIds,
@@ -833,7 +869,6 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
         contentKey: new Uint8Array(),
         decryptedUpdates: [],
         exhaustedPendingUpdateCount: 0,
-        heldBackPendingUpdateIds: [],
         persistedState,
         plan,
         rekeyedPendingUpdateIds: [],

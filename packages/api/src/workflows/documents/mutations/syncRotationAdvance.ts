@@ -94,10 +94,20 @@ export async function assertEpochAdvanceAnchoredByCoveringBaseline(input: {
         409,
       );
     }
-    if (
-      !baseline.sourceVersionVector ||
-      !satisfiesVersionVector(baseline.sourceVersionVector, committedFrontier)
-    ) {
+    // The wire schema only requires a non-empty string; an undecodable vector
+    // must surface as a client error, not a 500 out of the vector decoder.
+    let coversCommittedFrontier: boolean;
+    try {
+      coversCommittedFrontier =
+        !!baseline.sourceVersionVector &&
+        satisfiesVersionVector(baseline.sourceVersionVector, committedFrontier);
+    } catch {
+      throw new DocumentMutationError(
+        "Document content-key rotation baseline source vector is invalid",
+        400,
+      );
+    }
+    if (!coversCommittedFrontier) {
       throw new DocumentMutationError(
         "Document content-key rotation baseline does not cover the committed frontier",
         409,

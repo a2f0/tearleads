@@ -378,8 +378,9 @@ export interface MaterializedDocumentSyncPlan {
   healedStaleContentKeyBundle?: boolean;
   /**
    * Pending-queue ids a heal deliberately did NOT submit (superseded rotation
-   * checkpoints). They stay queued for a post-heal pass; the sync result
-   * reports them so lanes schedule that pass instead of going idle.
+   * checkpoints). On heal success they are reported as settled — the
+   * committed covering baseline subsumes their content, and resubmitting them
+   * post-heal could mask it as the latest baseline at the healed epoch.
    */
   heldBackPendingUpdateIds?: readonly string[];
   plan: DocumentSyncPlan;
@@ -400,13 +401,6 @@ export interface SyncRemoteDocumentResult {
    * the pass as clean and clear it.
    */
   exhaustedPendingUpdateCount: number;
-  /**
-   * Pending-queue ids a stale-bundle heal deliberately left queued
-   * (superseded rotation checkpoints). Non-empty means a follow-up pass must
-   * be scheduled to submit them post-heal — treat them like re-keyed ids in
-   * re-arm accounting.
-   */
-  heldBackPendingUpdateIds: readonly string[];
   persistedState: PersistedDocumentSyncState;
   plan: DocumentSyncPlan;
   rekeyedPendingUpdateIds: readonly string[];

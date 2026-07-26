@@ -150,6 +150,27 @@ test("a heal that advances the content-key epoch must carry a newly written base
     "Document content-key rotation baseline does not cover the committed frontier",
   );
 
+  // A baseline whose source vector does not decode is a client error, never
+  // a 500 out of the vector decoder.
+  const malformedVectorHeal = await createSignedDocumentSyncRequest({
+    checkpoint: true,
+    contentKeyBundle: healedBundle,
+    created,
+    includeContentKeyBundle: true,
+    owner,
+    root: revokedRoot,
+  });
+  const malformedVectorResponse = await postDocumentSync(owner, created.id, {
+    ...malformedVectorHeal.request,
+    outgoingUpdates: malformedVectorHeal.request.outgoingUpdates.map(
+      (update) => ({ ...update, sourceVersionVector: "not-a-vector" }),
+    ),
+  });
+  expect(malformedVectorResponse.status).toBe(400);
+  expect((await malformedVectorResponse.json()).error).toBe(
+    "Document content-key rotation baseline source vector is invalid",
+  );
+
   // Replaying the already-committed pre-revoke baseline cannot anchor the
   // advance: the idempotent-retry path would keep its old-epoch write header,
   // so no baseline readable under the new key would exist.

@@ -272,10 +272,7 @@ async function recoverFullHistoryForRotation(
     // the rebuild/install window has closed (successfully or not) —
     // scheduling it mid-window deterministically raced the lane's import
     // against the version check above and the rebuilt-document install.
-    if (
-      synced.rekeyedPendingUpdateIds.length > 0 ||
-      synced.heldBackPendingUpdateIds.length > 0
-    ) {
+    if (synced.rekeyedPendingUpdateIds.length > 0) {
       requestDocumentStoreSync(state);
     }
   }
