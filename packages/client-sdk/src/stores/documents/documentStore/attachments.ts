@@ -12,6 +12,7 @@ import {
   deleteLocalDocumentAttachment,
   deletePendingDocumentAttachment,
   type LocalAttachmentRecord,
+  markLocalDocumentAttachmentDetached,
   type PendingAttachmentRecord,
   savePendingDocumentAttachment,
 } from "../../../workflows/documents";
@@ -78,6 +79,7 @@ async function persistPendingAttachments(
     (pendingAttachment): LocalAttachmentRecord => ({
       blobId: null,
       byteLength: pendingAttachment.byteLength,
+      detachedAt: null,
       localId: state.localId,
       mimeType: pendingAttachment.mimeType,
       slotId: pendingAttachment.slotId,
@@ -106,6 +108,7 @@ async function persistPendingAttachments(
         localAttachmentRecords[index] ?? {
           blobId: null,
           byteLength: pendingAttachment.byteLength,
+          detachedAt: null,
           localId: state.localId,
           mimeType: pendingAttachment.mimeType,
           slotId: pendingAttachment.slotId,
@@ -243,6 +246,7 @@ async function persistSlotAttachmentFile(
   await saveLocalAttachmentRecord(state, {
     blobId: null,
     byteLength: replacementAttachment.byteLength,
+    detachedAt: null,
     localId: state.localId,
     mimeType: replacementAttachment.mimeType,
     slotId,
@@ -329,6 +333,20 @@ async function persistRemovedAttachment(
   if (storageKey) {
     if (state.record?.documentId) {
       await deletePendingAttachmentForSlot(state, slotId, storageKey);
+      // The synced document's local blob row has to outlive the unlink so the
+      // next sync can detach its remote binding, so mark it detached rather
+      // than deleting it: an unmarked row keeps answering "this blob is still
+      // referenced by this document" in the blob browser until the detach
+      // reaches the server, which never happens while offline. The slot stays
+      // in attachmentStorageKeyBySlotId, which is what syncDetachedAttachments
+      // diffs against the document to find the detach it still owes.
+      await markLocalDocumentAttachmentDetached({
+        execSql: state.runtime.infra.execSql,
+        localId: state.localId,
+        persistence: state.persistence,
+        slotId,
+        storageKey,
+      });
     } else {
       await deleteLocalOnlyDetachedAttachment(state, slotId, storageKey);
     }

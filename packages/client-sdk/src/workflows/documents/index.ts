@@ -18,6 +18,13 @@ export {
   didRegainSyncPrerequisites,
   isDatabaseUnavailableError,
 } from "../../data/sync/syncCoordinator";
+export {
+  deleteLocalDocumentAttachment,
+  deletePendingDocumentAttachment,
+  markLocalDocumentAttachmentDetached,
+  saveLocalDocumentAttachments,
+  savePendingDocumentAttachment,
+} from "./attachmentPersistence";
 export { resolveDocumentCreateAuthor } from "./author";
 export {
   buildMaterializedDocumentCreatePlan,
@@ -33,8 +40,6 @@ export {
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
-  deleteLocalDocumentAttachment,
-  deletePendingDocumentAttachment,
   deletePersistedDocument,
   enqueuePendingDocumentUpdate,
   type LocalAttachmentRecord,
@@ -46,8 +51,6 @@ export {
   type PendingUpdateRecord,
   persistDocumentState,
   type RelinkPersistedDocumentInput,
-  saveLocalDocumentAttachments,
-  savePendingDocumentAttachment,
 } from "./persistence";
 export {
   createDocumentProjectionUserKeyResolver,

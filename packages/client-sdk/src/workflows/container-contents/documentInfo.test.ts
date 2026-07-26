@@ -171,6 +171,7 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
     await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
       blobId: "blob-1",
       byteLength: 34,
+      detachedAt: null,
       localId: "local-document-1",
       mimeType: "image/png",
       slotId: "slot-local",

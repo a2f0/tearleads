@@ -1,0 +1,169 @@
+import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { createDocument, exportAllUpdates } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { addDocumentAttachments } from "../../data/documents/documentContent";
+import {
+  clientSqlTables,
+  documentAttachmentBlobProjection,
+  documentPendingAttachments,
+  documents,
+} from "../../data/sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
+import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+import { clearRemoteSyncState } from "./remoteReset";
+
+const STALE = "2026-05-01T00:00:00.000Z";
+
+// A document whose durable snapshot advertises exactly `slotIds`.
+async function createSnapshot(slotIds: ReadonlyArray<string>) {
+  const doc = await createDocument("remote-reset-detached-test-doc");
+  addDocumentAttachments(
+    doc,
+    slotIds.map((slotId) => ({
+      byteLength: 12,
+      mimeType: "image/png",
+      name: `${slotId}.png`,
+      slotId,
+    })),
+  );
+  return bytesToBase64(exportAllUpdates(doc));
+}
+
+function localAttachment(slotId: string, detachedAt: string | null) {
+  return {
+    localId: "doc-1",
+    slotId,
+    blobId: `blob-${slotId}`,
+    storageKey: `local/${slotId}`,
+    mimeType: "image/png",
+    byteLength: 12,
+    updatedAt: STALE,
+    detachedAt,
+  };
+}
+
+async function seedResetFixture(
+  execSql: Parameters<typeof clearRemoteSyncState>[0],
+  input: {
+    attachments: ReadonlyArray<ReturnType<typeof localAttachment>>;
+    snapshotSlotIds: ReadonlyArray<string>;
+  },
+) {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  await db.insert(documents).values({
+    appKind: "documents",
+    localId: "doc-1",
+    documentId: "doc-remote-old",
+    loroSnapshot: await createSnapshot(input.snapshotSlotIds),
+    accessEpoch: 1,
+    accessStateHash: "old-access-state",
+    lastCommitLsn: "1",
+    documentManifestBundle: "{}",
+    contentKeyBundle: "{}",
+    documentKekTargets: "{}",
+    updatedAt: STALE,
+  });
+  await db
+    .insert(documentAttachmentBlobProjection)
+    .values([...input.attachments]);
+  return db;
+}
+
+test("clearRemoteSyncState migrates detached_at on an older database", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "sync-remote-reset-detached-migration-test",
+  );
+
+  try {
+    // The pre-detach-marker table shape. CREATE TABLE IF NOT EXISTS leaves it
+    // alone, so the reset itself has to add the column before it reads one.
+    await execSql(
+      `CREATE TABLE "document_attachment_blob_projection" (
+         "local_id" TEXT NOT NULL,
+         "slot_id" TEXT NOT NULL,
+         "blob_id" TEXT,
+         "storage_key" TEXT NOT NULL,
+         "mime_type" TEXT,
+         "byte_length" INTEGER NOT NULL,
+         "updated_at" TEXT NOT NULL,
+         PRIMARY KEY ("local_id", "slot_id")
+       )`,
+    );
+    await ensureSqlTables(execSql, clientSqlTables);
+
+    await expect(clearRemoteSyncState(execSql)).resolves.toBeDefined();
+  } finally {
+    close();
+  }
+});
+
+test("clearRemoteSyncState leaves an unlinked slot out of the requeue", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "sync-remote-reset-detached-requeue-test",
+  );
+
+  try {
+    await ensureSqlTables(execSql, clientSqlTables);
+    const db = await seedResetFixture(execSql, {
+      attachments: [
+        localAttachment("slot-live", null),
+        localAttachment("slot-unlinked", STALE),
+      ],
+      snapshotSlotIds: ["slot-live"],
+    });
+
+    await clearRemoteSyncState(execSql);
+
+    const pendingRows = await db
+      .select({ slotId: documentPendingAttachments.slotId })
+      .from(documentPendingAttachments);
+    expect(pendingRows.map((row) => row.slotId)).toEqual(["slot-live"]);
+
+    // The unlinked slot's row outlives the reset because it still owns that
+    // slot's local bytes; the document lane's detach cleanup deletes both.
+    const projectionRows = await db
+      .select({ slotId: documentAttachmentBlobProjection.slotId })
+      .from(documentAttachmentBlobProjection);
+    expect(projectionRows.map((row) => row.slotId)).toEqual(["slot-unlinked"]);
+  } finally {
+    close();
+  }
+});
+
+test("clearRemoteSyncState requeues a slot the snapshot still advertises", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "sync-remote-reset-detached-interrupted-test",
+  );
+
+  try {
+    await ensureSqlTables(execSql, clientSqlTables);
+    // An unlink interrupted between marking the row and persisting the
+    // document: the marker is set, but the durable snapshot the reset is about
+    // to republish still advertises the slot. Trusting the marker here would
+    // publish a document advertising an attachment with no blob to bind.
+    const db = await seedResetFixture(execSql, {
+      attachments: [localAttachment("slot-interrupted", STALE)],
+      snapshotSlotIds: ["slot-interrupted"],
+    });
+
+    await clearRemoteSyncState(execSql);
+
+    const pendingRows = await db
+      .select({
+        name: documentPendingAttachments.name,
+        slotId: documentPendingAttachments.slotId,
+      })
+      .from(documentPendingAttachments);
+    expect(pendingRows).toEqual([
+      { name: "slot-interrupted.png", slotId: "slot-interrupted" },
+    ]);
+
+    const projectionRows = await db
+      .select({ slotId: documentAttachmentBlobProjection.slotId })
+      .from(documentAttachmentBlobProjection);
+    expect(projectionRows).toEqual([]);
+  } finally {
+    close();
+  }
+});

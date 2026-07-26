@@ -5,7 +5,7 @@ import type {
   DocumentWriterProjectionResponse,
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import {
   type DocumentBlameRange,
@@ -191,7 +191,14 @@ async function loadDocumentInfoAttachments(input: {
         updatedAt: documentAttachmentBlobProjection.updatedAt,
       })
       .from(documentAttachmentBlobProjection)
-      .where(eq(documentAttachmentBlobProjection.localId, input.localId))
+      .where(
+        and(
+          eq(documentAttachmentBlobProjection.localId, input.localId),
+          // Unlinked slots keep their row as a pending-detach marker; the
+          // document no longer has the attachment, so do not report it.
+          isNull(documentAttachmentBlobProjection.detachedAt),
+        ),
+      )
       .orderBy(
         documentAttachmentBlobProjection.updatedAt,
         documentAttachmentBlobProjection.slotId,

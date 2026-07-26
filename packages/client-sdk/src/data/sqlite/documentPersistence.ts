@@ -1,14 +1,17 @@
 import { documentProjectionTables, documentTables } from "./schema";
-import { type ExecSql, ensureSqlTables } from "./sqlSchema";
+import { type ExecSql, ensureSqlColumns, ensureSqlTables } from "./sqlSchema";
 
 export function ensureDocumentTables(execSql: ExecSql): Promise<void> {
   return ensureSqlTables(execSql, documentTables);
 }
 
-export function ensureDocumentProjectionTables(
+export async function ensureDocumentProjectionTables(
   execSql: ExecSql,
 ): Promise<void> {
-  return ensureSqlTables(execSql, documentProjectionTables);
+  await ensureSqlTables(execSql, documentProjectionTables);
+  await ensureSqlColumns(execSql, "document_attachment_blob_projection", [
+    { name: "detached_at", definition: '"detached_at" TEXT' },
+  ]);
 }
 
 export {

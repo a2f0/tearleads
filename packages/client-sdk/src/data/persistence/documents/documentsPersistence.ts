@@ -5,6 +5,7 @@ import {
   desc,
   eq,
   inArray,
+  isNull,
   notInArray,
   or,
   type SQL,
@@ -709,6 +710,9 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
 
     return rows.map(mapPendingAttachmentRecord);
   },
+  // Detached rows are included on purpose: they are the durable markers the
+  // next sync uses to detach the remote binding, so a restart has to restore
+  // them alongside the live slots.
   async listLocalAttachments(execSql, localId) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     const rows = await db
@@ -719,6 +723,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
         storageKey: documentAttachmentBlobProjection.storageKey,
         mimeType: documentAttachmentBlobProjection.mimeType,
         byteLength: documentAttachmentBlobProjection.byteLength,
+        detachedAt: documentAttachmentBlobProjection.detachedAt,
       })
       .from(documentAttachmentBlobProjection)
       .where(eq(documentAttachmentBlobProjection.localId, localId));
@@ -746,6 +751,9 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
         mimeType: attachment.mimeType,
         byteLength: attachment.byteLength,
         updatedAt,
+        // Written on every save so re-filling a slot clears a stale detach
+        // marker instead of inheriting it from the row it replaces.
+        detachedAt: attachment.detachedAt,
       };
       await db
         .insert(documentAttachmentBlobProjection)
@@ -769,6 +777,24 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
             eq(documentAttachmentBlobProjection.localId, localId),
             eq(documentAttachmentBlobProjection.slotId, slotId),
             eq(documentAttachmentBlobProjection.storageKey, storageKey),
+          ),
+        )
+        .run();
+    });
+  },
+  async markLocalAttachmentDetached(execSql, localId, slotId, storageKey) {
+    const detachedAt = new Date().toISOString();
+
+    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+      await db
+        .update(documentAttachmentBlobProjection)
+        .set({ detachedAt })
+        .where(
+          and(
+            eq(documentAttachmentBlobProjection.localId, localId),
+            eq(documentAttachmentBlobProjection.slotId, slotId),
+            eq(documentAttachmentBlobProjection.storageKey, storageKey),
+            isNull(documentAttachmentBlobProjection.detachedAt),
           ),
         )
         .run();

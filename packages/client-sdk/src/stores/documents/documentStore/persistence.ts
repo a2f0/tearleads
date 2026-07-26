@@ -2,15 +2,11 @@ import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
-import {
-  type DocumentAttachment,
-  getDocumentAttachments,
-} from "../../../data/documents/documentContent";
+import type { DocumentAttachment } from "../../../data/documents/documentContent";
 import {
   type DocumentProjectorRegistry,
   projectStoredDocumentState,
 } from "../../../data/documents/documentKinds";
-import { hydrateDocumentAttachmentBlobs } from "../../../workflows/blobs";
 import {
   type DocumentRecord,
   deleteLocalDocumentAttachment,
@@ -24,6 +20,7 @@ import {
   saveLocalDocumentAttachments,
   savePendingDocumentAttachment,
 } from "../../../workflows/documents";
+import { withLocalAttachmentDetachState } from "./attachmentDetachState";
 import {
   type DocumentState,
   type DocumentStoreState,
@@ -312,7 +309,7 @@ export async function saveLocalAttachmentRecord(
   await saveLocalAttachmentRecords(state, [attachment], currentDoc);
 }
 
-async function saveLocalAttachmentRecords(
+export async function saveLocalAttachmentRecords(
   state: DocumentStoreState,
   attachments: ReadonlyArray<LocalAttachmentRecord>,
   currentDoc: DocumentState | null = state.doc,
@@ -323,7 +320,7 @@ async function saveLocalAttachmentRecords(
   }
 
   await saveLocalDocumentAttachments({
-    attachments,
+    attachments: withLocalAttachmentDetachState(attachments, currentDoc),
     execSql: state.runtime.infra.execSql,
     persistence: state.persistence,
   });
@@ -359,88 +356,6 @@ async function saveLocalAttachmentRecords(
       state.snapshot.structuredFields,
     );
   }
-}
-
-export async function hydrateAttachmentBlobs(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  currentRecord: DocumentRecord | null,
-  expectedGeneration?: DocumentStoreSyncGeneration,
-) {
-  const generationIsCurrent = () =>
-    !expectedGeneration || isSyncGenerationCurrent(state, expectedGeneration);
-  if (!generationIsCurrent()) return;
-
-  const runtime = state.runtime;
-  const encapsulationKeyPair = runtime.crypto.encapsulationKeyPair;
-  if (
-    !encapsulationKeyPair ||
-    !runtime.auth.isAuthenticated ||
-    !runtime.state.online ||
-    !currentRecord?.documentId
-  ) {
-    return;
-  }
-
-  const attachments = getDocumentAttachments(currentDoc);
-  if (attachments.length === 0) {
-    return;
-  }
-
-  const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
-    apiClient: runtime.apiClient,
-    attachments,
-    documentId: currentRecord.documentId,
-    execSql: runtime.infra.execSql,
-    localBlobIdBySlotId: state.attachmentBlobIdBySlotId,
-    localStorageKeyBySlotId: state.attachmentStorageKeyBySlotId,
-    log: runtime.util.log,
-    resolveProjectionUserKey:
-      expectedGeneration?.resolveProjectionUserKey ??
-      state.resolveProjectionUserKey,
-    targetSecretKey: encapsulationKeyPair.secretKey,
-  });
-  if (!generationIsCurrent()) return;
-  if (!hydratedBlobs) {
-    return;
-  }
-
-  const localAttachmentRecords: LocalAttachmentRecord[] = [];
-  const replacedStorageKeys: string[] = [];
-  for (const hydratedBlob of hydratedBlobs) {
-    const previousStorageKey =
-      state.attachmentStorageKeyBySlotId[hydratedBlob.attachment.slotId];
-    await runtime.infra.blobStore.writeBytes(
-      hydratedBlob.storageKey,
-      hydratedBlob.bytes,
-    );
-    if (!generationIsCurrent()) return;
-    if (previousStorageKey && previousStorageKey !== hydratedBlob.storageKey) {
-      replacedStorageKeys.push(previousStorageKey);
-    }
-    localAttachmentRecords.push({
-      blobId: hydratedBlob.binding.blobId,
-      byteLength: hydratedBlob.attachment.byteLength,
-      localId: state.localId,
-      mimeType: hydratedBlob.attachment.mimeType,
-      slotId: hydratedBlob.attachment.slotId,
-      storageKey: hydratedBlob.storageKey,
-    });
-  }
-
-  await saveLocalAttachmentRecords(
-    state,
-    localAttachmentRecords,
-    currentDoc,
-    expectedGeneration,
-  );
-  if (!generationIsCurrent()) return;
-
-  await Promise.allSettled(
-    replacedStorageKeys.map((storageKey) =>
-      runtime.infra.blobStore.deleteBytes(storageKey),
-    ),
-  );
 }
 
 export function upsertPendingAttachments(

@@ -4,8 +4,10 @@ import {
   exportAllUpdates,
   importSnapshot,
 } from "@tearleads/loro";
+import { and, eq, or } from "drizzle-orm";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { getDocumentAttachments } from "../../data/documents/documentContent";
+import { ensureDocumentProjectionTables } from "../../data/sqlite/documentPersistence";
 import {
   organizationDataUsageCategories,
   organizationDataUsageSnapshots,
@@ -182,16 +184,32 @@ async function buildResetPlans(execSql: ExecSql): Promise<{
     }),
   );
 
-  const attachmentUploads = attachmentRows.map((attachment) => ({
-    byteLength: attachment.byteLength,
-    localId: attachment.localId,
-    mimeType: attachment.mimeType,
-    name:
-      attachmentNameMaps.get(attachment.localId)?.get(attachment.slotId) ??
-      attachment.slotId,
-    slotId: attachment.slotId,
-    storageKey: attachment.storageKey,
-  }));
+  // A reset re-uploads the local attachments as pending work, and the durable
+  // document decides which rows those are: a row whose slot the snapshot no
+  // longer advertises belongs to an unlink, and re-queueing it would resurrect
+  // an attachment the document dropped. Reading the snapshot rather than the
+  // detach marker keeps the two halves of an interrupted unlink consistent —
+  // there the marker is set but the snapshot still advertises the slot, and the
+  // reset has to upload it to match the document it is about to republish.
+  const attachmentUploads = attachmentRows.flatMap((attachment) => {
+    const name = attachmentNameMaps
+      .get(attachment.localId)
+      ?.get(attachment.slotId);
+    if (name === undefined) {
+      return [];
+    }
+
+    return [
+      {
+        byteLength: attachment.byteLength,
+        localId: attachment.localId,
+        mimeType: attachment.mimeType,
+        name,
+        slotId: attachment.slotId,
+        storageKey: attachment.storageKey,
+      },
+    ];
+  });
 
   return { attachmentUploads, documentUpdates };
 }
@@ -393,7 +411,27 @@ async function queueResetAttachmentUploads(input: {
       .run();
   }
 
-  await input.tx.delete(documentAttachmentBlobProjection).run();
+  // Drop only the rows this requeued. What is left belongs to slots the
+  // document no longer advertises: those rows are not remote-derived state but
+  // the markers that still own an unlinked slot's local bytes, and this
+  // workflow has no blob store to delete those bytes itself. Keeping them lets
+  // the document lane's usual detach cleanup delete the row and the bytes
+  // together, instead of stranding bytes nothing references.
+  if (input.attachmentUploads.length > 0) {
+    await input.tx
+      .delete(documentAttachmentBlobProjection)
+      .where(
+        or(
+          ...input.attachmentUploads.map((attachment) =>
+            and(
+              eq(documentAttachmentBlobProjection.localId, attachment.localId),
+              eq(documentAttachmentBlobProjection.slotId, attachment.slotId),
+            ),
+          ),
+        ),
+      )
+      .run();
+  }
 }
 
 async function clearRemoteSyncStateInTransaction(input: {
@@ -435,6 +473,10 @@ export async function clearRemoteSyncState(
 ): Promise<ClearRemoteSyncStateResult> {
   return runOrganizationPresentationReset(execSql, async () => {
     await ensureSqlTables(execSql, clientSqlTables);
+    // ensureSqlTables only creates missing tables. A reset can be the first
+    // thing a session does, so also run the projection column migrations before
+    // reading columns (detached_at) an upgraded database may not have yet.
+    await ensureDocumentProjectionTables(execSql);
     const plans = await buildResetPlans(execSql);
 
     return getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>

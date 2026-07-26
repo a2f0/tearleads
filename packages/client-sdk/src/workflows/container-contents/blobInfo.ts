@@ -6,6 +6,7 @@ import {
   eq,
   gt,
   inArray,
+  isNull,
   sql,
 } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/sqlite-core";
@@ -147,6 +148,9 @@ function createPendingBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
     .leftJoin(containers, eq(containers.id, documentProjection.containerId));
 }
 
+// Detached rows are excluded here rather than at each call site: a slot unlinked
+// from a synced document keeps its row until the detach reaches the server, and
+// it stops being a reference the moment it is unlinked.
 function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
   return db
     .select({
@@ -203,7 +207,8 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
       documentProjection,
       eq(documentProjection.localId, documentAttachmentBlobProjection.localId),
     )
-    .leftJoin(containers, eq(containers.id, documentProjection.containerId));
+    .leftJoin(containers, eq(containers.id, documentProjection.containerId))
+    .where(isNull(documentAttachmentBlobProjection.detachedAt));
 }
 
 function createBlobInfoReferencesCte(db: ClientSQLiteDatabase) {

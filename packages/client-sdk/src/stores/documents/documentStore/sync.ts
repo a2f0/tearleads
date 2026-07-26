@@ -11,13 +11,10 @@ import {
   sequenceUnchanged,
 } from "../../../workflows/documents/syncLane";
 import { requestDocumentStoreSync } from "../registry";
+import { hydrateAttachmentBlobs } from "./attachmentHydration";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { awaitInitializationForSync } from "./initialization";
-import {
-  hydrateAttachmentBlobs,
-  listPendingUpdates,
-  persistDocument,
-} from "./persistence";
+import { listPendingUpdates, persistDocument } from "./persistence";
 import {
   logRevalidationApplied as logApplied,
   logRevalidationUnavailable as logUnavailable,

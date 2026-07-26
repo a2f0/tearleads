@@ -161,6 +161,15 @@ its prerequisites: structural work drains first, the remote document exists,
 the current writer projection is verified, and only then are encrypted bytes
 staged and bound.
 
+Unlinking an attachment from a synced document is the mirror case. The local
+blob projection row cannot be dropped at unlink time: it is the durable marker
+the document lane diffs against the document to find the remote binding it
+still owes a detach, and that detach can be deferred indefinitely while the
+client is offline. The row is instead marked detached, and the local blob read
+models — the blob browser's references and document info's attachments — skip
+detached rows. Local views therefore reconcile at unlink time rather than at
+flush time, while the lane keeps the work it has not yet done.
+
 ## Failure And Retry Semantics
 
 The ordering is a client scheduling rule, not an atomic multi-object commit.

@@ -278,3 +278,107 @@ test("document store uploads attachments without a pre-upload document sync prob
   expect(documentWriterProjectionCalls).toEqual([]);
   expect(listDocumentAttachmentsCalls).toEqual([]);
 });
+
+test("document store marks a synced attachment detached before the detach flushes", async () => {
+  const persistence = createDocumentsPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const attachmentBinds: Array<{
+    blobId: string;
+    request: BlobAttachmentBindRequest;
+  }> = [];
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "shared-container",
+    { attachmentBinds },
+  );
+  const store = createDocumentStore("attachment-unlink", runtime, persistence);
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Attachment unlink document store did not become ready.",
+  );
+
+  store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("unlink me"),
+      mimeType: "image/png",
+      name: "unlink.png",
+    },
+  ]);
+
+  await waitForCondition(
+    () =>
+      attachmentBinds.length === 1 &&
+      persistence.getState().localAttachments[0]?.blobId != null,
+    "Attachment was not bound before the unlink.",
+    2_000,
+    10,
+  );
+
+  const slotId = store.getSnapshot().attachments[0]?.slotId;
+  expect(slotId).toBeString();
+  await store.removeAttachment(slotId ?? "");
+
+  // The mock api client cannot detach, so this asserts the state the app is
+  // left in while the detach is still owed to the server: the row survives as
+  // the detach marker, but it no longer counts as a live blob reference.
+  const localAttachment = persistence.getState().localAttachments[0];
+  expect(persistence.getState().localAttachments).toHaveLength(1);
+  expect(localAttachment?.slotId).toBe(slotId ?? "");
+  expect(localAttachment?.detachedAt).toBeString();
+  expect(store.getSnapshot().attachments).toEqual([]);
+});
+
+test("document store keeps an attachment detached when its in-flight upload settles", async () => {
+  const persistence = createDocumentsPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  let store: ReturnType<typeof createDocumentStore>;
+  let removalDuringBind: Promise<void> | undefined;
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "shared-container",
+    {
+      // Unlink the slot while its bind is in flight. The upload settles
+      // afterwards and writes the slot's local row; that write must not clear
+      // the detach marker the removal just set.
+      onBindBlobAttachment: async () => {
+        removalDuringBind ??= (async () => {
+          const slotId = store.getSnapshot().attachments[0]?.slotId;
+          if (!slotId) {
+            throw new Error("Expected an attachment slot before removal.");
+          }
+          await store.removeAttachment(slotId);
+        })();
+        await removalDuringBind;
+      },
+    },
+  );
+  store = createDocumentStore("attachment-unlink-race", runtime, persistence);
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Attachment unlink race document store did not become ready.",
+  );
+
+  store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("racing bytes"),
+      mimeType: "image/png",
+      name: "racing.png",
+    },
+  ]);
+
+  await waitForCondition(
+    () =>
+      removalDuringBind !== undefined &&
+      persistence.getState().localAttachments[0]?.blobId != null,
+    "Attachment upload did not settle after the unlink.",
+    2_000,
+    10,
+  );
+
+  expect(store.getSnapshot().attachments).toEqual([]);
+  expect(persistence.getState().localAttachments[0]?.detachedAt).toBeString();
+});
