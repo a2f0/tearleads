@@ -76,8 +76,17 @@ async function resolveContainerProjectionWithAccess(input: {
   // spans a KEK rotation can still unwrap pre-rotation content (e.g. stale
   // document content-key bundles after a revoke). Filtered per requester —
   // see loadHistoricalContainerKeks.
-  const pathContainerIds: ReadonlySet<string> = new Set(
-    access.verifiedPath.map((manifest) => manifest.state.containerId),
+  const pathContainerKeyEpochIds: ReadonlyMap<string, string> = new Map(
+    access.verifiedPath.flatMap((manifest) =>
+      manifest.state.containerKeyEpochId
+        ? [
+            [
+              manifest.state.containerId,
+              manifest.state.containerKeyEpochId,
+            ] as const,
+          ]
+        : [],
+    ),
   );
   const containerKeks: ContainerWriterProjectionResponse["containerKeks"] = [];
   for (const [index, manifest] of access.verifiedPath.entries()) {
@@ -91,7 +100,7 @@ async function resolveContainerProjectionWithAccess(input: {
         await loadHistoricalContainerKeks({
           context,
           manifest,
-          pathContainerIds,
+          pathContainerKeyEpochIds,
           principalPolicies: access.principalPolicies,
           userId: input.userId,
         }),

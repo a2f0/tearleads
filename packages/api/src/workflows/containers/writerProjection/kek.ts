@@ -230,19 +230,23 @@ function requesterPrincipalIds(
 
 /**
  * Superseded key epochs for one container, with wraps filtered to recipients
- * the REQUESTER can use: the user directly, principals they currently derive
- * access through, or containers on the requested path (the parent chain).
- * Epochs whose filtered wrap set is empty are omitted — a member added after
- * a rotation simply receives nothing from before their time. Serving a wrap
- * grants no new capability (it is ciphertext under the recipient's key), and
- * clients re-verify every unwrap against the epoch id's key-material
- * commitment, but the filter avoids broadcasting historical audience
- * metadata to members it does not concern.
+ * whose key material proves the REQUESTER was in the epoch's audience: the
+ * user directly, principals they currently derive access through, or path
+ * containers — but only at a SUPERSEDED parent epoch. A wrap to a parent's
+ * CURRENT epoch is never served: every current member (including one granted
+ * access after the child's rotation) holds that epoch, so serving it would
+ * disclose pre-grant child key material. A superseded parent epoch is only
+ * reachable through the requester's own filtered historical wraps, which is
+ * the audience proof this filter requires. Epochs whose filtered wrap set is
+ * empty are omitted — a member added after a rotation simply receives
+ * nothing from before their time. Clients re-verify every unwrap against the
+ * epoch id's key-material commitment.
  */
 export async function loadHistoricalContainerKeks(input: {
   readonly context: ContainerWriterProjectionContext;
   readonly manifest: VerifiedContainerAccessManifest;
-  readonly pathContainerIds: ReadonlySet<string>;
+  /** Current key-epoch id of every container on the requested path. */
+  readonly pathContainerKeyEpochIds: ReadonlyMap<string, string>;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
   readonly userId: string;
 }): Promise<HistoricalContainerKekResponse[]> {
@@ -269,7 +273,13 @@ export async function loadHistoricalContainerKeks(input: {
         return wrap.recipientId === input.userId;
       }
       if (wrap.recipientKind === "container") {
-        return input.pathContainerIds.has(wrap.recipientId);
+        const recipientCurrentEpochId = input.pathContainerKeyEpochIds.get(
+          wrap.recipientId,
+        );
+        return (
+          recipientCurrentEpochId !== undefined &&
+          recipientCurrentEpochId !== wrap.recipientKeyEpochId
+        );
       }
       return principalIds.has(wrap.recipientId);
     });

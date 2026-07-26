@@ -1,4 +1,9 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  containerKeyEpochs,
+  containerKeyWraps,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import type { ContainerKeyWrap } from "@tearleads/crypto";
 import {
@@ -7,6 +12,7 @@ import {
   isDocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
+import { createTestContainerKekMaterial } from "../../test/helpers/containerKekMaterial";
 import {
   bootstrapRoot,
   buildRootGrantRequest,
@@ -129,5 +135,74 @@ test("a member granted access after the rotation receives no historical epochs",
     rootContainerKeks(ownerView.projection).historicalKeks ?? [];
   expect(ownerHistorical.map((epoch) => epoch.containerKeyEpochId)).toEqual([
     root.kekState.containerKeyEpochId,
+  ]);
+}, 15_000);
+
+test("container wraps are served only when they target a superseded parent epoch", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { revokedKek } = await shareAndRevokeRoot({ owner, root });
+  const supersededEpochId = root.kekState.containerKeyEpochId;
+  const currentEpochId = revokedKek.containerKeyEpochId;
+
+  // Plant a superseded epoch carrying only container wraps. In production
+  // this is a rotated child epoch wrapped to a parent epoch; here the wraps
+  // reference the root itself so no nested fixture is needed — the filter
+  // reads only (recipientKind, recipientId, recipientKeyEpochId).
+  const planted = await createTestContainerKekMaterial({
+    containerId: root.kekState.containerId,
+    keyEpoch: 3,
+  });
+  await db.insert(containerKeyEpochs).values({
+    id: planted.containerKeyEpochId,
+    containerId: root.kekState.containerId,
+    keyEpoch: 3,
+    accessManifestHash: root.bundle.manifestHash,
+    parentContainerKeyEpochId: null,
+    createdByEventHash: root.bundle.manifestHash,
+    createdByManifestHash: root.bundle.manifestHash,
+  });
+  await db.insert(containerKeyWraps).values([
+    {
+      // Targets the path container's CURRENT epoch: every current member
+      // (including one granted access after the rotation) holds it, so
+      // serving this wrap would disclose pre-grant key material.
+      containerKeyEpochId: planted.containerKeyEpochId,
+      recipientKind: "container",
+      recipientId: root.kekState.containerId,
+      recipientKeyEpochId: currentEpochId,
+      recipientKeyFingerprint: "fingerprint-current",
+      kemCipherText: "kem:current",
+      wrappedKey: "wrapped:current",
+      wrapManifestHash: root.bundle.manifestHash,
+    },
+    {
+      // Targets a SUPERSEDED epoch: only reachable through the requester's
+      // own filtered historical wraps, so it may be served.
+      containerKeyEpochId: planted.containerKeyEpochId,
+      recipientKind: "container",
+      recipientId: root.kekState.containerId,
+      recipientKeyEpochId: supersededEpochId,
+      recipientKeyFingerprint: "fingerprint-superseded",
+      kemCipherText: "kem:superseded",
+      wrappedKey: "wrapped:superseded",
+      wrapManifestHash: root.bundle.manifestHash,
+    },
+  ]);
+
+  const { response, projection } = await getWriterProjection(owner, created.id);
+  expect(response.status).toBe(200);
+  const historicalKeks = rootContainerKeks(projection).historicalKeks ?? [];
+  const plantedEpoch = historicalKeks.find(
+    (epoch) => epoch.containerKeyEpochId === planted.containerKeyEpochId,
+  );
+  expect(plantedEpoch).toBeDefined();
+  const plantedWraps = (plantedEpoch?.wraps ??
+    []) as unknown as readonly ContainerKeyWrap[];
+  expect(plantedWraps.map((wrap) => wrap.recipientKeyEpochId)).toEqual([
+    supersededEpochId,
   ]);
 }, 15_000);

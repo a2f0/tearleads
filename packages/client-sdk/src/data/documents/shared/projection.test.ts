@@ -186,8 +186,7 @@ async function createHistoricalUserKek(input: {
 }
 
 test("unwrapContainerKekPath unwraps served historical epochs and skips epochs outside the member's audience", async () => {
-  const { projection, publicKey, rootContainerKek, secretKey } =
-    await createWrappedProjection();
+  const { projection, publicKey, secretKey } = await createWrappedProjection();
   const rootKek = projection.containerKeks[0];
   const childKek = projection.containerKeks[1];
   if (!rootKek || !childKek) {
@@ -207,8 +206,10 @@ test("unwrapContainerKekPath unwraps served historical epochs and skips epochs o
     keyEpoch: 1,
     publicKey: keyPair.publicKey,
   });
-  // ...and a superseded child epoch wrapped to the CURRENT root epoch, so it
-  // must resolve through the already-unwrapped parent chain.
+  // ...and a superseded child epoch wrapped to the SUPERSEDED root epoch
+  // above (the shape the server serves — container wraps never target a
+  // current epoch), so it must resolve through the historical parent chain
+  // unwrapped earlier in path order.
   const childHistoricalKey = crypto.getRandomValues(new Uint8Array(32));
   const childHistoricalEpochId = await computeContainerKekMaterialId({
     containerId: childKek.containerId,
@@ -221,15 +222,15 @@ test("unwrapContainerKekPath unwraps served historical epochs and skips epochs o
     containerKeyEpoch: 1,
     containerKeyEpochId: childHistoricalEpochId,
     keyEpochHash: await fixtureHash("historical-child-key-epoch"),
-    parentContainerKeyEpochId: rootKek.containerKeyEpochId,
+    parentContainerKeyEpochId: spanned.historical.containerKeyEpochId,
     wraps: [
       await createContainerWrap({
         childContainerKeyEpochId: childHistoricalEpochId,
         childKek: childHistoricalKey,
         parentContainerId: rootKek.containerId,
-        parentContainerKeyEpochId: rootKek.containerKeyEpochId,
-        parentKeyEpochHash: rootKek.keyEpochHash,
-        parentKek: rootContainerKek,
+        parentContainerKeyEpochId: spanned.historical.containerKeyEpochId,
+        parentKeyEpochHash: spanned.historical.keyEpochHash,
+        parentKek: spanned.keyMaterial,
         wrapManifestHash: await fixtureHash("historical-child-manifest"),
       }),
     ],
