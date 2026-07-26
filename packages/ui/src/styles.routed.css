@@ -44,6 +44,21 @@
   --control-height: 2.75rem;
 
   /*
+   * The glyph inside those enlarged controls. Growing the hit target alone
+   * leaves an 18px icon adrift in a 44px box — compliant to measure, but it
+   * reads as a tiny mark on a phone, which is the complaint HIG's icon guidance
+   * (roughly 24-28pt of artwork in a toolbar) exists to prevent. 1.5rem is 24px
+   * against the 16px anchor above, leaving 10px of clearance each side.
+   *
+   * Consumers apply this to the `svg` itself. Phosphor renders `size={18}` as
+   * width/height ATTRIBUTES, and author CSS outranks a presentation attribute,
+   * so a single rule per surface re-sizes every icon without touching the
+   * hundreds of `size={18}` call sites — and leaves the windowed layout, which
+   * wants the dense 18px mark, untouched.
+   */
+  --control-icon-size: 1.5rem;
+
+  /*
    * Compact type ramp. Rule 1 above grows every control to a 44px hit target
    * and rule 2 floors native inputs at 16px, but the desktop type ramp (the
    * `--font-size-*` block in styles.css) is anchored to `sm` (0.9rem / 14.4px)

@@ -152,8 +152,14 @@
   padding: 0;
 }
 
+/* The shell only renders in the routed layout, so `--control-icon-size` is
+   always defined here. It grows the app bar's back / forward / sidebar glyphs
+   and every registered toolbar action's icon off their `size={18}` attribute to
+   the touch size — see the token's note in @tearleads/ui's styles.routed.css. */
 .routed-pane-iconbutton svg {
   flex: 0 0 auto;
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }
 
 .routed-pane-toolbar {

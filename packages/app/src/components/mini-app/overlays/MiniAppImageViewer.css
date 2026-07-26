@@ -82,9 +82,11 @@
  * root's `data-navigation-mode` but none of the routed shell's app-bar chrome —
  * its controls would otherwise stay at the dense windowed size on a phone, which
  * is the one place this viewer exists to serve. Grow them to the same 44px HIG
- * hit target (`--control-height`) the routed app bar gives `.routed-pane-iconbutton`.
- * The glyphs stay at 18px, exactly as the app bar seats its own size={18} icons:
- * it is the target that has to reach 44px, not the drawing inside it.
+ * hit target (`--control-height`) the routed app bar gives `.routed-pane-iconbutton`,
+ * and the glyphs with them: a target that measures 44px around an 18px mark is
+ * compliant on paper and still reads as tiny on a phone. Both surfaces take the
+ * icon size from the same token, so the viewer's controls match the app bar it
+ * covers rather than being visibly smaller than the chrome behind it.
  */
 :root[data-navigation-mode="routed"] .mini-app-image-viewer-toolbar {
   gap: var(--space-xs);
@@ -95,6 +97,11 @@
   min-width: var(--control-height);
   min-height: var(--control-height);
   padding: 0;
+}
+
+:root[data-navigation-mode="routed"] .mini-app-image-viewer-button svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }
 
 /* `touch-action: none` hands every touch to the viewer's own pointer handlers.
