@@ -240,22 +240,56 @@ test("mobile sync lane detail keeps its labels on one line", async ({
       lastError.textContent =
         "Sync failed: HTTP 500 from https://api.example.test/v1/containers/0123456789abcdef/updates after 3 retries";
     }
+    // Single-line labels must not buy their width with a sideways scroll: the
+    // values wrap anywhere, so the table still has to fit. A table is never its
+    // own scrollport — it just grows to its intrinsic width, leaving its
+    // scrollWidth equal to its clientWidth — so measure the painted table
+    // against the content box of the nearest ancestor that would absorb the
+    // overflow. Deliberately its box and not its scrollWidth: the tab strip
+    // above the panel bleeds past it by design (see the strip tests), which
+    // inflates that number for reasons unrelated to this table.
     const table = detail?.querySelector("table");
+    let scrollport = table?.parentElement ?? null;
+    while (scrollport && getComputedStyle(scrollport).overflowX === "visible") {
+      scrollport = scrollport.parentElement;
+    }
+    const tableBox = table?.getBoundingClientRect();
+    const portBox = scrollport?.getBoundingClientRect();
+    const portStyle = scrollport ? getComputedStyle(scrollport) : null;
+    const contentLeft =
+      portBox && portStyle
+        ? portBox.left +
+          Number.parseFloat(portStyle.borderLeftWidth) +
+          Number.parseFloat(portStyle.paddingLeft)
+        : null;
+    const contentRight =
+      contentLeft !== null && scrollport && portStyle
+        ? contentLeft +
+          scrollport.clientWidth -
+          Number.parseFloat(portStyle.paddingLeft) -
+          Number.parseFloat(portStyle.paddingRight)
+        : null;
+
     return {
       labels: Array.from(detail?.querySelectorAll("th") ?? []).map((cell) => {
         const range = document.createRange();
         range.selectNodeContents(cell);
         return { lines: range.getClientRects().length, text: cell.textContent };
       }),
-      // Single-line labels must not buy their width with a sideways scroll: the
-      // values wrap anywhere, so the table still has to fit the screen.
-      tableOverflow: table ? table.scrollWidth - table.clientWidth : null,
-      pageOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      overhang:
+        tableBox && contentLeft !== null && contentRight !== null
+          ? Math.round(
+              Math.max(
+                0,
+                tableBox.right - contentRight,
+                contentLeft - tableBox.left,
+              ),
+            )
+          : null,
     };
   });
 
   expect(drawn.labels.length).toBeGreaterThan(0);
   expect(drawn.labels.filter((label) => label.lines !== 1)).toEqual([]);
-  expect(drawn.tableOverflow).toBe(0);
-  expect(drawn.pageOverflow).toBeLessThanOrEqual(0);
+  expect(drawn.overhang).toBe(0);
 });
