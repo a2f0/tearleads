@@ -28,9 +28,11 @@ import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   isDatabaseUnavailableError,
+  type LocalAttachmentRecord,
   loadPersistedDocumentStoreState,
 } from "../../../workflows/documents";
 import type { DocumentStoreRelinkInput } from "../types";
+import { reconcileLocalAttachmentDetachState } from "./attachmentDetachState";
 import { chainIdentityWrite } from "./identityWriteChain";
 import {
   advancePendingBaseVersion,
@@ -38,6 +40,7 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
   saveDocumentRecord,
+  saveLocalAttachmentRecord,
 } from "./persistence";
 import { logRevalidationScheduled } from "./remoteRevalidationTelemetry";
 import {
@@ -125,6 +128,34 @@ async function recoverDroppedAttachmentSlots(
   state.runtime.util.log(
     `Documents: recovered ${recovered.length} attachment slot(s) from pending uploads after an interrupted write.`,
   );
+}
+
+/**
+ * Realign detach markers with the loaded document.
+ *
+ * Removing an attachment marks its row detached and then persists the document;
+ * a stop between those two writes leaves the halves disagreeing, and neither
+ * the sync detach pass (which reads the document) nor the read models (which
+ * read the marker) can resolve that on their own. The loaded document is the
+ * durable truth, so the marker follows it.
+ */
+async function healLocalAttachmentDetachState(
+  state: DocumentStoreState,
+  doc: DocumentState,
+  persistedState: { localAttachments: ReadonlyArray<LocalAttachmentRecord> },
+): Promise<void> {
+  const healed = reconcileLocalAttachmentDetachState(
+    persistedState.localAttachments,
+    doc,
+  );
+  for (const attachment of healed) {
+    await saveLocalAttachmentRecord(state, attachment, doc);
+  }
+  if (healed.length > 0) {
+    state.runtime.util.log(
+      `Documents: realigned ${healed.length} attachment detach marker(s) with the loaded document.`,
+    );
+  }
 }
 
 async function initializeDocumentStore(
@@ -220,6 +251,7 @@ async function initializeDocumentStore(
   // and are queued for sync. recoverDroppedAttachmentSlots advances the marker
   // again for whatever it re-derives.
   await recoverDroppedAttachmentSlots(state, nextDoc);
+  await healLocalAttachmentDetachState(state, nextDoc, persistedState);
   state.initialized = true;
   state.initializePromise = null;
   setReadySnapshot(state, nextDoc, false);

@@ -294,8 +294,8 @@
       "bytes": 19608
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
-      "lines": 562,
-      "bytes": 17444
+      "lines": 549,
+      "bytes": 17477
     },
     "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
       "lines": 511,
