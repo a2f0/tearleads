@@ -456,14 +456,33 @@ export function useMiniAppRouteSegments(appId: MiniAppId) {
     },
     [actions, appId, isGlobalRouted, windowSetPathSegments],
   );
+  // "Can this mini-app step back where it is hosted?" — browser history in the
+  // routed shell, the window's own Back stack in a window. Mini-apps read this
+  // rather than branching on navigation mode, so a detail surface that must
+  // yield to a real Back affordance (see explorerChromeOwnsDetailBack) asks one
+  // question and gets the right answer in both shells.
+  const windowGoBack = windowRoute?.goBack;
+  const canGoBack = isGlobalRouted
+    ? state.history.canGoBack
+    : (windowRoute?.canGoBack ?? false);
+  const goBack = useCallback(() => {
+    if (isGlobalRouted) {
+      actions?.goBack();
+      return;
+    }
+
+    windowGoBack?.();
+  }, [actions, isGlobalRouted, windowGoBack]);
 
   return useMemo(
     () => ({
+      canGoBack,
+      goBack,
       isRouted,
       pathSegments,
       setPathSegments,
     }),
-    [isRouted, pathSegments, setPathSegments],
+    [canGoBack, goBack, isRouted, pathSegments, setPathSegments],
   );
 }
 

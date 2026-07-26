@@ -8,6 +8,11 @@ export interface WindowEntry {
   id: string;
   initialShowSidebar?: boolean | undefined;
   miniAppPathSegments?: ReadonlyArray<string> | undefined;
+  // The window's own Back stack: routes previously visited in this window, the
+  // most recent last. A window is not backed by browser history (only the
+  // routed shell is), so this is what gives the windowed toolbar a working Back
+  // caret. Forward is deliberately not modelled — the toolbar offers Back only.
+  miniAppRouteHistory?: ReadonlyArray<ReadonlyArray<string>> | undefined;
   title: string;
   initialX: number;
   initialY: number;
@@ -41,7 +46,12 @@ export interface WindowStateActions {
   close: (id: string) => void;
   minimize: (id: string) => void;
   restore: (id: string) => void;
-  updateMiniAppRoute: (id: string, pathSegments: ReadonlyArray<string>) => void;
+  updateMiniAppRoute: (
+    id: string,
+    pathSegments: ReadonlyArray<string>,
+    options?: { replace?: boolean | undefined },
+  ) => void;
+  goBackMiniAppRoute: (id: string) => void;
   updateTitle: (id: string, title: string) => void;
   moveForward: (id: string) => void;
   moveBackward: (id: string) => void;

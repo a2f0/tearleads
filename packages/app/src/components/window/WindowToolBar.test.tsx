@@ -219,3 +219,68 @@ test("renders the back control from a registered back action and invokes it", as
 
   expect(backs).toBe(1);
 });
+
+// Windows carry their own Back stack (WindowEntry.miniAppRouteHistory) because
+// they are not backed by browser history. A window hosting a routed mini-app
+// shows the same Back affordance the routed app bar does.
+test("shows a history Back caret for a window hosting a routed mini-app", async () => {
+  const wentBack: number[] = [];
+  const view = render(
+    <WindowMenuProvider>
+      <WindowToolBar
+        canGoBack
+        showHistoryBack
+        onGoBack={() => wentBack.push(1)}
+      />
+    </WindowMenuProvider>,
+  );
+
+  const back = await view.findByRole("button", { name: "Back" });
+  expect((back as HTMLButtonElement).disabled).toBe(false);
+
+  fireEvent.click(back);
+
+  expect(wentBack).toEqual([1]);
+});
+
+// Visible-but-disabled at the first route, matching the routed app bar — it must
+// not appear and disappear as the stack empties and refills.
+test("keeps the history Back caret disabled when the stack is empty", () => {
+  const view = render(
+    <WindowMenuProvider>
+      <WindowToolBar showHistoryBack onGoBack={() => undefined} />
+    </WindowMenuProvider>,
+  );
+
+  const back = view.getByRole("button", { name: "Back" });
+  expect((back as HTMLButtonElement).disabled).toBe(true);
+});
+
+test("omits the history Back caret for a window hosting no routed mini-app", () => {
+  const view = renderToolBar(null);
+
+  expect(view.container.querySelector(".window-toolbar")).toBeNull();
+});
+
+// A registered detail back action outranks the history caret, exactly as it does
+// in RoutedPaneAppBar — one Back button, the registered action wins.
+test("a registered back action overrides the history caret", async () => {
+  const registered: number[] = [];
+  const wentBack: number[] = [];
+  const view = render(
+    <WindowMenuProvider>
+      <BackActionSource onClick={() => registered.push(1)} />
+      <WindowToolBar
+        canGoBack
+        showHistoryBack
+        onGoBack={() => wentBack.push(1)}
+      />
+    </WindowMenuProvider>,
+  );
+
+  const back = await view.findByRole("button", { name: "Back to Container" });
+  fireEvent.click(back);
+
+  expect(registered).toEqual([1]);
+  expect(wentBack).toEqual([]);
+});

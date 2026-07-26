@@ -4,7 +4,6 @@ import {
 } from "../../src/components/window/WindowMenuContext";
 import { useExplorerRoutedChromeActions } from "../../src/mini-apps/explorer/ExplorerRoutedChrome";
 import type { useExplorerModel } from "../../src/mini-apps/explorer/hooks/useExplorerModel";
-import type { AppNavigationMode } from "../../src/navigation/AppNavigationMode";
 
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
 
@@ -88,20 +87,17 @@ const noopTriggerUpload = () => undefined;
 export function ExplorerRoutedChromeHarness({
   historyCanGoBack = false,
   model,
-  navigationMode = "windowed",
   openStructuredDocumentGrid = noopOpenStructuredDocumentGrid,
   triggerUpload = noopTriggerUpload,
 }: {
   historyCanGoBack?: boolean;
   model: ExplorerModel;
-  navigationMode?: AppNavigationMode;
   openStructuredDocumentGrid?: () => void;
   triggerUpload?: (containerId: string) => void;
 }) {
   useExplorerRoutedChromeActions({
     historyCanGoBack,
     model,
-    navigationMode,
     openStructuredDocumentGrid,
     triggerUpload,
   });

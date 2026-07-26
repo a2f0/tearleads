@@ -234,6 +234,57 @@ test("mobile Back unwinds out of a document's Get Info", async ({ page }) => {
   await expect(back).toBeDisabled();
 });
 
+// Windows are not backed by browser history, so the windowed toolbar's Back
+// caret walks the window's own route stack (WindowEntry.miniAppRouteHistory).
+// It must unwind one entry per press, exactly like the routed app bar — and the
+// transient type picker must not become a Back destination.
+test("windowed Back unwinds an Explorer window's route stack", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/");
+
+  const pane = visiblePane(page);
+  await expect(pane).toBeVisible({ timeout: 30_000 });
+  await pane.click({ button: "right", position: { x: 120, y: 120 } });
+  await page.getByRole("button", { name: "Explorer" }).first().click();
+
+  const explorerWindow = page.locator(".window").first();
+  const toolbar = explorerWindow.locator(".window-toolbar");
+  const back = toolbar.getByRole("button", { name: "Back" });
+
+  // The caret is present from the first route, disabled rather than absent, so
+  // it does not appear and disappear as the stack empties and refills.
+  await expect(
+    toolbar.getByRole("button", { name: "New Document" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(back).toBeDisabled();
+
+  await toolbar.getByRole("button", { name: "New Document" }).click();
+  await explorerWindow
+    .getByRole("button", { name: /Blood Pressure/ })
+    .first()
+    .click();
+  // A freshly created document opens in edit mode, so its toolbar carries Done.
+  await expect(toolbar.getByRole("button", { name: "Done" })).toBeVisible();
+
+  await toolbar.getByRole("button", { name: "Get Info" }).click();
+  await expect(toolbar.getByRole("button", { name: "Done" })).toBeHidden();
+  await expect(back).toBeEnabled();
+
+  // Back to the document (returning in read mode, so Edit rather than Done)...
+  await back.click();
+  await expect(toolbar.getByRole("button", { name: "Edit" })).toBeVisible();
+
+  // ...then straight to the container listing, skipping the replaced type
+  // picker, with the stack now empty.
+  await back.click();
+  await expect(
+    toolbar.getByRole("button", { name: "Create Child Folder" }),
+  ).toBeVisible();
+  await expect(back).toBeDisabled();
+});
+
 test("SQLite tables survive a hard reload", async ({ page }) => {
   // Regression coverage for persistent OPFS-SAHPool reloads: the restored
   // identity must reopen its existing SQLite tables, not race a hidden pane or

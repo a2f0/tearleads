@@ -8,8 +8,7 @@ import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
 import { useMemo } from "react";
 import { useMiniAppDetailBackAction } from "../../components/window/useMiniAppDetailBackAction";
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
-import type { AppNavigationMode } from "../../navigation/AppNavigationMode";
-import { explorerChromeOwnsDetailBack } from "./detailBackActions";
+import { chromeOwnsRouteBackedDetailBack } from "../../navigation/routeBackedDetailBack";
 import { useExplorerHubToolbarActions } from "./ExplorerHubToolbarActions";
 import { getExplorerContainerToolbarVisibility } from "./explorerContainerToolbarVisibility";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
@@ -20,13 +19,11 @@ type ExplorerModel = ReturnType<typeof useExplorerModel>;
 export function useExplorerRoutedChromeActions({
   historyCanGoBack,
   model,
-  navigationMode,
   openStructuredDocumentGrid,
   triggerUpload,
 }: {
   historyCanGoBack: boolean;
   model: ExplorerModel;
-  navigationMode: AppNavigationMode;
   openStructuredDocumentGrid: () => void;
   triggerUpload: (containerId: string) => void;
 }) {
@@ -68,12 +65,7 @@ export function useExplorerRoutedChromeActions({
     (selectedDocument !== undefined || route.view === "document-selection") &&
     route.view !== "document-info";
 
-  useExplorerRoutedBackAction({
-    historyCanGoBack,
-    model,
-    navigationMode,
-    route,
-  });
+  useExplorerRoutedBackAction({ historyCanGoBack, model, route });
   useExplorerHubToolbarActions({ model, route });
   useExplorerCreateFolderToolbarAction({
     activeContainerId,
@@ -160,23 +152,18 @@ function useExplorerNewContactToolbarAction({
 function useExplorerRoutedBackAction({
   historyCanGoBack,
   model,
-  navigationMode,
   route,
 }: {
   historyCanGoBack: boolean;
   model: ExplorerModel;
-  navigationMode: AppNavigationMode;
   route: ExplorerModel["routeState"]["route"];
 }) {
-  const ownsDetailBack = explorerChromeOwnsDetailBack({
-    historyCanGoBack,
-    navigationMode,
-  });
+  const ownsDetailBack = chromeOwnsRouteBackedDetailBack({ historyCanGoBack });
   const backAction = useMemo(() => {
-    // Every branch below is route-backed, so in a routed tier the app bar's
-    // history caret already walks out of it — and overriding that pop with a
+    // Every branch below is route-backed, so wherever the host offers a Back
+    // affordance it already walks out of them — and overriding that pop with a
     // route push strands Back between two entries. See
-    // {@link explorerChromeOwnsDetailBack}.
+    // {@link chromeOwnsRouteBackedDetailBack}.
     if (!ownsDetailBack) {
       return null;
     }
@@ -215,9 +202,9 @@ function useExplorerRoutedBackAction({
       };
     }
 
-    // Windowed chrome and routed deep links fall back to the origin navigation
-    // maintained by useExplorerRoute, which returns an attachment-opened blob to
-    // its source document.
+    // A blob opened with no history behind it falls back to the origin
+    // navigation maintained by useExplorerRoute, which returns an
+    // attachment-opened blob to its source document.
     if (route.view === "blob-browser") {
       return {
         label: EXPLORER_LABELS.blobBrowserBackAction,

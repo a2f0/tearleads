@@ -9,6 +9,8 @@ import type { MiniAppId } from "../mini-apps/types";
 
 interface MiniAppRouteSegmentsContextValue {
   appId: MiniAppId;
+  canGoBack: boolean;
+  goBack: () => void;
   pathSegments: ReadonlyArray<string>;
   setPathSegments: (
     pathSegments: ReadonlyArray<string>,
@@ -18,6 +20,8 @@ interface MiniAppRouteSegmentsContextValue {
 
 interface MiniAppRouteSegmentsProviderProps extends PropsWithChildren {
   appId: MiniAppId;
+  canGoBack: boolean;
+  goBack: () => void;
   pathSegments: ReadonlyArray<string>;
   setPathSegments: (
     pathSegments: ReadonlyArray<string>,
@@ -30,7 +34,9 @@ const MiniAppRouteSegmentsContext =
 
 export function MiniAppRouteSegmentsProvider({
   appId,
+  canGoBack,
   children,
+  goBack,
   pathSegments,
   setPathSegments,
 }: MiniAppRouteSegmentsProviderProps) {
@@ -46,10 +52,12 @@ export function MiniAppRouteSegmentsProvider({
   const value = useMemo<MiniAppRouteSegmentsContextValue>(
     () => ({
       appId,
+      canGoBack,
+      goBack,
       pathSegments,
       setPathSegments: updatePathSegments,
     }),
-    [appId, pathSegments, updatePathSegments],
+    [appId, canGoBack, goBack, pathSegments, updatePathSegments],
   );
 
   return (

@@ -22,6 +22,8 @@ import type {
   ContactFieldKey,
   ContactFieldValues,
 } from "../../../document-types/contact/contactFieldDescriptors";
+import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
+import { chromeOwnsRouteBackedDetailBack } from "../../../navigation/routeBackedDetailBack";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
 import type { ContactEntries, ContactEntryPatch } from "../types";
@@ -329,15 +331,21 @@ export function ContactsDetailPanel(params: {
     setDraftUserId,
     updateContact,
   } = params;
+  // Every non-selection contacts route lives in the route, and
+  // onBackToSelectionRoute pushes rather than pops, so this registration must
+  // yield wherever the host has a real Back — otherwise Back alternates between
+  // the detail and the list forever. See chromeOwnsRouteBackedDetailBack.
+  const { canGoBack: historyCanGoBack } = useMiniAppRouteSegments("contacts");
   const backAction = useMemo(
     () =>
-      route !== "selection"
+      route !== "selection" &&
+      chromeOwnsRouteBackedDetailBack({ historyCanGoBack })
         ? {
             label: CONTACTS_LABELS.backToContactsAction,
             onBack: onBackToSelectionRoute,
           }
         : null,
-    [onBackToSelectionRoute, route],
+    [historyCanGoBack, onBackToSelectionRoute, route],
   );
 
   useMiniAppDetailBackAction(backAction);

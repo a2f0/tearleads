@@ -1,4 +1,4 @@
-import type { AppNavigationMode } from "../../navigation/AppNavigationMode";
+import { chromeOwnsRouteBackedDetailBack } from "../../navigation/routeBackedDetailBack";
 import type { OrgManagerView } from "./routes";
 
 interface OrgManagerDetailBackVisibility {
@@ -9,37 +9,38 @@ interface OrgManagerDetailBackVisibility {
 
 /**
  * Decides which org-manager detail "Back" toolbar action is active for the
- * current view + selection + navigation mode. At most one is ever true (each is
+ * current view + selection + host history. At most one is ever true (each is
  * keyed to its own view).
  *
  * Roster selection is internal component state (not in the route), so
  * app-history back cannot restore the roster list — surface the toolbar back in
- * EVERY mode. Group and grant selection live in the route, so the compact/tablet
- * routed app bar already gives history back/forward for free; only surface a
- * registered back action in WINDOWED mode, where the toolbar has no history
- * caret. Registering group/grant back in a routed tier would turn the app bar's
- * history pop into a route push and truncate forward — the regression that would
- * break the working mobile/tablet back behavior.
+ * EVERY mode. Group and grant selection live in the route, so they follow
+ * {@link chromeOwnsRouteBackedDetailBack}: register only where the host has no
+ * history entry to pop. Registering one where it does turns the host's history
+ * pop into a route push, and Back then alternates between the detail and its
+ * list forever instead of unwinding.
  */
 export function resolveOrgManagerDetailBackVisibility({
   hasSelectedGrant,
   hasSelectedGroup,
   hasSelectedUser,
-  mode,
+  historyCanGoBack,
   view,
 }: {
   hasSelectedGrant: boolean;
   hasSelectedGroup: boolean;
   hasSelectedUser: boolean;
-  mode: AppNavigationMode;
+  historyCanGoBack: boolean;
   view: OrgManagerView;
 }): OrgManagerDetailBackVisibility {
-  const windowed = mode === "windowed";
+  const ownsRouteBackedBack = chromeOwnsRouteBackedDetailBack({
+    historyCanGoBack,
+  });
   return {
     showRosterDetailBackAction: view === "directory" && hasSelectedUser,
     showGroupDetailBackAction:
-      windowed && view === "groups" && hasSelectedGroup,
+      ownsRouteBackedBack && view === "groups" && hasSelectedGroup,
     showGrantDetailBackAction:
-      windowed && view === "grants" && hasSelectedGrant,
+      ownsRouteBackedBack && view === "grants" && hasSelectedGrant,
   };
 }

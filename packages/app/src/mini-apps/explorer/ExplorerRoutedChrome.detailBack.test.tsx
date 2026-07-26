@@ -26,7 +26,6 @@ function renderDetailBackChrome({
     <WindowMenuProvider>
       <ExplorerRoutedChromeHarness
         historyCanGoBack={historyCanGoBack}
-        navigationMode="routed"
         model={createExplorerModel({
           routeState: {
             ...baseModel.routeState,
@@ -49,9 +48,10 @@ const DOCUMENT_INFO_ROUTE: ExplorerRoute = {
 // The reported mobile bug: from Explorer -> document -> Get Info, Back pushed
 // the document route on top of the info route instead of popping it. The
 // document route registers no override, so its Back popped to Get Info again —
-// the two alternated forever and the Explorer list was unreachable. Routed
-// chrome must leave Back to app history so each press unwinds one entry.
-test("routed document info leaves Back to app history", async () => {
+// the two alternated forever and the Explorer list was unreachable. Wherever the
+// host has history — the routed shell's browser history, or a window's own Back
+// stack — the chrome must leave Back alone so each press unwinds one entry.
+test("document info leaves Back to host history", async () => {
   const selectedDocuments: Array<[string, string]> = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: true,
@@ -76,7 +76,7 @@ test("routed document info leaves Back to app history", async () => {
   expect(selectedDocuments).toEqual([]);
 });
 
-test("routed deep-linked document info gets a Back fallback", async () => {
+test("document info with no history gets a Back fallback", async () => {
   const selectedDocuments: Array<[string, string]> = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: false,
@@ -98,7 +98,7 @@ test("routed deep-linked document info gets a Back fallback", async () => {
 // The diagnostics hub routes are route-backed too, so they stranded routed Back
 // the same way: "Back to Explorer" pushed the selection route, whose Back popped
 // straight back into the hub.
-test("routed diagnostics hub leaves Back to app history", async () => {
+test("diagnostics hub leaves Back to host history", async () => {
   const returned: number[] = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: true,
@@ -118,7 +118,7 @@ test("routed diagnostics hub leaves Back to app history", async () => {
   expect(returned).toEqual([]);
 });
 
-test("routed deep-linked diagnostics hub gets a Back fallback", async () => {
+test("diagnostics hub with no history gets a Back fallback", async () => {
   const returned: number[] = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: false,
