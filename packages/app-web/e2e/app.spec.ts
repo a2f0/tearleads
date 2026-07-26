@@ -166,7 +166,7 @@ test("page loads", async ({ page }) => {
   expect(sqliteWarnings).toEqual([]);
 });
 
-test("mobile sidebar covers Explorer row actions", async ({ page }) => {
+test("mobile sidebar covers Explorer rows", async ({ page }) => {
   await page.setViewportSize({ width: 599, height: 800 });
   await page.goto("/app/explorer");
 
@@ -181,21 +181,30 @@ test("mobile sidebar covers Explorer row actions", async ({ page }) => {
   if (!actionBox || !sidebarBox) {
     throw new Error("Expected visible Explorer action and sidebar boxes.");
   }
-  const actionCenter = {
-    x: actionBox.x + actionBox.width / 2,
-    y: actionBox.y + actionBox.height / 2,
-  };
-  expect(actionCenter.x).toBeGreaterThan(sidebarBox.x);
-  expect(actionCenter.x).toBeLessThan(sidebarBox.x + sidebarBox.width);
-  expect(actionCenter.y).toBeGreaterThan(sidebarBox.y);
-  expect(actionCenter.y).toBeLessThan(sidebarBox.y + sidebarBox.height);
-  const sidebarCoversAction = await page.evaluate(
-    ({ x, y }) =>
-      Boolean(document.elementFromPoint(x, y)?.closest("#routed-pane-sidebar")),
-    actionCenter,
+  // The drawer opens on the leading edge, so it covers the row's own start while
+  // the scrim covers the trailing row action. Both shell layers must paint over
+  // main content rather than letting its local z-indices show through.
+  expect(sidebarBox.x).toBe(0);
+  const rowMiddleY = actionBox.y + actionBox.height / 2;
+  const underDrawer = { x: sidebarBox.x + sidebarBox.width / 2, y: rowMiddleY };
+  const actionCenter = { x: actionBox.x + actionBox.width / 2, y: rowMiddleY };
+  expect(actionCenter.x).toBeGreaterThan(sidebarBox.x + sidebarBox.width);
+  expect(rowMiddleY).toBeGreaterThan(sidebarBox.y);
+  expect(rowMiddleY).toBeLessThan(sidebarBox.y + sidebarBox.height);
+
+  const coverage = await page.evaluate(
+    (points) =>
+      points.map(({ x, y }) => {
+        const element = document.elementFromPoint(x, y);
+        if (element?.closest("#routed-pane-sidebar")) {
+          return "drawer";
+        }
+        return element?.closest(".routed-pane-scrim") ? "scrim" : "content";
+      }),
+    [underDrawer, actionCenter],
   );
 
-  expect(sidebarCoversAction).toBe(true);
+  expect(coverage).toEqual(["drawer", "scrim"]);
 });
 
 // Regression coverage for the mobile Get Info back loop: Explorer used to
