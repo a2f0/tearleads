@@ -242,6 +242,7 @@ async function syncRemoteContainerMetadata(input: {
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
+    onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
     onTerminalSubmitFailure: (failure) =>
       recordDocumentSyncFailure(execSql, metadataScope, {
         attemptedAt: new Date().toISOString(),

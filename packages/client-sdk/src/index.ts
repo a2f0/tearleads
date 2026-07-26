@@ -362,6 +362,7 @@ export {
   createDocumentProjectionUserKeyResolver,
   createDocumentsWorkflowRuntime,
   createRemoteDocument,
+  DOCUMENT_SYNC_TRACE_PATTERN,
   DOCUMENTS_APP_KIND,
   defaultDocumentsPersistence,
   deletePersistedDocument,

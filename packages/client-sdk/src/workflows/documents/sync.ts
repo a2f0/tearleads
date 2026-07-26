@@ -94,6 +94,15 @@ import {
   rekeyAndReportUnsettledRecoveryPendingUpdates,
   settledPendingUpdateIdsFromSync,
 } from "./syncRecoveryRekey";
+import {
+  type DocumentSyncTraceEmitter,
+  traceCheckpointRegeneration,
+  traceHealBlocked,
+  traceHealed,
+  traceHealPlanned,
+  traceStaleBundle,
+  traceStaleRead,
+} from "./syncTrace";
 
 export function hasDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
@@ -381,13 +390,22 @@ async function resolveStaleHealMaterial(
     recoveryBaseline,
     heldBackCheckpoints,
   );
+  const staleEpoch = input.writerProjection.contentKeyBundle.contentKeyEpoch;
+  const contentKeyBundle = await buildRotatedDocumentContentKeyBundle({
+    containerKeksByEpochId,
+    contentKey,
+    writerProjection: input.writerProjection,
+  });
+  traceHealPlanned(input.onSyncTrace, {
+    documentId: input.writerProjection.documentId,
+    fromEpoch: staleEpoch,
+    heldBack: heldBackCheckpoints.length,
+    toEpoch: contentKeyBundle.contentKeyEpoch,
+    updates: ordinaryPendingUpdates.length,
+  });
   return {
     contentKey,
-    contentKeyBundle: await buildRotatedDocumentContentKeyBundle({
-      containerKeksByEpochId,
-      contentKey,
-      writerProjection: input.writerProjection,
-    }),
+    contentKeyBundle,
     documentKekTargets: input.writerProjection.documentKekTargets,
     documentManifest: input.writerProjection.documentManifest,
     healedStaleContentKeyBundle: true,
@@ -422,6 +440,11 @@ async function resolveCheckpointRegenerationMaterial(
     input.buildRotationSnapshot,
   );
   assertRecoveryBaselineCoversCheckpoints(recoveryBaseline, queuedCheckpoints);
+  traceCheckpointRegeneration(input.onSyncTrace, {
+    checkpoints: queuedCheckpoints.length,
+    documentId: input.writerProjection.documentId,
+    updates: ordinaryPendingUpdates.length,
+  });
   return {
     ...base,
     heldBackPendingUpdateIds: queuedCheckpoints.map((update) => update.id),
@@ -439,6 +462,11 @@ async function resolveSyncPlanContentMaterial(
     input.writerProjection.contentKeyBundleStale === true;
 
   if (staleContentKeyBundle && pendingUpdates.length > 0) {
+    traceStaleBundle(input.onSyncTrace, {
+      documentId: input.writerProjection.documentId,
+      epoch: input.writerProjection.contentKeyBundle.contentKeyEpoch,
+      pending: pendingUpdates.length,
+    });
     return resolveStaleHealMaterial(
       input,
       containerKeksByEpochId,
@@ -447,6 +475,10 @@ async function resolveSyncPlanContentMaterial(
   }
 
   if (staleContentKeyBundle) {
+    traceStaleRead(input.onSyncTrace, {
+      documentId: input.writerProjection.documentId,
+      epoch: input.writerProjection.contentKeyBundle.contentKeyEpoch,
+    });
     return {
       contentKey: new Uint8Array(),
       contentKeyBundle: input.writerProjection.contentKeyBundle,
@@ -499,6 +531,8 @@ export async function buildMaterializedDocumentSyncPlan(
     execSql?: ExecSql | undefined;
     localVersionVector: string | null;
     minLsn?: string | undefined;
+    /** Clipboard-safe trace sink (see syncTrace.ts); never receives content. */
+    onSyncTrace?: DocumentSyncTraceEmitter | undefined;
     pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
     /**
      * Replace queued rotation checkpoints with a freshly regenerated covering
@@ -535,6 +569,20 @@ export async function buildMaterializedDocumentSyncPlan(
     bundle: input.writerProjection.documentManifest,
     label: "Document sync manifest",
   });
+  let material: ResolvedSyncPlanContentMaterial;
+  try {
+    material = await resolveSyncPlanContentMaterial(
+      input,
+      containerKeksByEpochId,
+    );
+  } catch (error) {
+    // Enumerated reason only; unknown errors emit nothing (fail closed).
+    traceHealBlocked(input.onSyncTrace, {
+      documentId: input.writerProjection.documentId,
+      error,
+    });
+    throw error;
+  }
   const {
     contentKey,
     contentKeyBundle,
@@ -544,7 +592,7 @@ export async function buildMaterializedDocumentSyncPlan(
     heldBackPendingUpdateIds,
     pendingUpdates,
     staleRecoveryBaselineUpdateId,
-  } = await resolveSyncPlanContentMaterial(input, containerKeksByEpochId);
+  } = material;
   const outgoingUpdates = await prepareDocumentOutgoingUpdates({
     contentKey,
     contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
@@ -1154,6 +1202,8 @@ interface SyncRemoteDocumentInput {
   // Receives the reason whenever this sync returns null, so callers that
   // convert a null result into their own error can name the real cause.
   onSyncAbandoned?: ((reason: string) => void) | undefined;
+  /** Clipboard-safe trace sink (see syncTrace.ts); never receives content. */
+  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
@@ -1286,6 +1336,13 @@ function submittedDocumentSyncResult(input: {
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<SyncRemoteDocumentResult> {
   evictHealedWriterProjection(input.sync, input.materializedPlan);
+  if (input.materializedPlan.healedStaleContentKeyBundle) {
+    traceHealed(input.sync.onSyncTrace, {
+      accepted: input.response.acceptedOutgoingUpdateIds.length,
+      documentId: input.materializedPlan.plan.documentId,
+      epoch: input.materializedPlan.plan.contentKeyEpoch,
+    });
+  }
   return syncRemoteDocumentResultFromResponse({
     ...projectionVerificationOptions(input.sync),
     execSql: input.sync.execSql,
@@ -1314,6 +1371,7 @@ function buildRemoteDocumentSyncPlan(input: {
     execSql: input.sync.execSql,
     localVersionVector: input.sync.localVersionVector,
     minLsn: input.sync.minLsn,
+    onSyncTrace: input.sync.onSyncTrace,
     pendingUpdates: input.pendingUpdates,
     regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
     signedAt: input.sync.signedAt,
@@ -1378,6 +1436,7 @@ function submitPlannedSyncAttempt(args: {
     isRemoteSyncBlocked: args.sync.isRemoteSyncBlocked,
     maxAttempts: args.maxAttempts,
     onRemoteDocumentDeleted: args.sync.onRemoteDocumentDeleted,
+    onSyncTrace: args.sync.onSyncTrace,
     onTerminalSubmitFailure: args.sync.onTerminalSubmitFailure,
     pendingUpdates: args.pendingUpdates,
     plan: args.materializedPlan.plan,
@@ -1394,6 +1453,7 @@ function resolveAttemptProjection(
     documentId: input.documentId,
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncAbandoned: input.onSyncAbandoned,
+    onSyncTrace: input.onSyncTrace,
     // Write-bearing passes only: without queued writes a failed projection
     // read blocks nothing durable, so the failure is not recorded.
     onTerminalFailure:

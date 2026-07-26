@@ -120,6 +120,7 @@ async function pullVerifiedHistoryForRotation(input: {
       onSyncAbandoned: (reason) => {
         abandonReason = reason;
       },
+      onSyncTrace: (line) => input.state.runtime.util.log(`Documents: ${line}`),
       onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
         input.state,
       ),
