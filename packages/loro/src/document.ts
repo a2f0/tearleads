@@ -82,6 +82,16 @@ export function exportAllUpdates(doc: LoroDoc): Uint8Array {
  * only useful for an empty reader and cannot safely merge concurrent frontiers,
  * so reject it rather than publishing a destructive-compaction checkpoint.
  */
+/**
+ * Whether the document was restored from a shallow snapshot (its op history
+ * below the gc boundary is gone). Cheap — use it to skip work that would
+ * otherwise pay for a full-history export attempt or a table scan just to
+ * discover the export must fail.
+ */
+export function isShallowDocument(doc: LoroDoc): boolean {
+  return doc.isShallow();
+}
+
 export function exportFullHistorySnapshot(doc: LoroDoc): Uint8Array {
   const snapshot = doc.export({ mode: "snapshot" });
   const metadata = getImportBlobMetadata(snapshot);

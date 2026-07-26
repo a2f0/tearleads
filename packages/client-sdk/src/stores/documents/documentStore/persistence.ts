@@ -3,6 +3,7 @@ import {
   encodeVersionVector,
   exportFullHistorySnapshot,
   exportUpdatesSince,
+  isShallowDocument,
 } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import type { DocumentSummary } from "../../../data/documentSummary";
@@ -229,6 +230,13 @@ async function maybeCompactDocumentHistory(
     !persistence.readHistoryTailSize ||
     !persistence.replaceHistoryCheckpoint
   ) {
+    return;
+  }
+  // Legacy shallow-restored documents cannot export full history; bail
+  // before ANY tail reads so their ever-growing tail is never scanned per
+  // persist (a rebuild or recovery re-enables compaction by installing a
+  // full-history document).
+  if (isShallowDocument(currentDoc)) {
     return;
   }
   // Bind this compaction to the store context it started under: a store

@@ -57,20 +57,12 @@ export async function loadDocumentHistoryRestoreState(
 ): Promise<DocumentHistoryRestoreState | null> {
   await ensureSqlTables(execSql, documentTables);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const [checkpoint] = await db
-    .select({ snapshot: documentHistoryCheckpoints.snapshot })
-    .from(documentHistoryCheckpoints)
-    .where(
-      and(
-        eq(documentHistoryCheckpoints.appKind, scope.appKind),
-        eq(documentHistoryCheckpoints.localId, scope.localId),
-      ),
-    )
-    .limit(1);
-  if (!checkpoint) {
-    return null;
-  }
-
+  // Read the TAIL before the checkpoint: if another pane compacts between
+  // the two reads, this order yields old-tail + new-checkpoint — a safe
+  // superset (the new checkpoint subsumes the old tail, and replay is
+  // idempotent by op identity). The reverse order could yield old-checkpoint
+  // + already-emptied tail, a torn read that lags the persisted record and
+  // forces the shallow fallback for the whole session.
   const tail = await db
     .select({
       id: documentHistoryUpdates.id,
@@ -87,6 +79,20 @@ export async function loadDocumentHistoryRestoreState(
       asc(documentHistoryUpdates.createdAt),
       asc(documentHistoryUpdates.id),
     );
+
+  const [checkpoint] = await db
+    .select({ snapshot: documentHistoryCheckpoints.snapshot })
+    .from(documentHistoryCheckpoints)
+    .where(
+      and(
+        eq(documentHistoryCheckpoints.appKind, scope.appKind),
+        eq(documentHistoryCheckpoints.localId, scope.localId),
+      ),
+    )
+    .limit(1);
+  if (!checkpoint) {
+    return null;
+  }
 
   return {
     snapshot: checkpoint.snapshot,
