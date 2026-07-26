@@ -6,6 +6,18 @@
   scrollbar-gutter: var(--scrollbar-gutter);
 }
 
+/*
+ * Billing History's tab strip scrolls inside this main region rather than a
+ * `MiniAppPanel`, so it needs the same treatment the shared scrollport rule in
+ * components/mini-app/layout/MiniAppTabs.css applies: take over the mini-app
+ * root's inline inset as padding, so a strip inside can bleed to the screen
+ * without escaping — and being clipped by — this scroll container.
+ */
+.routed-pane--mobile .org-manager-main:has(.mini-app-tabs) {
+  margin-inline: calc(-1 * var(--space-md));
+  padding-inline: var(--space-md);
+}
+
 .org-manager-switcher {
   align-self: flex-end;
   flex: 0 0 auto;
