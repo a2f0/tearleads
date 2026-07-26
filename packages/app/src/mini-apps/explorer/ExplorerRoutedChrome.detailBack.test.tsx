@@ -13,12 +13,12 @@ afterEach(() => cleanup());
 function renderDetailBackChrome({
   historyCanGoBack,
   route,
-  selectExplorerDocument = () => undefined,
+  selectDocumentProjection = () => undefined,
   showSelectionRoute = () => undefined,
 }: {
   historyCanGoBack: boolean;
   route: ExplorerRoute;
-  selectExplorerDocument?: (
+  selectDocumentProjection?: (
     localId: string,
     containerId: string,
     options?: { replace?: boolean | undefined },
@@ -34,9 +34,9 @@ function renderDetailBackChrome({
           routeState: {
             ...baseModel.routeState,
             route,
-            selectExplorerDocument,
             showSelectionRoute,
           },
+          selectDocumentProjection,
         })}
       />
     </WindowMenuProvider>,
@@ -60,7 +60,7 @@ test("document info leaves Back to host history", async () => {
   const view = renderDetailBackChrome({
     historyCanGoBack: true,
     route: DOCUMENT_INFO_ROUTE,
-    selectExplorerDocument: (localId) => {
+    selectDocumentProjection: (localId) => {
       selectedDocuments.push(localId);
     },
   });
@@ -90,7 +90,7 @@ test("document info with no history replaces itself with the document", async ()
   const view = renderDetailBackChrome({
     historyCanGoBack: false,
     route: DOCUMENT_INFO_ROUTE,
-    selectExplorerDocument: (localId, containerId, options) => {
+    selectDocumentProjection: (localId, containerId, options) => {
       selectedDocuments.push([localId, containerId, options]);
     },
   });

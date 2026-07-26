@@ -176,11 +176,11 @@ function useExplorerRoutedBackAction({
       return {
         label: EXPLORER_LABELS.documentInfoBackAction,
         onBack: () => {
-          model.routeState.selectExplorerDocument(
-            route.localId,
-            route.containerId,
-            { replace: true },
-          );
+          // The projection-aware path, not the raw route action: it resolves a
+          // deleted document back to its container and activates a linked one.
+          model.selectDocumentProjection(route.localId, route.containerId, {
+            replace: true,
+          });
         },
       };
     }
@@ -228,8 +228,8 @@ function useExplorerRoutedBackAction({
     model.routeState.navigateBackFromBlobBrowser,
     model.routeState.openSyncLanesRoute,
     model.routeState.openWriteQueueRoute,
-    model.routeState.selectExplorerDocument,
     model.routeState.showSelectionRoute,
+    model.selectDocumentProjection,
     ownsDetailBack,
     route,
   ]);

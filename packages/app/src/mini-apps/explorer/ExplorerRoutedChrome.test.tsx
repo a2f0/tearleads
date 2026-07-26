@@ -279,9 +279,9 @@ test("document-info back action returns to the document", async () => {
               localId: "you-contact",
               view: "document-info",
             },
-            selectExplorerDocument: (localId, containerId) => {
-              selectedDocuments.push([localId, containerId]);
-            },
+          },
+          selectDocumentProjection: (localId, containerId) => {
+            selectedDocuments.push([localId, containerId]);
           },
         })}
       />

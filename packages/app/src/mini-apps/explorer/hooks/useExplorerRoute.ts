@@ -32,7 +32,10 @@ export interface ExplorerRouteState {
     containerId: string,
     options?: ExplorerRouteNavigationOptions,
   ) => void;
-  selectExplorerItem: (id: string | null) => void;
+  selectExplorerItem: (
+    id: string | null,
+    options?: ExplorerRouteNavigationOptions,
+  ) => void;
   showSelectionRoute: (options?: ExplorerRouteNavigationOptions) => void;
 }
 
@@ -292,9 +295,9 @@ function useExplorerRouteActions(params: {
   );
 
   const selectExplorerItem = useCallback(
-    (id: string | null) => {
+    (id: string | null, options: ExplorerRouteNavigationOptions = {}) => {
       setSelectedId(id);
-      setRoute(DEFAULT_EXPLORER_ROUTE, id);
+      setRoute(DEFAULT_EXPLORER_ROUTE, id, options);
     },
     [setRoute, setSelectedId],
   );

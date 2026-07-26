@@ -151,8 +151,15 @@ export function useSelectDocumentProjection(params: {
     containerId: string,
   ) => Promise<DocumentSummary | null>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
-  selectDocument: (id: string, containerId: string) => void;
-  setSelectedId: (id: string | null) => void;
+  selectDocument: (
+    id: string,
+    containerId: string,
+    options?: { replace?: boolean | undefined },
+  ) => void;
+  setSelectedId: (
+    id: string | null,
+    options?: { replace?: boolean | undefined },
+  ) => void;
 }) {
   const {
     activateLinkedDocument,
@@ -166,9 +173,17 @@ export function useSelectDocumentProjection(params: {
   // when the user rapidly switches documents.
   const selectionTokenRef = useRef(0);
 
+  // `options` flows to every navigation this makes, including the async
+  // corrections below: a detail "Back" fallback selects with { replace: true },
+  // and a correction that pushed instead would re-create the history entry the
+  // fallback exists to avoid (see chromeOwnsRouteBackedDetailBack).
   return useCallback(
-    (documentId: string, containerId: string) => {
-      selectDocument(documentId, containerId);
+    (
+      documentId: string,
+      containerId: string,
+      options: { replace?: boolean | undefined } = {},
+    ) => {
+      selectDocument(documentId, containerId, options);
       selectionTokenRef.current += 1;
       const selectionToken = selectionTokenRef.current;
       const isCurrent = () => selectionTokenRef.current === selectionToken;
@@ -179,7 +194,7 @@ export function useSelectDocumentProjection(params: {
           return;
         }
         if (!existingDocument) {
-          setSelectedId(containerId);
+          setSelectedId(containerId, options);
           return;
         }
         if (existingDocument.containerId === containerId) {
@@ -191,7 +206,7 @@ export function useSelectDocumentProjection(params: {
           containerId,
         );
         if (isCurrent() && !activatedDocument) {
-          setSelectedId(documentId);
+          setSelectedId(documentId, options);
         }
       }
 
