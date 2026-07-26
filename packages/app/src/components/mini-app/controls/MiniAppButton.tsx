@@ -11,9 +11,11 @@ import { classNames } from "../../shared/classNames";
 import { useCurrentWindow } from "../../window/CurrentWindowContext";
 import "./MiniAppButton.css";
 
+type MiniAppButtonVariant = "default" | "ghost";
+
 type MiniAppButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   block?: boolean | undefined;
-  variant?: "default" | "ghost" | undefined;
+  variant?: MiniAppButtonVariant | undefined;
   /** Lays the children out as a centered icon + label row with a small gap. */
   withIcon?: boolean | undefined;
 };
@@ -68,6 +70,13 @@ export function MiniAppClipboardButton({
    * without doing the work the laziness exists to avoid.
    */
   value: string | null | undefined | (() => string);
+  /**
+   * Carried through to the underlying button, so a copy button can match the
+   * controls it sits beside — `ghost` where the row already trades button chrome
+   * for bare glyphs (the credit card's reveal toggles). Defaults, like the
+   * button itself, to the framed `default`.
+   */
+  variant?: MiniAppButtonVariant | undefined;
 }) {
   const resolveValue = typeof value === "function" ? value : null;
   const staticValue = typeof value === "function" ? "" : (value ?? "");
