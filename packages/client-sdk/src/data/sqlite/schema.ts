@@ -198,6 +198,7 @@ export const documentHistoryCheckpoints = sqliteTable(
     localId: text("local_id").notNull(),
     snapshot: text("snapshot").notNull(),
     endVersionVector: text("end_version_vector").notNull(),
+    revision: text("revision").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [primaryKey({ columns: [table.appKind, table.localId] })],

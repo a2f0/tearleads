@@ -200,74 +200,148 @@ export async function replaceDocumentHistoryCheckpoint(
   },
 ): Promise<void> {
   await ensureSqlTables(execSql, documentTables);
-  const updatedAt = new Date().toISOString();
   // Sequential (non-transactional) so callers already inside a transaction
   // can nest this. Crash between the statements leaves the new checkpoint
   // plus covered tail rows — a safe superset, since tail replay is
-  // idempotent by op identity.
+  // idempotent by op identity. The replacement itself is a compare-and-swap
+  // on the stored revision, so the version gate cannot be bypassed by a
+  // concurrent compactor between the read and the write: whoever loses the
+  // CAS re-reads and re-evaluates the gate against the winner's checkpoint.
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (tx) => {
-    // A stale compactor (a pane whose document has not merged another
-    // pane's ops) must never replace a checkpoint it does not cover: the
-    // covered pane may already have deleted its tail rows, so regressing
-    // the checkpoint would leave those ops with no durable copy at all.
-    const [stored] = await tx
-      .select({
-        endVersionVector: documentHistoryCheckpoints.endVersionVector,
-      })
-      .from(documentHistoryCheckpoints)
-      .where(
-        and(
-          eq(documentHistoryCheckpoints.appKind, scope.appKind),
-          eq(documentHistoryCheckpoints.localId, scope.localId),
-        ),
-      )
-      .limit(1);
-    if (
-      stored &&
-      input.force !== true &&
-      !satisfiesVersionVector(input.endVersionVector, stored.endVersionVector)
-    ) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      let replaced: boolean;
+      try {
+        replaced = await tryReplaceCheckpointOnce(tx, scope, input);
+      } catch (error) {
+        if (error instanceof CheckpointGateRejected) {
+          // A fresher checkpoint dominates this candidate: no write, and
+          // the caller's covered rows must stay for the covering pane.
+          return;
+        }
+        throw error;
+      }
+      if (!replaced) {
+        // CAS lost to a concurrent writer — re-read and re-evaluate the
+        // gate against the winner's checkpoint.
+        continue;
+      }
+      for (
+        let index = 0;
+        index < input.coveredTailIds.length;
+        index += HISTORY_ROW_CHUNK
+      ) {
+        await tx
+          .delete(documentHistoryUpdates)
+          .where(
+            and(
+              eq(documentHistoryUpdates.appKind, scope.appKind),
+              eq(documentHistoryUpdates.localId, scope.localId),
+              inArray(
+                documentHistoryUpdates.id,
+                input.coveredTailIds.slice(index, index + HISTORY_ROW_CHUNK),
+              ),
+            ),
+          );
+      }
       return;
     }
-    await tx
+  });
+}
+
+type MutationDb = Parameters<
+  Parameters<
+    ReturnType<typeof getClientSQLitePersistenceRuntime>["runMutation"]
+  >[0]
+>[0];
+
+/**
+ * One compare-and-swap attempt. Returns true when this caller's checkpoint
+ * became the stored one, false when a concurrent writer won the CAS (the
+ * caller re-reads and retries), and throws CheckpointGateRejected when a
+ * fresher stored checkpoint dominates the candidate.
+ */
+async function tryReplaceCheckpointOnce(
+  tx: MutationDb,
+  scope: DocumentScope,
+  input: {
+    endVersionVector: string;
+    force?: boolean;
+    snapshot: string;
+  },
+): Promise<boolean> {
+  const updatedAt = new Date().toISOString();
+  const revision = crypto.randomUUID();
+  const [stored] = await tx
+    .select({
+      endVersionVector: documentHistoryCheckpoints.endVersionVector,
+      revision: documentHistoryCheckpoints.revision,
+    })
+    .from(documentHistoryCheckpoints)
+    .where(
+      and(
+        eq(documentHistoryCheckpoints.appKind, scope.appKind),
+        eq(documentHistoryCheckpoints.localId, scope.localId),
+      ),
+    )
+    .limit(1);
+
+  if (!stored) {
+    const inserted = await tx
       .insert(documentHistoryCheckpoints)
       .values({
         appKind: scope.appKind,
         localId: scope.localId,
         snapshot: input.snapshot,
         endVersionVector: input.endVersionVector,
+        revision,
         updatedAt,
       })
-      .onConflictDoUpdate({
+      .onConflictDoNothing({
         target: [
           documentHistoryCheckpoints.appKind,
           documentHistoryCheckpoints.localId,
         ],
-        set: {
-          snapshot: input.snapshot,
-          endVersionVector: input.endVersionVector,
-          updatedAt,
-        },
-      });
-    for (
-      let index = 0;
-      index < input.coveredTailIds.length;
-      index += HISTORY_ROW_CHUNK
-    ) {
-      await tx
-        .delete(documentHistoryUpdates)
-        .where(
-          and(
-            eq(documentHistoryUpdates.appKind, scope.appKind),
-            eq(documentHistoryUpdates.localId, scope.localId),
-            inArray(
-              documentHistoryUpdates.id,
-              input.coveredTailIds.slice(index, index + HISTORY_ROW_CHUNK),
-            ),
-          ),
-        );
-    }
-  });
+      })
+      .returning({ localId: documentHistoryCheckpoints.localId });
+    // Conflict means a concurrent writer inserted first — retry the gate.
+    return inserted.length > 0;
+  }
+
+  // A stale compactor (a pane whose document has not merged another pane's
+  // ops) must never replace a checkpoint it does not cover: the covered
+  // pane may already have deleted its tail rows, so regressing the
+  // checkpoint would leave those ops with no durable copy at all.
+  if (
+    input.force !== true &&
+    !satisfiesVersionVector(input.endVersionVector, stored.endVersionVector)
+  ) {
+    throw new CheckpointGateRejected();
+  }
+
+  const replaced = await tx
+    .update(documentHistoryCheckpoints)
+    .set({
+      snapshot: input.snapshot,
+      endVersionVector: input.endVersionVector,
+      revision,
+      updatedAt,
+    })
+    .where(
+      and(
+        eq(documentHistoryCheckpoints.appKind, scope.appKind),
+        eq(documentHistoryCheckpoints.localId, scope.localId),
+        eq(documentHistoryCheckpoints.revision, stored.revision),
+      ),
+    )
+    .returning({ localId: documentHistoryCheckpoints.localId });
+  return replaced.length > 0;
+}
+
+class CheckpointGateRejected extends Error {
+  constructor() {
+    super("checkpoint gate rejected");
+    this.name = "CheckpointGateRejected";
+  }
 }
 
 export async function deleteDocumentHistory(
