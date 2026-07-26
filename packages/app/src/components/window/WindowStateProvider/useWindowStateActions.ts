@@ -128,6 +128,47 @@ function useCloseWindowAction(
   );
 }
 
+function useWindowMaximizeActions(
+  setWindows: Dispatch<SetStateAction<WindowEntry[]>>,
+) {
+  // Maximizing always reveals the window, so it un-minimizes and raises in one
+  // step — the taskbar can offer "Maximize" on a minimized window directly.
+  const maximize = useCallback(
+    (id: string) => {
+      setWindows((previousWindows) =>
+        updateWindowFlag(bringWindowToFront(previousWindows, id), id, {
+          maximized: true,
+          minimized: false,
+        }),
+      );
+    },
+    [setWindows],
+  );
+
+  const toggleMaximize = useCallback(
+    (id: string) => {
+      setWindows((previousWindows) => {
+        const target = previousWindows.find(
+          (windowEntry) => windowEntry.id === id,
+        );
+        if (!target) {
+          return previousWindows;
+        }
+
+        const maximized = !target.maximized;
+        return updateWindowFlag(
+          maximized ? bringWindowToFront(previousWindows, id) : previousWindows,
+          id,
+          { maximized },
+        );
+      });
+    },
+    [setWindows],
+  );
+
+  return { maximize, toggleMaximize };
+}
+
 export function useWindowStateActions({
   counter,
   setWindows,
@@ -174,6 +215,8 @@ export function useWindowStateActions({
     [setWindows],
   );
 
+  const { maximize, toggleMaximize } = useWindowMaximizeActions(setWindows);
+
   const updateMiniAppRoute = useUpdateMiniAppRouteAction(setWindows);
   const goBackMiniAppRoute = useGoBackMiniAppRouteAction(setWindows);
 
@@ -216,10 +259,12 @@ export function useWindowStateActions({
     close,
     create,
     goBackMiniAppRoute,
+    maximize,
     minimize,
     moveBackward,
     moveForward,
     restore,
+    toggleMaximize,
     updateMiniAppRoute,
     updateTitle,
   });
@@ -231,10 +276,12 @@ function useMemoizedWindowActions(actions: WindowStateActions) {
     close,
     create,
     goBackMiniAppRoute,
+    maximize,
     minimize,
     moveBackward,
     moveForward,
     restore,
+    toggleMaximize,
     updateMiniAppRoute,
     updateTitle,
   } = actions;
@@ -245,10 +292,12 @@ function useMemoizedWindowActions(actions: WindowStateActions) {
       close,
       create,
       goBackMiniAppRoute,
+      maximize,
       minimize,
       moveBackward,
       moveForward,
       restore,
+      toggleMaximize,
       updateMiniAppRoute,
       updateTitle,
     }),
@@ -257,10 +306,12 @@ function useMemoizedWindowActions(actions: WindowStateActions) {
       close,
       create,
       goBackMiniAppRoute,
+      maximize,
       minimize,
       moveBackward,
       moveForward,
       restore,
+      toggleMaximize,
       updateMiniAppRoute,
       updateTitle,
     ],

@@ -368,7 +368,8 @@ test(
     clickPaneAppMenuItem(view, "Identity Manager");
 
     await waitFor(() => {
-      expect(view.getByText("Identity Manager")).toBeTruthy();
+      // Both the window title bar and its taskbar entry carry the app name.
+      expect(view.getAllByText("Identity Manager").length).toBeGreaterThan(0);
       expect(view.getByText("Active Sessions")).toBeTruthy();
       expect(view.getByText("Current")).toBeTruthy();
     });

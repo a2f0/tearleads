@@ -20,6 +20,7 @@ export function createWindowEntry(
     title,
     initialX: x,
     initialY: y,
+    maximized: false,
     minimized: false,
     zIndex,
     ...(component ? { component } : {}),

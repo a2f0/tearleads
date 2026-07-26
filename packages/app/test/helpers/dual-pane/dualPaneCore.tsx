@@ -286,8 +286,12 @@ export function listExplorerContainerItems(
 }
 
 export function getExplorerWindowRoot(pane: HTMLElement): HTMLElement {
-  const explorerTitle = within(pane).getByText("Explorer");
-  const explorerWindow = explorerTitle.closest<HTMLElement>(".window");
+  // The taskbar labels every open window, so "Explorer" matches there too;
+  // keep only the match that sits inside a window.
+  const explorerWindow = within(pane)
+    .getAllByText("Explorer")
+    .map((element) => element.closest<HTMLElement>(".window"))
+    .find((windowRoot) => windowRoot !== null);
   invariant(explorerWindow, "Expected Explorer window.");
   return explorerWindow;
 }

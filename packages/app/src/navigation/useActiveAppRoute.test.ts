@@ -7,6 +7,7 @@ function windowEntry(overrides: Partial<WindowEntry>): WindowEntry {
     id: "window",
     initialX: 0,
     initialY: 0,
+    maximized: false,
     minimized: false,
     title: "Window",
     zIndex: 1,
