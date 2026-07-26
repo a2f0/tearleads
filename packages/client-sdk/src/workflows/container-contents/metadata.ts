@@ -1,4 +1,8 @@
-import { encodeVersionVector, importUpdates } from "@tearleads/loro";
+import {
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+  importUpdates,
+} from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
@@ -175,12 +179,16 @@ function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
       "Document authorizing container KEK path could not be unwrapped",
     ) ||
     message.startsWith("Document content key could not be unwrapped") ||
+    message.startsWith("Document content-key bundle is stale") ||
+    message.startsWith("Document content-key re-wrap KEK is unavailable") ||
+    message.startsWith("Document stale-bundle recovery") ||
     message === "Document sync target hash mismatch" ||
     message === "Document sync content-key targets mismatch"
   );
 }
 
 async function syncRemoteContainerMetadata(input: {
+  buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
   containerId: string;
   documentId: string | null;
   lastCommitLsn?: string | null | undefined;
@@ -194,6 +202,7 @@ async function syncRemoteContainerMetadata(input: {
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }): Promise<ContainerMetadataSyncAttempt | null> {
   const {
+    buildRotationSnapshot,
     containerId,
     documentId,
     lastCommitLsn,
@@ -227,6 +236,7 @@ async function syncRemoteContainerMetadata(input: {
   const synced = await syncRemoteDocument({
     apiClient: runtime.apiClient,
     author,
+    buildRotationSnapshot,
     documentId,
     execSql,
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
@@ -327,6 +337,23 @@ function resolveSyncedContainerMetadataWriterProjection(
     : null;
 }
 
+/**
+ * Heals a stale metadata content-key bundle by rotating to a fresh content
+ * key anchored by this full-history snapshot; null when the local doc cannot
+ * produce one (e.g. shallow history), which defers the sync with a log line.
+ */
+function metadataRotationSnapshotProvider(
+  metadataState: ContainerMetadataState,
+): () => Promise<Uint8Array | null> {
+  return async () => {
+    try {
+      return exportFullHistorySnapshot(metadataState.doc);
+    } catch {
+      return null;
+    }
+  };
+}
+
 export async function syncContainerMetadataState(input: {
   forceReadSync?: boolean | undefined;
   /**
@@ -377,6 +404,7 @@ export async function syncContainerMetadataState(input: {
   }
 
   const syncAttempt = await syncRemoteContainerMetadata({
+    buildRotationSnapshot: metadataRotationSnapshotProvider(metadataState),
     containerId: metadataState.container.id,
     documentId,
     lastCommitLsn: metadataState.record.lastCommitLsn,

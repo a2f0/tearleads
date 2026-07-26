@@ -57,7 +57,8 @@ type FailedDocumentSyncAction =
   | {
       readonly kind: "recover_update_id_conflict";
       readonly recoveryPendingUpdatesById: Map<string, PendingUpdateRecord>;
-    };
+    }
+  | { readonly kind: "regenerate_queued_checkpoints" };
 
 type DocumentSyncAttemptSubmission =
   | {
@@ -122,6 +123,24 @@ export function isRecoverableDocumentUpdateIdConflict(
 }
 
 /**
+ * The server's covering-baseline gate refused a queued rotation checkpoint
+ * (e.g. a leftover from an interrupted recovery or a lost heal ack) because
+ * it no longer covers the committed frontier. The pass can repair itself by
+ * regenerating a fresh covering baseline from the live document instead of
+ * resubmitting the stale payload — which would fail terminally forever.
+ */
+function isCheckpointCoverageConflict(
+  failure: DocumentSyncSubmitFailure,
+): boolean {
+  return (
+    failure.status === 409 &&
+    failure.message.includes(
+      "Document content-key rotation baseline does not cover the committed frontier",
+    )
+  );
+}
+
+/**
  * A create submitted with a stable documentId whose first attempt already
  * committed server-side comes back as this 409 (see the server's
  * `assertCreateCanAdvanceDocumentHead`). It is not a failure — the caller adopts
@@ -176,6 +195,7 @@ export async function handleUpstreamDeletedDocumentSyncFailure(input: {
 
 async function resolveFailedDocumentSyncAction(input: {
   attempt: number;
+  canRegenerateQueuedCheckpoints?: boolean | undefined;
   documentId: string;
   failure: DocumentSyncSubmitFailure;
   maxAttempts: number;
@@ -219,6 +239,14 @@ async function resolveFailedDocumentSyncAction(input: {
     };
   }
 
+  if (
+    input.attempt < input.maxAttempts &&
+    input.canRegenerateQueuedCheckpoints === true &&
+    isCheckpointCoverageConflict(input.failure)
+  ) {
+    return { kind: "regenerate_queued_checkpoints" };
+  }
+
   input.failure.report();
   await input.onTerminalSubmitFailure?.(input.failure);
   return "stop";
@@ -227,6 +255,7 @@ async function resolveFailedDocumentSyncAction(input: {
 async function submitDocumentSyncAttempt(input: {
   apiClient: DocumentSyncApi;
   attempt: number;
+  canRegenerateQueuedCheckpoints?: boolean | undefined;
   documentId: string;
   maxAttempts: number;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
@@ -250,6 +279,7 @@ async function submitDocumentSyncAttempt(input: {
 
   return resolveFailedDocumentSyncAction({
     attempt: input.attempt,
+    canRegenerateQueuedCheckpoints: input.canRegenerateQueuedCheckpoints,
     documentId: input.documentId,
     failure: submitted,
     maxAttempts: input.maxAttempts,

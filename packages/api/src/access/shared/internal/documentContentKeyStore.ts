@@ -155,6 +155,14 @@ async function getLatestDocumentContentKeyBundle(
   return row ? toStoredBundle(row, executor) : null;
 }
 
+export async function getLatestDocumentContentKeyEpoch(
+  documentId: string,
+  executor: DatabaseSession,
+): Promise<number | null> {
+  const row = await loadLatestDocumentContentKeyEpochRow(documentId, executor);
+  return row?.contentKeyEpoch ?? null;
+}
+
 interface ContainerManifestMoveLineageStep {
   readonly containerId: string;
   readonly containerKeyEpochId: string;
@@ -481,13 +489,26 @@ async function currentTargetsCanCarryPreviousBundle(input: {
   return true;
 }
 
-export async function getLatestCurrentDocumentContentKeyBundle(
+interface LatestDocumentContentKeyBundleProjection {
+  readonly bundle: StoredDocumentContentKeyBundle;
+  /**
+   * True when the stored bundle could not be carried forward to the current
+   * KEK targets (e.g. a revoke rotated a linked container's key epoch). The
+   * server cannot heal this — only a writer holding the plaintext content key
+   * can, by storing a re-wrapped bundle at the next content-key epoch — so
+   * the stale bundle is surfaced instead of suppressed to keep that recovery
+   * possible.
+   */
+  readonly stale: boolean;
+}
+
+export async function getLatestDocumentContentKeyBundleProjection(
   input: {
     readonly currentTargets: CurrentDocumentKekTargets;
     readonly documentId: string;
   },
   executor: DatabaseSession,
-): Promise<StoredDocumentContentKeyBundle | null> {
+): Promise<LatestDocumentContentKeyBundleProjection | null> {
   const bundle = await getLatestDocumentContentKeyBundle(
     input.documentId,
     executor,
@@ -510,17 +531,35 @@ export async function getLatestCurrentDocumentContentKeyBundle(
         currentTargets: input.currentTargets,
         targets: refreshedBundle.targets,
       });
-      return refreshedBundle;
+      return { bundle: refreshedBundle, stale: false };
     }
 
-    throw staleBundle("Document content-key bundle is stale");
+    return { bundle, stale: true };
   }
   assertTargetsMatchCurrent({
     currentTargets: input.currentTargets,
     targets: bundle.targets,
   });
 
-  return bundle;
+  return { bundle, stale: false };
+}
+
+export async function getLatestCurrentDocumentContentKeyBundle(
+  input: {
+    readonly currentTargets: CurrentDocumentKekTargets;
+    readonly documentId: string;
+  },
+  executor: DatabaseSession,
+): Promise<StoredDocumentContentKeyBundle | null> {
+  const projection = await getLatestDocumentContentKeyBundleProjection(
+    input,
+    executor,
+  );
+  if (projection?.stale) {
+    throw staleBundle("Document content-key bundle is stale");
+  }
+
+  return projection?.bundle ?? null;
 }
 
 async function insertDocumentContentKeyTargets(input: {
@@ -630,10 +669,11 @@ async function createDocumentContentKeyBundle(
       targetEnvelopeEqual,
     )
   ) {
-    throw new DocumentContentKeyBundleError(
-      "Document content-key bundle conflict",
-      409,
-    );
+    // Coded stateStale: a concurrent writer committed this epoch first (e.g.
+    // two devices healing a stale bundle race to epoch+1). The loser must
+    // refetch the projection and rebuild against the winner's bundle, which
+    // is exactly the client's stateStale retry path.
+    throw staleBundle("Document content-key bundle conflict");
   }
 
   return storedBundle;
@@ -667,10 +707,12 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
       (targetKeyMaterialEqual(target, nextTarget) &&
         !targetEnvelopeMaterialEqual(target, nextTarget))
     ) {
-      throw new DocumentContentKeyBundleError(
-        "Document content-key bundle conflict",
-        409,
-      );
+      // Coded stateStale: a concurrent writer's bundle already occupies this
+      // epoch with different envelopes (e.g. two devices racing to heal a
+      // stale bundle each submit their own fresh key). The loser refetches
+      // the projection, sees the winner's committed state, and resubmits
+      // against it — the client's stateStale retry path.
+      throw staleBundle("Document content-key bundle conflict");
     }
   }
 
@@ -905,10 +947,9 @@ export async function storeDocumentContentKeyBundleInTransaction(
     );
   }
 
-  throw new DocumentContentKeyBundleError(
-    "Document content-key bundle conflict",
-    409,
-  );
+  // Coded stateStale: the submitted epoch was superseded by a concurrent
+  // bundle write; a refetched projection lets the client rebuild and retry.
+  throw staleBundle("Document content-key bundle conflict");
 }
 
 /**
