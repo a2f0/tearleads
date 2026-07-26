@@ -11,6 +11,7 @@ export interface CreditCardDocumentFields {
   cardNumber: string;
   cvvCode: string;
   expirationDate: string;
+  issuer: string;
   nameOnCard: string;
 }
 
@@ -25,10 +26,26 @@ function isValidYearMonth(value: string): boolean {
   return month >= 1 && month <= 12;
 }
 
+/**
+ * The name a card shows under, in the Explorer and everywhere else a document
+ * title appears.
+ *
+ * The issuer leads it because that is what tells two cards apart at a glance,
+ * and the last four digits are what a holder checks against the physical card.
+ * Each part is optional, so the title degrades a step at a time rather than
+ * falling straight to "Untitled": issuer and digits, then whichever one is
+ * known, then the name on the card.
+ */
 function deriveCreditCardTitle(fields: CreditCardDocumentFields): string {
+  const issuer = fields.issuer.trim();
   const digits = fields.cardNumber.replaceAll(/\D/gu, "");
   if (digits.length >= 4) {
-    return `Credit Card ending in ${digits.slice(-4)}`;
+    const label = issuer.length > 0 ? issuer : "Credit Card";
+    return `${label} ending in ${digits.slice(-4)}`;
+  }
+
+  if (issuer.length > 0) {
+    return issuer;
   }
 
   const trimmedNameOnCard = fields.nameOnCard.trim();
@@ -45,6 +62,7 @@ export function readCreditCardFieldsFromRecord(
     cardNumber: readStringDocumentField(source, "cardNumber", issues),
     cvvCode: readStringDocumentField(source, "cvvCode", issues),
     expirationDate: readStringDocumentField(source, "expirationDate", issues),
+    issuer: readStringDocumentField(source, "issuer", issues),
     nameOnCard: readStringDocumentField(source, "nameOnCard", issues),
   };
 
