@@ -14,7 +14,7 @@ import { BLOB_LIST_LABELS } from "./blobListLabels";
  * bands while scrolling rather than as a visibly broken row.
  */
 
-const STORAGE_KEY = "tearleads.blob-browser:hidden-columns:v2";
+const STORAGE_KEY = "tearleads.blob-browser:hidden-columns:v3";
 
 afterEach(() => {
   cleanup();
@@ -123,18 +123,37 @@ test("folded blob row stacks the first column over the rest", () => {
   const view = renderFoldedBlobInfoTable();
   const lines = getCompactLines(view);
 
-  // Organization is hidden by default, so MIME leads and the remaining visible
-  // columns share the muted second line.
+  // Organization and Sync are hidden by default, so MIME leads and the three
+  // remaining visible columns share the muted second line.
   expect(lines[0]).toEqual([`${BLOB_LIST_LABELS.mimeTypeColumn}: text/plain`]);
   expect(lines[1]?.slice(0, 2)).toEqual([
     `${BLOB_LIST_LABELS.sizeColumn}: 12 B`,
     `${BLOB_LIST_LABELS.referenceColumn}: 1 reference`,
   ]);
-  expect(lines[1]).toHaveLength(4);
-  expect(view.getByTestId("sync-cell")).toBeTruthy();
+  // Updated closes the line; its text is timezone-dependent, so only its
+  // presence is asserted.
+  expect(lines[1]).toHaveLength(3);
   expect(
     view.container.querySelector(".mini-app-compact-table-line--muted"),
   ).toBeTruthy();
+});
+
+test("folded blob row hides the sync badge until the column is enabled", () => {
+  // The badge is a narrow glyph that would take an equal share of the second
+  // line, leaving the fields beside it short of the row's trailing edge.
+  const view = renderFoldedBlobInfoTable();
+
+  expect(view.queryByTestId("sync-cell")).toBeNull();
+
+  fireEvent.click(view.getByRole("button", { name: "Columns" }));
+  fireEvent.click(
+    view.getByRole("checkbox", {
+      name: `${BLOB_LIST_LABELS.syncColumn} ${BLOB_LIST_LABELS.columnsMenuStateOff}`,
+    }),
+  );
+
+  expect(view.getByTestId("sync-cell")).toBeTruthy();
+  expect(getCompactLines(view)[1]).toHaveLength(4);
 });
 
 function getVisualTitle(view: ReturnType<typeof render>): string | null {
@@ -144,7 +163,7 @@ function getVisualTitle(view: ReturnType<typeof render>): string | null {
   return titled?.getAttribute("title") ?? null;
 }
 
-test("folded blob row spans a larger thumbnail beside both lines", () => {
+test("folded blob row covers both lines with the thumbnail", () => {
   const view = renderFoldedBlobInfoTable();
   const visual = view.container.querySelector(".mini-app-compact-table-visual");
   const identityButton = view.getByRole("button", { name: "blob-1" });
@@ -155,7 +174,11 @@ test("folded blob row spans a larger thumbnail beside both lines", () => {
   expect(
     identityButton.querySelector(".explorer-blob-browser-thumb--compact"),
   ).toBeTruthy();
-  expect(identityButton.querySelector("svg")?.getAttribute("width")).toBe("32");
+  // The square in BlobList.css is the only thing that sizes a folded thumbnail,
+  // so the glyph fills it rather than carrying a px size of its own.
+  expect(identityButton.querySelector("svg")?.getAttribute("width")).toBe(
+    "100%",
+  );
   expect(getVisualTitle(view)).toBe("blob-1");
 });
 
@@ -241,15 +264,15 @@ test("folded blob list still trims its second line from the columns menu", () =>
   );
 
   expect(globalThis.localStorage.getItem(STORAGE_KEY)).toContain("references");
-  expect(getCompactLines(view)[1]).toHaveLength(3);
+  expect(getCompactLines(view)[1]).toHaveLength(2);
 });
 
 test("unfolded blob list keeps its wide columns and pitch", () => {
   const view = renderBlobInfoTable();
   const frame = getTableFrame(view);
 
-  // Blob, MIME, Size, References, Updated, Sync — Organization stays hidden.
-  expect(view.container.querySelectorAll("thead th")).toHaveLength(6);
+  // Blob, MIME, Size, References, Updated — Organization and Sync stay hidden.
+  expect(view.container.querySelectorAll("thead th")).toHaveLength(5);
   expect(
     view.queryByRole("columnheader", { name: BLOB_LIST_LABELS.blobColumn }),
   ).not.toBeNull();

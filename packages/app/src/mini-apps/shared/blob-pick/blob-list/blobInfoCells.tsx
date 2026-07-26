@@ -110,7 +110,11 @@ function BlobIdentityButton(params: {
           <Icon
             aria-hidden
             className="explorer-blob-browser-thumb-icon"
-            size={compact ? 32 : 20}
+            // A folded glyph fills its box the way an image thumbnail does, so
+            // the square in BlobList.css stays the one place the compact size is
+            // decided — and the two variants cover the summary's lines to the
+            // same depth in both the touch and the denser windowed rem.
+            size={compact ? "100%" : 20}
           />
         )}
       </span>
