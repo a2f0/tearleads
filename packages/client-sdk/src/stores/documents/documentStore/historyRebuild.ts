@@ -67,14 +67,12 @@ export async function installRebuiltDocument(input: {
       input.state.localId,
     )) ?? [];
   const fullHistorySnapshot = exportFullHistorySnapshot(input.rebuiltDoc);
-  const coveredTailIds = coveredHistoryTailIds(
-    tailEntries,
-    encodeVersionVector(input.rebuiltDoc),
-  );
+  const rebuiltEndVersion = encodeVersionVector(input.rebuiltDoc);
   await input.state.persistence.replaceHistoryCheckpoint?.(
     input.state.runtime.infra.execSql,
     {
-      coveredTailIds,
+      coveredTailIds: coveredHistoryTailIds(tailEntries, rebuiltEndVersion),
+      endVersionVector: rebuiltEndVersion,
       localId: input.state.localId,
       snapshot: bytesToBase64(fullHistorySnapshot),
     },

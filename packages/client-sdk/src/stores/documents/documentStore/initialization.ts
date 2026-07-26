@@ -284,6 +284,7 @@ async function createInitialDocumentRecord(
     state.runtime.infra.execSql,
     {
       coveredTailIds: [],
+      endVersionVector: encodeVersionVector(nextDoc),
       localId: state.localId,
       snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
     },

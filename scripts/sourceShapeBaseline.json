@@ -278,8 +278,8 @@
       "bytes": 30001
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 874,
-      "bytes": 34420
+      "lines": 875,
+      "bytes": 34480
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 579,
@@ -294,12 +294,12 @@
       "bytes": 19608
     },
     "packages/client-sdk/src/stores/documents/documentStore/initialization.ts": {
-      "lines": 514,
-      "bytes": 18269
+      "lines": 515,
+      "bytes": 18323
     },
     "packages/client-sdk/src/stores/documents/documentStore/persistence.ts": {
-      "lines": 534,
-      "bytes": 17268
+      "lines": 533,
+      "bytes": 17316
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 572,
@@ -366,8 +366,8 @@
       "bytes": 32402
     },
     "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts": {
-      "lines": 513,
-      "bytes": 18143
+      "lines": 515,
+      "bytes": 18214
     },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
       "lines": 1105,

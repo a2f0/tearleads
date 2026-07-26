@@ -759,7 +759,11 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     await replaceDocumentHistoryCheckpoint(
       execSql,
       getDocumentScope(input.localId),
-      { coveredTailIds: input.coveredTailIds, snapshot: input.snapshot },
+      {
+        coveredTailIds: input.coveredTailIds,
+        endVersionVector: input.endVersionVector,
+        snapshot: input.snapshot,
+      },
     );
   },
   async enqueuePendingUpdate(execSql, pendingUpdate) {

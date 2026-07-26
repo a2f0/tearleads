@@ -170,6 +170,7 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     input: {
       coveredTailIds: readonly string[];
+      endVersionVector: string;
       localId: string;
       snapshot: string;
     },

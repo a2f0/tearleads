@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
+  emptyVersionVector,
+  encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
   getTextValue,
@@ -109,6 +111,7 @@ test("compaction deletes only the tail rows captured before its export", async (
     });
     await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
       coveredTailIds,
+      endVersionVector: emptyVersionVector(),
       localId: "raced-doc",
       snapshot: "checkpoint",
     });
@@ -270,6 +273,43 @@ test("a deferred write covered by the tail restores with full history", async ()
       if (!reopened.doc) throw new Error("expected restored doc");
       exportFullHistorySnapshot(reopened.doc);
     }).not.toThrow();
+  } finally {
+    close();
+  }
+});
+
+test("a stale compactor cannot regress a newer checkpoint", async () => {
+  const { close, execSql } = await createTestExecSql("history-stale-compactor");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const advanced = await createDocument("advanced-pane");
+    advanced.getText("text").update("advanced state");
+    advanced.commit();
+    await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
+      coveredTailIds: [],
+      endVersionVector: encodeVersionVector(advanced),
+      localId: "contested-doc",
+      snapshot: "advanced-checkpoint",
+    });
+
+    // A pane with disjoint, unmerged ops must not replace the newer
+    // checkpoint — the advanced pane's tail rows may already be deleted, so
+    // regressing would leave its ops with no durable copy.
+    const stale = await createDocument("stale-pane");
+    stale.getText("text").update("divergent");
+    stale.commit();
+    await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
+      coveredTailIds: [],
+      endVersionVector: encodeVersionVector(stale),
+      localId: "contested-doc",
+      snapshot: "stale-checkpoint",
+    });
+
+    const restored = await sqlDocumentsPersistence.loadHistoryRestoreState?.(
+      execSql,
+      "contested-doc",
+    );
+    expect(restored?.snapshot).toBe("advanced-checkpoint");
   } finally {
     close();
   }

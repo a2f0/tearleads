@@ -1,3 +1,4 @@
+import { satisfiesVersionVector } from "@tearleads/loro";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { DocumentScope } from "./documentPersistenceTypes";
 import {
@@ -185,7 +186,11 @@ const HISTORY_ROW_CHUNK = 400;
 export async function replaceDocumentHistoryCheckpoint(
   execSql: ExecSql,
   scope: DocumentScope,
-  input: { coveredTailIds: readonly string[]; snapshot: string },
+  input: {
+    coveredTailIds: readonly string[];
+    endVersionVector: string;
+    snapshot: string;
+  },
 ): Promise<void> {
   await ensureSqlTables(execSql, documentTables);
   const updatedAt = new Date().toISOString();
@@ -194,12 +199,35 @@ export async function replaceDocumentHistoryCheckpoint(
   // plus covered tail rows — a safe superset, since tail replay is
   // idempotent by op identity.
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (tx) => {
+    // A stale compactor (a pane whose document has not merged another
+    // pane's ops) must never replace a checkpoint it does not cover: the
+    // covered pane may already have deleted its tail rows, so regressing
+    // the checkpoint would leave those ops with no durable copy at all.
+    const [stored] = await tx
+      .select({
+        endVersionVector: documentHistoryCheckpoints.endVersionVector,
+      })
+      .from(documentHistoryCheckpoints)
+      .where(
+        and(
+          eq(documentHistoryCheckpoints.appKind, scope.appKind),
+          eq(documentHistoryCheckpoints.localId, scope.localId),
+        ),
+      )
+      .limit(1);
+    if (
+      stored &&
+      !satisfiesVersionVector(input.endVersionVector, stored.endVersionVector)
+    ) {
+      return;
+    }
     await tx
       .insert(documentHistoryCheckpoints)
       .values({
         appKind: scope.appKind,
         localId: scope.localId,
         snapshot: input.snapshot,
+        endVersionVector: input.endVersionVector,
         updatedAt,
       })
       .onConflictDoUpdate({
@@ -207,7 +235,11 @@ export async function replaceDocumentHistoryCheckpoint(
           documentHistoryCheckpoints.appKind,
           documentHistoryCheckpoints.localId,
         ],
-        set: { snapshot: input.snapshot, updatedAt },
+        set: {
+          snapshot: input.snapshot,
+          endVersionVector: input.endVersionVector,
+          updatedAt,
+        },
       });
     for (
       let index = 0;

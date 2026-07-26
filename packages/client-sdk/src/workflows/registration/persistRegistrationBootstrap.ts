@@ -1,6 +1,7 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
+  encodeVersionVector,
   exportFullHistorySnapshot,
   importUpdates,
 } from "@tearleads/loro";
@@ -418,6 +419,7 @@ async function persistInitialDocumentBootstrap(
   // exportability.
   await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
     coveredTailIds: [],
+    endVersionVector: encodeVersionVector(doc),
     localId: input.localId,
     snapshot: bytesToBase64(exportFullHistorySnapshot(doc)),
   });

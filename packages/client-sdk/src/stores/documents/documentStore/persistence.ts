@@ -278,11 +278,10 @@ async function maybeCompactDocumentHistory(
   if (!isSyncGenerationCurrent(state, generation)) {
     return;
   }
+  const endVersionVector = encodeVersionVector(currentDoc);
   await persistence.replaceHistoryCheckpoint(execSql, {
-    coveredTailIds: coveredHistoryTailIds(
-      tailEntries,
-      encodeVersionVector(currentDoc),
-    ),
+    coveredTailIds: coveredHistoryTailIds(tailEntries, endVersionVector),
+    endVersionVector,
     localId: state.localId,
     snapshot: bytesToBase64(snapshot),
   });
