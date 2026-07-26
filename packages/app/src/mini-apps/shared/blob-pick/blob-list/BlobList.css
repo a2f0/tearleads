@@ -34,8 +34,17 @@
 }
 
 /* A folded row promotes the identity button to the summary's leading visual,
-   where it is sized by its thumbnail rather than stretched across a column. */
+   where it is sized by its thumbnail rather than stretched across a column.
+
+   Flex, not the block above: a block button lays its inline-flex thumbnail on a
+   text baseline, and the strut's descent then hangs ~17px of empty line box under
+   the square. That padding is invisible, but it is real height — it pushed the
+   folded row past the fixed pitch the virtualization math budgets for it, which
+   shows up as rows drifting out of step with the scroll spacers rather than as a
+   visibly broken row. Flex has no line box, so the button is exactly its
+   thumbnail. */
 .explorer-blob-browser-row-button--compact {
+  display: flex;
   width: auto;
 }
 
@@ -50,11 +59,20 @@
   flex: 0 0 auto;
 }
 
-/* The folded row has a 56px pitch to spend, so the thumbnail grows to the same
-   32px the Explorer's folded item glyph uses. */
+/* A folded row spends its whole height on the thumbnail, so the blob reads as the
+   subject of the row rather than as a bullet beside line one: the square covers
+   both summary lines, which measure 38px for the two 16px touch-tier lines.
+
+   This is the largest square the fixed pitch can seat. Against the routed 16px
+   rem, 2.75rem is 44px — also a full touch target for the identity button that
+   fills it — and 44px plus the cell's block padding and the row's shared bottom
+   border still clears the 56px pitch, so the thumbnail can never grow a row past
+   the height the virtualization math has budgeted for it. A narrow desktop
+   window folds too, and its denser rem scales the square with its shorter
+   lines. */
 .explorer-blob-browser-thumb--compact {
-  width: 2rem;
-  height: 2rem;
+  width: 2.75rem;
+  height: 2.75rem;
 }
 
 .explorer-blob-browser-thumb-image {

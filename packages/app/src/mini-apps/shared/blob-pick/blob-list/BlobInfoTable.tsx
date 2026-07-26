@@ -4,7 +4,7 @@ import type {
   BlobInfoSortKey,
   BlobStore,
 } from "@tearleads/client-sdk";
-import { type MouseEvent, useMemo, useState } from "react";
+import { type MouseEvent, useMemo } from "react";
 import { MiniAppStatus } from "../../../../components/mini-app/MiniAppLayout";
 import {
   addMiniAppTableHeaderAction,
@@ -13,7 +13,6 @@ import {
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
   MiniAppTableRow,
-  useMiniAppColumnVisibility,
 } from "../../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
@@ -25,8 +24,8 @@ import {
   type RenderBlobSyncCell,
   renderBlobInfoCell,
 } from "./blobInfoCells";
+import { useBlobInfoColumnVisibility } from "./blobListColumnPreferences";
 import {
-  BLOB_INFO_TOGGLEABLE_COLUMN_IDS,
   type BlobInfoColumnId,
   getBlobInfoColumnMenuOptions,
   getBlobInfoColumns,
@@ -36,54 +35,7 @@ import {
 import { BLOB_LIST_LABELS } from "./blobListLabels";
 import "./BlobList.css";
 
-const LEGACY_BLOB_INFO_COLUMN_STORAGE_KEY =
-  "tearleads.explorer.blob-browser:hidden-columns";
-const BLOB_INFO_COLUMN_STORAGE_KEY = "tearleads.blob-browser:hidden-columns:v2";
 const EMPTY_ORGANIZATION_NAMES = new Map<string, string>();
-
-function migrateBlobInfoColumnVisibility(): void {
-  try {
-    const storage = globalThis.localStorage;
-    if (storage.getItem(BLOB_INFO_COLUMN_STORAGE_KEY) !== null) {
-      return;
-    }
-    const legacyValue = storage.getItem(LEGACY_BLOB_INFO_COLUMN_STORAGE_KEY);
-    if (legacyValue === null) {
-      return;
-    }
-    const parsed: unknown = JSON.parse(legacyValue);
-    if (!Array.isArray(parsed)) {
-      return;
-    }
-    const hiddenColumns = new Set<BlobInfoColumnId>(
-      parsed.filter(
-        (value): value is BlobInfoColumnId =>
-          typeof value === "string" &&
-          BLOB_INFO_TOGGLEABLE_COLUMN_IDS.some((id) => id === value),
-      ),
-    );
-    // Organization did not exist when the legacy preference was saved, so keep
-    // the new dimension hidden until the user explicitly enables it.
-    hiddenColumns.add("organization");
-    storage.setItem(
-      BLOB_INFO_COLUMN_STORAGE_KEY,
-      JSON.stringify([...hiddenColumns]),
-    );
-  } catch {
-    // Column visibility is a display preference; disabled storage is harmless.
-  }
-}
-
-function useBlobInfoColumnVisibility() {
-  // The lazy initializer runs before the generic visibility hook reads the v2
-  // key. The migration is idempotent, including under React Strict Mode.
-  useState(() => migrateBlobInfoColumnVisibility());
-  return useMiniAppColumnVisibility<BlobInfoColumnId>({
-    defaultHiddenColumnIds: ["organization"],
-    storageKey: BLOB_INFO_COLUMN_STORAGE_KEY,
-    toggleableColumnIds: BLOB_INFO_TOGGLEABLE_COLUMN_IDS,
-  });
-}
 
 function BlobInfoTableContent(params: {
   activeBlob: BlobInfo | null;
