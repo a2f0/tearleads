@@ -5,6 +5,7 @@ import type {
   DomainSyncSnapshot,
   PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
+import { requestAllDomainSyncLanes } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppHeader,
@@ -59,6 +60,7 @@ interface ExplorerWriteQueuePanelViewProps
   error: boolean;
   items: ReadonlyArray<PendingWriteQueueItem>;
   loading: boolean;
+  retryPendingWrites: () => void;
   snapshot: DomainSyncSnapshot;
 }
 
@@ -238,6 +240,7 @@ export function ExplorerWriteQueuePanelView(
               openDocument={params.openDocument}
               openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
               organizationNamesById={params.organizationNamesById}
+              retryPendingWrites={params.retryPendingWrites}
             />
           )}
         </>
@@ -353,6 +356,13 @@ function usePendingWriteQueueItems(
 
 export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
   const syncSnapshot = useDomainSyncSnapshot(params.domainScope);
+  const { domainScope } = params;
+  // Per-entry "Retry sync": arm every pump-driven lane. Clean stores skip
+  // cheaply, blocked/errored intents replay, and offline/unauthenticated
+  // requests stay queued until prerequisites return.
+  const retryPendingWrites = useCallback(() => {
+    requestAllDomainSyncLanes(domainScope);
+  }, [domainScope]);
   const syncSettlementRevision = syncSnapshot.lanes
     .map(
       (lane) =>
@@ -380,6 +390,7 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
       openDocument={params.openDocument}
       openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
       organizationNamesById={params.organizationNamesById}
+      retryPendingWrites={retryPendingWrites}
       selectedEntryKey={params.selectedEntryKey}
       snapshot={syncSnapshot}
     />

@@ -3,7 +3,11 @@ import {
   type DocumentMoveIntentRecord,
   sqlDocumentMoveIntentPersistence,
 } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
-import { defaultDocumentsPersistence } from "../documents";
+import {
+  type DocumentLinkSetFailureHandler,
+  type DocumentLinkSetMutationFailure,
+  defaultDocumentsPersistence,
+} from "../documents";
 import { moveRemoteContainerDocument } from "./documentLinks";
 import type {
   DocumentStructuralMutationLocalStore,
@@ -160,6 +164,7 @@ async function movePendingDocumentIntent<TRuntime>(input: {
   existingContainerId: string | null | undefined;
   host: DocumentMoveIntentSyncHost<TRuntime>;
   intent: DocumentMoveIntentRecord;
+  onFailure: DocumentLinkSetFailureHandler;
   state: DocumentMoveIntentSyncState;
 }) {
   const rotationSnapshot = await assertMoveIntentRotationPreflight(input);
@@ -170,12 +175,33 @@ async function movePendingDocumentIntent<TRuntime>(input: {
       input.intent.targetContainerId,
     documentId: input.intent.documentId,
     noteId: input.intent.localId,
+    onFailure: input.onFailure,
     replaceLinkedContainers: input.intent.replaceLinkedContainers,
     resolveProjectionUserKey: input.state.resolveProjectionUserKey,
     rotationSnapshot,
     runtime: input.state.runtime,
     targetContainerId: input.intent.targetContainerId,
   });
+}
+
+/**
+ * The queue-facing description of a failed remote move. The stable prefix is
+ * kept so existing consumers keep matching; the captured detail appends the
+ * HTTP status when one was seen, so a revoked permission (403) reads
+ * differently from an offline blip.
+ */
+function describeRejectedDocumentMove(
+  failure: DocumentLinkSetMutationFailure | null,
+): string {
+  const prefix = "Remote document move was rejected or unavailable";
+  if (!failure) {
+    return prefix;
+  }
+  const detail =
+    failure.status === null
+      ? failure.message
+      : `${failure.message} (${failure.status})`;
+  return `${prefix}: ${detail}`;
 }
 
 async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
@@ -224,16 +250,20 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   }
 
   try {
+    let lastFailure: DocumentLinkSetMutationFailure | null = null;
     const moved = await movePendingDocumentIntent({
       existingContainerId: existingDocument.containerId,
       host,
       intent,
+      onFailure: (failure) => {
+        lastFailure = failure;
+      },
       state,
     });
     if (!moved) {
       await recordPendingDocumentMoveIntentError({
         documentId: intent.documentId,
-        message: "Remote document move was rejected or unavailable",
+        message: describeRejectedDocumentMove(lastFailure),
         state,
       });
       return "failed";

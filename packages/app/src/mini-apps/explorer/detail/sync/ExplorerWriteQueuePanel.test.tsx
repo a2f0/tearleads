@@ -118,6 +118,7 @@ function renderPanel(overrides: Partial<ViewProps> = {}) {
     online: true,
     openContainerInfoRoute: () => undefined,
     openDocument: () => undefined,
+    retryPendingWrites: () => undefined,
     openWriteQueueEntryRoute: () => undefined,
     organizationNamesById: new Map([
       ["custom-org", "Acme"],

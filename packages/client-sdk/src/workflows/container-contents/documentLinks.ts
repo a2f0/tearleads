@@ -4,6 +4,7 @@ import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerif
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
+  type DocumentLinkSetFailureHandler,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
   deletePersistedDocument,
@@ -149,6 +150,7 @@ function resolveContainerDocumentMoveUnlinkIds(input: {
 export async function relinkRemoteContainerDocument(input: {
   documentId: string;
   noteId: string;
+  onFailure?: DocumentLinkSetFailureHandler | undefined;
   operation: ContainerDocumentLinkOperation;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   rotationSnapshot?: Uint8Array | undefined;
@@ -170,6 +172,10 @@ export async function relinkRemoteContainerDocument(input: {
     runtime.util.log(
       "Container contents: document mutation skipped because the local key context is unavailable",
     );
+    input.onFailure?.({
+      message: "the local key context is unavailable",
+      status: null,
+    });
     return null;
   }
 
@@ -179,6 +185,7 @@ export async function relinkRemoteContainerDocument(input: {
       author,
       documentId,
       execSql,
+      onFailure: input.onFailure,
       operation,
       resolveProjectionUserKey,
       rotationSnapshot: input.rotationSnapshot,
@@ -203,9 +210,11 @@ export async function relinkRemoteContainerDocument(input: {
     return result;
   } catch (error) {
     rethrowKeyingVerificationError(error);
+    const message = error instanceof Error ? error.message : String(error);
     runtime.util.log(
-      `Container contents: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${error instanceof Error ? error.message : String(error)}`,
+      `Container contents: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${message}`,
     );
+    input.onFailure?.({ message, status: null });
     return null;
   }
 }
@@ -298,6 +307,7 @@ export async function purgeLocalContainerDocument(input: {
 export async function linkRemoteContainerDocument(input: {
   documentId: string;
   noteId: string;
+  onFailure?: DocumentLinkSetFailureHandler | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerDocumentLinkRuntime;
   targetContainerId: string;
@@ -326,6 +336,7 @@ export async function moveRemoteContainerDocument(input: {
   currentContainerId: string;
   documentId: string;
   noteId: string;
+  onFailure?: DocumentLinkSetFailureHandler | undefined;
   replaceLinkedContainers?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   rotationSnapshot: Uint8Array;
@@ -345,6 +356,10 @@ export async function moveRemoteContainerDocument(input: {
   const writerProjection =
     await runtime.apiClient.getDocumentWriterProjection(documentId);
   if (!writerProjection) {
+    input.onFailure?.({
+      message: "Document writer projection is unavailable",
+      status: null,
+    });
     return null;
   }
   const initialLinkedContainerIds =
@@ -356,6 +371,7 @@ export async function moveRemoteContainerDocument(input: {
     const linkedDocument = await linkRemoteContainerDocument({
       documentId,
       noteId,
+      onFailure: input.onFailure,
       resolveProjectionUserKey,
       runtime,
       targetContainerId,

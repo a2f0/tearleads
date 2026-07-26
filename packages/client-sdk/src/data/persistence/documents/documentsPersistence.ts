@@ -35,6 +35,8 @@ import {
   documentAttachmentBlobProjection,
   documentContainerProjection,
   documentContainerProjectionTables,
+  documentMoveIntents,
+  documentMoveIntentTables,
   documentPendingAttachments,
   documentPendingUpdates,
   documentProjection,
@@ -600,6 +602,10 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   },
   async deleteDocument(execSql, localId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      // The move-intent cleanup below touches a table owned by the
+      // container-contents schema, which callers of this persistence may not
+      // have ensured yet.
+      await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
       const existingDocument = await sqlStoredDocumentsPersistence.loadDocument(
         lockedExecSql,
         localId,
@@ -631,6 +637,15 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
                   documentContainerProjection.documentId,
                   existingDocument.documentId,
                 ),
+              )
+              .run();
+            // A queued move for a document that no longer exists can never
+            // replay; leaving the row would render a permanent phantom entry
+            // in the write queue.
+            await tx
+              .delete(documentMoveIntents)
+              .where(
+                eq(documentMoveIntents.documentId, existingDocument.documentId),
               )
               .run();
           }

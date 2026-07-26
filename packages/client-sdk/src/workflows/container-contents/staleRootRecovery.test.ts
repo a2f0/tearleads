@@ -361,9 +361,13 @@ test("durable orphan recovery makes the document primeable on relaunch", async (
       documentId: "pending-document-remote",
       message: "stale source",
     });
+    // Blocked intents keep replaying (the status is a diagnosis, not a
+    // verdict), so the list still surfaces the blocked row.
     expect(
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
-    ).toEqual([]);
+      (
+        await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql)
+      ).map((intent) => intent.syncStatus),
+    ).toEqual(["blocked"]);
     const containersById = new Map<string, ContainerState>([
       ["remote-root", remoteRoot({ id: "remote-root" })],
     ]);

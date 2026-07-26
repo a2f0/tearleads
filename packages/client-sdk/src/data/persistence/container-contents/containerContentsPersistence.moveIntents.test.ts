@@ -52,8 +52,13 @@ test("listUnsyncedMoveIntents returns blocked moves that listPendingMoveIntents 
       message: "Container move destination parent is not synced yet",
     });
 
-    // The 'pending'-only list now drops it; the unsynced list still returns it.
-    expect(await persistence.listPendingMoveIntents(execSql)).toEqual([]);
+    // Blocked rows keep replaying: both lists still return the move, with
+    // the blocked status preserved for the queue UI.
+    expect(
+      (await persistence.listPendingMoveIntents(execSql)).map(
+        (intent) => intent.syncStatus,
+      ),
+    ).toEqual(["blocked"]);
     expect(
       (await persistence.listUnsyncedMoveIntents(execSql)).map(
         (intent) => intent.containerId,

@@ -5,6 +5,8 @@ export {
 export { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 export type {
   DocumentCreateAuthor,
+  DocumentLinkSetFailureHandler,
+  DocumentLinkSetMutationFailure,
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
 export {

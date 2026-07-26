@@ -311,8 +311,11 @@ async function syncDocumentState(
   // Create the remote document even when nothing is queued to send: a note
   // created and never edited enqueues no updates, but its local row is still a
   // pending create the write queue reports — it must flush, not sit. Defer
-  // only while the container itself still awaits its remote create.
-  if (!nextRecord.documentId && pendingUpdates.length === 0) {
+  // while the container itself still awaits its remote create — with OR
+  // without queued edits, since the create cannot succeed before its parent
+  // exists and attempting it just records a spurious failure. The structural
+  // lane primes this store again as soon as the container create lands.
+  if (!nextRecord.documentId) {
     const containerAwaitsCreate = await isContainerAwaitingRemoteCreate(state);
     if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
       requestDocumentStoreSync(state);
