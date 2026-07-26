@@ -49,7 +49,7 @@ export function createDeepNonCanonicalRecord(
   return root;
 }
 
-async function createUserContainerWrap(input: {
+export async function createUserContainerWrap(input: {
   containerKeyEpochId: string;
   containerKek: Uint8Array;
   publicKey: Uint8Array;
@@ -75,7 +75,7 @@ async function createUserContainerWrap(input: {
   };
 }
 
-async function createContainerWrap(input: {
+export async function createContainerWrap(input: {
   childContainerKeyEpochId: string;
   childKek: Uint8Array;
   parentContainerId: string;
@@ -102,6 +102,7 @@ interface WrappedProjectionFixture {
   childContainerKek: Uint8Array;
   childContainerKeyEpochId: string;
   projection: ContainerWriterProjectionResponse;
+  publicKey: Uint8Array;
   rootContainerKek: Uint8Array;
   rootContainerKeyEpochId: string;
   secretKey: Uint8Array;
@@ -272,6 +273,7 @@ export async function createWrappedProjection(): Promise<WrappedProjectionFixtur
       rootManifestHash,
       rootWrap,
     }),
+    publicKey: keyPair.publicKey,
     rootContainerKek,
     rootContainerKeyEpochId,
     secretKey: keyPair.secretKey,

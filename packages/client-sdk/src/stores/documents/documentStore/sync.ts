@@ -23,6 +23,10 @@ import {
   logRevalidationUnavailable as logUnavailable,
 } from "./remoteRevalidationTelemetry";
 import {
+  isStaleHealSnapshotUnavailableError,
+  recoverStaleHealFullHistory,
+} from "./staleHealRecovery";
+import {
   type DocumentState,
   type DocumentStoreState,
   type DocumentSyncAttempt,
@@ -470,10 +474,21 @@ async function runScheduledSyncIteration(state: DocumentStoreState) {
 
   try {
     await runDocumentSyncPass(state);
+    state.staleHealHistoryRecoveryAttempts = 0;
     return true;
   } catch (error) {
     if (isDatabaseUnavailableError(error)) {
       return false;
+    }
+    // A heal blocked on shallow local history can rebuild that history from
+    // the remote op log (decryptable again via the projection's historical
+    // KEK epochs) and retry. Anything else keeps its normal failure path.
+    if (
+      isStaleHealSnapshotUnavailableError(error) &&
+      (await recoverStaleHealFullHistory(state))
+    ) {
+      requestDocumentStoreSync(state);
+      return true;
     }
 
     throw error;

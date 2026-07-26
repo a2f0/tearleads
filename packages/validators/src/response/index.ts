@@ -50,6 +50,7 @@ export {
   type ContainerSummary,
   type ContainerSyncTombstone,
   type ContainerWriterProjectionResponse,
+  type HistoricalContainerKekResponse,
   isContainerDeleteResponse,
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,

@@ -6,6 +6,9 @@ import {
   traceHealBlocked,
   traceHealed,
   traceHealPlanned,
+  traceHistoryRecovered,
+  traceHistoryRecoveryFailed,
+  traceHistoryRecoveryStart,
   traceProjectionFailed,
   traceStaleBundle,
   traceStaleRead,
@@ -56,9 +59,19 @@ test("every emitted trace line matches the clipboard-safe pattern", () => {
     });
     traceProjectionFailed(emit, { documentId: DOCUMENT_ID, status: 403 });
     traceHealed(emit, { accepted: 4, documentId: DOCUMENT_ID, epoch: 2 });
+    traceHistoryRecoveryStart(emit, { attempt: 1, documentId: DOCUMENT_ID });
+    traceHistoryRecovered(emit, { documentId: DOCUMENT_ID, updates: 12 });
+    traceHistoryRecoveryFailed(emit, {
+      documentId: DOCUMENT_ID,
+      reason: "pull-failed",
+    });
+    traceHistoryRecoveryFailed(emit, {
+      documentId: DOCUMENT_ID,
+      reason: "attempts-exhausted",
+    });
   });
 
-  expect(lines).toHaveLength(9);
+  expect(lines).toHaveLength(13);
   for (const line of lines) {
     expect(line).toMatch(DOCUMENT_SYNC_TRACE_PATTERN);
   }
@@ -75,6 +88,8 @@ test("the validator is anchored and rejects tokens outside the vocabulary", () =
     `document sync submit failed document=${DOCUMENT_ID} status=409 code=patient_name action=stop`,
     `document sync submit failed document=${DOCUMENT_ID} status=409 code=none action=secret`,
     `document sync heal blocked document=${DOCUMENT_ID} reason=patient-name`,
+    `document sync history recovery failed document=${DOCUMENT_ID} reason=patient-name`,
+    `document sync history recovered document=${DOCUMENT_ID} updates=12 title=PRIVATE`,
     // Non-UUID document ids must fail the strict shape.
     "document sync healed document=a epoch=2 accepted=4",
   ];

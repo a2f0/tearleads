@@ -1,6 +1,13 @@
 import { expect, test } from "bun:test";
 import {
+  computeContainerKekMaterialId,
+  generateKemSeedAndKeyPair,
+} from "@tearleads/crypto";
+import type { HistoricalContainerKekResponse } from "@tearleads/validators/response";
+import {
+  createContainerWrap,
   createProjection,
+  createUserContainerWrap,
   createWrappedProjection,
   fixtureHash,
   getOnlyTarget,
@@ -133,4 +140,199 @@ test("unwrapContainerKekPath follows parent KEK edges to the leaf", async () => 
       trustedLocalProjection: true,
     }),
   ).rejects.toThrow("could not be unwrapped");
+});
+
+async function createHistoricalUserKek(input: {
+  containerId: string;
+  keyEpoch: number;
+  publicKey: Uint8Array;
+  keyMaterial?: Uint8Array;
+}): Promise<{
+  historical: HistoricalContainerKekResponse;
+  keyMaterial: Uint8Array;
+}> {
+  const keyMaterial =
+    input.keyMaterial ?? crypto.getRandomValues(new Uint8Array(32));
+  const containerKeyEpochId = await computeContainerKekMaterialId({
+    containerId: input.containerId,
+    keyEpoch: input.keyEpoch,
+    keyMaterial,
+  });
+  const wrapManifestHash = await fixtureHash(
+    `historical-manifest-${containerKeyEpochId}`,
+  );
+  return {
+    historical: {
+      accessManifestHash: wrapManifestHash,
+      containerId: input.containerId,
+      containerKeyEpoch: input.keyEpoch,
+      containerKeyEpochId,
+      keyEpochHash: await fixtureHash(
+        `historical-key-epoch-${containerKeyEpochId}`,
+      ),
+      parentContainerKeyEpochId: null,
+      wraps: [
+        await createUserContainerWrap({
+          containerKeyEpochId,
+          containerKek: keyMaterial,
+          publicKey: input.publicKey,
+          userId: "user-1",
+          wrapManifestHash,
+        }),
+      ],
+    },
+    keyMaterial,
+  };
+}
+
+test("unwrapContainerKekPath unwraps served historical epochs and skips epochs outside the member's audience", async () => {
+  const { projection, publicKey, rootContainerKek, secretKey } =
+    await createWrappedProjection();
+  const rootKek = projection.containerKeks[0];
+  const childKek = projection.containerKeks[1];
+  if (!rootKek || !childKek) {
+    throw new Error("Expected root and child container KEK fixtures");
+  }
+  const keyPair = generateKemSeedAndKeyPair();
+
+  // A superseded root epoch the member can unwrap directly...
+  const spanned = await createHistoricalUserKek({
+    containerId: rootKek.containerId,
+    keyEpoch: 1,
+    publicKey,
+  });
+  // ...one wrapped only to someone else's key (skipped, not fatal)...
+  const foreign = await createHistoricalUserKek({
+    containerId: rootKek.containerId,
+    keyEpoch: 1,
+    publicKey: keyPair.publicKey,
+  });
+  // ...and a superseded child epoch wrapped to the CURRENT root epoch, so it
+  // must resolve through the already-unwrapped parent chain.
+  const childHistoricalKey = crypto.getRandomValues(new Uint8Array(32));
+  const childHistoricalEpochId = await computeContainerKekMaterialId({
+    containerId: childKek.containerId,
+    keyEpoch: 1,
+    keyMaterial: childHistoricalKey,
+  });
+  const childHistorical: HistoricalContainerKekResponse = {
+    accessManifestHash: await fixtureHash("historical-child-manifest"),
+    containerId: childKek.containerId,
+    containerKeyEpoch: 1,
+    containerKeyEpochId: childHistoricalEpochId,
+    keyEpochHash: await fixtureHash("historical-child-key-epoch"),
+    parentContainerKeyEpochId: rootKek.containerKeyEpochId,
+    wraps: [
+      await createContainerWrap({
+        childContainerKeyEpochId: childHistoricalEpochId,
+        childKek: childHistoricalKey,
+        parentContainerId: rootKek.containerId,
+        parentContainerKeyEpochId: rootKek.containerKeyEpochId,
+        parentKeyEpochHash: rootKek.keyEpochHash,
+        parentKek: rootContainerKek,
+        wrapManifestHash: await fixtureHash("historical-child-manifest"),
+      }),
+    ],
+  };
+
+  const unwrapped = await unwrapContainerKekPath({
+    projection: {
+      ...projection,
+      containerKeks: [
+        {
+          ...rootKek,
+          historicalKeks: [spanned.historical, foreign.historical],
+        },
+        { ...childKek, historicalKeks: [childHistorical] },
+      ],
+    },
+    secretKey,
+    trustedLocalProjection: true,
+  });
+
+  expect(
+    Array.from(unwrapped.get(spanned.historical.containerKeyEpochId) ?? []),
+  ).toEqual(Array.from(spanned.keyMaterial));
+  expect(Array.from(unwrapped.get(childHistoricalEpochId) ?? [])).toEqual(
+    Array.from(childHistoricalKey),
+  );
+  expect(unwrapped.has(foreign.historical.containerKeyEpochId)).toBe(false);
+});
+
+test("unwrapContainerKekPath rejects historical epochs whose material or wraps do not commit", async () => {
+  const { projection, publicKey, secretKey } = await createWrappedProjection();
+  const rootKek = projection.containerKeks[0];
+  if (!rootKek) {
+    throw new Error("Expected root container KEK fixture");
+  }
+
+  // The epoch id commits to DIFFERENT material than the wrap delivers: the
+  // unwrap succeeds mechanically but the commitment check must refuse it, so
+  // a server cannot substitute key material for a referenced epoch.
+  const substituted = await createHistoricalUserKek({
+    containerId: rootKek.containerId,
+    keyEpoch: 1,
+    publicKey,
+  });
+  const substitutedId = await computeContainerKekMaterialId({
+    containerId: rootKek.containerId,
+    keyEpoch: 1,
+    keyMaterial: crypto.getRandomValues(new Uint8Array(32)),
+  });
+  await expect(
+    unwrapContainerKekPath({
+      projection: {
+        ...projection,
+        containerKeks: [
+          {
+            ...rootKek,
+            historicalKeks: [
+              {
+                ...substituted.historical,
+                containerKeyEpochId: substitutedId,
+                wraps: substituted.historical.wraps.map((wrap) => ({
+                  ...wrap,
+                  containerKeyEpochId: substitutedId,
+                })),
+              },
+            ],
+          },
+          ...projection.containerKeks.slice(1),
+        ],
+      },
+      secretKey,
+      trustedLocalProjection: true,
+    }),
+  ).rejects.toThrow("KEK material does not match committed epoch id");
+
+  // A wrap belonging to a different epoch id must be rejected outright.
+  const mismatched = await createHistoricalUserKek({
+    containerId: rootKek.containerId,
+    keyEpoch: 1,
+    publicKey,
+  });
+  await expect(
+    unwrapContainerKekPath({
+      projection: {
+        ...projection,
+        containerKeks: [
+          {
+            ...rootKek,
+            historicalKeks: [
+              {
+                ...mismatched.historical,
+                wraps: mismatched.historical.wraps.map((wrap) => ({
+                  ...wrap,
+                  containerKeyEpochId: "some-other-epoch",
+                })),
+              },
+            ],
+          },
+          ...projection.containerKeks.slice(1),
+        ],
+      },
+      secretKey,
+      trustedLocalProjection: true,
+    }),
+  ).rejects.toThrow("historical epoch contains a stale wrap");
 });

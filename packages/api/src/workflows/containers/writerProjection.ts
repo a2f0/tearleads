@@ -16,7 +16,10 @@ import {
   resolveSingleContainerAccessProjection,
 } from "./writerProjection/accessPaths";
 import { createContainerWriterProjectionContext } from "./writerProjection/context";
-import { loadContainerKekState } from "./writerProjection/kek";
+import {
+  loadContainerKekState,
+  loadHistoricalContainerKeks,
+} from "./writerProjection/kek";
 import {
   loadPrincipalPoliciesForAccessPaths,
   verifiedPrincipalPolicyReferenceCacheKeys,
@@ -69,11 +72,38 @@ async function resolveContainerProjectionWithAccess(input: {
     throw new ContainerWriterProjectionError("Container not found", 404);
   }
 
+  // Superseded key epochs travel with each path container so a member who
+  // spans a KEK rotation can still unwrap pre-rotation content (e.g. stale
+  // document content-key bundles after a revoke). Filtered per requester —
+  // see loadHistoricalContainerKeks.
+  const pathContainerIds: ReadonlySet<string> = new Set(
+    access.verifiedPath.map((manifest) => manifest.state.containerId),
+  );
+  const containerKeks: ContainerWriterProjectionResponse["containerKeks"] = [];
+  for (const [index, manifest] of access.verifiedPath.entries()) {
+    const kekState = containerKekStates[index];
+    if (!kekState) {
+      throw new ContainerWriterProjectionError("Container KEK missing", 409);
+    }
+    containerKeks.push(
+      containerKekResponse(
+        kekState,
+        await loadHistoricalContainerKeks({
+          context,
+          manifest,
+          pathContainerIds,
+          principalPolicies: access.principalPolicies,
+          userId: input.userId,
+        }),
+      ),
+    );
+  }
+
   return {
     containerId: input.containerId,
     organizationId: targetManifest.state.organizationId,
     path: access.path,
-    containerKeks: containerKekStates.map(containerKekResponse),
+    containerKeks,
   };
 }
 

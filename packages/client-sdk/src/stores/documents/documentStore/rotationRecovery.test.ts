@@ -4,12 +4,10 @@ import {
   createDocument,
   emptyVersionVector,
   encodeVersionVector,
-  exportAllUpdates,
   exportFullHistorySnapshot,
   exportShallowSnapshot,
   getImportBlobMetadata,
   getTextValue,
-  getUpdateVersionVectors,
   importSnapshot,
   importUpdates,
   versionVectorsEqual,
@@ -17,16 +15,11 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
-import {
-  createMaterializedSyncFixture,
-  createPendingUpdateRecord,
-  createSyncResponse,
-} from "../../../../test/helpers/documentFixtures";
+import { createRemoteHistoryFixture } from "../../../../test/helpers/remoteHistoryFixture";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
 import type { DocumentsRuntime } from "../types";
 import {
   ensureDocumentStoreReady,
@@ -47,35 +40,6 @@ const ignoredPersistenceEffects = {
   emitPersistedDocument: () => undefined,
   registerDocumentIdentity: () => undefined,
 };
-
-async function createRemoteHistoryFixture() {
-  const materialized = await createMaterializedSyncFixture();
-  const remoteDocument = await createDocument("rotation-recovery-remote");
-  remoteDocument.getText("text").update("survives key");
-  remoteDocument.commit();
-  const behindSnapshot = exportFullHistorySnapshot(remoteDocument);
-  remoteDocument.getText("text").update("survives key rotation");
-  remoteDocument.commit();
-  const update = exportAllUpdates(remoteDocument);
-  const vectors = getUpdateVersionVectors(update);
-  const remotePlan = await buildMaterializedDocumentSyncPlan({
-    author: materialized.author,
-    localVersionVector: null,
-    pendingUpdates: [
-      createPendingUpdateRecord({
-        updateData: bytesToBase64(update),
-        ...vectors,
-      }),
-    ],
-    targetSecretKey: materialized.secretKey,
-    trustedLocalProjection: true,
-    writerProjection: materialized.writerProjection,
-  });
-  const response = await createSyncResponse(remotePlan.plan, {
-    acceptedOutgoingUpdateIds: [],
-  });
-  return { ...materialized, behindSnapshot, remoteDocument, response };
-}
 
 function createRuntime(input: {
   fixture: Awaited<ReturnType<typeof createRemoteHistoryFixture>>;

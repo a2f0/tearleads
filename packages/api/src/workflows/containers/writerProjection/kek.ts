@@ -7,16 +7,22 @@ import type {
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import { verifyContainerKekState } from "@tearleads/crypto";
+import {
+  computeContainerKeyEpochHash,
+  verifyContainerKekState,
+} from "@tearleads/crypto";
+import type { HistoricalContainerKekResponse } from "@tearleads/validators/response";
 import { inArray } from "drizzle-orm";
 import {
   getContainerKeyEpochById,
+  listContainerKeyEpochs,
   listContainerKeyWraps,
 } from "../../../access/read/containerKekStore";
 import { loadContainerManifestBundleByHash } from "./accessPaths";
 import { cachedProjectionValue } from "./context";
 import { principalPolicyCacheKey } from "./principalPolicies";
 import {
+  containerKeyWrapRecord,
   stripContainerKeyEpoch,
   stripContainerKeyWrap,
   toVerifiedContainerManifest,
@@ -199,6 +205,93 @@ async function loadUserRecipientKeysForContainerKek(input: {
   }
 
   return userRecipientKeys;
+}
+
+/**
+ * The principals through which the requesting user can currently unwrap keys:
+ * every verified referenced policy whose membership projection includes them.
+ */
+function requesterPrincipalIds(
+  userId: string,
+  principalPolicies: readonly VerifiedPrincipalPolicy[],
+): ReadonlySet<string> {
+  return new Set(
+    principalPolicies
+      .filter((policy) =>
+        policy.projection.some(
+          (member) =>
+            member.memberPrincipalType === "user" &&
+            member.memberPrincipalId === userId,
+        ),
+      )
+      .map((policy) => policy.principalId),
+  );
+}
+
+/**
+ * Superseded key epochs for one container, with wraps filtered to recipients
+ * the REQUESTER can use: the user directly, principals they currently derive
+ * access through, or containers on the requested path (the parent chain).
+ * Epochs whose filtered wrap set is empty are omitted — a member added after
+ * a rotation simply receives nothing from before their time. Serving a wrap
+ * grants no new capability (it is ciphertext under the recipient's key), and
+ * clients re-verify every unwrap against the epoch id's key-material
+ * commitment, but the filter avoids broadcasting historical audience
+ * metadata to members it does not concern.
+ */
+export async function loadHistoricalContainerKeks(input: {
+  readonly context: ContainerWriterProjectionContext;
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly pathContainerIds: ReadonlySet<string>;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly userId: string;
+}): Promise<HistoricalContainerKekResponse[]> {
+  const containerId = input.manifest.state.containerId;
+  const currentEpochId = input.manifest.state.containerKeyEpochId;
+  const epochs = await listContainerKeyEpochs(
+    containerId,
+    input.context.executor,
+  );
+  const principalIds = requesterPrincipalIds(
+    input.userId,
+    input.principalPolicies,
+  );
+  const historicalKeks: HistoricalContainerKekResponse[] = [];
+
+  for (const epoch of epochs) {
+    if (epoch.id === currentEpochId) {
+      continue;
+    }
+    const wraps = (
+      await listContainerKeyWraps(epoch.id, input.context.executor)
+    ).filter((wrap) => {
+      if (wrap.recipientKind === "user") {
+        return wrap.recipientId === input.userId;
+      }
+      if (wrap.recipientKind === "container") {
+        return input.pathContainerIds.has(wrap.recipientId);
+      }
+      return principalIds.has(wrap.recipientId);
+    });
+    if (wraps.length === 0) {
+      continue;
+    }
+
+    const keyEpoch = stripContainerKeyEpoch(epoch);
+    historicalKeks.push({
+      accessManifestHash: epoch.accessManifestHash,
+      containerId,
+      containerKeyEpoch: epoch.keyEpoch,
+      containerKeyEpochId: epoch.id,
+      keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
+      parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
+      wraps: wraps
+        .map(stripContainerKeyWrap)
+        .map((wrap) => containerKeyWrapRecord(wrap)),
+    });
+  }
+
+  return historicalKeks;
 }
 
 export async function loadContainerKekState(

@@ -7,7 +7,10 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  ContainerWriterProjectionResponse,
+  HistoricalContainerKekResponse,
+} from "@tearleads/validators/response";
 import {
   type PrincipalPolicyCache,
   verifyContainerWriterProjection,
@@ -132,7 +135,10 @@ async function unwrapContainerKekFromParentWrap(input: {
 async function assertUnwrappedContainerKekMatchesMaterialId(input: {
   index: number;
   keyMaterial: Uint8Array;
-  kek: ContainerWriterProjectionResponse["containerKeks"][number];
+  kek: Pick<
+    ContainerWriterProjectionResponse["containerKeks"][number],
+    "containerId" | "containerKeyEpoch" | "containerKeyEpochId"
+  >;
 }): Promise<void> {
   if (!isContainerKekMaterialId(input.kek.containerKeyEpochId)) {
     throw new Error(
@@ -271,6 +277,13 @@ export async function unwrapContainerKekPath(
     });
   }
 
+  await unwrapHistoricalContainerKeks({
+    execSql: input.execSql,
+    keksByEpochId,
+    projection: input.projection,
+    secretKey: input.secretKey,
+  });
+
   const keyMaterialByEpochId = new Map<string, Uint8Array>();
   for (const [containerKeyEpochId, kek] of keksByEpochId) {
     keyMaterialByEpochId.set(containerKeyEpochId, kek.keyMaterial);
@@ -282,4 +295,103 @@ export async function unwrapContainerKekPath(
     );
   }
   return keyMaterialByEpochId;
+}
+
+/**
+ * Unwraps the superseded key epochs the projection serves alongside each path
+ * container, so a member who spans a KEK rotation can still decrypt
+ * pre-rotation content (stale content-key bundles, old-epoch updates).
+ *
+ * Fail-soft per epoch: a member who was not in an epoch's audience simply
+ * cannot unwrap it and the epoch is skipped. Integrity does not rest on the
+ * wraps themselves — every successful unwrap is re-verified against the
+ * epoch id's key-material commitment, so a server cannot substitute key
+ * material for an epoch that verified artifacts reference. Path order puts
+ * parents first, and epochs arrive oldest-first, so parent-chain wraps can
+ * resolve through already-unwrapped ancestors.
+ */
+function historicalContainerKekWraps(
+  historical: HistoricalContainerKekResponse,
+  index: number,
+): ContainerKeyWrap[] {
+  const wraps: ContainerKeyWrap[] = [];
+  for (const rawWrap of historical.wraps) {
+    const wrap = normalizeContainerKeyWrap(rawWrap);
+    if (wrap.containerKeyEpochId === historical.containerKeyEpochId) {
+      wraps.push(wrap);
+    }
+  }
+  if (wraps.length !== historical.wraps.length) {
+    throw new Error(
+      `${projectionKekLabel(index)} historical epoch contains a stale wrap`,
+    );
+  }
+  return wraps;
+}
+
+async function unwrapOneHistoricalContainerKek(input: {
+  execSql?: ExecSql | undefined;
+  historical: HistoricalContainerKekResponse;
+  index: number;
+  keksByEpochId: Map<string, UnwrappedContainerKek>;
+  secretKey: Uint8Array;
+}): Promise<void> {
+  const wraps = historicalContainerKekWraps(input.historical, input.index);
+
+  let unwrapped: Uint8Array | null = null;
+  try {
+    unwrapped =
+      (await unwrapContainerKekFromPrincipalWraps({
+        execSql: input.execSql,
+        secretKey: input.secretKey,
+        wraps,
+      })) ??
+      (await unwrapContainerKekFromParentWrap({
+        parentContainerKeyEpochId: input.historical.parentContainerKeyEpochId,
+        parentKeksByEpochId: input.keksByEpochId,
+        wraps,
+      }));
+  } catch {
+    unwrapped = null;
+  }
+  if (!unwrapped) {
+    return;
+  }
+  await assertUnwrappedContainerKekMatchesMaterialId({
+    index: input.index,
+    kek: input.historical,
+    keyMaterial: unwrapped,
+  });
+  input.keksByEpochId.set(input.historical.containerKeyEpochId, {
+    containerId: input.historical.containerId,
+    keyEpochHash: input.historical.keyEpochHash,
+    keyMaterial: unwrapped,
+  });
+}
+
+async function unwrapHistoricalContainerKeks(input: {
+  execSql?: ExecSql | undefined;
+  keksByEpochId: Map<string, UnwrappedContainerKek>;
+  projection: ContainerWriterProjectionResponse;
+  secretKey: Uint8Array;
+}): Promise<void> {
+  for (const [index, kek] of input.projection.containerKeks.entries()) {
+    for (const historical of kek.historicalKeks ?? []) {
+      if (input.keksByEpochId.has(historical.containerKeyEpochId)) {
+        continue;
+      }
+      if (historical.containerId !== kek.containerId) {
+        throw new Error(
+          `${projectionKekLabel(index)} historical epoch container is inconsistent`,
+        );
+      }
+      await unwrapOneHistoricalContainerKek({
+        execSql: input.execSql,
+        historical,
+        index,
+        keksByEpochId: input.keksByEpochId,
+        secretKey: input.secretKey,
+      });
+    }
+  }
 }
