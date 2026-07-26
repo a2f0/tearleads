@@ -62,6 +62,23 @@
   background: color-mix(in srgb, currentColor 3%, transparent);
 }
 
+/*
+ * Mobile: horizontal room is scarce, so the tray spans the screen rather than
+ * floating as an inset card. Dropping its inline margin is enough — every host
+ * renders the note flush to the pane (the notes mini-app on an unpadded root,
+ * the explorer on a full-bleed document pane), and `.note-document-scroll`
+ * clips the inline axis, so the tray can only reach the edge by not leaving it.
+ * The side rules go with the margin: at the screen edge they would read as two
+ * stray hairlines, so the tray closes with a top and bottom rule instead.
+ *
+ * The block margins stay: the tray still needs its gap above the taskbar, and
+ * the auto block-start margin is what pins it to the foot of a short note.
+ */
+.routed-pane--mobile .note-document-dropzone {
+  margin-inline: 0;
+  border-inline: 0;
+}
+
 .note-document-dropzone--active {
   border-color: currentColor;
   box-shadow: inset 0 0 0 var(--border-width) currentColor;
