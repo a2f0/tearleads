@@ -152,12 +152,12 @@ test("container wraps are gated on superseded targets and epochs on lineage", as
   // these belong to a rotated child epoch wrapped to a parent epoch; here
   // they reference the root itself so no nested fixture is needed — the
   // filter reads only (recipientKind, recipientId, recipientKeyEpochId).
-  // Container wraps are admissible only when they target a historical epoch
-  // already served at an EARLIER path index; the root has no earlier parent,
-  // so both planted wraps must be excluded — the current-epoch target
-  // because every current member holds it, the superseded self-target
-  // because it was not admitted through a parent. (The admissible chain is
-  // exercised client-side in the historical parent-chain unwrap test.)
+  // Container wraps require an audience proof: the owner is provably in the
+  // epoch's recorded era (the pinned admins state lists them), so both
+  // wraps are served to the owner — including the current-epoch target,
+  // which is the shape a rotated child leaves behind when its parent epoch
+  // never changed. The newcomer test below is the negative: no era proof,
+  // nothing served.
   await db.insert(containerKeyWraps).values([
     {
       containerKeyEpochId: supersededEpochId,
@@ -223,7 +223,9 @@ test("container wraps are gated on superseded targets and epochs on lineage", as
   const containerWraps = (
     (supersededEpoch?.wraps ?? []) as unknown as readonly ContainerKeyWrap[]
   ).filter((wrap) => wrap.recipientKind === "container");
-  expect(containerWraps).toEqual([]);
+  expect(containerWraps.map((wrap) => wrap.recipientKeyEpochId).sort()).toEqual(
+    [currentEpochId, supersededEpochId].sort(),
+  );
 }, 15_000);
 
 test("a user added to a referenced group after the rotation gets no historical epochs", async () => {
