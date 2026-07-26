@@ -7,6 +7,7 @@ import {
 import { isNull } from "drizzle-orm";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { getDocumentAttachments } from "../../data/documents/documentContent";
+import { ensureDocumentProjectionTables } from "../../data/sqlite/documentPersistence";
 import {
   organizationDataUsageCategories,
   organizationDataUsageSnapshots,
@@ -399,7 +400,16 @@ async function queueResetAttachmentUploads(input: {
       .run();
   }
 
-  await input.tx.delete(documentAttachmentBlobProjection).run();
+  // Detached rows are kept, unlike the live rows this requeues and drops. They
+  // are not remote-derived state: they are the markers that still own an
+  // unlinked slot's local bytes, and this workflow has no blob store to delete
+  // those bytes itself. Keeping them lets the document lane's usual detach
+  // cleanup delete the row and the bytes together after the reset, instead of
+  // stranding bytes nothing references.
+  await input.tx
+    .delete(documentAttachmentBlobProjection)
+    .where(isNull(documentAttachmentBlobProjection.detachedAt))
+    .run();
 }
 
 async function clearRemoteSyncStateInTransaction(input: {
@@ -441,6 +451,10 @@ export async function clearRemoteSyncState(
 ): Promise<ClearRemoteSyncStateResult> {
   return runOrganizationPresentationReset(execSql, async () => {
     await ensureSqlTables(execSql, clientSqlTables);
+    // ensureSqlTables only creates missing tables. A reset can be the first
+    // thing a session does, so also run the projection column migrations before
+    // reading columns (detached_at) an upgraded database may not have yet.
+    await ensureDocumentProjectionTables(execSql);
     const plans = await buildResetPlans(execSql);
 
     return getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>
