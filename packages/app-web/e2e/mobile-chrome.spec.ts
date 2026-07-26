@@ -350,3 +350,55 @@ test("mobile sync lane detail keeps its labels on one line", async ({
   expect(drawn.labels.filter((label) => label.lines !== 1)).toEqual([]);
   expect(drawn.overhang).toBe(0);
 });
+
+// Document Info's key/value tables reserve a fixed key column (`--aligned` in
+// MiniAppTable.css) so stacked tables line up and a compacted id key stops
+// wrapping at its hyphen. A phone is the case that matters and the one that
+// silently regresses: the column is only wide enough to hold that id if the
+// declared width survives the fixed-layout algorithm, and it does not survive
+// every plausible way of writing it — a `min()` carrying a percentage makes
+// Chromium treat the column as indefinite and split the table evenly instead,
+// which measures like a deliberate layout while being narrower than asked for.
+// So assert the drawn column against the text it exists to fit, in the cell's
+// own font, rather than against the number in the stylesheet.
+test("document info reserves a key column that fits a compacted id", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/app/explorer");
+
+  await page.getByRole("button", { name: "New Document" }).first().click();
+  await page.getByRole("button", { name: "Blood Pressure" }).click();
+  await page.getByRole("button", { name: "Get Info" }).first().click();
+
+  const key = page.locator(".mini-app-info-table--aligned th").first();
+  await expect(key).toBeVisible({ timeout: 30_000 });
+
+  const measured = await key.evaluate((cell) => {
+    const style = getComputedStyle(cell);
+    const probe = document.createElement("span");
+    probe.style.cssText = "position:fixed;visibility:hidden;white-space:pre;";
+    probe.style.font = style.font;
+    // The widest key these tables carry: `compactId` of a uuid (see
+    // explorer/detail/compactId.ts), which has no break opportunity but its
+    // hyphen and dots.
+    probe.textContent = "1f8b3134-e...6155a6";
+    document.body.appendChild(probe);
+    const compactIdWidth = probe.getBoundingClientRect().width;
+    probe.remove();
+
+    const table = cell.closest("table") as HTMLElement;
+    return {
+      compactIdWidth,
+      contentWidth:
+        cell.getBoundingClientRect().width -
+        Number.parseFloat(style.paddingLeft) -
+        Number.parseFloat(style.paddingRight),
+      tableWidth: table.getBoundingClientRect().width,
+    };
+  });
+
+  expect(measured.contentWidth).toBeGreaterThan(measured.compactIdWidth);
+  // Guards the specific silent fallback: an evenly split table is exactly half.
+  expect(measured.contentWidth).not.toBeCloseTo(measured.tableWidth / 2, 0);
+});
