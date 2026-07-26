@@ -340,6 +340,12 @@ test("blob detail renders the preview above the metadata", async () => {
     preview.compareDocumentPosition(metadata) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
+  expect(
+    metadata
+      .closest("section")
+      ?.querySelector("table")
+      ?.classList.contains("mini-app-info-table--borderless"),
+  ).toBe(true);
 });
 
 test("image rows show a thumbnail while other rows show a file icon", async () => {
