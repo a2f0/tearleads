@@ -7,5 +7,6 @@ export {
   getDocumentContentKeyBundle,
   getLatestCurrentDocumentContentKeyBundle,
   getLatestDocumentContentKeyBundleProjection,
+  getLatestDocumentContentKeyEpoch,
   listDocumentContentWriteHeaders,
 } from "../shared/internal/documentContentKeyStore";

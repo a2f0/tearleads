@@ -9,7 +9,10 @@ import {
   isDocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
-import { createSignedDocumentSyncRequest } from "../../test/helpers/documentUpdateRequests";
+import {
+  createSignedAtomicRotationBaseline,
+  createSignedDocumentSyncRequest,
+} from "../../test/helpers/documentUpdateRequests";
 import {
   accessManifestFromContainerResponse,
   bootstrapRoot,
@@ -300,5 +303,137 @@ test("a write-bearing sync heals the stale bundle at the next content-key epoch"
   );
   expect(healedProjection.documentKekTargets.documentKeyTargetHash).toBe(
     healedBundle.targetHash,
+  );
+}, 15_000);
+
+async function postDocumentSync(
+  owner: TestUser,
+  documentId: string,
+  request: unknown,
+): Promise<Response> {
+  return routeApp.request(`/documents/${documentId}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+}
+
+test("a heal that advances the content-key epoch must carry a baseline covering the committed frontier", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+
+  // Commit one pre-rotation update so the committed frontier is non-empty.
+  const preRevokeSync = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  const preRevokeResponse = await postDocumentSync(
+    owner,
+    created.id,
+    preRevokeSync.request,
+  );
+  expect(preRevokeResponse.status).toBe(200);
+
+  const { revokedKek, revokedManifest } = await shareAndRevokeRoot({
+    owner,
+    root,
+  });
+  const healedBundle = await buildHealedContentKeyBundle({
+    created,
+    revokedKek,
+    revokedManifestHash: revokedManifest.manifestHash,
+  });
+  const revokedRoot = { bundle: revokedManifest, kekState: revokedKek };
+
+  // An epoch advance with no baseline would orphan the committed pre-rotation
+  // update for every reader; the server refuses it.
+  const baselinelessHeal = await createSignedDocumentSyncRequest({
+    contentKeyBundle: healedBundle,
+    created,
+    includeContentKeyBundle: true,
+    owner,
+    root: revokedRoot,
+  });
+  const baselinelessResponse = await postDocumentSync(
+    owner,
+    created.id,
+    baselinelessHeal.request,
+  );
+  expect(baselinelessResponse.status).toBe(409);
+  expect((await baselinelessResponse.json()).error).toBe(
+    "Document content-key rotation requires a rotation baseline covering committed updates",
+  );
+
+  // A baseline built by a device that never saw the committed update does not
+  // dominate the frontier; the server refuses that too.
+  const underCoveringHeal = await createSignedDocumentSyncRequest({
+    checkpoint: true,
+    contentKeyBundle: healedBundle,
+    created,
+    includeContentKeyBundle: true,
+    owner,
+    root: revokedRoot,
+  });
+  const underCoveringResponse = await postDocumentSync(
+    owner,
+    created.id,
+    underCoveringHeal.request,
+  );
+  expect(underCoveringResponse.status).toBe(409);
+  expect((await underCoveringResponse.json()).error).toBe(
+    "Document content-key rotation baseline does not cover the committed frontier",
+  );
+
+  // The device holding the full history heals with a covering baseline.
+  const coveringBaseline = await createSignedAtomicRotationBaseline({
+    accessManifestHash: created.contentKeyBundle.linkSetManifestHash,
+    contentKeyEpoch: healedBundle.contentKeyEpoch,
+    documentId: created.id,
+    organizationId: String(
+      Reflect.get(created.accessManifest.state, "organizationId"),
+    ),
+    owner,
+    targetHash: healedBundle.targetHash,
+  });
+  const coveringResponse = await postDocumentSync(owner, created.id, {
+    contentKeyEpoch: healedBundle.contentKeyEpoch,
+    expectedLinkSetManifestHash: healedBundle.linkSetManifestHash,
+    expectedTargetHash: healedBundle.targetHash,
+    contentKeyBundle: {
+      contentKeyEpoch: healedBundle.contentKeyEpoch,
+      linkSetManifestHash: healedBundle.linkSetManifestHash,
+      targetHash: healedBundle.targetHash,
+      targets: healedBundle.targets,
+    },
+    authorizingContainerPathRefs: [
+      [
+        {
+          containerId: revokedKek.containerId,
+          manifestHash: revokedManifest.manifestHash,
+        },
+      ],
+    ],
+    localVersionVector: null,
+    outgoingUpdates: [coveringBaseline],
+  });
+  expect(coveringResponse.status).toBe(200);
+  const healed = await coveringResponse.json();
+  expect(isDocumentSyncResponse(healed)).toBe(true);
+  expect(healed.acceptedOutgoingUpdateIds).toContain(coveringBaseline.id);
+
+  const { response, projection } = await getWriterProjection(owner, created.id);
+  expect(response.status).toBe(200);
+  expect(isDocumentWriterProjectionResponse(projection)).toBe(true);
+  const healedProjection = projection as DocumentWriterProjectionResponse;
+  expect(healedProjection.contentKeyBundleStale).toBeUndefined();
+  expect(healedProjection.contentKeyBundle.contentKeyEpoch).toBe(
+    healedBundle.contentKeyEpoch,
   );
 }, 15_000);

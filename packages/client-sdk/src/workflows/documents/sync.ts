@@ -187,9 +187,16 @@ async function unwrapDocumentSyncResponseContentKeys(
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<ReadonlyMap<number, Uint8Array>> {
-  const contentKeysByEpoch = new Map<number, Uint8Array>([
-    [input.currentContentKeyEpoch, input.currentContentKey],
-  ]);
+  // A stale read-only pass carries no usable content key (the stale bundle
+  // wraps to a rotated-away container KEK epoch). Seeding its epoch with the
+  // empty placeholder would mark the epoch "resolved" and feed garbage into
+  // decryption; leave it unseeded so any served update at that epoch goes
+  // through the bundle unwrap below and fails with an honest error instead.
+  const contentKeysByEpoch = new Map<number, Uint8Array>(
+    input.currentContentKey.byteLength > 0
+      ? [[input.currentContentKeyEpoch, input.currentContentKey]]
+      : [],
+  );
   const bundlesByEpoch = syncResponseContentKeyBundlesByEpoch(input.response);
   const neededContentKeyEpochs = new Set(
     input.response.updates.map(

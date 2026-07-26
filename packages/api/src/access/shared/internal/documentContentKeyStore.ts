@@ -155,6 +155,14 @@ async function getLatestDocumentContentKeyBundle(
   return row ? toStoredBundle(row, executor) : null;
 }
 
+export async function getLatestDocumentContentKeyEpoch(
+  documentId: string,
+  executor: DatabaseSession,
+): Promise<number | null> {
+  const row = await loadLatestDocumentContentKeyEpochRow(documentId, executor);
+  return row?.contentKeyEpoch ?? null;
+}
+
 interface ContainerManifestMoveLineageStep {
   readonly containerId: string;
   readonly containerKeyEpochId: string;

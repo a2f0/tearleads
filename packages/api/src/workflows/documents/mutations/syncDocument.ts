@@ -47,6 +47,7 @@ import {
 } from "./shared/verification";
 import { ensureSyncDocumentAccess } from "./syncAccess";
 import { listMissingSyncUpdateEntries } from "./syncResponseUpdates";
+import { assertEpochAdvanceAnchoredByCoveringBaseline } from "./syncRotationAdvance";
 import { lockSyncDocumentWriteFrontier } from "./syncWriteFrontier";
 import type {
   DocumentWriteAuthorizationProof,
@@ -311,6 +312,12 @@ async function syncDocumentTransaction(input: {
   }
   const writeAuthorization = await verifySyncWriteAuthorizationProof({
     currentTargets,
+    documentId: input.documentId,
+    executor: input.tx,
+    request: input.request,
+  });
+  // Must run before the bundle store below advances the latest epoch.
+  await assertEpochAdvanceAnchoredByCoveringBaseline({
     documentId: input.documentId,
     executor: input.tx,
     request: input.request,

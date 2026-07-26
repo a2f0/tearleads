@@ -98,6 +98,20 @@ async function pullVerifiedHistoryForRotation(input: {
     synced = await syncRemoteDocument({
       apiClient: input.state.runtime.apiClient,
       author,
+      // The recovery pull can meet a stale content-key bundle too; heal it
+      // from the live document's full history like the ordinary sync lane
+      // does, instead of aborting the rotation preflight.
+      buildRotationSnapshot: async () => {
+        const currentDoc = input.state.doc;
+        if (!currentDoc) {
+          return null;
+        }
+        try {
+          return exportFullHistorySnapshot(currentDoc);
+        } catch {
+          return null;
+        }
+      },
       documentId,
       execSql: input.state.runtime.infra.execSql,
       isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
