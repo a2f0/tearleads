@@ -68,9 +68,24 @@ export function getMiniAppVirtualWindowRange(params: {
   return { limit, offset };
 }
 
-function useMiniAppVirtualViewport<TFrame extends HTMLElement>() {
+/**
+ * A frame element and its observed box.
+ *
+ * Split out of the virtual viewport below so a table that folds on its frame's
+ * width *without* virtualizing — a detail-panel section list, whose frame grows
+ * with the panel instead of windowing its own rows — measures the frame through
+ * the same observer and the same "0 means not measured yet" convention, rather
+ * than growing a second pair that could disagree.
+ */
+export function useMiniAppFrameBox<
+  TFrame extends HTMLElement = HTMLDivElement,
+>(): {
+  frame: TFrame | null;
+  frameRef: (nextFrame: TFrame | null) => void;
+  frameWidth: number;
+  viewportHeight: number;
+} {
   const [frame, setFrame] = useState<TFrame | null>(null);
-  const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
   // 0 means "not measured yet" — the frame is unmounted, or the observer has
   // not run. Consumers deciding a layout from the width must treat 0 as
@@ -79,23 +94,6 @@ function useMiniAppVirtualViewport<TFrame extends HTMLElement>() {
   const frameRef = useCallback((nextFrame: TFrame | null) => {
     setFrame(nextFrame);
   }, []);
-
-  useEffect(() => {
-    if (!frame) {
-      setScrollTop(0);
-      return;
-    }
-
-    const handleScroll = () => {
-      setScrollTop(frame.scrollTop);
-    };
-
-    handleScroll();
-    frame.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      frame.removeEventListener("scroll", handleScroll);
-    };
-  }, [frame]);
 
   useEffect(() => {
     if (!frame) {
@@ -121,6 +119,31 @@ function useMiniAppVirtualViewport<TFrame extends HTMLElement>() {
 
     return () => {
       resizeObserver.disconnect();
+    };
+  }, [frame]);
+
+  return { frame, frameRef, frameWidth, viewportHeight };
+}
+
+function useMiniAppVirtualViewport<TFrame extends HTMLElement>() {
+  const { frame, frameRef, frameWidth, viewportHeight } =
+    useMiniAppFrameBox<TFrame>();
+  const [scrollTop, setScrollTop] = useState(0);
+
+  useEffect(() => {
+    if (!frame) {
+      setScrollTop(0);
+      return;
+    }
+
+    const handleScroll = () => {
+      setScrollTop(frame.scrollTop);
+    };
+
+    handleScroll();
+    frame.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      frame.removeEventListener("scroll", handleScroll);
     };
   }, [frame]);
 

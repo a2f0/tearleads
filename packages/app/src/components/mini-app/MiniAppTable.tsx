@@ -15,6 +15,7 @@ export {
   type MiniAppCompactTableField,
   MiniAppCompactTableHeader,
   shouldFoldCompactRows,
+  useMiniAppCompactTableFrame,
   useMiniAppCompactTableLayout,
   useMiniAppCompactTableRows,
 } from "./tables/MiniAppCompactTable";
