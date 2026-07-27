@@ -3,6 +3,7 @@ import {
   createRemoteDocument,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  describeDocumentRevalidationFailure,
   describeDocumentSyncSubmitFailure,
   type PendingUpdateRecord,
   recordDocumentSyncFailure,
@@ -20,6 +21,43 @@ import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
+
+/**
+ * Record a refused read-only revalidation on this document's failure row, so
+ * a document that can never refresh stops failing silently (edge-case row
+ * 13). 403s stay suppressed on purpose — a read-only 403 must never flag
+ * unattempted local edits (row 9) — and the row clears on the next clean
+ * pass like every other sync failure.
+ */
+export function documentRevalidationFailureHandler(
+  state: DocumentStoreState,
+  generation?: DocumentStoreSyncGeneration,
+) {
+  return async (failure: {
+    readonly message: string;
+    readonly status: number | null;
+  }) => {
+    if (failure.status === 403) {
+      return;
+    }
+    if (
+      generation &&
+      !isDocumentStoreSyncGenerationCurrent(state, generation)
+    ) {
+      return;
+    }
+
+    await recordDocumentSyncFailure(
+      generation?.execSql ?? state.runtime.infra.execSql,
+      { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+      {
+        attemptedAt: new Date().toISOString(),
+        message: describeDocumentRevalidationFailure(failure),
+        status: failure.status,
+      },
+    );
+  };
+}
 
 /**
  * Record a terminal submit failure on this document's write-queue row. Shared

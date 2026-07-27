@@ -86,6 +86,7 @@ export {
   syncRemoteDocument,
 } from "./sync";
 export {
+  describeDocumentRevalidationFailure,
   describeDocumentSyncSubmitFailure,
   type TerminalSubmitFailureHandler,
 } from "./syncFailures";

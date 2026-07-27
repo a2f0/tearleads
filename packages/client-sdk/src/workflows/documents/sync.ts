@@ -1244,6 +1244,14 @@ interface SyncRemoteDocumentInput {
   onSyncAbandoned?: ((reason: string) => void) | undefined;
   /** Clipboard-safe trace sink (see syncTrace.ts); never receives content. */
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
+  /**
+   * Fires when a pass WITHOUT queued writes cannot resolve its writer
+   * projection (e.g. a coded 409 from the projection route). Read-only
+   * revalidation otherwise fails silently — one burned request and a trace
+   * line — leaving the document permanently stale with nothing durable to
+   * explain why (edge-case row 13).
+   */
+  onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
@@ -1495,10 +1503,14 @@ function resolveAttemptProjection(
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncAbandoned: input.onSyncAbandoned,
     onSyncTrace: input.onSyncTrace,
-    // Write-bearing passes only: without queued writes a failed projection
-    // read blocks nothing durable, so the failure is not recorded.
+    // A write-bearing pass records through the submit handler (its queued
+    // writes are what the failure blocks). A read-only pass records through
+    // the revalidation handler so the refusal still leaves a durable trail
+    // instead of silently never revalidating (edge-case row 13).
     onTerminalFailure:
-      pendingUpdates.length > 0 ? input.onTerminalSubmitFailure : undefined,
+      pendingUpdates.length > 0
+        ? input.onTerminalSubmitFailure
+        : input.onReadOnlyProjectionFailure,
     reusableWriterProjection,
   });
 }

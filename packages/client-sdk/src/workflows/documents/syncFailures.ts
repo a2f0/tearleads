@@ -39,6 +39,23 @@ export type TerminalSubmitFailureHandler = (
   failure: DocumentSyncSubmitFailure,
 ) => Promise<void> | void;
 
+/**
+ * Read-only counterpart to describeDocumentSyncSubmitFailure: names a refused
+ * revalidation without implying a blocked write. 403s never reach this — a
+ * read-only 403 is deliberately suppressed (edge-case row 9) so unattempted
+ * local edits are never flagged.
+ */
+export function describeDocumentRevalidationFailure(
+  failure: Pick<DocumentSyncSubmitFailure, "message" | "status">,
+): string {
+  const detail =
+    failure.message.trim().length > 0
+      ? failure.message.trim()
+      : "the server refused the read";
+  const suffix = failure.status === null ? "" : ` (${failure.status})`;
+  return `Remote revalidation failed: ${detail}${suffix}`;
+}
+
 /** Human-readable description of a terminal submit failure for queue display. */
 export function describeDocumentSyncSubmitFailure(
   failure: Pick<DocumentSyncSubmitFailure, "message" | "status">,
