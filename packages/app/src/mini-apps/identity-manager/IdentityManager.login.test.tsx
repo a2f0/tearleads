@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
-import { act, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   cleanupIdentityManagerTestEnvironment,
   createIdentityManagerHostConfig,
@@ -32,6 +32,8 @@ test("local-only identity can log in without a persisted user id", async () => {
       </IdentityManagerTestRuntime>,
     );
 
+    fireEvent.click(view.getByRole("button", { name: "General" }));
+
     await waitFor(() => {
       expect(tearleadsRef.current).toBeTruthy();
     });
@@ -55,7 +57,7 @@ test("local-only identity can log in without a persisted user id", async () => {
   }
 });
 
-test("logged-out identity hides the active sessions section", async () => {
+test("logged-out identity explains that active sessions require login", async () => {
   const originalWebSocket = globalThis.WebSocket;
   const tearleadsRef: { current: Tearleads | null } = { current: null };
 
@@ -71,6 +73,8 @@ test("logged-out identity hides the active sessions section", async () => {
         <IdentityManager />
       </IdentityManagerTestRuntime>,
     );
+
+    fireEvent.click(view.getByRole("button", { name: "Active Sessions" }));
 
     await waitFor(() => {
       expect(tearleadsRef.current).toBeTruthy();
@@ -88,7 +92,9 @@ test("logged-out identity hides the active sessions section", async () => {
     });
 
     expect(tearleads.session.isAuthenticated).toBe(false);
-    expect(view.queryByText("Active Sessions")).toBeNull();
+    expect(
+      view.getByText("Log in to view and manage active sessions."),
+    ).toBeTruthy();
     expect(view.queryByRole("table")).toBeNull();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);

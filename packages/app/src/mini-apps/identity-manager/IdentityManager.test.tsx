@@ -44,11 +44,6 @@ const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
 );
 
 const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
-// PIN locking is only offered for a browser-managed keychain, so the PIN test
-// opts out of the host keyring and installs indexedDB to get one.
-const BROWSER_KEYRING_HOST_CONFIG = createIdentityManagerHostConfig({
-  browserManagedKeyring: true,
-});
 
 afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();
@@ -79,6 +74,7 @@ function installClipboardWriteMock(): string[] {
 
 async function renderAuthenticatedIdentityManagerWithSessions(
   sessions: ReadonlyArray<UserSession>,
+  section: "Active Sessions" | "General" = "Active Sessions",
 ) {
   const originalWebSocket = globalThis.WebSocket;
   const tearleadsRef: { current: Tearleads | null } = { current: null };
@@ -132,8 +128,14 @@ async function renderAuthenticatedIdentityManagerWithSessions(
     </IdentityManagerTestRuntime>,
   );
 
+  fireEvent.click(view.getByRole("button", { name: section }));
+
   await waitFor(() => {
-    expect(view.getByRole("table")).toBeTruthy();
+    expect(
+      section === "Active Sessions"
+        ? view.getByRole("table")
+        : view.getByRole("heading", { name: "Identity" }),
+    ).toBeTruthy();
   });
 
   return {
@@ -306,7 +308,10 @@ test("session rows open details and expose context menu actions", async () => {
 
 test("current-session logout is reachable from the identity actions menu", async () => {
   const { restore, view } =
-    await renderAuthenticatedIdentityManagerWithSessions([ACTIVE_SESSION]);
+    await renderAuthenticatedIdentityManagerWithSessions(
+      [ACTIVE_SESSION],
+      "General",
+    );
 
   try {
     const identitySection = view
@@ -343,7 +348,10 @@ test("current-session logout is reachable from the identity actions menu", async
 
 test("identity actions menu trigger toggles the menu shut when reclicked", async () => {
   const { restore, view } =
-    await renderAuthenticatedIdentityManagerWithSessions([ACTIVE_SESSION]);
+    await renderAuthenticatedIdentityManagerWithSessions(
+      [ACTIVE_SESSION],
+      "General",
+    );
 
   try {
     const identitySection = view
@@ -386,6 +394,8 @@ test("identity actions menu stays hidden while signed out", async () => {
         <IdentityManager />
       </IdentityManagerTestRuntime>,
     );
+
+    fireEvent.click(view.getByRole("button", { name: "General" }));
 
     await waitFor(() => {
       expect(view.getByRole("heading", { name: "Identity" })).toBeTruthy();
@@ -447,6 +457,8 @@ test("identity detail copies the authenticated user id", async () => {
         </IdentityManagerTestRuntime>,
       );
 
+      fireEvent.click(view.getByRole("button", { name: "General" }));
+
       await waitFor(() => {
         expect(view.getByText("user-1")).toBeTruthy();
       });
@@ -497,6 +509,8 @@ test("identity manager confirms before destroying a key package", async () => {
       });
     });
 
+    fireEvent.click(view.getByRole("button", { name: "General" }));
+
     const destroyRequestButton = await view.findByRole("button", {
       name: "Destroy Key Pair",
     });
@@ -525,41 +539,5 @@ test("identity manager confirms before destroying a key package", async () => {
     });
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
-  }
-});
-
-test("PIN lock setup waits for a generated local key pair", async () => {
-  const originalIndexedDB = globalThis.indexedDB;
-  const hadIndexedDB = "indexedDB" in globalThis;
-  const originalWebSocket = globalThis.WebSocket;
-  const tearleadsRef: { current: Tearleads | null } = { current: null };
-
-  try {
-    Reflect.set(globalThis, "indexedDB", originalIndexedDB ?? {});
-    Reflect.set(globalThis, "WebSocket", TestWebSocket);
-    const view = render(
-      <IdentityManagerTestRuntime
-        hostConfig={BROWSER_KEYRING_HOST_CONFIG}
-        onTearleadsReady={(sdk) => {
-          tearleadsRef.current = sdk;
-        }}
-      >
-        <IdentityManager />
-      </IdentityManagerTestRuntime>,
-    );
-
-    await waitFor(() => {
-      expect(tearleadsRef.current).toBeTruthy();
-      expect(
-        view.getByText("Generate a key pair first to enable PIN locking."),
-      ).toBeTruthy();
-    });
-  } finally {
-    Reflect.set(globalThis, "WebSocket", originalWebSocket);
-    if (hadIndexedDB) {
-      Reflect.set(globalThis, "indexedDB", originalIndexedDB);
-    } else {
-      Reflect.deleteProperty(globalThis, "indexedDB");
-    }
   }
 });

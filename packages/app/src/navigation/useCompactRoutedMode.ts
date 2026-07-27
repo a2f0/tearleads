@@ -1,9 +1,9 @@
-import { useAppNavigationState } from "./AppNavigationProvider";
+import { useOptionalAppNavigationState } from "./AppNavigationProvider";
 import { useRoutedLayoutTier } from "./useRoutedLayoutTier";
 
 export function useCompactRoutedMode(): boolean {
-  const { mode } = useAppNavigationState();
+  const navigation = useOptionalAppNavigationState();
   const tier = useRoutedLayoutTier();
 
-  return mode === "routed" && tier === "mobile";
+  return navigation?.mode === "routed" && tier === "mobile";
 }
