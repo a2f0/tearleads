@@ -145,9 +145,9 @@ test("routed App boots from the Explorer home gate and navigates via the rail", 
       />,
     );
 
-    // The redesigned routed shell renders the navigation/system actions
-    // inline in the rail (tablet) or drawer (mobile) instead of behind a
-    // "Pane" popover, so there is no "Pane" button.
+    // The redesigned routed shell renders app navigation inline in the rail
+    // (tablet) or launcher sheet (mobile) instead of behind a "Pane" popover,
+    // so there is no "Pane" button.
     expect(view.queryByRole("button", { name: "Pane" })).toBeNull();
     // The bottom taskbar's centered logo is the routed shell's "Menu"
     // affordance in both tiers (toggling the rail on tablet, the launcher
@@ -229,7 +229,7 @@ test("routed App boots from the Explorer home gate and navigates via the rail", 
     fireEvent.click(view.getByRole("button", { name: "Show Sidebar" }));
     expect(view.container.querySelector("#routed-pane-sidebar")).toBeTruthy();
 
-    // Developer-only key destruction stays hidden from normal users.
+    // Key destruction belongs to the Identity Manager app, never the shell.
     expect(view.queryByRole("button", { name: "Destroy Key Pair" })).toBeNull();
 
     view.unmount();

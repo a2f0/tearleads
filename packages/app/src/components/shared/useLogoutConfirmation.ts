@@ -1,10 +1,5 @@
 import { purgeOpfsBlobStore } from "@tearleads/client-sdk";
 import { useCallback, useState } from "react";
-import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
-import { useDatabase } from "../../providers/db/DatabaseProvider";
-import { useIdentity } from "../../providers/identity/IdentityProvider";
-import { useLog } from "../../providers/logging/LogProvider";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 
 export interface LogoutOptions {
   readonly keepLocalData: boolean;
@@ -36,50 +31,6 @@ export function useLogoutConfirmationDialogState() {
   }, []);
 
   return { closeLogoutDialog, isOpen, requestLogout };
-}
-
-export function useConfirmedLogoutDialog() {
-  const tearleads = useTearleads();
-  const session = useCryptoSession();
-  const { purgeWorker } = useDatabase();
-  const { signingFingerprint } = useIdentity();
-  const { log, logError } = useLog();
-  const [busy, setBusy] = useState(false);
-  const dialog = useLogoutConfirmationDialogState();
-  const { closeLogoutDialog } = dialog;
-
-  const confirmLogout = useCallback(
-    (options: LogoutOptions) => {
-      setBusy(true);
-      void runConfirmedLogout({
-        ...options,
-        getSigningFingerprint: () => tearleads.identity.signingFingerprint,
-        log,
-        logError,
-        logout: session.logout,
-        onRemoteLogoutFailure: () => {
-          log("Could not log out remote session.");
-        },
-        purgeWorker,
-        session: tearleads.session,
-        signingFingerprint,
-      }).finally(() => {
-        setBusy(false);
-        closeLogoutDialog();
-      });
-    },
-    [
-      closeLogoutDialog,
-      log,
-      logError,
-      purgeWorker,
-      session.logout,
-      signingFingerprint,
-      tearleads,
-    ],
-  );
-
-  return { ...dialog, busy, confirmLogout };
 }
 
 async function destroyLocalSessionData(input: {

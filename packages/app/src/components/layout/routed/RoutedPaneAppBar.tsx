@@ -1,3 +1,4 @@
+import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/csr/SidebarSimple";
@@ -10,6 +11,7 @@ import {
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import {
   useWindowBackActionValue,
+  useWindowRefreshMenuItemValue,
   useWindowTitleBarActions,
 } from "../../window/WindowMenuContext";
 
@@ -30,10 +32,13 @@ export function RoutedPaneAppBar({
   const { history } = useAppNavigationState();
   const backAction = useWindowBackActionValue();
   const toolbarActions = useWindowTitleBarActions();
+  // The routed shell has no menu bar, so the app's refresh registration — which
+  // windowed mode reaches through the View menu — rides the toolbar as a glyph.
+  const refreshItem = useWindowRefreshMenuItemValue();
   const backLabel = backAction?.label ?? "Back";
   const canGoBack = backAction ? !backAction.disabled : history.canGoBack;
   const sidebarLabel = sidebarExpanded ? "Hide Sidebar" : "Show Sidebar";
-  const showToolbar = toolbarActions.length > 0;
+  const showToolbar = toolbarActions.length > 0 || refreshItem !== null;
 
   return (
     <header className="routed-pane-appbar">
@@ -99,6 +104,18 @@ export function RoutedPaneAppBar({
               {action.icon}
             </button>
           ))}
+          {refreshItem && (
+            <button
+              aria-label={refreshItem.label}
+              className="routed-pane-iconbutton"
+              disabled={refreshItem.disabled}
+              title={refreshItem.label}
+              type="button"
+              onClick={refreshItem.onClick}
+            >
+              <ArrowsClockwiseIcon aria-hidden size={18} />
+            </button>
+          )}
         </div>
       )}
     </header>

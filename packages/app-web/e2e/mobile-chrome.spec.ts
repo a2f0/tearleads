@@ -52,6 +52,27 @@ test("mobile sidebar covers Explorer rows", async ({ page }) => {
   expect(coverage).toEqual(["drawer", "scrim"]);
 });
 
+// Four mini-apps register Refresh through useWindowRefreshMenuItem alone, which
+// the windowed shell renders in its View menu. The routed shell has no menu bar
+// and its nav rail is a pure app launcher, so the app bar toolbar is the only
+// surface left that can carry it. A registration that renders nowhere still
+// type-checks and still passes every unit test, so assert the drawn button.
+test("routed app bar carries the app's Refresh action", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1000 });
+  await page.goto("/app/explorer");
+
+  const refresh = page
+    .locator(".routed-pane-toolbar")
+    .getByRole("button", { name: "Refresh" });
+  await expect(refresh).toBeVisible({ timeout: 30_000 });
+  await expect(refresh).toBeEnabled();
+
+  // Mid-refresh the registration re-labels itself "Refreshing..." and disables
+  // the button, so an enabled "Refresh" again is the settled state.
+  await refresh.click();
+  await expect(refresh).toBeEnabled({ timeout: 30_000 });
+});
+
 // Growing the hit target is only half of the HIG rule, and it is the half that
 // measures clean while still looking wrong: a 44px button around an 18px glyph
 // reads as a tiny mark on a phone. The icons carry `size={18}` as an attribute
