@@ -376,12 +376,15 @@ function WriteQueueRow(
         entryName={getWriteQueueItemName(item)}
         // Discard tears down local state and re-pulls the server copy, so it
         // only applies to documents that exist remotely (a local-only
-        // document's queued create is its ONLY copy) and have no queued
-        // move — a pending move makes the local placement optimistic, not
-        // server truth, and the SDK refuses those too.
+        // document's queued create is its ONLY copy), are linked to a
+        // container (the shell needs an anchor to re-pull into), and have no
+        // queued move — a pending move makes the local placement optimistic,
+        // not server truth. The SDK refuses all three cases too; hiding the
+        // action keeps a confirmed dialog from silently doing nothing.
         onDiscard={
           item.objectKind === "document" &&
           item.remoteId !== null &&
+          item.containerId !== null &&
           item.operations.every((operation) => operation.kind !== "move")
             ? () => params.discardPendingWrites(item)
             : null

@@ -454,18 +454,25 @@ export async function discardPersistedDocumentToShell(input: {
     input.localId,
   );
   if (result.discarded) {
-    const documentProjectors = resolveDocumentProjectorRegistry(
-      input.documentProjectors,
-    );
-    await ensureDocumentClientProjectionTables({
-      documentProjectors,
-      execSql: input.execSql,
-    });
-    await documentProjectors.deleteStoredDocumentClientProjection({
-      documentKind: result.documentKind,
-      execSql: input.execSql,
-      localId: input.localId,
-    });
+    try {
+      const documentProjectors = resolveDocumentProjectorRegistry(
+        input.documentProjectors,
+      );
+      await ensureDocumentClientProjectionTables({
+        documentProjectors,
+        execSql: input.execSql,
+      });
+      await documentProjectors.deleteStoredDocumentClientProjection({
+        documentKind: result.documentKind,
+        execSql: input.execSql,
+        localId: input.localId,
+      });
+    } catch {
+      // The destructive rows already committed; failing the whole discard
+      // here would report an un-discard that cannot be true and lose the
+      // reclaimable storage keys (their pointer rows are gone). A stale kind
+      // projection is the lesser harm — the re-pull's persist rebuilds it.
+    }
   }
   return result;
 }
