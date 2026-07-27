@@ -1,0 +1,43 @@
+---
+- name: Create Bun release directory
+  ansible.builtin.file:
+    path: /usr/local/src/tearleads-bun-{{ bun_version }}
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Download Bun release
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/oven-sh/bun/releases/download/bun-v{{ bun_version
+      }}/bun-linux-x64.zip
+    dest: /usr/local/src/tearleads-bun-{{ bun_version }}/bun-linux-x64.zip
+    owner: root
+    group: root
+    mode: "0644"
+    checksum: "{{ bun_linux_x64_checksum }}"
+
+- name: Extract Bun release
+  ansible.builtin.unarchive:
+    src: /usr/local/src/tearleads-bun-{{ bun_version }}/bun-linux-x64.zip
+    dest: /usr/local/src/tearleads-bun-{{ bun_version }}
+    remote_src: true
+    creates: /usr/local/src/tearleads-bun-{{ bun_version }}/bun-linux-x64/bun
+
+- name: Create Bun binary directory
+  ansible.builtin.file:
+    path: /home/{{ server_user }}/.bun/bin
+    state: directory
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: "0755"
+
+- name: Install Bun binary
+  ansible.builtin.copy:
+    src: /usr/local/src/tearleads-bun-{{ bun_version }}/bun-linux-x64/bun
+    dest: "{{ bun_path }}"
+    remote_src: true
+    owner: "{{ server_user }}"
+    group: "{{ server_user }}"
+    mode: "0755"

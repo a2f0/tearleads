@@ -51,18 +51,11 @@ if ! diff -u \
   exit 1
 fi
 
-for relative_path in \
-  main.tf \
-  outputs.tf \
-  variables.tf \
-  versions.tf \
-  scripts/apply.sh \
-  scripts/destroy.sh \
-  scripts/init.sh; do
+while IFS= read -r relative_path; do
   compare_tier_files \
     "$STAGING_STACK/$relative_path" \
     "$PROD_STACK/$relative_path"
-done
+done < <(list_stack_files "$STAGING_STACK")
 
 compare_tier_files \
   "$REPO_ROOT/ansible/scripts/run-server-staging.sh" \
