@@ -9,6 +9,8 @@ describe("buildCodexReviewArgs", () => {
     expect(args).toEqual([
       "exec",
       "--ignore-user-config",
+      "--disable",
+      "plugins",
       "--sandbox",
       "read-only",
       "-c",
@@ -25,10 +27,15 @@ describe("buildCodexReviewArgs", () => {
     // `--sandbox read-only` restricts shell commands only; user-configured MCP
     // servers would still load and could mutate external state on behalf of an
     // attacker-influenceable diff. `-c mcp_servers={}` cannot remove them —
-    // table overrides merge — so the user config is ignored wholesale.
+    // table overrides merge — so the user config is ignored wholesale, and
+    // plugins (whose MCP servers merge from outside config.toml) disabled too.
     const args = buildCodexReviewArgs("high", "/tmp/x/review-1.md");
 
     expect(args).toContain("--ignore-user-config");
+    const disabled = args.filter(
+      (_, i) => i > 0 && args[i - 1] === "--disable",
+    );
+    expect(disabled).toContain("plugins");
   });
 
   test("reads the prompt from stdin, never argv", () => {
