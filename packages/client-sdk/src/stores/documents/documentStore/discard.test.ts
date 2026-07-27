@@ -16,9 +16,15 @@ import type { DocumentsRuntime } from "../types";
 import { discardDocumentStoreLocalState } from "./discard";
 import { createDocumentStoreState } from "./state";
 
+interface RecordedProjectionDelete {
+  documentKind: string;
+  localId: string;
+}
+
 function createRuntime(
   execSql: ExecSql,
   deletedBlobStorageKeys: string[] = [],
+  projectionDeletes: RecordedProjectionDelete[] = [],
 ): DocumentsRuntime {
   return {
     infra: {
@@ -28,7 +34,18 @@ function createRuntime(
         },
       },
       dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
+      documentProjectors: {
+        ...defaultDocumentProjectorRegistry,
+        deleteStoredDocumentClientProjection: async (input: {
+          documentKind: string;
+          localId: string;
+        }) => {
+          projectionDeletes.push({
+            documentKind: input.documentKind,
+            localId: input.localId,
+          });
+        },
+      },
       execSql,
     },
     resolveTrustedUserIdentity: async () => null,
@@ -66,10 +83,11 @@ function createStoreState(
   execSql: ExecSql,
   localId: string,
   deletedBlobStorageKeys: string[] = [],
+  projectionDeletes: RecordedProjectionDelete[] = [],
 ) {
   const state = createDocumentStoreState(
     localId,
-    createRuntime(execSql, deletedBlobStorageKeys),
+    createRuntime(execSql, deletedBlobStorageKeys, projectionDeletes),
     sqlDocumentsPersistence,
     {
       emitPersistedDocument: () => undefined,
@@ -104,9 +122,15 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
         status: null,
       },
     );
-    const state = createStoreState(execSql, localId);
+    const projectionDeletes: RecordedProjectionDelete[] = [];
+    const state = createStoreState(execSql, localId, [], projectionDeletes);
 
     expect(await discardDocumentStoreLocalState(state)).toBe(true);
+
+    // The document-kind client projection derives from the discarded content
+    // and is cleared with the same conversion (the caller's registry, not
+    // the app-kind-blind default, receives the delete).
+    expect(projectionDeletes).toEqual([{ documentKind: "note", localId }]);
 
     const shell = await sqlDocumentsPersistence.loadDocument(execSql, localId);
     // The record survives as the freshly-discovered-share shell: identity and

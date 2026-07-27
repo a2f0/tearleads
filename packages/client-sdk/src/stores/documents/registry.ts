@@ -140,6 +140,12 @@ export function requestRegisteredDocumentRemoteSync(
  * so there is nothing this escape hatch could unstick. No deletion is
  * emitted: the document survives as a re-seeded shell that keeps its listing
  * entry, and the re-pull's own persist announces the restored content.
+ *
+ * Resolution is strict, unlike the read-side lookups: a destructive action
+ * must never run against whichever store won a lookup priority. The localId
+ * must map to a registered store, and when a documentId is given its mapping
+ * must agree — a mismatch refuses rather than discarding a different
+ * document's store.
  */
 export async function discardRegisteredDocumentLocalState(
   domainScope: DomainScope,
@@ -151,9 +157,17 @@ export async function discardRegisteredDocumentLocalState(
     return false;
   }
 
-  const store = registry.storesByKey.get(
-    resolveDocumentStoreKey(registry, localId, documentId),
-  );
+  const localStoreKey = registry.storeKeysByLocalId.get(localId);
+  const documentStoreKey = documentId
+    ? registry.storeKeysByDocumentId.get(documentId)
+    : undefined;
+  if (
+    !localStoreKey ||
+    (documentStoreKey !== undefined && documentStoreKey !== localStoreKey)
+  ) {
+    return false;
+  }
+  const store = registry.storesByKey.get(localStoreKey);
   if (!store) {
     return false;
   }

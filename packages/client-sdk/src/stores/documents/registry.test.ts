@@ -159,3 +159,56 @@ test("discard routes through the store and emits the deletion on success", async
     unsubscribe();
   }
 });
+
+test("discard refuses when the two identifiers resolve differently", async () => {
+  const domainScope = {} as DomainScope;
+  let targetDiscards = 0;
+  let otherDiscards = 0;
+  const targetStore = createDocumentStoreFacade(
+    createStore(
+      () => undefined,
+      () => {
+        targetDiscards += 1;
+        return true;
+      },
+    ),
+  );
+  registerDocumentStore(
+    domainScope,
+    "target-local",
+    targetStore,
+    "target-remote",
+  );
+  const otherStore = createDocumentStoreFacade(
+    createStore(
+      () => undefined,
+      () => {
+        otherDiscards += 1;
+        return true;
+      },
+    ),
+  );
+  registerDocumentStore(domainScope, "other-local", otherStore, "other-remote");
+
+  // A destructive action must never run against whichever store won a
+  // lookup priority: mismatched identifiers refuse outright.
+  expect(
+    await discardRegisteredDocumentLocalState(
+      domainScope,
+      "target-local",
+      "other-remote",
+    ),
+  ).toBe(false);
+  expect(targetDiscards).toBe(0);
+  expect(otherDiscards).toBe(0);
+
+  expect(
+    await discardRegisteredDocumentLocalState(
+      domainScope,
+      "target-local",
+      "target-remote",
+    ),
+  ).toBe(true);
+  expect(targetDiscards).toBe(1);
+  expect(otherDiscards).toBe(0);
+});

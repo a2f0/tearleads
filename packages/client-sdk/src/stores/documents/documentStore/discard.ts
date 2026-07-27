@@ -18,40 +18,44 @@ import { type DocumentStoreState, resetDocumentStore } from "./state";
  *
  * The caller restarts initialization after this settles (success or not);
  * the reset store then hydrates from whatever rows the sequence left. That
- * restart must happen OUTSIDE this identity-chained task — initialization
- * chains identity writes of its own, so starting it here would deadlock.
+ * restart must happen OUTSIDE the identity-chained task — initialization
+ * chains identity writes of its own, so starting it there would deadlock.
  */
-export function discardDocumentStoreLocalState(
+export async function discardDocumentStoreLocalState(
   state: DocumentStoreState,
 ): Promise<boolean> {
+  const runtime = state.runtime;
+  if (runtime.infra.dbStatus !== "ready") {
+    return false;
+  }
+
+  // Cheap eligibility probe before disturbing the live store: an obviously
+  // ineligible document (local-only, unlinked) returns without stopping
+  // writes. The workflow re-checks under its serialized mutation, so a
+  // status change between here and there is still refused safely.
+  const execSql = runtime.infra.execSql;
+  const record = await state.persistence.loadDocument(execSql, state.localId);
+  if (!record?.documentId || !record.containerId) {
+    return false;
+  }
+
+  // Stop local writes before draining: dropping the live doc rejects new
+  // mutations at queue time, and the generation bump invalidates queued
+  // write tasks that have not started (and in-flight attachment passes and
+  // initializations, which re-check the generation inside their writes'
+  // serialized mutations).
+  state.doc = null;
+  state.localWriteGeneration += 1;
+  // Drain OUTSIDE the identity chain. Write-chain tasks can themselves enter
+  // the identity chain (the stale-heal recovery installs its rebuilt
+  // document that way), so awaiting the write chain while holding an
+  // identity-chain slot would deadlock: the drained task would queue behind
+  // this one and each would wait on the other forever. Out here the drain is
+  // a plain await; whatever the drained tasks chain onto the identity chain
+  // runs before the teardown task below and is superseded by it.
+  await state.writeChain.catch(() => undefined);
+
   return chainIdentityWrite(state, async () => {
-    const runtime = state.runtime;
-    if (runtime.infra.dbStatus !== "ready") {
-      return false;
-    }
-
-    // Cheap eligibility probe before disturbing the live store: an obviously
-    // ineligible document (local-only, unlinked) returns without stopping
-    // writes. The workflow re-checks under its serialized mutation, so a
-    // status change between here and there is still refused safely.
-    const execSql = runtime.infra.execSql;
-    const record = await state.persistence.loadDocument(execSql, state.localId);
-    if (!record?.documentId || !record.containerId) {
-      return false;
-    }
-
-    // Stop local writes before touching rows: dropping the live doc rejects
-    // new mutations at queue time, the generation bump invalidates queued
-    // write tasks that have not started (and in-flight attachment passes and
-    // initializations, which re-check the generation before their own local
-    // writes), and draining the write chain lets already-started persists
-    // finish before the teardown deletes what they wrote. Mutation tasks
-    // never join the identity-write chain, so awaiting the write chain
-    // inside this identity-chained task cannot deadlock.
-    state.doc = null;
-    state.localWriteGeneration += 1;
-    await state.writeChain.catch(() => undefined);
-
     let shell: Awaited<ReturnType<typeof discardPersistedDocumentToShell>>;
     try {
       shell = await discardPersistedDocumentToShell({

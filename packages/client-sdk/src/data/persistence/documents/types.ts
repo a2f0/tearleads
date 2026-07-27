@@ -264,14 +264,16 @@ export interface DocumentsPersistence {
    * freshly-discovered-share shell (see the SQL implementation's doc
    * comment). The projector registry clears the document-kind client
    * projection in the same transaction — those tables live with the app's
-   * projector definitions, so the caller's registry must be threaded
-   * through. Optional: implementations without the full document schema
-   * (container metadata, simple doubles) simply do not offer the discard
-   * escape hatch.
+   * projector definitions, so the CALLER'S registry is required (the default
+   * registry knows no app kinds, and a discard that silently kept a
+   * contact's or card's projected fields would leak the discarded values).
+   * The method itself is optional: implementations without the full document
+   * schema (container metadata, simple doubles) simply do not offer the
+   * discard escape hatch.
    */
   discardDocumentToShell?: (
     execSql: ExecSql,
     localId: string,
-    documentProjectors?: DocumentProjectorRegistryInput,
+    documentProjectors: DocumentProjectorRegistryInput,
   ) => Promise<DiscardDocumentToShellResult>;
 }
