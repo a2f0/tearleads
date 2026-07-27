@@ -3,6 +3,7 @@ import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive
 import { useRoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import {
   MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
+  useMiniAppFrameBox,
   useMiniAppVirtualRows,
 } from "../virtual/MiniAppVirtual";
 import { MiniAppTableCell } from "./MiniAppTable";
@@ -201,6 +202,38 @@ export function useMiniAppCompactTableLayout(): {
 } {
   const compact = useCompactTableTier();
   return { compact, rowHeight: getMiniAppCompactTableRowHeight(compact) };
+}
+
+/**
+ * The fold decision for a table that renders every one of its rows: a
+ * detail-panel section list (the blob browser's Document Links) whose frame
+ * grows with the panel and scrolls with it, so there is no window to virtualize.
+ *
+ * Same rule as {@link useMiniAppCompactTableRows} — the phone tier **or** the
+ * frame's own measured width — so both kinds of table fold at the same points,
+ * including in a narrow desktop window. The returned `rowHeight` is the pitch to
+ * publish on the frame (via `getMiniAppVirtualFrameStyle`); a folded row takes
+ * it as a floor and grows past it if its two lines need more.
+ */
+export function useMiniAppCompactTableFrame(): {
+  compact: boolean;
+  frameRef: (frame: HTMLDivElement | null) => void;
+  rowHeight: number;
+} {
+  const tierCompact = useCompactTableTier();
+  const [narrowFrame, setNarrowFrame] = useState(false);
+  const { frameRef, frameWidth } = useMiniAppFrameBox();
+  const compact = tierCompact || narrowFrame;
+
+  useEffect(() => {
+    setNarrowFrame((current) => shouldFoldCompactRows(frameWidth, current));
+  }, [frameWidth]);
+
+  return {
+    compact,
+    frameRef,
+    rowHeight: getMiniAppCompactTableRowHeight(compact),
+  };
 }
 
 /**
