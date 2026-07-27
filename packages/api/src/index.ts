@@ -70,9 +70,10 @@ export function createRouteRequestBindings(
   }
 }
 
-const { API_PORT = "3001" } = process.env;
+const { API_HOST = "0.0.0.0", API_PORT = "3001" } = process.env;
 
 const server = {
+  hostname: API_HOST,
   port: Number(API_PORT),
   // Bound every request body to the multipart part ceiling. The part route reads
   // its body with c.req.arrayBuffer() (Bun's native read, which sidesteps the

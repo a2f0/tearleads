@@ -9,7 +9,7 @@ Lists object keys in the Garage-backed blob bucket for the selected server.
 The optional prefix limits the S3 ListObjectsV2 request.
 Pass --with-size to prefix each line with the object size as "<size>\t<key>".
 
-Set GARAGE_SSH_TARGET=user@host to bypass Terraform/Hetzner SSH resolution.
+Set GARAGE_SSH_TARGET=user@host to override Tailscale SSH resolution.
 EOF
 }
 
@@ -27,65 +27,8 @@ shell_quote() {
   printf "'%s'" "$value"
 }
 
-terraform_output_raw() {
-  local stack_dir="$1"
-  local output_name="$2"
-  local output_value
-
-  output_value="$(
-    terraform -chdir="$stack_dir" output -no-color -raw "$output_name" 2>/dev/null ||
-      true
-  )"
-
-  if [[ -z "$output_value" ||
-    "$output_value" == *$'\n'* ||
-    "$output_value" == *$'\033'* ||
-    "$output_value" == *Warning:* ||
-    "$output_value" == *Error:* ]]; then
-    return 1
-  fi
-
-  printf "%s" "$output_value"
-}
-
-hcloud_server_ip_for_tier() {
-  local tier="$1"
-  local server_name response server_ip
-
-  if [[ -z "${TF_VAR_hcloud_token:-}" || -z "${TF_VAR_domain:-}" ]]; then
-    return 1
-  fi
-
-  if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
-    return 1
-  fi
-
-  server_name="$tier-${TF_VAR_domain}"
-  response="$(
-    curl -fsS -G \
-      -H "Authorization: Bearer ${TF_VAR_hcloud_token}" \
-      --data-urlencode "name=$server_name" \
-      "https://api.hetzner.cloud/v1/servers" 2>/dev/null ||
-      true
-  )"
-
-  if [[ -z "$response" ]]; then
-    return 1
-  fi
-
-  server_ip="$(jq -r '.servers[0].public_net.ipv4.ip // empty' <<<"$response")"
-  if [[ -z "$server_ip" ]]; then
-    echo "WARNING: no Hetzner server named $server_name was found." >&2
-    return 1
-  fi
-
-  printf "%s" "$server_ip"
-}
-
 resolve_garage_ssh_target() {
   local stack_dir="$1"
-  local tier="$2"
-  local username server_ip ssh_target
 
   if [[ -n "${GARAGE_SSH_TARGET:-}" ]]; then
     wait_for_ssh_ready "$GARAGE_SSH_TARGET" >&2 || return 1
@@ -93,35 +36,7 @@ resolve_garage_ssh_target() {
     return 0
   fi
 
-  # Prefer the shared resolver, which tries the public server IP before the
-  # Tailscale hostname. MagicDNS can lag after a server replacement, so the
-  # hostname-first order this script used to use would hang on a stale name.
-  # Suppress its stderr: this call is speculative and the Hetzner-API fallback
-  # below recovers, so its loud ERROR lines would mislead on a successful run.
-  if ssh_target="$(resolve_stack_ssh_target "$stack_dir" 2>/dev/null)"; then
-    echo "$ssh_target"
-    return 0
-  fi
-
-  # Fallback for workstations without complete Terraform outputs: resolve the
-  # public IP straight from the Hetzner API.
-  username="$(terraform_output_raw "$stack_dir" server_username || true)"
-  username="${username:-${TF_VAR_server_username:-}}"
-  if [[ -z "$username" ]]; then
-    echo "ERROR: Could not resolve server username from Terraform outputs or TF_VAR_server_username." >&2
-    return 1
-  fi
-
-  server_ip="$(hcloud_server_ip_for_tier "$tier" || true)"
-  if [[ -n "$server_ip" ]]; then
-    ssh_target="$username@$server_ip"
-    wait_for_ssh_ready "$ssh_target" >&2 || return 1
-    echo "$ssh_target"
-    return 0
-  fi
-
-  echo "ERROR: Could not resolve a reachable SSH target for $tier." >&2
-  return 1
+  resolve_stack_ssh_target "$stack_dir"
 }
 
 main() {
@@ -172,7 +87,7 @@ main() {
   backend_config="$(get_backend_config)"
 
   terraform -chdir="$stack_dir" init -input=false -no-color -backend-config="$backend_config" >&2
-  ssh_target="$(resolve_garage_ssh_target "$stack_dir" "$tier")"
+  ssh_target="$(resolve_garage_ssh_target "$stack_dir")"
   remote_prefix_arg="$(shell_quote "$prefix")"
   remote_with_size_arg="$(shell_quote "$with_size")"
 

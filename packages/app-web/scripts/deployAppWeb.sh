@@ -91,6 +91,7 @@ deploy_app_web_dist() {
   rsync -avz --no-owner --no-group --delete --rsync-path="sudo rsync" \
     "$APP_WEB_DIR/dist/" "$SSH_TARGET:$remote_path/"
   ssh "$SSH_TARGET" sudo chown -R www-data:www-data "$remote_path"
+  ssh "$SSH_TARGET" sudo chmod -R u=rwX,go=rX "$remote_path"
 }
 
 build_app_web "app" "app-web"

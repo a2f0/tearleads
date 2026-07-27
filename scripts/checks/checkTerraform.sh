@@ -7,6 +7,8 @@ TERRAFORM_DIR="$REPO_ROOT/terraform"
 
 errors=0
 
+"$SCRIPT_DIR/checkInfrastructureParity.sh"
+
 check_command() {
   local cmd="$1"
   if ! command -v "$cmd" &>/dev/null; then

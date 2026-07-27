@@ -6,10 +6,12 @@
   vars:
     ansible_python_interpreter: /usr/bin/python3
     linux_security_baseline_manage_ufw: true
-    linux_security_baseline_ufw_allow_rules:
+    linux_security_baseline_ufw_delete_allow_rules:
       - { port: "22", proto: "tcp" }
       - { port: "80", proto: "tcp" }
       - { port: "443", proto: "tcp" }
+    linux_security_baseline_ufw_allow_rules:
+      - { port: "22", proto: "tcp", interface: "tailscale0", direction: "in" }
     linux_security_baseline_ssh_settings:
       - { key: "PermitRootLogin", value: "no" }
       - { key: "PasswordAuthentication", value: "no" }
@@ -17,22 +19,30 @@
       - { key: "MaxAuthTries", value: "3" }
       - { key: "KbdInteractiveAuthentication", value: "no" }
     postgres_version: "16"
-    postgres_db: "tearleads"
-    postgres_user: "tearleads"
-    postgres_password: "{{ lookup('env', 'DATABASE_PASSWORD') | default(lookup('ansible.builtin.password', playbook_dir + '/.postgres_password chars=ascii_letters,digits length=32'), true) }}"
-    postgres_host: "127.0.0.1"
+    postgres_db: "{{ lookup('env', 'POSTGRES_DATABASE') | default('tearleads', true) }}"
+    postgres_user: "{{ lookup('env', 'POSTGRES_USER') | default('tearleads', true) }}"
+    postgres_password: >-
+      {{ lookup('env', 'POSTGRES_PASSWORD') |
+      default(lookup('ansible.builtin.password', playbook_dir +
+      '/.postgres_password chars=ascii_letters,digits length=32'), true) }}
+    postgres_host: "{{ lookup('env', 'POSTGRES_HOST') | default('127.0.0.1', true) }}"
+    postgres_port: "{{ lookup('env', 'POSTGRES_PORT') | default('5432', true) }}"
     redis_bind: "127.0.0.1"
     domain: "{{ lookup('env', 'TF_VAR_domain') | default('', true) }}"
     app_hostname: "app.{{ domain | default('tearleads.com', true) }}"
     app_demo_hostnames_env: "{{ lookup('env', 'APP_DEMO_HOSTNAMES') | default('', true) }}"
     app_demo_hostnames_default:
       - "demo.{{ domain | default('tearleads.com', true) }}"
-    app_demo_hostnames: "{{ app_demo_hostnames_env.split(',') | map('trim') | reject('equalto', '') | list if app_demo_hostnames_env != '' else app_demo_hostnames_default }}"
+    app_demo_hostnames: >-
+      {{ app_demo_hostnames_env.split(',') | map('trim') |
+      reject('equalto', '') | list if app_demo_hostnames_env != '' else
+      app_demo_hostnames_default }}
     cloudflare_tunnel_token: "{{ lookup('env', 'CLOUDFLARE_TUNNEL_TOKEN') | default('', true) }}"
     server_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
     bun_path: "/home/{{ server_user }}/.bun/bin/bun"
+    bun_version: "1.3.11"
+    bun_linux_x64_checksum: "sha256:8611ba935af886f05a6f38740a15160326c15e5d5d07adef966130b4493607ed"
     nginx_worker_connections: 1024
-    certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | default('admin@' + (domain | default('tearleads.com')), true) }}"
     garage_enabled: "{{ lookup('env', 'GARAGE_ENABLED') | default('true', true) }}"
     garage_version: "{{ lookup('env', 'GARAGE_VERSION') | default('v2.3.0', true) }}"
     garage_db_engine: "{{ lookup('env', 'GARAGE_DB_ENGINE') | default('lmdb', true) }}"
@@ -216,13 +226,25 @@
         enabled: true
         state: started
 
-    - name: Install certbot and nginx plugin
-      ansible.builtin.apt:
-        name:
-          - certbot
-          - python3-certbot-nginx
-          - unzip
-        state: present
+    - name: Inspect nginx listeners before handler reloads
+      ansible.builtin.command:
+        argv:
+          - ss
+          - -H
+          - -lnt
+          - "( sport = :80 or sport = :443 )"
+      register: nginx_listener_scan
+      changed_when: false
+
+    - name: Restart nginx to close inherited public listeners
+      ansible.builtin.systemd:
+        name: nginx
+        state: restarted
+      when: >-
+        '0.0.0.0:80' in nginx_listener_scan.stdout or
+        '0.0.0.0:443' in nginx_listener_scan.stdout or
+        '[::]:80' in nginx_listener_scan.stdout or
+        '[::]:443' in nginx_listener_scan.stdout
 
     - name: Install deploy helper packages
       ansible.builtin.apt:
@@ -231,6 +253,14 @@
           - ca-certificates
           - unzip
         state: present
+
+    - name: Remove obsolete certbot packages
+      ansible.builtin.apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: absent
+        purge: true
 
     - name: Add Cloudflare package signing key
       ansible.builtin.get_url:
@@ -285,11 +315,7 @@
       when: cloudflare_tunnel_token != ""
 
     - name: Install Bun
-      ansible.builtin.shell:
-        cmd: curl -fsSL https://bun.sh/install | bash
-        creates: /home/{{ server_user }}/.bun/bin/bun
-      become: true
-      become_user: "{{ server_user }}"
+      ansible.builtin.include_tasks: tasks/bun.yml
 
     - name: Create application directories
       ansible.builtin.file:
@@ -378,6 +404,14 @@
         enabled: true
         state: started
 
+    - name: Restrict PostgreSQL to loopback interfaces
+      community.postgresql.postgresql_set:
+        name: listen_addresses
+        value: "127.0.0.1, ::1"
+      become: true
+      become_user: postgres
+      notify: Restart PostgreSQL
+
     - name: Create or update PostgreSQL user
       community.postgresql.postgresql_user:
         name: "{{ postgres_user }}"
@@ -419,6 +453,11 @@
     - name: Restart redis
       ansible.builtin.systemd:
         name: redis-server
+        state: restarted
+
+    - name: Restart PostgreSQL
+      ansible.builtin.systemd:
+        name: "postgresql@{{ postgres_version }}-main"
         state: restarted
 
     - name: Reload systemd
