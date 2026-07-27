@@ -268,44 +268,6 @@ test("routed system monitor launches from nav and tabs update the path", async (
   }
 });
 
-test("routed home pins the monitor only after the System Monitor pin action", async () => {
-  const pushedUrls: Array<string | URL | null | undefined> = [];
-  const restorePushState = spyPushState((url) => pushedUrls.push(url));
-  const view = renderRoutedPane();
-
-  try {
-    expect(view.queryByText(/SQLite Worker/i)).toBeNull();
-    expect(view.container.querySelector(".pane-log")).toBeNull();
-    expect(
-      view.queryByRole("button", { name: "Pin to Home Screen" }),
-    ).toBeNull();
-
-    openRoutedMiniAppLink(view, "System Monitor");
-    expect(await view.findByRole("tab", { name: "Logs" })).toBeTruthy();
-
-    fireEvent.click(
-      await view.findByRole("button", { name: "Pin to Home Screen" }),
-    );
-
-    await waitFor(() => {
-      // Home is the Explorer app now, so the Explorer nav link (not a separate
-      // "Home" entry) is the active one once the pin action navigates home.
-      expect(
-        view
-          .getByRole("link", { name: "Explorer" })
-          .getAttribute("aria-current"),
-      ).toBe("page");
-      expect(view.getByText(/SQLite Worker/i)).toBeTruthy();
-      expect(view.container.querySelector(".pane-log")).not.toBeNull();
-    });
-    expect(globalThis.localStorage.getItem(MODE_KEY)).toBe("pinned");
-    expect(pushedUrls.at(-1)).toBe("/");
-  } finally {
-    restorePushState();
-    view.unmount();
-  }
-});
-
 test("pin to desktop closes the window, renders inline, and persists the choice", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
@@ -347,7 +309,7 @@ test("pin to desktop closes the window, renders inline, and persists the choice"
 });
 
 for (const tier of ["tablet", "mobile"] as const) {
-  test(`${tier} routed monitor omits developer and kill-worker toolbar actions`, async () => {
+  test(`${tier} routed monitor omits windowed-only toolbar actions`, async () => {
     const restoreMatchMedia = forceRoutedTier(tier);
     globalThis.localStorage.setItem(DEVELOPER_MODE_KEY, "enabled");
     const view = renderRoutedPane({ autoProvisionIdentity: true });
@@ -359,6 +321,11 @@ for (const tier of ["tablet", "mobile"] as const) {
       ).toBeTruthy();
       expect(
         view.queryByRole("button", { name: "Disable Developer Mode" }),
+      ).toBeNull();
+      expect(
+        view.queryByRole("button", {
+          name: /Pin to (Desktop|Home Screen)/,
+        }),
       ).toBeNull();
 
       fireEvent.click(view.getByRole("tab", { name: "Status" }));
