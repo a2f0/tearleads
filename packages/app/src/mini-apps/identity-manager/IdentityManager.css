@@ -32,9 +32,28 @@
 
 .identity-manager-main {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-md);
+  min-width: 0;
   min-height: 0;
+}
+
+.identity-manager-menu {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.identity-manager-menu-icon,
+.identity-manager-sidebar-icon,
+.identity-manager-menu-caret {
+  flex: 0 0 auto;
+}
+
+.identity-manager-menu-caret {
+  opacity: var(--opacity-muted);
 }
 
 .identity-manager-details {

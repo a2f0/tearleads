@@ -98,6 +98,9 @@ export async function downloadPaneRecoveryKey(
     HTMLAnchorElement.prototype.click = () => undefined;
 
     const identityManager = await openIdentityManagerForPane(pane);
+    fireEvent.click(
+      within(identityManager).getByRole("button", { name: "Recovery Key" }),
+    );
     await interact(() => {
       fireEvent.click(
         within(identityManager).getByRole("button", {
@@ -123,6 +126,9 @@ export async function restorePaneRecoveryKey(
   recoveryKey: string,
 ) {
   const identityManager = await openIdentityManagerForPane(pane);
+  fireEvent.click(
+    within(identityManager).getByRole("button", { name: "Recovery Key" }),
+  );
   await interact(() => {
     fireEvent.change(
       within(identityManager).getByLabelText("Restore passphrase"),

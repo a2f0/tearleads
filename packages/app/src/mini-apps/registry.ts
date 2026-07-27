@@ -31,7 +31,6 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   },
   "identity-manager": {
     createComponent: () => IdentityManagerApp,
-    initialShowSidebar: false,
     title: "Identity Manager",
   },
   notes: {

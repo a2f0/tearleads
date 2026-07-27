@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import {
   openIdentityManagerFromPane,
+  openIdentityManagerSection,
   registerAndWaitForUserId,
 } from "../../../../test/helpers/identityPaneTestUtils";
 import {
@@ -370,10 +371,20 @@ test(
     await waitFor(() => {
       // Both the window title bar and its taskbar entry carry the app name.
       expect(view.getAllByText("Identity Manager").length).toBeGreaterThan(0);
-      expect(view.getByText("Active Sessions")).toBeTruthy();
-      expect(view.getByText("Current")).toBeTruthy();
     });
-    expect(view.container.querySelector(".window-sidebar-layout")).toBeNull();
+    const identityManagerWindow = view.container
+      .querySelector(".identity-manager")
+      ?.closest(".window");
+    if (!(identityManagerWindow instanceof HTMLElement)) {
+      throw new Error("Expected Identity Manager window.");
+    }
+    openIdentityManagerSection(identityManagerWindow, "Active Sessions");
+    await waitFor(() => {
+      expect(within(identityManagerWindow).getByText("Current")).toBeTruthy();
+    });
+    expect(
+      identityManagerWindow.querySelector(".window-sidebar-layout"),
+    ).toBeTruthy();
 
     view.unmount();
   },

@@ -425,6 +425,10 @@ export function useAppNavigationState(): AppNavigationState {
   return context;
 }
 
+export function useOptionalAppNavigationState(): AppNavigationState | null {
+  return useContext(AppNavigationStateContext);
+}
+
 export function useMiniAppRouteSegments(appId: MiniAppId) {
   const actions = useContext(AppNavigationActionsContext);
   const state = useContext(AppNavigationStateContext);
