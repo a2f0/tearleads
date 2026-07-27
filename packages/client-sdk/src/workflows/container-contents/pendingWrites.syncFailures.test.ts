@@ -150,7 +150,7 @@ test("a failure with no pending work surfaces as its own queue item", async () =
     expect(failureItems[0]).toMatchObject({ status: "error" });
     expect(failureItems[0]?.operations).toEqual([
       expect.objectContaining({
-        kind: "update",
+        kind: "revalidation",
         lastAttemptedAt: T2,
         lastError: "Remote revalidation failed: container unavailable (409)",
       }),
@@ -173,6 +173,7 @@ test("a failure with no pending work surfaces as its own queue item", async () =
     expect(combined[0]?.operations).toHaveLength(1);
     expect(combined[0]?.operations[0]).toMatchObject({
       count: 1,
+      kind: "update",
       lastError: "Remote revalidation failed: container unavailable (409)",
     });
 

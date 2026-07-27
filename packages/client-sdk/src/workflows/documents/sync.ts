@@ -1515,20 +1515,23 @@ function submitPlannedSyncAttempt(args: {
  * A write-bearing pass records through the submit handler (its queued writes
  * are what the failure blocks). A read-only pass records through the
  * revalidation handler so the refusal still leaves a durable trail instead
- * of silently never revalidating (edge-case row 13).
+ * of silently never revalidating (edge-case row 13). `writeBearing` is the
+ * pass's character, not the momentary array length: update-id recovery
+ * empties the in-flight batch while the durable rows still exist, and that
+ * retry must keep the submit classification (and its 403 handling).
  */
 function projectionFailureHandler(
   input: SyncRemoteDocumentInput,
-  pendingUpdates: readonly PendingUpdateRecord[],
+  writeBearing: boolean,
 ): TerminalSubmitFailureHandler | undefined {
-  return pendingUpdates.length > 0
+  return writeBearing
     ? input.onTerminalSubmitFailure
     : input.onReadOnlyProjectionFailure;
 }
 
 function resolveAttemptProjection(
   input: SyncRemoteDocumentInput,
-  pendingUpdates: readonly PendingUpdateRecord[],
+  writeBearing: boolean,
   reusableWriterProjection: DocumentWriterProjectionResponse | null,
 ) {
   return resolveSyncAttemptWriterProjection({
@@ -1537,7 +1540,7 @@ function resolveAttemptProjection(
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncAbandoned: input.onSyncAbandoned,
     onSyncTrace: input.onSyncTrace,
-    onTerminalFailure: projectionFailureHandler(input, pendingUpdates),
+    onTerminalFailure: projectionFailureHandler(input, writeBearing),
     reusableWriterProjection,
   });
 }
@@ -1564,9 +1567,11 @@ export async function syncRemoteDocument(
   }
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const writeBearing =
+      pendingUpdates.length > 0 || recoveryPendingUpdatesById.size > 0;
     const writerProjection = await resolveAttemptProjection(
       input,
-      pendingUpdates,
+      writeBearing,
       reusableWriterProjection,
     );
     reusableWriterProjection = null;
@@ -1586,7 +1591,7 @@ export async function syncRemoteDocument(
       onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
       onSyncAbandoned: input.onSyncAbandoned,
       onSyncTrace: input.onSyncTrace,
-      onTerminalFailure: projectionFailureHandler(input, pendingUpdates),
+      onTerminalFailure: projectionFailureHandler(input, writeBearing),
       writerProjection,
     });
     if (!planned) {

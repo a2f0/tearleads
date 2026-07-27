@@ -68,7 +68,7 @@ const PENDING_WRITE_SOURCE_SQL = `
       NULLIF(container.organization_id, ''),
       NULLIF(projection.organization_id, '')
     ) AS organization_id,
-    'update' AS operation_kind,
+    'revalidation' AS operation_kind,
     0 AS operation_count,
     0 AS byte_length,
     failure.attempted_at AS created_at,
@@ -379,6 +379,7 @@ function mapPendingWriteSourceRow(
     (operationKind !== "attachment" &&
       operationKind !== "create" &&
       operationKind !== "move" &&
+      operationKind !== "revalidation" &&
       operationKind !== "update")
   ) {
     return null;
@@ -398,7 +399,12 @@ function mapPendingWriteSourceRow(
   return {
     byteLength: readNumber(row, "byte_length"),
     containerId: readString(row, "container_id"),
-    count: Math.max(1, readNumber(row, "operation_count")),
+    // Diagnostic-only revalidation items carry NO local operations; clamping
+    // them to 1 would falsely report pending local data.
+    count:
+      operationKind === "revalidation"
+        ? 0
+        : Math.max(1, readNumber(row, "operation_count")),
     createdAt: readString(row, "created_at"),
     inclusion,
     kind: operationKind,

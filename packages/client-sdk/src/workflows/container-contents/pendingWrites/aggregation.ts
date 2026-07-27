@@ -55,6 +55,8 @@ const OPERATION_RANK: Record<PendingWriteQueueOperationKind, number> = {
   update: 2,
   "deferred-update": 3,
   attachment: 4,
+  // Diagnostic-only: a refused read-only revalidation, never local data.
+  revalidation: 5,
 };
 
 const OBJECT_RANK: Record<PendingWriteQueueObjectKind, number> = {

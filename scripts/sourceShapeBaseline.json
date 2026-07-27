@@ -214,8 +214,8 @@
       "bytes": 17760
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 465,
-      "bytes": 21058
+      "lines": 466,
+      "bytes": 21119
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
       "lines": 565,
@@ -374,8 +374,8 @@
       "bytes": 59993
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1634,
-      "bytes": 57561
+      "lines": 1639,
+      "bytes": 57828
     },
     "packages/client-sdk/src/workflows/documents/syncFailures.ts": {
       "lines": 509,

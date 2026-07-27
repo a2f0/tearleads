@@ -94,6 +94,9 @@ export function getOperationLabel(
   if (operation.kind === "deferred-update") {
     return EXPLORER_LABELS.writeQueueDeferredUpdateOperation;
   }
+  if (operation.kind === "revalidation") {
+    return EXPLORER_LABELS.writeQueueRevalidationOperation;
+  }
   if (operation.kind === "move") {
     const target = operation.targetContainerId
       ? (containerNamesById.get(operation.targetContainerId) ??
@@ -385,7 +388,11 @@ function WriteQueueRow(
           item.objectKind === "document" &&
           item.remoteId !== null &&
           item.containerId !== null &&
-          item.operations.every((operation) => operation.kind !== "move")
+          item.operations.every((operation) => operation.kind !== "move") &&
+          // A failure-only revalidation item carries NO local data; offering
+          // the destructive discard there would delete durable history for
+          // nothing.
+          item.operations.some((operation) => operation.kind !== "revalidation")
             ? () => params.discardPendingWrites(item)
             : null
         }
