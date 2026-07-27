@@ -237,6 +237,10 @@
       "lines": 503,
       "bytes": 14866
     },
+    "packages/app/test/helpers/documentStoreFixtures.ts": {
+      "lines": 503,
+      "bytes": 15697
+    },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 1023,
       "bytes": 30269
@@ -278,12 +282,12 @@
       "bytes": 46284
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
-      "lines": 928,
-      "bytes": 30391
+      "lines": 929,
+      "bytes": 30411
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 879,
-      "bytes": 34735
+      "lines": 882,
+      "bytes": 34969
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 579,
@@ -302,16 +306,16 @@
       "bytes": 18887
     },
     "packages/client-sdk/src/stores/documents/documentStore/initialization.ts": {
-      "lines": 568,
-      "bytes": 20542
+      "lines": 575,
+      "bytes": 20446
     },
     "packages/client-sdk/src/stores/documents/documentStore/persistence.ts": {
       "lines": 639,
       "bytes": 21053
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
-      "lines": 585,
-      "bytes": 18719
+      "lines": 586,
+      "bytes": 18739
     },
     "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
       "lines": 620,
@@ -362,8 +366,8 @@
       "bytes": 17677
     },
     "packages/client-sdk/src/workflows/documents/persistence.ts": {
-      "lines": 505,
-      "bytes": 18520
+      "lines": 506,
+      "bytes": 18543
     },
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
       "lines": 1691,

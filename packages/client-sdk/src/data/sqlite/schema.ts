@@ -208,6 +208,15 @@ export const documentHistoryUpdates = sqliteTable(
     appKind: text("app_kind").notNull(),
     localId: text("local_id").notNull(),
     updateData: text("update_data").notNull(),
+    // Provenance: "local" (authored on this device) or "remote" (decrypted
+    // pulled update). Restores use it to advance the outgoing-delta marker
+    // across remote rows — their ops are already server-side — while a local
+    // row left behind by a crash stays below the marker so the next edit
+    // re-derives and sends it. Added WITHOUT a migration under the greenfield
+    // reset documented on the `documents` table above: no database predating
+    // this column survives the reset, so every history table is created with
+    // it.
+    origin: text("origin").notNull(),
     createdAt: text("created_at").notNull(),
   },
   (table) => [

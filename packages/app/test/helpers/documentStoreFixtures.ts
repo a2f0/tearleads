@@ -23,7 +23,7 @@ interface StoredDocumentsState {
 
 interface StoredHistoryState {
   checkpoint: { endVersionVector: string; snapshot: string } | null;
-  tail: { id: string; updateData: string }[];
+  tail: { id: string; origin: "local" | "remote"; updateData: string }[];
 }
 
 type HistoryByLocalId = Map<string, StoredHistoryState>;
@@ -261,7 +261,11 @@ function createPendingUpdatePersistence(
       }
       history.tail = [
         ...history.tail,
-        { id: crypto.randomUUID(), updateData: pendingUpdate.updateData },
+        {
+          id: crypto.randomUUID(),
+          origin: "local",
+          updateData: pendingUpdate.updateData,
+        },
       ];
     },
     async deletePendingUpdate(_execSql, id) {
@@ -387,6 +391,7 @@ function createHistoryPersistence(
         ...history.tail,
         ...input.updates.map((updateData) => ({
           id: crypto.randomUUID(),
+          origin: input.origin,
           updateData,
         })),
       ];
@@ -400,7 +405,10 @@ function createHistoryPersistence(
       // tail-only (empty snapshot) rather than being silently ignored.
       return {
         snapshot: history.checkpoint?.snapshot ?? "",
-        tailUpdates: history.tail.map((entry) => entry.updateData),
+        tailUpdates: history.tail.map((entry) => ({
+          origin: entry.origin,
+          updateData: entry.updateData,
+        })),
       };
     },
     async readHistoryTailSize(_execSql, localId) {

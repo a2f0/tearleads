@@ -61,6 +61,9 @@ export async function loadPersistedDocumentContent(input: {
   if (history.snapshot.length > 0) {
     importSnapshot(doc, base64ToBytes(history.snapshot));
   }
-  importDocumentHistoryTailUpdates(doc, history.tailUpdates);
+  importDocumentHistoryTailUpdates(
+    doc,
+    history.tailUpdates.map((update) => update.updateData),
+  );
   return doc;
 }
