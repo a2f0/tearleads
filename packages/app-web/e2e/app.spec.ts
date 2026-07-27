@@ -317,13 +317,11 @@ test("SQLite tables survive a hard reload", async ({ page }) => {
   ).toBeVisible({ timeout: 20_000 });
   await expect(
     reloadedLogs.getByText(
-      /Database characteristics \(pre-migration\): \d+ table\(s\), \d+ row\(s\) total/u,
+      /Database characteristics \(pre-schema\): \d+ table\(s\), \d+ row\(s\) total/u,
     ),
   ).toBeVisible({ timeout: 20_000 });
   await expect(
-    reloadedLogs.getByText(
-      "Database characteristics (pre-migration): no tables",
-    ),
+    reloadedLogs.getByText("Database characteristics (pre-schema): no tables"),
   ).toHaveCount(0);
 });
 

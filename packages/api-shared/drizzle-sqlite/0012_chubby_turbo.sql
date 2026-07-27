@@ -1,1 +1,0 @@
-ALTER TABLE `principal_states` ADD `member_envelopes_root` text NOT NULL;

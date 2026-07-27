@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX "blobs_storage_key_idx" ON "blobs" USING btree ("storage_key");

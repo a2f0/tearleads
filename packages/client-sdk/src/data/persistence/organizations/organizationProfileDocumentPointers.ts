@@ -1,9 +1,7 @@
-import { eq } from "drizzle-orm";
 import { organizationReadModelState } from "../../sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "./organizationReadModelProtocol";
 
 /**
  * Every locally projected organization's pointer to its organization_profile
@@ -16,10 +14,8 @@ import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "./organizationReadMode
  * (identity recovery, another member) keys it under the server documentId in
  * whichever container the grant arrived through.
  *
- * Rows written by an older protocol version are skipped rather than trusted:
- * they survive until a projection load validates and purges them, and this read
- * runs outside that path, so an incompatible row's stale pointer could otherwise
- * resolve to a superseded document and be reported as the current name.
+ * The local schema stores only the current read-model contract, so every state
+ * row is eligible to provide its profile-document pointer.
  */
 export async function loadOrganizationProfileDocumentIds(
   execSql: ExecSql,
@@ -31,13 +27,7 @@ export async function loadOrganizationProfileDocumentIds(
       organizationId: organizationReadModelState.organizationId,
       profileDocumentId: organizationReadModelState.profileDocumentId,
     })
-    .from(organizationReadModelState)
-    .where(
-      eq(
-        organizationReadModelState.protocolVersion,
-        ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
-      ),
-    );
+    .from(organizationReadModelState);
 
   return new Map(
     rows.flatMap((row) =>

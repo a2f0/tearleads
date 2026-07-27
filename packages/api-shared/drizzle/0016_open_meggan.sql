@@ -1,1 +1,0 @@
-ALTER TABLE "principal_states" ADD COLUMN "external_authority" jsonb;

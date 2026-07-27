@@ -42,9 +42,7 @@ export async function resolveWebSocketUpgrade(
   // Fall back to a base so a relative req.url (mock/test envs) parses instead
   // of throwing; the base is ignored for the absolute URLs Bun provides.
   const url = new URL(req.url, "http://localhost");
-  // Current clients connect to /events. Accept / as a compatibility path for
-  // app-web bundles built before the endpoint path was added to BUN_PUBLIC_WS_URL.
-  if (url.pathname !== "/events" && url.pathname !== "/") {
+  if (url.pathname !== "/events") {
     return new Response("WebSocket endpoint not found", { status: 404 });
   }
 

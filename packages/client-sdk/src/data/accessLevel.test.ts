@@ -18,8 +18,7 @@ describe("effective access level", () => {
   });
 
   test("normalize fails closed for missing or unknown values", () => {
-    // Legacy SQLite rows (NULL column) and responses missing the field must not
-    // grant write access; they read back as read-only until the next sync.
+    // Missing or malformed values must not grant write access.
     expect(normalizeEffectiveAccessLevel(undefined)).toBe("read");
     expect(normalizeEffectiveAccessLevel(null)).toBe("read");
     expect(normalizeEffectiveAccessLevel("owner")).toBe("read");

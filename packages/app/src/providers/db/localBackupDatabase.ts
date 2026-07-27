@@ -33,8 +33,6 @@ interface DatabaseBackupProgress {
   readonly total: number;
 }
 
-const SYSTEM_TABLE_NAMES = new Set(["__drizzle_migrations"]);
-
 function readString(row: SqlRow, key: string): string {
   const value = row[key];
   return typeof value === "string" ? value : "";
@@ -74,7 +72,7 @@ async function listUserTableDefinitions(
       name: readString(row, "name"),
       sql: readString(row, "sql"),
     }))
-    .filter((table) => table.name && !SYSTEM_TABLE_NAMES.has(table.name));
+    .filter((table) => table.name);
 }
 
 async function listUserIndexDefinitions(
@@ -95,10 +93,7 @@ async function listUserIndexDefinitions(
       sql: readString(row, "sql"),
       tableName: readString(row, "tbl_name"),
     }))
-    .filter(
-      (index) =>
-        index.name && index.sql && !SYSTEM_TABLE_NAMES.has(index.tableName),
-    );
+    .filter((index) => index.name && index.sql);
 }
 
 async function readTableBackup(
@@ -269,9 +264,9 @@ export async function restoreBackupDatabase(input: {
       if (wasForeignKeysEnabled) {
         await execSql("PRAGMA foreign_keys = ON").catch(() => undefined);
       }
-      // The restore rebuilt every user table, possibly to the backup's older
-      // shape, so completed ensure/migration memos for this connection are
-      // stale — forget them so the next query re-runs its schema ensures.
+      // The restore rebuilt every user table, so completed schema-ensure memos
+      // for this connection are stale. Forget them so the next query re-runs
+      // its schema ensures.
       resetConnectionSchemaMemo(input.execSql);
     }
   });

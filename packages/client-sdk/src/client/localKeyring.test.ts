@@ -339,7 +339,7 @@ test("WebView local keyring persists raw key bytes and reloads without CryptoKey
   );
 });
 
-test("WebView local keyring rejects legacy browser CryptoKey records with migration guidance", async () => {
+test("WebView local keyring rejects browser CryptoKey records", async () => {
   const indexedDB = createFakeIndexedDb();
   const manifestStorage = createTestManifestStorage();
 
@@ -353,7 +353,7 @@ test("WebView local keyring rejects legacy browser CryptoKey records with migrat
       scope,
     ),
   ).rejects.toThrow(
-    "Raw-bytes local keyrings cannot load legacy CryptoKey wrapping key records",
+    "IndexedDB wrapping key record is missing its raw key material",
   );
 });
 

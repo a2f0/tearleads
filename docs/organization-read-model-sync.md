@@ -109,9 +109,9 @@ state-bound entity or lane snapshot.
 
 Version 4 is a clean protocol reset, not a compatibility extension. Responses
 and opaque cursors carry version 4, response validation accepts only the exact
-version 4 lane shapes, and the server rejects older cursors. A client that finds
-an older organization projection atomically deletes that disposable projection
-and reconciles again without a cursor to obtain a full version 4 snapshot.
+version 4 lane shapes, and the server rejects other cursor versions. Local
+storage contains only the current projection schema; pre-reset databases must
+be discarded rather than upgraded.
 
 There is no translation, dual-read period, or legacy directory, group,
 membership, grants, group-container, user-detail, or raw policy-history fallback.

@@ -9,7 +9,7 @@ interface TableCharacteristic {
 }
 
 // Reads the sqlite_master catalog and a per-table COUNT(*) so we can report the
-// mounted database's shape before any migrations/lazy table creation runs.
+// mounted database's shape before any lazy table creation runs.
 async function readDatabaseCharacteristics(
   client: ExecSqlClientLike,
 ): Promise<TableCharacteristic[]> {
@@ -53,7 +53,7 @@ async function readDatabaseCharacteristics(
 }
 
 // Logs the mounted database's table list and per-table row counts. Intended to
-// run after the database is mounted but before migrations create/alter tables,
+// run after the database is mounted but before features lazily create tables,
 // so the output reflects on-disk state. Never throws: a dump failure must not
 // block database boot.
 export async function dumpDatabaseCharacteristics(
@@ -63,13 +63,13 @@ export async function dumpDatabaseCharacteristics(
   try {
     const characteristics = await readDatabaseCharacteristics(client);
     if (characteristics.length === 0) {
-      log("Database characteristics (pre-migration): no tables");
+      log("Database characteristics (pre-schema): no tables");
       return;
     }
 
     const totalRows = characteristics.reduce((sum, t) => sum + t.rows, 0);
     log(
-      `Database characteristics (pre-migration): ${characteristics.length} table(s), ${totalRows} row(s) total`,
+      `Database characteristics (pre-schema): ${characteristics.length} table(s), ${totalRows} row(s) total`,
     );
     for (const { name, rows } of characteristics) {
       log(`  ${name}: ${rows} row(s)`);

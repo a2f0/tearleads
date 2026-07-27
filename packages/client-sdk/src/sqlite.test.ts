@@ -100,17 +100,6 @@ test("SQLite facade wraps a host-created worker explicitly", async () => {
     "Database worker client has been destroyed.",
   );
   expect(worker.terminated).toBe(true);
-
-  const compatibilityWorker = new MockWorker("/compat-worker.js");
-  const compatibilityRuntime = createSQLiteRuntime(compatibilityWorker);
-  const pendingCompatibilityPing = compatibilityRuntime.client.ping();
-
-  compatibilityRuntime.destroy();
-
-  await expect(pendingCompatibilityPing).rejects.toThrow(
-    "Database worker client has been destroyed.",
-  );
-  expect(compatibilityWorker.terminated).toBe(true);
 });
 
 test("SQLite facade exposes typed persistence DSL helpers", () => {

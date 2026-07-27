@@ -10,7 +10,6 @@ export const organizationReadModelState = sqliteTable(
   "organization_read_model_state",
   {
     organizationId: text("organization_id").notNull(),
-    protocolVersion: integer("protocol_version").notNull(),
     cursor: text("cursor").notNull(),
     profileDocumentId: text("profile_document_id"),
     memberGroupId: text("member_group_id").notNull(),

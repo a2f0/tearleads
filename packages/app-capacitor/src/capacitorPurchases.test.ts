@@ -286,26 +286,11 @@ test("treats a dismissed store sheet as a cancellation, not a failure", async ()
   fixture.purchaseRejection = {
     code: "1",
     message: "Purchase was cancelled.",
-    userCancelled: true,
   };
 
   // Without the normalization the panel shows "Failed to subscribe" every
   // time a buyer backs out of the sheet: useSubscribeAction only treats
   // PurchaseCancelledError as a no-op.
-  await expect(
-    createCapacitorPurchases().purchaseSync({
-      organizationId: "org-1",
-      packageId: "monthly",
-    }),
-  ).rejects.toBeInstanceOf(PurchaseCancelledError);
-});
-
-test("treats the deprecated userCancelled flag alone as a cancellation", async () => {
-  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
-  // iOS and Android bridges have differed on which signal they populate.
-  fixture.purchaseRejection = { message: "cancelled", userCancelled: true };
-
   await expect(
     createCapacitorPurchases().purchaseSync({
       organizationId: "org-1",
@@ -320,7 +305,6 @@ test("propagates a genuine store failure unchanged", async () => {
   fixture.purchaseRejection = {
     code: "2",
     message: "There was a problem with the store.",
-    userCancelled: false,
   };
 
   const error = await createCapacitorPurchases()
@@ -336,7 +320,6 @@ test("propagates a genuine store failure unchanged", async () => {
   expect(error).toEqual({
     code: "2",
     message: "There was a problem with the store.",
-    userCancelled: false,
   });
 });
 

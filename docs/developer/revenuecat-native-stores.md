@@ -23,9 +23,8 @@ is specific to the native bridge, as opposed to the web one:
 - **A dismissed store sheet is a cancellation, not a failure.** The bridge
   serializes RevenueCat's `PurchasesError` across the native boundary, so what
   arrives is a plain object — `instanceof` cannot work the way it does on web.
-  The adapter matches `code === PURCHASE_CANCELLED_ERROR` and the deprecated
-  `userCancelled` flag (iOS and Android have differed on which they populate)
-  and rethrows the shared `PurchaseCancelledError`, which is the only rejection
+  The adapter matches `code === PURCHASE_CANCELLED_ERROR` and rethrows the
+  shared `PurchaseCancelledError`, which is the only rejection
   `useSubscribeAction` treats as a no-op. Without it, backing out of the sheet
   surfaces "Failed to subscribe".
 - **`abortSignal` is honored before the sheet, and only before it.** A presented

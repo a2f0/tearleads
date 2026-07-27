@@ -250,7 +250,6 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       });
       await tx.insert(organizationReadModelState).values({
         organizationId: "org-old",
-        protocolVersion: 1,
         cursor: "opaque-cursor",
         profileDocumentId: null,
         memberGroupId: "members-group",
