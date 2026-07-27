@@ -9,8 +9,6 @@ import {
   listDocumentPendingUpdates,
   recordDocumentSyncFailure,
 } from "../../../data/sqlite/documentPersistence";
-import { documents } from "../../../data/sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentsRuntime } from "../types";
 import { discardDocumentStoreLocalState } from "./discard";
@@ -29,28 +27,52 @@ function createRuntime(execSql: ExecSql): DocumentsRuntime {
   } as unknown as DocumentsRuntime;
 }
 
-async function insertDocumentRecord(
+async function saveSyncedDocumentRecord(
   execSql: ExecSql,
   localId: string,
   documentId: string | null,
+  containerId: string | null,
 ): Promise<void> {
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await db.insert(documents).values({
-      appKind: DOCUMENTS_APP_KIND,
-      localId,
-      documentId,
-      loroSnapshot: "",
-      updatedAt: new Date().toISOString(),
-    });
+  await sqlDocumentsPersistence.saveDocument(execSql, {
+    id: localId,
+    accessEpoch: 3,
+    accessStateHash: "state-hash",
+    containerId,
+    contentKeyBundle: "content-key-bundle",
+    documentId,
+    documentKind: "note",
+    documentKekTargets: "kek-targets",
+    documentManifestBundle: "manifest-bundle",
+    effectiveAccessLevel: "admin",
+    lastCommitLsn: "42",
+    loroSnapshot: "synced-snapshot-bytes",
+    pendingBaseVersion: "base-version",
+    text: "hello",
+    title: "Stuck note",
   });
 }
 
-test("discard tears down a stuck remote document and clears its failure", async () => {
+function createStoreState(execSql: ExecSql, localId: string) {
+  const state = createDocumentStoreState(
+    localId,
+    createRuntime(execSql),
+    sqlDocumentsPersistence,
+    {
+      emitPersistedDocument: () => undefined,
+      registerDocumentIdentity: () => undefined,
+    },
+    null,
+  );
+  state.initialized = true;
+  return state;
+}
+
+test("discard re-seeds the discovered-share shell and clears the queue", async () => {
   const { close, execSql } = await createTestExecSql("discard-remote");
   const localId = "discard-doc";
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    await insertDocumentRecord(execSql, localId, "remote-doc");
+    await saveSyncedDocumentRecord(execSql, localId, "remote-doc", "folder-a");
     // The stuck shape this action exists for: a queued update the server
     // conflicts forever, plus its recorded terminal failure.
     await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
@@ -68,23 +90,22 @@ test("discard tears down a stuck remote document and clears its failure", async 
         status: null,
       },
     );
-    const state = createDocumentStoreState(
-      localId,
-      createRuntime(execSql),
-      sqlDocumentsPersistence,
-      {
-        emitPersistedDocument: () => undefined,
-        registerDocumentIdentity: () => undefined,
-      },
-      "remote-doc",
-    );
-    state.initialized = true;
+    const state = createStoreState(execSql, localId);
 
     expect(await discardDocumentStoreLocalState(state)).toBe(true);
 
-    expect(
-      await sqlDocumentsPersistence.loadDocument(execSql, localId),
-    ).toBeNull();
+    const shell = await sqlDocumentsPersistence.loadDocument(execSql, localId);
+    // The record survives as the freshly-discovered-share shell: identity and
+    // placement kept (so priming's documents-row scan still finds it after a
+    // restart), content and key bundles cleared (so re-initialization
+    // hydrates the server copy instead of trusting discarded local state).
+    expect(shell?.documentId).toBe("remote-doc");
+    expect(shell?.containerId).toBe("folder-a");
+    expect(shell?.title).toBe("Stuck note");
+    expect(shell?.loroSnapshot).toBe("");
+    expect(shell?.pendingBaseVersion ?? null).toBeNull();
+    expect(shell?.contentKeyBundle ?? null).toBeNull();
+    expect(shell?.lastCommitLsn ?? null).toBeNull();
     expect(
       await listDocumentPendingUpdates(execSql, {
         appKind: DOCUMENTS_APP_KIND,
@@ -92,9 +113,10 @@ test("discard tears down a stuck remote document and clears its failure", async 
       }),
     ).toEqual([]);
     expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
-    // The store no longer claims the torn-down record; priming re-creates a
-    // fresh one from the server copy.
+    // The store was reset for re-initialization, not marked removed: the
+    // caller restarts hydration and the shell re-pulls.
     expect(state.record).toBeNull();
+    expect(state.initialized).toBe(false);
   } finally {
     close();
   }
@@ -105,36 +127,45 @@ test("discard refuses a local-only document whose queue is its only copy", async
   const localId = "local-only-doc";
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    await insertDocumentRecord(execSql, localId, null);
+    await saveSyncedDocumentRecord(execSql, localId, null, "folder-a");
     await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
       localId,
       partialEndVersionVector: "end",
       partialStartVersionVector: "start",
       updateData: "only-copy-bytes",
     });
-    const state = createDocumentStoreState(
-      localId,
-      createRuntime(execSql),
-      sqlDocumentsPersistence,
-      {
-        emitPersistedDocument: () => undefined,
-        registerDocumentIdentity: () => undefined,
-      },
-      null,
-    );
-    state.initialized = true;
+    const state = createStoreState(execSql, localId);
 
     expect(await discardDocumentStoreLocalState(state)).toBe(false);
 
-    expect(
-      await sqlDocumentsPersistence.loadDocument(execSql, localId),
-    ).not.toBeNull();
+    const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
+    expect(record?.loroSnapshot).toBe("synced-snapshot-bytes");
     expect(
       await listDocumentPendingUpdates(execSql, {
         appKind: DOCUMENTS_APP_KIND,
         localId,
       }),
     ).toHaveLength(1);
+    // Refusal leaves the store untouched — the queued write is still the only
+    // copy of the edit, and the store keeps persisting it.
+    expect(state.initialized).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("discard refuses a document with no container to anchor the shell", async () => {
+  const { close, execSql } = await createTestExecSql("discard-unanchored");
+  const localId = "unanchored-doc";
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveSyncedDocumentRecord(execSql, localId, "remote-doc", null);
+    const state = createStoreState(execSql, localId);
+
+    expect(await discardDocumentStoreLocalState(state)).toBe(false);
+
+    const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
+    expect(record?.loroSnapshot).toBe("synced-snapshot-bytes");
   } finally {
     close();
   }

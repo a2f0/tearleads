@@ -133,12 +133,13 @@ export function requestRegisteredDocumentRemoteSync(
 }
 
 /**
- * Discard a registered document's local state through its store, so the
- * teardown serializes on the store's identity-write chain instead of racing
- * an in-flight persist that would resurrect the deleted rows. Only registered
+ * Discard a registered document's local edits through its store, so the
+ * teardown serializes on the store's write machinery instead of racing an
+ * in-flight persist that would resurrect the deleted rows. Only registered
  * stores qualify — an unregistered document has no lane submitting its queue,
- * so there is nothing this escape hatch could unstick. Emits the persisted
- * deletion so listing consumers drop the document until priming restores it.
+ * so there is nothing this escape hatch could unstick. No deletion is
+ * emitted: the document survives as a re-seeded shell that keeps its listing
+ * entry, and the re-pull's own persist announces the restored content.
  */
 export async function discardRegisteredDocumentLocalState(
   domainScope: DomainScope,
@@ -157,11 +158,7 @@ export async function discardRegisteredDocumentLocalState(
     return false;
   }
 
-  const discarded = await store.discardLocalState();
-  if (discarded) {
-    emitPersistedDocumentDeletion(domainScope, localId);
-  }
-  return discarded;
+  return store.discardLocalState();
 }
 
 export function createDocumentStoreFacade(

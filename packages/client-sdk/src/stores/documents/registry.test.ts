@@ -134,8 +134,6 @@ test("discard routes through the store and emits the deletion on success", async
     (localId) => deletedLocalIds.push(localId),
   );
   try {
-    // A refused discard (e.g. a local-only document) must not announce a
-    // deletion — listing consumers would drop a document that still exists.
     expect(
       await discardRegisteredDocumentLocalState(
         domainScope,
@@ -144,7 +142,6 @@ test("discard routes through the store and emits the deletion on success", async
       ),
     ).toBe(false);
     expect(discardCalls).toBe(1);
-    expect(deletedLocalIds).toEqual([]);
 
     discardResult = true;
     expect(
@@ -155,7 +152,9 @@ test("discard routes through the store and emits the deletion on success", async
       ),
     ).toBe(true);
     expect(discardCalls).toBe(2);
-    expect(deletedLocalIds).toEqual(["discard-local-id"]);
+    // Never announced as a deletion: the document survives as a re-seeded
+    // shell that keeps its listing entry while the server copy re-downloads.
+    expect(deletedLocalIds).toEqual([]);
   } finally {
     unsubscribe();
   }
