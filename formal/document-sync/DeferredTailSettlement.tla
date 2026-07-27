@@ -313,12 +313,19 @@ CompleteCapturedPass ==
                   presenceVars, liveIdentity, liveGeneration, responseVars,
                   durableOpVars, auditVars >>
 
+(* Restart restores content from the durable store and the marker from the *)
+(* persisted base EXTENDED across durably-held remote coverage: history    *)
+(* tail rows record provenance, so ops the server already holds never      *)
+(* re-enter the outgoing delta after a crash between the durable response  *)
+(* append and the marker persist. Local ops keep only their persisted      *)
+(* coverage — an un-enqueued deferred op stays below the marker so the     *)
+(* next edit re-derives and sends it.                                      *)
 Restart ==
   /\ localPresent
   /\ NoDurableOp
   /\ ~responsePending
   /\ snapshot' = durableSnapshot
-  /\ workingBase' = durableBase
+  /\ workingBase' = durableBase \cup remote
   /\ ResetCapturedPass
   /\ UNCHANGED << durableSnapshot, durableBase, queued, remote, presenceVars,
                   liveIdentity, liveGeneration, responseVars, durableOpVars,
@@ -425,10 +432,13 @@ StalePreparationContinuation ==
          /\ lane' \in {"idle", "running"}
          /\ capturedFrontier' = {}
 
+(* A stale continuation may extend the marker across REMOTE coverage only  *)
+(* (the restart's provenance-based extension): server-held ops never need  *)
+(* re-sending, but a stale pass must never classify a local op as covered. *)
 StalePreparationIsQueueOnly ==
   StalePreparationContinuation
     => /\ UNCHANGED << snapshot, durableBase, remote >>
-       /\ workingBase' \subseteq workingBase
+       /\ workingBase' \subseteq (workingBase \cup remote)
        /\ queued \subseteq queued'
 
 StalePreparationCannotAdvance == [][StalePreparationIsQueueOnly]_vars

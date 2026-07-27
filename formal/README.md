@@ -95,9 +95,12 @@ after this model has stabilized.
 [`document-sync/DeferredTailSettlement.tla`](./document-sync/DeferredTailSettlement.tla)
 models the device-first outgoing-delta marker across local edits, durable queue
 writes, restarts, sync preparation, server acceptance, incoming updates, and a
-final clean skip. The marker may safely lag the stored snapshot while durable
-pending rows semantically cover the difference. Before those rows may be
-submitted and deleted, the document lane must make that accounting durable:
+final clean skip. The marker may safely lag the stored content frontier while
+durable pending rows semantically cover the difference; restart restores it
+from the persisted base extended across durably-held remote coverage (history
+tail rows record local/remote provenance), so server-held ops never re-enter
+the outgoing delta. Before queued rows may be submitted and deleted, the
+document lane must make that accounting durable:
 
 1. synchronously capture the snapshot frontier, then merge the in-memory base
    and every semantically connected durable queued end vector;
