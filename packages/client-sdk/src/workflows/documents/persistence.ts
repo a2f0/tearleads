@@ -438,6 +438,7 @@ export type DiscardedDocumentShellResult = DiscardDocumentToShellResult;
 export async function discardPersistedDocumentToShell(input: {
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
+  expectedDocumentId: string;
   localId: string;
   persistence: DocumentsPersistence;
 }): Promise<DiscardedDocumentShellResult> {
@@ -448,6 +449,7 @@ export async function discardPersistedDocumentToShell(input: {
   return input.persistence.discardDocumentToShell(
     input.execSql,
     input.localId,
+    input.expectedDocumentId,
     input.documentProjectors,
   );
 }

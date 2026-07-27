@@ -114,7 +114,7 @@ test("discardRegisteredDocumentLocalState refuses unopened documents", async () 
   ).toBe(false);
 });
 
-test("discard routes through the store and emits the deletion on success", async () => {
+test("discard routes through the store and never emits a deletion", async () => {
   const domainScope = {} as DomainScope;
   let discardCalls = 0;
   let discardResult = false;
@@ -128,7 +128,12 @@ test("discard routes through the store and emits the deletion on success", async
       },
     ),
   );
-  registerDocumentStore(domainScope, "discard-local-id", store, null);
+  registerDocumentStore(
+    domainScope,
+    "discard-local-id",
+    store,
+    "discard-remote-id",
+  );
   const unsubscribe = subscribeToPersistedDocumentDeletions(
     domainScope,
     (localId) => deletedLocalIds.push(localId),
@@ -138,7 +143,7 @@ test("discard routes through the store and emits the deletion on success", async
       await discardRegisteredDocumentLocalState(
         domainScope,
         "discard-local-id",
-        null,
+        "discard-remote-id",
       ),
     ).toBe(false);
     expect(discardCalls).toBe(1);
@@ -148,7 +153,7 @@ test("discard routes through the store and emits the deletion on success", async
       await discardRegisteredDocumentLocalState(
         domainScope,
         "discard-local-id",
-        null,
+        "discard-remote-id",
       ),
     ).toBe(true);
     expect(discardCalls).toBe(2);
@@ -197,6 +202,15 @@ test("discard refuses when the two identifiers resolve differently", async () =>
       domainScope,
       "target-local",
       "other-remote",
+    ),
+  ).toBe(false);
+  // An UNKNOWN documentId refuses too — the localId alone must not be
+  // trusted for a destructive resolution.
+  expect(
+    await discardRegisteredDocumentLocalState(
+      domainScope,
+      "target-local",
+      "never-registered-remote",
     ),
   ).toBe(false);
   expect(targetDiscards).toBe(0);

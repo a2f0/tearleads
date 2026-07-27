@@ -23,6 +23,7 @@ import { type DocumentStoreState, resetDocumentStore } from "./state";
  */
 export async function discardDocumentStoreLocalState(
   state: DocumentStoreState,
+  expectedDocumentId: string,
 ): Promise<boolean> {
   const runtime = state.runtime;
   if (runtime.infra.dbStatus !== "ready") {
@@ -30,12 +31,17 @@ export async function discardDocumentStoreLocalState(
   }
 
   // Cheap eligibility probe before disturbing the live store: an obviously
-  // ineligible document (local-only, unlinked) returns without stopping
-  // writes. The workflow re-checks under its serialized mutation, so a
-  // status change between here and there is still refused safely.
+  // ineligible document (local-only, unlinked, or one whose identity is not
+  // the one the caller asked to discard) returns without stopping writes.
+  // The workflow re-checks under its serialized mutation, so a status change
+  // between here and there is still refused safely.
   const execSql = runtime.infra.execSql;
   const record = await state.persistence.loadDocument(execSql, state.localId);
-  if (!record?.documentId || !record.containerId) {
+  if (
+    !record?.documentId ||
+    record.documentId !== expectedDocumentId ||
+    !record.containerId
+  ) {
     return false;
   }
 
@@ -61,6 +67,7 @@ export async function discardDocumentStoreLocalState(
       shell = await discardPersistedDocumentToShell({
         documentProjectors: runtime.infra.documentProjectors,
         execSql,
+        expectedDocumentId,
         localId: state.localId,
         persistence: state.persistence,
       });

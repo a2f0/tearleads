@@ -166,9 +166,9 @@ function createBackingDocumentStore(
     },
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       attachFilesToDocumentStore(state, scheduleSync, files),
-    discardLocalState: async () => {
+    discardLocalState: async (expectedDocumentId: string) => {
       try {
-        return await discardDocumentStoreLocalState(state);
+        return await discardDocumentStoreLocalState(state, expectedDocumentId);
       } finally {
         // Restart hydration whenever the attempt reset the store — success
         // re-pulls the shell, and a refusal or failure reloads the surviving

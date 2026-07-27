@@ -27,6 +27,7 @@ import {
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
 } from "../../../../components/mini-app/MiniAppTable";
+import { useCurrentWindow } from "../../../../components/window/CurrentWindowContext";
 import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import {
   EXPLORER_LABELS,
@@ -467,9 +468,15 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
   // the deleted rows), then re-arm document priming so the server copy is
   // re-created without an app restart. Retry keeps the queued writes; this is
   // the escape hatch for a queue that can never sync (e.g. permanently
-  // conflicting update ids), trading local-only edits for server truth.
+  // conflicting update ids), trading local-only edits for server truth. A
+  // refusal (the document moved, relinked, or changed under the dialog) is
+  // surfaced — a confirmed destructive action must never silently no-op.
+  const currentWindow = useCurrentWindow();
   const discardPendingWrites = useCallback(
     (item: PendingWriteQueueItem) => {
+      if (item.remoteId === null) {
+        return;
+      }
       void discardRegisteredDocumentLocalState(
         domainScope,
         item.localId,
@@ -479,13 +486,17 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
         .then((discarded) => {
           if (discarded) {
             requestContainerContentsDocumentPriming(domainScope);
+            return;
           }
+          currentWindow?.showStatusMessage(
+            EXPLORER_LABELS.writeQueueDiscardRefusedStatus,
+          );
         })
         .finally(() => {
           requestAllDomainSyncLanes(domainScope);
         });
     },
-    [domainScope],
+    [currentWindow, domainScope],
   );
   const syncSettlementRevision = syncSnapshot.lanes
     .map(

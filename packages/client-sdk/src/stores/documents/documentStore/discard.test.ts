@@ -14,7 +14,14 @@ import {
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentsRuntime } from "../types";
 import { discardDocumentStoreLocalState } from "./discard";
-import { createDocumentStoreState } from "./state";
+import {
+  deletePendingAttachment,
+  enqueuePendingUpdate,
+  saveLocalAttachmentRecords,
+  savePendingAttachmentUpload,
+} from "./persistence";
+import { createDocumentStoreState, type DocumentStoreState } from "./state";
+import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
 interface RecordedProjectionDelete {
   documentKind: string;
@@ -125,7 +132,9 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
     const projectionDeletes: RecordedProjectionDelete[] = [];
     const state = createStoreState(execSql, localId, [], projectionDeletes);
 
-    expect(await discardDocumentStoreLocalState(state)).toBe(true);
+    expect(await discardDocumentStoreLocalState(state, "remote-doc")).toBe(
+      true,
+    );
 
     // The document-kind client projection derives from the discarded content
     // and is cleared with the same conversion (the caller's registry, not
@@ -174,7 +183,9 @@ test("discard refuses a local-only document whose queue is its only copy", async
     });
     const state = createStoreState(execSql, localId);
 
-    expect(await discardDocumentStoreLocalState(state)).toBe(false);
+    expect(await discardDocumentStoreLocalState(state, "remote-doc")).toBe(
+      false,
+    );
 
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
     expect(record?.loroSnapshot).toBe("synced-snapshot-bytes");
@@ -250,7 +261,9 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
     const deletedBlobStorageKeys: string[] = [];
     const state = createStoreState(execSql, localId, deletedBlobStorageKeys);
 
-    expect(await discardDocumentStoreLocalState(state)).toBe(true);
+    expect(await discardDocumentStoreLocalState(state, "remote-doc")).toBe(
+      true,
+    );
 
     expect(
       await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
@@ -298,7 +311,9 @@ test("discard refuses a document with a queued move intent", async () => {
     });
     const state = createStoreState(execSql, localId);
 
-    expect(await discardDocumentStoreLocalState(state)).toBe(false);
+    expect(await discardDocumentStoreLocalState(state, "remote-doc")).toBe(
+      false,
+    );
 
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
     expect(record?.loroSnapshot).toBe("synced-snapshot-bytes");
@@ -313,6 +328,163 @@ test("discard refuses a document with a queued move intent", async () => {
   }
 });
 
+test("discard refuses when the persisted identity is not the expected one", async () => {
+  const { close, execSql } = await createTestExecSql("discard-identity");
+  const localId = "relinked-doc";
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveSyncedDocumentRecord(execSql, localId, "remote-doc", "folder-a");
+    const state = createStoreState(execSql, localId);
+
+    // A stale caller (or a relink that raced the request) must never discard
+    // a different identity's edits.
+    expect(
+      await discardDocumentStoreLocalState(state, "some-other-remote-doc"),
+    ).toBe(false);
+
+    const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
+    expect(record?.loroSnapshot).toBe("synced-snapshot-bytes");
+    expect(state.initialized).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("stale writers cannot resurrect rows after a discard", async () => {
+  const { close, execSql } = await createTestExecSql("discard-races");
+  const localId = "raced-doc";
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveSyncedDocumentRecord(execSql, localId, "remote-doc", "folder-a");
+    const state = createStoreState(execSql, localId);
+    // A live doc makes the pre-discard generation observable; the discard
+    // drops it, which is exactly what stales the captured generation.
+    state.doc = {} as DocumentStoreState["doc"];
+    const staleGeneration = captureDocumentStoreSyncGeneration(
+      state,
+      state.doc,
+    );
+    if (!staleGeneration) throw new Error("Expected a live generation");
+
+    expect(await discardDocumentStoreLocalState(state, "remote-doc")).toBe(
+      true,
+    );
+
+    // Writers that captured their generation before the discard land after
+    // it. Each validates INSIDE its serialized mutation and skips, so the
+    // rows the teardown removed stay removed — this is the in-flight edit /
+    // attachment settlement / initialization-recovery resurrection class.
+    await enqueuePendingUpdate(
+      state,
+      new Uint8Array([1, 2, 3]),
+      undefined,
+      staleGeneration,
+    );
+    await savePendingAttachmentUpload(
+      state,
+      {
+        byteLength: 3,
+        localId,
+        mimeType: null,
+        name: "late.bin",
+        slotId: "slot-late",
+        storageKey: "late-storage-key",
+      },
+      staleGeneration,
+    );
+    await saveLocalAttachmentRecords(
+      state,
+      [
+        {
+          blobId: "late-blob",
+          byteLength: 3,
+          detachedAt: null,
+          localId,
+          mimeType: null,
+          slotId: "slot-late",
+          storageKey: "late-storage-key",
+        },
+      ],
+      null,
+      staleGeneration,
+    );
+    expect(
+      await listDocumentPendingUpdates(execSql, {
+        appKind: DOCUMENTS_APP_KIND,
+        localId,
+      }),
+    ).toEqual([]);
+    expect(
+      await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),
+    ).toEqual([]);
+    expect(
+      await sqlDocumentsPersistence.listLocalAttachments(execSql, localId),
+    ).toEqual([]);
+
+    // Control: the gates discriminate rather than block — a generation
+    // captured from the CURRENT (post-reset) store still writes.
+    const currentGeneration = captureDocumentStoreSyncGeneration(
+      state,
+      state.doc,
+    );
+    if (!currentGeneration) throw new Error("Expected a live generation");
+    await saveLocalAttachmentRecords(
+      state,
+      [
+        {
+          blobId: "current-blob",
+          byteLength: 3,
+          detachedAt: null,
+          localId,
+          mimeType: null,
+          slotId: "slot-current",
+          storageKey: "current-storage-key",
+        },
+      ],
+      null,
+      currentGeneration,
+    );
+    expect(
+      (
+        await sqlDocumentsPersistence.listLocalAttachments(execSql, localId)
+      ).map((attachment) => attachment.slotId),
+    ).toEqual(["slot-current"]);
+
+    // The refused-discard direction: rows the refusal preserved must survive
+    // a stale delete racing the reset.
+    await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      byteLength: 4,
+      localId,
+      mimeType: null,
+      name: "kept.bin",
+      slotId: "slot-kept",
+      storageKey: "kept-storage-key",
+    });
+    await deletePendingAttachment(
+      state,
+      "slot-kept",
+      "kept-storage-key",
+      staleGeneration,
+    );
+    expect(
+      (
+        await sqlDocumentsPersistence.listPendingAttachments(execSql, localId)
+      ).map((attachment) => attachment.slotId),
+    ).toEqual(["slot-kept"]);
+    await deletePendingAttachment(
+      state,
+      "slot-kept",
+      "kept-storage-key",
+      currentGeneration,
+    );
+    expect(
+      await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),
+    ).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
 test("discard refuses a document with no container to anchor the shell", async () => {
   const { close, execSql } = await createTestExecSql("discard-unanchored");
   const localId = "unanchored-doc";
@@ -321,7 +493,9 @@ test("discard refuses a document with no container to anchor the shell", async (
     await saveSyncedDocumentRecord(execSql, localId, "remote-doc", null);
     const state = createStoreState(execSql, localId);
 
-    expect(await discardDocumentStoreLocalState(state)).toBe(false);
+    expect(await discardDocumentStoreLocalState(state, "remote-doc")).toBe(
+      false,
+    );
 
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
     expect(record?.loroSnapshot).toBe("synced-snapshot-bytes");

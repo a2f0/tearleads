@@ -214,12 +214,12 @@
       "bytes": 16686
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.tsx": {
-      "lines": 523,
-      "bytes": 16770
+      "lines": 534,
+      "bytes": 17267
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 461,
-      "bytes": 20821
+      "lines": 463,
+      "bytes": 20942
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
       "lines": 565,
@@ -278,8 +278,8 @@
       "bytes": 43292
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
-      "lines": 1113,
-      "bytes": 37369
+      "lines": 928,
+      "bytes": 30379
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 876,
@@ -296,6 +296,10 @@
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
       "bytes": 19608
+    },
+    "packages/client-sdk/src/stores/documents/documentStore/discard.test.ts": {
+      "lines": 505,
+      "bytes": 17332
     },
     "packages/client-sdk/src/stores/documents/documentStore/initialization.ts": {
       "lines": 568,

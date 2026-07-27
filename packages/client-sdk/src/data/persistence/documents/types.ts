@@ -271,9 +271,15 @@ export interface DocumentsPersistence {
    * schema (container metadata, simple doubles) simply do not offer the
    * discard escape hatch.
    */
+  /**
+   * `expectedDocumentId` is revalidated against the loaded record inside the
+   * serialized mutation: a stale caller (or a relink that raced the request)
+   * must never discard a different identity's edits.
+   */
   discardDocumentToShell?: (
     execSql: ExecSql,
     localId: string,
+    expectedDocumentId: string,
     documentProjectors: DocumentProjectorRegistryInput,
   ) => Promise<DiscardDocumentToShellResult>;
 }

@@ -104,12 +104,15 @@ export interface DocumentStore {
   assertCanRotateContentKey: () => Promise<Uint8Array>;
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   /**
-   * Tear down every locally persisted trace of this document so container
-   * priming restores it from the server copy — the escape hatch for queued
-   * local writes that can no longer sync. Refuses (returns false) for a
-   * document with no remote copy, whose local state is its only copy.
+   * Convert this document's persisted local state to the discovered-share
+   * shell so the store re-pulls the server copy — the escape hatch for
+   * queued local writes that can no longer sync. `expectedDocumentId` is
+   * revalidated against the persisted record inside the teardown's
+   * serialized mutation, so a stale caller can never discard a different
+   * identity's edits. Refuses (returns false) local-only, unlinked,
+   * move-pending, and identity-mismatched documents.
    */
-  discardLocalState: () => Promise<boolean>;
+  discardLocalState: (expectedDocumentId: string) => Promise<boolean>;
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => DocumentSnapshot;
   removeAttachment: (slotId: string) => void;

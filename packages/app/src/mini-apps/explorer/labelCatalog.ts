@@ -403,6 +403,8 @@ export const EXPLORER_LABELS = {
   writeQueueDiscardConfirmBody:
     "The queued local changes for this document are permanently deleted and the server copy is downloaded again. This cannot be undone.",
   writeQueueDiscardConfirmTitle: "Discard local edits?",
+  writeQueueDiscardRefusedStatus:
+    "Local edits were not discarded because the document's state changed. Try again.",
   writeQueueDocumentType: "Document",
   writeQueueEmpty: "No pending writes.",
   writeQueueEntryContainerRow: "Container",
