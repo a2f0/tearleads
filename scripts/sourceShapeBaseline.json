@@ -38,8 +38,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 518,
-      "bytes": 23767
+      "lines": 522,
+      "bytes": 24003
     },
     "docs/document-rekey-and-audit-history.md": {
       "lines": 526,
@@ -206,16 +206,16 @@
       "bytes": 17034
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.test.tsx": {
-      "lines": 584,
-      "bytes": 16686
+      "lines": 632,
+      "bytes": 17992
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.tsx": {
-      "lines": 544,
-      "bytes": 17760
+      "lines": 551,
+      "bytes": 18152
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 465,
-      "bytes": 21058
+      "lines": 466,
+      "bytes": 21119
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
       "lines": 565,
@@ -374,8 +374,12 @@
       "bytes": 59993
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1594,
-      "bytes": 55760
+      "lines": 1642,
+      "bytes": 57910
+    },
+    "packages/client-sdk/src/workflows/documents/syncFailures.ts": {
+      "lines": 514,
+      "bytes": 16881
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,

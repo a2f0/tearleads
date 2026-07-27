@@ -884,6 +884,8 @@ interface ReadOnlyDocumentSyncCompletionInput {
   execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
+  onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
@@ -922,7 +924,16 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
       : null;
   const writerProjection =
     reusableWriterProjection ??
-    (await input.apiClient.getDocumentWriterProjection(input.documentId));
+    (await resolveSyncAttemptWriterProjection({
+      apiClient: input.apiClient,
+      documentId: input.documentId,
+      onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+      onSyncTrace: input.onSyncTrace,
+      // Read-only by construction: this path only runs on passes with no
+      // queued writes, so a refused fetch records durably (row 13).
+      onTerminalFailure: input.onReadOnlyProjectionFailure,
+      reusableWriterProjection: null,
+    }));
   if (!writerProjection) {
     return { kind: "completed", result: null };
   }
@@ -949,8 +960,14 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
   } else {
     input.apiClient.clearWriterProjectionCaches?.();
   }
-  const freshWriterProjection =
-    await input.apiClient.getDocumentWriterProjection(input.documentId);
+  const freshWriterProjection = await resolveSyncAttemptWriterProjection({
+    apiClient: input.apiClient,
+    documentId: input.documentId,
+    onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+    onSyncTrace: input.onSyncTrace,
+    onTerminalFailure: input.onReadOnlyProjectionFailure,
+    reusableWriterProjection: null,
+  });
   if (!freshWriterProjection) {
     return { kind: "completed", result: null };
   }
@@ -973,6 +990,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
   execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
@@ -1244,6 +1262,14 @@ interface SyncRemoteDocumentInput {
   onSyncAbandoned?: ((reason: string) => void) | undefined;
   /** Clipboard-safe trace sink (see syncTrace.ts); never receives content. */
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
+  /**
+   * Fires when a pass WITHOUT queued writes cannot resolve its writer
+   * projection (e.g. a coded 409 from the projection route). Read-only
+   * revalidation otherwise fails silently — one burned request and a trace
+   * line — leaving the document permanently stale with nothing durable to
+   * explain why (edge-case row 13).
+   */
+  onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
@@ -1272,6 +1298,7 @@ async function tryPersistedReadOnlyDocumentSync(
     execSql: input.execSql,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
+    onReadOnlyProjectionFailure: input.onReadOnlyProjectionFailure,
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncTrace: input.onSyncTrace,
     persistedState: input.persistedState,
@@ -1463,6 +1490,7 @@ function submitPlannedSyncAttempt(args: {
   pendingUpdates: readonly PendingUpdateRecord[];
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
+  writeBearing: boolean;
 }) {
   return submitDocumentSyncAttemptIfAllowed({
     apiClient: args.sync.apiClient,
@@ -1481,12 +1509,31 @@ function submitPlannedSyncAttempt(args: {
     onTerminalSubmitFailure: args.sync.onTerminalSubmitFailure,
     pendingUpdates: args.pendingUpdates,
     plan: args.materializedPlan.plan,
+    writeBearing: args.writeBearing,
   });
+}
+
+/**
+ * A write-bearing pass records through the submit handler (its queued writes
+ * are what the failure blocks). A read-only pass records through the
+ * revalidation handler so the refusal still leaves a durable trail instead
+ * of silently never revalidating (edge-case row 13). `writeBearing` is the
+ * pass's character, not the momentary array length: update-id recovery
+ * empties the in-flight batch while the durable rows still exist, and that
+ * retry must keep the submit classification (and its 403 handling).
+ */
+function projectionFailureHandler(
+  input: SyncRemoteDocumentInput,
+  writeBearing: boolean,
+): TerminalSubmitFailureHandler | undefined {
+  return writeBearing
+    ? input.onTerminalSubmitFailure
+    : input.onReadOnlyProjectionFailure;
 }
 
 function resolveAttemptProjection(
   input: SyncRemoteDocumentInput,
-  pendingUpdates: readonly PendingUpdateRecord[],
+  writeBearing: boolean,
   reusableWriterProjection: DocumentWriterProjectionResponse | null,
 ) {
   return resolveSyncAttemptWriterProjection({
@@ -1495,10 +1542,7 @@ function resolveAttemptProjection(
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncAbandoned: input.onSyncAbandoned,
     onSyncTrace: input.onSyncTrace,
-    // Write-bearing passes only: without queued writes a failed projection
-    // read blocks nothing durable, so the failure is not recorded.
-    onTerminalFailure:
-      pendingUpdates.length > 0 ? input.onTerminalSubmitFailure : undefined,
+    onTerminalFailure: projectionFailureHandler(input, writeBearing),
     reusableWriterProjection,
   });
 }
@@ -1525,9 +1569,11 @@ export async function syncRemoteDocument(
   }
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const writeBearing =
+      pendingUpdates.length > 0 || recoveryPendingUpdatesById.size > 0;
     const writerProjection = await resolveAttemptProjection(
       input,
-      pendingUpdates,
+      writeBearing,
       reusableWriterProjection,
     );
     reusableWriterProjection = null;
@@ -1547,6 +1593,7 @@ export async function syncRemoteDocument(
       onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
       onSyncAbandoned: input.onSyncAbandoned,
       onSyncTrace: input.onSyncTrace,
+      onTerminalFailure: projectionFailureHandler(input, writeBearing),
       writerProjection,
     });
     if (!planned) {
@@ -1560,6 +1607,7 @@ export async function syncRemoteDocument(
       pendingUpdates,
       regenerateQueuedCheckpoints,
       sync: input,
+      writeBearing,
     });
     if (submitted === "retry") {
       evictStaleProjectionForRetry(input);

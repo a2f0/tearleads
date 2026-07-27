@@ -155,15 +155,21 @@ higher-level helpers.
 identity-wide, locally derived view of durable writes that have not converged.
 Rows are grouped by logical container, document, or unknown document namespace
 and include safe navigation metadata plus aggregate operation counts, attachment
-bytes, move targets, status, and persisted intent errors. Serialized Loro
+bytes, move targets, status, and persisted intent errors. A document whose
+read-only revalidation was refused surfaces as a diagnostic `revalidation`
+item even with zero queued writes, so a document that can never refresh is
+visible; such items carry no local data and never offer the destructive
+discard. Serialized Loro
 updates, local blob storage keys, and upload cryptographic material stay private.
 This answers what remains pending; sync snapshots show scheduler work
 and `blobStorageKey` navigation into Blob Browser.
 
 Two per-row recovery actions pair with that view.
 `documentQueries().retryPendingWriteItem(...)` resets the item's parked retry
-state (the recorded terminal failure and, for documents, the durable re-key
-budget) before the caller re-arms the sync lanes.
+state (for documents, the durable re-key budget; the recorded terminal failure
+clears only alongside queued work — a failure-only revalidation row survives as
+the priming ticket and clears on the next clean pass) before the caller re-arms
+the sync lanes and, for documents, requests a priming pass.
 `discardRegisteredDocumentLocalState(domainScope, localId, documentId)` is the
 give-up path for a remote-backed document whose queue can never converge: one
 transaction converts the local record to the freshly-discovered-share shell

@@ -25,7 +25,10 @@ import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
-import { documentTerminalSubmitFailureHandler } from "./syncShared";
+import {
+  documentRevalidationFailureHandler,
+  documentTerminalSubmitFailureHandler,
+} from "./syncShared";
 import { documentSyncContextMatches } from "./syncUpdateImport";
 
 export async function deleteUpstreamDeletedDocument(
@@ -112,6 +115,10 @@ export async function requestRemoteDocumentSync(input: {
         documentId,
       ),
     onSyncTrace: (line) => runtime.util.log(`Documents: ${line}`),
+    onReadOnlyProjectionFailure: documentRevalidationFailureHandler(
+      state,
+      generation,
+    ),
     onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
       state,
       generation,

@@ -38,7 +38,9 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
       CASE WHEN metadata_container.parent_id IS NULL THEN '/' ELSE 'Untitled' END
     ) AS container_name,
     metadata_container.id AS metadata_container_id,
-    NULLIF(metadata_container.organization_id, '') AS metadata_organization_id
+    NULLIF(metadata_container.organization_id, '') AS metadata_organization_id,
+    failure.message AS failure_message,
+    failure.attempted_at AS failure_attempted_at
   FROM documents stored
   LEFT JOIN document_projection
     ON stored.app_kind = 'documents'
@@ -50,6 +52,9 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
     AND metadata_container.id = stored.local_id
   LEFT JOIN container_projection
     ON container_projection.container_id = metadata_container.id
+  LEFT JOIN document_sync_failures failure
+    ON failure.app_kind = stored.app_kind
+    AND failure.local_id = stored.local_id
   WHERE stored.snapshot_end_version <> ''
     AND (
       stored.pending_base_version IS NOT NULL
@@ -137,8 +142,11 @@ function mapDeferredTailCandidate(
     createdAt: updatedAt,
     inclusion: "always",
     kind: "deferred-update",
-    lastAttemptedAt: null,
-    lastError: null,
+    // Carry the scope's recorded sync failure so a covering deferred-update
+    // candidate never hides the diagnostic a suppressed failure-only item
+    // would have shown.
+    lastAttemptedAt: readString(row, "failure_attempted_at"),
+    lastError: readString(row, "failure_message"),
     localId,
     name:
       objectKind === "container"

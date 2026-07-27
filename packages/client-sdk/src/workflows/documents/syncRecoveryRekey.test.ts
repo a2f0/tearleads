@@ -261,3 +261,155 @@ test("the re-key limit failure names the bound for the write queue", () => {
     `Update conflict recovery gave up after ${MAX_PENDING_UPDATE_REKEYS} re-key attempts (2 updates)`,
   );
 });
+
+// Edge-case row 13 refinement: update-id recovery empties the in-flight
+// batch while the durable rows still exist. A projection refusal on the
+// recovery retry must keep the WRITE-BEARING classification — recording
+// through the submit handler (403s included) — never the read-only
+// revalidation handler.
+test("a projection refusal after recovery stays write-bearing", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  await ensureDocumentTables(execSql);
+  const scope = { appKind: "documents", localId: "recovering-document" };
+  await enqueueDocumentPendingUpdate(
+    execSql,
+    scope,
+    await createLoroPendingUpdateFields("recovering update"),
+  );
+  const [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+  if (!pendingUpdate) {
+    throw new Error("Expected an enqueued pending update");
+  }
+  let projectionRequests = 0;
+  const readOnlyFailures: number[] = [];
+  const submitFailures: number[] = [];
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async () => {
+        throw new Error("Expected the Result variant to be used");
+      },
+      getDocumentWriterProjectionResult: async () => {
+        projectionRequests += 1;
+        if (projectionRequests === 1) {
+          return { data: writerProjection, ok: true as const };
+        }
+        return {
+          message: "Container keying conflicts with the document",
+          ok: false as const,
+          report: () => undefined,
+          status: 409,
+        };
+      },
+      syncDocument: async () => {
+        throw new Error("Expected syncDocumentResult to handle recovery");
+      },
+      syncDocumentResult: async (documentId) => ({
+        code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+        message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
+        ok: false as const,
+        report: () => undefined,
+        status: 409,
+      }),
+    },
+    author,
+    documentId: writerProjection.documentId,
+    execSql,
+    localVersionVector: null,
+    onReadOnlyProjectionFailure: (failure) => {
+      readOnlyFailures.push(failure.status ?? -1);
+    },
+    onTerminalSubmitFailure: (failure) => {
+      submitFailures.push(failure.status ?? -1);
+    },
+    pendingUpdates: [pendingUpdate],
+    resolveProjectionUserKey,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerPublicKeysByFingerprint: new Map([
+      [author.signerKeyFingerprint, signingPublicKey],
+    ]),
+  });
+
+  expect(synced).toBeNull();
+  expect(projectionRequests).toBe(2);
+  expect(readOnlyFailures).toEqual([]);
+  expect(submitFailures).toEqual([409]);
+});
+
+// The recovery retry submits an EMPTY request while the durable rows still
+// exist. A terminal failure there is what blocks the queued edits, so it
+// must record through the submit handler despite carrying no writes.
+test("a terminal failure after recovery still records durably", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  await ensureDocumentTables(execSql);
+  const scope = { appKind: "documents", localId: "denied-after-recovery" };
+  await enqueueDocumentPendingUpdate(
+    execSql,
+    scope,
+    await createLoroPendingUpdateFields("denied update"),
+  );
+  const [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+  if (!pendingUpdate) {
+    throw new Error("Expected an enqueued pending update");
+  }
+  const submitFailures: number[] = [];
+  let submissions = 0;
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async () => writerProjection,
+      syncDocument: async () => {
+        throw new Error("Expected syncDocumentResult to handle recovery");
+      },
+      syncDocumentResult: async (documentId) => {
+        submissions += 1;
+        if (submissions === 1) {
+          return {
+            code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+            message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
+            ok: false as const,
+            report: () => undefined,
+            status: 409,
+          };
+        }
+        return {
+          message: `POST /documents/${documentId}/sync: 403 Forbidden`,
+          ok: false as const,
+          report: () => undefined,
+          status: 403,
+        };
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    execSql,
+    localVersionVector: null,
+    onTerminalSubmitFailure: (failure) => {
+      submitFailures.push(failure.status ?? -1);
+    },
+    pendingUpdates: [pendingUpdate],
+    resolveProjectionUserKey,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerPublicKeysByFingerprint: new Map([
+      [author.signerKeyFingerprint, signingPublicKey],
+    ]),
+  });
+
+  expect(synced).toBeNull();
+  expect(submissions).toBe(2);
+  expect(submitFailures).toEqual([403]);
+});

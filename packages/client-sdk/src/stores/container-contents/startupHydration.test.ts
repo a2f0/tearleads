@@ -4,6 +4,10 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import {
+  clearDocumentSyncFailure,
+  recordDocumentSyncFailure,
+} from "../../data/sqlite/documentPersistence";
+import {
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
   markContainerSyncLaneChecked,
@@ -193,6 +197,39 @@ test("hasStartupContainerSyncWork detects durable pending document updates", asy
       updateData: "queued-update",
     });
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
+  } finally {
+    close();
+  }
+});
+
+// Edge-case row 13's durable retry path: a fully-settled hydrated document
+// with a recorded sync failure (a refused revalidation leaves no queued
+// work) must still count as startup work so priming re-opens its store and
+// retries — and stop counting once the row clears on a clean pass.
+test("hasStartupContainerSyncWork detects a recorded sync failure", async () => {
+  const { close, execSql, state } = await createStartupWorkFixture(
+    "startup-work-sync-failure",
+  );
+  try {
+    await saveSettledTestDocument({ execSql, id: "refused-doc", seed: "s9" });
+    await expect(hasStartupContainerSyncWork(state)).resolves.toBe(false);
+
+    await recordDocumentSyncFailure(
+      execSql,
+      { appKind: "documents", localId: "refused-doc" },
+      {
+        attemptedAt: "2026-07-27T00:00:00.000Z",
+        message: "Remote revalidation failed: container unavailable (409)",
+        status: 409,
+      },
+    );
+    await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
+
+    await clearDocumentSyncFailure(execSql, {
+      appKind: "documents",
+      localId: "refused-doc",
+    });
+    await expect(hasStartupContainerSyncWork(state)).resolves.toBe(false);
   } finally {
     close();
   }

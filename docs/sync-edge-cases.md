@@ -59,7 +59,7 @@ without counting as lane progress, so it cannot hot-loop the pump.
 | 10 | 409 `document_sync_state_stale` | In-pass retry with a fresh projection, bounded. | working as designed |
 | 11 | 409 `update_id_conflict` | In-pass re-key recovery, bounded at 5 durable attempts, then a synthetic terminal failure. The write queue's "Retry sync" resets the durable budget (a deliberate tap is the rate-limited signal that conditions changed). | working as designed |
 | 12 | Stale content-key bundle with pending edits | Heal: rotate to a fresh content key anchored by a full-history rotation baseline exported from the durable local history (checkpoint + tail), which every document retains. | working as designed |
-| 13 | Uncoded 409 on read-only revalidation (e.g. writer-projection route remaps container 404s and KEK failures to bare 409s) | Burns one request per trigger, emits only a trace line, records nothing durable; the document silently never revalidates. | defect — needs a durable surface and error codes on the projection route (deferred to its own PR) |
+| 13 | Refused read-only revalidation (coded 409 from the writer-projection route, e.g. container unavailable or keying conflict) | The refusal records on the document's durable failure row ("Remote revalidation failed: …") and surfaces in the write-queue view; cleared by the next clean pass. Read-only 403s stay suppressed (row 9). The projection route's 409s all carry stable codes. | working as designed |
 | 14 | Container-metadata sync hitting stale-keying errors | Classified, deferred with a log line, retried next trigger. | working as designed |
 | 15 | Move replay: link succeeds, unlink fails | Document linked to both containers, `"partially applied; retry required"`, retried on the next trigger, excluded from lane progress so it cannot hot-loop. | working as designed |
 | 16 | Move whose destination exists but has not synced yet | Stays `pending` with an error note; retried. | working as designed |
@@ -71,9 +71,6 @@ without counting as lane progress, so it cannot hot-loop the pump.
 
 ## Known gaps / follow-ups
 
-- Row 13: give read-only revalidation failures a durable surface, and add
-  stable error codes to the document writer-projection route instead of bare
-  409 remaps, so clients can classify them.
 - Rows 1, 3, 4: decide the fate of local edits stranded by remote
   deletion/tombstones (destroy today; quarantine or export are candidates).
 - Row 7: consider parking permission-denied moves for the

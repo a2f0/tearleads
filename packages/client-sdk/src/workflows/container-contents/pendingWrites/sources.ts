@@ -51,6 +51,45 @@ const PENDING_WRITE_SOURCE_SQL = `
 
   UNION ALL
 
+  -- Failure-only surface (edge-case row 13): a refused read-only
+  -- revalidation records a durable failure row with NO pending work, so
+  -- without this branch the refusal would never reach the queue view. The
+  -- 'unless-item-covered' inclusion keeps it out whenever the document
+  -- already has real operations — those candidates carry the same failure
+  -- message through their own joins.
+  SELECT
+    'document' AS object_kind,
+    NULL AS namespace,
+    failure.local_id AS local_id,
+    stored.document_id AS remote_id,
+    projection.title AS name,
+    projection.container_id AS container_id,
+    COALESCE(
+      NULLIF(container.organization_id, ''),
+      NULLIF(projection.organization_id, '')
+    ) AS organization_id,
+    'revalidation' AS operation_kind,
+    0 AS operation_count,
+    0 AS byte_length,
+    failure.attempted_at AS created_at,
+    failure.attempted_at AS updated_at,
+    NULL AS target_container_id,
+    'pending' AS operation_status,
+    failure.message AS last_error,
+    failure.attempted_at AS last_attempted_at,
+    'unless-item-covered' AS inclusion
+  FROM document_sync_failures failure
+  LEFT JOIN documents stored
+    ON stored.app_kind = failure.app_kind
+    AND stored.local_id = failure.local_id
+  LEFT JOIN document_projection projection
+    ON projection.local_id = failure.local_id
+  LEFT JOIN containers container
+    ON container.id = projection.container_id
+  WHERE failure.app_kind = 'documents'
+
+  UNION ALL
+
   SELECT
     'container' AS object_kind,
     NULL AS namespace,
@@ -216,14 +255,17 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.updated_at AS updated_at,
     intent.target_container_id AS target_container_id,
     CASE WHEN intent.sync_status = 'blocked' THEN 'blocked' ELSE 'pending' END AS operation_status,
-    intent.last_error AS last_error,
-    intent.last_attempted_at AS last_attempted_at,
+    COALESCE(NULLIF(intent.last_error, ''), failure.message) AS last_error,
+    COALESCE(intent.last_attempted_at, failure.attempted_at) AS last_attempted_at,
     'always' AS inclusion
   FROM document_move_intents intent
   LEFT JOIN document_projection projection
     ON projection.local_id = intent.local_id
   LEFT JOIN containers container
     ON container.id = COALESCE(projection.container_id, intent.target_container_id)
+  LEFT JOIN document_sync_failures failure
+    ON failure.app_kind = 'documents'
+    AND failure.local_id = intent.local_id
   WHERE intent.intent_type = 'document.move'
 
   UNION ALL
@@ -340,6 +382,7 @@ function mapPendingWriteSourceRow(
     (operationKind !== "attachment" &&
       operationKind !== "create" &&
       operationKind !== "move" &&
+      operationKind !== "revalidation" &&
       operationKind !== "update")
   ) {
     return null;
@@ -359,7 +402,12 @@ function mapPendingWriteSourceRow(
   return {
     byteLength: readNumber(row, "byte_length"),
     containerId: readString(row, "container_id"),
-    count: Math.max(1, readNumber(row, "operation_count")),
+    // Diagnostic-only revalidation items carry NO local operations; clamping
+    // them to 1 would falsely report pending local data.
+    count:
+      operationKind === "revalidation"
+        ? 0
+        : Math.max(1, readNumber(row, "operation_count")),
     createdAt: readString(row, "created_at"),
     inclusion,
     kind: operationKind,

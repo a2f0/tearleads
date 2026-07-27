@@ -39,6 +39,23 @@ export type TerminalSubmitFailureHandler = (
   failure: DocumentSyncSubmitFailure,
 ) => Promise<void> | void;
 
+/**
+ * Read-only counterpart to describeDocumentSyncSubmitFailure: names a refused
+ * revalidation without implying a blocked write. 403s never reach this — a
+ * read-only 403 is deliberately suppressed (edge-case row 9) so unattempted
+ * local edits are never flagged.
+ */
+export function describeDocumentRevalidationFailure(
+  failure: Pick<DocumentSyncSubmitFailure, "message" | "status">,
+): string {
+  const detail =
+    failure.message.trim().length > 0
+      ? failure.message.trim()
+      : "the server refused the read";
+  const suffix = failure.status === null ? "" : ` (${failure.status})`;
+  return `Remote revalidation failed: ${detail}${suffix}`;
+}
+
 /** Human-readable description of a terminal submit failure for queue display. */
 export function describeDocumentSyncSubmitFailure(
   failure: Pick<DocumentSyncSubmitFailure, "message" | "status">,
@@ -325,9 +342,10 @@ async function submitDocumentSyncAttempt(input: {
 export async function submitDocumentSyncAttemptIfAllowed(
   input: Parameters<typeof submitDocumentSyncAttempt>[0] & {
     isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+    writeBearing?: boolean | undefined;
   },
 ): Promise<DocumentSyncAttemptSubmission> {
-  const { isRemoteSyncBlocked, ...submissionInput } = input;
+  const { isRemoteSyncBlocked, writeBearing, ...submissionInput } = input;
   const hasRemoteWrites =
     input.plan.request.outgoingUpdates.length > 0 ||
     (input.plan.request.containerRekeys?.length ?? 0) > 0;
@@ -339,10 +357,14 @@ export async function submitDocumentSyncAttemptIfAllowed(
     ...submissionInput,
     // A read-only pass carries no writes, so a terminal failure describes a
     // pull, not queued local data — recording it would flag the next local
-    // edit as failed before it was ever attempted.
-    onTerminalSubmitFailure: hasRemoteWrites
-      ? submissionInput.onTerminalSubmitFailure
-      : undefined,
+    // edit as failed before it was ever attempted. `writeBearing` keeps the
+    // handler through update-id recovery, whose retry submits an empty
+    // request while the durable rows still exist: a terminal 403 there IS
+    // what blocks the queued edits.
+    onTerminalSubmitFailure:
+      hasRemoteWrites || writeBearing
+        ? submissionInput.onTerminalSubmitFailure
+        : undefined,
   });
 }
 
@@ -396,6 +418,7 @@ export async function retrySyncPlan(input: {
   documentId: string;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
+  onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<
   | readonly [MaterializedDocumentSyncPlan, DocumentWriterProjectionResponse]
@@ -422,6 +445,7 @@ export async function retrySyncPlan(input: {
     apiClient: input.apiClient,
     documentId: input.documentId,
     onSyncTrace: input.onSyncTrace,
+    onTerminalFailure: input.onTerminalFailure,
     reusableWriterProjection: null,
   });
   if (writerProjection === REMOTE_DOCUMENT_DELETED) {
@@ -474,6 +498,7 @@ export async function retrySyncPlanOrAbandon(input: {
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncAbandoned?: ((reason: string) => void) | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
+  onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<
   | readonly [MaterializedDocumentSyncPlan, DocumentWriterProjectionResponse]

@@ -3,10 +3,12 @@ import {
   createRemoteDocument,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  describeDocumentRevalidationFailure,
   describeDocumentSyncSubmitFailure,
   type PendingUpdateRecord,
   recordDocumentSyncFailure,
   resolveDocumentCreateAuthor,
+  runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { chainIdentityWrite } from "./identityWriteChain";
@@ -20,6 +22,53 @@ import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
+
+/**
+ * Record a refused read-only revalidation on this document's failure row, so
+ * a document that can never refresh stops failing silently (edge-case row
+ * 13). 403s stay suppressed on purpose — a read-only 403 must never flag
+ * unattempted local edits (row 9) — and the row clears on the next clean
+ * pass like every other sync failure.
+ */
+export function documentRevalidationFailureHandler(
+  state: DocumentStoreState,
+  generation?: DocumentStoreSyncGeneration,
+) {
+  return async (failure: {
+    readonly message: string;
+    readonly status: number | null;
+  }) => {
+    if (failure.status === 403) {
+      return;
+    }
+
+    // The generation recheck runs INSIDE the serialized mutation (like the
+    // attachment failure path): a teardown (discard/reset) that wins the
+    // ordering deletes this document's rows first and invalidates the
+    // generation, so a stale handler can never resurrect an orphan
+    // failure-only queue row afterwards.
+    await runSerializedSqlMutation(
+      generation?.execSql ?? state.runtime.infra.execSql,
+      async (lockedExecSql) => {
+        if (
+          generation &&
+          !isDocumentStoreSyncGenerationCurrent(state, generation)
+        ) {
+          return;
+        }
+        await recordDocumentSyncFailure(
+          lockedExecSql,
+          { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+          {
+            attemptedAt: new Date().toISOString(),
+            message: describeDocumentRevalidationFailure(failure),
+            status: failure.status,
+          },
+        );
+      },
+    );
+  };
+}
 
 /**
  * Record a terminal submit failure on this document's write-queue row. Shared

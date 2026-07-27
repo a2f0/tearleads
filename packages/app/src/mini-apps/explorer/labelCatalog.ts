@@ -399,6 +399,7 @@ export const EXPLORER_LABELS = {
   writeQueueContainerType: "Folder",
   writeQueueCreateOperation: "remote create",
   writeQueueDeferredUpdateOperation: "deferred Loro update",
+  writeQueueRevalidationOperation: "remote refresh refused",
   writeQueueDiscardAction: "Discard local edits",
   writeQueueDiscardConfirmBody:
     "The queued local changes for this document are permanently deleted and the server copy is downloaded again. This cannot be undone.",

@@ -5,6 +5,7 @@ export type PendingWriteQueueOperationKind =
   | "create"
   | "deferred-update"
   | "move"
+  | "revalidation"
   | "update";
 
 export type PendingWriteQueueOperationStatus = "pending" | "blocked";

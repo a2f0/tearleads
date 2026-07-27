@@ -459,6 +459,13 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
         .catch(() => undefined)
         .finally(() => {
           requestAllDomainSyncLanes(domainScope);
+          // A failure-only revalidation item has no queued work for any lane
+          // to pick up; priming (which selects documents with a recorded
+          // sync failure) is what actually re-opens the store and retries
+          // the refused revalidation.
+          if (item.objectKind === "document") {
+            requestContainerContentsDocumentPriming(domainScope);
+          }
         });
     },
     [documentQueries, domainScope],
