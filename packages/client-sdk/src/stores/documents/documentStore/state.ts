@@ -55,6 +55,8 @@ export interface PersistedDocumentRecord {
 }
 export interface SaveDocumentRecordOptions {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
+  // Tail rows appended in-mutation before the record (see persistDocumentState).
+  historyUpdates?: readonly string[] | undefined;
   pendingBaseVersionOverride?: string | null | undefined;
   preserveSnapshotStructuredFields?: boolean | undefined;
   preserveSnapshotText?: boolean | undefined;
@@ -133,7 +135,6 @@ export interface DocumentStoreState {
   remoteUpdateSignalSeq: number;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
-  staleHealHistoryRecoveryAttempts: number;
   syncLane: DocumentSyncLane | null;
   writeChain: Promise<void>;
   writerProjection: DocumentWriterProjectionResponse | null;
@@ -238,7 +239,6 @@ export function createDocumentStoreState(
     remoteUpdateSignalSeq: 0,
     runtime: initialRuntime,
     snapshot: { ...EMPTY_DOCUMENT_SNAPSHOT },
-    staleHealHistoryRecoveryAttempts: 0,
     syncLane: null,
     writeChain: Promise.resolve(),
     writerProjection: null,

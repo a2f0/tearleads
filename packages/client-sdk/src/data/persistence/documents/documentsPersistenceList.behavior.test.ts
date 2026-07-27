@@ -18,7 +18,7 @@ test("listDocumentsByContainerIds only returns notes for the requested container
       containerId: "container-a",
       documentId: "document-a",
       text: "Note A",
-      loroSnapshot: "snapshot-a",
+      snapshotEndVersion: "",
       accessEpoch: 1,
     });
     await sqlDocumentsPersistence.saveDocument(execSql, {
@@ -26,7 +26,7 @@ test("listDocumentsByContainerIds only returns notes for the requested container
       containerId: "container-b",
       documentId: "document-b",
       text: "Note B",
-      loroSnapshot: "snapshot-b",
+      snapshotEndVersion: "",
       accessEpoch: 1,
     });
     await sqlDocumentsPersistence.saveDocument(execSql, {
@@ -34,7 +34,7 @@ test("listDocumentsByContainerIds only returns notes for the requested container
       containerId: "container-c",
       documentId: "document-c",
       text: "Note C",
-      loroSnapshot: "snapshot-c",
+      snapshotEndVersion: "",
       accessEpoch: 1,
     });
     await sqlDocumentsPersistence.saveDocument(execSql, {
@@ -44,7 +44,7 @@ test("listDocumentsByContainerIds only returns notes for the requested container
       documentKind: "organization_profile",
       text: "",
       title: "Organization Profile",
-      loroSnapshot: "snapshot-org-profile",
+      snapshotEndVersion: "",
       accessEpoch: 1,
     });
 
@@ -90,7 +90,7 @@ test("listDocumentsByContainerIdsOrDocumentIds returns directly and indirectly l
       containerId: "shared-container",
       documentId: "direct-document",
       text: "Direct Note",
-      loroSnapshot: "snapshot-direct",
+      snapshotEndVersion: "",
       accessEpoch: 1,
     });
     await sqlDocumentsPersistence.saveDocument(execSql, {
@@ -98,7 +98,7 @@ test("listDocumentsByContainerIdsOrDocumentIds returns directly and indirectly l
       containerId: "outside-container",
       documentId: "linked-document",
       text: "Linked Note",
-      loroSnapshot: "snapshot-linked",
+      snapshotEndVersion: "",
       accessEpoch: 1,
     });
     await sqlDocumentsPersistence.saveDocument(execSql, {
@@ -106,7 +106,7 @@ test("listDocumentsByContainerIdsOrDocumentIds returns directly and indirectly l
       containerId: "outside-container",
       documentId: "unrelated-document",
       text: "Unrelated Note",
-      loroSnapshot: "snapshot-unrelated",
+      snapshotEndVersion: "",
       accessEpoch: 1,
     });
     await sqlDocumentsPersistence.saveDocument(execSql, {
@@ -116,7 +116,7 @@ test("listDocumentsByContainerIdsOrDocumentIds returns directly and indirectly l
       documentKind: "organization_profile",
       text: "",
       title: "Organization Profile",
-      loroSnapshot: "snapshot-linked-org-profile",
+      snapshotEndVersion: "",
       accessEpoch: 1,
     });
 
@@ -170,7 +170,7 @@ test("listDocuments reads driver license titles and document kinds from projecti
       documentKind: "drivers_license",
       text: "",
       title: "Driver's License D1234567",
-      loroSnapshot: "snapshot-license",
+      snapshotEndVersion: "",
       accessEpoch: 1,
     });
     await sqlDocumentsPersistence.saveDocument(execSql, {
@@ -180,7 +180,7 @@ test("listDocuments reads driver license titles and document kinds from projecti
       documentKind: "organization_profile",
       text: "",
       title: "Organization Profile",
-      loroSnapshot: "snapshot-org-profile",
+      snapshotEndVersion: "",
       accessEpoch: 1,
     });
 
@@ -218,7 +218,7 @@ test("listDocuments reads masked credit card titles and document kinds from proj
       documentKind: "credit_card",
       text: "",
       title: "Credit Card ending in 1234",
-      loroSnapshot: "snapshot-card",
+      snapshotEndVersion: "",
       accessEpoch: 1,
     });
 

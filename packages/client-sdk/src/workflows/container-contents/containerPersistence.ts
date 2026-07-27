@@ -13,6 +13,8 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 export type {
   ContainerContentsPersistence,
   ContainerCreateIntentRecord,
+  ContainerMetadataRecord,
+  ContainerMetadataRecord as ContainerDocumentRecord,
   ContainerMoveIntentRecord,
   LocalRootDescendantReparentInput,
   StoredContainerState,
@@ -20,7 +22,6 @@ export type {
 export { sqlContainerContentsPersistence as defaultContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 export type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 export type { ContainerSyncWatermarkLane } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
-export type { DocumentRecord as ContainerDocumentRecord } from "../../data/sqlite/documentPersistence";
 
 export async function enqueuePendingContainerUpdate(
   execSql: ExecSql,

@@ -1,14 +1,10 @@
 import { expect, test } from "bun:test";
 import {
-  classifyHealBlockedReason,
   DOCUMENT_SYNC_TRACE_PATTERN,
   traceCheckpointRegeneration,
   traceHealBlocked,
   traceHealed,
   traceHealPlanned,
-  traceHistoryRecovered,
-  traceHistoryRecoveryFailed,
-  traceHistoryRecoveryStart,
   traceProjectionFailed,
   traceStaleBundle,
   traceStaleRead,
@@ -69,19 +65,9 @@ test("every emitted trace line matches the clipboard-safe pattern", () => {
       status: 409,
     });
     traceHealed(emit, { accepted: 4, documentId: DOCUMENT_ID, epoch: 2 });
-    traceHistoryRecoveryStart(emit, { attempt: 1, documentId: DOCUMENT_ID });
-    traceHistoryRecovered(emit, { documentId: DOCUMENT_ID, updates: 12 });
-    traceHistoryRecoveryFailed(emit, {
-      documentId: DOCUMENT_ID,
-      reason: "pull-failed",
-    });
-    traceHistoryRecoveryFailed(emit, {
-      documentId: DOCUMENT_ID,
-      reason: "attempts-exhausted",
-    });
   });
 
-  expect(lines).toHaveLength(15);
+  expect(lines).toHaveLength(11);
   for (const line of lines) {
     expect(line).toMatch(DOCUMENT_SYNC_TRACE_PATTERN);
   }
@@ -98,9 +84,7 @@ test("the validator is anchored and rejects tokens outside the vocabulary", () =
     `document sync submit failed document=${DOCUMENT_ID} status=409 code=patient_name action=stop`,
     `document sync submit failed document=${DOCUMENT_ID} status=409 code=none action=secret`,
     `document sync heal blocked document=${DOCUMENT_ID} reason=patient-name`,
-    `document sync history recovery failed document=${DOCUMENT_ID} reason=patient-name`,
     `document sync projection failed document=${DOCUMENT_ID} status=409 code=patient_name`,
-    `document sync history recovered document=${DOCUMENT_ID} updates=12 title=PRIVATE`,
     // Non-UUID document ids must fail the strict shape.
     "document sync healed document=a epoch=2 accepted=4",
   ];
@@ -117,10 +101,9 @@ test("unknown failure text emits nothing instead of leaking free-form errors", (
     });
   });
   expect(lines).toEqual([]);
-  expect(classifyHealBlockedReason(new Error("anything else"))).toBeNull();
 });
 
-test("classifier maps every fixed heal failure to an enumerated reason", () => {
+test("every fixed heal failure emits its enumerated reason line", () => {
   const cases: ReadonlyArray<readonly [string, string]> = [
     [
       "Document content-key bundle is stale and no rotation snapshot is available to heal it",
@@ -149,7 +132,15 @@ test("classifier maps every fixed heal failure to an enumerated reason", () => {
     ],
   ];
   for (const [message, reason] of cases) {
-    expect(classifyHealBlockedReason(new Error(message))).toBe(reason);
+    const lines = collect((emit) => {
+      traceHealBlocked(emit, {
+        documentId: DOCUMENT_ID,
+        error: new Error(message),
+      });
+    });
+    expect(lines).toEqual([
+      `document sync heal blocked document=${DOCUMENT_ID} reason=${reason}`,
+    ]);
   }
 });
 

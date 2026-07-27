@@ -10,7 +10,10 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
-import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import {
+  type ContainerMetadataRecord,
+  sqlContainerContentsPersistence,
+} from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
   DOCUMENTS_APP_KIND,
   type StoredDocumentRecord,
@@ -110,7 +113,6 @@ export interface RegistrationBootstrapInput {
     initialUpdate: Uint8Array;
     initialUpdateCommitted: boolean;
     localId: string;
-    snapshot: string;
   };
   rosterProfileDocument?: {
     accessEpoch: number;
@@ -159,13 +161,14 @@ async function persistRootContainerBootstrap(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
 ): Promise<void> {
-  const rootRecord: DocumentRecord = {
+  const rootRecord: ContainerMetadataRecord = {
     accessEpoch: input.rootMetadataAccessEpoch,
     accessStateHash: input.rootMetadataAccessStateHash,
     documentId: input.rootMetadataDocumentId,
     id: input.containerId,
     lastCommitLsn: null,
-    loroSnapshot: input.rootMetadataSnapshot,
+    metadataUpdates: input.rootMetadataSnapshot,
+    snapshotEndVersion: "",
     contentKeyBundle: input.rootMetadataState.contentKeyBundle ?? null,
     documentKekTargets: input.rootMetadataState.documentKekTargets ?? null,
     documentManifestBundle:
@@ -209,13 +212,14 @@ async function persistRosterProfileContainerBootstrap(
   }
 
   const metadataState = rosterProfileContainer.metadataState;
-  const rosterProfileRecord: DocumentRecord = {
+  const rosterProfileRecord: ContainerMetadataRecord = {
     accessEpoch: rosterProfileContainer.accessEpoch,
     accessStateHash: rosterProfileContainer.accessStateHash,
     documentId: rosterProfileContainer.metadataDocumentId,
     id: rosterProfileContainer.containerId,
     lastCommitLsn: null,
-    loroSnapshot: rosterProfileContainer.metadataSnapshot,
+    metadataUpdates: rosterProfileContainer.metadataSnapshot,
+    snapshotEndVersion: "",
     contentKeyBundle: metadataState.contentKeyBundle ?? null,
     documentKekTargets: metadataState.documentKekTargets ?? null,
     documentManifestBundle: metadataState.documentManifestBundle ?? null,
@@ -259,13 +263,14 @@ async function persistOrganizationMetadataContainerBootstrap(
   }
 
   const metadataState = organizationMetadataContainer.metadataState;
-  const metadataRecord: DocumentRecord = {
+  const metadataRecord: ContainerMetadataRecord = {
     accessEpoch: organizationMetadataContainer.accessEpoch,
     accessStateHash: organizationMetadataContainer.accessStateHash,
     documentId: organizationMetadataContainer.metadataDocumentId,
     id: organizationMetadataContainer.containerId,
     lastCommitLsn: null,
-    loroSnapshot: organizationMetadataContainer.metadataSnapshot,
+    metadataUpdates: organizationMetadataContainer.metadataSnapshot,
+    snapshotEndVersion: "",
     contentKeyBundle: metadataState.contentKeyBundle ?? null,
     documentKekTargets: metadataState.documentKekTargets ?? null,
     documentManifestBundle: metadataState.documentManifestBundle ?? null,
@@ -313,13 +318,14 @@ async function persistSystemContainersBootstrap(
 
   for (const systemContainer of systemContainers) {
     const metadataState = systemContainer.metadataState;
-    const record: DocumentRecord = {
+    const record: ContainerMetadataRecord = {
       accessEpoch: systemContainer.accessEpoch,
       accessStateHash: systemContainer.accessStateHash,
       documentId: systemContainer.metadataDocumentId,
       id: systemContainer.containerId,
       lastCommitLsn: null,
-      loroSnapshot: systemContainer.metadataSnapshot,
+      metadataUpdates: systemContainer.metadataSnapshot,
+      snapshotEndVersion: "",
       contentKeyBundle: metadataState.contentKeyBundle ?? null,
       documentKekTargets: metadataState.documentKekTargets ?? null,
       documentManifestBundle: metadataState.documentManifestBundle ?? null,
@@ -360,6 +366,14 @@ async function persistOrganizationProfileDocumentBootstrap(
     return;
   }
 
+  const doc = await createDocument(await getScopedPeerSeed(DOCUMENTS_APP_KIND));
+  importUpdates(doc, [organizationProfileDocument.initialUpdate]);
+  await seedBootstrapHistoryCheckpoint(
+    execSql,
+    organizationProfileDocument.localId,
+    doc,
+  );
+
   const documentState = organizationProfileDocument.documentState;
   const document: StoredDocumentRecord = {
     accessEpoch: organizationProfileDocument.accessEpoch,
@@ -369,7 +383,7 @@ async function persistOrganizationProfileDocumentBootstrap(
     documentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
     id: organizationProfileDocument.localId,
     lastCommitLsn: null,
-    loroSnapshot: organizationProfileDocument.snapshot,
+    snapshotEndVersion: encodeVersionVector(doc),
     text: "",
     title: "Organization Profile",
     contentKeyBundle: documentState.contentKeyBundle ?? null,
@@ -389,6 +403,20 @@ async function persistOrganizationProfileDocumentBootstrap(
       });
     }
   }
+}
+
+async function seedBootstrapHistoryCheckpoint(
+  execSql: ExecSql,
+  localId: string,
+  doc: Awaited<ReturnType<typeof createDocument>>,
+): Promise<void> {
+  await sqlDocumentsPersistence.replaceHistoryCheckpoint(execSql, {
+    coveredTailIds: [],
+    endVersionVector: encodeVersionVector(doc),
+    force: true,
+    localId,
+    snapshot: bytesToBase64(exportFullHistorySnapshot(doc)),
+  });
 }
 
 async function persistInitialDocumentBootstrap(
@@ -413,17 +441,9 @@ async function persistInitialDocumentBootstrap(
   importUpdates(doc, [input.initialUpdate]);
 
   // Seed the durable-history checkpoint BEFORE the record row (same crash
-  // ordering as store-level creation): bootstrap documents may never see
-  // another persist before a restart, and without a checkpoint the reopen
-  // falls back to the shallow snapshot and permanently loses full-history
-  // exportability.
-  await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
-    coveredTailIds: [],
-    endVersionVector: encodeVersionVector(doc),
-    force: true,
-    localId: input.localId,
-    snapshot: bytesToBase64(exportFullHistorySnapshot(doc)),
-  });
+  // ordering as store-level creation): the checkpoint is the only content
+  // source, so a record row without one would reopen empty.
+  await seedBootstrapHistoryCheckpoint(execSql, input.localId, doc);
   await persistDocumentState({
     currentDoc: doc,
     currentRecord: null,
@@ -440,6 +460,8 @@ async function persistInitialDocumentBootstrap(
       documentKind: input.documentKind,
       documentManifestBundle:
         input.documentState.documentManifestBundle ?? null,
+      // The checkpoint seeded above covers exactly this frontier.
+      snapshotEndVersion: encodeVersionVector(doc),
     },
     persistence: sqlDocumentsPersistence,
   });

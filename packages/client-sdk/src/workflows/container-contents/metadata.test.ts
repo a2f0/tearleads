@@ -4,9 +4,11 @@ import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
-import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import type {
+  ContainerContentsPersistence,
+  ContainerMetadataRecord as ContainerDocumentRecord,
+} from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
-import type { DocumentRecord as ContainerDocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   hasContainerMetadataDocumentUpdateEvent,

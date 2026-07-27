@@ -48,7 +48,8 @@ function remoteContainerState(input: {
       accessStateHash: `access-${input.id}`,
       documentId: `metadata-${input.id}`,
       id: `record-${input.id}`,
-      loroSnapshot: "",
+      metadataUpdates: "",
+      snapshotEndVersion: "",
     },
   };
 }
@@ -130,7 +131,7 @@ async function runQueuedDocumentMoveFixture(input: {
       documentManifestBundle: null,
       id: "queued-move-local",
       lastCommitLsn: null,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: "",
       title: "Queued move",
     });
@@ -387,7 +388,7 @@ test("document move sync propagates identity failures without recording a retry"
       documentManifestBundle: null,
       id: "local-document",
       lastCommitLsn: null,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: "",
       title: "Document",
     });
@@ -476,7 +477,7 @@ test("a blocked document move keeps replaying and re-records its reason", async 
       documentManifestBundle: null,
       id: "local-document",
       lastCommitLsn: null,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: "",
       title: "Document",
     });
@@ -552,7 +553,7 @@ test("deleting a document deletes its queued move intents", async () => {
       documentManifestBundle: null,
       id: "local-document",
       lastCommitLsn: null,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: "",
       title: "Document",
     });

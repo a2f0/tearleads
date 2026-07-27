@@ -74,7 +74,7 @@ async function seedCachedDocuments(execSql: ExecSql): Promise<void> {
       documentManifestBundle: null,
       id,
       lastCommitLsn: null,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: title,
       title,
     });

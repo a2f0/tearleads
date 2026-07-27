@@ -3,8 +3,6 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import { createDocument, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   CreateOrganizationGroupRequest,
@@ -18,6 +16,7 @@ import { createResponseFromRequest } from "../../../test/helpers/documentFixture
 import { readStoredDocumentState } from "../../data/documents/documentKinds";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import { loadPersistedDocumentContent } from "../documents/historyContent";
 import { readOrganizationProfileName } from "../organizations/organizationProfile";
 import { getRosterProfileDocumentLocalId } from "../organizations/rosterProfileContainer";
 import { registerIdentity } from "./registerIdentity";
@@ -150,19 +149,15 @@ async function registerAndReadOrganizationName(
     if (!response) {
       throw new Error("Expected a registration response");
     }
-    const organizationProfileDocument =
-      await sqlDocumentsPersistence.loadDocument(
-        execSql,
-        `org-profile:${response.organizationId}`,
-      );
-    if (!organizationProfileDocument) {
+    // Content is persisted only in the durable history (checkpoint + tail).
+    const doc = await loadPersistedDocumentContent({
+      execSql,
+      localId: `org-profile:${response.organizationId}`,
+      persistence: sqlDocumentsPersistence,
+    });
+    if (!doc) {
       throw new Error("Expected persisted organization profile document");
     }
-    const doc = await createDocument(label);
-    importSnapshot(
-      doc,
-      base64ToBytes(organizationProfileDocument.loroSnapshot),
-    );
     return readOrganizationProfileName(
       readStoredDocumentState(doc).structuredFields,
     );
@@ -204,18 +199,18 @@ async function registerAndReadRosterNickname(
     if (!response) {
       throw new Error("Expected a registration response");
     }
-    const rosterProfileDocument = await sqlDocumentsPersistence.loadDocument(
+    // Content is persisted only in the durable history (checkpoint + tail).
+    const doc = await loadPersistedDocumentContent({
       execSql,
-      getRosterProfileDocumentLocalId({
+      localId: getRosterProfileDocumentLocalId({
         organizationId: response.organizationId,
         userId: response.userId,
       }),
-    );
-    if (!rosterProfileDocument) {
+      persistence: sqlDocumentsPersistence,
+    });
+    if (!doc) {
       throw new Error("Expected persisted roster profile document");
     }
-    const doc = await createDocument(label);
-    importSnapshot(doc, base64ToBytes(rosterProfileDocument.loroSnapshot));
     const { nickname } = readStoredDocumentState(doc).structuredFields;
     return typeof nickname === "string" ? nickname : null;
   } finally {

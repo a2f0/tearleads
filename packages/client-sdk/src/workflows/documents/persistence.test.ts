@@ -195,6 +195,47 @@ test("guarded persistence aborts before claiming or reading the durable row", as
   expect(saves).toBe(0);
 });
 
+test("a persist without an explicit frontier retains the stored one", async () => {
+  // The live document is AHEAD of the stored frontier (an in-flight edit
+  // whose durable row has not landed). A metadata-only persist must not
+  // publish the live document's version — that would claim coverage for
+  // content no durable row holds yet.
+  const currentDoc = await createDocument("retained-frontier");
+  currentDoc.getText("text").update("in-flight edit");
+  currentDoc.commit();
+  const currentRecord = {
+    id: "local-document",
+    accessEpoch: 1,
+    containerId: null,
+    documentId: "remote-1",
+    snapshotEndVersion: "stored-frontier",
+    text: "",
+  } as DocumentRecord;
+  const savedFrontiers: string[] = [];
+  const persistence = {
+    loadDocumentContainer: async () => undefined,
+    saveDocument: async (
+      _execSql: ExecSql,
+      record: { snapshotEndVersion: string },
+    ) => {
+      savedFrontiers.push(record.snapshotEndVersion);
+      return "2026-07-27T00:00:00.000Z";
+    },
+  } as unknown as DocumentsPersistence;
+
+  await persistDocumentState({
+    currentDoc,
+    currentRecord,
+    documentProjectors: createDocumentProjectorRegistry([]),
+    execSql: createNoopExecSql(),
+    localId: "local-document",
+    patch: { lastCommitLsn: "42" },
+    persistence,
+  });
+
+  expect(savedFrontiers).toEqual(["stored-frontier"]);
+});
+
 test("guarded deletion aborts before reading or deleting the durable row", async () => {
   let loads = 0;
   let deletes = 0;

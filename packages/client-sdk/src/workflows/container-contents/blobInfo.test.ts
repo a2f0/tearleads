@@ -17,7 +17,7 @@ async function saveBlobInfoTestDocument(input: {
     documentKind: "note",
     id: input.id,
     lastCommitLsn: null,
-    loroSnapshot: "",
+    snapshotEndVersion: "",
     text: input.title,
     title: input.title,
   });

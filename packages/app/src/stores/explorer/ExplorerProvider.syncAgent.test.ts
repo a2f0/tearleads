@@ -52,7 +52,8 @@ test("explorer snapshot update skips notifications when node contents are unchan
       record: {
         id: "root-container",
         documentId: null,
-        loroSnapshot: "",
+        metadataUpdates: "",
+        snapshotEndVersion: "",
         accessEpoch: 1,
       },
     });
@@ -108,7 +109,8 @@ test("explorer snapshot update emits when only node sync state changes", async (
       record: {
         id: "root-container",
         documentId: null,
-        loroSnapshot: "",
+        metadataUpdates: "",
+        snapshotEndVersion: "",
         accessEpoch: 1,
       },
     };
@@ -449,7 +451,8 @@ test("explorer sync skips pending metadata updates for containers without docume
               documentId: null,
               id: "local-container",
               lastCommitLsn: null,
-              loroSnapshot: "",
+              metadataUpdates: "",
+              snapshotEndVersion: "",
               contentKeyBundle: null,
               documentKekTargets: null,
               documentManifestBundle: null,

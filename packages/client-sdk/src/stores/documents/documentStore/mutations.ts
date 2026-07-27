@@ -1,5 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { getTextValue } from "@tearleads/loro";
+import { encodeVersionVector, getTextValue } from "@tearleads/loro";
 import {
   projectStoredDocumentState,
   type StoredDocumentKind,
@@ -133,6 +133,10 @@ function queueDocumentTextWrite(
 
       writeDoc.getText("text").update(value);
       const update = pendingDeltaSinceBase(state, writeDoc);
+      // Captured at delta time: the enqueued row proves durable coverage up
+      // to exactly this version, so this is the frontier the persist may
+      // publish (a raced later edit publishes its own on its own persist).
+      const coveredVersion = encodeVersionVector(writeDoc);
 
       await enqueuePendingUpdate(state, update);
       if (!isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)) {
@@ -141,7 +145,7 @@ function queueDocumentTextWrite(
       const persisted = await persistDocument(
         state,
         writeDoc,
-        {},
+        { snapshotEndVersion: coveredVersion },
         { preserveSnapshotText: true },
         syncGeneration,
       );
@@ -257,6 +261,10 @@ function queueDocumentStructuredFieldWrite(
       if (update.byteLength === 0) {
         return;
       }
+      // Captured at delta time: the durable row written below (queue
+      // dual-write or in-mutation tail append) proves coverage up to exactly
+      // this version, so it is the frontier this persist may publish.
+      const coveredVersion = encodeVersionVector(writeDoc);
 
       if (!options.deferRemoteSync) {
         await enqueuePendingUpdate(state, update);
@@ -264,13 +272,23 @@ function queueDocumentStructuredFieldWrite(
           return;
         }
       }
+      // A deferred write advances the record's content frontier AHEAD of the
+      // outgoing queue (the op is re-derived by the next edit). Its delta
+      // rides in the persist's own claimed mutation as a durable-history tail
+      // row written before the record — the tail is the only content store,
+      // so the record frontier must never durably lead the tail row that
+      // holds its content. Passed as an option (no pre-persist await) so this
+      // write adds no extra hop that would change cross-store interleaving.
       const persisted = await persistDocument(
         state,
         writeDoc,
-        {},
+        { snapshotEndVersion: coveredVersion },
         {
           preserveSnapshotStructuredFields: true,
           preserveSnapshotText: true,
+          ...(options.deferRemoteSync
+            ? { historyUpdates: [bytesToBase64(update)] }
+            : {}),
         },
         syncGeneration,
       );
@@ -280,19 +298,7 @@ function queueDocumentStructuredFieldWrite(
       ) {
         return;
       }
-      if (options.deferRemoteSync) {
-        // A deferred write persists the snapshot AHEAD of the outgoing queue
-        // (the op is re-derived by the next edit). Keep the durable-history
-        // tail covering it too, or the next restart's full-history restore
-        // would lag the shallow snapshot and fall back. Appended AFTER the
-        // persist so this write adds no await before it (an extra pre-persist
-        // hop changes cross-store interleaving); a crash in between falls
-        // back to the shallow restore until the next edit re-derives it.
-        await state.persistence.appendHistoryUpdates?.(
-          state.runtime.infra.execSql,
-          { localId: state.localId, updates: [bytesToBase64(update)] },
-        );
-      } else {
+      if (!options.deferRemoteSync) {
         advancePendingBaseVersion(state, writeDoc);
         requestDocumentStoreSync(state);
       }

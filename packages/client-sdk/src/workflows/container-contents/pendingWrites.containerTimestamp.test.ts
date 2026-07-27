@@ -27,7 +27,8 @@ test("listPendingWrites exposes an otherwise-uncovered local container timestamp
         accessStateHash: "access-container-a",
         documentId: "metadata-container-a",
         id: "container-a",
-        loroSnapshot: "",
+        metadataUpdates: "",
+        snapshotEndVersion: "",
       },
       {
         localUpdatedAt: serverUpdatedAt,

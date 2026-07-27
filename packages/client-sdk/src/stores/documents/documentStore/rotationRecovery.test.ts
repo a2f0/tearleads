@@ -2,15 +2,11 @@ import { expect, test } from "bun:test";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
-  emptyVersionVector,
   encodeVersionVector,
   exportFullHistorySnapshot,
-  exportShallowSnapshot,
-  getImportBlobMetadata,
   getTextValue,
   importSnapshot,
   importUpdates,
-  versionVectorsEqual,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
@@ -40,6 +36,37 @@ const ignoredPersistenceEffects = {
   emitPersistedDocument: () => undefined,
   registerDocumentIdentity: () => undefined,
 };
+
+/**
+ * Persist a document the way production does: content into the durable
+ * history (checkpoint, no tail) and the record row carrying only the encoded
+ * content frontier.
+ */
+async function persistFullHistoryDocument(input: {
+  doc: Awaited<ReturnType<typeof createDocument>>;
+  documentId: string;
+  execSql: Parameters<typeof sqlDocumentsPersistence.saveDocument>[0];
+  localId: string;
+}): Promise<void> {
+  const endVersion = encodeVersionVector(input.doc);
+  await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(input.execSql, {
+    coveredTailIds: [],
+    endVersionVector: endVersion,
+    force: true,
+    localId: input.localId,
+    snapshot: bytesToBase64(exportFullHistorySnapshot(input.doc)),
+  });
+  await sqlDocumentsPersistence.saveDocument(input.execSql, {
+    id: input.localId,
+    containerId: "source-container",
+    documentId: input.documentId,
+    text: getTextValue(input.doc),
+    snapshotEndVersion: endVersion,
+    accessEpoch: 1,
+    effectiveAccessLevel: "admin",
+    pendingBaseVersion: endVersion,
+  });
+}
 
 function createRuntime(input: {
   fixture: Awaited<ReturnType<typeof createRemoteHistoryFixture>>;
@@ -132,67 +159,6 @@ function createRuntime(input: {
   };
 }
 
-test("a shallow restart heals before unlink and emits a fresh-reader baseline", async () => {
-  const { close, execSql } = await createTestExecSql("rotation-recovery");
-  try {
-    await sqlDocumentsPersistence.ensureSchema(execSql);
-    const fixture = await createRemoteHistoryFixture();
-    const localId = "rotation-recovery-local";
-    const remoteVersion = encodeVersionVector(fixture.remoteDocument);
-
-    // Simulate the normal local persistence/restart boundary: only the bounded
-    // shallow snapshot is retained in the document row.
-    await sqlDocumentsPersistence.saveDocument(execSql, {
-      id: localId,
-      containerId: "source-container",
-      documentId: fixture.writerProjection.documentId,
-      text: getTextValue(fixture.remoteDocument),
-      loroSnapshot: bytesToBase64(
-        exportShallowSnapshot(fixture.remoteDocument),
-      ),
-      accessEpoch: 1,
-      effectiveAccessLevel: "admin",
-      pendingBaseVersion: remoteVersion,
-    });
-
-    const runtime = createRuntime({ execSql, fixture });
-    const state = createDocumentStoreState(
-      localId,
-      runtime,
-      sqlDocumentsPersistence,
-      ignoredPersistenceEffects,
-      fixture.writerProjection.documentId,
-    );
-    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
-    if (!state.doc) {
-      throw new Error("Expected restarted document");
-    }
-    const restartedDoc = state.doc;
-    expect(() => exportFullHistorySnapshot(restartedDoc)).toThrow(
-      "shallow-restored state",
-    );
-
-    // Structural removal calls this before its remote unlink. Recovery pulls
-    // from an empty frontier, rebuilds a new full-history doc, then returns.
-    const baselineBytes = await assertDocumentStoreCanRotateContentKey(state);
-    expect(await listPendingUpdates(state)).toEqual([]);
-    const metadata = getImportBlobMetadata(baselineBytes);
-    expect(metadata.mode).toBe("snapshot");
-    expect(
-      versionVectorsEqual(
-        metadata.partialStartVersionVector,
-        emptyVersionVector(),
-      ),
-    ).toBe(true);
-
-    const freshReader = await createDocument("rotation-fresh-reader");
-    importSnapshot(freshReader, baselineBytes);
-    expect(getTextValue(freshReader)).toBe("survives key rotation");
-  } finally {
-    close();
-  }
-});
-
 test("a full-history preflight settles pending writes before returning its baseline", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-pending",
@@ -201,17 +167,11 @@ test("a full-history preflight settles pending writes before returning its basel
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const fixture = await createRemoteHistoryFixture();
     const localId = "rotation-recovery-pending-local";
-    await sqlDocumentsPersistence.saveDocument(execSql, {
-      id: localId,
-      containerId: "source-container",
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
       documentId: fixture.writerProjection.documentId,
-      text: getTextValue(fixture.remoteDocument),
-      loroSnapshot: bytesToBase64(
-        exportFullHistorySnapshot(fixture.remoteDocument),
-      ),
-      accessEpoch: 1,
-      effectiveAccessLevel: "admin",
-      pendingBaseVersion: encodeVersionVector(fixture.remoteDocument),
+      execSql,
+      localId,
     });
 
     const syncCalls = { count: 0 };
@@ -256,15 +216,11 @@ test("a clean full-history preflight pulls a newer committed remote frontier", a
     const localId = "rotation-recovery-remote-ahead-local";
     const behindReader = await createDocument("rotation-behind-reader");
     importSnapshot(behindReader, fixture.behindSnapshot);
-    await sqlDocumentsPersistence.saveDocument(execSql, {
-      id: localId,
-      containerId: "source-container",
+    await persistFullHistoryDocument({
+      doc: behindReader,
       documentId: fixture.writerProjection.documentId,
-      text: getTextValue(behindReader),
-      loroSnapshot: bytesToBase64(fixture.behindSnapshot),
-      accessEpoch: 1,
-      effectiveAccessLevel: "admin",
-      pendingBaseVersion: encodeVersionVector(behindReader),
+      execSql,
+      localId,
     });
 
     const syncCalls = { count: 0 };
@@ -298,15 +254,11 @@ test("a text edit queued during rotation applies to the rebuilt document", async
     const localId = "rotation-recovery-queued-edit-local";
     const behindReader = await createDocument("rotation-queued-edit-behind");
     importSnapshot(behindReader, fixture.behindSnapshot);
-    await sqlDocumentsPersistence.saveDocument(execSql, {
-      id: localId,
-      containerId: "source-container",
+    await persistFullHistoryDocument({
+      doc: behindReader,
       documentId: fixture.writerProjection.documentId,
-      text: getTextValue(behindReader),
-      loroSnapshot: bytesToBase64(fixture.behindSnapshot),
-      accessEpoch: 1,
-      effectiveAccessLevel: "admin",
-      pendingBaseVersion: encodeVersionVector(behindReader),
+      execSql,
+      localId,
     });
 
     const state = createDocumentStoreState(
@@ -344,17 +296,11 @@ test("rotation preflight fails closed offline and can retry once online", async 
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const fixture = await createRemoteHistoryFixture();
     const localId = "rotation-recovery-offline-local";
-    await sqlDocumentsPersistence.saveDocument(execSql, {
-      id: localId,
-      containerId: "source-container",
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
       documentId: fixture.writerProjection.documentId,
-      text: getTextValue(fixture.remoteDocument),
-      loroSnapshot: bytesToBase64(
-        exportFullHistorySnapshot(fixture.remoteDocument),
-      ),
-      accessEpoch: 1,
-      effectiveAccessLevel: "admin",
-      pendingBaseVersion: encodeVersionVector(fixture.remoteDocument),
+      execSql,
+      localId,
     });
 
     const syncCalls = { count: 0 };
@@ -400,17 +346,11 @@ test("an edit after preflight remains replayable after the new key metadata is p
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const fixture = await createRemoteHistoryFixture();
     const localId = "rotation-preflight-window-local";
-    await sqlDocumentsPersistence.saveDocument(execSql, {
-      id: localId,
-      containerId: "source-container",
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
       documentId: fixture.writerProjection.documentId,
-      text: getTextValue(fixture.remoteDocument),
-      loroSnapshot: bytesToBase64(
-        exportFullHistorySnapshot(fixture.remoteDocument),
-      ),
-      accessEpoch: 1,
-      effectiveAccessLevel: "admin",
-      pendingBaseVersion: encodeVersionVector(fixture.remoteDocument),
+      execSql,
+      localId,
     });
     const state = createDocumentStoreState(
       localId,

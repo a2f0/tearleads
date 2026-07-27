@@ -14,8 +14,6 @@ import {
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import {
   createContainerParentLaneBatchMock,
   createContainerWriterProjectionFixture,
@@ -202,14 +200,6 @@ export function cloneDocumentsTestRuntime(
       },
     }),
   );
-}
-
-export async function createPersistedDocumentSnapshot(
-  text: string,
-): Promise<string> {
-  const doc = await createDocument("persisted-document-fixture");
-  doc.getText("text").update(text);
-  return bytesToBase64(exportAllUpdates(doc));
 }
 
 export async function createDocumentContainerProjection(input: {

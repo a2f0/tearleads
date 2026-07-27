@@ -178,25 +178,32 @@ test("the tail compacts into a fresh checkpoint past the row threshold", async (
   }
 });
 
-test("a legacy shallow-only row keeps its behavior and a deferred edit wins over the checkpoint", async () => {
-  const { close, execSql } = await createTestExecSql("history-fallbacks");
+test("a tail-only scope (crash before the birth checkpoint) still restores", async () => {
+  const { close, execSql } = await createTestExecSql("history-tail-only");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
+    // Model the crash window: the first edit's tail row landed (the enqueue
+    // dual-write) and the record persisted, but the birth checkpoint never
+    // did. The tail row is the only durable copy of the edit.
+    const author = await createDocument("tail-only-author");
+    author.getText("text").update("only durable copy");
+    author.commit();
+    await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      localId: "tail-only-doc",
+      updates: [bytesToBase64(exportAllUpdates(author))],
+    });
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      id: "tail-only-doc",
+      accessEpoch: 1,
+      containerId: null,
+      documentId: null,
+      snapshotEndVersion: encodeVersionVector(author),
+      text: "only durable copy",
+    });
 
-    // Deferred-edit safety valve: persist a snapshot AHEAD of the durable
-    // queue/tail (deferRemoteSync shape). The restore must prefer the shallow
-    // snapshot over the (lagging) checkpoint+tail — losing the deferred edit
-    // would drop user data.
-    const state = await openStore(execSql, "deferred-doc");
-    await setDocumentText(state, () => undefined, "enqueued edit");
-    if (!state.doc) throw new Error("expected live doc");
-    state.doc.getText("text").update("enqueued edit plus deferred");
-    state.doc.commit();
-    await persistDocument(state, state.doc);
-
-    const reopened = await openStore(execSql, "deferred-doc");
+    const reopened = await openStore(execSql, "tail-only-doc");
     if (!reopened.doc) throw new Error("expected restored doc");
-    expect(getTextValue(reopened.doc)).toBe("enqueued edit plus deferred");
+    expect(getTextValue(reopened.doc)).toBe("only durable copy");
   } finally {
     close();
   }
@@ -268,7 +275,7 @@ test("a deferred write covered by the tail restores with full history", async ()
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("enqueued edit plus deferred");
     // Because the tail covers the deferred delta, the restore keeps full
-    // history instead of falling back to the shallow snapshot.
+    // history including the deferred op.
     expect(() => {
       if (!reopened.doc) throw new Error("expected restored doc");
       exportFullHistorySnapshot(reopened.doc);

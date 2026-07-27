@@ -137,7 +137,8 @@ test("shareContainerState treats an existing matching user grant as an idempoten
         documentManifestBundle: "stale-document-manifest-bundle",
         id: containerId,
         lastCommitLsn: null,
-        loroSnapshot: bytesToBase64(initialUpdate),
+        metadataUpdates: bytesToBase64(initialUpdate),
+        snapshotEndVersion: "",
       },
     };
 
@@ -163,7 +164,8 @@ test("shareContainerState treats an existing matching user grant as an idempoten
       documentManifestBundle: null,
       id: containerId,
       lastCommitLsn: null,
-      loroSnapshot: expect.any(String),
+      metadataUpdates: expect.any(String),
+      snapshotEndVersion: "",
     });
     expect(shared?.container.metadataDocumentId).toBe(
       `${containerId}-metadata-document`,
@@ -261,7 +263,8 @@ test("shareContainerState reuses the idempotency projection for a new user share
         documentManifestBundle: null,
         id: containerId,
         lastCommitLsn: null,
-        loroSnapshot: bytesToBase64(initialUpdate),
+        metadataUpdates: bytesToBase64(initialUpdate),
+        snapshotEndVersion: "",
       },
     };
 
@@ -346,7 +349,8 @@ function createGroupShareContainerState(input: {
       documentManifestBundle: null,
       id: input.containerId,
       lastCommitLsn: null,
-      loroSnapshot: bytesToBase64(input.initialUpdate),
+      metadataUpdates: bytesToBase64(input.initialUpdate),
+      snapshotEndVersion: "",
     },
   };
 }

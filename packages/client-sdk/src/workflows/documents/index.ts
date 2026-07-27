@@ -36,6 +36,10 @@ export {
   documentWriterProjectionFromCreateResponse,
 } from "./create";
 export {
+  importDocumentHistoryTailUpdates,
+  loadPersistedDocumentContent,
+} from "./historyContent";
+export {
   buildMaterializedDocumentLinkSetMutationPlan,
   relinkRemoteDocument,
 } from "./linkSet";
@@ -91,11 +95,7 @@ export {
 } from "./syncLane";
 export type { RekeyPendingUpdate } from "./syncRecoveryRekey";
 export {
-  classifyHealBlockedReason,
   DOCUMENT_SYNC_TRACE_FRAGMENT,
   DOCUMENT_SYNC_TRACE_PATTERN,
-  traceHistoryRecovered,
-  traceHistoryRecoveryFailed,
-  traceHistoryRecoveryStart,
 } from "./syncTrace";
 export { createDocumentWriterPublicKeyResolver } from "./writerKeys";

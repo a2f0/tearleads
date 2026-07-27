@@ -65,7 +65,8 @@ test("explorer hydration logs a fresh-bootstrap re-pull as reconciling already-l
         documentId: input.metadataDocumentId,
         id: input.id,
         lastCommitLsn: null,
-        loroSnapshot: bytesToBase64(initialUpdate),
+        metadataUpdates: bytesToBase64(initialUpdate),
+        snapshotEndVersion: "",
       },
       updatedAt,
     );

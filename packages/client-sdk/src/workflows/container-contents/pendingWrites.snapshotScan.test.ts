@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
-  exportShallowSnapshot,
   satisfiesVersionVector,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
@@ -41,7 +39,8 @@ async function saveDeferredTailDocument(execSql: ExecSql): Promise<string> {
       accessStateHash: "access-root",
       documentId: "metadata-root",
       id: "root",
-      loroSnapshot: "",
+      metadataUpdates: "",
+      snapshotEndVersion: "",
     },
     {
       localUpdatedAt: UPDATED_AT,
@@ -57,8 +56,8 @@ async function saveDeferredTailDocument(execSql: ExecSql): Promise<string> {
       documentId: "remote-scan-doc",
       documentKind: "note",
       id: "scan-document",
-      loroSnapshot: bytesToBase64(exportShallowSnapshot(doc)),
       pendingBaseVersion,
+      snapshotEndVersion: encodeVersionVector(doc),
       text: "deferred tail",
       title: "Scan document",
     },
@@ -67,7 +66,7 @@ async function saveDeferredTailDocument(execSql: ExecSql): Promise<string> {
   return encodeVersionVector(doc);
 }
 
-test("listPendingWrites never selects or filters on loro_snapshot", async () => {
+test("listPendingWrites never queries the durable content tables", async () => {
   const { close, execSql } = await createTestExecSql(
     "pending-writes-snapshot-scan",
   );
@@ -93,14 +92,16 @@ test("listPendingWrites never selects or filters on loro_snapshot", async () => 
     expect(
       capturedSql.some((sql) => sql.includes("snapshot_end_version")),
     ).toBe(true);
-    // ...while the listing never materializes snapshot blobs: with content
-    // embedded in documents (1000-file stress profile) a loro_snapshot scan
-    // is O(total stored content) and re-fires while sync drains. Schema DDL
-    // (CREATE/ALTER/PRAGMA) legitimately names the column; queries must not.
+    // ...while the listing never materializes content blobs: content lives in
+    // the durable-history tables (checkpoint + tail), and with the 1000-file
+    // stress profile a content scan is O(total stored content) that re-fires
+    // while sync drains. Schema DDL (CREATE/ALTER/PRAGMA) legitimately names
+    // the tables; queries must not touch them.
     expect(
       capturedSql.filter(
         (sql) =>
-          sql.includes("loro_snapshot") &&
+          (sql.includes("document_history_checkpoints") ||
+            sql.includes("document_history_updates")) &&
           !/^\s*(?:CREATE|ALTER|PRAGMA)/iu.test(sql),
       ),
     ).toEqual([]);
@@ -109,7 +110,7 @@ test("listPendingWrites never selects or filters on loro_snapshot", async () => 
   }
 });
 
-test("document writers persist the snapshot end version derived from the stored snapshot", async () => {
+test("document writers persist the snapshot end version of the saved content", async () => {
   const { close, execSql } = await createTestExecSql(
     "pending-writes-snapshot-end-version",
   );

@@ -40,7 +40,8 @@ function containerState(input: {
       accessStateHash: input.synced ? `access-${input.id}` : "",
       documentId: input.synced ? `metadata-${input.id}` : "",
       id: `record-${input.id}`,
-      loroSnapshot: "",
+      metadataUpdates: "",
+      snapshotEndVersion: "",
     },
   };
 }

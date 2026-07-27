@@ -36,7 +36,8 @@ function remoteContainerState(input: {
       accessEpoch: 1,
       documentId: `metadata-${input.id}`,
       id: `record-${input.id}`,
-      loroSnapshot: "",
+      metadataUpdates: "",
+      snapshotEndVersion: "",
     },
   };
 }

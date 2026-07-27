@@ -4,10 +4,13 @@ import {
   createMemoryBlobStore,
 } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
-  cloneDocumentsTestRuntime,
-  createPersistedDocumentSnapshot,
-} from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
+  createDocument,
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+} from "@tearleads/loro";
+import { cloneDocumentsTestRuntime } from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createOfflineAttachmentRuntime } from "../../../../test/helpers/document-store/documentStoreSyncRuntime";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
@@ -30,8 +33,19 @@ test("an attachment slot lost to an interrupted write is recovered on init", asy
     { infra: { blobStore: createMemoryBlobStore() } },
   );
 
-  // The persisted snapshot has NO attachment slot (the slot's op + snapshot
+  // The persisted content has NO attachment slot (the slot's op + content
   // persist never landed), but the pending-attachment row survived the crash.
+  // Content is seeded the way production persists it: a durable-history
+  // checkpoint plus a record row carrying the content frontier.
+  const persistedDoc = await createDocument("persisted-document-fixture");
+  persistedDoc.getText("text").update("note text");
+  await persistence.replaceHistoryCheckpoint?.(runtime.infra.execSql, {
+    coveredTailIds: [],
+    endVersionVector: encodeVersionVector(persistedDoc),
+    force: true,
+    localId,
+    snapshot: bytesToBase64(exportFullHistorySnapshot(persistedDoc)),
+  });
   await persistence.saveDocument(runtime.infra.execSql, {
     accessEpoch: 1,
     accessStateHash: null,
@@ -40,7 +54,7 @@ test("an attachment slot lost to an interrupted write is recovered on init", asy
     effectiveAccessLevel: "admin",
     id: localId,
     lastCommitLsn: "0/10",
-    loroSnapshot: await createPersistedDocumentSnapshot("note text"),
+    snapshotEndVersion: encodeVersionVector(persistedDoc),
     text: "note text",
     contentKeyBundle: "content-key-bundle",
     documentKekTargets: "kek-targets",

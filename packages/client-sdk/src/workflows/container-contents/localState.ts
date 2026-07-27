@@ -6,10 +6,10 @@ import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
-import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
+  type ContainerMetadataRecord,
   enqueuePendingContainerUpdate,
   type StoredContainerState,
 } from "./containerPersistence";
@@ -23,15 +23,16 @@ type SaveContainerOptions = Parameters<
 
 function createInitialContainerContentsContainerRecord(input: {
   container: StoredContainerState["container"];
-  loroSnapshot: string;
-}): DocumentRecord {
+  metadataUpdates: string;
+}): ContainerMetadataRecord {
   return {
     accessEpoch: 1,
     accessStateHash: null,
     documentId: input.container.metadataDocumentId,
     id: input.container.id,
     lastCommitLsn: null,
-    loroSnapshot: input.loroSnapshot,
+    metadataUpdates: input.metadataUpdates,
+    snapshotEndVersion: "",
     contentKeyBundle: null,
     documentKekTargets: null,
     documentManifestBundle: null,
@@ -64,8 +65,8 @@ async function hydrateStoredContainerStateState(input: {
   let nextContainer = container;
   let nextRecord = storedContainer.record;
 
-  if (nextRecord?.loroSnapshot) {
-    importUpdates(doc, [base64ToBytes(nextRecord.loroSnapshot)]);
+  if (nextRecord?.metadataUpdates) {
+    importUpdates(doc, [base64ToBytes(nextRecord.metadataUpdates)]);
     const metadata = readContainerMetadataValue(
       doc,
       getDefaultContainerName(container.parentId),
@@ -91,7 +92,7 @@ async function hydrateStoredContainerStateState(input: {
     const initialUpdate = exportAllUpdates(doc);
     nextRecord = createInitialContainerContentsContainerRecord({
       container,
-      loroSnapshot: bytesToBase64(initialUpdate),
+      metadataUpdates: bytesToBase64(initialUpdate),
     });
     await persistence.saveContainer(execSql, nextContainer, nextRecord);
 

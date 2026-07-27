@@ -47,7 +47,7 @@ export async function saveTestDocument(input: {
       documentId: input.documentId,
       documentKind: input.kind ?? "note",
       id: input.id,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: input.title,
       title: input.title,
     },

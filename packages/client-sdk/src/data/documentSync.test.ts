@@ -4,9 +4,7 @@ import {
   encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
-  exportShallowSnapshot,
   exportUpdatesSince,
-  importSnapshot,
 } from "@tearleads/loro";
 import {
   createPendingUpdateFields,
@@ -86,16 +84,14 @@ test("createPendingUpdateFields keeps a full-history baseline", async () => {
   expect(fields).not.toBeNull();
 });
 
-test("createPendingUpdateFields rejects a dependency-bearing rotation baseline", async () => {
+test("createPendingUpdateFields rejects a non-snapshot rotation baseline", async () => {
   const doc = await createDocument("documentsync-test-seed-4");
   doc.getText("text").update("baseline content");
-  const restarted = await createDocument("documentsync-test-seed-4");
-  importSnapshot(restarted, exportShallowSnapshot(doc));
 
+  // An updates-mode export is never a self-contained baseline: replaying it
+  // requires history the reader may not have, so rotation must refuse it and
+  // demand a full-history snapshot.
   expect(() =>
-    createPendingUpdateFields(
-      exportAllUpdates(restarted),
-      encodeVersionVector(restarted),
-    ),
+    createPendingUpdateFields(exportAllUpdates(doc), encodeVersionVector(doc)),
   ).toThrow("full-history Loro snapshot");
 });

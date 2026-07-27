@@ -35,6 +35,12 @@ const accessLevelColumn = "effective_access_level";
 /**
  * Durable Loro-backed document records shared by app features.
  *
+ * Greenfield reset (2026-07): the legacy `loro_snapshot` content column was
+ * removed WITHOUT a migration, deliberately — every identity, client
+ * database, and server database from before the reset is destroyed and
+ * re-provisioned, so no pre-reset database ever meets this schema. Content
+ * lives exclusively in the durable-history tables below.
+ *
  * This table stores encrypted document runtime state for multiple app domains.
  * `appKind` namespaces records for documents and container metadata. User-facing
  * list data is projected into feature-specific read models.
@@ -46,7 +52,6 @@ const accessLevelColumn = "effective_access_level";
  *   server `documentId` exists.
  * - `documentId`: Server document id once the record is known remotely, or
  *   `null` while the document is local-only.
- * - `loroSnapshot`: Serialized Loro document snapshot.
  * - `accessEpoch`: Latest access epoch persisted for the document. Defaults to
  *   the initial epoch.
  * - `accessStateHash`: Current document access/manifest state hash returned by
@@ -57,15 +62,16 @@ const accessLevelColumn = "effective_access_level";
  * - `contentKeyBundle`: Serialized content-key material needed to open the
  *   local document.
  * - `documentKekTargets`: Serialized KEK target state for document key wraps.
- * - `pendingBaseVersion`: Encoded oplog version through which every op in
- *   `loroSnapshot` is already enqueued or synced. Persisted so a restart
- *   restores the outgoing-delta marker instead of re-seeding it past a
- *   device-first `deferRemoteSync` write's un-advanced op. `null` when unset.
- * - `snapshotEndVersion`: Encoded end version vector of `loroSnapshot`,
- *   derived at write time. Lets the pending-write queue's deferred-tail scan
- *   compare version coverage without selecting or decoding the snapshot blob.
- *   Empty string when no snapshot is stored (or a legacy row has not been
- *   re-persisted yet), which readers treat as "no deferred tail claimable".
+ * - `pendingBaseVersion`: Encoded oplog version through which every persisted
+ *   op is already enqueued or synced. Persisted so a restart restores the
+ *   outgoing-delta marker instead of re-seeding it past a device-first
+ *   `deferRemoteSync` write's un-advanced op. `null` when unset.
+ * - `snapshotEndVersion`: Encoded end version vector of the persisted content
+ *   (which lives in the durable-history tables, never on this row), written on
+ *   every content persist. Lets the pending-write queue's deferred-tail scan
+ *   compare version coverage without loading content. Empty string when the
+ *   document has never hydrated content, which readers treat as "no deferred
+ *   tail claimable".
  * - `updatedAt`: Local timestamp for the last persisted runtime-state update.
  *
  * Indexes:
@@ -79,7 +85,6 @@ export const documents = sqliteTable(
     appKind: text("app_kind").notNull(),
     localId: text("local_id").notNull(),
     documentId: text("document_id"),
-    loroSnapshot: text("loro_snapshot").notNull(),
     accessEpoch: integer("access_epoch").notNull().default(1),
     accessStateHash: text("access_state_hash"),
     effectiveAccessLevel: text(accessLevelColumn).notNull().default("read"),
@@ -179,17 +184,15 @@ export const documentSyncFailures = sqliteTable(
 );
 
 /**
- * Full-history persistence for local documents (checkpoint + tail).
- *
- * `documents.loroSnapshot` is a SHALLOW snapshot — cheap to export per
- * keystroke but it discards op history, so a restarted device could no longer
- * produce the full-history baselines that content-key heals, rotations, and
- * unlinks require. These two tables keep history durable without per-write
- * full exports: the checkpoint holds a full-history snapshot refreshed only
- * at compaction, and the tail appends every update (local deltas and
- * decrypted remote updates) written since. Restore = import checkpoint +
- * replay tail; compaction = export full history from the live doc, replace
- * the checkpoint, clear the tail — all bounded and amortized.
+ * Full-history persistence for local documents (checkpoint + tail) — the ONLY
+ * durable content source. Record rows in `documents` carry runtime metadata
+ * and the content frontier (`snapshotEndVersion`), never content. The
+ * checkpoint holds a full-history snapshot refreshed only at compaction, and
+ * the tail appends every update (local deltas and decrypted remote updates)
+ * written since. Restore = import checkpoint + replay tail; compaction =
+ * export full history from the live doc, replace the checkpoint, clear the
+ * tail — all bounded and amortized. Container metadata stores its content (an
+ * exported-updates blob) as its checkpoint row, with no tail.
  */
 export const documentHistoryCheckpoints = sqliteTable(
   "document_history_checkpoints",

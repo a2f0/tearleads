@@ -161,7 +161,8 @@ test("explorer sync replays moved synced containers from disk after restart and 
         documentId: input.metadataDocumentId,
         id: input.id,
         lastCommitLsn: null,
-        loroSnapshot: bytesToBase64(initialUpdate),
+        metadataUpdates: bytesToBase64(initialUpdate),
+        snapshotEndVersion: "",
       },
       syncedAt,
     );

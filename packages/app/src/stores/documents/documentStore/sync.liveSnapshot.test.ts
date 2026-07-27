@@ -6,6 +6,8 @@ import {
   getOrCreateDomainSyncCoordinator,
 } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
+import { getImportBlobMetadata } from "@tearleads/loro";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { cloneDocumentsTestRuntime } from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
@@ -103,6 +105,37 @@ test("streamed peer text publishes after a local write settles", async () => {
     receiverRuntime.infra.execSql,
     structuredClone(baseRecord),
   );
+  // A record row alone carries no content: copy the peer's durable history
+  // too, the way a real receiver's own writes would have seeded it — the
+  // record and its checkpoint+tail are always written together in production.
+  const peerHistory = await peerPersistence.loadHistoryRestoreState?.(
+    receiverRuntime.infra.execSql,
+    "live-snapshot-note",
+  );
+  if (!peerHistory) {
+    throw new Error("Expected peer durable history to seed the receiver.");
+  }
+  await receiverBasePersistence.replaceHistoryCheckpoint?.(
+    receiverRuntime.infra.execSql,
+    {
+      coveredTailIds: [],
+      endVersionVector: getImportBlobMetadata(
+        base64ToBytes(peerHistory.snapshot),
+      ).partialEndVersionVector,
+      force: true,
+      localId: "live-snapshot-note",
+      snapshot: peerHistory.snapshot,
+    },
+  );
+  if (peerHistory.tailUpdates.length > 0) {
+    await receiverBasePersistence.appendHistoryUpdates?.(
+      receiverRuntime.infra.execSql,
+      {
+        localId: "live-snapshot-note",
+        updates: [...peerHistory.tailUpdates],
+      },
+    );
+  }
   const receiverStore = createDocumentStore(
     "live-snapshot-note",
     receiverRuntime,

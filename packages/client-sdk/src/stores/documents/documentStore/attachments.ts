@@ -1,3 +1,4 @@
+import { encodeVersionVector } from "@tearleads/loro";
 import {
   blobByteSourceInputLength,
   createBlobByteSource,
@@ -194,6 +195,9 @@ async function persistAttachedFiles(
   );
   addDocumentAttachments(currentDoc, nextAttachments);
   const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
+  // Captured at delta time: the enqueued row proves coverage up to exactly
+  // this version, so it is the frontier the persist below may publish.
+  const coveredVersion = encodeVersionVector(currentDoc);
 
   await persistPendingAttachments(state, files, nextPendingAttachments);
 
@@ -205,10 +209,15 @@ async function persistAttachedFiles(
   // re-derives attachments from the doc, but preserve the text/structured
   // fields so an attach that overlaps an in-flight keystroke does not republish
   // a stale doc read over the live optimistic editor value.
-  await persistDocument(state, currentDoc, undefined, {
-    preserveSnapshotStructuredFields: true,
-    preserveSnapshotText: true,
-  });
+  await persistDocument(
+    state,
+    currentDoc,
+    { snapshotEndVersion: coveredVersion },
+    {
+      preserveSnapshotStructuredFields: true,
+      preserveSnapshotText: true,
+    },
+  );
   advancePendingBaseVersion(state, currentDoc);
   logAttachedFiles(state, files.length);
   requestDocumentStoreSync(state);
@@ -237,6 +246,7 @@ async function persistSlotAttachmentFile(
   };
   addDocumentAttachments(currentDoc, [replacementAttachment]);
   const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
+  const coveredVersion = encodeVersionVector(currentDoc);
 
   const storageKey = `${state.localId}-${slotId}-${crypto.randomUUID()}`;
   await state.runtime.infra.blobStore.writeByteSource(
@@ -261,10 +271,15 @@ async function persistSlotAttachmentFile(
   }
   // Preserve the optimistic text/structured fields (see persistAttachedFiles):
   // a slot replacement overlapping a keystroke must not regress the editor.
-  await persistDocument(state, currentDoc, undefined, {
-    preserveSnapshotStructuredFields: true,
-    preserveSnapshotText: true,
-  });
+  await persistDocument(
+    state,
+    currentDoc,
+    { snapshotEndVersion: coveredVersion },
+    {
+      preserveSnapshotStructuredFields: true,
+      preserveSnapshotText: true,
+    },
+  );
   advancePendingBaseVersion(state, currentDoc);
   state.runtime.util.log(`Queued attachment ${file.name} for slot ${slotId}.`);
   requestDocumentStoreSync(state);
@@ -326,6 +341,7 @@ async function persistRemovedAttachment(
   const storageKey = state.attachmentStorageKeyBySlotId[slotId];
   removeDocumentAttachment(currentDoc, slotId);
   const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
+  const coveredVersion = encodeVersionVector(currentDoc);
   if (attachmentUpdate.byteLength > 0) {
     await enqueuePendingUpdate(state, attachmentUpdate);
   }
@@ -354,10 +370,15 @@ async function persistRemovedAttachment(
 
   // Preserve the optimistic text/structured fields (see persistAttachedFiles):
   // removing an attachment while typing must not regress the editor.
-  await persistDocument(state, currentDoc, undefined, {
-    preserveSnapshotStructuredFields: true,
-    preserveSnapshotText: true,
-  });
+  await persistDocument(
+    state,
+    currentDoc,
+    { snapshotEndVersion: coveredVersion },
+    {
+      preserveSnapshotStructuredFields: true,
+      preserveSnapshotText: true,
+    },
+  );
   advancePendingBaseVersion(state, currentDoc);
   state.runtime.util.log(
     `Removed attachment ${existingAttachment.name} from document ${state.localId}.`,

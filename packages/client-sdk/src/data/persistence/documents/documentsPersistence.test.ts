@@ -50,7 +50,7 @@ test("saveDocumentAndDeletePendingUpdates saves document rows and clears accepte
           contentKeyBundle: "content-key-bundle-2",
           id: "local-document-1",
           lastCommitLsn: "0/16B6C50",
-          loroSnapshot: "snapshot-2",
+          snapshotEndVersion: "end-version-2",
           text: "Saved text",
         },
         [acceptedUpdate.id, acceptedUpdate.id, "missing"],
@@ -73,7 +73,7 @@ test("saveDocumentAndDeletePendingUpdates saves document rows and clears accepte
       contentKeyBundle: "content-key-bundle-2",
       id: "local-document-1",
       lastCommitLsn: "0/16B6C50",
-      loroSnapshot: "snapshot-2",
+      snapshotEndVersion: "end-version-2",
       text: "Saved text",
     });
   } finally {

@@ -340,19 +340,12 @@ function resolveSyncedContainerMetadataWriterProjection(
 
 /**
  * Heals a stale metadata content-key bundle by rotating to a fresh content
- * key anchored by this full-history snapshot; null when the local doc cannot
- * produce one (e.g. shallow history), which defers the sync with a log line.
+ * key anchored by this full-history snapshot.
  */
 function metadataRotationSnapshotProvider(
   metadataState: ContainerMetadataState,
 ): () => Promise<Uint8Array | null> {
-  return async () => {
-    try {
-      return exportFullHistorySnapshot(metadataState.doc);
-    } catch {
-      return null;
-    }
-  };
+  return async () => exportFullHistorySnapshot(metadataState.doc);
 }
 
 export async function syncContainerMetadataState(input: {

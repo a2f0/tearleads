@@ -19,6 +19,11 @@ interface PendingUpdateDetailRow extends PendingUpdateLengthRow {
   partial_end_version_vector: string | null;
 }
 
+interface StoredHistoryState {
+  checkpoint: { endVersionVector: string; snapshot: string } | null;
+  tail: { id: string; updateData: string }[];
+}
+
 export function readRowValue(value: unknown, key: string): unknown {
   return isPlainObject(value) ? value[key] : undefined;
 }
@@ -73,6 +78,16 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
   let localAttachments: LocalAttachmentRecord[] = [];
   let pendingAttachments: PendingAttachmentRecord[] = [];
   let pendingUpdates: PendingUpdateRecord[] = [];
+  const historyByLocalId = new Map<string, StoredHistoryState>();
+
+  const historyFor = (localId: string): StoredHistoryState => {
+    let history = historyByLocalId.get(localId);
+    if (!history) {
+      history = { checkpoint: null, tail: [] };
+      historyByLocalId.set(localId, history);
+    }
+    return history;
+  };
 
   const buildDocumentSummaries = (): DocumentSummary[] =>
     document
@@ -164,6 +179,7 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       if (document?.id === localId) {
         document = null;
       }
+      historyByLocalId.delete(localId);
       pendingUpdates = [];
       pendingAttachments = pendingAttachments.filter(
         (attachment) => attachment.localId !== localId,
@@ -172,13 +188,63 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
         (attachment) => attachment.localId !== localId,
       );
     },
+    async appendHistoryUpdates(_execSql, input) {
+      const history = historyFor(input.localId);
+      history.tail = [
+        ...history.tail,
+        ...input.updates.map((updateData) => ({
+          id: crypto.randomUUID(),
+          updateData,
+        })),
+      ];
+    },
+    async loadHistoryRestoreState(_execSql, localId) {
+      const history = historyByLocalId.get(localId);
+      if (!history || (!history.checkpoint && history.tail.length === 0)) {
+        return null;
+      }
+      // Mirror the SQL persistence: a tail without a checkpoint restores as
+      // tail-only (empty snapshot) rather than being silently ignored.
+      return {
+        snapshot: history.checkpoint?.snapshot ?? "",
+        tailUpdates: history.tail.map((entry) => entry.updateData),
+      };
+    },
+    async readHistoryTailSize(_execSql, localId) {
+      const history = historyFor(localId);
+      return {
+        byteLength: history.tail.reduce(
+          (total, entry) => total + entry.updateData.length,
+          0,
+        ),
+        hasCheckpoint: history.checkpoint !== null,
+        rowCount: history.tail.length,
+      };
+    },
+    async listHistoryTailEntries(_execSql, localId) {
+      return historyFor(localId).tail.map((entry) => ({ ...entry }));
+    },
+    async replaceHistoryCheckpoint(_execSql, input) {
+      if (input.stillCurrent && !input.stillCurrent()) {
+        return;
+      }
+      const history = historyFor(input.localId);
+      const coveredTailIds = new Set(input.coveredTailIds);
+      history.checkpoint = {
+        endVersionVector: input.endVersionVector,
+        snapshot: input.snapshot,
+      };
+      history.tail = history.tail.filter(
+        (entry) => !coveredTailIds.has(entry.id),
+      );
+    },
     async upsertDiscoveredDocument(_execSql, input) {
       const nextDocument = {
         accessEpoch: input.accessEpoch,
         containerId: input.containerId,
         documentId: input.documentId,
         id: document?.id ?? input.documentId,
-        loroSnapshot: document?.loroSnapshot ?? "",
+        snapshotEndVersion: document?.snapshotEndVersion ?? "",
         text: document?.text ?? "",
       };
       document = nextDocument;
@@ -243,6 +309,14 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
           sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
           updateData: pendingUpdate.updateData,
         },
+      ];
+      // Mirror the SQL persistence: every enqueued update is dual-written to
+      // the durable-history tail in the same transaction, so a restore
+      // rebuilds queued-but-unsynced local edits from checkpoint + tail.
+      const history = historyFor(pendingUpdate.localId);
+      history.tail = [
+        ...history.tail,
+        { id: crypto.randomUUID(), updateData: pendingUpdate.updateData },
       ];
     },
     async deletePendingUpdate(_execSql, id: string) {

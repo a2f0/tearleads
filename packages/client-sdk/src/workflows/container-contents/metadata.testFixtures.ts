@@ -1,6 +1,8 @@
-import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import type {
+  ContainerContentsPersistence,
+  ContainerMetadataRecord as ContainerDocumentRecord,
+} from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
-import type { DocumentRecord as ContainerDocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 export const metadataTestExecSql: ExecSql = async () => [];
@@ -33,7 +35,8 @@ export function createDocumentRecord(
     documentKekTargets: null,
     documentManifestBundle: null,
     lastCommitLsn: null,
-    loroSnapshot: "",
+    metadataUpdates: "",
+    snapshotEndVersion: "",
     ...input,
   };
 }

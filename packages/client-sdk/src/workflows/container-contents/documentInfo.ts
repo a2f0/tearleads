@@ -1,3 +1,5 @@
+import { bytesToBase64 } from "@tearleads/encoding";
+import { exportFullHistorySnapshot } from "@tearleads/loro";
 import type {
   BlobAttachmentSummary,
   ContainerWriterProjectionResponse,
@@ -23,6 +25,7 @@ import {
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { loadPersistedDocumentContent } from "../documents/historyContent";
 import { computeDocumentBlame } from "./documentCharacterBlame";
 import { computeFieldBlame } from "./documentFieldBlame";
 import type {
@@ -216,12 +219,12 @@ async function loadLocalDocumentInfo(input: {
   localId: string;
 }): Promise<{
   attachments: DocumentInfoAttachment[];
+  contentSnapshot: string | null;
   local: DocumentInfoLocalDetails;
-  loroSnapshot: string | null;
 }> {
   const fallback = {
     attachments: [],
-    loroSnapshot: null,
+    contentSnapshot: null,
     local: {
       accessEpoch: null,
       accessStateHash: null,
@@ -248,7 +251,7 @@ async function loadLocalDocumentInfo(input: {
 
   await sqlDocumentsPersistence.ensureSchema(input.execSql);
   const { db } = getClientSQLitePersistenceRuntime(input.execSql);
-  const [document, pendingUpdates, attachments, projectionRows] =
+  const [document, pendingUpdates, attachments, projectionRows, contentDoc] =
     await Promise.all([
       sqlDocumentsPersistence.loadDocument(input.execSql, input.localId),
       sqlDocumentsPersistence.listPendingUpdates(input.execSql, input.localId),
@@ -261,6 +264,11 @@ async function loadLocalDocumentInfo(input: {
         .from(documentProjection)
         .where(eq(documentProjection.localId, input.localId))
         .limit(1),
+      loadPersistedDocumentContent({
+        execSql: input.execSql,
+        localId: input.localId,
+        persistence: sqlDocumentsPersistence,
+      }).catch(() => null),
     ]);
 
   if (!document) {
@@ -273,7 +281,12 @@ async function loadLocalDocumentInfo(input: {
 
   return {
     attachments,
-    loroSnapshot: document.loroSnapshot,
+    // Blame reads op-level provenance out of a serialized snapshot; export the
+    // durable-history content for it. Degrades to null (blame unavailable)
+    // rather than failing the Info panel.
+    contentSnapshot: contentDoc
+      ? bytesToBase64(exportFullHistorySnapshot(contentDoc))
+      : null,
     local: {
       accessEpoch: document.accessEpoch,
       accessStateHash: document.accessStateHash ?? null,
@@ -405,7 +418,7 @@ export async function loadDocumentInfo(input: {
   localId: string;
   remoteInfoMode?: DocumentInfoRemoteMode | undefined;
 }): Promise<DocumentInfo> {
-  const { attachments, local, loroSnapshot } = await loadLocalDocumentInfo({
+  const { attachments, contentSnapshot, local } = await loadLocalDocumentInfo({
     execSql: input.execSql ?? null,
     localId: input.localId,
   });
@@ -443,7 +456,7 @@ export async function loadDocumentInfo(input: {
   const attributionComplete = attribution && !attribution.truncated;
   const attributionSegments = attribution?.segments ?? [];
   const blame = attributionComplete
-    ? computeDocumentBlame(loroSnapshot, attributionSegments)
+    ? computeDocumentBlame(contentSnapshot, attributionSegments)
     : null;
   return {
     attachments,
@@ -457,7 +470,7 @@ export async function loadDocumentInfo(input: {
         ? summarizeDocumentContributors(attributionSegments)
         : [],
       fieldBlame: attributionComplete
-        ? computeFieldBlame(loroSnapshot, attributionSegments)
+        ? computeFieldBlame(contentSnapshot, attributionSegments)
         : null,
       projection,
     }),

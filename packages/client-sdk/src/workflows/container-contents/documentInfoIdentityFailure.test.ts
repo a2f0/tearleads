@@ -24,7 +24,7 @@ test("document info propagates attribution identity failures instead of returnin
       documentKind: "note",
       id: "local-document",
       lastCommitLsn: null,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: "",
       title: "Document",
     });

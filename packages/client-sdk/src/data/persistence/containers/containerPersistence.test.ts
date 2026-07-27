@@ -278,7 +278,7 @@ test("containerContents system container reconciliation adopts local rows into t
       documentManifestBundle: null,
       id: "document-local-1",
       lastCommitLsn: null,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: "Hello",
       title: "Hello",
     });

@@ -3,10 +3,10 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { PendingWriteQueueObjectKind } from "../pendingWritesTypes";
 import type { PendingWriteCandidate } from "./aggregation";
 
-// Deliberately never selects (or filters on) `loro_snapshot`: the diagnostic
-// listing runs repeatedly while sync drains, and materializing every snapshot
-// blob made the scan O(total document content). `snapshot_end_version` is the
-// write-time-derived end version vector of the stored snapshot.
+// Deliberately never loads document content: the diagnostic listing runs
+// repeatedly while sync drains, and materializing every content blob would
+// make the scan O(total document content). `snapshot_end_version` is the
+// write-time-derived end version vector of the persisted content.
 const DEFERRED_TAIL_CANDIDATE_SQL = `
   SELECT
     stored.app_kind AS app_kind,

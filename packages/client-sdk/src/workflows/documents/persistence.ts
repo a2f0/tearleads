@@ -1,5 +1,4 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { exportShallowSnapshot, getTextValue } from "@tearleads/loro";
+import { type encodeVersionVector, getTextValue } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
@@ -44,7 +43,7 @@ export {
 // re-export keeps data internals out of the stores.
 export { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
 
-type DocumentContentState = Parameters<typeof exportShallowSnapshot>[0];
+type DocumentContentState = Parameters<typeof encodeVersionVector>[0];
 type NullableDocumentRuntimeField =
   | "accessStateHash"
   | "lastCommitLsn"
@@ -219,8 +218,16 @@ function buildStoredDocumentRecord(input: {
         currentRecord?.lastCommitLsn,
         documentIdChanged,
       ),
-      loroSnapshot:
-        patch.loroSnapshot ?? bytesToBase64(exportShallowSnapshot(currentDoc)),
+      // Content lives in the durable history (checkpoint + tail); the record
+      // persists only the content frontier for priming/coverage predicates.
+      // A patch that does not advance it RETAINS the stored frontier: deriving
+      // from the mutable live document here could publish an in-flight edit's
+      // frontier before its durable row lands, so only callers that just made
+      // coverage durable (enqueue dual-write, in-mutation tail append, pulled
+      // -update append, checkpoint seed) pass the frontier they captured at
+      // that moment.
+      snapshotEndVersion:
+        patch.snapshotEndVersion ?? currentRecord?.snapshotEndVersion ?? "",
       // Carry the outgoing-delta marker the store injects into the patch, so it
       // is persisted alongside the snapshot it describes. A patched value is
       // authoritative (including an explicit null); only an absent key falls
@@ -294,6 +301,9 @@ interface PersistDocumentStateInput {
   currentRecord: StoredDocumentRecord | null;
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
+  // Durable-history tail rows appended inside the same claimed mutation as
+  // the record write, before it (see the ordering comment at the call site).
+  historyUpdates?: readonly string[] | undefined;
   localId: string;
   patch?: Partial<StoredDocumentRecord> | undefined;
   persistence: DocumentsPersistence;
@@ -326,6 +336,17 @@ export async function persistDocumentState(
   }
 
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    // Deferred-write deltas ride in the same claimed mutation as the record
+    // write, appended FIRST: the tail is the only durable content store, so
+    // a crash between the two leaves a tail row ahead of the record frontier
+    // — the restore replays it and the next edit re-derives the outgoing
+    // delta — never a published frontier whose content no durable row holds.
+    if (input.historyUpdates && input.historyUpdates.length > 0) {
+      await persistence.appendHistoryUpdates(lockedExecSql, {
+        localId,
+        updates: input.historyUpdates,
+      });
+    }
     // A persist that does not manage container placement (a background
     // document sync ships content-key/manifest metadata with no container)
     // must not let an in-memory record re-assert a stale container. Read the

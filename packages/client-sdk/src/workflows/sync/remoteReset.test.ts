@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createDocument, exportAllUpdates } from "@tearleads/loro";
+import {
+  createDocument,
+  encodeVersionVector,
+  exportAllUpdates,
+  exportFullHistorySnapshot,
+} from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { addDocumentAttachments } from "../../data/documents/documentContent";
 import {
@@ -22,6 +27,7 @@ import {
   containers,
   documentAttachmentBlobProjection,
   documentContainerProjection,
+  documentHistoryCheckpoints,
   documentMoveIntents,
   documentPendingAttachments,
   documentPendingUpdates,
@@ -54,6 +60,12 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
     ]);
     const metadataDoc = await createDocument("remote-reset-test-metadata");
     metadataDoc.getMap("container").set("name", "Child");
+    // Content lives ONLY in the durable-history tables; the record rows carry
+    // just the content frontier. Export before encoding so pending ops commit.
+    const docSnapshot = bytesToBase64(exportFullHistorySnapshot(doc));
+    const docVersion = encodeVersionVector(doc);
+    const metadataSnapshot = bytesToBase64(exportAllUpdates(metadataDoc));
+    const metadataVersion = encodeVersionVector(metadataDoc);
 
     await db.transaction(async (tx) => {
       await tx.insert(containers).values([
@@ -85,7 +97,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
           appKind: "documents",
           localId: "doc-1",
           documentId: "doc-remote-old",
-          loroSnapshot: bytesToBase64(exportAllUpdates(doc)),
+          snapshotEndVersion: docVersion,
           accessEpoch: 8,
           accessStateHash: "old-access-state",
           lastCommitLsn: "22",
@@ -98,13 +110,31 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
           appKind: "container-metadata",
           localId: "child",
           documentId: "child-metadata-remote",
-          loroSnapshot: bytesToBase64(exportAllUpdates(metadataDoc)),
+          snapshotEndVersion: metadataVersion,
           accessEpoch: 4,
           accessStateHash: "old-metadata-access-state",
           lastCommitLsn: "11",
           documentManifestBundle: "{}",
           contentKeyBundle: "{}",
           documentKekTargets: "{}",
+          updatedAt: stale,
+        },
+      ]);
+      await tx.insert(documentHistoryCheckpoints).values([
+        {
+          appKind: "documents",
+          localId: "doc-1",
+          snapshot: docSnapshot,
+          endVersionVector: docVersion,
+          revision: "revision-doc-1",
+          updatedAt: stale,
+        },
+        {
+          appKind: "container-metadata",
+          localId: "child",
+          snapshot: metadataSnapshot,
+          endVersionVector: metadataVersion,
+          revision: "revision-child",
           updatedAt: stale,
         },
       ]);
@@ -357,6 +387,8 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         localId: "doc-1",
       }),
     ]);
+    // The durable history is the only content source and must survive a reset.
+    expect(await db.select().from(documentHistoryCheckpoints)).toHaveLength(2);
     const pendingUpdates = await db.select().from(documentPendingUpdates);
     expect(pendingUpdates).toHaveLength(2);
     expect(pendingUpdates.every((row) => row.updateData !== "old")).toBe(true);

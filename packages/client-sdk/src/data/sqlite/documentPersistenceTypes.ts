@@ -3,7 +3,13 @@ import type { ContainerAccessLevel } from "@tearleads/crypto";
 export interface DocumentRecord {
   id: string;
   documentId: string | null;
-  loroSnapshot: string;
+  /**
+   * Encoded end version vector of the persisted content frontier. Content
+   * itself lives in the durable history (checkpoint + tail); this column
+   * exists so priming and coverage predicates can compare versions from a
+   * narrow indexed column. Empty string means "never hydrated".
+   */
+  snapshotEndVersion: string;
   accessEpoch: number;
   accessStateHash?: string | null;
   effectiveAccessLevel?: ContainerAccessLevel | null;
@@ -39,7 +45,7 @@ export interface DocumentScope {
 export interface SelectedDocumentRecordRow {
   id: string;
   documentId: string | null;
-  loroSnapshot: string;
+  snapshotEndVersion: string;
   accessEpoch: number;
   accessStateHash: string | null;
   effectiveAccessLevel: string | null;

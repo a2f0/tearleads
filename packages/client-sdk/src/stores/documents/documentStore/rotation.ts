@@ -77,14 +77,7 @@ async function pullVerifiedHistoryForRotation(input: {
       // does, instead of aborting the rotation preflight.
       buildRotationSnapshot: async () => {
         const currentDoc = input.state.doc;
-        if (!currentDoc) {
-          return null;
-        }
-        try {
-          return exportFullHistorySnapshot(currentDoc);
-        } catch {
-          return null;
-        }
+        return currentDoc ? exportFullHistorySnapshot(currentDoc) : null;
       },
       documentId,
       execSql: input.state.runtime.infra.execSql,
@@ -148,23 +141,16 @@ async function recoverFullHistoryForRotation(
   const capturedVersion = encodeVersionVector(currentDoc);
   const uncoveredLocalDelta = pendingDeltaSinceBase(state, currentDoc);
   const pendingUpdates = await listPendingUpdates(state);
-  let localFullHistorySnapshot: Uint8Array | null = null;
-  try {
-    localFullHistorySnapshot = exportFullHistorySnapshot(currentDoc);
-  } catch {
-    // A shallow-restored document cannot seed a replayable baseline. Pull all
-    // remote history below and rebuild into a brand-new empty document.
-  }
+  const localFullHistorySnapshot = exportFullHistorySnapshot(currentDoc);
 
   // Always perform a verified pull. Another writer may have advanced the
   // remote frontier since our last sync; submitting the clean but stale local
   // snapshot would otherwise fail the atomic coverage check on every retry.
-  // Full-history locals can request only their missing tail; shallow locals
-  // pull from the empty frontier because they cannot seed a replayable rebuild.
+  // The local full history seeds the rebuild, so request only the missing
+  // tail beyond the captured version.
   const synced = await pullVerifiedHistoryForRotation({
     currentRecord,
-    localVersionVector:
-      localFullHistorySnapshot === null ? null : capturedVersion,
+    localVersionVector: capturedVersion,
     pendingUpdates,
     state,
   });
@@ -183,9 +169,7 @@ async function recoverFullHistoryForRotation(
     }
 
     const rebuiltDoc = await createStoredDocument(state);
-    if (localFullHistorySnapshot !== null) {
-      importSnapshot(rebuiltDoc, localFullHistorySnapshot);
-    }
+    importSnapshot(rebuiltDoc, localFullHistorySnapshot);
     importSyncedDocumentUpdates(rebuiltDoc, synced.decryptedUpdates);
     // A successful write pull normally echoes accepted local updates, but
     // merge the durable queue too so recovery does not depend on that

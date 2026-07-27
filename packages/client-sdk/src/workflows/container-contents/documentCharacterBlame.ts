@@ -14,17 +14,16 @@ import {
 const MAX_BLAME_CHARACTER_COUNT = 50_000;
 
 /**
- * Rebuild the document's per-character op ids from the locally persisted snapshot
- * (a shallow snapshot still carries every present character's op id) and resolve
- * them against the attribution segments — in a single snapshot reconstruction —
- * into both the per-writer blame summary and the coalesced per-writer ranges.
- * Returns null when blame can't be produced: no local snapshot, a snapshot too
- * large to scan cheaply, or an unreadable snapshot — blame is supplementary and
- * must never block (or blank) the rest of the Info panel, mirroring the
- * attribution fetch's degrade-to-null.
+ * Rebuild the document's per-character op ids from the locally persisted
+ * content snapshot and resolve them against the attribution segments — in a
+ * single snapshot reconstruction — into both the per-writer blame summary and
+ * the coalesced per-writer ranges. Returns null when blame can't be produced:
+ * no local snapshot, a snapshot too large to scan cheaply, or an unreadable
+ * snapshot — blame is supplementary and must never block (or blank) the rest
+ * of the Info panel, mirroring the attribution fetch's degrade-to-null.
  */
 export function computeDocumentBlame(
-  loroSnapshot: string | null,
+  contentSnapshot: string | null,
   segments: DocumentEditAttributionResponse["segments"],
 ): {
   /** Per-writer live-character counts (the Contributors-style rollup). */
@@ -32,12 +31,12 @@ export function computeDocumentBlame(
   /** Contiguous per-writer runs of the current prose (the read-only blame view). */
   blameRanges: DocumentBlameRange[];
 } | null {
-  if (!loroSnapshot || loroSnapshot.length === 0) {
+  if (!contentSnapshot || contentSnapshot.length === 0) {
     return null;
   }
   try {
     const source = listSnapshotCharBlameSource(
-      base64ToBytes(loroSnapshot),
+      base64ToBytes(contentSnapshot),
       MAX_BLAME_CHARACTER_COUNT,
     );
     if (source === null) {

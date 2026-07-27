@@ -1,4 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
+import { getImportBlobMetadata, mergeVersionVectors } from "@tearleads/loro";
 import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
 import {
   type DocumentRecord,
@@ -20,10 +21,6 @@ import {
   logRevalidationApplied as logApplied,
   logRevalidationUnavailable as logUnavailable,
 } from "./remoteRevalidationTelemetry";
-import {
-  isStaleHealSnapshotUnavailableError,
-  recoverStaleHealFullHistory,
-} from "./staleHealRecovery";
 import {
   type DocumentState,
   type DocumentStoreState,
@@ -180,12 +177,38 @@ async function appendPulledUpdatesToHistory(
   if (synced.decryptedUpdates.length === 0) {
     return;
   }
-  await state.persistence.appendHistoryUpdates?.(state.runtime.infra.execSql, {
+  await state.persistence.appendHistoryUpdates(state.runtime.infra.execSql, {
     localId: state.localId,
     updates: synced.decryptedUpdates.map((update) =>
       bytesToBase64(update.updateData),
     ),
   });
+}
+
+/**
+ * The frontier a finalize persist may publish: the stored frontier advanced
+ * by exactly the pulled updates just appended to the durable tail — never the
+ * live document's version, which can transiently include an in-flight local
+ * edit whose durable row has not landed yet.
+ */
+function coveredSyncFrontier(
+  state: DocumentStoreState,
+  currentRecord: DocumentRecord,
+  synced: DocumentSyncAttempt["synced"],
+): { snapshotEndVersion: string } | Record<string, never> {
+  if (synced.decryptedUpdates.length === 0) {
+    return {};
+  }
+  const liveFrontier = (state.record ?? currentRecord).snapshotEndVersion;
+  return {
+    snapshotEndVersion: mergeVersionVectors([
+      ...(liveFrontier.length > 0 ? [liveFrontier] : []),
+      ...synced.decryptedUpdates.map(
+        (update) =>
+          getImportBlobMetadata(update.updateData).partialEndVersionVector,
+      ),
+    ]),
+  };
 }
 
 async function finalizeDocumentSync(
@@ -254,6 +277,7 @@ async function finalizeDocumentSync(
         ...synced.persistedState,
         lastCommitLsn:
           synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
+        ...coveredSyncFrontier(state, currentRecord, synced),
       },
       {
         acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
@@ -497,21 +521,10 @@ async function runScheduledSyncIteration(state: DocumentStoreState) {
 
   try {
     await runDocumentSyncPass(state);
-    state.staleHealHistoryRecoveryAttempts = 0;
     return true;
   } catch (error) {
     if (isDatabaseUnavailableError(error)) {
       return false;
-    }
-    // A heal blocked on shallow local history can rebuild that history from
-    // the remote op log (decryptable again via the projection's historical
-    // KEK epochs) and retry. Anything else keeps its normal failure path.
-    if (
-      isStaleHealSnapshotUnavailableError(error) &&
-      (await recoverStaleHealFullHistory(state))
-    ) {
-      requestDocumentStoreSync(state);
-      return true;
     }
 
     throw error;
