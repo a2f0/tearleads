@@ -178,7 +178,7 @@ async function resolveCurrentContainerManifestRefs(
   const resolved = flatRefs.map(({ ref, refLabel }) => {
     const stored = storedBundles.get(ref.manifestHash);
     if (!stored || stored.manifest.objectKind !== "container") {
-      // 409, not 404 — a document-route 404 is the legacy client wipe signal.
+      // 409, not 404 — a document-route 404 is the client's wipe signal.
       throw new DocumentMutationError(`${refLabel} head missing`, 409);
     }
 

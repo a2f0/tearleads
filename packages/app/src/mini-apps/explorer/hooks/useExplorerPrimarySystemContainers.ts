@@ -2,7 +2,6 @@ import type { ContainerNode } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { getContactsContainerId } from "../../../stores/contacts/contactsSystemSlot";
 import { useExplorerPrimaryOrganizationId } from "./useExplorerPrimaryOrganizationId";
 
@@ -43,17 +42,13 @@ export function useExplorerPrimarySystemContainers(input: {
   appData: RuntimeSnapshot;
   contactsSystemSlot: ContainerSystemSlot | null;
   nodes: ReadonlyArray<ContainerNode>;
-  ready: boolean;
 }): {
   contactsContainerId: string | null;
   primaryOrganizationId: string | null;
 } {
-  const tearleads = useTearleads();
   const primaryOrganizationId = useExplorerPrimaryOrganizationId({
     appData: input.appData,
     nodes: input.nodes,
-    ready: input.ready,
-    tearleads,
   });
   const systemContainers = useMemo(
     () =>

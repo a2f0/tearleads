@@ -16,7 +16,6 @@ import {
   type StripeSeatSyncClaim,
 } from "../../workflows/billing/stripeSeatSyncClaim";
 import type { ApiServiceRuntime } from "../runtime";
-import { runStripeSeatDiscovery } from "./stripeSeatDiscovery";
 
 const DEFAULT_LIMIT = 100;
 const PRORATION_ELIGIBLE_STATUSES: ReadonlySet<string> = new Set([
@@ -265,9 +264,8 @@ export async function runStripeSeatSynchronization(
 ): Promise<StripeSeatSyncSummary> {
   const now = options.now ?? new Date();
   const limit = Math.max(1, options.limit ?? DEFAULT_LIMIT);
-  const discovery = await runStripeSeatDiscovery(runtime, { limit, now }, deps);
-  let attempted = discovery.attempted;
-  let failed = discovery.failed;
+  let attempted = 0;
+  let failed = 0;
   let synced = 0;
 
   while (attempted < limit) {

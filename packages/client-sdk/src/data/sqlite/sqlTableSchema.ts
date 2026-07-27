@@ -20,11 +20,6 @@ export interface SqlTableSchema {
   indexes?: ReadonlyArray<string>;
 }
 
-interface SqlColumnMigration {
-  name: string;
-  definition: string;
-}
-
 const sqliteDialect = new SQLiteSyncDialect();
 
 function renderIdentifier(name: string): string {
@@ -188,38 +183,4 @@ export async function ensureSqlTables(
   for (const table of pendingTables) {
     markCompletedConnectionOnce(execSql, getTableEnsureKey(table));
   }
-}
-
-export async function ensureSqlColumns(
-  execSql: ExecSql,
-  tableName: string,
-  columns: ReadonlyArray<SqlColumnMigration>,
-): Promise<void> {
-  const ensureKey = `sql-columns:${tableName}:${columns
-    .map((column) => column.name)
-    .join(",")}`;
-  if (hasCompletedConnectionOnce(execSql, ensureKey)) {
-    return;
-  }
-
-  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    const rows = await lockedExecSql(
-      `PRAGMA table_info(${renderIdentifier(tableName)})`,
-    );
-    const existingColumns = new Set(
-      rows.flatMap((row) => {
-        const name = Reflect.get(row, "name");
-        return typeof name === "string" ? [name] : [];
-      }),
-    );
-
-    for (const column of columns) {
-      if (!existingColumns.has(column.name)) {
-        await lockedExecSql(
-          `ALTER TABLE ${renderIdentifier(tableName)} ADD COLUMN ${column.definition}`,
-        );
-      }
-    }
-  });
-  markCompletedConnectionOnce(execSql, ensureKey);
 }

@@ -113,8 +113,8 @@ function pickManagementUrl(
     return matched ? matched.managementUrl : null;
   }
 
-  // No stored reference (e.g. a legacy billing row written before these ids
-  // were persisted): fall back to the sole access-giving subscription; with
+  // No stored subscription/transaction reference on the billing row: fall
+  // back to the sole access-giving subscription; with
   // several and nothing to disambiguate, do not guess. Only a fully-retrieved
   // list is safe to reduce to a "sole" subscription — a partial list could omit
   // another org's subscription and make one look sole.

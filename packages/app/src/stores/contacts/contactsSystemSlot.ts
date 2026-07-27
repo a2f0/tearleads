@@ -12,39 +12,6 @@ type ContactsContainerLookupNode = Pick<
   "id" | "organizationId" | "parentId" | "systemSlot"
 >;
 
-export function resolveContactsProjectionOrganizationId(input: {
-  contactsSystemSlot: ContainerSystemSlot | null;
-  defaultOrganizationId: string | null | undefined;
-  legacyPrimaryOrganizationId: string | null | undefined;
-  nodes: ReadonlyArray<ContactsContainerLookupNode> | null;
-}): string | null {
-  if (input.defaultOrganizationId) {
-    return input.defaultOrganizationId;
-  }
-
-  const projectedOrganizationIds = new Set(
-    input.contactsSystemSlot
-      ? (input.nodes ?? [])
-          .filter((node) => node.systemSlot === input.contactsSystemSlot)
-          .map((node) => node.organizationId)
-      : [],
-  );
-  if (
-    input.legacyPrimaryOrganizationId &&
-    projectedOrganizationIds.has(input.legacyPrimaryOrganizationId)
-  ) {
-    return input.legacyPrimaryOrganizationId;
-  }
-  if (projectedOrganizationIds.size === 1) {
-    return projectedOrganizationIds.values().next().value ?? null;
-  }
-
-  // A legacy session has no authoritative default-org id. One projected org is
-  // unambiguous; when stale same-slot Contacts containers collide, prefer the
-  // legacy primary instead of whichever node happens to be listed first.
-  return input.legacyPrimaryOrganizationId || null;
-}
-
 export function resolveContactsProjectionRootContainerId(input: {
   activeOrganizationId: string | null | undefined;
   activeRootContainerId: string | null | undefined;

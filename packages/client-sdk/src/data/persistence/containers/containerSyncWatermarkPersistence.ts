@@ -9,7 +9,6 @@ import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenc
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 const CONTAINER_PARENT_LANE = "container_parent";
-// Durable SQLite lane kind; keep the existing value across facade renames.
 const CONTAINER_DOCUMENTS_LANE = "container_documents";
 const ROOT_CONTAINER_PARENT_LANE_ID = "root";
 const CONTAINER_PARENT_LANE_ID_PREFIX = "parent:";

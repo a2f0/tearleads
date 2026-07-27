@@ -11,12 +11,7 @@ import {
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 
-type StripeResolutionSource = "durable" | "legacy_metadata" | "provider";
-
-export type StripeStoreTransitionIntent =
-  | "continuing_grant"
-  | "initial_grant"
-  | "revoke";
+type StripeResolutionSource = "durable" | "provider";
 
 export type ImmutableStripeStoreOrgResolution =
   | {
@@ -124,21 +119,8 @@ export async function resolveImmutableStripeStoreOrganizationId(
   }
 
   const identifiers = [...new Set(stripeEventIdentifiers(event))];
-  const identifier = identifiers[0];
   const metadataOrganizationId =
     resolveOrganizationIdFromTransactionMetadata(event);
-  if (
-    identifiers.length === 1 &&
-    identifier?.startsWith("si_") &&
-    metadataOrganizationId
-  ) {
-    return {
-      identifiers,
-      kind: "resolved",
-      organizationId: metadataOrganizationId,
-      source: "legacy_metadata",
-    };
-  }
 
   const providerResolution = await resolveStripeStoreOrganizationId(
     event,
@@ -185,7 +167,6 @@ export async function validateLockedStripeStoreOrganizationId(input: {
   readonly billing: LockedBillingIdentity;
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
-  readonly intent: StripeStoreTransitionIntent;
   readonly resolution: Extract<
     ImmutableStripeStoreOrgResolution,
     { kind: "resolved" }
@@ -212,16 +193,6 @@ export async function validateLockedStripeStoreOrganizationId(input: {
   const [identifier] = input.resolution.identifiers;
   if (!identifier) {
     return false;
-  }
-  if (input.resolution.source === "legacy_metadata") {
-    const matchesCurrentIdentity =
-      input.billing.providerSubscriptionId === identifier &&
-      input.billing.providerCustomerId === input.event.app_user_id;
-    const isUnboundInitialGrant =
-      input.intent === "initial_grant" &&
-      input.billing.providerSubscriptionId === null &&
-      input.billing.providerCustomerId === null;
-    return matchesCurrentIdentity || isUnboundInitialGrant;
   }
   return (
     (input.billing.providerSubscriptionId === null ||

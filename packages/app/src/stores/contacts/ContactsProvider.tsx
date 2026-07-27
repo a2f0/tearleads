@@ -2,7 +2,6 @@ import type {
   ContainerContentsStore,
   ContainerNode,
   DocumentSummary,
-  Tearleads,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
@@ -31,7 +30,6 @@ import {
 import type { ContactsStore } from "./contactStore";
 import {
   getContactsContainerId,
-  resolveContactsProjectionOrganizationId,
   resolveContactsProjectionRootContainerId,
   useContactsSystemSlots,
 } from "./contactsSystemSlot";
@@ -84,63 +82,39 @@ function resolveContactsContainer(input: {
   };
 }
 
-function useContactsOrganizationPolicy(input: {
-  appData: RuntimeSnapshot;
-  nodeCount: number;
-  tearleads: Tearleads;
-}) {
+function useContactsOrganizationPolicy(input: { appData: RuntimeSnapshot }) {
   const primaryLocalOrganization = usePrimaryLocalOrganization({
     defaultOrganizationId: input.appData.auth.defaultOrganizationId,
     enabled:
       input.appData.auth.isAuthenticated &&
       input.appData.infra.dbStatus === "ready",
-    refreshKey: [
-      input.appData.auth.organizationId ?? "",
-      input.appData.state.containerId ?? "",
-      String(input.nodeCount),
-    ].join(":"),
-    tearleads: input.tearleads,
   });
-  const canBootstrap =
+  return (
     resolveContactsBootstrapPolicy({
       currentOrganizationId: input.appData.auth.organizationId,
       isAuthenticated: input.appData.auth.isAuthenticated,
       primaryLocalOrganization,
-    }) === true;
-
-  return { canBootstrap, primaryLocalOrganization };
+    }) === true
+  );
 }
 
 function useContactsSystemContainerResolution(input: {
   appData: RuntimeSnapshot;
   logError: (message: string | Error, cause?: unknown) => void;
   nodes: Parameters<typeof resolveContactsContainer>[0]["nodes"];
-  primaryLocalOrganization: {
-    readonly organizationId: string | null;
-  };
   signingPrivateKey: Uint8Array | null;
 }) {
-  const {
-    appData,
-    logError,
-    nodes,
-    primaryLocalOrganization,
-    signingPrivateKey,
-  } = input;
+  const { appData, logError, nodes, signingPrivateKey } = input;
   const { contactsSystemSlot, trashSystemSlot } = useContactsSystemSlots({
     logError,
     signingPrivateKey,
   });
   const contactsContainer = useMemo(() => {
     // Contacts is a personal system container. Activating a custom org changes
-    // the tree runtime, but the Contacts projection must stay on the default org.
+    // the tree runtime, but the Contacts projection must stay on the
+    // authoritative default org.
     const organizationId = appData.auth.isAuthenticated
-      ? resolveContactsProjectionOrganizationId({
-          contactsSystemSlot,
-          defaultOrganizationId: appData.auth.defaultOrganizationId,
-          legacyPrimaryOrganizationId: primaryLocalOrganization.organizationId,
-          nodes,
-        })
+      ? (appData.auth.defaultOrganizationId ?? null)
       : appData.auth.organizationId;
     if (appData.auth.isAuthenticated && !organizationId) {
       return {
@@ -173,7 +147,6 @@ function useContactsSystemContainerResolution(input: {
     appData.state.containerId,
     contactsSystemSlot,
     nodes,
-    primaryLocalOrganization.organizationId,
   ]);
 
   return { contactsContainer, contactsSystemSlot, trashSystemSlot };
@@ -298,26 +271,21 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
     containerContentsStore,
   );
-  const {
-    canBootstrap: canBootstrapContactsContainer,
-    primaryLocalOrganization,
-  } = useContactsOrganizationPolicy({
+  const canBootstrapContactsContainer = useContactsOrganizationPolicy({
     appData,
-    nodeCount: containerContentsSnapshot.nodes.length,
-    tearleads,
   });
   const { contactsContainer, contactsSystemSlot, trashSystemSlot } =
     useContactsSystemContainerResolution({
       appData,
       logError: tearleads.logError,
       nodes: containerContentsSnapshot.nodes,
-      primaryLocalOrganization,
       signingPrivateKey:
         containerContentsRuntime.crypto.signingKeyPair?.signingPrivateKey ??
         null,
     });
-  // The org equality is significant for legacy sessions: an ambiguous local
-  // index must never bootstrap another Contacts folder under the custom root.
+  // Contacts stays projected on the default org while a custom org is active,
+  // so the org equality keeps bootstrap from creating another Contacts folder
+  // under the custom root.
   const canBootstrapActiveContactsContainer = Boolean(
     canBootstrapContactsContainer &&
       (!appData.auth.isAuthenticated ||

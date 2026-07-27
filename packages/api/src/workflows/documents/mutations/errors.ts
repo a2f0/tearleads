@@ -88,9 +88,9 @@ function mapVerificationStatus(
 
 /**
  * Only documentNotFound() may reach the wire as a 404 on document routes —
- * clients answer that coded 404 with a destructive local teardown, and legacy
- * clients wipe on ANY document-route 404. A 404 from a store lookup (missing
- * head, bundle, or target) is not proof of deletion, so it degrades to 409.
+ * clients answer that coded 404 with a destructive local teardown. A 404 from
+ * a store lookup (missing head, bundle, or target) is not proof of deletion,
+ * so it degrades to 409.
  */
 function nonWipeStatus<Status extends number>(status: Status): Status | 409 {
   return status === 404 ? 409 : status;

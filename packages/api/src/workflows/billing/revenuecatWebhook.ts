@@ -25,7 +25,6 @@ import {
   type ImmutableStripeStoreOrgResolution,
   type LockedBillingIdentity,
   resolveImmutableStripeStoreOrganizationId,
-  type StripeStoreTransitionIntent,
   validateLockedStripeStoreOrganizationId,
 } from "./revenuecatStripeResolution";
 
@@ -172,18 +171,6 @@ type PreclaimDisposition =
   | { kind: "continue"; ignoredReason: string | null }
   | { kind: "retry"; reason: string };
 
-function resolveStripeTransitionIntent(
-  event: RevenueCatWebhookEvent,
-  transition: RevenueCatBillingTransition,
-): StripeStoreTransitionIntent {
-  if (transition.kind === "revoke") {
-    return "revoke";
-  }
-  return event.type === "INITIAL_PURCHASE"
-    ? "initial_grant"
-    : "continuing_grant";
-}
-
 async function resolvePreclaimDisposition(input: {
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
@@ -204,7 +191,6 @@ async function resolvePreclaimDisposition(input: {
       billing,
       event: input.event,
       executor: input.executor,
-      intent: resolveStripeTransitionIntent(input.event, input.transition),
       resolution: input.stripeResolution,
     }))
   ) {

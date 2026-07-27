@@ -17,11 +17,7 @@ import {
   type ClientSQLiteTransaction,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
-import {
-  type ExecSql,
-  ensureSqlColumns,
-  ensureSqlTables,
-} from "../../sqlite/sqlSchema";
+import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 export interface ContainerRecord {
   createdAt?: string | null;
@@ -49,14 +45,8 @@ interface ContainerRecordWithTimestampDefaults extends ContainerRecord {
   updatedAt: string | null;
 }
 
-export async function ensureContainerTables(execSql: ExecSql): Promise<void> {
-  await ensureSqlTables(execSql, containerTables);
-  await ensureSqlColumns(execSql, "containers", [
-    {
-      name: "effective_access_level",
-      definition: "\"effective_access_level\" TEXT NOT NULL DEFAULT 'read'",
-    },
-  ]);
+export function ensureContainerTables(execSql: ExecSql): Promise<void> {
+  return ensureSqlTables(execSql, containerTables);
 }
 
 interface SelectedContainerRecord {

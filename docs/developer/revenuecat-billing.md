@@ -24,8 +24,8 @@ Test Store package cannot carry the server-authoritative seat quantity, so
 RevenueCat capability with `purchasesEnabled: false`: identification and
 entitlement reads remain available, while package listing returns no options and
 purchase attempts fail closed. Keep RevenueCat's provider-hosted flow for
-native stores ([revenuecat-native-stores.md](./revenuecat-native-stores.md)) and
-legacy subscriptions only.
+native stores ([revenuecat-native-stores.md](./revenuecat-native-stores.md))
+only.
 
 ## Entitlement
 
@@ -63,10 +63,10 @@ bun run --filter=app-web dev
 - A **Test Store** key (`test_…`) can simulate RevenueCat purchases upstream,
   but Tearleads disables that purchase API on web. Test per-seat enrollment
   through direct checkout with Stripe test-mode keys instead.
-- A **Web Billing** key (`rcb_…`) may still observe entitlements and legacy
-  subscriptions from the connected Stripe account, but it does not enable new
-  Tearleads web purchases. The retained embedded adapter is legacy-only; do not
-  re-enable it without a server-authoritative quantity contract.
+- A **Web Billing** key (`rcb_…`) may still observe entitlements from the
+  connected Stripe account, but it does not enable Tearleads web purchases. Do
+  not re-enable the embedded adapter without a server-authoritative quantity
+  contract.
 
 ## RevenueCat webhook (server)
 
@@ -78,10 +78,9 @@ The route authenticates a shared secret sent in the `Authorization` header again
 Grant events update the organization's active billing period and reconcile its
 effective Members roster; revoke events disable sync. For Stripe-store events,
 the webhook first resolves exact `sub_…`/`si_…` IDs through the durable seat
-binding, with exact Stripe subscription metadata as the `sub_…` fallback. A
-lone legacy `si_…` may use immutable UUID `metadata.orgId` only for a matching
-identity or an unbound admin's initial purchase. Mutable attributes are never
-trusted; other unresolved state changes return 503 unclaimed for retry. Event
+binding, with exact Stripe subscription metadata as the `sub_…` fallback.
+Mutable attributes are never trusted; unresolved state changes return 503
+unclaimed for retry. Event
 quantities never update Stripe seats.
 
 - The server value comes from `.secrets/root.env` and is rendered into the API
@@ -219,14 +218,6 @@ high-water can never be applied after renewal. Only locally `active` billing
 rows are claimed, and capacity growth is prorated only while Stripe reports the
 subscription `active` or `trialing`; a `past_due` subscription backs off without
 creating another charge.
-
-Before draining normal targets, the worker seeds and discovers active legacy
-RevenueCat/Stripe web subscriptions whose billing rows carry an `si_…`
-subscription-item id. It resolves the live `sub_…` and exact price item from
-Stripe, preserves the current-period paid high-water, derives renewal quantity
-from effective Members, then runs normal reconciliation. Native-store rows and
-unbound trials are excluded. This repairs existing quantity-one web
-subscriptions without waiting for renewal.
 
 The API build emits `packages/api/dist/tearleads-stripe-seat-sync`; the deploy
 scripts copy it to `/opt/tearleads/bin/tearleads-stripe-seat-sync`. Ansible

@@ -3,8 +3,6 @@ import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { BlobInfoTable } from "./BlobInfoTable";
 
-const LEGACY_STORAGE_KEY = "tearleads.explorer.blob-browser:hidden-columns";
-const V2_STORAGE_KEY = "tearleads.blob-browser:hidden-columns:v2";
 const STORAGE_KEY = "tearleads.blob-browser:hidden-columns:v3";
 
 afterEach(() => {
@@ -103,67 +101,4 @@ test("organization cell falls back to its id and handles unknown attribution", (
   ).indexOf(organizationHeader);
   const row = unknownView.getByRole("button", { name: "blob-1" }).closest("tr");
   expect(row?.children[organizationColumnIndex]?.textContent).toBe("-");
-});
-
-test("legacy visibility preferences migrate while hiding organization", () => {
-  globalThis.localStorage.setItem(
-    LEGACY_STORAGE_KEY,
-    JSON.stringify(["mime", "updated"]),
-  );
-
-  const view = renderTable();
-
-  // The user's own two choices survive; each default that changed after they
-  // were saved joins them.
-  expect(globalThis.localStorage.getItem(STORAGE_KEY)).toBe(
-    JSON.stringify(["mime", "updated", "organization", "sync"]),
-  );
-  fireEvent.click(view.getByRole("button", { name: "Columns" }));
-  expect(
-    (
-      view.getByRole("checkbox", {
-        name: "MIME Off",
-      }) as HTMLInputElement
-    ).checked,
-  ).toBe(false);
-  expect(
-    (
-      view.getByRole("checkbox", {
-        name: "Updated Off",
-      }) as HTMLInputElement
-    ).checked,
-  ).toBe(false);
-  expect(
-    (
-      view.getByRole("checkbox", {
-        name: "Organization Off",
-      }) as HTMLInputElement
-    ).checked,
-  ).toBe(false);
-});
-
-test("an existing preference picks up the newly hidden sync column", () => {
-  // A stored preference is the complete hidden set, so the sync column becoming
-  // hidden by default has to reach the sets already saved — a user who had once
-  // opened the columns menu would otherwise keep the badge forever.
-  globalThis.localStorage.setItem(V2_STORAGE_KEY, JSON.stringify(["mime"]));
-
-  renderTable();
-
-  expect(globalThis.localStorage.getItem(STORAGE_KEY)).toBe(
-    JSON.stringify(["mime", "sync"]),
-  );
-});
-
-test("a migrated preference is not re-migrated over the user's own choice", () => {
-  // Re-enabling sync must stick: the current key existing is itself the
-  // "already migrated" answer.
-  globalThis.localStorage.setItem(V2_STORAGE_KEY, JSON.stringify(["mime"]));
-  globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(["mime"]));
-
-  renderTable();
-
-  expect(globalThis.localStorage.getItem(STORAGE_KEY)).toBe(
-    JSON.stringify(["mime"]),
-  );
 });

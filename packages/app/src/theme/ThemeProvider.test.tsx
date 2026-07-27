@@ -4,7 +4,6 @@ import { ThemeProvider } from "./ThemeProvider";
 import { ThemeToggleButton } from "./ThemeToggleButton";
 
 const CHOICE_KEY = "tearleads.theme.choice";
-const LEGACY_KEY = "tearleads.theme";
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 const originalMatchMedia = window.matchMedia;
@@ -45,7 +44,6 @@ afterEach(() => {
   cleanup();
   window.matchMedia = originalMatchMedia;
   globalThis.localStorage.removeItem(CHOICE_KEY);
-  globalThis.localStorage.removeItem(LEGACY_KEY);
   document.documentElement.removeAttribute("data-theme");
 });
 
@@ -95,32 +93,6 @@ test("follows a live OS preference change while the user has not chosen", () => 
   expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   // Still no explicit choice — the app is tracking the system, not storing it.
   expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
-  expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Light theme",
-  );
-});
-
-test("a legacy auto-persisted light default still follows the OS preference", () => {
-  // The regression the migration fixes: the old provider left "light" in storage
-  // for users who never chose, which must not pin them to light.
-  installMatchMedia(true);
-  globalThis.localStorage.setItem(LEGACY_KEY, "light");
-
-  const view = renderToggle();
-
-  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
-  expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Light theme",
-  );
-});
-
-test("a legacy explicit dark choice is preserved over the OS preference", () => {
-  installMatchMedia(false);
-  globalThis.localStorage.setItem(LEGACY_KEY, "dark");
-
-  const view = renderToggle();
-
-  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
     "Switch to Light theme",
   );

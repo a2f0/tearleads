@@ -1,5 +1,4 @@
 import { and, eq, or } from "drizzle-orm";
-import { ensureDocumentProjectionTables } from "../../data/sqlite/documentPersistence";
 import {
   organizationDataUsageCategories,
   organizationDataUsageSnapshots,
@@ -338,10 +337,6 @@ export async function clearRemoteSyncState(
 ): Promise<ClearRemoteSyncStateResult> {
   return runOrganizationPresentationReset(execSql, async () => {
     await ensureSqlTables(execSql, clientSqlTables);
-    // ensureSqlTables only creates missing tables. A reset can be the first
-    // thing a session does, so also run the projection column migrations before
-    // reading columns (detached_at) an upgraded database may not have yet.
-    await ensureDocumentProjectionTables(execSql);
     const plans = await buildResetPlans(execSql);
 
     return getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>

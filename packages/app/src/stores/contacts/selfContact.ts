@@ -35,12 +35,6 @@ export function isCurrentSelfContactLocalId(
   );
 }
 
-export function normalizeEnsureSelfContactInput(
-  input: string | EnsureSelfContactInput,
-): EnsureSelfContactInput {
-  return typeof input === "string" ? { userId: input } : input;
-}
-
 export function findPrimarySelfContact(
   entriesById: ReadonlyMap<string, ContactEntry>,
   identity: ResolvedSelfContactIdentity,

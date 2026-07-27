@@ -1,7 +1,7 @@
-import { afterEach, expect, mock, test } from "bun:test";
-import type { ContainerNode, Tearleads } from "@tearleads/client-sdk";
+import { afterEach, expect, test } from "bun:test";
+import type { ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { cleanup, renderHook } from "@testing-library/react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useExplorerPrimaryOrganizationId } from "./useExplorerPrimaryOrganizationId";
 
@@ -18,62 +18,7 @@ function rootNode(id: string, organizationId: string): ContainerNode {
   };
 }
 
-test("retains the personal organization through a transient unready snapshot", async () => {
-  const listLocalOrganizations = mock(async () => [
-    {
-      name: "Personal Org",
-      organizationId: "personal-org",
-      rootContainerId: "personal-root",
-    },
-  ]);
-  const tearleads = {
-    organizations: { listLocalOrganizations },
-  } as unknown as Tearleads;
-  const appData = {
-    auth: {
-      isAuthenticated: true,
-      organizationId: "custom-org",
-    },
-    infra: { dbStatus: "ready" },
-    state: { containerId: "custom-root" },
-  } as RuntimeSnapshot;
-  const nodes = [
-    rootNode("personal-root", "personal-org"),
-    rootNode("custom-root", "custom-org"),
-  ];
-  const view = renderHook(
-    ({ ready }) =>
-      useExplorerPrimaryOrganizationId({
-        appData,
-        nodes,
-        ready,
-        tearleads,
-      }),
-    { initialProps: { ready: true } },
-  );
-
-  await waitFor(() => expect(view.result.current).toBe("personal-org"));
-  view.rerender({ ready: false });
-  await waitFor(() => expect(view.result.current).toBe("personal-org"));
-  expect(listLocalOrganizations).toHaveBeenCalledTimes(1);
-});
-
-test("keeps the explicit default organization primary when the local index lists a foreign org first", () => {
-  const listLocalOrganizations = mock(async () => [
-    {
-      name: "Foreign Org",
-      organizationId: "custom-org",
-      rootContainerId: "custom-root",
-    },
-    {
-      name: "Personal Org",
-      organizationId: "personal-org",
-      rootContainerId: "personal-root",
-    },
-  ]);
-  const tearleads = {
-    organizations: { listLocalOrganizations },
-  } as unknown as Tearleads;
+test("the explicit default organization is primary while a custom org is active", () => {
   const appData = {
     auth: {
       defaultOrganizationId: "personal-org",
@@ -91,11 +36,8 @@ test("keeps the explicit default organization primary when the local index lists
     useExplorerPrimaryOrganizationId({
       appData,
       nodes,
-      ready: true,
-      tearleads,
     }),
   );
 
   expect(view.result.current).toBe("personal-org");
-  expect(listLocalOrganizations).toHaveBeenCalledTimes(0);
 });

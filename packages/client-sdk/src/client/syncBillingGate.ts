@@ -29,7 +29,7 @@ export class SyncBillingGate {
   }
 
   /**
-   * Whether remote sync is blocked for a specific organization. A legacy 402
+   * Whether remote sync is blocked for a specific organization. An unattributed 402
    * without an organization id is treated conservatively as applying to every
    * organization, while an identified block remains isolated to its target.
    */
@@ -87,7 +87,7 @@ export class SyncBillingGate {
 
   /**
    * Clear one recovered organization without disturbing other org blocks. A
-   * named recovery exempts only that org from a legacy unknown-org wildcard;
+   * named recovery exempts only that org from an unattributed unknown-org wildcard;
    * unrelated orgs remain conservatively blocked. Omitting the argument retains
    * the public clear-all behavior. Recovery does not notify subscribers because
    * the billing refetch that observed it already represents the state change.

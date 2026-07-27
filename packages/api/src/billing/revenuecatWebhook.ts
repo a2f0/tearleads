@@ -56,12 +56,9 @@ export const SANDBOX_IGNORED_REASON =
  * enrollment. What stands in for the guard is Stripe's own attribution: a
  * foreign-mode subscription cannot be resolved through the durable binding or
  * the exact `sub_…` lookup, both of which run against that tier's own Stripe
- * key and fail closed (`resolveImmutableStripeStoreOrganizationId`). The one
- * path that skips Stripe entirely is the legacy single-`si_`-plus-metadata
- * branch, which can only bind an org whose id the event already carries — a
- * cross-tier v4 UUID it would have to guess. The mutable `orgId` subscriber
- * attribute the native lane falls back on has no equivalent protection, which
- * is exactly why the guard exists there.
+ * key and fail closed (`resolveImmutableStripeStoreOrganizationId`). The
+ * mutable `orgId` subscriber attribute the native lane falls back on has no
+ * equivalent protection, which is exactly why the guard exists there.
  */
 function isGuardedSandboxEvent(event: RevenueCatWebhookEvent): boolean {
   if (event.store?.toUpperCase() === STRIPE_STORE) {
@@ -147,8 +144,7 @@ export function readRevenueCatWebhookAuthToken(
  * it was started for, even if the buyer began another org's purchase in the
  * meantime. The `orgId` *subscriber attribute* is customer-level and mutable
  * (each purchase overwrites it), so it is only the fallback for events that
- * carry no metadata — native store purchases, and events emitted before the
- * metadata stamping shipped.
+ * carry no metadata — native store purchases.
  *
  * Returns null when neither source holds a valid organization id (which a
  * caller treats as an ignorable event rather than querying the database with a
