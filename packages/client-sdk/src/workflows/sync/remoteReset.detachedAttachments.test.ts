@@ -88,34 +88,6 @@ async function seedResetFixture(
   return db;
 }
 
-test("clearRemoteSyncState migrates detached_at on an older database", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "sync-remote-reset-detached-migration-test",
-  );
-
-  try {
-    // The pre-detach-marker table shape. CREATE TABLE IF NOT EXISTS leaves it
-    // alone, so the reset itself has to add the column before it reads one.
-    await execSql(
-      `CREATE TABLE "document_attachment_blob_projection" (
-         "local_id" TEXT NOT NULL,
-         "slot_id" TEXT NOT NULL,
-         "blob_id" TEXT,
-         "storage_key" TEXT NOT NULL,
-         "mime_type" TEXT,
-         "byte_length" INTEGER NOT NULL,
-         "updated_at" TEXT NOT NULL,
-         PRIMARY KEY ("local_id", "slot_id")
-       )`,
-    );
-    await ensureSqlTables(execSql, clientSqlTables);
-
-    await expect(clearRemoteSyncState(execSql)).resolves.toBeDefined();
-  } finally {
-    close();
-  }
-});
-
 test("clearRemoteSyncState leaves an unlinked slot out of the requeue", async () => {
   const { close, execSql } = await createTestExecSql(
     "sync-remote-reset-detached-requeue-test",

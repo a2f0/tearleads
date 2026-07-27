@@ -2,7 +2,11 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 
 const BACKUP_FILE_FORMAT = "tearleads.local-backup.encrypted";
 export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
-export const BACKUP_FORMAT_VERSION = 2;
+// v3: greenfield reset (2026-07). Backups written before the reset carry the
+// pre-reset schema (row-blob content, no durable-history tables) and are
+// rejected outright rather than restored into a shape the runtime no longer
+// understands.
+export const BACKUP_FORMAT_VERSION = 3;
 
 const BACKUP_KDF_ITERATIONS = 250_000;
 const BACKUP_KDF_MIN_ITERATIONS = 1_000;
