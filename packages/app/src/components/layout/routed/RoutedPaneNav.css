@@ -1,9 +1,10 @@
 /*
  * Routed shell navigation surfaces: the tablet rail's app-link panel, the rail
  * itself, and the mobile bottom-sheet app launcher with its scrim. Shell grid,
- * app bar, main, and taskbar live in RoutedPane.css; the tier tokens
- * (--routed-rail-width, --routed-touch-target, ...) are declared there on
- * .routed-pane and cascade here.
+ * app bar, main, taskbar, and the shared `.routed-pane-iconbutton` live in
+ * RoutedPane.css; the tier tokens (--routed-rail-width,
+ * --routed-rail-collapsed-width, ...) are declared there on .routed-pane and
+ * cascade here.
  */
 
 /* === Navigation panel (tablet rail app links) === */
@@ -69,60 +70,30 @@
   width: calc(var(--routed-rail-collapsed-width) + var(--safe-area-left));
 }
 
+/*
+ * The rail's expand/collapse toggle wears `.routed-pane-iconbutton`
+ * (RoutedPane.css) — the same square 44px box, border, glyph size, and hover
+ * treatment as the app bar's controls sitting immediately to its right, so the
+ * shell's leading control is not a smaller one-off. Only placement lives here.
+ *
+ * `--space-xs` of block-start margin is exactly the app bar's own block-start
+ * padding, and both surfaces start at the top of the tablet grid absorbing the
+ * same top safe-area inset — so the two 44px boxes share a top edge and read as
+ * one row of controls.
+ */
 .routed-pane-rail-toggle {
-  position: relative;
-  display: inline-flex;
-  flex: 0 0 var(--routed-touch-target);
   align-self: flex-end;
-  align-items: center;
-  justify-content: center;
-  width: var(--routed-touch-target);
-  min-width: var(--routed-touch-target);
-  height: var(--routed-touch-target);
-  min-height: var(--routed-touch-target);
-  margin-block: calc(
-      (var(--routed-appbar-block-size) - var(--routed-touch-target)) *
-      0.5
-    )
-    0;
-  margin-inline: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  line-height: 1;
-  cursor: pointer;
+  margin-block-start: var(--space-xs);
+  /* Expanded, the trailing gutter matches the nav panel's padding so the
+     toggle's edge lines up with the nav links beneath it. */
+  margin-inline-end: var(--space-sm);
 }
 
+/* Collapsed, the rail is sized to the button plus a gutter either side
+   (--routed-rail-collapsed-width), so centering supplies both. */
 .routed-pane-rail--collapsed .routed-pane-rail-toggle {
   align-self: center;
-}
-
-.routed-pane-rail-toggle::before {
-  position: absolute;
-  inset: calc(
-    (var(--routed-touch-target) - var(--routed-rail-toggle-visual-size)) *
-    0.5
-  );
-  border: var(--border);
-  content: "";
-  pointer-events: none;
-}
-
-.routed-pane-rail-toggle:hover,
-.routed-pane-rail-toggle:focus-visible {
-  color: var(--emphasis-text);
-}
-
-.routed-pane-rail-toggle:hover::before,
-.routed-pane-rail-toggle:focus-visible::before {
-  background: var(--emphasis-surface);
-}
-
-.routed-pane-rail-toggle svg {
-  position: relative;
-  flex: 0 0 auto;
+  margin-inline-end: 0;
 }
 
 .routed-pane-rail .routed-pane-nav-panel {

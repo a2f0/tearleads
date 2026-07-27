@@ -28,15 +28,15 @@
   /* The floor keeps the longest app name ("Identity Manager") on one line beside
      its glyph on the narrowest tablet; the rail links ellipsize past that. */
   --routed-rail-width: clamp(14rem, 22vw, 17rem);
-  --routed-rail-collapsed-width: 44px;
-  --routed-rail-toggle-visual-size: 32px;
+  /* Collapsed, the rail is exactly one icon button plus a gutter either side,
+     so its toggle is the same 44px control the app bar carries rather than a
+     shrunken variant squeezed into a narrower strip. */
+  --routed-rail-collapsed-width: calc(
+    var(--control-height) +
+    (2 * var(--space-xs))
+  );
   --routed-drawer-width: min(20rem, 82vw);
   --routed-touch-target: 44px;
-  --routed-appbar-block-size: calc(
-    var(--control-height) +
-    (2 * var(--space-xs)) +
-    var(--border-width)
-  );
 }
 
 /* Mobile: app bar on top, taskbar on bottom; rail/sidebar are overlays. */
@@ -123,27 +123,14 @@
   flex: 0 0 auto;
 }
 
-.routed-pane-appbar button {
-  min-height: var(--control-height);
-  padding: 0 var(--space-sm);
-  border: var(--border);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.routed-pane-appbar button:hover:not(:disabled),
-.routed-pane-appbar button:focus-visible:not(:disabled) {
-  background: var(--emphasis-surface);
-  color: var(--emphasis-text);
-}
-
-.routed-pane-appbar button:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: default;
-}
-
+/*
+ * The routed shell's icon button: one square `--control-height` (44px) control
+ * shared by the app bar's back / forward / sidebar buttons, every registered
+ * toolbar action, and the rail's expand/collapse toggle (RoutedPaneNav.css).
+ * Self-contained rather than scoped to `.routed-pane-appbar button` so a
+ * control outside the bar opts into the identical HIG touch target, border, and
+ * hover treatment instead of re-deriving a near-miss of its own.
+ */
 .routed-pane-iconbutton {
   flex: 0 0 auto;
   display: inline-flex;
@@ -151,13 +138,32 @@
   justify-content: center;
   width: var(--control-height);
   min-width: var(--control-height);
+  min-height: var(--control-height);
   padding: 0;
+  border: var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.routed-pane-iconbutton:hover:not(:disabled),
+.routed-pane-iconbutton:focus-visible:not(:disabled) {
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+}
+
+.routed-pane-iconbutton:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
 }
 
 /* The shell only renders in the routed layout, so `--control-icon-size` is
-   always defined here. It grows the app bar's back / forward / sidebar glyphs
-   and every registered toolbar action's icon off their `size={18}` attribute to
-   the touch size — see the token's note in @tearleads/ui's styles.routed.css. */
+   always defined here. It grows the app bar's back / forward / sidebar glyphs,
+   the rail toggle's, and every registered toolbar action's icon off their
+   `size={18}` attribute to the touch size — see the token's note in
+   @tearleads/ui's styles.routed.css. */
 .routed-pane-iconbutton svg {
   flex: 0 0 auto;
   width: var(--control-icon-size);
