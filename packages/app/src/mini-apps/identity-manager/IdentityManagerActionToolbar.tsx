@@ -64,7 +64,6 @@ export function IdentityActionToolbar({
       {hasSigningKeyPair && (
         <MiniAppButton
           disabled={identityBusy !== null}
-          variant="ghost"
           onClick={handleDestroyKeyPair}
         >
           Destroy Key Pair

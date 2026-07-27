@@ -95,11 +95,6 @@
   min-width: 0;
 }
 
-.identity-manager-session-table {
-  min-height: 8rem;
-  max-height: var(--mini-app-virtual-max-height);
-}
-
 /*
  * The 34rem floor keeps the desktop *window* from crushing the session columns,
  * but must not apply in the routed mobile/tablet shell — there the table reflows

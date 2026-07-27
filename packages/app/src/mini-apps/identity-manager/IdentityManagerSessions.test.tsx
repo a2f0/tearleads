@@ -63,7 +63,7 @@ function mockLayout(mode: "routed" | "windowed", width: number) {
   });
 }
 
-function renderSessions() {
+function renderSessions(sessions: ReadonlyArray<UserSession> = [SESSION]) {
   return render(
     <SessionsSection
       handleEndSession={async () => undefined}
@@ -72,7 +72,7 @@ function renderSessions() {
       onOpenSessionDetail={() => undefined}
       refreshSessions={async () => undefined}
       sessionError={null}
-      sessions={[SESSION]}
+      sessions={sessions}
     />,
   );
 }
@@ -116,5 +116,20 @@ test("active sessions stay single-line on wide layouts", () => {
   expect(table.querySelectorAll("tbody tr td")).toHaveLength(4);
   expect(
     table.parentElement?.classList.contains("mini-app-table-frame--two-line"),
+  ).toBe(false);
+});
+
+test("active sessions render every row without a virtual scroll frame", () => {
+  mockLayout("windowed", 640);
+  const sessions = Array.from({ length: 30 }, (_, index) => ({
+    ...SESSION,
+    id: index.toString().padStart(64, "0"),
+  }));
+  const view = renderSessions(sessions);
+  const table = view.getByRole("table");
+
+  expect(table.querySelectorAll("tbody tr")).toHaveLength(sessions.length);
+  expect(
+    table.parentElement?.classList.contains("mini-app-table-frame--virtual"),
   ).toBe(false);
 });

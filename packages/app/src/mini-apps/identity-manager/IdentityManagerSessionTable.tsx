@@ -9,7 +9,6 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../components/mini-app/MiniAppTable";
-import { MiniAppVirtualTableSpacerRow } from "../../components/mini-app/virtual/MiniAppVirtual";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import {
   SESSION_COLUMN_LABELS,
@@ -248,19 +247,15 @@ function SessionTableRow({
 }
 
 export function SessionTableBody({
-  bottomPadding,
   compact,
   loadingSessions,
   mutatingSessionId,
   onOpenSessionDetail,
   openSessionContextMenu,
   selectedSessionId,
-  sessionCount,
   sessions,
-  topPadding,
   visibleColumnIds,
 }: {
-  bottomPadding: number;
   compact: boolean;
   loadingSessions: boolean;
   mutatingSessionId: string | null;
@@ -270,12 +265,10 @@ export function SessionTableBody({
     sessionId: string,
   ) => void;
   selectedSessionId: string | null;
-  sessionCount: number;
   sessions: ReadonlyArray<UserSession>;
-  topPadding: number;
   visibleColumnIds: ReadonlyArray<SessionTableColumnId>;
 }) {
-  if (sessionCount === 0) {
+  if (sessions.length === 0) {
     return (
       <MiniAppTableEmptyRow colSpan={visibleColumnIds.length}>
         {loadingSessions ? "Loading sessions..." : "No active sessions."}
@@ -285,10 +278,6 @@ export function SessionTableBody({
 
   return (
     <>
-      <MiniAppVirtualTableSpacerRow
-        colSpan={visibleColumnIds.length}
-        height={topPadding}
-      />
       {sessions.map((session) => (
         <SessionTableRow
           compact={compact}
@@ -301,10 +290,6 @@ export function SessionTableBody({
           visibleColumnIds={visibleColumnIds}
         />
       ))}
-      <MiniAppVirtualTableSpacerRow
-        colSpan={visibleColumnIds.length}
-        height={bottomPadding}
-      />
     </>
   );
 }
