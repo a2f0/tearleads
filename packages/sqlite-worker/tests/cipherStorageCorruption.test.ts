@@ -16,6 +16,9 @@
 import { afterEach, expect, test } from "bun:test";
 import type { Sqlite3Static } from "@tearleads/sqlite-instance";
 import {
+  closeDatabase,
+  deleteDatabase,
+  initDatabase,
   installSahPoolVfsWithRetry,
   loadSqlite3,
   persistentSahPoolStorageForDbName,
@@ -129,6 +132,66 @@ function isNotADbError(error: unknown): boolean {
     message.includes("file is not a database")
   );
 }
+
+test("production lifecycle reopens a paused identity VFS", async () => {
+  installOpfsMemoryShim();
+  const dbName = `/identity-switch-${crypto.randomUUID()}.db`;
+  const options = {
+    cipher: "chacha20" as const,
+    dbName,
+    key: "identity-switch-key",
+    persistence: "opfs-sahpool" as const,
+  };
+
+  let db: Database | null = await initDatabase(options);
+  try {
+    db.exec("CREATE TABLE marker(value TEXT)");
+    db.exec("INSERT INTO marker VALUES ('identity-a')");
+    await closeDatabase(db);
+    db = null;
+
+    // This is the A -> B -> A failure in its smallest form. Closing A pauses
+    // its pool but leaves the cipher wrapper registered in this worker. Reopen
+    // must unpause and reuse that wrapper instead of creating a duplicate.
+    db = await initDatabase(options);
+    expect(db.selectValue("SELECT value FROM marker")).toBe("identity-a");
+  } finally {
+    if (db) {
+      await deleteDatabase(db);
+    }
+  }
+});
+
+test("deleting an identity removes its cipher wrapper before recreation", async () => {
+  installOpfsMemoryShim();
+  const dbName = `/identity-delete-${crypto.randomUUID()}.db`;
+  const options = {
+    cipher: "chacha20" as const,
+    dbName,
+    key: "identity-delete-key",
+    persistence: "opfs-sahpool" as const,
+  };
+
+  let db: Database | null = await initDatabase(options);
+  try {
+    db.exec("CREATE TABLE removed(value TEXT)");
+    await deleteDatabase(db);
+    db = null;
+
+    // Recreating an identity with the same stable database name must install a
+    // fresh underlying pool and cipher wrapper, with no data from the deletion.
+    db = await initDatabase(options);
+    expect(
+      db.selectValue(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='removed'",
+      ),
+    ).toBe(0);
+  } finally {
+    if (db) {
+      await deleteDatabase(db);
+    }
+  }
+});
 
 test("encrypted data persists across a close/reopen with the same key", async () => {
   installOpfsMemoryShim();

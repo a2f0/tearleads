@@ -325,6 +325,44 @@ test("report retains document sync trace lines and drops decorated ones", () => 
   );
 });
 
+test("report retains content-free identity transition phases", () => {
+  const report = formatSystemMonitorReport({
+    capturedAt: CAPTURED_AT,
+    environment: [],
+    logEntries: [
+      createLogEntry(1, {
+        message:
+          "Identity: identity transition generation=7 kind=switch phase=database-wait-started",
+      }),
+      createLogEntry(2, {
+        message:
+          "Identity: identity transition generation=7 kind=switch result=failed rollback=succeeded",
+      }),
+      createLogEntry(3, {
+        message:
+          "Identity: identity transition generation=7 kind=switch phase=database-ready fingerprint=PRIVATE",
+      }),
+      createLogEntry(4, {
+        message:
+          "Identity: identity transition generation=7 kind=switch phase=private-customer-state",
+      }),
+    ],
+    status: createStatus(),
+  });
+
+  expect(report).toContain(
+    "identity transition generation=7 kind=switch phase=database-wait-started",
+  );
+  expect(report).toContain(
+    "identity transition generation=7 kind=switch result=failed rollback=succeeded",
+  );
+  expect(report).not.toContain("PRIVATE");
+  expect(report).not.toContain("private-customer-state");
+  expect(report).toContain(
+    "_Omitted 2 free-form log entries to protect decrypted customer data._",
+  );
+});
+
 test("report caps content-free telemetry after filtering", () => {
   const logEntries = Array.from(
     { length: MAX_REPORT_LOG_ENTRIES + 50 },
