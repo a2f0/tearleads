@@ -214,6 +214,7 @@ function createDocumentWritePersistence(
 
 function createPendingUpdatePersistence(
   state: MutableDocumentsState,
+  historyByLocalId: HistoryByLocalId,
 ): Pick<
   DocumentsPersistence,
   | "listPendingUpdates"
@@ -249,6 +250,18 @@ function createPendingUpdatePersistence(
           sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
           updateData: pendingUpdate.updateData,
         },
+      ];
+      // Mirror the SQL persistence: every enqueued update is dual-written to
+      // the durable-history tail in the same transaction, so a restore
+      // rebuilds queued-but-unsynced local edits from checkpoint + tail.
+      let history = historyByLocalId.get(pendingUpdate.localId);
+      if (!history) {
+        history = { checkpoint: null, tail: [] };
+        historyByLocalId.set(pendingUpdate.localId, history);
+      }
+      history.tail = [
+        ...history.tail,
+        { id: crypto.randomUUID(), updateData: pendingUpdate.updateData },
       ];
     },
     async deletePendingUpdate(_execSql, id) {
@@ -434,7 +447,7 @@ export function createDocumentStorePersistence(): DocumentsPersistence & {
     getState: () => state,
     ...createDocumentReadPersistence(state),
     ...createDocumentWritePersistence(state, historyByLocalId),
-    ...createPendingUpdatePersistence(state),
+    ...createPendingUpdatePersistence(state, historyByLocalId),
     ...createAttachmentPersistence(state),
     ...createHistoryPersistence(historyByLocalId),
   };

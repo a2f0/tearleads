@@ -67,13 +67,11 @@ function buildResetUpdate(input: {
 async function buildResetContentDocs(
   db: ReturnType<typeof getClientSQLitePersistenceRuntime>["db"],
 ): Promise<Map<string, ResetContentDoc>> {
-  const checkpointRows = await db
-    .select({
-      appKind: documentHistoryCheckpoints.appKind,
-      localId: documentHistoryCheckpoints.localId,
-      snapshot: documentHistoryCheckpoints.snapshot,
-    })
-    .from(documentHistoryCheckpoints);
+  // Read the TAIL before the checkpoints (the same order the restore path
+  // uses): a compaction landing between the two reads then yields old-tail +
+  // new-checkpoint — a safe superset, since replay is idempotent by op
+  // identity — whereas the reverse order could yield an old checkpoint plus
+  // an already-emptied tail and republish stale content.
   const tailRows = await db
     .select({
       appKind: documentHistoryUpdates.appKind,
@@ -82,6 +80,13 @@ async function buildResetContentDocs(
     })
     .from(documentHistoryUpdates)
     .orderBy(documentHistoryUpdates.createdAt, documentHistoryUpdates.id);
+  const checkpointRows = await db
+    .select({
+      appKind: documentHistoryCheckpoints.appKind,
+      localId: documentHistoryCheckpoints.localId,
+      snapshot: documentHistoryCheckpoints.snapshot,
+    })
+    .from(documentHistoryCheckpoints);
 
   const tailByScope = new Map<string, string[]>();
   for (const row of tailRows) {

@@ -55,6 +55,8 @@ export interface PersistedDocumentRecord {
 }
 export interface SaveDocumentRecordOptions {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
+  // Tail rows appended in-mutation before the record (see persistDocumentState).
+  historyUpdates?: readonly string[] | undefined;
   pendingBaseVersionOverride?: string | null | undefined;
   preserveSnapshotStructuredFields?: boolean | undefined;
   preserveSnapshotText?: boolean | undefined;

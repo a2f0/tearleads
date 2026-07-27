@@ -264,6 +264,13 @@ function queueDocumentStructuredFieldWrite(
           return;
         }
       }
+      // A deferred write advances the record's content frontier AHEAD of the
+      // outgoing queue (the op is re-derived by the next edit). Its delta
+      // rides in the persist's own claimed mutation as a durable-history tail
+      // row written before the record — the tail is the only content store,
+      // so the record frontier must never durably lead the tail row that
+      // holds its content. Passed as an option (no pre-persist await) so this
+      // write adds no extra hop that would change cross-store interleaving.
       const persisted = await persistDocument(
         state,
         writeDoc,
@@ -271,6 +278,9 @@ function queueDocumentStructuredFieldWrite(
         {
           preserveSnapshotStructuredFields: true,
           preserveSnapshotText: true,
+          ...(options.deferRemoteSync
+            ? { historyUpdates: [bytesToBase64(update)] }
+            : {}),
         },
         syncGeneration,
       );
@@ -280,19 +290,7 @@ function queueDocumentStructuredFieldWrite(
       ) {
         return;
       }
-      if (options.deferRemoteSync) {
-        // A deferred write advances the record's content frontier AHEAD of
-        // the outgoing queue (the op is re-derived by the next edit). Keep
-        // the durable-history tail covering it too, or the next restart's
-        // restore would miss the op entirely. Appended AFTER the persist so
-        // this write adds no await before it (an extra pre-persist hop
-        // changes cross-store interleaving); a crash in between loses only
-        // this op's durability until the next edit re-derives it.
-        await state.persistence.appendHistoryUpdates?.(
-          state.runtime.infra.execSql,
-          { localId: state.localId, updates: [bytesToBase64(update)] },
-        );
-      } else {
+      if (!options.deferRemoteSync) {
         advancePendingBaseVersion(state, writeDoc);
         requestDocumentStoreSync(state);
       }

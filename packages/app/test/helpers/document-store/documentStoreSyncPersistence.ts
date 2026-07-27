@@ -308,6 +308,14 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
           updateData: pendingUpdate.updateData,
         },
       ];
+      // Mirror the SQL persistence: every enqueued update is dual-written to
+      // the durable-history tail in the same transaction, so a restore
+      // rebuilds queued-but-unsynced local edits from checkpoint + tail.
+      const history = historyFor(pendingUpdate.localId);
+      history.tail = [
+        ...history.tail,
+        { id: crypto.randomUUID(), updateData: pendingUpdate.updateData },
+      ];
     },
     async deletePendingUpdate(_execSql, id: string) {
       pendingUpdates = pendingUpdates.filter(

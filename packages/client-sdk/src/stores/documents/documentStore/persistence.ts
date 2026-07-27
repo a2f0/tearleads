@@ -105,6 +105,7 @@ export async function saveDocumentRecord(
     currentRecord: state.record,
     documentProjectors: state.runtime.infra.documentProjectors,
     execSql: state.runtime.infra.execSql,
+    historyUpdates: options.historyUpdates,
     localId: state.localId,
     // Persist the durable outgoing-delta marker with every snapshot write so a
     // restart restores it (see initializeDocumentStore). A device-first

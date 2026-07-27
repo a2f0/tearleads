@@ -295,6 +295,9 @@ interface PersistDocumentStateInput {
   currentRecord: StoredDocumentRecord | null;
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
+  // Durable-history tail rows appended inside the same claimed mutation as
+  // the record write, before it (see the ordering comment at the call site).
+  historyUpdates?: readonly string[] | undefined;
   localId: string;
   patch?: Partial<StoredDocumentRecord> | undefined;
   persistence: DocumentsPersistence;
@@ -327,6 +330,17 @@ export async function persistDocumentState(
   }
 
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    // Deferred-write deltas ride in the same claimed mutation as the record
+    // write, appended FIRST: the tail is the only durable content store, so
+    // a crash between the two leaves a tail row ahead of the record frontier
+    // — the restore replays it and the next edit re-derives the outgoing
+    // delta — never a published frontier whose content no durable row holds.
+    if (input.historyUpdates && input.historyUpdates.length > 0) {
+      await persistence.appendHistoryUpdates?.(lockedExecSql, {
+        localId,
+        updates: input.historyUpdates,
+      });
+    }
     // A persist that does not manage container placement (a background
     // document sync ships content-key/manifest metadata with no container)
     // must not let an in-memory record re-assert a stale container. Read the
