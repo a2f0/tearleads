@@ -28,6 +28,7 @@ import {
   type PendingAttachmentRecord,
   type PendingUpdateRecord,
   persistDocumentState,
+  runSerializedSqlMutation,
   saveLocalDocumentAttachments,
   savePendingDocumentAttachment,
 } from "../../../workflows/documents";
@@ -363,14 +364,33 @@ export async function enqueuePendingUpdate(
   state: DocumentStoreState,
   update: Uint8Array,
   sourceVersionVector?: string | null,
+  expectedGeneration?: DocumentStoreSyncGeneration,
 ) {
-  await enqueuePendingDocumentUpdate({
-    execSql: state.runtime.infra.execSql,
-    localId: state.localId,
-    persistence: state.persistence,
-    ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
-    update,
-  });
+  // With a generation, the currency check runs INSIDE the serialized
+  // mutation: a teardown (reset/discard) that already ran was ordered
+  // strictly before this block and invalidated the generation, so a stale
+  // caller can no longer slip its row in after the teardown's wipe; a write
+  // that wins the ordering instead lands before the teardown and is wiped
+  // by it. Ungated callers serialize with teardown elsewhere (the mutation
+  // write chain).
+  await runSerializedSqlMutation(
+    state.runtime.infra.execSql,
+    async (lockedExecSql) => {
+      if (
+        expectedGeneration &&
+        !isSyncGenerationCurrent(state, expectedGeneration)
+      ) {
+        return;
+      }
+      await enqueuePendingDocumentUpdate({
+        execSql: lockedExecSql,
+        localId: state.localId,
+        persistence: state.persistence,
+        ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
+        update,
+      });
+    },
+  );
 }
 
 export async function deletePendingAttachment(
@@ -425,8 +445,14 @@ export async function saveLocalAttachmentRecord(
   state: DocumentStoreState,
   attachment: LocalAttachmentRecord,
   currentDoc: DocumentState | null = state.doc,
+  expectedGeneration?: DocumentStoreSyncGeneration,
 ) {
-  await saveLocalAttachmentRecords(state, [attachment], currentDoc);
+  await saveLocalAttachmentRecords(
+    state,
+    [attachment],
+    currentDoc,
+    expectedGeneration,
+  );
 }
 
 export async function saveLocalAttachmentRecords(
@@ -439,14 +465,30 @@ export async function saveLocalAttachmentRecords(
     return;
   }
 
-  await saveLocalDocumentAttachments({
-    attachments: withLocalAttachmentDetachState(attachments, currentDoc),
-    execSql: state.runtime.infra.execSql,
-    persistence: state.persistence,
-  });
+  // The currency check runs INSIDE the serialized mutation (see
+  // enqueuePendingUpdate): these rows are upserts, and a stale writer racing
+  // a teardown must never re-insert what the teardown just removed.
+  let saved = false;
+  await runSerializedSqlMutation(
+    state.runtime.infra.execSql,
+    async (lockedExecSql) => {
+      if (
+        expectedGeneration &&
+        !isSyncGenerationCurrent(state, expectedGeneration)
+      ) {
+        return;
+      }
+      await saveLocalDocumentAttachments({
+        attachments: withLocalAttachmentDetachState(attachments, currentDoc),
+        execSql: lockedExecSql,
+        persistence: state.persistence,
+      });
+      saved = true;
+    },
+  );
   if (
-    expectedGeneration &&
-    !isSyncGenerationCurrent(state, expectedGeneration)
+    !saved ||
+    (expectedGeneration && !isSyncGenerationCurrent(state, expectedGeneration))
   ) {
     return;
   }
@@ -503,12 +545,27 @@ export function upsertPendingAttachments(
 export async function savePendingAttachmentUpload(
   state: DocumentStoreState,
   pendingAttachment: PendingAttachmentRecord,
+  expectedGeneration?: DocumentStoreSyncGeneration,
 ): Promise<void> {
-  await savePendingDocumentAttachment({
-    attachment: pendingAttachment,
-    execSql: state.runtime.infra.execSql,
-    persistence: state.persistence,
-  });
+  // In-mutex currency check (see enqueuePendingUpdate): this row is an
+  // upsert, and a stale resume racing a teardown must never re-insert the
+  // pending row the teardown just removed.
+  await runSerializedSqlMutation(
+    state.runtime.infra.execSql,
+    async (lockedExecSql) => {
+      if (
+        expectedGeneration &&
+        !isSyncGenerationCurrent(state, expectedGeneration)
+      ) {
+        return;
+      }
+      await savePendingDocumentAttachment({
+        attachment: pendingAttachment,
+        execSql: lockedExecSql,
+        persistence: state.persistence,
+      });
+    },
+  );
 }
 
 export async function queuePendingAttachmentUpload(

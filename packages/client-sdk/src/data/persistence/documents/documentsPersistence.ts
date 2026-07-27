@@ -89,6 +89,7 @@ import {
 import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
 import type {
   ContainerDocumentTombstoneInput,
+  DiscardDocumentToShellResult,
   DocumentSummaryList,
   DocumentSummarySort,
   DocumentsPersistence,
@@ -107,6 +108,7 @@ const DEFAULT_DOCUMENT_SUMMARY_SORT: DocumentSummarySort = {
 export { DOCUMENTS_APP_KIND } from "./internal/constants";
 export type {
   ContainerDocumentTombstoneInput,
+  DiscardDocumentToShellResult,
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
@@ -444,6 +446,88 @@ async function listDocumentsByContainerIdsOrDocumentIds(
   return rows.map(mapDocumentSummary);
 }
 
+function buildDiscardShellDocument(
+  localId: string,
+  existingDocument: StoredDocumentRecord,
+): StoredDocumentRecord {
+  return {
+    id: localId,
+    accessEpoch: existingDocument.accessEpoch,
+    accessStateHash: existingDocument.accessStateHash ?? null,
+    containerId: existingDocument.containerId,
+    contentKeyBundle: null,
+    documentId: existingDocument.documentId,
+    documentKekTargets: null,
+    documentManifestBundle: null,
+    effectiveAccessLevel: existingDocument.effectiveAccessLevel ?? null,
+    lastCommitLsn: null,
+    loroSnapshot: "",
+    pendingBaseVersion: null,
+    text: "",
+    ...(existingDocument.documentKind === undefined
+      ? {}
+      : { documentKind: existingDocument.documentKind }),
+    ...(existingDocument.title === undefined
+      ? {}
+      : { title: existingDocument.title }),
+  };
+}
+
+// The single transaction behind discardDocumentToShell: row teardown and the
+// shell upsert commit together, so an interruption leaves either the fully
+// old or the fully shelled document.
+async function discardDocumentRowsToShell(input: {
+  existingDocument: StoredDocumentRecord;
+  localId: string;
+  lockedExecSql: ExecSql;
+  pendingAttachments: ReadonlyArray<{ slotId: string; storageKey: string }>;
+}): Promise<void> {
+  const { existingDocument, localId, lockedExecSql, pendingAttachments } =
+    input;
+  const shellDocument = buildDiscardShellDocument(localId, existingDocument);
+  await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+    async (tx) => {
+      await deleteDocumentPendingUpdates(
+        lockedExecSql,
+        getDocumentScope(localId),
+      );
+      await tx
+        .delete(documentPendingAttachments)
+        .where(eq(documentPendingAttachments.localId, localId))
+        .run();
+      for (const pendingAttachment of pendingAttachments) {
+        await tx
+          .delete(documentAttachmentBlobProjection)
+          .where(
+            and(
+              eq(documentAttachmentBlobProjection.localId, localId),
+              eq(
+                documentAttachmentBlobProjection.slotId,
+                pendingAttachment.slotId,
+              ),
+              eq(
+                documentAttachmentBlobProjection.storageKey,
+                pendingAttachment.storageKey,
+              ),
+            ),
+          )
+          .run();
+      }
+      await deleteDocumentHistory(lockedExecSql, getDocumentScope(localId));
+      await clearDocumentSyncFailure(lockedExecSql, getDocumentScope(localId));
+      const updatedAt = await resolveDocumentSaveTimestamp({
+        document: shellDocument,
+        tx,
+      });
+      await saveDocumentRows({
+        document: shellDocument,
+        tx,
+        updatedAt,
+      });
+    },
+  );
+}
+
 const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async ensureSchema(execSql) {
     // Once ensured on this connection, skip the outer mutation lock entirely:
@@ -670,6 +754,65 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
           await deleteDocumentRecord(lockedExecSql, getDocumentScope(localId));
         },
       );
+    });
+  },
+  /**
+   * Atomically convert a stuck document's local state to the
+   * freshly-discovered-share shell: drop its queued updates, staged
+   * attachment rows (and their settled local-attachment halves, which share
+   * the staged storage keys the caller reclaims), durable history, and
+   * recorded sync failure, then overwrite the record with an empty snapshot
+   * that keeps its identity, placement, title, and kind. Everything commits
+   * in ONE transaction, so an interruption leaves either the fully old or
+   * the fully shelled document — never a record with parts of its durable
+   * queue missing.
+   *
+   * Refused when the document is local-only or unlinked (its rows are the
+   * only copy) or when any move intent references it: the local containerId
+   * is then the move's optimistic placement, and reseeding it as server
+   * truth would silently commit the move locally while discarding the
+   * intent that was meant to perform it.
+   */
+  async discardDocumentToShell(
+    execSql,
+    localId,
+  ): Promise<DiscardDocumentToShellResult> {
+    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
+      const existingDocument = await sqlStoredDocumentsPersistence.loadDocument(
+        lockedExecSql,
+        localId,
+      );
+      if (!existingDocument?.documentId || !existingDocument.containerId) {
+        return { discarded: false };
+      }
+      const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
+      const moveIntentRows = await db
+        .select({ id: documentMoveIntents.id })
+        .from(documentMoveIntents)
+        .where(eq(documentMoveIntents.localId, localId))
+        .limit(1);
+      if (moveIntentRows.length > 0) {
+        return { discarded: false };
+      }
+      const pendingAttachments =
+        await sqlStoredDocumentsPersistence.listPendingAttachments(
+          lockedExecSql,
+          localId,
+        );
+
+      await discardDocumentRowsToShell({
+        existingDocument,
+        localId,
+        lockedExecSql,
+        pendingAttachments,
+      });
+      return {
+        discarded: true,
+        stagedAttachmentStorageKeys: pendingAttachments.map(
+          (pendingAttachment) => pendingAttachment.storageKey,
+        ),
+      };
     });
   },
   async upsertDiscoveredDocument(execSql, input) {

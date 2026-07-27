@@ -19,6 +19,10 @@ export interface StoredDocumentRecord extends BaseDocumentRecord {
   title?: string;
 }
 
+export type DiscardDocumentToShellResult =
+  | { discarded: false }
+  | { discarded: true; stagedAttachmentStorageKeys: ReadonlyArray<string> };
+
 export interface PendingUpdateInsert extends PendingUpdateFields {
   localId: string;
 }
@@ -243,4 +247,15 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     localId: string,
   ) => Promise<void>;
+  /**
+   * Atomically convert a stuck document's local state to the
+   * freshly-discovered-share shell (see the SQL implementation's doc
+   * comment). Optional: implementations without the full document schema
+   * (container metadata, simple doubles) simply do not offer the discard
+   * escape hatch.
+   */
+  discardDocumentToShell?: (
+    execSql: ExecSql,
+    localId: string,
+  ) => Promise<DiscardDocumentToShellResult>;
 }

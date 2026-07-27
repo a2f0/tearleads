@@ -166,29 +166,6 @@ export const sqlDocumentMoveIntentPersistence = {
     return rows.map((row) => mapDocumentMoveIntentRecord(row));
   },
 
-  // Any surviving intent counts, blocked included: its optimistic local
-  // placement has already been applied, which is what callers (e.g. the
-  // local-edits discard) need to know about.
-  async hasMoveIntentForLocalId(
-    execSql: ExecSql,
-    localId: string,
-  ): Promise<boolean> {
-    await ensureSqlTables(execSql, documentMoveIntentTables);
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    const rows = await db
-      .select({ id: documentMoveIntents.id })
-      .from(documentMoveIntents)
-      .where(
-        and(
-          eq(documentMoveIntents.localId, localId),
-          eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
-        ),
-      )
-      .limit(1);
-
-    return rows.length > 0;
-  },
-
   async markMoveIntentSynced(
     execSql: ExecSql,
     input: {

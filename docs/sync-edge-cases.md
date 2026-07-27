@@ -54,10 +54,10 @@ without counting as lane progress, so it cannot hot-loop the pump.
 | 5 | Move intent whose destination container is missing locally | `blocked` with a named reason; replays each structural pass and completes if the container appears (e.g. via hydration). | working as designed |
 | 6 | Document deleted while it has a queued move intent | The move intents are deleted with the document. | working as designed |
 | 7 | Move fails remotely (rejected, unavailable, or permission denied) | Stays `pending` with `"Remote document move was rejected or unavailable: <detail> (<status>)"`; the HTTP status is threaded through when one was seen. Retries on every trigger. | working as designed; parking 403s for the access-restored signal (like document writes) is a possible refinement |
-| 8 | 403 on a write-bearing document sync | Local edit kept untouched; durable error row `"Write access denied by the server (403)"`; footer shows the failure. No retry until org access is restored or another trigger fires. | working as designed; no export/discard affordance yet (pairs with row 1) |
+| 8 | 403 on a write-bearing document sync | Local edit kept untouched; durable error row `"Write access denied by the server (403)"`; footer shows the failure. No retry until org access is restored or another trigger fires. | working as designed; row 21's discard covers the give-up path for remote-backed documents, export remains open (pairs with row 1) |
 | 9 | 403 on a read-only pull | Suppressed on purpose — never flags unattempted local edits. | working as designed |
 | 10 | 409 `document_sync_state_stale` | In-pass retry with a fresh projection, bounded. | working as designed |
-| 11 | 409 `update_id_conflict` | In-pass re-key recovery, bounded at 5 attempts, then a synthetic terminal failure. | working as designed |
+| 11 | 409 `update_id_conflict` | In-pass re-key recovery, bounded at 5 durable attempts, then a synthetic terminal failure. The write queue's "Retry sync" resets the durable budget (a deliberate tap is the rate-limited signal that conditions changed). | working as designed |
 | 12 | Stale content-key bundle with pending edits and shallow local history | Heal, full-history rebuild from historical KEK epochs, re-heal (see PR #1816). | working as designed |
 | 13 | Uncoded 409 on read-only revalidation (e.g. writer-projection route remaps container 404s and KEK failures to bare 409s) | Burns one request per trigger, emits only a trace line, records nothing durable; the document silently never revalidates. | defect — needs a durable surface and error codes on the projection route (deferred to its own PR) |
 | 14 | Container-metadata sync hitting stale-keying errors | Classified, deferred with a log line, retried next trigger. | working as designed |
@@ -66,7 +66,8 @@ without counting as lane progress, so it cannot hot-loop the pump.
 | 17 | Create in a container that has not reached the server | Deferred (with or without queued edits) until the structural pass lands the container, which re-primes the document store. No timer, no error row. | working as designed |
 | 18 | Create raced with a lost response (`"Document manifest already exists"`) | Adopts the existing remote document instead of duplicating. | working as designed |
 | 19 | Billing-gated organization (payment required) | Write-bearing submissions stop silently; queue shows `pending` with a "billing paused" note; lifted by the billing recovery signal. | working as designed |
-| 20 | Re-key exhaustion (5 attempts) on a conflicted pending update | Synthetic terminal failure row; the pending row remains and will conflict on future submits. | working as designed |
+| 20 | Re-key exhaustion (5 attempts) on a conflicted pending update | Synthetic terminal failure row; the pending row remains and conflicts on future submits until "Retry sync" resets the budget (row 11) or the edits are discarded (row 21). | working as designed |
+| 21 | Queue that can never sync (e.g. a recovery loop that never converges) | Write queue "Discard local edits" (documents with a remote copy only): atomically converts the record to the discovered-share shell — queued updates, staged uploads (rows and bytes), durable history, and the failure row dropped in one transaction; identity, title, placement, and links kept — then re-pulls the server copy in-session. Refused for local-only, unlinked, or move-pending documents. In-flight writers (edits, attachment settles/resume, initialization recovery) validate a store generation inside the serialized mutation, so a racing write either lands before the teardown (and is wiped by it) or is skipped. | working as designed |
 
 ## Known gaps / follow-ups
 
@@ -82,4 +83,7 @@ without counting as lane progress, so it cannot hot-loop the pump.
 - Latent race: a document store's in-flight persist can resurrect a document
   that another subsystem deleted concurrently (observed with the contacts
   duplicate-self cleanup racing a deferred write's persist). The persist path
-  should refuse to re-create a row it expected to update.
+  should refuse to re-create a row it expected to update. The document
+  store's own teardown (row 21's discard) now closes this for its writers by
+  validating a store generation inside each write's serialized mutation;
+  cross-subsystem deletions (e.g. the contacts cleanup) remain exposed.

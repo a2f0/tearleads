@@ -250,7 +250,12 @@ async function settleUploadedAttachment(input: {
     input.uploadLane.complete();
     return;
   }
-  await persistSettledAttachment(state, pendingAttachment, uploaded.blobId);
+  await persistSettledAttachment(
+    state,
+    pendingAttachment,
+    uploaded.blobId,
+    input.attachmentGeneration,
+  );
   input.activeBindingBySlotId.set(pendingAttachment.slotId, {
     bindingId: uploaded.bindingId,
     blobId: uploaded.blobId,
@@ -286,6 +291,7 @@ async function settleRecoveredAttachment(input: {
     input.state,
     input.pendingAttachment,
     input.binding.blobId,
+    input.attachmentGeneration,
   );
   input.uploadLane.complete();
   input.state.runtime.util.log(
@@ -297,16 +303,24 @@ async function persistSettledAttachment(
   state: DocumentStoreState,
   pendingAttachment: PendingAttachmentRecord,
   blobId: string,
+  attachmentGeneration: DocumentStoreSyncGeneration,
 ): Promise<void> {
-  await saveLocalAttachmentRecord(state, {
-    blobId,
-    byteLength: pendingAttachment.byteLength,
-    detachedAt: null,
-    localId: state.localId,
-    mimeType: pendingAttachment.mimeType,
-    slotId: pendingAttachment.slotId,
-    storageKey: pendingAttachment.storageKey,
-  });
+  // The save validates the generation inside its serialized mutation, so a
+  // teardown racing this settle can never see its rows re-inserted.
+  await saveLocalAttachmentRecord(
+    state,
+    {
+      blobId,
+      byteLength: pendingAttachment.byteLength,
+      detachedAt: null,
+      localId: state.localId,
+      mimeType: pendingAttachment.mimeType,
+      slotId: pendingAttachment.slotId,
+      storageKey: pendingAttachment.storageKey,
+    },
+    state.doc,
+    attachmentGeneration,
+  );
   await deletePendingAttachment(
     state,
     pendingAttachment.slotId,

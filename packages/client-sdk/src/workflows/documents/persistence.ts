@@ -11,17 +11,14 @@ import {
   readStoredDocumentState,
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
-import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
-import {
-  DOCUMENTS_APP_KIND,
-  type DocumentsPersistence,
-  type LocalAttachmentRecord,
-  type PendingAttachmentRecord,
-  type PendingUpdateRecord,
-  type StoredDocumentRecord,
+import type {
+  DiscardDocumentToShellResult,
+  DocumentsPersistence,
+  LocalAttachmentRecord,
+  PendingAttachmentRecord,
+  PendingUpdateRecord,
+  StoredDocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
-import { deleteDocumentHistory } from "../../data/sqlite/documentHistoryPersistence";
-import { clearDocumentSyncFailure } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   ensureSqlTables,
@@ -42,6 +39,10 @@ export {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence as defaultDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
+// Store-layer teardown-safe writers serialize their generation checks on the
+// same mutation mutex the persistence implementations use; the facade
+// re-export keeps data internals out of the stores.
+export { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
 
 type DocumentContentState = Parameters<typeof exportShallowSnapshot>[0];
 type NullableDocumentRuntimeField =
@@ -419,25 +420,16 @@ export async function deletePersistedDocument(input: {
   return true;
 }
 
-export type DiscardedDocumentShellResult =
-  | { discarded: false }
-  | { discarded: true; stagedAttachmentStorageKeys: ReadonlyArray<string> };
+export type DiscardedDocumentShellResult = DiscardDocumentToShellResult;
 
 /**
  * Convert a stuck document's local state to the freshly-discovered-share
- * shell IN PLACE: drop the queued updates, staged attachment rows, durable
- * history, and recorded sync failure, then overwrite the record with an
- * empty snapshot that keeps its identity, placement, title, and kind. The
- * record row is never absent at any point — the only record write is an
- * upsert over the existing row — so an interruption at any step leaves a
- * loadable document (old or shell) rather than a vanished one, and the
- * projection and container-link rows are never touched at all.
- *
- * Refused inside the serialized mutation when the document is local-only or
- * unlinked (its rows are the only copy) or when a move intent is queued: the
- * local containerId is then the move's optimistic placement, and reseeding
- * it as if it were server truth would silently commit the move locally
- * while discarding the intent that was meant to perform it.
+ * shell. The persistence implementation owns the whole sequence — the
+ * eligibility checks (local-only, unlinked, or move-pending documents are
+ * refused), the row teardown, and the shell upsert — and commits it as ONE
+ * transaction, so an interruption leaves either the fully old or the fully
+ * shelled document. Implementations without the full document schema do not
+ * offer the operation and simply refuse.
  *
  * Returns the staged uploads' storage keys on success — their rows were the
  * only durable pointer to the staged bytes, so the caller reclaims them.
@@ -448,81 +440,10 @@ export async function discardPersistedDocumentToShell(input: {
   persistence: DocumentsPersistence;
 }): Promise<DiscardedDocumentShellResult> {
   await input.persistence.ensureSchema(input.execSql);
-  return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
-    const record = await input.persistence.loadDocument(
-      lockedExecSql,
-      input.localId,
-    );
-    if (!record?.documentId || !record.containerId) {
-      return { discarded: false };
-    }
-    if (
-      await sqlDocumentMoveIntentPersistence.hasMoveIntentForLocalId(
-        lockedExecSql,
-        input.localId,
-      )
-    ) {
-      return { discarded: false };
-    }
-
-    const pendingAttachments = await input.persistence.listPendingAttachments(
-      lockedExecSql,
-      input.localId,
-    );
-    await input.persistence.deletePendingUpdates(lockedExecSql, input.localId);
-    await input.persistence.deletePendingAttachments(
-      lockedExecSql,
-      input.localId,
-    );
-    // A staged upload that already settled its local-attachment row (a crash
-    // between the settle's two writes leaves both rows) shares the staged
-    // storage key. The caller reclaims those bytes, so a surviving local row
-    // would map the slot to deleted bytes AND read as a still-pending upload
-    // that hydration must not re-download — the attachment would be
-    // inaccessible forever. Other local rows (synced attachments' caches)
-    // are deliberately kept for reuse by the re-pull.
-    for (const pendingAttachment of pendingAttachments) {
-      await input.persistence.deleteLocalAttachment(
-        lockedExecSql,
-        input.localId,
-        pendingAttachment.slotId,
-        pendingAttachment.storageKey,
-      );
-    }
-    await deleteDocumentHistory(lockedExecSql, {
-      appKind: DOCUMENTS_APP_KIND,
-      localId: input.localId,
-    });
-    await clearDocumentSyncFailure(lockedExecSql, {
-      appKind: DOCUMENTS_APP_KIND,
-      localId: input.localId,
-    });
-    await input.persistence.saveDocument(lockedExecSql, {
-      id: input.localId,
-      accessEpoch: record.accessEpoch,
-      accessStateHash: record.accessStateHash ?? null,
-      containerId: record.containerId,
-      contentKeyBundle: null,
-      documentId: record.documentId,
-      documentKekTargets: null,
-      documentManifestBundle: null,
-      effectiveAccessLevel: record.effectiveAccessLevel ?? null,
-      lastCommitLsn: null,
-      loroSnapshot: "",
-      pendingBaseVersion: null,
-      text: "",
-      ...(record.documentKind === undefined
-        ? {}
-        : { documentKind: record.documentKind }),
-      ...(record.title === undefined ? {} : { title: record.title }),
-    });
-    return {
-      discarded: true,
-      stagedAttachmentStorageKeys: pendingAttachments.map(
-        (pendingAttachment) => pendingAttachment.storageKey,
-      ),
-    };
-  });
+  if (!input.persistence.discardDocumentToShell) {
+    return { discarded: false };
+  }
+  return input.persistence.discardDocumentToShell(input.execSql, input.localId);
 }
 
 export async function listPendingDocumentUpdates(input: {

@@ -57,6 +57,7 @@ export {
   type PendingUpdateRecord,
   persistDocumentState,
   type RelinkPersistedDocumentInput,
+  runSerializedSqlMutation,
 } from "./persistence";
 export {
   createDocumentProjectionUserKeyResolver,

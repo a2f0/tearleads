@@ -61,7 +61,11 @@ export async function resolveAttachmentUploadResume(
     isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)
   ) {
     pendingAttachment.upload = uploadIdentity;
-    await savePendingAttachmentUpload(state, pendingAttachment);
+    await savePendingAttachmentUpload(
+      state,
+      pendingAttachment,
+      attachmentGeneration,
+    );
   }
 
   const multipart =
@@ -86,7 +90,11 @@ export async function resolveAttachmentUploadResume(
     }
     uploadIdentity.partSize = partSize;
     uploadIdentity.stageId = stageId;
-    await savePendingAttachmentUpload(state, pendingAttachment);
+    await savePendingAttachmentUpload(
+      state,
+      pendingAttachment,
+      attachmentGeneration,
+    );
   };
 
   return {
