@@ -23,7 +23,7 @@ variable "extra_demo_domains" {
 variable "server_location" {
   description = "Hetzner server location"
   type        = string
-  default     = "nbg1"
+  default     = "hel1"
 }
 
 variable "server_username" {
@@ -34,19 +34,13 @@ variable "server_username" {
 variable "server_type" {
   description = "Hetzner server type"
   type        = string
-  default     = "cx33"
+  default     = "cx23"
 }
 
 variable "server_user_data" {
   description = "Cloud-init user data (empty uses built-in with Tailscale)"
   type        = string
   default     = ""
-}
-
-variable "allowed_ssh_ips" {
-  description = "List of IP addresses/CIDRs allowed SSH access"
-  type        = list(string)
-  default     = ["0.0.0.0/0", "::/0"]
 }
 
 variable "ssh_host_private_key" {

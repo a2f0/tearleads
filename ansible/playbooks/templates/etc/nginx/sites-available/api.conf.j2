@@ -2,18 +2,9 @@
 # API server block for {{ domain | default('tearleads.com') }}
 
 server {
-  listen 80;
-  listen [::]:80;
+  listen 127.0.0.1:80;
+  listen [::1]:80;
   server_name api.{{ domain | default('tearleads.com') }};
-
-  {% if certbot_ssl | default(false) %}
-  listen 443 ssl;
-  listen [::]:443 ssl;
-  ssl_certificate /etc/letsencrypt/live/{{ domain | default('tearleads.com') }}/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/{{ domain | default('tearleads.com') }}/privkey.pem;
-  include /etc/letsencrypt/options-ssl-nginx.conf;
-  ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-  {% endif %}
 
   client_max_body_size 100M;
 

@@ -54,9 +54,3 @@ variable "firewall_rules" {
   }))
   default = []
 }
-
-variable "allowed_ssh_ips" {
-  description = "List of IP addresses/CIDRs allowed SSH access"
-  type        = list(string)
-  default     = ["0.0.0.0/0", "::/0"]
-}

@@ -147,9 +147,10 @@ for mirroring the resulting entitlement lifecycle:
   `REVENUECAT_V2_SECRET_KEY` + `REVENUECAT_PROJECT_ID` pair already
   configured for the management-URL lookup (shared via
   [`revenueCatConfig.ts`](../../packages/api/src/billing/revenueCatConfig.ts))
-  — no separate legacy v1 secret key. Set in `.secrets/<tier>.env`; rendered
-  by ansible into the API's EnvironmentFile like the RevenueCat webhook
-  secret. End-to-end entitlement activation also requires
+  — no separate legacy v1 secret key. Shared provider credentials may live in
+  `.secrets/root.env`, while each `STRIPE_WEBHOOK_SECRET` must live in the
+  matching `.secrets/<tier>.env`; ansible renders the merged values into the
+  API's EnvironmentFile. End-to-end entitlement activation also requires
   `REVENUECAT_WEBHOOK_AUTH_HEADER` and a matching RevenueCat webhook.
 - Stripe gives every webhook endpoint its own signing secret. Staging and
   production therefore need separate `STRIPE_WEBHOOK_SECRET` values in their

@@ -6,10 +6,12 @@
   vars:
     ansible_python_interpreter: /usr/bin/python3
     linux_security_baseline_manage_ufw: true
-    linux_security_baseline_ufw_allow_rules:
+    linux_security_baseline_ufw_delete_allow_rules:
       - { port: "22", proto: "tcp" }
       - { port: "80", proto: "tcp" }
       - { port: "443", proto: "tcp" }
+    linux_security_baseline_ufw_allow_rules:
+      - { port: "22", proto: "tcp", interface: "tailscale0", direction: "in" }
     linux_security_baseline_ssh_settings:
       - { key: "PermitRootLogin", value: "no" }
       - { key: "PasswordAuthentication", value: "no" }
@@ -17,22 +19,28 @@
       - { key: "MaxAuthTries", value: "3" }
       - { key: "KbdInteractiveAuthentication", value: "no" }
     postgres_version: "16"
-    postgres_db: "tearleads"
-    postgres_user: "tearleads"
-    postgres_password: "{{ lookup('env', 'DATABASE_PASSWORD') | default(lookup('ansible.builtin.password', playbook_dir + '/.postgres_password chars=ascii_letters,digits length=32'), true) }}"
-    postgres_host: "127.0.0.1"
+    postgres_db: "{{ lookup('env', 'POSTGRES_DATABASE') | default('tearleads', true) }}"
+    postgres_user: "{{ lookup('env', 'POSTGRES_USER') | default('tearleads', true) }}"
+    postgres_password: >-
+      {{ lookup('env', 'POSTGRES_PASSWORD') |
+      default(lookup('ansible.builtin.password', playbook_dir +
+      '/.postgres_password chars=ascii_letters,digits length=32'), true) }}
+    postgres_host: "{{ lookup('env', 'POSTGRES_HOST') | default('127.0.0.1', true) }}"
+    postgres_port: "{{ lookup('env', 'POSTGRES_PORT') | default('5432', true) }}"
     redis_bind: "127.0.0.1"
     domain: "{{ lookup('env', 'TF_VAR_domain') | default('', true) }}"
     app_hostname: "app.{{ domain | default('tearleads.com', true) }}"
     app_demo_hostnames_env: "{{ lookup('env', 'APP_DEMO_HOSTNAMES') | default('', true) }}"
     app_demo_hostnames_default:
       - "demo.{{ domain | default('tearleads.com', true) }}"
-    app_demo_hostnames: "{{ app_demo_hostnames_env.split(',') | map('trim') | reject('equalto', '') | list if app_demo_hostnames_env != '' else app_demo_hostnames_default }}"
+    app_demo_hostnames: >-
+      {{ app_demo_hostnames_env.split(',') | map('trim') |
+      reject('equalto', '') | list if app_demo_hostnames_env != '' else
+      app_demo_hostnames_default }}
     cloudflare_tunnel_token: "{{ lookup('env', 'CLOUDFLARE_TUNNEL_TOKEN') | default('', true) }}"
     server_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
     bun_path: "/home/{{ server_user }}/.bun/bin/bun"
     nginx_worker_connections: 1024
-    certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | default('admin@' + (domain | default('tearleads.com')), true) }}"
     garage_enabled: "{{ lookup('env', 'GARAGE_ENABLED') | default('true', true) }}"
     garage_version: "{{ lookup('env', 'GARAGE_VERSION') | default('v2.3.0', true) }}"
     garage_db_engine: "{{ lookup('env', 'GARAGE_DB_ENGINE') | default('lmdb', true) }}"
@@ -121,7 +129,7 @@
       ansible.builtin.apt:
         name: nginx
         state: present
-      notify: Reload nginx
+      notify: Restart nginx
 
     - name: Configure nginx main settings
       ansible.builtin.template:
@@ -130,13 +138,13 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Reload nginx
+      notify: Restart nginx
 
     - name: Remove default nginx site
       ansible.builtin.file:
         path: /etc/nginx/sites-enabled/default
         state: absent
-      notify: Reload nginx
+      notify: Restart nginx
 
     - name: Configure nginx site for application
       ansible.builtin.template:
@@ -145,14 +153,14 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Reload nginx
+      notify: Restart nginx
 
     - name: Enable nginx site
       ansible.builtin.file:
         src: /etc/nginx/sites-available/app.conf
         dest: /etc/nginx/sites-enabled/app.conf
         state: link
-      notify: Reload nginx
+      notify: Restart nginx
 
     - name: Create website directory
       ansible.builtin.file:
@@ -185,14 +193,14 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Reload nginx
+      notify: Restart nginx
 
     - name: Enable nginx website site
       ansible.builtin.file:
         src: /etc/nginx/sites-available/website.conf
         dest: /etc/nginx/sites-enabled/website.conf
         state: link
-      notify: Reload nginx
+      notify: Restart nginx
 
     - name: Configure nginx site for API
       ansible.builtin.template:
@@ -201,28 +209,20 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Reload nginx
+      notify: Restart nginx
 
     - name: Enable nginx API site
       ansible.builtin.file:
         src: /etc/nginx/sites-available/api.conf
         dest: /etc/nginx/sites-enabled/api.conf
         state: link
-      notify: Reload nginx
+      notify: Restart nginx
 
     - name: Ensure nginx is enabled and started
       ansible.builtin.systemd:
         name: nginx
         enabled: true
         state: started
-
-    - name: Install certbot and nginx plugin
-      ansible.builtin.apt:
-        name:
-          - certbot
-          - python3-certbot-nginx
-          - unzip
-        state: present
 
     - name: Install deploy helper packages
       ansible.builtin.apt:
@@ -284,9 +284,15 @@
         state: "{{ 'restarted' if cloudflared_service_file.changed else 'started' }}"
       when: cloudflare_tunnel_token != ""
 
+    - name: Download Bun installer
+      ansible.builtin.get_url:
+        url: https://bun.sh/install
+        dest: /tmp/tearleads-bun-install.sh
+        mode: "0755"
+
     - name: Install Bun
-      ansible.builtin.shell:
-        cmd: curl -fsSL https://bun.sh/install | bash
+      ansible.builtin.command:
+        cmd: /tmp/tearleads-bun-install.sh
         creates: /home/{{ server_user }}/.bun/bin/bun
       become: true
       become_user: "{{ server_user }}"
@@ -378,6 +384,14 @@
         enabled: true
         state: started
 
+    - name: Restrict PostgreSQL to loopback interfaces
+      community.postgresql.postgresql_set:
+        name: listen_addresses
+        value: "127.0.0.1, ::1"
+      become: true
+      become_user: postgres
+      notify: Restart PostgreSQL
+
     - name: Create or update PostgreSQL user
       community.postgresql.postgresql_user:
         name: "{{ postgres_user }}"
@@ -411,14 +425,19 @@
         name: ssh
         state: restarted
 
-    - name: Reload nginx
+    - name: Restart nginx
       ansible.builtin.systemd:
         name: nginx
-        state: reloaded
+        state: restarted
 
     - name: Restart redis
       ansible.builtin.systemd:
         name: redis-server
+        state: restarted
+
+    - name: Restart PostgreSQL
+      ansible.builtin.systemd:
+        name: "postgresql@{{ postgres_version }}-main"
         state: restarted
 
     - name: Reload systemd

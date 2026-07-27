@@ -34,6 +34,7 @@ rsync -avz --delete --rsync-path="sudo rsync" \
   "$WEBSITE_DIR/dist/" "$SSH_TARGET:$REMOTE_PATH/"
 
 ssh "$SSH_TARGET" sudo chown -R www-data:www-data "$REMOTE_PATH"
+ssh "$SSH_TARGET" sudo chmod -R u=rwX,go=rX "$REMOTE_PATH"
 ssh "$SSH_TARGET" sudo systemctl reload nginx
 
 echo "Website deployed."

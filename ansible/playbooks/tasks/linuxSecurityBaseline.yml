@@ -20,12 +20,23 @@
     policy: allow
   when: linux_security_baseline_manage_ufw | bool
 
+- name: Remove obsolete public UFW allow rules
+  community.general.ufw:
+    rule: allow
+    delete: true
+    port: "{{ item.port }}"
+    proto: "{{ item.proto | default('tcp') }}"
+  loop: "{{ linux_security_baseline_ufw_delete_allow_rules | default([]) }}"
+  when: linux_security_baseline_manage_ufw | bool
+
 - name: Apply baseline UFW allow rules
   community.general.ufw:
     rule: allow
     port: "{{ item.port }}"
     proto: "{{ item.proto | default('tcp') }}"
     src: "{{ item.src | default(omit) }}"
+    interface: "{{ item.interface | default(omit) }}"
+    direction: "{{ item.direction | default(omit) }}"
   loop: "{{ linux_security_baseline_ufw_allow_rules }}"
   when: linux_security_baseline_manage_ufw | bool
 

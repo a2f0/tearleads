@@ -43,12 +43,6 @@ variable "server_user_data" {
   default     = ""
 }
 
-variable "allowed_ssh_ips" {
-  description = "List of IP addresses/CIDRs allowed SSH access"
-  type        = list(string)
-  default     = ["0.0.0.0/0", "::/0"]
-}
-
 variable "ssh_host_private_key" {
   description = "SSH host private key for the server"
   type        = string

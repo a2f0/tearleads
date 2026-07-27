@@ -2,13 +2,6 @@ resource "hcloud_firewall" "main" {
   count = var.create_firewall ? 1 : 0
   name  = "${var.name}-firewall"
 
-  rule {
-    direction  = "in"
-    protocol   = "tcp"
-    port       = "22"
-    source_ips = var.allowed_ssh_ips
-  }
-
   dynamic "rule" {
     for_each = var.firewall_rules
     content {

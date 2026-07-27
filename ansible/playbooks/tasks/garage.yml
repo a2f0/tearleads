@@ -10,7 +10,10 @@
       - garage_default_bucket | length > 0
       - garage_s3_region | length > 0
       - garage_binary_checksum | length > 0
-    fail_msg: "Garage is enabled but required secrets or binary checksum are missing. Set secrets in .secrets/<tier>.garage.env and GARAGE_BINARY_CHECKSUM when overriding the default Garage build."
+    fail_msg: >-
+      Garage is enabled but required secrets or binary checksum are missing.
+      Set secrets in .secrets/<tier>.garage.env and GARAGE_BINARY_CHECKSUM when
+      overriding the default Garage build.
   when: garage_enabled | bool
 
 - name: Create Garage system group
