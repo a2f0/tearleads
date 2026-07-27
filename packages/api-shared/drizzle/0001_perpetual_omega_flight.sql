@@ -1,1 +1,0 @@
-ALTER TABLE "blobs" ADD COLUMN "dereferenced_at" timestamp;

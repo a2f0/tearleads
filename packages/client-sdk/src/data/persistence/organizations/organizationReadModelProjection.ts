@@ -359,7 +359,6 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
       cursor: organizationReadModelState.cursor,
       memberGroupId: organizationReadModelState.memberGroupId,
       profileDocumentId: organizationReadModelState.profileDocumentId,
-      protocolVersion: organizationReadModelState.protocolVersion,
       updatedAt: organizationReadModelState.updatedAt,
     })
     .from(organizationReadModelState)

@@ -155,7 +155,7 @@ function getTableEnsureKey(table: SqlTableSchema): string {
   return `sql-table:${table.name}`;
 }
 
-// Table/column ensures run on every query path, so completed ones are
+// Table ensures run on every query path, so completed ones are
 // remembered per connection: a re-ensure of an already-ensured table skips the
 // DDL round-trips AND the serialized mutation lock, keeping diagnostic reads
 // from queueing behind bulk-import writes just to re-issue CREATE IF NOT

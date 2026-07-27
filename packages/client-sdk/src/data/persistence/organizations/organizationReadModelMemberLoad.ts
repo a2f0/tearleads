@@ -18,10 +18,7 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { notifyOrganizationReadModelInvalidated } from "./organizationReadModelInvalidation";
-import {
-  ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
-  OrganizationReadModelIntegrityError,
-} from "./organizationReadModelProtocol";
+import { OrganizationReadModelIntegrityError } from "./organizationReadModelProtocol";
 import { purgeOrganizationReadModelProjectionInTransaction } from "./organizationReadModelPurge";
 
 interface SelectedGroupMember {
@@ -183,19 +180,11 @@ export async function loadOrganizationReadModelGroupMembers(
   const members = await getClientSQLitePersistenceRuntime(execSql).transaction(
     async (tx) => {
       const [state] = await tx
-        .select({ protocolVersion: organizationReadModelState.protocolVersion })
+        .select({ organizationId: organizationReadModelState.organizationId })
         .from(organizationReadModelState)
         .where(eq(organizationReadModelState.organizationId, organizationId))
         .limit(1);
       if (!state) {
-        return null;
-      }
-      if (state.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION) {
-        await purgeOrganizationReadModelProjectionInTransaction({
-          organizationId,
-          tx,
-        });
-        purgedInvalidRows = true;
         return null;
       }
       const [requester] = await tx
@@ -221,8 +210,8 @@ export async function loadOrganizationReadModelGroupMembers(
         if (!(error instanceof OrganizationReadModelIntegrityError)) {
           throw error;
         }
-        // Invalid stored rows self-heal like a protocol mismatch: purge so the
-        // next reconcile refetches a snapshot instead of failing every read.
+        // Invalid stored rows self-heal: purge so the next reconcile refetches
+        // a snapshot instead of failing every read.
         await purgeOrganizationReadModelProjectionInTransaction({
           organizationId,
           tx,

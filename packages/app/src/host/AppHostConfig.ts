@@ -425,11 +425,7 @@ export function resolveEventsWebSocketUrl(
   const base = currentLocationHref.replace(/^http/iu, "ws");
 
   if (configuredWsUrl) {
-    const url = new URL(configuredWsUrl, base);
-    if (url.pathname === "" || url.pathname === "/") {
-      url.pathname = "/events";
-    }
-    return url.toString();
+    return new URL(configuredWsUrl, base).toString();
   }
 
   const url = new URL(apiBaseUrl.replace(/^http/iu, "ws"), base);

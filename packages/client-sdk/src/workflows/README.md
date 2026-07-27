@@ -70,9 +70,9 @@ construct the nominal test values; production source must not import it.
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through
 the strict version 4 organization read-model feed and keeps the opaque cursor in
-the same SQLite transaction as each applied page. Older projections are
-discarded before a cursorless version 4 snapshot; there is no translation or
-legacy HTTP fallback.
+the same SQLite transaction as each applied page. Local storage contains only
+the current projection schema; there is no projection upgrade or alternate HTTP
+path.
 
 Organization data usage stays outside that feed because content and blob
 writes do not share its administrative cursor. The SDK stores the strict

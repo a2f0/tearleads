@@ -13,7 +13,6 @@ import {
 
 export type SQLiteWorkerClient = DatabaseWorkerClient;
 export type CreateSQLiteRuntimeOptions = CreateModuleDatabaseRuntimeOptions;
-export type CreateModuleSQLiteRuntimeOptions = CreateSQLiteRuntimeOptions;
 export type SQLiteRuntime = DatabaseRuntime;
 export type SQLiteModuleWorkerConstructor = ModuleWorkerConstructor;
 export type SQLiteModuleWorkerLike = ModuleWorkerLike;
@@ -21,33 +20,8 @@ export interface SQLiteRuntimeWorker extends WorkerLike {
   terminate(): void;
 }
 
-function isSQLiteRuntimeWorker(
-  value: CreateSQLiteRuntimeOptions | SQLiteRuntimeWorker | undefined,
-): value is SQLiteRuntimeWorker {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof Reflect.get(value, "terminate") === "function" &&
-    typeof Reflect.get(value, "postMessage") === "function" &&
-    typeof Reflect.get(value, "addEventListener") === "function" &&
-    typeof Reflect.get(value, "removeEventListener") === "function"
-  );
-}
-
 export function createSQLiteRuntime(
   options?: CreateSQLiteRuntimeOptions,
-): SQLiteRuntime;
-export function createSQLiteRuntime(worker: SQLiteRuntimeWorker): SQLiteRuntime;
-export function createSQLiteRuntime(
-  input?: CreateSQLiteRuntimeOptions | SQLiteRuntimeWorker,
-): SQLiteRuntime {
-  return isSQLiteRuntimeWorker(input)
-    ? createDatabaseRuntime(input)
-    : createModuleDatabaseRuntime(input);
-}
-
-export function createModuleSQLiteRuntime(
-  options?: CreateModuleSQLiteRuntimeOptions,
 ): SQLiteRuntime {
   return createModuleDatabaseRuntime(options);
 }

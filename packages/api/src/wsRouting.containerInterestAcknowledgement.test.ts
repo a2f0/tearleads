@@ -11,7 +11,7 @@ function fakeSocket(): WsConnection {
   };
 }
 
-test("container interest accepts bounded declaration ids and preserves legacy messages", () => {
+test("container interest supports optional bounded declaration ids", () => {
   const router = new WsEventRouter();
   const socket = fakeSocket();
   router.open(socket);

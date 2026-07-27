@@ -269,23 +269,22 @@ worker thread implementation, but host application code should prefer the SDK
 facade so database setup, executor contracts, and workflow runtime integration
 stay behind one developer-facing package.
 
-The SQLite facade intentionally aliases the lower-level database runtime names
-into SDK SQLite vocabulary:
+The SQLite facade exposes lower-level database runtime capabilities through SDK
+SQLite vocabulary:
 
 | SDK export | Use for |
 | --- | --- |
 | `createSQLiteRuntime(options?)` | Creating the default module-worker runtime, optionally with `workerUrl` or a custom `workerConstructor` |
 | `createSQLiteRuntimeFromWorker(worker)` | Wrapping a host-created terminable worker-like object |
-| `createModuleSQLiteRuntime(options?)` | Compatibility alias for the default module-worker runtime factory |
 | `SQLiteRuntime` | The `{ id, client, destroy() }` lifecycle contract returned by both runtime factories |
 | `SQLiteWorkerClient` | The worker client contract accepted by `database.client` through `ExecSqlClientLike` |
-| `CreateSQLiteRuntimeOptions`, `CreateModuleSQLiteRuntimeOptions`, `SQLiteModuleWorkerConstructor`, `SQLiteModuleWorkerLike` | Host adapter types for custom module-worker construction |
+| `CreateSQLiteRuntimeOptions`, `SQLiteModuleWorkerConstructor`, `SQLiteModuleWorkerLike` | Host adapter types for custom module-worker construction |
 | `getSQLitePersistenceRuntime(execSql)` | Building typed Drizzle queries against the active SDK SQLite executor |
 | `defineSqlTableSchema(table)` | Rendering app-owned Drizzle SQLite table definitions for `ensureSqlTables` |
 | `ExecSql`, `SqlTableSchema`, `ensureSqlTables`, `runSerializedSqlMutation` | Explicit executor, schema, and mutation helpers for host-owned persistence edges |
 | `resetConnectionSchemaMemo(execSql)` | Forgetting the connection's completed schema-ensure memo after a host operation rebuilds tables out from under the runtime (local backup restore) |
 
-Host runtime code should use these aliases instead of importing
+Host runtime code should use this facade instead of importing
 `createDatabaseRuntime`, `createModuleDatabaseRuntime`, `DatabaseRuntime`, or
 `DatabaseWorkerClient` from `@tearleads/sqlite-worker` directly. Worker-thread
 entry files and low-level SQLite tests may still import the underlying worker
@@ -390,11 +389,10 @@ WKWebView-based shells that cannot structured-clone `CryptoKey` objects into
 IndexedDB can use `createWebViewLocalKeyring()`. It uses the same manifest and
 wrapping-key ids as `createBrowserLocalKeyring()`, but writes new wrapping keys
 as raw AES-256 bytes to avoid the WebKit keychain clone path. It does not
-migrate existing browser `CryptoKey` records; provision WebView hosts with
-raw-byte storage before creating local identity data or recreate incompatible
-local keyring data. Raw-byte storage is weaker at rest, so browser hosts should
-keep the default `createBrowserLocalKeyring()` wiring when `CryptoKey` cloning
-works.
+interchange records with the browser `CryptoKey` mode, so hosts must choose the
+appropriate storage mode before creating local identity data. Raw-byte storage
+is weaker at rest, so browser hosts should keep the default
+`createBrowserLocalKeyring()` wiring when `CryptoKey` cloning works.
 
 `createPinCodeBrowserLocalKeyring({ pinCode })` enables opt-in PIN
 locking.

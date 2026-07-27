@@ -10,6 +10,9 @@ Use `API_DATABASE` to select the database adapter:
 - `postgres`: node-postgres with the API Drizzle migrations applied at startup.
 - `sqlite`: Bun's native SQLite driver with the API SQLite Drizzle migrations applied at startup.
 
+Each dialect keeps a single greenfield baseline migration. Pre-reset databases
+are not upgraded; reset and provision a fresh database instead.
+
 When `NODE_ENV=production`, `API_DATABASE` must be set explicitly.
 
 Postgres accepts either a connection URL:

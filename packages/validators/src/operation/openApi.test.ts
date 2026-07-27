@@ -253,7 +253,7 @@ test("emitted schemas reject the same structural failures as runtime schemas", (
   }
 });
 
-test("emitted integer schemas preserve the legacy numeric range", () => {
+test("emitted integer schemas preserve the runtime numeric range", () => {
   const request = jsonRoundTrip({
     ...createSyncRequest(),
     contentKeyEpoch: Number.MAX_VALUE,
@@ -279,7 +279,7 @@ test("emitted integer schemas preserve the legacy numeric range", () => {
   expect(validateRequestSchema(overflow)).toBe(false);
 });
 
-test("container rekey projection follows every legacy guard field", () => {
+test("container rekey projection follows every runtime guard field", () => {
   const accessManifest = createAccessManifestBundle();
   const completeMutation = {
     ...createContainerMutation(),

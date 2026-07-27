@@ -134,9 +134,9 @@ test("the root route opens explorer as the routed home screen", () => {
 });
 
 test("invalid route app ids fall back to explorer without indexing missing mini-apps", () => {
-  const legacyRouteAppId = "legacy-app" as MiniAppId;
+  const invalidRouteAppId = "invalid-app" as MiniAppId;
 
-  expect(resolveRoutedActiveMiniAppId(legacyRouteAppId)).toBe("explorer");
+  expect(resolveRoutedActiveMiniAppId(invalidRouteAppId)).toBe("explorer");
 });
 
 test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {

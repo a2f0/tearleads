@@ -316,10 +316,10 @@ async function runRevenueCatWebhookTransaction(input: {
  * effect is computed purely by {@link classifyRevenueCatEvent}, which ignores
  * store-sandbox events unless the tier sets
  * `REVENUECAT_ALLOW_SANDBOX_EVENTS=true`. Stripe-store
- * transitions use the durable subscription binding, an exact Stripe
- * subscription lookup, or narrowly validated immutable legacy transaction
- * metadata; other stores use transaction metadata or the `orgId` subscriber
- * attribute. Binding a new RevenueCat customer to an org additionally requires
+ * transitions use the durable subscription binding or an exact Stripe
+ * subscription lookup; transaction metadata is only a consistency check.
+ * Other stores use transaction metadata or the `orgId` subscriber attribute.
+ * Binding a new RevenueCat customer to an org additionally requires
  * the buyer (App User ID) to be an org admin — a non-admin buyer is recorded and
  * ignored rather than granted. All writes happen in one transaction so the
  * idempotency claim gates the billing write.
