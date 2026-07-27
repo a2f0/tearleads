@@ -393,11 +393,13 @@ function createHistoryPersistence(
     },
     async loadHistoryRestoreState(_execSql, localId) {
       const history = historyByLocalId.get(localId);
-      if (!history?.checkpoint) {
+      if (!history || (!history.checkpoint && history.tail.length === 0)) {
         return null;
       }
+      // Mirror the SQL persistence: a tail without a checkpoint restores as
+      // tail-only (empty snapshot) rather than being silently ignored.
       return {
-        snapshot: history.checkpoint.snapshot,
+        snapshot: history.checkpoint?.snapshot ?? "",
         tailUpdates: history.tail.map((entry) => entry.updateData),
       };
     },

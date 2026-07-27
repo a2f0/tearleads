@@ -99,15 +99,33 @@ async function buildResetContentDocs(
     }
   }
 
+  // Rebuild the UNION of checkpoint and tail scopes: a tail-only scope (a
+  // crash landed the first edit's tail row before the birth checkpoint) may
+  // hold the only durable copy of that edit, and dropping it from the reset
+  // would discard it.
+  const checkpointByScope = new Map(
+    checkpointRows.map((row) => [
+      historyScopeKey(row.appKind, row.localId),
+      row,
+    ]),
+  );
+  const scopes = new Map<string, { appKind: string; localId: string }>();
+  for (const row of [...checkpointRows, ...tailRows]) {
+    scopes.set(historyScopeKey(row.appKind, row.localId), {
+      appKind: row.appKind,
+      localId: row.localId,
+    });
+  }
+
   const contentDocByScope = new Map<string, ResetContentDoc>();
   await Promise.all(
-    checkpointRows.map(async (row) => {
-      const key = historyScopeKey(row.appKind, row.localId);
+    [...scopes.entries()].map(async ([key, scope]) => {
       const doc = await createDocument(
-        `remote-reset:${row.appKind}:${row.localId}`,
+        `remote-reset:${scope.appKind}:${scope.localId}`,
       );
+      const checkpoint = checkpointByScope.get(key);
       importDocumentHistoryTailUpdates(doc, [
-        row.snapshot,
+        ...(checkpoint ? [checkpoint.snapshot] : []),
         ...(tailByScope.get(key) ?? []),
       ]);
       contentDocByScope.set(key, doc);

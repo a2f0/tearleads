@@ -56,7 +56,11 @@ export async function loadPersistedDocumentContent(input: {
   }
 
   const doc = await createDocument(await getScopedPeerSeed(DOCUMENTS_APP_KIND));
-  importSnapshot(doc, base64ToBytes(history.snapshot));
+  // A tail-only state (crash before the birth checkpoint landed) has an
+  // empty snapshot; the tail rows alone carry the content.
+  if (history.snapshot.length > 0) {
+    importSnapshot(doc, base64ToBytes(history.snapshot));
+  }
   importDocumentHistoryTailUpdates(doc, history.tailUpdates);
   return doc;
 }

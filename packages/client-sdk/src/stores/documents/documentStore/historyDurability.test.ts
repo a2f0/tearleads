@@ -178,6 +178,37 @@ test("the tail compacts into a fresh checkpoint past the row threshold", async (
   }
 });
 
+test("a tail-only scope (crash before the birth checkpoint) still restores", async () => {
+  const { close, execSql } = await createTestExecSql("history-tail-only");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    // Model the crash window: the first edit's tail row landed (the enqueue
+    // dual-write) and the record persisted, but the birth checkpoint never
+    // did. The tail row is the only durable copy of the edit.
+    const author = await createDocument("tail-only-author");
+    author.getText("text").update("only durable copy");
+    author.commit();
+    await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      localId: "tail-only-doc",
+      updates: [bytesToBase64(exportAllUpdates(author))],
+    });
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      id: "tail-only-doc",
+      accessEpoch: 1,
+      containerId: null,
+      documentId: null,
+      snapshotEndVersion: encodeVersionVector(author),
+      text: "only durable copy",
+    });
+
+    const reopened = await openStore(execSql, "tail-only-doc");
+    if (!reopened.doc) throw new Error("expected restored doc");
+    expect(getTextValue(reopened.doc)).toBe("only durable copy");
+  } finally {
+    close();
+  }
+});
+
 test("compaction preserves cross-pane tail rows its document does not cover", async () => {
   const { close, execSql } = await createTestExecSql("history-cross-pane");
   try {

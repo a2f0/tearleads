@@ -52,9 +52,13 @@ export async function appendDocumentHistoryUpdates(
 }
 
 /**
- * The checkpoint + ordered tail for a scope, or null when no checkpoint
- * exists (a discovered shell that has not hydrated content yet; the caller
- * starts the document empty and the remote pull supplies the content).
+ * The checkpoint + ordered tail for a scope, or null when NEITHER exists (a
+ * discovered shell that has not hydrated content yet; the caller starts the
+ * document empty and the remote pull supplies the content). A tail WITHOUT a
+ * checkpoint — a crash between the first enqueued edit's tail append and the
+ * birth-checkpoint seed — restores as tail-only (`snapshot: ""`): those tail
+ * rows can be the only durable copy of a local edit, so they must never be
+ * silently ignored.
  */
 export async function loadDocumentHistoryRestoreState(
   execSql: ExecSql,
@@ -62,22 +66,6 @@ export async function loadDocumentHistoryRestoreState(
 ): Promise<DocumentHistoryRestoreState | null> {
   await ensureSqlTables(execSql, documentTables);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  // Cheap existence probe first: a scope without a checkpoint has no content
-  // to restore, so loading whatever tail it may have accumulated on every
-  // reopen just to discard it would be wasted startup cost.
-  const [probe] = await db
-    .select({ localId: documentHistoryCheckpoints.localId })
-    .from(documentHistoryCheckpoints)
-    .where(
-      and(
-        eq(documentHistoryCheckpoints.appKind, scope.appKind),
-        eq(documentHistoryCheckpoints.localId, scope.localId),
-      ),
-    )
-    .limit(1);
-  if (!probe) {
-    return null;
-  }
   // Read the TAIL before the (full) checkpoint: if another pane compacts
   // between the two reads, this order yields old-tail + new-checkpoint — a
   // safe superset (the new checkpoint subsumes the old tail, and replay is
@@ -111,12 +99,12 @@ export async function loadDocumentHistoryRestoreState(
       ),
     )
     .limit(1);
-  if (!checkpoint) {
+  if (!checkpoint && tail.length === 0) {
     return null;
   }
 
   return {
-    snapshot: checkpoint.snapshot,
+    snapshot: checkpoint?.snapshot ?? "",
     tailUpdates: tail.map((row) => row.updateData),
   };
 }

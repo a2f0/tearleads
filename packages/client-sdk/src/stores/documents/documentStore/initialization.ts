@@ -196,7 +196,11 @@ async function restorePersistedDocumentContent(
     return;
   }
 
-  importSnapshot(nextDoc, base64ToBytes(history.snapshot));
+  // A tail-only state (crash before the birth checkpoint landed) has an
+  // empty snapshot; the tail rows alone carry the content.
+  if (history.snapshot.length > 0) {
+    importSnapshot(nextDoc, base64ToBytes(history.snapshot));
+  }
   importDocumentHistoryTailUpdates(nextDoc, history.tailUpdates);
 }
 
