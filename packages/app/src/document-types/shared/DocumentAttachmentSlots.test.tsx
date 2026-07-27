@@ -89,6 +89,7 @@ test("clear image buttons are hidden for empty slots", () => {
 
   expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
   expect(view.queryByRole("button", { name: "Clear Back Image" })).toBeNull();
+  expect(view.queryByText("Attach an image to bind this slot.")).toBeNull();
 });
 
 test("shows downloading feedback when an attachment exists before its image bytes load", () => {
