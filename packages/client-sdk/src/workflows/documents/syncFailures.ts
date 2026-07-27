@@ -413,6 +413,7 @@ export async function retrySyncPlan(input: {
   documentId: string;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
+  onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<
   | readonly [MaterializedDocumentSyncPlan, DocumentWriterProjectionResponse]
@@ -439,6 +440,7 @@ export async function retrySyncPlan(input: {
     apiClient: input.apiClient,
     documentId: input.documentId,
     onSyncTrace: input.onSyncTrace,
+    onTerminalFailure: input.onTerminalFailure,
     reusableWriterProjection: null,
   });
   if (writerProjection === REMOTE_DOCUMENT_DELETED) {
@@ -491,6 +493,7 @@ export async function retrySyncPlanOrAbandon(input: {
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncAbandoned?: ((reason: string) => void) | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
+  onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<
   | readonly [MaterializedDocumentSyncPlan, DocumentWriterProjectionResponse]

@@ -884,6 +884,8 @@ interface ReadOnlyDocumentSyncCompletionInput {
   execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
+  onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
@@ -922,7 +924,16 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
       : null;
   const writerProjection =
     reusableWriterProjection ??
-    (await input.apiClient.getDocumentWriterProjection(input.documentId));
+    (await resolveSyncAttemptWriterProjection({
+      apiClient: input.apiClient,
+      documentId: input.documentId,
+      onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+      onSyncTrace: input.onSyncTrace,
+      // Read-only by construction: this path only runs on passes with no
+      // queued writes, so a refused fetch records durably (row 13).
+      onTerminalFailure: input.onReadOnlyProjectionFailure,
+      reusableWriterProjection: null,
+    }));
   if (!writerProjection) {
     return { kind: "completed", result: null };
   }
@@ -949,8 +960,14 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
   } else {
     input.apiClient.clearWriterProjectionCaches?.();
   }
-  const freshWriterProjection =
-    await input.apiClient.getDocumentWriterProjection(input.documentId);
+  const freshWriterProjection = await resolveSyncAttemptWriterProjection({
+    apiClient: input.apiClient,
+    documentId: input.documentId,
+    onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+    onSyncTrace: input.onSyncTrace,
+    onTerminalFailure: input.onReadOnlyProjectionFailure,
+    reusableWriterProjection: null,
+  });
   if (!freshWriterProjection) {
     return { kind: "completed", result: null };
   }
@@ -973,6 +990,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
   execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
@@ -1280,6 +1298,7 @@ async function tryPersistedReadOnlyDocumentSync(
     execSql: input.execSql,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
+    onReadOnlyProjectionFailure: input.onReadOnlyProjectionFailure,
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncTrace: input.onSyncTrace,
     persistedState: input.persistedState,
@@ -1492,6 +1511,21 @@ function submitPlannedSyncAttempt(args: {
   });
 }
 
+/**
+ * A write-bearing pass records through the submit handler (its queued writes
+ * are what the failure blocks). A read-only pass records through the
+ * revalidation handler so the refusal still leaves a durable trail instead
+ * of silently never revalidating (edge-case row 13).
+ */
+function projectionFailureHandler(
+  input: SyncRemoteDocumentInput,
+  pendingUpdates: readonly PendingUpdateRecord[],
+): TerminalSubmitFailureHandler | undefined {
+  return pendingUpdates.length > 0
+    ? input.onTerminalSubmitFailure
+    : input.onReadOnlyProjectionFailure;
+}
+
 function resolveAttemptProjection(
   input: SyncRemoteDocumentInput,
   pendingUpdates: readonly PendingUpdateRecord[],
@@ -1503,14 +1537,7 @@ function resolveAttemptProjection(
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncAbandoned: input.onSyncAbandoned,
     onSyncTrace: input.onSyncTrace,
-    // A write-bearing pass records through the submit handler (its queued
-    // writes are what the failure blocks). A read-only pass records through
-    // the revalidation handler so the refusal still leaves a durable trail
-    // instead of silently never revalidating (edge-case row 13).
-    onTerminalFailure:
-      pendingUpdates.length > 0
-        ? input.onTerminalSubmitFailure
-        : input.onReadOnlyProjectionFailure,
+    onTerminalFailure: projectionFailureHandler(input, pendingUpdates),
     reusableWriterProjection,
   });
 }
@@ -1559,6 +1586,7 @@ export async function syncRemoteDocument(
       onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
       onSyncAbandoned: input.onSyncAbandoned,
       onSyncTrace: input.onSyncTrace,
+      onTerminalFailure: projectionFailureHandler(input, pendingUpdates),
       writerProjection,
     });
     if (!planned) {

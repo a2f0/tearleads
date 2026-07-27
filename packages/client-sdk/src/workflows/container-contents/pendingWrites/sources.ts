@@ -51,6 +51,45 @@ const PENDING_WRITE_SOURCE_SQL = `
 
   UNION ALL
 
+  -- Failure-only surface (edge-case row 13): a refused read-only
+  -- revalidation records a durable failure row with NO pending work, so
+  -- without this branch the refusal would never reach the queue view. The
+  -- 'unless-item-covered' inclusion keeps it out whenever the document
+  -- already has real operations — those candidates carry the same failure
+  -- message through their own joins.
+  SELECT
+    'document' AS object_kind,
+    NULL AS namespace,
+    failure.local_id AS local_id,
+    stored.document_id AS remote_id,
+    projection.title AS name,
+    projection.container_id AS container_id,
+    COALESCE(
+      NULLIF(container.organization_id, ''),
+      NULLIF(projection.organization_id, '')
+    ) AS organization_id,
+    'update' AS operation_kind,
+    0 AS operation_count,
+    0 AS byte_length,
+    failure.attempted_at AS created_at,
+    failure.attempted_at AS updated_at,
+    NULL AS target_container_id,
+    'pending' AS operation_status,
+    failure.message AS last_error,
+    failure.attempted_at AS last_attempted_at,
+    'unless-item-covered' AS inclusion
+  FROM document_sync_failures failure
+  LEFT JOIN documents stored
+    ON stored.app_kind = failure.app_kind
+    AND stored.local_id = failure.local_id
+  LEFT JOIN document_projection projection
+    ON projection.local_id = failure.local_id
+  LEFT JOIN containers container
+    ON container.id = projection.container_id
+  WHERE failure.app_kind = 'documents'
+
+  UNION ALL
+
   SELECT
     'container' AS object_kind,
     NULL AS namespace,
