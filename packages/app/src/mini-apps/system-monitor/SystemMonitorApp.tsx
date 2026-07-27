@@ -14,7 +14,6 @@ import {
   useWindowViewMenuItem,
 } from "../../components/window/WindowMenuContext";
 import {
-  useAppNavigationActions,
   useAppNavigationState,
   useMiniAppRouteSegments,
 } from "../../navigation/AppNavigationProvider";
@@ -75,7 +74,6 @@ function renderSystemMonitorTabPanel(activeTab: SystemMonitorTabId) {
 }
 
 const PIN_TO_DESKTOP_LABEL = "Pin to Desktop";
-const PIN_TO_HOME_SCREEN_LABEL = "Pin to Home Screen";
 const ENABLE_DEVELOPER_MODE_LABEL = "Enable Developer Mode";
 const DISABLE_DEVELOPER_MODE_LABEL = "Disable Developer Mode";
 
@@ -85,44 +83,28 @@ function useSystemMonitorChromeActions() {
   const { canPin, isDeveloperMode, pinToDesktop, toggleDeveloperMode } =
     useSystemMonitor();
   const currentWindow = useCurrentWindow();
-  const { navigateHome } = useAppNavigationActions();
   const { mode: navigationMode } = useAppNavigationState();
   const isRoutedShell = navigationMode === "routed";
 
   const handlePin = useCallback(() => {
     pinToDesktop();
-    if (isRoutedShell) {
-      navigateHome();
-      return;
-    }
-
     currentWindow?.close();
-  }, [currentWindow, isRoutedShell, navigateHome, pinToDesktop]);
-
-  const pinLabel = isRoutedShell
-    ? PIN_TO_HOME_SCREEN_LABEL
-    : PIN_TO_DESKTOP_LABEL;
+  }, [currentWindow, pinToDesktop]);
 
   // Surface the pin action only where a pane-level SystemMonitorProvider is
-  // mounted. Windowed mode keeps the existing View/title-bar action; the routed
-  // shell has no menu bar (its nav rail is a pure app launcher), so the
-  // home-screen pin rides its app bar toolbar. Developer mode remains a
-  // windowed View-menu action rather than taking space in routed toolbars.
+  // mounted and the app is using the windowed shell. Routed mobile and tablet
+  // layouts do not have a desktop surface to pin the monitor to.
   // Memoized so the registrations keep a stable identity across renders.
   const pinMenuItem = useMemo(
     () =>
-      canPin
+      canPin && !isRoutedShell
         ? {
             id: "system-monitor-pin",
-            label: pinLabel,
+            label: PIN_TO_DESKTOP_LABEL,
             onClick: handlePin,
           }
         : null,
-    [canPin, handlePin, pinLabel],
-  );
-  const pinViewMenuItem = useMemo(
-    () => (isRoutedShell ? null : pinMenuItem),
-    [isRoutedShell, pinMenuItem],
+    [canPin, handlePin, isRoutedShell],
   );
   const developerModeLabel = isDeveloperMode
     ? DISABLE_DEVELOPER_MODE_LABEL
@@ -141,17 +123,17 @@ function useSystemMonitorChromeActions() {
   );
   const pinTitleBarAction = useMemo(
     () =>
-      canPin
+      canPin && !isRoutedShell
         ? {
             icon: <PushPinIcon aria-hidden size={14} />,
             id: "system-monitor-pin",
-            label: pinLabel,
+            label: PIN_TO_DESKTOP_LABEL,
             onClick: handlePin,
           }
         : null,
-    [canPin, handlePin, pinLabel],
+    [canPin, handlePin, isRoutedShell],
   );
-  useWindowViewMenuItem(pinViewMenuItem);
+  useWindowViewMenuItem(pinMenuItem);
   useWindowViewMenuItem(developerModeViewMenuItem);
   useWindowTitleBarAction(pinTitleBarAction);
 }
