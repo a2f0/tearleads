@@ -342,3 +342,74 @@ test("a projection refusal after recovery stays write-bearing", async () => {
   expect(readOnlyFailures).toEqual([]);
   expect(submitFailures).toEqual([409]);
 });
+
+// The recovery retry submits an EMPTY request while the durable rows still
+// exist. A terminal failure there is what blocks the queued edits, so it
+// must record through the submit handler despite carrying no writes.
+test("a terminal failure after recovery still records durably", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  await ensureDocumentTables(execSql);
+  const scope = { appKind: "documents", localId: "denied-after-recovery" };
+  await enqueueDocumentPendingUpdate(
+    execSql,
+    scope,
+    await createLoroPendingUpdateFields("denied update"),
+  );
+  const [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+  if (!pendingUpdate) {
+    throw new Error("Expected an enqueued pending update");
+  }
+  const submitFailures: number[] = [];
+  let submissions = 0;
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async () => writerProjection,
+      syncDocument: async () => {
+        throw new Error("Expected syncDocumentResult to handle recovery");
+      },
+      syncDocumentResult: async (documentId) => {
+        submissions += 1;
+        if (submissions === 1) {
+          return {
+            code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+            message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
+            ok: false as const,
+            report: () => undefined,
+            status: 409,
+          };
+        }
+        return {
+          message: `POST /documents/${documentId}/sync: 403 Forbidden`,
+          ok: false as const,
+          report: () => undefined,
+          status: 403,
+        };
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    execSql,
+    localVersionVector: null,
+    onTerminalSubmitFailure: (failure) => {
+      submitFailures.push(failure.status ?? -1);
+    },
+    pendingUpdates: [pendingUpdate],
+    resolveProjectionUserKey,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerPublicKeysByFingerprint: new Map([
+      [author.signerKeyFingerprint, signingPublicKey],
+    ]),
+  });
+
+  expect(synced).toBeNull();
+  expect(submissions).toBe(2);
+  expect(submitFailures).toEqual([403]);
+});

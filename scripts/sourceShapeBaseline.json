@@ -206,12 +206,12 @@
       "bytes": 17034
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.test.tsx": {
-      "lines": 584,
-      "bytes": 16686
+      "lines": 632,
+      "bytes": 17992
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.tsx": {
-      "lines": 544,
-      "bytes": 17760
+      "lines": 551,
+      "bytes": 18152
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
       "lines": 466,
@@ -374,12 +374,12 @@
       "bytes": 59993
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1639,
-      "bytes": 57828
+      "lines": 1642,
+      "bytes": 57910
     },
     "packages/client-sdk/src/workflows/documents/syncFailures.ts": {
-      "lines": 509,
-      "bytes": 16592
+      "lines": 514,
+      "bytes": 16881
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,

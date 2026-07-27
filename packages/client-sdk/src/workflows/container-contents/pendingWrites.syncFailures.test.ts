@@ -7,7 +7,10 @@ import {
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
-import { listPendingWrites } from "./pendingWrites";
+import {
+  listPendingWrites,
+  resetPendingWriteRetryState,
+} from "./pendingWrites";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 const T1 = "2026-01-01T00:00:01.000Z";
@@ -212,6 +215,54 @@ test("queue items keep their org id after the shared container is removed", asyn
       containerId: null,
       organizationId: "peer-organization",
     });
+  } finally {
+    close();
+  }
+});
+
+// "Retry sync" on a failure-only item must not consume the failure row: with
+// no queued work there is no lane to re-drive, so the row doubles as the
+// priming ticket and clears on the next clean pass. With queued work the
+// retry keeps its row-11 semantics and clears the row with the budget reset.
+test("retry keeps a failure-only row and clears it with queued work", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "pending-writes-retry-keeps-row",
+  );
+  try {
+    await ensurePendingWriteSchema(execSql);
+    await recordDocumentSyncFailure(execSql, DOCUMENT_SCOPE, {
+      attemptedAt: T2,
+      message: "Remote revalidation failed: container unavailable (409)",
+      status: 409,
+    });
+
+    await resetPendingWriteRetryState(execSql, {
+      localId: "local-document",
+      namespace: null,
+      objectKind: "document",
+    });
+    const kept = await listPendingWrites(execSql);
+    expect(
+      kept.find((item) => item.localId === "local-document"),
+    ).toMatchObject({ status: "error" });
+
+    await execSql(
+      `INSERT INTO document_pending_updates (
+        id, app_kind, local_id, update_data,
+        partial_start_version_vector, partial_end_version_vector,
+        source_version_vector, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
+      ["retry-edit", "documents", "local-document", "payload", "{}", "{}", T1],
+    );
+    await resetPendingWriteRetryState(execSql, {
+      localId: "local-document",
+      namespace: null,
+      objectKind: "document",
+    });
+    const cleared = await listPendingWrites(execSql);
+    expect(
+      cleared.find((item) => item.localId === "local-document"),
+    ).toMatchObject({ status: "pending" });
   } finally {
     close();
   }

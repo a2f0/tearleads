@@ -4,6 +4,7 @@ import { sqlDocumentsPersistence } from "../../data/persistence/documents/docume
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/internal/constants";
 import {
   clearDocumentSyncFailure,
+  listDocumentPendingUpdates,
   resetDocumentPendingUpdateRekeyBudget,
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -73,5 +74,13 @@ export async function resetPendingWriteRetryState(
   }
   const scope = { appKind, localId: input.localId };
   await resetDocumentPendingUpdateRekeyBudget(execSql, scope);
-  await clearDocumentSyncFailure(execSql, scope);
+  // Clearing the failure row is part of the re-key budget reset (edge-case
+  // row 11) and only makes sense alongside queued work. A failure-only item
+  // (a refused revalidation, row 13) has no queued work: its row is the
+  // priming ticket that re-drives the store, so it must survive the retry
+  // and clear on the next clean pass instead of vanishing with no request.
+  const queued = await listDocumentPendingUpdates(execSql, scope);
+  if (queued.length > 0) {
+    await clearDocumentSyncFailure(execSql, scope);
+  }
 }

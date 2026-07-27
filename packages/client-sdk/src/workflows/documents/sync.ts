@@ -1490,6 +1490,7 @@ function submitPlannedSyncAttempt(args: {
   pendingUpdates: readonly PendingUpdateRecord[];
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
+  writeBearing: boolean;
 }) {
   return submitDocumentSyncAttemptIfAllowed({
     apiClient: args.sync.apiClient,
@@ -1508,6 +1509,7 @@ function submitPlannedSyncAttempt(args: {
     onTerminalSubmitFailure: args.sync.onTerminalSubmitFailure,
     pendingUpdates: args.pendingUpdates,
     plan: args.materializedPlan.plan,
+    writeBearing: args.writeBearing,
   });
 }
 
@@ -1605,6 +1607,7 @@ export async function syncRemoteDocument(
       pendingUpdates,
       regenerateQueuedCheckpoints,
       sync: input,
+      writeBearing,
     });
     if (submitted === "retry") {
       evictStaleProjectionForRetry(input);

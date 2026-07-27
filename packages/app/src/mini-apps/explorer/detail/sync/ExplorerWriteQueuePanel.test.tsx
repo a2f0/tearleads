@@ -399,6 +399,54 @@ test("discard runs only after an explicit confirmation", () => {
   ).toBeNull();
 });
 
+// Edge-case row 13: a failure-only revalidation item carries no local data,
+// so the destructive "Discard local edits" (which deletes durable history)
+// must not be offered for it — while an item with real queued writes keeps
+// the escape hatch.
+test("revalidation-only items do not offer the destructive discard", () => {
+  const view = renderPanel({
+    items: [
+      item({
+        localId: "revalidating-doc",
+        name: "Stale note",
+        operations: [
+          operation({
+            count: 0,
+            kind: "revalidation",
+            lastError:
+              "Remote revalidation failed: container unavailable (409)",
+          }),
+        ],
+        status: "error",
+      }),
+      item(),
+    ],
+  });
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: `${EXPLORER_LABELS.writeQueueRowActionsLabel}: Stale note`,
+    }),
+  );
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.writeQueueDiscardAction,
+    }),
+  ).toBeNull();
+  fireEvent.keyDown(document.body, { key: "Escape" });
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: `${EXPLORER_LABELS.writeQueueRowActionsLabel}: Offline note`,
+    }),
+  );
+  expect(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.writeQueueDiscardAction,
+    }),
+  ).toBeTruthy();
+});
+
 test("explains why an errored entry is stuck in its detail view", () => {
   const view = renderPanel({
     items: [

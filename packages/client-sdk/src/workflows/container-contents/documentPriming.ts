@@ -27,8 +27,11 @@ interface LoadedRootDocumentPrimeResult {
 // queued outbound updates/attachments, an outgoing-delta marker behind the
 // stored content frontier (a deferred tail; encoding inequality
 // over-approximates, which only re-primes a store the old behavior always
-// primed), or a never-hydrated document (a freshly discovered share whose
-// content pull the primed lane performs). Fully-synced hydrated documents are
+// primed), a never-hydrated document (a freshly discovered share whose
+// content pull the primed lane performs), or a document with a recorded sync
+// failure (a refused revalidation leaves no queued work, so the failure row
+// is the only ticket that re-drives the store — the retry that clears on the
+// next clean pass). Fully-synced hydrated documents are
 // deliberately absent: priming exists to re-drive durable work, and opening a
 // store per settled document is what made a 1000-document boot a storm.
 const PENDING_PRIME_LOCAL_ID_SQL = `
@@ -44,6 +47,12 @@ const PENDING_PRIME_LOCAL_ID_SQL = `
         FROM document_pending_updates pending
         WHERE pending.app_kind = 'documents'
           AND pending.local_id = stored.local_id
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM document_sync_failures failure
+        WHERE failure.app_kind = 'documents'
+          AND failure.local_id = stored.local_id
       )
       OR EXISTS (
         SELECT 1
