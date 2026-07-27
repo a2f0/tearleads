@@ -1,4 +1,10 @@
+import { EyeIcon } from "@phosphor-icons/react/dist/csr/Eye";
+import { EyeSlashIcon } from "@phosphor-icons/react/dist/csr/EyeSlash";
 import { useState } from "react";
+import {
+  MiniAppButton,
+  MiniAppClipboardButton,
+} from "../../components/mini-app/MiniAppLayout";
 import { MiniAppRowActionsButton } from "../../components/mini-app/MiniAppTable";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import {
@@ -14,12 +20,10 @@ import {
   type EnvVariableRow,
   getEnvFileReadValue,
   getEnvFileVariableReadValue,
-  shouldMaskEnvFileVariable,
 } from "./envFileVariables";
 
-// A single variable in read mode: the key/value cells (masking sensitive
-// values), a kebab that opens the per-variable detail overlay, and the row's
-// last-edit attribution line.
+// A single variable in read mode: masked key/value cells, value controls, a
+// kebab that opens the per-variable detail overlay, and the last-edit byline.
 export function EnvFileVariableReadRow(params: {
   currentAuthorId: string | null;
   index: number;
@@ -28,10 +32,12 @@ export function EnvFileVariableReadRow(params: {
 }) {
   const { currentAuthorId, index, resolveRowWriter, variable } = params;
   const [detailOpen, setDetailOpen] = useState(false);
+  const [isValueRevealed, setIsValueRevealed] = useState(false);
   const keyTitle = variable.key.trim();
-  const valueTitle = shouldMaskEnvFileVariable(variable)
-    ? undefined
-    : variable.value.trim();
+  const hasValue = variable.value.trim().length > 0;
+  const valueTitle = isValueRevealed ? variable.value.trim() : undefined;
+  const valueLabel = `Env variable ${index + 1} value`;
+  const revealAction = `${isValueRevealed ? "Hide" : "Show"} ${valueLabel}`;
   // Prefer the server-verified writer of this variable's last edit; fall back to
   // the row's self-attested author when attribution is unavailable.
   const updatedBy =
@@ -48,8 +54,7 @@ export function EnvFileVariableReadRow(params: {
   // cell's editor is unknown (attribution not synced) so the overlay omits it.
   const fieldWriter = (field: string): string | null =>
     resolveRowWriter?.(variable.fieldEditors[field] ?? null) ?? null;
-  // The value stays masked in the detail too — the drill-down must never leak a
-  // secret the read row hides.
+  // The detail remains masked; revealing a value is an explicit, local action.
   const detailFields: RowDetailField[] = [
     {
       label: "Key",
@@ -77,11 +82,37 @@ export function EnvFileVariableReadRow(params: {
         </span>
         <span className="env-file-variable-read-cell">
           <strong>Value</strong>
-          <span
-            className="env-file-variable-read-value"
-            title={valueTitle && valueTitle.length > 0 ? valueTitle : undefined}
-          >
-            {getEnvFileVariableReadValue(variable)}
+          <span className="env-file-variable-read-value-with-actions">
+            <span
+              className="env-file-variable-read-value"
+              title={
+                valueTitle && valueTitle.length > 0 ? valueTitle : undefined
+              }
+            >
+              {getEnvFileVariableReadValue(variable, isValueRevealed)}
+            </span>
+            <span className="env-file-variable-read-value-actions">
+              <MiniAppButton
+                aria-label={revealAction}
+                aria-pressed={isValueRevealed}
+                className="mini-app-icon-button"
+                disabled={!hasValue}
+                onClick={() => setIsValueRevealed((revealed) => !revealed)}
+                title={revealAction}
+                variant="ghost"
+              >
+                {isValueRevealed ? (
+                  <EyeSlashIcon aria-hidden size={16} />
+                ) : (
+                  <EyeIcon aria-hidden size={16} />
+                )}
+              </MiniAppButton>
+              <MiniAppClipboardButton
+                label={`Copy ${valueLabel}`}
+                value={variable.value}
+                variant="ghost"
+              />
+            </span>
           </span>
         </span>
         <span className="env-file-variable-read-index">{index + 1}</span>

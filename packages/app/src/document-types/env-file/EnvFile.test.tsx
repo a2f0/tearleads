@@ -1,11 +1,39 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { WithWindowToolbar } from "../../../test/helpers/windowToolbarProbe";
 import { EnvFileFields } from "./EnvFile";
 import { ENV_FILE_VARIABLE_NAME_PATTERN } from "./envFileDocumentDefinition";
 import type { EnvVariableRow } from "./envFileVariables";
 
-afterEach(cleanup);
+const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
+  Navigator.prototype,
+  "clipboard",
+);
+
+afterEach(() => {
+  cleanup();
+  if (originalClipboardDescriptor) {
+    Object.defineProperty(
+      Navigator.prototype,
+      "clipboard",
+      originalClipboardDescriptor,
+    );
+  } else {
+    delete (Navigator.prototype as { clipboard?: Clipboard }).clipboard;
+  }
+});
+
+function installClipboard(copied: string[]): void {
+  Object.defineProperty(Navigator.prototype, "clipboard", {
+    configurable: true,
+    get: () => ({
+      writeText: (value: string) => {
+        copied.push(value);
+        return Promise.resolve();
+      },
+    }),
+  });
+}
 
 function makeVariable(
   overrides: Partial<EnvVariableRow> & { id: string },
@@ -81,7 +109,7 @@ test("renders env variables as editable key value rows", () => {
   expect(view.container.querySelector(".env-file-variable-row")).toBeTruthy();
 });
 
-test("read mode renders text rows, masks passwords, and shows attribution", () => {
+test("read mode masks every value, shows the final four characters, and shows attribution", () => {
   const view = renderEnvFileFields({
     currentAuthorId: "user-alice",
     variables: [
@@ -99,14 +127,39 @@ test("read mode renders text rows, masks passwords, and shows attribution", () =
 
   expect(view.queryByText(".env.local")).toBeNull();
   expect(view.getByText("API_URL")).toBeTruthy();
-  expect(view.getByText("https://api.example.test")).toBeTruthy();
+  expect(view.getByText("********test")).toBeTruthy();
   expect(view.getByText("DATABASE_PASSWORD")).toBeTruthy();
-  expect(view.getByText("********")).toBeTruthy();
+  expect(view.getByText("********cret")).toBeTruthy();
+  expect(view.queryByText("https://api.example.test")).toBeNull();
   expect(view.queryByText("super-secret")).toBeNull();
   // The local writer reads as "you"; another writer shows a shortened id.
   expect(view.getByText("Updated 2026-07-16 08:30 by you")).toBeTruthy();
   expect(view.getByText("Updated 2026-07-16 09:00 by user-bob")).toBeTruthy();
   expect(view.queryByLabelText(".env file name")).toBeNull();
+});
+
+test("read mode reveals and copies the original env value", async () => {
+  const copied: string[] = [];
+  installClipboard(copied);
+  const view = renderEnvFileFields({ isEditing: false });
+
+  expect(view.getByText("********test")).toBeTruthy();
+  fireEvent.click(
+    view.getByRole("button", { name: "Show Env variable 1 value" }),
+  );
+  expect(view.getByText("https://api.example.test")).toBeTruthy();
+  expect(
+    view.getByRole("button", { name: "Hide Env variable 1 value" }),
+  ).toBeTruthy();
+
+  const copy = view.getByRole("button", {
+    name: "Copy Env variable 1 value",
+  });
+  fireEvent.click(copy);
+  await waitFor(() => {
+    expect(copy.getAttribute("title")).toBe("Copied to clipboard");
+  });
+  expect(copied).toEqual(["https://api.example.test"]);
 });
 
 test("variable count follows the rows", () => {
