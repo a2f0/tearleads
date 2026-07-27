@@ -188,9 +188,9 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    **Fallback behavior (required):**
 
    - If the Codex review fails for **any** reason (credit/quota errors,
-     non-zero exit, signal termination), or comes back as **no usable review**
-     when you read it — see below — immediately fall back to a Claude Code
-     self-review:
+     non-zero exit, signal termination — including the tool's own
+     no-usable-review exit after its built-in retry), immediately fall back to a
+     Claude Code self-review:
 
      ```bash
      bun "$AGENT_TOOL" solicitClaudeCodeReview
@@ -210,17 +210,16 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    produced only an intent sentence — "I'll review this PR diff..." — which is not
    a review. Never relay one as if it were, and never repair from one.
 
-   **The two directions are not guarded the same way, and the difference matters
-   here.** Codex is this file's primary reviewer, and *nothing checks its output
-   for you*: `codex review` writes its own prompt, so it carries no verdict line
-   and `solicitCodexReview` only reports its exit code. Read the Codex review and
-   judge it yourself — a plausible-looking paragraph that finds nothing is
-   indistinguishable, mechanically, from a reviewer that never started.
-
-   Only the **Claude** fallback is checked automatically: this repo writes that
-   prompt, so every Claude review ends with a `VERDICT:` line (`BLOCKER`, `MAJOR`,
-   `MINOR`, or `CLEAN`), and `solicitClaudeCodeReview` exits nonzero when it is
-   missing.
+   **Both directions are guarded the same way.** This repo writes both review
+   prompts, so every review — Claude or Codex — must end with a `VERDICT:` line
+   (`BLOCKER`, `MAJOR`, `MINOR`, `SUGGESTION`, or `CLEAN`). Both solicit actions
+   check for it, retry once when the CLI exits 0 without one (that failure is
+   stochastic), and exit nonzero when the retry also fails — so the fallback
+   chain above fires on its own. Codex runs through `codex exec` in a read-only
+   sandbox and only its final message is relayed, so the captured output is the
+   review itself, never the investigative transcript. The verdict is a
+   completion sentinel, not proof of quality — still read the findings before
+   repairing from them.
 
    After review, confirm the head is still the snapshot:
 
@@ -275,11 +274,10 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    e. Aggregate findings across all files into the final review output.
 
 5. **Review gate and bounded repair**: read the findings and classify them.
-   Reviewers use different severity vocabularies: the in-session fallback uses
-   **Blocker / Major / Minor / Suggestion**, while Codex's native `codex review`
-   uses **[P0]–[P3]**. Treat them as one scale — **Blocker ≡ [P0]**,
-   **Major ≡ [P1]**, **Minor ≡ [P2]**, **Suggestion ≡ [P3]** — where
-   **Blocker/Major (P0/P1) count as blocking**.
+   Every reviewer is prompted for **Blocker / Major / Minor / Suggestion**; if a
+   review nonetheless speaks in **[P0]–[P3]**, treat them as one scale —
+   **Blocker ≡ [P0]**, **Major ≡ [P1]**, **Minor ≡ [P2]**, **Suggestion ≡ [P3]**
+   — where **Blocker/Major (P0/P1) count as blocking**.
 
    - If the review is **clean or raises only non-blocking nits**
      (**Minor/Suggestion** or **[P2]/[P3]**), the loop is done. `REVIEWED_SHA` is
@@ -364,17 +362,19 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
   pre-push checks, not after the merge. The merge (never a rebase, so no force
   push) is local when there is no PR and pushed when there is; a conflict aborts
   and stops for the user. `--repair-rounds 0` skips it, keeping report-only inert.
-- The Claude review streams the prompt/diff via stdin (not argv) to avoid
+- Both reviewers get the prompt/diff via stdin (not argv) to avoid
   "Argument list too long" failures on large PRs.
 - The Claude reviewer runs with read-only tools (`--tools "Read,Grep,Glob"`) and
   no `Bash`. It needs to read: the best findings come from the code *around* the
   diff — an unchanged branch further up the file, a source-shape baseline, the
   callers a signature change breaks. `Bash` is withheld because a review needs no
   shell, and the session's context is a PR diff — attacker-influenceable text.
-  The repair rounds run in *this* session, not the reviewer's; the reviewer stays
+  The Codex reviewer is confined the same way by `--sandbox read-only`. The
+  repair rounds run in *this* session, not the reviewer's; the reviewer stays
   read-only no matter how many rounds run.
 - **Why a review can come back empty is not known.** The one observed failure —
   Claude exiting 0 after ~5s having emitted only "I'll review this PR diff..." —
-  was never reproduced and looks stochastic. The verdict check is what makes it
-  survivable; it detects the failure rather than preventing it.
+  was never reproduced and looks stochastic. The verdict check plus the tool's
+  single built-in retry is what makes it survivable; the failure is detected and
+  retried rather than prevented.
 - Error output should be relayed verbatim when fallback is impossible.

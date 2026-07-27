@@ -3,26 +3,29 @@ import { describe, expect, test } from "bun:test";
 import { buildCodexReviewArgs } from "./solicitCodexReview";
 
 describe("buildCodexReviewArgs", () => {
-  const base = { baseRef: "main", branch: "feat/example" };
-
-  test("pins the effort and base, and titles by PR when one exists", () => {
-    const args = buildCodexReviewArgs({ ...base, prNumber: "42" }, "high");
+  test("execs read-only with pinned effort, capturing the last message", () => {
+    const args = buildCodexReviewArgs("high", "/tmp/x/review-1.md");
 
     expect(args).toEqual([
-      "review",
+      "exec",
+      "--sandbox",
+      "read-only",
       "-c",
       'model_reasoning_effort="high"',
-      "--base",
-      "main",
-      "--title",
-      "PR #42 (feat/example)",
+      "--color",
+      "never",
+      "--output-last-message",
+      "/tmp/x/review-1.md",
+      "-",
     ]);
   });
 
-  test("titles by branch alone before the PR is opened", () => {
-    const args = buildCodexReviewArgs({ ...base, prNumber: "" }, "xhigh");
+  test("reads the prompt from stdin, never argv", () => {
+    const args = buildCodexReviewArgs("xhigh", "/tmp/x/review-1.md");
 
-    expect(args.at(-1)).toBe("Branch feat/example");
-    expect(args.join(" ")).not.toContain("PR #");
+    // `-` must be the trailing positional: it is what makes codex read the
+    // prompt (and its potentially argv-breaking diff) from stdin.
+    expect(args.at(-1)).toBe("-");
+    expect(args).toContain('model_reasoning_effort="xhigh"');
   });
 });

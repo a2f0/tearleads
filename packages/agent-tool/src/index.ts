@@ -47,7 +47,7 @@ function main(): number {
     case "solicitClaudeCodeReview":
       return solicitClaudeCodeReview(rootDir, process.argv[3]);
     case "solicitCodexReview":
-      return solicitCodexReview(process.argv[3]);
+      return solicitCodexReview(rootDir, process.argv[3]);
     case "openPr":
       return openPr(rootDir, process.argv[3]);
     case "squashMerge":
