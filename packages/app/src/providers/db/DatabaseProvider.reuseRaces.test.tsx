@@ -289,3 +289,76 @@ test("clear during boot retires the unresolved runtime before retry", async () =
     view.unmount();
   }
 });
+
+test("terminating a worker rejects its pending readiness waiter", async () => {
+  const runtimeFactory = createReusableSQLiteRuntimeFactory({
+    deferFirstInit: true,
+  });
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    reuseDatabaseWorker: true,
+  });
+
+  try {
+    await view.controlsReady.promise;
+    let readyOutcome!: Promise<unknown>;
+    act(() => {
+      readyOutcome = view
+        .getControls()
+        .ensureIdentityReady(FIRST_FINGERPRINT)
+        .then(
+          () => null,
+          (error: unknown) => error,
+        );
+    });
+    await waitFor(() => expect(runtimeFactory.getStats().initCount).toBe(1));
+
+    act(() => view.getControls().killWorker());
+    expect(String(await readyOutcome)).toContain("worker was terminated");
+    expect(view.getControls()).toMatchObject({
+      client: null,
+      id: null,
+      status: "terminated",
+    });
+    runtimeFactory.releaseFirstInit();
+  } finally {
+    view.unmount();
+  }
+});
+
+test("terminating a recovery worker rejects its pending readiness waiter", async () => {
+  const runtimeFactory = createReusableSQLiteRuntimeFactory({
+    deferSecondInit: true,
+  });
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    reuseDatabaseWorker: true,
+  });
+
+  try {
+    await view.controlsReady.promise;
+    await act(async () => {
+      await view.getControls().ensureIdentityReady(FIRST_FINGERPRINT);
+    });
+    act(() => view.getControls().killWorker());
+    expect(view.getControls().status).toBe("terminated");
+
+    let readyOutcome!: Promise<unknown>;
+    act(() => {
+      readyOutcome = view
+        .getControls()
+        .ensureIdentityReady(FIRST_FINGERPRINT)
+        .then(
+          () => null,
+          (error: unknown) => error,
+        );
+    });
+    await waitFor(() => expect(runtimeFactory.getStats().initCount).toBe(2));
+
+    act(() => view.getControls().killWorker());
+    expect(String(await readyOutcome)).toContain("worker was terminated");
+    runtimeFactory.releaseSecondInit();
+  } finally {
+    view.unmount();
+  }
+});

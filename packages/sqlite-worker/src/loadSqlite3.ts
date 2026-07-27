@@ -1,5 +1,6 @@
 import type { Sqlite3Static } from "@tearleads/sqlite-instance";
 import { runWithBunFetchLock } from "./bunFetchLock";
+import { createCipherVfs, destroyCipherVfs } from "./cipherVfs";
 import {
   SAHPOOL_STEP_HANG_TIMEOUT_MS,
   SahPoolStepTimeoutError,
@@ -12,30 +13,6 @@ import type {
 } from "./types";
 
 type SAHPoolUtil = Awaited<ReturnType<Sqlite3Static["installOpfsSAHPoolVfs"]>>;
-
-/**
- * Invokes the untyped `sqlite3mc_vfs_create` SQLite3MultipleCiphers C export,
- * which is not part of the typed wasm CAPI. It wraps an already-registered VFS
- * (named `zVfsReal`) with the multiple-ciphers codec so that databases opened
- * against the wrapper support `PRAGMA key=` encryption; it returns 0 (SQLITE_OK)
- * on success.
- *
- * Read and called via `Reflect` so production sources stay free of type
- * assertions. Returns null when the build does not provide the export.
- */
-function callCreateCipherVfs(
-  s: Sqlite3Static,
-  zVfsReal: string,
-  makeDefault: number,
-): number | null {
-  const fn = Reflect.get(s.capi, "sqlite3mc_vfs_create");
-  if (typeof fn !== "function") {
-    return null;
-  }
-
-  const result = Reflect.apply(fn, s.capi, [zVfsReal, makeDefault]);
-  return typeof result === "number" ? result : null;
-}
 
 /**
  * OPFS directory root and registered VFS name prefix for persistent SAHPools.
@@ -129,14 +106,17 @@ interface PersistentVfs {
    * SAHPool VFS would reject `PRAGMA key=`.
    */
   readonly cipherVfsName: string;
+  readonly destroyCipherWrapper: () => void;
+}
+
+interface PersistentVfsEntry {
+  readonly installation: Promise<PersistentVfs>;
+  resume: Promise<PersistentVfs> | null;
 }
 
 let sqlite3: Sqlite3Static | undefined;
 let sqlite3Promise: Promise<Sqlite3Static> | undefined;
-const persistentVfsPromisesByStorageKey = new Map<
-  string,
-  Promise<PersistentVfs>
->();
+const persistentVfsEntriesByStorageKey = new Map<string, PersistentVfsEntry>();
 const storageKeyByDb = new WeakMap<object, string>();
 
 function sahPoolStorageSegmentForDbName(dbName: string): string {
@@ -169,6 +149,55 @@ function persistentVfsStorageKey(storage: {
   return `${storage.vfsName}\n${storage.directory}`;
 }
 
+function cachePersistentVfsInstallation(
+  storageKey: string,
+  operation: Promise<PersistentVfs>,
+): PersistentVfsEntry {
+  // Compare failures through the entry so an older rejected installation
+  // cannot clear a newer retry installed after deletion.
+  const entry: PersistentVfsEntry = {
+    installation: operation.catch((error: unknown) => {
+      if (persistentVfsEntriesByStorageKey.get(storageKey) === entry) {
+        persistentVfsEntriesByStorageKey.delete(storageKey);
+      }
+      throw error instanceof Error
+        ? error
+        : new Error("Failed to install the persistent SQLite VFS.", {
+            cause: error,
+          });
+    }),
+    resume: null,
+  };
+  persistentVfsEntriesByStorageKey.set(storageKey, entry);
+  return entry;
+}
+
+async function resumePersistentVfs(
+  entry: PersistentVfsEntry,
+): Promise<PersistentVfs> {
+  if (entry.resume) {
+    return entry.resume;
+  }
+
+  const resume = entry.installation.then(async (existing) => {
+    if (existing.poolUtil.isPaused()) {
+      await withSahPoolStepHangTimeout(
+        existing.poolUtil.unpauseVfs(),
+        SAHPOOL_STEP_HANG_TIMEOUT_MS,
+      );
+    }
+    return existing;
+  });
+  entry.resume = resume;
+  try {
+    return await resume;
+  } finally {
+    if (entry.resume === resume) {
+      entry.resume = null;
+    }
+  }
+}
+
 export async function loadSqlite3(): Promise<Sqlite3Static> {
   if (sqlite3) {
     return sqlite3;
@@ -183,47 +212,6 @@ export async function loadSqlite3(): Promise<Sqlite3Static> {
   }
 
   return sqlite3Promise;
-}
-
-/**
- * Wraps the SAHPool VFS with the SQLite3MultipleCiphers codec VFS and returns the
- * name of the resulting cipher-capable VFS.
- *
- * The bare SAHPool VFS does not implement the encryption hooks, so opening a
- * database against it makes `PRAGMA key=` fail with "Encryption is not supported
- * by the VFS." `sqlite3mc_vfs_create` registers a wrapper VFS (conventionally
- * named `multipleciphers-<real>`) that delegates I/O to SAHPool while adding the
- * codec. We resolve the wrapper's actual name from the live VFS list rather than
- * assuming the prefix, so a build-specific naming change cannot silently regress.
- */
-function createCipherVfs(s: Sqlite3Static, underlyingVfsName: string): string {
-  const before = new Set(s.capi.sqlite3_js_vfs_list());
-  const rc = callCreateCipherVfs(s, underlyingVfsName, 0);
-  if (rc === null) {
-    throw new Error(
-      "Persistent storage requested but the SQLite build does not provide sqlite3mc_vfs_create.",
-    );
-  }
-  if (rc !== 0) {
-    throw new Error(
-      `Failed to create the multiple-ciphers VFS over ${underlyingVfsName} (rc=${rc}).`,
-    );
-  }
-
-  const created = s.capi
-    .sqlite3_js_vfs_list()
-    .filter((name) => !before.has(name));
-  // Prefer a wrapper whose name references the underlying VFS; fall back to the
-  // single newly-registered VFS if the naming convention ever changes.
-  const cipherVfsName =
-    created.find((name) => name.includes(underlyingVfsName)) ?? created[0];
-  if (!cipherVfsName) {
-    throw new Error(
-      "The multiple-ciphers VFS was created but could not be located in the VFS list.",
-    );
-  }
-
-  return cipherVfsName;
 }
 
 /**
@@ -329,15 +317,12 @@ async function loadPersistentVfs(
     );
   }
 
-  const existingPromise = persistentVfsPromisesByStorageKey.get(storageKey);
-  if (existingPromise) {
-    return existingPromise;
+  const existingEntry = persistentVfsEntriesByStorageKey.get(storageKey);
+  if (existingEntry) {
+    return resumePersistentVfs(existingEntry);
   }
 
-  // Compare failures through an entry object so an older rejected install only
-  // clears the promise it created, not a newer retry installed after teardown.
-  const entry: { promise?: Promise<PersistentVfs> } = {};
-  entry.promise = (async () => {
+  const installation = (async () => {
     const poolUtil = await installSahPoolVfsWithRetry(s, {
       directory: storage.directory,
       vfsName: storage.vfsName,
@@ -350,22 +335,15 @@ async function loadPersistentVfs(
       SAHPOOL_STEP_HANG_TIMEOUT_MS,
     );
     const cipherVfsName = createCipherVfs(s, poolUtil.vfsName);
-    const resolved: PersistentVfs = { poolUtil, cipherVfsName };
+    const resolved: PersistentVfs = {
+      poolUtil,
+      cipherVfsName,
+      destroyCipherWrapper: () => destroyCipherVfs(s, cipherVfsName),
+    };
     return resolved;
-  })().catch((error: unknown) => {
-    // Allow a later attempt to retry rather than caching a rejected promise.
-    if (persistentVfsPromisesByStorageKey.get(storageKey) === entry.promise) {
-      persistentVfsPromisesByStorageKey.delete(storageKey);
-    }
-    throw error instanceof Error
-      ? error
-      : new Error("Failed to install the persistent SQLite VFS.", {
-          cause: error,
-        });
-  });
-  persistentVfsPromisesByStorageKey.set(storageKey, entry.promise);
+  })();
 
-  return entry.promise;
+  return cachePersistentVfsInstallation(storageKey, installation).installation;
 }
 
 async function openDatabaseForMode(
@@ -401,35 +379,18 @@ export async function initDatabase(
 }
 
 /**
- * Gracefully tear down a database and, for the persistent backend, release the
- * SAHPool VFS's OPFS access handles so the *next* worker (a reload, or another
- * tab) can acquire them without losing the lock-contention race.
- *
- * `Worker.terminate()` alone is not enough: it kills the worker abruptly and the
- * browser only releases its OPFS handles asynchronously afterwards, which is the
- * exact window that makes a reloaded page's SAHPool install fail. Calling this
- * *before* termination closes the db and `pauseVfs()`es the pool — `pauseVfs`
- * "unregister[s] this VFS and release[s] file access handles, without clearing
- * files" — so the handles are free the moment the next worker boots.
- *
- * Best-effort and never throws: teardown runs on a path where the worker is
- * going away regardless, so a cleanup failure must not become an unhandled
- * rejection. The pool's files are durable in OPFS, so a missed pause only risks
- * one transient contention retry next boot, which `installSahPoolVfsWithRetry`
- * already absorbs.
- */
-/**
  * Shared teardown for {@link closeDatabase} and {@link deleteDatabase}: close
- * the db, drop its bookkeeping, then run `releaseVfs` against each persistent
- * pool that should be released. A specific db releases only its own pool; a
- * `null` db is the worker-level fallback that releases every installed pool.
+ * the db, drop its bookkeeping, then run `releaseVfs` against its persistent
+ * pool. A normal close retains the VFS stack so this worker can unpause and
+ * reuse it; deletion forgets the stack after permanently removing it.
  *
- * Best-effort and never throws — the caller terminates the worker right after,
- * so a cleanup failure must not become an unhandled rejection.
+ * Best-effort and never throws: cleanup failure must not mask the close/delete
+ * request, and worker termination remains the final handle-release backstop.
  */
 async function teardownDatabase(
   db: InstanceType<Sqlite3Static["oo1"]["DB"]> | null,
   releaseVfs: (vfs: PersistentVfs) => void | Promise<void>,
+  forgetVfs: boolean,
 ): Promise<void> {
   const storageKey = db ? storageKeyByDb.get(db) : undefined;
 
@@ -443,23 +404,25 @@ async function teardownDatabase(
     storageKeyByDb.delete(db);
   }
 
-  const vfsPromises = storageKey
-    ? [persistentVfsPromisesByStorageKey.get(storageKey)]
+  const vfsEntries = storageKey
+    ? [persistentVfsEntriesByStorageKey.get(storageKey)]
     : db
       ? []
-      : [...persistentVfsPromisesByStorageKey.values()];
-  if (storageKey) {
-    persistentVfsPromisesByStorageKey.delete(storageKey);
-  } else if (!db) {
-    persistentVfsPromisesByStorageKey.clear();
+      : [...persistentVfsEntriesByStorageKey.values()];
+  if (forgetVfs) {
+    if (storageKey) {
+      persistentVfsEntriesByStorageKey.delete(storageKey);
+    } else if (!db) {
+      persistentVfsEntriesByStorageKey.clear();
+    }
   }
 
-  for (const vfsPromise of vfsPromises) {
-    if (!vfsPromise) {
+  for (const vfsEntry of vfsEntries) {
+    if (!vfsEntry) {
       continue;
     }
     try {
-      await releaseVfs(await vfsPromise);
+      await releaseVfs(await (vfsEntry.resume ?? vfsEntry.installation));
     } catch {
       // The install may have failed, or release may throw; swallow so this stays
       // a no-throw best-effort teardown. Terminating the worker releases the
@@ -470,15 +433,19 @@ async function teardownDatabase(
 
 /**
  * Gracefully tear down a database, releasing (but not deleting) the SAHPool
- * VFS's OPFS access handles via `pauseVfs()` so the next worker can acquire them
- * without losing the lock-contention race. See {@link teardownDatabase}.
+ * VFS's OPFS access handles via `pauseVfs()`. The retained worker can unpause
+ * and reuse this VFS, while a replacement worker can acquire the freed handles.
  */
 export function closeDatabase(
   db: InstanceType<Sqlite3Static["oo1"]["DB"]> | null,
 ): Promise<void> {
-  return teardownDatabase(db, (vfs) => {
-    vfs.poolUtil.pauseVfs();
-  });
+  return teardownDatabase(
+    db,
+    (vfs) => {
+      vfs.poolUtil.pauseVfs();
+    },
+    false,
+  );
 }
 
 /**
@@ -490,10 +457,25 @@ export function closeDatabase(
 export function deleteDatabase(
   db: InstanceType<Sqlite3Static["oo1"]["DB"]> | null,
 ): Promise<void> {
-  return teardownDatabase(db, async (vfs) => {
-    await vfs.poolUtil.wipeFiles();
-    await vfs.poolUtil.removeVfs();
-  });
+  return teardownDatabase(
+    db,
+    async (vfs) => {
+      // A prior close leaves the pool paused. Reacquire its handles before
+      // wiping so deletion is not silently skipped by a paused-pool failure.
+      if (vfs.poolUtil.isPaused()) {
+        await withSahPoolStepHangTimeout(
+          vfs.poolUtil.unpauseVfs(),
+          SAHPOOL_STEP_HANG_TIMEOUT_MS,
+        );
+      }
+      // Wipe first: wrapper teardown depends on an optional untyped wasm export,
+      // and its failure must never leave an identity's encrypted bytes intact.
+      await vfs.poolUtil.wipeFiles();
+      vfs.destroyCipherWrapper();
+      await vfs.poolUtil.removeVfs();
+    },
+    true,
+  );
 }
 
 export { execDatabaseStatement } from "./executeStatement";

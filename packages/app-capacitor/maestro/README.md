@@ -16,11 +16,12 @@ before shipping a change to native database or identity lifecycle behavior.
 - `first-identity-offline.yaml` — a fresh install auto-generates the first
   identity offline and reaches a usable, keyed state.
 - `offline-second-identity.yaml` — provisioning a **second** identity from the
-  Identity Manager works offline and yields a genuinely new active identity.
-  Regression test for the second-identity provisioning hang (creating a second
-  identity tore down the first identity's SQLite worker and could not construct a
-  new one on a WebView; the app now reuses one dedicated worker across switches —
-  see `AppHostConfig.reuseDatabaseWorker`).
+  Identity Manager works offline, yields a genuinely new active identity, then
+  repeatedly switches between both identities. Regression test for the
+  second-identity provisioning and stale transition-waiter hangs (creating a
+  second identity tore down the first identity's SQLite worker and could not
+  construct a new one on a WebView; the app now reuses one dedicated worker
+  across switches — see `AppHostConfig.reuseDatabaseWorker`).
 
 ## Prerequisites
 

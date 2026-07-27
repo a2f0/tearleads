@@ -216,8 +216,15 @@ function useEnsureReadyForDbName(params: {
     targetDbNameRef,
     tearleads,
   } = params;
+  const readinessGenerationRef = useRef(0);
+  const readinessTargetDbNameRef = useRef<string | null>(null);
   return useCallback(
     (nextDbName: string) => {
+      if (readinessTargetDbNameRef.current !== nextDbName) {
+        readinessTargetDbNameRef.current = nextDbName;
+        readinessGenerationRef.current += 1;
+      }
+      const readinessGeneration = readinessGenerationRef.current;
       targetDbNameRef.current = nextDbName;
       const canReuse = canReuseSQLiteRuntime(reuseWorker, runtimeRef.current);
       if (
@@ -237,6 +244,8 @@ function useEnsureReadyForDbName(params: {
       return waitForReadySQLiteRuntime(
         tearleads,
         currentDbNameRef,
+        readinessGenerationRef,
+        readinessGeneration,
         nextDbName,
         () => spawnRuntimeForDbName(nextDbName),
       );
@@ -247,6 +256,7 @@ function useEnsureReadyForDbName(params: {
       reuseWorker,
       runtimeRef,
       spawnRuntimeForDbName,
+      targetDbNameRef,
       tearleads,
     ],
   );

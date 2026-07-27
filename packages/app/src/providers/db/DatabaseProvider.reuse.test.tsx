@@ -372,8 +372,15 @@ test("a superseded timeout renews one worker for the latest identity", async () 
 
   try {
     await view.controlsReady.promise;
+    let supersededReady!: Promise<unknown>;
     act(() => {
-      void view.getControls().ensureIdentityReady(FIRST_FINGERPRINT);
+      supersededReady = view
+        .getControls()
+        .ensureIdentityReady(FIRST_FINGERPRINT)
+        .then(
+          () => null,
+          (error: unknown) => error,
+        );
     });
     await waitFor(() => {
       expect(runtimeFactory.getStats().initCount).toBe(1);
@@ -385,9 +392,10 @@ test("a superseded timeout renews one worker for the latest identity", async () 
     });
     await act(async () => {
       runtimeFactory.releaseFirstInit();
-      await latestReady;
+      await Promise.all([latestReady, supersededReady]);
     });
 
+    expect(String(await supersededReady)).toContain("was superseded");
     expect(view.getControls().status).toBe("ready");
     expect(runtimeFactory.getStats()).toMatchObject({
       createCount: 1,

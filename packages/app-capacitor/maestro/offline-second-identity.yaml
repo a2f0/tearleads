@@ -22,12 +22,17 @@ appId: com.tearleads.app
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "Explorer"
+    visible: "Contacts"
     timeout: 40000
 
 # Open the Identity Manager from the routed nav menu.
 - tapOn: "Menu"
+- scrollUntilVisible:
+    element:
+      text: "Identity Manager"
+    direction: DOWN
 - tapOn: "Identity Manager"
+- tapOn: "General"
 - extendedWaitUntil:
     visible: "Register"
     timeout: 20000
@@ -68,3 +73,73 @@ appId: com.tearleads.app
     text: '[0-9a-f]{12}\.\.\.[0-9a-f]{8}'
 - evalScript: ${output.secondIdentity = maestro.copiedText}
 - assertTrue: ${output.secondIdentity != output.firstIdentity}
+
+# Exercise the retained worker repeatedly in both directions. Each selection
+# must settle back to a keyed identity and publish the expected fingerprint;
+# this catches a stale close/init waiter that leaves the switcher permanently
+# busy after the first successful transition.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Identities"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: ${output.secondIdentity}
+- tapOn:
+    text: ${output.firstIdentity}
+- extendedWaitUntil:
+    visible: ${output.firstIdentity}
+    timeout: 45000
+- assertNotVisible: "Generate Key Pair"
+- copyTextFrom:
+    text: '[0-9a-f]{12}\.\.\.[0-9a-f]{8}'
+- evalScript: ${output.currentIdentity = maestro.copiedText}
+- assertTrue: ${output.currentIdentity == output.firstIdentity}
+
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Identities"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: ${output.firstIdentity}
+- tapOn:
+    text: ${output.secondIdentity}
+- extendedWaitUntil:
+    visible: ${output.secondIdentity}
+    timeout: 45000
+- assertNotVisible: "Generate Key Pair"
+- copyTextFrom:
+    text: '[0-9a-f]{12}\.\.\.[0-9a-f]{8}'
+- evalScript: ${output.currentIdentity = maestro.copiedText}
+- assertTrue: ${output.currentIdentity == output.secondIdentity}
+
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Identities"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: ${output.secondIdentity}
+- tapOn:
+    text: ${output.firstIdentity}
+- extendedWaitUntil:
+    visible: ${output.firstIdentity}
+    timeout: 45000
+- assertNotVisible: "Generate Key Pair"
+- copyTextFrom:
+    text: '[0-9a-f]{12}\.\.\.[0-9a-f]{8}'
+- evalScript: ${output.currentIdentity = maestro.copiedText}
+- assertTrue: ${output.currentIdentity == output.firstIdentity}

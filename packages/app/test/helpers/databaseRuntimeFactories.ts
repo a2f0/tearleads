@@ -60,11 +60,13 @@ export function createReusableSQLiteRuntimeFactory(options?: {
   deferClose?: boolean;
   deferDelete?: boolean;
   deferFirstInit?: boolean;
+  deferSecondInit?: boolean;
   deleteError?: Error;
   firstExecError?: Error;
   firstInitError?: Error;
 }) {
   const firstInit = createDeferred();
+  const secondInit = createDeferred();
   const closeGate = createDeferred();
   const deleteGate = createDeferred();
   let createCount = 0;
@@ -81,6 +83,9 @@ export function createReusableSQLiteRuntimeFactory(options?: {
 
   if (!options?.deferFirstInit) {
     firstInit.resolve();
+  }
+  if (!options?.deferSecondInit) {
+    secondInit.resolve();
   }
   if (!options?.deferClose) {
     closeGate.resolve();
@@ -134,6 +139,8 @@ export function createReusableSQLiteRuntimeFactory(options?: {
               if (options?.firstInitError) {
                 throw options.firstInitError;
               }
+            } else if (initCount === 2) {
+              await secondInit.promise;
             }
             return { ok: true };
           },
@@ -188,6 +195,7 @@ export function createReusableSQLiteRuntimeFactory(options?: {
     releaseClose: () => closeGate.resolve(),
     releaseDelete: () => deleteGate.resolve(),
     releaseFirstInit: () => firstInit.resolve(),
+    releaseSecondInit: () => secondInit.resolve(),
   };
 }
 

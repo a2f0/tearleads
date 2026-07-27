@@ -12,10 +12,13 @@ import {
   useSwitchLocalIdentity,
 } from "./localIdentitySwitching";
 
-function createQuietTearleads(): Tearleads {
+function createQuietTearleads(logs: string[] = []): Tearleads {
   return new Tearleads({
     blobStore: createMemoryBlobStore(),
-    logger: { log: () => undefined, logError: () => undefined },
+    logger: {
+      log: (message) => logs.push(message),
+      logError: () => undefined,
+    },
   });
 }
 
@@ -74,7 +77,8 @@ test("failed identity creation returns to the previous identity", async () => {
 test("failed target startup rolls back the live identity, session, and active selection", async () => {
   const identityA = await createKeyPackage();
   const identityB = await createKeyPackage();
-  const tearleads = createQuietTearleads();
+  const logs: string[] = [];
+  const tearleads = createQuietTearleads(logs);
   await tearleads.identity.importKeyPackage(identityA);
   tearleads.session.setContext({
     authToken: "token-a",
@@ -152,6 +156,18 @@ test("failed target startup rolls back the live identity, session, and active se
   expect(databaseClearCount).toBe(2);
   expect(generationInFlight.current).toBe(false);
   expect(transitionInFlightRef.current).toBe(false);
+  expect(
+    logs.filter((message) => message.startsWith("identity transition")),
+  ).toEqual([
+    "identity transition generation=1 kind=switch phase=started",
+    "identity transition generation=1 kind=switch phase=target-loaded",
+    "identity transition generation=1 kind=switch phase=session-persisted",
+    "identity transition generation=1 kind=switch phase=runtime-prepared",
+    "identity transition generation=1 kind=switch phase=database-wait-started",
+    "identity transition generation=1 kind=switch phase=rollback-started",
+    "identity transition generation=1 kind=switch phase=rollback-database-ready",
+    "identity transition generation=1 kind=switch result=failed rollback=succeeded",
+  ]);
 });
 
 test("failed key-package import startup leaves the restored identity uncommitted", async () => {
@@ -255,7 +271,8 @@ test("key-package import commits only after database readiness and bootstrap", a
 test("active selection is committed only after the target database is ready", async () => {
   const identityA = await createKeyPackage();
   const identityB = await createKeyPackage();
-  const tearleads = createQuietTearleads();
+  const logs: string[] = [];
+  const tearleads = createQuietTearleads(logs);
   await tearleads.identity.importKeyPackage(identityA);
   const operationOrder: string[] = [];
   const repository = {
@@ -286,5 +303,16 @@ test("active selection is committed only after the target database is ready", as
   expect(operationOrder).toEqual([
     `ready:${identityB.signingFingerprint}`,
     `active:${identityB.signingFingerprint}`,
+  ]);
+  expect(
+    logs.filter((message) => message.startsWith("identity transition")),
+  ).toEqual([
+    "identity transition generation=1 kind=switch phase=started",
+    "identity transition generation=1 kind=switch phase=target-loaded",
+    "identity transition generation=1 kind=switch phase=session-persisted",
+    "identity transition generation=1 kind=switch phase=runtime-prepared",
+    "identity transition generation=1 kind=switch phase=database-wait-started",
+    "identity transition generation=1 kind=switch phase=database-ready",
+    "identity transition generation=1 kind=switch result=succeeded",
   ]);
 });
