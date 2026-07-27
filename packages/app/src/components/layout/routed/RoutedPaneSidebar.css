@@ -33,20 +33,11 @@
      a landscape cutout. */
   padding-inline-start: var(--safe-area-left);
   /*
-   * It also overlays the app bar, the shell's usual owner of the top cutout
-   * (RoutedPane.css) — so while it is open nothing else absorbs that inset and
-   * the sidebar's first row lands under the status bar / Dynamic Island. Pad by
-   * it here, exactly as the tablet rail does for the same reason
-   * (RoutedPaneNav.css), and keep the surface itself running to the top edge so
-   * it still reads as edge-to-edge behind a transparent status bar.
-   *
-   * The inset is padding on the scroll container rather than an `inset-block-start`
-   * offset so the drawer keeps covering the full pane height. A sidebar that
-   * scrolls internally (Explorer's virtualized tree) never moves content under
-   * the cutout; one that leaves the scrolling to this box scrolls its inset
-   * away, the same as any padded scroller.
+   * Stop the drawer itself below the top cutout. iOS renders its status bar over
+   * the webview, so padding only the drawer's content still lets this light
+   * surface show through behind the clock and indicators.
    */
-  padding-block-start: var(--safe-area-top);
+  inset-block-start: var(--safe-area-top);
   border-right: var(--border-strong);
 }
 

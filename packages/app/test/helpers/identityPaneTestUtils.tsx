@@ -38,6 +38,15 @@ export async function openIdentityManagerFromPane(
   return identityManagerWindow;
 }
 
+export function openIdentityManagerSection(
+  identityManagerWindow: HTMLElement,
+  section: "Active Sessions" | "General" | "PIN Lock" | "Recovery Key",
+): void {
+  fireEvent.click(
+    within(identityManagerWindow).getByRole("button", { name: section }),
+  );
+}
+
 export async function registerAndWaitForUserId(
   view: ReturnType<typeof renderPane>,
 ): Promise<string> {

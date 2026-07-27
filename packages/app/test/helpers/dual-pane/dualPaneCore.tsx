@@ -102,7 +102,9 @@ export async function openIdentityManagerForPane(
 ): Promise<HTMLElement> {
   const existing = pane.querySelector<HTMLElement>(".identity-manager");
   if (existing) {
-    return existing;
+    const existingWindow = existing.closest<HTMLElement>(".window");
+    invariant(existingWindow, "identity manager window not found");
+    return existingWindow;
   }
 
   await interact(() => {
@@ -117,7 +119,9 @@ export async function openIdentityManagerForPane(
     return app;
   });
   invariant(identityManager, "identity manager not found");
-  return identityManager;
+  const identityManagerWindow = identityManager.closest<HTMLElement>(".window");
+  invariant(identityManagerWindow, "identity manager window not found");
+  return identityManagerWindow;
 }
 
 function PaneAutoProvisioner() {
@@ -416,6 +420,9 @@ export async function provisionPaneFromMenu(pane: HTMLElement) {
 
 export async function readPaneRecoveryKey(pane: HTMLElement): Promise<string> {
   const identityManager = await openIdentityManagerForPane(pane);
+  fireEvent.click(
+    within(identityManager).getByRole("button", { name: "Recovery Key" }),
+  );
   const passphraseField = within(identityManager).getByLabelText(
     "Passphrase",
   ) as HTMLTextAreaElement;
@@ -431,6 +438,9 @@ export async function restorePaneFromRecoveryKey(
   seedPhrase: string,
 ) {
   const identityManager = await openIdentityManagerForPane(pane);
+  fireEvent.click(
+    within(identityManager).getByRole("button", { name: "Recovery Key" }),
+  );
   const restoreInput =
     within(identityManager).getByLabelText("Restore passphrase");
   await interact(() => {
