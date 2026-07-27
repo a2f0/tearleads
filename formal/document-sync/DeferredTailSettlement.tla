@@ -367,6 +367,20 @@ Restart ==
                   liveIdentity, liveGeneration, responseVars, durableOpVars,
                   auditVars >>
 
+(* History compaction folds provably-covered tail rows into an origin-less *)
+(* full-history checkpoint and deletes them. Content stays durably held *)
+(* (the checkpoint carries it), but remote-row provenance is lost, so a *)
+(* later restore extends the marker LESS — the safe re-send direction. A *)
+(* concurrent pane may compact at any time, including the crash window. *)
+CompactHistory(covered) ==
+  /\ covered # {}
+  /\ covered \subseteq durableRemoteRows
+  /\ durableRemoteRows' = durableRemoteRows \ covered
+  /\ UNCHANGED << snapshot, durableSnapshot, durableBase, workingBase,
+                  queued, remote, lane, captureVars, presenceVars,
+                  liveIdentity, liveGeneration, responseVars,
+                  durableOpVars, auditVars >>
+
 DiscardSettledLocal ==
   /\ localPresent
   /\ NoDurableOp
@@ -405,6 +419,7 @@ Next ==
   \/ CancelOrIgnoreResponse
   \/ CompleteCapturedPass
   \/ Restart
+  \/ \E covered \in SUBSET durableRemoteRows : CompactHistory(covered)
   \/ DiscardSettledLocal
   \/ UNCHANGED vars
 
@@ -474,7 +489,7 @@ StalePreparationContinuation ==
 (* only step the lane machinery and enqueue. Restart is exempt — it is a   *)
 (* crash-reload, not a pass continuation: it republishes durable content   *)
 (* (snapshot' = durableSnapshot) and restores the marker from durably      *)
-(* justified coverage only (RestartCoversRemoteRows binds it separately).  *)
+(* justified coverage only (RestoreCoversRemoteRows binds it separately). *)
 StalePreparationIsQueueOnly ==
   (StalePreparationContinuation /\ ~Restart)
     => /\ UNCHANGED << snapshot, durableBase, remote, durableRemoteRows >>
@@ -483,9 +498,13 @@ StalePreparationIsQueueOnly ==
 
 StalePreparationCannotAdvance == [][StalePreparationIsQueueOnly]_vars
 
-(* The provenance extension itself: no restart may leave a durably-held   *)
-(* remote-origin row above the restored marker.                            *)
-RestartCoversRemoteRows == [][Restart => durableRemoteRows \subseteq workingBase']_vars
+(* The provenance extension itself: no restore — crash restart or reset  *)
+(* reinitialize — may leave a surviving remote-origin row above the *)
+(* restored marker. *)
+RestoreCoversRemoteRows ==
+  [][ ( Restart
+        \/ \E nextIdentity \in Identities : ResetReinitialize(nextIdentity) )
+      => durableRemoteRows \subseteq workingBase' ]_vars
 
 NoDataLoss ==
   localPresent \/ authoritativelyDeleted \/ snapshot \subseteq remote
