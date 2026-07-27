@@ -35,6 +35,12 @@ const TRANSCRIPT_TAIL_CHARS = 2000;
  * effort is pinned so the review never silently inherits
  * `~/.codex/config.toml`, and the final message is written alone to
  * `lastMessageFile`, so what gets relayed is the review, not the transcript.
+ *
+ * `mcp_servers` is overridden to an empty table because the sandbox confines
+ * only model-generated shell commands: MCP tools configured in
+ * `~/.codex/config.toml` would still load and could mutate external state on
+ * behalf of that attacker-influenceable diff. A review needs no tools beyond
+ * reading the repo.
  */
 export function buildCodexReviewArgs(
   effort: ReviewEffort,
@@ -44,6 +50,8 @@ export function buildCodexReviewArgs(
     "exec",
     "--sandbox",
     "read-only",
+    "-c",
+    "mcp_servers={}",
     "-c",
     `model_reasoning_effort="${effort}"`,
     "--color",

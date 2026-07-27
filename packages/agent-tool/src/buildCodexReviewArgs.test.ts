@@ -11,6 +11,8 @@ describe("buildCodexReviewArgs", () => {
       "--sandbox",
       "read-only",
       "-c",
+      "mcp_servers={}",
+      "-c",
       'model_reasoning_effort="high"',
       "--color",
       "never",
@@ -18,6 +20,15 @@ describe("buildCodexReviewArgs", () => {
       "/tmp/x/review-1.md",
       "-",
     ]);
+  });
+
+  test("withholds MCP tools: the sandbox does not confine them", () => {
+    // `--sandbox read-only` restricts shell commands only; user-configured MCP
+    // servers would still load and could mutate external state on behalf of an
+    // attacker-influenceable diff.
+    const args = buildCodexReviewArgs("high", "/tmp/x/review-1.md");
+
+    expect(args).toContain("mcp_servers={}");
   });
 
   test("reads the prompt from stdin, never argv", () => {

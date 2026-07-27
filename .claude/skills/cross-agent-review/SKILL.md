@@ -188,9 +188,9 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    **Fallback behavior (required):**
 
    - If the Codex review fails for **any** reason (credit/quota errors,
-     non-zero exit, signal termination — including the tool's own
-     no-usable-review exit after its built-in retry), immediately fall back to a
-     Claude Code self-review:
+     non-zero exit, signal termination, or a failed verdict gate after the
+     tool's built-in retry), immediately fall back to a Claude Code
+     self-review:
 
      ```bash
      bun "$AGENT_TOOL" solicitClaudeCodeReview
@@ -217,7 +217,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    stochastic), and exit nonzero when the retry also fails — so the fallback
    chain above fires on its own. Codex runs through `codex exec` in a read-only
    sandbox and only its final message is relayed, so the captured output is the
-   review itself, never the investigative transcript. The verdict is a
+   review, never the investigative transcript. The verdict is a
    completion sentinel, not proof of quality — still read the findings before
    repairing from them.
 
@@ -369,12 +369,13 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
   diff — an unchanged branch further up the file, a source-shape baseline, the
   callers a signature change breaks. `Bash` is withheld because a review needs no
   shell, and the session's context is a PR diff — attacker-influenceable text.
-  The Codex reviewer is confined the same way by `--sandbox read-only`. The
+  The Codex reviewer is confined by `--sandbox read-only` with MCP
+  servers disabled (the sandbox confines shell commands, not MCP tools). The
   repair rounds run in *this* session, not the reviewer's; the reviewer stays
   read-only no matter how many rounds run.
 - **Why a review can come back empty is not known.** The one observed failure —
   Claude exiting 0 after ~5s having emitted only "I'll review this PR diff..." —
   was never reproduced and looks stochastic. The verdict check plus the tool's
-  single built-in retry is what makes it survivable; the failure is detected and
-  retried rather than prevented.
+  single retry makes it survivable; the failure is detected and retried
+  rather than prevented.
 - Error output should be relayed verbatim when fallback is impossible.

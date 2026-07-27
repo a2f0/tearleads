@@ -29,9 +29,11 @@ Both actions:
    as a nonzero exit.
 
 Claude reviews with read-only tools (`Read,Grep,Glob`, no `Bash`). Codex reviews
-via `codex exec` in a **read-only sandbox**, and only its final message —
-captured with `--output-last-message` — is relayed, so the output is the review
-itself rather than the session's investigative transcript.
+via `codex exec` in a **read-only sandbox with MCP servers disabled**
+(`mcp_servers={}` — the sandbox confines shell commands, not MCP tools), and
+only its final message — captured with `--output-last-message` — is relayed, so
+the output is the review itself rather than the session's investigative
+transcript.
 
 The optional effort argument sets the reviewer's reasoning effort, defaulting to
 **`xhigh` for Claude** and **`high` for Codex**. It is passed as
