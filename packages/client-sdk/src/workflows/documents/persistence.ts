@@ -342,7 +342,7 @@ export async function persistDocumentState(
     // — the restore replays it and the next edit re-derives the outgoing
     // delta — never a published frontier whose content no durable row holds.
     if (input.historyUpdates && input.historyUpdates.length > 0) {
-      await persistence.appendHistoryUpdates?.(lockedExecSql, {
+      await persistence.appendHistoryUpdates(lockedExecSql, {
         localId,
         updates: input.historyUpdates,
       });

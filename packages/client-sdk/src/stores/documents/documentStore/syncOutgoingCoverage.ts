@@ -96,7 +96,19 @@ export async function prepareDocumentOutgoingCoverage(input: {
     return persistDocument(
       state,
       currentDoc,
-      {},
+      {
+        // Every op in nextBaseVersion is durably enqueued — the marker's
+        // definition, plus the deferred delta enqueued above — so the
+        // frontier advances with the marker. Left behind, the settled
+        // document would stay listed (and primed) as a deferred tail
+        // forever.
+        snapshotEndVersion: mergeVersionVectors([
+          ...(liveRecord.snapshotEndVersion.length > 0
+            ? [liveRecord.snapshotEndVersion]
+            : []),
+          nextBaseVersion,
+        ]),
+      },
       {
         pendingBaseVersionOverride: nextBaseVersion,
         preserveSnapshotStructuredFields: true,

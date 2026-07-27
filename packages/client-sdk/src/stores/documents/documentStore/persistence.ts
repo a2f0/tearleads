@@ -228,13 +228,6 @@ async function maybeCompactDocumentHistory(
   currentDoc: DocumentState,
 ): Promise<void> {
   const { persistence } = state;
-  if (
-    !persistence.listHistoryTailEntries ||
-    !persistence.readHistoryTailSize ||
-    !persistence.replaceHistoryCheckpoint
-  ) {
-    return;
-  }
   // Bind this compaction to the store context it started under: a store
   // reset or runtime swap mid-compaction must not let the OLD document's
   // checkpoint overwrite the replacement generation's history (or land in a

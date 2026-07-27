@@ -196,7 +196,7 @@ async function restorePersistedDocumentContent(
   state: DocumentStoreState,
   nextDoc: DocumentState,
 ): Promise<void> {
-  const history = await state.persistence.loadHistoryRestoreState?.(
+  const history = await state.persistence.loadHistoryRestoreState(
     state.runtime.infra.execSql,
     state.localId,
   );
@@ -253,7 +253,7 @@ async function createInitialDocumentRecord(
   // this document. Written first, a crash instead leaves an orphan
   // checkpoint that the re-run simply overwrites. A fresh document is tiny,
   // so the export is cheap.
-  await state.persistence.replaceHistoryCheckpoint?.(
+  await state.persistence.replaceHistoryCheckpoint(
     state.runtime.infra.execSql,
     {
       coveredTailIds: [],

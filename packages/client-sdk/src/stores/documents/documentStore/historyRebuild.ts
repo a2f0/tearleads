@@ -61,13 +61,13 @@ export async function installRebuiltDocument(input: {
   // (or by another pane) that this rebuild does not contain survives for a
   // later compaction.
   const tailEntries =
-    (await input.state.persistence.listHistoryTailEntries?.(
+    (await input.state.persistence.listHistoryTailEntries(
       input.state.runtime.infra.execSql,
       input.state.localId,
     )) ?? [];
   const fullHistorySnapshot = exportFullHistorySnapshot(input.rebuiltDoc);
   const rebuiltEndVersion = encodeVersionVector(input.rebuiltDoc);
-  await input.state.persistence.replaceHistoryCheckpoint?.(
+  await input.state.persistence.replaceHistoryCheckpoint(
     input.state.runtime.infra.execSql,
     {
       coveredTailIds: coveredHistoryTailIds(tailEntries, rebuiltEndVersion),

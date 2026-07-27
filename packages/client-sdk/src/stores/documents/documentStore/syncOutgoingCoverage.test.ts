@@ -225,6 +225,61 @@ test("a zero-row deferred tail is materialized before clean skip", async () => {
   }
 });
 
+test("the repair persist advances the frontier with the marker", async () => {
+  const fixture = await createCoverageFixture(
+    "outgoing-coverage-frontier",
+    false,
+  );
+  try {
+    // Model a lagged record: the stored frontier is behind the live document
+    // (e.g. after a recovery that never re-published it). The repair enqueues
+    // the deferred delta and must advance BOTH the marker and the frontier —
+    // a frontier left behind keeps the settled document listed (and primed)
+    // as a deferred tail forever.
+    await sqlDocumentsPersistence.saveDocument(fixture.execSql, {
+      ...(fixture.state.record ?? {}),
+      id: fixture.localId,
+      accessEpoch: 1,
+      containerId: "container-1",
+      documentId: "document-1",
+      pendingBaseVersion: fixture.baseVersion,
+      snapshotEndVersion: fixture.baseVersion,
+      text: getTextValue(fixture.document),
+    });
+    fixture.state.record = await sqlDocumentsPersistence.loadDocument(
+      fixture.execSql,
+      fixture.localId,
+    );
+
+    const prepared = await prepareDocumentOutgoingCoverage({
+      currentDoc: fixture.document,
+      generation: fixture.generation,
+      pendingUpdates: [],
+      state: fixture.state,
+    });
+    expect(prepared).not.toBeNull();
+
+    const durableRecord = await sqlDocumentsPersistence.loadDocument(
+      fixture.execSql,
+      fixture.localId,
+    );
+    expect(
+      satisfiesVersionVector(
+        durableRecord?.snapshotEndVersion ?? "",
+        durableRecord?.pendingBaseVersion ?? "",
+      ),
+    ).toBe(true);
+    expect(
+      versionVectorsEqual(
+        durableRecord?.snapshotEndVersion ?? "",
+        fixture.documentVersion,
+      ),
+    ).toBe(true);
+  } finally {
+    fixture.close();
+  }
+});
+
 test("preparation abandons a replaced store generation after enqueue", async () => {
   const fixture = await createCoverageFixture(
     "outgoing-coverage-generation",

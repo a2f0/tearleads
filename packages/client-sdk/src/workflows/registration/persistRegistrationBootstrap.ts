@@ -410,7 +410,7 @@ async function seedBootstrapHistoryCheckpoint(
   localId: string,
   doc: Awaited<ReturnType<typeof createDocument>>,
 ): Promise<void> {
-  await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
+  await sqlDocumentsPersistence.replaceHistoryCheckpoint(execSql, {
     coveredTailIds: [],
     endVersionVector: encodeVersionVector(doc),
     force: true,

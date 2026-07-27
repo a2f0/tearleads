@@ -177,7 +177,7 @@ async function appendPulledUpdatesToHistory(
   if (synced.decryptedUpdates.length === 0) {
     return;
   }
-  await state.persistence.appendHistoryUpdates?.(state.runtime.infra.execSql, {
+  await state.persistence.appendHistoryUpdates(state.runtime.infra.execSql, {
     localId: state.localId,
     updates: synced.decryptedUpdates.map((update) =>
       bytesToBase64(update.updateData),

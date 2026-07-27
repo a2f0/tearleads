@@ -47,7 +47,7 @@ export async function loadPersistedDocumentContent(input: {
   localId: string;
   persistence: DocumentsPersistence;
 }): Promise<Awaited<ReturnType<typeof createDocument>> | null> {
-  const history = await input.persistence.loadHistoryRestoreState?.(
+  const history = await input.persistence.loadHistoryRestoreState(
     input.execSql,
     input.localId,
   );
