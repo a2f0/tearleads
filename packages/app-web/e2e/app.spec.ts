@@ -57,34 +57,30 @@ async function waitForPanePublicKey(
   }
 }
 
-async function enableDeveloperMode(page: Page, pane: Locator): Promise<void> {
-  await showSystemMonitorTab(pane, "Logs");
-  await page.getByRole("menuitem", { name: "View" }).click();
-  const enableAction = page.getByRole("menuitem", {
-    name: "Enable Developer Mode",
+async function captureWorkersForTermination(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    const workers: Worker[] = [];
+    class TrackedWorker extends NativeWorker {
+      constructor(scriptURL: string | URL, options?: WorkerOptions) {
+        super(scriptURL, options);
+        workers.push(this);
+      }
+    }
+    Reflect.set(window, "Worker", TrackedWorker);
+    Reflect.set(window, "__tearleadsE2eWorkers", workers);
   });
-  try {
-    await enableAction.waitFor({ state: "visible", timeout: 1_000 });
-    await enableAction.click();
-    return;
-  } catch {
-    await page.keyboard.press("Escape");
-  }
 }
 
-async function killWorker(page: Page, pane: Locator): Promise<void> {
-  await enableDeveloperMode(page, pane);
-  const navigationModeSwitch = page.getByRole("button", {
-    name: "Switch to iPad / mobile layout",
+async function terminateLatestWorker(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const workers = Reflect.get(window, "__tearleadsE2eWorkers");
+    const worker = Array.isArray(workers) ? workers.at(-1) : undefined;
+    if (!(worker instanceof Worker)) {
+      throw new Error("Expected the E2E harness to capture a worker.");
+    }
+    worker.terminate();
   });
-  await navigationModeSwitch.click();
-  await expect(page.locator(".routed-pane")).toBeVisible();
-  // The routed nav rail is a pure app launcher, so the developer "Kill Worker"
-  // action rides the System Monitor's app bar toolbar next to the worker status
-  // it acts on. The rail defaults to collapsed; open it to reach the app link.
-  await page.getByRole("button", { name: "Expand navigation rail" }).click();
-  await page.getByRole("link", { name: "System Monitor" }).click();
-  await page.getByRole("button", { name: "Kill Worker" }).click();
 }
 
 async function showSystemMonitorTab(
@@ -332,14 +328,30 @@ test("SQLite tables survive a hard reload", async ({ page }) => {
 });
 
 test("killed worker does not poison a hard reload", async ({ page }) => {
+  // The product no longer exposes worker termination as routed toolbar chrome.
+  // Capture the browser worker before boot so this recovery test can still
+  // simulate an unexpected termination without restoring that UI action.
+  await captureWorkersForTermination(page);
   await page.goto("/");
 
   const pane = visiblePane(page, "left");
   await generateKeyPair(page, pane);
   await waitForPaneBooted(pane);
   const publicKey = await panePublicKey(pane);
+  await expect(
+    (await paneLogs(pane)).getByText("Local identity key package persisted"),
+  ).toBeVisible({ timeout: 20_000 });
 
-  await killWorker(page, pane);
+  // Restore once before forcing the crash so the assertion isolates worker
+  // termination from the independent first-generation persistence race.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const restoredPane = visiblePane(page, "left");
+  await waitForPaneBooted(restoredPane);
+  await expect
+    .poll(() => paneStatusText(restoredPane))
+    .toContain(`Public Key: ${publicKey}`);
+
+  await terminateLatestWorker(page);
   await page.reload({ waitUntil: "domcontentloaded" });
 
   const reloadedPane = visiblePane(page, "left");
