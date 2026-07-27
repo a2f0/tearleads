@@ -21,17 +21,30 @@ Both actions:
 1. Resolve the review base from git + `gh` — the PR's base when the branch has an
    open PR, the repository's default branch when it does not.
 2. Verify there are changes against that base.
-3. Hand the diff to the target agent's CLI and stream its review to stdout.
+3. Build the repo's verdict-gated review prompt over the diff and hand it to the
+   target agent's CLI on stdin.
+4. Relay the review to stdout and gate it: a usable review carries a
+   `VERDICT: BLOCKER|MAJOR|MINOR|SUGGESTION|CLEAN` line. An exit-0 run without
+   one is retried once (the observed failure mode is stochastic), then reported
+   as a nonzero exit.
+
+Claude reviews with read-only tools (`Read,Grep,Glob`, no `Bash`). Codex reviews
+via `codex exec` in a **read-only sandbox with the user config ignored**
+(the sandbox confines shell commands, not user-configured MCP tools), and
+only its final message — captured with `--output-last-message` — is relayed, so
+the output is the review itself rather than the session's investigative
+transcript.
 
 The optional effort argument sets the reviewer's reasoning effort, defaulting to
 **`xhigh` for Claude** and **`high` for Codex**. It is passed as
-`claude --effort <level>` and `codex -c model_reasoning_effort="<level>"`, always
-explicitly — so a Codex review never silently inherits `~/.codex/config.toml`.
-An unknown level throws before the reviewer CLI is launched.
+`claude --effort <level>` and `codex exec -c model_reasoning_effort="<level>"`,
+always explicitly — so a Codex review never silently inherits
+`~/.codex/config.toml`. An unknown level throws before the reviewer CLI is
+launched.
 
-The exit code is the reviewing CLI's exit code, so callers can fall back to
-another reviewer on failure. Backs the `cross-agent-review` skill in
-`.claude/skills/` and `.codex/skills/`.
+The exit code is the reviewing CLI's exit code (or `1` for a review that failed
+the verdict gate), so callers can fall back to another reviewer on failure.
+Backs the `cross-agent-review` skill in `.claude/skills/` and `.codex/skills/`.
 
 These actions **only review**. The fallback chain, the severity gate, and the
 bounded repair loop live in the `cross-agent-review` skill *around* these calls —

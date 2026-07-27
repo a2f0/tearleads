@@ -1,9 +1,16 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { type ReviewerEnv, spawnClaudeReview } from "./solicitClaudeCodeReview";
+import type { ReviewerEnv } from "./runReview";
+import { spawnClaudeReview } from "./solicitClaudeCodeReview";
 
 /**
  * Exercise the real spawn path against a stub `claude`, so the wiring between
@@ -43,6 +50,31 @@ function stubClaude(stdout: string, exitCode = 0): void {
   chmodSync(stubPath, 0o755);
 }
 
+/**
+ * Install a stub `claude` that flakes exactly once — the observed failure mode:
+ * a bare intent sentence under a success exit — and reviews properly when
+ * called again.
+ */
+function stubFlakyClaude(review: string): void {
+  const payloadPath = path.join(stubDir, "payload");
+  const markerPath = path.join(stubDir, "flaked-once");
+  rmSync(markerPath, { force: true });
+  writeFileSync(payloadPath, review);
+  const script = [
+    "#!/bin/sh",
+    "cat > /dev/null",
+    `if [ -f ${JSON.stringify(markerPath)} ]; then`,
+    `  cat ${JSON.stringify(payloadPath)}`,
+    "else",
+    `  touch ${JSON.stringify(markerPath)}`,
+    `  echo "I'll review this PR diff using the project's guidelines."`,
+    "fi",
+  ].join("\n");
+  const stubPath = path.join(stubDir, "claude");
+  writeFileSync(stubPath, script);
+  chmodSync(stubPath, 0o755);
+}
+
 afterAll(() => {
   rmSync(stubDir, { recursive: true, force: true });
 });
@@ -59,6 +91,14 @@ describe("spawnClaudeReview", () => {
     stubClaude("I'll review this PR diff using the project's guidelines.\n");
 
     expect(spawnClaudeReview("prompt", "xhigh", stubEnv)).toBe(1);
+  });
+
+  test("recovers when the degenerate output does not repeat", () => {
+    // The observed flake is stochastic; one retry should absorb it.
+    stubFlakyClaude("## Review\n\nLooks fine.\n\nVERDICT: CLEAN\n");
+
+    expect(spawnClaudeReview("prompt", "xhigh", stubEnv)).toBe(0);
+    expect(existsSync(path.join(stubDir, "flaked-once"))).toBe(true);
   });
 
   test("rejects empty output despite a success exit", () => {
