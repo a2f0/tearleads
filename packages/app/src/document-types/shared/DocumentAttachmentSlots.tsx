@@ -186,11 +186,11 @@ function DocumentAttachmentSlotCard(params: {
         <span className="structured-document-slot-name">
           {storedAttachment?.name ?? "No file selected"}
         </span>
-        <span className="structured-document-slot-detail">
-          {storedAttachment
-            ? formatByteLength(storedAttachment.byteLength)
-            : "Attach an image to bind this slot."}
-        </span>
+        {storedAttachment ? (
+          <span className="structured-document-slot-detail">
+            {formatByteLength(storedAttachment.byteLength)}
+          </span>
+        ) : null}
       </div>
       <div className="structured-document-slot-actions">
         <DocumentAttachmentSlotActions
