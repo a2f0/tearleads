@@ -66,28 +66,9 @@ describe("buildClaudeReviewArgs", () => {
 });
 
 describe("buildCodexReviewArgs", () => {
-  const context = {
-    baseRef: "origin/main",
-    prNumber: "1540",
-    branch: "feat/x",
-  };
-
   test("pins the effort via a TOML-quoted config override", () => {
-    const args = buildCodexReviewArgs(context, "high");
-    const flagIndex = args.indexOf("-c");
-    expect(flagIndex).toBeGreaterThan(-1);
-    expect(args[flagIndex + 1]).toBe('model_reasoning_effort="high"');
-  });
-
-  test("keeps the base ref and title", () => {
-    expect(buildCodexReviewArgs(context, "high")).toEqual([
-      "review",
-      "-c",
-      'model_reasoning_effort="high"',
-      "--base",
-      "origin/main",
-      "--title",
-      "PR #1540 (feat/x)",
-    ]);
+    const args = buildCodexReviewArgs("high", "/tmp/x/review-1.md");
+    const overrides = args.filter((_, i) => i > 0 && args[i - 1] === "-c");
+    expect(overrides).toContain('model_reasoning_effort="high"');
   });
 });
