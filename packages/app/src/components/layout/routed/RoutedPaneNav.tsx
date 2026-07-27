@@ -138,7 +138,7 @@ function RoutedPaneRailToggle({
       aria-controls={expanded ? ROUTED_PANE_NAV_PANEL_ID : undefined}
       aria-expanded={expanded}
       aria-label={label}
-      className="routed-pane-rail-toggle"
+      className="routed-pane-iconbutton routed-pane-rail-toggle"
       title={label}
       type="button"
       onClick={onToggle}
