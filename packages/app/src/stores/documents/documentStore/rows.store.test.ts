@@ -48,8 +48,7 @@ test("blood pressure store adds, updates, and removes readings via the row axis"
   });
   // Attribution is stamped even though the test runtime is unauthenticated.
   expect((added?.updatedAt ?? "").length).toBeGreaterThan(0);
-  // The count-based title is derived from the row axis, not structured fields.
-  expect(store.getSnapshot().title).toBe("Blood Pressure (1 reading)");
+  expect(store.getSnapshot().title).toBe("Blood Pressure Tracker");
 
   const readingCell = (field: string): string | undefined =>
     store.getSnapshot().rows[0]?.fields[field];

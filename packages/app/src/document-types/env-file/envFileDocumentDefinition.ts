@@ -68,26 +68,10 @@ export function parseEnvFileText(text: string): EnvFileVariableInput[] {
   });
 }
 
-function countNamedVariables(
-  rows: ReadonlyArray<DocumentRowSummary> | undefined,
-): number {
-  return (rows ?? []).filter(
-    (row) => (row.fields[ENV_FILE_VARIABLE_KEY_FIELD] ?? "").trim().length > 0,
-  ).length;
-}
-
-function deriveEnvFileTitle(
-  fileName: string,
-  rows: ReadonlyArray<DocumentRowSummary> | undefined,
-): string {
+function deriveEnvFileTitle(fileName: string): string {
   const trimmedFileName = fileName.trim();
   if (trimmedFileName.length > 0) {
     return trimmedFileName;
-  }
-
-  const variableCount = countNamedVariables(rows);
-  if (variableCount > 0) {
-    return `.env (${variableCount} variable${variableCount === 1 ? "" : "s"})`;
   }
 
   return ENV_FILE_UNTITLED_TITLE;
@@ -126,7 +110,7 @@ export const envFileDocumentProjectorDefinition: AppDocumentProjectorDefinition 
       return {
         fieldValidationIssues: issues,
         structuredFields: { fileName },
-        title: deriveEnvFileTitle(fileName, rows),
+        title: deriveEnvFileTitle(fileName),
       };
     },
     untitledTitle: ENV_FILE_UNTITLED_TITLE,

@@ -68,13 +68,13 @@ test("title uses the file name when present", () => {
   expect(projection.fieldValidationIssues).toEqual([]);
 });
 
-test("title falls back to a variable count when unnamed", () => {
+test("title defaults to the document type name when unnamed", () => {
   const projection = project({ fileName: "" }, [
     variable("v1", { key: "API_URL", value: "x" }),
     variable("v2", { key: "", value: "" }),
   ]);
 
-  expect(projection.title).toBe(".env (1 variable)");
+  expect(projection.title).toBe("Untitled .env file");
 });
 
 test("malformed variable keys surface as validation issues", () => {
