@@ -12,8 +12,13 @@ import {
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  MiniAppActions,
+  MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
+  MiniAppModalBackdrop,
+  MiniAppModalForm,
+  MiniAppModalPanel,
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
@@ -61,12 +66,55 @@ interface ExplorerWriteQueuePanelViewProps
     ExplorerWriteQueuePanelProps,
     "documentListRevision" | "documentQueries" | "domainScope"
   > {
+  // Requests the confirmation dialog; the destructive discard itself only
+  // runs from the dialog's confirm action.
   discardPendingWrites: (item: PendingWriteQueueItem) => void;
   error: boolean;
   items: ReadonlyArray<PendingWriteQueueItem>;
   loading: boolean;
   retryPendingWrites: (item: PendingWriteQueueItem) => void;
   snapshot: DomainSyncSnapshot;
+}
+
+// The dialog names the document and states the consequence: discarding
+// deletes queued edits irreversibly, and the action sits next to Retry in
+// the row menu, so a mis-tap must not be able to destroy anything.
+function WriteQueueDiscardConfirmDialog(params: {
+  item: PendingWriteQueueItem;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <MiniAppModalBackdrop role="presentation">
+      <MiniAppModalPanel
+        role="dialog"
+        aria-labelledby="write-queue-discard-title"
+        aria-modal="true"
+      >
+        <MiniAppModalForm
+          onSubmit={(event) => {
+            event.preventDefault();
+            params.onConfirm();
+          }}
+        >
+          <h2 id="write-queue-discard-title">
+            {EXPLORER_LABELS.writeQueueDiscardConfirmTitle}
+          </h2>
+          <MiniAppStatus>
+            <strong>{getWriteQueueItemName(params.item)}</strong>
+            {" — "}
+            {EXPLORER_LABELS.writeQueueDiscardConfirmBody}
+          </MiniAppStatus>
+          <MiniAppActions>
+            <MiniAppButton onClick={params.onCancel}>Cancel</MiniAppButton>
+            <MiniAppButton type="submit">
+              {EXPLORER_LABELS.writeQueueDiscardAction}
+            </MiniAppButton>
+          </MiniAppActions>
+        </MiniAppModalForm>
+      </MiniAppModalPanel>
+    </MiniAppModalBackdrop>
+  );
 }
 
 function WriteQueueBlockers(params: {
@@ -173,9 +221,42 @@ function WriteQueueEntryBody(params: ExplorerWriteQueuePanelViewProps) {
   );
 }
 
-export function ExplorerWriteQueuePanelView(
-  params: ExplorerWriteQueuePanelViewProps,
+function WriteQueueListBody(
+  params: ExplorerWriteQueuePanelViewProps & {
+    requestDiscardPendingWrites: (item: PendingWriteQueueItem) => void;
+  },
 ) {
+  return (
+    <>
+      <WriteQueueBlockers
+        billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+        isAuthenticated={params.isAuthenticated}
+        online={params.online}
+        organizationNamesById={params.organizationNamesById}
+      />
+      {params.error || params.items.length === 0 ? (
+        <WriteQueueEmptyState error={params.error} loading={params.loading} />
+      ) : (
+        <ExplorerWriteQueueTable
+          billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+          discardPendingWrites={params.requestDiscardPendingWrites}
+          items={params.items}
+          nodes={params.nodes}
+          openContainerInfoRoute={params.openContainerInfoRoute}
+          openDocument={params.openDocument}
+          openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
+          organizationNamesById={params.organizationNamesById}
+          retryPendingWrites={params.retryPendingWrites}
+        />
+      )}
+    </>
+  );
+}
+
+function getWriteQueuePanelTitles(params: ExplorerWriteQueuePanelViewProps): {
+  subtitle: string;
+  title: string;
+} {
   const showingEntryDetail = params.selectedEntryKey !== null;
   const selectedEntry = showingEntryDetail
     ? (params.items.find(
@@ -201,14 +282,24 @@ export function ExplorerWriteQueuePanelView(
       : params.error
         ? EXPLORER_LABELS.writeQueueSummaryUnavailable
         : summary;
-  const title = showingEntryDetail
-    ? EXPLORER_LABELS.writeQueueEntryDetailTitle
-    : EXPLORER_LABELS.writeQueueTitle;
-  const subtitle = showingEntryDetail
-    ? selectedEntry
-      ? getWriteQueueItemName(selectedEntry)
-      : (params.selectedEntryKey ?? "")
-    : listSubtitle;
+  return {
+    subtitle: showingEntryDetail
+      ? selectedEntry
+        ? getWriteQueueItemName(selectedEntry)
+        : (params.selectedEntryKey ?? "")
+      : listSubtitle,
+    title: showingEntryDetail
+      ? EXPLORER_LABELS.writeQueueEntryDetailTitle
+      : EXPLORER_LABELS.writeQueueTitle,
+  };
+}
+
+export function ExplorerWriteQueuePanelView(
+  params: ExplorerWriteQueuePanelViewProps,
+) {
+  const [discardCandidate, setDiscardCandidate] =
+    useState<PendingWriteQueueItem | null>(null);
+  const { subtitle, title } = getWriteQueuePanelTitles(params);
 
   return (
     <MiniAppPanel
@@ -221,36 +312,24 @@ export function ExplorerWriteQueuePanelView(
           <span>{subtitle}</span>
         </MiniAppHeaderCopy>
       </MiniAppHeader>
-      {showingEntryDetail ? (
+      {params.selectedEntryKey !== null ? (
         <WriteQueueEntryBody {...params} />
       ) : (
-        <>
-          <WriteQueueBlockers
-            billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-            isAuthenticated={params.isAuthenticated}
-            online={params.online}
-            organizationNamesById={params.organizationNamesById}
-          />
-          {params.error || params.items.length === 0 ? (
-            <WriteQueueEmptyState
-              error={params.error}
-              loading={params.loading}
-            />
-          ) : (
-            <ExplorerWriteQueueTable
-              billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-              discardPendingWrites={params.discardPendingWrites}
-              items={params.items}
-              nodes={params.nodes}
-              openContainerInfoRoute={params.openContainerInfoRoute}
-              openDocument={params.openDocument}
-              openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
-              organizationNamesById={params.organizationNamesById}
-              retryPendingWrites={params.retryPendingWrites}
-            />
-          )}
-        </>
+        <WriteQueueListBody
+          {...params}
+          requestDiscardPendingWrites={setDiscardCandidate}
+        />
       )}
+      {discardCandidate ? (
+        <WriteQueueDiscardConfirmDialog
+          item={discardCandidate}
+          onCancel={() => setDiscardCandidate(null)}
+          onConfirm={() => {
+            setDiscardCandidate(null);
+            params.discardPendingWrites(discardCandidate);
+          }}
+        />
+      ) : null}
     </MiniAppPanel>
   );
 }

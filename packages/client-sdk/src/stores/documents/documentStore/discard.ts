@@ -55,6 +55,7 @@ export function discardDocumentStoreLocalState(
     let shell: Awaited<ReturnType<typeof discardPersistedDocumentToShell>>;
     try {
       shell = await discardPersistedDocumentToShell({
+        documentProjectors: runtime.infra.documentProjectors,
         execSql,
         localId: state.localId,
         persistence: state.persistence,
@@ -76,9 +77,10 @@ export function discardDocumentStoreLocalState(
       return false;
     }
 
-    // Reclaim the staged upload bytes whose rows the conversion dropped.
-    // Best-effort per key: a missing blob must not fail the discard.
-    for (const storageKey of shell.stagedAttachmentStorageKeys) {
+    // Reclaim the bytes whose rows the conversion dropped (staged uploads
+    // and detached local-attachment caches). Best-effort per key: a missing
+    // blob must not fail the discard.
+    for (const storageKey of shell.reclaimableBlobStorageKeys) {
       try {
         await runtime.infra.blobStore.deleteBytes(storageKey);
       } catch {

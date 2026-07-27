@@ -424,17 +424,23 @@ export type DiscardedDocumentShellResult = DiscardDocumentToShellResult;
 
 /**
  * Convert a stuck document's local state to the freshly-discovered-share
- * shell. The persistence implementation owns the whole sequence — the
+ * shell. The persistence implementation owns the row sequence — the
  * eligibility checks (local-only, unlinked, or move-pending documents are
  * refused), the row teardown, and the shell upsert — and commits it as ONE
  * transaction, so an interruption leaves either the fully old or the fully
  * shelled document. Implementations without the full document schema do not
  * offer the operation and simply refuse.
  *
- * Returns the staged uploads' storage keys on success — their rows were the
- * only durable pointer to the staged bytes, so the caller reclaims them.
+ * After the rows commit, the document-kind client projection (e.g. a
+ * contact's projected fields) is cleared too: it derives from the discarded
+ * content, and consumers read it directly, so leaving it would keep showing
+ * the discarded values until a successful re-pull rebuilds it.
+ *
+ * Returns the reclaimable storage keys on success — the deleted rows were
+ * the only durable pointers to those bytes, so the caller reclaims them.
  */
 export async function discardPersistedDocumentToShell(input: {
+  documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
@@ -443,7 +449,25 @@ export async function discardPersistedDocumentToShell(input: {
   if (!input.persistence.discardDocumentToShell) {
     return { discarded: false };
   }
-  return input.persistence.discardDocumentToShell(input.execSql, input.localId);
+  const result = await input.persistence.discardDocumentToShell(
+    input.execSql,
+    input.localId,
+  );
+  if (result.discarded) {
+    const documentProjectors = resolveDocumentProjectorRegistry(
+      input.documentProjectors,
+    );
+    await ensureDocumentClientProjectionTables({
+      documentProjectors,
+      execSql: input.execSql,
+    });
+    await documentProjectors.deleteStoredDocumentClientProjection({
+      documentKind: result.documentKind,
+      execSql: input.execSql,
+      localId: input.localId,
+    });
+  }
+  return result;
 }
 
 export async function listPendingDocumentUpdates(input: {

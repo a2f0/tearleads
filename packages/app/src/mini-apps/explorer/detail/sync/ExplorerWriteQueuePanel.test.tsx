@@ -351,6 +351,54 @@ test("drills into an entry's sync detail from the row kebab", () => {
   expect(openedEntries).toEqual(["document::document-local-id"]);
 });
 
+test("discard runs only after an explicit confirmation", () => {
+  const discarded: string[] = [];
+  const view = renderPanel({
+    discardPendingWrites: (queueItem) => {
+      discarded.push(queueItem.localId);
+    },
+    items: [item()],
+  });
+  const openRowMenu = () =>
+    fireEvent.click(
+      view.getByRole("button", {
+        name: `${EXPLORER_LABELS.writeQueueRowActionsLabel}: Offline note`,
+      }),
+    );
+
+  // The menu item only opens the dialog; nothing is discarded yet.
+  openRowMenu();
+  fireEvent.click(
+    view.getByRole("button", { name: EXPLORER_LABELS.writeQueueDiscardAction }),
+  );
+  expect(discarded).toEqual([]);
+  expect(
+    view.getByText(EXPLORER_LABELS.writeQueueDiscardConfirmTitle),
+  ).toBeTruthy();
+
+  // Cancel closes without discarding — a mis-tap must destroy nothing.
+  fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+  expect(
+    view.queryByText(EXPLORER_LABELS.writeQueueDiscardConfirmTitle),
+  ).toBeNull();
+  expect(discarded).toEqual([]);
+
+  // Confirming is what runs the destructive callback. The menu closed when
+  // the dialog opened, so the only control with the action's label left is
+  // the dialog's own confirm button.
+  openRowMenu();
+  fireEvent.click(
+    view.getByRole("button", { name: EXPLORER_LABELS.writeQueueDiscardAction }),
+  );
+  fireEvent.click(
+    view.getByRole("button", { name: EXPLORER_LABELS.writeQueueDiscardAction }),
+  );
+  expect(discarded).toEqual(["document-local-id"]);
+  expect(
+    view.queryByText(EXPLORER_LABELS.writeQueueDiscardConfirmTitle),
+  ).toBeNull();
+});
+
 test("explains why an errored entry is stuck in its detail view", () => {
   const view = renderPanel({
     items: [

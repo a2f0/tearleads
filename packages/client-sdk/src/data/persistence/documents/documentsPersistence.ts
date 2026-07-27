@@ -5,6 +5,7 @@ import {
   desc,
   eq,
   inArray,
+  isNotNull,
   isNull,
   notInArray,
   or,
@@ -475,7 +476,11 @@ function buildDiscardShellDocument(
 
 // The single transaction behind discardDocumentToShell: row teardown and the
 // shell upsert commit together, so an interruption leaves either the fully
-// old or the fully shelled document.
+// old or the fully shelled document. Staged-upload rows AND detached
+// local-attachment markers both go: a marker for a locally-discarded detach
+// would otherwise keep filtering the slot out of every projection after the
+// re-pull restores it (hydration skips the slot because its cached storage
+// key still matches), leaving the attachment permanently invisible.
 async function discardDocumentRowsToShell(input: {
   existingDocument: StoredDocumentRecord;
   localId: string;
@@ -513,6 +518,15 @@ async function discardDocumentRowsToShell(input: {
           )
           .run();
       }
+      await tx
+        .delete(documentAttachmentBlobProjection)
+        .where(
+          and(
+            eq(documentAttachmentBlobProjection.localId, localId),
+            isNotNull(documentAttachmentBlobProjection.detachedAt),
+          ),
+        )
+        .run();
       await deleteDocumentHistory(lockedExecSql, getDocumentScope(localId));
       await clearDocumentSyncFailure(lockedExecSql, getDocumentScope(localId));
       const updatedAt = await resolveDocumentSaveTimestamp({
@@ -800,6 +814,17 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
           lockedExecSql,
           localId,
         );
+      const detachedRows = await db
+        .select({
+          storageKey: documentAttachmentBlobProjection.storageKey,
+        })
+        .from(documentAttachmentBlobProjection)
+        .where(
+          and(
+            eq(documentAttachmentBlobProjection.localId, localId),
+            isNotNull(documentAttachmentBlobProjection.detachedAt),
+          ),
+        );
 
       await discardDocumentRowsToShell({
         existingDocument,
@@ -809,9 +834,15 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       });
       return {
         discarded: true,
-        stagedAttachmentStorageKeys: pendingAttachments.map(
-          (pendingAttachment) => pendingAttachment.storageKey,
-        ),
+        documentKind: existingDocument.documentKind ?? DEFAULT_DOCUMENT_KIND,
+        reclaimableBlobStorageKeys: [
+          ...new Set([
+            ...pendingAttachments.map(
+              (pendingAttachment) => pendingAttachment.storageKey,
+            ),
+            ...detachedRows.map((detachedRow) => detachedRow.storageKey),
+          ]),
+        ],
       };
     });
   },

@@ -202,6 +202,27 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
       slotId: "slot-1",
       storageKey: "staged-storage-key",
     });
+    // A detach marker from a discarded local removal: left behind, it would
+    // filter the slot out of every projection after the re-pull restores it.
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "detached-blob",
+      byteLength: 7,
+      detachedAt: new Date().toISOString(),
+      localId,
+      mimeType: "image/png",
+      slotId: "slot-2",
+      storageKey: "detached-storage-key",
+    });
+    // A live synced-attachment cache stays: hydration reuses it.
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "cached-blob",
+      byteLength: 9,
+      detachedAt: null,
+      localId,
+      mimeType: "image/jpeg",
+      slotId: "slot-3",
+      storageKey: "cached-storage-key",
+    });
     const deletedBlobStorageKeys: string[] = [];
     const state = createStoreState(execSql, localId, deletedBlobStorageKeys);
 
@@ -216,10 +237,15 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
     expect(
       await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),
     ).toEqual([]);
+    const remainingLocalAttachments =
+      await sqlDocumentsPersistence.listLocalAttachments(execSql, localId);
     expect(
-      await sqlDocumentsPersistence.listLocalAttachments(execSql, localId),
-    ).toEqual([]);
-    expect(deletedBlobStorageKeys).toEqual(["staged-storage-key"]);
+      remainingLocalAttachments.map((attachment) => attachment.slotId),
+    ).toEqual(["slot-3"]);
+    expect([...deletedBlobStorageKeys].sort()).toEqual([
+      "detached-storage-key",
+      "staged-storage-key",
+    ]);
   } finally {
     close();
   }

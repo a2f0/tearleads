@@ -21,7 +21,16 @@ export interface StoredDocumentRecord extends BaseDocumentRecord {
 
 export type DiscardDocumentToShellResult =
   | { discarded: false }
-  | { discarded: true; stagedAttachmentStorageKeys: ReadonlyArray<string> };
+  | {
+      discarded: true;
+      documentKind: StoredDocumentKind;
+      /**
+       * Storage keys whose rows the discard deleted — staged uploads plus
+       * detached local-attachment markers. Those rows were the only durable
+       * pointers to the bytes, so the caller reclaims them.
+       */
+      reclaimableBlobStorageKeys: ReadonlyArray<string>;
+    };
 
 export interface PendingUpdateInsert extends PendingUpdateFields {
   localId: string;
