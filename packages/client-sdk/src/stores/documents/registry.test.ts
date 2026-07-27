@@ -2,9 +2,11 @@ import { expect, test } from "bun:test";
 import type { DomainScope } from "../../data/domainScope";
 import {
   createDocumentStoreFacade,
+  discardRegisteredDocumentLocalState,
   registerDocumentStore,
   registerDocumentStoreIdentity,
   requestRegisteredDocumentRemoteSync,
+  subscribeToPersistedDocumentDeletions,
 } from "./registry";
 import type { DocumentSnapshot, DocumentStore } from "./types";
 
@@ -27,11 +29,15 @@ const READY_SNAPSHOT: DocumentSnapshot = {
   syncing: false,
 };
 
-function createStore(onRemoteSync: () => void): DocumentStore {
+function createStore(
+  onRemoteSync: () => void,
+  onDiscard: () => boolean = () => false,
+): DocumentStore {
   return {
     addRow: async () => "row-id",
     assertCanRotateContentKey: async () => new Uint8Array(),
     attachFiles: () => undefined,
+    discardLocalState: async () => onDiscard(),
     ensureInitialized: async () => true,
     getSnapshot: () => READY_SNAPSHOT,
     removeAttachment: () => undefined,
@@ -94,4 +100,63 @@ test("requestRegisteredDocumentRemoteSync forwards to an active document store",
     ),
   ).toBe(true);
   expect(remoteSyncCalls).toBe(1);
+});
+
+test("discardRegisteredDocumentLocalState refuses unopened documents", async () => {
+  const domainScope = {} as DomainScope;
+
+  expect(
+    await discardRegisteredDocumentLocalState(
+      domainScope,
+      "unopened-local-id",
+      "remote-document-id",
+    ),
+  ).toBe(false);
+});
+
+test("discard routes through the store and emits the deletion on success", async () => {
+  const domainScope = {} as DomainScope;
+  let discardCalls = 0;
+  let discardResult = false;
+  const deletedLocalIds: string[] = [];
+  const store = createDocumentStoreFacade(
+    createStore(
+      () => undefined,
+      () => {
+        discardCalls += 1;
+        return discardResult;
+      },
+    ),
+  );
+  registerDocumentStore(domainScope, "discard-local-id", store, null);
+  const unsubscribe = subscribeToPersistedDocumentDeletions(
+    domainScope,
+    (localId) => deletedLocalIds.push(localId),
+  );
+  try {
+    // A refused discard (e.g. a local-only document) must not announce a
+    // deletion — listing consumers would drop a document that still exists.
+    expect(
+      await discardRegisteredDocumentLocalState(
+        domainScope,
+        "discard-local-id",
+        null,
+      ),
+    ).toBe(false);
+    expect(discardCalls).toBe(1);
+    expect(deletedLocalIds).toEqual([]);
+
+    discardResult = true;
+    expect(
+      await discardRegisteredDocumentLocalState(
+        domainScope,
+        "discard-local-id",
+        null,
+      ),
+    ).toBe(true);
+    expect(discardCalls).toBe(2);
+    expect(deletedLocalIds).toEqual(["discard-local-id"]);
+  } finally {
+    unsubscribe();
+  }
 });

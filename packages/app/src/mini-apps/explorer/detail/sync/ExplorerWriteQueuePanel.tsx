@@ -5,7 +5,11 @@ import type {
   DomainSyncSnapshot,
   PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
-import { requestAllDomainSyncLanes } from "@tearleads/client-sdk";
+import {
+  discardRegisteredDocumentLocalState,
+  requestAllDomainSyncLanes,
+  requestContainerContentsDocumentPriming,
+} from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppHeader,
@@ -57,6 +61,7 @@ interface ExplorerWriteQueuePanelViewProps
     ExplorerWriteQueuePanelProps,
     "documentListRevision" | "documentQueries" | "domainScope"
   > {
+  discardPendingWrites: (item: PendingWriteQueueItem) => void;
   error: boolean;
   items: ReadonlyArray<PendingWriteQueueItem>;
   loading: boolean;
@@ -234,6 +239,7 @@ export function ExplorerWriteQueuePanelView(
           ) : (
             <ExplorerWriteQueueTable
               billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+              discardPendingWrites={params.discardPendingWrites}
               items={params.items}
               nodes={params.nodes}
               openContainerInfoRoute={params.openContainerInfoRoute}
@@ -377,6 +383,31 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
     },
     [documentQueries, domainScope],
   );
+  // Per-entry "Discard local edits": tear down the document's local state
+  // through its registered store (so an in-flight persist cannot resurrect
+  // the deleted rows), then re-arm document priming so the server copy is
+  // re-created without an app restart. Retry keeps the queued writes; this is
+  // the escape hatch for a queue that can never sync (e.g. permanently
+  // conflicting update ids), trading local-only edits for server truth.
+  const discardPendingWrites = useCallback(
+    (item: PendingWriteQueueItem) => {
+      void discardRegisteredDocumentLocalState(
+        domainScope,
+        item.localId,
+        item.remoteId,
+      )
+        .catch(() => false)
+        .then((discarded) => {
+          if (discarded) {
+            requestContainerContentsDocumentPriming(domainScope);
+          }
+        })
+        .finally(() => {
+          requestAllDomainSyncLanes(domainScope);
+        });
+    },
+    [domainScope],
+  );
   const syncSettlementRevision = syncSnapshot.lanes
     .map(
       (lane) =>
@@ -394,6 +425,7 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
   return (
     <ExplorerWriteQueuePanelView
       billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+      discardPendingWrites={discardPendingWrites}
       error={state.error}
       isAuthenticated={params.isAuthenticated}
       items={state.items}

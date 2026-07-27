@@ -14,6 +14,7 @@ import {
   replaceAttachmentInDocumentStore,
   setAttachmentInDocumentStore,
 } from "./documentStore/attachments";
+import { discardDocumentStoreLocalState } from "./documentStore/discard";
 import {
   ensureDocumentStoreInitialized,
   ensureDocumentStoreReady,
@@ -58,6 +59,7 @@ import type {
 } from "./types";
 
 export {
+  discardRegisteredDocumentLocalState,
   requestDomainDocumentSync,
   subscribeToPersistedDocuments,
 } from "./registry";
@@ -164,6 +166,7 @@ function createBackingDocumentStore(
     },
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       attachFilesToDocumentStore(state, scheduleSync, files),
+    discardLocalState: () => discardDocumentStoreLocalState(state),
     ensureInitialized: () => ensureDocumentStoreReady(state, scheduleSync),
     getSnapshot: () => state.snapshot,
     removeAttachment: (slotId: string) =>

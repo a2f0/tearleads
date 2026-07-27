@@ -110,6 +110,7 @@ type ViewProps = ComponentProps<typeof ExplorerWriteQueuePanelView>;
 function renderPanel(overrides: Partial<ViewProps> = {}) {
   const props: ViewProps = {
     billingBlockedOrganizationId: null,
+    discardPendingWrites: () => undefined,
     error: false,
     isAuthenticated: true,
     items: [],

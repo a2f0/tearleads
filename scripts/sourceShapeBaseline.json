@@ -210,12 +210,12 @@
       "bytes": 17034
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.test.tsx": {
-      "lines": 535,
-      "bytes": 15065
+      "lines": 536,
+      "bytes": 15108
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 457,
-      "bytes": 20544
+      "lines": 458,
+      "bytes": 20594
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
       "lines": 565,

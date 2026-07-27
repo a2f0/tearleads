@@ -43,6 +43,7 @@ const containerContentsStoresByScope = new WeakMap<
 >();
 
 interface ContainerContentsStoreEntry {
+  requestDocumentPriming: () => void;
   store: ContainerContentsStore;
   updateOptions: (options: ContainerContentsStoreOptions) => void;
 }
@@ -263,6 +264,10 @@ function createContainerContentsStoreEntry(
   const writeMethods = createContainerWriteMethods(state, syncAgent);
 
   return {
+    requestDocumentPriming: () => {
+      state.documentStoresNeedPriming = true;
+      syncAgent.scheduleSync();
+    },
     store: {
       createChild: writeMethods.createChild,
       deleteContainer: writeMethods.deleteContainer,
@@ -325,4 +330,24 @@ export function getOrCreateContainerContentsStore(
   );
   containerContentsStoresByScope.set(domainScope, nextEntry);
   return nextEntry.store;
+}
+
+/**
+ * Arm the next structural pass's document-priming scan for a domain scope.
+ * Priming normally re-arms only on store creation and topology changes, so a
+ * caller that just tore down a document's local state uses this to have the
+ * still-listed server document re-created without waiting for an app
+ * restart. Returns false when the scope has no container-contents store yet;
+ * the startup priming pass covers that case.
+ */
+export function requestContainerContentsDocumentPriming(
+  domainScope: DomainScope,
+): boolean {
+  const entry = containerContentsStoresByScope.get(domainScope);
+  if (!entry) {
+    return false;
+  }
+
+  entry.requestDocumentPriming();
+  return true;
 }

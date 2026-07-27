@@ -399,6 +399,7 @@ export const EXPLORER_LABELS = {
   writeQueueContainerType: "Folder",
   writeQueueCreateOperation: "remote create",
   writeQueueDeferredUpdateOperation: "deferred Loro update",
+  writeQueueDiscardAction: "Discard local edits",
   writeQueueDocumentType: "Document",
   writeQueueEmpty: "No pending writes.",
   writeQueueEntryContainerRow: "Container",

@@ -132,6 +132,38 @@ export function requestRegisteredDocumentRemoteSync(
   return true;
 }
 
+/**
+ * Discard a registered document's local state through its store, so the
+ * teardown serializes on the store's identity-write chain instead of racing
+ * an in-flight persist that would resurrect the deleted rows. Only registered
+ * stores qualify — an unregistered document has no lane submitting its queue,
+ * so there is nothing this escape hatch could unstick. Emits the persisted
+ * deletion so listing consumers drop the document until priming restores it.
+ */
+export async function discardRegisteredDocumentLocalState(
+  domainScope: DomainScope,
+  localId: string,
+  documentId: string | null,
+): Promise<boolean> {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  if (!registry) {
+    return false;
+  }
+
+  const store = registry.storesByKey.get(
+    resolveDocumentStoreKey(registry, localId, documentId),
+  );
+  if (!store) {
+    return false;
+  }
+
+  const discarded = await store.discardLocalState();
+  if (discarded) {
+    emitPersistedDocumentDeletion(domainScope, localId);
+  }
+  return discarded;
+}
+
 export function createDocumentStoreFacade(
   initialStore: DocumentStore,
 ): DocumentStoreFacade {
@@ -166,6 +198,7 @@ export function createDocumentStoreFacade(
     assertCanRotateContentKey: () => targetStore.assertCanRotateContentKey(),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       targetStore.attachFiles(files),
+    discardLocalState: () => targetStore.discardLocalState(),
     ensureInitialized: () => targetStore.ensureInitialized(),
     getSnapshot: () => targetStore.getSnapshot(),
     removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),

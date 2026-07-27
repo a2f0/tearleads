@@ -270,6 +270,7 @@ export {
   createContainerContentsStoreSyncAgent,
   getOrCreateContainerContentsStore,
   isSystemContainerNode,
+  requestContainerContentsDocumentPriming,
   subscribeToContainerContentsStore,
   updateContainerContentsSnapshot,
   updateContainerContentsStoreRuntime,
@@ -282,6 +283,7 @@ export type {
 } from "./stores/documents";
 export {
   createDocumentStore,
+  discardRegisteredDocumentLocalState,
   getOrCreateDocumentStore,
   openDocumentStore,
   requestDomainDocumentSync,

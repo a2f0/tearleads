@@ -103,6 +103,13 @@ export interface DocumentStore {
   /** Fail unless this store can produce a mergeable full-history checkpoint. */
   assertCanRotateContentKey: () => Promise<Uint8Array>;
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
+  /**
+   * Tear down every locally persisted trace of this document so container
+   * priming restores it from the server copy — the escape hatch for queued
+   * local writes that can no longer sync. Refuses (returns false) for a
+   * document with no remote copy, whose local state is its only copy.
+   */
+  discardLocalState: () => Promise<boolean>;
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => DocumentSnapshot;
   removeAttachment: (slotId: string) => void;
