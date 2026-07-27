@@ -15,6 +15,7 @@ ASSUME /\ Ops # {}
        /\ IsFiniteSet(Identities)
        /\ MaxGeneration \in Nat \ {0}
 VARIABLES snapshot, durableSnapshot, durableBase, workingBase, queued, remote,
+          durableRemoteRows,
           lane, capturedFrontier, capturedCoverage, capturedGeneration,
           capturedIdentity, rerunRequested,
           localPresent, durablePresent, authoritativelyDeleted,
@@ -23,7 +24,7 @@ VARIABLES snapshot, durableSnapshot, durableBase, workingBase, queued, remote,
           responseAccepted, responseDeletes, responsePending,
           durableOp, allPublicationsMatchedContext
 coverageVars == << snapshot, durableSnapshot, durableBase, workingBase,
-                  queued, remote >>
+                  queued, remote, durableRemoteRows >>
 captureVars == << capturedFrontier, capturedCoverage, capturedGeneration,
                   capturedIdentity, rerunRequested >>
 responseVars == << responseIdentity, responseGeneration, responseIncoming,
@@ -57,6 +58,8 @@ TypeOK ==
   /\ snapshot \subseteq durableSnapshot /\ durableBase \subseteq durableSnapshot
   /\ workingBase \subseteq snapshot /\ queued \subseteq durableSnapshot
   /\ remote \subseteq durableSnapshot
+  /\ durableRemoteRows \subseteq durableSnapshot
+  /\ durableRemoteRows \subseteq remote
   /\ lane \in {"idle", "running", "captured", "materialized", "planned",
                 "persisting", "prepared", "complete"}
   /\ capturedFrontier \subseteq snapshot /\ capturedCoverage \subseteq snapshot
@@ -68,11 +71,12 @@ TypeOK ==
   /\ responseIdentity \in Identities /\ responseGeneration \in 0..MaxGeneration
   /\ responseIncoming \subseteq Ops /\ responseAccepted \subseteq Ops
   /\ responseDeletes \in BOOLEAN /\ responsePending \in BOOLEAN
-  /\ durableOp \in {"none", "marker", "response", "delete"}
+  /\ durableOp \in {"none", "marker", "tail", "response", "delete"}
   /\ allPublicationsMatchedContext \in BOOLEAN
 Init ==
   /\ snapshot = {} /\ durableSnapshot = {} /\ durableBase = {}
   /\ workingBase = {} /\ queued = {} /\ remote = {}
+  /\ durableRemoteRows = {}
   /\ lane = "idle"
   /\ liveIdentity \in Identities /\ liveGeneration = 0
   /\ capturedFrontier = {} /\ capturedCoverage = {} /\ capturedGeneration = 0
@@ -92,7 +96,8 @@ QueueEdit(op) ==
   /\ workingBase' = snapshot \cup {op}
   /\ lane' = IF lane \in {"idle", "complete"} THEN "running" ELSE lane
   /\ rerunRequested' = (rerunRequested \/ ActivePass)
-  /\ UNCHANGED << durableBase, remote, capturedFrontier, capturedCoverage,
+  /\ UNCHANGED << durableBase, remote, durableRemoteRows,
+                  capturedFrontier, capturedCoverage,
                   capturedGeneration, capturedIdentity, presenceVars,
                   liveIdentity, liveGeneration, responseVars, durableOpVars,
                   auditVars >>
@@ -101,7 +106,8 @@ DeferEdit(op) ==
   /\ op \in Ops \ snapshot
   /\ snapshot' = snapshot \cup {op}
   /\ durableSnapshot' = durableSnapshot \cup {op}
-  /\ UNCHANGED << durableBase, workingBase, queued, remote, lane,
+  /\ UNCHANGED << durableBase, workingBase, queued, remote,
+                  durableRemoteRows, lane,
                   capturedFrontier, capturedCoverage, rerunRequested,
                   capturedGeneration, capturedIdentity, presenceVars,
                   liveIdentity, liveGeneration, responseVars, durableOpVars,
@@ -132,6 +138,7 @@ MaterializeCapturedTail ==
   /\ capturedCoverage' = capturedFrontier
   /\ lane' = "materialized"
   /\ UNCHANGED << snapshot, durableSnapshot, durableBase, workingBase, remote,
+                  durableRemoteRows,
                   capturedFrontier, capturedGeneration, capturedIdentity,
                   rerunRequested, presenceVars, liveIdentity, liveGeneration,
                   responseVars, durableOpVars, auditVars >>
@@ -166,6 +173,7 @@ StartMarkerPersist ==
   /\ lane' = "persisting"
   /\ durableOp' = "marker"
   /\ UNCHANGED << snapshot, durableSnapshot, workingBase, queued, remote,
+                  durableRemoteRows,
                   captureVars, presenceVars, liveIdentity, liveGeneration,
                   responseVars, auditVars >>
 CompleteLiveMarkerPersist ==
@@ -176,7 +184,7 @@ CompleteLiveMarkerPersist ==
   /\ durableOp' = "none"
   /\ RecordPublication(CaptureIsLive)
   /\ UNCHANGED << snapshot, durableSnapshot, durableBase, queued, remote,
-                  captureVars, presenceVars,
+                  durableRemoteRows, captureVars, presenceVars,
                   liveIdentity, liveGeneration, responseVars >>
 CompleteStaleMarkerPersist ==
   /\ durableOp = "marker"
@@ -222,9 +230,10 @@ ResetReinitialize(nextIdentity) ==
   /\ liveGeneration' = liveGeneration + 1
   /\ liveIdentity' = nextIdentity
   /\ snapshot' = durableSnapshot
-  /\ workingBase' = durableBase
+  /\ workingBase' = durableBase \cup durableRemoteRows
   /\ rerunRequested' = TRUE
-  /\ UNCHANGED << durableSnapshot, durableBase, queued, remote, lane,
+  /\ UNCHANGED << durableSnapshot, durableBase, queued, remote,
+                  durableRemoteRows, lane,
                   capturedFrontier, capturedCoverage, capturedGeneration,
                   capturedIdentity, presenceVars, responseVars,
                   durableOpVars, auditVars >>
@@ -244,18 +253,43 @@ ClearResponse ==
   /\ responseAccepted' = {}
   /\ responseDeletes' = FALSE
 
+(* Durable history tail append of the pulled updates — its own durable *)
+(* write, landing BEFORE the record persist, as the implementation *)
+(* orders them: a crash between the two leaves remote-origin tail rows *)
+(* whose coverage the persisted marker does not yet carry. *)
+StartResponseTailAppend ==
+  /\ localPresent
+  /\ responsePending
+  /\ NoDurableOp
+  /\ ResponseIsLive
+  /\ ~(responseIncoming \subseteq durableRemoteRows)
+  /\ durableSnapshot' = durableSnapshot \cup responseIncoming
+  /\ durableRemoteRows' = durableRemoteRows \cup responseIncoming
+  /\ remote' = remote \cup responseIncoming
+  /\ durableOp' = "tail"
+  /\ UNCHANGED << snapshot, durableBase, workingBase, queued, lane,
+                  captureVars, presenceVars, liveIdentity, liveGeneration,
+                  responseVars, auditVars >>
+
+CompleteResponseTailAppend ==
+  /\ durableOp = "tail"
+  /\ durableOp' = "none"
+  /\ UNCHANGED << coverageVars, lane, captureVars, presenceVars,
+                  liveIdentity, liveGeneration, responseVars, auditVars >>
+
 StartResponseDurableOp ==
   /\ localPresent
   /\ responsePending
   /\ NoDurableOp
   /\ ResponseIsLive
-  /\ durableSnapshot' = durableSnapshot \cup responseIncoming
+  /\ responseIncoming \subseteq durableRemoteRows
   /\ durableBase' = durableBase \cup responseIncoming
   /\ queued' = queued \ responseAccepted
-  /\ remote' = remote \cup responseIncoming \cup responseAccepted
+  /\ remote' = remote \cup responseAccepted
   /\ durablePresent' = IF responseDeletes THEN FALSE ELSE durablePresent
   /\ durableOp' = IF responseDeletes THEN "delete" ELSE "response"
-  /\ UNCHANGED << snapshot, workingBase, lane, captureVars, localPresent,
+  /\ UNCHANGED << snapshot, durableSnapshot, durableRemoteRows, workingBase,
+                  lane, captureVars, localPresent,
                   authoritativelyDeleted, liveIdentity, liveGeneration,
                   responseVars, auditVars >>
 
@@ -267,7 +301,8 @@ CompleteLiveResponsePersist ==
   /\ ClearResponse
   /\ durableOp' = "none"
   /\ RecordPublication(ResponseIsLive)
-  /\ UNCHANGED << durableSnapshot, durableBase, queued, remote, lane,
+  /\ UNCHANGED << durableSnapshot, durableBase, queued, remote,
+                  durableRemoteRows, lane,
                   captureVars, presenceVars, liveIdentity,
                   liveGeneration, responseIdentity, responseGeneration >>
 
@@ -313,21 +348,22 @@ CompleteCapturedPass ==
                   presenceVars, liveIdentity, liveGeneration, responseVars,
                   durableOpVars, auditVars >>
 
-(* Restart restores content from the durable store and the marker from the *)
-(* persisted base EXTENDED across durably-held remote coverage: history    *)
-(* tail rows record provenance, so ops the server already holds never      *)
-(* re-enter the outgoing delta after a crash between the durable response  *)
-(* append and the marker persist. Local ops keep only their persisted      *)
-(* coverage — an un-enqueued deferred op stays below the marker so the     *)
-(* next edit re-derives and sends it.                                      *)
+(* Restart restores content from the durable store and the marker from *)
+(* the persisted base EXTENDED across remote-origin tail rows: their *)
+(* provenance proves the server holds them, so a crash between the tail *)
+(* append and the record persist (CancelOrIgnoreResponse then Restart) *)
+(* never re-enters them into the outgoing delta. Local-origin rows keep *)
+(* only persisted coverage — an accepted-but-unmarked local op is *)
+(* re-derived and re-sent, the safe idempotent direction. *)
 Restart ==
   /\ localPresent
   /\ NoDurableOp
   /\ ~responsePending
   /\ snapshot' = durableSnapshot
-  /\ workingBase' = durableBase \cup remote
+  /\ workingBase' = durableBase \cup durableRemoteRows
   /\ ResetCapturedPass
-  /\ UNCHANGED << durableSnapshot, durableBase, queued, remote, presenceVars,
+  /\ UNCHANGED << durableSnapshot, durableBase, queued, remote,
+                  durableRemoteRows, presenceVars,
                   liveIdentity, liveGeneration, responseVars, durableOpVars,
                   auditVars >>
 
@@ -360,6 +396,8 @@ Next ==
   \/ \E nextIdentity \in Identities : Relink(nextIdentity)
   \/ \E nextIdentity \in Identities : ResetReinitialize(nextIdentity)
   \/ AbortStalePreparation
+  \/ StartResponseTailAppend
+  \/ CompleteResponseTailAppend
   \/ StartResponseDurableOp
   \/ CompleteLiveResponsePersist
   \/ CompleteLiveDeletion
@@ -432,16 +470,22 @@ StalePreparationContinuation ==
          /\ lane' \in {"idle", "running"}
          /\ capturedFrontier' = {}
 
-(* A stale continuation may extend the marker across REMOTE coverage only  *)
-(* (the restart's provenance-based extension): server-held ops never need  *)
-(* re-sending, but a stale pass must never classify a local op as covered. *)
+(* A stale pass continuation must never mint coverage or content: it may   *)
+(* only step the lane machinery and enqueue. Restart is exempt — it is a   *)
+(* crash-reload, not a pass continuation: it republishes durable content   *)
+(* (snapshot' = durableSnapshot) and restores the marker from durably      *)
+(* justified coverage only (RestartCoversRemoteRows binds it separately).  *)
 StalePreparationIsQueueOnly ==
-  StalePreparationContinuation
-    => /\ UNCHANGED << snapshot, durableBase, remote >>
-       /\ workingBase' \subseteq (workingBase \cup remote)
+  (StalePreparationContinuation /\ ~Restart)
+    => /\ UNCHANGED << snapshot, durableBase, remote, durableRemoteRows >>
+       /\ workingBase' \subseteq workingBase
        /\ queued \subseteq queued'
 
 StalePreparationCannotAdvance == [][StalePreparationIsQueueOnly]_vars
+
+(* The provenance extension itself: no restart may leave a durably-held   *)
+(* remote-origin row above the restored marker.                            *)
+RestartCoversRemoteRows == [][Restart => durableRemoteRows \subseteq workingBase']_vars
 
 NoDataLoss ==
   localPresent \/ authoritativelyDeleted \/ snapshot \subseteq remote
