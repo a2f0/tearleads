@@ -44,9 +44,9 @@ const TRANSCRIPT_TAIL_CHARS = 2000;
  * against codex 0.145: `codex mcp list` is unchanged under that override).
  * Ignoring the user config drops those servers wholesale; auth still works,
  * and everything the review needs is pinned explicitly right here.
- * `--disable plugins` closes the remaining gap: plugin-provided MCP servers
- * are merged from outside `config.toml`, so ignoring the config alone would
- * leave them loaded.
+ * `--disable plugins/hooks/apps` closes the remaining gaps: plugin-provided
+ * MCP servers, trusted hooks, and app connectors all live outside
+ * `config.toml`, so ignoring the config alone would leave them active.
  */
 export function buildCodexReviewArgs(
   effort: ReviewEffort,
@@ -57,6 +57,10 @@ export function buildCodexReviewArgs(
     "--ignore-user-config",
     "--disable",
     "plugins",
+    "--disable",
+    "hooks",
+    "--disable",
+    "apps",
     "--sandbox",
     "read-only",
     "-c",
