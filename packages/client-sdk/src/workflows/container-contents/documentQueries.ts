@@ -47,7 +47,11 @@ import type {
   ContainerItemSort,
   ContainerItemWindow as ContainerItemWindowContract,
 } from "./documentQueries/types";
-import { listPendingWrites, type PendingWriteQueueItem } from "./pendingWrites";
+import {
+  listPendingWrites,
+  type PendingWriteQueueItem,
+  resetPendingWriteRetryState,
+} from "./pendingWrites";
 import type { ContainerDocumentObjectSyncState } from "./syncState";
 
 export type {
@@ -97,6 +101,11 @@ export interface ContainerDocumentQueries {
     documentIds: ReadonlyArray<string>,
   ): Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
   listPendingWrites(): Promise<ReadonlyArray<PendingWriteQueueItem>>;
+  retryPendingWriteItem(input: {
+    localId: string;
+    namespace: string | null;
+    objectKind: PendingWriteQueueItem["objectKind"];
+  }): Promise<void>;
   replaceDocumentLinksBatch(
     inputs: ReadonlyArray<ContainerDocumentLinkInput>,
   ): Promise<void>;
@@ -608,6 +617,9 @@ function createContainerDocumentQueries(
     },
     listPendingWrites() {
       return listPendingWrites(execSql);
+    },
+    retryPendingWriteItem(input) {
+      return resetPendingWriteRetryState(execSql, input);
     },
     replaceDocumentLinksBatch(inputs) {
       return replaceDocumentLinksBatch(execSql, inputs);

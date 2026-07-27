@@ -296,7 +296,7 @@ interface WriteQueueTableProps {
   openDocument: (localId: string, containerId: string) => void;
   openWriteQueueEntryRoute: (entryKey: string) => void;
   organizationNamesById: ReadonlyMap<string, string>;
-  retryPendingWrites: () => void;
+  retryPendingWrites: (item: PendingWriteQueueItem) => void;
 }
 
 function WriteQueueRow(
@@ -364,7 +364,7 @@ function WriteQueueRow(
         onOpenEntryInfo={() =>
           params.openWriteQueueEntryRoute(getWriteQueueItemKey(item))
         }
-        onRetry={params.retryPendingWrites}
+        onRetry={() => params.retryPendingWrites(item)}
       />
     </MiniAppTableRow>
   );

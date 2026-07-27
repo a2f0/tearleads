@@ -22,6 +22,7 @@ export {
   listDocumentPendingUpdates,
   MAX_PENDING_UPDATE_REKEYS,
   rekeyDocumentPendingUpdate,
+  resetDocumentPendingUpdateRekeyBudget,
 } from "./documentPendingUpdatePersistence";
 export type {
   DocumentRecord,
