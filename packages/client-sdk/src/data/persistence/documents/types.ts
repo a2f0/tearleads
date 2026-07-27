@@ -2,7 +2,10 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../documentSummary";
-import type { StoredDocumentKind } from "../../documents/documentKinds";
+import type {
+  DocumentProjectorRegistryInput,
+  StoredDocumentKind,
+} from "../../documents/documentKinds";
 import type {
   DocumentRecord as BaseDocumentRecord,
   PendingUpdateFields,
@@ -259,12 +262,16 @@ export interface DocumentsPersistence {
   /**
    * Atomically convert a stuck document's local state to the
    * freshly-discovered-share shell (see the SQL implementation's doc
-   * comment). Optional: implementations without the full document schema
+   * comment). The projector registry clears the document-kind client
+   * projection in the same transaction — those tables live with the app's
+   * projector definitions, so the caller's registry must be threaded
+   * through. Optional: implementations without the full document schema
    * (container metadata, simple doubles) simply do not offer the discard
    * escape hatch.
    */
   discardDocumentToShell?: (
     execSql: ExecSql,
     localId: string,
+    documentProjectors?: DocumentProjectorRegistryInput,
   ) => Promise<DiscardDocumentToShellResult>;
 }

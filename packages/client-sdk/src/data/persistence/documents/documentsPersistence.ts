@@ -21,6 +21,10 @@ import {
   DEFAULT_DOCUMENT_KIND,
 } from "../../documents/documentConstants";
 import {
+  type DocumentProjectorRegistry,
+  resolveDocumentProjectorRegistry,
+} from "../../documents/documentKinds";
+import {
   appendDocumentHistoryUpdates,
   deleteDocumentHistory,
   listDocumentHistoryTailEntries,
@@ -482,14 +486,24 @@ function buildDiscardShellDocument(
 // re-pull restores it (hydration skips the slot because its cached storage
 // key still matches), leaving the attachment permanently invisible.
 async function discardDocumentRowsToShell(input: {
+  documentProjectors: DocumentProjectorRegistry;
   existingDocument: StoredDocumentRecord;
   localId: string;
   lockedExecSql: ExecSql;
   pendingAttachments: ReadonlyArray<{ slotId: string; storageKey: string }>;
 }): Promise<void> {
-  const { existingDocument, localId, lockedExecSql, pendingAttachments } =
-    input;
+  const {
+    documentProjectors,
+    existingDocument,
+    localId,
+    lockedExecSql,
+    pendingAttachments,
+  } = input;
   const shellDocument = buildDiscardShellDocument(localId, existingDocument);
+  const clientProjectionTables = documentProjectors.getClientProjectionTables();
+  if (clientProjectionTables.length > 0) {
+    await ensureSqlTables(lockedExecSql, clientProjectionTables);
+  }
   await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
     async (tx) => {
       await deleteDocumentPendingUpdates(
@@ -529,6 +543,17 @@ async function discardDocumentRowsToShell(input: {
         .run();
       await deleteDocumentHistory(lockedExecSql, getDocumentScope(localId));
       await clearDocumentSyncFailure(lockedExecSql, getDocumentScope(localId));
+      // The document-kind client projection (e.g. a contact's projected
+      // fields) derives from the discarded content and is read directly by
+      // consumers, so it must not outlive the rows it derived from. Clearing
+      // it INSIDE the transaction keeps the discard all-or-nothing; the
+      // re-pull's persist rebuilds it. Projector deletes are runMutation
+      // -based plain statements, so they join this open transaction.
+      await documentProjectors.deleteStoredDocumentClientProjection({
+        documentKind: shellDocument.documentKind ?? DEFAULT_DOCUMENT_KIND,
+        execSql: lockedExecSql,
+        localId,
+      });
       const updatedAt = await resolveDocumentSaveTimestamp({
         document: shellDocument,
         tx,
@@ -790,6 +815,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async discardDocumentToShell(
     execSql,
     localId,
+    documentProjectors,
   ): Promise<DiscardDocumentToShellResult> {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
@@ -827,6 +853,8 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
         );
 
       await discardDocumentRowsToShell({
+        documentProjectors:
+          resolveDocumentProjectorRegistry(documentProjectors),
         existingDocument,
         localId,
         lockedExecSql,

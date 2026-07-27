@@ -397,14 +397,29 @@ export async function deletePendingAttachment(
   state: DocumentStoreState,
   slotId: string,
   storageKey: string,
+  expectedGeneration?: DocumentStoreSyncGeneration,
 ) {
-  await deletePendingDocumentAttachment({
-    execSql: state.runtime.infra.execSql,
-    localId: state.localId,
-    persistence: state.persistence,
-    slotId,
-    storageKey,
-  });
+  // In-mutex currency check (see enqueuePendingUpdate): after a REFUSED
+  // discard the reset store keeps its rows, and a stale pass racing that
+  // reset must not delete state the refusal deliberately preserved.
+  await runSerializedSqlMutation(
+    state.runtime.infra.execSql,
+    async (lockedExecSql) => {
+      if (
+        expectedGeneration &&
+        !isSyncGenerationCurrent(state, expectedGeneration)
+      ) {
+        return;
+      }
+      await deletePendingDocumentAttachment({
+        execSql: lockedExecSql,
+        localId: state.localId,
+        persistence: state.persistence,
+        slotId,
+        storageKey,
+      });
+    },
+  );
 }
 
 export async function deleteLocalAttachmentRecord(

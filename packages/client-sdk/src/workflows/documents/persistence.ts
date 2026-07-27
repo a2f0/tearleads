@@ -424,17 +424,13 @@ export type DiscardedDocumentShellResult = DiscardDocumentToShellResult;
 
 /**
  * Convert a stuck document's local state to the freshly-discovered-share
- * shell. The persistence implementation owns the row sequence — the
+ * shell. The persistence implementation owns the whole sequence — the
  * eligibility checks (local-only, unlinked, or move-pending documents are
- * refused), the row teardown, and the shell upsert — and commits it as ONE
- * transaction, so an interruption leaves either the fully old or the fully
- * shelled document. Implementations without the full document schema do not
- * offer the operation and simply refuse.
- *
- * After the rows commit, the document-kind client projection (e.g. a
- * contact's projected fields) is cleared too: it derives from the discarded
- * content, and consumers read it directly, so leaving it would keep showing
- * the discarded values until a successful re-pull rebuilds it.
+ * refused), the row teardown, the document-kind client-projection clear, and
+ * the shell upsert — and commits it as ONE transaction, so an interruption
+ * leaves either the fully old or the fully shelled document (never, e.g., a
+ * discarded contact whose projected fields stay visible). Implementations
+ * without the full document schema do not offer the operation and refuse.
  *
  * Returns the reclaimable storage keys on success — the deleted rows were
  * the only durable pointers to those bytes, so the caller reclaims them.
@@ -449,32 +445,11 @@ export async function discardPersistedDocumentToShell(input: {
   if (!input.persistence.discardDocumentToShell) {
     return { discarded: false };
   }
-  const result = await input.persistence.discardDocumentToShell(
+  return input.persistence.discardDocumentToShell(
     input.execSql,
     input.localId,
+    input.documentProjectors,
   );
-  if (result.discarded) {
-    try {
-      const documentProjectors = resolveDocumentProjectorRegistry(
-        input.documentProjectors,
-      );
-      await ensureDocumentClientProjectionTables({
-        documentProjectors,
-        execSql: input.execSql,
-      });
-      await documentProjectors.deleteStoredDocumentClientProjection({
-        documentKind: result.documentKind,
-        execSql: input.execSql,
-        localId: input.localId,
-      });
-    } catch {
-      // The destructive rows already committed; failing the whole discard
-      // here would report an un-discard that cannot be true and lose the
-      // reclaimable storage keys (their pointer rows are gone). A stale kind
-      // projection is the lesser harm — the re-pull's persist rebuilds it.
-    }
-  }
-  return result;
 }
 
 export async function listPendingDocumentUpdates(input: {

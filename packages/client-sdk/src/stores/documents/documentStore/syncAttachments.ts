@@ -9,6 +9,7 @@ import {
   type PendingAttachmentRecord,
   recordDocumentSyncFailure,
   resolveDocumentCreateAuthor,
+  runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { resolveAttachmentSourceUpload } from "./attachmentSourceUpload";
@@ -325,6 +326,7 @@ async function persistSettledAttachment(
     state,
     pendingAttachment.slotId,
     pendingAttachment.storageKey,
+    attachmentGeneration,
   );
 }
 
@@ -395,6 +397,7 @@ async function recoverCommittedAttachment(
     return true;
   } catch (error) {
     reportAttachmentUploadFailure({
+      attachmentGeneration: input.attachmentGeneration,
       error,
       pendingAttachment,
       state,
@@ -465,6 +468,7 @@ async function uploadPendingAttachmentBytes(input: {
         return "retry";
       }
       reportAttachmentUploadFailure({
+        attachmentGeneration: input.pendingUpload.attachmentGeneration,
         error: uploadError,
         pendingAttachment,
         state,
@@ -485,6 +489,7 @@ async function uploadPendingAttachmentBytes(input: {
     return "uploaded";
   } catch (error) {
     reportAttachmentUploadFailure({
+      attachmentGeneration: input.pendingUpload.attachmentGeneration,
       error,
       pendingAttachment,
       state,
@@ -525,6 +530,7 @@ async function syncPendingAttachmentUpload(
       state,
       pendingAttachment.slotId,
       pendingAttachment.storageKey,
+      input.attachmentGeneration,
     );
     return "dropped";
   }
@@ -572,6 +578,7 @@ async function syncPendingAttachmentUpload(
 }
 
 function reportAttachmentUploadFailure(input: {
+  attachmentGeneration: DocumentStoreSyncGeneration;
   error: unknown;
   pendingAttachment: PendingAttachmentRecord;
   state: DocumentStoreState;
@@ -584,14 +591,30 @@ function reportAttachmentUploadFailure(input: {
   input.uploadLane.fail(error);
   input.state.runtime.util.log(`Documents: ${error.message}`);
   // Surface the stuck upload in the write queue; a later successful sync pass
-  // for the document clears the record.
-  void recordDocumentSyncFailure(
+  // for the document clears the record. Validated inside the serialized
+  // mutation: a teardown (reset/discard) racing this pass just cleared the
+  // failure row, and re-recording it would resurrect a phantom queue entry
+  // for work that no longer exists.
+  void runSerializedSqlMutation(
     input.state.runtime.infra.execSql,
-    { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
-    {
-      attemptedAt: new Date().toISOString(),
-      message: error.message,
-      status: null,
+    async (lockedExecSql) => {
+      if (
+        !isDocumentStoreSyncGenerationCurrent(
+          input.state,
+          input.attachmentGeneration,
+        )
+      ) {
+        return;
+      }
+      await recordDocumentSyncFailure(
+        lockedExecSql,
+        { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
+        {
+          attemptedAt: new Date().toISOString(),
+          message: error.message,
+          status: null,
+        },
+      );
     },
   ).catch(() => undefined);
 }
