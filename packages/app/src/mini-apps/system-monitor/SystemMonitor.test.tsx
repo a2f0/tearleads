@@ -26,10 +26,6 @@ afterEach(async () => {
 // renderPane() mounts the left pane, so the persisted mode lands under this key.
 const MODE_KEY = systemMonitorModeStorageKey("left");
 const DEVELOPER_MODE_KEY = systemMonitorDeveloperModeStorageKey();
-const ROUTED_DEVELOPER_MENU_ITEM_LABELS = [
-  "Force Online",
-  "Force Offline",
-] as const;
 
 function spyPushState(onPush: (url: string | URL | null | undefined) => void) {
   const originalPushState = window.history.pushState;
@@ -75,17 +71,17 @@ function openRoutedMiniAppLink(
   fireEvent.click(view.getByRole("link", { name }));
 }
 
-function expectRoutedDeveloperMenuItems(
+// Developer mode gates the Feature Flags tab, the routed shell's visible
+// consequence of the toggle now that the nav rail carries app links only.
+function expectRoutedDeveloperTab(
   view: ReturnType<typeof renderPane>,
   visible: boolean,
 ) {
-  for (const label of ROUTED_DEVELOPER_MENU_ITEM_LABELS) {
-    const item = view.queryByRole("button", { name: label });
-    if (visible) {
-      expect(item).toBeTruthy();
-    } else {
-      expect(item).toBeNull();
-    }
+  const tab = view.queryByRole("tab", { name: "Feature Flags" });
+  if (visible) {
+    expect(tab).toBeTruthy();
+  } else {
+    expect(tab).toBeNull();
   }
 }
 
@@ -338,12 +334,12 @@ test("pin to desktop closes the window, renders inline, and persists the choice"
   view.unmount();
 });
 
-test("developer mode toggles from the routed monitor menu and gates pane commands", async () => {
+test("developer mode toggles from the routed monitor toolbar and gates its tabs", async () => {
   const view = renderRoutedPane();
 
   openRoutedMiniAppLink(view, "System Monitor");
   await view.findByRole("tab", { name: "Logs" });
-  expectRoutedDeveloperMenuItems(view, false);
+  expectRoutedDeveloperTab(view, false);
   expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBeNull();
 
   fireEvent.click(
@@ -351,14 +347,14 @@ test("developer mode toggles from the routed monitor menu and gates pane command
   );
 
   expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBe("enabled");
-  expectRoutedDeveloperMenuItems(view, true);
+  expectRoutedDeveloperTab(view, true);
 
   fireEvent.click(
     await view.findByRole("button", { name: "Disable Developer Mode" }),
   );
 
   expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBe("disabled");
-  expectRoutedDeveloperMenuItems(view, false);
+  expectRoutedDeveloperTab(view, false);
 
   view.unmount();
 });

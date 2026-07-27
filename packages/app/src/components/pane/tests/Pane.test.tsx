@@ -19,7 +19,6 @@ import {
   waitForPaneRuntimeToSettle,
 } from "../../../../test/helpers/paneTestUtils";
 import { renderRoutedPane } from "../../../../test/helpers/routedPaneTestUtils";
-import { enableSystemMonitorDeveloperMode } from "../../../../test/helpers/systemMonitorTestPreferences";
 
 afterEach(cleanupPaneTestEnvironment);
 
@@ -32,6 +31,20 @@ async function openRoutedSystemMonitorStatus(
   await waitFor(() => {
     expect(getPaneStatusText(view)).toMatch(/network:/);
   });
+}
+
+// The routed nav rail is a pure app launcher, so the manual network controls
+// live on the System Monitor's own context menu (as they do in windowed mode).
+async function clickRoutedNetworkModeItem(
+  view: ReturnType<typeof renderPane>,
+  label: string,
+) {
+  const systemMonitor =
+    view.container.querySelector<HTMLElement>(".system-monitor");
+  invariant(systemMonitor, "routed system monitor app root not found");
+
+  fireEvent.contextMenu(systemMonitor, { clientX: 30, clientY: 30 });
+  fireEvent.click(await view.findByRole("button", { name: label }));
 }
 
 async function expectExplorerSystemContainerContextMenuItems(
@@ -103,8 +116,7 @@ async function expectExplorerNewStructuredDocumentFileMenuDisabled(
   );
 }
 
-test("routed system menu manually controls the app network mode", async () => {
-  enableSystemMonitorDeveloperMode();
+test("routed system monitor manually controls the app network mode", async () => {
   const view = renderRoutedPane();
   await openRoutedSystemMonitorStatus(view);
 
@@ -113,7 +125,7 @@ test("routed system menu manually controls the app network mode", async () => {
     expect(getPaneStatusText(view)).toMatch(/network:\s*online/);
   });
 
-  fireEvent.click(view.getByRole("button", { name: "Force Online" }));
+  await clickRoutedNetworkModeItem(view, "Force Online");
 
   await waitFor(() => {
     expect(getPaneStatusText(view)).toMatch(/network:\s*online \(manual\)/);
@@ -122,7 +134,7 @@ test("routed system menu manually controls the app network mode", async () => {
   fireEvent(window, new Event("offline"));
   expect(getPaneStatusText(view)).toMatch(/network:\s*online \(manual\)/);
 
-  fireEvent.click(view.getByRole("button", { name: "Use Automatic Network" }));
+  await clickRoutedNetworkModeItem(view, "Use Automatic Network");
 
   await waitFor(() => {
     expect(getPaneStatusText(view)).toMatch(/network:\s*offline/);
@@ -131,7 +143,7 @@ test("routed system menu manually controls the app network mode", async () => {
     );
   });
 
-  fireEvent.click(view.getByRole("button", { name: "Force Offline" }));
+  await clickRoutedNetworkModeItem(view, "Force Offline");
 
   await waitFor(() => {
     expect(getPaneStatusText(view)).toMatch(/network:\s*offline \(manual\)/);
@@ -140,7 +152,7 @@ test("routed system menu manually controls the app network mode", async () => {
   fireEvent(window, new Event("online"));
   expect(getPaneStatusText(view)).toMatch(/network:\s*offline \(manual\)/);
 
-  fireEvent.click(view.getByRole("button", { name: "Use Automatic Network" }));
+  await clickRoutedNetworkModeItem(view, "Use Automatic Network");
 
   await waitFor(() => {
     expect(getPaneStatusText(view)).toMatch(/network:\s*online/);

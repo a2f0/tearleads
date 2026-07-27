@@ -1,3 +1,4 @@
+import { CodeIcon } from "@phosphor-icons/react/dist/csr/Code";
 import { PushPinIcon } from "@phosphor-icons/react/dist/csr/PushPin";
 import { useCallback, useId, useMemo, useState } from "react";
 import {
@@ -10,7 +11,6 @@ import { PaneStatus } from "../../components/pane/status/PaneStatus";
 import { useNetworkModeContextMenu } from "../../components/shared/NetworkModeContextMenu";
 import { useCurrentWindow } from "../../components/window/CurrentWindowContext";
 import {
-  useWindowFileMenuItem,
   useWindowTitleBarAction,
   useWindowViewMenuItem,
 } from "../../components/window/WindowMenuContext";
@@ -32,6 +32,7 @@ import { SystemMonitorLog } from "./SystemMonitorLog";
 import { useSystemMonitor } from "./SystemMonitorProvider";
 import { useSystemMonitorCopyReportAction } from "./useSystemMonitorCopyReportAction";
 import { useSystemMonitorReport } from "./useSystemMonitorReport";
+import { useSystemMonitorWorkerActions } from "./useSystemMonitorWorkerActions";
 
 type SystemMonitorTab = MiniAppTabDescriptor<SystemMonitorTabId>;
 
@@ -104,9 +105,9 @@ function useSystemMonitorChromeActions() {
     : PIN_TO_DESKTOP_LABEL;
 
   // Surface the pin action only where a pane-level SystemMonitorProvider is
-  // mounted. Windowed mode keeps the existing View/title-bar action; routed
-  // mode exposes the equivalent home-screen action through the File actions
-  // surfaced by the routed rail/drawer.
+  // mounted. Windowed mode keeps the existing View/title-bar action; the routed
+  // shell has no menu bar (its nav rail is a pure app launcher), so both the
+  // home-screen pin and the developer-mode toggle ride its app bar toolbar.
   // Memoized so the registrations keep a stable identity across renders.
   const pinMenuItem = useMemo(
     () =>
@@ -119,44 +120,54 @@ function useSystemMonitorChromeActions() {
         : null,
     [canPin, handlePin, pinLabel],
   );
-  const pinFileMenuItem = useMemo(
-    () => (isRoutedShell ? pinMenuItem : null),
-    [isRoutedShell, pinMenuItem],
-  );
   const pinViewMenuItem = useMemo(
     () => (isRoutedShell ? null : pinMenuItem),
     [isRoutedShell, pinMenuItem],
   );
+  const developerModeLabel = isDeveloperMode
+    ? DISABLE_DEVELOPER_MODE_LABEL
+    : ENABLE_DEVELOPER_MODE_LABEL;
   const developerModeViewMenuItem = useMemo(
     () =>
-      canPin
+      canPin && !isRoutedShell
         ? {
             id: "system-monitor-developer-mode",
-            label: isDeveloperMode
-              ? DISABLE_DEVELOPER_MODE_LABEL
-              : ENABLE_DEVELOPER_MODE_LABEL,
+            label: developerModeLabel,
             onClick: toggleDeveloperMode,
             priority: -10,
           }
         : null,
-    [canPin, isDeveloperMode, toggleDeveloperMode],
+    [canPin, developerModeLabel, isRoutedShell, toggleDeveloperMode],
   );
   const pinTitleBarAction = useMemo(
     () =>
-      canPin && !isRoutedShell
+      canPin
         ? {
             icon: <PushPinIcon aria-hidden size={14} />,
             id: "system-monitor-pin",
-            label: PIN_TO_DESKTOP_LABEL,
+            label: pinLabel,
             onClick: handlePin,
           }
         : null,
-    [canPin, handlePin, isRoutedShell],
+    [canPin, handlePin, pinLabel],
   );
-  useWindowFileMenuItem(pinFileMenuItem);
+  const developerModeTitleBarAction = useMemo(
+    () =>
+      canPin && isRoutedShell
+        ? {
+            icon: <CodeIcon aria-hidden size={14} />,
+            id: "system-monitor-developer-mode",
+            label: developerModeLabel,
+            onClick: toggleDeveloperMode,
+            priority: -10,
+          }
+        : null,
+    [canPin, developerModeLabel, isRoutedShell, toggleDeveloperMode],
+  );
   useWindowViewMenuItem(pinViewMenuItem);
   useWindowViewMenuItem(developerModeViewMenuItem);
   useWindowTitleBarAction(pinTitleBarAction);
+  useWindowTitleBarAction(developerModeTitleBarAction);
 }
 
 export function SystemMonitorApp() {
@@ -193,6 +204,7 @@ export function SystemMonitorApp() {
   });
   useSystemMonitorCopyReportAction(buildReport);
   useSystemMonitorChromeActions();
+  useSystemMonitorWorkerActions();
 
   return (
     <MiniAppRoot

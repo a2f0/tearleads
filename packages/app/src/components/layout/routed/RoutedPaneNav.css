@@ -1,69 +1,52 @@
 /*
- * Routed shell navigation surfaces: the nav panel shared by the tablet rail
- * and the mobile drawer, the rail itself, and the mobile bottom-sheet app
- * launcher with its scrim. Shell grid, app bar, main, taskbar, and the shared
- * `.routed-pane-iconbutton` live in RoutedPane.css; the tier tokens
- * (--routed-rail-width, --routed-rail-collapsed-width, ...) are declared there
- * on .routed-pane and cascade here.
+ * Routed shell navigation surfaces: the tablet rail's app-link panel, the rail
+ * itself, and the mobile bottom-sheet app launcher with its scrim. Shell grid,
+ * app bar, main, taskbar, and the shared `.routed-pane-iconbutton` live in
+ * RoutedPane.css; the tier tokens (--routed-rail-width,
+ * --routed-rail-collapsed-width, ...) are declared there on .routed-pane and
+ * cascade here.
  */
 
-/* === Navigation panel (shared by rail + drawer) === */
+/* === Navigation panel (tablet rail app links) === */
 
 .routed-pane-nav-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-2xs);
+  min-width: 0;
   min-height: 0;
   padding: var(--space-sm);
 }
 
-.routed-pane-nav {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2xs);
-  min-width: 0;
-}
-
-.routed-pane-nav-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2xs);
-  padding-top: var(--space-sm);
-  border-top: var(--border);
-}
-
-.routed-pane-nav-link,
-.routed-pane-nav-action,
-.routed-pane-nav-section > button {
+/* Borderless rows: the active/hover fill is the only affordance, so the rail
+   reads as a launcher list rather than a stack of buttons. */
+.routed-pane-nav-link {
   display: flex;
   align-items: center;
+  gap: var(--space-xs);
   min-height: var(--control-height);
   padding: var(--space-xs) var(--space-sm);
-  border: var(--border);
-  background: transparent;
-  /* The <button> members need this; the <a> gets it (and its underline reset)
-     from the base anchor rule in @tearleads/ui styles.links.css. */
-  color: inherit;
-  font: inherit;
+  /* The <a> gets its color and underline reset from the base anchor rule in
+     @tearleads/ui styles.links.css. */
   text-align: left;
-  cursor: pointer;
+}
+
+.routed-pane-nav-link svg {
+  flex: 0 0 auto;
+}
+
+.routed-pane-nav-link-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .routed-pane-nav-link:hover,
 .routed-pane-nav-link:focus-visible,
-.routed-pane-nav-link--active,
-.routed-pane-nav-action:hover:not(:disabled),
-.routed-pane-nav-action:focus-visible:not(:disabled),
-.routed-pane-nav-section > button:hover:not(:disabled),
-.routed-pane-nav-section > button:focus-visible:not(:disabled) {
+.routed-pane-nav-link--active {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
-}
-
-.routed-pane-nav-action:disabled,
-.routed-pane-nav-section > button:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: default;
 }
 
 /* === Tablet rail === */
@@ -265,8 +248,7 @@
 /* Touch spacing between the enlarged nav targets (see the sizing note in
    RoutedPane.css — --control-height already resolves to 44px in routed mode;
    only the inter-target gaps need the bump). */
-:root[data-navigation-mode="routed"] .routed-pane-nav,
-:root[data-navigation-mode="routed"] .routed-pane-nav-section {
+:root[data-navigation-mode="routed"] .routed-pane-nav-panel {
   gap: var(--space-xs);
 }
 
