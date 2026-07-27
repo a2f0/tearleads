@@ -76,7 +76,7 @@ async function withBootRoundTripTimeout<T>(
 // cipher key surfaces NOW as SQLITE_NOTADB, while the boot promise can still
 // react to it (wipe + recreate). dumpDatabaseCharacteristics below is best-effort
 // and swallows errors, so it cannot be the readability gate: without this probe a
-// key/db desync slips past boot and throws later — during migrations or the first
+// key/db desync slips past boot and throws later — during schema creation or the first
 // query — as an uncaught rejection. sqlite_master lives on page 1, so reading it
 // decrypts the header and fails here on a key mismatch.
 async function assertDatabaseReadable(
@@ -105,7 +105,7 @@ function describeBootError(
 }
 
 // Opens the SQLite database for the given name and applies the cipher key, then
-// reports the mounted database's shape before migrations create/alter tables.
+// reports the mounted database's shape before features lazily create tables.
 export async function bootSQLiteRuntime(
   runtime: SQLiteRuntime,
   dbName: string,
@@ -190,6 +190,6 @@ export async function bootSQLiteRuntime(
     }
   }
 
-  // Report the mounted database's shape before migrations create/alter tables.
+  // Report the mounted database's shape before features lazily create tables.
   await dumpDatabaseCharacteristics(runtime.client, log);
 }

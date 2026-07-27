@@ -1,1 +1,0 @@
-ALTER TABLE "users" ADD COLUMN "registration_source_ip_address" text;

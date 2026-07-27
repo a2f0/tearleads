@@ -329,10 +329,10 @@ test("a proration-only invoice keeps its exact total without inventing seat fact
   expect(view.getByText("Per-seat rate unavailable")).toBeDefined();
 });
 
-test("legacy entries with unavailable billing facts omit empty detail rows", () => {
+test("entries with unavailable billing facts omit empty detail rows", () => {
   const view = render(
     <BillingHistory
-      entries={[entry({ id: "legacy-entry" })]}
+      entries={[entry({ id: "unavailable-entry" })]}
       error={null}
       loading={false}
     />,

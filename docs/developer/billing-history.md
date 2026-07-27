@@ -22,7 +22,7 @@ period. An initial purchase without an invoice id still fulfills from its
 authoritative subscription binding without fabricating an audit row; an id-less
 renewal is acknowledged without changing the renewal baseline.
 
-Fields not captured for legacy records, or not applicable to a category, stay
+Fields unavailable from the provider, or not applicable to a category, stay
 `null` instead of being reconstructed. Incomplete paid-invoice deliveries are
 retried when creation or renewal fulfillment depends on them. Other billing
 reasons preserve an exact total-only snapshot when their signed invoice-level

@@ -35,12 +35,6 @@ const accessLevelColumn = "effective_access_level";
 /**
  * Durable Loro-backed document records shared by app features.
  *
- * Greenfield reset (2026-07): the legacy `loro_snapshot` content column was
- * removed WITHOUT a migration, deliberately — every identity, client
- * database, and server database from before the reset is destroyed and
- * re-provisioned, so no pre-reset database ever meets this schema. Content
- * lives exclusively in the durable-history tables below.
- *
  * This table stores encrypted document runtime state for multiple app domains.
  * `appKind` namespaces records for documents and container metadata. User-facing
  * list data is projected into feature-specific read models.

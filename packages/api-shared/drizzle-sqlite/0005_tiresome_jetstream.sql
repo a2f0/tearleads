@@ -1,1 +1,0 @@
-ALTER TABLE `users` ADD `registration_source_ip_address` text;

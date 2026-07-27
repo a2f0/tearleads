@@ -51,9 +51,7 @@ async function currentPackages(): Promise<PurchasesPackage[]> {
  * The Capacitor bridge serializes RevenueCat's `PurchasesError` across the
  * native boundary, so what arrives is a plain object — not an `Error` instance
  * — which is why this reads the shape instead of using `instanceof` the way
- * the web adapter can. `code` is the documented signal; the deprecated
- * `userCancelled` flag is still accepted because the iOS and Android bridges
- * have historically differed on which they populate.
+ * the web adapter can. `code` is the documented signal.
  */
 function isUserCancelledPurchase(error: unknown): boolean {
   if (typeof error !== "object" || error === null) {
@@ -61,12 +59,9 @@ function isUserCancelledPurchase(error: unknown): boolean {
   }
   // Narrowed with `in` rather than a cast: production package sources may not
   // contain type assertions (lint:package-assertions).
-  const hasCancelledCode =
-    "code" in error &&
-    error.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR;
   return (
-    hasCancelledCode ||
-    ("userCancelled" in error && error.userCancelled === true)
+    "code" in error &&
+    error.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
   );
 }
 

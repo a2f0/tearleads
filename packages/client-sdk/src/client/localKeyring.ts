@@ -793,12 +793,6 @@ function readIndexedDbWrappingKeyRecord(input: {
   if (input.keyMaterialStorage === "raw-bytes") {
     const keyMaterial = record.get("keyMaterial");
     if (keyMaterial === undefined) {
-      if (isCryptoKey(record.get("key"))) {
-        throw new Error(
-          "Raw-bytes local keyrings cannot load legacy CryptoKey wrapping key records. " +
-            "Delete the local keyring session or provision the WebView keyring before creating local identity data.",
-        );
-      }
       throw new Error(
         "IndexedDB wrapping key record is missing its raw key material.",
       );

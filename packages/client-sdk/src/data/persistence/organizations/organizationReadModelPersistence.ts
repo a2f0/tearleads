@@ -32,10 +32,7 @@ import {
   loadOrganizationReadModelProjectionInTransaction,
   type OrganizationReadModelProjection,
 } from "./organizationReadModelProjection";
-import {
-  ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
-  OrganizationReadModelIntegrityError,
-} from "./organizationReadModelProtocol";
+import { OrganizationReadModelIntegrityError } from "./organizationReadModelProtocol";
 import {
   pruneInactiveOrganizationRequestersInTransaction,
   purgeOrganizationReadModelProjectionInTransaction,
@@ -56,7 +53,6 @@ interface CurrentOrganizationReadModelState {
   readonly cursor: string;
   readonly memberGroupId: string;
   readonly profileDocumentId: string | null;
-  readonly protocolVersion: number;
 }
 
 async function replaceDirectoryLane(input: {
@@ -197,7 +193,6 @@ async function loadCurrentState(
       cursor: organizationReadModelState.cursor,
       memberGroupId: organizationReadModelState.memberGroupId,
       profileDocumentId: organizationReadModelState.profileDocumentId,
-      protocolVersion: organizationReadModelState.protocolVersion,
     })
     .from(organizationReadModelState)
     .where(eq(organizationReadModelState.organizationId, organizationId))
@@ -316,18 +311,6 @@ export async function loadOrganizationReadModelProjection(
   const projection = await getClientSQLitePersistenceRuntime(
     execSql,
   ).transaction(async (tx) => {
-    const current = await loadCurrentState(tx, organizationId);
-    if (
-      current &&
-      current.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION
-    ) {
-      await purgeOrganizationReadModelProjectionInTransaction({
-        organizationId,
-        tx,
-      });
-      purgedInvalidRows = true;
-      return null;
-    }
     try {
       return await loadOrganizationReadModelProjectionInTransaction({
         currentUserId,
@@ -375,17 +358,7 @@ export async function applyOrganizationReadModelResponse(input: {
 
   return getClientSQLitePersistenceRuntime(input.execSql).transaction(
     async (tx) => {
-      let current = await loadCurrentState(tx, input.response.organizationId);
-      if (
-        current &&
-        current.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION
-      ) {
-        await purgeOrganizationReadModelProjectionInTransaction({
-          organizationId: input.response.organizationId,
-          tx,
-        });
-        current = null;
-      }
+      const current = await loadCurrentState(tx, input.response.organizationId);
       const disposition = resolveApplyDisposition({
         current,
         requestedCursor: input.requestedCursor,
@@ -418,7 +391,6 @@ export async function applyOrganizationReadModelResponse(input: {
       const directoryLane = input.response.lanes.directory;
       const stateRow = {
         organizationId: input.response.organizationId,
-        protocolVersion: input.response.version,
         cursor: input.response.nextCursor,
         profileDocumentId:
           directoryLane !== undefined
@@ -433,7 +405,6 @@ export async function applyOrganizationReadModelResponse(input: {
         .onConflictDoUpdate({
           target: organizationReadModelState.organizationId,
           set: {
-            protocolVersion: stateRow.protocolVersion,
             cursor: stateRow.cursor,
             profileDocumentId: stateRow.profileDocumentId,
             memberGroupId: stateRow.memberGroupId,

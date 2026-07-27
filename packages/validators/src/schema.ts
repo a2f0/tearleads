@@ -23,7 +23,7 @@ export const nonEmptyStringSchema = z.string().min(1);
 
 /**
  * Validates array items without rebuilding the array. This preserves signed
- * input identity and the legacy guards' treatment of sparse array holes.
+ * input identity and the runtime contract's treatment of sparse array holes.
  */
 export function arraySchema<ItemSchema extends z.ZodType>(
   itemSchema: ItemSchema,

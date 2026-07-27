@@ -98,16 +98,13 @@ test("resolveEventsWebSocketUrl derives relative API URLs from the current locat
   );
 });
 
-test("resolveEventsWebSocketUrl normalizes explicit root websocket URLs", () => {
+test("resolveEventsWebSocketUrl preserves explicit websocket URLs", () => {
   expect(
     resolveEventsWebSocketUrl(
       "https://api.tearleads.com",
       "wss://api.tearleads.com",
     ),
-  ).toBe("wss://api.tearleads.com/events");
-});
-
-test("resolveEventsWebSocketUrl preserves explicit websocket paths", () => {
+  ).toBe("wss://api.tearleads.com/");
   expect(
     resolveEventsWebSocketUrl(
       "https://api.tearleads.com",
