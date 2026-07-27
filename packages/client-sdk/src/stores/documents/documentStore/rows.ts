@@ -1,3 +1,4 @@
+import { encodeVersionVector } from "@tearleads/loro";
 import {
   addDocumentRow,
   createDocumentRowId,
@@ -49,15 +50,23 @@ async function persistRowMutation(
   if (update.byteLength === 0) {
     return;
   }
+  // Captured at delta time: the enqueued row proves coverage up to exactly
+  // this version, so it is the frontier the persist below may publish.
+  const coveredVersion = encodeVersionVector(currentDoc);
 
   await enqueuePendingUpdate(state, update);
   // Row writes change neither prose nor structured fields; setReadySnapshot
   // always re-derives rows from the doc, so preserve the text/structured fields
   // in case this write overlaps an in-flight keystroke elsewhere.
-  await persistDocument(state, currentDoc, undefined, {
-    preserveSnapshotStructuredFields: true,
-    preserveSnapshotText: true,
-  });
+  await persistDocument(
+    state,
+    currentDoc,
+    { snapshotEndVersion: coveredVersion },
+    {
+      preserveSnapshotStructuredFields: true,
+      preserveSnapshotText: true,
+    },
+  );
   advancePendingBaseVersion(state, currentDoc);
   requestDocumentStoreSync(state);
 }

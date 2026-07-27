@@ -1,4 +1,4 @@
-import { encodeVersionVector, getTextValue } from "@tearleads/loro";
+import { type encodeVersionVector, getTextValue } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
@@ -220,8 +220,14 @@ function buildStoredDocumentRecord(input: {
       ),
       // Content lives in the durable history (checkpoint + tail); the record
       // persists only the content frontier for priming/coverage predicates.
+      // A patch that does not advance it RETAINS the stored frontier: deriving
+      // from the mutable live document here could publish an in-flight edit's
+      // frontier before its durable row lands, so only callers that just made
+      // coverage durable (enqueue dual-write, in-mutation tail append, pulled
+      // -update append, checkpoint seed) pass the frontier they captured at
+      // that moment.
       snapshotEndVersion:
-        patch.snapshotEndVersion ?? encodeVersionVector(currentDoc),
+        patch.snapshotEndVersion ?? currentRecord?.snapshotEndVersion ?? "",
       // Carry the outgoing-delta marker the store injects into the patch, so it
       // is persisted alongside the snapshot it describes. A patched value is
       // authoritative (including an explicit null); only an absent key falls

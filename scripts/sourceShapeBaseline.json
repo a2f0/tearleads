@@ -314,8 +314,8 @@
       "bytes": 21053
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
-      "lines": 572,
-      "bytes": 18250
+      "lines": 585,
+      "bytes": 18719
     },
     "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
       "lines": 620,
@@ -365,6 +365,10 @@
       "lines": 527,
       "bytes": 17677
     },
+    "packages/client-sdk/src/workflows/documents/persistence.ts": {
+      "lines": 505,
+      "bytes": 18520
+    },
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
       "lines": 1691,
       "bytes": 59993
@@ -378,8 +382,8 @@
       "bytes": 32402
     },
     "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts": {
-      "lines": 536,
-      "bytes": 18762
+      "lines": 538,
+      "bytes": 18881
     },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
       "lines": 1105,

@@ -1,4 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
+import { getImportBlobMetadata, mergeVersionVectors } from "@tearleads/loro";
 import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
 import {
   type DocumentRecord,
@@ -184,6 +185,32 @@ async function appendPulledUpdatesToHistory(
   });
 }
 
+/**
+ * The frontier a finalize persist may publish: the stored frontier advanced
+ * by exactly the pulled updates just appended to the durable tail — never the
+ * live document's version, which can transiently include an in-flight local
+ * edit whose durable row has not landed yet.
+ */
+function coveredSyncFrontier(
+  state: DocumentStoreState,
+  currentRecord: DocumentRecord,
+  synced: DocumentSyncAttempt["synced"],
+): { snapshotEndVersion: string } | Record<string, never> {
+  if (synced.decryptedUpdates.length === 0) {
+    return {};
+  }
+  const liveFrontier = (state.record ?? currentRecord).snapshotEndVersion;
+  return {
+    snapshotEndVersion: mergeVersionVectors([
+      ...(liveFrontier.length > 0 ? [liveFrontier] : []),
+      ...synced.decryptedUpdates.map(
+        (update) =>
+          getImportBlobMetadata(update.updateData).partialEndVersionVector,
+      ),
+    ]),
+  };
+}
+
 async function finalizeDocumentSync(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -250,6 +277,7 @@ async function finalizeDocumentSync(
         ...synced.persistedState,
         lastCommitLsn:
           synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
+        ...coveredSyncFrontier(state, currentRecord, synced),
       },
       {
         acceptedPendingUpdateIds: synced.settledPendingUpdateIds,

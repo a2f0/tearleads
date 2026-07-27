@@ -155,22 +155,22 @@ export interface DocumentsPersistence {
     },
   ) => Promise<string>;
   /**
-   * Durable full-history support (checkpoint + append-only tail) — the only
-   * persisted content source. Optional so simple test doubles can omit them;
-   * a document persisted without a checkpoint reopens empty.
+   * Durable full-history support (checkpoint + append-only tail) — the ONLY
+   * persisted content source. REQUIRED: a persistence without these could
+   * report successful writes whose documents reopen empty.
    */
-  appendHistoryUpdates?: (
+  appendHistoryUpdates: (
     execSql: ExecSql,
     input: { localId: string; updates: readonly string[] },
   ) => Promise<void>;
-  loadHistoryRestoreState?: (
+  loadHistoryRestoreState: (
     execSql: ExecSql,
     localId: string,
   ) => Promise<{
     snapshot: string;
     tailUpdates: readonly string[];
   } | null>;
-  readHistoryTailSize?: (
+  readHistoryTailSize: (
     execSql: ExecSql,
     localId: string,
   ) => Promise<{
@@ -178,11 +178,11 @@ export interface DocumentsPersistence {
     hasCheckpoint: boolean;
     rowCount: number;
   }>;
-  listHistoryTailEntries?: (
+  listHistoryTailEntries: (
     execSql: ExecSql,
     localId: string,
   ) => Promise<{ id: string; updateData: string }[]>;
-  replaceHistoryCheckpoint?: (
+  replaceHistoryCheckpoint: (
     execSql: ExecSql,
     input: {
       coveredTailIds: readonly string[];

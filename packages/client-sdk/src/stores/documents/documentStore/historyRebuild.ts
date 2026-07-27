@@ -88,6 +88,8 @@ export async function installRebuiltDocument(input: {
           input.synced.response.commitLsn ??
           input.currentRecord.lastCommitLsn ??
           null,
+        // The checkpoint written above covers exactly this frontier.
+        snapshotEndVersion: rebuiltEndVersion,
       },
       {
         acceptedPendingUpdateIds: input.synced.settledPendingUpdateIds,

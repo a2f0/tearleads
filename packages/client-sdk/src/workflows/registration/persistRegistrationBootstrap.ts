@@ -460,6 +460,8 @@ async function persistInitialDocumentBootstrap(
       documentKind: input.documentKind,
       documentManifestBundle:
         input.documentState.documentManifestBundle ?? null,
+      // The checkpoint seeded above covers exactly this frontier.
+      snapshotEndVersion: encodeVersionVector(doc),
     },
     persistence: sqlDocumentsPersistence,
   });

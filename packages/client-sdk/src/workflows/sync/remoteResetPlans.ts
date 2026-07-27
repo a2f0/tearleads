@@ -124,10 +124,16 @@ async function buildResetContentDocs(
         `remote-reset:${scope.appKind}:${scope.localId}`,
       );
       const checkpoint = checkpointByScope.get(key);
-      importDocumentHistoryTailUpdates(doc, [
-        ...(checkpoint ? [checkpoint.snapshot] : []),
-        ...(tailByScope.get(key) ?? []),
-      ]);
+      // An empty checkpoint blob (e.g. container metadata saved before any
+      // update existed) carries no ops — importing it would throw and fail
+      // the whole reset.
+      importDocumentHistoryTailUpdates(
+        doc,
+        [
+          ...(checkpoint ? [checkpoint.snapshot] : []),
+          ...(tailByScope.get(key) ?? []),
+        ].filter((blob) => blob.length > 0),
+      );
       contentDocByScope.set(key, doc);
     }),
   );

@@ -1,5 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { getTextValue } from "@tearleads/loro";
+import { encodeVersionVector, getTextValue } from "@tearleads/loro";
 import {
   projectStoredDocumentState,
   type StoredDocumentKind,
@@ -133,6 +133,10 @@ function queueDocumentTextWrite(
 
       writeDoc.getText("text").update(value);
       const update = pendingDeltaSinceBase(state, writeDoc);
+      // Captured at delta time: the enqueued row proves durable coverage up
+      // to exactly this version, so this is the frontier the persist may
+      // publish (a raced later edit publishes its own on its own persist).
+      const coveredVersion = encodeVersionVector(writeDoc);
 
       await enqueuePendingUpdate(state, update);
       if (!isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)) {
@@ -141,7 +145,7 @@ function queueDocumentTextWrite(
       const persisted = await persistDocument(
         state,
         writeDoc,
-        {},
+        { snapshotEndVersion: coveredVersion },
         { preserveSnapshotText: true },
         syncGeneration,
       );
@@ -257,6 +261,10 @@ function queueDocumentStructuredFieldWrite(
       if (update.byteLength === 0) {
         return;
       }
+      // Captured at delta time: the durable row written below (queue
+      // dual-write or in-mutation tail append) proves coverage up to exactly
+      // this version, so it is the frontier this persist may publish.
+      const coveredVersion = encodeVersionVector(writeDoc);
 
       if (!options.deferRemoteSync) {
         await enqueuePendingUpdate(state, update);
@@ -274,7 +282,7 @@ function queueDocumentStructuredFieldWrite(
       const persisted = await persistDocument(
         state,
         writeDoc,
-        {},
+        { snapshotEndVersion: coveredVersion },
         {
           preserveSnapshotStructuredFields: true,
           preserveSnapshotText: true,

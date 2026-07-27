@@ -134,8 +134,16 @@ async function recoverDroppedAttachmentSlots(
   // runs during init, before the store is ready, so state.snapshot is still the
   // empty initial snapshot — preserving it would publish a ready snapshot with
   // empty text/structured fields (a flash of empty content) over the real loaded
-  // content. There is no in-flight user edit to protect here.
-  const persisted = await persistDocument(state, doc, {}, {}, writeGeneration);
+  // content. There is no in-flight user edit to protect here. The doc is
+  // private to initialization and the enqueue above dual-wrote its delta, so
+  // its version is a durably covered frontier.
+  const persisted = await persistDocument(
+    state,
+    doc,
+    { snapshotEndVersion: encodeVersionVector(doc) },
+    {},
+    writeGeneration,
+  );
   if (!persisted) {
     return;
   }
@@ -255,7 +263,11 @@ async function createInitialDocumentRecord(
       snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
     },
   );
-  await saveDocumentRecord(state, nextDoc, created);
+  // The birth checkpoint just written covers exactly this frontier.
+  await saveDocumentRecord(state, nextDoc, {
+    ...created,
+    snapshotEndVersion: encodeVersionVector(nextDoc),
+  });
   if (
     state.initialText.length > 0 ||
     state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND
