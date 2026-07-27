@@ -230,7 +230,7 @@ test("an si_-only event with metadata no longer binds an organization", async ()
   const [claimed] = await db
     .select({ id: revenuecatWebhookEvents.id })
     .from(revenuecatWebhookEvents)
-    .where(eq(revenuecatWebhookEvents.id, eventId));
+    .where(eq(revenuecatWebhookEvents.eventId, eventId));
   expect(claimed).toBeUndefined();
   expect(await readBillingStatus(metadataOrganizationId)).toBe("active");
   expect(await readBillingStatus(mutableOrganizationId)).toBe("active");
