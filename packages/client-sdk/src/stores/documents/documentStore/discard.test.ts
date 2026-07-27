@@ -181,12 +181,24 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
       "remote-doc",
       ["folder-a", "folder-b"],
     );
-    // A staged upload whose row is the only durable pointer to its bytes.
+    // A staged upload whose row is the only durable pointer to its bytes —
+    // including the settled local-attachment half a crash can leave behind,
+    // which shares the staged storage key and would otherwise survive as a
+    // mapping to the reclaimed bytes.
     await sqlDocumentsPersistence.savePendingAttachment(execSql, {
       byteLength: 5,
       localId,
       mimeType: "text/plain",
       name: "staged.txt",
+      slotId: "slot-1",
+      storageKey: "staged-storage-key",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "staged-blob",
+      byteLength: 5,
+      detachedAt: null,
+      localId,
+      mimeType: "text/plain",
       slotId: "slot-1",
       storageKey: "staged-storage-key",
     });
@@ -203,6 +215,9 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
     ).toEqual(["folder-a", "folder-b"]);
     expect(
       await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),
+    ).toEqual([]);
+    expect(
+      await sqlDocumentsPersistence.listLocalAttachments(execSql, localId),
     ).toEqual([]);
     expect(deletedBlobStorageKeys).toEqual(["staged-storage-key"]);
   } finally {

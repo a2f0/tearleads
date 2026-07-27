@@ -84,6 +84,7 @@ export async function createStoredDocument(
 async function recoverDroppedAttachmentSlots(
   state: DocumentStoreState,
   doc: DocumentStoreState["doc"],
+  isInitializationCurrent: () => boolean,
 ): Promise<void> {
   if (!doc || state.pendingAttachments.length === 0) {
     return;
@@ -120,8 +121,17 @@ async function recoverDroppedAttachmentSlots(
 
   addDocumentAttachments(doc, recovered);
   const update = pendingDeltaSinceBase(state, doc);
+  // Each durable write re-checks the initialization's currency: a store reset
+  // (e.g. a local-edits discard) between them must not see this recovery
+  // re-enqueue or re-persist the state the teardown just removed.
+  if (!isInitializationCurrent()) {
+    return;
+  }
   if (update.byteLength > 0) {
     await enqueuePendingUpdate(state, update);
+  }
+  if (!isInitializationCurrent()) {
+    return;
   }
   // Derive the snapshot from the loaded doc (do NOT preserve the snapshot). This
   // runs during init, before the store is ready, so state.snapshot is still the
@@ -148,12 +158,18 @@ async function healLocalAttachmentDetachState(
   state: DocumentStoreState,
   doc: DocumentState,
   persistedState: { localAttachments: ReadonlyArray<LocalAttachmentRecord> },
+  isInitializationCurrent: () => boolean,
 ): Promise<void> {
   const healed = reconcileLocalAttachmentDetachState(
     persistedState.localAttachments,
     doc,
   );
   for (const attachment of healed) {
+    // See recoverDroppedAttachmentSlots: never rewrite rows a concurrent
+    // store reset just removed.
+    if (!isInitializationCurrent()) {
+      return;
+    }
     await saveLocalAttachmentRecord(state, attachment, doc);
   }
   if (healed.length > 0) {
@@ -340,12 +356,17 @@ async function initializeDocumentStore(
   const existing = persistedState.document;
   if (existing) {
     await restorePersistedDocumentContent(state, nextDoc, existing);
+    // Check BEFORE assigning: a reset during the restore's I/O must not see
+    // the pre-reset record written back over the replacement's state.
+    if (state.localWriteGeneration !== initializeGeneration) {
+      return;
+    }
     state.record = existing;
   } else {
     await createInitialDocumentRecord(state, nextDoc);
-  }
-  if (state.localWriteGeneration !== initializeGeneration) {
-    return;
+    if (state.localWriteGeneration !== initializeGeneration) {
+      return;
+    }
   }
 
   state.doc = nextDoc;
@@ -376,14 +397,22 @@ async function initializeDocumentStore(
   // Heal attachment slots lost to an interrupted attach write before marking
   // ready, so the recovered slots are in the snapshot the editor first renders
   // and are queued for sync. recoverDroppedAttachmentSlots advances the marker
-  // again for whatever it re-derives. Both helpers write durable rows, so a
-  // reset during the first must not let the second repopulate discarded state.
-  await recoverDroppedAttachmentSlots(state, nextDoc);
-  if (state.localWriteGeneration !== initializeGeneration) {
+  // again for whatever it re-derives. Both helpers gate their durable writes
+  // on the initialization still being current, so a reset mid-helper cannot
+  // repopulate discarded state.
+  const isInitializationCurrent = () =>
+    state.localWriteGeneration === initializeGeneration;
+  await recoverDroppedAttachmentSlots(state, nextDoc, isInitializationCurrent);
+  if (!isInitializationCurrent()) {
     return;
   }
-  await healLocalAttachmentDetachState(state, nextDoc, persistedState);
-  if (state.localWriteGeneration !== initializeGeneration) {
+  await healLocalAttachmentDetachState(
+    state,
+    nextDoc,
+    persistedState,
+    isInitializationCurrent,
+  );
+  if (!isInitializationCurrent()) {
     return;
   }
   state.initialized = true;

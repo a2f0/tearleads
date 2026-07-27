@@ -474,6 +474,21 @@ export async function discardPersistedDocumentToShell(input: {
       lockedExecSql,
       input.localId,
     );
+    // A staged upload that already settled its local-attachment row (a crash
+    // between the settle's two writes leaves both rows) shares the staged
+    // storage key. The caller reclaims those bytes, so a surviving local row
+    // would map the slot to deleted bytes AND read as a still-pending upload
+    // that hydration must not re-download — the attachment would be
+    // inaccessible forever. Other local rows (synced attachments' caches)
+    // are deliberately kept for reuse by the re-pull.
+    for (const pendingAttachment of pendingAttachments) {
+      await input.persistence.deleteLocalAttachment(
+        lockedExecSql,
+        input.localId,
+        pendingAttachment.slotId,
+        pendingAttachment.storageKey,
+      );
+    }
     await deleteDocumentHistory(lockedExecSql, {
       appKind: DOCUMENTS_APP_KIND,
       localId: input.localId,
