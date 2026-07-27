@@ -37,11 +37,49 @@ const BROWSER_MATCHERS: ReadonlyArray<UserAgentMatcher> = [
   { name: "Chrome (iOS)", pattern: /CriOS\/([\d.]+)/u },
   { name: "Firefox (iOS)", pattern: /FxiOS\/([\d.]+)/u },
   { name: "Firefox", pattern: /Firefox\/([\d.]+)/u },
+  // The Android WebView a Capacitor build runs in is Chrome underneath and
+  // carries the same version token; only the `wv` marker in the platform
+  // section tells them apart, so it has to be tested before plain Chrome.
+  { name: "Android WebView", pattern: /; wv\).*Chrome\/([\d.]+)/u },
   { name: "Chrome", pattern: /Chrome\/([\d.]+)/u },
   // Safari reports its marketing version in `Version/`, not in the `Safari/`
   // token, which carries a WebKit build number instead.
   { name: "Safari", pattern: /Version\/([\d.]+).*Safari\//u },
 ];
+
+/** The WebKit build number, the only version a bare WKWebView reports. */
+const WEB_KIT_BUILD_PATTERN = /AppleWebKit\/([\d.]+)/u;
+
+/** Mobile WebKit: an iPhone/iPad/iPod platform section or the `Mobile/` token. */
+const IOS_WEB_VIEW_PATTERN = /(?:iPhone|iPad|iPod|Mobile\/)/u;
+
+/**
+ * A bare WKWebView, which is what the iOS Capacitor shell and the macOS
+ * electrobun shell each run the app inside.
+ *
+ * Unlike Android's WebView it carries no brand token whatsoever — no `Version/`,
+ * no `Safari/`, no `wv` marker, just `AppleWebKit/… Mobile/…` — so it is
+ * identified by what the string lacks, which makes it a fallback after the table
+ * rather than an entry in it: every branded browser matches above and never
+ * reaches here, so an unbranded WebKit string that does reach here is embedded.
+ *
+ * The WebKit build stands in for a version the string does not carry. It is not
+ * a marketing version, but it tracks the OS release reported one row below and
+ * beats leaving the row blank.
+ */
+function parseWebViewFromUserAgent(userAgent: string): BrowserIdentity | null {
+  const webKitBuild = WEB_KIT_BUILD_PATTERN.exec(userAgent)?.[1];
+  if (webKitBuild === undefined) {
+    return null;
+  }
+
+  return {
+    name: IOS_WEB_VIEW_PATTERN.test(userAgent)
+      ? "iOS WebView"
+      : "WebKit WebView",
+    version: webKitBuild,
+  };
+}
 
 export function parseBrowserFromUserAgent(userAgent: string): BrowserIdentity {
   for (const matcher of BROWSER_MATCHERS) {
@@ -49,6 +87,11 @@ export function parseBrowserFromUserAgent(userAgent: string): BrowserIdentity {
     if (match?.[1]) {
       return { name: matcher.name, version: match[1] };
     }
+  }
+
+  const webView = parseWebViewFromUserAgent(userAgent);
+  if (webView) {
+    return webView;
   }
 
   return {

@@ -11,10 +11,16 @@ import {
 const USER_AGENTS = {
   androidChrome:
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36",
+  // The Capacitor shells: an Android WebView announces itself with `wv`, while
+  // the iOS WKWebView ships no brand token at all.
+  androidCapacitor:
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP2A.240905.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/141.0.0.0 Mobile Safari/537.36",
   androidSamsung:
     "Mozilla/5.0 (Linux; Android 13; SAMSUNG SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/23.0 Chrome/115.0.0.0 Mobile Safari/537.36",
   iosChrome:
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/141.0.0.0 Mobile/15E148 Safari/604.1",
+  iosCapacitor:
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
   iosSafari:
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
   linuxFirefox:
@@ -64,6 +70,34 @@ test("browser parsing distinguishes iOS wrappers from their desktop namesakes", 
     name: "Chrome (iOS)",
     version: "141.0.0.0",
   });
+});
+
+test("browser parsing names the embedded WebViews the native shells run in", () => {
+  // The iOS shell's user-agent has no brand token to match, so before this it
+  // fell through every matcher and the native app reported an unknown browser.
+  expect(parseBrowserFromUserAgent(USER_AGENTS.iosCapacitor)).toEqual({
+    name: "iOS WebView",
+    version: "605.1.15",
+  });
+  // The Android shell is Chrome underneath and must not report as plain Chrome.
+  expect(parseBrowserFromUserAgent(USER_AGENTS.androidCapacitor)).toEqual({
+    name: "Android WebView",
+    version: "141.0.0.0",
+  });
+  // The same bare WKWebView on the desktop, where nothing marks it as mobile.
+  expect(
+    parseBrowserFromUserAgent(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)",
+    ),
+  ).toEqual({ name: "WebKit WebView", version: "605.1.15" });
+  // Neither fallback may swallow a real browser on the same OS.
+  expect(parseBrowserFromUserAgent(USER_AGENTS.iosSafari).name).toBe("Safari");
+  expect(parseBrowserFromUserAgent(USER_AGENTS.iosChrome).name).toBe(
+    "Chrome (iOS)",
+  );
+  expect(parseBrowserFromUserAgent(USER_AGENTS.androidChrome).name).toBe(
+    "Chrome",
+  );
 });
 
 test("browser parsing covers the mainstream desktop browsers", () => {
