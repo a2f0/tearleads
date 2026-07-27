@@ -6,29 +6,34 @@
  */
 
 /*
+ * The inset between the button and its column edge. One token because three
+ * places must agree on it: the column's width, the cell padding that draws it,
+ * and a header kebab standing above the column (see the last rule in this file).
+ * When they were separate literals the header button silently sat a few pixels
+ * outboard of every row kebab below it.
+ *
  * Width of the actions column, consumed by the shared table's <col> inline
  * style (see MiniAppTable + each table's column definition). Sizing it off the
- * button (`--control-height`) plus the actions cell's inline padding guarantees
- * the right-aligned button clears the column edge with an even inset instead of
- * overflowing it. Without this the fixed 2.25rem column is narrower than the
- * routed 44px touch button, so `margin-left: auto` has no slack to give and the
- * button spills flush against the row's right edge. A column stretched wider by
- * the table's extra-space distribution only grows the inset, never the overflow.
+ * button (`--control-height`) plus that inset guarantees the right-aligned
+ * button clears the column edge evenly instead of overflowing it. Without this
+ * the fixed 2.25rem column is narrower than the routed 44px touch button, so
+ * `margin-left: auto` has no slack to give and the button spills flush against
+ * the row's right edge. A column stretched wider by the table's extra-space
+ * distribution only grows the inset, never the overflow.
  */
 :root {
+  --mini-app-row-actions-inset: var(--space-2xs);
   --mini-app-row-actions-column-width: calc(
     var(--control-height) +
     2 *
-    var(--space-2xs)
+    var(--mini-app-row-actions-inset)
   );
 }
 
+/* Touch: the button grows to the 44px target, so the inset grows with it. The
+   column width above re-resolves from both on this same element. */
 :root[data-navigation-mode="routed"] {
-  --mini-app-row-actions-column-width: calc(
-    var(--control-height) +
-    2 *
-    var(--space-xs)
-  );
+  --mini-app-row-actions-inset: var(--space-xs);
 }
 
 .mini-app-row-actions-column {
@@ -68,7 +73,7 @@
 .mini-app-table-frame--compact .mini-app-table-cell.mini-app-row-actions-cell,
 .mini-app-table th.mini-app-row-actions-column,
 .mini-app-table-frame--compact .mini-app-table th.mini-app-row-actions-column {
-  padding-inline: var(--space-2xs);
+  padding-inline: var(--mini-app-row-actions-inset);
 }
 
 .mini-app-row-actions-button {
@@ -100,23 +105,28 @@
   margin-left: auto;
 }
 
-/* Touch: the button grows to the 44px target, with a matching larger inset. */
+/* Touch: the button grows to the 44px target. The cell padding above follows it
+   through --mini-app-row-actions-inset, so it needs no routed override. */
 :root[data-navigation-mode="routed"] .mini-app-row-actions-button {
   width: var(--control-height);
   height: var(--control-height);
 }
 
-:root[data-navigation-mode="routed"]
-  .mini-app-table-cell.mini-app-row-actions-cell,
-:root[data-navigation-mode="routed"]
-  .mini-app-table-frame--compact
-  .mini-app-table-cell.mini-app-row-actions-cell,
-:root[data-navigation-mode="routed"]
-  .mini-app-table
-  th.mini-app-row-actions-column,
-:root[data-navigation-mode="routed"]
-  .mini-app-table-frame--compact
-  .mini-app-table
-  th.mini-app-row-actions-column {
-  padding-inline: var(--space-xs);
+/*
+ * A kebab in a mini-app header heads the table beneath it — Explorer's container
+ * pane is the case: the folder you are inside has no row of its own, so its
+ * overflow menu hangs off the header. The header spreads its children to its own
+ * edges, which is the panel's edge, while every row kebab below is inset by its
+ * cell padding; the two then miss each other by exactly that inset. Give the
+ * header button the same one so the trailing edge reads as a single column.
+ *
+ * Tablet-scoped, and neither of the other two tiers wants it. Windowed layouts
+ * keep right-click and render no kebab column at all for the header to line up
+ * with (see useRoutedLayoutActive). On a phone the list bleeds out through the
+ * panel's `--space-md` padding and re-insets its kebabs by `--space-sm`, so the
+ * header and the column deliberately sit on different edges there — adding this
+ * inset would widen that gap rather than close it.
+ */
+.routed-pane--tablet .mini-app-header .mini-app-row-actions-button {
+  margin-inline-end: var(--mini-app-row-actions-inset);
 }
