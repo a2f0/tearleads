@@ -4,10 +4,14 @@ import { sqlDocumentsPersistence } from "../../data/persistence/documents/docume
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/internal/constants";
 import {
   clearDocumentSyncFailure,
-  listDocumentPendingUpdates,
   resetDocumentPendingUpdateRekeyBudget,
 } from "../../data/sqlite/documentPersistence";
+import {
+  documentMoveIntentTables,
+  documentTables,
+} from "../../data/sqlite/schema";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { groupPendingWriteCandidates } from "./pendingWrites/aggregation";
 import { listDeferredPendingWriteCandidates } from "./pendingWrites/deferredTails";
@@ -79,8 +83,53 @@ export async function resetPendingWriteRetryState(
   // (a refused revalidation, row 13) has no queued work: its row is the
   // priming ticket that re-drives the store, so it must survive the retry
   // and clear on the next clean pass instead of vanishing with no request.
-  const queued = await listDocumentPendingUpdates(execSql, scope);
-  if (queued.length > 0) {
+  if (await hasQueuedScopeWork(execSql, scope)) {
     await clearDocumentSyncFailure(execSql, scope);
   }
+}
+
+/**
+ * Whether ANY durable outbound work exists for the scope — CRDT updates,
+ * staged attachment uploads, move intents, or a never-created local document.
+ * Mirrors the queue's own document candidate sources, so "failure-only" here
+ * agrees with the item the panel rendered.
+ */
+async function hasQueuedScopeWork(
+  execSql: ExecSql,
+  scope: { appKind: string; localId: string },
+): Promise<boolean> {
+  await ensureSqlTables(execSql, [
+    ...documentTables,
+    ...documentMoveIntentTables,
+  ]);
+  const rows = await execSql(
+    `SELECT 1 AS present
+     WHERE EXISTS (
+         SELECT 1 FROM document_pending_updates pending
+         WHERE pending.app_kind = ? AND pending.local_id = ?
+       )
+       OR EXISTS (
+         SELECT 1 FROM document_pending_attachments attachment
+         WHERE attachment.local_id = ?
+       )
+       OR EXISTS (
+         SELECT 1 FROM document_move_intents intent
+         WHERE intent.local_id = ? AND intent.intent_type = 'document.move'
+       )
+       OR EXISTS (
+         SELECT 1 FROM documents stored
+         WHERE stored.app_kind = ? AND stored.local_id = ?
+           AND stored.document_id IS NULL
+       )
+     LIMIT 1`,
+    [
+      scope.appKind,
+      scope.localId,
+      scope.localId,
+      scope.localId,
+      scope.appKind,
+      scope.localId,
+    ],
+  );
+  return rows.length > 0;
 }

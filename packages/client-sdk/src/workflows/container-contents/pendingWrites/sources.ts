@@ -255,14 +255,17 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.updated_at AS updated_at,
     intent.target_container_id AS target_container_id,
     CASE WHEN intent.sync_status = 'blocked' THEN 'blocked' ELSE 'pending' END AS operation_status,
-    intent.last_error AS last_error,
-    intent.last_attempted_at AS last_attempted_at,
+    COALESCE(NULLIF(intent.last_error, ''), failure.message) AS last_error,
+    COALESCE(intent.last_attempted_at, failure.attempted_at) AS last_attempted_at,
     'always' AS inclusion
   FROM document_move_intents intent
   LEFT JOIN document_projection projection
     ON projection.local_id = intent.local_id
   LEFT JOIN containers container
     ON container.id = COALESCE(projection.container_id, intent.target_container_id)
+  LEFT JOIN document_sync_failures failure
+    ON failure.app_kind = 'documents'
+    AND failure.local_id = intent.local_id
   WHERE intent.intent_type = 'document.move'
 
   UNION ALL

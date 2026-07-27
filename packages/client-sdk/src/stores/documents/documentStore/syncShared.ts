@@ -8,6 +8,7 @@ import {
   type PendingUpdateRecord,
   recordDocumentSyncFailure,
   resolveDocumentCreateAuthor,
+  runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { chainIdentityWrite } from "./identityWriteChain";
@@ -40,20 +41,30 @@ export function documentRevalidationFailureHandler(
     if (failure.status === 403) {
       return;
     }
-    if (
-      generation &&
-      !isDocumentStoreSyncGenerationCurrent(state, generation)
-    ) {
-      return;
-    }
 
-    await recordDocumentSyncFailure(
+    // The generation recheck runs INSIDE the serialized mutation (like the
+    // attachment failure path): a teardown (discard/reset) that wins the
+    // ordering deletes this document's rows first and invalidates the
+    // generation, so a stale handler can never resurrect an orphan
+    // failure-only queue row afterwards.
+    await runSerializedSqlMutation(
       generation?.execSql ?? state.runtime.infra.execSql,
-      { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
-      {
-        attemptedAt: new Date().toISOString(),
-        message: describeDocumentRevalidationFailure(failure),
-        status: failure.status,
+      async (lockedExecSql) => {
+        if (
+          generation &&
+          !isDocumentStoreSyncGenerationCurrent(state, generation)
+        ) {
+          return;
+        }
+        await recordDocumentSyncFailure(
+          lockedExecSql,
+          { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+          {
+            attemptedAt: new Date().toISOString(),
+            message: describeDocumentRevalidationFailure(failure),
+            status: failure.status,
+          },
+        );
       },
     );
   };
