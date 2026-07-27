@@ -134,6 +134,31 @@ export async function enqueueDocumentPendingUpdateWithHistory(
  */
 export const MAX_PENDING_UPDATE_REKEYS = 5;
 
+/**
+ * Reset the durable re-key budget for every pending update in a scope. The
+ * cap exists to stop a server that keeps conflicting fresh ids from driving
+ * a network-speed loop — but a budget burned during an unrelated outage
+ * (e.g. yesterday's stale-bundle deadlock 409ing every submit) should not be
+ * terminal forever. An explicit manual retry is the deliberate, rate-limited
+ * signal that conditions changed, so it gets a fresh budget.
+ */
+export async function resetDocumentPendingUpdateRekeyBudget(
+  execSql: ExecSql,
+  scope: DocumentScope,
+): Promise<void> {
+  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    await db
+      .update(documentPendingUpdates)
+      .set({ rekeyCount: 0 })
+      .where(
+        and(
+          eq(documentPendingUpdates.appKind, scope.appKind),
+          eq(documentPendingUpdates.localId, scope.localId),
+        ),
+      );
+  });
+}
+
 export async function rekeyDocumentPendingUpdate(
   execSql: ExecSql,
   id: string,

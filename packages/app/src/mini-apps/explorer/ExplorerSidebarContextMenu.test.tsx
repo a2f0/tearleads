@@ -34,6 +34,7 @@ const documentQueries: ContainerDocumentQueries = {
   listContainerDocumentSidebarWindow: async () => ({ rows: [], totalCount: 0 }),
   listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
   listPendingWrites: async () => [],
+  retryPendingWriteItem: async () => undefined,
   loadContainerDocumentWatermark: async () => null,
   loadDocumentSyncState: async () => null,
   loadDocumentSummary: async () => null,
