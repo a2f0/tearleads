@@ -1,4 +1,8 @@
 import {
+  listDocumentLinkedContainerIds,
+  replaceDocumentLinks,
+} from "../../../workflows/container-contents/documentLinks";
+import {
   clearDocumentSyncFailure,
   DOCUMENTS_APP_KIND,
   deletePersistedDocument,
@@ -48,13 +52,28 @@ export function discardDocumentStoreLocalState(
 
     // Stop local writes before touching rows: dropping the live doc rejects
     // new mutations at queue time, the generation bump invalidates queued
-    // write tasks that have not started, and draining the write chain lets
-    // already-started persists finish before the teardown deletes what they
-    // wrote. Mutation tasks never join the identity-write chain, so awaiting
-    // the write chain inside this identity-chained task cannot deadlock.
+    // write tasks that have not started (and in-flight attachment passes and
+    // initializations, which re-check the generation before their own local
+    // writes), and draining the write chain lets already-started persists
+    // finish before the teardown deletes what they wrote. Mutation tasks
+    // never join the identity-write chain, so awaiting the write chain
+    // inside this identity-chained task cannot deadlock.
     state.doc = null;
     state.localWriteGeneration += 1;
     await state.writeChain.catch(() => undefined);
+
+    // Server-derived state the teardown would otherwise lose for good:
+    // multi-container link projections (a re-pull restores content, not
+    // links) and the storage keys of staged attachment uploads (their rows
+    // are the only durable pointer to the staged bytes).
+    const linkedContainerIds = await listDocumentLinkedContainerIds(
+      execSql,
+      record.documentId,
+    );
+    const pendingAttachments = await state.persistence.listPendingAttachments(
+      execSql,
+      state.localId,
+    );
 
     await deletePersistedDocument({
       documentProjectors: runtime.infra.documentProjectors,
@@ -91,6 +110,24 @@ export function discardDocumentStoreLocalState(
         : { documentKind: record.documentKind }),
       ...(record.title === undefined ? {} : { title: record.title }),
     });
+    // Restore the captured server links: the teardown removed every link row
+    // for the document, and the content re-pull does not rebuild links, so a
+    // document shared into several containers would otherwise vanish from
+    // the secondary ones until their metadata re-reconciles.
+    await replaceDocumentLinks(
+      execSql,
+      record.documentId,
+      linkedContainerIds.length > 0 ? linkedContainerIds : [record.containerId],
+    );
+    // Reclaim the staged upload bytes whose rows the teardown just deleted.
+    // Best-effort per key: a missing blob must not fail the discard.
+    for (const pendingAttachment of pendingAttachments) {
+      try {
+        await runtime.infra.blobStore.deleteBytes(pendingAttachment.storageKey);
+      } catch {
+        // The bytes stay orphaned at worst; the discard still succeeded.
+      }
+    }
     resetDocumentStore(state);
     runtime.util.log(
       `Documents: discarded local edits for document ${state.localId}; re-pulling the server copy`,

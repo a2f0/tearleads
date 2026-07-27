@@ -31,6 +31,10 @@ import {
   type PendingMutationSyncResult,
   setReadySnapshot,
 } from "./state";
+import {
+  captureDocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "./syncGeneration";
 import { ensureRemoteDocument } from "./syncShared";
 
 // Preserve transient failures for retry. Drop irrecoverable missing bytes so a
@@ -62,6 +66,18 @@ export async function syncPendingAttachments(
     return { completed: false, nextRecord };
   }
 
+  // A store reset (runtime loss, remote deletion, or a local-edits discard)
+  // mid-pass swaps or drops the live doc; every local write below would then
+  // resurrect rows the teardown removed. Capture the generation now and stop
+  // at the loop boundaries once it goes stale.
+  const attachmentGeneration = captureDocumentStoreSyncGeneration(
+    state,
+    currentDoc,
+  );
+  if (!attachmentGeneration) {
+    return { completed: false, nextRecord };
+  }
+
   const currentRecord = await ensureRemoteDocumentForAttachmentSync(
     state,
     currentDoc,
@@ -81,6 +97,12 @@ export async function syncPendingAttachments(
   };
 
   for (const pendingAttachment of [...state.pendingAttachments]) {
+    if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+      return {
+        completed: progress.settledAttachment,
+        nextRecord: currentRecord,
+      };
+    }
     const bindingsReady = await loadRemoteAttachmentBindings({
       pendingAttachment,
       progress,
@@ -108,6 +130,14 @@ export async function syncPendingAttachments(
       };
     }
 
+    // Re-check after the upload's awaits: settling writes local rows, which a
+    // teardown that happened mid-upload has just deleted on purpose.
+    if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+      return {
+        completed: progress.settledAttachment,
+        nextRecord: currentRecord,
+      };
+    }
     removeSettledPendingAttachment(state, currentDoc, pendingAttachment);
     if (outcome === "uploaded" || outcome === "recovered") {
       progress.settledAttachment = true;

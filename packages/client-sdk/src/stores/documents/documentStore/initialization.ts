@@ -307,12 +307,22 @@ async function initializeDocumentStore(
     return;
   }
 
+  // A store reset while this fire-and-forget initialization is loading (a
+  // runtime swap, or a local-edits discard that re-seeds the persisted rows)
+  // must win: assigning the state loaded BEFORE the reset would bring the
+  // replaced record and doc back to life. Every reset bumps the local write
+  // generation, so a stale capture here aborts before each assignment batch.
+  const initializeGeneration = state.localWriteGeneration;
+
   const nextDoc = await createStoredDocument(state);
   const persistedState = await loadPersistedDocumentStoreState({
     execSql: state.runtime.infra.execSql,
     localId: state.localId,
     persistence: state.persistence,
   });
+  if (state.localWriteGeneration !== initializeGeneration) {
+    return;
+  }
   state.pendingAttachments = persistedState.pendingAttachments;
   state.attachmentBlobIdBySlotId = Object.fromEntries(
     persistedState.localAttachments.map((attachment) => [
@@ -333,6 +343,9 @@ async function initializeDocumentStore(
     state.record = existing;
   } else {
     await createInitialDocumentRecord(state, nextDoc);
+  }
+  if (state.localWriteGeneration !== initializeGeneration) {
+    return;
   }
 
   state.doc = nextDoc;
@@ -366,6 +379,9 @@ async function initializeDocumentStore(
   // again for whatever it re-derives.
   await recoverDroppedAttachmentSlots(state, nextDoc);
   await healLocalAttachmentDetachState(state, nextDoc, persistedState);
+  if (state.localWriteGeneration !== initializeGeneration) {
+    return;
+  }
   state.initialized = true;
   state.initializePromise = null;
   setReadySnapshot(state, nextDoc, false);

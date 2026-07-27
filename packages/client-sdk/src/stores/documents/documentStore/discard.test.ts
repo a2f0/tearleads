@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/internal/constants";
 import {
@@ -14,9 +15,17 @@ import type { DocumentsRuntime } from "../types";
 import { discardDocumentStoreLocalState } from "./discard";
 import { createDocumentStoreState } from "./state";
 
-function createRuntime(execSql: ExecSql): DocumentsRuntime {
+function createRuntime(
+  execSql: ExecSql,
+  deletedBlobStorageKeys: string[] = [],
+): DocumentsRuntime {
   return {
     infra: {
+      blobStore: {
+        deleteBytes: async (storageKey: string) => {
+          deletedBlobStorageKeys.push(storageKey);
+        },
+      },
       dbStatus: "ready",
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
@@ -52,10 +61,14 @@ async function saveSyncedDocumentRecord(
   });
 }
 
-function createStoreState(execSql: ExecSql, localId: string) {
+function createStoreState(
+  execSql: ExecSql,
+  localId: string,
+  deletedBlobStorageKeys: string[] = [],
+) {
   const state = createDocumentStoreState(
     localId,
-    createRuntime(execSql),
+    createRuntime(execSql, deletedBlobStorageKeys),
     sqlDocumentsPersistence,
     {
       emitPersistedDocument: () => undefined,
@@ -149,6 +162,48 @@ test("discard refuses a local-only document whose queue is its only copy", async
     // Refusal leaves the store untouched — the queued write is still the only
     // copy of the edit, and the store keeps persisting it.
     expect(state.initialized).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("discard keeps server links and reclaims staged upload bytes", async () => {
+  const { close, execSql } = await createTestExecSql("discard-links-blobs");
+  const localId = "linked-doc";
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveSyncedDocumentRecord(execSql, localId, "remote-doc", "folder-a");
+    // Linked into a second container: the content re-pull does not rebuild
+    // links, so the discard must carry them across the teardown itself.
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+      execSql,
+      "remote-doc",
+      ["folder-a", "folder-b"],
+    );
+    // A staged upload whose row is the only durable pointer to its bytes.
+    await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      byteLength: 5,
+      localId,
+      mimeType: "text/plain",
+      name: "staged.txt",
+      slotId: "slot-1",
+      storageKey: "staged-storage-key",
+    });
+    const deletedBlobStorageKeys: string[] = [];
+    const state = createStoreState(execSql, localId, deletedBlobStorageKeys);
+
+    expect(await discardDocumentStoreLocalState(state)).toBe(true);
+
+    expect(
+      await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
+        execSql,
+        "remote-doc",
+      ),
+    ).toEqual(["folder-a", "folder-b"]);
+    expect(
+      await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),
+    ).toEqual([]);
+    expect(deletedBlobStorageKeys).toEqual(["staged-storage-key"]);
   } finally {
     close();
   }

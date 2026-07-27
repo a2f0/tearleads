@@ -294,8 +294,8 @@
       "bytes": 19608
     },
     "packages/client-sdk/src/stores/documents/documentStore/initialization.ts": {
-      "lines": 516,
-      "bytes": 18342
+      "lines": 532,
+      "bytes": 19016
     },
     "packages/client-sdk/src/stores/documents/documentStore/persistence.ts": {
       "lines": 534,
@@ -306,8 +306,8 @@
       "bytes": 18250
     },
     "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
-      "lines": 511,
-      "bytes": 16078
+      "lines": 541,
+      "bytes": 17182
     },
     "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
       "lines": 722,
