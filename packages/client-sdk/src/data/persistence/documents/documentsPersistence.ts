@@ -260,7 +260,7 @@ async function upsertDiscoveredDocumentWithExec(
     documentKind: existingDocument?.documentKind ?? DEFAULT_DOCUMENT_KIND,
     text: existingDocument?.text ?? "",
     title: existingDocument?.title ?? DISCOVERED_DOCUMENT_PLACEHOLDER_TITLE,
-    loroSnapshot: existingDocument?.loroSnapshot ?? "",
+    snapshotEndVersion: existingDocument?.snapshotEndVersion ?? "",
     accessEpoch: nextAccessEpoch,
     accessStateHash: resolvePersistedAccessStateHash(existingDocument, {
       accessEpoch: nextAccessEpoch,

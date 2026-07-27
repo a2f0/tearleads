@@ -36,7 +36,7 @@ export interface DocumentRow {
   // of the always-restamped "@updatedAt" key). Unlike `updatedBy` — a
   // self-attested user id stored in the row — this peer can be resolved to a
   // server-verified writer via the edit-attribution segments. Null when the
-  // register has no editor (e.g. a never-written row). Survives shallow-snapshot
+  // register has no editor (e.g. a never-written row). Survives snapshot
   // reload, so it is stable across the store's persist cycle.
   updatedByPeer: string | null;
   // The Loro peer that created this row (last editor of the write-once

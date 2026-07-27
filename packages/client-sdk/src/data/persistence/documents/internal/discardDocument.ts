@@ -48,8 +48,8 @@ function buildDiscardShellDocument(
     documentManifestBundle: null,
     effectiveAccessLevel: existingDocument.effectiveAccessLevel ?? null,
     lastCommitLsn: null,
-    loroSnapshot: "",
     pendingBaseVersion: null,
+    snapshotEndVersion: "",
     text: "",
     ...(existingDocument.documentKind === undefined
       ? {}

@@ -3,7 +3,8 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   derivePeerId,
-  exportShallowSnapshot,
+  encodeVersionVector,
+  exportFullHistorySnapshot,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
@@ -154,7 +155,7 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
         }),
         id: "local-document-1",
         lastCommitLsn: "commit-lsn-1",
-        loroSnapshot: "",
+        snapshotEndVersion: "",
         text: "hello",
         title: "Hello",
       },
@@ -309,7 +310,7 @@ test("loadDocumentInfo avoids remote calls for local-only documents", async () =
       documentKind: "note",
       id: "local-document-1",
       lastCommitLsn: null,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: "local",
       title: "Local",
     });
@@ -368,12 +369,19 @@ test("loadDocumentInfo blames live characters using the persisted snapshot", asy
         }),
         id: "local-document-1",
         lastCommitLsn: "commit-lsn-1",
-        loroSnapshot: bytesToBase64(exportShallowSnapshot(doc)),
+        snapshotEndVersion: encodeVersionVector(doc),
         text: "hello",
         title: "Hello",
       },
       { updatedAt: "2026-05-18T10:00:00.000Z" },
     );
+    await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
+      coveredTailIds: [],
+      endVersionVector: encodeVersionVector(doc),
+      force: true,
+      localId: "local-document-1",
+      snapshot: bytesToBase64(exportFullHistorySnapshot(doc)),
+    });
 
     const info = await loadDocumentInfo({
       apiClient: {
@@ -484,12 +492,19 @@ test("loadDocumentInfo blames structured-document fields using the snapshot", as
         }),
         id: "local-document-1",
         lastCommitLsn: "commit-lsn-1",
-        loroSnapshot: bytesToBase64(exportShallowSnapshot(doc)),
+        snapshotEndVersion: encodeVersionVector(doc),
         text: "",
         title: "Ada Lovelace",
       },
       { updatedAt: "2026-05-18T10:00:00.000Z" },
     );
+    await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
+      coveredTailIds: [],
+      endVersionVector: encodeVersionVector(doc),
+      force: true,
+      localId: "local-document-1",
+      snapshot: bytesToBase64(exportFullHistorySnapshot(doc)),
+    });
 
     const info = await loadDocumentInfo({
       apiClient: {
@@ -541,8 +556,9 @@ test("loadDocumentInfo degrades to null blame for an unreadable snapshot", async
 
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    // A corrupt/garbage persisted snapshot must not blank the whole Info panel —
-    // blame degrades to null while the rest of remoteInfo still loads.
+    // A corrupt/garbage persisted history checkpoint must not blank the whole
+    // Info panel — blame degrades to null while the rest of remoteInfo still
+    // loads.
     await sqlDocumentsPersistence.saveDocument(
       execSql,
       {
@@ -558,12 +574,19 @@ test("loadDocumentInfo degrades to null blame for an unreadable snapshot", async
         }),
         id: "local-document-1",
         lastCommitLsn: "commit-lsn-1",
-        loroSnapshot: "!!!not-valid-base64-or-loro!!!",
+        snapshotEndVersion: "",
         text: "hello",
         title: "Hello",
       },
       { updatedAt: "2026-05-18T10:00:00.000Z" },
     );
+    await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
+      coveredTailIds: [],
+      endVersionVector: "",
+      force: true,
+      localId: "local-document-1",
+      snapshot: "!!!not-valid-base64-or-loro!!!",
+    });
 
     const info = await loadDocumentInfo({
       apiClient: {

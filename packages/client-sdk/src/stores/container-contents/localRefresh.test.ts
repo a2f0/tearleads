@@ -76,7 +76,8 @@ function createTreeContainerState(input: {
       documentManifestBundle: null,
       id: input.id,
       lastCommitLsn: null,
-      loroSnapshot: "",
+      metadataUpdates: "",
+      snapshotEndVersion: "",
     },
   };
 }
@@ -101,7 +102,8 @@ function createContainerState(documentId: string | null): ContainerState {
       documentManifestBundle: null,
       id: "container-id",
       lastCommitLsn: null,
-      loroSnapshot: "",
+      metadataUpdates: "",
+      snapshotEndVersion: "",
     },
   };
 }

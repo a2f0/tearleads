@@ -2,8 +2,8 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import type { DocumentRecord } from "../../../data/sqlite/documentPersistence";
 import { deriveStableUuidV4Shaped } from "../../../data/stableUuid";
+import type { ContainerDocumentRecord as DocumentRecord } from "../containerPersistence";
 import {
   type ContainerContentsPersistence,
   enqueuePendingContainerUpdate,
@@ -171,7 +171,8 @@ function createInitialChildContainerDocumentRecord(input: {
     documentManifestBundle: null,
     id: input.childId,
     lastCommitLsn: null,
-    loroSnapshot: bytesToBase64(input.initialUpdate),
+    metadataUpdates: bytesToBase64(input.initialUpdate),
+    snapshotEndVersion: "",
   };
 }
 

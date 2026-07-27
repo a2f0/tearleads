@@ -79,7 +79,8 @@ test("explorer sync replays moved local containers from disk after restart and l
         documentId: "root-metadata-document",
         id: "root-container",
         lastCommitLsn: null,
-        loroSnapshot: bytesToBase64(rootInitialUpdate),
+        metadataUpdates: bytesToBase64(rootInitialUpdate),
+        snapshotEndVersion: "",
       },
       new Date("2026-04-25T00:00:00.000Z").toISOString(),
     );
@@ -277,7 +278,8 @@ test("explorer sync creates queued local containers parent before child", async 
         documentId: "root-metadata-document",
         id: "root-container",
         lastCommitLsn: null,
-        loroSnapshot: bytesToBase64(rootInitialUpdate),
+        metadataUpdates: bytesToBase64(rootInitialUpdate),
+        snapshotEndVersion: "",
       },
       new Date("2026-04-25T00:00:00.000Z").toISOString(),
     );

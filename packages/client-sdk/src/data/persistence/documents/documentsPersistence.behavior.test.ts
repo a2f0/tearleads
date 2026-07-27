@@ -25,7 +25,7 @@ test("concurrent document saves are serialized on a shared SQLite connection", a
           containerId: "root-container",
           documentId: null,
           text: "first",
-          loroSnapshot: "snapshot-1",
+          snapshotEndVersion: "end-version-1",
           accessEpoch: 1,
         }),
         sqlDocumentsPersistence.saveDocument(execSql, {
@@ -33,7 +33,7 @@ test("concurrent document saves are serialized on a shared SQLite connection", a
           containerId: "root-container",
           documentId: null,
           text: "second",
-          loroSnapshot: "snapshot-2",
+          snapshotEndVersion: "end-version-2",
           accessEpoch: 2,
         }),
       ]),
@@ -49,7 +49,7 @@ test("concurrent document saves are serialized on a shared SQLite connection", a
       lastCommitLsn: null,
       text: "second",
       title: "second",
-      loroSnapshot: "snapshot-2",
+      snapshotEndVersion: "end-version-2",
       accessEpoch: 2,
       ...emptyDocumentState,
     });
@@ -73,7 +73,7 @@ test("upsertDiscoveredDocument reuses an existing local note bound to the remote
         containerId: "shared-container",
         documentId: "remote-document",
         text: "Existing local note",
-        loroSnapshot: "snapshot-1",
+        snapshotEndVersion: "end-version-1",
         accessEpoch: 2,
       },
       {
@@ -110,7 +110,7 @@ test("upsertDiscoveredDocument reuses an existing local note bound to the remote
       lastCommitLsn: null,
       text: "Existing local note",
       title: "Existing local note",
-      loroSnapshot: "snapshot-1",
+      snapshotEndVersion: "end-version-1",
       accessEpoch: 3,
       ...emptyDocumentState,
     });
@@ -144,7 +144,7 @@ test("upsertDiscoveredDocument adopts a pending-create row whose stable document
         containerId: "contacts-container",
         documentId: null,
         text: "Peer 1",
-        loroSnapshot: "snapshot-1",
+        snapshotEndVersion: "",
         accessEpoch: 1,
       },
       {
@@ -204,7 +204,7 @@ test("upsertDiscoveredDocument preserves document state for the same remote docu
         documentId: "remote-document",
         id: "local-note",
         lastCommitLsn: "0/10",
-        loroSnapshot: "snapshot-1",
+        snapshotEndVersion: "",
         text: "Existing local note",
         contentKeyBundle: JSON.stringify({
           contentKeyEpoch: 1,
@@ -266,7 +266,7 @@ test("relinkPersistedDocument clears document state for a different remote docum
       documentId: "remote-document-a",
       id: "local-note",
       lastCommitLsn: "0/10",
-      loroSnapshot: "snapshot-1",
+      snapshotEndVersion: "",
       text: "Existing local note",
       contentKeyBundle: JSON.stringify({
         contentKeyEpoch: 1,
@@ -321,7 +321,7 @@ test("upsertDiscoveredDocument preserves the active local container when another
         containerId: "container-a",
         documentId: "remote-document",
         text: "Existing local note",
-        loroSnapshot: "snapshot-1",
+        snapshotEndVersion: "end-version-1",
         accessEpoch: 2,
       },
       {
@@ -358,7 +358,7 @@ test("upsertDiscoveredDocument preserves the active local container when another
       lastCommitLsn: null,
       text: "Existing local note",
       title: "Existing local note",
-      loroSnapshot: "snapshot-1",
+      snapshotEndVersion: "end-version-1",
       accessEpoch: 3,
       ...emptyDocumentState,
     });
@@ -384,7 +384,7 @@ test("relinkPersistedDocument updates the stored container and clears stale bund
         accessStateHash: "access-state-hash-1",
         lastCommitLsn: "0/10",
         text: "Existing local note",
-        loroSnapshot: "snapshot-1",
+        snapshotEndVersion: "end-version-1",
         accessEpoch: 2,
         contentKeyBundle: "stale-content-key-bundle",
         documentKekTargets: "stale-kek-targets",
@@ -426,7 +426,7 @@ test("relinkPersistedDocument updates the stored container and clears stale bund
       lastCommitLsn: "0/10",
       text: "Existing local note",
       title: "Existing local note",
-      loroSnapshot: "snapshot-1",
+      snapshotEndVersion: "end-version-1",
       accessEpoch: 3,
       ...emptyDocumentState,
     });

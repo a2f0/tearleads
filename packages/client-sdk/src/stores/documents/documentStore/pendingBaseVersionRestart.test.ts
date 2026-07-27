@@ -1,15 +1,15 @@
 import { expect, test } from "bun:test";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
-  exportShallowSnapshot,
+  exportFullHistorySnapshot,
   exportUpdatesSince,
-  importSnapshot,
   importUpdates,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { loadPersistedDocumentContent } from "../../../workflows/documents";
 
 const LOCAL_ID = "self-contact";
 
@@ -39,18 +39,25 @@ test("a device-first deferRemoteSync write survives a restart and still syncs", 
     importUpdates(peer, [exportUpdatesSince(writer, undefined)]);
     expect(peer.getMap("meta").get("displayName")).toBe("Ada");
 
-    // Device-first deferRemoteSync field write: mutate the snapshot but leave the
+    // Device-first deferRemoteSync field write: mutate the content but leave the
     // marker un-advanced and nothing enqueued (mirrors the deferred branch of
-    // queueDocumentStructuredFieldWrite). The store persists the snapshot with
-    // the retained (behind) marker.
+    // queueDocumentStructuredFieldWrite). The store persists the content into
+    // the durable history with the retained (behind) marker on the record.
     writer.getMap("meta").set("isSelf", true);
     writer.commit();
+    await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
+      coveredTailIds: [],
+      endVersionVector: encodeVersionVector(writer),
+      force: true,
+      localId: LOCAL_ID,
+      snapshot: bytesToBase64(exportFullHistorySnapshot(writer)),
+    });
     await sqlDocumentsPersistence.saveDocument(execSql, {
       id: LOCAL_ID,
       containerId: "system-container",
       documentId: null,
       text: "",
-      loroSnapshot: bytesToBase64(exportShallowSnapshot(writer)),
+      snapshotEndVersion: encodeVersionVector(writer),
       accessEpoch: 1,
       pendingBaseVersion: syncedMarker,
     });
@@ -60,12 +67,18 @@ test("a device-first deferRemoteSync write survives a restart and still syncs", 
       execSql,
       LOCAL_ID,
     );
-    // The behind-marker round-trips instead of being re-seeded to the snapshot
-    // version.
+    // The behind-marker round-trips instead of being re-seeded to the persisted
+    // content frontier.
     expect(loaded?.pendingBaseVersion).toBe(syncedMarker);
 
-    const reloaded = await createDocument("writer");
-    importSnapshot(reloaded, base64ToBytes(loaded?.loroSnapshot ?? ""));
+    const reloaded = await loadPersistedDocumentContent({
+      execSql,
+      localId: LOCAL_ID,
+      persistence: sqlDocumentsPersistence,
+    });
+    if (!reloaded) {
+      throw new Error("Expected restored document content");
+    }
     const restoredMarker = loaded?.pendingBaseVersion ?? null;
     expect(restoredMarker).not.toBeNull();
 
@@ -99,7 +112,7 @@ test("saving without a marker preserves the persisted pendingBaseVersion", async
       containerId: null,
       documentId: null,
       text: "first",
-      loroSnapshot: "snapshot-1",
+      snapshotEndVersion: "version-1",
       accessEpoch: 1,
       pendingBaseVersion: "marker-1",
     });
@@ -108,7 +121,7 @@ test("saving without a marker preserves the persisted pendingBaseVersion", async
       containerId: null,
       documentId: null,
       text: "second",
-      loroSnapshot: "snapshot-2",
+      snapshotEndVersion: "version-2",
       accessEpoch: 1,
     });
 

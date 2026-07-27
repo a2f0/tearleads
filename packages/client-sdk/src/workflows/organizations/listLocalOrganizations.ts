@@ -1,6 +1,3 @@
-import { base64ToBytes } from "@tearleads/encoding";
-import { createDocument, importUpdates } from "@tearleads/loro";
-import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import { readStoredDocumentState } from "../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
@@ -10,6 +7,7 @@ import {
 import { loadOrganizationProfileDocumentIds } from "../../data/persistence/organizations/organizationProfileDocumentPointers";
 import { findLocalIdByDocumentId } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { loadPersistedDocumentContent } from "../documents/historyContent";
 import {
   getOrganizationProfileDocumentLocalId,
   readOrganizationProfileName,
@@ -43,22 +41,18 @@ async function readOrganizationNameFromDocument(
   documentLocalId: string,
 ): Promise<string | null> {
   try {
-    const record = await sqlDocumentsPersistence.loadDocument(
+    const doc = await loadPersistedDocumentContent({
       execSql,
-      documentLocalId,
-    );
-    if (!record?.loroSnapshot) {
+      localId: documentLocalId,
+      persistence: sqlDocumentsPersistence,
+    });
+    if (!doc) {
       return null;
     }
 
-    const doc = await createDocument(
-      await getScopedPeerSeed(DOCUMENTS_APP_KIND),
-    );
-    importUpdates(doc, [base64ToBytes(record.loroSnapshot)]);
-    const name = readOrganizationProfileName(
+    return readOrganizationProfileName(
       readStoredDocumentState(doc).structuredFields,
     );
-    return name;
   } catch {
     return null;
   }

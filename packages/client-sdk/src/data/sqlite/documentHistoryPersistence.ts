@@ -53,8 +53,8 @@ export async function appendDocumentHistoryUpdates(
 
 /**
  * The checkpoint + ordered tail for a scope, or null when no checkpoint
- * exists (a legacy row persisted before history durability; the caller falls
- * back to the shallow snapshot).
+ * exists (a discovered shell that has not hydrated content yet; the caller
+ * starts the document empty and the remote pull supplies the content).
  */
 export async function loadDocumentHistoryRestoreState(
   execSql: ExecSql,
@@ -62,10 +62,9 @@ export async function loadDocumentHistoryRestoreState(
 ): Promise<DocumentHistoryRestoreState | null> {
   await ensureSqlTables(execSql, documentTables);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  // Cheap existence probe first: a legacy shallow document (no checkpoint)
-  // keeps appending to its tail while compaction stays disabled, so loading
-  // that ever-growing tail on every reopen just to discard it would be an
-  // unbounded startup cost. The tail is retained for a future rebuild.
+  // Cheap existence probe first: a scope without a checkpoint has no content
+  // to restore, so loading whatever tail it may have accumulated on every
+  // reopen just to discard it would be wasted startup cost.
   const [probe] = await db
     .select({ localId: documentHistoryCheckpoints.localId })
     .from(documentHistoryCheckpoints)
@@ -83,8 +82,8 @@ export async function loadDocumentHistoryRestoreState(
   // between the two reads, this order yields old-tail + new-checkpoint — a
   // safe superset (the new checkpoint subsumes the old tail, and replay is
   // idempotent by op identity). The reverse order could yield old-checkpoint
-  // + already-emptied tail, a torn read that lags the persisted record and
-  // forces the shallow fallback for the whole session.
+  // + already-emptied tail, a torn read that silently drops the compacted
+  // ops for the whole session.
   const tail = await db
     .select({
       id: documentHistoryUpdates.id,
@@ -273,7 +272,7 @@ export async function replaceDocumentHistoryCheckpoint(
       return;
     }
     // Exhaustion must not read as durable success: creation and rebuild
-    // callers persist shallow records assuming the checkpoint landed.
+    // callers persist record rows assuming the checkpoint landed.
     throw new Error(
       "Document history checkpoint replacement lost every CAS attempt",
     );

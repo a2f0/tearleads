@@ -1,11 +1,16 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createDocument, exportAllUpdates } from "@tearleads/loro";
+import {
+  createDocument,
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+} from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { addDocumentAttachments } from "../../data/documents/documentContent";
 import {
   clientSqlTables,
   documentAttachmentBlobProjection,
+  documentHistoryCheckpoints,
   documentPendingAttachments,
   documents,
 } from "../../data/sqlite/schema";
@@ -15,7 +20,8 @@ import { clearRemoteSyncState } from "./remoteReset";
 
 const STALE = "2026-05-01T00:00:00.000Z";
 
-// A document whose durable snapshot advertises exactly `slotIds`.
+// A document whose durable history checkpoint advertises exactly `slotIds`.
+// Export before encoding so the pending ops commit into the oplog version.
 async function createSnapshot(slotIds: ReadonlyArray<string>) {
   const doc = await createDocument("remote-reset-detached-test-doc");
   addDocumentAttachments(
@@ -27,7 +33,8 @@ async function createSnapshot(slotIds: ReadonlyArray<string>) {
       slotId,
     })),
   );
-  return bytesToBase64(exportAllUpdates(doc));
+  const snapshot = bytesToBase64(exportFullHistorySnapshot(doc));
+  return { endVersionVector: encodeVersionVector(doc), snapshot };
 }
 
 function localAttachment(slotId: string, detachedAt: string | null) {
@@ -51,17 +58,28 @@ async function seedResetFixture(
   },
 ) {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const { endVersionVector, snapshot } = await createSnapshot(
+    input.snapshotSlotIds,
+  );
   await db.insert(documents).values({
     appKind: "documents",
     localId: "doc-1",
     documentId: "doc-remote-old",
-    loroSnapshot: await createSnapshot(input.snapshotSlotIds),
+    snapshotEndVersion: endVersionVector,
     accessEpoch: 1,
     accessStateHash: "old-access-state",
     lastCommitLsn: "1",
     documentManifestBundle: "{}",
     contentKeyBundle: "{}",
     documentKekTargets: "{}",
+    updatedAt: STALE,
+  });
+  await db.insert(documentHistoryCheckpoints).values({
+    appKind: "documents",
+    localId: "doc-1",
+    snapshot,
+    endVersionVector,
+    revision: "revision-doc-1",
     updatedAt: STALE,
   });
   await db

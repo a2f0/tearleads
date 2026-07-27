@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
-import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import type {
+  ContainerContentsPersistence,
+  ContainerMetadataRecord,
+} from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
-import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { persistContainerMetadataStateFromRuntime } from "./metadataPersistence";
 import type {
@@ -107,7 +109,7 @@ async function createMetadataState(): Promise<ContainerMetadataState> {
     organizationId: "org-1",
     parentId: "parent-1",
   };
-  const record: DocumentRecord = {
+  const record: ContainerMetadataRecord = {
     accessEpoch: 1,
     accessStateHash: "access-state-hash",
     contentKeyBundle: "content-key-bundle",
@@ -116,7 +118,8 @@ async function createMetadataState(): Promise<ContainerMetadataState> {
     documentManifestBundle: "document-manifest-bundle",
     id: container.id,
     lastCommitLsn: "0/1",
-    loroSnapshot: "",
+    metadataUpdates: "",
+    snapshotEndVersion: "",
   };
 
   return {

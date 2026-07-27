@@ -380,7 +380,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
         documentId: "remote-document",
         id: "local-document",
         lastCommitLsn: null,
-        loroSnapshot: "",
+        snapshotEndVersion: "",
         text: "Shared document",
       },
       { updatedAt: "2026-05-05T00:00:00.000Z" },

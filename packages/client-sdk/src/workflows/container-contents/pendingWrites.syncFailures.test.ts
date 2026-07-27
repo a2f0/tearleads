@@ -39,7 +39,8 @@ async function saveSharedOrgContainerWithPendingDocument(
       accessStateHash: "access-shared-container",
       documentId: metadataDocumentId,
       id: "shared-container",
-      loroSnapshot: "",
+      metadataUpdates: "",
+      snapshotEndVersion: "",
     },
     {
       localUpdatedAt: T0,
@@ -55,7 +56,7 @@ async function saveSharedOrgContainerWithPendingDocument(
       documentId: "remote-document",
       documentKind: "note",
       id: "local-document",
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: "",
       title: "Shared note",
     },

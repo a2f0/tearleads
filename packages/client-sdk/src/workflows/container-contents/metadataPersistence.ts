@@ -11,8 +11,8 @@ import {
 } from "../../data/containers/containerMetadataDocument";
 import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
-import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { ContainerDocumentRecord as DocumentRecord } from "./containerPersistence";
 import { enqueuePendingContainerUpdate } from "./containerPersistence";
 import type {
   ContainerMetadataPatch,
@@ -184,8 +184,10 @@ async function persistContainerMetadataState(input: {
   const nextRecord: DocumentRecord = {
     id: metadataState.container.id,
     documentId: securityContext.documentId,
-    loroSnapshot:
-      patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(metadataState.doc)),
+    metadataUpdates:
+      patch.metadataUpdates ??
+      bytesToBase64(exportAllUpdates(metadataState.doc)),
+    snapshotEndVersion: "",
     accessEpoch: securityContext.accessEpoch,
     accessStateHash: resolveNullableContainerMetadataDocumentField(
       patch,

@@ -11,7 +11,6 @@ import {
   documentProjectionText,
   documents,
 } from "../../../sqlite/schema";
-import { deriveSnapshotEndVersion } from "../../../sqlite/snapshotEndVersion";
 import type { ClientSQLiteTransaction } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { StoredDocumentRecord } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
@@ -39,7 +38,7 @@ async function loadDocumentRecordInTransaction(input: {
     .select({
       id: documents.localId,
       documentId: documents.documentId,
-      loroSnapshot: documents.loroSnapshot,
+      snapshotEndVersion: documents.snapshotEndVersion,
       accessEpoch: documents.accessEpoch,
       accessStateHash: documents.accessStateHash,
       effectiveAccessLevel: documents.effectiveAccessLevel,
@@ -70,8 +69,7 @@ function toDocumentRecordRow(input: {
     appKind: DOCUMENTS_APP_KIND,
     localId: document.id,
     documentId: document.documentId,
-    loroSnapshot: document.loroSnapshot,
-    snapshotEndVersion: deriveSnapshotEndVersion(document.loroSnapshot),
+    snapshotEndVersion: document.snapshotEndVersion,
     accessEpoch: document.accessEpoch,
     accessStateHash: document.accessStateHash ?? null,
     effectiveAccessLevel: normalizeEffectiveAccessLevel(
@@ -141,17 +139,17 @@ export async function saveDocumentRows(input: {
 function didStoredDocumentContentChange(
   existing: Pick<
     StoredDocumentRecord,
-    "documentKind" | "loroSnapshot" | "text" | "title"
+    "documentKind" | "snapshotEndVersion" | "text" | "title"
   > | null,
   next: Pick<
     StoredDocumentRecord,
-    "documentKind" | "loroSnapshot" | "text" | "title"
+    "documentKind" | "snapshotEndVersion" | "text" | "title"
   >,
 ): boolean {
   return (
     existing === null ||
     existing.documentKind !== (next.documentKind ?? DEFAULT_DOCUMENT_KIND) ||
-    existing.loroSnapshot !== next.loroSnapshot ||
+    existing.snapshotEndVersion !== next.snapshotEndVersion ||
     existing.text !== next.text ||
     existing.title !== (next.title ?? deriveDocumentTitle(next.text))
   );
@@ -193,7 +191,7 @@ export async function resolveDocumentSaveTimestamp(input: {
     existingRecord
       ? {
           documentKind: getProjectionDocumentKind(existingProjection),
-          loroSnapshot: existingRecord.loroSnapshot,
+          snapshotEndVersion: existingRecord.snapshotEndVersion,
           text: getProjectionText(existingProjection),
           title: getProjectionTitle(existingProjection),
         }

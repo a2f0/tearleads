@@ -1,10 +1,5 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
-import {
-  createDocument,
-  encodeVersionVector,
-  exportShallowSnapshot,
-} from "@tearleads/loro";
+import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
@@ -495,8 +490,8 @@ test("primeDocumentsForContainerSubtree skips settled documents", async () => {
         documentId: "remote-settled",
         documentKind: "note",
         id: "settled-document",
-        loroSnapshot: bytesToBase64(exportShallowSnapshot(settledDoc)),
         pendingBaseVersion: encodeVersionVector(settledDoc),
+        snapshotEndVersion: encodeVersionVector(settledDoc),
         text: "settled",
         title: "Settled",
       },
@@ -517,15 +512,16 @@ test("primeDocumentsForContainerSubtree skips settled documents", async () => {
         documentId: "remote-pending",
         documentKind: "note",
         id: "pending-document",
-        loroSnapshot: bytesToBase64(exportShallowSnapshot(pendingDoc)),
         pendingBaseVersion,
+        snapshotEndVersion: encodeVersionVector(pendingDoc),
         text: "deferred tail",
         title: "Pending",
       },
       { updatedAt: "2026-07-20T00:00:01.000Z" },
     );
 
-    // Never-hydrated discovered document: empty snapshot, remote id known.
+    // Never-hydrated discovered document: empty snapshotEndVersion, remote id
+    // known.
     await saveTestDocument({
       containerId: "shared-root",
       documentId: "remote-discovered",
@@ -579,7 +575,7 @@ test("primeDocumentsForContainerSubtree primes a backlog larger than one chunk",
     for (let index = 0; index < 10; index += 1) {
       const localId = `backlog-${String(index).padStart(2, "0")}`;
       expectedLocalIds.push(localId);
-      // Local-only creates (no remote id, empty snapshot): always prime.
+      // Local-only creates (no remote id, never hydrated): always prime.
       await saveTestDocument({
         containerId: "shared-root",
         documentId: null,

@@ -10,10 +10,10 @@ import {
 } from "../../data/containers/containerMetadataDocument";
 import type {
   ContainerContentsPersistence,
+  ContainerMetadataRecord,
   StoredContainerState,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
-import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "./documentQueries";
@@ -33,7 +33,7 @@ interface SaveContainerCall {
   container: ContainerRecord;
   execSql: ExecSql;
   options?: SaveContainerOptions;
-  record: DocumentRecord | null;
+  record: ContainerMetadataRecord | null;
 }
 
 function createContainerRecord(
@@ -131,7 +131,7 @@ async function saveSyncedStoredContainer(input: {
     icon: null,
     name: input.metadataName,
   });
-  const record: DocumentRecord = {
+  const record: ContainerMetadataRecord = {
     accessEpoch: 1,
     accessStateHash: `${input.id}-access-hash`,
     contentKeyBundle: `${input.id}-content-key-bundle`,
@@ -140,7 +140,8 @@ async function saveSyncedStoredContainer(input: {
     documentManifestBundle: `${input.id}-document-manifest-bundle`,
     id: input.id,
     lastCommitLsn: `${input.id}-commit-lsn`,
-    loroSnapshot: bytesToBase64(exportAllUpdates(doc)),
+    metadataUpdates: bytesToBase64(exportAllUpdates(doc)),
+    snapshotEndVersion: "",
   };
 
   await defaultContainerContentsPersistence.saveContainer(
@@ -234,13 +235,14 @@ test("loadLocalContainerStates replays metadata snapshots into containers", asyn
     icon: "briefcase",
     name: "Snapshot name",
   });
-  const record: DocumentRecord = {
+  const record: ContainerMetadataRecord = {
     accessEpoch: 7,
     accessStateHash: "access-hash",
     documentId: container.metadataDocumentId,
     id: container.id,
     lastCommitLsn: "commit-1",
-    loroSnapshot: bytesToBase64(exportAllUpdates(doc)),
+    metadataUpdates: bytesToBase64(exportAllUpdates(doc)),
+    snapshotEndVersion: "",
     contentKeyBundle: "content-key-bundle",
     documentKekTargets: "document-kek-targets",
     documentManifestBundle: "document-manifest-bundle",

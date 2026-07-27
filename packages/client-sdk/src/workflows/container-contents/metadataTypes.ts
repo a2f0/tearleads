@@ -1,7 +1,7 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
+import type { ContainerMetadataRecord } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
-import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 
 export interface ContainerMetadataState {
   container: ContainerRecord;
@@ -10,7 +10,7 @@ export interface ContainerMetadataState {
     | DocumentWriterProjectionResponse
     | null
     | undefined;
-  record: DocumentRecord;
+  record: ContainerMetadataRecord;
   /**
    * Consecutive completed sync passes that re-keyed conflicted pending updates
    * without settling anything; bounds the rekey-driven follow-up sync. See
@@ -27,7 +27,7 @@ export interface ContainerMetadataPatch {
   lastCommitLsn: string | null;
   metadataDocumentId: string | null;
   systemSlot: ContainerRecord["systemSlot"];
-  loroSnapshot: string;
+  metadataUpdates: string;
   name: string;
   organizationId: string;
   parentId: string | null;
@@ -38,7 +38,7 @@ export interface ContainerMetadataPatch {
 
 export interface PersistedContainerMetadataState {
   container: ContainerRecord;
-  record: DocumentRecord;
+  record: ContainerMetadataRecord;
 }
 
 export interface SyncedContainerMetadataState

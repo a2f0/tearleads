@@ -21,6 +21,13 @@ interface StoredDocumentsState {
   pendingUpdates: PendingUpdateRecord[];
 }
 
+interface StoredHistoryState {
+  checkpoint: { endVersionVector: string; snapshot: string } | null;
+  tail: { id: string; updateData: string }[];
+}
+
+type HistoryByLocalId = Map<string, StoredHistoryState>;
+
 type MutableDocumentsState = StoredDocumentsState;
 type RuntimeInput = Parameters<typeof createDocumentsWorkflowRuntime>[0];
 type RuntimeInputOverrides = {
@@ -132,6 +139,7 @@ function createDocumentReadPersistence(
 
 function createDocumentWritePersistence(
   state: MutableDocumentsState,
+  historyByLocalId: HistoryByLocalId,
 ): Pick<
   DocumentsPersistence,
   | "saveDocument"
@@ -161,6 +169,7 @@ function createDocumentWritePersistence(
       if (state.document?.id === localId) {
         state.document = null;
       }
+      historyByLocalId.delete(localId);
       state.pendingUpdates = [];
       state.pendingAttachments = state.pendingAttachments.filter(
         (attachment) => attachment.localId !== localId,
@@ -177,7 +186,7 @@ function createDocumentWritePersistence(
         documentId: input.documentId,
         id: state.document?.id ?? input.documentId,
         lastCommitLsn: null,
-        loroSnapshot: state.document?.loroSnapshot ?? "",
+        snapshotEndVersion: state.document?.snapshotEndVersion ?? "",
         text: state.document?.text ?? "",
       };
       state.document = nextDocument;
@@ -339,6 +348,77 @@ function createAttachmentPersistence(
   };
 }
 
+function createHistoryPersistence(
+  historyByLocalId: HistoryByLocalId,
+): Pick<
+  DocumentsPersistence,
+  | "appendHistoryUpdates"
+  | "loadHistoryRestoreState"
+  | "readHistoryTailSize"
+  | "listHistoryTailEntries"
+  | "replaceHistoryCheckpoint"
+> {
+  const historyFor = (localId: string): StoredHistoryState => {
+    let history = historyByLocalId.get(localId);
+    if (!history) {
+      history = { checkpoint: null, tail: [] };
+      historyByLocalId.set(localId, history);
+    }
+    return history;
+  };
+
+  return {
+    async appendHistoryUpdates(_execSql, input) {
+      const history = historyFor(input.localId);
+      history.tail = [
+        ...history.tail,
+        ...input.updates.map((updateData) => ({
+          id: crypto.randomUUID(),
+          updateData,
+        })),
+      ];
+    },
+    async loadHistoryRestoreState(_execSql, localId) {
+      const history = historyByLocalId.get(localId);
+      if (!history?.checkpoint) {
+        return null;
+      }
+      return {
+        snapshot: history.checkpoint.snapshot,
+        tailUpdates: history.tail.map((entry) => entry.updateData),
+      };
+    },
+    async readHistoryTailSize(_execSql, localId) {
+      const history = historyFor(localId);
+      return {
+        byteLength: history.tail.reduce(
+          (total, entry) => total + entry.updateData.length,
+          0,
+        ),
+        hasCheckpoint: history.checkpoint !== null,
+        rowCount: history.tail.length,
+      };
+    },
+    async listHistoryTailEntries(_execSql, localId) {
+      return historyFor(localId).tail.map((entry) => ({ ...entry }));
+    },
+    async replaceHistoryCheckpoint(_execSql, input) {
+      if (input.stillCurrent && !input.stillCurrent()) {
+        return;
+      }
+      const history = historyFor(input.localId);
+      const coveredTailIds = new Set(input.coveredTailIds);
+      history.checkpoint = {
+        endVersionVector: input.endVersionVector,
+        snapshot: input.snapshot,
+      };
+      history.tail = history.tail.filter(
+        (entry) => !coveredTailIds.has(entry.id),
+      );
+    },
+  };
+}
+
 export function createDocumentStorePersistence(): DocumentsPersistence & {
   getState: () => StoredDocumentsState;
 } {
@@ -348,13 +428,15 @@ export function createDocumentStorePersistence(): DocumentsPersistence & {
     pendingAttachments: [],
     pendingUpdates: [],
   };
+  const historyByLocalId: HistoryByLocalId = new Map();
 
   return {
     getState: () => state,
     ...createDocumentReadPersistence(state),
-    ...createDocumentWritePersistence(state),
+    ...createDocumentWritePersistence(state, historyByLocalId),
     ...createPendingUpdatePersistence(state),
     ...createAttachmentPersistence(state),
+    ...createHistoryPersistence(historyByLocalId),
   };
 }
 

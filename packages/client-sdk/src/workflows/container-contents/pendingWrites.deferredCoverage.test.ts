@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportAllUpdates,
-  exportShallowSnapshot,
   importUpdates,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
@@ -36,7 +34,8 @@ test("listPendingWrites unions the marker and queued vector before reporting a d
         accessStateHash: "access-root",
         documentId: "metadata-root",
         id: "root",
-        loroSnapshot: "",
+        metadataUpdates: "",
+        snapshotEndVersion: "",
       },
       {
         localUpdatedAt: UPDATED_AT,
@@ -63,8 +62,8 @@ test("listPendingWrites unions the marker and queued vector before reporting a d
         documentId: "remote-union-covered",
         documentKind: "note",
         id: "union-covered-document",
-        loroSnapshot: bytesToBase64(exportShallowSnapshot(firstPeer)),
         pendingBaseVersion: firstPeerVersion,
+        snapshotEndVersion: encodeVersionVector(firstPeer),
         text: "",
         title: "Union covered",
       },

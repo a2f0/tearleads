@@ -1,3 +1,5 @@
+import { base64ToBytes } from "@tearleads/encoding";
+import { getImportBlobMetadata } from "@tearleads/loro";
 import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import {
   type DocumentRecord,
@@ -21,6 +23,8 @@ import {
   containers,
   documentContainerProjection,
   documentContainerProjectionTables,
+  documentHistoryCheckpoints,
+  documentHistoryUpdates,
   documentMoveIntentTables,
   documentPendingUpdates,
   documentProjection,
@@ -28,7 +32,6 @@ import {
   documentSyncFailures,
   documents,
 } from "../../sqlite/schema";
-import { deriveSnapshotEndVersion } from "../../sqlite/snapshotEndVersion";
 import {
   type ClientSQLiteTransaction,
   getClientSQLitePersistenceRuntime,
@@ -105,9 +108,19 @@ export interface LocalRootDescendantReparentInput {
   updateCreateIntent?: boolean | undefined;
 }
 
+/**
+ * A container's metadata document record plus its durable content: the full
+ * Loro updates export of the metadata document, stored in the shared
+ * history-checkpoint table under the container-metadata app kind. Metadata
+ * documents are tiny registries, so the whole update log is the checkpoint.
+ */
+export interface ContainerMetadataRecord extends DocumentRecord {
+  metadataUpdates: string;
+}
+
 export interface StoredContainerState {
   container: ContainerRecord;
-  record: DocumentRecord | null;
+  record: ContainerMetadataRecord | null;
 }
 
 export interface ContainerContentsPersistence {
@@ -200,7 +213,7 @@ export interface ContainerContentsPersistence {
   saveContainer: (
     execSql: ExecSql,
     container: ContainerRecord,
-    record: DocumentRecord | null,
+    record: ContainerMetadataRecord | null,
     options?: {
       createIntent?: ContainerCreateIntentInput;
       localUpdatedAt?: string;
@@ -217,7 +230,7 @@ export interface ContainerContentsPersistence {
   saveContainerAndDeletePendingUpdates: (
     execSql: ExecSql,
     container: ContainerRecord,
-    record: DocumentRecord,
+    record: ContainerMetadataRecord,
     pendingUpdateIds: readonly string[],
   ) => Promise<ContainerRecord>;
   markCreateIntentSynced: (
@@ -337,19 +350,34 @@ function mapContainerMoveIntentRecord(
   };
 }
 
+// The metadata document's content frontier, derived from its full updates
+// export. Empty or undecodable blobs read as "never hydrated".
+function deriveMetadataEndVersion(metadataUpdates: string): string {
+  if (metadataUpdates.length === 0) {
+    return "";
+  }
+
+  try {
+    return getImportBlobMetadata(base64ToBytes(metadataUpdates))
+      .partialEndVersionVector;
+  } catch {
+    return "";
+  }
+}
+
 async function saveContainerMetadataRecord(input: {
   containerId: string;
-  record: DocumentRecord;
+  record: ContainerMetadataRecord;
   tx: ClientSQLiteTransaction;
   updatedAt: string;
 }) {
   const { containerId, record, tx, updatedAt } = input;
+  const snapshotEndVersion = deriveMetadataEndVersion(record.metadataUpdates);
   const nextRow = {
     appKind: CONTAINER_METADATA_APP_KIND,
     localId: containerId,
     documentId: record.documentId,
-    loroSnapshot: record.loroSnapshot,
-    snapshotEndVersion: deriveSnapshotEndVersion(record.loroSnapshot),
+    snapshotEndVersion,
     accessEpoch: record.accessEpoch,
     accessStateHash: record.accessStateHash ?? null,
     lastCommitLsn: record.lastCommitLsn ?? null,
@@ -367,13 +395,37 @@ async function saveContainerMetadataRecord(input: {
       set: nextRow,
     })
     .run();
+
+  // The metadata document's content lives in the shared history-checkpoint
+  // table, like every other document kind. The whole updates export IS the
+  // checkpoint: metadata documents are tiny registries, so no tail/compaction
+  // machinery is needed, and the row replaces atomically with the record.
+  const checkpointRow = {
+    appKind: CONTAINER_METADATA_APP_KIND,
+    localId: containerId,
+    snapshot: record.metadataUpdates,
+    endVersionVector: snapshotEndVersion,
+    revision: updatedAt,
+    updatedAt,
+  };
+  await tx
+    .insert(documentHistoryCheckpoints)
+    .values(checkpointRow)
+    .onConflictDoUpdate({
+      target: [
+        documentHistoryCheckpoints.appKind,
+        documentHistoryCheckpoints.localId,
+      ],
+      set: checkpointRow,
+    })
+    .run();
 }
 
 async function saveContainerContentsContainerRows(input: {
   container: ContainerRecord;
   createIntent?: ContainerCreateIntentInput | undefined;
   moveIntent?: ContainerMoveIntentInput | undefined;
-  record: DocumentRecord | null;
+  record: ContainerMetadataRecord | null;
   tx: ClientSQLiteTransaction;
   localUpdatedAt: string;
   serverTimestamps?:
@@ -810,6 +862,24 @@ async function deleteLocalContainerRows(input: {
     )
     .run();
   await tx
+    .delete(documentHistoryCheckpoints)
+    .where(
+      and(
+        eq(documentHistoryCheckpoints.appKind, CONTAINER_METADATA_APP_KIND),
+        eq(documentHistoryCheckpoints.localId, containerId),
+      ),
+    )
+    .run();
+  await tx
+    .delete(documentHistoryUpdates)
+    .where(
+      and(
+        eq(documentHistoryUpdates.appKind, CONTAINER_METADATA_APP_KIND),
+        eq(documentHistoryUpdates.localId, containerId),
+      ),
+    )
+    .run();
+  await tx
     .delete(documentPendingUpdates)
     .where(
       and(
@@ -1199,14 +1269,37 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   },
   async loadContainers(execSql) {
     const containers = await loadContainerRecords(execSql);
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
     const storedContainers = await Promise.all(
-      containers.map(async (container) => ({
-        container,
-        record: await loadDocumentRecord(
+      containers.map(async (container) => {
+        const record = await loadDocumentRecord(
           execSql,
           getContainerMetadataScope(container.id),
-        ),
-      })),
+        );
+        if (!record) {
+          return { container, record: null };
+        }
+        const checkpointRows = await db
+          .select({ snapshot: documentHistoryCheckpoints.snapshot })
+          .from(documentHistoryCheckpoints)
+          .where(
+            and(
+              eq(
+                documentHistoryCheckpoints.appKind,
+                CONTAINER_METADATA_APP_KIND,
+              ),
+              eq(documentHistoryCheckpoints.localId, container.id),
+            ),
+          )
+          .limit(1);
+        return {
+          container,
+          record: {
+            ...record,
+            metadataUpdates: checkpointRows[0]?.snapshot ?? "",
+          },
+        };
+      }),
     );
 
     return storedContainers;

@@ -25,9 +25,9 @@ interface LoadedRootDocumentPrimeResult {
 
 // Documents that still NEED a store opened at prime time: local-only creates,
 // queued outbound updates/attachments, an outgoing-delta marker behind the
-// stored snapshot's end version (a deferred tail; encoding inequality
+// stored content frontier (a deferred tail; encoding inequality
 // over-approximates, which only re-primes a store the old behavior always
-// primed), or a never-hydrated snapshot (a freshly discovered share whose
+// primed), or a never-hydrated document (a freshly discovered share whose
 // content pull the primed lane performs). Fully-synced hydrated documents are
 // deliberately absent: priming exists to re-drive durable work, and opening a
 // store per settled document is what made a 1000-document boot a storm.

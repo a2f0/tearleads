@@ -15,7 +15,7 @@ export function mapSelectedDocumentRecord(
   const record: DocumentRecord = {
     id: row.id,
     documentId: row.documentId,
-    loroSnapshot: row.loroSnapshot,
+    snapshotEndVersion: row.snapshotEndVersion,
     accessEpoch: row.accessEpoch,
     effectiveAccessLevel: normalizeEffectiveAccessLevel(
       row.effectiveAccessLevel,
@@ -48,7 +48,7 @@ export async function loadDocumentRecord(
     .select({
       id: documents.localId,
       documentId: documents.documentId,
-      loroSnapshot: documents.loroSnapshot,
+      snapshotEndVersion: documents.snapshotEndVersion,
       accessEpoch: documents.accessEpoch,
       accessStateHash: documents.accessStateHash,
       effectiveAccessLevel: documents.effectiveAccessLevel,

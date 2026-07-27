@@ -18,7 +18,7 @@ test("loadDocumentInfo hides attachments unlinked before the detach flushes", as
       documentKind: "note",
       id: "local-document-1",
       lastCommitLsn: null,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: "local",
       title: "Local",
     });

@@ -1,5 +1,4 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { exportShallowSnapshot, getTextValue } from "@tearleads/loro";
+import { encodeVersionVector, getTextValue } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
@@ -44,7 +43,7 @@ export {
 // re-export keeps data internals out of the stores.
 export { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
 
-type DocumentContentState = Parameters<typeof exportShallowSnapshot>[0];
+type DocumentContentState = Parameters<typeof encodeVersionVector>[0];
 type NullableDocumentRuntimeField =
   | "accessStateHash"
   | "lastCommitLsn"
@@ -219,8 +218,10 @@ function buildStoredDocumentRecord(input: {
         currentRecord?.lastCommitLsn,
         documentIdChanged,
       ),
-      loroSnapshot:
-        patch.loroSnapshot ?? bytesToBase64(exportShallowSnapshot(currentDoc)),
+      // Content lives in the durable history (checkpoint + tail); the record
+      // persists only the content frontier for priming/coverage predicates.
+      snapshotEndVersion:
+        patch.snapshotEndVersion ?? encodeVersionVector(currentDoc),
       // Carry the outgoing-delta marker the store injects into the patch, so it
       // is persisted alongside the snapshot it describes. A patched value is
       // authoritative (including an explicit null); only an absent key falls

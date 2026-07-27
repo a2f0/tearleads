@@ -97,7 +97,8 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
         documentId: input.metadataDocumentId,
         id: input.id,
         lastCommitLsn: null,
-        loroSnapshot: bytesToBase64(initialUpdate),
+        metadataUpdates: bytesToBase64(initialUpdate),
+        snapshotEndVersion: "",
       },
       staleLocalUpdatedAt,
     );
@@ -312,7 +313,7 @@ test("explorer hydration reconciles a restored local-only root into the authenti
     documentManifestBundle: null,
     id: "local-note",
     lastCommitLsn: null,
-    loroSnapshot: "",
+    snapshotEndVersion: "",
     text: "Local note",
     title: "Local note",
   };

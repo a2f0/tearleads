@@ -1,12 +1,4 @@
-import { base64ToBytes } from "@tearleads/encoding";
-import {
-  createDocument,
-  exportAllUpdates,
-  importSnapshot,
-} from "@tearleads/loro";
 import { and, eq, or } from "drizzle-orm";
-import { createPendingUpdateFields } from "../../data/documentSync";
-import { getDocumentAttachments } from "../../data/documents/documentContent";
 import { ensureDocumentProjectionTables } from "../../data/sqlite/documentPersistence";
 import {
   organizationDataUsageCategories,
@@ -47,26 +39,13 @@ import {
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { runOrganizationPresentationReset } from "../organizations/organizationPresentationAccessState";
+import {
+  buildResetPlans,
+  type ResetAttachmentUpload,
+  type ResetDocumentUpdate,
+} from "./remoteResetPlans";
 
 const CONTAINER_CREATE_INTENT_TYPE = "container.create";
-
-interface ResetDocumentUpdate {
-  readonly appKind: string;
-  readonly localId: string;
-  readonly updateData: string;
-  readonly partialStartVersionVector: string;
-  readonly partialEndVersionVector: string;
-  readonly sourceVersionVector: string | null;
-}
-
-interface ResetAttachmentUpload {
-  readonly byteLength: number;
-  readonly localId: string;
-  readonly mimeType: string | null;
-  readonly name: string;
-  readonly slotId: string;
-  readonly storageKey: string;
-}
 
 interface ResetContainerRow {
   readonly id: string | null;
@@ -94,124 +73,6 @@ export interface ClearRemoteSyncStateResult {
   readonly queuedDocumentUpdateCount: number;
   readonly resetContainerCount: number;
   readonly resetDocumentCount: number;
-}
-
-async function buildResetUpdate(input: {
-  appKind: string;
-  localId: string;
-  loroSnapshot: string;
-}): Promise<ResetDocumentUpdate | null> {
-  const doc = await createDocument(
-    `remote-reset:${input.appKind}:${input.localId}`,
-  );
-  if (input.loroSnapshot.length > 0) {
-    importSnapshot(doc, base64ToBytes(input.loroSnapshot));
-  }
-
-  const fields = createPendingUpdateFields(exportAllUpdates(doc));
-  if (!fields) {
-    return null;
-  }
-
-  return {
-    appKind: input.appKind,
-    localId: input.localId,
-    updateData: fields.updateData,
-    partialStartVersionVector: fields.partialStartVersionVector,
-    partialEndVersionVector: fields.partialEndVersionVector,
-    sourceVersionVector: fields.sourceVersionVector ?? null,
-  };
-}
-
-async function buildDocumentAttachmentNameMap(input: {
-  localId: string;
-  loroSnapshot: string;
-}): Promise<Map<string, string>> {
-  const doc = await createDocument(`remote-reset-attachments:${input.localId}`);
-  if (input.loroSnapshot.length > 0) {
-    importSnapshot(doc, base64ToBytes(input.loroSnapshot));
-  }
-
-  return new Map(
-    getDocumentAttachments(doc).map((attachment) => [
-      attachment.slotId,
-      attachment.name,
-    ]),
-  );
-}
-
-async function buildResetPlans(execSql: ExecSql): Promise<{
-  readonly attachmentUploads: ResetAttachmentUpload[];
-  readonly documentUpdates: ResetDocumentUpdate[];
-}> {
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const documentRows = await db
-    .select({
-      appKind: documents.appKind,
-      localId: documents.localId,
-      loroSnapshot: documents.loroSnapshot,
-    })
-    .from(documents);
-  const attachmentRows = await db
-    .select({
-      byteLength: documentAttachmentBlobProjection.byteLength,
-      localId: documentAttachmentBlobProjection.localId,
-      mimeType: documentAttachmentBlobProjection.mimeType,
-      slotId: documentAttachmentBlobProjection.slotId,
-      storageKey: documentAttachmentBlobProjection.storageKey,
-    })
-    .from(documentAttachmentBlobProjection);
-  const documentByLocalId = new Map(
-    documentRows.map((row) => [row.localId, row]),
-  );
-  const documentUpdates = (
-    await Promise.all(documentRows.map((row) => buildResetUpdate(row)))
-  ).filter((row): row is ResetDocumentUpdate => row !== null);
-  const attachmentNameMaps = new Map<string, Map<string, string>>();
-  const attachmentLocalIds = [
-    ...new Set(attachmentRows.map((attachment) => attachment.localId)),
-  ];
-  await Promise.all(
-    attachmentLocalIds.map(async (localId) => {
-      const document = documentByLocalId.get(localId);
-      if (!document) {
-        return;
-      }
-      attachmentNameMaps.set(
-        localId,
-        await buildDocumentAttachmentNameMap(document),
-      );
-    }),
-  );
-
-  // A reset re-uploads the local attachments as pending work, and the durable
-  // document decides which rows those are: a row whose slot the snapshot no
-  // longer advertises belongs to an unlink, and re-queueing it would resurrect
-  // an attachment the document dropped. Reading the snapshot rather than the
-  // detach marker keeps the two halves of an interrupted unlink consistent —
-  // there the marker is set but the snapshot still advertises the slot, and the
-  // reset has to upload it to match the document it is about to republish.
-  const attachmentUploads = attachmentRows.flatMap((attachment) => {
-    const name = attachmentNameMaps
-      .get(attachment.localId)
-      ?.get(attachment.slotId);
-    if (name === undefined) {
-      return [];
-    }
-
-    return [
-      {
-        byteLength: attachment.byteLength,
-        localId: attachment.localId,
-        mimeType: attachment.mimeType,
-        name,
-        slotId: attachment.slotId,
-        storageKey: attachment.storageKey,
-      },
-    ];
-  });
-
-  return { attachmentUploads, documentUpdates };
 }
 
 async function readRemoteSyncStateSnapshot(
@@ -279,8 +140,8 @@ async function clearRemoteDerivedRows(
   await tx.delete(documentPendingUpdates).run();
   // documentHistoryCheckpoints / documentHistoryUpdates are deliberately
   // PRESERVED: they hold purely local Loro op history keyed by localId, which
-  // a remote reset does not invalidate — deleting them would strand every
-  // retained document on its shallow snapshot after the next restart.
+  // a remote reset does not invalidate — and they are the only durable content
+  // source, so deleting them would destroy every retained document's content.
   // Recorded terminal failures describe pre-reset attempts; the rebuilt queue
   // must not inherit them (nor keep the restore re-arm evidence gate armed).
   await tx.delete(documentSyncFailures).run();

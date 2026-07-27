@@ -3,6 +3,11 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+} from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
@@ -16,6 +21,7 @@ import {
   type ExecSqlClientLike,
   ensureSqlTables,
 } from "../../data/sqlite/sqlSchema";
+import { loadPersistedDocumentContent } from "../documents/historyContent";
 import { createOrganization } from "./createOrganization";
 import { listLocalOrganizations } from "./listLocalOrganizations";
 import { getOrganizationProfileDocumentLocalId } from "./organizationProfile";
@@ -28,6 +34,52 @@ function createClient(execSql: ExecSql): ExecSqlClientLike {
       };
     },
   };
+}
+
+// Re-key the provisioner-written organization profile document under its
+// server documentId, the way the sync ingest stores it on a device that only
+// synced it: move the record row AND its durable content (the history
+// checkpoint — the only persisted content source) to the new local id, then
+// drop the provisioner-only alias row (deleting it also deletes its history).
+async function rekeyProfileDocumentToServerId(input: {
+  containerId?: string;
+  execSql: ExecSql;
+  organizationId: string;
+}): Promise<{ documentId: string }> {
+  const aliasLocalId = getOrganizationProfileDocumentLocalId({
+    organizationId: input.organizationId,
+  });
+  const aliasRecord = await sqlDocumentsPersistence.loadDocument(
+    input.execSql,
+    aliasLocalId,
+  );
+  if (!aliasRecord?.documentId) {
+    throw new Error("Expected a persisted organization profile document");
+  }
+  const profileDoc = await loadPersistedDocumentContent({
+    execSql: input.execSql,
+    localId: aliasLocalId,
+    persistence: sqlDocumentsPersistence,
+  });
+  if (!profileDoc) {
+    throw new Error("Expected durable organization profile content");
+  }
+  await sqlDocumentsPersistence.saveDocument(input.execSql, {
+    ...aliasRecord,
+    ...(input.containerId === undefined
+      ? {}
+      : { containerId: input.containerId }),
+    id: aliasRecord.documentId,
+  });
+  await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(input.execSql, {
+    coveredTailIds: [],
+    endVersionVector: encodeVersionVector(profileDoc),
+    force: true,
+    localId: aliasRecord.documentId,
+    snapshot: bytesToBase64(exportFullHistorySnapshot(profileDoc)),
+  });
+  await sqlDocumentsPersistence.deleteDocument(input.execSql, aliasLocalId);
+  return { documentId: aliasRecord.documentId };
 }
 
 test("listLocalOrganizations returns one entry per provisioned org with its name", async () => {
@@ -150,26 +202,21 @@ test("listLocalOrganizations resolves a foreign org name from its metadata conta
     // Rewrite local state to mimic a member of *another* org who received the
     // exact same profile document purely by syncing the metadata container: the
     // sync ingest keys it under the server documentId, and the provisioner-only
-    // alias was never written on this device. Re-save the record under its
-    // documentId, then drop the alias row so ONLY the cross-org fallback
-    // (metadata container by system slot -> linked profile doc) can resolve it.
-    const aliasLocalId = getOrganizationProfileDocumentLocalId({
+    // alias was never written on this device. Re-key the record and its durable
+    // content under the documentId, then drop the alias row so ONLY the
+    // cross-org fallback (metadata container by system slot -> linked profile
+    // doc) can resolve it.
+    await rekeyProfileDocumentToServerId({
+      execSql,
       organizationId: org.organizationId,
     });
-    const aliasRecord = await sqlDocumentsPersistence.loadDocument(
-      execSql,
-      aliasLocalId,
-    );
-    if (!aliasRecord?.documentId) {
-      throw new Error("Expected a persisted organization profile document");
-    }
-    await sqlDocumentsPersistence.saveDocument(execSql, {
-      ...aliasRecord,
-      id: aliasRecord.documentId,
-    });
-    await sqlDocumentsPersistence.deleteDocument(execSql, aliasLocalId);
     expect(
-      await sqlDocumentsPersistence.loadDocument(execSql, aliasLocalId),
+      await sqlDocumentsPersistence.loadDocument(
+        execSql,
+        getOrganizationProfileDocumentLocalId({
+          organizationId: org.organizationId,
+        }),
+      ),
     ).toBeNull();
 
     const organizations = await listLocalOrganizations({ execSql });
@@ -207,22 +254,11 @@ test("listLocalOrganizations resolves an org name from the read model's profile 
     // org-manager profile editor produces when it binds the document to the
     // roster-profile container. Neither the provisioner-only alias nor the
     // metadata-container scan can reach it; only the read model's pointer can.
-    const aliasLocalId = getOrganizationProfileDocumentLocalId({
+    const { documentId } = await rekeyProfileDocumentToServerId({
+      containerId: "some-other-container",
+      execSql,
       organizationId: org.organizationId,
     });
-    const aliasRecord = await sqlDocumentsPersistence.loadDocument(
-      execSql,
-      aliasLocalId,
-    );
-    if (!aliasRecord?.documentId) {
-      throw new Error("Expected a persisted organization profile document");
-    }
-    await sqlDocumentsPersistence.saveDocument(execSql, {
-      ...aliasRecord,
-      containerId: "some-other-container",
-      id: aliasRecord.documentId,
-    });
-    await sqlDocumentsPersistence.deleteDocument(execSql, aliasLocalId);
 
     await ensureSqlTables(execSql, organizationReadModelTables);
     await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
@@ -230,7 +266,7 @@ test("listLocalOrganizations resolves an org name from the read model's profile 
         organizationId: org.organizationId,
         protocolVersion: ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
         cursor: "opaque-cursor",
-        profileDocumentId: aliasRecord.documentId,
+        profileDocumentId: documentId,
         memberGroupId: "members-group",
         updatedAt: "2026-07-01T00:00:00.000Z",
       });
@@ -268,22 +304,11 @@ test("listLocalOrganizations ignores a profile pointer written by an older read-
     // Rows from a superseded protocol version survive until a projection load
     // validates and purges them. This read runs outside that path, so it must
     // skip them rather than resolve a name through their stale pointer.
-    const aliasLocalId = getOrganizationProfileDocumentLocalId({
+    const { documentId } = await rekeyProfileDocumentToServerId({
+      containerId: "some-other-container",
+      execSql,
       organizationId: org.organizationId,
     });
-    const aliasRecord = await sqlDocumentsPersistence.loadDocument(
-      execSql,
-      aliasLocalId,
-    );
-    if (!aliasRecord?.documentId) {
-      throw new Error("Expected a persisted organization profile document");
-    }
-    await sqlDocumentsPersistence.saveDocument(execSql, {
-      ...aliasRecord,
-      containerId: "some-other-container",
-      id: aliasRecord.documentId,
-    });
-    await sqlDocumentsPersistence.deleteDocument(execSql, aliasLocalId);
 
     await ensureSqlTables(execSql, organizationReadModelTables);
     await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
@@ -291,7 +316,7 @@ test("listLocalOrganizations ignores a profile pointer written by an older read-
         organizationId: org.organizationId,
         protocolVersion: ORGANIZATION_READ_MODEL_PROTOCOL_VERSION - 1,
         cursor: "opaque-cursor",
-        profileDocumentId: aliasRecord.documentId,
+        profileDocumentId: documentId,
         memberGroupId: "members-group",
         updatedAt: "2026-07-01T00:00:00.000Z",
       });
@@ -376,9 +401,14 @@ test("listLocalOrganizations tolerates a corrupt organization profile", async ()
     if (!record) {
       throw new Error("Expected the organization profile document");
     }
-    await sqlDocumentsPersistence.saveDocument(execSql, {
-      ...record,
-      loroSnapshot: "not-a-valid-loro-snapshot",
+    // Content lives only in the durable history: corrupt the checkpoint blob
+    // the name lookup restores from.
+    await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
+      coveredTailIds: [],
+      endVersionVector: record.snapshotEndVersion,
+      force: true,
+      localId,
+      snapshot: "not-a-valid-loro-snapshot",
     });
 
     const organizations = await listLocalOrganizations({ execSql });

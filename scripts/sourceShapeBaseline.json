@@ -237,6 +237,10 @@
       "lines": 508,
       "bytes": 16510
     },
+    "packages/app/src/stores/explorer/ExplorerProvider.syncAgent.test.ts": {
+      "lines": 503,
+      "bytes": 14866
+    },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 1023,
       "bytes": 30269
@@ -274,12 +278,12 @@
       "bytes": 39373
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
-      "lines": 1378,
-      "bytes": 43292
+      "lines": 1422,
+      "bytes": 45103
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
       "lines": 928,
-      "bytes": 30379
+      "bytes": 30391
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 876,
@@ -299,7 +303,7 @@
     },
     "packages/client-sdk/src/stores/documents/documentStore/discard.test.ts": {
       "lines": 547,
-      "bytes": 18860
+      "bytes": 18887
     },
     "packages/client-sdk/src/stores/documents/documentStore/initialization.ts": {
       "lines": 568,
@@ -326,12 +330,12 @@
       "bytes": 30465
     },
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
-      "lines": 599,
-      "bytes": 18343
+      "lines": 615,
+      "bytes": 18571
     },
     "packages/client-sdk/src/workflows/container-contents/documentMoveIntentSync.test.ts": {
-      "lines": 574,
-      "bytes": 20411
+      "lines": 575,
+      "bytes": 20468
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
       "lines": 590,
@@ -374,8 +378,8 @@
       "bytes": 32402
     },
     "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts": {
-      "lines": 516,
-      "bytes": 18231
+      "lines": 536,
+      "bytes": 18762
     },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
       "lines": 1105,

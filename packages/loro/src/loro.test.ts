@@ -3,9 +3,7 @@ import {
   createDocument,
   derivePeerId,
   encodeVersionVector,
-  exportAllUpdates,
   exportFullHistorySnapshot,
-  exportShallowSnapshot,
   exportUpdatesSince,
   getTextValue,
   getUpdateVersionVectors,
@@ -67,42 +65,18 @@ test("listVersionVectorSpans extracts changed peer counter ranges", async () => 
   );
 });
 
-test("shallow snapshot round-trips state but stays bounded by state, not history", async () => {
-  const doc = await createDocument("author-seed");
-  const text = doc.getText("text");
-  // Churn: accumulate lots of history while the final state stays tiny.
-  for (let i = 0; i < 500; i++) {
-    text.insert(text.length, "scratch ");
-    doc.commit();
-    text.delete(text.length - 8, 8);
-    doc.commit();
-  }
-  text.insert(0, "kept");
-  doc.commit();
-
-  const full = exportAllUpdates(doc);
-  const shallow = exportShallowSnapshot(doc);
-  // History dwarfs state, so the shallow snapshot is dramatically smaller.
-  expect(shallow.length).toBeLessThan(full.length / 5);
-
-  const reloaded = await createDocument("author-seed");
-  importSnapshot(reloaded, shallow);
-  expect(getTextValue(reloaded)).toBe("kept");
-  expect(encodeVersionVector(reloaded)).toBe(encodeVersionVector(doc));
-});
-
-test("a peer delta applies on top of a reloaded shallow snapshot", async () => {
+test("a peer delta applies on top of a reloaded snapshot", async () => {
   const author = await createDocument("author-seed");
   author.getText("text").insert(0, "base");
   author.commit();
 
-  // Reader reconstructs from the shallow snapshot (single import, not batch).
+  // Reader reconstructs from the snapshot (single import, not batch).
   const reader = await createDocument("reader-seed");
-  importSnapshot(reader, exportShallowSnapshot(author));
+  importSnapshot(reader, exportFullHistorySnapshot(author));
   expect(getTextValue(reader)).toBe("base");
 
-  // The author keeps editing; the delta since the snapshot still merges cleanly,
-  // proving trimmed history below the cut does not break forward convergence.
+  // The author keeps editing; the delta since the snapshot still merges
+  // cleanly.
   const since = encodeVersionVector(reader);
   author.getText("text").insert(4, "+more");
   author.commit();
@@ -129,15 +103,21 @@ test("a full-history rotation checkpoint merges concurrent edits into a behind d
   expect(getTextValue(behind)).toContain(" remote");
 });
 
-test("full-history rotation export fails closed after a shallow restart", async () => {
-  const author = await createDocument("shallow-rotation-author");
+test("full-history export fails closed on a history-trimmed document", async () => {
+  const author = await createDocument("trimmed-rotation-author");
   author.getText("text").update("hello before rotation");
   author.commit();
-  const restarted = await createDocument("shallow-rotation-author");
-  importSnapshot(restarted, exportShallowSnapshot(author));
+  // The wrapper no longer produces history-trimmed blobs, but a foreign or
+  // legacy source still can — go through the raw loro-crdt export to prove
+  // the exporter refuses to launder one into a "full history" snapshot.
+  const restarted = await createDocument("trimmed-rotation-author");
+  importSnapshot(
+    restarted,
+    author.export({ frontiers: author.frontiers(), mode: "shallow-snapshot" }),
+  );
 
   expect(() => exportFullHistorySnapshot(restarted)).toThrow(
-    "shallow-restored state must be reconstructed before key rotation",
+    "restored from an incomplete source",
   );
 });
 
@@ -145,10 +125,12 @@ test("importUpdates rejects a dependency-bearing update", async () => {
   const author = await createDocument("pending-author");
   author.getText("text").update("hello");
   author.commit();
+  const base = encodeVersionVector(author);
+  author.getText("text").insert(5, " world");
+  author.commit();
 
-  const restarted = await createDocument("pending-author");
-  importSnapshot(restarted, exportShallowSnapshot(author));
-  const dependencyBearingUpdate = exportAllUpdates(restarted);
+  // The delta since `base` depends on ops a newcomer has never seen.
+  const dependencyBearingUpdate = exportUpdatesSince(author, base);
   const newcomer = await createDocument("pending-newcomer");
 
   expect(() => importUpdates(newcomer, [dependencyBearingUpdate])).toThrow(
@@ -206,7 +188,7 @@ test("listTextCharOpIds yields one op id per code point for astral characters", 
   );
 });
 
-test("listSnapshotCharOpIds reconstructs op ids from a shallow snapshot", async () => {
+test("listSnapshotCharOpIds reconstructs op ids from a persisted snapshot", async () => {
   const alice = await createDocument("alice-seed");
   const bob = await createDocument("bob-seed");
   const alicePeer = await derivePeerId("alice-seed");
@@ -218,10 +200,9 @@ test("listSnapshotCharOpIds reconstructs op ids from a shallow snapshot", async 
   bob.getText("text").insert(2, "XY");
   bob.commit();
 
-  // A persisted shallow snapshot trims history but keeps current state, so reading
-  // blame off a rebuilt doc must match reading it off the live doc — including the
-  // original per-peer authorship of every surviving character.
-  const snapshot = exportShallowSnapshot(bob);
+  // Reading blame off a rebuilt doc must match reading it off the live doc —
+  // including the original per-peer authorship of every surviving character.
+  const snapshot = exportFullHistorySnapshot(bob);
   const opIds = listSnapshotCharOpIds(snapshot, 100);
   expect(opIds).toEqual(listTextCharOpIds(bob));
   expect(opIds).toEqual([
@@ -249,7 +230,7 @@ test("listSnapshotCharBlameSource returns aligned code points and op ids", async
   bob.getText("text").insert(2, "XY");
   bob.commit();
 
-  const snapshot = exportShallowSnapshot(bob);
+  const snapshot = exportFullHistorySnapshot(bob);
   const source = listSnapshotCharBlameSource(snapshot, 100);
   // The code points reconstruct the current prose, one entry per op id, so the
   // per-range blame view can render the text it blames from a single pass.
@@ -284,9 +265,9 @@ test("listSnapshotFieldEditors names the last editor of each field", async () =>
   bob.getMap("fields").set("lastName", "Byron");
   bob.commit();
 
-  // Reads identically off a rebuilt shallow snapshot as off the live doc.
+  // Reads identically off a rebuilt snapshot as off the live doc.
   expect(
-    listSnapshotFieldEditors(exportShallowSnapshot(bob), "fields"),
+    listSnapshotFieldEditors(exportFullHistorySnapshot(bob), "fields"),
   ).toEqual([
     { key: "firstName", peerId: alicePeer },
     { key: "lastName", peerId: bobPeer },
@@ -298,6 +279,6 @@ test("listSnapshotFieldEditors returns an empty array when the map is absent", a
   doc.getText("text").update("just prose");
   doc.commit();
   expect(
-    listSnapshotFieldEditors(exportShallowSnapshot(doc), "fields"),
+    listSnapshotFieldEditors(exportFullHistorySnapshot(doc), "fields"),
   ).toEqual([]);
 });

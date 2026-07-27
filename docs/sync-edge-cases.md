@@ -58,7 +58,7 @@ without counting as lane progress, so it cannot hot-loop the pump.
 | 9 | 403 on a read-only pull | Suppressed on purpose — never flags unattempted local edits. | working as designed |
 | 10 | 409 `document_sync_state_stale` | In-pass retry with a fresh projection, bounded. | working as designed |
 | 11 | 409 `update_id_conflict` | In-pass re-key recovery, bounded at 5 durable attempts, then a synthetic terminal failure. The write queue's "Retry sync" resets the durable budget (a deliberate tap is the rate-limited signal that conditions changed). | working as designed |
-| 12 | Stale content-key bundle with pending edits and shallow local history | Heal, full-history rebuild from historical KEK epochs, re-heal (see PR #1816). | working as designed |
+| 12 | Stale content-key bundle with pending edits | Heal: rotate to a fresh content key anchored by a full-history rotation baseline exported from the durable local history (checkpoint + tail), which every document retains. | working as designed |
 | 13 | Uncoded 409 on read-only revalidation (e.g. writer-projection route remaps container 404s and KEK failures to bare 409s) | Burns one request per trigger, emits only a trace line, records nothing durable; the document silently never revalidates. | defect — needs a durable surface and error codes on the projection route (deferred to its own PR) |
 | 14 | Container-metadata sync hitting stale-keying errors | Classified, deferred with a log line, retried next trigger. | working as designed |
 | 15 | Move replay: link succeeds, unlink fails | Document linked to both containers, `"partially applied; retry required"`, retried on the next trigger, excluded from lane progress so it cannot hot-loop. | working as designed |

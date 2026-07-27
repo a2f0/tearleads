@@ -245,7 +245,7 @@ test("moveDocumentLink queues synced document moves and applies the local projec
       documentManifestBundle: null,
       id: "note-1",
       lastCommitLsn: null,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: "",
       title: "Queued move note",
     });

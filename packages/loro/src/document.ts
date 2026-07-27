@@ -75,23 +75,12 @@ export function exportAllUpdates(doc: LoroDoc): Uint8Array {
 }
 
 /**
- * Export a mergeable, full-history checkpoint for key rotation.
- *
- * Loro silently preserves a shallow boundary when a document was restored from
- * a shallow snapshot, even when `mode: "snapshot"` is requested. Such a blob is
- * only useful for an empty reader and cannot safely merge concurrent frontiers,
- * so reject it rather than publishing a destructive-compaction checkpoint.
+ * Export a mergeable, full-history snapshot — the only snapshot form this
+ * codebase produces. Every document is born with full durable history and
+ * restored from it, so a partial (gc'd) export here is an invariant
+ * violation, not a state to accommodate; fail loudly instead of publishing a
+ * blob that could not safely merge concurrent frontiers.
  */
-/**
- * Whether the document was restored from a shallow snapshot (its op history
- * below the gc boundary is gone). Cheap — use it to skip work that would
- * otherwise pay for a full-history export attempt or a table scan just to
- * discover the export must fail.
- */
-export function isShallowDocument(doc: LoroDoc): boolean {
-  return doc.isShallow();
-}
-
 export function exportFullHistorySnapshot(doc: LoroDoc): Uint8Array {
   const snapshot = doc.export({ mode: "snapshot" });
   const metadata = getImportBlobMetadata(snapshot);
@@ -103,25 +92,10 @@ export function exportFullHistorySnapshot(doc: LoroDoc): Uint8Array {
     )
   ) {
     throw new Error(
-      "Rotation requires a full-history document; shallow-restored state must be reconstructed before key rotation",
+      "Document export lost full history; this document was restored from an incomplete source",
     );
   }
   return snapshot;
-}
-
-/**
- * Export a state-only shallow snapshot at the current frontier: history before
- * "now" is trimmed, so the blob is bounded by document STATE rather than by the
- * full op history. Use this for the LOCAL persisted snapshot (it stays an order
- * of magnitude smaller and stops growing per keystroke). Never put a shallow
- * snapshot on the wire — peers reconstruct from updates, and it carries no
- * replayable history below the cut.
- */
-export function exportShallowSnapshot(doc: LoroDoc): Uint8Array {
-  return doc.export({
-    mode: "shallow-snapshot",
-    frontiers: doc.oplogFrontiers(),
-  });
 }
 
 export function exportUpdatesSince(
@@ -295,13 +269,10 @@ export function importUpdates(doc: LoroDoc, updates: Uint8Array[]): void {
 }
 
 /**
- * Load a (possibly shallow) snapshot blob into a document. Snapshots MUST go
- * through a single `import()`, never `importBatch()`. A shallow snapshot is
- * independently replayable into an empty document, but cannot fill a non-empty
- * document that is behind its trimmed frontier. Callers handling a behind peer
- * must rebuild into an empty document and reapply uncovered local deltas. A
- * non-empty `pending` means the import target is incompatible or dependencies
- * are missing, so fail loudly instead of silently loading a short document.
+ * Load a snapshot blob into a document. Snapshots MUST go through a single
+ * `import()`, never `importBatch()`. A non-empty `pending` means the import
+ * target is incompatible or dependencies are missing, so fail loudly instead
+ * of silently loading a short document.
  */
 export function importSnapshot(doc: LoroDoc, snapshot: Uint8Array): void {
   const status = doc.import(snapshot);
@@ -384,10 +355,9 @@ export function listTextCharOpIds(doc: LoroDoc, key = "text"): TextCharOpId[] {
 
 /**
  * {@link listTextCharOpIds} for a persisted snapshot blob, without opening an
- * editor: rebuilds a throwaway read-only `LoroDoc` from the (possibly shallow)
- * snapshot and reads each character's op id. A shallow snapshot trims op history
- * but preserves the inserting op id of every character still present, so blame is
- * exact. The doc is only read, never edited, so no peer id is set.
+ * editor: rebuilds a throwaway read-only `LoroDoc` from the snapshot and reads
+ * each character's op id, so blame is exact. The doc is only read, never
+ * edited, so no peer id is set.
  *
  * Extraction is linear: `getCursor()` is an O(log n) b-tree lookup per code
  * point (measured ~1.8µs/char — ~90ms for a 50k-char snapshot, flat per char and
@@ -442,8 +412,8 @@ export interface FieldEditor {
  * for a persisted snapshot, name the peer that last wrote each key of a LoroMap
  * (the document's `fields` map). Structured documents (contacts, cards, licenses)
  * store each field as a `LoroMap` entry — a last-writer-wins register that keeps
- * the setting op's peer, which `getLastEditor` reads and a shallow snapshot
- * preserves. That peer resolves to a writer via the same attribution segments,
+ * the setting op's peer, which `getLastEditor` reads. That peer resolves to a
+ * writer via the same attribution segments,
  * giving per-field "blame". Fields carry only the peer (no op counter), so
  * resolution is peer-level. A note (or any document without this map) yields an
  * empty array. Reconstructing the small map is cheap, so there is no size cap.

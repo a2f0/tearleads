@@ -6,10 +6,7 @@ import {
 } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createLargeText } from "@tearleads/test-utils";
-import {
-  cloneDocumentsTestRuntime,
-  createPersistedDocumentSnapshot,
-} from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
+import { cloneDocumentsTestRuntime } from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
 import {
   createDocumentsPersistence,
   isPendingUpdateDetailRow,
@@ -91,7 +88,7 @@ test("document store clears document state when access epoch changes", async () 
     documentId: "remote-document",
     id: "epoch-note",
     lastCommitLsn: "0/10",
-    loroSnapshot: await createPersistedDocumentSnapshot("Existing note"),
+    snapshotEndVersion: "",
     text: "Existing note",
     contentKeyBundle: "stale-content-key-bundle",
     documentKekTargets: "stale-kek-targets",

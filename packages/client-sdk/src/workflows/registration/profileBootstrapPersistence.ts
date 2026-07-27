@@ -46,7 +46,6 @@ export function buildOrganizationProfileBootstrapInput(
     localId: getOrganizationProfileDocumentLocalId({
       organizationId: input.response.organizationId,
     }),
-    snapshot: input.snapshot,
   };
 }
 

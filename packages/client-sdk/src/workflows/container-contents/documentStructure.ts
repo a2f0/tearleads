@@ -285,8 +285,8 @@ export async function removeDocumentLink<TRuntime>(params: {
   }
 
   // Unlink rotates the document content key. Prove locally that a mergeable
-  // full-history checkpoint can be emitted before publishing the new epoch;
-  // shallow-restored documents fail here while the remote state is untouched.
+  // full-history checkpoint can be emitted before publishing the new epoch,
+  // so a failed preflight leaves the remote state untouched.
   const rotationSnapshot =
     await currentDocumentStore.assertCanRotateContentKey();
 

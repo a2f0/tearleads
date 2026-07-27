@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
-  exportShallowSnapshot,
   exportUpdatesSince,
   getTextValue,
   satisfiesVersionVector,
@@ -54,8 +52,8 @@ async function createCoverageFixture(name: string, queueUpdate: boolean) {
     documentManifestBundle: "{}",
     id: localId,
     lastCommitLsn: "1",
-    loroSnapshot: bytesToBase64(exportShallowSnapshot(document)),
     pendingBaseVersion: baseVersion,
+    snapshotEndVersion: documentVersion,
     text: getTextValue(document),
   });
   if (queueUpdate) {

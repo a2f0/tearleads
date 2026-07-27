@@ -1,10 +1,5 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
-import {
-  createDocument,
-  encodeVersionVector,
-  exportShallowSnapshot,
-} from "@tearleads/loro";
+import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
@@ -40,6 +35,7 @@ async function saveSettledTestDocument(input: {
   const settledDoc = await createDocument(input.seed);
   settledDoc.getText("text").update("settled");
   settledDoc.commit();
+  const settledVersion = encodeVersionVector(settledDoc);
   await sqlDocumentsPersistence.saveDocument(
     input.execSql,
     {
@@ -48,8 +44,8 @@ async function saveSettledTestDocument(input: {
       documentId: `remote-${input.id}`,
       documentKind: "note",
       id: input.id,
-      loroSnapshot: bytesToBase64(exportShallowSnapshot(settledDoc)),
-      pendingBaseVersion: encodeVersionVector(settledDoc),
+      pendingBaseVersion: settledVersion,
+      snapshotEndVersion: settledVersion,
       text: "settled",
       title: "Settled",
     },

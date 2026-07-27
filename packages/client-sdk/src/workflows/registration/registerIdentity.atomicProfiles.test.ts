@@ -4,11 +4,9 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
-  importSnapshot,
   importUpdates,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
@@ -24,6 +22,7 @@ import { decryptDocumentSyncUpdates } from "../../data/documents/shared/crypto";
 import { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import { loadPersistedDocumentContent } from "../documents/historyContent";
 import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import { getRosterProfileDocumentLocalId } from "../organizations/rosterProfileContainer";
 import {
@@ -74,12 +73,21 @@ async function expectSettledProfile(input: {
     throw new Error(`Expected persisted profile ${input.localId}`);
   }
 
-  const document = await createDocument(`settled-${input.localId}`);
-  importSnapshot(document, base64ToBytes(stored.loroSnapshot));
+  // Content is persisted only in the durable history (checkpoint + tail); the
+  // record row carries the content frontier the bootstrap derived from it.
+  const document = await loadPersistedDocumentContent({
+    execSql: input.execSql,
+    localId: input.localId,
+    persistence: sqlDocumentsPersistence,
+  });
+  if (!document) {
+    throw new Error(`Expected durable profile content ${input.localId}`);
+  }
   const expectedVersionVector = input.request.initialSync.localVersionVector;
   if (expectedVersionVector === null) {
     throw new Error("Expected profile version vector");
   }
+  expect(stored.snapshotEndVersion).toBe(expectedVersionVector);
   expect(encodeVersionVector(document)).toBe(expectedVersionVector);
   expect(readStoredDocumentState(document).structuredFields).toEqual(
     expect.objectContaining(input.expectedFields),

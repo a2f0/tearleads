@@ -32,7 +32,7 @@ test("Notes 'Move to Trash' relinks the note into Trash instead of destroying it
       documentManifestBundle: null,
       id: NOTE_ID,
       lastCommitLsn: null,
-      loroSnapshot: "",
+      snapshotEndVersion: "",
       text: "First note",
       title: "First note",
     });

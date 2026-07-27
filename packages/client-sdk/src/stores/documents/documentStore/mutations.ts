@@ -281,13 +281,13 @@ function queueDocumentStructuredFieldWrite(
         return;
       }
       if (options.deferRemoteSync) {
-        // A deferred write persists the snapshot AHEAD of the outgoing queue
-        // (the op is re-derived by the next edit). Keep the durable-history
-        // tail covering it too, or the next restart's full-history restore
-        // would lag the shallow snapshot and fall back. Appended AFTER the
-        // persist so this write adds no await before it (an extra pre-persist
-        // hop changes cross-store interleaving); a crash in between falls
-        // back to the shallow restore until the next edit re-derives it.
+        // A deferred write advances the record's content frontier AHEAD of
+        // the outgoing queue (the op is re-derived by the next edit). Keep
+        // the durable-history tail covering it too, or the next restart's
+        // restore would miss the op entirely. Appended AFTER the persist so
+        // this write adds no await before it (an extra pre-persist hop
+        // changes cross-store interleaving); a crash in between loses only
+        // this op's durability until the next edit re-derives it.
         await state.persistence.appendHistoryUpdates?.(
           state.runtime.infra.execSql,
           { localId: state.localId, updates: [bytesToBase64(update)] },

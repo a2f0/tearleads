@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createDocument,
   encodeVersionVector,
-  exportShallowSnapshot,
+  exportFullHistorySnapshot,
   exportUpdatesSince,
   importSnapshot,
   importUpdates,
@@ -136,17 +136,17 @@ test("concurrent edits to different rows merge without clobbering", async () => 
   expect(sameDocumentRows(aliceRows, bobRows)).toBe(true);
 });
 
-test("updatedByPeer records the writer's peer and survives shallow reload", async () => {
+test("updatedByPeer records the writer's peer and survives snapshot reload", async () => {
   const doc = await createDocument("rows-peer");
   addDocumentRow(doc, "row-1", { systolic: "120" }, AUTHOR);
 
   const [row] = listDocumentRows(doc);
   expect(row?.updatedByPeer).toBe(doc.peerIdStr);
 
-  // The last-editor register must survive the store's shallow-snapshot persist
-  // cycle, since rows always reload from a shallow snapshot.
+  // The last-editor register must survive the store's persist cycle, since
+  // rows always reload from the durable-history checkpoint snapshot.
   const reloaded = await createDocument("rows-peer-reload");
-  importSnapshot(reloaded, exportShallowSnapshot(doc));
+  importSnapshot(reloaded, exportFullHistorySnapshot(doc));
   const [reloadedRow] = listDocumentRows(reloaded);
   expect(reloadedRow?.updatedByPeer).toBe(doc.peerIdStr);
 });

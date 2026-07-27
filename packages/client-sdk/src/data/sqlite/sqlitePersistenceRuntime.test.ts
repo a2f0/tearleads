@@ -72,7 +72,7 @@ test("client SQLite persistence runtime maps Drizzle select rows from array mode
         .values({
           appKind: "documents",
           localId: "local-document-1",
-          loroSnapshot: "snapshot-1",
+          snapshotEndVersion: "end-version-1",
           updatedAt: "2026-05-04T00:00:00.000Z",
         })
         .run();
@@ -81,7 +81,7 @@ test("client SQLite persistence runtime maps Drizzle select rows from array mode
     const rows = await runtime.db
       .select({
         localId: documents.localId,
-        snapshot: documents.loroSnapshot,
+        snapshotEndVersion: documents.snapshotEndVersion,
       })
       .from(documents)
       .where(eq(documents.localId, "local-document-1"));
@@ -89,7 +89,7 @@ test("client SQLite persistence runtime maps Drizzle select rows from array mode
     expect(rows).toEqual([
       {
         localId: "local-document-1",
-        snapshot: "snapshot-1",
+        snapshotEndVersion: "end-version-1",
       },
     ]);
   } finally {

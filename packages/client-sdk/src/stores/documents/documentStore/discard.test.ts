@@ -79,8 +79,8 @@ async function saveSyncedDocumentRecord(
     documentManifestBundle: "manifest-bundle",
     effectiveAccessLevel: "admin",
     lastCommitLsn: "42",
-    loroSnapshot: "synced-snapshot-bytes",
     pendingBaseVersion: "base-version",
+    snapshotEndVersion: "synced-end-version",
     text: "hello",
     title: "Stuck note",
   });
@@ -149,7 +149,7 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
     expect(shell?.documentId).toBe("remote-doc");
     expect(shell?.containerId).toBe("folder-a");
     expect(shell?.title).toBe("Stuck note");
-    expect(shell?.loroSnapshot).toBe("");
+    expect(shell?.snapshotEndVersion).toBe("");
     expect(shell?.pendingBaseVersion ?? null).toBeNull();
     expect(shell?.contentKeyBundle ?? null).toBeNull();
     expect(shell?.lastCommitLsn ?? null).toBeNull();
@@ -188,7 +188,7 @@ test("discard refuses a local-only document whose queue is its only copy", async
     );
 
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
-    expect(record?.loroSnapshot).toBe("synced-snapshot-bytes");
+    expect(record?.snapshotEndVersion).toBe("synced-end-version");
     expect(
       await listDocumentPendingUpdates(execSql, {
         appKind: DOCUMENTS_APP_KIND,
@@ -316,7 +316,7 @@ test("discard refuses a document with a queued move intent", async () => {
     );
 
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
-    expect(record?.loroSnapshot).toBe("synced-snapshot-bytes");
+    expect(record?.snapshotEndVersion).toBe("synced-end-version");
     expect(
       await listDocumentPendingUpdates(execSql, {
         appKind: DOCUMENTS_APP_KIND,
@@ -361,7 +361,7 @@ test("a failing byte store cannot fail the discard once rows committed", async (
     );
     expect(deleteAttempts).toBeGreaterThan(1);
     const shell = await sqlDocumentsPersistence.loadDocument(execSql, localId);
-    expect(shell?.loroSnapshot).toBe("");
+    expect(shell?.snapshotEndVersion).toBe("");
     expect(
       await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),
     ).toEqual([]);
@@ -385,7 +385,7 @@ test("discard refuses when the persisted identity is not the expected one", asyn
     ).toBe(false);
 
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
-    expect(record?.loroSnapshot).toBe("synced-snapshot-bytes");
+    expect(record?.snapshotEndVersion).toBe("synced-end-version");
     expect(state.initialized).toBe(true);
   } finally {
     close();
@@ -540,7 +540,7 @@ test("discard refuses a document with no container to anchor the shell", async (
     );
 
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
-    expect(record?.loroSnapshot).toBe("synced-snapshot-bytes");
+    expect(record?.snapshotEndVersion).toBe("synced-end-version");
   } finally {
     close();
   }

@@ -4,7 +4,6 @@ import {
   exportFullHistorySnapshot,
   exportUpdatesSince,
   getImportBlobMetadata,
-  isShallowDocument,
   satisfiesVersionVector,
 } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
@@ -202,9 +201,9 @@ export async function persistDocument(
       ? state.snapshot.structuredFields
       : undefined,
   );
-  // Compaction never fails the persist that triggered it: durable history is
-  // a resilience feature, and a failed export (e.g. a legacy shallow-restored
-  // document) simply keeps the tail growing until a rebuild re-enables it.
+  // Compaction never fails the persist that triggered it: an unexpected
+  // compaction error simply keeps the tail growing until a later pass
+  // succeeds, and the content stays durable either way.
   try {
     await maybeCompactDocumentHistory(state, currentDoc);
   } catch (error) {
@@ -235,13 +234,6 @@ async function maybeCompactDocumentHistory(
   ) {
     return;
   }
-  // Legacy shallow-restored documents cannot export full history; bail
-  // before ANY tail reads so their ever-growing tail is never scanned per
-  // persist (a rebuild or recovery re-enables compaction by installing a
-  // full-history document).
-  if (isShallowDocument(currentDoc)) {
-    return;
-  }
   // Bind this compaction to the store context it started under: a store
   // reset or runtime swap mid-compaction must not let the OLD document's
   // checkpoint overwrite the replacement generation's history (or land in a
@@ -268,14 +260,7 @@ async function maybeCompactDocumentHistory(
     execSql,
     state.localId,
   );
-  let snapshot: Uint8Array;
-  try {
-    snapshot = exportFullHistorySnapshot(currentDoc);
-  } catch {
-    // Legacy shallow-restored document: full history is not exportable until
-    // a history recovery or rotation rebuild installs a full document.
-    return;
-  }
+  const snapshot = exportFullHistorySnapshot(currentDoc);
   if (!isSyncGenerationCurrent(state, generation)) {
     return;
   }

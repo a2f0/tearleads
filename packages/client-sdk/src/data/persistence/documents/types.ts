@@ -155,9 +155,9 @@ export interface DocumentsPersistence {
     },
   ) => Promise<string>;
   /**
-   * Durable full-history support (checkpoint + append-only tail). Optional:
-   * implementations that omit these (e.g. container metadata, simple test
-   * doubles) simply keep the legacy shallow-snapshot-only behavior.
+   * Durable full-history support (checkpoint + append-only tail) — the only
+   * persisted content source. Optional so simple test doubles can omit them;
+   * a document persisted without a checkpoint reopens empty.
    */
   appendHistoryUpdates?: (
     execSql: ExecSql,

@@ -26,7 +26,8 @@ async function createContainerState(
       documentManifestBundle: null,
       id: input.id,
       lastCommitLsn: null,
-      loroSnapshot: "",
+      metadataUpdates: "",
+      snapshotEndVersion: "",
     },
   };
 }

@@ -17,15 +17,15 @@ import {
  * a note (or any document without fields) yields an empty array, not null.
  */
 export function computeFieldBlame(
-  loroSnapshot: string | null,
+  contentSnapshot: string | null,
   segments: DocumentEditAttributionResponse["segments"],
 ): DocumentFieldBlame[] | null {
-  if (!loroSnapshot || loroSnapshot.length === 0) {
+  if (!contentSnapshot || contentSnapshot.length === 0) {
     return null;
   }
   try {
     const fieldEditors = listSnapshotFieldEditors(
-      base64ToBytes(loroSnapshot),
+      base64ToBytes(contentSnapshot),
       DOCUMENT_FIELDS_MAP_KEY,
     );
     return summarizeFieldBlame(fieldEditors, segments);

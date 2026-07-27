@@ -178,30 +178,6 @@ test("the tail compacts into a fresh checkpoint past the row threshold", async (
   }
 });
 
-test("a legacy shallow-only row keeps its behavior and a deferred edit wins over the checkpoint", async () => {
-  const { close, execSql } = await createTestExecSql("history-fallbacks");
-  try {
-    await sqlDocumentsPersistence.ensureSchema(execSql);
-
-    // Deferred-edit safety valve: persist a snapshot AHEAD of the durable
-    // queue/tail (deferRemoteSync shape). The restore must prefer the shallow
-    // snapshot over the (lagging) checkpoint+tail — losing the deferred edit
-    // would drop user data.
-    const state = await openStore(execSql, "deferred-doc");
-    await setDocumentText(state, () => undefined, "enqueued edit");
-    if (!state.doc) throw new Error("expected live doc");
-    state.doc.getText("text").update("enqueued edit plus deferred");
-    state.doc.commit();
-    await persistDocument(state, state.doc);
-
-    const reopened = await openStore(execSql, "deferred-doc");
-    if (!reopened.doc) throw new Error("expected restored doc");
-    expect(getTextValue(reopened.doc)).toBe("enqueued edit plus deferred");
-  } finally {
-    close();
-  }
-});
-
 test("compaction preserves cross-pane tail rows its document does not cover", async () => {
   const { close, execSql } = await createTestExecSql("history-cross-pane");
   try {
@@ -268,7 +244,7 @@ test("a deferred write covered by the tail restores with full history", async ()
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("enqueued edit plus deferred");
     // Because the tail covers the deferred delta, the restore keeps full
-    // history instead of falling back to the shallow snapshot.
+    // history including the deferred op.
     expect(() => {
       if (!reopened.doc) throw new Error("expected restored doc");
       exportFullHistorySnapshot(reopened.doc);

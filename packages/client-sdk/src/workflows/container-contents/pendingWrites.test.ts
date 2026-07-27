@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   encodeVersionVector,
-  exportShallowSnapshot,
   exportUpdatesSince,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
@@ -49,7 +47,8 @@ async function saveRemoteContainer(input: {
       accessStateHash: `access-${input.containerId}`,
       documentId: metadataDocumentId,
       id: input.containerId,
-      loroSnapshot: "",
+      metadataUpdates: "",
+      snapshotEndVersion: "",
     },
     {
       localUpdatedAt: updatedAt,
@@ -86,8 +85,8 @@ async function saveDocument(input: {
   documentId?: string | null;
   execSql: ExecSql;
   localId: string;
-  loroSnapshot?: string;
   pendingBaseVersion?: string | null;
+  snapshotEndVersion?: string;
   title?: string;
   updatedAt?: string;
 }): Promise<void> {
@@ -100,10 +99,10 @@ async function saveDocument(input: {
       documentId: input.documentId ?? null,
       documentKind: "note",
       id: input.localId,
-      loroSnapshot: input.loroSnapshot ?? "",
       ...(input.pendingBaseVersion === undefined
         ? {}
         : { pendingBaseVersion: input.pendingBaseVersion }),
+      snapshotEndVersion: input.snapshotEndVersion ?? "",
       text: "",
       title: input.title ?? input.localId,
     },
@@ -405,7 +404,7 @@ test("listPendingWrites distinguishes deferred Loro tails from queued coverage",
     const pendingBaseVersion = encodeVersionVector(doc);
     doc.getText("text").update("deferred tail");
     doc.commit();
-    const loroSnapshot = bytesToBase64(exportShallowSnapshot(doc));
+    const snapshotEndVersion = encodeVersionVector(doc);
     const coveredUpdate = createPendingUpdateFields(
       exportUpdatesSince(doc, pendingBaseVersion),
     );
@@ -416,8 +415,8 @@ test("listPendingWrites distinguishes deferred Loro tails from queued coverage",
       documentId: "remote-deferred",
       execSql,
       localId: "deferred-document",
-      loroSnapshot,
       pendingBaseVersion,
+      snapshotEndVersion,
       updatedAt: T1,
     });
     await saveDocument({
@@ -425,8 +424,8 @@ test("listPendingWrites distinguishes deferred Loro tails from queued coverage",
       documentId: "remote-covered",
       execSql,
       localId: "covered-document",
-      loroSnapshot,
       pendingBaseVersion,
+      snapshotEndVersion,
       updatedAt: T2,
     });
     await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
@@ -438,8 +437,8 @@ test("listPendingWrites distinguishes deferred Loro tails from queued coverage",
       documentId: "remote-current-marker",
       execSql,
       localId: "current-marker-document",
-      loroSnapshot,
       pendingBaseVersion: encodeVersionVector(doc),
+      snapshotEndVersion,
       updatedAt: T3,
     });
 

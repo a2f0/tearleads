@@ -66,16 +66,6 @@ const TRACE_ACTIONS: ReadonlyArray<DocumentSyncTraceAction> = [
   "stop",
 ];
 
-const HISTORY_RECOVERY_FAILURE_REASONS = [
-  "attempts-exhausted",
-  "doc-changed",
-  "install-failed",
-  "pull-failed",
-] as const;
-
-type DocumentHistoryRecoveryFailureReason =
-  (typeof HISTORY_RECOVERY_FAILURE_REASONS)[number];
-
 // Every vocabulary below is enumerated into the pattern as literals; the only
 // open-ended slots are a strict UUID and decimal counts.
 const UUID_FRAGMENT =
@@ -85,7 +75,6 @@ const REASON_FRAGMENT = HEAL_BLOCKED_REASONS.map(([, reason]) => reason).join(
 );
 const ACTION_FRAGMENT = TRACE_ACTIONS.join("|");
 const CODE_FRAGMENT = [...SAFE_FAILURE_CODES, "none", "other"].join("|");
-const RECOVERY_REASON_FRAGMENT = HISTORY_RECOVERY_FAILURE_REASONS.join("|");
 
 /**
  * Unanchored alternatives for composition into a larger allowlist (the
@@ -101,9 +90,6 @@ export const DOCUMENT_SYNC_TRACE_FRAGMENT = [
   `document sync submit failed document=${UUID_FRAGMENT} status=(?:\\d+|none) code=(?:${CODE_FRAGMENT}) action=(?:${ACTION_FRAGMENT})`,
   `document sync projection failed document=${UUID_FRAGMENT} status=(?:\\d+|none) code=(?:${CODE_FRAGMENT})`,
   `document sync healed document=${UUID_FRAGMENT} epoch=\\d+ accepted=\\d+`,
-  `document sync history recovery start document=${UUID_FRAGMENT} attempt=\\d+`,
-  `document sync history recovered document=${UUID_FRAGMENT} updates=\\d+`,
-  `document sync history recovery failed document=${UUID_FRAGMENT} reason=(?:${RECOVERY_REASON_FRAGMENT})`,
 ]
   .map((alternative) => `(?:${alternative})`)
   .join("|");
@@ -119,7 +105,7 @@ export const DOCUMENT_SYNC_TRACE_PATTERN = new RegExp(
  * message is not one of the fixed protocol strings — unknown errors fail
  * closed and emit nothing rather than leaking free text.
  */
-export function classifyHealBlockedReason(error: unknown): string | null {
+function classifyHealBlockedReason(error: unknown): string | null {
   const message = error instanceof Error ? error.message : "";
   for (const [prefix, reason] of HEAL_BLOCKED_REASONS) {
     if (message.startsWith(prefix)) {
@@ -229,35 +215,5 @@ export function traceHealed(
 ): void {
   emit?.(
     `document sync healed document=${input.documentId} epoch=${input.epoch} accepted=${input.accepted}`,
-  );
-}
-
-export function traceHistoryRecoveryStart(
-  emit: DocumentSyncTraceEmitter | undefined,
-  input: { attempt: number; documentId: string },
-): void {
-  emit?.(
-    `document sync history recovery start document=${input.documentId} attempt=${input.attempt}`,
-  );
-}
-
-export function traceHistoryRecovered(
-  emit: DocumentSyncTraceEmitter | undefined,
-  input: { documentId: string; updates: number },
-): void {
-  emit?.(
-    `document sync history recovered document=${input.documentId} updates=${input.updates}`,
-  );
-}
-
-export function traceHistoryRecoveryFailed(
-  emit: DocumentSyncTraceEmitter | undefined,
-  input: {
-    documentId: string;
-    reason: DocumentHistoryRecoveryFailureReason;
-  },
-): void {
-  emit?.(
-    `document sync history recovery failed document=${input.documentId} reason=${input.reason}`,
   );
 }

@@ -105,7 +105,8 @@ test("explorer store flushes an offline child-container write after network reco
         documentId: "root-metadata-document",
         id: "root-container",
         lastCommitLsn: null,
-        loroSnapshot: bytesToBase64(rootInitialUpdate),
+        metadataUpdates: bytesToBase64(rootInitialUpdate),
+        snapshotEndVersion: "",
       },
       new Date("2026-04-25T00:00:00.000Z").toISOString(),
     );

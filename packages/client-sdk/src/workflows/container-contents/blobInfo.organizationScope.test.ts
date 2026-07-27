@@ -41,7 +41,7 @@ async function saveOrganizationBlob(input: {
     documentKind: "note",
     id: input.localId,
     lastCommitLsn: null,
-    loroSnapshot: "",
+    snapshotEndVersion: "",
     text: input.localId,
     title: input.localId,
   });

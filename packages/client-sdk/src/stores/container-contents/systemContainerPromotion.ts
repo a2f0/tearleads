@@ -74,7 +74,7 @@ export async function promoteExistingLocalSystemContainerSync(input: {
   if (shouldQueueMetadataUpdate) {
     await enqueuePendingContainerUpdate(execSql, state.persistence, {
       containerId: containerState.container.id,
-      update: base64ToBytes(containerState.record.loroSnapshot),
+      update: base64ToBytes(containerState.record.metadataUpdates),
     });
   }
 

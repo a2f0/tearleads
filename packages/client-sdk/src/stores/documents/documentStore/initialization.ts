@@ -4,11 +4,7 @@ import {
   encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
-  exportShallowSnapshot,
-  getImportBlobMetadata,
   importSnapshot,
-  importUpdates,
-  satisfiesVersionVector,
 } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
@@ -32,6 +28,7 @@ import { ensureDocumentRowsStructure } from "../../../data/documents/documentRow
 import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  importDocumentHistoryTailUpdates,
   isDatabaseUnavailableError,
   type LocalAttachmentRecord,
   loadPersistedDocumentStoreState,
@@ -180,80 +177,27 @@ async function healLocalAttachmentDetachState(
   }
 }
 
-function importHistoryTailUpdates(
-  doc: DocumentState,
-  tailUpdates: readonly string[],
-): void {
-  // Rotation baselines travel through the tail as snapshot-mode blobs, which
-  // importUpdates would silently ignore — import them individually.
-  const ordinaryUpdates: Uint8Array[] = [];
-  for (const encoded of tailUpdates) {
-    const bytes = base64ToBytes(encoded);
-    if (getImportBlobMetadata(bytes).mode === "snapshot") {
-      importSnapshot(doc, bytes);
-    } else {
-      ordinaryUpdates.push(bytes);
-    }
-  }
-  if (ordinaryUpdates.length > 0) {
-    importUpdates(doc, ordinaryUpdates);
-  }
-}
-
 /**
- * Restore the persisted content into a fresh document, preferring the
- * durable full-history state (checkpoint + tail) so a restarted device can
- * still export the full-history baselines that heals, rotations, and
- * unlinks require. The legacy shallow snapshot is never imported alongside
- * it — that would poison the document with a shallow (gc) region — so the
- * full restore is used only when it provably covers everything the shallow
- * snapshot held. A deferred local edit persisted ahead of the durable queue
- * exists ONLY in the shallow snapshot; losing it would drop user data, so
- * that case falls back to the legacy shallow restore (history durability
- * resumes at the next compaction once the deferral clears).
+ * Restore the persisted content into a fresh document from the durable
+ * full-history state (checkpoint + tail) — the ONLY persisted content
+ * source. Every document seeds its checkpoint at birth, so a record without
+ * one is a discovered shell that has not hydrated yet: the document starts
+ * empty and the remote pull supplies the content.
  */
 async function restorePersistedDocumentContent(
   state: DocumentStoreState,
   nextDoc: DocumentState,
-  existing: DocumentRecord,
 ): Promise<void> {
   const history = await state.persistence.loadHistoryRestoreState?.(
     state.runtime.infra.execSql,
     state.localId,
   );
-  const shallowSnapshot =
-    existing.loroSnapshot.length > 0
-      ? base64ToBytes(existing.loroSnapshot)
-      : null;
-
-  if (history) {
-    const restored = await createStoredDocument(state);
-    try {
-      importSnapshot(restored, base64ToBytes(history.snapshot));
-      importHistoryTailUpdates(restored, history.tailUpdates);
-      const coversShallow =
-        shallowSnapshot === null ||
-        satisfiesVersionVector(
-          encodeVersionVector(restored),
-          getImportBlobMetadata(shallowSnapshot).partialEndVersionVector,
-        );
-      if (coversShallow) {
-        importSnapshot(nextDoc, exportFullHistorySnapshot(restored));
-        return;
-      }
-      state.runtime.util.log(
-        "Documents: history restore lagged the persisted snapshot; using the shallow snapshot for this session.",
-      );
-    } catch {
-      state.runtime.util.log(
-        "Documents: history restore failed; using the shallow snapshot for this session.",
-      );
-    }
+  if (!history) {
+    return;
   }
 
-  if (shallowSnapshot) {
-    importSnapshot(nextDoc, shallowSnapshot);
-  }
+  importSnapshot(nextDoc, base64ToBytes(history.snapshot));
+  importDocumentHistoryTailUpdates(nextDoc, history.tailUpdates);
 }
 
 async function createInitialDocumentRecord(
@@ -280,7 +224,7 @@ async function createInitialDocumentRecord(
     documentKind: initialDocumentState.documentKind,
     text: initialDocumentState.text,
     title: initialDocumentState.title,
-    loroSnapshot: bytesToBase64(exportShallowSnapshot(nextDoc)),
+    snapshotEndVersion: encodeVersionVector(nextDoc),
     accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
     accessStateHash: null,
     effectiveAccessLevel: "admin",
@@ -356,7 +300,7 @@ async function initializeDocumentStore(
 
   const existing = persistedState.document;
   if (existing) {
-    await restorePersistedDocumentContent(state, nextDoc, existing);
+    await restorePersistedDocumentContent(state, nextDoc);
     // Check BEFORE assigning: a reset during the restore's I/O must not see
     // the pre-reset record written back over the replacement's state.
     if (state.localWriteGeneration !== initializeGeneration) {
@@ -371,27 +315,22 @@ async function initializeDocumentStore(
   }
 
   state.doc = nextDoc;
-  // Restore the durable outgoing-delta marker. Re-seeding it to the loaded
-  // snapshot version would move it PAST any device-first `deferRemoteSync` op
-  // (persisted into the snapshot but deliberately left un-enqueued and behind
-  // the marker), permanently dropping that op from sync across a restart. When a
-  // marker was persisted, restore it so the next edit still re-derives the
-  // deferred delta. Only seed to the loaded version for rows that never
-  // persisted one (freshly created here, or pre-migration).
+  // Restore the durable outgoing-delta marker. Re-seeding it to the restored
+  // document's version would move it PAST any device-first `deferRemoteSync`
+  // op (persisted into the durable history but deliberately left un-enqueued
+  // and behind the marker), permanently dropping that op from sync across a
+  // restart. When a marker was persisted, restore it so the next edit still
+  // re-derives the deferred delta. Only seed for rows that never persisted
+  // one, from the RECORD's persisted frontier rather than the restored
+  // document: a crash between the tail append and the queue/marker writes can
+  // resurrect ops the outgoing queue never durably received, and seeding from
+  // the restored document would classify those as covered and orphan them
+  // from sync forever.
   const persistedMarker = existing?.pendingBaseVersion ?? null;
   if (persistedMarker !== null) {
     state.pendingBaseVersion = persistedMarker;
-  } else if (existing && existing.loroSnapshot.length > 0) {
-    // No persisted marker, but the durable-history restore may have
-    // resurrected ops the outgoing queue never durably received (a crash
-    // between the tail append and the queue/marker writes). Seeding from the
-    // restored document would classify those ops as covered and orphan them
-    // from sync forever; seed from the SHALLOW snapshot's frontier instead —
-    // the state the record actually persisted — so anything beyond it is
-    // re-derived and enqueued by the next edit.
-    state.pendingBaseVersion = getImportBlobMetadata(
-      base64ToBytes(existing.loroSnapshot),
-    ).partialEndVersionVector;
+  } else if (existing && existing.snapshotEndVersion.length > 0) {
+    state.pendingBaseVersion = existing.snapshotEndVersion;
   } else {
     advancePendingBaseVersion(state, nextDoc);
   }
