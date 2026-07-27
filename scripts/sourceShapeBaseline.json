@@ -306,8 +306,8 @@
       "bytes": 18250
     },
     "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
-      "lines": 541,
-      "bytes": 17182
+      "lines": 574,
+      "bytes": 18404
     },
     "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
       "lines": 722,
@@ -352,6 +352,10 @@
     "packages/client-sdk/src/workflows/documents/linkSet.ts": {
       "lines": 527,
       "bytes": 17677
+    },
+    "packages/client-sdk/src/workflows/documents/persistence.ts": {
+      "lines": 540,
+      "bytes": 19222
     },
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
       "lines": 1691,

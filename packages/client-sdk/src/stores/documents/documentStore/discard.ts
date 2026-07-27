@@ -1,39 +1,25 @@
-import {
-  listDocumentLinkedContainerIds,
-  replaceDocumentLinks,
-} from "../../../workflows/container-contents/documentLinks";
-import {
-  clearDocumentSyncFailure,
-  DOCUMENTS_APP_KIND,
-  deletePersistedDocument,
-} from "../../../workflows/documents";
+import { discardPersistedDocumentToShell } from "../../../workflows/documents";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { type DocumentStoreState, resetDocumentStore } from "./state";
 
 /**
  * User-initiated escape hatch for a document whose queued local writes can no
  * longer sync (e.g. an outgoing queue whose update ids conflict forever):
- * tear down the locally persisted document — record, pending updates,
- * projections, attachments, and durable history — then re-seed the
- * freshly-discovered-share shell (documentId kept, empty snapshot) so the
- * store re-hydrates the server copy. The shell matters twice over: priming's
- * candidate scan reads the documents rows themselves, so a fully deleted
- * record would never be restored after a restart, and re-initialization
- * needs the record to hydrate instead of eagerly creating a blank document.
+ * convert the locally persisted document to the freshly-discovered-share
+ * shell (documentId kept, empty snapshot, queue/history/failure rows
+ * dropped) so the store re-hydrates the server copy. The shell matters twice
+ * over: priming's candidate scan reads the documents rows themselves, so a
+ * fully deleted record would never be restored after a restart, and
+ * re-initialization needs the record to hydrate instead of eagerly creating
+ * a blank document. discardPersistedDocumentToShell owns the row-level
+ * sequence — including refusing local-only, unlinked, and move-pending
+ * documents under its serialized mutation — and converts the record in
+ * place, so no step leaves the document row absent.
  *
- * Restricted to documents that exist remotely (and carry a container to
- * anchor the shell): a local-only document's persisted state is its only
- * copy, and discarding it would be deletion, which is the delete flow's job.
- *
- * The durable history is dropped deliberately: preserved under the same
- * (appKind, localId), a stale checkpoint would restore the discarded ops
- * into the re-pulled document and re-enqueue them as an uncovered local
- * delta — recreating the stuck queue this action exists to break.
- *
- * The caller restarts initialization after a successful discard; the reset
- * store then hydrates from the shell. That restart must happen OUTSIDE this
- * identity-chained task — initialization chains identity writes of its own,
- * so starting it here would deadlock.
+ * The caller restarts initialization after this settles (success or not);
+ * the reset store then hydrates from whatever rows the sequence left. That
+ * restart must happen OUTSIDE this identity-chained task — initialization
+ * chains identity writes of its own, so starting it here would deadlock.
  */
 export function discardDocumentStoreLocalState(
   state: DocumentStoreState,
@@ -44,6 +30,10 @@ export function discardDocumentStoreLocalState(
       return false;
     }
 
+    // Cheap eligibility probe before disturbing the live store: an obviously
+    // ineligible document (local-only, unlinked) returns without stopping
+    // writes. The workflow re-checks under its serialized mutation, so a
+    // status change between here and there is still refused safely.
     const execSql = runtime.infra.execSql;
     const record = await state.persistence.loadDocument(execSql, state.localId);
     if (!record?.documentId || !record.containerId) {
@@ -62,68 +52,35 @@ export function discardDocumentStoreLocalState(
     state.localWriteGeneration += 1;
     await state.writeChain.catch(() => undefined);
 
-    // Server-derived state the teardown would otherwise lose for good:
-    // multi-container link projections (a re-pull restores content, not
-    // links) and the storage keys of staged attachment uploads (their rows
-    // are the only durable pointer to the staged bytes).
-    const linkedContainerIds = await listDocumentLinkedContainerIds(
-      execSql,
-      record.documentId,
-    );
-    const pendingAttachments = await state.persistence.listPendingAttachments(
-      execSql,
-      state.localId,
-    );
+    let shell: Awaited<ReturnType<typeof discardPersistedDocumentToShell>>;
+    try {
+      shell = await discardPersistedDocumentToShell({
+        execSql,
+        localId: state.localId,
+        persistence: state.persistence,
+      });
+    } catch {
+      // The conversion is in-place, so an interrupted sequence still leaves a
+      // loadable record (old or shell). Reset so re-initialization reloads
+      // whatever survived instead of running on the dropped live doc.
+      resetDocumentStore(state);
+      runtime.util.log(
+        `Documents: discard failed for document ${state.localId}; store reset to reload persisted state`,
+      );
+      return false;
+    }
+    if (!shell.discarded) {
+      // Refused under the lock (a move intent, or an identity change since
+      // the probe): rows are untouched; reset so the store reloads them.
+      resetDocumentStore(state);
+      return false;
+    }
 
-    await deletePersistedDocument({
-      documentProjectors: runtime.infra.documentProjectors,
-      execSql,
-      localId: state.localId,
-      persistence: state.persistence,
-    });
-    await clearDocumentSyncFailure(execSql, {
-      appKind: DOCUMENTS_APP_KIND,
-      localId: state.localId,
-    });
-    // The discovered-share shell, saved under this store's own localId (the
-    // discovery upsert would re-derive one from the documentId instead). An
-    // empty snapshot with a null outgoing-delta marker is exactly the state
-    // a fresh share hydrates from; the null key bundles force the re-pull to
-    // fetch current ones. The title is kept so listings stay readable while
-    // the content re-downloads.
-    await state.persistence.saveDocument(execSql, {
-      id: state.localId,
-      accessEpoch: record.accessEpoch,
-      accessStateHash: record.accessStateHash ?? null,
-      containerId: record.containerId,
-      contentKeyBundle: null,
-      documentId: record.documentId,
-      documentKekTargets: null,
-      documentManifestBundle: null,
-      effectiveAccessLevel: record.effectiveAccessLevel ?? null,
-      lastCommitLsn: null,
-      loroSnapshot: "",
-      pendingBaseVersion: null,
-      text: "",
-      ...(record.documentKind === undefined
-        ? {}
-        : { documentKind: record.documentKind }),
-      ...(record.title === undefined ? {} : { title: record.title }),
-    });
-    // Restore the captured server links: the teardown removed every link row
-    // for the document, and the content re-pull does not rebuild links, so a
-    // document shared into several containers would otherwise vanish from
-    // the secondary ones until their metadata re-reconciles.
-    await replaceDocumentLinks(
-      execSql,
-      record.documentId,
-      linkedContainerIds.length > 0 ? linkedContainerIds : [record.containerId],
-    );
-    // Reclaim the staged upload bytes whose rows the teardown just deleted.
+    // Reclaim the staged upload bytes whose rows the conversion dropped.
     // Best-effort per key: a missing blob must not fail the discard.
-    for (const pendingAttachment of pendingAttachments) {
+    for (const storageKey of shell.stagedAttachmentStorageKeys) {
       try {
-        await runtime.infra.blobStore.deleteBytes(pendingAttachment.storageKey);
+        await runtime.infra.blobStore.deleteBytes(storageKey);
       } catch {
         // The bytes stay orphaned at worst; the discard still succeeded.
       }

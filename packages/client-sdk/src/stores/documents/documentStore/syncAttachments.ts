@@ -33,6 +33,7 @@ import {
 } from "./state";
 import {
   captureDocumentStoreSyncGeneration,
+  type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { ensureRemoteDocument } from "./syncShared";
@@ -118,6 +119,7 @@ export async function syncPendingAttachments(
 
     const outcome = await syncPendingAttachmentUpload({
       activeBindingBySlotId: progress.activeBindingBySlotId,
+      attachmentGeneration,
       encapsulationKeyPair,
       pendingAttachment,
       remoteDocumentId,
@@ -231,6 +233,7 @@ function removeSettledPendingAttachment(
 
 async function settleUploadedAttachment(input: {
   activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
+  attachmentGeneration: DocumentStoreSyncGeneration;
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
   state: DocumentStoreState;
@@ -238,6 +241,15 @@ async function settleUploadedAttachment(input: {
   uploadLane: AttachmentUploadLaneReporter;
 }): Promise<void> {
   const { pendingAttachment, state, uploaded } = input;
+  // A teardown (reset/discard) during the upload's awaits deleted the rows
+  // this settle would rewrite; the remote commit stands, and the re-pull owns
+  // reconciling it. Complete the lane so no phantom upload stays running.
+  if (
+    !isDocumentStoreSyncGenerationCurrent(state, input.attachmentGeneration)
+  ) {
+    input.uploadLane.complete();
+    return;
+  }
   await persistSettledAttachment(state, pendingAttachment, uploaded.blobId);
   input.activeBindingBySlotId.set(pendingAttachment.slotId, {
     bindingId: uploaded.bindingId,
@@ -253,12 +265,23 @@ async function settleUploadedAttachment(input: {
 }
 
 async function settleRecoveredAttachment(input: {
+  attachmentGeneration: DocumentStoreSyncGeneration;
   binding: DocumentAttachmentBinding;
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
   state: DocumentStoreState;
   uploadLane: AttachmentUploadLaneReporter;
 }): Promise<void> {
+  // See settleUploadedAttachment: never rewrite rows a teardown just removed.
+  if (
+    !isDocumentStoreSyncGenerationCurrent(
+      input.state,
+      input.attachmentGeneration,
+    )
+  ) {
+    input.uploadLane.complete();
+    return;
+  }
   await persistSettledAttachment(
     input.state,
     input.pendingAttachment,
@@ -322,6 +345,7 @@ async function ensureRemoteDocumentForAttachmentSync(
 
 interface PendingAttachmentUploadInput {
   activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
+  attachmentGeneration: DocumentStoreSyncGeneration;
   encapsulationKeyPair: EncapsulationKeyPair;
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
@@ -347,6 +371,7 @@ async function recoverCommittedAttachment(
   });
   try {
     await settleRecoveredAttachment({
+      attachmentGeneration: input.attachmentGeneration,
       binding: activeBinding,
       pendingAttachment,
       remoteDocumentId: input.remoteDocumentId,
@@ -436,6 +461,7 @@ async function uploadPendingAttachmentBytes(input: {
 
     await settleUploadedAttachment({
       activeBindingBySlotId: input.pendingUpload.activeBindingBySlotId,
+      attachmentGeneration: input.pendingUpload.attachmentGeneration,
       pendingAttachment,
       remoteDocumentId: input.pendingUpload.remoteDocumentId,
       state,
@@ -458,6 +484,13 @@ async function syncPendingAttachmentUpload(
   input: PendingAttachmentUploadInput,
 ): Promise<PendingAttachmentUploadOutcome> {
   const { pendingAttachment, state } = input;
+  // The binding fetch before this call awaits; a teardown during it must not
+  // let a brand-new upload start against rows that no longer exist.
+  if (
+    !isDocumentStoreSyncGenerationCurrent(state, input.attachmentGeneration)
+  ) {
+    return "retry";
+  }
   if (await recoverCommittedAttachment(input)) {
     return "recovered";
   }

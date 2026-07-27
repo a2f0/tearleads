@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
+import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/internal/constants";
@@ -204,6 +205,44 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
       await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),
     ).toEqual([]);
     expect(deletedBlobStorageKeys).toEqual(["staged-storage-key"]);
+  } finally {
+    close();
+  }
+});
+
+test("discard refuses a document with a queued move intent", async () => {
+  const { close, execSql } = await createTestExecSql("discard-move-pending");
+  const localId = "moving-doc";
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveSyncedDocumentRecord(execSql, localId, "remote-doc", "folder-a");
+    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+      localId,
+      partialEndVersionVector: "end",
+      partialStartVersionVector: "start",
+      updateData: "queued-bytes",
+    });
+    // The local containerId is now the move's optimistic placement, not
+    // server truth — reseeding it would silently commit the move locally
+    // while discarding the intent that was meant to perform it.
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      documentId: "remote-doc",
+      localId,
+      sourceContainerId: "folder-server",
+      targetContainerId: "folder-a",
+    });
+    const state = createStoreState(execSql, localId);
+
+    expect(await discardDocumentStoreLocalState(state)).toBe(false);
+
+    const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
+    expect(record?.loroSnapshot).toBe("synced-snapshot-bytes");
+    expect(
+      await listDocumentPendingUpdates(execSql, {
+        appKind: DOCUMENTS_APP_KIND,
+        localId,
+      }),
+    ).toHaveLength(1);
   } finally {
     close();
   }

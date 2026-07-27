@@ -167,15 +167,17 @@ function createBackingDocumentStore(
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       attachFilesToDocumentStore(state, scheduleSync, files),
     discardLocalState: async () => {
-      const discarded = await discardDocumentStoreLocalState(state);
-      if (discarded) {
-        // Restart hydration for the re-seeded shell. This runs outside the
-        // discard's identity-chained task because initialization chains
+      try {
+        return await discardDocumentStoreLocalState(state);
+      } finally {
+        // Restart hydration whenever the attempt reset the store — success
+        // re-pulls the shell, and a refusal or failure reloads the surviving
+        // rows. A no-op when the store was never reset. This runs outside
+        // the discard's identity-chained task because initialization chains
         // identity writes of its own and would deadlock inside it.
         ensureDocumentStoreInitialized(state, scheduleSync);
         scheduleSync();
       }
-      return discarded;
     },
     ensureInitialized: () => ensureDocumentStoreReady(state, scheduleSync),
     getSnapshot: () => state.snapshot,

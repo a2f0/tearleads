@@ -11,13 +11,17 @@ import {
   readStoredDocumentState,
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
-import type {
-  DocumentsPersistence,
-  LocalAttachmentRecord,
-  PendingAttachmentRecord,
-  PendingUpdateRecord,
-  StoredDocumentRecord,
+import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import {
+  DOCUMENTS_APP_KIND,
+  type DocumentsPersistence,
+  type LocalAttachmentRecord,
+  type PendingAttachmentRecord,
+  type PendingUpdateRecord,
+  type StoredDocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
+import { deleteDocumentHistory } from "../../data/sqlite/documentHistoryPersistence";
+import { clearDocumentSyncFailure } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   ensureSqlTables,
@@ -413,6 +417,97 @@ export async function deletePersistedDocument(input: {
     });
   });
   return true;
+}
+
+export type DiscardedDocumentShellResult =
+  | { discarded: false }
+  | { discarded: true; stagedAttachmentStorageKeys: ReadonlyArray<string> };
+
+/**
+ * Convert a stuck document's local state to the freshly-discovered-share
+ * shell IN PLACE: drop the queued updates, staged attachment rows, durable
+ * history, and recorded sync failure, then overwrite the record with an
+ * empty snapshot that keeps its identity, placement, title, and kind. The
+ * record row is never absent at any point — the only record write is an
+ * upsert over the existing row — so an interruption at any step leaves a
+ * loadable document (old or shell) rather than a vanished one, and the
+ * projection and container-link rows are never touched at all.
+ *
+ * Refused inside the serialized mutation when the document is local-only or
+ * unlinked (its rows are the only copy) or when a move intent is queued: the
+ * local containerId is then the move's optimistic placement, and reseeding
+ * it as if it were server truth would silently commit the move locally
+ * while discarding the intent that was meant to perform it.
+ *
+ * Returns the staged uploads' storage keys on success — their rows were the
+ * only durable pointer to the staged bytes, so the caller reclaims them.
+ */
+export async function discardPersistedDocumentToShell(input: {
+  execSql: ExecSql;
+  localId: string;
+  persistence: DocumentsPersistence;
+}): Promise<DiscardedDocumentShellResult> {
+  await input.persistence.ensureSchema(input.execSql);
+  return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
+    const record = await input.persistence.loadDocument(
+      lockedExecSql,
+      input.localId,
+    );
+    if (!record?.documentId || !record.containerId) {
+      return { discarded: false };
+    }
+    if (
+      await sqlDocumentMoveIntentPersistence.hasMoveIntentForLocalId(
+        lockedExecSql,
+        input.localId,
+      )
+    ) {
+      return { discarded: false };
+    }
+
+    const pendingAttachments = await input.persistence.listPendingAttachments(
+      lockedExecSql,
+      input.localId,
+    );
+    await input.persistence.deletePendingUpdates(lockedExecSql, input.localId);
+    await input.persistence.deletePendingAttachments(
+      lockedExecSql,
+      input.localId,
+    );
+    await deleteDocumentHistory(lockedExecSql, {
+      appKind: DOCUMENTS_APP_KIND,
+      localId: input.localId,
+    });
+    await clearDocumentSyncFailure(lockedExecSql, {
+      appKind: DOCUMENTS_APP_KIND,
+      localId: input.localId,
+    });
+    await input.persistence.saveDocument(lockedExecSql, {
+      id: input.localId,
+      accessEpoch: record.accessEpoch,
+      accessStateHash: record.accessStateHash ?? null,
+      containerId: record.containerId,
+      contentKeyBundle: null,
+      documentId: record.documentId,
+      documentKekTargets: null,
+      documentManifestBundle: null,
+      effectiveAccessLevel: record.effectiveAccessLevel ?? null,
+      lastCommitLsn: null,
+      loroSnapshot: "",
+      pendingBaseVersion: null,
+      text: "",
+      ...(record.documentKind === undefined
+        ? {}
+        : { documentKind: record.documentKind }),
+      ...(record.title === undefined ? {} : { title: record.title }),
+    });
+    return {
+      discarded: true,
+      stagedAttachmentStorageKeys: pendingAttachments.map(
+        (pendingAttachment) => pendingAttachment.storageKey,
+      ),
+    };
+  });
 }
 
 export async function listPendingDocumentUpdates(input: {

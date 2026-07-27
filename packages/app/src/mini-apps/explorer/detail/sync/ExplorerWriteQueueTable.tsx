@@ -375,10 +375,14 @@ function WriteQueueRow(
       <WriteQueueRowActionsCell
         entryName={getWriteQueueItemName(item)}
         // Discard tears down local state and re-pulls the server copy, so it
-        // only applies to documents that exist remotely; a local-only
-        // document's queued create is its ONLY copy.
+        // only applies to documents that exist remotely (a local-only
+        // document's queued create is its ONLY copy) and have no queued
+        // move — a pending move makes the local placement optimistic, not
+        // server truth, and the SDK refuses those too.
         onDiscard={
-          item.objectKind === "document" && item.remoteId !== null
+          item.objectKind === "document" &&
+          item.remoteId !== null &&
+          item.operations.every((operation) => operation.kind !== "move")
             ? () => params.discardPendingWrites(item)
             : null
         }
