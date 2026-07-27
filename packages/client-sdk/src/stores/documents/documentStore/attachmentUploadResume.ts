@@ -7,6 +7,10 @@ import type {
 } from "../../../workflows/documents";
 import { savePendingAttachmentUpload } from "./persistence";
 import type { DocumentStoreState } from "./state";
+import {
+  type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "./syncGeneration";
 
 function createPendingUploadIdentity(
   plaintextSha256: string,
@@ -34,19 +38,34 @@ export interface AttachmentUploadResume {
   readonly onStageResolved: MultipartStageResolvedListener;
 }
 
-/** Resolve and persist stable encryption and multipart inputs across retries. */
+/**
+ * Resolve and persist stable encryption and multipart inputs across retries.
+ *
+ * Every persist here is an UPSERT of the pending-attachment row, so each one
+ * is generation-gated: a store teardown (reset/discard) deletes that row on
+ * purpose, and a stale resume racing it would otherwise re-insert the row it
+ * just removed. Skipping the persist only costs retry resumability.
+ */
 export async function resolveAttachmentUploadResume(
   state: DocumentStoreState,
   pendingAttachment: PendingAttachmentRecord,
   plaintextSha256: string,
+  attachmentGeneration: DocumentStoreSyncGeneration,
 ): Promise<AttachmentUploadResume> {
   const uploadIdentity =
     pendingAttachment.upload?.plaintextSha256 === plaintextSha256
       ? pendingAttachment.upload
       : createPendingUploadIdentity(plaintextSha256);
-  if (pendingAttachment.upload !== uploadIdentity) {
+  if (
+    pendingAttachment.upload !== uploadIdentity &&
+    isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)
+  ) {
     pendingAttachment.upload = uploadIdentity;
-    await savePendingAttachmentUpload(state, pendingAttachment);
+    await savePendingAttachmentUpload(
+      state,
+      pendingAttachment,
+      attachmentGeneration,
+    );
   }
 
   const multipart =
@@ -66,9 +85,16 @@ export async function resolveAttachmentUploadResume(
     ) {
       return;
     }
+    if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+      return;
+    }
     uploadIdentity.partSize = partSize;
     uploadIdentity.stageId = stageId;
-    await savePendingAttachmentUpload(state, pendingAttachment);
+    await savePendingAttachmentUpload(
+      state,
+      pendingAttachment,
+      attachmentGeneration,
+    );
   };
 
   return {

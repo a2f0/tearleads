@@ -40,11 +40,13 @@ export {
   relinkRemoteDocument,
 } from "./linkSet";
 export {
+  type DiscardedDocumentShellResult,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
   deletePersistedDocument,
+  discardPersistedDocumentToShell,
   enqueuePendingDocumentUpdate,
   type LocalAttachmentRecord,
   listPendingDocumentUpdates,
@@ -55,6 +57,7 @@ export {
   type PendingUpdateRecord,
   persistDocumentState,
   type RelinkPersistedDocumentInput,
+  runSerializedSqlMutation,
 } from "./persistence";
 export {
   createDocumentProjectionUserKeyResolver,

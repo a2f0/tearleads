@@ -53,6 +53,10 @@ import {
   type DocumentStoreState,
   setReadySnapshot,
 } from "./state";
+import {
+  captureDocumentStoreSyncGeneration,
+  type DocumentStoreSyncGeneration,
+} from "./syncGeneration";
 
 export async function createStoredDocument(
   state: DocumentStoreState,
@@ -84,6 +88,7 @@ export async function createStoredDocument(
 async function recoverDroppedAttachmentSlots(
   state: DocumentStoreState,
   doc: DocumentStoreState["doc"],
+  writeGeneration: DocumentStoreSyncGeneration,
 ): Promise<void> {
   if (!doc || state.pendingAttachments.length === 0) {
     return;
@@ -120,15 +125,23 @@ async function recoverDroppedAttachmentSlots(
 
   addDocumentAttachments(doc, recovered);
   const update = pendingDeltaSinceBase(state, doc);
+  // Every durable write is gated on the captured generation — the enqueue
+  // validates it INSIDE its serialized mutation, and the persist re-checks
+  // via its expectedGeneration overload — so a store reset (e.g. a
+  // local-edits discard) racing this recovery cannot see it re-enqueue or
+  // re-persist the state the teardown just removed.
   if (update.byteLength > 0) {
-    await enqueuePendingUpdate(state, update);
+    await enqueuePendingUpdate(state, update, undefined, writeGeneration);
   }
   // Derive the snapshot from the loaded doc (do NOT preserve the snapshot). This
   // runs during init, before the store is ready, so state.snapshot is still the
   // empty initial snapshot — preserving it would publish a ready snapshot with
   // empty text/structured fields (a flash of empty content) over the real loaded
   // content. There is no in-flight user edit to protect here.
-  await persistDocument(state, doc);
+  const persisted = await persistDocument(state, doc, {}, {}, writeGeneration);
+  if (!persisted) {
+    return;
+  }
   advancePendingBaseVersion(state, doc);
   state.runtime.util.log(
     `Documents: recovered ${recovered.length} attachment slot(s) from pending uploads after an interrupted write.`,
@@ -148,13 +161,17 @@ async function healLocalAttachmentDetachState(
   state: DocumentStoreState,
   doc: DocumentState,
   persistedState: { localAttachments: ReadonlyArray<LocalAttachmentRecord> },
+  writeGeneration: DocumentStoreSyncGeneration,
 ): Promise<void> {
   const healed = reconcileLocalAttachmentDetachState(
     persistedState.localAttachments,
     doc,
   );
   for (const attachment of healed) {
-    await saveLocalAttachmentRecord(state, attachment, doc);
+    // The save validates the generation inside its serialized mutation, so a
+    // concurrent store reset can never see this heal rewrite rows the
+    // teardown just removed.
+    await saveLocalAttachmentRecord(state, attachment, doc, writeGeneration);
   }
   if (healed.length > 0) {
     state.runtime.util.log(
@@ -307,12 +324,22 @@ async function initializeDocumentStore(
     return;
   }
 
+  // A store reset while this fire-and-forget initialization is loading (a
+  // runtime swap, or a local-edits discard that re-seeds the persisted rows)
+  // must win: assigning the state loaded BEFORE the reset would bring the
+  // replaced record and doc back to life. Every reset bumps the local write
+  // generation, so a stale capture here aborts before each assignment batch.
+  const initializeGeneration = state.localWriteGeneration;
+
   const nextDoc = await createStoredDocument(state);
   const persistedState = await loadPersistedDocumentStoreState({
     execSql: state.runtime.infra.execSql,
     localId: state.localId,
     persistence: state.persistence,
   });
+  if (state.localWriteGeneration !== initializeGeneration) {
+    return;
+  }
   state.pendingAttachments = persistedState.pendingAttachments;
   state.attachmentBlobIdBySlotId = Object.fromEntries(
     persistedState.localAttachments.map((attachment) => [
@@ -330,9 +357,17 @@ async function initializeDocumentStore(
   const existing = persistedState.document;
   if (existing) {
     await restorePersistedDocumentContent(state, nextDoc, existing);
+    // Check BEFORE assigning: a reset during the restore's I/O must not see
+    // the pre-reset record written back over the replacement's state.
+    if (state.localWriteGeneration !== initializeGeneration) {
+      return;
+    }
     state.record = existing;
   } else {
     await createInitialDocumentRecord(state, nextDoc);
+    if (state.localWriteGeneration !== initializeGeneration) {
+      return;
+    }
   }
 
   state.doc = nextDoc;
@@ -363,9 +398,26 @@ async function initializeDocumentStore(
   // Heal attachment slots lost to an interrupted attach write before marking
   // ready, so the recovered slots are in the snapshot the editor first renders
   // and are queued for sync. recoverDroppedAttachmentSlots advances the marker
-  // again for whatever it re-derives.
-  await recoverDroppedAttachmentSlots(state, nextDoc);
-  await healLocalAttachmentDetachState(state, nextDoc, persistedState);
+  // again for whatever it re-derives. Both helpers gate every durable write
+  // on this generation (validated inside the writes' serialized mutations),
+  // so a reset mid-helper cannot repopulate discarded state.
+  const writeGeneration = captureDocumentStoreSyncGeneration(state, nextDoc);
+  if (!writeGeneration) {
+    return;
+  }
+  await recoverDroppedAttachmentSlots(state, nextDoc, writeGeneration);
+  if (state.localWriteGeneration !== initializeGeneration) {
+    return;
+  }
+  await healLocalAttachmentDetachState(
+    state,
+    nextDoc,
+    persistedState,
+    writeGeneration,
+  );
+  if (state.localWriteGeneration !== initializeGeneration) {
+    return;
+  }
   state.initialized = true;
   state.initializePromise = null;
   setReadySnapshot(state, nextDoc, false);

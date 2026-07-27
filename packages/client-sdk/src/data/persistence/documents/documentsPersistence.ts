@@ -66,6 +66,7 @@ import {
 } from "./internal/attachmentRows";
 import { DOCUMENTS_APP_KIND } from "./internal/constants";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
+import { discardStoredDocumentToShell } from "./internal/discardDocument";
 import {
   documentSummaryJoin,
   documentSummarySelection,
@@ -89,6 +90,7 @@ import {
 import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
 import type {
   ContainerDocumentTombstoneInput,
+  DiscardDocumentToShellResult,
   DocumentSummaryList,
   DocumentSummarySort,
   DocumentsPersistence,
@@ -107,6 +109,7 @@ const DEFAULT_DOCUMENT_SUMMARY_SORT: DocumentSummarySort = {
 export { DOCUMENTS_APP_KIND } from "./internal/constants";
 export type {
   ContainerDocumentTombstoneInput,
+  DiscardDocumentToShellResult,
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
@@ -670,6 +673,20 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
           await deleteDocumentRecord(lockedExecSql, getDocumentScope(localId));
         },
       );
+    });
+  },
+  async discardDocumentToShell(
+    execSql,
+    localId,
+    expectedDocumentId,
+    documentProjectors,
+  ): Promise<DiscardDocumentToShellResult> {
+    return discardStoredDocumentToShell({
+      documentProjectors,
+      execSql,
+      expectedDocumentId,
+      localId,
+      persistence: sqlStoredDocumentsPersistence,
     });
   },
   async upsertDiscoveredDocument(execSql, input) {

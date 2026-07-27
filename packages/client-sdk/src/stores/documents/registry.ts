@@ -132,6 +132,50 @@ export function requestRegisteredDocumentRemoteSync(
   return true;
 }
 
+/**
+ * Discard a registered document's local edits through its store, so the
+ * teardown serializes on the store's write machinery instead of racing an
+ * in-flight persist that would resurrect the deleted rows. Only registered
+ * stores qualify — an unregistered document has no lane submitting its queue,
+ * so there is nothing this escape hatch could unstick. No deletion is
+ * emitted: the document survives as a re-seeded shell that keeps its listing
+ * entry, and the re-pull's own persist announces the restored content.
+ *
+ * Resolution is strict, unlike the read-side lookups: a destructive action
+ * must never run against whichever store won a lookup priority. Both
+ * identifiers must map to the SAME registered store — an unknown or stale
+ * documentId refuses rather than trusting the localId alone — and the store
+ * revalidates the expected documentId against its persisted record inside
+ * the teardown's serialized mutation, so even a stale registry mapping
+ * cannot discard a different identity's edits.
+ */
+export async function discardRegisteredDocumentLocalState(
+  domainScope: DomainScope,
+  localId: string,
+  documentId: string,
+): Promise<boolean> {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  if (!registry) {
+    return false;
+  }
+
+  const localStoreKey = registry.storeKeysByLocalId.get(localId);
+  const documentStoreKey = registry.storeKeysByDocumentId.get(documentId);
+  if (
+    !localStoreKey ||
+    !documentStoreKey ||
+    documentStoreKey !== localStoreKey
+  ) {
+    return false;
+  }
+  const store = registry.storesByKey.get(localStoreKey);
+  if (!store) {
+    return false;
+  }
+
+  return store.discardLocalState(documentId);
+}
+
 export function createDocumentStoreFacade(
   initialStore: DocumentStore,
 ): DocumentStoreFacade {
@@ -166,6 +210,8 @@ export function createDocumentStoreFacade(
     assertCanRotateContentKey: () => targetStore.assertCanRotateContentKey(),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       targetStore.attachFiles(files),
+    discardLocalState: (expectedDocumentId: string) =>
+      targetStore.discardLocalState(expectedDocumentId),
     ensureInitialized: () => targetStore.ensureInitialized(),
     getSnapshot: () => targetStore.getSnapshot(),
     removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),

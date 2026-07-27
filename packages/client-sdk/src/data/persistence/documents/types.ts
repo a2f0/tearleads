@@ -2,7 +2,10 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../documentSummary";
-import type { StoredDocumentKind } from "../../documents/documentKinds";
+import type {
+  DocumentProjectorRegistryInput,
+  StoredDocumentKind,
+} from "../../documents/documentKinds";
 import type {
   DocumentRecord as BaseDocumentRecord,
   PendingUpdateFields,
@@ -18,6 +21,19 @@ export interface StoredDocumentRecord extends BaseDocumentRecord {
   text: string;
   title?: string;
 }
+
+export type DiscardDocumentToShellResult =
+  | { discarded: false }
+  | {
+      discarded: true;
+      documentKind: StoredDocumentKind;
+      /**
+       * Storage keys whose rows the discard deleted — staged uploads plus
+       * detached local-attachment markers. Those rows were the only durable
+       * pointers to the bytes, so the caller reclaims them.
+       */
+      reclaimableBlobStorageKeys: ReadonlyArray<string>;
+    };
 
 export interface PendingUpdateInsert extends PendingUpdateFields {
   localId: string;
@@ -243,4 +259,27 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     localId: string,
   ) => Promise<void>;
+  /**
+   * Atomically convert a stuck document's local state to the
+   * freshly-discovered-share shell (see the SQL implementation's doc
+   * comment). The projector registry clears the document-kind client
+   * projection in the same transaction — those tables live with the app's
+   * projector definitions, so the CALLER'S registry is required (the default
+   * registry knows no app kinds, and a discard that silently kept a
+   * contact's or card's projected fields would leak the discarded values).
+   * The method itself is optional: implementations without the full document
+   * schema (container metadata, simple doubles) simply do not offer the
+   * discard escape hatch.
+   */
+  /**
+   * `expectedDocumentId` is revalidated against the loaded record inside the
+   * serialized mutation: a stale caller (or a relink that raced the request)
+   * must never discard a different identity's edits.
+   */
+  discardDocumentToShell?: (
+    execSql: ExecSql,
+    localId: string,
+    expectedDocumentId: string,
+    documentProjectors: DocumentProjectorRegistryInput,
+  ) => Promise<DiscardDocumentToShellResult>;
 }

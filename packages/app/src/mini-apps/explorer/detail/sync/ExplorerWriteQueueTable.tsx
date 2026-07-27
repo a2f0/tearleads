@@ -1,4 +1,5 @@
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
+import { CloudArrowDownIcon } from "@phosphor-icons/react/dist/csr/CloudArrowDown";
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import type {
   ContainerNode,
@@ -203,6 +204,7 @@ function WriteQueueObjectCell(params: {
 // inspecting a stuck write never navigates away to the document.
 function WriteQueueRowActionsCell(params: {
   entryName: string;
+  onDiscard: (() => void) | null;
   onOpenEntryInfo: () => void;
   onRetry: () => void;
 }) {
@@ -253,6 +255,16 @@ function WriteQueueRowActionsCell(params: {
               params.onRetry();
             }}
           />
+          {params.onDiscard ? (
+            <MenuItem
+              icon={CloudArrowDownIcon}
+              label={EXPLORER_LABELS.writeQueueDiscardAction}
+              onClick={() => {
+                closeMenu();
+                params.onDiscard?.();
+              }}
+            />
+          ) : null}
         </Menu>
       ) : null}
     </MiniAppTableCell>
@@ -290,6 +302,7 @@ function WriteQueueStatusCell(params: {
 
 interface WriteQueueTableProps {
   billingBlockedOrganizationId: string | null;
+  discardPendingWrites: (item: PendingWriteQueueItem) => void;
   items: ReadonlyArray<PendingWriteQueueItem>;
   nodes: ReadonlyArray<ContainerNode>;
   openContainerInfoRoute: (containerId: string) => void;
@@ -361,6 +374,21 @@ function WriteQueueRow(
       />
       <WriteQueueRowActionsCell
         entryName={getWriteQueueItemName(item)}
+        // Discard tears down local state and re-pulls the server copy, so it
+        // only applies to documents that exist remotely (a local-only
+        // document's queued create is its ONLY copy), are linked to a
+        // container (the shell needs an anchor to re-pull into), and have no
+        // queued move — a pending move makes the local placement optimistic,
+        // not server truth. The SDK refuses all three cases too; hiding the
+        // action keeps a confirmed dialog from silently doing nothing.
+        onDiscard={
+          item.objectKind === "document" &&
+          item.remoteId !== null &&
+          item.containerId !== null &&
+          item.operations.every((operation) => operation.kind !== "move")
+            ? () => params.discardPendingWrites(item)
+            : null
+        }
         onOpenEntryInfo={() =>
           params.openWriteQueueEntryRoute(getWriteQueueItemKey(item))
         }
@@ -396,6 +424,7 @@ export function ExplorerWriteQueueTable(params: WriteQueueTableProps) {
               billingBlockedOrganizationId={params.billingBlockedOrganizationId}
               compact={compact}
               containerNamesById={containerNamesById}
+              discardPendingWrites={params.discardPendingWrites}
               item={item}
               key={getWriteQueueItemKey(item)}
               openContainerInfoRoute={params.openContainerInfoRoute}

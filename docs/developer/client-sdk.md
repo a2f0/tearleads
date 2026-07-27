@@ -160,6 +160,19 @@ updates, local blob storage keys, and upload cryptographic material stay private
 This answers what remains pending; sync snapshots show scheduler work
 and `blobStorageKey` navigation into Blob Browser.
 
+Two per-row recovery actions pair with that view.
+`documentQueries().retryPendingWriteItem(...)` resets the item's parked retry
+state (the recorded terminal failure and, for documents, the durable re-key
+budget) before the caller re-arms the sync lanes.
+`discardRegisteredDocumentLocalState(domainScope, localId, documentId)` is the
+give-up path for a remote-backed document whose queue can never converge: one
+transaction converts the local record to the freshly-discovered-share shell
+(queued updates, staged uploads, durable history, kind projections, and the
+failure row dropped; identity, title, placement, and links kept) and the store
+re-pulls the server copy. Local-only, unlinked, and move-pending documents are
+refused. `requestContainerContentsDocumentPriming(domainScope)` re-arms the
+structural pass's document-priming scan for callers outside a registered store.
+
 Document diagnostics keep the default read bounded: `loadDocumentInfo(...)`
 uses at most 2,000 compact effective attribution intervals for contributor and
 local blame derivation. An explicitly `truncated` result disables partial blame.

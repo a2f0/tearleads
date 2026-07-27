@@ -38,8 +38,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 510,
-      "bytes": 23000
+      "lines": 518,
+      "bytes": 23767
     },
     "docs/developer/revenuecat-billing.md": {
       "lines": 360,
@@ -210,12 +210,16 @@
       "bytes": 17034
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.test.tsx": {
-      "lines": 535,
-      "bytes": 15065
+      "lines": 584,
+      "bytes": 16686
+    },
+    "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.tsx": {
+      "lines": 544,
+      "bytes": 17760
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 457,
-      "bytes": 20544
+      "lines": 465,
+      "bytes": 21058
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
       "lines": 565,
@@ -274,8 +278,8 @@
       "bytes": 43292
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
-      "lines": 911,
-      "bytes": 29902
+      "lines": 928,
+      "bytes": 30379
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 876,
@@ -293,21 +297,25 @@
       "lines": 592,
       "bytes": 19608
     },
+    "packages/client-sdk/src/stores/documents/documentStore/discard.test.ts": {
+      "lines": 547,
+      "bytes": 18860
+    },
     "packages/client-sdk/src/stores/documents/documentStore/initialization.ts": {
-      "lines": 516,
-      "bytes": 18342
+      "lines": 568,
+      "bytes": 20542
     },
     "packages/client-sdk/src/stores/documents/documentStore/persistence.ts": {
-      "lines": 534,
-      "bytes": 17384
+      "lines": 639,
+      "bytes": 21053
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 572,
       "bytes": 18250
     },
     "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
-      "lines": 511,
-      "bytes": 16078
+      "lines": 620,
+      "bytes": 19977
     },
     "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
       "lines": 722,

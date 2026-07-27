@@ -12,6 +12,7 @@ import {
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
 import type {
+  DiscardDocumentToShellResult,
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
@@ -38,6 +39,10 @@ export {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence as defaultDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
+// Store-layer teardown-safe writers serialize their generation checks on the
+// same mutation mutex the persistence implementations use; the facade
+// re-export keeps data internals out of the stores.
+export { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
 
 type DocumentContentState = Parameters<typeof exportShallowSnapshot>[0];
 type NullableDocumentRuntimeField =
@@ -413,6 +418,40 @@ export async function deletePersistedDocument(input: {
     });
   });
   return true;
+}
+
+export type DiscardedDocumentShellResult = DiscardDocumentToShellResult;
+
+/**
+ * Convert a stuck document's local state to the freshly-discovered-share
+ * shell. The persistence implementation owns the whole sequence — the
+ * eligibility checks (local-only, unlinked, or move-pending documents are
+ * refused), the row teardown, the document-kind client-projection clear, and
+ * the shell upsert — and commits it as ONE transaction, so an interruption
+ * leaves either the fully old or the fully shelled document (never, e.g., a
+ * discarded contact whose projected fields stay visible). Implementations
+ * without the full document schema do not offer the operation and refuse.
+ *
+ * Returns the reclaimable storage keys on success — the deleted rows were
+ * the only durable pointers to those bytes, so the caller reclaims them.
+ */
+export async function discardPersistedDocumentToShell(input: {
+  documentProjectors: DocumentProjectorRegistryInput;
+  execSql: ExecSql;
+  expectedDocumentId: string;
+  localId: string;
+  persistence: DocumentsPersistence;
+}): Promise<DiscardedDocumentShellResult> {
+  await input.persistence.ensureSchema(input.execSql);
+  if (!input.persistence.discardDocumentToShell) {
+    return { discarded: false };
+  }
+  return input.persistence.discardDocumentToShell(
+    input.execSql,
+    input.localId,
+    input.expectedDocumentId,
+    input.documentProjectors,
+  );
 }
 
 export async function listPendingDocumentUpdates(input: {

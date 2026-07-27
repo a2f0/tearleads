@@ -9,6 +9,7 @@ import {
   type PendingAttachmentRecord,
   recordDocumentSyncFailure,
   resolveDocumentCreateAuthor,
+  runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { resolveAttachmentSourceUpload } from "./attachmentSourceUpload";
@@ -31,6 +32,11 @@ import {
   type PendingMutationSyncResult,
   setReadySnapshot,
 } from "./state";
+import {
+  captureDocumentStoreSyncGeneration,
+  type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "./syncGeneration";
 import { ensureRemoteDocument } from "./syncShared";
 
 // Preserve transient failures for retry. Drop irrecoverable missing bytes so a
@@ -62,6 +68,18 @@ export async function syncPendingAttachments(
     return { completed: false, nextRecord };
   }
 
+  // A store reset (runtime loss, remote deletion, or a local-edits discard)
+  // mid-pass swaps or drops the live doc; every local write below would then
+  // resurrect rows the teardown removed. Capture the generation now and stop
+  // at the loop boundaries once it goes stale.
+  const attachmentGeneration = captureDocumentStoreSyncGeneration(
+    state,
+    currentDoc,
+  );
+  if (!attachmentGeneration) {
+    return { completed: false, nextRecord };
+  }
+
   const currentRecord = await ensureRemoteDocumentForAttachmentSync(
     state,
     currentDoc,
@@ -81,6 +99,12 @@ export async function syncPendingAttachments(
   };
 
   for (const pendingAttachment of [...state.pendingAttachments]) {
+    if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+      return {
+        completed: progress.settledAttachment,
+        nextRecord: currentRecord,
+      };
+    }
     const bindingsReady = await loadRemoteAttachmentBindings({
       pendingAttachment,
       progress,
@@ -96,6 +120,7 @@ export async function syncPendingAttachments(
 
     const outcome = await syncPendingAttachmentUpload({
       activeBindingBySlotId: progress.activeBindingBySlotId,
+      attachmentGeneration,
       encapsulationKeyPair,
       pendingAttachment,
       remoteDocumentId,
@@ -108,6 +133,14 @@ export async function syncPendingAttachments(
       };
     }
 
+    // Re-check after the upload's awaits: settling writes local rows, which a
+    // teardown that happened mid-upload has just deleted on purpose.
+    if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+      return {
+        completed: progress.settledAttachment,
+        nextRecord: currentRecord,
+      };
+    }
     removeSettledPendingAttachment(state, currentDoc, pendingAttachment);
     if (outcome === "uploaded" || outcome === "recovered") {
       progress.settledAttachment = true;
@@ -201,6 +234,7 @@ function removeSettledPendingAttachment(
 
 async function settleUploadedAttachment(input: {
   activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
+  attachmentGeneration: DocumentStoreSyncGeneration;
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
   state: DocumentStoreState;
@@ -208,7 +242,21 @@ async function settleUploadedAttachment(input: {
   uploadLane: AttachmentUploadLaneReporter;
 }): Promise<void> {
   const { pendingAttachment, state, uploaded } = input;
-  await persistSettledAttachment(state, pendingAttachment, uploaded.blobId);
+  // A teardown (reset/discard) during the upload's awaits deleted the rows
+  // this settle would rewrite; the remote commit stands, and the re-pull owns
+  // reconciling it. Complete the lane so no phantom upload stays running.
+  if (
+    !isDocumentStoreSyncGenerationCurrent(state, input.attachmentGeneration)
+  ) {
+    input.uploadLane.complete();
+    return;
+  }
+  await persistSettledAttachment(
+    state,
+    pendingAttachment,
+    uploaded.blobId,
+    input.attachmentGeneration,
+  );
   input.activeBindingBySlotId.set(pendingAttachment.slotId, {
     bindingId: uploaded.bindingId,
     blobId: uploaded.blobId,
@@ -223,16 +271,28 @@ async function settleUploadedAttachment(input: {
 }
 
 async function settleRecoveredAttachment(input: {
+  attachmentGeneration: DocumentStoreSyncGeneration;
   binding: DocumentAttachmentBinding;
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
   state: DocumentStoreState;
   uploadLane: AttachmentUploadLaneReporter;
 }): Promise<void> {
+  // See settleUploadedAttachment: never rewrite rows a teardown just removed.
+  if (
+    !isDocumentStoreSyncGenerationCurrent(
+      input.state,
+      input.attachmentGeneration,
+    )
+  ) {
+    input.uploadLane.complete();
+    return;
+  }
   await persistSettledAttachment(
     input.state,
     input.pendingAttachment,
     input.binding.blobId,
+    input.attachmentGeneration,
   );
   input.uploadLane.complete();
   input.state.runtime.util.log(
@@ -244,20 +304,29 @@ async function persistSettledAttachment(
   state: DocumentStoreState,
   pendingAttachment: PendingAttachmentRecord,
   blobId: string,
+  attachmentGeneration: DocumentStoreSyncGeneration,
 ): Promise<void> {
-  await saveLocalAttachmentRecord(state, {
-    blobId,
-    byteLength: pendingAttachment.byteLength,
-    detachedAt: null,
-    localId: state.localId,
-    mimeType: pendingAttachment.mimeType,
-    slotId: pendingAttachment.slotId,
-    storageKey: pendingAttachment.storageKey,
-  });
+  // The save validates the generation inside its serialized mutation, so a
+  // teardown racing this settle can never see its rows re-inserted.
+  await saveLocalAttachmentRecord(
+    state,
+    {
+      blobId,
+      byteLength: pendingAttachment.byteLength,
+      detachedAt: null,
+      localId: state.localId,
+      mimeType: pendingAttachment.mimeType,
+      slotId: pendingAttachment.slotId,
+      storageKey: pendingAttachment.storageKey,
+    },
+    state.doc,
+    attachmentGeneration,
+  );
   await deletePendingAttachment(
     state,
     pendingAttachment.slotId,
     pendingAttachment.storageKey,
+    attachmentGeneration,
   );
 }
 
@@ -292,6 +361,7 @@ async function ensureRemoteDocumentForAttachmentSync(
 
 interface PendingAttachmentUploadInput {
   activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
+  attachmentGeneration: DocumentStoreSyncGeneration;
   encapsulationKeyPair: EncapsulationKeyPair;
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
@@ -317,6 +387,7 @@ async function recoverCommittedAttachment(
   });
   try {
     await settleRecoveredAttachment({
+      attachmentGeneration: input.attachmentGeneration,
       binding: activeBinding,
       pendingAttachment,
       remoteDocumentId: input.remoteDocumentId,
@@ -326,6 +397,7 @@ async function recoverCommittedAttachment(
     return true;
   } catch (error) {
     reportAttachmentUploadFailure({
+      attachmentGeneration: input.attachmentGeneration,
       error,
       pendingAttachment,
       state,
@@ -396,6 +468,7 @@ async function uploadPendingAttachmentBytes(input: {
         return "retry";
       }
       reportAttachmentUploadFailure({
+        attachmentGeneration: input.pendingUpload.attachmentGeneration,
         error: uploadError,
         pendingAttachment,
         state,
@@ -406,6 +479,7 @@ async function uploadPendingAttachmentBytes(input: {
 
     await settleUploadedAttachment({
       activeBindingBySlotId: input.pendingUpload.activeBindingBySlotId,
+      attachmentGeneration: input.pendingUpload.attachmentGeneration,
       pendingAttachment,
       remoteDocumentId: input.pendingUpload.remoteDocumentId,
       state,
@@ -415,6 +489,7 @@ async function uploadPendingAttachmentBytes(input: {
     return "uploaded";
   } catch (error) {
     reportAttachmentUploadFailure({
+      attachmentGeneration: input.pendingUpload.attachmentGeneration,
       error,
       pendingAttachment,
       state,
@@ -428,6 +503,13 @@ async function syncPendingAttachmentUpload(
   input: PendingAttachmentUploadInput,
 ): Promise<PendingAttachmentUploadOutcome> {
   const { pendingAttachment, state } = input;
+  // The binding fetch before this call awaits; a teardown during it must not
+  // let a brand-new upload start against rows that no longer exist.
+  if (
+    !isDocumentStoreSyncGenerationCurrent(state, input.attachmentGeneration)
+  ) {
+    return "retry";
+  }
   if (await recoverCommittedAttachment(input)) {
     return "recovered";
   }
@@ -448,6 +530,7 @@ async function syncPendingAttachmentUpload(
       state,
       pendingAttachment.slotId,
       pendingAttachment.storageKey,
+      input.attachmentGeneration,
     );
     return "dropped";
   }
@@ -461,10 +544,19 @@ async function syncPendingAttachmentUpload(
   }
 
   const { resume, snapshot } = await resolveAttachmentSourceUpload({
+    attachmentGeneration: input.attachmentGeneration,
     pendingAttachment,
     source,
     state,
   });
+  // Preparation awaited (byte-source open plus resume resolution); a teardown
+  // during those awaits must not let the upload itself start — its remote
+  // commit could not be recalled once sent.
+  if (
+    !isDocumentStoreSyncGenerationCurrent(state, input.attachmentGeneration)
+  ) {
+    return "retry";
+  }
   const uploadLane = createAttachmentUploadLaneReporter({
     blobId: resume.blobId,
     domainScope: state.runtime.state.domainScope,
@@ -486,6 +578,7 @@ async function syncPendingAttachmentUpload(
 }
 
 function reportAttachmentUploadFailure(input: {
+  attachmentGeneration: DocumentStoreSyncGeneration;
   error: unknown;
   pendingAttachment: PendingAttachmentRecord;
   state: DocumentStoreState;
@@ -498,14 +591,30 @@ function reportAttachmentUploadFailure(input: {
   input.uploadLane.fail(error);
   input.state.runtime.util.log(`Documents: ${error.message}`);
   // Surface the stuck upload in the write queue; a later successful sync pass
-  // for the document clears the record.
-  void recordDocumentSyncFailure(
+  // for the document clears the record. Validated inside the serialized
+  // mutation: a teardown (reset/discard) racing this pass just cleared the
+  // failure row, and re-recording it would resurrect a phantom queue entry
+  // for work that no longer exists.
+  void runSerializedSqlMutation(
     input.state.runtime.infra.execSql,
-    { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
-    {
-      attemptedAt: new Date().toISOString(),
-      message: error.message,
-      status: null,
+    async (lockedExecSql) => {
+      if (
+        !isDocumentStoreSyncGenerationCurrent(
+          input.state,
+          input.attachmentGeneration,
+        )
+      ) {
+        return;
+      }
+      await recordDocumentSyncFailure(
+        lockedExecSql,
+        { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
+        {
+          attemptedAt: new Date().toISOString(),
+          message: error.message,
+          status: null,
+        },
+      );
     },
   ).catch(() => undefined);
 }

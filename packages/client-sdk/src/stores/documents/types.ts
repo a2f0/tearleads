@@ -103,6 +103,16 @@ export interface DocumentStore {
   /** Fail unless this store can produce a mergeable full-history checkpoint. */
   assertCanRotateContentKey: () => Promise<Uint8Array>;
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
+  /**
+   * Convert this document's persisted local state to the discovered-share
+   * shell so the store re-pulls the server copy — the escape hatch for
+   * queued local writes that can no longer sync. `expectedDocumentId` is
+   * revalidated against the persisted record inside the teardown's
+   * serialized mutation, so a stale caller can never discard a different
+   * identity's edits. Refuses (returns false) local-only, unlinked,
+   * move-pending, and identity-mismatched documents.
+   */
+  discardLocalState: (expectedDocumentId: string) => Promise<boolean>;
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => DocumentSnapshot;
   removeAttachment: (slotId: string) => void;

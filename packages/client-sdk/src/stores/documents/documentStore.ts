@@ -14,6 +14,7 @@ import {
   replaceAttachmentInDocumentStore,
   setAttachmentInDocumentStore,
 } from "./documentStore/attachments";
+import { discardDocumentStoreLocalState } from "./documentStore/discard";
 import {
   ensureDocumentStoreInitialized,
   ensureDocumentStoreReady,
@@ -58,6 +59,7 @@ import type {
 } from "./types";
 
 export {
+  discardRegisteredDocumentLocalState,
   requestDomainDocumentSync,
   subscribeToPersistedDocuments,
 } from "./registry";
@@ -164,6 +166,19 @@ function createBackingDocumentStore(
     },
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       attachFilesToDocumentStore(state, scheduleSync, files),
+    discardLocalState: async (expectedDocumentId: string) => {
+      try {
+        return await discardDocumentStoreLocalState(state, expectedDocumentId);
+      } finally {
+        // Restart hydration whenever the attempt reset the store — success
+        // re-pulls the shell, and a refusal or failure reloads the surviving
+        // rows. A no-op when the store was never reset. This runs outside
+        // the discard's identity-chained task because initialization chains
+        // identity writes of its own and would deadlock inside it.
+        ensureDocumentStoreInitialized(state, scheduleSync);
+        scheduleSync();
+      }
+    },
     ensureInitialized: () => ensureDocumentStoreReady(state, scheduleSync),
     getSnapshot: () => state.snapshot,
     removeAttachment: (slotId: string) =>
