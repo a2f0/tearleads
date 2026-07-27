@@ -6,7 +6,10 @@ export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
 // pre-reset schema (row-blob content, no durable-history tables) and are
 // rejected outright rather than restored into a shape the runtime no longer
 // understands.
-export const BACKUP_FORMAT_VERSION = 3;
+// v4: history tail rows gained a NOT NULL `origin` provenance column; a v3
+// backup would restore the table without it and break every subsequent
+// history write.
+export const BACKUP_FORMAT_VERSION = 4;
 
 const BACKUP_KDF_ITERATIONS = 250_000;
 const BACKUP_KDF_MIN_ITERATIONS = 1_000;
