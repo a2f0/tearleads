@@ -36,11 +36,14 @@ const TRANSCRIPT_TAIL_CHARS = 2000;
  * `~/.codex/config.toml`, and the final message is written alone to
  * `lastMessageFile`, so what gets relayed is the review, not the transcript.
  *
- * `mcp_servers` is overridden to an empty table because the sandbox confines
- * only model-generated shell commands: MCP tools configured in
+ * `--ignore-user-config` keeps the session hermetic. The sandbox confines only
+ * model-generated shell commands, so MCP servers configured in
  * `~/.codex/config.toml` would still load and could mutate external state on
- * behalf of that attacker-influenceable diff. A review needs no tools beyond
- * reading the repo.
+ * behalf of that attacker-influenceable diff — and `-c mcp_servers={}` cannot
+ * remove them, since table overrides merge instead of replacing (verified
+ * against codex 0.145: `codex mcp list` is unchanged under that override).
+ * Ignoring the user config drops those servers wholesale; auth still works,
+ * and everything the review needs is pinned explicitly right here.
  */
 export function buildCodexReviewArgs(
   effort: ReviewEffort,
@@ -48,10 +51,9 @@ export function buildCodexReviewArgs(
 ): string[] {
   return [
     "exec",
+    "--ignore-user-config",
     "--sandbox",
     "read-only",
-    "-c",
-    "mcp_servers={}",
     "-c",
     `model_reasoning_effort="${effort}"`,
     "--color",

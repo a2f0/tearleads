@@ -8,10 +8,9 @@ describe("buildCodexReviewArgs", () => {
 
     expect(args).toEqual([
       "exec",
+      "--ignore-user-config",
       "--sandbox",
       "read-only",
-      "-c",
-      "mcp_servers={}",
       "-c",
       'model_reasoning_effort="high"',
       "--color",
@@ -25,10 +24,11 @@ describe("buildCodexReviewArgs", () => {
   test("withholds MCP tools: the sandbox does not confine them", () => {
     // `--sandbox read-only` restricts shell commands only; user-configured MCP
     // servers would still load and could mutate external state on behalf of an
-    // attacker-influenceable diff.
+    // attacker-influenceable diff. `-c mcp_servers={}` cannot remove them —
+    // table overrides merge — so the user config is ignored wholesale.
     const args = buildCodexReviewArgs("high", "/tmp/x/review-1.md");
 
-    expect(args).toContain("mcp_servers={}");
+    expect(args).toContain("--ignore-user-config");
   });
 
   test("reads the prompt from stdin, never argv", () => {

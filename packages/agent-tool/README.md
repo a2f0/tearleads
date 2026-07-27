@@ -29,8 +29,8 @@ Both actions:
    as a nonzero exit.
 
 Claude reviews with read-only tools (`Read,Grep,Glob`, no `Bash`). Codex reviews
-via `codex exec` in a **read-only sandbox with MCP servers disabled**
-(`mcp_servers={}` — the sandbox confines shell commands, not MCP tools), and
+via `codex exec` in a **read-only sandbox with the user config ignored**
+(the sandbox confines shell commands, not user-configured MCP tools), and
 only its final message — captured with `--output-last-message` — is relayed, so
 the output is the review itself rather than the session's investigative
 transcript.
