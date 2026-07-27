@@ -179,6 +179,7 @@ async function appendPulledUpdatesToHistory(
   }
   await state.persistence.appendHistoryUpdates(state.runtime.infra.execSql, {
     localId: state.localId,
+    origin: "remote",
     updates: synced.decryptedUpdates.map((update) =>
       bytesToBase64(update.updateData),
     ),

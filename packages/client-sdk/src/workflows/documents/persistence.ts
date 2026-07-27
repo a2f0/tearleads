@@ -344,6 +344,7 @@ export async function persistDocumentState(
     if (input.historyUpdates && input.historyUpdates.length > 0) {
       await persistence.appendHistoryUpdates(lockedExecSql, {
         localId,
+        origin: "local",
         updates: input.historyUpdates,
       });
     }

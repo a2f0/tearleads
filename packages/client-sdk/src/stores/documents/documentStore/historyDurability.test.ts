@@ -6,7 +6,10 @@ import {
   encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
+  exportUpdatesSince,
   getTextValue,
+  importSnapshot,
+  satisfiesVersionVector,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
@@ -94,6 +97,7 @@ test("compaction deletes only the tail rows captured before its export", async (
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      origin: "local",
       localId: "raced-doc",
       updates: ["covered-row"],
     });
@@ -106,6 +110,7 @@ test("compaction deletes only the tail rows captured before its export", async (
     // A concurrent append lands after the capture (and after the export it
     // models); the replacement must leave it for the next compaction.
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      origin: "local",
       localId: "raced-doc",
       updates: ["late-row"],
     });
@@ -159,6 +164,7 @@ test("the tail compacts into a fresh checkpoint past the row threshold", async (
     // compaction clears them from the live doc's export without replaying
     // them), so opaque filler is fine here.
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      origin: "local",
       localId: "compaction-doc",
       updates: Array.from(
         { length: DOCUMENT_HISTORY_COMPACTION_MAX_ROWS },
@@ -178,6 +184,81 @@ test("the tail compacts into a fresh checkpoint past the row threshold", async (
   }
 });
 
+test("restored remote tail rows advance the marker; local rows do not", async () => {
+  const { close, execSql } = await createTestExecSql("history-tail-origin");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+
+    // Synced baseline: checkpoint + record whose durable marker sits at it.
+    const writer = await createDocument("origin-writer");
+    writer.getText("text").update("base");
+    writer.commit();
+    const baseVersion = encodeVersionVector(writer);
+    const baseline = exportFullHistorySnapshot(writer);
+    await sqlDocumentsPersistence.replaceHistoryCheckpoint(execSql, {
+      coveredTailIds: [],
+      endVersionVector: baseVersion,
+      force: true,
+      localId: "origin-doc",
+      snapshot: bytesToBase64(baseline),
+    });
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      id: "origin-doc",
+      accessEpoch: 1,
+      containerId: null,
+      documentId: "origin-remote-id",
+      pendingBaseVersion: baseVersion,
+      snapshotEndVersion: baseVersion,
+      text: "base",
+    });
+
+    // Crash-window shape: a pulled REMOTE update reached the tail but the
+    // record (and its marker) was never re-persisted...
+    const remotePeer = await createDocument("origin-remote-peer");
+    importSnapshot(remotePeer, baseline);
+    remotePeer.getText("text").update("base remote");
+    remotePeer.commit();
+    const remoteDelta = exportUpdatesSince(remotePeer, baseVersion);
+    const remoteEnd = encodeVersionVector(remotePeer);
+    await sqlDocumentsPersistence.appendHistoryUpdates(execSql, {
+      localId: "origin-doc",
+      origin: "remote",
+      updates: [bytesToBase64(remoteDelta)],
+    });
+
+    // ...alongside a LOCAL deferred edit whose op was never enqueued.
+    writer.getText("text").update("base local");
+    writer.commit();
+    const localDelta = exportUpdatesSince(writer, baseVersion);
+    const localEnd = encodeVersionVector(writer);
+    await sqlDocumentsPersistence.appendHistoryUpdates(execSql, {
+      localId: "origin-doc",
+      origin: "local",
+      updates: [bytesToBase64(localDelta)],
+    });
+
+    const reopened = await openStore(execSql, "origin-doc");
+    if (!reopened.doc || reopened.pendingBaseVersion === null) {
+      throw new Error("expected restored doc and marker");
+    }
+    // Content restored from both rows either way.
+    expect(getTextValue(reopened.doc)).toContain("remote");
+    expect(getTextValue(reopened.doc)).toContain("local");
+    // The marker advanced across the remote row (its ops are already
+    // server-side, so they are never re-sent)...
+    expect(satisfiesVersionVector(reopened.pendingBaseVersion, remoteEnd)).toBe(
+      true,
+    );
+    // ...but NOT across the local row: the next edit must re-derive and send
+    // that op.
+    expect(satisfiesVersionVector(reopened.pendingBaseVersion, localEnd)).toBe(
+      false,
+    );
+  } finally {
+    close();
+  }
+});
+
 test("a tail-only scope (crash before the birth checkpoint) still restores", async () => {
   const { close, execSql } = await createTestExecSql("history-tail-only");
   try {
@@ -189,6 +270,7 @@ test("a tail-only scope (crash before the birth checkpoint) still restores", asy
     author.getText("text").update("only durable copy");
     author.commit();
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      origin: "local",
       localId: "tail-only-doc",
       updates: [bytesToBase64(exportAllUpdates(author))],
     });
@@ -221,11 +303,13 @@ test("compaction preserves cross-pane tail rows its document does not cover", as
     paneB.getText("text").update("pane B edit");
     paneB.commit();
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      origin: "local",
       localId: "cross-pane-doc",
       updates: [bytesToBase64(exportAllUpdates(paneB))],
     });
     // Push past the threshold with unparseable filler (deleted as poison).
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      origin: "local",
       localId: "cross-pane-doc",
       updates: Array.from(
         { length: DOCUMENT_HISTORY_COMPACTION_MAX_ROWS },
@@ -266,6 +350,7 @@ test("a deferred write covered by the tail restores with full history", async ()
     state.doc.commit();
     const deferredDelta = pendingDeltaSinceBase(state, state.doc);
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      origin: "local",
       localId: "deferred-covered-doc",
       updates: [bytesToBase64(deferredDelta)],
     });

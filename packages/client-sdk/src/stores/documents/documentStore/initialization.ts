@@ -4,7 +4,9 @@ import {
   encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
+  getImportBlobMetadata,
   importSnapshot,
+  mergeVersionVectors,
 } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
@@ -28,6 +30,7 @@ import { ensureDocumentRowsStructure } from "../../../data/documents/documentRow
 import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  type DocumentsPersistence,
   importDocumentHistoryTailUpdates,
   isDatabaseUnavailableError,
   type LocalAttachmentRecord,
@@ -192,16 +195,20 @@ async function healLocalAttachmentDetachState(
  * one is a discovered shell that has not hydrated yet: the document starts
  * empty and the remote pull supplies the content.
  */
+type RestoredHistoryState = NonNullable<
+  Awaited<ReturnType<DocumentsPersistence["loadHistoryRestoreState"]>>
+>;
+
 async function restorePersistedDocumentContent(
   state: DocumentStoreState,
   nextDoc: DocumentState,
-): Promise<void> {
+): Promise<RestoredHistoryState | null> {
   const history = await state.persistence.loadHistoryRestoreState(
     state.runtime.infra.execSql,
     state.localId,
   );
   if (!history) {
-    return;
+    return null;
   }
 
   // A tail-only state (crash before the birth checkpoint landed) has an
@@ -209,7 +216,38 @@ async function restorePersistedDocumentContent(
   if (history.snapshot.length > 0) {
     importSnapshot(nextDoc, base64ToBytes(history.snapshot));
   }
-  importDocumentHistoryTailUpdates(nextDoc, history.tailUpdates);
+  importDocumentHistoryTailUpdates(
+    nextDoc,
+    history.tailUpdates.map((update) => update.updateData),
+  );
+  return history;
+}
+
+/**
+ * End versions of the restored REMOTE tail rows — ops the server already
+ * holds, so the outgoing-delta marker may advance across them. Unparseable
+ * rows are skipped (they never advance the marker; failing toward re-sending
+ * is the recoverable direction).
+ */
+function restoredRemoteTailCoverage(
+  history: RestoredHistoryState | null,
+): string[] {
+  if (!history) {
+    return [];
+  }
+  return history.tailUpdates.flatMap((update) => {
+    if (update.origin !== "remote") {
+      return [];
+    }
+    try {
+      return [
+        getImportBlobMetadata(base64ToBytes(update.updateData))
+          .partialEndVersionVector,
+      ];
+    } catch {
+      return [];
+    }
+  });
 }
 
 async function createInitialDocumentRecord(
@@ -315,8 +353,9 @@ async function initializeDocumentStore(
   );
 
   const existing = persistedState.document;
+  let restoredHistory: RestoredHistoryState | null = null;
   if (existing) {
-    await restorePersistedDocumentContent(state, nextDoc);
+    restoredHistory = await restorePersistedDocumentContent(state, nextDoc);
     // Check BEFORE assigning: a reset during the restore's I/O must not see
     // the pre-reset record written back over the replacement's state.
     if (state.localWriteGeneration !== initializeGeneration) {
@@ -343,10 +382,23 @@ async function initializeDocumentStore(
   // the restored document would classify those as covered and orphan them
   // from sync forever.
   const persistedMarker = existing?.pendingBaseVersion ?? null;
-  if (persistedMarker !== null) {
-    state.pendingBaseVersion = persistedMarker;
-  } else if (existing && existing.snapshotEndVersion.length > 0) {
-    state.pendingBaseVersion = existing.snapshotEndVersion;
+  const markerBase =
+    persistedMarker ??
+    (existing && existing.snapshotEndVersion.length > 0
+      ? existing.snapshotEndVersion
+      : null);
+  if (markerBase !== null) {
+    // Extend the base across the restored REMOTE tail rows: a crash between
+    // the pulled-updates append and the record persist leaves the durable
+    // marker behind ops the server already holds, and without this merge the
+    // next edit's delta would re-upload all of that pulled content. Local
+    // rows never advance it — an un-enqueued deferred op must stay below the
+    // marker so the next edit re-derives and sends it.
+    const remoteCoverage = restoredRemoteTailCoverage(restoredHistory);
+    state.pendingBaseVersion =
+      remoteCoverage.length > 0
+        ? mergeVersionVectors([markerBase, ...remoteCoverage])
+        : markerBase;
   } else {
     advancePendingBaseVersion(state, nextDoc);
   }

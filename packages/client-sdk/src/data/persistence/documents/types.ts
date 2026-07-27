@@ -161,14 +161,21 @@ export interface DocumentsPersistence {
    */
   appendHistoryUpdates: (
     execSql: ExecSql,
-    input: { localId: string; updates: readonly string[] },
+    input: {
+      localId: string;
+      origin: "local" | "remote";
+      updates: readonly string[];
+    },
   ) => Promise<void>;
   loadHistoryRestoreState: (
     execSql: ExecSql,
     localId: string,
   ) => Promise<{
     snapshot: string;
-    tailUpdates: readonly string[];
+    tailUpdates: readonly {
+      origin: "local" | "remote";
+      updateData: string;
+    }[];
   } | null>;
   readHistoryTailSize: (
     execSql: ExecSql,

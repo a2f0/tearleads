@@ -761,6 +761,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       execSql,
       getDocumentScope(input.localId),
       input.updates,
+      input.origin,
     );
   },
   async loadHistoryRestoreState(execSql, localId) {

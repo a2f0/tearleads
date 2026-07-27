@@ -128,11 +128,14 @@ test("streamed peer text publishes after a local write settles", async () => {
     },
   );
   if (peerHistory.tailUpdates.length > 0) {
+    // Seeded as remote: the receiver got this content from its peer, exactly
+    // as a pull would have delivered it.
     await receiverBasePersistence.appendHistoryUpdates?.(
       receiverRuntime.infra.execSql,
       {
         localId: "live-snapshot-note",
-        updates: [...peerHistory.tailUpdates],
+        origin: "remote",
+        updates: peerHistory.tailUpdates.map((update) => update.updateData),
       },
     );
   }

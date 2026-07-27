@@ -92,6 +92,7 @@ export async function enqueueDocumentPendingUpdateWithHistory(
         appKind: scope.appKind,
         localId: scope.localId,
         updateData: pendingUpdate.updateData,
+        origin: "local",
         createdAt,
       })
       .run();

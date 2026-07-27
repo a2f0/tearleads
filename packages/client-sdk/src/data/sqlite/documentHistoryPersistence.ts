@@ -19,15 +19,28 @@ import { type ExecSql, ensureSqlTables } from "./sqlSchema";
 export const DOCUMENT_HISTORY_COMPACTION_MAX_ROWS = 200;
 export const DOCUMENT_HISTORY_COMPACTION_MAX_BYTES = 512 * 1024;
 
+/**
+ * Row provenance: "local" for updates authored on this device, "remote" for
+ * decrypted pulled updates. Restores advance the outgoing-delta marker across
+ * remote rows (already server-side); local rows never advance it.
+ */
+type DocumentHistoryUpdateOrigin = "local" | "remote";
+
+interface DocumentHistoryTailUpdate {
+  readonly origin: DocumentHistoryUpdateOrigin;
+  readonly updateData: string;
+}
+
 interface DocumentHistoryRestoreState {
   readonly snapshot: string;
-  readonly tailUpdates: readonly string[];
+  readonly tailUpdates: readonly DocumentHistoryTailUpdate[];
 }
 
 export async function appendDocumentHistoryUpdates(
   execSql: ExecSql,
   scope: DocumentScope,
   updates: readonly string[],
+  origin: DocumentHistoryUpdateOrigin,
 ): Promise<void> {
   if (updates.length === 0) {
     return;
@@ -44,6 +57,7 @@ export async function appendDocumentHistoryUpdates(
           appKind: scope.appKind,
           localId: scope.localId,
           updateData,
+          origin,
           createdAt,
         })),
       );
@@ -75,6 +89,7 @@ export async function loadDocumentHistoryRestoreState(
   const tail = await db
     .select({
       id: documentHistoryUpdates.id,
+      origin: documentHistoryUpdates.origin,
       updateData: documentHistoryUpdates.updateData,
     })
     .from(documentHistoryUpdates)
@@ -105,7 +120,14 @@ export async function loadDocumentHistoryRestoreState(
 
   return {
     snapshot: checkpoint?.snapshot ?? "",
-    tailUpdates: tail.map((row) => row.updateData),
+    tailUpdates: tail.map((row) => ({
+      // Fail toward re-sending: an unrecognized origin never advances the
+      // marker, which is the recoverable direction (a redundant re-submit
+      // is idempotent; a skipped local op would be orphaned from sync).
+      origin:
+        row.origin === "remote" ? ("remote" as const) : ("local" as const),
+      updateData: row.updateData,
+    })),
   };
 }
 
