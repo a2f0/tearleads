@@ -482,14 +482,24 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
         item.localId,
         item.remoteId,
       )
-        .catch(() => false)
-        .then((discarded) => {
-          if (discarded) {
+        // A refusal (false) and an operational failure (throw) read
+        // differently to the user: the first means the document's state made
+        // the discard unsafe, the second that nothing changed and retrying
+        // is reasonable.
+        .then(
+          (discarded): "discarded" | "refused" =>
+            discarded ? "discarded" : "refused",
+          (): "failed" => "failed",
+        )
+        .then((outcome) => {
+          if (outcome === "discarded") {
             requestContainerContentsDocumentPriming(domainScope);
             return;
           }
           currentWindow?.showStatusMessage(
-            EXPLORER_LABELS.writeQueueDiscardRefusedStatus,
+            outcome === "refused"
+              ? EXPLORER_LABELS.writeQueueDiscardRefusedStatus
+              : EXPLORER_LABELS.writeQueueDiscardFailedStatus,
           );
         })
         .finally(() => {

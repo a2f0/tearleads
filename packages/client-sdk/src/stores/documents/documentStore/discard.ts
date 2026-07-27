@@ -89,14 +89,21 @@ export async function discardDocumentStoreLocalState(
     }
 
     // Reclaim the bytes whose rows the conversion dropped (staged uploads
-    // and detached local-attachment caches). Best-effort per key: a missing
-    // blob must not fail the discard.
+    // and detached local-attachment caches). The rows were their only
+    // durable pointers, so a failed delete is retried a few times and then
+    // LOGGED with its key rather than silently swallowed — the rows are
+    // already gone, so the discard itself still succeeded, but the orphaned
+    // encrypted bytes should be visible to diagnostics instead of invisible.
+    const orphanedStorageKeys: string[] = [];
     for (const storageKey of shell.reclaimableBlobStorageKeys) {
-      try {
-        await runtime.infra.blobStore.deleteBytes(storageKey);
-      } catch {
-        // The bytes stay orphaned at worst; the discard still succeeded.
+      if (!(await deleteBlobBytesWithRetry(state, storageKey))) {
+        orphanedStorageKeys.push(storageKey);
       }
+    }
+    if (orphanedStorageKeys.length > 0) {
+      runtime.util.log(
+        `Documents: discard for document ${state.localId} could not reclaim ${orphanedStorageKeys.length} blob(s): ${orphanedStorageKeys.join(", ")}`,
+      );
     }
     resetDocumentStore(state);
     runtime.util.log(
@@ -104,4 +111,22 @@ export async function discardDocumentStoreLocalState(
     );
     return true;
   });
+}
+
+const BLOB_RECLAIM_ATTEMPTS = 3;
+
+async function deleteBlobBytesWithRetry(
+  state: DocumentStoreState,
+  storageKey: string,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < BLOB_RECLAIM_ATTEMPTS; attempt += 1) {
+    try {
+      await state.runtime.infra.blobStore.deleteBytes(storageKey);
+      return true;
+    } catch {
+      // Retry: byte-store deletes fail transiently (e.g. an OPFS handle
+      // briefly held elsewhere), and the pointer rows are already gone.
+    }
+  }
+  return false;
 }

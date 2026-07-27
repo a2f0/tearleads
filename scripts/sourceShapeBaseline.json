@@ -214,12 +214,12 @@
       "bytes": 16686
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.tsx": {
-      "lines": 534,
-      "bytes": 17267
+      "lines": 544,
+      "bytes": 17760
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 463,
-      "bytes": 20942
+      "lines": 465,
+      "bytes": 21058
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
       "lines": 565,
@@ -298,8 +298,8 @@
       "bytes": 19608
     },
     "packages/client-sdk/src/stores/documents/documentStore/discard.test.ts": {
-      "lines": 505,
-      "bytes": 17332
+      "lines": 547,
+      "bytes": 18860
     },
     "packages/client-sdk/src/stores/documents/documentStore/initialization.ts": {
       "lines": 568,

@@ -328,6 +328,48 @@ test("discard refuses a document with a queued move intent", async () => {
   }
 });
 
+test("a failing byte store cannot fail the discard once rows committed", async () => {
+  const { close, execSql } = await createTestExecSql("discard-blob-fail");
+  const localId = "blob-fail-doc";
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveSyncedDocumentRecord(execSql, localId, "remote-doc", "folder-a");
+    await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      byteLength: 5,
+      localId,
+      mimeType: "text/plain",
+      name: "staged.txt",
+      slotId: "slot-1",
+      storageKey: "staged-storage-key",
+    });
+    const state = createStoreState(execSql, localId);
+    let deleteAttempts = 0;
+    (
+      state.runtime.infra.blobStore as {
+        deleteBytes: (storageKey: string) => Promise<void>;
+      }
+    ).deleteBytes = async () => {
+      deleteAttempts += 1;
+      throw new Error("byte store unavailable");
+    };
+
+    // The pointer rows are already gone when reclaim runs, so a rejecting
+    // byte store must not turn a committed discard into a reported failure.
+    // The delete is retried, then the orphaned key is logged for diagnostics.
+    expect(await discardDocumentStoreLocalState(state, "remote-doc")).toBe(
+      true,
+    );
+    expect(deleteAttempts).toBeGreaterThan(1);
+    const shell = await sqlDocumentsPersistence.loadDocument(execSql, localId);
+    expect(shell?.loroSnapshot).toBe("");
+    expect(
+      await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),
+    ).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
 test("discard refuses when the persisted identity is not the expected one", async () => {
   const { close, execSql } = await createTestExecSql("discard-identity");
   const localId = "relinked-doc";
