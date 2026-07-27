@@ -26,9 +26,16 @@ import {
 } from "./WindowChromeActions";
 import type { WindowMenuItem } from "./WindowMenuBar";
 import type { WindowTitleBarAction } from "./WindowTitleBar";
-
-const REFRESH_LABEL = "Refresh";
-const REFRESHING_LABEL = "Refreshing...";
+import {
+  createMenuItems,
+  createRefreshMenuItem,
+  REFRESH_LABEL,
+  type RegisteredWindowMenuItem,
+  type RegisteredWindowRefreshMenuItem,
+  sameMenuItem,
+  sameRefreshMenuItem,
+  selectRefreshMenuItem,
+} from "./windowMenuRegistrations";
 
 interface WindowRefreshMenuItemInput {
   disabled?: boolean;
@@ -46,25 +53,15 @@ interface WindowFileMenuItemInput {
   priority?: number;
 }
 
-interface RegisteredWindowMenuItem {
-  disabled: boolean;
-  id: string;
-  label: string;
-  onClick: () => unknown;
-  priority: number;
-}
-
-interface RegisteredWindowRefreshMenuItem {
-  disabled: boolean;
-  label: string;
-  onRefresh: () => unknown;
-  priority: number;
-  refreshing: boolean;
-}
-
 interface WindowMenuContextValue {
   fileMenuItems: WindowMenuItem[];
   viewMenuItems: WindowMenuItem[];
+  /**
+   * The winning refresh registration, also folded into `viewMenuItems` for the
+   * windowed menu bar. Exposed on its own because the routed shell has no menu
+   * bar and renders it as an app bar toolbar button instead.
+   */
+  refreshMenuItem: WindowMenuItem | null;
   titleBarActions: WindowTitleBarAction[];
   backAction: WindowBackAction | null;
   toolbarReserved: boolean;
@@ -92,6 +89,7 @@ interface WindowMenuContextValue {
 const WindowMenuContext = createContext<WindowMenuContextValue>({
   fileMenuItems: [],
   viewMenuItems: [],
+  refreshMenuItem: null,
   titleBarActions: [],
   backAction: null,
   toolbarReserved: false,
@@ -109,80 +107,6 @@ const WindowMenuContext = createContext<WindowMenuContextValue>({
   registerToolbarReservation: () => {},
   unregisterToolbarReservation: () => {},
 });
-
-function sameMenuItem(
-  left: RegisteredWindowMenuItem | undefined,
-  right: RegisteredWindowMenuItem,
-): boolean {
-  return (
-    left !== undefined &&
-    left.disabled === right.disabled &&
-    left.id === right.id &&
-    left.label === right.label &&
-    left.onClick === right.onClick &&
-    left.priority === right.priority
-  );
-}
-
-function sameRefreshMenuItem(
-  left: RegisteredWindowRefreshMenuItem | undefined,
-  right: RegisteredWindowRefreshMenuItem,
-): boolean {
-  return (
-    left !== undefined &&
-    left.disabled === right.disabled &&
-    left.label === right.label &&
-    left.onRefresh === right.onRefresh &&
-    left.priority === right.priority &&
-    left.refreshing === right.refreshing
-  );
-}
-
-function selectRefreshMenuItem(
-  items: ReadonlyMap<object, RegisteredWindowRefreshMenuItem>,
-): RegisteredWindowRefreshMenuItem | null {
-  let selected: RegisteredWindowRefreshMenuItem | null = null;
-
-  for (const item of items.values()) {
-    if (!selected || item.priority > selected.priority) {
-      selected = item;
-    }
-  }
-
-  return selected;
-}
-
-function createMenuItems(
-  items: ReadonlyMap<object, RegisteredWindowMenuItem>,
-): WindowMenuItem[] {
-  return Array.from(items.values())
-    .sort((left, right) => right.priority - left.priority)
-    .map((item) => ({
-      disabled: item.disabled,
-      id: item.id,
-      label: item.label,
-      onClick: () => {
-        void item.onClick();
-      },
-    }));
-}
-
-function createRefreshMenuItem(
-  item: RegisteredWindowRefreshMenuItem | null,
-): WindowMenuItem | null {
-  if (!item) {
-    return null;
-  }
-
-  return {
-    disabled: item.disabled || item.refreshing,
-    id: "window-refresh",
-    label: item.refreshing ? REFRESHING_LABEL : item.label,
-    onClick: () => {
-      void item.onRefresh();
-    },
-  };
-}
 
 function useWindowMenuContextValue(): WindowMenuContextValue {
   const fileMenu =
@@ -225,6 +149,7 @@ function useWindowMenuContextValue(): WindowMenuContextValue {
     () => ({
       fileMenuItems: fileMenuItemList,
       viewMenuItems: viewMenuItemList,
+      refreshMenuItem,
       titleBarActions: titleBarActionList,
       backAction,
       toolbarReserved: toolbarReservation.reserved,
@@ -245,6 +170,7 @@ function useWindowMenuContextValue(): WindowMenuContextValue {
     [
       fileMenuItemList,
       viewMenuItemList,
+      refreshMenuItem,
       titleBarActionList,
       backAction,
       toolbarReservation,
@@ -282,6 +208,11 @@ export function useWindowFileMenuItems(): WindowMenuItem[] {
 export function useWindowViewMenuItems(): WindowMenuItem[] {
   const { viewMenuItems } = useContext(WindowMenuContext);
   return viewMenuItems;
+}
+
+export function useWindowRefreshMenuItemValue(): WindowMenuItem | null {
+  const { refreshMenuItem } = useContext(WindowMenuContext);
+  return refreshMenuItem;
 }
 
 export function useWindowTitleBarActions(): WindowTitleBarAction[] {
