@@ -42,13 +42,19 @@ function spyPushState(onPush: (url: string | URL | null | undefined) => void) {
   };
 }
 
-function renderRoutedPane() {
+function renderRoutedPane({
+  autoProvisionIdentity = false,
+}: {
+  autoProvisionIdentity?: boolean;
+} = {}) {
   window.history.replaceState(null, "", "/");
 
   return render(
     <DualPaneProvider>
       <PaneSideProvider side="left">
-        <PaneProvider hostConfig={createTestHostConfig()}>
+        <PaneProvider
+          hostConfig={createTestHostConfig({ autoProvisionIdentity })}
+        >
           <Pane className="pane" navigationMode="routed" routedVisible />
         </PaneProvider>
       </PaneSideProvider>
@@ -67,22 +73,28 @@ function openRoutedMiniAppLink(
   });
   if (expandRail) {
     fireEvent.click(expandRail);
+  } else {
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
   }
   fireEvent.click(view.getByRole("link", { name }));
 }
 
-// Developer mode gates the Feature Flags tab, the routed shell's visible
-// consequence of the toggle now that the nav rail carries app links only.
-function expectRoutedDeveloperTab(
-  view: ReturnType<typeof renderPane>,
-  visible: boolean,
-) {
-  const tab = view.queryByRole("tab", { name: "Feature Flags" });
-  if (visible) {
-    expect(tab).toBeTruthy();
-  } else {
-    expect(tab).toBeNull();
-  }
+function forceRoutedTier(tier: "mobile" | "tablet"): () => void {
+  const originalMatchMedia = window.matchMedia;
+  window.matchMedia = ((query: string) => ({
+    addEventListener: () => {},
+    addListener: () => {},
+    dispatchEvent: () => false,
+    matches: tier === "tablet" && query.includes("min-width"),
+    media: query,
+    onchange: null,
+    removeEventListener: () => {},
+    removeListener: () => {},
+  })) as unknown as typeof window.matchMedia;
+
+  return () => {
+    window.matchMedia = originalMatchMedia;
+  };
 }
 
 test("home pane hides the monitor inline and exposes a launcher by default", () => {
@@ -334,30 +346,35 @@ test("pin to desktop closes the window, renders inline, and persists the choice"
   view.unmount();
 });
 
-test("developer mode toggles from the routed monitor toolbar and gates its tabs", async () => {
-  const view = renderRoutedPane();
+for (const tier of ["tablet", "mobile"] as const) {
+  test(`${tier} routed monitor omits developer and kill-worker toolbar actions`, async () => {
+    const restoreMatchMedia = forceRoutedTier(tier);
+    globalThis.localStorage.setItem(DEVELOPER_MODE_KEY, "enabled");
+    const view = renderRoutedPane({ autoProvisionIdentity: true });
 
-  openRoutedMiniAppLink(view, "System Monitor");
-  await view.findByRole("tab", { name: "Logs" });
-  expectRoutedDeveloperTab(view, false);
-  expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBeNull();
+    try {
+      openRoutedMiniAppLink(view, "System Monitor");
+      expect(
+        await view.findByRole("tab", { name: "Feature Flags" }),
+      ).toBeTruthy();
+      expect(
+        view.queryByRole("button", { name: "Disable Developer Mode" }),
+      ).toBeNull();
 
-  fireEvent.click(
-    await view.findByRole("button", { name: "Enable Developer Mode" }),
-  );
-
-  expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBe("enabled");
-  expectRoutedDeveloperTab(view, true);
-
-  fireEvent.click(
-    await view.findByRole("button", { name: "Disable Developer Mode" }),
-  );
-
-  expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBe("disabled");
-  expectRoutedDeveloperTab(view, false);
-
-  view.unmount();
-});
+      fireEvent.click(view.getByRole("tab", { name: "Status" }));
+      await waitFor(
+        () => {
+          expect(getPaneStatusText(view)).not.toContain("publicKey: none");
+        },
+        { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+      );
+      expect(view.queryByRole("button", { name: "Kill Worker" })).toBeNull();
+    } finally {
+      view.unmount();
+      restoreMatchMedia();
+    }
+  });
+}
 
 test("closing the window via its X button leaves the launcher to reopen it", async () => {
   const view = renderPane({ pinSystemMonitor: false });
