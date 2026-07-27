@@ -60,7 +60,7 @@ interface ExplorerWriteQueuePanelViewProps
   error: boolean;
   items: ReadonlyArray<PendingWriteQueueItem>;
   loading: boolean;
-  retryPendingWrites: () => void;
+  retryPendingWrites: (item: PendingWriteQueueItem) => void;
   snapshot: DomainSyncSnapshot;
 }
 
@@ -356,13 +356,26 @@ function usePendingWriteQueueItems(
 
 export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
   const syncSnapshot = useDomainSyncSnapshot(params.domainScope);
-  const { domainScope } = params;
-  // Per-entry "Retry sync": arm every pump-driven lane. Clean stores skip
-  // cheaply, blocked/errored intents replay, and offline/unauthenticated
-  // requests stay queued until prerequisites return.
-  const retryPendingWrites = useCallback(() => {
-    requestAllDomainSyncLanes(domainScope);
-  }, [domainScope]);
+  const { documentQueries, domainScope } = params;
+  // Per-entry "Retry sync": reset the item's parked retry state (recorded
+  // terminal failure, and for documents the durable re-key budget — a cap
+  // burned during an outage should not be terminal forever), then arm every
+  // pump-driven lane. Clean stores skip cheaply, blocked/errored intents
+  // replay, and offline requests stay queued until prerequisites return.
+  const retryPendingWrites = useCallback(
+    (item: PendingWriteQueueItem) => {
+      void documentQueries
+        .retryPendingWriteItem({
+          localId: item.localId,
+          objectKind: item.objectKind,
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          requestAllDomainSyncLanes(domainScope);
+        });
+    },
+    [documentQueries, domainScope],
+  );
   const syncSettlementRevision = syncSnapshot.lanes
     .map(
       (lane) =>

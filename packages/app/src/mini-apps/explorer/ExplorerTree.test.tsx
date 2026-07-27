@@ -95,6 +95,7 @@ function createDocumentQueries(
     },
     listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
     listPendingWrites: async () => [],
+    retryPendingWriteItem: async () => undefined,
     loadContainerDocumentWatermark: async () => null,
     loadDocumentSyncState: async () => null,
     loadDocumentSummary: async () => null,
