@@ -376,8 +376,12 @@ async function initializeDocumentStore(
   // Heal attachment slots lost to an interrupted attach write before marking
   // ready, so the recovered slots are in the snapshot the editor first renders
   // and are queued for sync. recoverDroppedAttachmentSlots advances the marker
-  // again for whatever it re-derives.
+  // again for whatever it re-derives. Both helpers write durable rows, so a
+  // reset during the first must not let the second repopulate discarded state.
   await recoverDroppedAttachmentSlots(state, nextDoc);
+  if (state.localWriteGeneration !== initializeGeneration) {
+    return;
+  }
   await healLocalAttachmentDetachState(state, nextDoc, persistedState);
   if (state.localWriteGeneration !== initializeGeneration) {
     return;

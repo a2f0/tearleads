@@ -524,10 +524,19 @@ async function syncPendingAttachmentUpload(
   }
 
   const { resume, snapshot } = await resolveAttachmentSourceUpload({
+    attachmentGeneration: input.attachmentGeneration,
     pendingAttachment,
     source,
     state,
   });
+  // Preparation awaited (byte-source open plus resume resolution); a teardown
+  // during those awaits must not let the upload itself start — its remote
+  // commit could not be recalled once sent.
+  if (
+    !isDocumentStoreSyncGenerationCurrent(state, input.attachmentGeneration)
+  ) {
+    return "retry";
+  }
   const uploadLane = createAttachmentUploadLaneReporter({
     blobId: resume.blobId,
     domainScope: state.runtime.state.domainScope,

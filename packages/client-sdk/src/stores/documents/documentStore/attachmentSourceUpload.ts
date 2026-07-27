@@ -10,8 +10,10 @@ import {
   resolveAttachmentUploadResume,
 } from "./attachmentUploadResume";
 import type { DocumentStoreState } from "./state";
+import type { DocumentStoreSyncGeneration } from "./syncGeneration";
 
 export async function resolveAttachmentSourceUpload(input: {
+  attachmentGeneration: DocumentStoreSyncGeneration;
   pendingAttachment: PendingAttachmentRecord;
   source: BlobByteSource;
   state: DocumentStoreState;
@@ -28,6 +30,7 @@ export async function resolveAttachmentSourceUpload(input: {
       input.state,
       input.pendingAttachment,
       snapshot.sha256,
+      input.attachmentGeneration,
     );
     const resolvedChunkSize =
       resume.multipart?.partSize ?? DEFAULT_BLOB_CHUNK_SIZE_BYTES;
