@@ -63,22 +63,10 @@ export function toWeightUnit(value: string | undefined): WeightUnit {
   return isWeightUnit(trimmed) ? trimmed : WEIGHT_DEFAULT_UNIT;
 }
 
-function isPopulatedEntry(row: DocumentRowSummary): boolean {
-  return (row.fields[WEIGHT_MEASUREMENT_FIELD] ?? "").trim().length > 0;
-}
-
-function deriveWeightTitle(
-  trackerName: string,
-  rows: ReadonlyArray<DocumentRowSummary> | undefined,
-): string {
+function deriveWeightTitle(trackerName: string): string {
   const trimmedName = trackerName.trim();
   if (trimmedName.length > 0) {
     return trimmedName;
-  }
-
-  const entryCount = (rows ?? []).filter(isPopulatedEntry).length;
-  if (entryCount > 0) {
-    return `Weight (${entryCount} ${entryCount === 1 ? "entry" : "entries"})`;
   }
 
   return WEIGHT_DEFAULT_TITLE;
@@ -145,7 +133,7 @@ export const weightDocumentProjectorDefinition: AppDocumentProjectorDefinition =
       return {
         fieldValidationIssues: issues,
         structuredFields: { trackerName, unit },
-        title: deriveWeightTitle(trackerName, rows),
+        title: deriveWeightTitle(trackerName),
       };
     },
     untitledTitle: WEIGHT_DEFAULT_TITLE,

@@ -52,14 +52,13 @@ test("title uses the tracker name when present", () => {
   expect(projection.fieldValidationIssues).toEqual([]);
 });
 
-test("title falls back to a reading count when unnamed", () => {
+test("title defaults to the document type name when unnamed, even with readings", () => {
   const projection = project({ trackerName: "" }, [
     reading("r1", { systolic: "121", diastolic: "79" }),
     reading("r2", { systolic: "", diastolic: "" }),
   ]);
 
-  // The blank draft row is ignored so the count reflects real measurements.
-  expect(projection.title).toBe("Blood Pressure (1 reading)");
+  expect(projection.title).toBe("Blood Pressure Tracker");
 });
 
 test("title defaults to the document type name with no readings", () => {

@@ -65,23 +65,22 @@ test("title uses the tracker name when present", () => {
   expect(projection.fieldValidationIssues).toEqual([]);
 });
 
-test("title falls back to an entry count when unnamed", () => {
+test("title defaults to the document type name when unnamed, even with entries", () => {
   const projection = project({ trackerName: "" }, [
     entry("e1", { weight: "180" }),
     entry("e2", { weight: "" }),
   ]);
 
-  // The blank draft row is ignored so the count reflects real measurements.
-  expect(projection.title).toBe("Weight (1 entry)");
+  expect(projection.title).toBe("Weight Tracker");
 });
 
-test("entry count title pluralizes", () => {
+test("title remains the document type name with multiple unnamed entries", () => {
   const projection = project({ trackerName: "" }, [
     entry("e1", { weight: "180" }),
     entry("e2", { weight: "179" }),
   ]);
 
-  expect(projection.title).toBe("Weight (2 entries)");
+  expect(projection.title).toBe("Weight Tracker");
 });
 
 test("title defaults to the document type name with no entries", () => {

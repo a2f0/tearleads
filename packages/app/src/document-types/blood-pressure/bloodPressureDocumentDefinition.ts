@@ -38,25 +38,10 @@ export function isValidBloodPressureMeasurement(value: string): boolean {
   );
 }
 
-function isPopulatedReading(row: DocumentRowSummary): boolean {
-  return (
-    (row.fields[BLOOD_PRESSURE_SYSTOLIC_FIELD] ?? "").trim().length > 0 ||
-    (row.fields[BLOOD_PRESSURE_DIASTOLIC_FIELD] ?? "").trim().length > 0
-  );
-}
-
-function deriveBloodPressureTitle(
-  trackerName: string,
-  rows: ReadonlyArray<DocumentRowSummary> | undefined,
-): string {
+function deriveBloodPressureTitle(trackerName: string): string {
   const trimmedName = trackerName.trim();
   if (trimmedName.length > 0) {
     return trimmedName;
-  }
-
-  const readingCount = (rows ?? []).filter(isPopulatedReading).length;
-  if (readingCount > 0) {
-    return `Blood Pressure (${readingCount} reading${readingCount === 1 ? "" : "s"})`;
   }
 
   return BLOOD_PRESSURE_DEFAULT_TITLE;
@@ -129,7 +114,7 @@ export const bloodPressureDocumentProjectorDefinition: AppDocumentProjectorDefin
       return {
         fieldValidationIssues: issues,
         structuredFields: { trackerName },
-        title: deriveBloodPressureTitle(trackerName, rows),
+        title: deriveBloodPressureTitle(trackerName),
       };
     },
     untitledTitle: BLOOD_PRESSURE_DEFAULT_TITLE,
