@@ -6,6 +6,9 @@ import type {
 import { type MouseEvent, useMemo } from "react";
 import { MiniAppInfoSection } from "../../../../components/mini-app/MiniAppLayout";
 import {
+  MiniAppCompactTableCell,
+  type MiniAppCompactTableField,
+  MiniAppCompactTableHeader,
   MiniAppTable,
   MiniAppTableActionButton,
   MiniAppTableCell,
@@ -13,7 +16,10 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
+  useMiniAppCompactTableFrame,
 } from "../../../../components/mini-app/MiniAppTable";
+import { getMiniAppVirtualFrameStyle } from "../../../../components/mini-app/virtual/MiniAppVirtual";
+import { classNames } from "../../../../components/shared/classNames";
 import { Menu } from "../../../../components/shared/Menu";
 import { MenuItem } from "../../../../components/shared/MenuItem";
 import {
@@ -26,7 +32,47 @@ import {
 } from "../../labels";
 import { compactId } from "../compactId";
 
-function getBlobReferenceColumns(): ReadonlyArray<MiniAppTableColumn> {
+/**
+ * The folded row's muted second line, in order. One list for both the header
+ * labels and the body fields, so the two lines cannot drift out of step.
+ */
+const BLOB_REFERENCE_SECONDARY_COLUMNS = [
+  { id: "container", label: EXPLORER_LABELS.documentInfoContainerColumn },
+  { id: "state", label: EXPLORER_LABELS.blobBrowserStateColumn },
+  { id: "slot", label: EXPLORER_LABELS.blobBrowserSlotColumn },
+] as const;
+
+/**
+ * Folded, the four columns become one summary cell: the document leads, and
+ * Container / State / Slot share the muted second line. Unfolded, they stay the
+ * four columns they were — three of which are an id or a one-word state, so
+ * they are the ones a narrow frame squeezes to nothing first.
+ */
+function getBlobReferenceColumns(
+  compact: boolean,
+): ReadonlyArray<MiniAppTableColumn> {
+  if (compact) {
+    return [
+      {
+        header: (
+          <MiniAppCompactTableHeader
+            primary={[
+              {
+                id: "document",
+                text: EXPLORER_LABELS.blobBrowserDocumentColumn,
+              },
+            ]}
+            secondary={BLOB_REFERENCE_SECONDARY_COLUMNS.map((column) => ({
+              id: column.id,
+              text: column.label,
+            }))}
+          />
+        ),
+        id: "summary",
+      },
+    ];
+  }
+
   return [
     {
       header: EXPLORER_LABELS.blobBrowserDocumentColumn,
@@ -121,7 +167,44 @@ function BlobReferenceContextMenu(params: {
   );
 }
 
+function getBlobReferenceContainerLabel(
+  reference: BlobInfoDocumentReference,
+  containerName: string | null,
+): string {
+  return (
+    containerName ??
+    (reference.containerId ? compactId(reference.containerId) : "-")
+  );
+}
+
+function getBlobReferenceSecondaryFields(
+  reference: BlobInfoDocumentReference,
+  containerName: string | null,
+): ReadonlyArray<MiniAppCompactTableField> {
+  const [container, state, slot] = BLOB_REFERENCE_SECONDARY_COLUMNS;
+
+  return [
+    {
+      ...container,
+      text: getBlobReferenceContainerLabel(reference, containerName),
+      title: reference.containerId ?? undefined,
+    },
+    {
+      ...state,
+      text: getExplorerDocumentInfoAttachmentKindLabel(
+        reference.attachmentKind,
+      ),
+    },
+    {
+      ...slot,
+      text: compactId(reference.slotId),
+      title: reference.slotId,
+    },
+  ];
+}
+
 function BlobReferenceRow(params: {
+  compact: boolean;
   containerName: string | null;
   contextTarget: BlobReferenceContextTarget | null;
   onContextMenu: (
@@ -131,7 +214,8 @@ function BlobReferenceRow(params: {
   reference: BlobInfoDocumentReference;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
 }) {
-  const { containerName, contextTarget, onContextMenu, reference } = params;
+  const { compact, containerName, contextTarget, onContextMenu, reference } =
+    params;
   const contextMenuTarget = getBlobReferenceContextTarget(reference);
   const canOpenDocument = contextMenuTarget !== null;
   const documentLabel = reference.documentTitle ?? compactId(reference.localId);
@@ -143,6 +227,18 @@ function BlobReferenceRow(params: {
         );
       }
     : undefined;
+  // The same control on both layouts — folded it becomes the summary's primary
+  // line, so the row keeps one focusable, labelled way into the document rather
+  // than trading it for plain text.
+  const documentButton = (
+    <MiniAppTableActionButton
+      className="explorer-blob-reference-row-button"
+      disabled={!canOpenDocument}
+      onClick={openDocument}
+    >
+      <MiniAppTableText title={documentLabel}>{documentLabel}</MiniAppTableText>
+    </MiniAppTableActionButton>
+  );
 
   return (
     <MiniAppTableRow
@@ -156,27 +252,35 @@ function BlobReferenceRow(params: {
       }
       selected={isBlobReferenceContextTarget(reference, contextTarget)}
     >
-      <MiniAppTableCell title={reference.localId}>
-        <MiniAppTableActionButton
-          className="explorer-blob-reference-row-button"
-          disabled={!canOpenDocument}
-          onClick={openDocument}
-        >
-          <MiniAppTableText title={documentLabel}>
-            {documentLabel}
-          </MiniAppTableText>
-        </MiniAppTableActionButton>
-      </MiniAppTableCell>
-      <MiniAppTableCell title={reference.containerId ?? undefined}>
-        {containerName ??
-          (reference.containerId ? compactId(reference.containerId) : "-")}
-      </MiniAppTableCell>
-      <MiniAppTableCell>
-        {getExplorerDocumentInfoAttachmentKindLabel(reference.attachmentKind)}
-      </MiniAppTableCell>
-      <MiniAppTableCell title={reference.slotId}>
-        {compactId(reference.slotId)}
-      </MiniAppTableCell>
+      {compact ? (
+        <MiniAppCompactTableCell
+          primary={[
+            {
+              content: documentButton,
+              id: "document",
+              title: reference.localId,
+            },
+          ]}
+          secondary={getBlobReferenceSecondaryFields(reference, containerName)}
+        />
+      ) : (
+        <>
+          <MiniAppTableCell title={reference.localId}>
+            {documentButton}
+          </MiniAppTableCell>
+          <MiniAppTableCell title={reference.containerId ?? undefined}>
+            {getBlobReferenceContainerLabel(reference, containerName)}
+          </MiniAppTableCell>
+          <MiniAppTableCell>
+            {getExplorerDocumentInfoAttachmentKindLabel(
+              reference.attachmentKind,
+            )}
+          </MiniAppTableCell>
+          <MiniAppTableCell title={reference.slotId}>
+            {compactId(reference.slotId)}
+          </MiniAppTableCell>
+        </>
+      )}
     </MiniAppTableRow>
   );
 }
@@ -187,13 +291,25 @@ export function BlobReferencesSection(params: {
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
 }) {
-  const columns = useMemo(() => getBlobReferenceColumns(), []);
+  const { compact, frameRef, rowHeight } = useMiniAppCompactTableFrame();
+  const columns = useMemo(() => getBlobReferenceColumns(compact), [compact]);
   const { closeContextMenu, contextMenu, openContextMenu } =
     useContextMenuState<BlobReferenceContextTarget>();
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.blobBrowserReferencesHeading}>
-      <MiniAppTableFrame>
+      <MiniAppTableFrame
+        // Both modifiers, and only when folded: the two-line pitch rule is
+        // written against the pair, and the denser `--compact` cell padding
+        // belongs with the fold — unfolded, the section keeps the roomier
+        // four-column table it has always been.
+        className={classNames(
+          compact &&
+            "mini-app-table-frame--compact mini-app-table-frame--two-line",
+        )}
+        ref={frameRef}
+        style={getMiniAppVirtualFrameStyle(rowHeight)}
+      >
         <MiniAppTable
           aria-label={EXPLORER_LABELS.blobBrowserReferencesHeading}
           columns={columns}
@@ -205,6 +321,7 @@ export function BlobReferencesSection(params: {
 
             return (
               <BlobReferenceRow
+                compact={compact}
                 containerName={containerName}
                 contextTarget={contextMenu?.id ?? null}
                 key={getBlobReferenceKey(reference)}
