@@ -204,11 +204,12 @@ test("an si_-only event with metadata no longer binds an organization", async ()
     providerSubscriptionId: "si_no_longer_resolved",
   });
   const mutableOrganizationId = await createActiveBilling();
+  const eventId = crypto.randomUUID();
 
   const outcome = await runRevenueCatWebhookWorkflow(db, {
     app_user_id: appUserId,
     event_timestamp_ms: Date.now(),
-    id: crypto.randomUUID(),
+    id: eventId,
     metadata: { orgId: metadataOrganizationId },
     original_transaction_id: "si_no_longer_resolved",
     store: "STRIPE",
@@ -220,8 +221,17 @@ test("an si_-only event with metadata no longer binds an organization", async ()
 
   // Post-greenfield there is no metadata-only Stripe resolution: an event
   // whose only identifier is an si_ item must attribute through Stripe
-  // itself, so this one resolves nothing and mutates no billing row.
-  expect(outcome.status).not.toBe("applied");
+  // itself, so this one stays an unclaimed retry (503) — never a silently
+  // suppressed ignore — and mutates no billing row.
+  expect(outcome).toEqual({
+    status: "retry",
+    reason: "Stripe subscription lookup failed for a Stripe-store event",
+  });
+  const [claimed] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.id, eventId));
+  expect(claimed).toBeUndefined();
   expect(await readBillingStatus(metadataOrganizationId)).toBe("active");
   expect(await readBillingStatus(mutableOrganizationId)).toBe("active");
 });
