@@ -7,7 +7,7 @@ import {
   runOncePerConnection,
   runSerializedSqlMutation,
 } from "./sqlExec";
-import { ensureSqlColumns, ensureSqlTables } from "./sqlTableSchema";
+import { ensureSqlTables } from "./sqlTableSchema";
 
 // The spy is a distinct function identity, so the memo (and mutation lock)
 // under test keys on the spy itself rather than the wrapped executor. That is
@@ -29,7 +29,7 @@ function createSpyExecSql(execSql: ExecSql): {
   return { calls, spyExecSql };
 }
 
-test("ensureSqlTables and ensureSqlColumns run once per connection", async () => {
+test("ensureSqlTables runs once per connection", async () => {
   const { close, execSql } = await createTestExecSql("ensure-schema-memo");
   try {
     const { calls, spyExecSql } = createSpyExecSql(execSql);
@@ -44,27 +44,11 @@ test("ensureSqlTables and ensureSqlColumns run once per connection", async () =>
     await ensureSqlTables(spyExecSql, documentTables);
     expect(calls.length).toBe(callsAfterFirstEnsure);
 
-    await ensureSqlColumns(spyExecSql, "documents", [
-      {
-        name: "pending_base_version",
-        definition: '"pending_base_version" TEXT',
-      },
-    ]);
-    const callsAfterFirstColumns = calls.length;
-    expect(callsAfterFirstColumns).toBeGreaterThan(callsAfterFirstEnsure);
-    await ensureSqlColumns(spyExecSql, "documents", [
-      {
-        name: "pending_base_version",
-        definition: '"pending_base_version" TEXT',
-      },
-    ]);
-    expect(calls.length).toBe(callsAfterFirstColumns);
-
     // A schema rebuild (local backup restore) forgets the memo, so ensures run
     // again on the next query.
     resetConnectionSchemaMemo(spyExecSql);
     await ensureSqlTables(spyExecSql, documentTables);
-    expect(calls.length).toBeGreaterThan(callsAfterFirstColumns);
+    expect(calls.length).toBeGreaterThan(callsAfterFirstEnsure);
   } finally {
     close();
   }

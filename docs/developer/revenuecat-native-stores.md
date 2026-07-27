@@ -76,9 +76,7 @@ tests direct Stripe checkout with test-mode keys from applying its own web
 billing. What stands in for the guard there is Stripe's own attribution — a
 foreign-mode subscription resolves through neither the durable binding nor the
 exact `sub_…` lookup, both of which run against that tier's own Stripe key and
-fail closed. The one path that skips Stripe entirely is the legacy
-single-`si_`-plus-metadata branch, which can only bind an organization whose id
-the event already carries, so a cross-tier event would have to guess a v4 UUID.
+fail closed.
 
 `classifyRevenueCatEvent` therefore ignores sandbox events unless the tier sets
 `REVENUECAT_ALLOW_SANDBOX_EVENTS=true`. It fails closed, so production simply

@@ -304,12 +304,6 @@ export function SystemBootstrapProvider({
       enabled &&
       appData.auth.isAuthenticated &&
       appData.infra.dbStatus === "ready",
-    refreshKey: [
-      appData.auth.organizationId ?? "",
-      appData.state.containerId ?? "",
-      String(snapshot.nodes.length),
-    ].join(":"),
-    tearleads,
   });
   const bootstrapContacts = resolveContactsBootstrapPolicy({
     currentOrganizationId: appData.auth.organizationId,

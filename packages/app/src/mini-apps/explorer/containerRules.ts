@@ -413,8 +413,8 @@ export function canMoveDocumentByRules(
 }
 
 // A document may be permanently purged unless it is the pinned self contact.
-// Defense in depth on the destructive operation itself, in case a self contact
-// is already parked under Trash from before this guard existed.
+// Defense in depth on the destructive operation itself, in case a bug path
+// ever parks a self contact under Trash.
 export function canPurgeDocumentByRules(
   context: ExplorerContainerRulesContext,
   document: Pick<DocumentSummary, "id"> | undefined,

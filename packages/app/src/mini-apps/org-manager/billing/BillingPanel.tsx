@@ -88,8 +88,8 @@ function useDirectCheckoutWiring(input: {
   // for one:
   //   - `isActive`, not `canSync` — a TRIALING org has no subscription to
   //     cancel, and canSync folds trialing in.
-  //   - no provider manage link — a RevenueCat-managed sub (store purchase, or
-  //     a legacy RC web sub) resolves one, rendered above; a Stripe-direct sub
+  //   - no provider manage link — a RevenueCat-managed sub (a store purchase)
+  //     resolves one, rendered above; a Stripe-direct sub
   //     has no RC customer, so it is absent. This keeps a phone-bought sub,
   //     opened on web, from showing a Cancel that could only 404.
   const showInlineCancel =

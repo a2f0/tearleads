@@ -72,7 +72,6 @@ export {
   defineSqlTableSchema,
   type ExecSql,
   type ExecSqlClientLike,
-  ensureSqlColumns,
   ensureSqlTables,
   resetConnectionSchemaMemo,
   runSerializedSqlMutation,

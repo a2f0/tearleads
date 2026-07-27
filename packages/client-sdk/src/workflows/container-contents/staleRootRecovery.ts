@@ -87,7 +87,7 @@ function listAuthoritativeRootCandidates(
  * remote-backed top-level root after the authoritative root lane has hydrated.
  * As in normal root reconciliation, the authenticated API topology is the
  * account authority here; root ownership is not independently corroborated by
- * a client-held signature. This compatibility path only repairs document
+ * a client-held signature. This recovery path only repairs document
  * references; structural container descendants remain owned by normal root
  * reconciliation. Durable reassignment deliberately precedes live session
  * adoption so consumers never observe the new root before its documents move.

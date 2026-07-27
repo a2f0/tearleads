@@ -95,8 +95,8 @@ test("crypto sessions are persisted independently for each identity", async () =
   });
 });
 
-test("legacy crypto sessions restore without an inferred default org", async () => {
-  const namespace = `session-legacy-${crypto.randomUUID()}`;
+test("an authenticated session without a default org fails closed", async () => {
+  const namespace = `session-no-default-${crypto.randomUUID()}`;
   const signingFingerprint = "c".repeat(64);
   const keyring = createSharedMemoryLocalKeyringFactory()();
   const scope = localIdentityScope(namespace);
@@ -109,14 +109,19 @@ test("legacy crypto sessions restore without an inferred default org", async () 
     storageKey: localCryptoSessionStorageKey(namespace, signingFingerprint),
   };
 
+  // Every authenticated session carries its identity's default organization;
+  // bootstrap keys on it, so a stored session missing one must be discarded
+  // (forcing a fresh sign-in) instead of restoring into a forever-waiting
+  // bootstrap.
   await persistCryptoSession({
     context: {
-      authToken: "legacy-token",
-      containerId: "legacy-container",
+      authToken: "token",
+      containerId: "container",
+      defaultOrganizationId: null,
       isAuthenticated: true,
-      organizationId: "legacy-active-org",
-      userId: "legacy-user",
-    } as Parameters<typeof persistCryptoSession>[0]["context"],
+      organizationId: "active-org",
+      userId: "user",
+    },
     localPersistence,
     signingFingerprint,
   });
@@ -126,14 +131,7 @@ test("legacy crypto sessions restore without an inferred default org", async () 
       localPersistence,
       signingFingerprint,
     }),
-  ).toEqual({
-    authToken: "legacy-token",
-    containerId: "legacy-container",
-    defaultOrganizationId: null,
-    isAuthenticated: true,
-    organizationId: "legacy-active-org",
-    userId: "legacy-user",
-  });
+  ).toBeNull();
 });
 
 test("clearing an identity session wins over an older in-flight write", async () => {

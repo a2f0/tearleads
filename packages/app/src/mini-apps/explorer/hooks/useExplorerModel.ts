@@ -136,7 +136,6 @@ export function useExplorerModel(
       appData,
       contactsSystemSlot: explorer.contactsSystemSlot,
       nodes: explorer.nodes,
-      ready: explorer.ready,
     });
   // The Explorer embeds this Contacts store read-only (self-contact lookup); it
   // never removes contacts, so it needs no Trash resolver.

@@ -651,7 +651,7 @@ async function resolveDocumentWriterProjection(input: {
     if (error instanceof DocumentKekTargetError) {
       // The coded existence check above already ran, so a 404 here (e.g. a
       // link-set head that vanished mid-projection) is not proof of deletion;
-      // keep it away from the legacy client's 404-triggered wipe.
+      // keep it away from the client's 404-triggered wipe.
       throw new DocumentWriterProjectionError(
         error.message,
         error.status === 404 ? 409 : error.status,

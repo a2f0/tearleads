@@ -292,10 +292,8 @@ function documentSyncManifestEpoch(plan: DocumentSyncPlan): number {
   );
 }
 
-// The server no longer echoes a missing-update-epoch summary; it was derived
-// from the per-update accessEpoch values already on the wire and the client
-// only recomputed-and-asserted-equal. The one load-bearing check is that no
-// returned update claims an accessEpoch newer than the current manifest epoch.
+// The one load-bearing epoch check: no returned update may claim an
+// accessEpoch newer than the current manifest epoch.
 function assertDocumentSyncAccessEpochsNotInFuture(
   plan: DocumentSyncPlan,
   response: DocumentSyncResponse,
@@ -415,12 +413,10 @@ export function isRetryableDocumentSyncConflict(
   );
 }
 
-// The wipe gate is deliberately strict, with NO legacy-message fallback: a
-// pre-coded API's genuine deletion 404 fails closed (the document lingers
-// locally until the coded API is deployed), which is the right failure mode
-// for a destructive action. A bare 404 proves nothing about the document —
-// proxy/tunnel error pages, deploy-skew route misses, and container-level
-// lookups all produce one.
+// The wipe gate is deliberately strict — coded 404s only, which is the right
+// failure mode for a destructive action. A bare 404 proves nothing about the
+// document: proxy/tunnel error pages, deploy-skew route misses, and
+// container-level lookups all produce one.
 export function isUpstreamDeletedDocumentSyncFailure(
   failure: DocumentSyncSubmitFailure,
 ): boolean {

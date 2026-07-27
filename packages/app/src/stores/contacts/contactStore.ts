@@ -47,7 +47,6 @@ import {
   findPrimarySelfContact,
   getSelfContactLocalId,
   isSelfContactCurrent,
-  normalizeEnsureSelfContactInput,
   type ResolvedSelfContactIdentity,
   resolveSelfContactId,
   toResolvedSelfContactIdentity,
@@ -123,28 +122,24 @@ async function createContactFromRuntime(
 
 async function resolveSelfContactIdentity(
   state: ContactsStoreState,
-  input: string | EnsureSelfContactInput,
+  input: EnsureSelfContactInput,
 ): Promise<ResolvedSelfContactIdentity | null> {
-  const normalizedInput = normalizeEnsureSelfContactInput(input);
-  if (
-    normalizedInput.userId &&
-    !normalizedInput.encapsulationPublicKey?.trim()
-  ) {
+  if (input.userId && !input.encapsulationPublicKey?.trim()) {
     const userIdentity = await getUserIdentityForSelfContact(
       state.dependencies,
-      normalizedInput.userId,
+      input.userId,
     );
     return userIdentity
-      ? toResolvedSelfContactIdentity(normalizedInput, userIdentity)
+      ? toResolvedSelfContactIdentity(input, userIdentity)
       : null;
   }
 
-  return toResolvedSelfContactIdentity(normalizedInput);
+  return toResolvedSelfContactIdentity(input);
 }
 
 async function ensureSelfContactFromRuntime(
   state: ContactsStoreState,
-  input: string | EnsureSelfContactInput,
+  input: EnsureSelfContactInput,
   guard: ContactStoreOperationGuard = allowContactStoreOperation,
 ): Promise<string | null> {
   await waitForContactsInitialization(state);
@@ -167,8 +162,7 @@ async function ensureSelfContactFromRuntime(
     return null;
   }
   const current = isSelfContactCurrent(existingContact, identity);
-  const deferRemoteSync =
-    typeof input !== "string" && input.deferRemoteSync === true;
+  const deferRemoteSync = input.deferRemoteSync === true;
   if (!guard()) {
     return null;
   }
@@ -446,7 +440,7 @@ export function createContactsStore(
 
   return {
     createContact: (patch) => createContactFromRuntime(state, patch),
-    ensureSelfContact: (userId) => ensureSelfContactFromRuntime(state, userId),
+    ensureSelfContact: (input) => ensureSelfContactFromRuntime(state, input),
     getSnapshot: () => state.snapshot,
     importKey: (userId) => importKeyFromRuntime(state, userId),
     removeContact: (contactId) => removeContactFromRuntime(state, contactId),

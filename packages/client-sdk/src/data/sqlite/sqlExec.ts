@@ -55,7 +55,7 @@ function resolveCanonicalExecSql(execSql: ExecSql): ExecSql {
   return serializedSqlExecCanonicals.get(execSql) ?? execSql;
 }
 
-// Completed once-per-connection keys (schema ensures, one-time migrations).
+// Completed once-per-connection keys (schema ensures).
 // Only COMPLETED runs are recorded — never in-flight promises — so two lock
 // contexts racing the same key both run the (idempotent) work instead of one
 // awaiting a promise that can only settle after the lock the other context is
@@ -100,9 +100,9 @@ export async function runOncePerConnection(
 
 /**
  * Forget every completed once-per-connection key for this connection. Required
- * after an operation that rebuilds the schema out from under the runtime — the
- * local backup restore drops and recreates all user tables, possibly to an
- * older shape — so the next query re-runs its schema ensures and migrations.
+ * after an operation that rebuilds the schema out from under the runtime (the
+ * local backup restore drops and recreates all user tables) so the next query
+ * re-runs its schema ensures.
  */
 export function resetConnectionSchemaMemo(execSql: ExecSql): void {
   completedConnectionOnceKeys.delete(resolveCanonicalExecSql(execSql));

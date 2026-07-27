@@ -90,13 +90,6 @@ function readNullableString(
     : undefined;
 }
 
-function readDefaultOrganizationId(value: object): string | null | undefined {
-  if (!Reflect.has(value, "defaultOrganizationId")) {
-    return null;
-  }
-  return readNullableString(value, "defaultOrganizationId");
-}
-
 function parsePersistedCryptoSession(
   value: unknown,
 ): PersistedCryptoSessionEnvelope | null {
@@ -120,7 +113,10 @@ function parsePersistedCryptoSession(
   const authToken = readNullableString(value, "authToken");
   const containerId = readNullableString(value, "containerId");
   const organizationId = readNullableString(value, "organizationId");
-  const defaultOrganizationId = readDefaultOrganizationId(value);
+  const defaultOrganizationId = readNullableString(
+    value,
+    "defaultOrganizationId",
+  );
   const userId = readNullableString(value, "userId");
   if (
     authToken === undefined ||
@@ -129,6 +125,13 @@ function parsePersistedCryptoSession(
     organizationId === undefined ||
     userId === undefined
   ) {
+    return null;
+  }
+  // Every authenticated session carries its identity's default organization;
+  // system/Contacts bootstrap keys on it, so restoring an authenticated
+  // session without one would leave bootstrap waiting forever. Fail closed —
+  // discarding the stored session just forces a fresh sign-in.
+  if (isAuthenticated && defaultOrganizationId === null) {
     return null;
   }
 

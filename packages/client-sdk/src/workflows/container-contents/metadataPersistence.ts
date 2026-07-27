@@ -310,7 +310,7 @@ async function setContainerIconMetadataState(input: {
   const { execSql, icon, metadataState, persistence } = input;
   // Normalize to the same shape the metadata document stores: a trimmed,
   // non-empty slug or null (the default folder). writeContainerMetadataValue
-  // deletes the icon key when null so it matches an unset legacy container.
+  // deletes the icon key when null so it matches an icon-less container.
   const normalizedIcon = icon?.trim() || null;
 
   const metadata = readContainerMetadataValue(

@@ -338,25 +338,6 @@
       ansible.builtin.import_tasks: tasks/codeAssist.yml
       when: code_assist_enabled | bool
 
-    - name: Disable legacy app-web systemd service
-      ansible.builtin.systemd:
-        name: tearleads-app-web
-        daemon_reload: true
-        enabled: false
-        state: stopped
-      failed_when: false
-
-    - name: Remove legacy app-web systemd service
-      ansible.builtin.file:
-        path: /etc/systemd/system/tearleads-app-web.service
-        state: absent
-      notify: Reload systemd
-
-    - name: Remove legacy app-web environment file
-      ansible.builtin.file:
-        path: /etc/tearleads/app-web.env
-        state: absent
-
     - name: Install Redis
       ansible.builtin.apt:
         name: redis-server

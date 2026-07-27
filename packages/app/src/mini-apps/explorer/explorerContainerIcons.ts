@@ -21,8 +21,8 @@ export const SELECTABLE_CONTAINER_ICON_SLUGS: readonly SelectableContainerIconSl
   ["folder", "playlist", "album"];
 
 // Map a stored container icon value to the slug shown in the picker. Unset or
-// unrecognized icons (including legacy containers and app-managed slots) fall
-// back to the default folder.
+// unrecognized icons (including containers without a stored icon and
+// app-managed slots) fall back to the default folder.
 export function toSelectableContainerIconSlug(
   icon: string | null | undefined,
 ): SelectableContainerIconSlug {
@@ -34,8 +34,9 @@ export function toSelectableContainerIconSlug(
 }
 
 // Convert a picked slug into the value persisted in container metadata. The
-// default folder is stored as null (unset) so it matches legacy containers and
-// avoids a redundant metadata write when nothing effectively changed.
+// default folder is stored as null (unset) so it matches containers without a
+// stored icon and avoids a redundant metadata write when nothing effectively
+// changed.
 export function toStoredContainerIcon(
   slug: SelectableContainerIconSlug,
 ): string | null {

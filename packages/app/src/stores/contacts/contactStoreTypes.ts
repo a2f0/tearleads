@@ -43,9 +43,7 @@ export interface ContactsRuntime {
 
 export interface ContactsStore {
   createContact: (patch: ContactEntryPatch) => Promise<string | null>;
-  ensureSelfContact: (
-    input: string | EnsureSelfContactInput,
-  ) => Promise<string | null>;
+  ensureSelfContact: (input: EnsureSelfContactInput) => Promise<string | null>;
   getSnapshot: () => ContactsSnapshot;
   importKey: (userId: string) => Promise<string | null>;
   removeContact: (contactId: string) => Promise<void>;
