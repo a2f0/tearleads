@@ -262,9 +262,22 @@ export function versionVectorsEqual(
 export function importUpdates(doc: LoroDoc, updates: Uint8Array[]): void {
   const status = doc.importBatch(updates);
   if (status.pending != null && status.pending.size > 0) {
-    throw new Error(
-      "importUpdates received updates with unresolved pending dependencies",
+    // importBatch applies out-of-order batches correctly but can still report
+    // the intermediate pending set it saw mid-batch. Trust the document, not
+    // the report: the import only genuinely failed when the document's final
+    // version does not cover some batched update's end version.
+    const documentVersion = encodeVersionVector(doc);
+    const covered = updates.every((update) =>
+      satisfiesVersionVector(
+        documentVersion,
+        getImportBlobMetadata(update).partialEndVersionVector,
+      ),
     );
+    if (!covered) {
+      throw new Error(
+        "importUpdates received updates with unresolved pending dependencies",
+      );
+    }
   }
 }
 

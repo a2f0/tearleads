@@ -138,6 +138,24 @@ test("importUpdates rejects a dependency-bearing update", async () => {
   );
 });
 
+test("importUpdates applies an out-of-order batch with in-batch deps", async () => {
+  const author = await createDocument("order-author");
+  author.getText("text").update("first");
+  author.commit();
+  const mid = encodeVersionVector(author);
+  const first = exportUpdatesSince(author, null);
+  author.getText("text").update("first second");
+  author.commit();
+  const second = exportUpdatesSince(author, mid);
+
+  // Same-millisecond history-tail appends can replay in either order; the
+  // batch import must succeed (not fail loudly on importBatch's stale
+  // pending report) when every dependency is inside the batch.
+  const reader = await createDocument("order-reader");
+  importUpdates(reader, [second, first]);
+  expect(getTextValue(reader)).toBe("first second");
+});
+
 test("listTextCharOpIds maps each character to its inserting op id", async () => {
   const alice = await createDocument("alice-seed");
   const bob = await createDocument("bob-seed");

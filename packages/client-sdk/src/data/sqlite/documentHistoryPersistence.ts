@@ -1,5 +1,5 @@
 import { satisfiesVersionVector } from "@tearleads/loro";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DocumentScope } from "./documentPersistenceTypes";
 import {
   documentHistoryCheckpoints,
@@ -84,10 +84,10 @@ export async function loadDocumentHistoryRestoreState(
         eq(documentHistoryUpdates.localId, scope.localId),
       ),
     )
-    .orderBy(
-      asc(documentHistoryUpdates.createdAt),
-      asc(documentHistoryUpdates.id),
-    );
+    // Insertion order: same-millisecond appends make createdAt tie and a
+    // random-uuid tiebreak would replay out of order. importUpdates tolerates
+    // out-of-order batches, but replay should still be deterministic.
+    .orderBy(sql`rowid`);
 
   const [checkpoint] = await db
     .select({ snapshot: documentHistoryCheckpoints.snapshot })

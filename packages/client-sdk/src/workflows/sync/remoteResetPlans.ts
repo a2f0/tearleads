@@ -1,4 +1,5 @@
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
+import { sql } from "drizzle-orm";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { getDocumentAttachments } from "../../data/documents/documentContent";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
@@ -79,7 +80,9 @@ async function buildResetContentDocs(
       updateData: documentHistoryUpdates.updateData,
     })
     .from(documentHistoryUpdates)
-    .orderBy(documentHistoryUpdates.createdAt, documentHistoryUpdates.id);
+    // Insertion order (see loadDocumentHistoryRestoreState): createdAt can
+    // tie within a millisecond and the uuid tiebreak is random.
+    .orderBy(sql`rowid`);
   const checkpointRows = await db
     .select({
       appKind: documentHistoryCheckpoints.appKind,
