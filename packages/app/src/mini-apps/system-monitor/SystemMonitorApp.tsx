@@ -1,4 +1,3 @@
-import { CodeIcon } from "@phosphor-icons/react/dist/csr/Code";
 import { PushPinIcon } from "@phosphor-icons/react/dist/csr/PushPin";
 import { useCallback, useId, useMemo, useState } from "react";
 import {
@@ -106,8 +105,9 @@ function useSystemMonitorChromeActions() {
 
   // Surface the pin action only where a pane-level SystemMonitorProvider is
   // mounted. Windowed mode keeps the existing View/title-bar action; the routed
-  // shell has no menu bar (its nav rail is a pure app launcher), so both the
-  // home-screen pin and the developer-mode toggle ride its app bar toolbar.
+  // shell has no menu bar (its nav rail is a pure app launcher), so the
+  // home-screen pin rides its app bar toolbar. Developer mode remains a
+  // windowed View-menu action rather than taking space in routed toolbars.
   // Memoized so the registrations keep a stable identity across renders.
   const pinMenuItem = useMemo(
     () =>
@@ -151,23 +151,9 @@ function useSystemMonitorChromeActions() {
         : null,
     [canPin, handlePin, pinLabel],
   );
-  const developerModeTitleBarAction = useMemo(
-    () =>
-      canPin && isRoutedShell
-        ? {
-            icon: <CodeIcon aria-hidden size={14} />,
-            id: "system-monitor-developer-mode",
-            label: developerModeLabel,
-            onClick: toggleDeveloperMode,
-            priority: -10,
-          }
-        : null,
-    [canPin, developerModeLabel, isRoutedShell, toggleDeveloperMode],
-  );
   useWindowViewMenuItem(pinViewMenuItem);
   useWindowViewMenuItem(developerModeViewMenuItem);
   useWindowTitleBarAction(pinTitleBarAction);
-  useWindowTitleBarAction(developerModeTitleBarAction);
 }
 
 export function SystemMonitorApp() {
