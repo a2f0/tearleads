@@ -29,7 +29,7 @@ export function waitForReadySQLiteRuntime(
   // be gated on the killed runtime's asynchronous release, so keep waiting. A
   // waiter that observes termination after it started has been interrupted and
   // must reject instead of leaving its caller busy forever.
-  const rejectOnTermination = tearleads.database.status !== "terminated";
+  let toleratingInitialTermination = tearleads.database.status === "terminated";
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -40,11 +40,13 @@ export function waitForReadySQLiteRuntime(
       }
 
       const { client, status } = tearleads.database.snapshot;
+      toleratingInitialTermination =
+        toleratingInitialTermination && status === "terminated";
       if (readinessGenerationRef.current !== readinessGeneration) {
         settled = true;
         unsubscribe?.();
         reject(new Error("SQLite database initialization was superseded."));
-      } else if (status === "terminated" && rejectOnTermination) {
+      } else if (status === "terminated" && !toleratingInitialTermination) {
         settled = true;
         unsubscribe?.();
         reject(new Error("SQLite database worker was terminated."));

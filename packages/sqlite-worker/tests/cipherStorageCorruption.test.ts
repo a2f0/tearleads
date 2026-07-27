@@ -162,7 +162,7 @@ test("production lifecycle reopens a paused identity VFS", async () => {
   }
 });
 
-test("deleting an identity removes its cipher wrapper before recreation", async () => {
+test("deleting a closed identity wipes its paused pool before recreation", async () => {
   installOpfsMemoryShim();
   const dbName = `/identity-delete-${crypto.randomUUID()}.db`;
   const options = {
@@ -175,8 +175,9 @@ test("deleting an identity removes its cipher wrapper before recreation", async 
   let db: Database | null = await initDatabase(options);
   try {
     db.exec("CREATE TABLE removed(value TEXT)");
-    await deleteDatabase(db);
+    await closeDatabase(db);
     db = null;
+    await deleteDatabase(null);
 
     // Recreating an identity with the same stable database name must install a
     // fresh underlying pool and cipher wrapper, with no data from the deletion.

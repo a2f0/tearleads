@@ -460,8 +460,18 @@ export function deleteDatabase(
   return teardownDatabase(
     db,
     async (vfs) => {
-      vfs.destroyCipherWrapper();
+      // A prior close leaves the pool paused. Reacquire its handles before
+      // wiping so deletion is not silently skipped by a paused-pool failure.
+      if (vfs.poolUtil.isPaused()) {
+        await withSahPoolStepHangTimeout(
+          vfs.poolUtil.unpauseVfs(),
+          SAHPOOL_STEP_HANG_TIMEOUT_MS,
+        );
+      }
+      // Wipe first: wrapper teardown depends on an optional untyped wasm export,
+      // and its failure must never leave an identity's encrypted bytes intact.
       await vfs.poolUtil.wipeFiles();
+      vfs.destroyCipherWrapper();
       await vfs.poolUtil.removeVfs();
     },
     true,
