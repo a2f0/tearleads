@@ -32,6 +32,8 @@ test("identity manager exposes the recovery key for seed-backed identities", asy
       </IdentityManagerTestRuntime>,
     );
 
+    fireEvent.click(view.getByRole("button", { name: "Recovery Key" }));
+
     await waitFor(() => {
       expect(tearleadsRef.current).toBeTruthy();
     });
@@ -77,6 +79,8 @@ test("identity manager restores a recovery key from a typed passphrase", async (
         <IdentityManager />
       </IdentityManagerTestRuntime>,
     );
+
+    fireEvent.click(view.getByRole("button", { name: "Recovery Key" }));
 
     await waitFor(() => {
       expect(tearleadsRef.current).toBeTruthy();
