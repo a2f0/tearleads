@@ -367,6 +367,7 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
       void documentQueries
         .retryPendingWriteItem({
           localId: item.localId,
+          namespace: item.namespace,
           objectKind: item.objectKind,
         })
         .catch(() => undefined)

@@ -47,6 +47,7 @@ test("manual retry resets the re-key budget and clears the failure row", async (
 
     await resetPendingWriteRetryState(execSql, {
       localId: LOCAL_ID,
+      namespace: null,
       objectKind: "document",
     });
 
@@ -61,10 +62,26 @@ test("manual retry resets the re-key budget and clears the failure row", async (
   }
 });
 
-test("container retry clears the metadata failure row", async () => {
+test("container retry resets the metadata scope's budget and failure row", async () => {
   const { close, execSql } = await createTestExecSql("pending-retry-container");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
+    // Container metadata re-keys through the same recovery path, so its
+    // exhausted budget must reset too — clearing only the failure row would
+    // let the next pass re-record it immediately.
+    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+      await db.insert(documentPendingUpdates).values({
+        id: "metadata-update",
+        appKind: CONTAINER_METADATA_APP_KIND,
+        localId: "retry-container",
+        updateData: "metadata-bytes",
+        partialStartVersionVector: "start",
+        partialEndVersionVector: "end",
+        sourceVersionVector: null,
+        createdAt: new Date().toISOString(),
+        rekeyCount: 5,
+      });
+    });
     await recordDocumentSyncFailure(
       execSql,
       { appKind: CONTAINER_METADATA_APP_KIND, localId: "retry-container" },
@@ -77,9 +94,15 @@ test("container retry clears the metadata failure row", async () => {
 
     await resetPendingWriteRetryState(execSql, {
       localId: "retry-container",
+      namespace: null,
       objectKind: "container",
     });
 
+    const [pending] = await listDocumentPendingUpdates(execSql, {
+      appKind: CONTAINER_METADATA_APP_KIND,
+      localId: "retry-container",
+    });
+    expect(pending?.rekeyCount).toBe(0);
     expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
   } finally {
     close();

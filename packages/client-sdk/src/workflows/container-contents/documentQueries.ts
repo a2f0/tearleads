@@ -103,6 +103,7 @@ export interface ContainerDocumentQueries {
   listPendingWrites(): Promise<ReadonlyArray<PendingWriteQueueItem>>;
   retryPendingWriteItem(input: {
     localId: string;
+    namespace: string | null;
     objectKind: PendingWriteQueueItem["objectKind"];
   }): Promise<void>;
   replaceDocumentLinksBatch(
