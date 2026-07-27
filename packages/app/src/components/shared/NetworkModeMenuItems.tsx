@@ -1,18 +1,12 @@
 import { useNetworkState } from "../../providers/api/useNetworkState";
 import { MenuItem } from "./MenuItem";
 
-export function NetworkModeMenuItems({
-  onClose,
-  showManualModeControls = true,
-}: {
-  onClose: () => void;
-  showManualModeControls?: boolean | undefined;
-}) {
+export function NetworkModeMenuItems({ onClose }: { onClose: () => void }) {
   const { mode, setNetworkMode } = useNetworkState();
 
   return (
     <>
-      {showManualModeControls && mode !== "online" && (
+      {mode !== "online" && (
         <MenuItem
           label="Force Online"
           onClick={() => {
@@ -21,7 +15,7 @@ export function NetworkModeMenuItems({
           }}
         />
       )}
-      {showManualModeControls && mode !== "offline" && (
+      {mode !== "offline" && (
         <MenuItem
           label="Force Offline"
           onClick={() => {

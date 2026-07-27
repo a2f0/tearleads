@@ -5,16 +5,11 @@ import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
 } from "react";
-import {
-  MINI_APPS,
-  ROUTED_MINI_APP_NAV_ITEMS,
-} from "../../../mini-apps/registry";
+import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/registry";
 import type { MiniAppId } from "../../../mini-apps/types";
 import { useAppNavigationActions } from "../../../navigation/AppNavigationProvider";
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { classNames } from "../../shared/classNames";
-import { PaneSystemMenuItems } from "../../shared/PaneSystemMenuItems";
-import type { WindowMenuItem } from "../../window/WindowMenuBar";
 import { useMobileSheetDrag } from "./useMobileSheetDrag";
 import "./RoutedPaneNav.css";
 
@@ -23,10 +18,14 @@ export const ROUTED_PANE_NAV_PANEL_ID = "routed-pane-nav-panel";
 function RoutedPaneNavLink({
   appId,
   activeAppId,
+  icon: LinkIcon,
+  label,
   onNavigate,
 }: {
   appId: MiniAppId;
   activeAppId: MiniAppId;
+  icon: Icon;
+  label: string;
   onNavigate: () => void;
 }) {
   const { getMiniAppHref, openMiniApp } = useAppNavigationActions();
@@ -42,83 +41,47 @@ function RoutedPaneNavLink({
   return (
     <a
       aria-current={activeAppId === appId ? "page" : undefined}
-      className={
-        activeAppId === appId
-          ? "routed-pane-nav-link routed-pane-nav-link--active"
-          : "routed-pane-nav-link"
-      }
+      className={classNames(
+        "routed-pane-nav-link",
+        activeAppId === appId && "routed-pane-nav-link--active",
+      )}
       href={getMiniAppHref(appId)}
       onClick={handleClick}
     >
-      {MINI_APPS[appId].title}
+      <LinkIcon aria-hidden="true" size={20} />
+      <span className="routed-pane-nav-link-label">{label}</span>
     </a>
   );
 }
 
 /**
- * The navigation surface shared by both tiers: app links, the system ("Pane")
- * menu items, and any file/view actions.
+ * The tablet rail's navigation surface: an icon-and-label link per routed
+ * mini-app, and nothing else. Like the mobile sheet it is a pure launcher —
+ * system commands and per-app file/view actions belong to the app bar toolbar
+ * at the top of the shell.
  */
 function RoutedPaneNavPanel({
   activeAppId,
   id,
-  menuItems,
   onNavigate,
-  onOpenUnlock,
-  onRequestDestroyKeyPackage,
-  onRequestLogout,
-  showDeveloperControls,
 }: {
   activeAppId: MiniAppId;
-  id?: string | undefined;
-  menuItems: ReadonlyArray<WindowMenuItem>;
+  id: string;
   onNavigate: () => void;
-  onOpenUnlock: () => void;
-  onRequestDestroyKeyPackage: () => void;
-  onRequestLogout: () => void;
-  showDeveloperControls: boolean;
 }) {
   return (
-    <div className="routed-pane-nav-panel" id={id}>
-      <nav aria-label="Apps" className="routed-pane-nav">
-        {ROUTED_MINI_APP_NAV_ITEMS.map(({ appId }) => (
-          <RoutedPaneNavLink
-            key={appId}
-            activeAppId={activeAppId}
-            appId={appId}
-            onNavigate={onNavigate}
-          />
-        ))}
-      </nav>
-      <div className="routed-pane-nav-section">
-        <PaneSystemMenuItems
-          onClose={onNavigate}
-          onOpenUnlock={onOpenUnlock}
-          onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
-          onRequestLogout={onRequestLogout}
-          showDeveloperControls={showDeveloperControls}
-          showLogout={false}
+    <nav aria-label="Apps" className="routed-pane-nav-panel" id={id}>
+      {ROUTED_MINI_APP_NAV_ITEMS.map(({ appId, icon, label }) => (
+        <RoutedPaneNavLink
+          key={appId}
+          activeAppId={activeAppId}
+          appId={appId}
+          icon={icon}
+          label={label}
+          onNavigate={onNavigate}
         />
-      </div>
-      {menuItems.length > 0 && (
-        <div className="routed-pane-nav-section">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              className="routed-pane-nav-action"
-              disabled={item.disabled}
-              type="button"
-              onClick={() => {
-                item.onClick();
-                onNavigate();
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      ))}
+    </nav>
   );
 }
 
@@ -194,7 +157,7 @@ function RoutedPaneMobileNavTile({
 
 /**
  * The mobile bottom-sheet navigation: every routed mini-app as a grid of square
- * icon-and-label tiles (styled after Explorer's New Document screen). Unlike the
+ * icon-and-label tiles (styled after Explorer's New Document screen). Like the
  * tablet rail it carries no system or per-app contextual actions — the sheet is
  * a pure launcher. Selecting a tile navigates and dismisses.
  */
@@ -257,26 +220,16 @@ function RoutedPaneMobileSheetHandle({
 export function RoutedPaneNav({
   activeAppId,
   drawerOpen,
-  menuItems,
   onCloseDrawer,
-  onOpenUnlock,
-  onRequestDestroyKeyPackage,
-  onRequestLogout,
   onToggleRail,
   railExpanded,
-  showDeveloperControls,
   tier,
 }: {
   activeAppId: MiniAppId;
   drawerOpen: boolean;
-  menuItems: ReadonlyArray<WindowMenuItem>;
   onCloseDrawer: () => void;
-  onOpenUnlock: () => void;
-  onRequestDestroyKeyPackage: () => void;
-  onRequestLogout: () => void;
   onToggleRail: () => void;
   railExpanded: boolean;
-  showDeveloperControls: boolean;
   tier: RoutedLayoutTier;
 }) {
   const mobileSheetDrag = useMobileSheetDrag({
@@ -298,12 +251,7 @@ export function RoutedPaneNav({
           <RoutedPaneNavPanel
             activeAppId={activeAppId}
             id={ROUTED_PANE_NAV_PANEL_ID}
-            menuItems={menuItems}
             onNavigate={onCloseDrawer}
-            onOpenUnlock={onOpenUnlock}
-            onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
-            onRequestLogout={onRequestLogout}
-            showDeveloperControls={showDeveloperControls}
           />
         )}
       </aside>

@@ -25,7 +25,9 @@
   overflow: hidden;
   color: var(--color-dark);
   background: var(--color-light);
-  --routed-rail-width: clamp(13rem, 22vw, 17rem);
+  /* The floor keeps the longest app name ("Identity Manager") on one line beside
+     its glyph on the narrowest tablet; the rail links ellipsize past that. */
+  --routed-rail-width: clamp(14rem, 22vw, 17rem);
   --routed-rail-collapsed-width: 44px;
   --routed-rail-toggle-visual-size: 32px;
   --routed-drawer-width: min(20rem, 82vw);

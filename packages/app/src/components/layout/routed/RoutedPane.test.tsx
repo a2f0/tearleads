@@ -388,6 +388,39 @@ test("mobile nav sheet keeps its menu open after an upward drag", () => {
   }
 });
 
+test("tablet rail carries app links only", () => {
+  const restoreMatchMedia = forceTabletRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    fireEvent.click(
+      view.getByRole("button", { name: "Expand navigation rail" }),
+    );
+
+    const rail = view.container.querySelector(".routed-pane-rail");
+    if (!(rail instanceof HTMLElement)) {
+      throw new Error("Expected the tablet navigation rail.");
+    }
+
+    // One link per routed mini-app...
+    expect(rail.querySelectorAll("a").length).toBe(
+      ROUTED_MINI_APP_NAV_ITEMS.length,
+    );
+    // ...each badged with its app glyph...
+    expect(rail.querySelectorAll(".routed-pane-nav-link svg").length).toBe(
+      ROUTED_MINI_APP_NAV_ITEMS.length,
+    );
+    // ...and no system or per-app contextual actions: those moved to the app
+    // bar toolbar, leaving the rail toggle as the rail's only button.
+    expect(rail.querySelectorAll("button").length).toBe(1);
+    expect(rail.querySelector(".routed-pane-rail-toggle")).toBeTruthy();
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
 test("tablet routed shell starts with the navigation rail collapsed", () => {
   const restoreMatchMedia = forceTabletRoutedTier();
   let view: ReturnType<typeof renderRoutedPane> | undefined;

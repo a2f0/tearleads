@@ -6,10 +6,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import { LocalKeyringUnlockWindow } from "../../../mini-apps/LocalKeyringUnlockGate";
 import { MINI_APPS } from "../../../mini-apps/registry";
 import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMonitorPinned";
-import { useSystemMonitor } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
 import type { MiniAppId } from "../../../mini-apps/types";
 import { useAppNavigationState } from "../../../navigation/AppNavigationProvider";
 import { NavigationModeSwitch } from "../../../navigation/NavigationModeSwitch";
@@ -19,20 +17,10 @@ import {
 } from "../../../navigation/useRoutedLayoutTier";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
-import { useIdentity } from "../../../providers/identity/IdentityProvider";
-import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { useRegisterUserId } from "../../pane/dual-pane";
 import { SyncStatusIndicator } from "../../pane/footer/sync-status/SyncStatusIndicator";
-import { DestroyKeyPackageConfirmationDialog } from "../../shared/DestroyKeyPackageConfirmationDialog";
-import { LogoutConfirmationDialog } from "../../shared/LogoutConfirmationDialog";
 import type { MenuPosition } from "../../shared/Menu";
-import { useDestroyKeyPackageConfirmation } from "../../shared/useDestroyKeyPackageConfirmation";
-import { useConfirmedLogoutDialog } from "../../shared/useLogoutConfirmation";
-import {
-  useWindowFileMenuItems,
-  useWindowViewMenuItems,
-  WindowMenuProvider,
-} from "../../window/WindowMenuContext";
+import { WindowMenuProvider } from "../../window/WindowMenuContext";
 import {
   useWindowSidebar,
   WindowSidebarProvider,
@@ -168,68 +156,25 @@ function useCollapseOverlaysOnTierChange({
 interface RoutedPaneSurfaceProps {
   activeAppId: MiniAppId;
   ActiveMiniApp: ComponentType;
-  showUnlockPanel: boolean;
   navigationRailExpanded: boolean;
-  onOpenUnlock: () => void;
   onToggleNavigationRail: () => void;
   tier: RoutedLayoutTier;
-}
-
-function RoutedPaneConfirmationDialogs({
-  destroyKeyPackageDialog,
-  logoutDialog,
-}: {
-  destroyKeyPackageDialog: ReturnType<typeof useDestroyKeyPackageConfirmation>;
-  logoutDialog: ReturnType<typeof useConfirmedLogoutDialog>;
-}) {
-  return (
-    <>
-      {destroyKeyPackageDialog.isOpen && (
-        <DestroyKeyPackageConfirmationDialog
-          isOpen={destroyKeyPackageDialog.isOpen}
-          onCancel={destroyKeyPackageDialog.closeDestroyKeyPackageDialog}
-          onConfirm={destroyKeyPackageDialog.confirmDestroyKeyPackage}
-        />
-      )}
-      {logoutDialog.isOpen && (
-        <LogoutConfirmationDialog
-          busy={logoutDialog.busy}
-          isOpen={logoutDialog.isOpen}
-          onCancel={logoutDialog.closeLogoutDialog}
-          onConfirm={logoutDialog.confirmLogout}
-        />
-      )}
-    </>
-  );
 }
 
 function RoutedPaneSurface({
   activeAppId,
   ActiveMiniApp,
-  showUnlockPanel,
   navigationRailExpanded,
-  onOpenUnlock,
   onToggleNavigationRail,
   tier,
 }: RoutedPaneSurfaceProps) {
   const { sidebar } = useWindowSidebar();
-  const logoutDialog = useConfirmedLogoutDialog();
-  const { destroyKey } = useIdentity();
-  const { isDeveloperMode } = useSystemMonitor();
   const { subscribeKeyboardVisibility } = useAppHostConfig();
-  const destroyKeyPackageDialog = useDestroyKeyPackageConfirmation(destroyKey);
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
   const mobileKeyboardVisible = useMobileKeyboardVisible(
     tier === "mobile",
     subscribeKeyboardVisibility,
-  );
-
-  const fileMenuItems = useWindowFileMenuItems();
-  const viewMenuItems = useWindowViewMenuItems();
-  const menuItems = useMemo(
-    () => [...fileMenuItems, ...viewMenuItems],
-    [fileMenuItems, viewMenuItems],
   );
 
   const [sidebarExpanded, setSidebarExpanded] = useState(() =>
@@ -266,16 +211,9 @@ function RoutedPaneSurface({
       <RoutedPaneNav
         activeAppId={activeAppId}
         drawerOpen={drawerOpen}
-        menuItems={menuItems}
         onCloseDrawer={closeDrawer}
-        onOpenUnlock={onOpenUnlock}
-        onRequestDestroyKeyPackage={
-          destroyKeyPackageDialog.requestDestroyKeyPackage
-        }
-        onRequestLogout={logoutDialog.requestLogout}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}
-        showDeveloperControls={isDeveloperMode}
         tier={tier}
       />
       {sidebarVisible && (
@@ -288,7 +226,7 @@ function RoutedPaneSurface({
             app in both routed tiers, replacing the pinned-monitor slot the old
             home launcher used to host. Renders nothing unless pinned. */}
         <SystemMonitorPinned />
-        {showUnlockPanel ? <LocalKeyringUnlockWindow /> : <ActiveMiniApp />}
+        <ActiveMiniApp />
       </main>
       <RoutedPaneTaskBar
         drawerOpen={drawerOpen}
@@ -298,49 +236,20 @@ function RoutedPaneSurface({
         railExpanded={navigationRailExpanded}
         tier={tier}
       />
-      <RoutedPaneConfirmationDialogs
-        destroyKeyPackageDialog={destroyKeyPackageDialog}
-        logoutDialog={logoutDialog}
-      />
     </section>
   );
 }
 
-function RoutedPaneWithRegistries({
-  activeAppId,
-  ActiveMiniApp,
-  navigationRailExpanded,
-  onToggleNavigationRail,
-  tier,
-}: {
-  activeAppId: MiniAppId;
-  ActiveMiniApp: ComponentType;
-  navigationRailExpanded: boolean;
-  onToggleNavigationRail: () => void;
-  tier: RoutedLayoutTier;
-}) {
-  const localKeyringLock = useLocalKeyringLock();
-  const [showUnlockPanel, setShowUnlockPanel] = useState(false);
-  const openUnlockPanel = useCallback(() => setShowUnlockPanel(true), []);
-
-  useEffect(() => {
-    if (!localKeyringLock.isLocked) {
-      setShowUnlockPanel(false);
-    }
-  }, [localKeyringLock.isLocked]);
-
+/**
+ * Hosts the per-app chrome registries (toolbar actions and the mini-app
+ * sidebar). Keyed by the active app id upstream so each mini-app mounts against
+ * fresh registries.
+ */
+function RoutedPaneWithRegistries(props: RoutedPaneSurfaceProps) {
   return (
     <WindowMenuProvider>
       <WindowSidebarProvider>
-        <RoutedPaneSurface
-          activeAppId={activeAppId}
-          ActiveMiniApp={ActiveMiniApp}
-          navigationRailExpanded={navigationRailExpanded}
-          showUnlockPanel={showUnlockPanel}
-          tier={tier}
-          onOpenUnlock={openUnlockPanel}
-          onToggleNavigationRail={onToggleNavigationRail}
-        />
+        <RoutedPaneSurface {...props} />
       </WindowSidebarProvider>
     </WindowMenuProvider>
   );
