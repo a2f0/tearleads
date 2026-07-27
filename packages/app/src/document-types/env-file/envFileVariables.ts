@@ -22,9 +22,8 @@ export interface EnvVariableRow {
 }
 
 const ENV_FILE_EMPTY_VALUE = "None";
-const ENV_FILE_MASKED_VALUE = "********";
-const ENV_FILE_SENSITIVE_KEY_PATTERN =
-  /(?:^|_)(?:PASSWORD|PASS|PWD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|ACCESS_KEY)(?:_|$)/u;
+const ENV_FILE_MASKED_VALUE_PREFIX = "********";
+const ENV_FILE_VISIBLE_VALUE_LENGTH = 4;
 
 // Fold the store's generic rows into typed variable views, applying the caller's
 // optimistic in-flight cell overlay so controlled inputs stay smooth.
@@ -54,22 +53,24 @@ export function toEnvVariableRows(
   }));
 }
 
-export function shouldMaskEnvFileVariable(variable: EnvVariableRow): boolean {
-  return ENV_FILE_SENSITIVE_KEY_PATTERN.test(variable.key.trim().toUpperCase());
-}
-
 export function getEnvFileReadValue(value: string): string {
   return value.trim().length > 0 ? value : ENV_FILE_EMPTY_VALUE;
 }
 
-// The read/detail value for a variable: its stored value, "None" when empty, or
-// a fixed mask when the key looks sensitive so a secret never renders.
-export function getEnvFileVariableReadValue(variable: EnvVariableRow): string {
+// Environment files routinely contain credentials under arbitrary names, so
+// read mode masks every non-empty value. The suffix makes similar variables
+// distinguishable without putting the complete value on screen.
+export function getEnvFileVariableReadValue(
+  variable: EnvVariableRow,
+  isRevealed = false,
+): string {
   if (variable.value.trim().length === 0) {
     return ENV_FILE_EMPTY_VALUE;
   }
 
-  return shouldMaskEnvFileVariable(variable)
-    ? ENV_FILE_MASKED_VALUE
-    : variable.value;
+  if (isRevealed) {
+    return variable.value;
+  }
+
+  return `${ENV_FILE_MASKED_VALUE_PREFIX}${variable.value.slice(-ENV_FILE_VISIBLE_VALUE_LENGTH)}`;
 }

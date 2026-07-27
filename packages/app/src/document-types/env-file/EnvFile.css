@@ -58,6 +58,7 @@
 }
 
 .env-file-variable-read-value {
+  min-width: 0;
   overflow: hidden;
   font-family:
     ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
@@ -65,6 +66,22 @@
   opacity: var(--opacity-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.env-file-variable-read-value-with-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.env-file-variable-read-value-with-actions .env-file-variable-read-value {
+  flex: 1;
+}
+
+.env-file-variable-read-value-actions {
+  display: flex;
+  flex: none;
 }
 
 .env-file-variable-read-index {
