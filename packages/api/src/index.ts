@@ -72,7 +72,7 @@ export function createRouteRequestBindings(
   }
 }
 
-const { API_HOST = "127.0.0.1", API_PORT = "3001" } = process.env;
+const { API_HOST = "0.0.0.0", API_PORT = "3001" } = process.env;
 
 const server = {
   hostname: API_HOST,

@@ -40,6 +40,7 @@
     cloudflare_tunnel_token: "{{ lookup('env', 'CLOUDFLARE_TUNNEL_TOKEN') | default('', true) }}"
     server_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
     bun_path: "/home/{{ server_user }}/.bun/bin/bun"
+    bun_version: "1.3.11"
     nginx_worker_connections: 1024
     garage_enabled: "{{ lookup('env', 'GARAGE_ENABLED') | default('true', true) }}"
     garage_version: "{{ lookup('env', 'GARAGE_VERSION') | default('v2.3.0', true) }}"
@@ -129,7 +130,7 @@
       ansible.builtin.apt:
         name: nginx
         state: present
-      notify: Restart nginx
+      notify: Reload nginx
 
     - name: Configure nginx main settings
       ansible.builtin.template:
@@ -138,13 +139,13 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Restart nginx
+      notify: Reload nginx
 
     - name: Remove default nginx site
       ansible.builtin.file:
         path: /etc/nginx/sites-enabled/default
         state: absent
-      notify: Restart nginx
+      notify: Reload nginx
 
     - name: Configure nginx site for application
       ansible.builtin.template:
@@ -153,14 +154,14 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Restart nginx
+      notify: Reload nginx
 
     - name: Enable nginx site
       ansible.builtin.file:
         src: /etc/nginx/sites-available/app.conf
         dest: /etc/nginx/sites-enabled/app.conf
         state: link
-      notify: Restart nginx
+      notify: Reload nginx
 
     - name: Create website directory
       ansible.builtin.file:
@@ -193,14 +194,14 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Restart nginx
+      notify: Reload nginx
 
     - name: Enable nginx website site
       ansible.builtin.file:
         src: /etc/nginx/sites-available/website.conf
         dest: /etc/nginx/sites-enabled/website.conf
         state: link
-      notify: Restart nginx
+      notify: Reload nginx
 
     - name: Configure nginx site for API
       ansible.builtin.template:
@@ -209,20 +210,35 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Restart nginx
+      notify: Reload nginx
 
     - name: Enable nginx API site
       ansible.builtin.file:
         src: /etc/nginx/sites-available/api.conf
         dest: /etc/nginx/sites-enabled/api.conf
         state: link
-      notify: Restart nginx
+      notify: Reload nginx
 
     - name: Ensure nginx is enabled and started
       ansible.builtin.systemd:
         name: nginx
         enabled: true
         state: started
+
+    - name: Inspect nginx listeners before handler reloads
+      ansible.builtin.command: ss -H -lnt
+      register: nginx_listener_scan
+      changed_when: false
+
+    - name: Restart nginx to close inherited public listeners
+      ansible.builtin.systemd:
+        name: nginx
+        state: restarted
+      when: >-
+        '0.0.0.0:80' in nginx_listener_scan.stdout or
+        '0.0.0.0:443' in nginx_listener_scan.stdout or
+        '[::]:80' in nginx_listener_scan.stdout or
+        '[::]:443' in nginx_listener_scan.stdout
 
     - name: Install deploy helper packages
       ansible.builtin.apt:
@@ -287,12 +303,15 @@
     - name: Download Bun installer
       ansible.builtin.get_url:
         url: https://bun.sh/install
-        dest: /tmp/tearleads-bun-install.sh
+        dest: /usr/local/src/tearleads-bun-install.sh
+        owner: root
+        group: root
         mode: "0755"
+        force: false
 
     - name: Install Bun
       ansible.builtin.command:
-        cmd: /tmp/tearleads-bun-install.sh
+        cmd: /usr/local/src/tearleads-bun-install.sh bun-v{{ bun_version }}
         creates: /home/{{ server_user }}/.bun/bin/bun
       become: true
       become_user: "{{ server_user }}"
@@ -425,10 +444,10 @@
         name: ssh
         state: restarted
 
-    - name: Restart nginx
+    - name: Reload nginx
       ansible.builtin.systemd:
         name: nginx
-        state: restarted
+        state: reloaded
 
     - name: Restart redis
       ansible.builtin.systemd:

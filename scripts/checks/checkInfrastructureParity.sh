@@ -23,14 +23,33 @@ compare_tier_files() {
   local prod_file="$2"
 
   if ! diff -u \
-    --label "staging/${staging_file#$STAGING_STACK/}" \
-    --label "prod/${prod_file#$PROD_STACK/}" \
+    --label "${staging_file#"$REPO_ROOT"/}" \
+    --label "${prod_file#"$REPO_ROOT"/}" \
     <(normalize_tier_names "$staging_file") \
     <(normalize_tier_names "$prod_file"); then
     echo "ERROR: Staging and production infrastructure have drifted." >&2
     return 1
   fi
 }
+
+list_stack_files() {
+  local stack_dir="$1"
+
+  {
+    find "$stack_dir" -maxdepth 1 -type f -name '*.tf' -exec basename {} \;
+    find "$stack_dir/scripts" -maxdepth 1 -type f -name '*.sh' -exec basename {} \; |
+      sed 's#^#scripts/#'
+  } | sort
+}
+
+if ! diff -u \
+  --label "terraform/stacks/staging/server/files" \
+  --label "terraform/stacks/prod/server/files" \
+  <(list_stack_files "$STAGING_STACK") \
+  <(list_stack_files "$PROD_STACK"); then
+  echo "ERROR: Staging and production stack file lists have drifted." >&2
+  exit 1
+fi
 
 for relative_path in \
   main.tf \
