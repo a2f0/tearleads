@@ -108,6 +108,10 @@
   margin-bottom: var(--space-sm);
 }
 
+.org-manager-group-detail-tab-panel {
+  padding-top: var(--space-md);
+}
+
 .org-manager-detail-status,
 .org-manager-member-row .mini-app-row-text {
   font-size: var(--font-size-sm);
