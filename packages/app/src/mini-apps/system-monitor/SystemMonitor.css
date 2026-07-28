@@ -23,6 +23,20 @@
   overflow: visible;
 }
 
+/*
+ * The Environment and Status tabs wrap their tables in `.pane-content`, whose
+ * `overflow: hidden` suits its other home, the desktop pane. Inside the tab
+ * panel that hidden overflow zeroes the section's automatic minimum height, so
+ * the flexed section collapses to exactly the panel's height and clips the
+ * table itself — the panel scroller above never overflows, so a windowed
+ * monitor shorter than the table couldn't scroll to the rest. Visible overflow
+ * restores the content-based minimum: a tall table grows the section past the
+ * panel and the panel scrolls.
+ */
+.system-monitor-tab-panel .pane-content {
+  overflow: visible;
+}
+
 /* The user-agent row is one long unbroken token; without this it forces the
    whole info table wider than the pane. */
 .system-monitor-environment-value {
