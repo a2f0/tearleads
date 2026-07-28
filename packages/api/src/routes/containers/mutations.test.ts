@@ -3916,3 +3916,127 @@ test("DELETE /containers/:containerId rejects system roots, child-bearing contai
     .where(eq(containerSyncTombstones.containerId, child.containerId));
   expect(tombstoneRows).toEqual([]);
 });
+
+test("POST /containers/:containerId/share prunes regained tombstones", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const recipient = createTestUser();
+  await registerAndAuthenticate(recipient);
+
+  const root = await bootstrapRoot(owner);
+  const created = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const childBundle = accessManifestFromResponse(created);
+  const childKek = kekStateFromResponse(created);
+
+  // The post-revocation state: the recipient holds a stale access_revoked
+  // tombstone for the child plus an undelivered one for a container they are
+  // not being re-granted.
+  const unrelatedContainerId = crypto.randomUUID();
+  await db.insert(containerSyncTombstones).values([
+    {
+      containerId: created.containerId,
+      depth: 1,
+      organizationId: created.organizationId,
+      parentId: null,
+      reason: "access_revoked",
+      updatedAt: new Date("2026-12-31T00:00:00.000Z"),
+      userId: recipient.userId,
+    },
+    {
+      containerId: unrelatedContainerId,
+      depth: 0,
+      organizationId: created.organizationId,
+      parentId: null,
+      reason: "access_revoked",
+      updatedAt: new Date("2026-12-31T00:00:00.000Z"),
+      userId: recipient.userId,
+    },
+  ]);
+
+  const request = await buildGrantRequest({
+    parentKekState: root.kekState,
+    previous: childBundle,
+    previousContainerPath: [root.bundle, childBundle],
+    previousKekState: childKek,
+    recipient,
+    signer: owner,
+  });
+  await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${created.containerId}/share`,
+      request,
+      token: owner.token,
+    }),
+  );
+
+  const remaining = await db
+    .select({ containerId: containerSyncTombstones.containerId })
+    .from(containerSyncTombstones)
+    .where(eq(containerSyncTombstones.userId, recipient.userId));
+  expect(remaining).toEqual([{ containerId: unrelatedContainerId }]);
+});
+
+test("POST share group grant prunes member tombstones", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const recipient = createTestUser();
+  await registerAndAuthenticate(recipient);
+
+  const root = await bootstrapRoot(owner);
+  const created = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const childBundle = accessManifestFromResponse(created);
+  const childKek = kekStateFromResponse(created);
+  const groupPrincipalId = crypto.randomUUID();
+  const group = await putGroupPrincipalPolicy({
+    actor: owner,
+    members: [
+      { principalType: "user", principalId: owner.userId },
+      { principalType: "user", principalId: recipient.userId },
+    ],
+    principalId: groupPrincipalId,
+  });
+
+  // The post-revocation state: the recipient, a current member of the
+  // granted group, holds a stale access_revoked tombstone for the child.
+  await db.insert(containerSyncTombstones).values({
+    containerId: created.containerId,
+    depth: 1,
+    organizationId: created.organizationId,
+    parentId: null,
+    reason: "access_revoked",
+    updatedAt: new Date("2026-12-31T00:00:00.000Z"),
+    userId: recipient.userId,
+  });
+
+  const request = await buildGroupGrantRequest({
+    accessLevel: "read",
+    parentKekState: root.kekState,
+    previous: childBundle,
+    previousContainerPath: [root.bundle, childBundle],
+    previousKekState: childKek,
+    principalPolicy: group.policy,
+    principalReference: group.reference,
+    signer: owner,
+  });
+  await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${created.containerId}/share`,
+      request,
+      token: owner.token,
+    }),
+  );
+
+  const remaining = await db
+    .select({ id: containerSyncTombstones.id })
+    .from(containerSyncTombstones)
+    .where(eq(containerSyncTombstones.userId, recipient.userId));
+  expect(remaining).toEqual([]);
+});

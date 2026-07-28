@@ -134,8 +134,8 @@
       "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3933,
-      "bytes": 129555
+      "lines": 4042,
+      "bytes": 133163
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1289,
@@ -166,8 +166,8 @@
       "bytes": 40645
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
-      "lines": 644,
-      "bytes": 18997
+      "lines": 628,
+      "bytes": 18130
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 725,
@@ -180,6 +180,10 @@
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 710,
       "bytes": 20923
+    },
+    "packages/api/src/workflows/principals/putPrincipalPolicy.ts": {
+      "lines": 535,
+      "bytes": 17775
     },
     "packages/api/src/wsRouting.test.ts": {
       "lines": 530,

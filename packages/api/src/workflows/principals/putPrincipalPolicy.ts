@@ -26,8 +26,12 @@ import {
   lockOrganizationReadModelHeadInTransaction,
 } from "../organizations/readModelChanges";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
+import { pruneRegainedAccessTombstones } from "../regainedAccessTombstones";
 import { listPrincipalPolicyAccessGainNotificationUserIds } from "./accessGainNotifications";
-import { persistPrincipalPolicyAccessLossTombstones } from "./accessLossTombstones";
+import {
+  candidateContainerIdsForPrincipalState,
+  persistPrincipalPolicyAccessLossTombstones,
+} from "./accessLossTombstones";
 import { getPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
 import { assertPrincipalOrganizationCanSync } from "./organizationSync";
 import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
@@ -386,6 +390,30 @@ async function applyPrincipalPolicyTransitionEffects(input: {
     previousState: input.previousState,
     updatedAt: new Date(),
   });
+  // The mirror image: users this transition can now reach may hold stale
+  // access_revoked tombstones from an earlier loss; prune the ones their
+  // regained access has invalidated so their next lane pull relists the
+  // containers (the container timestamp does not advance on a policy-only
+  // restore, so the stale row would otherwise win forever). Scoped to the
+  // containers this principal's grants can actually restore — an ungranted
+  // group prunes nothing.
+  const previousReachable = new Set(input.previousReachableUserIds);
+  const addedUserIds = input.currentReachableUserIds.filter(
+    (userId) => !previousReachable.has(userId),
+  );
+  if (addedUserIds.length > 0) {
+    // Grants inherit through container paths; the prune selects the gained
+    // users' tombstones first and intersects them with these grant roots'
+    // subtrees, so a root-level grant never materializes its whole subtree.
+    await pruneRegainedAccessTombstones({
+      executor: input.tx,
+      userIds: addedUserIds,
+      withinSubtreesOf: await candidateContainerIdsForPrincipalState({
+        currentState: input.nextState,
+        executor: input.tx,
+      }),
+    });
+  }
   const rosterSyncTarget = await syncRosterForStoredPrincipalState({
     request: input.policy,
     tx: input.tx,

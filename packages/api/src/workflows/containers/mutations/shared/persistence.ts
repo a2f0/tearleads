@@ -49,6 +49,10 @@ import {
   containerKeyEpochRecord,
   containerKeyWrapRecord,
 } from "./containerKekRecords";
+import {
+  directGrantKey,
+  pruneAccessGrantTombstones,
+} from "./grantTombstonePruning";
 import { loadMutationContainerKekHistory } from "./mutationKekHistory";
 
 async function loadContainerRow(
@@ -285,12 +289,6 @@ async function persistContainerStructure(
     parentId: state.parentContainerId,
     updatedAt,
   };
-}
-
-function directGrantKey(
-  grant: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
-): string {
-  return `${grant.subjectType}:${grant.subjectId}`;
 }
 
 function removedDirectGrants(input: {
@@ -563,6 +561,11 @@ export async function persistVerifiedMutation(
     manifest,
     previousManifest,
     updatedAt,
+  });
+  await pruneAccessGrantTombstones({
+    executor,
+    manifest,
+    previousManifest,
   });
   if (previousContainerPath) {
     await persistMoveAccessLossTombstones({
