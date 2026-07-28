@@ -1008,7 +1008,12 @@ export class ApiClient {
 
   // Shared by the writer-projection result variants: reuse a cached success,
   // fetch a result otherwise, and reconcile the cache without ever clobbering
-  // an entry that changed while the fetch was in flight.
+  // an entry that changed while the fetch was in flight. The in-flight fetch is
+  // published into the cache as a pending entry (the `cachedRequest` scheme),
+  // so an eviction or overwrite during the flight replaces OUR entry and the
+  // identity guards below observe it — a snapshot-only comparison would read
+  // empty-before and empty-after as unchanged and re-cache a projection an
+  // eviction (e.g. after a revoke) meant to drop.
   private async writerProjectionResult<T>(
     cache: BoundedCache<Promise<T | null>>,
     cacheKey: string,
@@ -1016,7 +1021,7 @@ export class ApiClient {
     validator: (value: unknown) => value is T,
     options: RequestResultOptions,
   ): Promise<RequestResult<T>> {
-    let cached = cache.get(cacheKey);
+    const cached = cache.get(cacheKey);
     if (cached) {
       try {
         const data = await cached;
@@ -1024,32 +1029,37 @@ export class ApiClient {
           return { data, ok: true };
         }
       } catch {
-        if (cache.get(cacheKey) === cached) {
-          cache.delete(cacheKey);
-          cached = undefined;
-        }
+        // A rejected shared entry is reconciled by its own settle handler;
+        // fall through to a fresh fetch either way.
       }
     }
 
-    const result = await this.makeRequestResult(
+    const resultPromise = this.makeRequestResult(
       path,
       validator,
       "GET",
       undefined,
       options,
     );
+    // Success needs no follow-up write: the pending entry itself resolves to
+    // the data. A failure (or rejection) deletes the entry — but only while it
+    // is still ours; if an eviction or newer fetch won the slot mid-flight,
+    // leave it alone in both directions.
+    let pendingEntry: Promise<T | null>;
+    pendingEntry = resultPromise
+      .then(
+        (result) => (result.ok ? result.data : null),
+        () => null,
+      )
+      .then((value) => {
+        if (value === null && cache.get(cacheKey) === pendingEntry) {
+          cache.delete(cacheKey);
+        }
+        return value;
+      });
+    cache.set(cacheKey, pendingEntry);
 
-    if (result.ok) {
-      if (cache.get(cacheKey) === cached) {
-        cache.set(cacheKey, Promise.resolve(result.data));
-      }
-    } else {
-      if (cache.get(cacheKey) === cached) {
-        cache.delete(cacheKey);
-      }
-    }
-
-    return result;
+    return resultPromise;
   }
 
   createContainer(input: ContainerMutationRequest) {

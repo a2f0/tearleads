@@ -212,6 +212,45 @@ testApiClient(
 );
 
 testApiClient(
+  "container writer projection result fetches do not repopulate an entry evicted mid-flight",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    const fetchStarted = createDeferred<void>();
+    const finishFetch = createDeferred<void>();
+    const staleProjection = createContainerWriterProjectionResponse();
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          if (calls.length === 1) {
+            fetchStarted.resolve();
+            await finishFetch.promise;
+          }
+          return HttpResponse.json(staleProjection);
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const result = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    await fetchStarted.promise;
+
+    client.evictContainerWriterProjection("container-1");
+
+    finishFetch.resolve();
+    await expect(result).resolves.toEqual({ data: staleProjection, ok: true });
+
+    // The eviction wins: the pre-eviction response must not be re-cached, so
+    // the next plain read fetches fresh instead of serving the stale value.
+    await client.getContainerWriterProjection("container-1");
+    expect(calls).toHaveLength(2);
+  },
+);
+
+testApiClient(
   "container writer projection result failures clear the entry so a retry refetches",
   async () => {
     const calls: CapturedHttpCall[] = [];
