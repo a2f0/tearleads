@@ -38,3 +38,22 @@ test("mini-app access gate requires local keys before mounting protected content
     }),
   ).toBe("ready");
 });
+
+test("lock-only mini-app access stays available before local identity setup", () => {
+  expect(
+    resolveMiniAppAccessGateState({
+      hasSigningKeyPair: false,
+      isLocked: false,
+      localIdentityRestoreSettled: false,
+      requireLocalIdentity: false,
+    }),
+  ).toBe("ready");
+  expect(
+    resolveMiniAppAccessGateState({
+      hasSigningKeyPair: false,
+      isLocked: true,
+      localIdentityRestoreSettled: false,
+      requireLocalIdentity: false,
+    }),
+  ).toBe("unlock");
+});

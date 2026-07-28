@@ -25,13 +25,19 @@ export function resolveMiniAppAccessGateState({
   hasSigningKeyPair,
   isLocked,
   localIdentityRestoreSettled,
+  requireLocalIdentity = true,
 }: {
   hasSigningKeyPair: boolean;
   isLocked: boolean;
   localIdentityRestoreSettled: boolean;
+  requireLocalIdentity?: boolean;
 }): MiniAppAccessGateState {
   if (isLocked) {
     return "unlock";
+  }
+
+  if (!requireLocalIdentity) {
+    return "ready";
   }
 
   if (!localIdentityRestoreSettled) {
@@ -44,7 +50,11 @@ export function resolveMiniAppAccessGateState({
 export function LocalKeyringUnlockGate({
   appName,
   children,
-}: PropsWithChildren<{ appName: string }>) {
+  requireLocalIdentity = true,
+}: PropsWithChildren<{
+  appName: string;
+  requireLocalIdentity?: boolean;
+}>) {
   const lock = useLocalKeyringLock();
   const { generateKey, localIdentityRestoreSettled, signingKeyPair } =
     useIdentity();
@@ -52,6 +62,7 @@ export function LocalKeyringUnlockGate({
     hasSigningKeyPair: signingKeyPair !== null,
     isLocked: lock.isLocked,
     localIdentityRestoreSettled,
+    requireLocalIdentity,
   });
 
   if (gateState === "ready") {

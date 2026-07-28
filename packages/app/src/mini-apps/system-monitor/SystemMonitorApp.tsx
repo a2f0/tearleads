@@ -17,6 +17,7 @@ import {
   useAppNavigationState,
   useMiniAppRouteSegments,
 } from "../../navigation/AppNavigationProvider";
+import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import "./SystemMonitor.css";
 import {
   DEFAULT_SYSTEM_MONITOR_TAB,
@@ -138,7 +139,7 @@ function useSystemMonitorChromeActions() {
   useWindowTitleBarAction(pinTitleBarAction);
 }
 
-export function SystemMonitorApp() {
+function SystemMonitorContent() {
   const { isRouted, pathSegments, setPathSegments } =
     useMiniAppRouteSegments("system-monitor");
   const { isDeveloperMode } = useSystemMonitor();
@@ -195,5 +196,16 @@ export function SystemMonitorApp() {
       </MiniAppTabPanel>
       {networkContextMenu.contextMenu}
     </MiniAppRoot>
+  );
+}
+
+export function SystemMonitorApp() {
+  return (
+    <LocalKeyringUnlockGate
+      appName="System Monitor"
+      requireLocalIdentity={false}
+    >
+      <SystemMonitorContent />
+    </LocalKeyringUnlockGate>
   );
 }

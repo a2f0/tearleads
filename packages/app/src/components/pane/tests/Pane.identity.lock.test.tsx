@@ -91,9 +91,10 @@ test("locked browser-managed pane menu offers unlock instead of key generation",
 
     await waitFor(() => {
       expect(
-        view.getByText(/Unlock the local keychain to restore this pane\./),
+        view.getByText(/Unlock your local keys to open System Monitor\./),
       ).toBeTruthy();
     });
+    expect(view.getByLabelText("PIN code")).toBeTruthy();
 
     fireEvent.click(view.getByRole("button", { name: "Menu" }));
 
@@ -101,15 +102,19 @@ test("locked browser-managed pane menu offers unlock instead of key generation",
       name: "Unlock Database",
     });
     expect(unlockDatabaseItem).toBeTruthy();
-    expect(view.queryByLabelText("PIN code")).toBeNull();
     expect(view.queryByText("Generate Key Pair")).toBeNull();
 
     fireEvent.click(unlockDatabaseItem);
 
     let unlockWindow: HTMLDivElement | null = null;
     await waitFor(() => {
-      const unlockHeading = view.getByText("Local keychain locked");
-      const closestWindow = unlockHeading.closest(".window");
+      const closestWindow = view
+        .getAllByText("Local keychain locked")
+        .map((heading) => heading.closest(".window"))
+        .find(
+          (window): window is HTMLDivElement =>
+            window instanceof HTMLDivElement,
+        );
       if (!(closestWindow instanceof HTMLDivElement)) {
         throw new Error("Expected unlock heading to be inside a window.");
       }
@@ -128,9 +133,7 @@ test("locked browser-managed pane menu offers unlock instead of key generation",
     clickPaneAppMenuItem(view, "Contacts");
 
     await waitFor(() => {
-      expect(view.getAllByText("Local keychain locked").length).toBeGreaterThan(
-        1,
-      );
+      expect(view.getAllByText("Local keychain locked")).toHaveLength(3);
     });
     expect(view.container.querySelector(".window-sidebar-layout")).toBeNull();
 
@@ -166,7 +169,7 @@ test("unlock database floating window closes after successful unlock", async () 
 
     await waitFor(() => {
       expect(
-        view.getByText(/Unlock the local keychain to restore this pane\./),
+        view.getByText(/Unlock your local keys to open System Monitor\./),
       ).toBeTruthy();
     });
 
@@ -179,8 +182,13 @@ test("unlock database floating window closes after successful unlock", async () 
 
     let unlockWindow: HTMLDivElement | null = null;
     await waitFor(() => {
-      const unlockHeading = view.getByText("Local keychain locked");
-      const closestWindow = unlockHeading.closest(".window");
+      const closestWindow = view
+        .getAllByText("Local keychain locked")
+        .map((heading) => heading.closest(".window"))
+        .find(
+          (window): window is HTMLDivElement =>
+            window instanceof HTMLDivElement,
+        );
       if (!(closestWindow instanceof HTMLDivElement)) {
         throw new Error("Expected unlock heading to be inside a window.");
       }
