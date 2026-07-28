@@ -26,10 +26,7 @@ import {
   lockOrganizationReadModelHeadInTransaction,
 } from "../organizations/readModelChanges";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
-import {
-  expandContainerSubtreeIds,
-  pruneRegainedAccessTombstones,
-} from "../regainedAccessTombstones";
+import { pruneRegainedAccessTombstones } from "../regainedAccessTombstones";
 import { listPrincipalPolicyAccessGainNotificationUserIds } from "./accessGainNotifications";
 import {
   candidateContainerIdsForPrincipalState,
@@ -405,20 +402,16 @@ async function applyPrincipalPolicyTransitionEffects(input: {
     (userId) => !previousReachable.has(userId),
   );
   if (addedUserIds.length > 0) {
-    // Grants inherit through container paths, so the affected set is each
-    // candidate grant root plus its local descendants — a child's own stale
-    // tombstone under a re-granted ancestor is stale too.
-    const containerIds = await expandContainerSubtreeIds(
-      input.tx,
-      await candidateContainerIdsForPrincipalState({
+    // Grants inherit through container paths; the prune selects the gained
+    // users' tombstones first and intersects them with these grant roots'
+    // subtrees, so a root-level grant never materializes its whole subtree.
+    await pruneRegainedAccessTombstones({
+      executor: input.tx,
+      userIds: addedUserIds,
+      withinSubtreesOf: await candidateContainerIdsForPrincipalState({
         currentState: input.nextState,
         executor: input.tx,
       }),
-    );
-    await pruneRegainedAccessTombstones({
-      containerIds,
-      executor: input.tx,
-      userIds: addedUserIds,
     });
   }
   const rosterSyncTarget = await syncRosterForStoredPrincipalState({

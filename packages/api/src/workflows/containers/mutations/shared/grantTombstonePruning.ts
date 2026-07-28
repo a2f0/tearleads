@@ -4,10 +4,7 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { listUsersReachableFromCurrentPrincipal } from "../../../organizations/principalReachability";
-import {
-  expandContainerSubtreeIds,
-  pruneRegainedAccessTombstones,
-} from "../../../regainedAccessTombstones";
+import { pruneRegainedAccessTombstones } from "../../../regainedAccessTombstones";
 
 export function directGrantKey(
   grant: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
@@ -86,13 +83,12 @@ export async function pruneAccessGrantTombstones(input: {
   }
 
   // Access gained through this grant reaches the granted container and its
-  // local descendants; scope the prune to that subtree.
+  // local descendants; the prune intersects the gained users' tombstones
+  // with that subtree.
   await pruneRegainedAccessTombstones({
-    containerIds: await expandContainerSubtreeIds(executor, [
-      manifest.state.containerId,
-    ]),
     executor,
     organizationId: manifest.state.organizationId,
     userIds: gainedUserIds,
+    withinSubtreesOf: [manifest.state.containerId],
   });
 }

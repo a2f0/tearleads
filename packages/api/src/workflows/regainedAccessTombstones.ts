@@ -20,7 +20,6 @@ interface TombstoneRow {
 }
 
 interface PruneScope {
-  readonly containerIds?: readonly string[];
   readonly organizationId?: string;
   readonly userIds: readonly string[];
 }
@@ -37,18 +36,8 @@ async function selectScopedTombstoneRows(
   executor: DatabaseTransaction,
   scope: PruneScope,
 ): Promise<TombstoneRow[]> {
-  const containerIdChunks = scope.containerIds
-    ? chunk([...new Set(scope.containerIds)], SCOPE_CHUNK_SIZE)
-    : [undefined];
-  const scopeChunks = chunk([...scope.userIds], SCOPE_CHUNK_SIZE).flatMap(
-    (userIdChunk) =>
-      containerIdChunks.map((containerIdChunk) => ({
-        containerIdChunk,
-        userIdChunk,
-      })),
-  );
   const rows: TombstoneRow[] = [];
-  for (const { containerIdChunk, userIdChunk } of scopeChunks) {
+  for (const userIdChunk of chunk([...scope.userIds], SCOPE_CHUNK_SIZE)) {
     rows.push(
       ...(await executor
         .select({
@@ -69,9 +58,6 @@ async function selectScopedTombstoneRows(
                     scope.organizationId,
                   ),
                 ]
-              : []),
-            ...(containerIdChunk
-              ? [inArray(containerSyncTombstones.containerId, containerIdChunk)]
               : []),
           ),
         )),
@@ -124,43 +110,54 @@ async function filterReadableRows(
 }
 
 /**
- * Expand a set of container ids to include every local descendant: grants
- * are inherited through container paths, so access regained at an ancestor
- * also invalidates a descendant's own stale tombstone.
+ * Filter tombstone rows to those whose container lies inside one of the
+ * given subtrees, walking each candidate's ancestry UPWARD. Grants inherit
+ * through container paths, so access regained at an ancestor also
+ * invalidates a descendant's own stale tombstone — but the candidate set is
+ * the users' tombstones (bounded by revocation history), never a
+ * materialized subtree, so a root-level grant stays cheap.
  */
-export async function expandContainerSubtreeIds(
+async function filterRowsWithinSubtrees(
   executor: DatabaseTransaction,
+  rows: readonly TombstoneRow[],
   rootContainerIds: readonly string[],
-): Promise<string[]> {
-  const rootIds = [...new Set(rootContainerIds)];
-  if (rootIds.length === 0) {
+): Promise<TombstoneRow[]> {
+  const rootIds = new Set(rootContainerIds);
+  if (rootIds.size === 0) {
     return [];
   }
-  const expanded = new Set<string>(rootIds);
-  for (const rootIdChunk of chunk(rootIds, SCOPE_CHUNK_SIZE)) {
+  const candidateIds = [...new Set(rows.map((row) => row.containerId))];
+  const memberIds = new Set<string>();
+  for (const candidateChunk of chunk(candidateIds, SCOPE_CHUNK_SIZE)) {
     const result = await executor.execute(sql`
-      with recursive subtree as (
-        select ${containers.id} as id
+      with recursive ancestry as (
+        select ${containers.id} as container_id, ${containers.id} as ancestor_id,
+               ${containers.parentId} as parent_id
         from ${containers}
         where ${containers.id} in (${sql.join(
-          rootIdChunk.map((rootId) => sql`${rootId}`),
+          candidateChunk.map((candidateId) => sql`${candidateId}`),
           sql`, `,
         )})
         union all
-        select child.id
-        from ${containers} child
-        inner join subtree on child.parent_id = subtree.id
+        select ancestry.container_id, parent.id, parent.parent_id
+        from ${containers} parent
+        inner join ancestry on parent.id = ancestry.parent_id
       )
-      select id from subtree
+      select distinct container_id, ancestor_id from ancestry
     `);
     for (const row of result.rows) {
-      const id = Reflect.get(row, "id");
-      if (typeof id === "string") {
-        expanded.add(id);
+      const containerId = Reflect.get(row, "container_id");
+      const ancestorId = Reflect.get(row, "ancestor_id");
+      if (
+        typeof containerId === "string" &&
+        typeof ancestorId === "string" &&
+        rootIds.has(ancestorId)
+      ) {
+        memberIds.add(containerId);
       }
     }
   }
-  return [...expanded];
+  return rows.filter((row) => memberIds.has(row.containerId));
 }
 
 /**
@@ -178,27 +175,33 @@ export async function expandContainerSubtreeIds(
  * never pruned: deletion is terminal and container ids are not reused.
  *
  * Workload is bounded by the gained users' own tombstone rows (their
- * revocation history), scoped to the caller's knowledge of the event — the
- * affected candidate `containerIds` for a policy transition, the event's
- * `organizationId` for a container grant — with one batched access
- * resolution per user and chunked conditional deletes.
+ * revocation history), selected FIRST and then intersected with the
+ * affected subtrees — the grant roots a policy transition or container
+ * grant can restore — with one batched access resolution per user and
+ * chunked conditional deletes.
  */
 export async function pruneRegainedAccessTombstones(input: {
-  readonly containerIds?: readonly string[];
   readonly executor: DatabaseTransaction;
   readonly organizationId?: string;
   readonly userIds: readonly string[];
+  readonly withinSubtreesOf?: readonly string[];
 }): Promise<void> {
   const userIds = [...new Set(input.userIds)];
-  if (userIds.length === 0 || input.containerIds?.length === 0) {
+  if (userIds.length === 0 || input.withinSubtreesOf?.length === 0) {
     return;
   }
 
-  const rows = await selectScopedTombstoneRows(input.executor, {
-    ...(input.containerIds ? { containerIds: input.containerIds } : {}),
+  const scopedRows = await selectScopedTombstoneRows(input.executor, {
     ...(input.organizationId ? { organizationId: input.organizationId } : {}),
     userIds,
   });
+  const rows = input.withinSubtreesOf
+    ? await filterRowsWithinSubtrees(
+        input.executor,
+        scopedRows,
+        input.withinSubtreesOf,
+      )
+    : scopedRows;
   if (rows.length === 0) {
     return;
   }
