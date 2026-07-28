@@ -218,6 +218,11 @@
  * read the token inside `min()`, where a keyword would invalidate the whole
  * declaration; every capped element is already within its container's width, so
  * this reads as "no cap" for all of them.
+ *
+ * This releases the shell subtree, not the tier: portaled surfaces (menus,
+ * modals, the image viewer) render outside it and keep the 34rem cap. Harmless
+ * while they stay narrower than the measure — `--modal-width` is 22rem — but a
+ * portal that outgrows it would need the release repeated on its own root.
  */
 .routed-pane--mobile {
   --form-measure: 100%;

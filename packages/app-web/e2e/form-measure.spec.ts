@@ -67,7 +67,11 @@ test("windowed form column stops at the measure", async ({ page }) => {
   // has to be opened against a settled layout: opened while the shell is still
   // mounting, its entries land outside the viewport and never become clickable.
   await expect(pane.locator(".pane-footer")).toBeVisible();
-  await page.waitForLoadState("networkidle").catch(() => {});
+  // Bounded: an app that never goes idle must not eat the whole test timeout
+  // before a single assertion runs.
+  await page
+    .waitForLoadState("networkidle", { timeout: 2_000 })
+    .catch(() => {});
   await pane.getByRole("button", { name: "Menu" }).click();
   await page
     .locator(".menu")
@@ -107,7 +111,11 @@ test("tablet form column stops at the measure", async ({ page }) => {
  * one every future form will rely on.
  */
 test("a field caps itself inside an uncapped panel", async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 1000 });
+  // 1000px is still the routed shell (MOBILE_BREAKPOINT_PX is 1024) and leaves
+  // the parent comfortably clear of the cap; at 900px the rail and the contacts
+  // sidebar eat into it until the margin is thin enough that a chrome tweak
+  // would read as a failure of the measure.
+  await page.setViewportSize({ width: 1000, height: 1000 });
   await page.goto("/app/contacts/new");
 
   const field = page.locator(".mini-app-field").first();
@@ -133,12 +141,13 @@ test("a field caps itself inside an uncapped panel", async ({ page }) => {
   expect(geometry.width).toBeCloseTo(geometry.capPx ?? 0, 0);
 });
 
-// The mobile tier opts out (`--form-measure: 100%` in RoutedPane.css). 599px is
-// the case that matters: it is the top of the mobile tier and well past 34rem,
-// so a cap that forgot to release here would pull the column in — which is what
-// stranded the tab strip's edge-to-edge bleed while this change was being made.
+// The mobile tier opts out (`--form-measure: 100%` in RoutedPane.css). 759px is
+// the case that matters: it is the top of that tier (ROUTED_TABLET_BREAKPOINT_PX
+// is 760) and the furthest past 34rem the release ever has to stretch, so a cap
+// that forgot to release strands the widest gap here — 215px of column the tab
+// strip's edge-to-edge bleed would fall short by.
 test("mobile form column keeps the full width", async ({ page }) => {
-  await page.setViewportSize({ width: 599, height: 800 });
+  await page.setViewportSize({ width: 759, height: 800 });
   await page.goto("/app/backup-restore");
 
   const geometry = await readColumnGeometry(page);

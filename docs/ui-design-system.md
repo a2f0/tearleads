@@ -114,19 +114,22 @@ a field, and it strands a left-aligned label a screen away from the caret, so
 - A surface that **groups** fields caps the group too
   (`.backup-restore-main`, `.identity-manager-pin-forms`,
   `.identity-manager-recovery-key-form`, `.contact-document-fields`,
-  `.contacts-detail-fields`). Otherwise the panel border, tab strip, and section
+  `.contacts-detail-panel`). Otherwise the panel border, tab strip, and section
   heading keep ruling the whole viewport around a column of measure-width
   inputs, which reads worse than the stretched fields did. It also catches the
   read-mode rows that `MiniAppField` never wraps — a contact's value and its
   clipboard button are only adjacent if their row is capped.
-- **The mobile tier opts out entirely.** `RoutedPane.css` re-declares
-  `--form-measure: 100%` under `.routed-pane--mobile`, so nothing is capped
-  below 760px. That tier is single-column and deliberately edge-to-edge — its
-  tab strip bleeds past the root padding to both screen edges — and it runs to
-  759px, well past 34rem, so a cap there would strand the bleed short of the
-  screen (`e2e/mobile-chrome.spec.ts` asserts this). Override the token, never
-  the individual rules: `100%` and not `none` because consumers also read it
-  inside `min()`, where a keyword invalidates the whole declaration.
+- **The mobile tier opts out.** `RoutedPane.css` re-declares
+  `--form-measure: 100%` under `.routed-pane--mobile`, so nothing in that shell
+  is capped below 760px. The tier is single-column and deliberately
+  edge-to-edge — its tab strip bleeds past the root padding to both screen
+  edges — and it runs to 759px, well past 34rem, so a cap there would strand the
+  bleed short of the screen (`e2e/mobile-chrome.spec.ts` and
+  `e2e/form-measure.spec.ts` both assert this). Override the token, never the
+  individual rules: `100%` and not `none` because consumers also read it inside
+  `min()`, where a keyword invalidates the whole declaration. The release covers
+  the shell subtree, so portaled menus and modals keep the cap on this tier —
+  fine while they stay under the measure (`--modal-width` is 22rem).
 - 34rem matches the windowed `min-width` floors those apps already declare, so a
   form fills its narrowest window exactly and simply stops growing past it.
 - The unit is deliberately `rem`, and `rem` is **not** the same pixel value in
