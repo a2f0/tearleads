@@ -321,6 +321,7 @@ export async function linkRemoteContainerDocument(input: {
 export async function unlinkRemoteContainerDocument(input: {
   documentId: string;
   noteId: string;
+  onFailure?: DocumentLinkSetFailureHandler | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   rotationSnapshot: Uint8Array;
   runtime: ContainerDocumentLinkRuntime;
@@ -396,6 +397,7 @@ export async function moveRemoteContainerDocument(input: {
     const unlinkedDocument = await unlinkRemoteContainerDocument({
       documentId,
       noteId,
+      onFailure: input.onFailure,
       resolveProjectionUserKey,
       rotationSnapshot,
       runtime,

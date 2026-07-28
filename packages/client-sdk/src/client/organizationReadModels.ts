@@ -379,12 +379,14 @@ class OrganizationReadModelCoordinatorImpl
           )) ||
             (await sqlDocumentMoveIntentPersistence.hasDeniedMoveIntents(
               active.runtime.infra.execSql,
+              { organizationId: active.organizationId },
             )))
         ) {
           // Parked permission-denied moves (row 7) only replay once flipped
           // back to pending; restore them before re-arming the lanes.
           await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(
             active.runtime.infra.execSql,
+            { organizationId: active.organizationId },
           );
           requestAllDomainSyncLanes(domainScope);
         }

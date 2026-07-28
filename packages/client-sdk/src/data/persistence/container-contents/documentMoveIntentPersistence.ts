@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   documentMoveIntents,
   documentMoveIntentTables,
+  documentProjectionTables,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -201,6 +202,12 @@ export const sqlDocumentMoveIntentPersistence = {
        */
       denied?: boolean | undefined;
       documentId: string;
+      /**
+       * Optimistic concurrency: when given, the error only records against
+       * the intent revision the pass read — a re-enqueued move (new
+       * updatedAt) is never parked by a stale in-flight failure.
+       */
+      expectedUpdatedAt?: string | undefined;
       message: string;
     },
   ): Promise<void> {
@@ -230,6 +237,9 @@ export const sqlDocumentMoveIntentPersistence = {
               "denied",
             ]),
             eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+            ...(input.expectedUpdatedAt
+              ? [eq(documentMoveIntents.updatedAt, input.expectedUpdatedAt)]
+              : []),
           ),
         )
         .run();
@@ -239,19 +249,25 @@ export const sqlDocumentMoveIntentPersistence = {
    * Evidence for the org-access-restored re-arm gate: a parked
    * permission-denied move proves a queued write was refused.
    */
-  async hasDeniedMoveIntents(execSql: ExecSql): Promise<boolean> {
+  async hasDeniedMoveIntents(
+    execSql: ExecSql,
+    input?: { organizationId?: string },
+  ): Promise<boolean> {
     await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    const rows = await db
-      .select({ documentId: documentMoveIntents.documentId })
-      .from(documentMoveIntents)
-      .where(
-        and(
-          eq(documentMoveIntents.syncStatus, "denied"),
-          eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
-        ),
-      )
-      .limit(1);
+    await ensureSqlTables(execSql, documentProjectionTables);
+    const rows = await execSql(
+      `SELECT intent.document_id AS document_id
+       FROM document_move_intents intent
+       LEFT JOIN document_projection projection
+         ON projection.local_id = intent.local_id
+       WHERE intent.sync_status = 'denied'
+         AND intent.intent_type = ?
+         ${input?.organizationId ? "AND (projection.organization_id = ? OR projection.organization_id IS NULL OR projection.organization_id = '')" : ""}
+       LIMIT 1`,
+      input?.organizationId
+        ? [DOCUMENT_MOVE_INTENT_TYPE, input.organizationId]
+        : [DOCUMENT_MOVE_INTENT_TYPE],
+    );
     return rows.length > 0;
   },
   /**
@@ -261,23 +277,40 @@ export const sqlDocumentMoveIntentPersistence = {
    */
   async resetDeniedMoveIntents(
     execSql: ExecSql,
-    input?: { localId?: string },
+    input?: { localId?: string; organizationId?: string },
   ): Promise<void> {
     await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .update(documentMoveIntents)
-        .set({ syncStatus: "pending", updatedAt: new Date().toISOString() })
-        .where(
-          and(
-            eq(documentMoveIntents.syncStatus, "denied"),
-            eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
-            ...(input?.localId
-              ? [eq(documentMoveIntents.localId, input.localId)]
-              : []),
-          ),
-        )
-        .run();
+    await ensureSqlTables(execSql, documentProjectionTables);
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      // Organization scoping joins through the projection's preserved
+      // attribution: restoring one organization's access must not un-park
+      // moves that another organization still denies. Unattributed rows are
+      // included (device-first shapes), matching orphan priming.
+      await lockedExecSql(
+        `UPDATE document_move_intents
+         SET sync_status = 'pending', updated_at = ?
+         WHERE sync_status = 'denied'
+           AND intent_type = ?
+           ${input?.localId ? "AND local_id = ?" : ""}
+           ${
+             input?.organizationId
+               ? `AND local_id IN (
+                    SELECT intent2.local_id FROM document_move_intents intent2
+                    LEFT JOIN document_projection projection
+                      ON projection.local_id = intent2.local_id
+                    WHERE projection.organization_id = ?
+                      OR projection.organization_id IS NULL
+                      OR projection.organization_id = ''
+                  )`
+               : ""
+           }`,
+        [
+          new Date().toISOString(),
+          DOCUMENT_MOVE_INTENT_TYPE,
+          ...(input?.localId ? [input.localId] : []),
+          ...(input?.organizationId ? [input.organizationId] : []),
+        ],
+      );
     });
   },
 };
