@@ -282,8 +282,8 @@
       "bytes": 39373
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
-      "lines": 1445,
-      "bytes": 46284
+      "lines": 1529,
+      "bytes": 49217
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
       "lines": 929,

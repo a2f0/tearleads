@@ -116,6 +116,10 @@ const PENDING_WRITE_SOURCE_SQL = `
     ON failure.app_kind = 'container-metadata'
     AND failure.local_id = updates.local_id
   WHERE updates.app_kind = 'container-metadata'
+    -- Dormant retained metadata (container tombstoned access_revoked, row 4)
+    -- has no containers row; keep it unsurfaced until rehydration re-attaches
+    -- the container, or it renders as an anonymous phantom item.
+    AND container.id IS NOT NULL
 
   UNION ALL
 

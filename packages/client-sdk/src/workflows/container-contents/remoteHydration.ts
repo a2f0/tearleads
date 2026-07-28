@@ -1,5 +1,3 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { exportAllUpdates } from "@tearleads/loro";
 import type {
   ContainerSyncTombstone,
   ListContainersResponse,
@@ -20,10 +18,15 @@ import { markContainerParentLaneFetched } from "./remoteHydration/laneFetchMarke
 import { fetchContainerParentLaneBatch } from "./remoteHydration/parentLaneFetch";
 import { createContainerParentHydrationQueue } from "./remoteHydration/parentLaneQueue";
 import { cacheRemoteContainerPrincipalPolicies } from "./remoteHydration/principalPolicyCache";
+import { reattachDormantContainerMetadata } from "./remoteHydration/reattachMetadata";
 import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,
 } from "./remoteHydration/reconciliation";
+import {
+  collectRemovedContainers,
+  selectRetainedMetadataContainerIds,
+} from "./remoteHydration/tombstoneReasons";
 import type {
   ContainerChildIndex,
   ContainerParentHydrationLane,
@@ -248,8 +251,37 @@ async function insertRemoteContainerState(input: {
 }): Promise<ContainerState> {
   const { childIdsByParentId, host, remoteContainer, state } = input;
   const doc = await createContainerMetadataDocument(remoteContainer.id);
-  const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
   const execSql = state.runtime.infra.execSql;
+  // A container inserted with dormant retained metadata (row 4's
+  // access_revoked branch) is a re-attach, not a fresh discovery: import the
+  // retained content and markers instead of overwriting them with an empty
+  // document. Access and keying fields still come from the remote container —
+  // revocation may have rotated them.
+  let dormantRecord = await state.persistence.loadContainerMetadataRecord(
+    execSql,
+    remoteContainer.id,
+  );
+  if (
+    dormantRecord?.documentId != null &&
+    dormantRecord.documentId !== remoteContainer.metadataDocumentId
+  ) {
+    // The remote metadata document was replaced while access was revoked:
+    // the dormant scope's queued updates belong to the dead stream and would
+    // otherwise resurface once the container row returns (the write-queue
+    // guard keys on the container row alone). Purge before inserting fresh.
+    await state.persistence.purgeDormantContainerMetadata(
+      execSql,
+      remoteContainer.id,
+    );
+    dormantRecord = null;
+  }
+  const reattached = reattachDormantContainerMetadata({
+    defaultName: getDefaultContainerName(remoteContainer.parentId),
+    doc,
+    dormantRecord,
+    remoteMetadataDocumentId: remoteContainer.metadataDocumentId,
+  });
+  const initialSnapshot = reattached.initialSnapshot;
   const containerState: ContainerState = {
     container: applyRemoteContainerTimestamps(
       {
@@ -259,8 +291,8 @@ async function insertRemoteContainerState(input: {
         parentId: remoteContainer.parentId,
         metadataDocumentId: remoteContainer.metadataDocumentId,
         systemSlot: remoteContainer.systemSlot ?? null,
-        name: getDefaultContainerName(remoteContainer.parentId),
-        icon: null,
+        name: reattached.name,
+        icon: reattached.icon,
       },
       remoteContainer,
     ),
@@ -271,9 +303,9 @@ async function insertRemoteContainerState(input: {
       accessStateHash: remoteContainer.metadataAccessStateHash,
       documentId: remoteContainer.metadataDocumentId,
       id: remoteContainer.id,
-      lastCommitLsn: null,
+      lastCommitLsn: reattached.lastCommitLsn,
       metadataUpdates: initialSnapshot,
-      snapshotEndVersion: "",
+      snapshotEndVersion: reattached.snapshotEndVersion,
       contentKeyBundle: null,
       documentKekTargets: null,
       documentManifestBundle: null,
@@ -578,49 +610,6 @@ function getApplicableRemoteContainerItems(
   });
 }
 
-function collectRemovedContainerIds(input: {
-  childIdsByParentId: ContainerChildIndex;
-  containersById: ReadonlyMap<string, ContainerState>;
-  preservedContainerIds: ReadonlySet<string>;
-  tombstones: ReadonlyArray<ContainerSyncTombstone>;
-}): string[] {
-  const {
-    childIdsByParentId,
-    containersById,
-    preservedContainerIds,
-    tombstones,
-  } = input;
-  const removedContainerIds = new Set<string>();
-  const pendingContainerIds: string[] = [];
-
-  for (const tombstone of tombstones) {
-    if (!preservedContainerIds.has(tombstone.containerId)) {
-      pendingContainerIds.push(tombstone.containerId);
-    }
-  }
-
-  while (pendingContainerIds.length > 0) {
-    const containerId = pendingContainerIds.pop();
-    if (!containerId || removedContainerIds.has(containerId)) {
-      continue;
-    }
-
-    removedContainerIds.add(containerId);
-    for (const childId of childIdsByParentId.get(containerId) ?? []) {
-      if (
-        !preservedContainerIds.has(childId) &&
-        !removedContainerIds.has(childId)
-      ) {
-        pendingContainerIds.push(childId);
-      }
-    }
-  }
-
-  return Array.from(removedContainerIds).filter((containerId) =>
-    containersById.has(containerId),
-  );
-}
-
 function getLatestContainerTombstoneUpdatedAt(
   tombstones: ReadonlyArray<ContainerSyncTombstone>,
 ): string | undefined {
@@ -645,7 +634,12 @@ async function applyContainerTombstones(input: {
     return 0;
   }
 
-  const removedContainerIds = collectRemovedContainerIds({
+  const {
+    ownTombstoneContainerIds,
+    purgeMetadataContainerIds,
+    reasonByContainerId,
+    removedContainerIds,
+  } = collectRemovedContainers({
     childIdsByParentId,
     containersById: state.containersById,
     preservedContainerIds,
@@ -654,10 +648,26 @@ async function applyContainerTombstones(input: {
   const tombstoneUpdatedAt = getLatestContainerTombstoneUpdatedAt(tombstones);
   const execSql = state.runtime.infra.execSql;
 
+  // Row 4 policy (docs/sync-edge-cases.md): a revoked container's own
+  // metadata document — queued edits included — is retained dormant, because
+  // the container still exists server-side and re-attaches by id when access
+  // restoration rehydrates it. A deleted container's metadata is moot.
+  // purgeMetadataContainerIds have no local container state (a revoke already
+  // cascaded them) but a later deleted tombstone must still purge their
+  // dormant retained metadata; every delete in the cascade is id-scoped, so
+  // including them is a no-op beyond that purge.
   await state.persistence.deleteContainers(
     execSql,
-    removedContainerIds,
-    tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : undefined,
+    [...removedContainerIds, ...purgeMetadataContainerIds],
+    {
+      retainMetadataForContainerIds: selectRetainedMetadataContainerIds({
+        containersById: state.containersById,
+        ownTombstoneContainerIds,
+        reasonByContainerId,
+        removedContainerIds,
+      }),
+      ...(tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : {}),
+    },
   );
   for (const containerId of removedContainerIds) {
     const parentId =

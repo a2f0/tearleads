@@ -49,8 +49,8 @@ without counting as lane progress, so it cannot hot-loop the pump.
 | --- | --- | --- | --- |
 | 1 | Remote document deleted (coded `404 document_not_found`) while local edits are queued | Local document, pending updates, history, and failure rows are destroyed in one transaction; one log line remains. No export, confirmation, or preservation copy. | working as designed — deletion is a privacy operation: an authoritative remote delete removes the document and its unsynced edits on every client as each one next syncs and receives the coded 404. Quarantine, export, and confirm-before-destroy were considered and rejected: each retains (or re-uploads) content the user deliberately destroyed. Container cascades feed this path only for `deleted` tombstones (row 3); metadata edits are row 4's concern. |
 | 2 | Bare 404 (no error code) on submit | Deliberately not treated as deletion; parks as an error row. | working as designed |
-| 3 | Container tombstoned (`deleted` / `access_revoked`) with queued content edits inside | Cascades to local descendants under a serialized mutation (a promise mutex around two inner transactions, not one transaction — a mid-cascade crash cannot lose content because the document repair commits first, but it can strand container-metadata rows that re-delivered tombstones then skip; known gap below): link rows dropped, each document re-homed to a surviving link when it has one, else orphaned (`container_id` nulled, org attribution kept). Content, pending updates, history, and failure rows all survive. The tombstone reason is deliberately ignored; each document resolves on its next pass by the server's per-document answer, not the reason: 200 where the document survives and the caller retains access (multi-link re-home, either reason), 403 where it survives without access → row 8 parking, coded 404 where it is gone → row 1 destroy. A local-only descendant's create against the missing container records a terminal failure row. | working as designed for the cascade and its lazy resolution — only the server's per-document answer can distinguish a document that died with its container from one that lives on elsewhere; eager destroy/park at cascade time would destroy documents other containers still hold. One carve-out: re-homed documents resolve on their next pass, but a last-link orphan cannot be primed (priming routes through container subtrees; the priming report counts these as unroutable), so its preserved edits sit unresolved until a re-link makes it routable — access restored re-links it via rehydration; a deleted container never does. Orphan routing is the known gap below, and it is a stuck-not-lost state: no edit is destroyed by it. |
-| 4 | Container tombstoned with queued metadata edits (e.g. rename) | Queued container-metadata updates and their failure rows are deleted in the same cascade, before any submit — nothing surfaced remains, though unlike row 1's full teardown the edit bytes persist in the orphaned metadata history rows (known gap below). Identical for both tombstone reasons (the reason is discarded at ingestion). | needs decision (defensible for deleted; questionable for access_revoked, where the container survives server-side and access can return) |
+| 3 | Container tombstoned (`deleted` / `access_revoked`) with queued content edits inside | Cascades to local descendants under a serialized mutation (a promise mutex around two inner transactions, not one transaction — a mid-cascade crash cannot lose content because the document repair commits first, but it can strand container-metadata rows that re-delivered tombstones then skip; known gap below): link rows dropped, each document re-homed to a surviving link when it has one, else orphaned (`container_id` nulled, org attribution kept). Content, pending updates, history, and failure rows all survive. The tombstone reason is deliberately ignored; each document resolves on its next pass by the server's per-document answer, not the reason: 200 where the document survives and the caller retains access (multi-link re-home, either reason), 403 where it survives without access → row 8 parking, coded 404 where it is gone → row 1 destroy. A local-only descendant's create records a terminal failure row when its pass runs — which needs the document to be routable or already open, per the orphan-routing gap below. | working as designed for the cascade and its lazy resolution — only the server's per-document answer can distinguish a document that died with its container from one that lives on elsewhere; eager destroy/park at cascade time would destroy documents other containers still hold. One carve-out: re-homed documents resolve on their next pass, but a last-link orphan cannot be primed (priming routes through container subtrees; the priming report counts these as unroutable), so its preserved edits sit unresolved until a re-link makes it routable — access restored re-links it via rehydration; a deleted container never does. Orphan routing is the known gap below, and it is a stuck-not-lost state: no edit is destroyed by it. |
+| 4 | Container tombstoned with queued metadata edits (e.g. rename) | Split by tombstone reason. `deleted`: the metadata document, queued updates, and failure rows are destroyed in the cascade before any submit (edit bytes linger in orphaned metadata history rows — known gap below). `access_revoked`: the container's entire metadata document — record, queued updates, failure rows, history — is retained dormant and unsurfaced; it re-attaches by container id when access restoration rehydrates the container, and the queued edit then submits. Container create/move intents are destroyed for both reasons. | working as designed — a deleted container's metadata is moot (rows 1/6 logic); a revoked container still exists server-side, so its queued metadata edits park until access returns, mirroring row 8's treatment of content edits. Reason precedence when cascades overlap: a container's own tombstone wins, then deleted beats access_revoked. Accepted bound: a container deleted after the revocation never tombstones the revoked user (the server deliberately targets current path members only — tombstoning revoked users would leak post-revocation activity), so that dormant metadata persists indefinitely: small, local, unsurfaced (the write queue requires a live container row), and a candidate for a future local sweep (known gap below). |
 | 5 | Move intent whose destination container is missing locally | `blocked` with a named reason; replays each structural pass and completes if the container appears (e.g. via hydration). | working as designed |
 | 6 | Document deleted while it has a queued move intent | The move intents are deleted with the document. | working as designed |
 | 7 | Move fails remotely (rejected, unavailable, or permission denied) | Stays `pending` with `"Remote document move was rejected or unavailable: <detail> (<status>)"`; the HTTP status is threaded through when one was seen. Retries on every trigger. | working as designed; parking 403s for the access-restored signal (like document writes) is a possible refinement |
@@ -71,11 +71,6 @@ without counting as lane progress, so it cannot hot-loop the pump.
 
 ## Known gaps / follow-ups
 
-- Row 4: decide whether `access_revoked` tombstones should preserve queued
-  container-metadata edits with a failure row (row 8 symmetry) instead of
-  destroying them; `deleted` destroying them is consistent with rows 1/6.
-  Requires threading the tombstone reason into the cascade, which currently
-  discards it.
 - Orphaned documents (row 3) drop out of the explorer tree entirely (the
   container index excludes `container_id IS NULL`) and cannot be primed:
   candidate selection is global, but priming resolves targets through
@@ -88,10 +83,26 @@ without counting as lane progress, so it cannot hot-loop the pump.
   skips containers no longer present locally, so a mid-cascade crash can
   strand container-metadata rows permanently. Content documents are safe
   (their repair commits first).
-- The container cascade deletes a tombstoned container's metadata `documents`
-  row but not its history checkpoint/tail rows, leaving orphaned
+- Pre-existing (predates retention, surfaced by its review): container sync
+  tombstones are upserted server-side and never superseded on access
+  restoration, so a restore that does not advance the container's own
+  timestamp (e.g. re-adding a user to a granted group) leaves the stale
+  `access_revoked` tombstone winning the page-level last-writer filter — the
+  container never rehydrates for that user at all (and dormant metadata
+  therefore never re-attaches). Fix belongs server-side: delete or supersede
+  tombstone rows when the user regains read access.
+- Dormant retained metadata whose container is deleted after the revocation
+  is never purged (no tombstone reaches the revoked user — deliberate, see
+  row 4's accepted bound). A future local sweep (e.g. dormant rows still
+  unmatched after an access-restored full resync) could reclaim it.
+- The `deleted` cascade branch removes a tombstoned container's metadata
+  `documents` row but not its history checkpoint/tail rows, leaving orphaned
   container-metadata history behind (the local-reconcile sibling helper does
-  delete them).
+  delete them). The `access_revoked` branch retains the whole metadata
+  document deliberately. Local-only descendants of a revoked container are
+  excluded from retention (nothing to re-attach: their create intents die in
+  the cascade), and like the `deleted` branch their history rows also
+  survive as residue.
 - Row 7: consider parking permission-denied moves for the
   org-access-restored signal instead of retrying on every trigger.
 - Create intents (`container_create_intents`) have no `last_attempted_at`

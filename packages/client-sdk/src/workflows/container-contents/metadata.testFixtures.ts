@@ -78,6 +78,10 @@ export function createContainerContentsPersistence(input: {
     async listContainerIdsWithPendingUpdates() {
       return [];
     },
+    async loadContainerMetadataRecord() {
+      return null;
+    },
+    async purgeDormantContainerMetadata() {},
     async rekeyPendingUpdate() {
       return null;
     },
