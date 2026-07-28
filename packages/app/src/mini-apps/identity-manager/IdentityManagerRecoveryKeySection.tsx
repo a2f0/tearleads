@@ -209,6 +209,11 @@ function RecoveryKeyDisclosureDialog({
   const disclosureCopy = RECOVERY_KEY_DISCLOSURES[pendingDisclosure];
   return (
     <PhraseConfirmationDialog
+      // The dialog does not trap focus, so the toolbar behind it can still
+      // switch which disclosure is pending. Keying by kind remounts the dialog
+      // on that switch, so an acknowledgement typed for one disclosure can
+      // never be spent on another.
+      key={pendingDisclosure}
       confirmLabel={disclosureCopy.confirmLabel}
       isOpen
       onCancel={onCancel}
