@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import {
+  containerCreateIntentTables,
+  documentContainerProjectionTables,
+} from "../../data/sqlite/schema";
+import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { listPendingWrites } from "./pendingWrites";
 
@@ -9,6 +14,10 @@ const T1 = "2026-01-01T00:00:01.000Z";
 
 async function seedContainerWithMetadata(execSql: ExecSql): Promise<void> {
   await listPendingWrites(execSql);
+  await ensureSqlTables(execSql, [
+    ...containerCreateIntentTables,
+    ...documentContainerProjectionTables,
+  ]);
   await defaultContainerContentsPersistence.saveContainer(
     execSql,
     {
@@ -49,6 +58,41 @@ async function seedContainerWithMetadata(execSql: ExecSql): Promise<void> {
       T1,
     ],
   );
+  await execSql(
+    `INSERT INTO container_create_intents (
+      id, container_id, parent_container_id, intent_type, sync_status,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ["intent-doomed", "doomed", "root", "create", "pending", T0, T0],
+  );
+  await sqlDocumentsPersistence.saveDocument(
+    execSql,
+    {
+      accessEpoch: 1,
+      accessStateHash: null,
+      containerId: "doomed",
+      documentId: "remote-linked",
+      documentKind: "note",
+      id: "linked-doc",
+      snapshotEndVersion: "",
+      text: "linked",
+      title: "linked",
+    },
+    { updatedAt: T0 },
+  );
+  await execSql(
+    `INSERT INTO document_container_projection (document_id, container_id, updated_at)
+     VALUES (?, ?, ?)`,
+    ["remote-linked", "doomed", T0],
+  );
+}
+
+async function linkedDocContainerId(execSql: ExecSql): Promise<unknown> {
+  const rows = await execSql(
+    "SELECT container_id AS c FROM document_projection WHERE local_id = ?",
+    ["linked-doc"],
+  );
+  return Reflect.get(rows[0] ?? {}, "c");
 }
 
 async function countRows(
@@ -87,13 +131,30 @@ test("a mid-cascade crash leaves the cascade fully unapplied", async () => {
       ),
     ).rejects.toThrow(/container_sync_watermarks/);
 
-    // Fully unapplied: nothing was deleted.
+    // Fully unapplied: nothing was deleted, repaired, or unlinked.
     expect(
       await defaultContainerContentsPersistence.containerExists(
         execSql,
         "doomed",
       ),
     ).toBe(true);
+    expect(await linkedDocContainerId(execSql)).toBe("doomed");
+    expect(
+      await countRows(
+        execSql,
+        `SELECT COUNT(*) AS n FROM document_container_projection
+         WHERE container_id = ?`,
+        ["doomed"],
+      ),
+    ).toBe(1);
+    expect(
+      await countRows(
+        execSql,
+        `SELECT COUNT(*) AS n FROM container_create_intents
+         WHERE container_id = ?`,
+        ["doomed"],
+      ),
+    ).toBe(1);
     expect(
       await countRows(
         execSql,
@@ -128,6 +189,24 @@ test("a mid-cascade crash leaves the cascade fully unapplied", async () => {
         execSql,
         `SELECT COUNT(*) AS n FROM document_pending_updates
          WHERE app_kind = 'container-metadata' AND local_id = ?`,
+        ["doomed"],
+      ),
+    ).toBe(0);
+    // The retry orphaned the linked document and removed links and intents.
+    expect(await linkedDocContainerId(execSql)).toBeNull();
+    expect(
+      await countRows(
+        execSql,
+        `SELECT COUNT(*) AS n FROM document_container_projection
+         WHERE container_id = ?`,
+        ["doomed"],
+      ),
+    ).toBe(0);
+    expect(
+      await countRows(
+        execSql,
+        `SELECT COUNT(*) AS n FROM container_create_intents
+         WHERE container_id = ?`,
         ["doomed"],
       ),
     ).toBe(0);

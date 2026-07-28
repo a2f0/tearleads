@@ -122,6 +122,21 @@ export async function deleteContainerWatermarksInTransaction(
       ),
     )
     .run();
+  await tx
+    .delete(containerSyncLaneChecks)
+    .where(
+      or(
+        and(
+          eq(containerSyncLaneChecks.laneKind, CONTAINER_PARENT_LANE),
+          inArray(containerSyncLaneChecks.laneId, parentLaneIds),
+        ),
+        and(
+          eq(containerSyncLaneChecks.laneKind, CONTAINER_DOCUMENTS_LANE),
+          inArray(containerSyncLaneChecks.laneId, uniqueContainerIds),
+        ),
+      ),
+    )
+    .run();
 }
 
 function mapSelectedWatermarkRecord(
