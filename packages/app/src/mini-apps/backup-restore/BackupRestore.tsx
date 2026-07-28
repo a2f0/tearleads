@@ -72,16 +72,15 @@ function BackupSummaryDetails({
   );
 }
 
-// Live status shared by both operations: SQLite readiness, the last error or
-// status line, in-flight progress, the post-restore reload prompt, and the last
-// summary. Kept above the tabs so a running export/restore stays visible no
-// matter which tab is focused (the controller holds a single set of these).
+// Live status shared by both operations: the last error or status line,
+// in-flight progress, the post-restore reload prompt, and the last summary.
+// Kept above the tabs so a running export/restore stays visible no matter which
+// tab is focused (the controller holds a single set of these).
 function BackupRestoreStatus({ model }: { model: BackupRestoreModel }) {
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
         <h2>Local Backup</h2>
-        <MiniAppStatus as="span">SQLite {model.databaseStatus}</MiniAppStatus>
       </MiniAppSectionHeading>
       {model.error && <MiniAppStatus tone="error">{model.error}</MiniAppStatus>}
       {model.status && <MiniAppStatus>{model.status}</MiniAppStatus>}

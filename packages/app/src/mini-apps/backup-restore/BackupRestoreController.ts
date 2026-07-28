@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import { clearRestoredLocalCaches } from "../../providers/db/clearRestoredLocalCaches";
-import { useDatabase } from "../../providers/db/DatabaseProvider";
 import {
   type BackupProgress,
   type BackupSummary,
@@ -344,7 +343,6 @@ function useBackupRestoreState() {
 }
 
 export function useBackupRestore() {
-  const database = useDatabase();
   const fileSaver = useFileSaver();
   const { log, logError } = useLog();
   const { exportLocalBackup, restoreLocalBackup } = useLocalBackupOperations();
@@ -390,7 +388,6 @@ export function useBackupRestore() {
     backupPassword: state.backupPassword,
     busy: state.busy,
     confirmBackupPassword: state.confirmBackupPassword,
-    databaseStatus: database.status,
     error: state.error,
     handleChooseRestoreFile,
     handleExportBackup,
