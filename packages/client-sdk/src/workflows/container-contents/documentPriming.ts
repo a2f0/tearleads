@@ -142,6 +142,13 @@ async function listPrimeRequiredLocalIdsFromRuntime(
  * records a terminal failure row. Hidden document kinds stay excluded, and
  * dangling non-null projections (a container row merely missing locally)
  * stay with stale-root recovery, exactly as before.
+ *
+ * Organization neutrality: the null scope changes only the runtime's
+ * containerId — auth, crypto, and organization plumbing are identical to
+ * every container-scoped runtime this store already primes with, the sync
+ * pass derives billing and keying organizations from the document's own
+ * plan and manifest, and a cross-organization author fails closed at the
+ * sync layer's identity guard before anything is signed.
  */
 const ORPHANED_PRIME_TARGET_SQL = `
   SELECT stored.local_id AS local_id, stored.document_id AS document_id
