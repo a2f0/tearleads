@@ -468,6 +468,9 @@ export async function restorePaneFromRecoveryKey(
   fireEvent.click(
     within(identityManager).getByRole("button", { name: "Recovery Key" }),
   );
+  fireEvent.click(
+    within(identityManager).getByRole("tab", { name: "Recovery" }),
+  );
   const restoreInput =
     within(identityManager).getByLabelText("Restore passphrase");
   await interact(() => {
