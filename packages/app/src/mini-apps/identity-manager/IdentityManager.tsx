@@ -51,7 +51,6 @@ function ActiveSessionsSection({
       loadingSessions={sessionList.loadingSessions}
       mutatingSessionId={sessionMutations.mutatingSessionId}
       onOpenSessionDetail={onOpenSessionDetail}
-      refreshSessions={sessionList.refreshSessions}
       sessionError={sessionList.sessionError}
       sessions={sessionList.sessions}
     />
