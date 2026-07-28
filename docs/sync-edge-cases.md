@@ -83,14 +83,13 @@ without counting as lane progress, so it cannot hot-loop the pump.
   skips containers no longer present locally, so a mid-cascade crash can
   strand container-metadata rows permanently. Content documents are safe
   (their repair commits first).
-- Pre-existing (predates retention, surfaced by its review): container sync
-  tombstones are upserted server-side and never superseded on access
-  restoration, so a restore that does not advance the container's own
-  timestamp (e.g. re-adding a user to a granted group) leaves the stale
-  `access_revoked` tombstone winning the page-level last-writer filter — the
-  container never rehydrates for that user at all (and dormant metadata
-  therefore never re-attaches). Fix belongs server-side: delete or supersede
-  tombstone rows when the user regains read access.
+- Resolved: access restoration now prunes stale `access_revoked` container
+  sync tombstones server-side (`pruneRegainedAccessTombstones`, wired into
+  the principal-policy transition and `container.grant` flows), so restores
+  that advance no container timestamp — group re-adds, policy changes —
+  relist the container on the next lane pull. `deleted` tombstones are never
+  pruned, and rows for containers the user did not regain survive for
+  clients that have not yet synced the loss.
 - Dormant retained metadata whose container is deleted after the revocation
   is never purged (no tombstone reaches the revoked user — deliberate, see
   row 4's accepted bound). A future local sweep (e.g. dormant rows still

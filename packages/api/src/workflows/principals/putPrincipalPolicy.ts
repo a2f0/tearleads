@@ -26,6 +26,7 @@ import {
   lockOrganizationReadModelHeadInTransaction,
 } from "../organizations/readModelChanges";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
+import { pruneRegainedAccessTombstones } from "../regainedAccessTombstones";
 import { listPrincipalPolicyAccessGainNotificationUserIds } from "./accessGainNotifications";
 import { persistPrincipalPolicyAccessLossTombstones } from "./accessLossTombstones";
 import { getPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
@@ -385,6 +386,18 @@ async function applyPrincipalPolicyTransitionEffects(input: {
     previousReachableUserIds: input.previousReachableUserIds,
     previousState: input.previousState,
     updatedAt: new Date(),
+  });
+  // The mirror image: users this transition can now reach may hold stale
+  // access_revoked tombstones from an earlier loss; prune the ones their
+  // regained access has invalidated so their next lane pull relists the
+  // containers (the container timestamp does not advance on a policy-only
+  // restore, so the stale row would otherwise win forever).
+  const previousReachable = new Set(input.previousReachableUserIds);
+  await pruneRegainedAccessTombstones({
+    executor: input.tx,
+    userIds: input.currentReachableUserIds.filter(
+      (userId) => !previousReachable.has(userId),
+    ),
   });
   const rosterSyncTarget = await syncRosterForStoredPrincipalState({
     request: input.policy,

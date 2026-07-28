@@ -166,8 +166,8 @@
       "bytes": 40645
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
-      "lines": 644,
-      "bytes": 18997
+      "lines": 696,
+      "bytes": 20223
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 725,
@@ -180,6 +180,10 @@
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 710,
       "bytes": 20923
+    },
+    "packages/api/src/workflows/principals/putPrincipalPolicy.ts": {
+      "lines": 513,
+      "bytes": 17057
     },
     "packages/api/src/wsRouting.test.ts": {
       "lines": 530,

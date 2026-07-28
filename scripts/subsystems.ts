@@ -114,6 +114,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/routes/principals/`,
       `${api}/services/principals/`,
       `${api}/workflows/principals/`,
+      `${api}/workflows/regainedAccessTombstones.ts`,
     ],
   },
   {

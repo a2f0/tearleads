@@ -29,6 +29,7 @@ import {
   resolveReadableContainerAccess,
 } from "../../../keyingReadAccess";
 import { appendOrganizationReadModelChangeInTransaction } from "../../../organizations/readModelChanges";
+import { pruneRegainedAccessTombstones } from "../../../regainedAccessTombstones";
 import {
   userIdsForGrant,
   userIdsWithReadableAccessThroughPath,
@@ -306,6 +307,71 @@ function removedDirectGrants(input: {
   );
 }
 
+function addedDirectGrants(input: {
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly previousManifest: VerifiedContainerAccessManifest;
+}): ContainerDirectGrant[] {
+  const previousGrantKeys = new Set(
+    input.previousManifest.state.directGrants.map(directGrantKey),
+  );
+
+  return input.manifest.state.directGrants.filter(
+    (grant) => !previousGrantKeys.has(directGrantKey(grant)),
+  );
+}
+
+async function addedGrantUserIds(input: {
+  readonly executor: DatabaseTransaction;
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly previousManifest: VerifiedContainerAccessManifest;
+}): Promise<string[]> {
+  const userIds = new Set<string>();
+
+  for (const grant of addedDirectGrants(input)) {
+    for (const userId of await userIdsForGrant({
+      executor: input.executor,
+      grant,
+      manifest: input.manifest,
+    })) {
+      userIds.add(userId);
+    }
+  }
+
+  return Array.from(userIds);
+}
+
+/**
+ * The mirror of persistAccessRevocationTombstones: a grant that gives users
+ * (back) readable access must prune their stale access_revoked tombstones,
+ * or the lane page keeps serving the old tombstone alongside the restored
+ * item and the client's last-writer filter suppresses the container forever
+ * (a grant advances no container timestamp).
+ */
+async function pruneAccessGrantTombstones(input: {
+  readonly executor: DatabaseTransaction;
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly previousManifest: VerifiedContainerAccessManifest | null;
+}): Promise<void> {
+  const { executor, manifest, previousManifest } = input;
+  if (
+    manifest.event.event.eventType !== "container.grant" ||
+    previousManifest === null
+  ) {
+    return;
+  }
+
+  const gainedUserIds = await addedGrantUserIds({
+    executor,
+    manifest,
+    previousManifest,
+  });
+  if (gainedUserIds.length === 0) {
+    return;
+  }
+
+  await pruneRegainedAccessTombstones({ executor, userIds: gainedUserIds });
+}
+
 async function removedGrantUserIds(input: {
   readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedContainerAccessManifest;
@@ -563,6 +629,11 @@ export async function persistVerifiedMutation(
     manifest,
     previousManifest,
     updatedAt,
+  });
+  await pruneAccessGrantTombstones({
+    executor,
+    manifest,
+    previousManifest,
   });
   if (previousContainerPath) {
     await persistMoveAccessLossTombstones({
