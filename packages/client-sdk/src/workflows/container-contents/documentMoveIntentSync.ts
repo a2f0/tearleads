@@ -3,6 +3,7 @@ import {
   type DocumentMoveIntentRecord,
   sqlDocumentMoveIntentPersistence,
 } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type DocumentLinkSetFailureHandler,
   type DocumentLinkSetMutationFailure,
@@ -272,15 +273,20 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   const { existingDocument } = preflight;
 
   try {
-    const lastFailure: { current: DocumentLinkSetMutationFailure | null } = {
-      current: null,
-    };
+    const lastFailure: {
+      current: DocumentLinkSetMutationFailure | null;
+      // Accumulated across every link/unlink failure of the pass: a 403 on
+      // ANY leg parks the intent even when a later leg fails differently.
+      sawPermissionDenial: boolean;
+    } = { current: null, sawPermissionDenial: false };
     const moved = await movePendingDocumentIntent({
       existingContainerId: existingDocument.containerId,
       host,
       intent,
       onFailure: (failure) => {
         lastFailure.current = failure;
+        lastFailure.sawPermissionDenial =
+          lastFailure.sawPermissionDenial || failure.status === 403;
       },
       state,
     });
@@ -288,7 +294,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
       await recordPendingDocumentMoveIntentError({
         // A permission denial parks the intent for the access-restored
         // signal instead of replaying on every structural pass (row 7).
-        denied: lastFailure.current?.status === 403,
+        denied: lastFailure.sawPermissionDenial,
         documentId: intent.documentId,
         expectedUpdatedAt: intent.updatedAt,
         message: describeRejectedDocumentMove(lastFailure.current),
@@ -310,7 +316,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
       await recordPendingDocumentMoveIntentError({
         // An unlink refused for permissions parks like any other denied
         // move (row 7); other partials keep row 15's replay.
-        denied: lastFailure.current?.status === 403,
+        denied: lastFailure.sawPermissionDenial,
         documentId: intent.documentId,
         expectedUpdatedAt: intent.updatedAt,
         message: "Remote document move partially applied; retry required",
@@ -338,6 +344,15 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     });
     return "failed";
   }
+}
+
+/**
+ * Launch-time replay for parked permission-denied moves (row 7): a restart
+ * loses the in-memory access-restored edge, and "an app restart re-attempts
+ * everything retriable", so denied intents get one fresh attempt per launch.
+ */
+export async function replayDeniedMoveIntents(execSql: ExecSql): Promise<void> {
+  await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(execSql);
 }
 
 export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
