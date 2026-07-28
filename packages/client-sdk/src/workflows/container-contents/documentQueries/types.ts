@@ -64,7 +64,13 @@ export interface ContainerDocumentSidebarWindow {
 export interface ContainerContentsDocumentRuntimeTarget {
   documentId: string | null;
   localId: string;
-  runtimeContainerId: string;
+  /**
+   * The container whose workflow runtime hosts the document store. Null for
+   * a last-link orphan (docs/sync-edge-cases.md row 3): the documents
+   * runtime accepts a null container scope, and the orphan's own sync pass
+   * resolves its fate against the server (403 park / 404 destroy).
+   */
+  runtimeContainerId: string | null;
 }
 
 export type ContainerDocumentQueriesRuntime =
@@ -76,7 +82,7 @@ export interface ContainerDocumentPrimeStore {
 }
 
 export interface ContainerDocumentPrimeHost<TRuntime> {
-  documentWorkflowRuntime: (containerId: string) => TRuntime;
+  documentWorkflowRuntime: (containerId: string | null) => TRuntime;
   openDocumentStore: (input: {
     documentId: string | null;
     localId: string;
