@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { clearDocumentSyncFailure } from "../../../data/sqlite/documentPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentSyncFailurePersistence";
+import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
 import type { DocumentRecord } from "../../../workflows/documents/persistence";
 import type {
   DocumentState,
@@ -12,6 +14,7 @@ import type { DocumentStoreSyncGeneration } from "./syncGeneration";
 import { deleteUpstreamDeletedDocument } from "./syncRequest";
 import {
   documentRevalidationFailureHandler,
+  documentTerminalSubmitFailureHandler,
   ensureRemoteDocument,
 } from "./syncShared";
 
@@ -157,6 +160,58 @@ test("a null-scoped orphan destroys on authoritative deletion", async () => {
       ["orphan-doc"],
     );
     expect(Number(Reflect.get(pendingRows[0] ?? {}, "n") ?? -1)).toBe(0);
+  } finally {
+    close();
+  }
+});
+
+// The teardown race: a terminal handler queued behind a teardown mutation
+// must observe the invalidated generation INSIDE the serialized mutation and
+// record nothing — never resurrect the failure row the teardown deleted.
+test("a stale terminal handler cannot recreate a deleted failure row", async () => {
+  const { close, execSql } = await createTestExecSql("stale-terminal-handler");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const doc = {};
+    const resolveProjectionUserKey = () => null;
+    const state = {
+      doc,
+      localId: "torn-down-doc",
+      resolveProjectionUserKey,
+      runtime: {
+        infra: { execSql },
+        state: { containerId: null, domainScope: "scope" },
+        util: { log: () => undefined },
+      },
+    } as unknown as DocumentStoreState;
+    const generation = {
+      currentDoc: doc,
+      domainScope: "scope",
+      execSql,
+      resolveProjectionUserKey,
+    } as unknown as DocumentStoreSyncGeneration;
+    const handler = documentTerminalSubmitFailureHandler(state, generation);
+
+    // Hold the serialized mutation as the "teardown": clear failure rows and
+    // invalidate the generation while the handler queues behind it.
+    let releaseTeardown = () => {};
+    const teardownHeld = new Promise<void>((resolve) => {
+      releaseTeardown = resolve;
+    });
+    const teardown = runSerializedSqlMutation(execSql, async (locked) => {
+      await clearDocumentSyncFailure(locked, {
+        appKind: "documents",
+        localId: "torn-down-doc",
+      });
+      (state as { doc: unknown }).doc = null;
+      await teardownHeld;
+    });
+    const queuedHandler = handler({ message: "terminal", status: 500 });
+    releaseTeardown();
+    await teardown;
+    await queuedHandler;
+
+    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
   } finally {
     close();
   }

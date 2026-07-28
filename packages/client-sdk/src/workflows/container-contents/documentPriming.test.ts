@@ -46,6 +46,7 @@ test("priming leaves an absent-container orphan for root recovery", async () => 
     const result = await primeDocumentsForLoadedRoots({
       containersById: new Map(),
       host: createPrimeHost(opened),
+      organizationId: "org-a",
       runtime: { infra: { execSql } },
     });
 
@@ -118,7 +119,7 @@ test("a local-only orphan primes for its terminal create attempt", async () => {
     // null container scope so its pass can record a terminal failure row
     // instead of sitting invisible forever.
     await execSql(
-      "UPDATE document_projection SET container_id = NULL WHERE local_id = ?",
+      "UPDATE document_projection SET container_id = NULL, organization_id = 'org-a' WHERE local_id = ?",
       ["unroutable-document"],
     );
     const opened: Array<{ containerId: string | null; localId: string }> = [];
@@ -126,6 +127,7 @@ test("a local-only orphan primes for its terminal create attempt", async () => {
     const result = await primeDocumentsForLoadedRoots({
       containersById: new Map(),
       host: createPrimeHost(opened),
+      organizationId: "org-a",
       runtime: { infra: { execSql } },
     });
 
@@ -193,9 +195,10 @@ test("a last-link orphan primes with a null container scope", async () => {
       title: "Orphan with queued edits",
       updatedAt: "2026-07-23T14:19:12.658Z",
     });
-    // The row-3 cascade shape: last link gone, projection container nulled.
+    // The row-3 cascade shape: last link gone, projection container nulled,
+    // organization attribution preserved.
     await execSql(
-      "UPDATE document_projection SET container_id = NULL WHERE local_id = ?",
+      "UPDATE document_projection SET container_id = NULL, organization_id = 'org-a' WHERE local_id = ?",
       ["orphaned-document"],
     );
     await execSql(
@@ -219,6 +222,7 @@ test("a last-link orphan primes with a null container scope", async () => {
     const result = await primeDocumentsForLoadedRoots({
       containersById: new Map(),
       host: createPrimeHost(opened),
+      organizationId: "org-a",
       runtime: { infra: { execSql } },
     });
 
@@ -232,6 +236,20 @@ test("a last-link orphan primes with a null container scope", async () => {
     expect(opened).toEqual([
       { containerId: null, localId: "orphaned-document" },
     ]);
+
+    // Another organization's store never picks this orphan up.
+    const foreignOpened: Array<{
+      containerId: string | null;
+      localId: string;
+    }> = [];
+    const foreignResult = await primeDocumentsForLoadedRoots({
+      containersById: new Map(),
+      host: createPrimeHost(foreignOpened),
+      organizationId: "org-b",
+      runtime: { infra: { execSql } },
+    });
+    expect(foreignResult.orphanPrimedCount).toBe(0);
+    expect(foreignOpened).toEqual([]);
   } finally {
     close();
   }
@@ -253,7 +271,7 @@ test("a hidden-kind orphan stays unprimed", async () => {
       updatedAt: "2026-07-23T14:19:12.658Z",
     });
     await execSql(
-      "UPDATE document_projection SET container_id = NULL, document_kind = 'organization_profile' WHERE local_id = ?",
+      "UPDATE document_projection SET container_id = NULL, document_kind = 'organization_profile', organization_id = 'org-a' WHERE local_id = ?",
       ["hidden-orphan"],
     );
     const opened: Array<{ containerId: string | null; localId: string }> = [];
@@ -261,6 +279,7 @@ test("a hidden-kind orphan stays unprimed", async () => {
     const result = await primeDocumentsForLoadedRoots({
       containersById: new Map(),
       host: createPrimeHost(opened),
+      organizationId: "org-a",
       runtime: { infra: { execSql } },
     });
 

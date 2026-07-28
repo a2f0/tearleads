@@ -157,6 +157,7 @@ const ORPHANED_PRIME_TARGET_SQL = `
     ON projection.local_id = stored.local_id
   WHERE stored.app_kind = 'documents'
     AND projection.container_id IS NULL
+    AND projection.organization_id = ?
     AND projection.document_kind NOT IN ('organization_profile')
     AND (
       stored.document_id IS NULL
@@ -171,13 +172,16 @@ const ORPHANED_PRIME_TARGET_SQL = `
 
 async function listOrphanedDocumentPrimeTargets(
   runtime: ContainerDocumentQueriesRuntime,
+  organizationId: string,
 ): Promise<ContainerContentsDocumentRuntimeTarget[]> {
   await ensureSqlTables(runtime.infra.execSql, [
     ...documentTables,
     ...documentProjectionTables,
     ...documentContainerProjectionTables,
   ]);
-  const rows = await runtime.infra.execSql(ORPHANED_PRIME_TARGET_SQL);
+  const rows = await runtime.infra.execSql(ORPHANED_PRIME_TARGET_SQL, [
+    organizationId,
+  ]);
   return rows.flatMap((row) => {
     const localId = Reflect.get(row, "local_id");
     if (typeof localId !== "string") {
@@ -264,6 +268,15 @@ export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
 export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
   containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>;
   host: ContainerDocumentPrimeHost<TRuntime>;
+  /**
+   * The store scope's organization. Orphan priming is bounded to it: each
+   * organization-scoped store resolves only its own orphans, matching the
+   * per-organization invariant subtree routing provides implicitly (a pass
+   * signed under another organization would fail the sync identity guard
+   * instead of resolving). Absent — unauthenticated or scope-less callers —
+   * orphan priming is skipped entirely.
+   */
+  organizationId?: string | null;
   runtime: ContainerDocumentQueriesRuntime;
 }): Promise<LoadedRootDocumentPrimeResult> {
   const candidates = await listPrimeRequiredDocumentCandidatesFromRuntime(
@@ -301,7 +314,12 @@ export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
   }
 
   const orphanTargets = (
-    await listOrphanedDocumentPrimeTargets(input.runtime)
+    input.organizationId
+      ? await listOrphanedDocumentPrimeTargets(
+          input.runtime,
+          input.organizationId,
+        )
+      : []
   ).filter(
     (target) =>
       requiredLocalIds.has(target.localId) &&
