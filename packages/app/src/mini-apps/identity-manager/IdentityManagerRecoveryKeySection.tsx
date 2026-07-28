@@ -320,7 +320,12 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
         void runDisclosure(acknowledged);
       }
     },
-    hide: () => setRevealed(false),
+    hide: () => {
+      setRevealed(false);
+      // Leaving "Recovery key revealed." up would describe a key that is no
+      // longer on screen.
+      feedback.setStatus(null);
+    },
     pendingDisclosure,
     requestDisclosure: setPendingDisclosure,
     revealed,

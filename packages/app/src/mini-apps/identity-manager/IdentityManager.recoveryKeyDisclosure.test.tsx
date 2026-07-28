@@ -143,6 +143,8 @@ test("revealing the recovery key requires the acknowledgement phrase", async () 
 
     fireEvent.click(view.getByRole("button", { name: "Hide Recovery Key" }));
     expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
+    // The status must not keep claiming a key that is back off screen.
+    expect(view.queryByText("Recovery key revealed.")).toBeNull();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
