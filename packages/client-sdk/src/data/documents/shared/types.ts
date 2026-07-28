@@ -188,6 +188,21 @@ export interface DocumentCreateApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
+  // Result-returning variant used by the create path so a terminal projection
+  // fetch failure (e.g. a 402 billing block or a 403 after access revocation)
+  // can be persisted to the write queue instead of collapsing to a silent
+  // null. Optional so simple test doubles need only implement
+  // `getContainerWriterProjection`.
+  getContainerWriterProjectionResult?(
+    containerId: string,
+    options?: DocumentSyncRequestResultOptions | undefined,
+  ): Promise<
+    | {
+        readonly data: ContainerWriterProjectionResponse;
+        readonly ok: true;
+      }
+    | DocumentSyncSubmitFailure
+  >;
   // Needed to adopt an existing remote document on a create conflict: the
   // committed manifest, content-key bundle and KEK targets are refetched here
   // (the create response that carried them was lost). Optional for the same

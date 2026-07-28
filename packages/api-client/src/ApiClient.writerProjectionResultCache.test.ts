@@ -1,6 +1,9 @@
 import { expect } from "bun:test";
 import { HttpResponse, http } from "msw";
-import { createDocumentWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
+import {
+  createContainerWriterProjectionResponse,
+  createDocumentWriterProjectionResponse,
+} from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   type CapturedHttpCall,
@@ -13,6 +16,10 @@ import { ApiClient } from "./ApiClient";
 
 type DocumentWriterProjection = ReturnType<
   typeof createDocumentWriterProjectionResponse
+>;
+
+type ContainerWriterProjection = ReturnType<
+  typeof createContainerWriterProjectionResponse
 >;
 
 function seedDocumentWriterProjectionCache(
@@ -29,6 +36,24 @@ function seedDocumentWriterProjectionCache(
     }
   ).documentWriterProjectionRequestsByDocumentId.set(
     documentId,
+    Promise.resolve(projection),
+  );
+}
+
+function seedContainerWriterProjectionCache(
+  client: ApiClient,
+  containerId: string,
+  projection: ContainerWriterProjection,
+) {
+  (
+    client as unknown as {
+      containerWriterProjectionRequestsByContainerId: Map<
+        string,
+        Promise<ContainerWriterProjection | null>
+      >;
+    }
+  ).containerWriterProjectionRequestsByContainerId.set(
+    containerId,
     Promise.resolve(projection),
   );
 }
@@ -135,5 +160,93 @@ testApiClient(
         method: "GET",
       },
     ]);
+  },
+);
+
+testApiClient(
+  "container writer projection result fetches do not overwrite newer cache entries",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    const fetchStarted = createDeferred<void>();
+    const finishFetch = createDeferred<void>();
+    const staleProjection = createContainerWriterProjectionResponse();
+    const baseNewerProjection = createContainerWriterProjectionResponse();
+    const newerProjection = {
+      ...baseNewerProjection,
+      organizationId: `${baseNewerProjection.organizationId}-newer`,
+    };
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          fetchStarted.resolve();
+          await finishFetch.promise;
+          return HttpResponse.json(staleProjection);
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const result = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    await fetchStarted.promise;
+
+    seedContainerWriterProjectionCache(client, "container-1", newerProjection);
+
+    finishFetch.resolve();
+    await expect(result).resolves.toEqual({ data: staleProjection, ok: true });
+    await expect(
+      client.getContainerWriterProjection("container-1"),
+    ).resolves.toEqual(newerProjection);
+
+    expect(requestSummaries(calls)).toEqual([
+      {
+        body: null,
+        input: `${apiBaseUrl}/containers/container-1/writer-projection`,
+        method: "GET",
+      },
+    ]);
+  },
+);
+
+testApiClient(
+  "container writer projection result failures clear the entry so a retry refetches",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    const projection = createContainerWriterProjectionResponse();
+    let denyFetch = true;
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          if (denyFetch) {
+            return HttpResponse.json(
+              { error: "Payment required" },
+              { status: 402, statusText: "Payment Required" },
+            );
+          }
+          return HttpResponse.json(projection);
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    await expect(
+      client.getContainerWriterProjectionResult("container-1", {
+        reportErrors: false,
+      }),
+    ).resolves.toMatchObject({ ok: false, status: 402 });
+
+    denyFetch = false;
+    await expect(
+      client.getContainerWriterProjectionResult("container-1", {
+        reportErrors: false,
+      }),
+    ).resolves.toEqual({ data: projection, ok: true });
+
+    expect(calls).toHaveLength(2);
   },
 );

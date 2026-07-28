@@ -993,6 +993,65 @@ export class ApiClient {
     );
   }
 
+  getContainerWriterProjectionResult(
+    containerId: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<ContainerWriterProjectionResponse>> {
+    return this.writerProjectionResult(
+      this.containerWriterProjectionRequestsByContainerId,
+      containerId,
+      `/containers/${pathSegment(containerId)}/writer-projection`,
+      isContainerWriterProjectionResponse,
+      options,
+    );
+  }
+
+  // Shared by the writer-projection result variants: reuse a cached success,
+  // fetch a result otherwise, and reconcile the cache without ever clobbering
+  // an entry that changed while the fetch was in flight.
+  private async writerProjectionResult<T>(
+    cache: BoundedCache<Promise<T | null>>,
+    cacheKey: string,
+    path: string,
+    validator: (value: unknown) => value is T,
+    options: RequestResultOptions,
+  ): Promise<RequestResult<T>> {
+    let cached = cache.get(cacheKey);
+    if (cached) {
+      try {
+        const data = await cached;
+        if (data) {
+          return { data, ok: true };
+        }
+      } catch {
+        if (cache.get(cacheKey) === cached) {
+          cache.delete(cacheKey);
+          cached = undefined;
+        }
+      }
+    }
+
+    const result = await this.makeRequestResult(
+      path,
+      validator,
+      "GET",
+      undefined,
+      options,
+    );
+
+    if (result.ok) {
+      if (cache.get(cacheKey) === cached) {
+        cache.set(cacheKey, Promise.resolve(result.data));
+      }
+    } else {
+      if (cache.get(cacheKey) === cached) {
+        cache.delete(cacheKey);
+      }
+    }
+
+    return result;
+  }
+
   createContainer(input: ContainerMutationRequest) {
     return this.request(
       "/containers",
@@ -1132,57 +1191,17 @@ export class ApiClient {
     return this.documentAttributionRequests.listRanges(documentId, options);
   }
 
-  async getDocumentWriterProjectionResult(
+  getDocumentWriterProjectionResult(
     documentId: string,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<DocumentWriterProjectionResponse>> {
-    let cached =
-      this.documentWriterProjectionRequestsByDocumentId.get(documentId);
-    if (cached) {
-      try {
-        const data = await cached;
-        if (data) {
-          return { data, ok: true };
-        }
-      } catch {
-        if (
-          this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
-          cached
-        ) {
-          this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
-          cached = undefined;
-        }
-      }
-    }
-
-    const result = await this.makeRequestResult(
+    return this.writerProjectionResult(
+      this.documentWriterProjectionRequestsByDocumentId,
+      documentId,
       `/documents/${pathSegment(documentId)}/writer-projection`,
       isDocumentWriterProjectionResponse,
-      "GET",
-      undefined,
       options,
     );
-
-    if (result.ok) {
-      if (
-        this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
-        cached
-      ) {
-        this.documentWriterProjectionRequestsByDocumentId.set(
-          documentId,
-          Promise.resolve(result.data),
-        );
-      }
-    } else {
-      if (
-        this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
-        cached
-      ) {
-        this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
-      }
-    }
-
-    return result;
   }
 
   /**
