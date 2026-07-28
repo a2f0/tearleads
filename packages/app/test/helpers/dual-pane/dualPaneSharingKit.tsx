@@ -140,18 +140,13 @@ export async function shareContainerWithGroup(
   await openExplorerContextMenuInfo();
   await openContainerInfoSharingTab(pane);
 
-  const initialGroupSelect = await within(pane).findByLabelText("Group");
+  const initialGroupSelect = await within(pane).findByRole("combobox", {
+    name: "Group",
+  });
   invariant(
-    initialGroupSelect instanceof HTMLSelectElement,
+    initialGroupSelect instanceof HTMLButtonElement,
     "Expected group select.",
   );
-  let groupOption: HTMLOptionElement | undefined;
-  await waitFor(() => {
-    groupOption = Array.from(initialGroupSelect.options).find(
-      (option) => option.textContent?.trim() === groupName,
-    );
-    expect(groupOption).toBeTruthy();
-  });
   await waitFor(() => {
     expect(initialGroupSelect.disabled).toBe(false);
   });
@@ -162,34 +157,43 @@ export async function shareContainerWithGroup(
     });
   });
 
-  const groupSelect = within(pane).getByLabelText("Group");
-  invariant(groupSelect instanceof HTMLSelectElement, "Expected group select.");
-  const permissionSelect = within(pane).getByLabelText("Permission");
+  const groupSelect = within(pane).getByRole("combobox", { name: "Group" });
+  invariant(groupSelect instanceof HTMLButtonElement, "Expected group select.");
+  const permissionSelect = within(pane).getByRole("combobox", {
+    name: "Permission",
+  });
   invariant(
-    permissionSelect instanceof HTMLSelectElement,
+    permissionSelect instanceof HTMLButtonElement,
     "Expected permission select.",
   );
-  const selectedGroupOption = Array.from(groupSelect.options).find(
-    (option) => option.textContent?.trim() === groupName,
-  );
+  await interact(() => {
+    fireEvent.click(groupSelect);
+  });
+  const selectedGroupOption = await within(pane).findByRole("option", {
+    name: groupName,
+  });
   invariant(selectedGroupOption, `Expected group option "${groupName}".`);
+  const selectedGroupId = selectedGroupOption.getAttribute("data-value");
+  invariant(selectedGroupId, `Expected group id for "${groupName}".`);
 
   await interact(() => {
-    fireEvent.change(groupSelect, {
-      target: { value: selectedGroupOption.value },
-    });
+    fireEvent.click(selectedGroupOption);
   });
   await waitFor(() => {
-    expect(groupSelect.value).toBe(selectedGroupOption.value);
+    expect(groupSelect.textContent).toContain(groupName);
     expect(permissionSelect.disabled).toBe(false);
   });
   await interact(() => {
-    fireEvent.change(permissionSelect, {
-      target: { value: accessLevel },
-    });
+    fireEvent.click(permissionSelect);
+  });
+  const accessLevelOption = await within(pane).findByRole("option", {
+    name: new RegExp(`^${accessLevel}$`, "i"),
+  });
+  await interact(() => {
+    fireEvent.click(accessLevelOption);
   });
   await waitFor(() => {
-    expect(permissionSelect.value).toBe(accessLevel);
+    expect(permissionSelect.textContent).toContain(accessLevel);
   });
 
   const shareButton = within(pane).getByRole("button", { name: "Share" });
@@ -225,7 +229,7 @@ export async function shareContainerWithGroup(
     `Container group share route did not return to the container.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
 
-  return selectedGroupOption.value;
+  return selectedGroupId;
 }
 
 export async function addPeerToAdminsGroup(

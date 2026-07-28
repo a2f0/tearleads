@@ -3,11 +3,11 @@ import type {
   ContainerShareAccessLevel,
 } from "@tearleads/client-sdk";
 import type { KeyboardEvent, MouseEvent } from "react";
+import { MiniAppSelectMenu } from "../../../../components/mini-app/controls/MiniAppSelectMenu";
 import {
   MiniAppButton,
   MiniAppField,
   MiniAppInfoSection,
-  MiniAppSelect,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import {
@@ -146,7 +146,7 @@ function ExplorerContainerInfoGrantList(params: {
   }
 
   return (
-    <MiniAppInfoTable>
+    <MiniAppInfoTable className="mini-app-info-table--row-divided">
       <thead>
         <tr>
           <th>{EXPLORER_LABELS.containerInfoPrincipalColumn}</th>
@@ -254,52 +254,38 @@ export function ExplorerContainerInfoGroupShareSection(params: {
     >
       <MiniAppField>
         <span>{EXPLORER_LABELS.containerInfoGroupField}</span>
-        <MiniAppSelect
+        <MiniAppSelectMenu
           aria-label={EXPLORER_LABELS.containerInfoGroupField}
           disabled={isSubmitting || shareableGroups.length === 0}
           value={draftShareGroupId}
-          onChange={(event) => {
+          onChange={(value) => {
             setPanelError(null);
-            setDraftShareGroupId(event.target.value);
+            setDraftShareGroupId(value);
           }}
-        >
-          {shareableGroups.length === 0 ? (
-            <option value="">
-              {EXPLORER_LABELS.containerInfoNoGroupsOption}
-            </option>
-          ) : (
-            shareableGroups.map((group) => (
-              <option key={group.groupId} value={group.groupId}>
-                {group.name}
-              </option>
-            ))
-          )}
-        </MiniAppSelect>
+          options={shareableGroups.map((group) => ({
+            id: group.groupId,
+            label: group.name,
+          }))}
+          placeholder={EXPLORER_LABELS.containerInfoNoGroupsOption}
+        />
       </MiniAppField>
       <MiniAppField>
         <span>{EXPLORER_LABELS.containerInfoPermissionField}</span>
-        <MiniAppSelect
+        <MiniAppSelectMenu
           aria-label={EXPLORER_LABELS.containerInfoPermissionField}
           disabled={isSubmitting || shareableGroups.length === 0}
           value={draftShareAccessLevel}
-          onChange={(event) => {
+          onChange={(accessLevel) => {
             setPanelError(null);
-            const accessLevel = event.target.value;
             if (isContainerShareAccessLevel(accessLevel)) {
               setDraftShareAccessLevel(accessLevel);
             }
           }}
-        >
-          <option value="read">
-            {getContainerInfoPermissionLabel("read")}
-          </option>
-          <option value="write">
-            {getContainerInfoPermissionLabel("write")}
-          </option>
-          <option value="admin">
-            {getContainerInfoPermissionLabel("admin")}
-          </option>
-        </MiniAppSelect>
+          options={(["read", "write", "admin"] as const).map((id) => ({
+            id,
+            label: getContainerInfoPermissionLabel(id),
+          }))}
+        />
       </MiniAppField>
     </MiniAppInfoSection>
   );
