@@ -411,3 +411,18 @@ test("container.grant pruning runs for added user grants only", async () => {
     .where(eq(containerSyncTombstones.userId, owner.userId));
   expect(remaining).toEqual([]);
 });
+
+test("prune tolerates user sets beyond a single chunk", async () => {
+  const { close } = { close: async () => {} };
+  try {
+    // 2,500 synthetic users exercise the multi-chunk select path; none have
+    // tombstones, so the prune is a structured no-op rather than one giant
+    // IN clause.
+    const userIds = Array.from({ length: 2500 }, () => crypto.randomUUID());
+    await db.transaction(async (tx) => {
+      await pruneRegainedAccessTombstones({ executor: tx, userIds });
+    });
+  } finally {
+    await close();
+  }
+});
