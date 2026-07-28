@@ -310,6 +310,9 @@ async function runQueuedDocumentMoveFixture(input: {
 
     const pendingIntents =
       await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    const intentRows = await execSql(
+      "SELECT sync_status AS syncStatus, last_error AS lastError FROM document_move_intents",
+    );
     const linkedContainerIds =
       await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
         execSql,
@@ -317,6 +320,7 @@ async function runQueuedDocumentMoveFixture(input: {
       );
     return {
       documentId: writerProjection.documentId,
+      intentRows,
       linkedContainerIds,
       pendingIntents,
       relinkInputs,
@@ -439,9 +443,10 @@ test("document move sync propagates identity failures without recording a retry"
   }
 });
 
-// A remote rejection keeps the HTTP status: a revoked permission must read
-// differently from an offline blip in the write queue.
-test("a rejected document move records the failure detail and status", async () => {
+// Row 7: a permission denial parks the intent as denied — out of routine
+// structural replays — until the access-restored signal or a manual retry
+// flips it back. The failure detail and status stay recorded for the queue.
+test("a permission-denied document move parks as denied", async () => {
   const fixture = await runQueuedDocumentMoveFixture({
     linkFailure: { message: "Forbidden", status: 403 },
     testDbName: "containerContents-document-move-rejected-status",
@@ -449,10 +454,32 @@ test("a rejected document move records the failure detail and status", async () 
   });
 
   expect(fixture.syncedCount).toBe(0);
+  // Excluded from routine replay…
+  expect(fixture.pendingIntents).toEqual([]);
+  // …but durably parked with its diagnosis.
+  expect(fixture.intentRows).toEqual([
+    {
+      lastError:
+        "Remote document move was rejected or unavailable: Forbidden (403)",
+      syncStatus: "denied",
+    },
+  ]);
+});
+
+// A non-permission rejection keeps the pre-existing behavior: the intent
+// stays pending and retries on every trigger, with the status recorded.
+test("a rejected document move records the failure detail and status", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    linkFailure: { message: "Service unavailable", status: 503 },
+    testDbName: "containerContents-document-move-unavailable-status",
+    unlinkAvailable: true,
+  });
+
+  expect(fixture.syncedCount).toBe(0);
   expect(fixture.pendingIntents).toHaveLength(1);
   expect(fixture.pendingIntents[0]).toMatchObject({
     lastError:
-      "Remote document move was rejected or unavailable: Forbidden (403)",
+      "Remote document move was rejected or unavailable: Service unavailable (503)",
     syncStatus: "pending",
   });
 });

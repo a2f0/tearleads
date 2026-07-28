@@ -342,8 +342,8 @@
       "bytes": 18571
     },
     "packages/client-sdk/src/workflows/container-contents/documentMoveIntentSync.test.ts": {
-      "lines": 575,
-      "bytes": 20468
+      "lines": 602,
+      "bytes": 21531
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
       "lines": 590,

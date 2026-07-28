@@ -12,7 +12,7 @@ import {
 
 const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
 
-export type DocumentMoveIntentSyncStatus = "pending" | "blocked";
+export type DocumentMoveIntentSyncStatus = "pending" | "blocked" | "denied";
 
 export interface DocumentMoveIntentRecord {
   id: string;
@@ -56,7 +56,10 @@ interface SelectedDocumentMoveIntentRecord {
 function parseDocumentMoveIntentSyncStatus(
   value: unknown,
 ): DocumentMoveIntentSyncStatus {
-  return value === "blocked" ? "blocked" : "pending";
+  if (value === "blocked" || value === "denied") {
+    return value;
+  }
+  return "pending";
 }
 
 function mapDocumentMoveIntentRecord(
@@ -191,6 +194,12 @@ export const sqlDocumentMoveIntentPersistence = {
     execSql: ExecSql,
     input: {
       blocked?: boolean | undefined;
+      /**
+       * A permission denial (403): the intent parks as `denied` — excluded
+       * from routine structural replays — until the org-access-restored
+       * signal or a manual retry flips it back to pending (edge-case row 7).
+       */
+      denied?: boolean | undefined;
       documentId: string;
       message: string;
     },
@@ -202,17 +211,70 @@ export const sqlDocumentMoveIntentPersistence = {
         .set({
           lastAttemptedAt: updatedAt,
           lastError: input.message,
-          syncStatus: input.blocked ? "blocked" : "pending",
+          syncStatus: input.denied
+            ? "denied"
+            : input.blocked
+              ? "blocked"
+              : "pending",
           updatedAt,
         })
         .where(
           and(
             eq(documentMoveIntents.documentId, input.documentId),
-            // Blocked rows must stay updatable: a retried blocked intent
+            // Blocked/denied rows must stay updatable: a retried intent
             // records its fresh outcome, and a transient failure flips it
             // back to pending instead of freezing it forever.
-            inArray(documentMoveIntents.syncStatus, ["pending", "blocked"]),
+            inArray(documentMoveIntents.syncStatus, [
+              "pending",
+              "blocked",
+              "denied",
+            ]),
             eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+          ),
+        )
+        .run();
+    });
+  },
+  /**
+   * Evidence for the org-access-restored re-arm gate: a parked
+   * permission-denied move proves a queued write was refused.
+   */
+  async hasDeniedMoveIntents(execSql: ExecSql): Promise<boolean> {
+    await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    const rows = await db
+      .select({ documentId: documentMoveIntents.documentId })
+      .from(documentMoveIntents)
+      .where(
+        and(
+          eq(documentMoveIntents.syncStatus, "denied"),
+          eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  },
+  /**
+   * Flip parked permission-denied moves back to pending so the re-armed
+   * structural pass replays them (access restored, or a manual retry scoped
+   * to one document).
+   */
+  async resetDeniedMoveIntents(
+    execSql: ExecSql,
+    input?: { localId?: string },
+  ): Promise<void> {
+    await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+      await db
+        .update(documentMoveIntents)
+        .set({ syncStatus: "pending", updatedAt: new Date().toISOString() })
+        .where(
+          and(
+            eq(documentMoveIntents.syncStatus, "denied"),
+            eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+            ...(input?.localId
+              ? [eq(documentMoveIntents.localId, input.localId)]
+              : []),
           ),
         )
         .run();

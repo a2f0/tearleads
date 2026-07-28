@@ -53,6 +53,7 @@ function hasRemoteContainerMetadataState(
 
 async function recordPendingDocumentMoveIntentError(input: {
   blocked?: boolean | undefined;
+  denied?: boolean | undefined;
   documentId: string;
   message: string;
   state: DocumentMoveIntentSyncState;
@@ -61,6 +62,7 @@ async function recordPendingDocumentMoveIntentError(input: {
     input.state.runtime.infra.execSql,
     {
       blocked: input.blocked,
+      denied: input.denied,
       documentId: input.documentId,
       message: input.message,
     },
@@ -250,20 +252,25 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   }
 
   try {
-    let lastFailure: DocumentLinkSetMutationFailure | null = null;
+    const lastFailure: { current: DocumentLinkSetMutationFailure | null } = {
+      current: null,
+    };
     const moved = await movePendingDocumentIntent({
       existingContainerId: existingDocument.containerId,
       host,
       intent,
       onFailure: (failure) => {
-        lastFailure = failure;
+        lastFailure.current = failure;
       },
       state,
     });
     if (!moved) {
       await recordPendingDocumentMoveIntentError({
+        // A permission denial parks the intent for the access-restored
+        // signal instead of replaying on every structural pass (row 7).
+        denied: lastFailure.current?.status === 403,
         documentId: intent.documentId,
-        message: describeRejectedDocumentMove(lastFailure),
+        message: describeRejectedDocumentMove(lastFailure.current),
         state,
       });
       return "failed";

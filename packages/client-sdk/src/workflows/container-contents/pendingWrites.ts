@@ -78,6 +78,14 @@ export async function resetPendingWriteRetryState(
   }
   const scope = { appKind, localId: input.localId };
   await resetDocumentPendingUpdateRekeyBudget(execSql, scope);
+  if (appKind === DOCUMENTS_APP_KIND) {
+    // A deliberate retry is the rate-limited signal that conditions changed:
+    // a parked permission-denied move (row 7) replays once, like row 11's
+    // re-key budget reset.
+    await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(execSql, {
+      localId: input.localId,
+    });
+  }
   // Clearing the failure row is part of the re-key budget reset (edge-case
   // row 11) and only makes sense alongside queued work. A failure-only item
   // (a refused revalidation, row 13) has no queued work: its row is the
