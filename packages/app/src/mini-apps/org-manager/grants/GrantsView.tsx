@@ -198,7 +198,7 @@ function GrantDetailView({
         <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.grantDetail}
         </MiniAppSectionHeading>
-        <MiniAppInfoTable>
+        <MiniAppInfoTable className="mini-app-info-table--borderless">
           <tbody>
             <tr>
               <th>{ORG_MANAGER_LABELS.principal}</th>
