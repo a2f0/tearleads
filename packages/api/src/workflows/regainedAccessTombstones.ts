@@ -33,6 +33,7 @@ export async function pruneRegainedAccessTombstones(input: {
     .select({
       containerId: containerSyncTombstones.containerId,
       id: containerSyncTombstones.id,
+      updatedAt: containerSyncTombstones.updatedAt,
       userId: containerSyncTombstones.userId,
     })
     .from(containerSyncTombstones)
@@ -46,7 +47,7 @@ export async function pruneRegainedAccessTombstones(input: {
     return;
   }
 
-  const prunableIds: string[] = [];
+  const prunableRows: typeof rows = [];
   for (const row of rows) {
     try {
       await resolveReadableContainerAccess({
@@ -54,7 +55,7 @@ export async function pruneRegainedAccessTombstones(input: {
         executor: input.executor,
         userId: row.userId,
       });
-      prunableIds.push(row.id);
+      prunableRows.push(row);
     } catch (error) {
       if (
         error instanceof KeyingReadAccessError &&
@@ -65,11 +66,20 @@ export async function pruneRegainedAccessTombstones(input: {
       throw error;
     }
   }
-  if (prunableIds.length === 0) {
-    return;
-  }
 
-  await input.executor
-    .delete(containerSyncTombstones)
-    .where(inArray(containerSyncTombstones.id, prunableIds));
+  // Tombstones are upserted in place (same row id, new reason/timestamp), so
+  // a delete by id alone could erase a tombstone a concurrent revoke or
+  // delete refreshed between the select and this statement. Conditioning on
+  // the reason and timestamp we validated makes the concurrent write win.
+  for (const row of prunableRows) {
+    await input.executor
+      .delete(containerSyncTombstones)
+      .where(
+        and(
+          eq(containerSyncTombstones.id, row.id),
+          eq(containerSyncTombstones.reason, "access_revoked"),
+          eq(containerSyncTombstones.updatedAt, row.updatedAt),
+        ),
+      );
+  }
 }
