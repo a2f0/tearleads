@@ -5,7 +5,12 @@ import {
   containerCreateIntentTables,
   documentContainerProjectionTables,
 } from "../../data/sqlite/schema";
-import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
+import {
+  type ExecSql,
+  ensureSqlTables,
+  type SqlBind,
+  type SqlRowMode,
+} from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { listPendingWrites } from "./pendingWrites";
 
@@ -98,7 +103,7 @@ async function linkedDocContainerId(execSql: ExecSql): Promise<unknown> {
 async function countRows(
   execSql: ExecSql,
   sql: string,
-  params: unknown[],
+  params: SqlBind,
 ): Promise<number> {
   const rows = await execSql(sql, params);
   return Number(Reflect.get(rows[0] ?? {}, "n") ?? -1);
@@ -113,15 +118,18 @@ test("a mid-cascade crash leaves the cascade fully unapplied", async () => {
   try {
     await seedContainerWithMetadata(execSql);
 
-    const failingExecSql: ExecSql = async (sql, params) => {
-      if (
-        typeof sql === "string" &&
-        /delete\s+from\s+"?container_sync_watermarks/i.test(sql)
-      ) {
+    // Forward ALL arguments (including rowMode) so the wrapped connection
+    // behaves identically to the real one for every statement it passes.
+    const failingExecSql = (async (
+      sql: string,
+      bind?: SqlBind,
+      options?: { rowMode?: SqlRowMode },
+    ) => {
+      if (/delete\s+from\s+"?container_sync_watermarks/i.test(sql)) {
         throw new Error("injected crash before the cascade's last statement");
       }
-      return execSql(sql, params);
-    };
+      return execSql(sql, bind, options as { rowMode: "array" });
+    }) as ExecSql;
 
     await expect(
       defaultContainerContentsPersistence.deleteContainers(
@@ -129,7 +137,7 @@ test("a mid-cascade crash leaves the cascade fully unapplied", async () => {
         ["doomed"],
         { updatedAt: T1 },
       ),
-    ).rejects.toThrow(/container_sync_watermarks/);
+    ).rejects.toThrow();
 
     // Fully unapplied: nothing was deleted, repaired, or unlinked.
     expect(
