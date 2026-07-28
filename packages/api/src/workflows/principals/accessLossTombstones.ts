@@ -621,3 +621,24 @@ export async function persistPrincipalPolicyAccessLossTombstones(input: {
       },
     });
 }
+
+/**
+ * The containers a principal-policy transition can affect: containers
+ * granted to the principal or any current ancestor principal. The gain-side
+ * tombstone prune scopes to this set, so a policy change never scans
+ * tombstones beyond the grants it can actually restore.
+ */
+export async function candidateContainerIdsForPrincipalState(input: {
+  readonly currentState: StoredPrincipalState;
+  readonly executor: DatabaseTransaction;
+}): Promise<string[]> {
+  const affectedPrincipals = await collectCurrentAncestorPrincipals({
+    executor: input.executor,
+    seedPrincipals: [toPrincipalReference(input.currentState)],
+  });
+  const candidateContainers = await loadCandidateContainersForPrincipals({
+    executor: input.executor,
+    principals: affectedPrincipals.values(),
+  });
+  return candidateContainers.map((container) => container.containerId);
+}

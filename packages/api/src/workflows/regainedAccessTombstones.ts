@@ -6,6 +6,113 @@ import {
   resolveReadableContainerAccessBatch,
 } from "./keyingReadAccess";
 
+const DELETE_CHUNK_SIZE = 500;
+const SCOPE_CHUNK_SIZE = 1000;
+
+interface TombstoneRow {
+  readonly containerId: string;
+  readonly id: string;
+  readonly updatedAt: Date;
+  readonly userId: string;
+}
+
+interface PruneScope {
+  readonly containerIds?: readonly string[];
+  readonly organizationId?: string;
+  readonly userIds: readonly string[];
+}
+
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function selectScopedTombstoneRows(
+  executor: DatabaseTransaction,
+  scope: PruneScope,
+): Promise<TombstoneRow[]> {
+  const containerIdChunks = scope.containerIds
+    ? chunk([...new Set(scope.containerIds)], SCOPE_CHUNK_SIZE)
+    : [undefined];
+  const rows: TombstoneRow[] = [];
+  for (const containerIdChunk of containerIdChunks) {
+    rows.push(
+      ...(await executor
+        .select({
+          containerId: containerSyncTombstones.containerId,
+          id: containerSyncTombstones.id,
+          updatedAt: containerSyncTombstones.updatedAt,
+          userId: containerSyncTombstones.userId,
+        })
+        .from(containerSyncTombstones)
+        .where(
+          and(
+            inArray(containerSyncTombstones.userId, [...scope.userIds]),
+            eq(containerSyncTombstones.reason, "access_revoked"),
+            ...(scope.organizationId
+              ? [
+                  eq(
+                    containerSyncTombstones.organizationId,
+                    scope.organizationId,
+                  ),
+                ]
+              : []),
+            ...(containerIdChunk
+              ? [inArray(containerSyncTombstones.containerId, containerIdChunk)]
+              : []),
+          ),
+        )),
+    );
+  }
+  return rows;
+}
+
+function keepRowForResult(reason: unknown): boolean {
+  if (
+    reason instanceof KeyingReadAccessError &&
+    (reason.status === 403 || reason.status === 404 || reason.status === 409)
+  ) {
+    return true;
+  }
+  if (reason) {
+    throw reason;
+  }
+  return true;
+}
+
+async function filterReadableRows(
+  executor: DatabaseTransaction,
+  rows: readonly TombstoneRow[],
+): Promise<TombstoneRow[]> {
+  const rowsByUserId = new Map<string, TombstoneRow[]>();
+  for (const row of rows) {
+    const userRows = rowsByUserId.get(row.userId) ?? [];
+    userRows.push(row);
+    rowsByUserId.set(row.userId, userRows);
+  }
+
+  const prunableRows: TombstoneRow[] = [];
+  for (const [userId, userRows] of rowsByUserId) {
+    const results = await resolveReadableContainerAccessBatch({
+      containerIds: userRows.map((row) => row.containerId),
+      executor,
+      userId,
+    });
+    for (const row of userRows) {
+      const result = results.get(row.containerId);
+      if (result?.status === "fulfilled") {
+        prunableRows.push(row);
+        continue;
+      }
+      keepRowForResult(result?.reason);
+    }
+  }
+  return prunableRows;
+}
+
 /**
  * Delete the `access_revoked` container sync tombstones that a user's
  * regained access has made stale. Tombstone rows are upserted on access loss
@@ -21,94 +128,51 @@ import {
  * never pruned: deletion is terminal and container ids are not reused.
  *
  * Workload is bounded by the gained users' own tombstone rows (their
- * revocation history), scoped to `organizationId` when the caller knows the
- * event's organization, with one batched access resolution per user and a
- * single conditional delete.
+ * revocation history), scoped to the caller's knowledge of the event — the
+ * affected candidate `containerIds` for a policy transition, the event's
+ * `organizationId` for a container grant — with one batched access
+ * resolution per user and chunked conditional deletes.
  */
 export async function pruneRegainedAccessTombstones(input: {
+  readonly containerIds?: readonly string[];
   readonly executor: DatabaseTransaction;
   readonly organizationId?: string;
   readonly userIds: readonly string[];
 }): Promise<void> {
   const userIds = [...new Set(input.userIds)];
-  if (userIds.length === 0) {
+  if (userIds.length === 0 || input.containerIds?.length === 0) {
     return;
   }
 
-  const rows = await input.executor
-    .select({
-      containerId: containerSyncTombstones.containerId,
-      id: containerSyncTombstones.id,
-      updatedAt: containerSyncTombstones.updatedAt,
-      userId: containerSyncTombstones.userId,
-    })
-    .from(containerSyncTombstones)
-    .where(
-      and(
-        inArray(containerSyncTombstones.userId, userIds),
-        eq(containerSyncTombstones.reason, "access_revoked"),
-        ...(input.organizationId
-          ? [eq(containerSyncTombstones.organizationId, input.organizationId)]
-          : []),
-      ),
-    );
+  const rows = await selectScopedTombstoneRows(input.executor, {
+    ...(input.containerIds ? { containerIds: input.containerIds } : {}),
+    ...(input.organizationId ? { organizationId: input.organizationId } : {}),
+    userIds,
+  });
   if (rows.length === 0) {
     return;
   }
 
-  const rowsByUserId = new Map<string, typeof rows>();
-  for (const row of rows) {
-    const userRows = rowsByUserId.get(row.userId) ?? [];
-    userRows.push(row);
-    rowsByUserId.set(row.userId, userRows);
-  }
-
-  const prunableRows: typeof rows = [];
-  for (const [userId, userRows] of rowsByUserId) {
-    const results = await resolveReadableContainerAccessBatch({
-      containerIds: userRows.map((row) => row.containerId),
-      executor: input.executor,
-      userId,
-    });
-    for (const row of userRows) {
-      const result = results.get(row.containerId);
-      if (result?.status === "fulfilled") {
-        prunableRows.push(row);
-        continue;
-      }
-      const reason = result?.reason;
-      if (
-        reason instanceof KeyingReadAccessError &&
-        (reason.status === 403 ||
-          reason.status === 404 ||
-          reason.status === 409)
-      ) {
-        continue;
-      }
-      if (reason) {
-        throw reason;
-      }
-    }
-  }
-  if (prunableRows.length === 0) {
-    return;
-  }
+  const prunableRows = await filterReadableRows(input.executor, rows);
 
   // Tombstones are upserted in place (same row id, new reason/timestamp), so
   // a delete by id alone could erase a tombstone a concurrent revoke or
   // delete refreshed between the select and this statement. Conditioning on
   // the reason and timestamp we validated makes the concurrent write win.
-  await input.executor
-    .delete(containerSyncTombstones)
-    .where(
-      or(
-        ...prunableRows.map((row) =>
-          and(
-            eq(containerSyncTombstones.id, row.id),
-            eq(containerSyncTombstones.reason, "access_revoked"),
-            eq(containerSyncTombstones.updatedAt, row.updatedAt),
+  // Chunked so the OR can never approach PostgreSQL's parameter limits.
+  for (const deleteChunk of chunk(prunableRows, DELETE_CHUNK_SIZE)) {
+    await input.executor
+      .delete(containerSyncTombstones)
+      .where(
+        or(
+          ...deleteChunk.map((row) =>
+            and(
+              eq(containerSyncTombstones.id, row.id),
+              eq(containerSyncTombstones.reason, "access_revoked"),
+              eq(containerSyncTombstones.updatedAt, row.updatedAt),
+            ),
           ),
         ),
-      ),
-    );
+      );
+  }
 }

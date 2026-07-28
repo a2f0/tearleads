@@ -4,6 +4,7 @@ import {
   accessManifestHeads,
   containerSyncTombstones,
   containers,
+  organizations,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
@@ -30,6 +31,7 @@ import {
   getDefaultOrganizationId,
 } from "../../test/helpers/organizationMembership";
 import { registerUser } from "../../test/helpers/registerUser";
+import { getCurrentPrincipalState } from "../access/read/principalStateStore";
 import { storeVerifiedAccessManifest } from "../access/write/accessManifestStore";
 import { pruneAccessGrantTombstones } from "./containers/mutations/shared/grantTombstonePruning";
 import { pruneRegainedAccessTombstones } from "./regainedAccessTombstones";
@@ -79,6 +81,7 @@ async function storeChildContainerAccessManifest(input: {
   owner: ReturnType<typeof createTestUser>;
   parentContainerId: string;
   parentManifestHash: string;
+  referencedPrincipalHeads?: ContainerCreateAccessEventBody["referencedPrincipalHeads"];
 }) {
   const containerKeyEpochId = crypto.randomUUID();
   const body: ContainerCreateAccessEventBody = {
@@ -88,7 +91,7 @@ async function storeChildContainerAccessManifest(input: {
     metadataDocumentId: input.metadataDocumentId,
     containerKeyEpochId,
     directGrants: input.directGrants ?? [],
-    referencedPrincipalHeads: [],
+    referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
   };
   const { event, eventHash } = await signContainerEvent({
     body,
@@ -272,13 +275,24 @@ test("policy member re-add prunes tombstones through the route", async () => {
   await registerUser(member);
   const organizationId = await getDefaultOrganizationId(actor.userId);
 
-  // A child container under the actor's root carrying a direct read grant
-  // for the member: once re-added to the organization, the member can read
-  // it, so their stale tombstone for it must be pruned by the policy PUT.
-  // The readable path is a direct user grant on purpose — the wiring under
-  // test is the policy transition invoking the prune for ADDED members; a
-  // group-referenced manifest restore additionally rides the container
-  // rekey/re-reference flow, which the mutation route covers.
+  // A child container granted to the organization's Members GROUP: the
+  // member cannot read it before the re-add, and the policy PUT is what
+  // restores their access — the true group-restore shape. The candidate
+  // scoping also requires this: the prune only considers containers the
+  // changed principal's grants can affect.
+  const [organization] = await db
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  const memberGroupId = organization?.memberGroupId;
+  if (!memberGroupId) {
+    throw new Error("expected organization Members group");
+  }
+  const groupState = await getCurrentPrincipalState("group", memberGroupId, db);
+  if (!groupState) {
+    throw new Error("expected Members group state");
+  }
   const rootHead = await db
     .select({ manifestHash: accessManifestHeads.manifestHash })
     .from(accessManifestHeads)
@@ -300,8 +314,8 @@ test("policy member re-add prunes tombstones through the route", async () => {
     directGrants: [
       {
         accessLevel: "read",
-        subjectId: member.userId,
-        subjectType: "user",
+        subjectId: memberGroupId,
+        subjectType: "group",
       },
     ],
     metadataDocumentId: crypto.randomUUID(),
@@ -309,6 +323,16 @@ test("policy member re-add prunes tombstones through the route", async () => {
     owner: actor,
     parentContainerId: actor.rootContainerId,
     parentManifestHash,
+    referencedPrincipalHeads: [
+      {
+        keyEpoch: groupState.keyEpoch,
+        keyFingerprint: groupState.keyFingerprint,
+        principalId: memberGroupId,
+        principalType: "group",
+        stateHash: groupState.stateHash,
+        version: groupState.version,
+      },
+    ],
   });
 
   await db.insert(containerSyncTombstones).values({

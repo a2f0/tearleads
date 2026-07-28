@@ -3941,7 +3941,7 @@ test("POST /containers/:containerId/share prunes regained tombstones", async () 
       containerId: created.containerId,
       depth: 1,
       organizationId: created.organizationId,
-      parentId: root.bundle.state.containerId,
+      parentId: null,
       reason: "access_revoked",
       updatedAt: new Date("2026-12-31T00:00:00.000Z"),
       userId: recipient.userId,
