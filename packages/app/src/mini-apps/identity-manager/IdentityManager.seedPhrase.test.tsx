@@ -34,6 +34,15 @@ test("identity manager exposes the recovery key for seed-backed identities", asy
 
     fireEvent.click(view.getByRole("button", { name: "Recovery Key" }));
 
+    expect(view.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Backup",
+      "Recovery",
+    ]);
+    expect(
+      view.getByRole("tab", { name: "Backup" }).getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(view.queryByLabelText("Restore passphrase")).toBeNull();
+
     await waitFor(() => {
       expect(tearleadsRef.current).toBeTruthy();
     });
@@ -86,6 +95,7 @@ test("identity manager restores a recovery key from a typed passphrase", async (
     );
 
     fireEvent.click(view.getByRole("button", { name: "Recovery Key" }));
+    fireEvent.click(view.getByRole("tab", { name: "Recovery" }));
 
     await waitFor(() => {
       expect(tearleadsRef.current).toBeTruthy();
@@ -100,6 +110,12 @@ test("identity manager restores a recovery key from a typed passphrase", async (
       new Uint8Array(32).fill(0xcd),
     );
     const restoreInput = await view.findByLabelText("Restore passphrase");
+    expect(
+      view.getByRole("tab", { name: "Recovery" }).getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(
+      view.queryByRole("button", { name: "Reveal Recovery Key" }),
+    ).toBeNull();
 
     fireEvent.change(restoreInput, {
       target: {
@@ -114,6 +130,7 @@ test("identity manager restores a recovery key from a typed passphrase", async (
       expect(tearleads.identity.seedPhrase).toBe(seedPhrase);
     });
     // A restored key is a new key: it stays hidden until acknowledged.
+    fireEvent.click(view.getByRole("tab", { name: "Backup" }));
     expect(
       await view.findByRole("button", { name: "Reveal Recovery Key" }),
     ).toBeTruthy();
