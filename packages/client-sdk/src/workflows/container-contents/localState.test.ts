@@ -63,6 +63,9 @@ function createContainerContentsPersistence(input: {
     },
     async deleteContainer() {},
     async deleteContainers() {},
+    async loadContainerMetadataRecord() {
+      return null;
+    },
     async deletePendingUpdates() {},
     async ensureSchema() {},
     async enqueuePendingUpdate(receivedExecSql, pendingUpdate) {

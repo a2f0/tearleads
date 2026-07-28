@@ -1,9 +1,16 @@
 import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createContainerMetadataDocument,
+  writeContainerMetadataValue,
+} from "../../data/containers/containerMetadataDocument";
 import { recordDocumentSyncFailure } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { listPendingWrites } from "./pendingWrites";
+import { reattachDormantContainerMetadata } from "./remoteHydration/reattachMetadata";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 const T1 = "2026-01-01T00:00:01.000Z";
@@ -254,6 +261,72 @@ test("dormant metadata stays out of the write queue until re-attach", async () =
     await saveContainerRow(execSql, "revoked");
     const restored = await listPendingWrites(execSql);
     expect(restored.some((item) => item.localId === "revoked")).toBe(true);
+  } finally {
+    await close();
+  }
+});
+
+test("revoke then rehydrate re-attaches dormant metadata content", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "tombstone-metadata-reattach",
+  );
+  try {
+    // Seed with REAL metadata content: a queued local rename to "Renamed".
+    const authoredDoc = await createContainerMetadataDocument("revoked");
+    writeContainerMetadataValue(authoredDoc, {
+      icon: "folder-special",
+      name: "Renamed",
+    });
+    const authoredSnapshot = bytesToBase64(exportAllUpdates(authoredDoc));
+    await seedContainerWithQueuedRename(execSql, "revoked");
+    await defaultContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        effectiveAccessLevel: "write",
+        icon: null,
+        id: "revoked",
+        metadataDocumentId: "metadata-revoked",
+        name: "Shared",
+        organizationId: "peer-organization",
+        parentId: null,
+      },
+      {
+        accessEpoch: 1,
+        accessStateHash: "access-revoked",
+        documentId: "metadata-revoked",
+        id: "revoked",
+        metadataUpdates: authoredSnapshot,
+        snapshotEndVersion: "",
+      },
+      { localUpdatedAt: T1 },
+    );
+
+    await defaultContainerContentsPersistence.deleteContainers(
+      execSql,
+      ["revoked"],
+      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+    );
+
+    // Access restored: rehydration discovers the container fresh, loads the
+    // dormant record, and re-attaches its content instead of seeding empty.
+    const dormantRecord =
+      await defaultContainerContentsPersistence.loadContainerMetadataRecord(
+        execSql,
+        "revoked",
+      );
+    expect(dormantRecord?.metadataUpdates).toBe(authoredSnapshot);
+
+    const rehydratedDoc = await createContainerMetadataDocument("revoked");
+    const reattached = reattachDormantContainerMetadata({
+      defaultName: "Untitled",
+      doc: rehydratedDoc,
+      dormantRecord: dormantRecord ?? null,
+    });
+    expect(reattached).toEqual({
+      icon: "folder-special",
+      initialSnapshot: authoredSnapshot,
+      name: "Renamed",
+    });
   } finally {
     await close();
   }

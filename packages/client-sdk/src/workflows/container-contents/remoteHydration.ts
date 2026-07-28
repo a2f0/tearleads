@@ -1,5 +1,3 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { exportAllUpdates, importUpdates } from "@tearleads/loro";
 import type {
   ContainerSyncTombstone,
   ListContainersResponse,
@@ -7,7 +5,6 @@ import type {
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
-  readContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import type { ContainerRecord } from "./containerPersistence";
@@ -21,6 +18,7 @@ import { markContainerParentLaneFetched } from "./remoteHydration/laneFetchMarke
 import { fetchContainerParentLaneBatch } from "./remoteHydration/parentLaneFetch";
 import { createContainerParentHydrationQueue } from "./remoteHydration/parentLaneQueue";
 import { cacheRemoteContainerPrincipalPolicies } from "./remoteHydration/principalPolicyCache";
+import { reattachDormantContainerMetadata } from "./remoteHydration/reattachMetadata";
 import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,
@@ -260,20 +258,12 @@ async function insertRemoteContainerState(input: {
     execSql,
     remoteContainer.id,
   );
-  if (dormantRecord?.metadataUpdates) {
-    importUpdates(doc, [base64ToBytes(dormantRecord.metadataUpdates)]);
-  }
-  const initialSnapshot = dormantRecord?.metadataUpdates
-    ? dormantRecord.metadataUpdates
-    : bytesToBase64(exportAllUpdates(doc));
-  // The imported dormant document may carry a queued local rename/icon edit;
-  // project it, or the container renders default-named until sync succeeds.
-  const dormantMetadata = dormantRecord?.metadataUpdates
-    ? readContainerMetadataValue(
-        doc,
-        getDefaultContainerName(remoteContainer.parentId),
-      )
-    : null;
+  const reattached = reattachDormantContainerMetadata({
+    defaultName: getDefaultContainerName(remoteContainer.parentId),
+    doc,
+    dormantRecord,
+  });
+  const initialSnapshot = reattached.initialSnapshot;
   const containerState: ContainerState = {
     container: applyRemoteContainerTimestamps(
       {
@@ -283,10 +273,8 @@ async function insertRemoteContainerState(input: {
         parentId: remoteContainer.parentId,
         metadataDocumentId: remoteContainer.metadataDocumentId,
         systemSlot: remoteContainer.systemSlot ?? null,
-        name:
-          dormantMetadata?.name ??
-          getDefaultContainerName(remoteContainer.parentId),
-        icon: dormantMetadata?.icon ?? null,
+        name: reattached.name,
+        icon: reattached.icon,
       },
       remoteContainer,
     ),
