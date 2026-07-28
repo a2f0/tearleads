@@ -255,7 +255,7 @@ export function ExplorerContainerInfoGroupShareSection(params: {
       <MiniAppField>
         <span>{EXPLORER_LABELS.containerInfoGroupField}</span>
         <MiniAppSelectMenu
-          aria-label={EXPLORER_LABELS.containerInfoGroupField}
+          ariaLabel={EXPLORER_LABELS.containerInfoGroupField}
           disabled={isSubmitting || shareableGroups.length === 0}
           value={draftShareGroupId}
           onChange={(value) => {
@@ -272,7 +272,7 @@ export function ExplorerContainerInfoGroupShareSection(params: {
       <MiniAppField>
         <span>{EXPLORER_LABELS.containerInfoPermissionField}</span>
         <MiniAppSelectMenu
-          aria-label={EXPLORER_LABELS.containerInfoPermissionField}
+          ariaLabel={EXPLORER_LABELS.containerInfoPermissionField}
           disabled={isSubmitting || shareableGroups.length === 0}
           value={draftShareAccessLevel}
           onChange={(accessLevel) => {
