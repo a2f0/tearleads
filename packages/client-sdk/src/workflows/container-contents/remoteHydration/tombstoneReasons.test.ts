@@ -213,8 +213,51 @@ test("local-only descendants are excluded from metadata retention", () => {
   expect(
     selectRetainedMetadataContainerIds({
       containersById,
+      ownTombstoneContainerIds: new Set(["root"]),
       reasonByContainerId,
       removedContainerIds,
     }),
   ).toEqual(["root"]);
+});
+
+test("an own tombstone proves remote existence for retention", () => {
+  // A create whose response was lost leaves metadataDocumentId null locally,
+  // but the server only tombstones committed containers — so a container
+  // with its OWN access_revoked tombstone is retained despite looking
+  // local-only.
+  const containersById = new Map([
+    ["root", { container: { metadataDocumentId: "metadata-root" } }],
+    ["lostCreate", { container: { metadataDocumentId: null } }],
+  ]);
+  const { ownTombstoneContainerIds, reasonByContainerId, removedContainerIds } =
+    collectRemovedContainers({
+      childIdsByParentId: childIndex({ root: ["lostCreate"] }),
+      containersById,
+      preservedContainerIds: new Set(),
+      tombstones: [
+        {
+          containerId: "root",
+          depth: 0,
+          parentId: null,
+          reason: "access_revoked",
+          updatedAt: T0,
+        },
+        {
+          containerId: "lostCreate",
+          depth: 1,
+          parentId: "root",
+          reason: "access_revoked",
+          updatedAt: T0,
+        },
+      ],
+    });
+
+  expect(
+    selectRetainedMetadataContainerIds({
+      containersById,
+      ownTombstoneContainerIds,
+      reasonByContainerId,
+      removedContainerIds,
+    }).sort(),
+  ).toEqual(["lostCreate", "root"]);
 });

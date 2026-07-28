@@ -178,7 +178,13 @@ test("revoke and remote re-list retain and re-attach through hydration", async (
     );
 
     // Pass 3: access restored — the server lists the container again and the
-    // real insert path re-attaches the dormant metadata.
+    // real insert path re-attaches the dormant metadata. The item's advanced
+    // timestamp models a mutation-driven restore (a rename, a child add, a
+    // re-link — anything that bumps the container row). A group re-add that
+    // touches nothing leaves the stale tombstone winning this page's
+    // last-writer filter — the pre-existing server-side gap recorded in
+    // docs/sync-edge-cases.md (tombstones are never superseded on access
+    // restoration), which suppresses ALL rehydration, not just re-attach.
     rootLanePages.push(lanePage({ items: [remoteContainerItem(T3)] }));
     await hydrate();
     const restoredState = state.containersById.get("revoked");

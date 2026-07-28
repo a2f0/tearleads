@@ -635,6 +635,7 @@ async function applyContainerTombstones(input: {
   }
 
   const {
+    ownTombstoneContainerIds,
     purgeMetadataContainerIds,
     reasonByContainerId,
     removedContainerIds,
@@ -661,6 +662,7 @@ async function applyContainerTombstones(input: {
     {
       retainMetadataForContainerIds: selectRetainedMetadataContainerIds({
         containersById: state.containersById,
+        ownTombstoneContainerIds,
         reasonByContainerId,
         removedContainerIds,
       }),
