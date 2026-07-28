@@ -321,12 +321,29 @@ test("revoke then rehydrate re-attaches dormant metadata content", async () => {
       defaultName: "Untitled",
       doc: rehydratedDoc,
       dormantRecord: dormantRecord ?? null,
+      remoteMetadataDocumentId: "metadata-revoked",
     });
     expect(reattached).toEqual({
       icon: "folder-special",
       initialSnapshot: authoredSnapshot,
+      lastCommitLsn: null,
       name: "Renamed",
+      snapshotEndVersion: dormantRecord?.snapshotEndVersion ?? "",
     });
+
+    // A rotated metadata document id means the dormant stream is dead: no
+    // content, marker, or LSN cursor may carry over.
+    const freshDoc = await createContainerMetadataDocument("revoked");
+    const mismatched = reattachDormantContainerMetadata({
+      defaultName: "Untitled",
+      doc: freshDoc,
+      dormantRecord: dormantRecord ?? null,
+      remoteMetadataDocumentId: "metadata-replaced",
+    });
+    expect(mismatched.name).toBe("Untitled");
+    expect(mismatched.lastCommitLsn).toBeNull();
+    expect(mismatched.snapshotEndVersion).toBe("");
+    expect(mismatched.initialSnapshot).not.toBe(authoredSnapshot);
   } finally {
     await close();
   }

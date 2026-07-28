@@ -265,6 +265,7 @@ async function insertRemoteContainerState(input: {
     defaultName: getDefaultContainerName(remoteContainer.parentId),
     doc,
     dormantRecord,
+    remoteMetadataDocumentId: remoteContainer.metadataDocumentId,
   });
   const initialSnapshot = reattached.initialSnapshot;
   const containerState: ContainerState = {
@@ -288,9 +289,9 @@ async function insertRemoteContainerState(input: {
       accessStateHash: remoteContainer.metadataAccessStateHash,
       documentId: remoteContainer.metadataDocumentId,
       id: remoteContainer.id,
-      lastCommitLsn: dormantRecord?.lastCommitLsn ?? null,
+      lastCommitLsn: reattached.lastCommitLsn,
       metadataUpdates: initialSnapshot,
-      snapshotEndVersion: dormantRecord?.snapshotEndVersion ?? "",
+      snapshotEndVersion: reattached.snapshotEndVersion,
       contentKeyBundle: null,
       documentKekTargets: null,
       documentManifestBundle: null,

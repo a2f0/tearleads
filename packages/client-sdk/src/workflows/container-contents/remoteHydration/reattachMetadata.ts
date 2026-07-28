@@ -16,13 +16,27 @@ export function reattachDormantContainerMetadata(input: {
   defaultName: string;
   doc: ContainerMetadataDocumentState;
   dormantRecord: ContainerMetadataRecord | null;
-}): { icon: string | null; initialSnapshot: string; name: string } {
+  remoteMetadataDocumentId: string;
+}): {
+  icon: string | null;
+  initialSnapshot: string;
+  lastCommitLsn: string | null;
+  name: string;
+  snapshotEndVersion: string;
+} {
   const { defaultName, doc, dormantRecord } = input;
-  if (!dormantRecord?.metadataUpdates) {
+  // Re-attach only when the dormant record describes the SAME remote metadata
+  // document. A different id means the document was replaced while access was
+  // revoked: its content history, marker, and LSN cursor all belong to a dead
+  // stream — carrying any of them would corrupt the new document's sync.
+  const matches = dormantRecord?.documentId === input.remoteMetadataDocumentId;
+  if (!matches || !dormantRecord?.metadataUpdates) {
     return {
       icon: null,
       initialSnapshot: bytesToBase64(exportAllUpdates(doc)),
+      lastCommitLsn: null,
       name: defaultName,
+      snapshotEndVersion: "",
     };
   }
 
@@ -31,6 +45,8 @@ export function reattachDormantContainerMetadata(input: {
   return {
     icon: metadata.icon,
     initialSnapshot: dormantRecord.metadataUpdates,
+    lastCommitLsn: dormantRecord.lastCommitLsn ?? null,
     name: metadata.name,
+    snapshotEndVersion: dormantRecord.snapshotEndVersion,
   };
 }
