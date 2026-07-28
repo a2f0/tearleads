@@ -5,6 +5,7 @@ import {
   MiniAppButton,
   MiniAppClipboardButton,
   MiniAppField,
+  MiniAppFieldGroup,
   MiniAppInput,
   MiniAppSelect,
   MiniAppStatus,
@@ -188,6 +189,20 @@ test("mini app form controls preserve class names and forwarded refs", () => {
   expect(textareaRef.current?.className).toBe(
     "mini-app-textarea custom-textarea",
   );
+});
+
+test("mini app field group shares field styling without nesting controls in a label", () => {
+  const view = render(
+    <MiniAppFieldGroup className="custom-field-group">
+      <span>Choice</span>
+      <button type="button">Choose</button>
+    </MiniAppFieldGroup>,
+  );
+
+  const fieldGroup = view.container.querySelector("div");
+
+  expect(fieldGroup?.className).toBe("mini-app-field custom-field-group");
+  expect(fieldGroup?.querySelector("label")).toBeNull();
 });
 
 test("mini app status preserves element choice and tone classes", () => {

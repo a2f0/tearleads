@@ -179,7 +179,19 @@ test("container info tabs split general, sharing, security, and sync details", a
 
   fireEvent.click(view.getByRole("tab", { name: "Sharing" }));
   expect(view.getByText("Principal Grants")).toBeTruthy();
+  expect(
+    view
+      .getByText("Principal Grants")
+      .closest("section")
+      ?.querySelector("table")
+      ?.classList.contains("mini-app-info-table--row-divided"),
+  ).toBe(true);
   expect(view.getByText("Share To Group")).toBeTruthy();
+  expect(
+    view
+      .getByRole("combobox", { name: "Group" })
+      .querySelector(".mini-app-select-menu-caret"),
+  ).toBeTruthy();
   expect(view.getByText("Share To Peer")).toBeTruthy();
   expect(view.getByRole("button", { name: "Share" })).toBeTruthy();
 
