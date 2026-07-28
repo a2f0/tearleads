@@ -311,3 +311,140 @@ test("a replaced metadata document purges the dormant scope", async () => {
     await close();
   }
 });
+
+test("a never-bound dormant record re-attaches instead of purging", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "tombstone-metadata-lost-create",
+  );
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await listPendingWrites(execSql);
+    const rootLanePages: ListContainersResponse[] = [];
+    const state = {
+      containersById: new Map<string, ContainerState>(),
+      persistence: defaultContainerContentsPersistence,
+      runtime: {
+        adoptRootContainer: () => {},
+        apiClient: {
+          async listContainerParentLanes(request: {
+            lanes: ReadonlyArray<{ laneId: string; parentId: string | null }>;
+          }): Promise<ListContainerParentLanesResponse> {
+            return {
+              results: request.lanes.map(({ laneId, parentId }) => ({
+                laneId,
+                page:
+                  parentId === null
+                    ? (rootLanePages.shift() ?? lanePage({}))
+                    : lanePage({}),
+              })),
+            };
+          },
+        },
+        auth: { isAuthenticated: true },
+        infra: { dbStatus: "ready", execSql },
+        state: { online: true },
+        util: { log: () => {} },
+      },
+    } as unknown as RemoteContainerHydrationState;
+    const host = {
+      persistContainerState: async () => {
+        throw new Error("update path must not run in this scenario");
+      },
+      updateSnapshot: () => {},
+    };
+    const hydrate = () =>
+      hydrateRemoteContainers({ host, parentIds: [null], state });
+
+    rootLanePages.push(lanePage({ items: [remoteContainerItem(T0)] }));
+    await hydrate();
+
+    const authoredDoc = await createContainerMetadataDocument("revoked");
+    writeContainerMetadataValue(authoredDoc, { icon: null, name: "Renamed" });
+    const authoredSnapshot = bytesToBase64(exportAllUpdates(authoredDoc));
+    await defaultContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        effectiveAccessLevel: "write",
+        icon: null,
+        id: "revoked",
+        metadataDocumentId: "metadata-revoked",
+        name: "Renamed",
+        organizationId: "peer-organization",
+        parentId: null,
+      },
+      {
+        accessEpoch: 1,
+        accessStateHash: "access-revoked",
+        documentId: "metadata-revoked",
+        id: "revoked",
+        metadataUpdates: authoredSnapshot,
+        snapshotEndVersion: "",
+      },
+      { localUpdatedAt: T1 },
+    );
+    await execSql(
+      `INSERT INTO document_pending_updates (
+        id, app_kind, local_id, update_data,
+        partial_start_version_vector, partial_end_version_vector,
+        source_version_vector, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
+      [
+        "rename-lost",
+        "container-metadata",
+        "revoked",
+        authoredSnapshot,
+        "{}",
+        "{}",
+        T1,
+      ],
+    );
+    // The lost-response shape: the metadata document was never adopted, so
+    // the record has no remote binding.
+    await execSql(
+      `UPDATE documents SET document_id = NULL
+       WHERE app_kind = 'container-metadata' AND local_id = ?`,
+      ["revoked"],
+    );
+
+    rootLanePages.push(
+      lanePage({
+        tombstones: [
+          {
+            containerId: "revoked",
+            depth: 0,
+            parentId: null,
+            reason: "access_revoked",
+            updatedAt: "2026-01-01T00:00:02.000Z",
+          },
+        ],
+      }),
+    );
+    await hydrate();
+    expect(state.containersById.has("revoked")).toBe(false);
+    const dormantProbe =
+      await defaultContainerContentsPersistence.loadContainerMetadataRecord(
+        execSql,
+        "revoked",
+      );
+    expect(dormantProbe?.documentId ?? null).toBeNull();
+    expect(dormantProbe?.metadataUpdates).toBeTruthy();
+
+    rootLanePages.push(
+      lanePage({ items: [remoteContainerItem("2026-01-01T00:00:03.000Z")] }),
+    );
+    await hydrate();
+
+    // Never-bound dormant state re-attaches and adopts the server's id.
+    const restored = state.containersById.get("revoked");
+    expect(restored?.container.name).toBe("Renamed");
+    expect(restored?.record?.documentId).toBe("metadata-revoked");
+    const pendingRows = await execSql(
+      `SELECT COUNT(*) AS n FROM document_pending_updates
+       WHERE app_kind = 'container-metadata' AND local_id = ?`,
+      ["revoked"],
+    );
+    expect(Number(Reflect.get(pendingRows[0] ?? {}, "n") ?? -1)).toBe(1);
+  } finally {
+    await close();
+  }
+});

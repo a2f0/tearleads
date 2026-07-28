@@ -262,7 +262,7 @@ async function insertRemoteContainerState(input: {
     remoteContainer.id,
   );
   if (
-    dormantRecord &&
+    dormantRecord?.documentId != null &&
     dormantRecord.documentId !== remoteContainer.metadataDocumentId
   ) {
     // The remote metadata document was replaced while access was revoked:

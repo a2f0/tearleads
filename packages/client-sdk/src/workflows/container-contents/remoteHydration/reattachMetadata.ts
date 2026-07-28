@@ -25,11 +25,15 @@ export function reattachDormantContainerMetadata(input: {
   snapshotEndVersion: string;
 } {
   const { defaultName, doc, dormantRecord } = input;
-  // Re-attach only when the dormant record describes the SAME remote metadata
-  // document. A different id means the document was replaced while access was
-  // revoked: its content history, marker, and LSN cursor all belong to a dead
-  // stream — carrying any of them would corrupt the new document's sync.
-  const matches = dormantRecord?.documentId === input.remoteMetadataDocumentId;
+  // Re-attach when the dormant record describes the SAME remote metadata
+  // document — or was never bound to one at all (documentId null: a
+  // lost-response create retained via its own tombstone). Only a concrete
+  // DIFFERENT id proves the document was replaced while access was revoked;
+  // that dead stream's content, marker, and LSN cursor must not carry over.
+  const matches =
+    dormantRecord !== null &&
+    (dormantRecord.documentId === input.remoteMetadataDocumentId ||
+      dormantRecord.documentId === null);
   if (!matches || !dormantRecord?.metadataUpdates) {
     return {
       icon: null,
