@@ -70,12 +70,18 @@ function renderSessions(sessions: ReadonlyArray<UserSession> = [SESSION]) {
       loadingSessions={false}
       mutatingSessionId={null}
       onOpenSessionDetail={() => undefined}
-      refreshSessions={async () => undefined}
       sessionError={null}
       sessions={sessions}
     />,
   );
 }
+
+test("active sessions rely on the window toolbar for refresh", () => {
+  mockLayout("windowed", 640);
+  const view = renderSessions();
+
+  expect(view.queryByRole("button", { name: "Refresh" })).toBeNull();
+});
 
 test("active sessions render two-line summaries on narrow mobile layouts", () => {
   mockLayout("routed", 390);

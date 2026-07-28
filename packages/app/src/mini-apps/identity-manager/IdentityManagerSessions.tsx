@@ -1,6 +1,5 @@
 import type { UserSession } from "@tearleads/client-sdk";
 import {
-  MiniAppButton,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
@@ -24,7 +23,6 @@ export function SessionsSection({
   loadingSessions,
   mutatingSessionId,
   onOpenSessionDetail,
-  refreshSessions,
   sessionError,
   sessions,
 }: {
@@ -32,7 +30,6 @@ export function SessionsSection({
   loadingSessions: boolean;
   mutatingSessionId: string | null;
   onOpenSessionDetail: (sessionId: string) => void;
-  refreshSessions: () => Promise<void>;
   sessionError: string | null;
   sessions: ReadonlyArray<UserSession>;
 }) {
@@ -49,13 +46,6 @@ export function SessionsSection({
       <MiniAppSection className="identity-manager-sessions">
         <MiniAppSectionHeading>
           <h2>Active Sessions</h2>
-          <MiniAppButton
-            disabled={loadingSessions || mutatingSessionId !== null}
-            variant="ghost"
-            onClick={() => void refreshSessions()}
-          >
-            Refresh
-          </MiniAppButton>
         </MiniAppSectionHeading>
         {sessionError && (
           <MiniAppStatus tone="error">{sessionError}</MiniAppStatus>
