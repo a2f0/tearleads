@@ -309,6 +309,55 @@ testApiClient(
 );
 
 testApiClient(
+  "post-prime container result callers read the seed, not an older in-flight fetch",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    const fetchStarted = createDeferred<void>();
+    const finishFetch = createDeferred<void>();
+    const staleProjection = createContainerWriterProjectionResponse();
+    const basePrimedProjection = createContainerWriterProjectionResponse();
+    const primedProjection = {
+      ...basePrimedProjection,
+      organizationId: `${basePrimedProjection.organizationId}-primed`,
+    };
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          fetchStarted.resolve();
+          await finishFetch.promise;
+          return HttpResponse.json(staleProjection);
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const first = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    await fetchStarted.promise;
+
+    client.primeContainerWriterProjection("container-1", primedProjection);
+
+    // The just-authored seed supersedes the in-flight GET for new callers.
+    const second = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    await expect(second).resolves.toEqual({ data: primedProjection, ok: true });
+
+    finishFetch.resolve();
+    await expect(first).resolves.toEqual({ data: staleProjection, ok: true });
+
+    // The seed survives the older fetch's settle, and no extra GET fired.
+    await expect(
+      client.getContainerWriterProjection("container-1"),
+    ).resolves.toEqual(primedProjection);
+    expect(calls).toHaveLength(1);
+  },
+);
+
+testApiClient(
   "plain callers keep their own reporting during a silent result fetch",
   async () => {
     const calls: CapturedHttpCall[] = [];

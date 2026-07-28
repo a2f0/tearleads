@@ -1322,6 +1322,12 @@ export class ApiClient {
       documentId,
       Promise.resolve(projection),
     );
+    // The just-authored seed supersedes any GET already in flight: drop the
+    // shared result entry so a post-prime result caller reads the seeded
+    // projection instead of coalescing onto the older fetch. Callers already
+    // holding that fetch keep their result, and its settle cannot clobber the
+    // seed (the slot no longer matches its snapshot).
+    this.documentWriterProjectionResultsInFlightByDocumentId.delete(documentId);
   }
 
   /**
@@ -1348,6 +1354,11 @@ export class ApiClient {
     this.containerWriterProjectionRequestsByContainerId.set(
       containerId,
       Promise.resolve(projection),
+    );
+    // Same supersession rule as primeDocumentWriterProjection: a post-prime
+    // result caller must read the seed, not an older in-flight GET.
+    this.containerWriterProjectionResultsInFlightByContainerId.delete(
+      containerId,
     );
   }
 

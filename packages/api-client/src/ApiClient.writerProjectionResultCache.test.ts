@@ -187,6 +187,58 @@ for (const variant of ["syncDocument", "syncDocumentResult"] as const) {
 }
 
 testApiClient(
+  "post-prime document result callers read the seed, not an older in-flight fetch",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    const fetchStarted = createDeferred<void>();
+    const finishFetch = createDeferred<void>();
+    const staleProjection = createDocumentWriterProjectionResponse();
+    const basePrimedProjection = createDocumentWriterProjectionResponse();
+    const primedProjection = {
+      ...basePrimedProjection,
+      contentKeyBundle: {
+        ...basePrimedProjection.contentKeyBundle,
+        contentKeyEpoch: 7,
+      },
+    };
+    server.use(
+      http.get(
+        `${apiBaseUrl}/documents/:documentId/writer-projection`,
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          fetchStarted.resolve();
+          await finishFetch.promise;
+          return HttpResponse.json(staleProjection);
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const first = client.getDocumentWriterProjectionResult("document-1", {
+      reportErrors: false,
+    });
+    await fetchStarted.promise;
+
+    client.primeDocumentWriterProjection("document-1", primedProjection);
+
+    // The just-authored seed supersedes the in-flight GET for new callers.
+    const second = client.getDocumentWriterProjectionResult("document-1", {
+      reportErrors: false,
+    });
+    await expect(second).resolves.toEqual({ data: primedProjection, ok: true });
+
+    finishFetch.resolve();
+    await expect(first).resolves.toEqual({ data: staleProjection, ok: true });
+
+    // The seed survives the older fetch's settle, and no extra GET fired.
+    await expect(
+      client.getDocumentWriterProjection("document-1"),
+    ).resolves.toEqual(primedProjection);
+    expect(calls).toHaveLength(1);
+  },
+);
+
+testApiClient(
   "writer projection result failures do not delete newer cache entries",
   async () => {
     const calls: CapturedHttpCall[] = [];
