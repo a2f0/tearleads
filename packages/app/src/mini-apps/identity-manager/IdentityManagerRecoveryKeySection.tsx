@@ -74,12 +74,6 @@ const RECOVERY_KEY_DISCLOSURES: Record<
   },
 };
 
-interface PendingDisclosure {
-  /** Signing fingerprint the acknowledgement was requested for. */
-  readonly identity: string | null;
-  readonly kind: RecoveryKeyDisclosure;
-}
-
 interface RecoveryKeyFeedback {
   readonly setError: (message: string | null) => void;
   readonly setStatus: (message: string | null) => void;
@@ -230,18 +224,23 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
   const { seedPhrase, signingFingerprint } = useIdentity();
   const fileSaver = useFileSaver();
   const { log, logError } = useLog();
-  const [pending, setPending] = useState<PendingDisclosure | null>(null);
-  const [revealedFor, setRevealedFor] = useState<string | null>(null);
+  const [pendingDisclosure, setPendingDisclosure] =
+    useState<RecoveryKeyDisclosure | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const [authorizedIdentity, setAuthorizedIdentity] =
+    useState(signingFingerprint);
 
-  // Both are derived rather than reset by an effect: switching identities swaps
-  // the key underneath a mounted section, and an effect would clear the flags
-  // only *after* the new phrase had already rendered. Scoping authorization to
-  // the identity it was granted for revokes it in the same render, so a new key
-  // is never shown — and a dialog opened for the old one is never confirmable
-  // against it.
-  const revealed = revealedFor !== null && revealedFor === signingFingerprint;
-  const pendingDisclosure =
-    pending && pending.identity === signingFingerprint ? pending.kind : null;
+  if (authorizedIdentity !== signingFingerprint) {
+    // Switching identities swaps the key underneath a mounted section, so every
+    // acknowledgement it earned is spent. Discarding during render rather than
+    // in an effect revokes it in the same commit, before the incoming phrase
+    // could reach the screen; discarding on *any* change — rather than
+    // comparing against the identity that was authorized — is what stops an
+    // A → B → A round trip from silently re-granting A's reveal.
+    setAuthorizedIdentity(signingFingerprint);
+    setPendingDisclosure(null);
+    setRevealed(false);
+  }
 
   const copyRecoveryKey = async (recoveryKey: string) => {
     if (typeof navigator === "undefined" || !navigator.clipboard) {
@@ -272,7 +271,7 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
       } else if (acknowledged === "download") {
         await downloadRecoveryKey(seedPhrase);
       } else {
-        setRevealedFor(signingFingerprint);
+        setRevealed(true);
       }
       feedback.setStatus(disclosureCopy.successStatus);
       log(disclosureCopy.successLog);
@@ -283,20 +282,17 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
   };
 
   return {
-    cancelDisclosure: () => setPending(null),
+    cancelDisclosure: () => setPendingDisclosure(null),
     confirmDisclosure: () => {
-      // Reads the identity-scoped value, so an acknowledgement typed for the
-      // previous identity cannot be spent on the current one.
       const acknowledged = pendingDisclosure;
-      setPending(null);
+      setPendingDisclosure(null);
       if (acknowledged) {
         void runDisclosure(acknowledged);
       }
     },
-    hide: () => setRevealedFor(null),
+    hide: () => setRevealed(false),
     pendingDisclosure,
-    requestDisclosure: (kind: RecoveryKeyDisclosure) =>
-      setPending({ identity: signingFingerprint, kind }),
+    requestDisclosure: setPendingDisclosure,
     revealed,
   };
 }

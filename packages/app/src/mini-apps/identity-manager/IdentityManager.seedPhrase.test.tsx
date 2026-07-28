@@ -307,6 +307,42 @@ test("switching identities revokes an existing reveal", async () => {
   }
 });
 
+test("returning to a previously revealed identity stays hidden", async () => {
+  const originalWebSocket = globalThis.WebSocket;
+
+  try {
+    Reflect.set(globalThis, "WebSocket", TestWebSocket);
+    const { seedPhrase, tearleads, view } = await renderRecoveryKeyView(0x66);
+
+    fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+    fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
+      target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
+    });
+    await act(async () => {
+      fireEvent.click(view.getByRole("button", { name: "Show Passphrase" }));
+    });
+    expect(view.getByDisplayValue(seedPhrase)).toBeTruthy();
+
+    const otherSeedPhrase = createIdentitySeedPhraseFromEntropy(
+      new Uint8Array(32).fill(0x77),
+    );
+    await act(async () => {
+      await tearleads.identity.importSeedPhrase(otherSeedPhrase);
+    });
+    await act(async () => {
+      await tearleads.identity.importSeedPhrase(seedPhrase);
+    });
+
+    // The round trip must not restore the earlier acknowledgement.
+    expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
+    expect(
+      view.getByRole("button", { name: "Reveal Recovery Key" }),
+    ).toBeTruthy();
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+  }
+});
+
 test("switching identities discards a pending acknowledgement", async () => {
   const originalWebSocket = globalThis.WebSocket;
 
