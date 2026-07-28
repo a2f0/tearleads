@@ -52,9 +52,6 @@ test("org manager grant detail links group grants to their group", () => {
   expect(
     detailTable.classList.contains("mini-app-info-table--borderless"),
   ).toBe(true);
-  expect(detailTable.classList.contains("mini-app-info-table--aligned")).toBe(
-    true,
-  );
   fireEvent.click(view.getByRole("button", { name: "Readers" }));
 
   expect(openedGroupIds).toEqual(["group-1"]);

@@ -10,7 +10,7 @@ import {
   MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
-import { MiniAppKeyValueTable } from "../../../components/mini-app/MiniAppTable";
+import { MiniAppInfoTable } from "../../../components/mini-app/MiniAppTable";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import {
   compactFingerprint,
@@ -198,7 +198,7 @@ function GrantDetailView({
         <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.grantDetail}
         </MiniAppSectionHeading>
-        <MiniAppKeyValueTable>
+        <MiniAppInfoTable className="mini-app-info-table--borderless">
           <tbody>
             <tr>
               <th>{ORG_MANAGER_LABELS.principal}</th>
@@ -287,7 +287,7 @@ function GrantDetailView({
               </td>
             </tr>
           </tbody>
-        </MiniAppKeyValueTable>
+        </MiniAppInfoTable>
       </MiniAppSection>
     </section>
   );
