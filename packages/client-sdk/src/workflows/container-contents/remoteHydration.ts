@@ -23,7 +23,10 @@ import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,
 } from "./remoteHydration/reconciliation";
-import { collectRemovedContainers } from "./remoteHydration/tombstoneReasons";
+import {
+  collectRemovedContainers,
+  selectRetainedMetadataContainerIds,
+} from "./remoteHydration/tombstoneReasons";
 import type {
   ContainerChildIndex,
   ContainerParentHydrationLane,
@@ -641,10 +644,11 @@ async function applyContainerTombstones(input: {
     execSql,
     [...removedContainerIds, ...purgeMetadataContainerIds],
     {
-      retainMetadataForContainerIds: removedContainerIds.filter(
-        (containerId) =>
-          reasonByContainerId.get(containerId) === "access_revoked",
-      ),
+      retainMetadataForContainerIds: selectRetainedMetadataContainerIds({
+        containersById: state.containersById,
+        reasonByContainerId,
+        removedContainerIds,
+      }),
       ...(tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : {}),
     },
   );

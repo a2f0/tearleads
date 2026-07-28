@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { exportAllUpdates } from "@tearleads/loro";
+import { encodeVersionVector, exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createContainerMetadataDocument,
@@ -327,6 +327,52 @@ test("revoke then rehydrate re-attaches dormant metadata content", async () => {
       initialSnapshot: authoredSnapshot,
       name: "Renamed",
     });
+  } finally {
+    await close();
+  }
+});
+
+test("dormant metadata stays out of deferred-tail candidates", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "tombstone-metadata-deferred",
+  );
+  try {
+    const authoredDoc = await createContainerMetadataDocument("revoked");
+    writeContainerMetadataValue(authoredDoc, {
+      icon: null,
+      name: "Renamed",
+    });
+    const authoredSnapshot = bytesToBase64(exportAllUpdates(authoredDoc));
+    const authoredVersion = encodeVersionVector(authoredDoc);
+    await seedContainerWithQueuedRename(execSql, "revoked");
+    // Give the metadata document a real content frontier so the deferred-tail
+    // candidate query considers it (an empty marker was masking this path).
+    await execSql(
+      `UPDATE documents
+       SET snapshot_end_version = ?, pending_base_version = ''
+       WHERE app_kind = 'container-metadata' AND local_id = ?`,
+      [authoredVersion, "revoked"],
+    );
+    await execSql(
+      `UPDATE document_pending_updates SET update_data = ?
+       WHERE app_kind = 'container-metadata' AND local_id = ?`,
+      [authoredSnapshot, "revoked"],
+    );
+
+    await defaultContainerContentsPersistence.deleteContainers(
+      execSql,
+      ["revoked"],
+      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+    );
+
+    const dormantListed = await listPendingWrites(execSql);
+    expect(dormantListed.some((item) => item.localId === "revoked")).toBe(
+      false,
+    );
+
+    await saveContainerRow(execSql, "revoked");
+    const restored = await listPendingWrites(execSql);
+    expect(restored.some((item) => item.localId === "revoked")).toBe(true);
   } finally {
     await close();
   }

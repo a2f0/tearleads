@@ -4,12 +4,6 @@ import { readContainerMetadataValue } from "../../../data/containers/containerMe
 import type { ContainerMetadataRecord } from "../containerPersistence";
 import type { ContainerMetadataDocumentState } from "./types";
 
-export interface ReattachedContainerMetadata {
-  icon: string | null;
-  initialSnapshot: string;
-  name: string;
-}
-
 /**
  * Resolve a freshly discovered container's metadata content against dormant
  * retained state (docs/sync-edge-cases.md row 4, access_revoked branch). A
@@ -22,7 +16,7 @@ export function reattachDormantContainerMetadata(input: {
   defaultName: string;
   doc: ContainerMetadataDocumentState;
   dormantRecord: ContainerMetadataRecord | null;
-}): ReattachedContainerMetadata {
+}): { icon: string | null; initialSnapshot: string; name: string } {
   const { defaultName, doc, dormantRecord } = input;
   if (!dormantRecord?.metadataUpdates) {
     return {

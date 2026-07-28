@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { collectRemovedContainers } from "./tombstoneReasons";
+import {
+  collectRemovedContainers,
+  selectRetainedMetadataContainerIds,
+} from "./tombstoneReasons";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 
@@ -182,4 +185,36 @@ test("an upgrade requeues the shared node so grandchildren re-inherit", () => {
 
   expect(reasonByContainerId.get("shared")).toBe("deleted");
   expect(reasonByContainerId.get("grand")).toBe("deleted");
+});
+
+test("local-only descendants are excluded from metadata retention", () => {
+  const containersById = new Map([
+    ["root", { container: { metadataDocumentId: "metadata-root" } }],
+    ["localChild", { container: { metadataDocumentId: null } }],
+  ]);
+  const { reasonByContainerId, removedContainerIds } = collectRemovedContainers(
+    {
+      childIdsByParentId: childIndex({ root: ["localChild"] }),
+      containersById,
+      preservedContainerIds: new Set(),
+      tombstones: [
+        {
+          containerId: "root",
+          depth: 0,
+          parentId: null,
+          reason: "access_revoked",
+          updatedAt: T0,
+        },
+      ],
+    },
+  );
+
+  expect(removedContainerIds.sort()).toEqual(["localChild", "root"]);
+  expect(
+    selectRetainedMetadataContainerIds({
+      containersById,
+      reasonByContainerId,
+      removedContainerIds,
+    }),
+  ).toEqual(["root"]);
 });

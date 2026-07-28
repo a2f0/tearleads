@@ -111,3 +111,26 @@ export function collectRemovedContainers(input: {
     ),
   };
 }
+
+/**
+ * The removed containers whose metadata survives the cascade: revoked AND
+ * remotely created. A local-only container (no remote metadata document) can
+ * never be rediscovered by rehydration — its create intent dies in the same
+ * cascade — so retaining its metadata would strand it forever; it keeps the
+ * destroy path instead.
+ */
+export function selectRetainedMetadataContainerIds(input: {
+  containersById: ReadonlyMap<
+    string,
+    { container: { metadataDocumentId: string | null } }
+  >;
+  reasonByContainerId: ReadonlyMap<string, ContainerSyncTombstone["reason"]>;
+  removedContainerIds: ReadonlyArray<string>;
+}): string[] {
+  return input.removedContainerIds.filter(
+    (containerId) =>
+      input.reasonByContainerId.get(containerId) === "access_revoked" &&
+      (input.containersById.get(containerId)?.container.metadataDocumentId ??
+        null) !== null,
+  );
+}

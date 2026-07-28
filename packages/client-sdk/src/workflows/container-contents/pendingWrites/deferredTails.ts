@@ -56,6 +56,11 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
     ON failure.app_kind = stored.app_kind
     AND failure.local_id = stored.local_id
   WHERE stored.snapshot_end_version <> ''
+    -- Dormant retained metadata (row 4, access_revoked) has no containers
+    -- row; keep it out of deferred-tail candidates until re-attach, matching
+    -- the pending-write sources guard.
+    AND (stored.app_kind <> 'container-metadata'
+      OR metadata_container.id IS NOT NULL)
     AND (
       stored.pending_base_version IS NOT NULL
       OR EXISTS (
