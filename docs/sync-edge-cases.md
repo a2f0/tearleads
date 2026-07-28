@@ -76,6 +76,12 @@ without counting as lane progress, so it cannot hot-loop the pump.
   visible in the write queue, and priming now routes them with a null
   container scope so their sync passes resolve them. An orphaned-documents
   surface in the explorer remains an open UX question.
+- Pre-existing pass-ordering gap (global, not orphan-specific): a document
+  whose remote was deleted while attachment uploads are still pending parks
+  as attachment failures — the pass aborts before the document sync request,
+  so the coded 404 that would destroy it (row 1) is never observed until the
+  uploads stop failing. Revalidating before attachment sync (or handling
+  coded 404s in attachment staging) would close it.
 - The container cascade is not replayable: container rows are deleted before
   the metadata queue/failure/watermark cleanup, and a re-delivered tombstone
   skips containers no longer present locally, so a mid-cascade crash can
