@@ -44,7 +44,7 @@ import {
 } from "../../sqlite/sqlSchema";
 import {
   type ContainerRecord,
-  deleteContainers as deleteContainerRecords,
+  deleteContainerRowsInTransaction,
   ensureContainerTables,
   loadContainers as loadContainerRecords,
   saveContainerRows,
@@ -53,6 +53,7 @@ import {
   containerContentsSyncLane,
   containerParentSyncLane,
   containerSyncWatermarkLaneKey,
+  deleteContainerWatermarksInTransaction,
   sqlContainerSyncWatermarkPersistence,
 } from "../containers/containerSyncWatermarkPersistence";
 import { reassignContainerDocumentsInTransaction } from "./containerDocumentReassignment";
@@ -671,21 +672,18 @@ async function loadFirstRemainingContainerIdByDocumentId(
   return firstRemainingContainerIdByDocumentId;
 }
 
-async function repairDocumentsForRemovedContainers(input: {
+async function repairDocumentsForRemovedContainersInTransaction(input: {
   containerIds: ReadonlyArray<string>;
-  execSql: ExecSql;
+  tx: ClientSQLiteTransaction;
   updatedAt: string;
 }): Promise<void> {
-  const { execSql, updatedAt } = input;
+  const { tx, updatedAt } = input;
   const containerIds = Array.from(new Set(input.containerIds));
   if (containerIds.length === 0) {
     return;
   }
 
-  await ensureSqlTables(execSql, documentContainerProjectionTables);
-  await ensureDocumentProjectionTables(execSql);
-
-  await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
+  {
     const selectedRows = await tx
       .select({
         containerId: documentProjection.containerId,
@@ -737,7 +735,7 @@ async function repairDocumentsForRemovedContainers(input: {
         .where(eq(documentProjection.localId, row.localId))
         .run();
     }
-  });
+  }
 }
 
 async function updateReparentedDescendantContainers(input: {
@@ -1012,59 +1010,74 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
 
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const updatedAt = options?.updatedAt ?? new Date().toISOString();
-      const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
-      await repairDocumentsForRemovedContainers({
-        containerIds: uniqueContainerIds,
-        execSql: lockedExecSql,
-        updatedAt,
-      });
-      await db
-        .delete(containerCreateIntents)
-        .where(inArray(containerCreateIntents.containerId, uniqueContainerIds))
-        .run();
-      await db
-        .delete(containerMoveIntents)
-        .where(inArray(containerMoveIntents.containerId, uniqueContainerIds))
-        .run();
-      await deleteContainerRecords(lockedExecSql, uniqueContainerIds);
+      // Table creation (idempotent DDL) stays outside the cascade
+      // transaction; every mutation below runs inside ONE transaction so a
+      // crash leaves the cascade fully unapplied — the tombstone re-applies
+      // it when the lane refetches — instead of stranding metadata rows
+      // that re-delivered tombstones would then skip.
+      await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
+      await ensureDocumentProjectionTables(lockedExecSql);
+      await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
       const retainMetadataIds = new Set(
         options?.retainMetadataForContainerIds ?? [],
       );
       const metadataDeleteIds = uniqueContainerIds.filter(
         (containerId) => !retainMetadataIds.has(containerId),
       );
-      if (metadataDeleteIds.length > 0) {
-        await db
-          .delete(documents)
-          .where(
-            and(
-              eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-              inArray(documents.localId, metadataDeleteIds),
-            ),
-          )
-          .run();
-        await db
-          .delete(documentPendingUpdates)
-          .where(
-            and(
-              eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-              inArray(documentPendingUpdates.localId, metadataDeleteIds),
-            ),
-          )
-          .run();
-        await db
-          .delete(documentSyncFailures)
-          .where(
-            and(
-              eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
-              inArray(documentSyncFailures.localId, metadataDeleteIds),
-            ),
-          )
-          .run();
-      }
-      await sqlContainerSyncWatermarkPersistence.deleteWatermarksForContainers(
-        lockedExecSql,
-        uniqueContainerIds,
+      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          await repairDocumentsForRemovedContainersInTransaction({
+            containerIds: uniqueContainerIds,
+            tx,
+            updatedAt,
+          });
+          await tx
+            .delete(containerCreateIntents)
+            .where(
+              inArray(containerCreateIntents.containerId, uniqueContainerIds),
+            )
+            .run();
+          await tx
+            .delete(containerMoveIntents)
+            .where(
+              inArray(containerMoveIntents.containerId, uniqueContainerIds),
+            )
+            .run();
+          await deleteContainerRowsInTransaction(tx, uniqueContainerIds);
+          if (metadataDeleteIds.length > 0) {
+            await tx
+              .delete(documents)
+              .where(
+                and(
+                  eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
+                  inArray(documents.localId, metadataDeleteIds),
+                ),
+              )
+              .run();
+            await tx
+              .delete(documentPendingUpdates)
+              .where(
+                and(
+                  eq(
+                    documentPendingUpdates.appKind,
+                    CONTAINER_METADATA_APP_KIND,
+                  ),
+                  inArray(documentPendingUpdates.localId, metadataDeleteIds),
+                ),
+              )
+              .run();
+            await tx
+              .delete(documentSyncFailures)
+              .where(
+                and(
+                  eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
+                  inArray(documentSyncFailures.localId, metadataDeleteIds),
+                ),
+              )
+              .run();
+          }
+          await deleteContainerWatermarksInTransaction(tx, uniqueContainerIds);
+        },
       );
     });
   },

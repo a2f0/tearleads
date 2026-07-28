@@ -5,7 +5,11 @@ import {
   containerSyncWatermarks,
   containerSyncWatermarkTables,
 } from "../../sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteDatabase,
+  type ClientSQLiteTransaction,
+  getClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 
 const CONTAINER_PARENT_LANE = "container_parent";
@@ -85,6 +89,54 @@ function containerParentLaneId(parentId: string | null): string {
   return parentId === null
     ? ROOT_CONTAINER_PARENT_LANE_ID
     : `${CONTAINER_PARENT_LANE_ID_PREFIX}${parentId}`;
+}
+
+/**
+ * The watermark half of the container-delete cascade, statement-only so the
+ * caller can run it inside one atomic transaction alongside the rest of the
+ * cascade.
+ */
+export async function deleteContainerWatermarksInTransaction(
+  tx: ClientSQLiteDatabase | ClientSQLiteTransaction,
+  containerIds: ReadonlyArray<string>,
+): Promise<void> {
+  const uniqueContainerIds = Array.from(new Set(containerIds));
+  if (uniqueContainerIds.length === 0) {
+    return;
+  }
+  const parentLaneIds = uniqueContainerIds.map((containerId) =>
+    containerParentLaneId(containerId),
+  );
+  await tx
+    .delete(containerSyncWatermarks)
+    .where(
+      or(
+        and(
+          eq(containerSyncWatermarks.laneKind, CONTAINER_PARENT_LANE),
+          inArray(containerSyncWatermarks.laneId, parentLaneIds),
+        ),
+        and(
+          eq(containerSyncWatermarks.laneKind, CONTAINER_DOCUMENTS_LANE),
+          inArray(containerSyncWatermarks.laneId, uniqueContainerIds),
+        ),
+      ),
+    )
+    .run();
+  await tx
+    .delete(containerSyncLaneChecks)
+    .where(
+      or(
+        and(
+          eq(containerSyncLaneChecks.laneKind, CONTAINER_PARENT_LANE),
+          inArray(containerSyncLaneChecks.laneId, parentLaneIds),
+        ),
+        and(
+          eq(containerSyncLaneChecks.laneKind, CONTAINER_DOCUMENTS_LANE),
+          inArray(containerSyncLaneChecks.laneId, uniqueContainerIds),
+        ),
+      ),
+    )
+    .run();
 }
 
 function mapSelectedWatermarkRecord(
@@ -358,42 +410,8 @@ export const sqlContainerSyncWatermarkPersistence = {
     }
 
     await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
-    const parentLaneIds = uniqueContainerIds.map((containerId) =>
-      containerParentLaneId(containerId),
-    );
-
     await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .delete(containerSyncWatermarks)
-        .where(
-          or(
-            and(
-              eq(containerSyncWatermarks.laneKind, CONTAINER_PARENT_LANE),
-              inArray(containerSyncWatermarks.laneId, parentLaneIds),
-            ),
-            and(
-              eq(containerSyncWatermarks.laneKind, CONTAINER_DOCUMENTS_LANE),
-              inArray(containerSyncWatermarks.laneId, uniqueContainerIds),
-            ),
-          ),
-        )
-        .run();
-
-      await db
-        .delete(containerSyncLaneChecks)
-        .where(
-          or(
-            and(
-              eq(containerSyncLaneChecks.laneKind, CONTAINER_PARENT_LANE),
-              inArray(containerSyncLaneChecks.laneId, parentLaneIds),
-            ),
-            and(
-              eq(containerSyncLaneChecks.laneKind, CONTAINER_DOCUMENTS_LANE),
-              inArray(containerSyncLaneChecks.laneId, uniqueContainerIds),
-            ),
-          ),
-        )
-        .run();
+      await deleteContainerWatermarksInTransaction(db, uniqueContainerIds);
     });
   },
 };

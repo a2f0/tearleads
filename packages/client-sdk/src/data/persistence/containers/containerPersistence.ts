@@ -270,20 +270,21 @@ export async function saveContainer(
   });
 }
 
-export async function deleteContainers(
-  execSql: ExecSql,
+/**
+ * The container-row half of the delete cascade, statement-only so callers
+ * can compose it inside one atomic transaction.
+ */
+export async function deleteContainerRowsInTransaction(
+  tx: ClientSQLiteTransaction,
   ids: ReadonlyArray<string>,
 ): Promise<void> {
   const uniqueIds = Array.from(new Set(ids));
   if (uniqueIds.length === 0) {
     return;
   }
-
-  await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    await tx
-      .delete(containerProjection)
-      .where(inArray(containerProjection.containerId, uniqueIds))
-      .run();
-    await tx.delete(containers).where(inArray(containers.id, uniqueIds)).run();
-  });
+  await tx
+    .delete(containerProjection)
+    .where(inArray(containerProjection.containerId, uniqueIds))
+    .run();
+  await tx.delete(containers).where(inArray(containers.id, uniqueIds)).run();
 }
