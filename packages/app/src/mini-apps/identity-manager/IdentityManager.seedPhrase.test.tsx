@@ -83,7 +83,7 @@ async function renderRecoveryKeyView(entropyByte: number) {
   });
   await view.findByRole("button", { name: "Reveal Recovery Key" });
 
-  return { seedPhrase, view };
+  return { seedPhrase, tearleads, view };
 }
 
 test("identity manager exposes the recovery key for seed-backed identities", async () => {
@@ -268,6 +268,67 @@ test("revealing the recovery key requires the acknowledgement phrase", async () 
 
     fireEvent.click(view.getByRole("button", { name: "Hide Recovery Key" }));
     expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+  }
+});
+
+test("switching identities revokes an existing reveal", async () => {
+  const originalWebSocket = globalThis.WebSocket;
+
+  try {
+    Reflect.set(globalThis, "WebSocket", TestWebSocket);
+    const { seedPhrase, tearleads, view } = await renderRecoveryKeyView(0x22);
+
+    fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+    fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
+      target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
+    });
+    await act(async () => {
+      fireEvent.click(view.getByRole("button", { name: "Show Passphrase" }));
+    });
+    expect(view.getByDisplayValue(seedPhrase)).toBeTruthy();
+
+    const nextSeedPhrase = createIdentitySeedPhraseFromEntropy(
+      new Uint8Array(32).fill(0x33),
+    );
+    await act(async () => {
+      await tearleads.identity.importSeedPhrase(nextSeedPhrase);
+    });
+
+    // The incoming key must never render off the previous key's acknowledgement.
+    expect(view.queryByDisplayValue(nextSeedPhrase)).toBeNull();
+    expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
+    expect(
+      view.getByRole("button", { name: "Reveal Recovery Key" }),
+    ).toBeTruthy();
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+  }
+});
+
+test("switching identities discards a pending acknowledgement", async () => {
+  const originalWebSocket = globalThis.WebSocket;
+
+  try {
+    Reflect.set(globalThis, "WebSocket", TestWebSocket);
+    const { tearleads, view } = await renderRecoveryKeyView(0x44);
+
+    fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+    fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
+      target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
+    });
+
+    const nextSeedPhrase = createIdentitySeedPhraseFromEntropy(
+      new Uint8Array(32).fill(0x55),
+    );
+    await act(async () => {
+      await tearleads.identity.importSeedPhrase(nextSeedPhrase);
+    });
+
+    // The dialog belonged to the previous identity; it cannot be spent here.
+    expect(view.queryByRole("dialog")).toBeNull();
+    expect(view.queryByDisplayValue(nextSeedPhrase)).toBeNull();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }

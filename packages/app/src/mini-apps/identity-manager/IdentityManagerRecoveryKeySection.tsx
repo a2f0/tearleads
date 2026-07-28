@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import {
   MiniAppButton,
   MiniAppClipboardButton,
@@ -73,6 +73,12 @@ const RECOVERY_KEY_DISCLOSURES: Record<
       "Your recovery key derives the private encryption keys for this identity. Anyone who can see your screen — including a screen share or recording — can copy it and impersonate you.",
   },
 };
+
+interface PendingDisclosure {
+  /** Signing fingerprint the acknowledgement was requested for. */
+  readonly identity: string | null;
+  readonly kind: RecoveryKeyDisclosure;
+}
 
 interface RecoveryKeyFeedback {
   readonly setError: (message: string | null) => void;
@@ -224,15 +230,18 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
   const { seedPhrase, signingFingerprint } = useIdentity();
   const fileSaver = useFileSaver();
   const { log, logError } = useLog();
-  const [pendingDisclosure, setPendingDisclosure] =
-    useState<RecoveryKeyDisclosure | null>(null);
-  const [revealed, setRevealed] = useState(false);
+  const [pending, setPending] = useState<PendingDisclosure | null>(null);
+  const [revealedFor, setRevealedFor] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Switching identities swaps the key underneath a mounted section; the new
-    // one must be acknowledged on its own before it appears on screen.
-    setRevealed(false);
-  }, [seedPhrase]);
+  // Both are derived rather than reset by an effect: switching identities swaps
+  // the key underneath a mounted section, and an effect would clear the flags
+  // only *after* the new phrase had already rendered. Scoping authorization to
+  // the identity it was granted for revokes it in the same render, so a new key
+  // is never shown — and a dialog opened for the old one is never confirmable
+  // against it.
+  const revealed = revealedFor !== null && revealedFor === signingFingerprint;
+  const pendingDisclosure =
+    pending && pending.identity === signingFingerprint ? pending.kind : null;
 
   const copyRecoveryKey = async (recoveryKey: string) => {
     if (typeof navigator === "undefined" || !navigator.clipboard) {
@@ -263,7 +272,7 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
       } else if (acknowledged === "download") {
         await downloadRecoveryKey(seedPhrase);
       } else {
-        setRevealed(true);
+        setRevealedFor(signingFingerprint);
       }
       feedback.setStatus(disclosureCopy.successStatus);
       log(disclosureCopy.successLog);
@@ -274,17 +283,20 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
   };
 
   return {
-    cancelDisclosure: () => setPendingDisclosure(null),
+    cancelDisclosure: () => setPending(null),
     confirmDisclosure: () => {
+      // Reads the identity-scoped value, so an acknowledgement typed for the
+      // previous identity cannot be spent on the current one.
       const acknowledged = pendingDisclosure;
-      setPendingDisclosure(null);
+      setPending(null);
       if (acknowledged) {
         void runDisclosure(acknowledged);
       }
     },
-    hide: () => setRevealed(false),
+    hide: () => setRevealedFor(null),
     pendingDisclosure,
-    requestDisclosure: setPendingDisclosure,
+    requestDisclosure: (kind: RecoveryKeyDisclosure) =>
+      setPending({ identity: signingFingerprint, kind }),
     revealed,
   };
 }
