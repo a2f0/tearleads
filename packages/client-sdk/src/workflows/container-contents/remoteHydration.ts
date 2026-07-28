@@ -24,6 +24,7 @@ import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,
 } from "./remoteHydration/reconciliation";
+import { collectRemovedContainers } from "./remoteHydration/tombstoneReasons";
 import type {
   ContainerChildIndex,
   ContainerParentHydrationLane,
@@ -578,49 +579,6 @@ function getApplicableRemoteContainerItems(
   });
 }
 
-function collectRemovedContainerIds(input: {
-  childIdsByParentId: ContainerChildIndex;
-  containersById: ReadonlyMap<string, ContainerState>;
-  preservedContainerIds: ReadonlySet<string>;
-  tombstones: ReadonlyArray<ContainerSyncTombstone>;
-}): string[] {
-  const {
-    childIdsByParentId,
-    containersById,
-    preservedContainerIds,
-    tombstones,
-  } = input;
-  const removedContainerIds = new Set<string>();
-  const pendingContainerIds: string[] = [];
-
-  for (const tombstone of tombstones) {
-    if (!preservedContainerIds.has(tombstone.containerId)) {
-      pendingContainerIds.push(tombstone.containerId);
-    }
-  }
-
-  while (pendingContainerIds.length > 0) {
-    const containerId = pendingContainerIds.pop();
-    if (!containerId || removedContainerIds.has(containerId)) {
-      continue;
-    }
-
-    removedContainerIds.add(containerId);
-    for (const childId of childIdsByParentId.get(containerId) ?? []) {
-      if (
-        !preservedContainerIds.has(childId) &&
-        !removedContainerIds.has(childId)
-      ) {
-        pendingContainerIds.push(childId);
-      }
-    }
-  }
-
-  return Array.from(removedContainerIds).filter((containerId) =>
-    containersById.has(containerId),
-  );
-}
-
 function getLatestContainerTombstoneUpdatedAt(
   tombstones: ReadonlyArray<ContainerSyncTombstone>,
 ): string | undefined {
@@ -645,20 +603,28 @@ async function applyContainerTombstones(input: {
     return 0;
   }
 
-  const removedContainerIds = collectRemovedContainerIds({
-    childIdsByParentId,
-    containersById: state.containersById,
-    preservedContainerIds,
-    tombstones,
-  });
+  const { reasonByContainerId, removedContainerIds } = collectRemovedContainers(
+    {
+      childIdsByParentId,
+      containersById: state.containersById,
+      preservedContainerIds,
+      tombstones,
+    },
+  );
   const tombstoneUpdatedAt = getLatestContainerTombstoneUpdatedAt(tombstones);
   const execSql = state.runtime.infra.execSql;
 
-  await state.persistence.deleteContainers(
-    execSql,
-    removedContainerIds,
-    tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : undefined,
-  );
+  // Row 4 policy (docs/sync-edge-cases.md): a revoked container's own
+  // metadata document — queued edits included — is retained dormant, because
+  // the container still exists server-side and re-attaches by id when access
+  // restoration rehydrates it. A deleted container's metadata is moot.
+  await state.persistence.deleteContainers(execSql, removedContainerIds, {
+    retainMetadataForContainerIds: removedContainerIds.filter(
+      (containerId) =>
+        reasonByContainerId.get(containerId) === "access_revoked",
+    ),
+    ...(tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : {}),
+  });
   for (const containerId of removedContainerIds) {
     const parentId =
       state.containersById.get(containerId)?.container.parentId ?? null;

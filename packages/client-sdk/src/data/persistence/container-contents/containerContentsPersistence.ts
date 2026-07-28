@@ -133,7 +133,16 @@ export interface ContainerContentsPersistence {
   deleteContainers: (
     execSql: ExecSql,
     containerIds: ReadonlyArray<string>,
-    options?: { updatedAt?: string },
+    options?: {
+      /**
+       * Containers whose own container-metadata document (record, queued
+       * updates, failure rows) must survive the cascade — the access_revoked
+       * branch of docs/sync-edge-cases.md row 4. The metadata re-attaches by
+       * container id when access restoration rehydrates the container.
+       */
+      retainMetadataForContainerIds?: ReadonlyArray<string>;
+      updatedAt?: string;
+    },
   ) => Promise<void>;
   deletePendingUpdates: (
     execSql: ExecSql,
@@ -946,33 +955,41 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         .where(inArray(containerMoveIntents.containerId, uniqueContainerIds))
         .run();
       await deleteContainerRecords(lockedExecSql, uniqueContainerIds);
-      await db
-        .delete(documents)
-        .where(
-          and(
-            eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-            inArray(documents.localId, uniqueContainerIds),
-          ),
-        )
-        .run();
-      await db
-        .delete(documentPendingUpdates)
-        .where(
-          and(
-            eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-            inArray(documentPendingUpdates.localId, uniqueContainerIds),
-          ),
-        )
-        .run();
-      await db
-        .delete(documentSyncFailures)
-        .where(
-          and(
-            eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
-            inArray(documentSyncFailures.localId, uniqueContainerIds),
-          ),
-        )
-        .run();
+      const retainMetadataIds = new Set(
+        options?.retainMetadataForContainerIds ?? [],
+      );
+      const metadataDeleteIds = uniqueContainerIds.filter(
+        (containerId) => !retainMetadataIds.has(containerId),
+      );
+      if (metadataDeleteIds.length > 0) {
+        await db
+          .delete(documents)
+          .where(
+            and(
+              eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
+              inArray(documents.localId, metadataDeleteIds),
+            ),
+          )
+          .run();
+        await db
+          .delete(documentPendingUpdates)
+          .where(
+            and(
+              eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
+              inArray(documentPendingUpdates.localId, metadataDeleteIds),
+            ),
+          )
+          .run();
+        await db
+          .delete(documentSyncFailures)
+          .where(
+            and(
+              eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
+              inArray(documentSyncFailures.localId, metadataDeleteIds),
+            ),
+          )
+          .run();
+      }
       await sqlContainerSyncWatermarkPersistence.deleteWatermarksForContainers(
         lockedExecSql,
         uniqueContainerIds,
