@@ -182,8 +182,8 @@
       "bytes": 20923
     },
     "packages/api/src/workflows/principals/putPrincipalPolicy.ts": {
-      "lines": 526,
-      "bytes": 17462
+      "lines": 535,
+      "bytes": 17775
     },
     "packages/api/src/wsRouting.test.ts": {
       "lines": 530,

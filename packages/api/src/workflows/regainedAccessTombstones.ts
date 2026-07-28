@@ -1,6 +1,9 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { containerSyncTombstones } from "@tearleads/api-shared/schema";
-import { and, eq, inArray, or } from "drizzle-orm";
+import {
+  containerSyncTombstones,
+  containers,
+} from "@tearleads/api-shared/schema";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import {
   KeyingReadAccessError,
   resolveReadableContainerAccessBatch,
@@ -118,6 +121,46 @@ async function filterReadableRows(
     }
   }
   return prunableRows;
+}
+
+/**
+ * Expand a set of container ids to include every local descendant: grants
+ * are inherited through container paths, so access regained at an ancestor
+ * also invalidates a descendant's own stale tombstone.
+ */
+export async function expandContainerSubtreeIds(
+  executor: DatabaseTransaction,
+  rootContainerIds: readonly string[],
+): Promise<string[]> {
+  const rootIds = [...new Set(rootContainerIds)];
+  if (rootIds.length === 0) {
+    return [];
+  }
+  const expanded = new Set<string>(rootIds);
+  for (const rootIdChunk of chunk(rootIds, SCOPE_CHUNK_SIZE)) {
+    const result = await executor.execute(sql`
+      with recursive subtree as (
+        select ${containers.id} as id
+        from ${containers}
+        where ${containers.id} in (${sql.join(
+          rootIdChunk.map((rootId) => sql`${rootId}`),
+          sql`, `,
+        )})
+        union all
+        select child.id
+        from ${containers} child
+        inner join subtree on child.parent_id = subtree.id
+      )
+      select id from subtree
+    `);
+    for (const row of result.rows) {
+      const id = Reflect.get(row, "id");
+      if (typeof id === "string") {
+        expanded.add(id);
+      }
+    }
+  }
+  return [...expanded];
 }
 
 /**

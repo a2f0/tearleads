@@ -129,6 +129,7 @@ async function storeChildContainerAccessManifest(input: {
   } as VerifiedContainerAccessManifest;
 
   await storeVerifiedAccessManifest({ verifiedManifest }, db);
+  return manifestHash;
 }
 
 async function organizationIdForContainer(
@@ -309,7 +310,7 @@ test("policy member re-add prunes tombstones through the route", async () => {
     organizationId,
     parentId: actor.rootContainerId,
   });
-  await storeChildContainerAccessManifest({
+  const childManifestHash = await storeChildContainerAccessManifest({
     childContainerId,
     directGrants: [
       {
@@ -335,15 +336,45 @@ test("policy member re-add prunes tombstones through the route", async () => {
     ],
   });
 
-  await db.insert(containerSyncTombstones).values({
-    containerId: childContainerId,
-    depth: 1,
+  // A grandchild with its OWN stale tombstone (from a separate earlier
+  // revoke): grants inherit through paths, so regaining the ancestor also
+  // invalidates it — the subtree expansion must reach it.
+  const grandchildContainerId = crypto.randomUUID();
+  await db.insert(containers).values({
+    depth: 2,
+    id: grandchildContainerId,
     organizationId,
-    parentId: actor.rootContainerId,
-    reason: "access_revoked",
-    updatedAt: STALE_TOMBSTONE_AT,
-    userId: member.userId,
+    parentId: childContainerId,
   });
+  await storeChildContainerAccessManifest({
+    childContainerId: grandchildContainerId,
+    metadataDocumentId: crypto.randomUUID(),
+    organizationId,
+    owner: actor,
+    parentContainerId: childContainerId,
+    parentManifestHash: childManifestHash,
+  });
+
+  await db.insert(containerSyncTombstones).values([
+    {
+      containerId: childContainerId,
+      depth: 1,
+      organizationId,
+      parentId: actor.rootContainerId,
+      reason: "access_revoked",
+      updatedAt: STALE_TOMBSTONE_AT,
+      userId: member.userId,
+    },
+    {
+      containerId: grandchildContainerId,
+      depth: 2,
+      organizationId,
+      parentId: childContainerId,
+      reason: "access_revoked",
+      updatedAt: STALE_TOMBSTONE_AT,
+      userId: member.userId,
+    },
+  ]);
 
   await addOrganizationMember({ actor, member, organizationId });
 
@@ -375,7 +406,11 @@ test("container.grant pruning runs for added user grants only", async () => {
   const grantManifest = (grants: unknown[]) =>
     ({
       event: { event: { eventType: "container.grant" } },
-      state: { directGrants: grants },
+      state: {
+        containerId: owner.rootContainerId,
+        directGrants: grants,
+        organizationId,
+      },
     }) as never;
 
   // A non-grant event never prunes.
@@ -384,7 +419,11 @@ test("container.grant pruning runs for added user grants only", async () => {
       executor: tx,
       manifest: {
         event: { event: { eventType: "container.revoke" } },
-        state: { directGrants: [] },
+        state: {
+          containerId: owner.rootContainerId,
+          directGrants: [],
+          organizationId,
+        },
       } as never,
       previousManifest: grantManifest([]),
     });
