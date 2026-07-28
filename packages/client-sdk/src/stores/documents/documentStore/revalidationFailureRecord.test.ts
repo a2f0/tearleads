@@ -216,3 +216,78 @@ test("a stale terminal handler cannot recreate a deleted failure row", async () 
     close();
   }
 });
+
+// The real deletion path: a terminal handler racing the authoritative
+// deletion queues behind its mutation, observes the in-mutation store
+// invalidation, and records nothing.
+test("a handler racing authoritative deletion records nothing", async () => {
+  const { close, execSql } = await createTestExecSql("deletion-handler-race");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: null,
+        containerId: "tombstoned-container",
+        documentId: "remote-race",
+        documentKind: "note",
+        id: "race-doc",
+        snapshotEndVersion: "",
+        text: "queued edit",
+        title: "queued edit",
+      },
+      { updatedAt: "2026-07-23T14:19:12.658Z" },
+    );
+    const record = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      "race-doc",
+    );
+    if (!record) {
+      throw new Error("expected seeded document record");
+    }
+
+    const doc = {};
+    const resolveProjectionUserKey = () => null;
+    const state = {
+      doc,
+      listeners: new Set(),
+      localId: "race-doc",
+      localWriteGeneration: 0,
+      locallyAcceptedUpdateIds: new Set(),
+      persistence: sqlDocumentsPersistence,
+      record,
+      resolveProjectionUserKey,
+      runtime: {
+        infra: { documentProjectors: null, execSql },
+        state: { containerId: null, domainScope: "scope" },
+        util: { log: () => undefined },
+      },
+      snapshot: { attachments: [], attachmentStatusBySlotId: {} },
+    } as unknown as DocumentStoreState;
+    const generation = {
+      currentDoc: doc,
+      domainScope: "scope",
+      execSql,
+      resolveProjectionUserKey,
+    } as unknown as DocumentStoreSyncGeneration;
+    const handler = documentTerminalSubmitFailureHandler(state, generation);
+
+    const deletion = deleteUpstreamDeletedDocument(
+      state,
+      generation,
+      record,
+      "remote-race",
+    );
+    const racingHandler = handler({ message: "terminal", status: 500 });
+    await deletion;
+    await racingHandler;
+
+    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "race-doc"),
+    ).toBeFalsy();
+  } finally {
+    close();
+  }
+});

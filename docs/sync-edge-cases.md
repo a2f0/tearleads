@@ -74,8 +74,13 @@ without counting as lane progress, so it cannot hot-loop the pump.
 - Orphaned documents (row 3) drop out of the explorer tree entirely (the
   container index excludes `container_id IS NULL`); their queued edits stay
   visible in the write queue, and priming now routes them with a null
-  container scope so their sync passes resolve them. An orphaned-documents
-  surface in the explorer remains an open UX question.
+  container scope — bounded to the store scope's organization, matching the
+  per-organization invariant subtree routing provides — so their sync passes
+  resolve them. Orphans of an organization with no active scope (e.g. after
+  the whole organization's access was revoked) stay preserved-but-dormant:
+  without that organization's auth context no pass could resolve them
+  anyway, which is no worse than before and keeps every edit intact. An
+  orphaned-documents surface in the explorer remains an open UX question.
 - Pre-existing pass-ordering gap (global, not orphan-specific): a document
   whose remote was deleted while attachment uploads are still pending parks
   as attachment failures — the pass aborts before the document sync request,

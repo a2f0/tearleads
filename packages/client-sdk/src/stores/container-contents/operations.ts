@@ -279,6 +279,10 @@ export async function deleteContainer(
   }
 
   state.containersById.delete(existingState.container.id);
+  // The persistence cascade may have orphaned descendant documents (row 3);
+  // re-arm document priming so their null-scoped passes run without waiting
+  // for a restart.
+  state.documentStoresNeedPriming = true;
   updateContainerContentsSnapshot(state);
   state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: deleted container "${existingState.container.name}"`,
