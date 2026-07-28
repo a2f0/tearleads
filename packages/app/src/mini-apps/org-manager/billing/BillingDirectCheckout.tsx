@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 import {
+  MiniAppActions,
+  MiniAppButton,
   MiniAppSection,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
@@ -174,23 +176,19 @@ export function BillingDirectCheckout({
       />
 
       {collecting || confirming ? (
-        <>
-          <MiniAppRowButton
+        <MiniAppActions>
+          <MiniAppButton disabled={confirming} onClick={checkout.cancel}>
+            {ORG_MANAGER_LABELS.billingCancelCheckout}
+          </MiniAppButton>
+          <MiniAppButton
             disabled={confirming || disabled}
             onClick={checkout.confirm}
           >
-            <MiniAppRowText>
-              {confirming
-                ? ORG_MANAGER_LABELS.billingCheckoutPaying
-                : ORG_MANAGER_LABELS.billingCheckoutPay}
-            </MiniAppRowText>
-          </MiniAppRowButton>
-          <MiniAppRowButton disabled={confirming} onClick={checkout.cancel}>
-            <MiniAppRowText>
-              {ORG_MANAGER_LABELS.billingCancelCheckout}
-            </MiniAppRowText>
-          </MiniAppRowButton>
-        </>
+            {confirming
+              ? ORG_MANAGER_LABELS.billingCheckoutPaying
+              : ORG_MANAGER_LABELS.billingCheckoutPay}
+          </MiniAppButton>
+        </MiniAppActions>
       ) : null}
 
       {checkout.error ? (
