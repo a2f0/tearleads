@@ -11,6 +11,7 @@ const spies: { mockRestore: () => void }[] = [];
 
 afterEach(() => {
   cleanup();
+  document.documentElement.removeAttribute("data-navigation-mode");
   while (spies.length > 0) {
     spies.pop()?.mockRestore();
   }
@@ -144,6 +145,36 @@ test("collecting shows Pay and Cancel over a visible element host", () => {
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingCancelCheckout));
   expect(paid).toBe(1);
   expect(cancelled).toBe(1);
+});
+
+test.each([
+  "windowed",
+  "tablet",
+  "mobile",
+])("%s checkout actions use the standard button styling", (layout) => {
+  document.documentElement.setAttribute(
+    "data-navigation-mode",
+    layout === "windowed" ? "windowed" : "routed",
+  );
+  const view = render(
+    <BillingDirectCheckout
+      checkout={state({ phase: { kind: "collecting" } })}
+      disabled={false}
+    />,
+  );
+
+  const actions = view.container.querySelector(".mini-app-actions");
+  const pay = view.getByRole("button", {
+    name: ORG_MANAGER_LABELS.billingCheckoutPay,
+  });
+  const cancel = view.getByRole("button", {
+    name: ORG_MANAGER_LABELS.billingCancelCheckout,
+  });
+
+  expect(actions).not.toBeNull();
+  expect(Array.from(actions?.children ?? [])).toEqual([cancel, pay]);
+  expect(pay.classList.contains("mini-app-button")).toBe(true);
+  expect(cancel.classList.contains("mini-app-button")).toBe(true);
 });
 
 test("confirming locks both actions so a payment cannot be double-submitted", () => {
