@@ -15,11 +15,22 @@ export async function importSeedIdentity(
   routed: boolean,
   passphrase: string,
 ): Promise<void> {
+  // The mini-app is sectioned (see mini-apps/identity-manager/sections.ts) and
+  // only the Recovery Key section renders the restore form. The routed shell
+  // keeps the section in the URL, so ask for it directly; the windowed shell
+  // holds it in component state, so the section has to be clicked.
   if (routed) {
-    await page.goto("/app/identity-manager");
+    await page.goto("/app/identity-manager/recovery-key");
     await waitForBooted(page);
   } else {
     await openWindowedApp(page, "Identity Manager");
+    // The section is reachable from the window's sidebar or, on a narrow
+    // window, from the in-body section menu; both render the same label and
+    // both just set the view, so take whichever this window put up.
+    await visiblePane(page)
+      .getByRole("button", { name: "Recovery Key", exact: true })
+      .first()
+      .click();
   }
 
   // The section renders two textareas with the same class (the read-only current

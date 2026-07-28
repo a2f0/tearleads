@@ -61,7 +61,11 @@ async function openIdentityManager(
   routed: boolean,
 ): Promise<OpenIdentityManagerResult> {
   if (routed) {
-    await page.goto("/app/identity-manager");
+    // Route to the section that carries the identity details this reads (the
+    // Signing Key row, the Login/Register buttons). The mini-app's base route is
+    // its section menu, which the tablet tier resolves to General but the mobile
+    // tier leaves as the menu itself — so ask for General by name.
+    await page.goto("/app/identity-manager/general");
     await waitForBooted(page);
     return { close: async () => undefined, scope: page };
   }

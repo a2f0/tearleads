@@ -1,5 +1,9 @@
+/* Read and edit modes share this column, so cap it once here rather than on the
+   inputs: the read rows carry a trailing clipboard button that otherwise floats
+   a screen-width away from the value it copies. */
 .contact-document-fields {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  max-width: var(--form-measure);
 }

@@ -109,6 +109,11 @@
   --control-height: 2rem;
   --control-padding-block: var(--space-sm);
   --control-padding-inline: var(--space-md);
+  /* Ceiling for a column of text-entry controls and any frame around it: past
+     this an input reads as a rule, not a field. Matches the windowed min-width
+     floor several mini-apps already declare. The mobile tier re-declares it as
+     100% (RoutedPane.css) to stay edge-to-edge. See docs/ui-design-system.md. */
+  --form-measure: 34rem;
 
   /* === Rows & tables === */
   /* A deliberate row-height rhythm for list/table density. The roomy,

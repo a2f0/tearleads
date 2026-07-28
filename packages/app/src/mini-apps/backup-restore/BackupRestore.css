@@ -15,10 +15,18 @@
   min-height: 0;
 }
 
+/*
+ * The whole app is one form, so cap the column rather than the panel alone:
+ * heading, status lines, tab strip, and the framed panel then share one left
+ * edge and one right edge instead of the tabs and the frame ruling the full
+ * width of an iPad while the inputs inside them sit at the measure.
+ */
 .backup-restore-main {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  min-width: 0;
+  max-width: var(--form-measure);
   min-height: 0;
 }
 

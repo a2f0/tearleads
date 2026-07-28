@@ -91,16 +91,23 @@
   min-height: 0;
 }
 
+/* Two forms (set/change and clear) when a PIN is set, one otherwise; the
+   auto-fit grid pairs them side by side and drops to a single column when the
+   pane is narrow. Capped at the form measure so the pair reads as one block on
+   an iPad rather than two PIN boxes at opposite ends of the screen — 14rem
+   columns still fit two across inside the cap. */
 .identity-manager-pin-forms {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   gap: var(--space-md);
+  max-width: var(--form-measure);
 }
 
 .identity-manager-recovery-key-form {
   display: grid;
   gap: var(--space-sm);
   min-width: 0;
+  max-width: var(--form-measure);
 }
 
 .identity-manager-recovery-key-textarea {

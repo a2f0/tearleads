@@ -86,8 +86,9 @@ the same `<html data-theme>` attribute the CSS keys off.
 `packages/ui/src/styles.css` is the single token sheet: color roles
 (`--color-*`, `--emphasis-*`, `--tearleads-*` chrome bands), typography scale,
 spacing scale (`--space-2xs` through `--space-md`), control sizing
-(`--control-height`, `--control-padding-*`), row-height rhythm, borders
-(`--border`, `--border-strong`), opacity scale, overlays, and motion. Rules:
+(`--control-height`, `--control-padding-*`, `--form-measure`), row-height
+rhythm, borders (`--border`, `--border-strong`), opacity scale, overlays, and
+motion. Rules:
 
 - No raw hex colors, no magic pixel values in feature CSS — always the tokens.
   (The only sanctioned literals are structural one-offs like resize-handle hit
@@ -97,6 +98,51 @@ spacing scale (`--space-2xs` through `--space-md`), control sizing
   `<html data-theme>`. Structural tokens are theme-independent by design.
 - Each component ships a sibling `.css` file imported by its `.tsx`; class
   names are composed with `classNames` from `components/shared/classNames`.
+
+## Form measure
+
+Text-entry controls are capped, content is not. A field stretched to the width
+of a maximized desktop window or an iPad reads as a long empty rule rather than
+a field, and it strands a left-aligned label a screen away from the caret, so
+`--form-measure` (34rem) is the ceiling for a column of entry controls.
+
+- `.mini-app-field` carries the cap, so every `MiniAppField` gets it by
+  default and a new form inherits the behavior without opting in. The cap sits
+  on the field, not the control, so the label and any trailing affordance
+  (clipboard button) stay grouped with the input. `.mini-app-toolbar`'s inputs
+  and selects still grow into their slack but stop at the same measure.
+- A surface that **groups** fields caps the group too
+  (`.backup-restore-main`, `.identity-manager-pin-forms`,
+  `.identity-manager-recovery-key-form`, `.contact-document-fields`,
+  `.contacts-detail-fields`). Otherwise the panel border, tab strip, and section
+  heading keep ruling the whole viewport around a column of measure-width
+  inputs, which reads worse than the stretched fields did. It also catches the
+  read-mode rows that `MiniAppField` never wraps — a contact's value and its
+  clipboard button are only adjacent if their row is capped.
+- **The mobile tier opts out entirely.** `RoutedPane.css` re-declares
+  `--form-measure: 100%` under `.routed-pane--mobile`, so nothing is capped
+  below 760px. That tier is single-column and deliberately edge-to-edge — its
+  tab strip bleeds past the root padding to both screen edges — and it runs to
+  759px, well past 34rem, so a cap there would strand the bleed short of the
+  screen (`e2e/mobile-chrome.spec.ts` asserts this). Override the token, never
+  the individual rules: `100%` and not `none` because consumers also read it
+  inside `min()`, where a keyword invalidates the whole declaration.
+- 34rem matches the windowed `min-width` floors those apps already declare, so a
+  form fills its narrowest window exactly and simply stops growing past it.
+- The unit is deliberately `rem`, and `rem` is **not** the same pixel value in
+  both shells: the windowed layout inherits the monospace default-fixed-font
+  quirk (`1rem` ≈ 13px), while the routed tier anchors `font-size: 16px` (see
+  the block comment in `styles.routed.css`). So the cap lands at ~442px
+  windowed and 544px routed — the same *character* count either way, which in a
+  monospace UI is what a measure is supposed to hold constant. Do not "fix"
+  this by switching to `px`.
+- Form columns stay **left-aligned**; the slack goes to the right. Do not cap
+  what wants the width — tables, virtualized lists, document editors
+  (`NoteDocument`, `EnvFile`, `JsonFileDocument`), and media previews.
+- The other two standard answers to the same problem are already in use where
+  they fit better than a cap: reflow into as many columns as fit
+  (`.file-document-metadata`, `.identity-manager-pin-forms`), and size a
+  control to its content (`.explorer-container-icon-picker`).
 
 ## Component policy
 

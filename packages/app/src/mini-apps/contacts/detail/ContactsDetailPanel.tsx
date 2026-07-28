@@ -127,7 +127,7 @@ function ContactsSelectionState({
   }
 
   return (
-    <MiniAppPanel key={selectedEntry.id}>
+    <MiniAppPanel className="contacts-detail-fields" key={selectedEntry.id}>
       <ContactsAvatarSection
         blobStore={blobStore}
         canEdit={isEditing && canEditSelectedEntry}

@@ -5,9 +5,10 @@
 }
 
 /* The rename input sits inside a row stack; stretch it to the row width so it
-   reads as an editable field rather than a narrow inline box. */
+   reads as an editable field rather than a narrow inline box — up to the form
+   measure, past which it is a rule rather than a field. */
 .file-document-fields .mini-app-input {
-  width: 100%;
+  width: min(100%, var(--form-measure));
 }
 
 /* Read-only metadata (MIME type, size, dimensions, ...) flows into as many

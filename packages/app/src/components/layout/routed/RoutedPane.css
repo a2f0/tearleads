@@ -208,6 +208,21 @@
   padding-inline-start: var(--safe-area-left);
 }
 
+/*
+ * Release the form measure on this tier. The mobile shell is single-column and
+ * deliberately edge-to-edge — its tab strip even bleeds past the root's inline
+ * padding to both screen edges (see MiniAppTabs.css) — but the tier runs all the
+ * way to 759px, well past the 34rem cap, so between those widths the cap would
+ * pull the column in and strand that bleed short of the screen (asserted by
+ * e2e/mobile-chrome.spec.ts). `100%` rather than `none` because consumers also
+ * read the token inside `min()`, where a keyword would invalidate the whole
+ * declaration; every capped element is already within its container's width, so
+ * this reads as "no cap" for all of them.
+ */
+.routed-pane--mobile {
+  --form-measure: 100%;
+}
+
 /* === Bottom taskbar (both tiers) === */
 
 /* Three columns keep the logo optically centered regardless of the corner
