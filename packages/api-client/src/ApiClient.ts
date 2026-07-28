@@ -123,6 +123,15 @@ const BLOB_PART_UPLOAD_ID_HEADER = "X-Tearleads-Blob-Upload-Id";
 type ExpiredHandler = () => boolean | Promise<boolean>;
 type PaymentRequiredHandler = (organizationId: string | null) => void;
 
+// A joinable in-flight writer-projection result fetch, pinned to the value
+// slot and per-key invalidation stamp it started against. A caller may join
+// it only while both are unchanged — see writerProjectionResult.
+interface InFlightWriterProjectionResult<T> {
+  readonly invalidationStamp: number;
+  readonly resultPromise: Promise<RequestResult<T>>;
+  readonly slot: Promise<T | null> | undefined;
+}
+
 function isWebSocketTicketResponse(
   value: unknown,
 ): value is { ticket: string } {
@@ -149,6 +158,16 @@ export class ApiClient {
     new BoundedCache<Promise<ContainerWriterProjectionResponse | null>>();
   private readonly documentWriterProjectionRequestsByDocumentId =
     new BoundedCache<Promise<DocumentWriterProjectionResponse | null>>();
+  private readonly containerWriterProjectionResultsInFlightByContainerId =
+    new Map<
+      string,
+      InFlightWriterProjectionResult<ContainerWriterProjectionResponse>
+    >();
+  private readonly documentWriterProjectionResultsInFlightByDocumentId =
+    new Map<
+      string,
+      InFlightWriterProjectionResult<DocumentWriterProjectionResponse>
+    >();
   private readonly documentAttachmentListRequestsByDocumentId =
     new BoundedCache<Promise<ListDocumentAttachmentsResponse | null>>();
   private readonly documentAttributionRequests =
@@ -179,6 +198,8 @@ export class ApiClient {
     this.documentAttributionRequests.clear();
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
+    this.containerWriterProjectionResultsInFlightByContainerId.clear();
+    this.documentWriterProjectionResultsInFlightByDocumentId.clear();
     this.userIdentityRequestsByUserId.clear();
     this.principalPolicyRequestsByKey.clear();
   }
@@ -190,6 +211,8 @@ export class ApiClient {
   clearWriterProjectionCaches(): void {
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
+    this.containerWriterProjectionResultsInFlightByContainerId.clear();
+    this.documentWriterProjectionResultsInFlightByDocumentId.clear();
   }
 
   evictUserIdentity(userId: string): void {
@@ -204,6 +227,7 @@ export class ApiClient {
    */
   evictDocumentWriterProjection(documentId: string): void {
     this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+    this.documentWriterProjectionResultsInFlightByDocumentId.delete(documentId);
   }
 
   /**
@@ -214,6 +238,9 @@ export class ApiClient {
    */
   evictContainerWriterProjection(containerId: string): void {
     this.containerWriterProjectionRequestsByContainerId.delete(containerId);
+    this.containerWriterProjectionResultsInFlightByContainerId.delete(
+      containerId,
+    );
   }
 
   private buildHeaders(
@@ -993,6 +1020,171 @@ export class ApiClient {
     );
   }
 
+  getContainerWriterProjectionResult(
+    containerId: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<ContainerWriterProjectionResponse>> {
+    return this.writerProjectionResult(
+      this.containerWriterProjectionRequestsByContainerId,
+      this.containerWriterProjectionResultsInFlightByContainerId,
+      containerId,
+      `/containers/${pathSegment(containerId)}/writer-projection`,
+      isContainerWriterProjectionResponse,
+      options,
+    );
+  }
+
+  // Shared by the writer-projection result variants: coalesce concurrent
+  // result callers onto one in-flight fetch, reuse a cached success, fetch a
+  // result otherwise, and reconcile the cache without ever clobbering an entry
+  // that changed while the fetch was in flight.
+  private writerProjectionResult<T>(
+    cache: BoundedCache<Promise<T | null>>,
+    inFlightResults: Map<string, InFlightWriterProjectionResult<T>>,
+    cacheKey: string,
+    path: string,
+    validator: (value: unknown) => value is T,
+    options: RequestResultOptions,
+  ): Promise<RequestResult<T>> {
+    // Request-affecting options make the response caller-specific: run the
+    // request directly with the caller's options, join no shared fetch, and
+    // never publish the outcome to the shared caches. Only reporting-only
+    // callers below participate in coalescing and cache warming.
+    if (
+      options.headers !== undefined ||
+      options.retryOnSessionExpired !== undefined
+    ) {
+      return this.makeRequestResult(path, validator, "GET", undefined, options);
+    }
+
+    // A concurrent burst shares one fetch — failure included — so it cannot
+    // repeat the HTTP request or the 402 billing signal. The entry lives only
+    // while the fetch is in flight: failures are shared, never cached, so a
+    // later retry refetches. An in-flight fetch is joinable only while the
+    // value slot and per-key invalidation stamp it started against are
+    // unchanged: a prime, a completed plain GET, or an eviction of THIS id
+    // that lands mid-flight makes the older fetch unadoptable, so a later
+    // caller reads the current cache state (or fetches fresh) instead of
+    // joining a fetch that predates it — while invalidations of other ids
+    // leave the coalescing intact. Eviction and priming also delete the
+    // entry outright; the identity guard keeps a late settle from deleting a
+    // successor's entry.
+    //
+    // The shared fetch itself is always silent; each caller applies its OWN
+    // reporting policy to the shared outcome below. Coalescing therefore
+    // never lets one caller's reportErrors suppress (or force) another's,
+    // and caller options never reach the request — the fetch takes none.
+    const slot = cache.get(cacheKey);
+    const invalidationStamp = cache.invalidationStamp(cacheKey);
+    const inFlight = inFlightResults.get(cacheKey);
+    let shared: Promise<RequestResult<T>>;
+    if (
+      inFlight &&
+      inFlight.slot === slot &&
+      inFlight.invalidationStamp === invalidationStamp
+    ) {
+      shared = inFlight.resultPromise;
+    } else {
+      const entry: InFlightWriterProjectionResult<T> = {
+        invalidationStamp,
+        resultPromise: this.fetchWriterProjectionResult(
+          cache,
+          cacheKey,
+          path,
+          validator,
+        ).finally(() => {
+          if (inFlightResults.get(cacheKey) === entry) {
+            inFlightResults.delete(cacheKey);
+          }
+        }),
+        slot,
+      };
+      inFlightResults.set(cacheKey, entry);
+      shared = entry.resultPromise;
+    }
+
+    if (options.reportErrors === false) {
+      return shared;
+    }
+    return shared.then((result) => {
+      if (!result.ok) {
+        result.report();
+      }
+      return result;
+    });
+  }
+
+  // The fetch half of writerProjectionResult. Cache reconciliation guards
+  // against both mid-flight slot replacement (identity comparison) and
+  // mid-flight eviction of an empty slot (the per-key invalidation stamp),
+  // so a projection an eviction (e.g. after a revoke) meant to drop is never
+  // re-cached.
+  private async fetchWriterProjectionResult<T>(
+    cache: BoundedCache<Promise<T | null>>,
+    cacheKey: string,
+    path: string,
+    validator: (value: unknown) => value is T,
+  ): Promise<RequestResult<T>> {
+    let cached = cache.get(cacheKey);
+    while (cached) {
+      try {
+        const data = await cached;
+        if (data) {
+          return { data, ok: true };
+        }
+      } catch {
+        // A rejected shared entry is reconciled by its own settle handler;
+        // fall through either way.
+      }
+      // The awaited entry settled empty. Re-read the slot before fetching: a
+      // newer entry installed while we awaited must be reused, not fetched
+      // over — the set below would otherwise clobber it.
+      const current = cache.get(cacheKey);
+      if (current === cached) {
+        break;
+      }
+      cached = current;
+    }
+
+    // The plain value cache never sees this fetch while it is in flight: a
+    // published always-silent entry would hand a concurrent PLAIN caller a
+    // null without its normal error reporting. Plain callers keep their own
+    // fetch-and-report behavior instead, and only a success is published.
+    // Always silent here: reporting is per-caller in writerProjectionResult,
+    // and taking no caller options is what guarantees nothing
+    // request-affecting can be smuggled into the shared fetch.
+    const invalidationStamp = cache.invalidationStamp(cacheKey);
+    const result = await this.makeRequestResult(
+      path,
+      validator,
+      "GET",
+      undefined,
+      {
+        reportErrors: false,
+      },
+    );
+
+    if (result.ok) {
+      // Publish the success unless the slot changed or this id was
+      // invalidated mid-flight. The stamp check is what makes an eviction of
+      // THIS id visible even when the slot was empty before and after the
+      // flight — the case the identity comparison alone cannot see — and it
+      // never caches a projection an eviction meant to drop.
+      if (
+        cache.get(cacheKey) === cached &&
+        cache.invalidationStamp(cacheKey) === invalidationStamp
+      ) {
+        cache.set(cacheKey, Promise.resolve(result.data));
+      }
+    } else if (cached && cache.get(cacheKey) === cached) {
+      // The adopted entry settled empty and the fetch confirmed there is
+      // nothing to serve: drop it so a later read refetches.
+      cache.delete(cacheKey);
+    }
+
+    return result;
+  }
+
   createContainer(input: ContainerMutationRequest) {
     return this.request(
       "/containers",
@@ -1132,57 +1324,18 @@ export class ApiClient {
     return this.documentAttributionRequests.listRanges(documentId, options);
   }
 
-  async getDocumentWriterProjectionResult(
+  getDocumentWriterProjectionResult(
     documentId: string,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<DocumentWriterProjectionResponse>> {
-    let cached =
-      this.documentWriterProjectionRequestsByDocumentId.get(documentId);
-    if (cached) {
-      try {
-        const data = await cached;
-        if (data) {
-          return { data, ok: true };
-        }
-      } catch {
-        if (
-          this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
-          cached
-        ) {
-          this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
-          cached = undefined;
-        }
-      }
-    }
-
-    const result = await this.makeRequestResult(
+    return this.writerProjectionResult(
+      this.documentWriterProjectionRequestsByDocumentId,
+      this.documentWriterProjectionResultsInFlightByDocumentId,
+      documentId,
       `/documents/${pathSegment(documentId)}/writer-projection`,
       isDocumentWriterProjectionResponse,
-      "GET",
-      undefined,
       options,
     );
-
-    if (result.ok) {
-      if (
-        this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
-        cached
-      ) {
-        this.documentWriterProjectionRequestsByDocumentId.set(
-          documentId,
-          Promise.resolve(result.data),
-        );
-      }
-    } else {
-      if (
-        this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
-        cached
-      ) {
-        this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
-      }
-    }
-
-    return result;
   }
 
   /**
@@ -1207,6 +1360,12 @@ export class ApiClient {
       documentId,
       Promise.resolve(projection),
     );
+    // The just-authored seed supersedes any GET already in flight: drop the
+    // shared result entry so a post-prime result caller reads the seeded
+    // projection instead of coalescing onto the older fetch. Callers already
+    // holding that fetch keep their result, and its settle cannot clobber the
+    // seed (the slot no longer matches its snapshot).
+    this.documentWriterProjectionResultsInFlightByDocumentId.delete(documentId);
   }
 
   /**
@@ -1234,6 +1393,11 @@ export class ApiClient {
       containerId,
       Promise.resolve(projection),
     );
+    // Same supersession rule as primeDocumentWriterProjection: a post-prime
+    // result caller must read the seed, not an older in-flight GET.
+    this.containerWriterProjectionResultsInFlightByContainerId.delete(
+      containerId,
+    );
   }
 
   linkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
@@ -1245,7 +1409,7 @@ export class ApiClient {
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      this.evictDocumentWriterProjection(documentId);
     });
   }
 
@@ -1261,7 +1425,7 @@ export class ApiClient {
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      this.evictDocumentWriterProjection(documentId);
     });
   }
 
@@ -1319,7 +1483,7 @@ export class ApiClient {
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      this.evictDocumentWriterProjection(documentId);
     });
   }
 
@@ -1335,7 +1499,7 @@ export class ApiClient {
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      this.evictDocumentWriterProjection(documentId);
     });
   }
 
@@ -1347,7 +1511,7 @@ export class ApiClient {
       "DELETE",
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      this.evictDocumentWriterProjection(documentId);
       this.documentAttachmentListRequestsByDocumentId.delete(documentId);
     });
   }
@@ -1371,6 +1535,10 @@ export class ApiClient {
             this.documentWriterProjectionRequestsByDocumentId,
             documentId,
             response,
+            () =>
+              this.documentWriterProjectionResultsInFlightByDocumentId.delete(
+                documentId,
+              ),
           );
         } else {
           if (
@@ -1379,6 +1547,9 @@ export class ApiClient {
             ) === cachedBefore
           ) {
             this.documentWriterProjectionRequestsByDocumentId.delete(
+              documentId,
+            );
+            this.documentWriterProjectionResultsInFlightByDocumentId.delete(
               documentId,
             );
           }
@@ -1391,6 +1562,9 @@ export class ApiClient {
           cachedBefore
         ) {
           this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+          this.documentWriterProjectionResultsInFlightByDocumentId.delete(
+            documentId,
+          );
         }
         throw error;
       })
@@ -1423,12 +1597,19 @@ export class ApiClient {
           this.documentWriterProjectionRequestsByDocumentId,
           documentId,
           result.data,
+          () =>
+            this.documentWriterProjectionResultsInFlightByDocumentId.delete(
+              documentId,
+            ),
         );
       } else if (
         this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
         cachedBefore
       ) {
         this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+        this.documentWriterProjectionResultsInFlightByDocumentId.delete(
+          documentId,
+        );
       }
       return result;
     } finally {

@@ -18,7 +18,10 @@
  */
 export class BoundedCache<V> {
   private readonly entries = new Map<string, V>();
+  private readonly invalidationStampsByKey = new Map<string, number>();
   private readonly maxEntries: number;
+  private invalidationTick = 0;
+  private prunedInvalidationFloor = 0;
 
   constructor(maxEntries = 256) {
     if (maxEntries < 1) {
@@ -29,6 +32,25 @@ export class BoundedCache<V> {
 
   get size(): number {
     return this.entries.size;
+  }
+
+  /**
+   * Monotonic stamp of the key's most recent explicit invalidation (`delete`,
+   * including of an absent key, or `clear`). A fetch that snapshots it before
+   * running and re-checks after can tell that an invalidation of ITS key
+   * happened mid-flight even when the slot was empty both times — the case a
+   * slot-identity comparison alone cannot see — while invalidations of other
+   * keys leave the stamp alone, so they never break unrelated coalescing.
+   * Deliberately unaffected by `set` and by recency overflow: those are not
+   * invalidation signals. Stamp bookkeeping is bounded; pruned stamps fold
+   * into a shared floor, which can only over-invalidate (skip a cache warm or
+   * a coalesce), never under-invalidate.
+   */
+  invalidationStamp(key: string): number {
+    return Math.max(
+      this.invalidationStampsByKey.get(key) ?? 0,
+      this.prunedInvalidationFloor,
+    );
   }
 
   get(key: string): V | undefined {
@@ -49,11 +71,35 @@ export class BoundedCache<V> {
   }
 
   delete(key: string): boolean {
+    // Stamp even when the key is absent: an eviction of an empty slot still
+    // expresses that whatever is in flight for the id is invalid. Re-insert
+    // so the newest stamp sits last and pruning drops the oldest first.
+    this.invalidationTick += 1;
+    this.invalidationStampsByKey.delete(key);
+    this.invalidationStampsByKey.set(key, this.invalidationTick);
+    this.pruneInvalidationStamps();
     return this.entries.delete(key);
   }
 
   clear(): void {
+    this.invalidationTick += 1;
+    this.prunedInvalidationFloor = this.invalidationTick;
+    this.invalidationStampsByKey.clear();
     this.entries.clear();
+  }
+
+  private pruneInvalidationStamps(): void {
+    while (this.invalidationStampsByKey.size > this.maxEntries) {
+      const oldest = this.invalidationStampsByKey.entries().next().value;
+      if (oldest === undefined) {
+        return;
+      }
+      this.invalidationStampsByKey.delete(oldest[0]);
+      this.prunedInvalidationFloor = Math.max(
+        this.prunedInvalidationFloor,
+        oldest[1],
+      );
+    }
   }
 
   private evictOverflow(): void {

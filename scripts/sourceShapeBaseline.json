@@ -74,8 +74,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1598,
-      "bytes": 48025
+      "lines": 1748,
+      "bytes": 56063
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -274,8 +274,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 508,
-      "bytes": 16082
+      "lines": 523,
+      "bytes": 16691
     },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
       "lines": 1166,

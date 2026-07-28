@@ -34,6 +34,8 @@ import type {
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
+import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch";
 import {
   isDocumentManifestAlreadyExistsConflict,
   projectionIntegrityErrorCode,
@@ -142,6 +144,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   documentId?: string | undefined;
   eventId?: string | undefined;
   execSql: ExecSql;
+  onTerminalSubmitFailure?: DocumentCreateTerminalFailureHandler | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
@@ -166,8 +169,11 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
     }),
   });
 
-  const containerProjection =
-    await input.apiClient.getContainerWriterProjection(input.containerId);
+  const containerProjection = await fetchContainerWriterProjectionForCreate({
+    apiClient: input.apiClient,
+    containerId: input.containerId,
+    onTerminalSubmitFailure: input.onTerminalSubmitFailure,
+  });
   if (!containerProjection) {
     return null;
   }
@@ -186,8 +192,11 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   // Only this container's projection was stale; evict just it rather than
   // wiping every cached projection.
   input.apiClient.evictContainerWriterProjection?.(input.containerId);
-  const refreshedProjection =
-    await input.apiClient.getContainerWriterProjection(input.containerId);
+  const refreshedProjection = await fetchContainerWriterProjectionForCreate({
+    apiClient: input.apiClient,
+    containerId: input.containerId,
+    onTerminalSubmitFailure: input.onTerminalSubmitFailure,
+  });
   return refreshedProjection ? buildWithProjection(refreshedProjection) : null;
 }
 
@@ -235,6 +244,7 @@ async function submitPlannedDocumentCreate(
       documentId: input.documentId,
       eventId: input.eventId,
       execSql: input.execSql,
+      onTerminalSubmitFailure: input.onTerminalSubmitFailure,
       resolveProjectionUserKey,
       signedAt: input.signedAt,
       targetSecretKey: input.targetSecretKey,
@@ -271,6 +281,7 @@ async function submitPlannedDocumentCreate(
         documentId: firstPlan.plan.documentId,
         eventId: firstPlan.plan.event.eventId,
         execSql: input.execSql,
+        onTerminalSubmitFailure: input.onTerminalSubmitFailure,
         resolveProjectionUserKey,
         signedAt: firstPlan.plan.event.signedAt,
         targetSecretKey: input.targetSecretKey,
