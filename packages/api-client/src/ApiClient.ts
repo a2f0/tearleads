@@ -1036,31 +1036,43 @@ export class ApiClient {
     options: CachedRequestResultOptions,
   ): Promise<RequestResult<T>> {
     // A concurrent burst shares one fetch — failure included — so it cannot
-    // repeat the HTTP request or its side effects (error reporting, the 402
-    // billing signal). The entry lives only while the fetch is in flight:
-    // failures are shared, never cached, so a later retry refetches. Eviction
-    // deletes the entry, so post-eviction callers never adopt a fetch that
-    // may predate the invalidating event; the identity guard keeps a late
-    // settle from deleting a successor's entry.
-    const inFlight = inFlightResults.get(cacheKey);
-    if (inFlight) {
-      return inFlight;
+    // repeat the HTTP request or the 402 billing signal. The entry lives only
+    // while the fetch is in flight: failures are shared, never cached, so a
+    // later retry refetches. Eviction deletes the entry, so post-eviction
+    // callers never adopt a fetch that may predate the invalidating event;
+    // the identity guard keeps a late settle from deleting a successor's
+    // entry.
+    //
+    // The shared fetch itself is always silent; each caller applies its OWN
+    // reporting policy to the shared outcome below. Coalescing therefore
+    // never lets one caller's reportErrors suppress (or force) another's,
+    // and caller options never reach the request — the fetch takes none.
+    let shared = inFlightResults.get(cacheKey);
+    if (!shared) {
+      let resultPromise: Promise<RequestResult<T>>;
+      resultPromise = this.fetchWriterProjectionResult(
+        cache,
+        cacheKey,
+        path,
+        validator,
+      ).finally(() => {
+        if (inFlightResults.get(cacheKey) === resultPromise) {
+          inFlightResults.delete(cacheKey);
+        }
+      });
+      inFlightResults.set(cacheKey, resultPromise);
+      shared = resultPromise;
     }
 
-    let resultPromise: Promise<RequestResult<T>>;
-    resultPromise = this.fetchWriterProjectionResult(
-      cache,
-      cacheKey,
-      path,
-      validator,
-      options,
-    ).finally(() => {
-      if (inFlightResults.get(cacheKey) === resultPromise) {
-        inFlightResults.delete(cacheKey);
+    if (options.reportErrors === false) {
+      return shared;
+    }
+    return shared.then((result) => {
+      if (!result.ok) {
+        result.report();
       }
+      return result;
     });
-    inFlightResults.set(cacheKey, resultPromise);
-    return resultPromise;
   }
 
   // The fetch half of writerProjectionResult. The in-flight fetch is
@@ -1074,7 +1086,6 @@ export class ApiClient {
     cacheKey: string,
     path: string,
     validator: (value: unknown) => value is T,
-    options: CachedRequestResultOptions,
   ): Promise<RequestResult<T>> {
     let cached = cache.get(cacheKey);
     while (cached) {
@@ -1097,17 +1108,16 @@ export class ApiClient {
       cached = current;
     }
 
-    // Forward reporting knobs only. The parameter type already narrows to
-    // reporting-only options, but a widened variable (or plain JS) can still
-    // smuggle request-affecting fields structurally — rebuilding the object
-    // enforces at runtime what the type promises.
+    // Always silent: reporting is per-caller in writerProjectionResult, and
+    // taking no caller options here is what guarantees nothing
+    // request-affecting can be smuggled into the shared fetch.
     const resultPromise = this.makeRequestResult(
       path,
       validator,
       "GET",
       undefined,
       {
-        reportErrors: options.reportErrors,
+        reportErrors: false,
       },
     );
     // Success needs no follow-up write: the pending entry itself resolves to
