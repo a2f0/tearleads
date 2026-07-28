@@ -15,7 +15,6 @@ function createModel(
     backupPassword: "",
     busy: null,
     confirmBackupPassword: "",
-    databaseStatus: "ready",
     error: null,
     handleChooseRestoreFile: () => {},
     handleExportBackup: async () => {},
