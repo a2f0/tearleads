@@ -465,3 +465,60 @@ test("prune tolerates user sets beyond a single chunk", async () => {
     await close();
   }
 });
+
+test("a managed-group grant prunes current members' tombstones", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const organizationId = await organizationIdForContainer(
+    owner.rootContainerId,
+  );
+  const [organization] = await db
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  const memberGroupId = organization?.memberGroupId;
+  if (!memberGroupId) {
+    throw new Error("expected organization Members group");
+  }
+
+  await db.insert(containerSyncTombstones).values({
+    containerId: owner.rootContainerId,
+    depth: 0,
+    organizationId,
+    parentId: null,
+    reason: "access_revoked",
+    updatedAt: STALE_TOMBSTONE_AT,
+    userId: owner.userId,
+  });
+
+  // The owner is a CURRENT member of the Members group; a group grant must
+  // resolve them through the current projection (the manifest's referenced
+  // head is deliberately absent here — resolution must not depend on it).
+  const grantManifest = (grants: unknown[]) =>
+    ({
+      event: { event: { eventType: "container.grant" } },
+      state: {
+        containerId: owner.rootContainerId,
+        directGrants: grants,
+        organizationId,
+        referencedPrincipalHeads: [],
+      },
+    }) as never;
+  await db.transaction(async (tx) => {
+    await pruneAccessGrantTombstones({
+      executor: tx,
+      manifest: grantManifest([
+        { accessLevel: "read", subjectId: memberGroupId, subjectType: "group" },
+      ]),
+      previousManifest: grantManifest([]),
+    });
+  });
+
+  const remaining = await db
+    .select({ id: containerSyncTombstones.id })
+    .from(containerSyncTombstones)
+    .where(eq(containerSyncTombstones.userId, owner.userId));
+  expect(remaining).toEqual([]);
+});

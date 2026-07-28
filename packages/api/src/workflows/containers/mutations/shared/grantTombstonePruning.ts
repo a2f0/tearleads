@@ -3,11 +3,11 @@ import type {
   ContainerDirectGrant,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { listUsersReachableFromCurrentPrincipal } from "../../../organizations/principalReachability";
 import {
   expandContainerSubtreeIds,
   pruneRegainedAccessTombstones,
 } from "../../../regainedAccessTombstones";
-import { userIdsForGrant } from "../../containerPathUsers";
 
 export function directGrantKey(
   grant: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
@@ -36,10 +36,18 @@ async function addedGrantUserIds(input: {
   const userIds = new Set<string>();
 
   for (const grant of addedDirectGrants(input)) {
-    for (const userId of await userIdsForGrant({
+    if (grant.subjectType === "user") {
+      userIds.add(grant.subjectId);
+      continue;
+    }
+    // Managed grants resolve members from the CURRENT projection, not the
+    // manifest's referenced head: the head can lag membership, and access
+    // resolution follows current policy — the gained-user set must match
+    // what that resolution will actually admit.
+    for (const userId of await listUsersReachableFromCurrentPrincipal({
       executor: input.executor,
-      grant,
-      manifest: input.manifest,
+      principalId: grant.subjectId,
+      principalType: grant.subjectType,
     })) {
       userIds.add(userId);
     }
