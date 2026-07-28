@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { deleteContainer } from "./operations";
-import type { ContainerContentsStoreState } from "./state";
 import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
+import type { ContainerContentsStoreState } from "./types";
 
 // Row 3 wiring: a successful local deletion may orphan descendant documents,
 // so it must re-arm document priming AND nudge the sync lane immediately.
@@ -16,11 +16,12 @@ test("local container deletion schedules orphan priming", async () => {
     doc: {},
     record: { documentId: null },
   };
+  const containersById = new Map<string, unknown>([
+    ["root", parent],
+    ["leaf", leaf],
+  ]);
   const state = {
-    containersById: new Map([
-      ["root", parent],
-      ["leaf", leaf],
-    ]),
+    containersById,
     documentStoresNeedPriming: false,
     listeners: new Set(),
     persistence: { deleteContainer: async () => undefined },
