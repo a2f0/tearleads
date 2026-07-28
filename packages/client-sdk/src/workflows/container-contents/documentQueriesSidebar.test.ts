@@ -334,9 +334,9 @@ test("primeDocumentsForContainerSubtree primes matching document stores", async 
     const primedStores: Array<{
       documentId: string | null;
       localId: string;
-      runtime: { containerId: string };
+      runtime: { containerId: string | null };
     }> = [];
-    const createdRuntimeContainerIds: string[] = [];
+    const createdRuntimeContainerIds: Array<string | null> = [];
     const syncRequests: string[] = [];
     const primedCount = await primeDocumentsForContainerSubtree({
       containersById: new Map([

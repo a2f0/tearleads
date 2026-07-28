@@ -90,9 +90,13 @@ test("revoke and remote re-list retain and re-attach through hydration", async (
         util: { log: () => {} },
       },
     } as unknown as RemoteContainerHydrationState;
+    let primingRequests = 0;
     const host = {
       persistContainerState: async () => {
         throw new Error("update path must not run in this scenario");
+      },
+      requestDocumentPriming: () => {
+        primingRequests += 1;
       },
       updateSnapshot: () => {},
     };
@@ -164,6 +168,7 @@ test("revoke and remote re-list retain and re-attach through hydration", async (
         ],
       }),
     );
+    const primingRequestsBeforeTombstone = primingRequests;
     await hydrate();
     expect(state.containersById.has("revoked")).toBe(false);
     expect(
@@ -172,6 +177,9 @@ test("revoke and remote re-list retain and re-attach through hydration", async (
         "revoked",
       ),
     ).toBe(false);
+    // A live cascade may have orphaned documents; the pass must re-arm
+    // document priming so their null-scoped passes run promptly.
+    expect(primingRequests).toBeGreaterThan(primingRequestsBeforeTombstone);
     const dormantListed = await listPendingWrites(execSql);
     expect(dormantListed.some((item) => item.localId === "revoked")).toBe(
       false,

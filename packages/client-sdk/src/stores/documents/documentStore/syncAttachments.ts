@@ -85,6 +85,7 @@ export async function syncPendingAttachments(
     currentDoc,
     nextRecord,
     encapsulationKeyPair,
+    attachmentGeneration,
   );
   if (!currentRecord?.documentId) {
     return { completed: false, nextRecord };
@@ -346,6 +347,7 @@ async function ensureRemoteDocumentForAttachmentSync(
   currentDoc: DocumentState,
   nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
+  generation?: DocumentStoreSyncGeneration,
 ): Promise<DocumentRecord | null> {
   if (nextRecord.documentId) {
     return nextRecord;
@@ -356,6 +358,7 @@ async function ensureRemoteDocumentForAttachmentSync(
     currentDoc,
     nextRecord,
     encapsulationKeyPair,
+    generation,
   );
 }
 

@@ -243,6 +243,7 @@ export async function ensureSystemContainer(
 
 export async function deleteContainer(
   state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
 ) {
   if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
@@ -279,6 +280,11 @@ export async function deleteContainer(
   }
 
   state.containersById.delete(existingState.container.id);
+  // The persistence cascade may have orphaned descendant documents (row 3);
+  // re-arm document priming and nudge the lane so their null-scoped passes
+  // run now rather than on the next unrelated trigger.
+  state.documentStoresNeedPriming = true;
+  syncAgent.scheduleSync();
   updateContainerContentsSnapshot(state);
   state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: deleted container "${existingState.container.name}"`,

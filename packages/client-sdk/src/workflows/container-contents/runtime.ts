@@ -111,7 +111,7 @@ export interface ContainerContentsWorkflowSqlRuntime {
 
 function documentsRuntimeInput(
   runtime: ContainerContentsWorkflowRuntime,
-  containerId: string,
+  containerId: string | null,
 ): DocumentsWorkflowRuntimeInput {
   return {
     apiClient: runtime.apiClient,
@@ -126,7 +126,7 @@ function documentsRuntimeInput(
 
 export function createContainerContentsDocumentsRuntime(
   runtime: ContainerContentsWorkflowRuntime,
-  containerId: string,
+  containerId: string | null,
 ): DocumentsWorkflowRuntime {
   return createDocumentsWorkflowRuntime(
     documentsRuntimeInput(runtime, containerId),

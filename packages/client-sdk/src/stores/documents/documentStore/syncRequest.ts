@@ -55,18 +55,26 @@ export async function deleteUpstreamDeletedDocument(
     const canDeleteCapturedDocument = () =>
       isDocumentStoreSyncGenerationCurrent(state, generation) &&
       documentSyncContextMatches(state.record, requestRecord, remoteDocumentId);
+    let removedInMutation = false;
     const deletionStarted = await deletePersistedDocument({
       canStartDurableMutation: canDeleteCapturedDocument,
       documentProjectors: state.runtime.infra.documentProjectors,
       execSql: generation.execSql,
       localId: requestRecord.id,
+      // Invalidate the store generation INSIDE the deletion mutation: a
+      // terminal failure handler queued behind it then observes the stale
+      // generation and cannot resurrect a failure row the deletes removed.
+      onDeletedInMutation: () => {
+        if (canDeleteCapturedDocument()) {
+          markDocumentStoreRemoved(state);
+          removedInMutation = true;
+        }
+      },
       persistence: state.persistence,
     });
-    if (!deletionStarted || !canDeleteCapturedDocument()) {
+    if (!deletionStarted || !removedInMutation) {
       return;
     }
-
-    markDocumentStoreRemoved(state);
     state.runtime.util.log(
       `Documents: removed local document ${state.localId} after remote deletion.`,
     );

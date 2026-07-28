@@ -91,10 +91,11 @@ export async function primeStoreDocuments(
     const result = await primeDocumentsForLoadedRoots({
       containersById: state.containersById,
       host: createPrimeHost(state),
+      organizationId: state.runtime.auth?.organizationId ?? null,
       runtime: state.runtime,
     });
     state.runtime.util.log(
-      `${logLabel(state)}: document priming candidates=${result.candidateCount} roots=${result.rootCount} primed=${result.primedCount} unroutable=${result.unroutableCount}`,
+      `${logLabel(state)}: document priming candidates=${result.candidateCount} roots=${result.rootCount} primed=${result.primedCount} orphaned=${result.orphanPrimedCount} unroutable=${result.unroutableCount}`,
     );
   } catch (error) {
     state.documentStoresNeedPriming = true;

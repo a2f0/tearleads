@@ -413,6 +413,13 @@ export async function deletePersistedDocument(input: {
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
   localId: string;
+  /**
+   * Runs INSIDE the serialized mutation, after the deletes commit: callers
+   * invalidate their in-memory store generation here so any failure handler
+   * queued behind this mutation observes the invalidation and cannot
+   * resurrect a row the deletion just removed.
+   */
+  onDeletedInMutation?: (() => void) | undefined;
   persistence: DocumentsPersistence;
 }): Promise<boolean> {
   const documentProjectors = resolveDocumentProjectorRegistry(
@@ -438,6 +445,7 @@ export async function deletePersistedDocument(input: {
       execSql: lockedExecSql,
       localId: input.localId,
     });
+    input.onDeletedInMutation?.();
   });
   return true;
 }

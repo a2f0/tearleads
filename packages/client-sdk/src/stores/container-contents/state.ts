@@ -184,6 +184,9 @@ export function updateContainerContentsStoreRuntime(
     state.localContainersNeedRefresh = true;
     state.documentStoresNeedPriming = true;
     void syncAgent.refreshLocalContainers();
+    // The refresh alone does not run the sync lane; schedule it so newly
+    // eligible documents (e.g. this organization's orphans) prime now.
+    syncAgent.scheduleSync();
   }
 
   syncAgent.ensureInitialized();

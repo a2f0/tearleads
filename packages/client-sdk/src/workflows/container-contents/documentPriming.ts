@@ -1,4 +1,5 @@
 import {
+  documentContainerProjectionTables,
   documentMoveIntentTables,
   documentProjectionTables,
   documentTables,
@@ -18,6 +19,7 @@ interface PrimeRequiredDocumentCandidate {
 
 interface LoadedRootDocumentPrimeResult {
   readonly candidateCount: number;
+  readonly orphanPrimedCount: number;
   readonly primedCount: number;
   readonly rootCount: number;
   readonly unroutableCount: number;
@@ -130,6 +132,81 @@ async function listPrimeRequiredLocalIdsFromRuntime(
   return new Set(candidates.map((candidate) => candidate.localId));
 }
 
+/**
+ * Last-link orphans (docs/sync-edge-cases.md row 3): the container cascade
+ * nulled their projection container and dropped their link rows, so no
+ * subtree listing can route them. They are primed with a null container
+ * scope instead — the documents runtime accepts one, and the document's own
+ * sync pass then resolves its fate against the server: 403 parks it (row 8),
+ * a coded 404 destroys it (row 1), and a local-only orphan's create attempt
+ * records a terminal failure row. Hidden document kinds stay excluded, and
+ * dangling non-null projections (a container row merely missing locally)
+ * stay with stale-root recovery, exactly as before.
+ *
+ * Organization neutrality: the null scope changes only the runtime's
+ * containerId — auth, crypto, and organization plumbing are identical to
+ * every container-scoped runtime this store already primes with, the sync
+ * pass derives billing and keying organizations from the document's own
+ * plan and manifest, and a cross-organization author fails closed at the
+ * sync layer's identity guard before anything is signed.
+ */
+const ORPHANED_PRIME_TARGET_SQL = `
+  SELECT stored.local_id AS local_id, stored.document_id AS document_id
+  FROM documents stored
+  INNER JOIN document_projection projection
+    ON projection.local_id = stored.local_id
+  WHERE stored.app_kind = 'documents'
+    AND projection.container_id IS NULL
+    AND (
+      projection.organization_id = ?
+      OR projection.organization_id IS NULL
+      OR projection.organization_id = ''
+    )
+    AND projection.document_kind NOT IN ('organization_profile')
+    AND (
+      stored.document_id IS NULL
+      OR NOT EXISTS (
+        SELECT 1
+        FROM document_container_projection link
+        WHERE link.document_id = stored.document_id
+      )
+    )
+  ORDER BY stored.local_id ASC
+`;
+
+/**
+ * Unattributed rows (empty/NULL organization) are always included: they are
+ * device-first documents created before authentication, which belong to this
+ * device's sole user and adopt the active organization when they create.
+ */
+async function listOrphanedDocumentPrimeTargets(
+  runtime: ContainerDocumentQueriesRuntime,
+  organizationId: string,
+): Promise<ContainerContentsDocumentRuntimeTarget[]> {
+  await ensureSqlTables(runtime.infra.execSql, [
+    ...documentTables,
+    ...documentProjectionTables,
+    ...documentContainerProjectionTables,
+  ]);
+  const rows = await runtime.infra.execSql(ORPHANED_PRIME_TARGET_SQL, [
+    organizationId,
+  ]);
+  return rows.flatMap((row) => {
+    const localId = Reflect.get(row, "local_id");
+    if (typeof localId !== "string") {
+      return [];
+    }
+    const documentId = Reflect.get(row, "document_id");
+    return [
+      {
+        documentId: typeof documentId === "string" ? documentId : null,
+        localId,
+        runtimeContainerId: null,
+      },
+    ];
+  });
+}
+
 // Stores opened per macrotask during a prime pass. Opening is fire-and-forget,
 // so yielding between chunks keeps the main thread and serialized SQLite queue
 // responsive while a real backlog primes.
@@ -140,7 +217,7 @@ async function primeDocumentRuntimeTargets<TRuntime>(input: {
   readonly targets: ReadonlyArray<ContainerContentsDocumentRuntimeTarget>;
 }): Promise<ReadonlySet<string>> {
   const primedLocalIds = new Set<string>();
-  const runtimesByContainerId = new Map<string, TRuntime>();
+  const runtimesByContainerId = new Map<string | null, TRuntime>();
   for (const target of input.targets) {
     if (primedLocalIds.has(target.localId)) {
       continue;
@@ -200,6 +277,15 @@ export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
 export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
   containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>;
   host: ContainerDocumentPrimeHost<TRuntime>;
+  /**
+   * The store scope's organization. Orphan priming is bounded to it: each
+   * organization-scoped store resolves only its own orphans, matching the
+   * per-organization invariant subtree routing provides implicitly (a pass
+   * signed under another organization would fail the sync identity guard
+   * instead of resolving). Absent — unauthenticated or scope-less callers —
+   * orphan priming is skipped entirely.
+   */
+  organizationId?: string | null;
   runtime: ContainerDocumentQueriesRuntime;
 }): Promise<LoadedRootDocumentPrimeResult> {
   const candidates = await listPrimeRequiredDocumentCandidatesFromRuntime(
@@ -236,8 +322,29 @@ export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
     }
   }
 
+  const orphanTargets = (
+    input.organizationId
+      ? await listOrphanedDocumentPrimeTargets(
+          input.runtime,
+          input.organizationId,
+        )
+      : []
+  ).filter(
+    (target) =>
+      requiredLocalIds.has(target.localId) &&
+      !primedLocalIds.has(target.localId),
+  );
+  const orphanPrimed = await primeDocumentRuntimeTargets({
+    host: input.host,
+    targets: orphanTargets,
+  });
+  for (const localId of orphanPrimed) {
+    primedLocalIds.add(localId);
+  }
+
   return {
     candidateCount: candidates.length,
+    orphanPrimedCount: orphanPrimed.size,
     primedCount: primedLocalIds.size,
     rootCount: rootContainerIds.length,
     unroutableCount: candidates.filter(

@@ -205,7 +205,9 @@ function createContainerWriteMethods(
         createChildContainer(state, syncAgent, parentId, name),
       ),
     deleteContainer: (containerId) =>
-      chainNodePresenceWrite(state, () => deleteContainer(state, containerId)),
+      chainNodePresenceWrite(state, () =>
+        deleteContainer(state, syncAgent, containerId),
+      ),
     purgeContainer: (containerId, options) =>
       chainPurgeWrite(state, () => purgeContainer(state, containerId, options)),
     emptyTrash: (trashContainerId, options) =>
