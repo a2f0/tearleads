@@ -37,8 +37,15 @@ async function selectScopedTombstoneRows(
   const containerIdChunks = scope.containerIds
     ? chunk([...new Set(scope.containerIds)], SCOPE_CHUNK_SIZE)
     : [undefined];
+  const scopeChunks = chunk([...scope.userIds], SCOPE_CHUNK_SIZE).flatMap(
+    (userIdChunk) =>
+      containerIdChunks.map((containerIdChunk) => ({
+        containerIdChunk,
+        userIdChunk,
+      })),
+  );
   const rows: TombstoneRow[] = [];
-  for (const containerIdChunk of containerIdChunks) {
+  for (const { containerIdChunk, userIdChunk } of scopeChunks) {
     rows.push(
       ...(await executor
         .select({
@@ -50,7 +57,7 @@ async function selectScopedTombstoneRows(
         .from(containerSyncTombstones)
         .where(
           and(
-            inArray(containerSyncTombstones.userId, [...scope.userIds]),
+            inArray(containerSyncTombstones.userId, userIdChunk),
             eq(containerSyncTombstones.reason, "access_revoked"),
             ...(scope.organizationId
               ? [
