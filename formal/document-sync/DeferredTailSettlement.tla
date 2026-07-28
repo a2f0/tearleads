@@ -8,6 +8,10 @@ CONSTANTS Ops, Identities, MaxGeneration
 
 (* Each identity is one abstract token for the local/remote identifiers,   *)
 (* container, access epoch/hash/level, and content-keying context.         *)
+(* Identity replacement (relink, rekey) re-contexts the SAME logical       *)
+(* document — production relink is an identity-only record write that      *)
+(* preserves history and the marker — so server-held coverage (remote,     *)
+(* durableBase) and tail provenance (durableRemoteRows) survive it.        *)
 
 ASSUME /\ Ops # {}
        /\ IsFiniteSet(Ops)
@@ -51,7 +55,7 @@ ResponseIsLive ==
   /\ responseIdentity = liveIdentity
 DurableOpIsLive ==
   CASE durableOp = "marker" -> CaptureIsLive
-    [] durableOp \in {"response", "delete"} -> ResponseIsLive
+    [] durableOp \in {"tail", "response", "delete"} -> ResponseIsLive
     [] OTHER -> TRUE
 TypeOK ==
   /\ snapshot \subseteq Ops /\ durableSnapshot \subseteq Ops
