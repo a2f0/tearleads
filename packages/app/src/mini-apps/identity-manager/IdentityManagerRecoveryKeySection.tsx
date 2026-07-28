@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import {
   MiniAppButton,
   MiniAppClipboardButton,
@@ -24,14 +24,15 @@ import { useLog } from "../../providers/logging/LogProvider";
 type RecoveryKeyBusyState = "restore" | null;
 
 /**
- * Exporting the recovery key exports every private key derived from it, so both
- * export paths are gated behind this typed acknowledgement.
+ * Disclosing the recovery key discloses every private key derived from it, so
+ * every path that surfaces it — on screen, on the clipboard, or in a file — is
+ * gated behind this typed acknowledgement.
  */
 export const RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE = "i understand";
 
-type RecoveryKeyExport = "copy" | "download";
+type RecoveryKeyDisclosure = "copy" | "download" | "reveal";
 
-interface RecoveryKeyExportCopy {
+interface RecoveryKeyDisclosureCopy {
   readonly confirmLabel: string;
   readonly failureLog: string;
   readonly successLog: string;
@@ -40,7 +41,10 @@ interface RecoveryKeyExportCopy {
   readonly warning: string;
 }
 
-const RECOVERY_KEY_EXPORTS: Record<RecoveryKeyExport, RecoveryKeyExportCopy> = {
+const RECOVERY_KEY_DISCLOSURES: Record<
+  RecoveryKeyDisclosure,
+  RecoveryKeyDisclosureCopy
+> = {
   copy: {
     confirmLabel: "Copy to Clipboard",
     failureLog: "Failed to copy recovery key",
@@ -59,6 +63,15 @@ const RECOVERY_KEY_EXPORTS: Record<RecoveryKeyExport, RecoveryKeyExportCopy> = {
     warning:
       "Your recovery key derives the private encryption keys for this identity. Anyone who opens the downloaded file can decrypt your data and impersonate you, so move it to encrypted storage and remove the plaintext copy.",
   },
+  reveal: {
+    confirmLabel: "Show Passphrase",
+    failureLog: "Failed to reveal recovery key",
+    successLog: "Recovery key revealed",
+    successStatus: "Recovery key revealed.",
+    title: "Reveal recovery key",
+    warning:
+      "Your recovery key derives the private encryption keys for this identity. Anyone who can see your screen — including a screen share or recording — can copy it and impersonate you.",
+  },
 };
 
 interface RecoveryKeyFeedback {
@@ -71,10 +84,14 @@ function readErrorMessage(error: unknown): string {
 }
 
 function RecoveryKeyDisplay({
-  onRequestExport,
+  onHide,
+  onRequestDisclosure,
+  revealed,
   seedPhrase,
 }: {
-  readonly onRequestExport: (recoveryKeyExport: RecoveryKeyExport) => void;
+  readonly onHide: () => void;
+  readonly onRequestDisclosure: (disclosure: RecoveryKeyDisclosure) => void;
+  readonly revealed: boolean;
   readonly seedPhrase: string | null;
 }) {
   if (!seedPhrase) {
@@ -83,16 +100,22 @@ function RecoveryKeyDisplay({
 
   return (
     <div className="identity-manager-recovery-key-form">
-      <MiniAppField>
-        <span>Passphrase</span>
-        <MiniAppTextarea
-          className="identity-manager-recovery-key-textarea"
-          readOnly
-          rows={3}
-          spellCheck={false}
-          value={seedPhrase}
-        />
-      </MiniAppField>
+      {revealed ? (
+        <MiniAppField>
+          <span>Passphrase</span>
+          <MiniAppTextarea
+            className="identity-manager-recovery-key-textarea"
+            readOnly
+            rows={3}
+            spellCheck={false}
+            value={seedPhrase}
+          />
+        </MiniAppField>
+      ) : (
+        <MiniAppStatus>
+          The passphrase is hidden. Reveal it to read it on screen.
+        </MiniAppStatus>
+      )}
       <MiniAppToolbar wrap>
         <MiniAppClipboardButton
           label="Copy recovery key"
@@ -101,13 +124,20 @@ function RecoveryKeyDisplay({
           // and the copy is reported through the section's status line.
           onClick={(event) => {
             event.preventDefault();
-            onRequestExport("copy");
+            onRequestDisclosure("copy");
           }}
           value={seedPhrase}
         />
-        <MiniAppButton onClick={() => onRequestExport("download")}>
+        <MiniAppButton onClick={() => onRequestDisclosure("download")}>
           Download Recovery Key
         </MiniAppButton>
+        {revealed ? (
+          <MiniAppButton onClick={onHide}>Hide Recovery Key</MiniAppButton>
+        ) : (
+          <MiniAppButton onClick={() => onRequestDisclosure("reveal")}>
+            Reveal Recovery Key
+          </MiniAppButton>
+        )}
       </MiniAppToolbar>
     </div>
   );
@@ -161,42 +191,48 @@ function RecoveryKeyRestoreForm({
   );
 }
 
-function RecoveryKeyExportDialog({
+function RecoveryKeyDisclosureDialog({
   onCancel,
   onConfirm,
-  pendingExport,
+  pendingDisclosure,
 }: {
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
-  readonly pendingExport: RecoveryKeyExport | null;
+  readonly pendingDisclosure: RecoveryKeyDisclosure | null;
 }) {
-  if (!pendingExport) {
+  if (!pendingDisclosure) {
     // Unmounting resets the dialog, so a cancelled attempt never leaves its
-    // typed acknowledgement behind for the next export.
+    // typed acknowledgement behind for the next disclosure.
     return null;
   }
 
-  const exportCopy = RECOVERY_KEY_EXPORTS[pendingExport];
+  const disclosureCopy = RECOVERY_KEY_DISCLOSURES[pendingDisclosure];
   return (
     <PhraseConfirmationDialog
-      confirmLabel={exportCopy.confirmLabel}
+      confirmLabel={disclosureCopy.confirmLabel}
       isOpen
       onCancel={onCancel}
       onConfirm={onConfirm}
       phrase={RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE}
-      title={exportCopy.title}
-      warning={exportCopy.warning}
+      title={disclosureCopy.title}
+      warning={disclosureCopy.warning}
     />
   );
 }
 
-function useRecoveryKeyExport(feedback: RecoveryKeyFeedback) {
+function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
   const { seedPhrase, signingFingerprint } = useIdentity();
   const fileSaver = useFileSaver();
   const { log, logError } = useLog();
-  const [pendingExport, setPendingExport] = useState<RecoveryKeyExport | null>(
-    null,
-  );
+  const [pendingDisclosure, setPendingDisclosure] =
+    useState<RecoveryKeyDisclosure | null>(null);
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    // Switching identities swaps the key underneath a mounted section; the new
+    // one must be acknowledged on its own before it appears on screen.
+    setRevealed(false);
+  }, [seedPhrase]);
 
   const copyRecoveryKey = async (recoveryKey: string) => {
     if (typeof navigator === "undefined" || !navigator.clipboard) {
@@ -213,8 +249,8 @@ function useRecoveryKeyExport(feedback: RecoveryKeyFeedback) {
     });
   };
 
-  const runExport = async (acknowledged: RecoveryKeyExport) => {
-    const exportCopy = RECOVERY_KEY_EXPORTS[acknowledged];
+  const runDisclosure = async (acknowledged: RecoveryKeyDisclosure) => {
+    const disclosureCopy = RECOVERY_KEY_DISCLOSURES[acknowledged];
     feedback.setError(null);
     feedback.setStatus(null);
     try {
@@ -222,28 +258,34 @@ function useRecoveryKeyExport(feedback: RecoveryKeyFeedback) {
         throw new Error("No recovery key is available for this identity.");
       }
 
-      await (acknowledged === "copy"
-        ? copyRecoveryKey(seedPhrase)
-        : downloadRecoveryKey(seedPhrase));
-      feedback.setStatus(exportCopy.successStatus);
-      log(exportCopy.successLog);
+      if (acknowledged === "copy") {
+        await copyRecoveryKey(seedPhrase);
+      } else if (acknowledged === "download") {
+        await downloadRecoveryKey(seedPhrase);
+      } else {
+        setRevealed(true);
+      }
+      feedback.setStatus(disclosureCopy.successStatus);
+      log(disclosureCopy.successLog);
     } catch (operationError: unknown) {
-      logError(exportCopy.failureLog, operationError);
+      logError(disclosureCopy.failureLog, operationError);
       feedback.setError(readErrorMessage(operationError));
     }
   };
 
   return {
-    cancelExport: () => setPendingExport(null),
-    confirmExport: () => {
-      const acknowledged = pendingExport;
-      setPendingExport(null);
+    cancelDisclosure: () => setPendingDisclosure(null),
+    confirmDisclosure: () => {
+      const acknowledged = pendingDisclosure;
+      setPendingDisclosure(null);
       if (acknowledged) {
-        void runExport(acknowledged);
+        void runDisclosure(acknowledged);
       }
     },
-    pendingExport,
-    requestExport: setPendingExport,
+    hide: () => setRevealed(false),
+    pendingDisclosure,
+    requestDisclosure: setPendingDisclosure,
+    revealed,
   };
 }
 
@@ -306,7 +348,7 @@ export function IdentityManagerRecoveryKeySection() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const feedback: RecoveryKeyFeedback = { setError, setStatus };
-  const recoveryKeyExport = useRecoveryKeyExport(feedback);
+  const disclosure = useRecoveryKeyDisclosure(feedback);
   const restore = useRecoveryKeyRestore(feedback);
 
   return (
@@ -317,7 +359,9 @@ export function IdentityManagerRecoveryKeySection() {
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       {status && <MiniAppStatus>{status}</MiniAppStatus>}
       <RecoveryKeyDisplay
-        onRequestExport={recoveryKeyExport.requestExport}
+        onHide={disclosure.hide}
+        onRequestDisclosure={disclosure.requestDisclosure}
+        revealed={disclosure.revealed}
         seedPhrase={seedPhrase}
       />
       <RecoveryKeyRestoreForm
@@ -328,10 +372,10 @@ export function IdentityManagerRecoveryKeySection() {
         restorePassphrase={restore.restorePassphrase}
         setRestorePassphrase={restore.setRestorePassphrase}
       />
-      <RecoveryKeyExportDialog
-        onCancel={recoveryKeyExport.cancelExport}
-        onConfirm={recoveryKeyExport.confirmExport}
-        pendingExport={recoveryKeyExport.pendingExport}
+      <RecoveryKeyDisclosureDialog
+        onCancel={disclosure.cancelDisclosure}
+        onConfirm={disclosure.confirmDisclosure}
+        pendingDisclosure={disclosure.pendingDisclosure}
       />
     </MiniAppSection>
   );

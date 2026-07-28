@@ -81,7 +81,7 @@ async function renderRecoveryKeyView(entropyByte: number) {
   await act(async () => {
     await tearleads.identity.importSeedPhrase(seedPhrase);
   });
-  await view.findByDisplayValue(seedPhrase);
+  await view.findByRole("button", { name: "Reveal Recovery Key" });
 
   return { seedPhrase, view };
 }
@@ -122,7 +122,11 @@ test("identity manager exposes the recovery key for seed-backed identities", asy
       await tearleads.identity.importSeedPhrase(seedPhrase);
     });
 
-    expect(await view.findByDisplayValue(seedPhrase)).toBeTruthy();
+    expect(
+      await view.findByRole("button", { name: "Reveal Recovery Key" }),
+    ).toBeTruthy();
+    // The passphrase stays off screen until the disclosure is acknowledged.
+    expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
     expect(
       await view.findByRole("button", { name: "Copy recovery key" }),
     ).toBeTruthy();
@@ -233,6 +237,42 @@ test("cancelling the download acknowledgement exports nothing", async () => {
   }
 });
 
+test("revealing the recovery key requires the acknowledgement phrase", async () => {
+  const originalWebSocket = globalThis.WebSocket;
+
+  try {
+    Reflect.set(globalThis, "WebSocket", TestWebSocket);
+    const { seedPhrase, view } = await renderRecoveryKeyView(0x11);
+
+    fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+
+    const confirmButton = view.getByRole("button", {
+      name: "Show Passphrase",
+    }) as HTMLButtonElement;
+    expect(confirmButton.disabled).toBe(true);
+    expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
+
+    fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+    expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
+
+    fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+    fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
+      target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
+    });
+    await act(async () => {
+      fireEvent.click(view.getByRole("button", { name: "Show Passphrase" }));
+    });
+
+    expect(view.getByDisplayValue(seedPhrase)).toBeTruthy();
+    expect(view.getByText("Recovery key revealed.")).toBeTruthy();
+
+    fireEvent.click(view.getByRole("button", { name: "Hide Recovery Key" }));
+    expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+  }
+});
+
 test("identity manager restores a recovery key from a typed passphrase", async () => {
   const originalWebSocket = globalThis.WebSocket;
   const tearleadsRef: { current: Tearleads | null } = { current: null };
@@ -278,7 +318,11 @@ test("identity manager restores a recovery key from a typed passphrase", async (
     await waitFor(() => {
       expect(tearleads.identity.seedPhrase).toBe(seedPhrase);
     });
-    expect(await view.findByDisplayValue(seedPhrase)).toBeTruthy();
+    // A restored key is a new key: it stays hidden until acknowledged.
+    expect(
+      await view.findByRole("button", { name: "Reveal Recovery Key" }),
+    ).toBeTruthy();
+    expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
     expect(view.getByText("Recovery key restored.")).toBeTruthy();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
