@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import {
   MiniAppButton,
   MiniAppClipboardButton,
@@ -229,6 +229,9 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
   const [revealed, setRevealed] = useState(false);
   const [authorizedIdentity, setAuthorizedIdentity] =
     useState(signingFingerprint);
+  // Read by in-flight disclosures on completion, which need the identity as it
+  // is *then* rather than the one captured in their closure.
+  const currentIdentityRef = useRef(signingFingerprint);
 
   if (authorizedIdentity !== signingFingerprint) {
     // Switching identities swaps the key underneath a mounted section, so every
@@ -238,6 +241,7 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
     // comparing against the identity that was authorized — is what stops an
     // A → B → A round trip from silently re-granting A's reveal.
     setAuthorizedIdentity(signingFingerprint);
+    currentIdentityRef.current = signingFingerprint;
     setPendingDisclosure(null);
     setRevealed(false);
     // The status and error lines describe the outgoing identity's key, so they
@@ -261,8 +265,19 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
     });
   };
 
+  // A copy or download can still be in flight when the identity changes. It
+  // exported the key captured when it was acknowledged, so it is still worth
+  // logging — but the status line describes whatever identity is on screen now,
+  // and must never claim a key that was never touched.
+  const reportIfCurrent = (requestedFor: string | null, report: () => void) => {
+    if (currentIdentityRef.current === requestedFor) {
+      report();
+    }
+  };
+
   const runDisclosure = async (acknowledged: RecoveryKeyDisclosure) => {
     const disclosureCopy = RECOVERY_KEY_DISCLOSURES[acknowledged];
+    const requestedFor = signingFingerprint;
     feedback.setError(null);
     feedback.setStatus(null);
     try {
@@ -275,13 +290,19 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
       } else if (acknowledged === "download") {
         await downloadRecoveryKey(seedPhrase);
       } else {
+        // Reveal has no await ahead of it, so it cannot land on a swapped
+        // identity the way an export can.
         setRevealed(true);
       }
-      feedback.setStatus(disclosureCopy.successStatus);
       log(disclosureCopy.successLog);
+      reportIfCurrent(requestedFor, () =>
+        feedback.setStatus(disclosureCopy.successStatus),
+      );
     } catch (operationError: unknown) {
       logError(disclosureCopy.failureLog, operationError);
-      feedback.setError(readErrorMessage(operationError));
+      reportIfCurrent(requestedFor, () =>
+        feedback.setError(readErrorMessage(operationError)),
+      );
     }
   };
 

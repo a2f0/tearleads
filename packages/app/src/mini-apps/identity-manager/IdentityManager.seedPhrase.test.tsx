@@ -37,6 +37,33 @@ afterEach(async () => {
   }
 });
 
+function installDeferredClipboardWriteMock(): {
+  readonly settle: () => void;
+  readonly writes: string[];
+} {
+  const writes: string[] = [];
+  const pending: Array<() => void> = [];
+  Object.defineProperty(Navigator.prototype, "clipboard", {
+    configurable: true,
+    get: () => ({
+      writeText: (value: string) => {
+        writes.push(value);
+        return new Promise<void>((resolve) => {
+          pending.push(resolve);
+        });
+      },
+    }),
+  });
+  return {
+    settle: () => {
+      for (const resolve of pending.splice(0)) {
+        resolve();
+      }
+    },
+    writes,
+  };
+}
+
 function installClipboardWriteMock(): string[] {
   const writes: string[] = [];
   Object.defineProperty(Navigator.prototype, "clipboard", {
@@ -340,6 +367,42 @@ test("returning to a previously revealed identity stays hidden", async () => {
     expect(
       view.getByRole("button", { name: "Reveal Recovery Key" }),
     ).toBeTruthy();
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+  }
+});
+
+test("a copy landing after an identity switch reports nothing", async () => {
+  const originalWebSocket = globalThis.WebSocket;
+
+  try {
+    Reflect.set(globalThis, "WebSocket", TestWebSocket);
+    const clipboard = installDeferredClipboardWriteMock();
+    const { seedPhrase, tearleads, view } = await renderRecoveryKeyView(0x88);
+
+    fireEvent.click(view.getByRole("button", { name: "Copy recovery key" }));
+    fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
+      target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
+    });
+    await act(async () => {
+      fireEvent.click(view.getByRole("button", { name: "Copy to Clipboard" }));
+    });
+    expect(clipboard.writes).toEqual([seedPhrase]);
+
+    const nextSeedPhrase = createIdentitySeedPhraseFromEntropy(
+      new Uint8Array(32).fill(0x99),
+    );
+    await act(async () => {
+      await tearleads.identity.importSeedPhrase(nextSeedPhrase);
+    });
+    await act(async () => {
+      clipboard.settle();
+    });
+
+    // The write carried the previous identity's key, so the incoming identity
+    // must not be told its own key reached the clipboard.
+    expect(view.queryByText("Recovery key copied to clipboard.")).toBeNull();
+    expect(clipboard.writes).toEqual([seedPhrase]);
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
