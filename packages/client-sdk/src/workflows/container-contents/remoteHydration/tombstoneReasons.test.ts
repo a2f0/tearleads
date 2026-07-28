@@ -117,3 +117,69 @@ test("preserved containers are skipped and unknown ids filtered", () => {
 
   expect(removedContainerIds).toEqual(["root"]);
 });
+
+test("a deleted tombstone for an absent container lands in the purge list", () => {
+  const { purgeMetadataContainerIds, removedContainerIds } =
+    collectRemovedContainers({
+      childIdsByParentId: childIndex({}),
+      containersById: containers([]),
+      preservedContainerIds: new Set(),
+      tombstones: [
+        {
+          containerId: "revoked-earlier",
+          depth: 0,
+          parentId: null,
+          reason: "deleted",
+          updatedAt: T0,
+        },
+        {
+          containerId: "still-revoked",
+          depth: 0,
+          parentId: null,
+          reason: "access_revoked",
+          updatedAt: T0,
+        },
+      ],
+    });
+
+  expect(removedContainerIds).toEqual([]);
+  expect(purgeMetadataContainerIds).toEqual(["revoked-earlier"]);
+});
+
+test("an upgrade requeues the shared node so grandchildren re-inherit", () => {
+  // Tombstone order makes the revoked root walk "shared" (and its
+  // grandchild) first; the deleted root's later upgrade must re-walk them.
+  const { reasonByContainerId } = collectRemovedContainers({
+    childIdsByParentId: childIndex({
+      deletedRoot: ["shared"],
+      revokedRoot: ["shared"],
+      shared: ["grand"],
+    }),
+    containersById: containers([
+      "deletedRoot",
+      "revokedRoot",
+      "shared",
+      "grand",
+    ]),
+    preservedContainerIds: new Set(),
+    tombstones: [
+      {
+        containerId: "deletedRoot",
+        depth: 0,
+        parentId: null,
+        reason: "deleted",
+        updatedAt: T0,
+      },
+      {
+        containerId: "revokedRoot",
+        depth: 0,
+        parentId: null,
+        reason: "access_revoked",
+        updatedAt: T0,
+      },
+    ],
+  });
+
+  expect(reasonByContainerId.get("shared")).toBe("deleted");
+  expect(reasonByContainerId.get("grand")).toBe("deleted");
+});

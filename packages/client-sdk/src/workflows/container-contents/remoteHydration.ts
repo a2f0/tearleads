@@ -1,5 +1,5 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { exportAllUpdates } from "@tearleads/loro";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { exportAllUpdates, importUpdates } from "@tearleads/loro";
 import type {
   ContainerSyncTombstone,
   ListContainersResponse,
@@ -249,8 +249,22 @@ async function insertRemoteContainerState(input: {
 }): Promise<ContainerState> {
   const { childIdsByParentId, host, remoteContainer, state } = input;
   const doc = await createContainerMetadataDocument(remoteContainer.id);
-  const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
   const execSql = state.runtime.infra.execSql;
+  // A container inserted with dormant retained metadata (row 4's
+  // access_revoked branch) is a re-attach, not a fresh discovery: import the
+  // retained content and markers instead of overwriting them with an empty
+  // document. Access and keying fields still come from the remote container —
+  // revocation may have rotated them.
+  const dormantRecord = await state.persistence.loadContainerMetadataRecord(
+    execSql,
+    remoteContainer.id,
+  );
+  if (dormantRecord?.metadataUpdates) {
+    importUpdates(doc, [base64ToBytes(dormantRecord.metadataUpdates)]);
+  }
+  const initialSnapshot = dormantRecord?.metadataUpdates
+    ? dormantRecord.metadataUpdates
+    : bytesToBase64(exportAllUpdates(doc));
   const containerState: ContainerState = {
     container: applyRemoteContainerTimestamps(
       {
@@ -272,9 +286,9 @@ async function insertRemoteContainerState(input: {
       accessStateHash: remoteContainer.metadataAccessStateHash,
       documentId: remoteContainer.metadataDocumentId,
       id: remoteContainer.id,
-      lastCommitLsn: null,
+      lastCommitLsn: dormantRecord?.lastCommitLsn ?? null,
       metadataUpdates: initialSnapshot,
-      snapshotEndVersion: "",
+      snapshotEndVersion: dormantRecord?.snapshotEndVersion ?? "",
       contentKeyBundle: null,
       documentKekTargets: null,
       documentManifestBundle: null,
@@ -603,14 +617,16 @@ async function applyContainerTombstones(input: {
     return 0;
   }
 
-  const { reasonByContainerId, removedContainerIds } = collectRemovedContainers(
-    {
-      childIdsByParentId,
-      containersById: state.containersById,
-      preservedContainerIds,
-      tombstones,
-    },
-  );
+  const {
+    purgeMetadataContainerIds,
+    reasonByContainerId,
+    removedContainerIds,
+  } = collectRemovedContainers({
+    childIdsByParentId,
+    containersById: state.containersById,
+    preservedContainerIds,
+    tombstones,
+  });
   const tombstoneUpdatedAt = getLatestContainerTombstoneUpdatedAt(tombstones);
   const execSql = state.runtime.infra.execSql;
 
@@ -618,13 +634,21 @@ async function applyContainerTombstones(input: {
   // metadata document — queued edits included — is retained dormant, because
   // the container still exists server-side and re-attaches by id when access
   // restoration rehydrates it. A deleted container's metadata is moot.
-  await state.persistence.deleteContainers(execSql, removedContainerIds, {
-    retainMetadataForContainerIds: removedContainerIds.filter(
-      (containerId) =>
-        reasonByContainerId.get(containerId) === "access_revoked",
-    ),
-    ...(tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : {}),
-  });
+  // purgeMetadataContainerIds have no local container state (a revoke already
+  // cascaded them) but a later deleted tombstone must still purge their
+  // dormant retained metadata; every delete in the cascade is id-scoped, so
+  // including them is a no-op beyond that purge.
+  await state.persistence.deleteContainers(
+    execSql,
+    [...removedContainerIds, ...purgeMetadataContainerIds],
+    {
+      retainMetadataForContainerIds: removedContainerIds.filter(
+        (containerId) =>
+          reasonByContainerId.get(containerId) === "access_revoked",
+      ),
+      ...(tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : {}),
+    },
+  );
   for (const containerId of removedContainerIds) {
     const parentId =
       state.containersById.get(containerId)?.container.parentId ?? null;

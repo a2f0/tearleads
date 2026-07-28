@@ -219,6 +219,15 @@ export interface ContainerContentsPersistence {
   loadContainers: (
     execSql: ExecSql,
   ) => Promise<ReadonlyArray<StoredContainerState>>;
+  /**
+   * Load a container-metadata record by container id alone, without
+   * requiring a containers row — the dormant shape row 4's access_revoked
+   * branch leaves behind, re-attached on rehydration.
+   */
+  loadContainerMetadataRecord: (
+    execSql: ExecSql,
+    containerId: string,
+  ) => Promise<ContainerMetadataRecord | null>;
   saveContainer: (
     execSql: ExecSql,
     container: ContainerRecord,
@@ -914,6 +923,59 @@ async function deleteLocalContainerRows(input: {
     .run();
 }
 
+/**
+ * ONE joined statement, so the record's key/access fields and the checkpoint
+ * content it pairs with come from a single consistent read — two separate
+ * queries could interleave with a concurrent metadata save (record +
+ * checkpoint written in one transaction) and pair stale keying state with
+ * newer content.
+ */
+async function selectContainerMetadataRecord(
+  execSql: ExecSql,
+  containerId: string,
+): Promise<ContainerMetadataRecord | null> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const rows = await db
+    .select({
+      id: documents.localId,
+      documentId: documents.documentId,
+      snapshotEndVersion: documents.snapshotEndVersion,
+      accessEpoch: documents.accessEpoch,
+      accessStateHash: documents.accessStateHash,
+      effectiveAccessLevel: documents.effectiveAccessLevel,
+      lastCommitLsn: documents.lastCommitLsn,
+      documentManifestBundle: documents.documentManifestBundle,
+      contentKeyBundle: documents.contentKeyBundle,
+      documentKekTargets: documents.documentKekTargets,
+      pendingBaseVersion: documents.pendingBaseVersion,
+      metadataUpdates: documentHistoryCheckpoints.snapshot,
+    })
+    .from(documents)
+    .leftJoin(
+      documentHistoryCheckpoints,
+      and(
+        eq(documentHistoryCheckpoints.appKind, CONTAINER_METADATA_APP_KIND),
+        eq(documentHistoryCheckpoints.localId, documents.localId),
+      ),
+    )
+    .where(
+      and(
+        eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
+        eq(documents.localId, containerId),
+      ),
+    )
+    .limit(1);
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+  const { metadataUpdates, ...recordRow } = row;
+  return {
+    ...mapSelectedDocumentRecord(recordRow),
+    metadataUpdates: metadataUpdates ?? "",
+  };
+}
+
 export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   async containerExists(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
@@ -1284,62 +1346,17 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       );
     });
   },
+  async loadContainerMetadataRecord(execSql, containerId) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    return selectContainerMetadataRecord(execSql, containerId);
+  },
   async loadContainers(execSql) {
     const containers = await loadContainerRecords(execSql);
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
     const storedContainers = await Promise.all(
-      containers.map(async (container) => {
-        // ONE joined statement, so the record's key/access fields and the
-        // checkpoint content it pairs with come from a single consistent
-        // read — two separate queries could interleave with a concurrent
-        // metadata save (record + checkpoint written in one transaction)
-        // and pair stale keying state with newer content.
-        const rows = await db
-          .select({
-            id: documents.localId,
-            documentId: documents.documentId,
-            snapshotEndVersion: documents.snapshotEndVersion,
-            accessEpoch: documents.accessEpoch,
-            accessStateHash: documents.accessStateHash,
-            effectiveAccessLevel: documents.effectiveAccessLevel,
-            lastCommitLsn: documents.lastCommitLsn,
-            documentManifestBundle: documents.documentManifestBundle,
-            contentKeyBundle: documents.contentKeyBundle,
-            documentKekTargets: documents.documentKekTargets,
-            pendingBaseVersion: documents.pendingBaseVersion,
-            metadataUpdates: documentHistoryCheckpoints.snapshot,
-          })
-          .from(documents)
-          .leftJoin(
-            documentHistoryCheckpoints,
-            and(
-              eq(
-                documentHistoryCheckpoints.appKind,
-                CONTAINER_METADATA_APP_KIND,
-              ),
-              eq(documentHistoryCheckpoints.localId, documents.localId),
-            ),
-          )
-          .where(
-            and(
-              eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-              eq(documents.localId, container.id),
-            ),
-          )
-          .limit(1);
-        const row = rows[0];
-        if (!row) {
-          return { container, record: null };
-        }
-        const { metadataUpdates, ...recordRow } = row;
-        return {
-          container,
-          record: {
-            ...mapSelectedDocumentRecord(recordRow),
-            metadataUpdates: metadataUpdates ?? "",
-          },
-        };
-      }),
+      containers.map(async (container) => ({
+        container,
+        record: await selectContainerMetadataRecord(execSql, container.id),
+      })),
     );
 
     return storedContainers;

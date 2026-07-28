@@ -31,8 +31,8 @@ async function seedContainerWithQueuedRename(
       accessStateHash: `access-${containerId}`,
       documentId: `metadata-${containerId}`,
       id: containerId,
-      metadataUpdates: "",
-      snapshotEndVersion: "",
+      metadataUpdates: "c2VlZA==",
+      snapshotEndVersion: "seed-end",
     },
     {
       localUpdatedAt: T0,
@@ -158,6 +158,66 @@ test("mixed cascade retains only the revoked container's metadata", async () => 
     expect(
       await countRows(execSql, "document_pending_updates", "revoked"),
     ).toBe(1);
+  } finally {
+    await close();
+  }
+});
+
+test("a later deleted tombstone purges dormant retained metadata", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "tombstone-metadata-purge",
+  );
+  try {
+    await seedContainerWithQueuedRename(execSql, "revoked");
+    await defaultContainerContentsPersistence.deleteContainers(
+      execSql,
+      ["revoked"],
+      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+    );
+    expect(
+      await countRows(execSql, "document_pending_updates", "revoked"),
+    ).toBe(1);
+
+    // The container is already absent locally; the purge call carries no
+    // retain entry, mirroring a later `deleted` tombstone for the same id.
+    await defaultContainerContentsPersistence.deleteContainers(
+      execSql,
+      ["revoked"],
+      { updatedAt: T1 },
+    );
+
+    expect(await countRows(execSql, "documents", "revoked")).toBe(0);
+    expect(
+      await countRows(execSql, "document_pending_updates", "revoked"),
+    ).toBe(0);
+    expect(await countRows(execSql, "document_sync_failures", "revoked")).toBe(
+      0,
+    );
+  } finally {
+    await close();
+  }
+});
+
+test("dormant metadata loads by container id for re-attachment", async () => {
+  const { close, execSql } = await createTestExecSql("tombstone-metadata-load");
+  try {
+    await seedContainerWithQueuedRename(execSql, "revoked");
+    await defaultContainerContentsPersistence.deleteContainers(
+      execSql,
+      ["revoked"],
+      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+    );
+
+    const dormant =
+      await defaultContainerContentsPersistence.loadContainerMetadataRecord(
+        execSql,
+        "revoked",
+      );
+    expect(dormant).toMatchObject({
+      documentId: "metadata-revoked",
+      id: "revoked",
+      metadataUpdates: "c2VlZA==",
+    });
   } finally {
     await close();
   }

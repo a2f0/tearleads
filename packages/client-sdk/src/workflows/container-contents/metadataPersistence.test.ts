@@ -65,6 +65,9 @@ function createPersistence(): ContainerContentsPersistence {
     async listContainerIdsWithPendingUpdates() {
       return [];
     },
+    async loadContainerMetadataRecord() {
+      return null;
+    },
     async listPendingCreateIntents() {
       return [];
     },
