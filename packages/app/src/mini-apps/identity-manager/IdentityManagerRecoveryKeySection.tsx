@@ -26,16 +26,6 @@ function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Operation failed.";
 }
 
-function recoveryKeyStatusLabel(input: {
-  readonly hasRecoveryKey: boolean;
-  readonly localKeyringLocked: boolean;
-}): string {
-  if (input.localKeyringLocked) {
-    return "Locked";
-  }
-  return input.hasRecoveryKey ? "Available" : "Unavailable";
-}
-
 function RecoveryKeyDisplay({
   onDownload,
   seedPhrase,
@@ -127,7 +117,6 @@ export function IdentityManagerRecoveryKeySection() {
   const [busy, setBusy] = useState<RecoveryKeyBusyState>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const hasRecoveryKey = seedPhrase !== null;
   const canRestore = !localKeyringLock.isLocked;
 
   const downloadRecoveryKey = async () => {
@@ -189,12 +178,6 @@ export function IdentityManagerRecoveryKeySection() {
     <MiniAppSection>
       <MiniAppSectionHeading>
         <h2>Recovery Key</h2>
-        <MiniAppStatus as="span">
-          {recoveryKeyStatusLabel({
-            hasRecoveryKey,
-            localKeyringLocked: localKeyringLock.isLocked,
-          })}
-        </MiniAppStatus>
       </MiniAppSectionHeading>
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       {status && <MiniAppStatus>{status}</MiniAppStatus>}
