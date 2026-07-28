@@ -289,3 +289,39 @@ test("a hidden-kind orphan stays unprimed", async () => {
     close();
   }
 });
+
+test("a pre-auth orphan with no organization still primes", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-priming-preauth-orphan",
+  );
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveTestDocument({
+      containerId: "deleted-preauth-container",
+      documentId: null,
+      execSql,
+      id: "preauth-orphan",
+      title: "Device-first note",
+      updatedAt: "2026-07-23T14:19:12.658Z",
+    });
+    // Created before authentication: no organization attribution exists.
+    await execSql(
+      "UPDATE document_projection SET container_id = NULL, organization_id = '' WHERE local_id = ?",
+      ["preauth-orphan"],
+    );
+    const opened: Array<{ containerId: string | null; localId: string }> = [];
+
+    const result = await primeDocumentsForLoadedRoots({
+      containersById: new Map(),
+      host: createPrimeHost(opened),
+      organizationId: "org-a",
+      runtime: { infra: { execSql } },
+    });
+
+    expect(result.orphanPrimedCount).toBe(1);
+    expect(opened).toEqual([{ containerId: null, localId: "preauth-orphan" }]);
+  } finally {
+    close();
+  }
+});

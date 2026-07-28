@@ -157,7 +157,11 @@ const ORPHANED_PRIME_TARGET_SQL = `
     ON projection.local_id = stored.local_id
   WHERE stored.app_kind = 'documents'
     AND projection.container_id IS NULL
-    AND projection.organization_id = ?
+    AND (
+      projection.organization_id = ?
+      OR projection.organization_id IS NULL
+      OR projection.organization_id = ''
+    )
     AND projection.document_kind NOT IN ('organization_profile')
     AND (
       stored.document_id IS NULL
@@ -170,6 +174,11 @@ const ORPHANED_PRIME_TARGET_SQL = `
   ORDER BY stored.local_id ASC
 `;
 
+/**
+ * Unattributed rows (empty/NULL organization) are always included: they are
+ * device-first documents created before authentication, which belong to this
+ * device's sole user and adopt the active organization when they create.
+ */
 async function listOrphanedDocumentPrimeTargets(
   runtime: ContainerDocumentQueriesRuntime,
   organizationId: string,
