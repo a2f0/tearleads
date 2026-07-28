@@ -150,6 +150,13 @@ export class ApiClient {
     new BoundedCache<Promise<ContainerWriterProjectionResponse | null>>();
   private readonly documentWriterProjectionRequestsByDocumentId =
     new BoundedCache<Promise<DocumentWriterProjectionResponse | null>>();
+  private readonly containerWriterProjectionResultsInFlightByContainerId =
+    new Map<
+      string,
+      Promise<RequestResult<ContainerWriterProjectionResponse>>
+    >();
+  private readonly documentWriterProjectionResultsInFlightByDocumentId =
+    new Map<string, Promise<RequestResult<DocumentWriterProjectionResponse>>>();
   private readonly documentAttachmentListRequestsByDocumentId =
     new BoundedCache<Promise<ListDocumentAttachmentsResponse | null>>();
   private readonly documentAttributionRequests =
@@ -180,6 +187,8 @@ export class ApiClient {
     this.documentAttributionRequests.clear();
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
+    this.containerWriterProjectionResultsInFlightByContainerId.clear();
+    this.documentWriterProjectionResultsInFlightByDocumentId.clear();
     this.userIdentityRequestsByUserId.clear();
     this.principalPolicyRequestsByKey.clear();
   }
@@ -191,6 +200,8 @@ export class ApiClient {
   clearWriterProjectionCaches(): void {
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
+    this.containerWriterProjectionResultsInFlightByContainerId.clear();
+    this.documentWriterProjectionResultsInFlightByDocumentId.clear();
   }
 
   evictUserIdentity(userId: string): void {
@@ -205,6 +216,7 @@ export class ApiClient {
    */
   evictDocumentWriterProjection(documentId: string): void {
     this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+    this.documentWriterProjectionResultsInFlightByDocumentId.delete(documentId);
   }
 
   /**
@@ -215,6 +227,9 @@ export class ApiClient {
    */
   evictContainerWriterProjection(containerId: string): void {
     this.containerWriterProjectionRequestsByContainerId.delete(containerId);
+    this.containerWriterProjectionResultsInFlightByContainerId.delete(
+      containerId,
+    );
   }
 
   private buildHeaders(
@@ -1000,6 +1015,7 @@ export class ApiClient {
   ): Promise<RequestResult<ContainerWriterProjectionResponse>> {
     return this.writerProjectionResult(
       this.containerWriterProjectionRequestsByContainerId,
+      this.containerWriterProjectionResultsInFlightByContainerId,
       containerId,
       `/containers/${pathSegment(containerId)}/writer-projection`,
       isContainerWriterProjectionResponse,
@@ -1007,15 +1023,53 @@ export class ApiClient {
     );
   }
 
-  // Shared by the writer-projection result variants: reuse a cached success,
-  // fetch a result otherwise, and reconcile the cache without ever clobbering
-  // an entry that changed while the fetch was in flight. The in-flight fetch is
-  // published into the cache as a pending entry (the `cachedRequest` scheme),
-  // so an eviction or overwrite during the flight replaces OUR entry and the
-  // identity guards below observe it — a snapshot-only comparison would read
-  // empty-before and empty-after as unchanged and re-cache a projection an
-  // eviction (e.g. after a revoke) meant to drop.
-  private async writerProjectionResult<T>(
+  // Shared by the writer-projection result variants: coalesce concurrent
+  // result callers onto one in-flight fetch, reuse a cached success, fetch a
+  // result otherwise, and reconcile the cache without ever clobbering an entry
+  // that changed while the fetch was in flight.
+  private writerProjectionResult<T>(
+    cache: BoundedCache<Promise<T | null>>,
+    inFlightResults: Map<string, Promise<RequestResult<T>>>,
+    cacheKey: string,
+    path: string,
+    validator: (value: unknown) => value is T,
+    options: CachedRequestResultOptions,
+  ): Promise<RequestResult<T>> {
+    // A concurrent burst shares one fetch — failure included — so it cannot
+    // repeat the HTTP request or its side effects (error reporting, the 402
+    // billing signal). The entry lives only while the fetch is in flight:
+    // failures are shared, never cached, so a later retry refetches. Eviction
+    // deletes the entry, so post-eviction callers never adopt a fetch that
+    // may predate the invalidating event; the identity guard keeps a late
+    // settle from deleting a successor's entry.
+    const inFlight = inFlightResults.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    let resultPromise: Promise<RequestResult<T>>;
+    resultPromise = this.fetchWriterProjectionResult(
+      cache,
+      cacheKey,
+      path,
+      validator,
+      options,
+    ).finally(() => {
+      if (inFlightResults.get(cacheKey) === resultPromise) {
+        inFlightResults.delete(cacheKey);
+      }
+    });
+    inFlightResults.set(cacheKey, resultPromise);
+    return resultPromise;
+  }
+
+  // The fetch half of writerProjectionResult. The in-flight fetch is
+  // published into the value cache as a pending entry (the `cachedRequest`
+  // scheme), so an eviction or overwrite during the flight replaces OUR entry
+  // and the identity guards below observe it — a snapshot-only comparison
+  // would read empty-before and empty-after as unchanged and re-cache a
+  // projection an eviction (e.g. after a revoke) meant to drop.
+  private async fetchWriterProjectionResult<T>(
     cache: BoundedCache<Promise<T | null>>,
     cacheKey: string,
     path: string,
@@ -1222,6 +1276,7 @@ export class ApiClient {
   ): Promise<RequestResult<DocumentWriterProjectionResponse>> {
     return this.writerProjectionResult(
       this.documentWriterProjectionRequestsByDocumentId,
+      this.documentWriterProjectionResultsInFlightByDocumentId,
       documentId,
       `/documents/${pathSegment(documentId)}/writer-projection`,
       isDocumentWriterProjectionResponse,

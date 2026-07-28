@@ -300,6 +300,50 @@ testApiClient(
 );
 
 testApiClient(
+  "concurrent container writer projection result callers share one failing fetch",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    const finishFetch = createDeferred<void>();
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          await finishFetch.promise;
+          return HttpResponse.json(
+            { error: "Payment required" },
+            { status: 402, statusText: "Payment Required" },
+          );
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const first = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    const second = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    finishFetch.resolve();
+
+    // The burst shares one fetch, failure included, so the request and its
+    // side effects (reporting, the 402 billing signal) fire once.
+    await expect(first).resolves.toMatchObject({ ok: false, status: 402 });
+    await expect(second).resolves.toMatchObject({ ok: false, status: 402 });
+    expect(calls).toHaveLength(1);
+
+    // Failures are shared in flight, never cached: a later retry refetches.
+    await expect(
+      client.getContainerWriterProjectionResult("container-1", {
+        reportErrors: false,
+      }),
+    ).resolves.toMatchObject({ ok: false, status: 402 });
+    expect(calls).toHaveLength(2);
+  },
+);
+
+testApiClient(
   "container writer projection result strips request-affecting options",
   async () => {
     let smuggledHeader: string | null = null;
