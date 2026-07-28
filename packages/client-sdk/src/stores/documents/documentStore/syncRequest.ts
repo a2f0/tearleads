@@ -31,6 +31,13 @@ import {
 } from "./syncShared";
 import { documentSyncContextMatches } from "./syncUpdateImport";
 
+/**
+ * Destroying queued local edits here is settled policy, not an oversight
+ * (docs/sync-edge-cases.md row 1): deletion is a privacy operation, so an
+ * authoritative remote delete removes the document and its unsynced edits
+ * everywhere with no preservation copy. Quarantine/export were rejected —
+ * they retain or re-upload content the user deliberately destroyed.
+ */
 export async function deleteUpstreamDeletedDocument(
   state: DocumentStoreState,
   generation: DocumentStoreSyncGeneration,

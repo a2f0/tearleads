@@ -47,14 +47,14 @@ without counting as lane progress, so it cannot hot-loop the pump.
 
 | # | Scenario | Behavior | Verdict |
 | --- | --- | --- | --- |
-| 1 | Remote document deleted (coded `404 document_not_found`) while local edits are queued | Local document, pending updates, and failure rows are destroyed; one log line remains. No export or confirmation. | needs decision (destroy vs. quarantine the local edits) |
+| 1 | Remote document deleted (coded `404 document_not_found`) while local edits are queued | Local document, pending updates, history, and failure rows are destroyed in one transaction; one log line remains. No export, confirmation, or preservation copy. | working as designed — deletion is a privacy operation: an authoritative remote delete removes the document and its unsynced edits everywhere, immediately. Quarantine, export, and confirm-before-destroy were considered and rejected: each retains (or re-uploads) content the user deliberately destroyed. Cascade-driven deletions that reach this path without direct intent are rows 3/4's concern. |
 | 2 | Bare 404 (no error code) on submit | Deliberately not treated as deletion; parks as an error row. | working as designed |
 | 3 | Container tombstoned (`deleted` / `access_revoked`) with queued content edits inside | Cascades to local descendants; documents are unlinked or orphaned but content and pending updates survive. The next pass then 403s (revoked) or triggers row 1 (deleted). | needs decision (end state depends on a race) |
 | 4 | Container tombstoned with queued metadata edits (e.g. rename) | Queued metadata updates are deleted in the same transaction, with no failure row. | needs decision (defensible for deleted; questionable for access_revoked) |
 | 5 | Move intent whose destination container is missing locally | `blocked` with a named reason; replays each structural pass and completes if the container appears (e.g. via hydration). | working as designed |
 | 6 | Document deleted while it has a queued move intent | The move intents are deleted with the document. | working as designed |
 | 7 | Move fails remotely (rejected, unavailable, or permission denied) | Stays `pending` with `"Remote document move was rejected or unavailable: <detail> (<status>)"`; the HTTP status is threaded through when one was seen. Retries on every trigger. | working as designed; parking 403s for the access-restored signal (like document writes) is a possible refinement |
-| 8 | 403 on a write-bearing document sync | Local edit kept untouched; durable error row `"Write access denied by the server (403)"`; footer shows the failure. No retry until org access is restored or another trigger fires. | working as designed; row 21's discard covers the give-up path for remote-backed documents, export remains open (pairs with row 1) |
+| 8 | 403 on a write-bearing document sync | Local edit kept untouched; durable error row `"Write access denied by the server (403)"`; footer shows the failure. No retry until org access is restored or another trigger fires. | working as designed; row 21's discard covers the give-up path for remote-backed documents; a user-initiated export remains an open idea |
 | 9 | 403 on a read-only pull | Suppressed on purpose — never flags unattempted local edits. | working as designed |
 | 10 | 409 `document_sync_state_stale` | In-pass retry with a fresh projection, bounded. | working as designed |
 | 11 | 409 `update_id_conflict` | In-pass re-key recovery, bounded at 5 durable attempts, then a synthetic terminal failure. The write queue's "Retry sync" resets the durable budget (a deliberate tap is the rate-limited signal that conditions changed). | working as designed |
@@ -71,8 +71,10 @@ without counting as lane progress, so it cannot hot-loop the pump.
 
 ## Known gaps / follow-ups
 
-- Rows 1, 3, 4: decide the fate of local edits stranded by remote
-  deletion/tombstones (destroy today; quarantine or export are candidates).
+- Rows 3, 4: decide the fate of local edits stranded by container
+  tombstones (destroy today via the row 1 cascade; row 1 itself is settled —
+  destroy — so what remains is whether cascades without direct deletion
+  intent should keep feeding it).
 - Row 7: consider parking permission-denied moves for the
   org-access-restored signal instead of retrying on every trigger.
 - Create intents (`container_create_intents`) have no `last_attempted_at`
