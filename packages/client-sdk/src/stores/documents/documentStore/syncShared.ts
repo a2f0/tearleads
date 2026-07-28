@@ -173,6 +173,17 @@ export async function ensureRemoteDocument(
     runtime.util.log(
       "Documents: cannot create a remote document without a container.",
     );
+    // A local-only document with no container scope (e.g. a last-link orphan
+    // from a tombstone cascade, docs/sync-edge-cases.md row 3) can never
+    // create; record the stuck state durably so the write queue surfaces it
+    // instead of this lane going silent on every trigger.
+    await documentTerminalSubmitFailureHandler(
+      state,
+      generation,
+    )({
+      message: "Local document has no container for its remote create",
+      status: null,
+    });
     return nextRecord;
   }
 

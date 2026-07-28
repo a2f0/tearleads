@@ -390,7 +390,7 @@ test("durable orphan recovery makes the document primeable on relaunch", async (
         },
       },
     });
-    const opened: Array<{ containerId: string; localId: string }> = [];
+    const opened: Array<{ containerId: string | null; localId: string }> = [];
 
     const priming = await primeDocumentsForLoadedRoots({
       containersById,
