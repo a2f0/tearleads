@@ -177,6 +177,51 @@ testApiClient(
 );
 
 testApiClient(
+  "evicting one container leaves another container's coalescing intact",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    const fetchStarted = createDeferred<void>();
+    const finishFetch = createDeferred<void>();
+    const projection = createContainerWriterProjectionResponse();
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          fetchStarted.resolve();
+          await finishFetch.promise;
+          return HttpResponse.json(projection);
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const first = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    await fetchStarted.promise;
+
+    // An unrelated id's eviction must not unpin container-1's in-flight
+    // fetch: a second caller still joins it, and the success still warms the
+    // cache afterward.
+    client.evictContainerWriterProjection("container-2");
+
+    const second = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    finishFetch.resolve();
+    await expect(first).resolves.toEqual({ data: projection, ok: true });
+    await expect(second).resolves.toEqual({ data: projection, ok: true });
+    expect(calls).toHaveLength(1);
+
+    await expect(
+      client.getContainerWriterProjection("container-1"),
+    ).resolves.toEqual(projection);
+    expect(calls).toHaveLength(1);
+  },
+);
+
+testApiClient(
   "container result callers do not adopt an in-flight fetch after eviction",
   async () => {
     const calls: CapturedHttpCall[] = [];

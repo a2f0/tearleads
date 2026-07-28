@@ -125,10 +125,10 @@ type ExpiredHandler = () => boolean | Promise<boolean>;
 type PaymentRequiredHandler = (organizationId: string | null) => void;
 
 // A joinable in-flight writer-projection result fetch, pinned to the value
-// slot and eviction generation it started against. A caller may join it only
-// while both are unchanged — see writerProjectionResult.
+// slot and per-key invalidation stamp it started against. A caller may join
+// it only while both are unchanged — see writerProjectionResult.
 interface InFlightWriterProjectionResult<T> {
-  readonly generation: number;
+  readonly invalidationStamp: number;
   readonly resultPromise: Promise<RequestResult<T>>;
   readonly slot: Promise<T | null> | undefined;
 }
@@ -1051,30 +1051,32 @@ export class ApiClient {
     // repeat the HTTP request or the 402 billing signal. The entry lives only
     // while the fetch is in flight: failures are shared, never cached, so a
     // later retry refetches. An in-flight fetch is joinable only while the
-    // value slot and eviction generation it started against are unchanged: a
-    // prime, a completed plain GET, or an eviction that lands mid-flight
-    // makes the older fetch unadoptable, so a later caller reads the current
-    // cache state (or fetches fresh) instead of joining a fetch that
-    // predates it. Eviction and priming also delete the entry outright; the
-    // identity guard keeps a late settle from deleting a successor's entry.
+    // value slot and per-key invalidation stamp it started against are
+    // unchanged: a prime, a completed plain GET, or an eviction of THIS id
+    // that lands mid-flight makes the older fetch unadoptable, so a later
+    // caller reads the current cache state (or fetches fresh) instead of
+    // joining a fetch that predates it — while invalidations of other ids
+    // leave the coalescing intact. Eviction and priming also delete the
+    // entry outright; the identity guard keeps a late settle from deleting a
+    // successor's entry.
     //
     // The shared fetch itself is always silent; each caller applies its OWN
     // reporting policy to the shared outcome below. Coalescing therefore
     // never lets one caller's reportErrors suppress (or force) another's,
     // and caller options never reach the request — the fetch takes none.
     const slot = cache.get(cacheKey);
-    const generation = cache.evictionGeneration;
+    const invalidationStamp = cache.invalidationStamp(cacheKey);
     const inFlight = inFlightResults.get(cacheKey);
     let shared: Promise<RequestResult<T>>;
     if (
       inFlight &&
       inFlight.slot === slot &&
-      inFlight.generation === generation
+      inFlight.invalidationStamp === invalidationStamp
     ) {
       shared = inFlight.resultPromise;
     } else {
       const entry: InFlightWriterProjectionResult<T> = {
-        generation,
+        invalidationStamp,
         resultPromise: this.fetchWriterProjectionResult(
           cache,
           cacheKey,
@@ -1104,8 +1106,8 @@ export class ApiClient {
 
   // The fetch half of writerProjectionResult. Cache reconciliation guards
   // against both mid-flight slot replacement (identity comparison) and
-  // mid-flight eviction of an empty slot (the eviction generation), so a
-  // projection an eviction (e.g. after a revoke) meant to drop is never
+  // mid-flight eviction of an empty slot (the per-key invalidation stamp),
+  // so a projection an eviction (e.g. after a revoke) meant to drop is never
   // re-cached.
   private async fetchWriterProjectionResult<T>(
     cache: BoundedCache<Promise<T | null>>,
@@ -1141,7 +1143,7 @@ export class ApiClient {
     // Always silent here: reporting is per-caller in writerProjectionResult,
     // and taking no caller options is what guarantees nothing
     // request-affecting can be smuggled into the shared fetch.
-    const evictionGeneration = cache.evictionGeneration;
+    const invalidationStamp = cache.invalidationStamp(cacheKey);
     const result = await this.makeRequestResult(
       path,
       validator,
@@ -1153,15 +1155,14 @@ export class ApiClient {
     );
 
     if (result.ok) {
-      // Publish the success unless the slot changed or any eviction hit the
-      // cache mid-flight. The generation check is what makes an eviction of
+      // Publish the success unless the slot changed or this id was
+      // invalidated mid-flight. The stamp check is what makes an eviction of
       // THIS id visible even when the slot was empty before and after the
-      // flight — the case the identity comparison alone cannot see. It is
-      // cache-wide, so at worst an unrelated eviction skips warming the
-      // cache; it never caches a projection an eviction meant to drop.
+      // flight — the case the identity comparison alone cannot see — and it
+      // never caches a projection an eviction meant to drop.
       if (
         cache.get(cacheKey) === cached &&
-        cache.evictionGeneration === evictionGeneration
+        cache.invalidationStamp(cacheKey) === invalidationStamp
       ) {
         cache.set(cacheKey, Promise.resolve(result.data));
       }
