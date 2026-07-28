@@ -124,6 +124,15 @@ const BLOB_PART_UPLOAD_ID_HEADER = "X-Tearleads-Blob-Upload-Id";
 type ExpiredHandler = () => boolean | Promise<boolean>;
 type PaymentRequiredHandler = (organizationId: string | null) => void;
 
+// A joinable in-flight writer-projection result fetch, pinned to the value
+// slot and eviction generation it started against. A caller may join it only
+// while both are unchanged — see writerProjectionResult.
+interface InFlightWriterProjectionResult<T> {
+  readonly generation: number;
+  readonly resultPromise: Promise<RequestResult<T>>;
+  readonly slot: Promise<T | null> | undefined;
+}
+
 function isWebSocketTicketResponse(
   value: unknown,
 ): value is { ticket: string } {
@@ -153,10 +162,13 @@ export class ApiClient {
   private readonly containerWriterProjectionResultsInFlightByContainerId =
     new Map<
       string,
-      Promise<RequestResult<ContainerWriterProjectionResponse>>
+      InFlightWriterProjectionResult<ContainerWriterProjectionResponse>
     >();
   private readonly documentWriterProjectionResultsInFlightByDocumentId =
-    new Map<string, Promise<RequestResult<DocumentWriterProjectionResponse>>>();
+    new Map<
+      string,
+      InFlightWriterProjectionResult<DocumentWriterProjectionResponse>
+    >();
   private readonly documentAttachmentListRequestsByDocumentId =
     new BoundedCache<Promise<ListDocumentAttachmentsResponse | null>>();
   private readonly documentAttributionRequests =
@@ -1029,7 +1041,7 @@ export class ApiClient {
   // that changed while the fetch was in flight.
   private writerProjectionResult<T>(
     cache: BoundedCache<Promise<T | null>>,
-    inFlightResults: Map<string, Promise<RequestResult<T>>>,
+    inFlightResults: Map<string, InFlightWriterProjectionResult<T>>,
     cacheKey: string,
     path: string,
     validator: (value: unknown) => value is T,
@@ -1038,30 +1050,45 @@ export class ApiClient {
     // A concurrent burst shares one fetch — failure included — so it cannot
     // repeat the HTTP request or the 402 billing signal. The entry lives only
     // while the fetch is in flight: failures are shared, never cached, so a
-    // later retry refetches. Eviction deletes the entry, so post-eviction
-    // callers never adopt a fetch that may predate the invalidating event;
-    // the identity guard keeps a late settle from deleting a successor's
-    // entry.
+    // later retry refetches. An in-flight fetch is joinable only while the
+    // value slot and eviction generation it started against are unchanged: a
+    // prime, a completed plain GET, or an eviction that lands mid-flight
+    // makes the older fetch unadoptable, so a later caller reads the current
+    // cache state (or fetches fresh) instead of joining a fetch that
+    // predates it. Eviction and priming also delete the entry outright; the
+    // identity guard keeps a late settle from deleting a successor's entry.
     //
     // The shared fetch itself is always silent; each caller applies its OWN
     // reporting policy to the shared outcome below. Coalescing therefore
     // never lets one caller's reportErrors suppress (or force) another's,
     // and caller options never reach the request — the fetch takes none.
-    let shared = inFlightResults.get(cacheKey);
-    if (!shared) {
-      let resultPromise: Promise<RequestResult<T>>;
-      resultPromise = this.fetchWriterProjectionResult(
-        cache,
-        cacheKey,
-        path,
-        validator,
-      ).finally(() => {
-        if (inFlightResults.get(cacheKey) === resultPromise) {
-          inFlightResults.delete(cacheKey);
-        }
-      });
-      inFlightResults.set(cacheKey, resultPromise);
-      shared = resultPromise;
+    const slot = cache.get(cacheKey);
+    const generation = cache.evictionGeneration;
+    const inFlight = inFlightResults.get(cacheKey);
+    let shared: Promise<RequestResult<T>>;
+    if (
+      inFlight &&
+      inFlight.slot === slot &&
+      inFlight.generation === generation
+    ) {
+      shared = inFlight.resultPromise;
+    } else {
+      const entry: InFlightWriterProjectionResult<T> = {
+        generation,
+        resultPromise: this.fetchWriterProjectionResult(
+          cache,
+          cacheKey,
+          path,
+          validator,
+        ).finally(() => {
+          if (inFlightResults.get(cacheKey) === entry) {
+            inFlightResults.delete(cacheKey);
+          }
+        }),
+        slot,
+      };
+      inFlightResults.set(cacheKey, entry);
+      shared = entry.resultPromise;
     }
 
     if (options.reportErrors === false) {
