@@ -240,6 +240,10 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
     setAuthorizedIdentity(signingFingerprint);
     setPendingDisclosure(null);
     setRevealed(false);
+    // The status and error lines describe the outgoing identity's key, so they
+    // must not linger and read as if they applied to the incoming one.
+    feedback.setError(null);
+    feedback.setStatus(null);
   }
 
   const copyRecoveryKey = async (recoveryKey: string) => {

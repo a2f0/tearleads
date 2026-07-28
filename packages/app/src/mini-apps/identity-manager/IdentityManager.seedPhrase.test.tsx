@@ -302,6 +302,8 @@ test("switching identities revokes an existing reveal", async () => {
     expect(
       view.getByRole("button", { name: "Reveal Recovery Key" }),
     ).toBeTruthy();
+    // Feedback about the outgoing key must not carry over either.
+    expect(view.queryByText("Recovery key revealed.")).toBeNull();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
