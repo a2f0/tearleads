@@ -12,7 +12,7 @@ import {
   MiniAppTabList,
   MiniAppTabPanel,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
+import { MiniAppKeyValueTable } from "../../../../components/mini-app/MiniAppTable";
 import { formatByteLength } from "../../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS, getExplorerSyncLaneCountLabel } from "../../labels";
@@ -69,7 +69,7 @@ function ExplorerSyncLaneGeneralSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.syncLanesGeneralHeading}>
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable>
         <tbody>
           <ExplorerSyncLaneInfoRow
             label={EXPLORER_LABELS.syncLanesLabelRow}
@@ -131,7 +131,7 @@ function ExplorerSyncLaneGeneralSection(params: {
             </ExplorerSyncLaneInfoRow>
           ) : null}
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppInfoSection>
   );
 }
@@ -141,7 +141,7 @@ function ExplorerSyncLaneTimingSection(params: { lane: SyncLaneSnapshot }) {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.syncLanesTimingHeading}>
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable>
         <tbody>
           <ExplorerSyncLaneInfoRow
             label={EXPLORER_LABELS.syncLanesRequestedRow}
@@ -193,7 +193,7 @@ function ExplorerSyncLaneTimingSection(params: { lane: SyncLaneSnapshot }) {
             {lane.lastError ?? EXPLORER_LABELS.syncLanesNoError}
           </ExplorerSyncLaneInfoRow>
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppInfoSection>
   );
 }
@@ -208,7 +208,7 @@ function ExplorerSyncLaneProgressSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.syncLanesProgressHeading}>
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable>
         <tbody>
           <ExplorerSyncLaneInfoRow label={EXPLORER_LABELS.syncLanesBytesRow}>
             {formatSyncLaneProgressBytes(progress)}
@@ -217,7 +217,7 @@ function ExplorerSyncLaneProgressSection(params: {
             {formatSyncLaneProgressParts(progress)}
           </ExplorerSyncLaneInfoRow>
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppInfoSection>
   );
 }
@@ -229,7 +229,7 @@ function ExplorerSyncLaneCoordinatorSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.syncLanesCoordinatorHeading}>
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable>
         <tbody>
           <ExplorerSyncLaneInfoRow
             label={EXPLORER_LABELS.syncLanesPendingWorkRow}
@@ -248,7 +248,7 @@ function ExplorerSyncLaneCoordinatorSection(params: {
             {formatSyncLaneDateTime(snapshot.updatedAt)}
           </ExplorerSyncLaneInfoRow>
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppInfoSection>
   );
 }
