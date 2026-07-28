@@ -1363,34 +1363,41 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   async purgeDormantContainerMetadata(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
-      await db
-        .delete(documents)
-        .where(
-          and(
-            eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-            eq(documents.localId, containerId),
-          ),
-        )
-        .run();
-      await db
-        .delete(documentPendingUpdates)
-        .where(
-          and(
-            eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-            eq(documentPendingUpdates.localId, containerId),
-          ),
-        )
-        .run();
-      await db
-        .delete(documentSyncFailures)
-        .where(
-          and(
-            eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
-            eq(documentSyncFailures.localId, containerId),
-          ),
-        )
-        .run();
+      // ONE transaction: a crash that deleted the documents row but kept the
+      // pending updates would hide the dormant record from the next
+      // hydration's mismatch check, letting dead-stream updates resurface
+      // against the replacement metadata document.
+      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          await tx
+            .delete(documents)
+            .where(
+              and(
+                eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
+                eq(documents.localId, containerId),
+              ),
+            )
+            .run();
+          await tx
+            .delete(documentPendingUpdates)
+            .where(
+              and(
+                eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
+                eq(documentPendingUpdates.localId, containerId),
+              ),
+            )
+            .run();
+          await tx
+            .delete(documentSyncFailures)
+            .where(
+              and(
+                eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
+                eq(documentSyncFailures.localId, containerId),
+              ),
+            )
+            .run();
+        },
+      );
     });
   },
   async loadContainers(execSql) {
