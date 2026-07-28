@@ -1,6 +1,6 @@
+import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
-import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
 import type {
   BlobStore,
   DocumentAttachmentUpload,
@@ -240,7 +240,7 @@ function ContactsImportContactPanel(params: {
   const importAction = useMemo(
     () => ({
       disabled: !canImport,
-      icon: <UserPlusIcon aria-hidden size={18} />,
+      icon: <AddressBookIcon aria-hidden size={18} />,
       id: "contacts-import-contact-submit",
       label: CONTACTS_LABELS.importContactSubmitAction,
       onClick: importDraftContact,

@@ -1,4 +1,3 @@
-import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { ArrowsOutCardinalIcon } from "@phosphor-icons/react/dist/csr/ArrowsOutCardinal";
 import { FilePlusIcon } from "@phosphor-icons/react/dist/csr/FilePlus";
 import { FolderPlusIcon } from "@phosphor-icons/react/dist/csr/FolderPlus";
@@ -9,6 +8,7 @@ import { useMemo } from "react";
 import { useMiniAppDetailBackAction } from "../../components/window/useMiniAppDetailBackAction";
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import { chromeOwnsRouteBackedDetailBack } from "../../navigation/routeBackedDetailBack";
+import { NewContactIcon } from "../shared/newContactIcon";
 import { useExplorerHubToolbarActions } from "./ExplorerHubToolbarActions";
 import { getExplorerContainerToolbarVisibility } from "./explorerContainerToolbarVisibility";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
@@ -126,7 +126,7 @@ function useExplorerNewContactToolbarAction({
         ? {
             disabled:
               !model.explorer.ready || !model.canCreateContactInActiveContainer,
-            icon: <AddressBookIcon aria-hidden size={18} />,
+            icon: <NewContactIcon aria-hidden size={18} />,
             id: "explorer-new-contact",
             label: EXPLORER_LABELS.newContactAction,
             onClick: () => {
