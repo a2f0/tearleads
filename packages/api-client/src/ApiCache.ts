@@ -19,6 +19,7 @@
 export class BoundedCache<V> {
   private readonly entries = new Map<string, V>();
   private readonly maxEntries: number;
+  private evictionCount = 0;
 
   constructor(maxEntries = 256) {
     if (maxEntries < 1) {
@@ -29,6 +30,20 @@ export class BoundedCache<V> {
 
   get size(): number {
     return this.entries.size;
+  }
+
+  /**
+   * Monotonic counter bumped by every explicit invalidation (`delete`,
+   * including of an absent key, and `clear`). A fetch that snapshots it
+   * before running and re-checks after can tell that an invalidation
+   * happened mid-flight even when the slot was empty both times — the case
+   * a slot-identity comparison alone cannot see. Deliberately NOT bumped by
+   * `set` or by recency overflow: those are not invalidation signals, and
+   * the counter is coarse (cache-wide) on purpose — a false positive only
+   * skips warming the cache.
+   */
+  get evictionGeneration(): number {
+    return this.evictionCount;
   }
 
   get(key: string): V | undefined {
@@ -49,10 +64,14 @@ export class BoundedCache<V> {
   }
 
   delete(key: string): boolean {
+    // Bump even when the key is absent: an eviction of an empty slot still
+    // expresses that whatever is in flight for the id is invalid.
+    this.evictionCount += 1;
     return this.entries.delete(key);
   }
 
   clear(): void {
+    this.evictionCount += 1;
     this.entries.clear();
   }
 

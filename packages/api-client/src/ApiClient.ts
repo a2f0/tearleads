@@ -1075,12 +1075,11 @@ export class ApiClient {
     });
   }
 
-  // The fetch half of writerProjectionResult. The in-flight fetch is
-  // published into the value cache as a pending entry (the `cachedRequest`
-  // scheme), so an eviction or overwrite during the flight replaces OUR entry
-  // and the identity guards below observe it — a snapshot-only comparison
-  // would read empty-before and empty-after as unchanged and re-cache a
-  // projection an eviction (e.g. after a revoke) meant to drop.
+  // The fetch half of writerProjectionResult. Cache reconciliation guards
+  // against both mid-flight slot replacement (identity comparison) and
+  // mid-flight eviction of an empty slot (the eviction generation), so a
+  // projection an eviction (e.g. after a revoke) meant to drop is never
+  // re-cached.
   private async fetchWriterProjectionResult<T>(
     cache: BoundedCache<Promise<T | null>>,
     cacheKey: string,
@@ -1108,10 +1107,15 @@ export class ApiClient {
       cached = current;
     }
 
-    // Always silent: reporting is per-caller in writerProjectionResult, and
-    // taking no caller options here is what guarantees nothing
+    // The plain value cache never sees this fetch while it is in flight: a
+    // published always-silent entry would hand a concurrent PLAIN caller a
+    // null without its normal error reporting. Plain callers keep their own
+    // fetch-and-report behavior instead, and only a success is published.
+    // Always silent here: reporting is per-caller in writerProjectionResult,
+    // and taking no caller options is what guarantees nothing
     // request-affecting can be smuggled into the shared fetch.
-    const resultPromise = this.makeRequestResult(
+    const evictionGeneration = cache.evictionGeneration;
+    const result = await this.makeRequestResult(
       path,
       validator,
       "GET",
@@ -1120,25 +1124,27 @@ export class ApiClient {
         reportErrors: false,
       },
     );
-    // Success needs no follow-up write: the pending entry itself resolves to
-    // the data. A failure (or rejection) deletes the entry — but only while it
-    // is still ours; if an eviction or newer fetch won the slot mid-flight,
-    // leave it alone in both directions.
-    let pendingEntry: Promise<T | null>;
-    pendingEntry = resultPromise
-      .then(
-        (result) => (result.ok ? result.data : null),
-        () => null,
-      )
-      .then((value) => {
-        if (value === null && cache.get(cacheKey) === pendingEntry) {
-          cache.delete(cacheKey);
-        }
-        return value;
-      });
-    cache.set(cacheKey, pendingEntry);
 
-    return resultPromise;
+    if (result.ok) {
+      // Publish the success unless the slot changed or any eviction hit the
+      // cache mid-flight. The generation check is what makes an eviction of
+      // THIS id visible even when the slot was empty before and after the
+      // flight — the case the identity comparison alone cannot see. It is
+      // cache-wide, so at worst an unrelated eviction skips warming the
+      // cache; it never caches a projection an eviction meant to drop.
+      if (
+        cache.get(cacheKey) === cached &&
+        cache.evictionGeneration === evictionGeneration
+      ) {
+        cache.set(cacheKey, Promise.resolve(result.data));
+      }
+    } else if (cached && cache.get(cacheKey) === cached) {
+      // The adopted entry settled empty and the fetch confirmed there is
+      // nothing to serve: drop it so a later read refetches.
+      cache.delete(cacheKey);
+    }
+
+    return result;
   }
 
   createContainer(input: ContainerMutationRequest) {

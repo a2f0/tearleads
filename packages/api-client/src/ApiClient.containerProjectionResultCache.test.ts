@@ -309,6 +309,50 @@ testApiClient(
 );
 
 testApiClient(
+  "plain callers keep their own reporting during a silent result fetch",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    const finishFetch = createDeferred<void>();
+    const reportedErrors: string[] = [];
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          await finishFetch.promise;
+          return HttpResponse.json(
+            { error: "Payment required" },
+            { status: 402, statusText: "Payment Required" },
+          );
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    client.setOnError((message) => {
+      reportedErrors.push(message);
+    });
+    const silentResult = client.getContainerWriterProjectionResult(
+      "container-1",
+      { reportErrors: false },
+    );
+    const plain = client.getContainerWriterProjection("container-1");
+    finishFetch.resolve();
+
+    // The silent result fetch is never published to the plain cache while in
+    // flight, so the plain caller runs (and reports) its own request instead
+    // of inheriting silence.
+    await expect(silentResult).resolves.toMatchObject({
+      ok: false,
+      status: 402,
+    });
+    await expect(plain).resolves.toBeNull();
+    expect(calls).toHaveLength(2);
+    expect(reportedErrors).toHaveLength(1);
+  },
+);
+
+testApiClient(
   "container writer projection result strips request-affecting options",
   async () => {
     let smuggledHeader: string | null = null;
