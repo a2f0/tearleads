@@ -8,6 +8,8 @@ import type {
   DocumentStoreState,
   EncapsulationKeyPair,
 } from "./state";
+import type { DocumentStoreSyncGeneration } from "./syncGeneration";
+import { deleteUpstreamDeletedDocument } from "./syncRequest";
 import {
   documentRevalidationFailureHandler,
   ensureRemoteDocument,
@@ -63,6 +65,98 @@ test("a container-less local-only create records a terminal failure", async () =
 
     expect(result).toBe(record);
     expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+// Row 3 → row 1 under a null container scope: an orphan's authoritative
+// remote deletion must destroy local state exactly as it does for
+// container-scoped stores — the deletion path never consults the container.
+test("a null-scoped orphan destroys on authoritative deletion", async () => {
+  const { close, execSql } = await createTestExecSql("orphan-remote-delete");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: null,
+        containerId: "tombstoned-container",
+        documentId: "remote-orphan",
+        documentKind: "note",
+        id: "orphan-doc",
+        snapshotEndVersion: "",
+        text: "queued edit",
+        title: "queued edit",
+      },
+      { updatedAt: "2026-07-23T14:19:12.658Z" },
+    );
+    await execSql(
+      `INSERT INTO document_pending_updates (
+        id, app_kind, local_id, update_data,
+        partial_start_version_vector, partial_end_version_vector,
+        source_version_vector, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
+      [
+        "orphan-edit",
+        "documents",
+        "orphan-doc",
+        "payload",
+        "{}",
+        "{}",
+        "2026-07-23T14:19:13.000Z",
+      ],
+    );
+    const record = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      "orphan-doc",
+    );
+    if (!record) {
+      throw new Error("expected seeded document record");
+    }
+
+    const doc = {};
+    const resolveProjectionUserKey = () => null;
+    const state = {
+      doc,
+      listeners: new Set(),
+      localId: "orphan-doc",
+      localWriteGeneration: 0,
+      locallyAcceptedUpdateIds: new Set(),
+      persistence: sqlDocumentsPersistence,
+      record,
+      resolveProjectionUserKey,
+      runtime: {
+        infra: { documentProjectors: null, execSql },
+        state: { containerId: null, domainScope: "scope" },
+        util: { log: () => undefined },
+      },
+      snapshot: { attachments: [], attachmentStatusBySlotId: {} },
+    } as unknown as DocumentStoreState;
+    const generation = {
+      currentDoc: doc,
+      domainScope: "scope",
+      execSql,
+      resolveProjectionUserKey,
+    } as unknown as DocumentStoreSyncGeneration;
+
+    await deleteUpstreamDeletedDocument(
+      state,
+      generation,
+      record,
+      "remote-orphan",
+    );
+
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "orphan-doc"),
+    ).toBeFalsy();
+    const pendingRows = await execSql(
+      `SELECT COUNT(*) AS n FROM document_pending_updates
+       WHERE app_kind = 'documents' AND local_id = ?`,
+      ["orphan-doc"],
+    );
+    expect(Number(Reflect.get(pendingRows[0] ?? {}, "n") ?? -1)).toBe(0);
   } finally {
     close();
   }
