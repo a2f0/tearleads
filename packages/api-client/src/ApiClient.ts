@@ -103,6 +103,7 @@ import { organizationReadModelPath } from "./routes/organizations/readModelPath"
 import { pathSegment } from "./routes/path";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import type {
+  CachedRequestResultOptions,
   HttpMethod,
   ListContainerDocumentsOptions,
   ListDocumentEditAttributionRangesOptions,
@@ -995,7 +996,7 @@ export class ApiClient {
 
   getContainerWriterProjectionResult(
     containerId: string,
-    options: RequestResultOptions = {},
+    options: CachedRequestResultOptions = {},
   ): Promise<RequestResult<ContainerWriterProjectionResponse>> {
     return this.writerProjectionResult(
       this.containerWriterProjectionRequestsByContainerId,
@@ -1019,7 +1020,7 @@ export class ApiClient {
     cacheKey: string,
     path: string,
     validator: (value: unknown) => value is T,
-    options: RequestResultOptions,
+    options: CachedRequestResultOptions,
   ): Promise<RequestResult<T>> {
     let cached = cache.get(cacheKey);
     while (cached) {
@@ -1211,7 +1212,7 @@ export class ApiClient {
 
   getDocumentWriterProjectionResult(
     documentId: string,
-    options: RequestResultOptions = {},
+    options: CachedRequestResultOptions = {},
   ): Promise<RequestResult<DocumentWriterProjectionResponse>> {
     return this.writerProjectionResult(
       this.documentWriterProjectionRequestsByDocumentId,
