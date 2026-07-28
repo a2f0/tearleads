@@ -58,6 +58,7 @@ test("identity manager exposes the recovery key for seed-backed identities", asy
     expect(
       await view.findByRole("button", { name: "Download Recovery Key" }),
     ).toBeTruthy();
+    expect(view.queryByText("Available")).toBeNull();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
