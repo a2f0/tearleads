@@ -95,9 +95,15 @@ after this model has stabilized.
 [`document-sync/DeferredTailSettlement.tla`](./document-sync/DeferredTailSettlement.tla)
 models the device-first outgoing-delta marker across local edits, durable queue
 writes, restarts, sync preparation, server acceptance, incoming updates, and a
-final clean skip. The marker may safely lag the stored snapshot while durable
-pending rows semantically cover the difference. Before those rows may be
-submitted and deleted, the document lane must make that accounting durable:
+final clean skip. The marker may safely lag the stored content frontier while
+durable pending rows semantically cover the difference. Pulled updates land in
+the durable history tail (as remote-origin rows) in their own write before the
+record persist, and restart restores the marker from the persisted base
+extended across those remote-origin rows — provenance proves the server holds
+them — so a crash between the two writes never re-enters server-held ops into
+the outgoing delta; accepted local-origin rows are re-derived and re-sent, the
+safe idempotent direction. Before queued rows may be submitted and deleted, the
+document lane must make that accounting durable:
 
 1. synchronously capture the snapshot frontier, then merge the in-memory base
    and every semantically connected durable queued end vector;
@@ -218,7 +224,7 @@ tail-accounting invariants.
 
 The checked configuration uses two abstract operations, two document
 identity/access contexts, and two non-reused store generations, exploring
-720,722 generated and 151,330 distinct states at depth 37. Set union stands in
+3,067,900 generated and 568,008 distinct states at depth 40. Set union stands in
 for semantic version-vector merge, and each queued operation stands in for the
 coverage carried by one or more durable pending rows. A same-document key
 rotation is a new model identity even when its remote UUID is unchanged; key
