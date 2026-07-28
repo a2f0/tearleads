@@ -20,6 +20,7 @@ import {
 
 test("org manager labels format variable display text", () => {
   expect(ORG_MANAGER_LABELS.directory).toBe("Roster");
+  expect(ORG_MANAGER_LABELS.groupDetailsTab).toBe("Details");
   expect(ORG_MANAGER_LABELS.policyHistory).toBe("Policy history");
   expect(getOrgManagerMemberCountLabel(1)).toBe("1 member");
   expect(getOrgManagerMemberCountLabel(2)).toBe("2 members");

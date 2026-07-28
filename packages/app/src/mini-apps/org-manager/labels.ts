@@ -104,6 +104,8 @@ export const ORG_MANAGER_LABELS = {
   grantUnavailable: "This grant is no longer in the organization.",
   groupContainerLinks: "Group container links",
   group: "Group",
+  groupDetailsTab: "Details",
+  groupDetailTabsLabel: "Group detail sections",
   groupName: "Group name",
   groups: "Groups",
   importUserAction: "Import User",

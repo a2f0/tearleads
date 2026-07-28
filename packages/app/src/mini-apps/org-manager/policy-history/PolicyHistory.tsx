@@ -287,7 +287,7 @@ export function PolicyHistorySection({
 }: {
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
-  heading: string;
+  heading?: string | undefined;
   history: OrganizationGroupPolicyHistory | OrganizationPolicyHistory | null;
   // History arrives on its own refresh, well after the section first renders,
   // so an absent history is only reportable as unavailable once it has settled.
@@ -296,7 +296,9 @@ export function PolicyHistorySection({
 }) {
   return (
     <MiniAppSection>
-      <MiniAppSectionHeading>{heading}</MiniAppSectionHeading>
+      {heading ? (
+        <MiniAppSectionHeading>{heading}</MiniAppSectionHeading>
+      ) : null}
       <PolicyHistory
         directory={directory}
         groups={groups}

@@ -6,7 +6,7 @@ import type {
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
-import type { MouseEvent } from "react";
+import { type MouseEvent, useId, useState } from "react";
 import {
   MiniAppButton,
   MiniAppHeader,
@@ -14,6 +14,9 @@ import {
   MiniAppInput,
   MiniAppSection,
   MiniAppSectionHeading,
+  type MiniAppTabDescriptor,
+  MiniAppTabList,
+  MiniAppTabPanel,
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
 import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
@@ -21,6 +24,14 @@ import { getOrgManagerEpochLabel, ORG_MANAGER_LABELS } from "../labels";
 import { PolicyHistorySection } from "../policy-history/PolicyHistory";
 import { GroupContainers } from "./GroupContainers";
 import { GroupMembers } from "./GroupMembers";
+
+type GroupDetailTabId = "details" | "policy-history";
+
+const GROUP_DETAIL_TABS: ReadonlyArray<MiniAppTabDescriptor<GroupDetailTabId>> =
+  [
+    { id: "details", label: ORG_MANAGER_LABELS.groupDetailsTab },
+    { id: "policy-history", label: ORG_MANAGER_LABELS.policyHistory },
+  ];
 
 function GroupDetailHeader({
   openGroupContextMenu,
@@ -100,70 +111,90 @@ export function GroupDetailSection({
   setAddUserId: (userId: string) => void;
   userId: string | null;
 }) {
+  const idPrefix = useId();
+  const [activeTab, setActiveTab] = useState<GroupDetailTabId>("details");
+
   return (
     <section className="org-manager-panel">
       <GroupDetailHeader
         openGroupContextMenu={openGroupContextMenu}
         selectedGroup={selectedGroup}
       />
-      <MiniAppToolbar className="org-manager-form-toolbar">
-        <MiniAppInput
-          aria-label={ORG_MANAGER_LABELS.userId}
-          disabled={!canMutateSelectedGroup || mutating}
-          list={addUserListId}
-          onChange={(event) => setAddUserId(event.target.value)}
-          placeholder={ORG_MANAGER_LABELS.userId}
-          value={addUserId}
-        />
-        <datalist id={addUserListId}>
-          {addableUsers.map((user) => (
-            <option key={user.userId} value={user.userId}>
-              {user.isSelf
-                ? ORG_MANAGER_LABELS.self
-                : compactFingerprint(user.userId)}
-            </option>
-          ))}
-        </datalist>
-        <MiniAppButton
-          disabled={
-            !canMutateSelectedGroup ||
-            mutating ||
-            !members ||
-            addUserId.trim().length === 0 ||
-            memberUserIds.has(addUserId.trim())
-          }
-          onClick={addUser}
-        >
-          {ORG_MANAGER_LABELS.add}
-        </MiniAppButton>
-      </MiniAppToolbar>
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.members}
-        </MiniAppSectionHeading>
-        <GroupMembers
-          canMutateGroup={canMutateSelectedGroup}
-          members={members?.members ?? []}
-          mutating={mutating}
-          openRosterUser={openRosterUser}
-          removeMember={removeMember}
-          userId={userId}
-        />
-      </MiniAppSection>
-      <PolicyHistorySection
-        directory={directory}
-        groups={groups}
-        heading={ORG_MANAGER_LABELS.policyHistory}
-        history={groupPolicyHistory}
-        pending={pending}
-        profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+      <MiniAppTabList
+        activeTab={activeTab}
+        idPrefix={idPrefix}
+        label={ORG_MANAGER_LABELS.groupDetailTabsLabel}
+        onSelect={setActiveTab}
+        tabs={GROUP_DETAIL_TABS}
       />
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.directContainerLinks}
-        </MiniAppSectionHeading>
-        <GroupContainers containers={groupContainers?.containers ?? []} />
-      </MiniAppSection>
+      <MiniAppTabPanel
+        activeTab={activeTab}
+        className="org-manager-group-detail-tab-panel"
+        idPrefix={idPrefix}
+      >
+        {activeTab === "details" ? (
+          <>
+            <MiniAppToolbar className="org-manager-form-toolbar">
+              <MiniAppInput
+                aria-label={ORG_MANAGER_LABELS.userId}
+                disabled={!canMutateSelectedGroup || mutating}
+                list={addUserListId}
+                onChange={(event) => setAddUserId(event.target.value)}
+                placeholder={ORG_MANAGER_LABELS.userId}
+                value={addUserId}
+              />
+              <datalist id={addUserListId}>
+                {addableUsers.map((user) => (
+                  <option key={user.userId} value={user.userId}>
+                    {user.isSelf
+                      ? ORG_MANAGER_LABELS.self
+                      : compactFingerprint(user.userId)}
+                  </option>
+                ))}
+              </datalist>
+              <MiniAppButton
+                disabled={
+                  !canMutateSelectedGroup ||
+                  mutating ||
+                  !members ||
+                  addUserId.trim().length === 0 ||
+                  memberUserIds.has(addUserId.trim())
+                }
+                onClick={addUser}
+              >
+                {ORG_MANAGER_LABELS.add}
+              </MiniAppButton>
+            </MiniAppToolbar>
+            <MiniAppSection>
+              <MiniAppSectionHeading>
+                {ORG_MANAGER_LABELS.members}
+              </MiniAppSectionHeading>
+              <GroupMembers
+                canMutateGroup={canMutateSelectedGroup}
+                members={members?.members ?? []}
+                mutating={mutating}
+                openRosterUser={openRosterUser}
+                removeMember={removeMember}
+                userId={userId}
+              />
+            </MiniAppSection>
+            <MiniAppSection>
+              <MiniAppSectionHeading>
+                {ORG_MANAGER_LABELS.directContainerLinks}
+              </MiniAppSectionHeading>
+              <GroupContainers containers={groupContainers?.containers ?? []} />
+            </MiniAppSection>
+          </>
+        ) : (
+          <PolicyHistorySection
+            directory={directory}
+            groups={groups}
+            history={groupPolicyHistory}
+            pending={pending}
+            profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+          />
+        )}
+      </MiniAppTabPanel>
     </section>
   );
 }

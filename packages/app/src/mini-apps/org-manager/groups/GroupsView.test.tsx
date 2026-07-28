@@ -213,7 +213,7 @@ test("org manager group policy history uses roster display names", () => {
     selectedGroup: group,
     selectedGroupId: group.groupId,
   });
-
+  fireEvent.click(view.getByRole("tab", { name: /Policy history/ }));
   expect(view.getByText(displayLabel)).toBeTruthy();
   expect(
     view.getByText((content) => content.includes(`signed by ${displayLabel}`)),
