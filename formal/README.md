@@ -224,7 +224,7 @@ tail-accounting invariants.
 
 The checked configuration uses two abstract operations, two document
 identity/access contexts, and two non-reused store generations, exploring
-720,722 generated and 151,330 distinct states at depth 37. Set union stands in
+3,067,900 generated and 568,008 distinct states at depth 40. Set union stands in
 for semantic version-vector merge, and each queued operation stands in for the
 coverage carried by one or more durable pending rows. A same-document key
 rotation is a new model identity even when its remote UUID is unchanged; key
