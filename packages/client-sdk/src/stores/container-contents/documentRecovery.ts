@@ -91,7 +91,7 @@ export async function primeStoreDocuments(
     const result = await primeDocumentsForLoadedRoots({
       containersById: state.containersById,
       host: createPrimeHost(state),
-      organizationId: state.runtime.auth.organizationId ?? null,
+      organizationId: state.runtime.auth?.organizationId ?? null,
       runtime: state.runtime,
     });
     state.runtime.util.log(
