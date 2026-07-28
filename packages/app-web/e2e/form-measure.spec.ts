@@ -16,7 +16,6 @@ import { expect, type Page, test } from "@playwright/test";
 
 interface ColumnGeometry {
   readonly capPx: number | null;
-  readonly fieldWidth: number;
   readonly panelWidth: number;
   readonly parentContentWidth: number;
   readonly width: number;
@@ -41,15 +40,11 @@ async function readColumnGeometry(page: Page): Promise<ColumnGeometry> {
     // which is exactly the distinction the assertions below turn on.
     const rawCap = getComputedStyle(element).maxWidth;
     const capPx = rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null;
-    const measure = (selector: string) => {
-      const node = element.querySelector(selector);
-      return node ? node.getBoundingClientRect().width : 0;
-    };
+    const panel = element.querySelector(".backup-restore-panel");
 
     return {
       capPx,
-      fieldWidth: measure(".mini-app-field"),
-      panelWidth: measure(".backup-restore-panel"),
+      panelWidth: panel ? panel.getBoundingClientRect().width : 0,
       parentContentWidth,
       width: element.getBoundingClientRect().width,
     };
@@ -88,7 +83,6 @@ test("windowed form column stops at the measure", async ({ page }) => {
   expect(geometry.width).toBeLessThan(geometry.parentContentWidth);
   // The frame tracks the column rather than ruling the viewport around it.
   expect(geometry.panelWidth).toBeCloseTo(geometry.width, 0);
-  expect(geometry.fieldWidth).toBeLessThanOrEqual(geometry.width);
 });
 
 // The tablet/iPad tier: same cap, reached by URL rather than a window.
@@ -102,6 +96,41 @@ test("tablet form column stops at the measure", async ({ page }) => {
   expect(geometry.width).toBeCloseTo(geometry.capPx ?? 0, 0);
   expect(geometry.width).toBeLessThan(geometry.parentContentWidth);
   expect(geometry.panelWidth).toBeCloseTo(geometry.width, 0);
+});
+
+/*
+ * The group caps above would hide a regression in the field cap itself: inside
+ * a `.backup-restore-main` already held to the measure, a field is narrow even
+ * with `.mini-app-field`'s own `max-width` deleted. So measure a field whose
+ * parent stays WIDER than the measure — the new-contact form's panel carries no
+ * cap of its own, which is the case `.mini-app-field` exists to handle and the
+ * one every future form will rely on.
+ */
+test("a field caps itself inside an uncapped panel", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1000 });
+  await page.goto("/app/contacts/new");
+
+  const field = page.locator(".mini-app-field").first();
+  await expect(field).toBeVisible({ timeout: 30_000 });
+
+  const geometry = await field.evaluate((element) => {
+    const parent = element.parentElement;
+    if (!parent) {
+      throw new Error("mini-app-field has no parent to measure against.");
+    }
+    const rawCap = getComputedStyle(element).maxWidth;
+
+    return {
+      capPx: rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null,
+      parentWidth: parent.getBoundingClientRect().width,
+      width: element.getBoundingClientRect().width,
+    };
+  });
+
+  expect(geometry.capPx).not.toBeNull();
+  // Without this the test would be vacuous, exactly as the group-capped case is.
+  expect(geometry.parentWidth).toBeGreaterThan(geometry.capPx ?? 0);
+  expect(geometry.width).toBeCloseTo(geometry.capPx ?? 0, 0);
 });
 
 // The mobile tier opts out (`--form-measure: 100%` in RoutedPane.css). 599px is
