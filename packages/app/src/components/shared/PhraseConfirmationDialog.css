@@ -1,0 +1,13 @@
+.phrase-confirmation-dialog-backdrop {
+  z-index: 2000;
+}
+
+.phrase-confirmation-dialog-warning {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+.phrase-confirmation-dialog-phrase {
+  font-weight: 600;
+}

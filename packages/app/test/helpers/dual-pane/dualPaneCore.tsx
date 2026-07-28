@@ -16,6 +16,7 @@ import { PaneProvider } from "../../../src/components/pane/runtime/PaneProvider"
 import { Pane } from "../../../src/components/pane/shell/Pane";
 import { APP_HOST_PROFILES } from "../../../src/host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
+import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/IdentityManagerRecoveryKeySection";
 import {
   saveSystemMonitorDeveloperMode,
   saveSystemMonitorMode,
@@ -423,6 +424,32 @@ export async function readPaneRecoveryKey(pane: HTMLElement): Promise<string> {
   fireEvent.click(
     within(identityManager).getByRole("button", { name: "Recovery Key" }),
   );
+
+  // The passphrase is hidden until the disclosure acknowledgement is typed.
+  await interact(() => {
+    fireEvent.click(
+      within(identityManager).getByRole("button", {
+        name: "Reveal Recovery Key",
+      }),
+    );
+  });
+  await interact(() => {
+    fireEvent.change(
+      within(identityManager).getByLabelText(
+        new RegExp(
+          `Type ${RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE} to continue`,
+          "u",
+        ),
+      ),
+      { target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } },
+    );
+  });
+  await interact(() => {
+    fireEvent.click(
+      within(identityManager).getByRole("button", { name: "Show Passphrase" }),
+    );
+  });
+
   const passphraseField = within(identityManager).getByLabelText(
     "Passphrase",
   ) as HTMLTextAreaElement;

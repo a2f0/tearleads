@@ -3,17 +3,17 @@ import type { Tearleads } from "@tearleads/client-sdk";
 import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import {
-  cleanupIdentityManagerTestEnvironment,
   createIdentityManagerHostConfig,
   IdentityManagerTestRuntime,
   TestWebSocket,
 } from "../../../test/helpers/identityManagerTestRuntime";
+import { cleanupRecoveryKeyTestEnvironment } from "../../../test/helpers/recoveryKeyTestKit";
 import "../../../test/helpers/mswServer";
 import { IdentityManager } from "./IdentityManager";
 
 const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
 
-afterEach(cleanupIdentityManagerTestEnvironment);
+afterEach(cleanupRecoveryKeyTestEnvironment);
 
 test("identity manager exposes the recovery key for seed-backed identities", async () => {
   const originalWebSocket = globalThis.WebSocket;
@@ -51,7 +51,11 @@ test("identity manager exposes the recovery key for seed-backed identities", asy
       await tearleads.identity.importSeedPhrase(seedPhrase);
     });
 
-    expect(await view.findByDisplayValue(seedPhrase)).toBeTruthy();
+    expect(
+      await view.findByRole("button", { name: "Reveal Recovery Key" }),
+    ).toBeTruthy();
+    // The passphrase stays off screen until the disclosure is acknowledged.
+    expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
     expect(
       await view.findByRole("button", { name: "Copy recovery key" }),
     ).toBeTruthy();
@@ -109,7 +113,11 @@ test("identity manager restores a recovery key from a typed passphrase", async (
     await waitFor(() => {
       expect(tearleads.identity.seedPhrase).toBe(seedPhrase);
     });
-    expect(await view.findByDisplayValue(seedPhrase)).toBeTruthy();
+    // A restored key is a new key: it stays hidden until acknowledged.
+    expect(
+      await view.findByRole("button", { name: "Reveal Recovery Key" }),
+    ).toBeTruthy();
+    expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
     expect(view.getByText("Recovery key restored.")).toBeTruthy();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);

@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
+import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/IdentityManagerRecoveryKeySection";
 import { flattenPaneStatusText } from "../paneTestUtils";
 import {
   getExplorerSidebarItem,
@@ -106,6 +107,24 @@ export async function downloadPaneRecoveryKey(
         within(identityManager).getByRole("button", {
           name: "Download Recovery Key",
         }),
+      );
+    });
+
+    // Exporting the recovery key is gated behind a typed acknowledgement.
+    const acknowledgement = await within(identityManager).findByLabelText(
+      new RegExp(
+        `Type ${RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE} to continue`,
+        "u",
+      ),
+    );
+    await interact(() => {
+      fireEvent.change(acknowledgement, {
+        target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
+      });
+    });
+    await interact(() => {
+      fireEvent.click(
+        within(identityManager).getByRole("button", { name: "Download File" }),
       );
     });
 
