@@ -5,7 +5,7 @@ import type {
 import { MiniAppInfoSection } from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,
-  MiniAppInfoTable,
+  MiniAppKeyValueTable,
 } from "../../../../components/mini-app/MiniAppTable";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
@@ -135,7 +135,7 @@ function ExplorerWriteQueueEntryGeneralSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.writeQueueEntryGeneralHeading}>
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable>
         <tbody>
           <MiniAppInfoRow label={EXPLORER_LABELS.writeQueueEntryNameRow}>
             {getWriteQueueItemName(item)}
@@ -187,7 +187,7 @@ function ExplorerWriteQueueEntryGeneralSection(params: {
             {formatEntryDateTime(item.updatedAt)}
           </MiniAppInfoRow>
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppInfoSection>
   );
 }
@@ -203,14 +203,17 @@ function ExplorerWriteQueueEntryOperationsSection(params: {
       heading={EXPLORER_LABELS.writeQueueEntryOperationsHeading}
     >
       {item.operations.map((operation) => (
-        <MiniAppInfoTable key={operation.kind}>
+        <MiniAppKeyValueTable key={operation.kind}>
           <tbody>
-            <tr>
-              <th scope="row">
-                {getOperationLabel(operation, item, params.containerNamesById)}
-              </th>
-              <td>{getStatusLabel(operation.status)}</td>
-            </tr>
+            <MiniAppInfoRow
+              label={getOperationLabel(
+                operation,
+                item,
+                params.containerNamesById,
+              )}
+            >
+              {getStatusLabel(operation.status)}
+            </MiniAppInfoRow>
             <MiniAppInfoRow
               label={EXPLORER_LABELS.writeQueueEntryLastErrorRow}
               title={operation.lastError}
@@ -236,7 +239,7 @@ function ExplorerWriteQueueEntryOperationsSection(params: {
               {formatEntryDateTime(operation.updatedAt)}
             </MiniAppInfoRow>
           </tbody>
-        </MiniAppInfoTable>
+        </MiniAppKeyValueTable>
       ))}
     </MiniAppInfoSection>
   );
