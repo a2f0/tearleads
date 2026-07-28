@@ -300,6 +300,54 @@ testApiClient(
 );
 
 testApiClient(
+  "container result callers do not adopt an in-flight fetch after eviction",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    const fetchStarted = createDeferred<void>();
+    const finishFirstFetch = createDeferred<void>();
+    const staleProjection = createContainerWriterProjectionResponse();
+    const baseFreshProjection = createContainerWriterProjectionResponse();
+    const freshProjection = {
+      ...baseFreshProjection,
+      organizationId: `${baseFreshProjection.organizationId}-fresh`,
+    };
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          if (calls.length === 1) {
+            fetchStarted.resolve();
+            await finishFirstFetch.promise;
+            return HttpResponse.json(staleProjection);
+          }
+          return HttpResponse.json(freshProjection);
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const first = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    await fetchStarted.promise;
+
+    client.evictContainerWriterProjection("container-1");
+
+    // A result caller arriving after the eviction must not coalesce onto the
+    // pre-eviction fetch: its answer comes from a fresh request.
+    const second = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    await expect(second).resolves.toEqual({ data: freshProjection, ok: true });
+
+    finishFirstFetch.resolve();
+    await expect(first).resolves.toEqual({ data: staleProjection, ok: true });
+    expect(calls).toHaveLength(2);
+  },
+);
+
+testApiClient(
   "concurrent container writer projection result callers share one failing fetch",
   async () => {
     const calls: CapturedHttpCall[] = [];

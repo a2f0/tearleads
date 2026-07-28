@@ -1344,7 +1344,7 @@ export class ApiClient {
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      this.evictDocumentWriterProjection(documentId);
     });
   }
 
@@ -1360,7 +1360,7 @@ export class ApiClient {
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      this.evictDocumentWriterProjection(documentId);
     });
   }
 
@@ -1418,7 +1418,7 @@ export class ApiClient {
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      this.evictDocumentWriterProjection(documentId);
     });
   }
 
@@ -1434,7 +1434,7 @@ export class ApiClient {
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      this.evictDocumentWriterProjection(documentId);
     });
   }
 
@@ -1446,7 +1446,7 @@ export class ApiClient {
       "DELETE",
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      this.evictDocumentWriterProjection(documentId);
       this.documentAttachmentListRequestsByDocumentId.delete(documentId);
     });
   }
@@ -1470,6 +1470,10 @@ export class ApiClient {
             this.documentWriterProjectionRequestsByDocumentId,
             documentId,
             response,
+            () =>
+              this.documentWriterProjectionResultsInFlightByDocumentId.delete(
+                documentId,
+              ),
           );
         } else {
           if (
@@ -1478,6 +1482,9 @@ export class ApiClient {
             ) === cachedBefore
           ) {
             this.documentWriterProjectionRequestsByDocumentId.delete(
+              documentId,
+            );
+            this.documentWriterProjectionResultsInFlightByDocumentId.delete(
               documentId,
             );
           }
@@ -1490,6 +1497,9 @@ export class ApiClient {
           cachedBefore
         ) {
           this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+          this.documentWriterProjectionResultsInFlightByDocumentId.delete(
+            documentId,
+          );
         }
         throw error;
       })
@@ -1522,12 +1532,19 @@ export class ApiClient {
           this.documentWriterProjectionRequestsByDocumentId,
           documentId,
           result.data,
+          () =>
+            this.documentWriterProjectionResultsInFlightByDocumentId.delete(
+              documentId,
+            ),
         );
       } else if (
         this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
         cachedBefore
       ) {
         this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+        this.documentWriterProjectionResultsInFlightByDocumentId.delete(
+          documentId,
+        );
       }
       return result;
     } finally {

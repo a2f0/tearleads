@@ -40,12 +40,15 @@ function documentSyncInvalidatesWriterProjection(
 /**
  * Evict a cached/primed document writer projection iff the just-committed sync
  * response moved its write material. Re-checks the cache slot after awaiting so
- * a concurrent invalidation or refetch is not clobbered.
+ * a concurrent invalidation or refetch is not clobbered. `onEvicted` fires
+ * only when the entry is actually dropped, so callers can invalidate parallel
+ * bookkeeping (e.g. an in-flight result fetch that predates the sync).
  */
 export async function evictWriterProjectionIfSyncChanged(
   cache: RequestCache<DocumentWriterProjectionResponse>,
   documentId: string,
   response: DocumentSyncResponse,
+  onEvicted?: () => void,
 ): Promise<void> {
   const cached = cache.get(documentId);
   if (!cached) {
@@ -57,6 +60,7 @@ export async function evictWriterProjectionIfSyncChanged(
   }
   if (documentSyncInvalidatesWriterProjection(projection, response)) {
     cache.delete(documentId);
+    onEvicted?.();
   }
 }
 
