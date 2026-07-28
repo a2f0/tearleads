@@ -1,4 +1,4 @@
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useId, useRef, useState } from "react";
 import {
   MiniAppButton,
   MiniAppClipboardButton,
@@ -6,6 +6,9 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
+  type MiniAppTabDescriptor,
+  MiniAppTabList,
+  MiniAppTabPanel,
   MiniAppTextarea,
   MiniAppToolbar,
 } from "../../components/mini-app/MiniAppLayout";
@@ -22,6 +25,13 @@ import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringL
 import { useLog } from "../../providers/logging/LogProvider";
 
 type RecoveryKeyBusyState = "restore" | null;
+type RecoveryKeyTabId = "backup" | "recovery";
+
+const RECOVERY_KEY_TABS: ReadonlyArray<MiniAppTabDescriptor<RecoveryKeyTabId>> =
+  [
+    { id: "backup", label: "Backup" },
+    { id: "recovery", label: "Recovery" },
+  ];
 
 /**
  * Disclosing the recovery key discloses every private key derived from it, so
@@ -388,6 +398,8 @@ function useRecoveryKeyRestore(feedback: RecoveryKeyFeedback) {
 export function IdentityManagerRecoveryKeySection() {
   const { seedPhrase } = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
+  const idPrefix = useId();
+  const [activeTab, setActiveTab] = useState<RecoveryKeyTabId>("backup");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const feedback: RecoveryKeyFeedback = { setError, setStatus };
@@ -401,25 +413,39 @@ export function IdentityManagerRecoveryKeySection() {
       </MiniAppSectionHeading>
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       {status && <MiniAppStatus>{status}</MiniAppStatus>}
-      <RecoveryKeyDisplay
-        onHide={disclosure.hide}
-        onRequestDisclosure={disclosure.requestDisclosure}
-        revealed={disclosure.revealed}
-        seedPhrase={seedPhrase}
+      <MiniAppTabList
+        activeTab={activeTab}
+        idPrefix={idPrefix}
+        label="Recovery key sections"
+        onSelect={setActiveTab}
+        tabs={RECOVERY_KEY_TABS}
       />
-      <RecoveryKeyRestoreForm
-        busy={restore.busy}
-        canRestore={restore.canRestore}
-        localKeyringLocked={localKeyringLock.isLocked}
-        onRestore={restore.restoreRecoveryKey}
-        restorePassphrase={restore.restorePassphrase}
-        setRestorePassphrase={restore.setRestorePassphrase}
-      />
-      <RecoveryKeyDisclosureDialog
-        onCancel={disclosure.cancelDisclosure}
-        onConfirm={disclosure.confirmDisclosure}
-        pendingDisclosure={disclosure.pendingDisclosure}
-      />
+      <MiniAppTabPanel activeTab={activeTab} idPrefix={idPrefix}>
+        {activeTab === "backup" ? (
+          <>
+            <RecoveryKeyDisplay
+              onHide={disclosure.hide}
+              onRequestDisclosure={disclosure.requestDisclosure}
+              revealed={disclosure.revealed}
+              seedPhrase={seedPhrase}
+            />
+            <RecoveryKeyDisclosureDialog
+              onCancel={disclosure.cancelDisclosure}
+              onConfirm={disclosure.confirmDisclosure}
+              pendingDisclosure={disclosure.pendingDisclosure}
+            />
+          </>
+        ) : (
+          <RecoveryKeyRestoreForm
+            busy={restore.busy}
+            canRestore={restore.canRestore}
+            localKeyringLocked={localKeyringLock.isLocked}
+            onRestore={restore.restoreRecoveryKey}
+            restorePassphrase={restore.restorePassphrase}
+            setRestorePassphrase={restore.setRestorePassphrase}
+          />
+        )}
+      </MiniAppTabPanel>
     </MiniAppSection>
   );
 }
