@@ -48,6 +48,13 @@ test("org manager grant detail links group grants to their group", () => {
   );
 
   expect(view.getAllByText(ORG_MANAGER_LABELS.grantDetail).length).toBe(2);
+  const detailTable = view.getByRole("table");
+  expect(
+    detailTable.classList.contains("mini-app-info-table--borderless"),
+  ).toBe(true);
+  expect(detailTable.classList.contains("mini-app-info-table--aligned")).toBe(
+    true,
+  );
   fireEvent.click(view.getByRole("button", { name: "Readers" }));
 
   expect(openedGroupIds).toEqual(["group-1"]);
