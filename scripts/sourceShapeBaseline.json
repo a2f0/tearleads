@@ -134,8 +134,8 @@
       "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3933,
-      "bytes": 129555
+      "lines": 3981,
+      "bytes": 131244
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1289,
@@ -166,8 +166,8 @@
       "bytes": 40645
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
-      "lines": 696,
-      "bytes": 20223
+      "lines": 628,
+      "bytes": 18130
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 725,

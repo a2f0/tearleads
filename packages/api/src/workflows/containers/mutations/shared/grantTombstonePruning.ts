@@ -74,5 +74,9 @@ export async function pruneAccessGrantTombstones(input: {
     return;
   }
 
-  await pruneRegainedAccessTombstones({ executor, userIds: gainedUserIds });
+  await pruneRegainedAccessTombstones({
+    executor,
+    organizationId: manifest.state.organizationId,
+    userIds: gainedUserIds,
+  });
 }

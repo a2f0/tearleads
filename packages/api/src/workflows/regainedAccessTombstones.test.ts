@@ -275,6 +275,10 @@ test("policy member re-add prunes tombstones through the route", async () => {
   // A child container under the actor's root carrying a direct read grant
   // for the member: once re-added to the organization, the member can read
   // it, so their stale tombstone for it must be pruned by the policy PUT.
+  // The readable path is a direct user grant on purpose — the wiring under
+  // test is the policy transition invoking the prune for ADDED members; a
+  // group-referenced manifest restore additionally rides the container
+  // rekey/re-reference flow, which the mutation route covers.
   const rootHead = await db
     .select({ manifestHash: accessManifestHeads.manifestHash })
     .from(accessManifestHeads)
