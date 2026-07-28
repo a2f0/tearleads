@@ -21,16 +21,25 @@
   resize: vertical;
 }
 
+/* Grows to take the slack in its toolbar, but stops at the form measure: a
+   search or id box drawn the full width of a maximized window is a rule, not a
+   field, and it pushes the buttons that act on it off to the far edge. */
 .mini-app-toolbar > .mini-app-input,
 .mini-app-toolbar > .mini-app-select {
   flex: 1 1 10rem;
+  max-width: var(--form-measure);
 }
 
+/* The measure cap lives on the field rather than the control so the label,
+   the control, and any trailing affordance (clipboard button, unit) stay one
+   group. Surfaces that draw a frame around a set of fields cap the frame too,
+   so the border tracks its contents instead of ruling the whole viewport. */
 .mini-app-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
   min-width: 0;
+  max-width: var(--form-measure);
   font-size: var(--font-size-sm);
 }
 

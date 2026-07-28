@@ -4,3 +4,10 @@
   flex-direction: column;
   min-height: 0;
 }
+
+/* Same fields as the explorer's contact document (see ContactDocument.css), so
+   the same measure: the read rows put a clipboard button at their trailing edge
+   that otherwise floats a screen-width away from the value it copies. */
+.contacts-detail-panel {
+  max-width: var(--form-measure);
+}
