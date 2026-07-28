@@ -4,6 +4,7 @@ export {
 } from "./controls/MiniAppButton";
 export {
   MiniAppField,
+  MiniAppFieldGroup,
   MiniAppInput,
   MiniAppSelect,
   MiniAppTextarea,

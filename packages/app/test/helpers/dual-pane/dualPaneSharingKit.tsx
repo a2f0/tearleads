@@ -169,7 +169,7 @@ export async function shareContainerWithGroup(
   await interact(() => {
     fireEvent.click(groupSelect);
   });
-  const selectedGroupOption = await within(pane).findByRole("option", {
+  const selectedGroupOption = screen.getByRole("option", {
     name: groupName,
   });
   invariant(selectedGroupOption, `Expected group option "${groupName}".`);
@@ -186,7 +186,7 @@ export async function shareContainerWithGroup(
   await interact(() => {
     fireEvent.click(permissionSelect);
   });
-  const accessLevelOption = await within(pane).findByRole("option", {
+  const accessLevelOption = screen.getByRole("option", {
     name: new RegExp(`^${accessLevel}$`, "i"),
   });
   await interact(() => {

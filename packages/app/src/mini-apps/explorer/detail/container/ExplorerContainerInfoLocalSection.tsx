@@ -2,7 +2,7 @@ import type { ContainerInfo, ContainerNode } from "@tearleads/client-sdk";
 import { useState } from "react";
 import { MiniAppSelectMenu } from "../../../../components/mini-app/controls/MiniAppSelectMenu";
 import {
-  MiniAppField,
+  MiniAppFieldGroup,
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
@@ -106,7 +106,7 @@ function ExplorerContainerInfoIconField(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.containerIconHeading}>
-      <MiniAppField>
+      <MiniAppFieldGroup>
         <span>{EXPLORER_LABELS.containerIconField}</span>
         <MiniAppSelectMenu
           ariaLabel={EXPLORER_LABELS.containerIconField}
@@ -116,7 +116,7 @@ function ExplorerContainerInfoIconField(params: {
           options={getContainerIconOptions()}
           value={selectedSlug}
         />
-      </MiniAppField>
+      </MiniAppFieldGroup>
       {error ? <MiniAppStatus tone="error">{error}</MiniAppStatus> : null}
     </MiniAppInfoSection>
   );

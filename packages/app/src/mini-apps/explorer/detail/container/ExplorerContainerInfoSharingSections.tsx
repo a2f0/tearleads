@@ -6,7 +6,7 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import { MiniAppSelectMenu } from "../../../../components/mini-app/controls/MiniAppSelectMenu";
 import {
   MiniAppButton,
-  MiniAppField,
+  MiniAppFieldGroup,
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
@@ -252,7 +252,7 @@ export function ExplorerContainerInfoGroupShareSection(params: {
     <MiniAppInfoSection
       heading={EXPLORER_LABELS.containerInfoShareToGroupHeading}
     >
-      <MiniAppField>
+      <MiniAppFieldGroup>
         <span>{EXPLORER_LABELS.containerInfoGroupField}</span>
         <MiniAppSelectMenu
           ariaLabel={EXPLORER_LABELS.containerInfoGroupField}
@@ -268,8 +268,8 @@ export function ExplorerContainerInfoGroupShareSection(params: {
           }))}
           placeholder={EXPLORER_LABELS.containerInfoNoGroupsOption}
         />
-      </MiniAppField>
-      <MiniAppField>
+      </MiniAppFieldGroup>
+      <MiniAppFieldGroup>
         <span>{EXPLORER_LABELS.containerInfoPermissionField}</span>
         <MiniAppSelectMenu
           ariaLabel={EXPLORER_LABELS.containerInfoPermissionField}
@@ -286,7 +286,7 @@ export function ExplorerContainerInfoGroupShareSection(params: {
             label: getContainerInfoPermissionLabel(id),
           }))}
         />
-      </MiniAppField>
+      </MiniAppFieldGroup>
     </MiniAppInfoSection>
   );
 }
