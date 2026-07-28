@@ -712,7 +712,7 @@ async function applyContainerParentLanePage(input: {
   let changedCount = 0;
 
   const remoteContainerItems = getApplicableRemoteContainerItems(response);
-  changedCount += await applyContainerTombstones({
+  const removedContainerCount = await applyContainerTombstones({
     childIdsByParentId,
     preservedContainerIds: new Set(
       remoteContainerItems.map((container) => container.id),
@@ -720,6 +720,13 @@ async function applyContainerParentLanePage(input: {
     response,
     state,
   });
+  changedCount += removedContainerCount;
+  if (removedContainerCount > 0) {
+    // A live tombstone cascade may have orphaned documents (row 3); re-arm
+    // document priming so their null-scoped passes run now rather than on
+    // the next startup.
+    host.requestDocumentPriming?.();
+  }
 
   changedCount += await applyRemoteContainerPage({
     childIdsByParentId,
