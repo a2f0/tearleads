@@ -1021,8 +1021,8 @@ export class ApiClient {
     validator: (value: unknown) => value is T,
     options: RequestResultOptions,
   ): Promise<RequestResult<T>> {
-    const cached = cache.get(cacheKey);
-    if (cached) {
+    let cached = cache.get(cacheKey);
+    while (cached) {
       try {
         const data = await cached;
         if (data) {
@@ -1030,8 +1030,16 @@ export class ApiClient {
         }
       } catch {
         // A rejected shared entry is reconciled by its own settle handler;
-        // fall through to a fresh fetch either way.
+        // fall through either way.
       }
+      // The awaited entry settled empty. Re-read the slot before fetching: a
+      // newer entry installed while we awaited must be reused, not fetched
+      // over — the set below would otherwise clobber it.
+      const current = cache.get(cacheKey);
+      if (current === cached) {
+        break;
+      }
+      cached = current;
     }
 
     const resultPromise = this.makeRequestResult(

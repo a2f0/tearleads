@@ -40,10 +40,10 @@ function seedDocumentWriterProjectionCache(
   );
 }
 
-function seedContainerWriterProjectionCache(
+function seedContainerWriterProjectionPromise(
   client: ApiClient,
   containerId: string,
-  projection: ContainerWriterProjection,
+  entry: Promise<ContainerWriterProjection | null>,
 ) {
   (
     client as unknown as {
@@ -52,7 +52,16 @@ function seedContainerWriterProjectionCache(
         Promise<ContainerWriterProjection | null>
       >;
     }
-  ).containerWriterProjectionRequestsByContainerId.set(
+  ).containerWriterProjectionRequestsByContainerId.set(containerId, entry);
+}
+
+function seedContainerWriterProjectionCache(
+  client: ApiClient,
+  containerId: string,
+  projection: ContainerWriterProjection,
+) {
+  seedContainerWriterProjectionPromise(
+    client,
     containerId,
     Promise.resolve(projection),
   );
@@ -247,6 +256,45 @@ testApiClient(
     // the next plain read fetches fresh instead of serving the stale value.
     await client.getContainerWriterProjection("container-1");
     expect(calls).toHaveLength(2);
+  },
+);
+
+testApiClient(
+  "container writer projection result reuses an entry replaced while awaiting a cached miss",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    const newerProjection = createContainerWriterProjectionResponse();
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          return HttpResponse.json(createContainerWriterProjectionResponse());
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const emptyEntry = createDeferred<ContainerWriterProjection | null>();
+    seedContainerWriterProjectionPromise(
+      client,
+      "container-1",
+      emptyEntry.promise,
+    );
+
+    const result = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    seedContainerWriterProjectionCache(client, "container-1", newerProjection);
+    emptyEntry.resolve(null);
+
+    // The newer entry installed while awaiting the empty one is reused: no
+    // fetch fires, and the entry survives instead of being clobbered.
+    await expect(result).resolves.toEqual({ data: newerProjection, ok: true });
+    await expect(
+      client.getContainerWriterProjection("container-1"),
+    ).resolves.toEqual(newerProjection);
+    expect(calls).toHaveLength(0);
   },
 );
 
