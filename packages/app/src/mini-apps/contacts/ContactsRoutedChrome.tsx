@@ -1,10 +1,10 @@
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
-import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
 import { useMemo } from "react";
 import {
   useWindowTitleBarAction,
   useWindowToolbarReservation,
 } from "../../components/window/WindowMenuContext";
+import { NewContactIcon } from "../shared/newContactIcon";
 import { CONTACTS_LABELS } from "./labels";
 import type { ContactsRoute } from "./routes";
 
@@ -35,7 +35,7 @@ export function useContactsRoutedChromeActions({
       showSelectionActions
         ? {
             disabled: !ready || !canWrite,
-            icon: <AddressBookIcon aria-hidden size={18} />,
+            icon: <NewContactIcon aria-hidden size={18} />,
             id: "contacts-new-contact-toolbar",
             label: CONTACTS_LABELS.newContactAction,
             onClick: openNewContactRoute,
@@ -49,7 +49,7 @@ export function useContactsRoutedChromeActions({
       showSelectionActions
         ? {
             disabled: !ready || !canWrite,
-            icon: <UserPlusIcon aria-hidden size={18} />,
+            icon: <AddressBookIcon aria-hidden size={18} />,
             id: "contacts-import-contact-toolbar",
             label: CONTACTS_LABELS.importContactAction,
             onClick: openImportContactRoute,

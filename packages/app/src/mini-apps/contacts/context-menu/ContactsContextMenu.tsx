@@ -1,7 +1,6 @@
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { ClipboardIcon } from "@phosphor-icons/react/dist/csr/Clipboard";
 import { UserMinusIcon } from "@phosphor-icons/react/dist/csr/UserMinus";
-import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
 import { type MouseEvent, useCallback, useMemo } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
@@ -9,6 +8,7 @@ import {
   type ContextMenuState,
   useContextMenuState,
 } from "../../../components/shared/useContextMenuState";
+import { NewContactIcon } from "../../shared/newContactIcon";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactEntries } from "../types";
 
@@ -160,7 +160,7 @@ export function ContactsContextMenuLayer(params: {
       {contextMenu.id.kind === "area" ? (
         <>
           <MenuItem
-            icon={AddressBookIcon}
+            icon={NewContactIcon}
             label={CONTACTS_LABELS.newContactAction}
             disabled={!ready || !canWrite}
             onClick={() => {
@@ -169,7 +169,7 @@ export function ContactsContextMenuLayer(params: {
             }}
           />
           <MenuItem
-            icon={UserPlusIcon}
+            icon={AddressBookIcon}
             label={CONTACTS_LABELS.importContactAction}
             disabled={!ready || !canWrite}
             onClick={() => {
