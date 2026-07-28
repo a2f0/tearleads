@@ -10,11 +10,10 @@ const T1 = "2026-01-01T00:00:01.000Z";
 
 const METADATA_SCOPE = { appKind: "container-metadata", localId: "revoked" };
 
-async function seedContainerWithQueuedRename(
+async function saveContainerRow(
   execSql: ExecSql,
   containerId: string,
 ): Promise<void> {
-  await listPendingWrites(execSql);
   await defaultContainerContentsPersistence.saveContainer(
     execSql,
     {
@@ -39,6 +38,14 @@ async function seedContainerWithQueuedRename(
       serverTimestamps: { createdAt: T0, updatedAt: T0 },
     },
   );
+}
+
+async function seedContainerWithQueuedRename(
+  execSql: ExecSql,
+  containerId: string,
+): Promise<void> {
+  await listPendingWrites(execSql);
+  await saveContainerRow(execSql, containerId);
   await execSql(
     `INSERT INTO document_pending_updates (
       id, app_kind, local_id, update_data,
@@ -218,6 +225,35 @@ test("dormant metadata loads by container id for re-attachment", async () => {
       id: "revoked",
       metadataUpdates: "c2VlZA==",
     });
+  } finally {
+    await close();
+  }
+});
+
+test("dormant metadata stays out of the write queue until re-attach", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "tombstone-metadata-visibility",
+  );
+  try {
+    await seedContainerWithQueuedRename(execSql, "revoked");
+    const listed = await listPendingWrites(execSql);
+    expect(listed.some((item) => item.localId === "revoked")).toBe(true);
+
+    await defaultContainerContentsPersistence.deleteContainers(
+      execSql,
+      ["revoked"],
+      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+    );
+    const dormantListed = await listPendingWrites(execSql);
+    expect(dormantListed.some((item) => item.localId === "revoked")).toBe(
+      false,
+    );
+
+    // Access restored: the container row returns; the retained queue item
+    // resurfaces with it.
+    await saveContainerRow(execSql, "revoked");
+    const restored = await listPendingWrites(execSql);
+    expect(restored.some((item) => item.localId === "revoked")).toBe(true);
   } finally {
     await close();
   }

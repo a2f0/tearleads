@@ -7,6 +7,7 @@ import type {
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
+  readContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import type { ContainerRecord } from "./containerPersistence";
@@ -265,6 +266,14 @@ async function insertRemoteContainerState(input: {
   const initialSnapshot = dormantRecord?.metadataUpdates
     ? dormantRecord.metadataUpdates
     : bytesToBase64(exportAllUpdates(doc));
+  // The imported dormant document may carry a queued local rename/icon edit;
+  // project it, or the container renders default-named until sync succeeds.
+  const dormantMetadata = dormantRecord?.metadataUpdates
+    ? readContainerMetadataValue(
+        doc,
+        getDefaultContainerName(remoteContainer.parentId),
+      )
+    : null;
   const containerState: ContainerState = {
     container: applyRemoteContainerTimestamps(
       {
@@ -274,8 +283,10 @@ async function insertRemoteContainerState(input: {
         parentId: remoteContainer.parentId,
         metadataDocumentId: remoteContainer.metadataDocumentId,
         systemSlot: remoteContainer.systemSlot ?? null,
-        name: getDefaultContainerName(remoteContainer.parentId),
-        icon: null,
+        name:
+          dormantMetadata?.name ??
+          getDefaultContainerName(remoteContainer.parentId),
+        icon: dormantMetadata?.icon ?? null,
       },
       remoteContainer,
     ),
