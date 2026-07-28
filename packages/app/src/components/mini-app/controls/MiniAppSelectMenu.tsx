@@ -110,6 +110,7 @@ function MiniAppSelectMenuOptionButton(params: {
       aria-selected={params.selected}
       className="mini-app-select-menu-option"
       data-highlighted={params.highlighted || undefined}
+      data-value={params.option.id}
       id={params.id}
       onClick={params.onSelect}
       onMouseDown={(event) => event.preventDefault()}

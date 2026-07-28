@@ -1,6 +1,7 @@
 import {
   createElement,
   forwardRef,
+  type HTMLAttributes,
   type InputHTMLAttributes,
   type LabelHTMLAttributes,
   type SelectHTMLAttributes,
@@ -53,6 +54,16 @@ export function MiniAppField({
   ...props
 }: LabelHTMLAttributes<HTMLLabelElement>) {
   return createElement("label", {
+    ...props,
+    className: classNames("mini-app-field", className),
+  });
+}
+
+export function MiniAppFieldGroup({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return createElement("div", {
     ...props,
     className: classNames("mini-app-field", className),
   });
