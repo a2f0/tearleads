@@ -228,6 +228,16 @@ export interface ContainerContentsPersistence {
     execSql: ExecSql,
     containerId: string,
   ) => Promise<ContainerMetadataRecord | null>;
+  /**
+   * Destroy a dormant container-metadata scope whose remote metadata document
+   * was replaced while access was revoked: its record, queued updates, and
+   * failure rows all belong to a dead update stream and must never target the
+   * replacement document.
+   */
+  purgeDormantContainerMetadata: (
+    execSql: ExecSql,
+    containerId: string,
+  ) => Promise<void>;
   saveContainer: (
     execSql: ExecSql,
     container: ContainerRecord,
@@ -1349,6 +1359,39 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   async loadContainerMetadataRecord(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
     return selectContainerMetadataRecord(execSql, containerId);
+  },
+  async purgeDormantContainerMetadata(execSql, containerId) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
+      await db
+        .delete(documents)
+        .where(
+          and(
+            eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
+            eq(documents.localId, containerId),
+          ),
+        )
+        .run();
+      await db
+        .delete(documentPendingUpdates)
+        .where(
+          and(
+            eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
+            eq(documentPendingUpdates.localId, containerId),
+          ),
+        )
+        .run();
+      await db
+        .delete(documentSyncFailures)
+        .where(
+          and(
+            eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
+            eq(documentSyncFailures.localId, containerId),
+          ),
+        )
+        .run();
+    });
   },
   async loadContainers(execSql) {
     const containers = await loadContainerRecords(execSql);

@@ -81,6 +81,7 @@ export function createContainerContentsPersistence(input: {
     async loadContainerMetadataRecord() {
       return null;
     },
+    async purgeDormantContainerMetadata() {},
     async rekeyPendingUpdate() {
       return null;
     },

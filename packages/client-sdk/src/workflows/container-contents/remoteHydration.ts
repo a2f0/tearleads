@@ -257,10 +257,24 @@ async function insertRemoteContainerState(input: {
   // retained content and markers instead of overwriting them with an empty
   // document. Access and keying fields still come from the remote container —
   // revocation may have rotated them.
-  const dormantRecord = await state.persistence.loadContainerMetadataRecord(
+  let dormantRecord = await state.persistence.loadContainerMetadataRecord(
     execSql,
     remoteContainer.id,
   );
+  if (
+    dormantRecord &&
+    dormantRecord.documentId !== remoteContainer.metadataDocumentId
+  ) {
+    // The remote metadata document was replaced while access was revoked:
+    // the dormant scope's queued updates belong to the dead stream and would
+    // otherwise resurface once the container row returns (the write-queue
+    // guard keys on the container row alone). Purge before inserting fresh.
+    await state.persistence.purgeDormantContainerMetadata(
+      execSql,
+      remoteContainer.id,
+    );
+    dormantRecord = null;
+  }
   const reattached = reattachDormantContainerMetadata({
     defaultName: getDefaultContainerName(remoteContainer.parentId),
     doc,
