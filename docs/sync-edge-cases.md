@@ -91,7 +91,10 @@ without counting as lane progress, so it cannot hot-loop the pump.
   `documents` row but not its history checkpoint/tail rows, leaving orphaned
   container-metadata history behind (the local-reconcile sibling helper does
   delete them). The `access_revoked` branch retains the whole metadata
-  document deliberately, so only the `deleted` branch leaves residue.
+  document deliberately. Local-only descendants of a revoked container are
+  excluded from retention (nothing to re-attach: their create intents die in
+  the cascade), and like the `deleted` branch their history rows also
+  survive as residue.
 - Row 7: consider parking permission-denied moves for the
   org-access-restored signal instead of retrying on every trigger.
 - Create intents (`container_create_intents`) have no `last_attempted_at`
