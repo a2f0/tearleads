@@ -7,21 +7,12 @@ import {
   organizations,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import {
-  type AccessEvent,
-  type ContainerAccessManifestState,
-  type ContainerCreateAccessEventBody,
-  computeAccessEventBodyHash,
-  computeAccessEventHash,
-  computeAccessManifestHash,
-  deriveContainerAccessManifest,
-  type KeyingCanonicalJson,
-  signAccessEvent,
-  type UnsignedAccessEvent,
-  type VerifiedContainerAccessManifest,
-} from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../test/helpers/authenticate";
+import {
+  organizationIdForContainer,
+  storeChildContainerAccessManifest,
+} from "../../test/helpers/containerManifests";
 import {
   readContainerParentLanePage,
   requestContainerParentLanes,
@@ -32,120 +23,9 @@ import {
 } from "../../test/helpers/organizationMembership";
 import { registerUser } from "../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../access/read/principalStateStore";
-import { storeVerifiedAccessManifest } from "../access/write/accessManifestStore";
-import { pruneAccessGrantTombstones } from "./containers/mutations/shared/grantTombstonePruning";
 import { pruneRegainedAccessTombstones } from "./regainedAccessTombstones";
 
 const STALE_TOMBSTONE_AT = new Date("2026-12-31T00:00:00.000Z");
-
-const SIGNED_AT = "2026-05-05T00:00:00.000Z";
-
-async function signContainerEvent(input: {
-  body: ContainerCreateAccessEventBody;
-  containerId: string;
-  organizationId: string;
-  signerKeyFingerprint: string;
-  signerPrivateKey: Uint8Array;
-  signerUserId: string;
-}): Promise<{ event: AccessEvent; eventHash: string }> {
-  const unsigned: UnsignedAccessEvent = {
-    version: 1,
-    eventId: crypto.randomUUID(),
-    eventType: "container.create",
-    objectKind: "container",
-    objectId: input.containerId,
-    organizationId: input.organizationId,
-    previousManifestHash: null,
-    dependencyManifestHashes: [],
-    bodyHash: await computeAccessEventBodyHash(
-      input.body as unknown as KeyingCanonicalJson,
-    ),
-    signerUserId: input.signerUserId,
-    signerDeviceId: `signing-key:${input.signerKeyFingerprint}`,
-    signerKeyFingerprint: input.signerKeyFingerprint,
-    signedAt: SIGNED_AT,
-  };
-  const event = await signAccessEvent(unsigned, input.signerPrivateKey);
-
-  return {
-    event,
-    eventHash: await computeAccessEventHash(event),
-  };
-}
-
-async function storeChildContainerAccessManifest(input: {
-  childContainerId: string;
-  directGrants?: ContainerCreateAccessEventBody["directGrants"];
-  metadataDocumentId: string;
-  organizationId: string;
-  owner: ReturnType<typeof createTestUser>;
-  parentContainerId: string;
-  parentManifestHash: string;
-  referencedPrincipalHeads?: ContainerCreateAccessEventBody["referencedPrincipalHeads"];
-}) {
-  const containerKeyEpochId = crypto.randomUUID();
-  const body: ContainerCreateAccessEventBody = {
-    eventType: "container.create",
-    parentContainerId: input.parentContainerId,
-    parentManifestHash: input.parentManifestHash,
-    metadataDocumentId: input.metadataDocumentId,
-    containerKeyEpochId,
-    directGrants: input.directGrants ?? [],
-    referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
-  };
-  const { event, eventHash } = await signContainerEvent({
-    body,
-    containerId: input.childContainerId,
-    organizationId: input.organizationId,
-    signerKeyFingerprint: input.owner.fingerprint,
-    signerPrivateKey: input.owner.signing.signingPrivateKey,
-    signerUserId: input.owner.userId,
-  });
-  const state: ContainerAccessManifestState = {
-    version: 1,
-    containerId: input.childContainerId,
-    organizationId: input.organizationId,
-    epoch: 1,
-    previousManifestHash: null,
-    eventHash,
-    parentContainerId: input.parentContainerId,
-    parentManifestHash: input.parentManifestHash,
-    metadataDocumentId: input.metadataDocumentId,
-    containerKeyEpochId,
-    directGrants: body.directGrants,
-    referencedPrincipalHeads: body.referencedPrincipalHeads,
-  };
-  const manifest = await deriveContainerAccessManifest(state);
-  const manifestHash = await computeAccessManifestHash(manifest);
-  const verifiedManifest: VerifiedContainerAccessManifest = {
-    event: {
-      event,
-      body: body as unknown as KeyingCanonicalJson,
-      eventHash,
-    },
-    manifest,
-    manifestHash,
-    state,
-  } as VerifiedContainerAccessManifest;
-
-  await storeVerifiedAccessManifest({ verifiedManifest }, db);
-  return manifestHash;
-}
-
-async function organizationIdForContainer(
-  containerId: string,
-): Promise<string> {
-  const rows = await db
-    .select({ organizationId: containers.organizationId })
-    .from(containers)
-    .where(eq(containers.id, containerId))
-    .limit(1);
-  const organizationId = rows[0]?.organizationId;
-  if (!organizationId) {
-    throw new Error(`container ${containerId} has no organization`);
-  }
-  return organizationId;
-}
 
 test("prune deletes only regained access_revoked tombstones", async () => {
   const owner = createTestUser();
@@ -385,72 +265,6 @@ test("policy member re-add prunes tombstones through the route", async () => {
   expect(remaining).toEqual([]);
 });
 
-test("container.grant pruning runs for added user grants only", async () => {
-  const owner = createTestUser();
-  await registerUser(owner);
-  await authenticate(owner);
-  const organizationId = await organizationIdForContainer(
-    owner.rootContainerId,
-  );
-
-  await db.insert(containerSyncTombstones).values({
-    containerId: owner.rootContainerId,
-    depth: 0,
-    organizationId,
-    parentId: null,
-    reason: "access_revoked",
-    updatedAt: STALE_TOMBSTONE_AT,
-    userId: owner.userId,
-  });
-
-  const grantManifest = (grants: unknown[]) =>
-    ({
-      event: { event: { eventType: "container.grant" } },
-      state: {
-        containerId: owner.rootContainerId,
-        directGrants: grants,
-        organizationId,
-      },
-    }) as never;
-
-  // A non-grant event never prunes.
-  await db.transaction(async (tx) => {
-    await pruneAccessGrantTombstones({
-      executor: tx,
-      manifest: {
-        event: { event: { eventType: "container.revoke" } },
-        state: {
-          containerId: owner.rootContainerId,
-          directGrants: [],
-          organizationId,
-        },
-      } as never,
-      previousManifest: grantManifest([]),
-    });
-  });
-  let remaining = await db
-    .select({ id: containerSyncTombstones.id })
-    .from(containerSyncTombstones)
-    .where(eq(containerSyncTombstones.userId, owner.userId));
-  expect(remaining).toHaveLength(1);
-
-  // A grant that adds the user prunes their regained tombstone.
-  await db.transaction(async (tx) => {
-    await pruneAccessGrantTombstones({
-      executor: tx,
-      manifest: grantManifest([
-        { accessLevel: "read", subjectId: owner.userId, subjectType: "user" },
-      ]),
-      previousManifest: grantManifest([]),
-    });
-  });
-  remaining = await db
-    .select({ id: containerSyncTombstones.id })
-    .from(containerSyncTombstones)
-    .where(eq(containerSyncTombstones.userId, owner.userId));
-  expect(remaining).toEqual([]);
-});
-
 test("prune tolerates user sets beyond a single chunk", async () => {
   const { close } = { close: async () => {} };
   try {
@@ -464,61 +278,4 @@ test("prune tolerates user sets beyond a single chunk", async () => {
   } finally {
     await close();
   }
-});
-
-test("a managed-group grant prunes current members' tombstones", async () => {
-  const owner = createTestUser();
-  await registerUser(owner);
-  await authenticate(owner);
-  const organizationId = await organizationIdForContainer(
-    owner.rootContainerId,
-  );
-  const [organization] = await db
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  const memberGroupId = organization?.memberGroupId;
-  if (!memberGroupId) {
-    throw new Error("expected organization Members group");
-  }
-
-  await db.insert(containerSyncTombstones).values({
-    containerId: owner.rootContainerId,
-    depth: 0,
-    organizationId,
-    parentId: null,
-    reason: "access_revoked",
-    updatedAt: STALE_TOMBSTONE_AT,
-    userId: owner.userId,
-  });
-
-  // The owner is a CURRENT member of the Members group; a group grant must
-  // resolve them through the current projection (the manifest's referenced
-  // head is deliberately absent here — resolution must not depend on it).
-  const grantManifest = (grants: unknown[]) =>
-    ({
-      event: { event: { eventType: "container.grant" } },
-      state: {
-        containerId: owner.rootContainerId,
-        directGrants: grants,
-        organizationId,
-        referencedPrincipalHeads: [],
-      },
-    }) as never;
-  await db.transaction(async (tx) => {
-    await pruneAccessGrantTombstones({
-      executor: tx,
-      manifest: grantManifest([
-        { accessLevel: "read", subjectId: memberGroupId, subjectType: "group" },
-      ]),
-      previousManifest: grantManifest([]),
-    });
-  });
-
-  const remaining = await db
-    .select({ id: containerSyncTombstones.id })
-    .from(containerSyncTombstones)
-    .where(eq(containerSyncTombstones.userId, owner.userId));
-  expect(remaining).toEqual([]);
 });

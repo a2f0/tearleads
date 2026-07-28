@@ -134,8 +134,8 @@
       "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3981,
-      "bytes": 131244
+      "lines": 4042,
+      "bytes": 133163
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1289,
@@ -184,10 +184,6 @@
     "packages/api/src/workflows/principals/putPrincipalPolicy.ts": {
       "lines": 535,
       "bytes": 17775
-    },
-    "packages/api/src/workflows/regainedAccessTombstones.test.ts": {
-      "lines": 524,
-      "bytes": 16870
     },
     "packages/api/src/wsRouting.test.ts": {
       "lines": 530,
