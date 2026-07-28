@@ -1043,12 +1043,18 @@ export class ApiClient {
       cached = current;
     }
 
+    // Forward reporting knobs only. The parameter type already narrows to
+    // reporting-only options, but a widened variable (or plain JS) can still
+    // smuggle request-affecting fields structurally — rebuilding the object
+    // enforces at runtime what the type promises.
     const resultPromise = this.makeRequestResult(
       path,
       validator,
       "GET",
       undefined,
-      options,
+      {
+        reportErrors: options.reportErrors,
+      },
     );
     // Success needs no follow-up write: the pending entry itself resolves to
     // the data. A failure (or rejection) deletes the entry — but only while it

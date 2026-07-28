@@ -13,6 +13,7 @@ import {
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
+import type { CachedRequestResultOptions } from "./types";
 
 type DocumentWriterProjection = ReturnType<
   typeof createDocumentWriterProjectionResponse
@@ -295,6 +296,36 @@ testApiClient(
       client.getContainerWriterProjection("container-1"),
     ).resolves.toEqual(newerProjection);
     expect(calls).toHaveLength(0);
+  },
+);
+
+testApiClient(
+  "container writer projection result strips request-affecting options",
+  async () => {
+    let smuggledHeader: string | null = null;
+    const projection = createContainerWriterProjectionResponse();
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        ({ request }) => {
+          smuggledHeader = request.headers.get("x-caller-specific");
+          return HttpResponse.json(projection);
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    // The type narrows to reporting-only options, but a widened variable can
+    // still carry request-affecting fields structurally; they must not reach
+    // the request that populates the shared cache.
+    const widenedOptions = {
+      headers: { "x-caller-specific": "1" },
+      reportErrors: false,
+    } as CachedRequestResultOptions;
+    await expect(
+      client.getContainerWriterProjectionResult("container-1", widenedOptions),
+    ).resolves.toEqual({ data: projection, ok: true });
+    expect(smuggledHeader).toBeNull();
   },
 );
 
