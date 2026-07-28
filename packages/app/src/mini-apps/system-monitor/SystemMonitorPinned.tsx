@@ -1,4 +1,5 @@
 import { PaneStatus } from "../../components/pane/status/PaneStatus";
+import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import { SystemMonitorLog } from "./SystemMonitorLog";
 import { useSystemMonitor } from "./SystemMonitorProvider";
 
@@ -13,9 +14,12 @@ export function SystemMonitorPinned() {
   }
 
   return (
-    <>
+    <LocalKeyringUnlockGate
+      appName="System Monitor"
+      requireLocalIdentity={false}
+    >
       <PaneStatus pinned />
       <SystemMonitorLog />
-    </>
+    </LocalKeyringUnlockGate>
   );
 }
