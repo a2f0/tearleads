@@ -23,18 +23,6 @@ export interface RequestResultOptions {
   readonly retryOnSessionExpired?: boolean | undefined;
 }
 
-/**
- * Options accepted by result variants that coalesce on the ID-keyed
- * writer-projection caches. Restricted to reporting-only knobs on purpose:
- * request-affecting options (headers, session-retry policy) would leak one
- * caller's response to every caller sharing the cache entry, so they are
- * unrepresentable here rather than merely unused.
- */
-export type CachedRequestResultOptions = Pick<
-  RequestResultOptions,
-  "reportErrors"
->;
-
 export type RequestFn = <T>(
   path: string,
   validator: (value: unknown) => value is T,

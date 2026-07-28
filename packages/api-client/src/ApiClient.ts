@@ -103,7 +103,6 @@ import { organizationReadModelPath } from "./routes/organizations/readModelPath"
 import { pathSegment } from "./routes/path";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import type {
-  CachedRequestResultOptions,
   HttpMethod,
   ListContainerDocumentsOptions,
   ListDocumentEditAttributionRangesOptions,
@@ -1023,7 +1022,7 @@ export class ApiClient {
 
   getContainerWriterProjectionResult(
     containerId: string,
-    options: CachedRequestResultOptions = {},
+    options: RequestResultOptions = {},
   ): Promise<RequestResult<ContainerWriterProjectionResponse>> {
     return this.writerProjectionResult(
       this.containerWriterProjectionRequestsByContainerId,
@@ -1045,8 +1044,19 @@ export class ApiClient {
     cacheKey: string,
     path: string,
     validator: (value: unknown) => value is T,
-    options: CachedRequestResultOptions,
+    options: RequestResultOptions,
   ): Promise<RequestResult<T>> {
+    // Request-affecting options make the response caller-specific: run the
+    // request directly with the caller's options, join no shared fetch, and
+    // never publish the outcome to the shared caches. Only reporting-only
+    // callers below participate in coalescing and cache warming.
+    if (
+      options.headers !== undefined ||
+      options.retryOnSessionExpired !== undefined
+    ) {
+      return this.makeRequestResult(path, validator, "GET", undefined, options);
+    }
+
     // A concurrent burst shares one fetch — failure included — so it cannot
     // repeat the HTTP request or the 402 billing signal. The entry lives only
     // while the fetch is in flight: failures are shared, never cached, so a
@@ -1316,7 +1326,7 @@ export class ApiClient {
 
   getDocumentWriterProjectionResult(
     documentId: string,
-    options: CachedRequestResultOptions = {},
+    options: RequestResultOptions = {},
   ): Promise<RequestResult<DocumentWriterProjectionResponse>> {
     return this.writerProjectionResult(
       this.documentWriterProjectionRequestsByDocumentId,

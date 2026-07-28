@@ -10,7 +10,6 @@ import {
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
-import type { CachedRequestResultOptions } from "./types";
 
 testApiClient(
   "concurrent container writer projection result callers share one failing fetch",
@@ -140,32 +139,39 @@ testApiClient(
 );
 
 testApiClient(
-  "container writer projection result strips request-affecting options",
+  "request-affecting options bypass the shared projection cache",
   async () => {
-    let smuggledHeader: string | null = null;
+    const calls: CapturedHttpCall[] = [];
+    const seenHeaders: Array<string | null> = [];
     const projection = createContainerWriterProjectionResponse();
     server.use(
       http.get(
         `${apiBaseUrl}/containers/:containerId/writer-projection`,
-        ({ request }) => {
-          smuggledHeader = request.headers.get("x-caller-specific");
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          seenHeaders.push(request.headers.get("x-caller-specific"));
           return HttpResponse.json(projection);
         },
       ),
     );
 
     const client = new ApiClient(apiBaseUrl);
-    // The type narrows to reporting-only options, but a widened variable can
-    // still carry request-affecting fields structurally; they must not reach
-    // the request that populates the shared cache.
-    const widenedOptions = {
-      headers: { "x-caller-specific": "1" },
-      reportErrors: false,
-    } as CachedRequestResultOptions;
+    // Request-affecting options are honored — the header reaches the
+    // request — but the caller-specific response is never published to the
+    // shared cache, so a later plain read fetches its own.
     await expect(
-      client.getContainerWriterProjectionResult("container-1", widenedOptions),
+      client.getContainerWriterProjectionResult("container-1", {
+        headers: { "x-caller-specific": "1" },
+        reportErrors: false,
+      }),
     ).resolves.toEqual({ data: projection, ok: true });
-    expect(smuggledHeader).toBeNull();
+    expect(seenHeaders).toEqual(["1"]);
+
+    await expect(
+      client.getContainerWriterProjection("container-1"),
+    ).resolves.toEqual(projection);
+    expect(calls).toHaveLength(2);
+    expect(seenHeaders).toEqual(["1", null]);
   },
 );
 

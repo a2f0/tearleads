@@ -4,7 +4,6 @@ export type {
   UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
 export type {
-  CachedRequestResultOptions,
   HttpMethod,
   ListDocumentEditAttributionRangesOptions,
   RequestFailure,
