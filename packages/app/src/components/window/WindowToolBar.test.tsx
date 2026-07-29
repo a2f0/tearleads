@@ -251,6 +251,32 @@ test("omits the history Back caret when the stack is empty", () => {
   );
 
   expect(view.queryByRole("button", { name: "Back" })).toBeNull();
+  expect(view.container.querySelector(".window-toolbar")).not.toBeNull();
+});
+
+test("keeps the toolbar row while history Back appears and disappears", () => {
+  function Harness({ canGoBack }: { canGoBack: boolean }) {
+    return (
+      <WindowMenuProvider>
+        <WindowToolBar
+          canGoBack={canGoBack}
+          showHistoryBack
+          onGoBack={() => undefined}
+        />
+      </WindowMenuProvider>
+    );
+  }
+
+  const view = render(<Harness canGoBack={false} />);
+  expect(view.queryByRole("button", { name: "Back" })).toBeNull();
+  expect(view.container.querySelector(".window-toolbar")).not.toBeNull();
+
+  view.rerender(<Harness canGoBack />);
+  expect(view.getByRole("button", { name: "Back" })).toBeTruthy();
+
+  view.rerender(<Harness canGoBack={false} />);
+  expect(view.queryByRole("button", { name: "Back" })).toBeNull();
+  expect(view.container.querySelector(".window-toolbar")).not.toBeNull();
 });
 
 test("omits the history Back caret for a window hosting no routed mini-app", () => {

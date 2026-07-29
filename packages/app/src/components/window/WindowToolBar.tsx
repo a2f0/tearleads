@@ -20,6 +20,9 @@ import {
  * history. `showHistoryBack` turns that fallback on for a window hosting a
  * routed mini-app, whose history is the window's Back stack (windows are not
  * backed by browser history); the fallback is omitted when that stack is empty.
+ * Unlike the routed shell's paired Back/Forward controls, the window has no
+ * adjacent history control whose stable placement would justify a disabled
+ * Back button.
  *
  * Both surfaces read one shared registry (WindowMenuContext), so a mini-app
  * registers its actions once and they appear wherever it is hosted.
@@ -52,7 +55,8 @@ export function WindowToolBar({
   const reserved = useWindowToolbarReserved();
   const reservationReleased = useWindowToolbarReservationReleased();
   const showBack = backAction !== null || (showHistoryBack && canGoBack);
-  const hasChrome = showBack || actions.length > 0;
+  const hasChrome =
+    backAction !== null || showHistoryBack || actions.length > 0;
   // Latch: this window's app has shown toolbar chrome at least once, so keep the
   // row reserved from here on rather than collapsing it on a transient empty.
   // Seed from the mount-time value so a window that already has chrome does not
@@ -81,7 +85,7 @@ export function WindowToolBar({
           <button
             aria-label={backLabel}
             className="window-toolbar-button"
-            disabled={backAction ? backAction.disabled : !canGoBack}
+            disabled={backAction?.disabled ?? false}
             title={backLabel}
             type="button"
             onClick={backAction?.onClick ?? onGoBack}
