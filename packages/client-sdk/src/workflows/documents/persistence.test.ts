@@ -214,7 +214,9 @@ test("a persist without an explicit frontier retains the stored one", async () =
   } as DocumentRecord;
   const savedFrontiers: string[] = [];
   const persistence = {
-    loadDocumentContainer: async () => undefined,
+    // The row exists (orphan placement): a missing row would now refuse the
+    // update-persist outright via the resurrect guard.
+    loadDocumentContainer: async () => ({ containerId: null }),
     saveDocument: async (
       _execSql: ExecSql,
       record: { snapshotEndVersion: string },

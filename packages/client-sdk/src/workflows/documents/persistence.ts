@@ -309,14 +309,6 @@ interface PersistDocumentStateInput {
   persistence: DocumentsPersistence;
 }
 
-export function persistDocumentState(
-  input: PersistDocumentStateInput & {
-    canStartDurableMutation: () => boolean;
-  },
-): Promise<PersistedDocumentState | null>;
-export function persistDocumentState(
-  input: PersistDocumentStateInput,
-): Promise<PersistedDocumentState>;
 export async function persistDocumentState(
   input: PersistDocumentStateInput,
 ): Promise<PersistedDocumentState | null> {
@@ -336,6 +328,19 @@ export async function persistDocumentState(
   }
 
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    // A persist that expected to UPDATE must never resurrect: another
+    // subsystem (e.g. the contacts duplicate-self cleanup) may have deleted
+    // this document while the persist waited on the mutation queue, and the
+    // upsert below would silently re-create it. The existence check runs
+    // INSIDE the claimed mutation, so it cannot go stale; a missing row
+    // refuses the whole persist — history appends included, which would
+    // otherwise recreate orphaned tail rows first.
+    if (
+      currentRecord &&
+      !(await persistence.loadDocumentContainer(lockedExecSql, localId))
+    ) {
+      return null;
+    }
     // Deferred-write deltas ride in the same claimed mutation as the record
     // write, appended FIRST: the tail is the only durable content store, so
     // a crash between the two leaves a tail row ahead of the record frontier

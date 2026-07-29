@@ -374,8 +374,8 @@
       "bytes": 20263
     },
     "packages/client-sdk/src/workflows/documents/persistence.ts": {
-      "lines": 519,
-      "bytes": 19246
+      "lines": 524,
+      "bytes": 19604
     },
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
       "lines": 1691,

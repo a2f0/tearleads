@@ -98,10 +98,9 @@ without counting as lane progress, so it cannot hot-loop the pump.
   is never purged (no tombstone reaches the revoked user — deliberate, see
   row 4's accepted bound). A future local sweep (e.g. dormant rows still
   unmatched after an access-restored full resync) could reclaim it.
-- Latent race: a document store's in-flight persist can resurrect a document
-  that another subsystem deleted concurrently (observed with the contacts
-  duplicate-self cleanup racing a deferred write's persist). The persist path
-  should refuse to re-create a row it expected to update. The document
-  store's own teardown (row 21's discard) now closes this for its writers by
-  validating a store generation inside each write's serialized mutation;
-  cross-subsystem deletions (e.g. the contacts cleanup) remain exposed.
+- Resurrect race (closed): a persist that expected to update re-checks the
+  row's existence inside its claimed serialized mutation and refuses —
+  history appends included — when another subsystem (e.g. the contacts
+  duplicate-self cleanup) deleted the document while the persist was queued.
+  The store's own teardown additionally invalidates its generation inside
+  the deletion mutation (row 21).
