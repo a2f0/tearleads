@@ -1,4 +1,4 @@
-import { useCallback, useId } from "react";
+import { useCallback, useId, useState } from "react";
 import {
   MiniAppInput,
   MiniAppSelect,
@@ -46,7 +46,7 @@ function WeightReadFields(params: {
   currentAuthorId: string | null;
   controlsDisabled: boolean;
   entries: ReadonlyArray<WeightEntryRow>;
-  onAddEntry: (entry?: WeightQuickEntry) => void;
+  onAddEntry: (entry: WeightQuickEntry) => void;
   onEnterEdit?: (() => void) | undefined;
   resolveRowWriter?: RowWriterResolver | undefined;
   unit: WeightUnit;
@@ -100,13 +100,13 @@ function WeightReadFields(params: {
 }
 
 function WeightEditFields(params: {
+  currentAuthorId: string | null;
   controlsDisabled: boolean;
   entries: ReadonlyArray<WeightEntryRow>;
-  onAddEntry: (entry?: WeightQuickEntry) => void;
+  onAddEntry: (entry: WeightQuickEntry) => void;
   onChangeUnit: (unit: WeightUnit) => void;
   onRemoveEntry: (id: string) => void;
   onRenameTracker: (value: string) => void;
-  onSave: () => void;
   onUpdateEntry: UpdateEntry;
   ready: boolean;
   trackerName: string;
@@ -115,13 +115,13 @@ function WeightEditFields(params: {
   unitInputId: string;
 }) {
   const {
+    currentAuthorId,
     controlsDisabled,
     entries,
     onAddEntry,
     onChangeUnit,
     onRemoveEntry,
     onRenameTracker,
-    onSave,
     onUpdateEntry,
     ready,
     trackerName,
@@ -129,6 +129,21 @@ function WeightEditFields(params: {
     unit,
     unitInputId,
   } = params;
+  const [savedEntryIds, setSavedEntryIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  function setEntrySaved(id: string, saved: boolean) {
+    setSavedEntryIds((current) => {
+      const next = new Set(current);
+      if (saved) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
 
   return (
     <div className="tracker-document-fields">
@@ -177,17 +192,28 @@ function WeightEditFields(params: {
         {entries.length === 0 ? (
           <div className="tracker-empty-state">No entries</div>
         ) : (
-          entries.map((entry, index) => (
-            <WeightEntryEditRow
-              key={entry.id}
-              controlsDisabled={controlsDisabled}
-              entry={entry}
-              index={index}
-              onRemoveEntry={onRemoveEntry}
-              onSave={onSave}
-              onUpdateEntry={onUpdateEntry}
-            />
-          ))
+          entries.map((entry, index) =>
+            savedEntryIds.has(entry.id) ? (
+              <WeightEntryReadRow
+                key={entry.id}
+                currentAuthorId={currentAuthorId}
+                entry={entry}
+                index={index}
+                onEnterEdit={() => setEntrySaved(entry.id, false)}
+                previous={entries[index - 1]}
+              />
+            ) : (
+              <WeightEntryEditRow
+                key={entry.id}
+                controlsDisabled={controlsDisabled}
+                entry={entry}
+                index={index}
+                onRemoveEntry={onRemoveEntry}
+                onSaveEntry={(id) => setEntrySaved(id, true)}
+                onUpdateEntry={onUpdateEntry}
+              />
+            ),
+          )
         )}
         <div className="weight-entry-list-footer tracker-entry-list-footer">
           {entries.length} entries
@@ -202,7 +228,7 @@ export function WeightFields(params: {
   disabled?: boolean | undefined;
   entries: ReadonlyArray<WeightEntryRow>;
   isEditing?: boolean | undefined;
-  onAddEntry: (entry?: WeightQuickEntry) => void;
+  onAddEntry: (entry: WeightQuickEntry) => void;
   onChangeUnit: (unit: WeightUnit) => void;
   onEnterEdit?: (() => void) | undefined;
   onRemoveEntry: (id: string) => void;
@@ -260,13 +286,13 @@ export function WeightFields(params: {
 
   return (
     <WeightEditFields
+      currentAuthorId={currentAuthorId}
       controlsDisabled={controlsDisabled}
       entries={entries}
       onAddEntry={onAddEntry}
       onChangeUnit={onChangeUnit}
       onRemoveEntry={onRemoveEntry}
       onRenameTracker={onRenameTracker}
-      onSave={onToggleEditing}
       onUpdateEntry={onUpdateEntry}
       ready={ready}
       trackerName={trackerName}
@@ -334,10 +360,10 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
           onAddEntry={(entry) => {
             if (canWrite) {
               void addRow({
-                [WEIGHT_MEASUREMENT_FIELD]: entry?.weight ?? "",
+                [WEIGHT_MEASUREMENT_FIELD]: entry.weight,
                 [WEIGHT_UNIT_FIELD]: unit,
-                [WEIGHT_MEASURED_AT_FIELD]: entry?.measuredAt ?? "",
-                [WEIGHT_NOTES_FIELD]: entry?.notes ?? "",
+                [WEIGHT_MEASURED_AT_FIELD]: entry.measuredAt,
+                [WEIGHT_NOTES_FIELD]: entry.notes,
               });
             }
           }}

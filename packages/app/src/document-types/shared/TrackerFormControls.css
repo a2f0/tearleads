@@ -9,14 +9,6 @@
   min-width: 0;
 }
 
-.tracker-entry-list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-}
-
 .tracker-entry-list-footer {
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
@@ -149,12 +141,7 @@
 }
 
 @media (max-width: 640px) {
-  .tracker-entry-list-header {
-    align-items: stretch;
-  }
-
   .tracker-add-button {
-    justify-self: stretch;
     width: 100%;
   }
 

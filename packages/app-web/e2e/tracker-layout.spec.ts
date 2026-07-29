@@ -59,6 +59,21 @@ async function expectActionsShareRow(
   expect(saveBox.x + saveBox.width).toBeLessThanOrEqual(removeBox.x);
 }
 
+async function expectActionsFillRow(actions: Locator): Promise<void> {
+  const actionBox = await actions.boundingBox();
+  const buttons = actions.getByRole("button");
+  const saveBox = await buttons.first().boundingBox();
+  const removeBox = await buttons.last().boundingBox();
+  if (!actionBox || !saveBox || !removeBox) {
+    throw new Error("Expected visible tracker action geometry.");
+  }
+  expect(Math.abs(saveBox.x - actionBox.x)).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(removeBox.x + removeBox.width - (actionBox.x + actionBox.width)),
+  ).toBeLessThanOrEqual(1);
+  expect(Math.abs(saveBox.width - removeBox.width)).toBeLessThanOrEqual(1);
+}
+
 test("windowed health trackers share compact fields and finish actions", async ({
   page,
 }) => {
@@ -84,8 +99,7 @@ test("windowed health trackers share compact fields and finish actions", async (
     "Remove reading 1",
   );
   const readingActions = explorerWindow
-    .getByLabel("Reading 1 systolic")
-    .locator("../..")
+    .locator(".blood-pressure-reading-row")
     .locator(".tracker-row-actions");
   await expectActionsShareRow(
     readingActions,
@@ -93,6 +107,11 @@ test("windowed health trackers share compact fields and finish actions", async (
     "Remove reading 1",
   );
   await readingActions.getByRole("button", { name: "Save reading 1" }).click();
+  await expect(
+    explorerWindow.locator(".blood-pressure-reading-read-row"),
+  ).toBeVisible();
+  await expect(toolbar.getByRole("button", { name: "Save" })).toBeVisible();
+  await toolbar.getByRole("button", { name: "Save" }).click();
   await expect(toolbar.getByRole("button", { name: "Edit" })).toBeVisible();
 
   await toolbar.getByRole("button", { name: "Back" }).click();
@@ -113,11 +132,13 @@ test("windowed health trackers share compact fields and finish actions", async (
     "Remove entry 1",
   );
   const entryActions = explorerWindow
-    .getByLabel("Entry 1 weight")
-    .locator("../..")
+    .locator(".weight-entry-row")
     .locator(".tracker-row-actions");
   await expectActionsShareRow(entryActions, "Save entry 1", "Remove entry 1");
   await entryActions.getByRole("button", { name: "Save entry 1" }).click();
+  await expect(explorerWindow.locator(".weight-entry-read-row")).toBeVisible();
+  await expect(toolbar.getByRole("button", { name: "Save" })).toBeVisible();
+  await toolbar.getByRole("button", { name: "Save" }).click();
   await expect(toolbar.getByRole("button", { name: "Edit" })).toBeVisible();
 });
 
@@ -141,4 +162,5 @@ test("mobile tracker actions span their rows", async ({ page }) => {
   const rowActions = row.locator(".tracker-row-actions");
   await expectActionBelowField(row, "Entry 1 notes", "Remove entry 1");
   await expectActionsShareRow(rowActions, "Save entry 1", "Remove entry 1");
+  await expectActionsFillRow(rowActions);
 });

@@ -23,7 +23,7 @@ const EMPTY_ENTRY: WeightQuickEntry = {
 
 export function WeightQuickAdd(params: {
   controlsDisabled: boolean;
-  onAddEntry: (entry?: WeightQuickEntry) => void;
+  onAddEntry: (entry: WeightQuickEntry) => void;
   unit: WeightUnit;
 }) {
   const { controlsDisabled, onAddEntry, unit } = params;

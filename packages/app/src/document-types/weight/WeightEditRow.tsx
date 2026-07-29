@@ -22,12 +22,12 @@ export type UpdateEntry = (
 ) => void;
 
 // A single entry in edit mode: the weight itself, when it was taken, its notes,
-// and the controls that finish editing or remove it.
+// and the controls that save or remove it.
 export function WeightEntryEditRow(params: {
   controlsDisabled: boolean;
   index: number;
   onRemoveEntry: (id: string) => void;
-  onSave: () => void;
+  onSaveEntry: (id: string) => void;
   onUpdateEntry: UpdateEntry;
   entry: WeightEntryRow;
 }) {
@@ -36,7 +36,7 @@ export function WeightEntryEditRow(params: {
     entry,
     index,
     onRemoveEntry,
-    onSave,
+    onSaveEntry,
     onUpdateEntry,
   } = params;
   const isInvalid =
@@ -85,7 +85,7 @@ export function WeightEntryEditRow(params: {
       <TrackerRowActions
         disabled={controlsDisabled}
         onRemove={() => onRemoveEntry(entry.id)}
-        onSave={onSave}
+        onSave={() => onSaveEntry(entry.id)}
         removeAriaLabel={`Remove entry ${index + 1}`}
         saveAriaLabel={`Save entry ${index + 1}`}
       />

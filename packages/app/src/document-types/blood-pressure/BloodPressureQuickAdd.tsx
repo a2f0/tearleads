@@ -106,7 +106,7 @@ function QuickReadingFields(params: {
 
 export function BloodPressureQuickAdd(params: {
   controlsDisabled: boolean;
-  onAddReading: (reading?: BloodPressureQuickReading) => void;
+  onAddReading: (reading: BloodPressureQuickReading) => void;
 }) {
   const { controlsDisabled, onAddReading } = params;
   const [open, setOpen] = useState(false);

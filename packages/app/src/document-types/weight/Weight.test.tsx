@@ -107,7 +107,7 @@ function renderWeightFields(params?: {
   currentAuthorId?: string | null;
   entries?: WeightEntryRow[];
   isEditing?: boolean | undefined;
-  onAddEntry?: (entry?: WeightQuickEntry) => void;
+  onAddEntry?: (entry: WeightQuickEntry) => void;
   onChangeUnit?: (unit: WeightUnit) => void;
   onEnterEdit?: (() => void) | undefined;
   onRemoveEntry?: (id: string) => void;
@@ -272,16 +272,11 @@ test("read mode leaves the tracker name to the document title bar", () => {
   expect(view.getByText("0 entries")).toBeTruthy();
 });
 
-test("quick add saves a populated entry without entering edit mode", () => {
+test("edit mode keeps a new entry pending until it is saved", () => {
   const added: WeightQuickEntry[] = [];
   const view = renderWeightFields({
-    isEditing: false,
-    onEnterEdit: () => undefined,
-    onAddEntry: (entry) => {
-      if (entry) {
-        added.push(entry);
-      }
-    },
+    isEditing: true,
+    onAddEntry: (entry) => added.push(entry),
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
@@ -304,8 +299,8 @@ test("quick add saves a populated entry without entering edit mode", () => {
       weight: "178.5",
     },
   ]);
-  expect(view.getByRole("button", { name: "Toolbar Edit" })).toBeTruthy();
-  expect(view.queryByLabelText("Weight tracker name")).toBeNull();
+  expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
+  expect(view.getByLabelText("Weight tracker name")).toBeTruthy();
 });
 
 test("quick add rejects invalid weights and cancel clears the draft", () => {
@@ -454,20 +449,24 @@ test("marks out-of-range weights invalid without blocking edits", () => {
   ).toBe("true");
 });
 
-test("each entry keeps Save beside Remove", () => {
-  const calls: string[] = [];
+test("each entry saves independently beside Remove", () => {
+  const removals: string[] = [];
   const view = renderWeightFields({
-    onRemoveEntry: (id) => calls.push(`remove ${id}`),
-    onToggleEditing: () => calls.push("save"),
+    onRemoveEntry: (id) => removals.push(id),
   });
 
   const remove = view.getByRole("button", { name: "Remove entry 1" });
   const save = view.getByRole("button", { name: "Save entry 1" });
   expect(save.parentElement).toBe(remove.parentElement);
-  fireEvent.click(remove);
   fireEvent.click(save);
+  expect(view.queryByLabelText("Entry 1 weight")).toBeNull();
+  expect(view.getByLabelText("Entry 2 weight")).toBeTruthy();
+  expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
 
-  expect(calls).toEqual(["remove e1", "save"]);
+  fireEvent.click(view.getByRole("button", { name: "Entry 1 actions" }));
+  fireEvent.click(view.getByRole("button", { name: "Edit" }));
+  fireEvent.click(view.getByRole("button", { name: "Remove entry 1" }));
+  expect(removals).toEqual(["e1"]);
 });
 
 test("disables controls while the document is loading", () => {

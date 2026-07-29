@@ -73,12 +73,12 @@ function BloodPressureMeasurementInput(params: {
 }
 
 // A single reading in edit mode: the measurement inputs, when it was taken, its
-// notes, and the controls that finish editing or remove it.
+// notes, and the controls that save or remove it.
 export function BloodPressureReadingEditRow(params: {
   controlsDisabled: boolean;
   index: number;
   onRemoveReading: (id: string) => void;
-  onSave: () => void;
+  onSaveReading: (id: string) => void;
   onUpdateReading: UpdateReading;
   reading: BloodPressureReadingRow;
 }) {
@@ -86,7 +86,7 @@ export function BloodPressureReadingEditRow(params: {
     controlsDisabled,
     index,
     onRemoveReading,
-    onSave,
+    onSaveReading,
     onUpdateReading,
     reading,
   } = params;
@@ -154,7 +154,7 @@ export function BloodPressureReadingEditRow(params: {
       <TrackerRowActions
         disabled={controlsDisabled}
         onRemove={() => onRemoveReading(reading.id)}
-        onSave={onSave}
+        onSave={() => onSaveReading(reading.id)}
         removeAriaLabel={`Remove reading ${index + 1}`}
         saveAriaLabel={`Save reading ${index + 1}`}
       />

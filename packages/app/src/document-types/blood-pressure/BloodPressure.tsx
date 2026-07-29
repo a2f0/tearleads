@@ -1,4 +1,4 @@
-import { useCallback, useId } from "react";
+import { useCallback, useId, useState } from "react";
 import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
@@ -41,7 +41,7 @@ import "./BloodPressure.css";
 function BloodPressureReadFields(params: {
   currentAuthorId: string | null;
   controlsDisabled: boolean;
-  onAddReading: (reading?: BloodPressureQuickReading) => void;
+  onAddReading: (reading: BloodPressureQuickReading) => void;
   onEnterEdit?: (() => void) | undefined;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   resolveRowWriter?: RowWriterResolver | undefined;
@@ -90,11 +90,11 @@ function BloodPressureReadFields(params: {
 }
 
 function BloodPressureEditFields(params: {
+  currentAuthorId: string | null;
   controlsDisabled: boolean;
-  onAddReading: (reading?: BloodPressureQuickReading) => void;
+  onAddReading: (reading: BloodPressureQuickReading) => void;
   onRemoveReading: (id: string) => void;
   onRenameTracker: (value: string) => void;
-  onSave: () => void;
   onUpdateReading: UpdateReading;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   ready: boolean;
@@ -102,17 +102,32 @@ function BloodPressureEditFields(params: {
   trackerNameInputId: string;
 }) {
   const {
+    currentAuthorId,
     controlsDisabled,
     onAddReading,
     onRemoveReading,
     onRenameTracker,
-    onSave,
     onUpdateReading,
     readings,
     ready,
     trackerName,
     trackerNameInputId,
   } = params;
+  const [savedReadingIds, setSavedReadingIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  function setReadingSaved(id: string, saved: boolean) {
+    setSavedReadingIds((current) => {
+      const next = new Set(current);
+      if (saved) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
 
   return (
     <div className="tracker-document-fields">
@@ -143,17 +158,27 @@ function BloodPressureEditFields(params: {
         {readings.length === 0 ? (
           <div className="tracker-empty-state">No readings</div>
         ) : (
-          readings.map((reading, index) => (
-            <BloodPressureReadingEditRow
-              key={reading.id}
-              controlsDisabled={controlsDisabled}
-              index={index}
-              onRemoveReading={onRemoveReading}
-              onSave={onSave}
-              onUpdateReading={onUpdateReading}
-              reading={reading}
-            />
-          ))
+          readings.map((reading, index) =>
+            savedReadingIds.has(reading.id) ? (
+              <BloodPressureReadingReadRow
+                key={reading.id}
+                currentAuthorId={currentAuthorId}
+                index={index}
+                onEnterEdit={() => setReadingSaved(reading.id, false)}
+                reading={reading}
+              />
+            ) : (
+              <BloodPressureReadingEditRow
+                key={reading.id}
+                controlsDisabled={controlsDisabled}
+                index={index}
+                onRemoveReading={onRemoveReading}
+                onSaveReading={(id) => setReadingSaved(id, true)}
+                onUpdateReading={onUpdateReading}
+                reading={reading}
+              />
+            ),
+          )
         )}
         <div className="blood-pressure-reading-list-footer tracker-entry-list-footer">
           {readings.length} entries
@@ -167,7 +192,7 @@ export function BloodPressureFields(params: {
   currentAuthorId?: string | null;
   disabled?: boolean | undefined;
   isEditing?: boolean | undefined;
-  onAddReading: (reading?: BloodPressureQuickReading) => void;
+  onAddReading: (reading: BloodPressureQuickReading) => void;
   onEnterEdit?: (() => void) | undefined;
   onRemoveReading: (id: string) => void;
   onRenameTracker: (value: string) => void;
@@ -219,11 +244,11 @@ export function BloodPressureFields(params: {
 
   return (
     <BloodPressureEditFields
+      currentAuthorId={currentAuthorId}
       controlsDisabled={controlsDisabled}
       onAddReading={onAddReading}
       onRemoveReading={onRemoveReading}
       onRenameTracker={onRenameTracker}
-      onSave={onToggleEditing}
       onUpdateReading={onUpdateReading}
       readings={readings}
       ready={ready}
@@ -293,11 +318,11 @@ export function BloodPressure(params: {
           onAddReading={(reading) => {
             if (canWrite) {
               void addRow({
-                [BLOOD_PRESSURE_SYSTOLIC_FIELD]: reading?.systolic ?? "",
-                [BLOOD_PRESSURE_DIASTOLIC_FIELD]: reading?.diastolic ?? "",
-                [BLOOD_PRESSURE_PULSE_FIELD]: reading?.pulse ?? "",
-                [BLOOD_PRESSURE_MEASURED_AT_FIELD]: reading?.measuredAt ?? "",
-                [BLOOD_PRESSURE_NOTES_FIELD]: reading?.notes ?? "",
+                [BLOOD_PRESSURE_SYSTOLIC_FIELD]: reading.systolic,
+                [BLOOD_PRESSURE_DIASTOLIC_FIELD]: reading.diastolic,
+                [BLOOD_PRESSURE_PULSE_FIELD]: reading.pulse,
+                [BLOOD_PRESSURE_MEASURED_AT_FIELD]: reading.measuredAt,
+                [BLOOD_PRESSURE_NOTES_FIELD]: reading.notes,
               });
             }
           }}

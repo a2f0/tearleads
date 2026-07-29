@@ -113,7 +113,7 @@ const attributedResolver = (peer: string | null): string | null => {
 function renderBloodPressureFields(params?: {
   currentAuthorId?: string | null;
   isEditing?: boolean | undefined;
-  onAddReading?: (reading?: BloodPressureQuickReading) => void;
+  onAddReading?: (reading: BloodPressureQuickReading) => void;
   onEnterEdit?: (() => void) | undefined;
   onRemoveReading?: (id: string) => void;
   onRenameTracker?: (value: string) => void;
@@ -287,6 +287,7 @@ test("read-only viewer opens attribution directly, without showing values", () =
   const dialog = view.getByRole("dialog", { name: "Reading 1" });
   expect(within(dialog).getByText("set by user-bob")).toBeTruthy();
   expect(within(dialog).getAllByText("set by you").length).toBeGreaterThan(0);
+  // Attribution identifies field writers without exposing private values.
   expect(within(dialog).queryByText("120")).toBeNull();
   expect(within(dialog).queryByText("Before coffee")).toBeNull();
 
@@ -336,16 +337,11 @@ test("read mode leaves the tracker name to the document title bar", () => {
   expect(view.getByText("0 entries")).toBeTruthy();
 });
 
-test("quick add saves a populated reading without entering edit mode", () => {
+test("edit mode keeps a new reading pending until it is saved", () => {
   const added: BloodPressureQuickReading[] = [];
   const view = renderBloodPressureFields({
-    isEditing: false,
-    onEnterEdit: () => undefined,
-    onAddReading: (reading) => {
-      if (reading) {
-        added.push(reading);
-      }
-    },
+    isEditing: true,
+    onAddReading: (reading) => added.push(reading),
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
@@ -376,8 +372,8 @@ test("quick add saves a populated reading without entering edit mode", () => {
       systolic: "119",
     },
   ]);
-  expect(view.getByRole("button", { name: "Toolbar Edit" })).toBeTruthy();
-  expect(view.queryByLabelText("Blood pressure tracker name")).toBeNull();
+  expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
+  expect(view.getByLabelText("Blood pressure tracker name")).toBeTruthy();
 });
 
 test("quick add rejects invalid readings and cancel clears the draft", () => {
@@ -460,20 +456,24 @@ test("marks out-of-range measurements invalid without blocking edits", () => {
   ).toBeNull();
 });
 
-test("each reading keeps Save beside Remove", () => {
-  const calls: string[] = [];
+test("each reading saves independently beside Remove", () => {
+  const removals: string[] = [];
   const view = renderBloodPressureFields({
-    onRemoveReading: (id) => calls.push(`remove ${id}`),
-    onToggleEditing: () => calls.push("save"),
+    onRemoveReading: (id) => removals.push(id),
   });
 
   const remove = view.getByRole("button", { name: "Remove reading 1" });
   const save = view.getByRole("button", { name: "Save reading 1" });
   expect(save.parentElement).toBe(remove.parentElement);
-  fireEvent.click(remove);
   fireEvent.click(save);
+  expect(view.queryByLabelText("Reading 1 systolic")).toBeNull();
+  expect(view.getByLabelText("Reading 2 systolic")).toBeTruthy();
+  expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
 
-  expect(calls).toEqual(["remove r1", "save"]);
+  fireEvent.click(view.getByRole("button", { name: "Reading 1 actions" }));
+  fireEvent.click(view.getByRole("button", { name: "Edit" }));
+  fireEvent.click(view.getByRole("button", { name: "Remove reading 1" }));
+  expect(removals).toEqual(["r1"]);
 });
 
 test("disables controls while the document is loading", () => {
