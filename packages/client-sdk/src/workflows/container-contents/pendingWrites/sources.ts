@@ -204,7 +204,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.parent_container_id AS target_container_id,
     'pending' AS operation_status,
     intent.last_error AS last_error,
-    NULL AS last_attempted_at,
+    intent.last_attempted_at AS last_attempted_at,
     'always' AS inclusion
   FROM container_create_intents intent
   LEFT JOIN containers container ON container.id = intent.container_id

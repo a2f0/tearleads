@@ -227,13 +227,15 @@ test("listPendingWrites groups every durable source without exposing payloads", 
       `INSERT INTO container_create_intents (
         id, container_id, parent_container_id, intent_type, sync_status,
         remote_container_id, remote_metadata_document_id,
-        remote_metadata_access_state_hash, last_error, created_at, updated_at
-      ) VALUES (?, ?, ?, 'container.create', 'pending', NULL, NULL, NULL, ?, ?, ?)`,
+        remote_metadata_access_state_hash, last_error, last_attempted_at,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, 'container.create', 'pending', NULL, NULL, NULL, ?, ?, ?, ?)`,
       [
         "create-intent",
         "created-container",
         "root",
         "create retry failed",
+        T4,
         T3,
         T4,
       ],
@@ -311,6 +313,7 @@ test("listPendingWrites groups every durable source without exposing payloads", 
       operations: [
         expect.objectContaining({
           kind: "create",
+          lastAttemptedAt: T4,
           lastError: "create retry failed",
           targetContainerId: "root",
         }),
