@@ -6,6 +6,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { createDocument } from "@tearleads/loro";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
 import { createDocumentProjectorRegistry } from "../../documents";
 import {
   deletePersistedDocument,
@@ -259,6 +260,56 @@ test("guarded deletion aborts before reading or deleting the durable row", async
   });
 
   expect(deleted).toBe(false);
+  expect(loads).toBe(0);
+  expect(deletes).toBe(0);
+});
+
+// The guard's answer can go stale while the deletion waits behind another
+// serialized mutation (a store reset, a replacement generation's persist).
+// It must be re-asked inside the claimed mutation, or the delete wipes rows
+// the newer generation just wrote.
+test("a guard that goes stale while queued refuses the deletion", async () => {
+  const execSql = createNoopExecSql();
+  let loads = 0;
+  let deletes = 0;
+  const persistence = {
+    deleteDocument: async () => {
+      deletes += 1;
+    },
+    ensureSchema: async () => undefined,
+    loadDocument: async () => {
+      loads += 1;
+      return null;
+    },
+  } as unknown as DocumentsPersistence;
+
+  let canDelete = true;
+  let releaseHeldMutation = () => {};
+  const mutationHeld = new Promise<void>((resolve) => {
+    releaseHeldMutation = resolve;
+  });
+  // The "concurrent teardown": holds the executor's mutex while the deletion
+  // queues behind it.
+  const heldMutation = runSerializedSqlMutation(execSql, async () => {
+    await mutationHeld;
+  });
+  const queuedDeletion = deletePersistedDocument({
+    canStartDurableMutation: () => canDelete,
+    documentProjectors: createDocumentProjectorRegistry([]),
+    execSql,
+    localId: "local-document",
+    persistence,
+  });
+  // A macrotask drains every pending continuation: the deletion's schema
+  // setup completes and it parks at the held mutex — the only thing it can
+  // still be waiting on — BEFORE the guard flips. A pre-claim guard has
+  // provably already run (and passed) by this point.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  canDelete = false;
+  releaseHeldMutation();
+  await heldMutation;
+
+  expect(await queuedDeletion).toBe(false);
   expect(loads).toBe(0);
   expect(deletes).toBe(0);
 });
