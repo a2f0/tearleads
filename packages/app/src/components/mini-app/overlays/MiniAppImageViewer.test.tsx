@@ -65,27 +65,54 @@ test("a window hosts the viewer inside its own bounds", () => {
   overlayHost.className = "window";
   document.body.append(overlayHost);
 
-  const view = render(
-    <CurrentWindowProvider
-      close={() => undefined}
-      id="window-1"
-      overlayHost={overlayHost}
-      showStatusMessage={() => undefined}
-    >
+  try {
+    const view = render(
+      <CurrentWindowProvider
+        close={() => undefined}
+        id="window-1"
+        overlayHost={overlayHost}
+        showStatusMessage={() => undefined}
+      >
+        <MiniAppImageViewer
+          label="photo.png"
+          onClose={() => undefined}
+          url="blob:photo"
+        />
+      </CurrentWindowProvider>,
+    );
+
+    const viewer = view.getByRole("dialog");
+    expect(viewer.parentElement).toBe(overlayHost);
+    expect(viewer.getAttribute("aria-modal")).toBeNull();
+    expect(viewer.classList.contains("mini-app-image-viewer--windowed")).toBe(
+      true,
+    );
+  } finally {
+    overlayHost.remove();
+  }
+});
+
+test("Escape closes only the viewer that owns focus", () => {
+  let firstCloses = 0;
+  let secondCloses = 0;
+  render(
+    <>
       <MiniAppImageViewer
-        label="photo.png"
-        onClose={() => undefined}
-        url="blob:photo"
+        label="first.png"
+        onClose={() => (firstCloses += 1)}
+        url="blob:first"
       />
-    </CurrentWindowProvider>,
+      <MiniAppImageViewer
+        label="second.png"
+        onClose={() => (secondCloses += 1)}
+        url="blob:second"
+      />
+    </>,
   );
 
-  const viewer = view.getByRole("dialog");
-  expect(viewer.parentElement).toBe(overlayHost);
-  expect(viewer.classList.contains("mini-app-image-viewer--windowed")).toBe(
-    true,
-  );
-  overlayHost.remove();
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(firstCloses).toBe(0);
+  expect(secondCloses).toBe(1);
 });
 
 // The name is on its own line so the control row stays all controls: at touch

@@ -133,19 +133,23 @@ function ImageViewerChrome(params: {
 function useImageViewerDismissal(params: {
   closeButtonRef: RefObject<HTMLButtonElement | null>;
   onClose: () => void;
+  viewerRef: RefObject<HTMLDivElement | null>;
 }) {
-  const { closeButtonRef, onClose } = params;
+  const { closeButtonRef, onClose, viewerRef } = params;
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (
+        event.key === "Escape" &&
+        viewerRef.current?.contains(document.activeElement)
+      ) {
         event.preventDefault();
         onClose();
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, viewerRef]);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement;
@@ -178,18 +182,24 @@ export function MiniAppImageViewer(params: {
 }) {
   const viewer = useImageViewerState();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const viewerRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const currentWindow = useCurrentWindow();
   const portalHost = currentWindow?.overlayHost ?? document.body;
   const isWindowed = portalHost !== document.body;
 
-  useImageViewerDismissal({ closeButtonRef, onClose: params.onClose });
+  useImageViewerDismissal({
+    closeButtonRef,
+    onClose: params.onClose,
+    viewerRef,
+  });
 
   return createPortal(
     <div
       aria-labelledby={titleId}
-      aria-modal="true"
+      aria-modal={isWindowed ? undefined : "true"}
       className={`mini-app-image-viewer${isWindowed ? " mini-app-image-viewer--windowed" : ""}`}
+      ref={viewerRef}
       role="dialog"
     >
       <ImageViewerChrome

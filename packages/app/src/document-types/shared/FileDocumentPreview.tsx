@@ -153,7 +153,7 @@ export function useFileDocumentMediaPreview(params: {
 }
 
 export function FileDocumentMediaPreviewPanel(params: {
-  onDownload: () => void;
+  onDownload?: (() => void) | undefined;
   preview: FileDocumentMediaPreview;
 }) {
   const { attachment, mediaKind, mediaUrl } = params.preview;

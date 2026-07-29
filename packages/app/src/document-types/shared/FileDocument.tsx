@@ -186,7 +186,7 @@ export function FileDocumentFields({
           metadata so it lands on top without a scroll. */}
       {mediaPreview ? (
         <FileDocumentMediaPreviewPanel
-          onDownload={onDownload}
+          onDownload={downloadDisabled ? undefined : onDownload}
           preview={mediaPreview}
         />
       ) : null}

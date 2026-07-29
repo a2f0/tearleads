@@ -324,8 +324,9 @@ function WindowInnerContent({
   };
   const style = getWindowStyle(maximized, position, size, zIndex);
 
-  useEffect(() => {
-    setOverlayHost(windowRef.current);
+  const setWindowElement = useCallback((element: HTMLDivElement | null) => {
+    windowRef.current = element;
+    setOverlayHost(element);
   }, []);
 
   if (minimized) {
@@ -334,7 +335,7 @@ function WindowInnerContent({
 
   return (
     <div
-      ref={windowRef}
+      ref={setWindowElement}
       className={maximized ? "window window--maximized" : "window"}
       {...windowContextMenuTrapProps}
       onMouseDownCapture={handleWindowMouseDown}

@@ -331,6 +331,25 @@ test("clicking an image preview opens the shared image viewer", () => {
   expect(view.queryByRole("dialog")).toBeNull();
 });
 
+test("the image viewer omits Download when downloading is disabled", () => {
+  const view = renderFields({
+    downloadDisabled: true,
+    mediaPreview: {
+      attachment: pngAttachment,
+      mediaKind: "image",
+      mediaUrl: "blob:png-preview",
+    },
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Open full screen" }));
+
+  expect(
+    within(view.getByRole("dialog")).queryByRole("button", {
+      name: "Download",
+    }),
+  ).toBeNull();
+});
+
 test("renders shared playback controls for audio and video previews", () => {
   const audioView = renderFields({
     mediaPreview: {
