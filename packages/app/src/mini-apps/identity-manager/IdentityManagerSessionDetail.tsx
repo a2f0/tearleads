@@ -34,8 +34,8 @@ function SessionDetailValue({
 
   return (
     <button
-      aria-expanded={expanded}
-      aria-label={`${expanded ? "Collapse" : "Show full"} ${label}`}
+      aria-label={`${value}; ${expanded ? "Collapse" : "Show full"} ${label}`}
+      aria-pressed={expanded}
       className={`identity-manager-session-detail-value${expanded ? " identity-manager-session-detail-value--expanded" : ""}`}
       onClick={() => setExpanded((current) => !current)}
       type="button"

@@ -252,7 +252,7 @@ test("session rows open details and expose context menu actions", async () => {
     expect(view.getByText("Current Session")).toBeTruthy();
     const getDetailValue = (label: string) => {
       const valueButton = view.getByRole("button", {
-        name: `Show full ${label}`,
+        name: new RegExp(`Show full ${label}`),
       });
       if (!(valueButton instanceof HTMLButtonElement)) {
         throw new Error(`Expected ${label} disclosure`);
@@ -268,7 +268,7 @@ test("session rows open details and expose context menu actions", async () => {
       "198.51.100.10, 203.0.113.9",
     );
     fireEvent.click(sessionIdValue);
-    expect(sessionIdValue.getAttribute("aria-expanded")).toBe("true");
+    expect(sessionIdValue.getAttribute("aria-pressed")).toBe("true");
     expect(view.queryByText("Active Sessions")).toBeNull();
     expect(view.queryByText("Identity")).toBeNull();
     expect(view.queryByRole("button", { name: "Copy session ID" })).toBeNull();

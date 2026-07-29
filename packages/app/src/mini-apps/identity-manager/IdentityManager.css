@@ -173,10 +173,19 @@
   white-space: normal;
 }
 
+.identity-manager-session-detail-value:hover,
+.identity-manager-session-detail-value:focus-visible {
+  text-decoration: underline;
+}
+
 /*
  * Touch sizing (routed layout): widen the gap between an identity detail value
  * and its inline clipboard button so the two touch targets are not crowded.
  */
 :root[data-navigation-mode="routed"] .identity-manager-details dd {
   gap: var(--space-sm);
+}
+
+:root[data-navigation-mode="routed"] .identity-manager-session-detail-value {
+  min-height: var(--control-height);
 }
