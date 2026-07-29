@@ -98,14 +98,6 @@ without counting as lane progress, so it cannot hot-loop the pump.
   is never purged (no tombstone reaches the revoked user — deliberate, see
   row 4's accepted bound). A future local sweep (e.g. dormant rows still
   unmatched after an access-restored full resync) could reclaim it.
-- The `deleted` cascade branch removes a tombstoned container's metadata
-  `documents` row but not its history checkpoint/tail rows, leaving orphaned
-  container-metadata history behind (the local-reconcile sibling helper does
-  delete them). The `access_revoked` branch retains the whole metadata
-  document deliberately. Local-only descendants of a revoked container are
-  excluded from retention (nothing to re-attach: their create intents die in
-  the cascade), and like the `deleted` branch their history rows also
-  survive as residue.
 - Create intents (`container_create_intents`) have no `last_attempted_at`
   column, so a create stuck in error shows no attempt timestamp.
 - Latent race: a document store's in-flight persist can resurrect a document
