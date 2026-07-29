@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { GroupDetailSection } from "./GroupDetailSection";
 
@@ -21,7 +21,7 @@ const group: OrganizationGroupSummary = {
   organizationId: "organization-1",
 };
 
-test("group detail separates details from policy history with tabs", () => {
+test("group detail separates members, policy history, and links into tabs", () => {
   const view = render(
     <GroupDetailSection
       addUser={() => undefined}
@@ -45,11 +45,14 @@ test("group detail separates details from policy history with tabs", () => {
       userId="user-1"
     />,
   );
-  const detailsTab = view.getByRole("tab", {
-    name: ORG_MANAGER_LABELS.groupDetailsTab,
+  const membersTab = view.getByRole("tab", {
+    name: ORG_MANAGER_LABELS.members,
   });
   const policyHistoryTab = view.getByRole("tab", {
     name: ORG_MANAGER_LABELS.policyHistory,
+  });
+  const linksTab = view.getByRole("tab", {
+    name: ORG_MANAGER_LABELS.groupLinksTab,
   });
 
   expect(
@@ -57,8 +60,20 @@ test("group detail separates details from policy history with tabs", () => {
       name: ORG_MANAGER_LABELS.groupDetailTabsLabel,
     }),
   ).toBeTruthy();
-  expect(detailsTab.getAttribute("aria-selected")).toBe("true");
-  expect(view.getByText(ORG_MANAGER_LABELS.members)).toBeTruthy();
+  expect(view.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+    ORG_MANAGER_LABELS.members,
+    ORG_MANAGER_LABELS.policyHistory,
+    ORG_MANAGER_LABELS.groupLinksTab,
+  ]);
+  expect(membersTab.getAttribute("aria-selected")).toBe("true");
+  expect(
+    within(view.getByRole("tabpanel")).getByText(ORG_MANAGER_LABELS.members),
+  ).toBeTruthy();
+  expect(
+    within(view.getByRole("tabpanel")).queryByText(
+      ORG_MANAGER_LABELS.directContainerLinks,
+    ),
+  ).toBeNull();
   expect(
     view.queryByText(ORG_MANAGER_LABELS.policyHistoryUnavailable),
   ).toBeNull();
@@ -69,6 +84,19 @@ test("group detail separates details from policy history with tabs", () => {
   expect(
     view.getByText(ORG_MANAGER_LABELS.policyHistoryUnavailable),
   ).toBeTruthy();
-  expect(view.queryByText(ORG_MANAGER_LABELS.members)).toBeNull();
+  expect(
+    within(view.getByRole("tabpanel")).queryByText(ORG_MANAGER_LABELS.members),
+  ).toBeNull();
   expect(view.queryByLabelText(ORG_MANAGER_LABELS.userId)).toBeNull();
+
+  fireEvent.click(linksTab);
+
+  expect(linksTab.getAttribute("aria-selected")).toBe("true");
+  expect(view.getByText(ORG_MANAGER_LABELS.directContainerLinks)).toBeTruthy();
+  expect(
+    within(view.getByRole("tabpanel")).queryByText(ORG_MANAGER_LABELS.members),
+  ).toBeNull();
+  expect(
+    view.queryByText(ORG_MANAGER_LABELS.policyHistoryUnavailable),
+  ).toBeNull();
 });
