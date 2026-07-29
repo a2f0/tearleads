@@ -1,6 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
-import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+} from "@tearleads/crypto";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   cleanupIdentityManagerTestEnvironment,
@@ -44,7 +47,7 @@ test("local-only identity can log in without a persisted user id", async () => {
 
     await act(async () => {
       await tearleads.identity.setKeyPairs({
-        encapsulationKeyPair: null,
+        encapsulationKeyPair: generateKemSeedAndKeyPair(),
         signingKeyPair: generateSigningSeedAndKeyPair(),
       });
     });
@@ -57,7 +60,7 @@ test("local-only identity can log in without a persisted user id", async () => {
   }
 });
 
-test("logged-out identity explains that active sessions require login", async () => {
+test("logged-out active sessions gate and perform login", async () => {
   const originalWebSocket = globalThis.WebSocket;
   const tearleadsRef: { current: Tearleads | null } = { current: null };
 
@@ -84,9 +87,11 @@ test("logged-out identity explains that active sessions require login", async ()
       throw new Error("Expected Tearleads SDK to be available after render.");
     }
 
+    expect(view.queryByRole("button", { name: "Login" })).toBeNull();
+
     await act(async () => {
       await tearleads.identity.setKeyPairs({
-        encapsulationKeyPair: null,
+        encapsulationKeyPair: generateKemSeedAndKeyPair(),
         signingKeyPair: generateSigningSeedAndKeyPair(),
       });
     });
@@ -95,7 +100,15 @@ test("logged-out identity explains that active sessions require login", async ()
     expect(
       view.getByText("Log in to view and manage active sessions."),
     ).toBeTruthy();
+    expect(view.getByRole("button", { name: "Login" })).toBeTruthy();
     expect(view.queryByRole("table")).toBeNull();
+
+    fireEvent.click(view.getByRole("button", { name: "Login" }));
+
+    expect(await view.findByRole("table")).toBeTruthy();
+    expect(
+      view.queryByText("Log in to view and manage active sessions."),
+    ).toBeNull();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }

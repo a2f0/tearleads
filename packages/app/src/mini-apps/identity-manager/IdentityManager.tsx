@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import {
+  MiniAppButton,
   MiniAppRoot,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
+  MiniAppToolbar,
 } from "../../components/mini-app/MiniAppLayout";
 import { DestroyKeyPackageConfirmationDialog } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
@@ -30,9 +32,20 @@ function ActiveSessionsSection({
   model: IdentityManagerModel;
   onOpenSessionDetail: (sessionId: string) => void;
 }) {
-  const { canManageSessions, sessionList, sessionMutations } = model;
+  const {
+    canAuthenticate,
+    canManageSessions,
+    identity,
+    identityMutations,
+    sessionList,
+    sessionMutations,
+  } = model;
 
   if (!canManageSessions) {
+    const identityBusy =
+      identity.identityTransitionInFlight ||
+      identityMutations.identityBusy !== null;
+
     return (
       <MiniAppSection>
         <MiniAppSectionHeading>
@@ -41,6 +54,23 @@ function ActiveSessionsSection({
         <MiniAppStatus>
           Log in to view and manage active sessions.
         </MiniAppStatus>
+        {identityMutations.identityError && (
+          <MiniAppStatus tone="error">
+            {identityMutations.identityError}
+          </MiniAppStatus>
+        )}
+        {canAuthenticate && (
+          <MiniAppToolbar>
+            <MiniAppButton
+              disabled={identityBusy}
+              onClick={() => void identityMutations.authenticate()}
+            >
+              {identityMutations.identityBusy === "authenticate"
+                ? "Logging in..."
+                : "Login"}
+            </MiniAppButton>
+          </MiniAppToolbar>
+        )}
       </MiniAppSection>
     );
   }
