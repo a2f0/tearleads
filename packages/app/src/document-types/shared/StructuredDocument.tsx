@@ -95,7 +95,9 @@ const STRUCTURED_DOCUMENT_DONE_ACTION = "Done";
 
 /**
  * Register a document's edit toggle as a pane-header toolbar action (the
- * pencil, becoming a check while editing) rather than a body button.
+ * pencil, becoming a check while editing). Documents that also provide an
+ * explicit body finish action should pass the same `editingLabel` so both
+ * controls describe the shared transition consistently.
  *
  * Every structured document places this control identically, so the toolbar
  * registration lives here instead of being repeated per document type. Pass a
@@ -109,12 +111,20 @@ const STRUCTURED_DOCUMENT_DONE_ACTION = "Done";
  */
 export function useStructuredDocumentEditAction(params: {
   disabled: boolean;
+  editingLabel?: string | undefined;
   hidden?: boolean | undefined;
   id: string;
   isEditing: boolean;
   onToggleEditing: () => void;
 }): void {
-  const { disabled, hidden = false, id, isEditing, onToggleEditing } = params;
+  const {
+    disabled,
+    editingLabel = STRUCTURED_DOCUMENT_DONE_ACTION,
+    hidden = false,
+    id,
+    isEditing,
+    onToggleEditing,
+  } = params;
   const readOnly = useDocumentReadOnly();
   const editAction = useMemo(
     () => ({
@@ -125,13 +135,11 @@ export function useStructuredDocumentEditAction(params: {
         <PencilSimpleIcon aria-hidden size={18} />
       ),
       id,
-      label: isEditing
-        ? STRUCTURED_DOCUMENT_DONE_ACTION
-        : STRUCTURED_DOCUMENT_EDIT_ACTION,
+      label: isEditing ? editingLabel : STRUCTURED_DOCUMENT_EDIT_ACTION,
       onClick: onToggleEditing,
       priority: 100,
     }),
-    [disabled, id, isEditing, onToggleEditing],
+    [disabled, editingLabel, id, isEditing, onToggleEditing],
   );
 
   useWindowTitleBarAction(readOnly || hidden ? null : editAction);

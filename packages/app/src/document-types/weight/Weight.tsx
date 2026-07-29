@@ -1,6 +1,10 @@
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { useCallback, useId } from "react";
-import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
+import {
+  MiniAppButton,
+  MiniAppInput,
+  MiniAppSelect,
+} from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   type RowWriterResolver,
@@ -13,6 +17,7 @@ import {
   useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
+import { TrackerSaveAction } from "../shared/TrackerFormControls";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
 import {
   type UpdateEntry,
@@ -62,9 +67,9 @@ function WeightReadFields(params: {
   } = params;
 
   return (
-    <div className="weight-document-fields">
-      <section className="weight-entry-list">
-        <div className="weight-entry-list-header">
+    <div className="tracker-document-fields">
+      <section className="weight-entry-list tracker-entry-list">
+        <div className="weight-entry-list-header tracker-entry-list-header">
           <strong>Entries</strong>
         </div>
         {onEnterEdit ? (
@@ -75,7 +80,7 @@ function WeightReadFields(params: {
           />
         ) : null}
         {entries.length === 0 ? (
-          <div className="weight-empty-state">No entries</div>
+          <div className="tracker-empty-state">No entries</div>
         ) : (
           entries.map((entry, index) => (
             <WeightEntryReadRow
@@ -89,7 +94,9 @@ function WeightReadFields(params: {
             />
           ))
         )}
-        <div className="weight-entry-list-footer">{entries.length} entries</div>
+        <div className="weight-entry-list-footer tracker-entry-list-footer">
+          {entries.length} entries
+        </div>
       </section>
     </div>
   );
@@ -102,6 +109,7 @@ function WeightEditFields(params: {
   onChangeUnit: (unit: WeightUnit) => void;
   onRemoveEntry: (id: string) => void;
   onRenameTracker: (value: string) => void;
+  onSave: () => void;
   onUpdateEntry: UpdateEntry;
   ready: boolean;
   trackerName: string;
@@ -116,6 +124,7 @@ function WeightEditFields(params: {
     onChangeUnit,
     onRemoveEntry,
     onRenameTracker,
+    onSave,
     onUpdateEntry,
     ready,
     trackerName,
@@ -125,13 +134,13 @@ function WeightEditFields(params: {
   } = params;
 
   return (
-    <div className="weight-document-fields">
+    <div className="tracker-document-fields">
       <StructuredDocumentFields>
         <StructuredDocumentField
           inputId={trackerNameInputId}
           label="Tracker Name"
         >
-          <input
+          <MiniAppInput
             id={trackerNameInputId}
             aria-label="Weight tracker name"
             value={trackerName}
@@ -144,7 +153,7 @@ function WeightEditFields(params: {
         {/* Seeds new entries only. Each entry keeps the unit it was recorded
             in, so changing this never restates the weights already logged. */}
         <StructuredDocumentField inputId={unitInputId} label="New Entry Unit">
-          <select
+          <MiniAppSelect
             id={unitInputId}
             aria-label="New entry unit"
             value={unit}
@@ -156,16 +165,14 @@ function WeightEditFields(params: {
                 {option}
               </option>
             ))}
-          </select>
+          </MiniAppSelect>
         </StructuredDocumentField>
       </StructuredDocumentFields>
-      <section className="weight-entry-list">
-        <div className="weight-entry-list-header">
-          <div className="weight-entry-list-title">
-            <strong>Entries</strong>
-          </div>
+      <section className="weight-entry-list tracker-entry-list">
+        <div className="weight-entry-list-header tracker-entry-list-header">
+          <strong>Entries</strong>
           <MiniAppButton
-            className="weight-add-button"
+            className="weight-add-button tracker-add-button"
             withIcon
             disabled={controlsDisabled}
             onClick={() => onAddEntry()}
@@ -175,7 +182,7 @@ function WeightEditFields(params: {
           </MiniAppButton>
         </div>
         {entries.length === 0 ? (
-          <div className="weight-empty-state">No entries</div>
+          <div className="tracker-empty-state">No entries</div>
         ) : (
           entries.map((entry, index) => (
             <WeightEntryEditRow
@@ -188,8 +195,11 @@ function WeightEditFields(params: {
             />
           ))
         )}
-        <div className="weight-entry-list-footer">{entries.length} entries</div>
+        <div className="weight-entry-list-footer tracker-entry-list-footer">
+          {entries.length} entries
+        </div>
       </section>
+      <TrackerSaveAction disabled={controlsDisabled} onSave={onSave} />
     </div>
   );
 }
@@ -235,6 +245,7 @@ export function WeightFields(params: {
   const controlsDisabled = disabled || !ready;
   useStructuredDocumentEditAction({
     disabled: controlsDisabled,
+    editingLabel: "Save",
     id: "weight-toggle-edit",
     isEditing,
     onToggleEditing,
@@ -262,6 +273,7 @@ export function WeightFields(params: {
       onChangeUnit={onChangeUnit}
       onRemoveEntry={onRemoveEntry}
       onRenameTracker={onRenameTracker}
+      onSave={onToggleEditing}
       onUpdateEntry={onUpdateEntry}
       ready={ready}
       trackerName={trackerName}

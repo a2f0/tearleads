@@ -190,11 +190,11 @@ test("toggles editing from the toolbar, not a body button", async () => {
   expect(toggleCalls).toBe(1);
 });
 
-test("toolbar action becomes Done while editing", async () => {
+test("toolbar action matches the body Save action while editing", async () => {
   const view = renderBloodPressureFields({ isEditing: true, readings: [] });
 
   await waitFor(() => {
-    expect(view.getByRole("button", { name: "Toolbar Done" })).toBeTruthy();
+    expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
   });
   expect(view.queryByRole("button", { name: "Toolbar Edit" })).toBeNull();
 });
@@ -465,21 +465,19 @@ test("marks out-of-range measurements invalid without blocking edits", () => {
   ).toBeNull();
 });
 
-test("add and remove buttons invoke their callbacks", () => {
-  let addCalls = 0;
-  const removeCalls: string[] = [];
+test("add, remove, and save actions invoke their callbacks", () => {
+  const calls: string[] = [];
   const view = renderBloodPressureFields({
-    onAddReading: () => {
-      addCalls += 1;
-    },
-    onRemoveReading: (id) => removeCalls.push(id),
+    onAddReading: () => calls.push("add"),
+    onRemoveReading: (id) => calls.push(`remove ${id}`),
+    onToggleEditing: () => calls.push("save"),
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
   fireEvent.click(view.getByRole("button", { name: "Remove reading 1" }));
+  fireEvent.click(view.getByRole("button", { name: "Save" }));
 
-  expect(addCalls).toBe(1);
-  expect(removeCalls).toEqual(["r1"]);
+  expect(calls).toEqual(["add", "remove r1", "save"]);
 });
 
 test("disables controls while the document is loading", () => {
@@ -495,5 +493,8 @@ test("disables controls while the document is loading", () => {
   expect(
     (view.getByRole("button", { name: "Add Reading" }) as HTMLButtonElement)
       .disabled,
+  ).toBe(true);
+  expect(
+    (view.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled,
   ).toBe(true);
 });

@@ -10,6 +10,7 @@ import {
   type RowDetailField,
 } from "../shared/DocumentRowDetail";
 import { formatRowAttribution } from "../shared/rowAttribution";
+import "../shared/TrackerFormControls.css";
 import {
   BLOOD_PRESSURE_DIASTOLIC_FIELD,
   BLOOD_PRESSURE_MEASURED_AT_FIELD,
@@ -82,7 +83,7 @@ function BloodPressureReadingActions(params: {
       <MiniAppRowActionsButton
         aria-haspopup="dialog"
         aria-label={`Reading ${index + 1} attribution`}
-        className="blood-pressure-reading-read-actions"
+        className="tracker-read-actions"
         onClick={onOpenAttribution}
       />
     );
@@ -107,7 +108,7 @@ function BloodPressureReadingActions(params: {
         ref={actionsButtonRef}
         aria-expanded={menuPosition !== null}
         aria-label={`Reading ${index + 1} actions`}
-        className="blood-pressure-reading-read-actions"
+        className="tracker-read-actions"
         onClick={toggleMenu}
         // Keep the trigger's mousedown from reaching the Menu's outside-click
         // handler so re-clicking the trigger can toggle the menu shut.
@@ -168,40 +169,36 @@ export function BloodPressureReadingReadRow(params: {
 
   return (
     <>
-      <div className="blood-pressure-reading-read-row">
-        <span className="blood-pressure-reading-read-cell">
+      <div className="blood-pressure-reading-read-row tracker-read-row">
+        <span className="tracker-read-cell">
           <strong>Reading</strong>
-          <span className="blood-pressure-reading-read-value">
+          <span className="tracker-read-value">
             {formatMeasurementPair(reading)}
           </span>
         </span>
-        <span className="blood-pressure-reading-read-cell">
+        <span className="tracker-read-cell">
           <strong>Pulse</strong>
-          <span className="blood-pressure-reading-read-value">
-            {formatPulse(reading)}
-          </span>
+          <span className="tracker-read-value">{formatPulse(reading)}</span>
         </span>
-        <span className="blood-pressure-reading-read-cell">
+        <span className="tracker-read-cell">
           <strong>Measured</strong>
-          <span className="blood-pressure-reading-read-value">
+          <span className="tracker-read-value">
             {formatMeasuredAt(reading)}
           </span>
         </span>
-        <span className="blood-pressure-reading-read-index">{index + 1}</span>
+        <span className="tracker-read-index">{index + 1}</span>
         <BloodPressureReadingActions
           index={index}
           onEnterEdit={onEnterEdit}
           onOpenAttribution={() => setDetailOpen(true)}
         />
         {notes.length > 0 ? (
-          <span className="blood-pressure-reading-read-notes" title={notes}>
+          <span className="tracker-read-notes" title={notes}>
             {notes}
           </span>
         ) : null}
         {attribution ? (
-          <span className="blood-pressure-reading-read-attribution">
-            {attribution}
-          </span>
+          <span className="tracker-read-attribution">{attribution}</span>
         ) : null}
       </div>
       {detailOpen ? (
