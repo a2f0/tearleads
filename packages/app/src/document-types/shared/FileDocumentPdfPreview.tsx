@@ -59,12 +59,14 @@ export function useFileDocumentPdfPreview(params: {
   const [url, setUrl] = useState<string | null>(null);
   const generationRef = useRef(0);
   const objectUrlRef = useRef<string | null>(null);
+  const openingRef = useRef(false);
 
   useEffect(() => {
     generationRef.current += 1;
     setError(null);
     setLoading(false);
     setUrl(null);
+    openingRef.current = false;
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
@@ -80,10 +82,11 @@ export function useFileDocumentPdfPreview(params: {
   }, [candidate?.storageKey]);
 
   const onOpen = useCallback(() => {
-    if (!candidate || loading || url) {
+    if (!candidate || openingRef.current || objectUrlRef.current) {
       return;
     }
 
+    openingRef.current = true;
     const generation = generationRef.current;
     setError(null);
     setLoading(true);
@@ -119,10 +122,11 @@ export function useFileDocumentPdfPreview(params: {
       })
       .finally(() => {
         if (generation === generationRef.current) {
+          openingRef.current = false;
           setLoading(false);
         }
       });
-  }, [blobStore, candidate, fileViewer, loading, url]);
+  }, [blobStore, candidate, fileViewer]);
 
   return candidate
     ? {

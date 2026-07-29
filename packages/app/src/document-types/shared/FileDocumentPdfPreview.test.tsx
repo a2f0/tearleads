@@ -53,6 +53,37 @@ test("hands local PDF bytes to the native viewer on demand", async () => {
   expect(hook.result.current?.url).toBeNull();
 });
 
+test("ignores a second open while the first one is still loading", async () => {
+  let readCount = 0;
+  let resolveBytes: ((value: Uint8Array<ArrayBuffer>) => void) | undefined;
+  const pendingBytes = new Promise<Uint8Array<ArrayBuffer>>((resolve) => {
+    resolveBytes = resolve;
+  });
+  const blobStore = createBlobStore(bytes);
+  blobStore.readBytes = () => {
+    readCount += 1;
+    return pendingBytes;
+  };
+  const fileViewer: FileViewer = { viewFile: async () => undefined };
+  const hook = renderHook(() =>
+    useFileDocumentPdfPreview({
+      attachments: [attachment],
+      attachmentStorageKeyBySlotId: { "pdf-slot": "local-pdf" },
+      blobStore,
+      fileViewer,
+    }),
+  );
+
+  act(() => {
+    hook.result.current?.onOpen();
+    hook.result.current?.onOpen();
+  });
+  expect(readCount).toBe(1);
+
+  resolveBytes?.(bytes);
+  await waitFor(() => expect(hook.result.current?.loading).toBe(false));
+});
+
 test("creates and revokes a browser object URL only after opening", async () => {
   const originalCreateObjectUrl = URL.createObjectURL;
   const originalRevokeObjectUrl = URL.revokeObjectURL;

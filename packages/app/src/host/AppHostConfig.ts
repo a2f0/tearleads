@@ -17,7 +17,7 @@ import type { CreateFileViewerFn } from "./FileViewer";
 import type { CreateScannerFn } from "./Scanner";
 
 export { createAppBuildInfo } from "./AppBuildInfo";
-export type { FileViewer, ViewFileRequest } from "./FileViewer";
+export type { FileViewer } from "./FileViewer";
 export type { Scanner } from "./Scanner";
 
 export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
