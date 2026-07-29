@@ -256,16 +256,19 @@ test("session rows open details and expose context menu actions", async () => {
       detailTable.classList.contains("identity-manager-session-detail-table"),
     ).toBe(true);
     expect(view.getByText("Current Session")).toBeTruthy();
-    expect(view.getByText(ACTIVE_SESSION.id)).toBeTruthy();
-    expect(view.getByText(ACTIVE_SESSION.signingKeyFingerprint)).toBeTruthy();
-    const ipList = view.getByRole("textbox", {
-      name: "Full session IP addresses",
-    });
-    if (!(ipList instanceof HTMLInputElement)) {
-      throw new Error("Expected session IP text field");
-    }
-    expect(ipList.value).toBe("198.51.100.10, 203.0.113.9");
-    expect(ipList.readOnly).toBe(true);
+    const getDetailValue = (label: string) => {
+      const field = view.getByRole("textbox", { name: label });
+      if (!(field instanceof HTMLInputElement)) {
+        throw new Error(`Expected ${label} text field`);
+      }
+      expect(field.readOnly).toBe(true);
+      return field.value;
+    };
+    expect(getDetailValue("Session ID")).toBe(ACTIVE_SESSION.id);
+    expect(getDetailValue("Signing Key")).toBe(
+      ACTIVE_SESSION.signingKeyFingerprint,
+    );
+    expect(getDetailValue("Full IP List")).toBe("198.51.100.10, 203.0.113.9");
     expect(view.queryByText("Active Sessions")).toBeNull();
     expect(view.queryByText("Identity")).toBeNull();
     expect(view.queryByRole("button", { name: "Copy session ID" })).toBeNull();
@@ -304,7 +307,7 @@ test("session rows open details and expose context menu actions", async () => {
     fireEvent.click(getMenuButton("Get Info"));
 
     expect(view.getByText("Active Session")).toBeTruthy();
-    expect(view.getByText(REMOTE_SESSION.id)).toBeTruthy();
+    expect(getDetailValue("Session ID")).toBe(REMOTE_SESSION.id);
     expect(view.queryByText("Active Sessions")).toBeNull();
 
     fireEvent.click(view.getByRole("button", { name: "Back" }));

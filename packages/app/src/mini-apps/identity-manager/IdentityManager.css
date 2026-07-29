@@ -147,32 +147,11 @@
 }
 
 .identity-manager-session-detail-table th {
-  white-space: nowrap;
-}
-
-.identity-manager-session-detail-table td {
-  /* The aligned fixed layout makes compact values safely ellipsize. */
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* All labels are fixed literals no longer than the 14ch key column. */
   white-space: nowrap;
 }
 
 .identity-manager-session-detail-value {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-width: 0;
-  max-width: 100%;
-}
-
-.identity-manager-session-detail-value > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.identity-manager-session-ip-list {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -184,10 +163,9 @@
 }
 
 /*
- * Touch sizing (routed layout): widen the gap between a detail value and its
- * inline clipboard button so the two touch targets are not crowded.
+ * Touch sizing (routed layout): widen the gap between an identity detail value
+ * and its inline clipboard button so the two touch targets are not crowded.
  */
-:root[data-navigation-mode="routed"] .identity-manager-details dd,
-:root[data-navigation-mode="routed"] .identity-manager-session-detail-value {
+:root[data-navigation-mode="routed"] .identity-manager-details dd {
   gap: var(--space-sm);
 }
