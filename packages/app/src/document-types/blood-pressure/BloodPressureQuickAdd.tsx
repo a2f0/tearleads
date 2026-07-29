@@ -4,6 +4,8 @@ import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type FormEvent, useState } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
+import { useClearPendingOnUnmount } from "../shared/usePendingTrackerEntry";
+import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import { isValidBloodPressureMeasurement } from "./bloodPressureDocumentDefinition";
 
 export interface BloodPressureQuickReading {
@@ -106,9 +108,10 @@ function QuickReadingFields(params: {
 
 export function BloodPressureQuickAdd(params: {
   controlsDisabled: boolean;
-  onAddReading: (reading?: BloodPressureQuickReading) => void;
+  onAddReading: AddTrackerRow<BloodPressureQuickReading>;
+  onPendingChange: (pending: boolean) => void;
 }) {
-  const { controlsDisabled, onAddReading } = params;
+  const { controlsDisabled, onAddReading, onPendingChange } = params;
   const [open, setOpen] = useState(false);
   const [reading, setReading] = useState(EMPTY_READING);
   const valid =
@@ -117,9 +120,12 @@ export function BloodPressureQuickAdd(params: {
     (reading.pulse.length === 0 ||
       isValidBloodPressureMeasurement(reading.pulse));
 
+  useClearPendingOnUnmount(onPendingChange);
+
   function close() {
     setReading(EMPTY_READING);
     setOpen(false);
+    onPendingChange(false);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -128,7 +134,7 @@ export function BloodPressureQuickAdd(params: {
       return;
     }
 
-    onAddReading(reading);
+    void onAddReading(reading);
     close();
   }
 
@@ -138,7 +144,10 @@ export function BloodPressureQuickAdd(params: {
         className="blood-pressure-add-button tracker-add-button"
         withIcon
         disabled={controlsDisabled}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          onPendingChange(true);
+        }}
       >
         <PlusIcon aria-hidden size={14} />
         Add Reading
@@ -167,7 +176,8 @@ export function BloodPressureQuickAdd(params: {
           <CheckIcon aria-hidden size={14} />
           Save Reading
         </MiniAppButton>
-        <MiniAppButton withIcon disabled={controlsDisabled} onClick={close}>
+        {/* Loading can begin with a draft open, so Cancel must stay available. */}
+        <MiniAppButton withIcon onClick={close}>
           <XIcon aria-hidden size={14} />
           Cancel
         </MiniAppButton>

@@ -1,7 +1,5 @@
-import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
-import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { useCallback, useId } from "react";
-import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
+import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   type RowWriterResolver,
@@ -15,21 +13,26 @@ import {
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
+import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
+import {
+  type AddTrackerRow,
+  useSavedTrackerRows,
+} from "../shared/useSavedTrackerRows";
+import {
+  EnvFileVariableEditRow,
+  type EnvVariableField,
+  type UpdateEnvVariable,
+} from "./EnvFileEditRow";
+import { EnvFileQuickAdd, type EnvFileQuickVariable } from "./EnvFileQuickAdd";
 import { EnvFileVariableReadRow } from "./EnvFileVariableReadRow";
 import {
   ENV_FILE_DOCUMENT_KIND,
   ENV_FILE_NAME_FIELD,
   ENV_FILE_VARIABLE_KEY_FIELD,
-  ENV_FILE_VARIABLE_NAME_PATTERN,
   ENV_FILE_VARIABLE_VALUE_FIELD,
-  isValidEnvFileVariableName,
 } from "./envFileDocumentDefinition";
 import { type EnvVariableRow, toEnvVariableRows } from "./envFileVariables";
 import "./EnvFile.css";
-
-type EnvVariableField =
-  | typeof ENV_FILE_VARIABLE_KEY_FIELD
-  | typeof ENV_FILE_VARIABLE_VALUE_FIELD;
 
 function readFileNameField(
   structuredFields: Readonly<Record<string, string>>,
@@ -39,32 +42,54 @@ function readFileNameField(
 }
 
 function EnvFileReadFields(params: {
+  controlsDisabled: boolean;
   currentAuthorId: string | null;
+  entryPending: boolean;
+  onAddVariable: AddTrackerRow<EnvFileQuickVariable>;
+  onEnterEdit?: (() => void) | undefined;
+  onPendingChange: (pending: boolean) => void;
   resolveRowWriter?: RowWriterResolver | undefined;
   variables: ReadonlyArray<EnvVariableRow>;
 }) {
-  const { currentAuthorId, resolveRowWriter, variables } = params;
+  const {
+    controlsDisabled,
+    currentAuthorId,
+    entryPending,
+    onAddVariable,
+    onEnterEdit,
+    onPendingChange,
+    resolveRowWriter,
+    variables,
+  } = params;
 
   return (
-    <div className="env-file-document-fields">
-      <section className="env-file-variable-list">
-        <div className="env-file-variable-list-header">
+    <div className="tracker-document-fields">
+      <section className="tracker-entry-list">
+        <div>
           <strong>Variables</strong>
         </div>
-        {variables.length === 0 ? (
-          <div className="env-file-empty-state">No variables</div>
+        {onEnterEdit ? (
+          <EnvFileQuickAdd
+            controlsDisabled={controlsDisabled}
+            onAddVariable={onAddVariable}
+            onPendingChange={onPendingChange}
+          />
+        ) : null}
+        {variables.length === 0 && !entryPending ? (
+          <div className="tracker-empty-state">No variables</div>
         ) : (
           variables.map((variable, index) => (
             <EnvFileVariableReadRow
               key={variable.id}
               currentAuthorId={currentAuthorId}
               index={index}
+              onEnterEdit={entryPending ? undefined : onEnterEdit}
               resolveRowWriter={resolveRowWriter}
               variable={variable}
             />
           ))
         )}
-        <div className="env-file-variable-list-footer">
+        <div className="tracker-entry-list-footer">
           {variables.length} entries
         </div>
       </section>
@@ -72,117 +97,43 @@ function EnvFileReadFields(params: {
   );
 }
 
-function EnvFileVariableEditRow(params: {
-  controlsDisabled: boolean;
-  index: number;
-  onRemoveVariable: (id: string) => void;
-  onUpdateVariable: (
-    id: string,
-    field: EnvVariableField,
-    value: string,
-  ) => void;
-  variable: EnvVariableRow;
-}) {
-  const {
-    controlsDisabled,
-    index,
-    onRemoveVariable,
-    onUpdateVariable,
-    variable,
-  } = params;
-  const keyIsInvalid =
-    variable.key.length > 0 && !isValidEnvFileVariableName(variable.key);
-
-  return (
-    <div className="env-file-variable-row">
-      <label className="env-file-variable-field">
-        Key
-        <input
-          aria-invalid={keyIsInvalid ? "true" : undefined}
-          aria-label={`Env variable ${index + 1} key`}
-          value={variable.key}
-          onChange={(event) =>
-            onUpdateVariable(
-              variable.id,
-              ENV_FILE_VARIABLE_KEY_FIELD,
-              event.target.value,
-            )
-          }
-          pattern={ENV_FILE_VARIABLE_NAME_PATTERN}
-          placeholder="API_TOKEN"
-          title="Use a POSIX variable name like API_TOKEN."
-          disabled={controlsDisabled}
-          autoCapitalize="off"
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </label>
-      <label className="env-file-variable-field">
-        Value
-        <input
-          aria-label={`Env variable ${index + 1} value`}
-          value={variable.value}
-          onChange={(event) =>
-            onUpdateVariable(
-              variable.id,
-              ENV_FILE_VARIABLE_VALUE_FIELD,
-              event.target.value,
-            )
-          }
-          placeholder="secret"
-          disabled={controlsDisabled}
-          autoCapitalize="off"
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </label>
-      <MiniAppButton
-        aria-label={`Remove env variable ${index + 1}`}
-        className="env-file-remove-button"
-        withIcon
-        disabled={controlsDisabled}
-        onClick={() => onRemoveVariable(variable.id)}
-        title={`Remove env variable ${index + 1}`}
-      >
-        <TrashIcon aria-hidden size={14} />
-        Remove
-      </MiniAppButton>
-    </div>
-  );
-}
-
 function EnvFileEditFields(params: {
+  currentAuthorId: string | null;
   controlsDisabled: boolean;
+  entryPending: boolean;
   fileName: string;
   fileNameInputId: string;
-  onAddVariable: () => void;
+  onAddVariable: AddTrackerRow<EnvFileQuickVariable>;
+  onPendingChange: (pending: boolean) => void;
   onRemoveVariable: (id: string) => void;
   onRenameFile: (value: string) => void;
-  onUpdateVariable: (
-    id: string,
-    field: EnvVariableField,
-    value: string,
-  ) => void;
+  onUpdateVariable: UpdateEnvVariable;
   ready: boolean;
+  resolveRowWriter?: RowWriterResolver | undefined;
   variables: ReadonlyArray<EnvVariableRow>;
 }) {
   const {
+    currentAuthorId,
+    entryPending,
     controlsDisabled,
     fileName,
     fileNameInputId,
     onAddVariable,
+    onPendingChange,
     onRemoveVariable,
     onRenameFile,
     onUpdateVariable,
     ready,
+    resolveRowWriter,
     variables,
   } = params;
+  const { saveAddedRow, savedRowIds, setRowSaved } = useSavedTrackerRows();
 
   return (
-    <div className="env-file-document-fields">
+    <div className="tracker-document-fields">
       <StructuredDocumentFields>
         <StructuredDocumentField inputId={fileNameInputId} label="File Name">
-          <input
+          <MiniAppInput
             id={fileNameInputId}
             aria-label=".env file name"
             value={fileName}
@@ -193,40 +144,71 @@ function EnvFileEditFields(params: {
           />
         </StructuredDocumentField>
       </StructuredDocumentFields>
-      <section className="env-file-variable-list">
-        <div className="env-file-variable-list-header">
-          <div className="env-file-variable-list-title">
-            <strong>Variables</strong>
-          </div>
-          <MiniAppButton
-            className="env-file-add-button"
-            withIcon
-            disabled={controlsDisabled}
-            onClick={onAddVariable}
-          >
-            <PlusIcon aria-hidden size={14} />
-            Add Variable
-          </MiniAppButton>
+      <section className="tracker-entry-list">
+        <div>
+          <strong>Variables</strong>
         </div>
-        {variables.length === 0 ? (
-          <div className="env-file-empty-state">No variables</div>
-        ) : (
-          variables.map((variable, index) => (
-            <EnvFileVariableEditRow
-              key={variable.id}
-              controlsDisabled={controlsDisabled}
-              index={index}
-              onRemoveVariable={onRemoveVariable}
-              onUpdateVariable={onUpdateVariable}
-              variable={variable}
-            />
-          ))
-        )}
-        <div className="env-file-variable-list-footer">
+        <EnvFileQuickAdd
+          controlsDisabled={controlsDisabled}
+          onAddVariable={(variable) => {
+            const addedRow = onAddVariable(variable);
+            void saveAddedRow(addedRow);
+            return addedRow;
+          }}
+          onPendingChange={onPendingChange}
+        />
+        {variables.length === 0 && !entryPending ? (
+          <div className="tracker-empty-state">No variables</div>
+        ) : null}
+        <EnvFileEditRows
+          controlsDisabled={controlsDisabled}
+          currentAuthorId={currentAuthorId}
+          onRemoveVariable={onRemoveVariable}
+          onUpdateVariable={onUpdateVariable}
+          resolveRowWriter={resolveRowWriter}
+          savedRowIds={savedRowIds}
+          setRowSaved={setRowSaved}
+          variables={variables}
+        />
+        <div className="tracker-entry-list-footer">
           {variables.length} entries
         </div>
       </section>
     </div>
+  );
+}
+
+function EnvFileEditRows(params: {
+  controlsDisabled: boolean;
+  currentAuthorId: string | null;
+  onRemoveVariable: (id: string) => void;
+  onUpdateVariable: UpdateEnvVariable;
+  resolveRowWriter?: RowWriterResolver | undefined;
+  savedRowIds: ReadonlySet<string>;
+  setRowSaved: (id: string, saved: boolean) => void;
+  variables: ReadonlyArray<EnvVariableRow>;
+}) {
+  return params.variables.map((variable, index) =>
+    params.savedRowIds.has(variable.id) ? (
+      <EnvFileVariableReadRow
+        key={variable.id}
+        currentAuthorId={params.currentAuthorId}
+        index={index}
+        onEnterEdit={() => params.setRowSaved(variable.id, false)}
+        resolveRowWriter={params.resolveRowWriter}
+        variable={variable}
+      />
+    ) : (
+      <EnvFileVariableEditRow
+        key={variable.id}
+        controlsDisabled={params.controlsDisabled}
+        index={index}
+        onRemoveVariable={params.onRemoveVariable}
+        onSaveVariable={(id) => params.setRowSaved(id, true)}
+        onUpdateVariable={params.onUpdateVariable}
+        variable={variable}
+      />
+    ),
   );
 }
 
@@ -236,7 +218,8 @@ export function EnvFileFields(params: {
   fileName: string;
   fileNameInputId: string;
   isEditing?: boolean | undefined;
-  onAddVariable: () => void;
+  onAddVariable: AddTrackerRow<EnvFileQuickVariable>;
+  onEnterEdit?: (() => void) | undefined;
   onRemoveVariable: (id: string) => void;
   onRenameFile: (value: string) => void;
   onToggleEditing: () => void;
@@ -256,6 +239,7 @@ export function EnvFileFields(params: {
     fileNameInputId,
     isEditing = true,
     onAddVariable,
+    onEnterEdit,
     onRemoveVariable,
     onRenameFile,
     onToggleEditing,
@@ -265,17 +249,28 @@ export function EnvFileFields(params: {
     variables,
   } = params;
   const controlsDisabled = disabled || !ready;
+  const {
+    entryPending: newVariablePending,
+    onPendingChange,
+    toggleEditing,
+  } = usePendingTrackerEntry(onToggleEditing);
   useStructuredDocumentEditAction({
-    disabled: controlsDisabled,
+    disabled: controlsDisabled || newVariablePending,
+    editingLabel: "Save",
     id: "env-file-toggle-edit",
     isEditing,
-    onToggleEditing,
+    onToggleEditing: toggleEditing,
   });
 
   if (!isEditing) {
     return (
       <EnvFileReadFields
+        controlsDisabled={controlsDisabled}
         currentAuthorId={currentAuthorId}
+        entryPending={newVariablePending}
+        onAddVariable={onAddVariable}
+        onEnterEdit={onEnterEdit}
+        onPendingChange={onPendingChange}
         resolveRowWriter={resolveRowWriter}
         variables={variables}
       />
@@ -284,14 +279,18 @@ export function EnvFileFields(params: {
 
   return (
     <EnvFileEditFields
+      currentAuthorId={currentAuthorId}
       controlsDisabled={controlsDisabled}
+      entryPending={newVariablePending}
       fileName={fileName}
       fileNameInputId={fileNameInputId}
       onAddVariable={onAddVariable}
+      onPendingChange={onPendingChange}
       onRemoveVariable={onRemoveVariable}
       onRenameFile={onRenameFile}
       onUpdateVariable={onUpdateVariable}
       ready={ready}
+      resolveRowWriter={resolveRowWriter}
       variables={variables}
     />
   );
@@ -321,11 +320,7 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
     [setIsEditing],
   );
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
-  // Only resolve verified writers for the read view (attribution is not shown
-  // while editing) of a non-empty file.
-  const resolveRowWriter = useDocumentRowWriters(
-    !(isEditing && canWrite) && rows.length > 0,
-  );
+  const resolveRowWriter = useDocumentRowWriters(rows.length > 0);
 
   const fileName = readFileNameField(structuredFields);
   const variables = toEnvVariableRows(rows, readCell);
@@ -351,13 +346,15 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
           fileNameInputId={fileNameInputId}
           isEditing={isEditing && canWrite}
           resolveRowWriter={resolveRowWriter}
-          onAddVariable={() => {
+          onEnterEdit={canWrite ? () => setIsEditing(true) : undefined}
+          onAddVariable={(variable) => {
             if (canWrite) {
-              void addRow({
-                [ENV_FILE_VARIABLE_KEY_FIELD]: "",
-                [ENV_FILE_VARIABLE_VALUE_FIELD]: "",
+              return addRow({
+                [ENV_FILE_VARIABLE_KEY_FIELD]: variable.key,
+                [ENV_FILE_VARIABLE_VALUE_FIELD]: variable.value,
               });
             }
+            return Promise.resolve(null);
           }}
           onRemoveVariable={(id) => {
             if (canWrite) {

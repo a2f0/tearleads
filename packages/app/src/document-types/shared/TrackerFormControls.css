@@ -9,18 +9,14 @@
   min-width: 0;
 }
 
-.tracker-entry-list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-}
-
 .tracker-entry-list-footer {
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
   text-align: end;
+}
+
+.tracker-add-button {
+  justify-self: end;
 }
 
 .tracker-edit-row {
@@ -38,11 +34,30 @@
   max-width: none;
 }
 
-.tracker-entry-field > .mini-app-input {
+.tracker-entry-field > .mini-app-input,
+.tracker-entry-field-control > .mini-app-input {
   width: 100%;
 }
 
-.tracker-entry-field > .mini-app-input[aria-invalid="true"] {
+.tracker-entry-field-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.tracker-entry-field-control > .mini-app-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.tracker-entry-field-actions {
+  display: flex;
+  flex: none;
+}
+
+.tracker-entry-field > .mini-app-input[aria-invalid="true"],
+.tracker-entry-field-control > .mini-app-input[aria-invalid="true"] {
   border-color: var(--color-danger);
 }
 
@@ -60,20 +75,17 @@
   max-width: 14rem;
 }
 
-.tracker-row-actions,
-.tracker-save-actions {
+.tracker-row-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-sm);
-}
-
-.tracker-row-actions {
   grid-area: actions;
   padding-top: var(--space-xs);
   border-top: var(--border);
 }
 
-.tracker-remove-button {
+.tracker-remove-button,
+.tracker-save-button {
   min-width: var(--control-height);
   padding-inline: var(--space-sm);
 }
@@ -148,10 +160,6 @@
 }
 
 @media (max-width: 640px) {
-  .tracker-entry-list-header {
-    align-items: stretch;
-  }
-
   .tracker-add-button {
     width: 100%;
   }
@@ -165,18 +173,12 @@
   }
 
   .tracker-row-actions,
-  .tracker-save-actions,
   .tracker-quick-add-actions {
     display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .tracker-remove-button,
-  .tracker-save-actions > .mini-app-button {
-    width: 100%;
-  }
-
-  .tracker-quick-add-actions {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .tracker-row-actions > .mini-app-button {
+    width: 100%;
   }
 }

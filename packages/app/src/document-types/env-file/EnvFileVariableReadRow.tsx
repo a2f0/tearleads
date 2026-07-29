@@ -5,13 +5,13 @@ import {
   MiniAppButton,
   MiniAppClipboardButton,
 } from "../../components/mini-app/MiniAppLayout";
-import { MiniAppRowActionsButton } from "../../components/mini-app/MiniAppTable";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import {
   DocumentRowDetailOverlay,
   type RowDetailField,
 } from "../shared/DocumentRowDetail";
 import { formatRowAttribution } from "../shared/rowAttribution";
+import { TrackerReadActions } from "../shared/TrackerReadActions";
 import {
   ENV_FILE_VARIABLE_KEY_FIELD,
   ENV_FILE_VARIABLE_VALUE_FIELD,
@@ -27,10 +27,12 @@ import {
 export function EnvFileVariableReadRow(params: {
   currentAuthorId: string | null;
   index: number;
+  onEnterEdit?: (() => void) | undefined;
   resolveRowWriter?: RowWriterResolver | undefined;
   variable: EnvVariableRow;
 }) {
-  const { currentAuthorId, index, resolveRowWriter, variable } = params;
+  const { currentAuthorId, index, onEnterEdit, resolveRowWriter, variable } =
+    params;
   const [detailOpen, setDetailOpen] = useState(false);
   const [isValueRevealed, setIsValueRevealed] = useState(false);
   const keyTitle = variable.key.trim();
@@ -116,12 +118,14 @@ export function EnvFileVariableReadRow(params: {
           </span>
         </span>
         <span className="env-file-variable-read-index">{index + 1}</span>
-        <MiniAppRowActionsButton
-          aria-expanded={detailOpen}
-          aria-haspopup="dialog"
-          aria-label={`Env variable ${index + 1} details`}
+        <TrackerReadActions
+          actionsAriaLabel={`Env variable ${index + 1} actions`}
           className="env-file-variable-read-actions"
-          onClick={() => setDetailOpen(true)}
+          detailLabel="Details"
+          detailsOpen={detailOpen}
+          directAriaLabel={`Env variable ${index + 1} details`}
+          onEnterEdit={onEnterEdit}
+          onOpenDetails={() => setDetailOpen(true)}
         />
         {attribution ? (
           <span className="env-file-variable-read-attribution">

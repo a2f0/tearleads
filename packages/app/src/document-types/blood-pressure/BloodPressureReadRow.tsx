@@ -1,15 +1,11 @@
-import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
-import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
-import { type MouseEvent, useRef, useState } from "react";
-import { MiniAppRowActionsButton } from "../../components/mini-app/MiniAppTable";
-import { Menu, type MenuPosition } from "../../components/shared/Menu";
-import { MenuItem } from "../../components/shared/MenuItem";
+import { useState } from "react";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import {
   DocumentRowDetailOverlay,
   type RowDetailField,
 } from "../shared/DocumentRowDetail";
 import { formatRowAttribution } from "../shared/rowAttribution";
+import { TrackerReadActions } from "../shared/TrackerReadActions";
 import "../shared/TrackerFormControls.css";
 import {
   BLOOD_PRESSURE_DIASTOLIC_FIELD,
@@ -63,84 +59,6 @@ function toReadingDetailFields(
   ];
 }
 
-// The kebab actions for a reading. When Edit is available (the viewer can
-// write) it opens a small popover with Edit (switch the tracker into edit mode)
-// and Attribution (open the per-field attribution overlay), mirroring the
-// explorer/identity kebabs. A read-only viewer has only one action, so the kebab
-// opens the attribution overlay directly rather than a one-item menu — one
-// keystroke, and the trigger stays mounted so the overlay restores focus to it.
-function BloodPressureReadingActions(params: {
-  index: number;
-  onEnterEdit?: (() => void) | undefined;
-  onOpenAttribution: () => void;
-}) {
-  const { index, onEnterEdit, onOpenAttribution } = params;
-  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
-  const actionsButtonRef = useRef<HTMLButtonElement>(null);
-
-  if (!onEnterEdit) {
-    return (
-      <MiniAppRowActionsButton
-        aria-haspopup="dialog"
-        aria-label={`Reading ${index + 1} attribution`}
-        className="tracker-read-actions"
-        onClick={onOpenAttribution}
-      />
-    );
-  }
-
-  const toggleMenu = (event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    if (menuPosition !== null) {
-      setMenuPosition(null);
-      return;
-    }
-    // Anchor to the button's box (not the pointer) so keyboard activation, which
-    // reports 0,0 client coordinates, still opens the menu under the trigger.
-    const rect = event.currentTarget.getBoundingClientRect();
-    setMenuPosition({ x: rect.left, y: rect.bottom });
-  };
-  const closeMenu = () => setMenuPosition(null);
-
-  return (
-    <>
-      <MiniAppRowActionsButton
-        ref={actionsButtonRef}
-        aria-expanded={menuPosition !== null}
-        aria-label={`Reading ${index + 1} actions`}
-        className="tracker-read-actions"
-        onClick={toggleMenu}
-        // Keep the trigger's mousedown from reaching the Menu's outside-click
-        // handler so re-clicking the trigger can toggle the menu shut.
-        onMouseDown={(event) => event.stopPropagation()}
-      />
-      {menuPosition ? (
-        <Menu direction="down" onClose={closeMenu} position={menuPosition}>
-          <MenuItem
-            icon={PencilSimpleIcon}
-            label="Edit"
-            onClick={() => {
-              closeMenu();
-              onEnterEdit();
-            }}
-          />
-          <MenuItem
-            icon={InfoIcon}
-            label="Attribution"
-            onClick={() => {
-              // Return focus to the trigger before the overlay mounts so the
-              // detail's focus-restore lands back on the kebab on close.
-              actionsButtonRef.current?.focus();
-              closeMenu();
-              onOpenAttribution();
-            }}
-          />
-        </Menu>
-      ) : null}
-    </>
-  );
-}
-
 // A single reading in read mode: the summary cells, a kebab that opens a small
 // actions menu (Edit / Attribution), and the row's last-edit attribution line.
 export function BloodPressureReadingReadRow(params: {
@@ -187,10 +105,13 @@ export function BloodPressureReadingReadRow(params: {
           </span>
         </span>
         <span className="tracker-read-index">{index + 1}</span>
-        <BloodPressureReadingActions
-          index={index}
+        <TrackerReadActions
+          actionsAriaLabel={`Reading ${index + 1} actions`}
+          detailLabel="Attribution"
+          detailsOpen={detailOpen}
+          directAriaLabel={`Reading ${index + 1} attribution`}
           onEnterEdit={onEnterEdit}
-          onOpenAttribution={() => setDetailOpen(true)}
+          onOpenDetails={() => setDetailOpen(true)}
         />
         {notes.length > 0 ? (
           <span className="tracker-read-notes" title={notes}>

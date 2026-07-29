@@ -1,6 +1,6 @@
 import {
   TrackerInputField,
-  TrackerRemoveAction,
+  TrackerRowActions,
 } from "../shared/TrackerFormControls";
 import {
   isValidWeightMeasurement,
@@ -22,16 +22,23 @@ export type UpdateEntry = (
 ) => void;
 
 // A single entry in edit mode: the weight itself, when it was taken, its notes,
-// and the control that removes it.
+// and the controls that save or remove it.
 export function WeightEntryEditRow(params: {
   controlsDisabled: boolean;
   index: number;
   onRemoveEntry: (id: string) => void;
+  onSaveEntry: (id: string) => void;
   onUpdateEntry: UpdateEntry;
   entry: WeightEntryRow;
 }) {
-  const { controlsDisabled, entry, index, onRemoveEntry, onUpdateEntry } =
-    params;
+  const {
+    controlsDisabled,
+    entry,
+    index,
+    onRemoveEntry,
+    onSaveEntry,
+    onUpdateEntry,
+  } = params;
   const isInvalid =
     entry.weight.length > 0 && !isValidWeightMeasurement(entry.weight);
 
@@ -75,10 +82,12 @@ export function WeightEntryEditRow(params: {
         placeholder="Before breakfast"
         value={entry.notes}
       />
-      <TrackerRemoveAction
-        ariaLabel={`Remove entry ${index + 1}`}
+      <TrackerRowActions
         disabled={controlsDisabled}
         onRemove={() => onRemoveEntry(entry.id)}
+        onSave={() => onSaveEntry(entry.id)}
+        removeAriaLabel={`Remove entry ${index + 1}`}
+        saveAriaLabel={`Save entry ${index + 1}`}
       />
     </div>
   );

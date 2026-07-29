@@ -1,7 +1,5 @@
-import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { useCallback, useId } from "react";
 import {
-  MiniAppButton,
   MiniAppInput,
   MiniAppSelect,
 } from "../../components/mini-app/MiniAppLayout";
@@ -17,8 +15,12 @@ import {
   useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
-import { TrackerSaveAction } from "../shared/TrackerFormControls";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
+import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
+import {
+  type AddTrackerRow,
+  useSavedTrackerRows,
+} from "../shared/useSavedTrackerRows";
 import {
   type UpdateEntry,
   WeightEntryEditRow,
@@ -48,9 +50,11 @@ import "./Weight.css";
 function WeightReadFields(params: {
   currentAuthorId: string | null;
   controlsDisabled: boolean;
+  entryPending: boolean;
   entries: ReadonlyArray<WeightEntryRow>;
-  onAddEntry: (entry?: WeightQuickEntry) => void;
+  onAddEntry: AddTrackerRow<WeightQuickEntry>;
   onEnterEdit?: (() => void) | undefined;
+  onPendingChange: (pending: boolean) => void;
   resolveRowWriter?: RowWriterResolver | undefined;
   unit: WeightUnit;
 }) {
@@ -59,9 +63,11 @@ function WeightReadFields(params: {
   const {
     currentAuthorId,
     controlsDisabled,
+    entryPending,
     entries,
     onAddEntry,
     onEnterEdit,
+    onPendingChange,
     resolveRowWriter,
     unit,
   } = params;
@@ -69,17 +75,16 @@ function WeightReadFields(params: {
   return (
     <div className="tracker-document-fields">
       <section className="weight-entry-list tracker-entry-list">
-        <div className="weight-entry-list-header tracker-entry-list-header">
-          <strong>Entries</strong>
-        </div>
+        <strong>Entries</strong>
         {onEnterEdit ? (
           <WeightQuickAdd
             controlsDisabled={controlsDisabled}
             onAddEntry={onAddEntry}
+            onPendingChange={onPendingChange}
             unit={unit}
           />
         ) : null}
-        {entries.length === 0 ? (
+        {entries.length === 0 && !entryPending ? (
           <div className="tracker-empty-state">No entries</div>
         ) : (
           entries.map((entry, index) => (
@@ -88,7 +93,7 @@ function WeightReadFields(params: {
               currentAuthorId={currentAuthorId}
               entry={entry}
               index={index}
-              onEnterEdit={onEnterEdit}
+              onEnterEdit={entryPending ? undefined : onEnterEdit}
               previous={entries[index - 1]}
               resolveRowWriter={resolveRowWriter}
             />
@@ -103,35 +108,42 @@ function WeightReadFields(params: {
 }
 
 function WeightEditFields(params: {
+  currentAuthorId: string | null;
   controlsDisabled: boolean;
+  entryPending: boolean;
   entries: ReadonlyArray<WeightEntryRow>;
-  onAddEntry: () => void;
+  onAddEntry: AddTrackerRow<WeightQuickEntry>;
   onChangeUnit: (unit: WeightUnit) => void;
   onRemoveEntry: (id: string) => void;
   onRenameTracker: (value: string) => void;
-  onSave: () => void;
+  onPendingChange: (pending: boolean) => void;
   onUpdateEntry: UpdateEntry;
   ready: boolean;
+  resolveRowWriter?: RowWriterResolver | undefined;
   trackerName: string;
   trackerNameInputId: string;
   unit: WeightUnit;
   unitInputId: string;
 }) {
   const {
+    currentAuthorId,
     controlsDisabled,
+    entryPending,
     entries,
     onAddEntry,
     onChangeUnit,
     onRemoveEntry,
     onRenameTracker,
-    onSave,
+    onPendingChange,
     onUpdateEntry,
     ready,
+    resolveRowWriter,
     trackerName,
     trackerNameInputId,
     unit,
     unitInputId,
   } = params;
+  const { saveAddedRow, savedRowIds, setRowSaved } = useSavedTrackerRows();
 
   return (
     <div className="tracker-document-fields">
@@ -169,38 +181,70 @@ function WeightEditFields(params: {
         </StructuredDocumentField>
       </StructuredDocumentFields>
       <section className="weight-entry-list tracker-entry-list">
-        <div className="weight-entry-list-header tracker-entry-list-header">
-          <strong>Entries</strong>
-          <MiniAppButton
-            className="weight-add-button tracker-add-button"
-            withIcon
-            disabled={controlsDisabled}
-            onClick={() => onAddEntry()}
-          >
-            <PlusIcon aria-hidden size={14} />
-            Add Entry
-          </MiniAppButton>
-        </div>
-        {entries.length === 0 ? (
+        <strong>Entries</strong>
+        <WeightQuickAdd
+          controlsDisabled={controlsDisabled}
+          onAddEntry={(entry) => {
+            const addedRow = onAddEntry(entry);
+            void saveAddedRow(addedRow);
+            return addedRow;
+          }}
+          onPendingChange={onPendingChange}
+          unit={unit}
+        />
+        {entries.length === 0 && !entryPending ? (
           <div className="tracker-empty-state">No entries</div>
-        ) : (
-          entries.map((entry, index) => (
-            <WeightEntryEditRow
-              key={entry.id}
-              controlsDisabled={controlsDisabled}
-              entry={entry}
-              index={index}
-              onRemoveEntry={onRemoveEntry}
-              onUpdateEntry={onUpdateEntry}
-            />
-          ))
-        )}
+        ) : null}
+        <WeightEditRows
+          currentAuthorId={currentAuthorId}
+          controlsDisabled={controlsDisabled}
+          entries={entries}
+          onRemoveEntry={onRemoveEntry}
+          onUpdateEntry={onUpdateEntry}
+          resolveRowWriter={resolveRowWriter}
+          savedRowIds={savedRowIds}
+          setRowSaved={setRowSaved}
+        />
         <div className="weight-entry-list-footer tracker-entry-list-footer">
           {entries.length} entries
         </div>
       </section>
-      <TrackerSaveAction disabled={controlsDisabled} onSave={onSave} />
     </div>
+  );
+}
+
+function WeightEditRows(params: {
+  currentAuthorId: string | null;
+  controlsDisabled: boolean;
+  entries: ReadonlyArray<WeightEntryRow>;
+  onRemoveEntry: (id: string) => void;
+  onUpdateEntry: UpdateEntry;
+  resolveRowWriter?: RowWriterResolver | undefined;
+  savedRowIds: ReadonlySet<string>;
+  setRowSaved: (id: string, saved: boolean) => void;
+}) {
+  return params.entries.map((entry, index) =>
+    params.savedRowIds.has(entry.id) ? (
+      <WeightEntryReadRow
+        key={entry.id}
+        currentAuthorId={params.currentAuthorId}
+        entry={entry}
+        index={index}
+        onEnterEdit={() => params.setRowSaved(entry.id, false)}
+        previous={params.entries[index - 1]}
+        resolveRowWriter={params.resolveRowWriter}
+      />
+    ) : (
+      <WeightEntryEditRow
+        key={entry.id}
+        controlsDisabled={params.controlsDisabled}
+        entry={entry}
+        index={index}
+        onRemoveEntry={params.onRemoveEntry}
+        onSaveEntry={(id) => params.setRowSaved(id, true)}
+        onUpdateEntry={params.onUpdateEntry}
+      />
+    ),
   );
 }
 
@@ -209,7 +253,7 @@ export function WeightFields(params: {
   disabled?: boolean | undefined;
   entries: ReadonlyArray<WeightEntryRow>;
   isEditing?: boolean | undefined;
-  onAddEntry: (entry?: WeightQuickEntry) => void;
+  onAddEntry: AddTrackerRow<WeightQuickEntry>;
   onChangeUnit: (unit: WeightUnit) => void;
   onEnterEdit?: (() => void) | undefined;
   onRemoveEntry: (id: string) => void;
@@ -243,12 +287,17 @@ export function WeightFields(params: {
     unitInputId,
   } = params;
   const controlsDisabled = disabled || !ready;
+  const {
+    entryPending: newEntryPending,
+    onPendingChange,
+    toggleEditing,
+  } = usePendingTrackerEntry(onToggleEditing);
   useStructuredDocumentEditAction({
-    disabled: controlsDisabled,
+    disabled: controlsDisabled || newEntryPending,
     editingLabel: "Save",
     id: "weight-toggle-edit",
     isEditing,
-    onToggleEditing,
+    onToggleEditing: toggleEditing,
   });
 
   if (!isEditing) {
@@ -256,9 +305,11 @@ export function WeightFields(params: {
       <WeightReadFields
         currentAuthorId={currentAuthorId}
         controlsDisabled={controlsDisabled}
+        entryPending={newEntryPending}
         entries={entries}
         onAddEntry={onAddEntry}
         onEnterEdit={onEnterEdit}
+        onPendingChange={onPendingChange}
         resolveRowWriter={resolveRowWriter}
         unit={unit}
       />
@@ -267,15 +318,18 @@ export function WeightFields(params: {
 
   return (
     <WeightEditFields
+      currentAuthorId={currentAuthorId}
       controlsDisabled={controlsDisabled}
+      entryPending={newEntryPending}
       entries={entries}
       onAddEntry={onAddEntry}
       onChangeUnit={onChangeUnit}
       onRemoveEntry={onRemoveEntry}
       onRenameTracker={onRenameTracker}
-      onSave={onToggleEditing}
+      onPendingChange={onPendingChange}
       onUpdateEntry={onUpdateEntry}
       ready={ready}
+      resolveRowWriter={resolveRowWriter}
       trackerName={trackerName}
       trackerNameInputId={trackerNameInputId}
       unit={unit}
@@ -309,11 +363,7 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
     [setIsEditing],
   );
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
-  // Only resolve verified writers for the read view (attribution is not shown
-  // while editing) of a non-empty tracker.
-  const resolveRowWriter = useDocumentRowWriters(
-    !(isEditing && canWrite) && rows.length > 0,
-  );
+  const resolveRowWriter = useDocumentRowWriters(rows.length > 0);
 
   const trackerName = readTrackerNameField(structuredFields);
   const unit = readTrackerUnitField(structuredFields);
@@ -340,13 +390,14 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
           onEnterEdit={canWrite ? () => setIsEditing(true) : undefined}
           onAddEntry={(entry) => {
             if (canWrite) {
-              void addRow({
-                [WEIGHT_MEASUREMENT_FIELD]: entry?.weight ?? "",
+              return addRow({
+                [WEIGHT_MEASUREMENT_FIELD]: entry.weight,
                 [WEIGHT_UNIT_FIELD]: unit,
-                [WEIGHT_MEASURED_AT_FIELD]: entry?.measuredAt ?? "",
-                [WEIGHT_NOTES_FIELD]: entry?.notes ?? "",
+                [WEIGHT_MEASURED_AT_FIELD]: entry.measuredAt,
+                [WEIGHT_NOTES_FIELD]: entry.notes,
               });
             }
+            return Promise.resolve(null);
           }}
           onChangeUnit={(nextUnit) => {
             if (canWrite) {

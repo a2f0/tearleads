@@ -6,36 +6,13 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import {
-  useWindowTitleBarActions,
-  WindowMenuProvider,
-} from "../../components/window/WindowMenuContext";
+import { WithWindowToolbar } from "../../../test/helpers/windowToolbarProbe";
 import { WeightFields } from "./Weight";
 import type { WeightQuickEntry } from "./WeightQuickAdd";
 import type { WeightUnit } from "./weightDocumentDefinition";
 import type { WeightEntryRow } from "./weightEntries";
 
 afterEach(cleanup);
-
-// Stands in for the pane header's toolbar. Labels are prefixed so a toolbar
-// action never collides with a same-named body/menu control in queries.
-function ToolbarProbe() {
-  const actions = useWindowTitleBarActions();
-
-  return (
-    <div aria-label="Toolbar" role="toolbar">
-      {actions.map((action) => (
-        <button
-          aria-label={`Toolbar ${action.label}`}
-          disabled={action.disabled}
-          key={action.id}
-          type="button"
-          onClick={action.onClick}
-        />
-      ))}
-    </div>
-  );
-}
 
 function makeEntry(
   overrides: Partial<WeightEntryRow> & { id: string },
@@ -107,7 +84,7 @@ function renderWeightFields(params?: {
   currentAuthorId?: string | null;
   entries?: WeightEntryRow[];
   isEditing?: boolean | undefined;
-  onAddEntry?: (entry?: WeightQuickEntry) => void;
+  onAddEntry?: (entry: WeightQuickEntry) => Promise<string | null>;
   onChangeUnit?: (unit: WeightUnit) => void;
   onEnterEdit?: (() => void) | undefined;
   onRemoveEntry?: (id: string) => void;
@@ -120,13 +97,12 @@ function renderWeightFields(params?: {
   unit?: WeightUnit;
 }) {
   return render(
-    <WindowMenuProvider>
-      <ToolbarProbe />
+    <WithWindowToolbar>
       <WeightFields
         currentAuthorId={params?.currentAuthorId ?? null}
         entries={params?.entries ?? entries}
         isEditing={params?.isEditing}
-        onAddEntry={params?.onAddEntry ?? (() => undefined)}
+        onAddEntry={params?.onAddEntry ?? (() => Promise.resolve("new-entry"))}
         onChangeUnit={params?.onChangeUnit ?? (() => undefined)}
         onEnterEdit={params?.onEnterEdit}
         onRemoveEntry={params?.onRemoveEntry ?? (() => undefined)}
@@ -140,7 +116,7 @@ function renderWeightFields(params?: {
         unit={params?.unit ?? "lb"}
         unitInputId="weight-unit"
       />
-    </WindowMenuProvider>,
+    </WithWindowToolbar>,
   );
 }
 
@@ -196,12 +172,13 @@ test("toggles editing from the toolbar, not a body button", async () => {
   expect(toggleCalls).toBe(1);
 });
 
-test("toolbar action matches the body Save action while editing", async () => {
-  const view = renderWeightFields({ entries: [], isEditing: true });
+test("toolbar and entry actions use Save while editing", async () => {
+  const view = renderWeightFields({ isEditing: true });
 
   await waitFor(() => {
     expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
   });
+  expect(view.getByRole("button", { name: "Save entry 1" })).toBeTruthy();
   expect(view.queryByRole("button", { name: "Toolbar Edit" })).toBeNull();
 });
 
@@ -271,19 +248,29 @@ test("read mode leaves the tracker name to the document title bar", () => {
   expect(view.getByText("0 entries")).toBeTruthy();
 });
 
-test("quick add saves a populated entry without entering edit mode", () => {
+test("read mode saves a new entry without entering edit mode", () => {
   const added: WeightQuickEntry[] = [];
+  let toggleCalls = 0;
   const view = renderWeightFields({
+    entries: [],
     isEditing: false,
-    onEnterEdit: () => undefined,
     onAddEntry: (entry) => {
-      if (entry) {
-        added.push(entry);
-      }
+      added.push(entry);
+      return Promise.resolve("e-new");
+    },
+    onEnterEdit: () => undefined,
+    onToggleEditing: () => {
+      toggleCalls += 1;
     },
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
+  expect(view.queryByRole("button", { name: "Add Entry" })).toBeNull();
+  expect(view.queryByText("No entries")).toBeNull();
+  const toolbarEdit = view.getByRole("button", { name: "Toolbar Edit" });
+  expect((toolbarEdit as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(toolbarEdit);
+  expect(view.getByLabelText("Quick add weight")).toBeTruthy();
   fireEvent.change(view.getByLabelText("Quick add weight"), {
     target: { value: "178.5" },
   });
@@ -304,6 +291,7 @@ test("quick add saves a populated entry without entering edit mode", () => {
   ]);
   expect(view.getByRole("button", { name: "Toolbar Edit" })).toBeTruthy();
   expect(view.queryByLabelText("Weight tracker name")).toBeNull();
+  expect(toggleCalls).toBe(0);
 });
 
 test("quick add rejects invalid weights and cancel clears the draft", () => {
@@ -313,6 +301,12 @@ test("quick add rejects invalid weights and cancel clears the draft", () => {
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
+  const toolbarEdit = view.getByRole("button", { name: "Toolbar Edit" });
+  expect((toolbarEdit as HTMLButtonElement).disabled).toBe(true);
+  expect(view.queryByRole("button", { name: "Entry 1 actions" })).toBeNull();
+  expect(
+    view.getByRole("button", { name: "Entry 1 attribution" }),
+  ).toBeTruthy();
   const input = view.getByLabelText("Quick add weight");
   fireEvent.change(input, { target: { value: "0" } });
 
@@ -323,6 +317,7 @@ test("quick add rejects invalid weights and cancel clears the draft", () => {
   ).toBe(true);
 
   fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+  expect((toolbarEdit as HTMLButtonElement).disabled).toBe(false);
   fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
   expect(
     (view.getByLabelText("Quick add weight") as HTMLInputElement).value,
@@ -452,19 +447,28 @@ test("marks out-of-range weights invalid without blocking edits", () => {
   ).toBe("true");
 });
 
-test("add, remove, and save actions invoke their callbacks", () => {
-  const calls: string[] = [];
+test("each entry saves independently beside Remove", () => {
+  const removals: string[] = [];
   const view = renderWeightFields({
-    onAddEntry: () => calls.push("add"),
-    onRemoveEntry: (id) => calls.push(`remove ${id}`),
-    onToggleEditing: () => calls.push("save"),
+    currentAuthorId: "user-alice",
+    onRemoveEntry: (id) => removals.push(id),
+    entries: [attributedEntry, makeEntry({ id: "e2" })],
+    resolveRowWriter: attributedResolver,
   });
 
-  fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
-  fireEvent.click(view.getByRole("button", { name: "Remove entry 1" }));
-  fireEvent.click(view.getByRole("button", { name: "Save" }));
+  const remove = view.getByRole("button", { name: "Remove entry 1" });
+  const save = view.getByRole("button", { name: "Save entry 1" });
+  expect(save.parentElement).toBe(remove.parentElement);
+  fireEvent.click(save);
+  expect(view.queryByLabelText("Entry 1 weight")).toBeNull();
+  expect(view.getByLabelText("Entry 2 weight")).toBeTruthy();
+  expect(view.getByText(/by user-bob/u)).toBeTruthy();
+  expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
 
-  expect(calls).toEqual(["add", "remove e1", "save"]);
+  fireEvent.click(view.getByRole("button", { name: "Entry 1 actions" }));
+  fireEvent.click(view.getByRole("button", { name: "Edit" }));
+  fireEvent.click(view.getByRole("button", { name: "Remove entry 1" }));
+  expect(removals).toEqual(["e1"]);
 });
 
 test("disables controls while the document is loading", () => {
@@ -484,6 +488,10 @@ test("disables controls while the document is loading", () => {
       .disabled,
   ).toBe(true);
   expect(
-    (view.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled,
+    (
+      view.getByRole("button", {
+        name: "Save entry 1",
+      }) as HTMLButtonElement
+    ).disabled,
   ).toBe(true);
 });

@@ -4,6 +4,8 @@ import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type FormEvent, useState } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
+import { useClearPendingOnUnmount } from "../shared/usePendingTrackerEntry";
+import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import {
   isValidWeightMeasurement,
   type WeightUnit,
@@ -23,17 +25,21 @@ const EMPTY_ENTRY: WeightQuickEntry = {
 
 export function WeightQuickAdd(params: {
   controlsDisabled: boolean;
-  onAddEntry: (entry?: WeightQuickEntry) => void;
+  onAddEntry: AddTrackerRow<WeightQuickEntry>;
+  onPendingChange: (pending: boolean) => void;
   unit: WeightUnit;
 }) {
-  const { controlsDisabled, onAddEntry, unit } = params;
+  const { controlsDisabled, onAddEntry, onPendingChange, unit } = params;
   const [entry, setEntry] = useState(EMPTY_ENTRY);
   const [open, setOpen] = useState(false);
   const valid = isValidWeightMeasurement(entry.weight);
 
+  useClearPendingOnUnmount(onPendingChange);
+
   function close() {
     setEntry(EMPTY_ENTRY);
     setOpen(false);
+    onPendingChange(false);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -42,7 +48,7 @@ export function WeightQuickAdd(params: {
       return;
     }
 
-    onAddEntry(entry);
+    void onAddEntry(entry);
     close();
   }
 
@@ -52,7 +58,10 @@ export function WeightQuickAdd(params: {
         className="weight-add-button tracker-add-button"
         withIcon
         disabled={controlsDisabled}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          onPendingChange(true);
+        }}
       >
         <PlusIcon aria-hidden size={14} />
         Add Entry
@@ -117,7 +126,8 @@ export function WeightQuickAdd(params: {
           <CheckIcon aria-hidden size={14} />
           Save Entry
         </MiniAppButton>
-        <MiniAppButton withIcon disabled={controlsDisabled} onClick={close}>
+        {/* Loading can begin with a draft open, so Cancel must stay available. */}
+        <MiniAppButton withIcon onClick={close}>
           <XIcon aria-hidden size={14} />
           Cancel
         </MiniAppButton>
