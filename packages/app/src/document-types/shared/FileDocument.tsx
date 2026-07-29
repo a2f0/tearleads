@@ -188,8 +188,16 @@ export function FileDocumentFields({
   );
   useWindowTitleBarAction(downloadAction);
 
+  // A picture or a PDF takes the pane's spare height; audio (and a view with no
+  // preview at all) keeps the plain content-height stack.
+  const fillsPane =
+    (mediaPreview != null && mediaPreview.mediaKind !== "audio") ||
+    pdfPreview != null;
+
   return (
-    <div className="file-document-fields">
+    <div
+      className={`file-document-fields${fillsPane ? " file-document-fields--fill" : ""}`}
+    >
       {/* For media, the preview is the point of the view: render it above the
           metadata so it lands on top without a scroll. */}
       {mediaPreview ? (

@@ -222,6 +222,18 @@ function useWindowStatusMessage() {
   return { showStatusMessage, statusText };
 }
 
+// Refcounted so overlapping overlays (one closing as another opens) never leave
+// the row hidden, and never flash it back for a frame between the two.
+function useWindowToolbarSuppression() {
+  const [suppressionCount, setSuppressionCount] = useState(0);
+  const suppressToolbar = useCallback(() => {
+    setSuppressionCount((count) => count + 1);
+    return () => setSuppressionCount((count) => Math.max(0, count - 1));
+  }, []);
+
+  return { suppressToolbar, toolbarSuppressed: suppressionCount > 0 };
+}
+
 function WindowResizeHandles({
   handleResizeMouseDown,
 }: {
@@ -263,6 +275,44 @@ function WindowInner({
   );
 }
 
+// The bars above the body: title, menus, and the toolbar row a full-pane overlay
+// can stand down (see `useWindowToolbarSuppression`).
+function WindowChrome({
+  actions,
+  entry,
+  onGoBack,
+  onMouseDown,
+  toolbarSuppressed,
+}: {
+  actions: ReturnType<typeof useWindowActions>;
+  entry: WindowEntry;
+  onGoBack: () => void;
+  onMouseDown: (event: ReactMouseEvent) => void;
+  toolbarSuppressed: boolean;
+}) {
+  return (
+    <>
+      <WindowTitleBar
+        title={entry.title}
+        onMouseDown={onMouseDown}
+        onMinimize={actions.handleMinimize}
+        onMaximize={actions.handleMaximize}
+        onClose={actions.handleClose}
+        onMoveForward={actions.handleMoveForward}
+        onMoveBackward={actions.handleMoveBackward}
+      />
+      <WindowMenuBar menus={actions.menus} />
+      {!toolbarSuppressed && (
+        <WindowToolBar
+          canGoBack={(entry.miniAppRouteHistory?.length ?? 0) > 0}
+          showHistoryBack={entry.appId !== undefined}
+          onGoBack={onGoBack}
+        />
+      )}
+    </>
+  );
+}
+
 function WindowInnerContent({
   entry,
   close,
@@ -272,7 +322,7 @@ function WindowInnerContent({
   bringToFront,
   toggleMaximize,
 }: WindowInnerProps) {
-  const { title, maximized, minimized, zIndex, component: Component } = entry;
+  const { maximized, minimized, zIndex, component: Component } = entry;
   const windowRef = useRef<HTMLDivElement>(null);
   const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
   const fileMenuItems = useWindowFileMenuItems();
@@ -280,16 +330,7 @@ function WindowInnerContent({
   const { sidebar } = useWindowSidebar();
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
-  const {
-    handleClose,
-    handleMaximize,
-    handleMinimize,
-    handleMoveBackward,
-    handleMoveForward,
-    menus,
-    showSidebar,
-    showStatusBar,
-  } = useWindowActions(
+  const actions = useWindowActions(
     entry,
     close,
     minimize,
@@ -303,6 +344,7 @@ function WindowInnerContent({
   const { handleMouseDown, handleResizeMouseDown, position, size } =
     useWindowGeometry(entry, maximized, windowRef);
   const { showStatusMessage, statusText } = useWindowStatusMessage();
+  const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
   // The toolbar renders above the route boundary, so the window's own Back stack
   // is threaded in from here rather than read from context.
   const { goBackMiniAppRoute } = useWindowStateActions();
@@ -336,37 +378,30 @@ function WindowInnerContent({
       onMouseDownCapture={handleWindowMouseDown}
       style={style}
     >
-      <WindowTitleBar
-        title={title}
-        onMouseDown={handleMouseDown}
-        onMinimize={handleMinimize}
-        onMaximize={handleMaximize}
-        onClose={handleClose}
-        onMoveForward={handleMoveForward}
-        onMoveBackward={handleMoveBackward}
-      />
-      <WindowMenuBar menus={menus} />
-      <WindowToolBar
-        canGoBack={(entry.miniAppRouteHistory?.length ?? 0) > 0}
-        showHistoryBack={entry.appId !== undefined}
+      <WindowChrome
+        actions={actions}
+        entry={entry}
         onGoBack={handleGoBack}
+        onMouseDown={handleMouseDown}
+        toolbarSuppressed={toolbarSuppressed}
       />
       <CurrentWindowProvider
-        close={handleClose}
+        close={actions.handleClose}
         id={entry.id}
         overlayHost={overlayHost}
         showStatusMessage={showStatusMessage}
+        suppressToolbar={suppressToolbar}
       >
         <WindowBodyWithSidebar
           overlayHostRef={setOverlayHost}
-          showSidebar={showSidebar}
+          showSidebar={actions.showSidebar}
         >
           <WindowMiniAppRouteBoundary entry={entry}>
             {Component && <Component />}
           </WindowMiniAppRouteBoundary>
         </WindowBodyWithSidebar>
       </CurrentWindowProvider>
-      {showStatusBar && <WindowStatusBar text={statusText} />}
+      {actions.showStatusBar && <WindowStatusBar text={statusText} />}
       {!maximized && (
         <WindowResizeHandles handleResizeMouseDown={handleResizeMouseDown} />
       )}

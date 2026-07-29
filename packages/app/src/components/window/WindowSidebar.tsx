@@ -104,7 +104,9 @@ export function WindowSidebar({
         onMouseDown={handleMouseDown}
         tabIndex={0}
       />
-      <div className="window-sidebar-content" ref={contentRef}>
+      {/* Focusable only to script, like `.window-body-content`: the overlay host
+          is where focus lands when an overlay outlives the control that opened it. */}
+      <div className="window-sidebar-content" ref={contentRef} tabIndex={-1}>
         <div className="window-sidebar-content-scroll">{children}</div>
       </div>
     </div>

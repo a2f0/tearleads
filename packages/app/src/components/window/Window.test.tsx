@@ -1,11 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppClipboardButton,
   MiniAppImageViewer,
 } from "../mini-app/MiniAppLayout";
 import { Window } from "./Window";
+import { useWindowTitleBarAction } from "./WindowMenuContext";
 import { useWindowSidebar } from "./WindowSidebarContext";
 import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
 
@@ -74,6 +75,18 @@ function WindowClipboardHarness() {
 function ImageViewerWindow({ withSidebar = true }: { withSidebar?: boolean }) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const { setSidebar } = useWindowSidebar();
+  // Stands in for the blob browser's "Open" action: a window toolbar control that
+  // opens the viewer, so the opener is a control the suppression unmounts.
+  const toolbarAction = useMemo(
+    () => ({
+      icon: <span aria-hidden>+</span>,
+      id: "viewer-window-action",
+      label: "Open image",
+      onClick: () => setViewerOpen(true),
+    }),
+    [],
+  );
+  useWindowTitleBarAction(toolbarAction);
 
   useEffect(() => {
     if (!withSidebar) return;
@@ -296,6 +309,64 @@ test("the image viewer stays in the right pane after restoring its window", asyn
   const sidebar = restoredHost.querySelector(".window-sidebar");
   expect(view.getByRole("dialog").parentElement).toBe(rightPane);
   expect(sidebar?.contains(view.getByRole("dialog"))).toBe(false);
+});
+
+// The viewer brings its own toolbar, so the window's row steps aside for it and
+// the pane is never chromed by two toolbars at once.
+test("only the viewer's toolbar is left while it is open", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <WindowViewerHarness withSidebar={false} />
+    </WindowStateProvider>,
+  );
+
+  const open = await view.findByRole("button", { name: "Open viewer" });
+  const host = open.closest<HTMLDivElement>(".window");
+  if (!host) throw new Error("viewer window not found");
+  await waitFor(() => {
+    expect(host.querySelector(".window-toolbar")).toBeTruthy();
+  });
+
+  fireEvent.click(open);
+  expect(host.querySelector(".window-toolbar")).toBeNull();
+  expect(host.querySelector(".mini-app-image-viewer-toolbar")).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: "Close" }));
+  await waitFor(() => {
+    expect(host.querySelector(".window-toolbar")).toBeTruthy();
+  });
+});
+
+// The blob browser opens this viewer from a window toolbar action — the very row
+// the viewer stands down. Its opener is therefore gone by the time the viewer
+// closes, so focus has to land in the pane instead of falling to the body.
+test("closing a toolbar-opened viewer keeps focus inside the window", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <WindowViewerHarness withSidebar={false} />
+    </WindowStateProvider>,
+  );
+
+  const open = await view.findByRole("button", { name: "Open viewer" });
+  const host = open.closest<HTMLDivElement>(".window");
+  if (!host) throw new Error("viewer window not found");
+  const toolbarOpen = await waitFor(() => {
+    const button = host.querySelector<HTMLButtonElement>(
+      '.window-toolbar [aria-label="Open image"]',
+    );
+    if (!button) throw new Error("toolbar open action not registered");
+    return button;
+  });
+
+  toolbarOpen.focus();
+  fireEvent.click(toolbarOpen);
+  // Standing the row down takes the opener with it.
+  expect(toolbarOpen.isConnected).toBe(false);
+
+  fireEvent.click(view.getByRole("button", { name: "Close" }));
+  expect(document.activeElement).toBe(
+    host.querySelector(".window-body-content"),
+  );
 });
 
 test("a sidebarless image viewer stays in the window content pane", async () => {

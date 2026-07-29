@@ -2,6 +2,7 @@ import {
   createContext,
   type PropsWithChildren,
   useContext,
+  useLayoutEffect,
   useMemo,
 } from "react";
 
@@ -10,6 +11,11 @@ interface CurrentWindowContextValue {
   id: string;
   overlayHost: HTMLElement | null;
   showStatusMessage: (message: string) => void;
+  /**
+   * Hide the window's toolbar row until the returned release is called. Refcounted,
+   * so overlapping suppressions restore the row only once the last one releases.
+   */
+  suppressToolbar: () => () => void;
 }
 
 const CurrentWindowContext = createContext<CurrentWindowContextValue | null>(
@@ -22,10 +28,11 @@ export function CurrentWindowProvider({
   id,
   overlayHost,
   showStatusMessage,
+  suppressToolbar,
 }: PropsWithChildren<CurrentWindowContextValue>) {
   const value = useMemo(
-    () => ({ close, id, overlayHost, showStatusMessage }),
-    [close, id, overlayHost, showStatusMessage],
+    () => ({ close, id, overlayHost, showStatusMessage, suppressToolbar }),
+    [close, id, overlayHost, showStatusMessage, suppressToolbar],
   );
 
   return (
@@ -37,4 +44,26 @@ export function CurrentWindowProvider({
 
 export function useCurrentWindow() {
   return useContext(CurrentWindowContext);
+}
+
+/**
+ * Drop the host window's toolbar row while `active`.
+ *
+ * A full-pane overlay (the image viewer) carries its own toolbar, and the
+ * window's row would otherwise stack directly above it — two toolbars, one of
+ * them driving chrome the overlay covers. Outside a window this is inert, since
+ * the routed shell's overlays cover the whole viewport already.
+ *
+ * Suppressing in a layout effect keeps the row from being painted alongside the
+ * overlay's own toolbar for a frame and then resizing the pane out from under it.
+ */
+export function useSuppressWindowToolbar(active: boolean) {
+  const suppressToolbar = useCurrentWindow()?.suppressToolbar;
+
+  useLayoutEffect(() => {
+    if (!active || !suppressToolbar) {
+      return;
+    }
+    return suppressToolbar();
+  }, [active, suppressToolbar]);
 }

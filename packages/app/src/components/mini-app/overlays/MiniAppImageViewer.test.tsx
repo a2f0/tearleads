@@ -60,33 +60,62 @@ test("the viewer shows only the image and its toolbar", () => {
   ).toBe(true);
 });
 
-test("a window hosts the viewer inside its own bounds", () => {
+function renderWindowedViewer(
+  suppressToolbar: () => () => void = () => () => undefined,
+) {
   const overlayHost = document.createElement("div");
   overlayHost.className = "window-sidebar-content";
   document.body.append(overlayHost);
 
-  try {
-    const view = render(
-      <CurrentWindowProvider
-        close={() => undefined}
-        id="window-1"
-        overlayHost={overlayHost}
-        showStatusMessage={() => undefined}
-      >
-        <MiniAppImageViewer
-          label="photo.png"
-          onClose={() => undefined}
-          url="blob:photo"
-        />
-      </CurrentWindowProvider>,
-    );
+  const view = render(
+    <CurrentWindowProvider
+      close={() => undefined}
+      id="window-1"
+      overlayHost={overlayHost}
+      showStatusMessage={() => undefined}
+      suppressToolbar={suppressToolbar}
+    >
+      <MiniAppImageViewer
+        label="photo.png"
+        onClose={() => undefined}
+        url="blob:photo"
+      />
+    </CurrentWindowProvider>,
+  );
 
+  return { overlayHost, view };
+}
+
+test("a window hosts the viewer inside its own bounds", () => {
+  const { overlayHost, view } = renderWindowedViewer();
+
+  try {
     const viewer = view.getByRole("dialog");
     expect(viewer.parentElement).toBe(overlayHost);
     expect(viewer.getAttribute("aria-modal")).toBeNull();
     expect(viewer.classList.contains("mini-app-image-viewer--windowed")).toBe(
       true,
     );
+  } finally {
+    overlayHost.remove();
+  }
+});
+
+// The viewer's own toolbar carries the zoom controls; the window's row would
+// otherwise stack straight above it as a second toolbar for the same surface.
+test("a windowed viewer stands the window's toolbar down until it closes", () => {
+  let suppressions = 0;
+  const { overlayHost, view } = renderWindowedViewer(() => {
+    suppressions += 1;
+    return () => {
+      suppressions -= 1;
+    };
+  });
+
+  try {
+    expect(suppressions).toBe(1);
+    view.unmount();
+    expect(suppressions).toBe(0);
   } finally {
     overlayHost.remove();
   }

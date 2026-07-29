@@ -3,9 +3,18 @@ import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimpl
 import { MagnifyingGlassMinusIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGlassMinus";
 import { MagnifyingGlassPlusIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGlassPlus";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { type ReactNode, type RefObject, useEffect, useRef } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { createPortal } from "react-dom";
-import { useCurrentWindow } from "../../window/CurrentWindowContext";
+import {
+  useCurrentWindow,
+  useSuppressWindowToolbar,
+} from "../../window/CurrentWindowContext";
 import "./MiniAppImageViewer.css";
 import { useImageViewerState } from "./useImageViewerState";
 
@@ -106,10 +115,11 @@ function ImageViewerChrome(params: {
 // opened it on close, so keyboard focus is never dropped to the document body.
 function useImageViewerDismissal(params: {
   closeButtonRef: RefObject<HTMLButtonElement | null>;
+  host: HTMLElement;
   onClose: () => void;
   viewerRef: RefObject<HTMLDivElement | null>;
 }) {
-  const { closeButtonRef, onClose, viewerRef } = params;
+  const { closeButtonRef, host, onClose, viewerRef } = params;
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -125,15 +135,29 @@ function useImageViewerDismissal(params: {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose, viewerRef]);
 
-  useEffect(() => {
+  // A layout effect, and declared before the toolbar suppression below so it runs
+  // first: the control that opened this viewer may be a window toolbar action the
+  // suppression is about to unmount, and reading `activeElement` after that would
+  // record <body> instead of the opener.
+  useLayoutEffect(() => {
     const previouslyFocused = document.activeElement;
     closeButtonRef.current?.focus();
     return () => {
-      if (previouslyFocused instanceof HTMLElement) {
+      // The opener may have been unmounted while the viewer covered it — a
+      // suppressed toolbar action, or a row the host re-rendered away. Focusing a
+      // detached node silently drops focus to the document body, and Tab would
+      // then resume from the top of the page; land in the host pane instead so
+      // focus stays where the overlay was.
+      if (
+        previouslyFocused instanceof HTMLElement &&
+        previouslyFocused.isConnected
+      ) {
         previouslyFocused.focus();
+        return;
       }
+      host.focus();
     };
-  }, [closeButtonRef]);
+  }, [closeButtonRef, host]);
 }
 
 /**
@@ -145,8 +169,10 @@ function useImageViewerDismissal(params: {
  *
  * Routed layouts portal into <body> and fill the viewport. A desktop window's
  * content pane instead becomes the portal host so the viewer leaves the window
- * chrome and sidebar available. The stage takes `touch-action: none` so the
- * browser hands the pinch to the viewer instead of page-zooming behind it.
+ * frame and sidebar available; that window's toolbar row stands down while the
+ * viewer is open, since the toolbar below carries the same surface's controls.
+ * The stage takes `touch-action: none` so the browser hands the pinch to the
+ * viewer instead of page-zooming behind it.
  */
 export function MiniAppImageViewer(params: {
   label: string;
@@ -163,9 +189,13 @@ export function MiniAppImageViewer(params: {
 
   useImageViewerDismissal({
     closeButtonRef,
+    host: portalHost,
     onClose: params.onClose,
     viewerRef,
   });
+  // The viewer covers the window's content pane and carries the zoom controls,
+  // so the window's own toolbar row stands down while it is open.
+  useSuppressWindowToolbar(isWindowed);
 
   return createPortal(
     <div
