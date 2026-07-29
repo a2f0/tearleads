@@ -1,4 +1,5 @@
 import type { UserSession } from "@tearleads/client-sdk";
+import { useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -8,7 +9,7 @@ import {
 } from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,
-  MiniAppInfoTable,
+  MiniAppKeyValueTable,
 } from "../../components/mini-app/MiniAppTable";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import {
@@ -18,33 +19,29 @@ import {
   sessionIsMutating,
 } from "./IdentityManagerSessionDisplay";
 
-function SessionDetailValue({ value }: { value: string | null | undefined }) {
+function SessionDetailValue({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null | undefined;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
   if (!value) {
     return <span>None</span>;
   }
 
   return (
-    <span className="identity-manager-session-detail-value">
-      <span title={value}>{value}</span>
-    </span>
-  );
-}
-
-function SessionIpAddressList({
-  ipAddresses,
-}: {
-  ipAddresses: ReadonlyArray<string>;
-}) {
-  if (ipAddresses.length === 0) {
-    return <>None</>;
-  }
-
-  return (
-    <span className="identity-manager-session-ip-list">
-      {ipAddresses.map((ipAddress) => (
-        <code key={ipAddress}>{ipAddress}</code>
-      ))}
-    </span>
+    <button
+      aria-label={`${value}; ${expanded ? "Collapse" : "Show full"} ${label}`}
+      aria-pressed={expanded}
+      className={`identity-manager-session-detail-value${expanded ? " identity-manager-session-detail-value--expanded" : ""}`}
+      onClick={() => setExpanded((current) => !current)}
+      type="button"
+    >
+      {value}
+    </button>
   );
 }
 
@@ -80,40 +77,52 @@ export function SessionDetailSection({
           </MiniAppButton>
         </MiniAppActions>
       </MiniAppHeader>
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable className="identity-manager-session-detail-table">
         <tbody>
           <MiniAppInfoRow label="Status">
             {getSessionStatusLabel(session)}
           </MiniAppInfoRow>
           <MiniAppInfoRow label="Last Active" title={session.lastActiveAt}>
-            {formatMiniAppDateTime(session.lastActiveAt)}
+            <SessionDetailValue
+              label="Last Active"
+              value={formatMiniAppDateTime(session.lastActiveAt)}
+            />
           </MiniAppInfoRow>
           <MiniAppInfoRow
             label="Last IP"
             title={session.lastActiveIp ?? "No recorded IP"}
           >
-            {session.lastActiveIp ?? "None"}
+            <SessionDetailValue label="Last IP" value={session.lastActiveIp} />
           </MiniAppInfoRow>
           <MiniAppInfoRow
             label="Full IP List"
             title={sessionIpAddressesTitle(session.ipAddresses)}
           >
-            <SessionIpAddressList ipAddresses={session.ipAddresses} />
+            <SessionDetailValue
+              label="Full IP List"
+              value={session.ipAddresses.join(", ")}
+            />
           </MiniAppInfoRow>
           <MiniAppInfoRow label="Created" title={session.createdAt}>
-            {formatMiniAppDateTime(session.createdAt)}
+            <SessionDetailValue
+              label="Created"
+              value={formatMiniAppDateTime(session.createdAt)}
+            />
           </MiniAppInfoRow>
           <MiniAppInfoRow
             label="Signing Key"
             title={session.signingKeyFingerprint}
           >
-            <SessionDetailValue value={session.signingKeyFingerprint} />
+            <SessionDetailValue
+              label="Signing Key"
+              value={session.signingKeyFingerprint}
+            />
           </MiniAppInfoRow>
           <MiniAppInfoRow label="Session ID" title={session.id}>
-            <SessionDetailValue value={session.id} />
+            <SessionDetailValue label="Session ID" value={session.id} />
           </MiniAppInfoRow>
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppSection>
   );
 }
