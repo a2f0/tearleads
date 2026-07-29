@@ -36,6 +36,7 @@
     "@capacitor/app": "8.1.0",
     "@capacitor/camera": "8.2.1",
     "@capacitor/core": "8.4.0",
+    "@capacitor/file-viewer": "2.0.1",
     "@capacitor/filesystem": "8.1.2",
     "@capacitor/keyboard": "8.0.3",
     "@capacitor/network": "8.0.1",
