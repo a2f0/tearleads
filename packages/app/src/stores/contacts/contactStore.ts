@@ -156,13 +156,28 @@ async function ensureSelfContactFromRuntime(
     return null;
   }
 
-  const existingContact = findPrimarySelfContact(state.entriesById, identity);
+  const existingContact = findPrimarySelfContact(
+    state.entriesById,
+    identity,
+    input.lookupUserId,
+  );
   const contactId = resolveSelfContactId(existingContact, identity);
   if (!contactId) {
     return null;
   }
-  const current = isSelfContactCurrent(existingContact, identity);
   const deferRemoteSync = input.deferRemoteSync === true;
+  // A signed-out bootstrap only knows the deterministic device-local id. If
+  // that id already belongs to a self contact promoted while authenticated,
+  // preserve its remote identity instead of replacing the user id and public
+  // key with nulls and leaving a spurious deferred edit behind on logout.
+  const preservesExistingRemoteIdentity =
+    deferRemoteSync &&
+    identity.userId === null &&
+    identity.encapsulationPublicKey === null &&
+    existingContact?.isSelf === true;
+  const current =
+    preservesExistingRemoteIdentity ||
+    isSelfContactCurrent(existingContact, identity);
   if (!guard()) {
     return null;
   }
