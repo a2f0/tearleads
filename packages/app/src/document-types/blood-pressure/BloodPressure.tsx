@@ -43,6 +43,7 @@ function BloodPressureReadFields(params: {
   controlsDisabled: boolean;
   onAddReading: (reading: BloodPressureQuickReading) => void;
   onEnterEdit?: (() => void) | undefined;
+  onPendingChange: (pending: boolean) => void;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   resolveRowWriter?: RowWriterResolver | undefined;
 }) {
@@ -51,6 +52,7 @@ function BloodPressureReadFields(params: {
     controlsDisabled,
     onAddReading,
     onEnterEdit,
+    onPendingChange,
     readings,
     resolveRowWriter,
   } = params;
@@ -65,6 +67,7 @@ function BloodPressureReadFields(params: {
           <BloodPressureQuickAdd
             controlsDisabled={controlsDisabled}
             onAddReading={onAddReading}
+            onPendingChange={onPendingChange}
           />
         ) : null}
         {readings.length === 0 ? (
@@ -95,9 +98,11 @@ function BloodPressureEditFields(params: {
   onAddReading: (reading: BloodPressureQuickReading) => void;
   onRemoveReading: (id: string) => void;
   onRenameTracker: (value: string) => void;
+  onPendingChange: (pending: boolean) => void;
   onUpdateReading: UpdateReading;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   ready: boolean;
+  resolveRowWriter?: RowWriterResolver | undefined;
   trackerName: string;
   trackerNameInputId: string;
 }) {
@@ -107,27 +112,14 @@ function BloodPressureEditFields(params: {
     onAddReading,
     onRemoveReading,
     onRenameTracker,
+    onPendingChange,
     onUpdateReading,
     readings,
     ready,
+    resolveRowWriter,
     trackerName,
     trackerNameInputId,
   } = params;
-  const [savedReadingIds, setSavedReadingIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-
-  function setReadingSaved(id: string, saved: boolean) {
-    setSavedReadingIds((current) => {
-      const next = new Set(current);
-      if (saved) {
-        next.add(id);
-      } else {
-        next.delete(id);
-      }
-      return next;
-    });
-  }
 
   return (
     <div className="tracker-document-fields">
@@ -154,37 +146,67 @@ function BloodPressureEditFields(params: {
         <BloodPressureQuickAdd
           controlsDisabled={controlsDisabled}
           onAddReading={onAddReading}
+          onPendingChange={onPendingChange}
         />
         {readings.length === 0 ? (
           <div className="tracker-empty-state">No readings</div>
         ) : (
-          readings.map((reading, index) =>
-            savedReadingIds.has(reading.id) ? (
-              <BloodPressureReadingReadRow
-                key={reading.id}
-                currentAuthorId={currentAuthorId}
-                index={index}
-                onEnterEdit={() => setReadingSaved(reading.id, false)}
-                reading={reading}
-              />
-            ) : (
-              <BloodPressureReadingEditRow
-                key={reading.id}
-                controlsDisabled={controlsDisabled}
-                index={index}
-                onRemoveReading={onRemoveReading}
-                onSaveReading={(id) => setReadingSaved(id, true)}
-                onUpdateReading={onUpdateReading}
-                reading={reading}
-              />
-            ),
-          )
+          <BloodPressureEditRows
+            currentAuthorId={currentAuthorId}
+            controlsDisabled={controlsDisabled}
+            onRemoveReading={onRemoveReading}
+            onUpdateReading={onUpdateReading}
+            readings={readings}
+            resolveRowWriter={resolveRowWriter}
+          />
         )}
         <div className="blood-pressure-reading-list-footer tracker-entry-list-footer">
           {readings.length} entries
         </div>
       </section>
     </div>
+  );
+}
+
+function BloodPressureEditRows(params: {
+  currentAuthorId: string | null;
+  controlsDisabled: boolean;
+  onRemoveReading: (id: string) => void;
+  onUpdateReading: UpdateReading;
+  readings: ReadonlyArray<BloodPressureReadingRow>;
+  resolveRowWriter?: RowWriterResolver | undefined;
+}) {
+  const [savedIds, setSavedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const setSaved = (id: string, saved: boolean) =>
+    setSavedIds((current) => {
+      const next = new Set(current);
+      saved ? next.add(id) : next.delete(id);
+      return next;
+    });
+
+  return params.readings.map((reading, index) =>
+    savedIds.has(reading.id) ? (
+      <BloodPressureReadingReadRow
+        key={reading.id}
+        currentAuthorId={params.currentAuthorId}
+        index={index}
+        onEnterEdit={() => setSaved(reading.id, false)}
+        reading={reading}
+        resolveRowWriter={params.resolveRowWriter}
+      />
+    ) : (
+      <BloodPressureReadingEditRow
+        key={reading.id}
+        controlsDisabled={params.controlsDisabled}
+        index={index}
+        onRemoveReading={params.onRemoveReading}
+        onSaveReading={(id) => setSaved(id, true)}
+        onUpdateReading={params.onUpdateReading}
+        reading={reading}
+      />
+    ),
   );
 }
 
@@ -221,12 +243,17 @@ export function BloodPressureFields(params: {
     trackerNameInputId,
   } = params;
   const controlsDisabled = disabled || !ready;
+  const [newReadingPending, setNewReadingPending] = useState(false);
+  const toggleEditing = useCallback(() => {
+    setNewReadingPending(false);
+    onToggleEditing();
+  }, [onToggleEditing]);
   useStructuredDocumentEditAction({
-    disabled: controlsDisabled,
+    disabled: controlsDisabled || newReadingPending,
     editingLabel: "Save",
     id: "blood-pressure-toggle-edit",
     isEditing,
-    onToggleEditing,
+    onToggleEditing: toggleEditing,
   });
 
   if (!isEditing) {
@@ -236,6 +263,7 @@ export function BloodPressureFields(params: {
         controlsDisabled={controlsDisabled}
         onAddReading={onAddReading}
         onEnterEdit={onEnterEdit}
+        onPendingChange={setNewReadingPending}
         readings={readings}
         resolveRowWriter={resolveRowWriter}
       />
@@ -249,9 +277,11 @@ export function BloodPressureFields(params: {
       onAddReading={onAddReading}
       onRemoveReading={onRemoveReading}
       onRenameTracker={onRenameTracker}
+      onPendingChange={setNewReadingPending}
       onUpdateReading={onUpdateReading}
       readings={readings}
       ready={ready}
+      resolveRowWriter={resolveRowWriter}
       trackerName={trackerName}
       trackerNameInputId={trackerNameInputId}
     />
@@ -284,11 +314,7 @@ export function BloodPressure(params: {
     [setIsEditing],
   );
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
-  // Only resolve verified writers for the read view (attribution is not shown
-  // while editing) of a non-empty tracker.
-  const resolveRowWriter = useDocumentRowWriters(
-    !(isEditing && canWrite) && rows.length > 0,
-  );
+  const resolveRowWriter = useDocumentRowWriters(rows.length > 0);
 
   const trackerName = readTrackerNameField(structuredFields);
   const readings = toBloodPressureReadingRows(rows, readCell);

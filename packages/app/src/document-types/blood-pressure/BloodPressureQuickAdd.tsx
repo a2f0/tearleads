@@ -107,8 +107,9 @@ function QuickReadingFields(params: {
 export function BloodPressureQuickAdd(params: {
   controlsDisabled: boolean;
   onAddReading: (reading: BloodPressureQuickReading) => void;
+  onPendingChange?: ((pending: boolean) => void) | undefined;
 }) {
-  const { controlsDisabled, onAddReading } = params;
+  const { controlsDisabled, onAddReading, onPendingChange } = params;
   const [open, setOpen] = useState(false);
   const [reading, setReading] = useState(EMPTY_READING);
   const valid =
@@ -120,6 +121,7 @@ export function BloodPressureQuickAdd(params: {
   function close() {
     setReading(EMPTY_READING);
     setOpen(false);
+    onPendingChange?.(false);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -138,7 +140,10 @@ export function BloodPressureQuickAdd(params: {
         className="blood-pressure-add-button tracker-add-button"
         withIcon
         disabled={controlsDisabled}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          onPendingChange?.(true);
+        }}
       >
         <PlusIcon aria-hidden size={14} />
         Add Reading

@@ -48,6 +48,7 @@ function WeightReadFields(params: {
   entries: ReadonlyArray<WeightEntryRow>;
   onAddEntry: (entry: WeightQuickEntry) => void;
   onEnterEdit?: (() => void) | undefined;
+  onPendingChange: (pending: boolean) => void;
   resolveRowWriter?: RowWriterResolver | undefined;
   unit: WeightUnit;
 }) {
@@ -59,6 +60,7 @@ function WeightReadFields(params: {
     entries,
     onAddEntry,
     onEnterEdit,
+    onPendingChange,
     resolveRowWriter,
     unit,
   } = params;
@@ -73,6 +75,7 @@ function WeightReadFields(params: {
           <WeightQuickAdd
             controlsDisabled={controlsDisabled}
             onAddEntry={onAddEntry}
+            onPendingChange={onPendingChange}
             unit={unit}
           />
         ) : null}
@@ -107,8 +110,10 @@ function WeightEditFields(params: {
   onChangeUnit: (unit: WeightUnit) => void;
   onRemoveEntry: (id: string) => void;
   onRenameTracker: (value: string) => void;
+  onPendingChange: (pending: boolean) => void;
   onUpdateEntry: UpdateEntry;
   ready: boolean;
+  resolveRowWriter?: RowWriterResolver | undefined;
   trackerName: string;
   trackerNameInputId: string;
   unit: WeightUnit;
@@ -122,28 +127,15 @@ function WeightEditFields(params: {
     onChangeUnit,
     onRemoveEntry,
     onRenameTracker,
+    onPendingChange,
     onUpdateEntry,
     ready,
+    resolveRowWriter,
     trackerName,
     trackerNameInputId,
     unit,
     unitInputId,
   } = params;
-  const [savedEntryIds, setSavedEntryIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-
-  function setEntrySaved(id: string, saved: boolean) {
-    setSavedEntryIds((current) => {
-      const next = new Set(current);
-      if (saved) {
-        next.add(id);
-      } else {
-        next.delete(id);
-      }
-      return next;
-    });
-  }
 
   return (
     <div className="tracker-document-fields">
@@ -187,39 +179,69 @@ function WeightEditFields(params: {
         <WeightQuickAdd
           controlsDisabled={controlsDisabled}
           onAddEntry={onAddEntry}
+          onPendingChange={onPendingChange}
           unit={unit}
         />
         {entries.length === 0 ? (
           <div className="tracker-empty-state">No entries</div>
         ) : (
-          entries.map((entry, index) =>
-            savedEntryIds.has(entry.id) ? (
-              <WeightEntryReadRow
-                key={entry.id}
-                currentAuthorId={currentAuthorId}
-                entry={entry}
-                index={index}
-                onEnterEdit={() => setEntrySaved(entry.id, false)}
-                previous={entries[index - 1]}
-              />
-            ) : (
-              <WeightEntryEditRow
-                key={entry.id}
-                controlsDisabled={controlsDisabled}
-                entry={entry}
-                index={index}
-                onRemoveEntry={onRemoveEntry}
-                onSaveEntry={(id) => setEntrySaved(id, true)}
-                onUpdateEntry={onUpdateEntry}
-              />
-            ),
-          )
+          <WeightEditRows
+            currentAuthorId={currentAuthorId}
+            controlsDisabled={controlsDisabled}
+            entries={entries}
+            onRemoveEntry={onRemoveEntry}
+            onUpdateEntry={onUpdateEntry}
+            resolveRowWriter={resolveRowWriter}
+          />
         )}
         <div className="weight-entry-list-footer tracker-entry-list-footer">
           {entries.length} entries
         </div>
       </section>
     </div>
+  );
+}
+
+function WeightEditRows(params: {
+  currentAuthorId: string | null;
+  controlsDisabled: boolean;
+  entries: ReadonlyArray<WeightEntryRow>;
+  onRemoveEntry: (id: string) => void;
+  onUpdateEntry: UpdateEntry;
+  resolveRowWriter?: RowWriterResolver | undefined;
+}) {
+  const [savedIds, setSavedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const setSaved = (id: string, saved: boolean) =>
+    setSavedIds((current) => {
+      const next = new Set(current);
+      saved ? next.add(id) : next.delete(id);
+      return next;
+    });
+
+  return params.entries.map((entry, index) =>
+    savedIds.has(entry.id) ? (
+      <WeightEntryReadRow
+        key={entry.id}
+        currentAuthorId={params.currentAuthorId}
+        entry={entry}
+        index={index}
+        onEnterEdit={() => setSaved(entry.id, false)}
+        previous={params.entries[index - 1]}
+        resolveRowWriter={params.resolveRowWriter}
+      />
+    ) : (
+      <WeightEntryEditRow
+        key={entry.id}
+        controlsDisabled={params.controlsDisabled}
+        entry={entry}
+        index={index}
+        onRemoveEntry={params.onRemoveEntry}
+        onSaveEntry={(id) => setSaved(id, true)}
+        onUpdateEntry={params.onUpdateEntry}
+      />
+    ),
   );
 }
 
@@ -262,12 +284,17 @@ export function WeightFields(params: {
     unitInputId,
   } = params;
   const controlsDisabled = disabled || !ready;
+  const [newEntryPending, setNewEntryPending] = useState(false);
+  const toggleEditing = useCallback(() => {
+    setNewEntryPending(false);
+    onToggleEditing();
+  }, [onToggleEditing]);
   useStructuredDocumentEditAction({
-    disabled: controlsDisabled,
+    disabled: controlsDisabled || newEntryPending,
     editingLabel: "Save",
     id: "weight-toggle-edit",
     isEditing,
-    onToggleEditing,
+    onToggleEditing: toggleEditing,
   });
 
   if (!isEditing) {
@@ -278,6 +305,7 @@ export function WeightFields(params: {
         entries={entries}
         onAddEntry={onAddEntry}
         onEnterEdit={onEnterEdit}
+        onPendingChange={setNewEntryPending}
         resolveRowWriter={resolveRowWriter}
         unit={unit}
       />
@@ -293,8 +321,10 @@ export function WeightFields(params: {
       onChangeUnit={onChangeUnit}
       onRemoveEntry={onRemoveEntry}
       onRenameTracker={onRenameTracker}
+      onPendingChange={setNewEntryPending}
       onUpdateEntry={onUpdateEntry}
       ready={ready}
+      resolveRowWriter={resolveRowWriter}
       trackerName={trackerName}
       trackerNameInputId={trackerNameInputId}
       unit={unit}
@@ -328,11 +358,7 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
     [setIsEditing],
   );
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
-  // Only resolve verified writers for the read view (attribution is not shown
-  // while editing) of a non-empty tracker.
-  const resolveRowWriter = useDocumentRowWriters(
-    !(isEditing && canWrite) && rows.length > 0,
-  );
+  const resolveRowWriter = useDocumentRowWriters(rows.length > 0);
 
   const trackerName = readTrackerNameField(structuredFields);
   const unit = readTrackerUnitField(structuredFields);

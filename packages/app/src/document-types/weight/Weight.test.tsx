@@ -17,8 +17,6 @@ import type { WeightEntryRow } from "./weightEntries";
 
 afterEach(cleanup);
 
-// Stands in for the pane header's toolbar. Labels are prefixed so a toolbar
-// action never collides with a same-named body/menu control in queries.
 function ToolbarProbe() {
   const actions = useWindowTitleBarActions();
 
@@ -189,7 +187,6 @@ test("toggles editing from the toolbar, not a body button", async () => {
   await waitFor(() => {
     expect(view.getByRole("button", { name: "Toolbar Edit" })).toBeTruthy();
   });
-  // The tracker body carries no Edit control of its own.
   expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
 
   fireEvent.click(view.getByRole("button", { name: "Toolbar Edit" }));
@@ -281,6 +278,10 @@ test("edit mode keeps a new entry pending until it is saved", () => {
 
   fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
   expect(view.queryByRole("button", { name: "Add Entry" })).toBeNull();
+  const toolbarSave = view.getByRole("button", { name: "Toolbar Save" });
+  expect((toolbarSave as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(toolbarSave);
+  expect(view.getByLabelText("Quick add weight")).toBeTruthy();
   fireEvent.change(view.getByLabelText("Quick add weight"), {
     target: { value: "178.5" },
   });
@@ -452,7 +453,10 @@ test("marks out-of-range weights invalid without blocking edits", () => {
 test("each entry saves independently beside Remove", () => {
   const removals: string[] = [];
   const view = renderWeightFields({
+    currentAuthorId: "user-alice",
     onRemoveEntry: (id) => removals.push(id),
+    entries: [attributedEntry, makeEntry({ id: "e2" })],
+    resolveRowWriter: attributedResolver,
   });
 
   const remove = view.getByRole("button", { name: "Remove entry 1" });
@@ -461,6 +465,7 @@ test("each entry saves independently beside Remove", () => {
   fireEvent.click(save);
   expect(view.queryByLabelText("Entry 1 weight")).toBeNull();
   expect(view.getByLabelText("Entry 2 weight")).toBeTruthy();
+  expect(view.getByText(/by user-bob/u)).toBeTruthy();
   expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
 
   fireEvent.click(view.getByRole("button", { name: "Entry 1 actions" }));

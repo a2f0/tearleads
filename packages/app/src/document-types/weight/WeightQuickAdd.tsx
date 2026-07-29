@@ -24,9 +24,10 @@ const EMPTY_ENTRY: WeightQuickEntry = {
 export function WeightQuickAdd(params: {
   controlsDisabled: boolean;
   onAddEntry: (entry: WeightQuickEntry) => void;
+  onPendingChange?: ((pending: boolean) => void) | undefined;
   unit: WeightUnit;
 }) {
-  const { controlsDisabled, onAddEntry, unit } = params;
+  const { controlsDisabled, onAddEntry, onPendingChange, unit } = params;
   const [entry, setEntry] = useState(EMPTY_ENTRY);
   const [open, setOpen] = useState(false);
   const valid = isValidWeightMeasurement(entry.weight);
@@ -34,6 +35,7 @@ export function WeightQuickAdd(params: {
   function close() {
     setEntry(EMPTY_ENTRY);
     setOpen(false);
+    onPendingChange?.(false);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -52,7 +54,10 @@ export function WeightQuickAdd(params: {
         className="weight-add-button tracker-add-button"
         withIcon
         disabled={controlsDisabled}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          onPendingChange?.(true);
+        }}
       >
         <PlusIcon aria-hidden size={14} />
         Add Entry
