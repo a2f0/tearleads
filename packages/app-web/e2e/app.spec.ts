@@ -219,12 +219,11 @@ test("windowed Back unwinds an Explorer window's route stack", async ({
   const toolbar = explorerWindow.locator(".window-toolbar");
   const back = toolbar.getByRole("button", { name: "Back" });
 
-  // The caret is present from the first route, disabled rather than absent, so
-  // it does not appear and disappear as the stack empties and refills.
+  // There is no Back action until the window has route history to unwind.
   await expect(
     toolbar.getByRole("button", { name: "New Document" }),
   ).toBeVisible({ timeout: 30_000 });
-  await expect(back).toBeDisabled();
+  await expect(back).toHaveCount(0);
 
   await toolbar.getByRole("button", { name: "New Document" }).click();
   await explorerWindow
@@ -276,7 +275,7 @@ test("windowed Back unwinds an Explorer window's route stack", async ({
   await expect(
     toolbar.getByRole("button", { name: "Create Child Folder" }),
   ).toBeVisible();
-  await expect(back).toBeDisabled();
+  await expect(back).toHaveCount(0);
 });
 
 // A window opened straight onto a route-backed detail has no history, so the
@@ -315,7 +314,7 @@ test("a deep-linked window's fallback Back does not stack a loop", async ({
   await expect(
     toolbar.getByRole("button", { name: "Create Child Folder" }),
   ).toBeVisible();
-  await expect(toolbar.getByRole("button", { name: "Back" })).toBeDisabled();
+  await expect(toolbar.getByRole("button", { name: "Back" })).toHaveCount(0);
 });
 
 test("SQLite tables survive a hard reload", async ({ page }) => {
