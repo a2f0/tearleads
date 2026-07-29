@@ -52,7 +52,9 @@ async function openUploadedImage(
   const row = window
     .locator(".explorer-item-row-button", { hasText: fileName })
     .first();
-  await expect(row).toBeVisible({ timeout: 60_000 });
+  // Inside the suite's 30s per-test budget: a longer wait here could never be
+  // reached, it would only be the test timeout that reported the failure.
+  await expect(row).toBeVisible({ timeout: 20_000 });
   await row.click();
   return window;
 }
