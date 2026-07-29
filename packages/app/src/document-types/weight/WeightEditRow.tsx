@@ -1,5 +1,7 @@
-import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
-import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
+import {
+  TrackerInputField,
+  TrackerRemoveAction,
+} from "../shared/TrackerFormControls";
 import {
   isValidWeightMeasurement,
   WEIGHT_MEASURED_AT_FIELD,
@@ -34,67 +36,50 @@ export function WeightEntryEditRow(params: {
     entry.weight.length > 0 && !isValidWeightMeasurement(entry.weight);
 
   return (
-    <div className="weight-entry-row">
-      <label className="weight-entry-field weight-entry-field-weight">
-        {`Weight (${entry.unit})`}
-        <input
-          aria-invalid={isInvalid ? "true" : undefined}
-          aria-label={`Entry ${index + 1} weight`}
-          value={entry.weight}
-          onChange={(event) =>
-            onUpdateEntry(
-              entry.id,
-              WEIGHT_MEASUREMENT_FIELD,
-              event.target.value,
-            )
-          }
-          inputMode="decimal"
-          pattern="\d*(\.\d{1,2})?"
-          placeholder={entry.unit === "kg" ? "82.5" : "180.5"}
-          disabled={controlsDisabled}
-          autoComplete="off"
-        />
-      </label>
-      <label className="weight-entry-field weight-entry-field-measured">
-        Measured At
-        <input
-          aria-label={`Entry ${index + 1} measured at`}
-          type="datetime-local"
-          value={entry.measuredAt}
-          onChange={(event) =>
-            onUpdateEntry(
-              entry.id,
-              WEIGHT_MEASURED_AT_FIELD,
-              event.target.value,
-            )
-          }
-          disabled={controlsDisabled}
-        />
-      </label>
-      <label className="weight-entry-field weight-entry-notes-field">
-        Notes
-        <input
-          aria-label={`Entry ${index + 1} notes`}
-          value={entry.notes}
-          onChange={(event) =>
-            onUpdateEntry(entry.id, WEIGHT_NOTES_FIELD, event.target.value)
-          }
-          placeholder="Before breakfast"
-          disabled={controlsDisabled}
-          autoComplete="off"
-        />
-      </label>
-      <MiniAppButton
-        aria-label={`Remove entry ${index + 1}`}
-        className="weight-remove-button"
-        withIcon
+    <div className="weight-entry-row tracker-edit-row">
+      <TrackerInputField
+        aria-invalid={isInvalid ? "true" : undefined}
+        aria-label={`Entry ${index + 1} weight`}
+        autoComplete="off"
+        className="weight-entry-field-weight tracker-entry-field--measurement"
         disabled={controlsDisabled}
-        onClick={() => onRemoveEntry(entry.id)}
-        title={`Remove entry ${index + 1}`}
-      >
-        <TrashIcon aria-hidden size={14} />
-        Remove
-      </MiniAppButton>
+        inputMode="decimal"
+        label={`Weight (${entry.unit})`}
+        onChange={(event) =>
+          onUpdateEntry(entry.id, WEIGHT_MEASUREMENT_FIELD, event.target.value)
+        }
+        pattern="\d*(\.\d{1,2})?"
+        placeholder={entry.unit === "kg" ? "82.5" : "180.5"}
+        value={entry.weight}
+      />
+      <TrackerInputField
+        aria-label={`Entry ${index + 1} measured at`}
+        className="weight-entry-field-measured tracker-entry-field--measured-at"
+        disabled={controlsDisabled}
+        label="Measured At"
+        onChange={(event) =>
+          onUpdateEntry(entry.id, WEIGHT_MEASURED_AT_FIELD, event.target.value)
+        }
+        type="datetime-local"
+        value={entry.measuredAt}
+      />
+      <TrackerInputField
+        aria-label={`Entry ${index + 1} notes`}
+        autoComplete="off"
+        className="weight-entry-notes-field"
+        disabled={controlsDisabled}
+        label="Notes"
+        onChange={(event) =>
+          onUpdateEntry(entry.id, WEIGHT_NOTES_FIELD, event.target.value)
+        }
+        placeholder="Before breakfast"
+        value={entry.notes}
+      />
+      <TrackerRemoveAction
+        ariaLabel={`Remove entry ${index + 1}`}
+        disabled={controlsDisabled}
+        onRemove={() => onRemoveEntry(entry.id)}
+      />
     </div>
   );
 }

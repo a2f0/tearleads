@@ -1,4 +1,8 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import {
+  expectActionBelowField,
+  expectWindowedInputClamps,
+} from "./trackerAssertions";
 
 const SQLITE_READY_PATTERN = /SQLite Worker:\s*ready/u;
 const PUBLIC_KEY_PATTERN = /Public Key:\s*([0-9a-f]{64})/u;
@@ -234,32 +238,20 @@ test("windowed Back unwinds an Explorer window's route stack", async ({
   await expect(toolbar.getByRole("button", { name: "Done" })).toBeVisible();
 
   await explorerWindow.getByRole("button", { name: "Add Reading" }).click();
-  for (const [label, expectedCap] of [
+  await expectWindowedInputClamps(explorerWindow, [
     ["Reading 1 systolic", 7],
     ["Reading 1 diastolic", 7],
     ["Reading 1 pulse", 7],
     ["Reading 1 measured at", 14],
-  ] as const) {
-    const input = explorerWindow.getByLabel(label);
-    await expect(input).toBeVisible();
-    const geometry = await input.evaluate((element) => {
-      const rawMaxWidth = getComputedStyle(element).maxWidth;
-      return {
-        maxWidth: rawMaxWidth.endsWith("px")
-          ? Number.parseFloat(rawMaxWidth)
-          : null,
-        parentWidth: element.parentElement?.getBoundingClientRect().width ?? 0,
-        rootFontSize: Number.parseFloat(
-          getComputedStyle(document.documentElement).fontSize,
-        ),
-        width: element.getBoundingClientRect().width,
-      };
-    });
-
-    expect(geometry.maxWidth).toBe(expectedCap * geometry.rootFontSize);
-    expect(geometry.parentWidth).toBeGreaterThan(geometry.maxWidth ?? 0);
-    expect(geometry.width).toBeCloseTo(geometry.maxWidth ?? 0, 0);
-  }
+  ]);
+  await expectActionBelowField(
+    explorerWindow,
+    "Reading 1 notes",
+    "Remove reading 1",
+  );
+  await expect(
+    explorerWindow.getByRole("button", { name: "Save", exact: true }),
+  ).toBeVisible();
 
   await toolbar.getByRole("button", { name: "Get Info" }).click();
   await expect(toolbar.getByRole("button", { name: "Done" })).toBeHidden();
@@ -276,6 +268,26 @@ test("windowed Back unwinds an Explorer window's route stack", async ({
     toolbar.getByRole("button", { name: "Create Child Folder" }),
   ).toBeVisible();
   await expect(back).toHaveCount(0);
+
+  // Weight uses the same compact tracker controls and explicit finish action.
+  await toolbar.getByRole("button", { name: "New Document" }).click();
+  await explorerWindow
+    .getByRole("button", { name: /Weight/ })
+    .first()
+    .click();
+  await explorerWindow.getByRole("button", { name: "Add Entry" }).click();
+  await expectWindowedInputClamps(explorerWindow, [
+    ["Entry 1 weight", 7],
+    ["Entry 1 measured at", 14],
+  ]);
+  await expectActionBelowField(
+    explorerWindow,
+    "Entry 1 notes",
+    "Remove entry 1",
+  );
+  await expect(
+    explorerWindow.getByRole("button", { name: "Save", exact: true }),
+  ).toBeVisible();
 });
 
 // A window opened straight onto a route-backed detail has no history, so the

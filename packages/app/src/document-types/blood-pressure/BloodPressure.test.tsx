@@ -465,21 +465,22 @@ test("marks out-of-range measurements invalid without blocking edits", () => {
   ).toBeNull();
 });
 
-test("add and remove buttons invoke their callbacks", () => {
-  let addCalls = 0;
+test("remove and save actions invoke their callbacks", () => {
   const removeCalls: string[] = [];
+  let saveCalls = 0;
   const view = renderBloodPressureFields({
-    onAddReading: () => {
-      addCalls += 1;
-    },
     onRemoveReading: (id) => removeCalls.push(id),
+    onToggleEditing: () => {
+      saveCalls += 1;
+    },
   });
 
-  fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
-  fireEvent.click(view.getByRole("button", { name: "Remove reading 1" }));
+  const remove = view.getByRole("button", { name: "Remove reading 1" });
+  fireEvent.click(remove);
+  fireEvent.click(view.getByRole("button", { name: "Save" }));
 
-  expect(addCalls).toBe(1);
   expect(removeCalls).toEqual(["r1"]);
+  expect(saveCalls).toBe(1);
 });
 
 test("disables controls while the document is loading", () => {

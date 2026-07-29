@@ -452,21 +452,22 @@ test("marks out-of-range weights invalid without blocking edits", () => {
   ).toBe("true");
 });
 
-test("add and remove buttons invoke their callbacks", () => {
-  let addCalls = 0;
+test("remove and save actions invoke their callbacks", () => {
   const removeCalls: string[] = [];
+  let saveCalls = 0;
   const view = renderWeightFields({
-    onAddEntry: () => {
-      addCalls += 1;
-    },
     onRemoveEntry: (id) => removeCalls.push(id),
+    onToggleEditing: () => {
+      saveCalls += 1;
+    },
   });
 
-  fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
-  fireEvent.click(view.getByRole("button", { name: "Remove entry 1" }));
+  const remove = view.getByRole("button", { name: "Remove entry 1" });
+  fireEvent.click(remove);
+  fireEvent.click(view.getByRole("button", { name: "Save" }));
 
-  expect(addCalls).toBe(1);
   expect(removeCalls).toEqual(["e1"]);
+  expect(saveCalls).toBe(1);
 });
 
 test("disables controls while the document is loading", () => {
