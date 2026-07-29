@@ -276,16 +276,18 @@ function GrantDetailView({
                 )}
               </td>
             </tr>
-            <tr>
-              <th>{ORG_MANAGER_LABELS.signingKey}</th>
-              <td>
-                {grant.signingKeyFingerprint ? (
-                  <code>{grant.signingKeyFingerprint}</code>
-                ) : (
-                  ORG_MANAGER_LABELS.none
-                )}
-              </td>
-            </tr>
+            {grant.subjectType === "user" ? (
+              <tr>
+                <th>{ORG_MANAGER_LABELS.signingKey}</th>
+                <td>
+                  {grant.signingKeyFingerprint ? (
+                    <code>{grant.signingKeyFingerprint}</code>
+                  ) : (
+                    ORG_MANAGER_LABELS.none
+                  )}
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </MiniAppInfoTable>
       </MiniAppSection>
