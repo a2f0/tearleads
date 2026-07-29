@@ -3,7 +3,13 @@ import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimpl
 import { MagnifyingGlassMinusIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGlassMinus";
 import { MagnifyingGlassPlusIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGlassPlus";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { type ReactNode, type RefObject, useEffect, useRef } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   useCurrentWindow,
@@ -109,10 +115,11 @@ function ImageViewerChrome(params: {
 // opened it on close, so keyboard focus is never dropped to the document body.
 function useImageViewerDismissal(params: {
   closeButtonRef: RefObject<HTMLButtonElement | null>;
+  host: HTMLElement;
   onClose: () => void;
   viewerRef: RefObject<HTMLDivElement | null>;
 }) {
-  const { closeButtonRef, onClose, viewerRef } = params;
+  const { closeButtonRef, host, onClose, viewerRef } = params;
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -128,15 +135,29 @@ function useImageViewerDismissal(params: {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose, viewerRef]);
 
-  useEffect(() => {
+  // A layout effect, and declared before the toolbar suppression below so it runs
+  // first: the control that opened this viewer may be a window toolbar action the
+  // suppression is about to unmount, and reading `activeElement` after that would
+  // record <body> instead of the opener.
+  useLayoutEffect(() => {
     const previouslyFocused = document.activeElement;
     closeButtonRef.current?.focus();
     return () => {
-      if (previouslyFocused instanceof HTMLElement) {
+      // The opener may have been unmounted while the viewer covered it — a
+      // suppressed toolbar action, or a row the host re-rendered away. Focusing a
+      // detached node silently drops focus to the document body, and Tab would
+      // then resume from the top of the page; land in the host pane instead so
+      // focus stays where the overlay was.
+      if (
+        previouslyFocused instanceof HTMLElement &&
+        previouslyFocused.isConnected
+      ) {
         previouslyFocused.focus();
+        return;
       }
+      host.focus();
     };
-  }, [closeButtonRef]);
+  }, [closeButtonRef, host]);
 }
 
 /**
@@ -168,6 +189,7 @@ export function MiniAppImageViewer(params: {
 
   useImageViewerDismissal({
     closeButtonRef,
+    host: portalHost,
     onClose: params.onClose,
     viewerRef,
   });

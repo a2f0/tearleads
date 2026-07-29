@@ -75,14 +75,14 @@ function WindowClipboardHarness() {
 function ImageViewerWindow({ withSidebar = true }: { withSidebar?: boolean }) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const { setSidebar } = useWindowSidebar();
-  // Stands in for the document actions a real host registers (Edit, Download),
-  // which is what puts a toolbar row above the viewer's own.
+  // Stands in for the blob browser's "Open" action: a window toolbar control that
+  // opens the viewer, so the opener is a control the suppression unmounts.
   const toolbarAction = useMemo(
     () => ({
       icon: <span aria-hidden>+</span>,
       id: "viewer-window-action",
-      label: "Window action",
-      onClick: () => undefined,
+      label: "Open image",
+      onClick: () => setViewerOpen(true),
     }),
     [],
   );
@@ -335,6 +335,38 @@ test("only the viewer's toolbar is left while it is open", async () => {
   await waitFor(() => {
     expect(host.querySelector(".window-toolbar")).toBeTruthy();
   });
+});
+
+// The blob browser opens this viewer from a window toolbar action — the very row
+// the viewer stands down. Its opener is therefore gone by the time the viewer
+// closes, so focus has to land in the pane instead of falling to the body.
+test("closing a toolbar-opened viewer keeps focus inside the window", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <WindowViewerHarness withSidebar={false} />
+    </WindowStateProvider>,
+  );
+
+  const open = await view.findByRole("button", { name: "Open viewer" });
+  const host = open.closest<HTMLDivElement>(".window");
+  if (!host) throw new Error("viewer window not found");
+  const toolbarOpen = await waitFor(() => {
+    const button = host.querySelector<HTMLButtonElement>(
+      '.window-toolbar [aria-label="Open image"]',
+    );
+    if (!button) throw new Error("toolbar open action not registered");
+    return button;
+  });
+
+  toolbarOpen.focus();
+  fireEvent.click(toolbarOpen);
+  // Standing the row down takes the opener with it.
+  expect(toolbarOpen.isConnected).toBe(false);
+
+  fireEvent.click(view.getByRole("button", { name: "Close" }));
+  expect(document.activeElement).toBe(
+    host.querySelector(".window-body-content"),
+  );
 });
 
 test("a sidebarless image viewer stays in the window content pane", async () => {
