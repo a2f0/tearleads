@@ -228,7 +228,7 @@ test("org manager groups view renders group detail without an inline back button
     selectedGroupId: group.groupId,
   });
 
-  expect(view.getByText(ORG_MANAGER_LABELS.members)).toBeTruthy();
+  expect(view.getAllByText(ORG_MANAGER_LABELS.members)).toHaveLength(2);
   expect(view.queryByLabelText(ORG_MANAGER_LABELS.groupName)).toBeNull();
   expect(
     view.queryByRole("button", { name: ORG_MANAGER_LABELS.back }),

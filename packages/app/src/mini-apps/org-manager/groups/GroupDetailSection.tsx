@@ -25,12 +25,13 @@ import { PolicyHistorySection } from "../policy-history/PolicyHistory";
 import { GroupContainers } from "./GroupContainers";
 import { GroupMembers } from "./GroupMembers";
 
-type GroupDetailTabId = "details" | "policy-history";
+type GroupDetailTabId = "members" | "policy-history" | "links";
 
 const GROUP_DETAIL_TABS: ReadonlyArray<MiniAppTabDescriptor<GroupDetailTabId>> =
   [
-    { id: "details", label: ORG_MANAGER_LABELS.groupDetailsTab },
+    { id: "members", label: ORG_MANAGER_LABELS.members },
     { id: "policy-history", label: ORG_MANAGER_LABELS.policyHistory },
+    { id: "links", label: ORG_MANAGER_LABELS.groupLinksTab },
   ];
 
 function GroupDetailHeader({
@@ -112,7 +113,7 @@ export function GroupDetailSection({
   userId: string | null;
 }) {
   const idPrefix = useId();
-  const [activeTab, setActiveTab] = useState<GroupDetailTabId>("details");
+  const [activeTab, setActiveTab] = useState<GroupDetailTabId>("members");
 
   return (
     <section className="org-manager-panel">
@@ -132,7 +133,7 @@ export function GroupDetailSection({
         className="org-manager-group-detail-tab-panel"
         idPrefix={idPrefix}
       >
-        {activeTab === "details" ? (
+        {activeTab === "members" ? (
           <>
             <MiniAppToolbar className="org-manager-form-toolbar">
               <MiniAppInput
@@ -178,14 +179,9 @@ export function GroupDetailSection({
                 userId={userId}
               />
             </MiniAppSection>
-            <MiniAppSection>
-              <MiniAppSectionHeading>
-                {ORG_MANAGER_LABELS.directContainerLinks}
-              </MiniAppSectionHeading>
-              <GroupContainers containers={groupContainers?.containers ?? []} />
-            </MiniAppSection>
           </>
-        ) : (
+        ) : null}
+        {activeTab === "policy-history" ? (
           <PolicyHistorySection
             directory={directory}
             groups={groups}
@@ -193,7 +189,15 @@ export function GroupDetailSection({
             pending={pending}
             profileDisplayNamesByUserId={profileDisplayNamesByUserId}
           />
-        )}
+        ) : null}
+        {activeTab === "links" ? (
+          <MiniAppSection>
+            <MiniAppSectionHeading>
+              {ORG_MANAGER_LABELS.directContainerLinks}
+            </MiniAppSectionHeading>
+            <GroupContainers containers={groupContainers?.containers ?? []} />
+          </MiniAppSection>
+        ) : null}
       </MiniAppTabPanel>
     </section>
   );
