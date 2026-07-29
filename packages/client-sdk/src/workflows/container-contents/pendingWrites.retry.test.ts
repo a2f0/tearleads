@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { CONTAINER_METADATA_APP_KIND } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
@@ -149,6 +150,64 @@ test("manual retry un-parks only that document's denied move", async () => {
     expect(
       await sqlDocumentMoveIntentPersistence.hasDeniedMoveIntents(execSql),
     ).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+// A deferred write's only durable content is the history tail ahead of the
+// covered frontier — no queued update rows. It is still queued work (the
+// panel lists it as a deferred-update candidate), so a manual retry clears
+// the failure row; a fully covered document stays failure-only and keeps
+// its row as the priming ticket.
+test("a deferred-tail-only scope counts as queued work on retry", async () => {
+  const { close, execSql } = await createTestExecSql("pending-retry-deferred");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const doc = await createDocument("deferred-tail-retry");
+    doc.getText("text").update("covered");
+    doc.commit();
+    const coveredVersion = encodeVersionVector(doc);
+    doc.getText("text").update("covered plus a deferred edit");
+    doc.commit();
+    const aheadVersion = encodeVersionVector(doc);
+
+    for (const [local, pendingBase] of [
+      ["deferred-doc", coveredVersion],
+      ["covered-doc", aheadVersion],
+    ] as const) {
+      await sqlDocumentsPersistence.saveDocument(execSql, {
+        id: local,
+        containerId: "container",
+        documentId: `${local}-remote`,
+        text: "",
+        snapshotEndVersion: aheadVersion,
+        accessEpoch: 1,
+        pendingBaseVersion: pendingBase,
+      });
+      await recordDocumentSyncFailure(
+        execSql,
+        { appKind: DOCUMENTS_APP_KIND, localId: local },
+        {
+          attemptedAt: new Date().toISOString(),
+          message: "Write access denied by the server (403)",
+          status: 403,
+        },
+      );
+      await resetPendingWriteRetryState(execSql, {
+        localId: local,
+        namespace: null,
+        objectKind: "document",
+      });
+    }
+
+    // The deferred-tail scope's row cleared; the covered scope's survived.
+    const failures = await execSql(
+      "SELECT local_id AS localId FROM document_sync_failures",
+    );
+    expect(failures.map((row) => Reflect.get(row, "localId"))).toEqual([
+      "covered-doc",
+    ]);
   } finally {
     close();
   }
