@@ -9,7 +9,10 @@ export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
 // v4: history tail rows gained a NOT NULL `origin` provenance column; a v3
 // backup would restore the table without it and break every subsequent
 // history write.
-export const BACKUP_FORMAT_VERSION = 4;
+// v5: container create intents gained a `last_attempted_at` column; a v4
+// backup would restore the table without it and break every create-intent
+// write, whose INSERT/UPDATE statements name the column.
+export const BACKUP_FORMAT_VERSION = 5;
 
 const BACKUP_KDF_ITERATIONS = 250_000;
 const BACKUP_KDF_MIN_ITERATIONS = 1_000;
