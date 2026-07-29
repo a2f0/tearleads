@@ -19,6 +19,15 @@
   overscroll-behavior: contain;
 }
 
+/* Desktop windows are their own viewing surface. The portal is a direct child
+   of `.window`, whose positioned box bounds this absolute overlay; clearing the
+   viewport height and safe-area padding keeps the viewer inside that frame. */
+.mini-app-image-viewer--windowed {
+  position: absolute;
+  height: auto;
+  padding: 0;
+}
+
 /* The header stacks its control row over the image's name; see
    ImageViewerChrome for why the name is not on the row itself. */
 .mini-app-image-viewer-chrome {

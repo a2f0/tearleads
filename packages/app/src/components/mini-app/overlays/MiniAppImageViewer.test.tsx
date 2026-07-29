@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import { CurrentWindowProvider } from "../../window/CurrentWindowContext";
 import { MiniAppImageViewer } from "./MiniAppImageViewer";
 
 afterEach(cleanup);
@@ -57,6 +58,72 @@ test("the viewer shows only the image and its toolbar", () => {
   expect(
     image.parentElement?.classList.contains("mini-app-image-viewer-stage"),
   ).toBe(true);
+});
+
+test("a window hosts the viewer inside its own bounds", () => {
+  const overlayHost = document.createElement("div");
+  overlayHost.className = "window";
+  document.body.append(overlayHost);
+
+  try {
+    const view = render(
+      <CurrentWindowProvider
+        close={() => undefined}
+        id="window-1"
+        overlayHost={overlayHost}
+        showStatusMessage={() => undefined}
+      >
+        <MiniAppImageViewer
+          label="photo.png"
+          onClose={() => undefined}
+          url="blob:photo"
+        />
+      </CurrentWindowProvider>,
+    );
+
+    const viewer = view.getByRole("dialog");
+    expect(viewer.parentElement).toBe(overlayHost);
+    expect(viewer.getAttribute("aria-modal")).toBeNull();
+    expect(viewer.classList.contains("mini-app-image-viewer--windowed")).toBe(
+      true,
+    );
+  } finally {
+    overlayHost.remove();
+  }
+});
+
+test("Escape closes only the viewer that owns focus", () => {
+  let firstCloses = 0;
+  let secondCloses = 0;
+  render(
+    <>
+      <MiniAppImageViewer
+        label="first.png"
+        onClose={() => (firstCloses += 1)}
+        url="blob:first"
+      />
+      <MiniAppImageViewer
+        label="second.png"
+        onClose={() => (secondCloses += 1)}
+        url="blob:second"
+      />
+    </>,
+  );
+
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(firstCloses).toBe(0);
+  expect(secondCloses).toBe(1);
+});
+
+test("Escape still closes after interacting with the image stage", () => {
+  let closes = 0;
+  const { stage } = renderViewer({ onClose: () => (closes += 1) });
+
+  fireEvent.pointerDown(stage, { pointerId: 1, pointerType: "mouse" });
+  expect(document.activeElement).toBe(stage.closest("[role=dialog]"));
+  fireEvent.keyDown(document, { key: "Escape" });
+
+  expect(closes).toBe(1);
 });
 
 // The name is on its own line so the control row stays all controls: at touch

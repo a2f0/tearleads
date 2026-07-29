@@ -11,6 +11,7 @@ import {
   useRef,
 } from "react";
 import { createPortal } from "react-dom";
+import { useCurrentWindow } from "../../window/CurrentWindowContext";
 import "./MiniAppImageViewer.css";
 import { useImageViewerState } from "./useImageViewerState";
 
@@ -132,19 +133,23 @@ function ImageViewerChrome(params: {
 function useImageViewerDismissal(params: {
   closeButtonRef: RefObject<HTMLButtonElement | null>;
   onClose: () => void;
+  viewerRef: RefObject<HTMLDivElement | null>;
 }) {
-  const { closeButtonRef, onClose } = params;
+  const { closeButtonRef, onClose, viewerRef } = params;
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (
+        event.key === "Escape" &&
+        viewerRef.current?.contains(document.activeElement)
+      ) {
         event.preventDefault();
         onClose();
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, viewerRef]);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement;
@@ -164,10 +169,10 @@ function useImageViewerDismissal(params: {
  * no room, and no way in. Here the image fills the screen and pinch, wheel,
  * drag, and double-tap zoom and pan it (see {@link useImageViewerState}).
  *
- * Rendered through a portal into <body> and fixed to the viewport so it covers
- * the whole app rather than being clipped by the pane or window that opened it,
- * and the stage takes `touch-action: none` so the browser hands the pinch to the
- * viewer instead of page-zooming behind it.
+ * Routed layouts portal into <body> and fill the viewport. A desktop window
+ * instead becomes the portal host so the viewer fills only the window that
+ * opened it. The stage takes `touch-action: none` so the browser hands the
+ * pinch to the viewer instead of page-zooming behind it.
  */
 export function MiniAppImageViewer(params: {
   label: string;
@@ -177,16 +182,29 @@ export function MiniAppImageViewer(params: {
 }) {
   const viewer = useImageViewerState();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const viewerRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  const currentWindow = useCurrentWindow();
+  const portalHost = currentWindow?.overlayHost ?? document.body;
+  const isWindowed = portalHost !== document.body;
 
-  useImageViewerDismissal({ closeButtonRef, onClose: params.onClose });
+  useImageViewerDismissal({
+    closeButtonRef,
+    onClose: params.onClose,
+    viewerRef,
+  });
 
   return createPortal(
     <div
       aria-labelledby={titleId}
-      aria-modal="true"
-      className="mini-app-image-viewer"
+      aria-modal={isWindowed ? undefined : "true"}
+      className={`mini-app-image-viewer${isWindowed ? " mini-app-image-viewer--windowed" : ""}`}
+      onPointerDownCapture={() =>
+        viewerRef.current?.focus({ preventScroll: true })
+      }
+      ref={viewerRef}
       role="dialog"
+      tabIndex={-1}
     >
       <ImageViewerChrome
         canZoomIn={viewer.canZoomIn}
@@ -227,6 +245,6 @@ export function MiniAppImageViewer(params: {
         )}
       </div>
     </div>,
-    document.body,
+    portalHost,
   );
 }
