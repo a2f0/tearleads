@@ -21,6 +21,7 @@ import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";
 import { ExplorerSyncLanesPanel } from "./sync/ExplorerSyncLanesPanel";
 import { ExplorerUploadsPanel } from "./sync/ExplorerUploadsPanel";
 import { ExplorerWriteQueuePanel } from "./sync/ExplorerWriteQueuePanel";
+import "./ExplorerSectionsPanel.css";
 
 type ExplorerSectionTabId = "sync" | "blobs" | "writes" | "uploads";
 

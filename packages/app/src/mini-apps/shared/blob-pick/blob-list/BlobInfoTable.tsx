@@ -147,6 +147,7 @@ function BlobInfoTableContent(params: {
 
 export function BlobInfoTable(params: {
   activeBlob: BlobInfo | null;
+  bleed?: boolean | undefined;
   blobStore: BlobStore;
   // Both resolved by the caller, which owns the scroll frame and therefore the
   // only measurement of it. Deriving either here would risk a second answer
@@ -219,6 +220,7 @@ export function BlobInfoTable(params: {
         "explorer-blob-browser-table-wrap",
         "mini-app-table-frame--virtual",
         "mini-app-table-frame--compact",
+        params.bleed && "mini-app-table-frame--bleed",
         // Folded rows take the taller two-line pitch; the shared modifier
         // restores it over the routed 44px floor.
         params.compact && "mini-app-table-frame--two-line",

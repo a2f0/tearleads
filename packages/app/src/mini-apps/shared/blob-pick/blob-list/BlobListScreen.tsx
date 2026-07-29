@@ -33,6 +33,7 @@ const EMPTY_PICK_ROUTE: BlobBrowserRoute = { blobId: null, storageKey: null };
 // The search input over the virtualized blob table. Shared by the Explorer's
 // browse mode and the pick surface below.
 export function BlobListScreen(params: {
+  bleed?: boolean | undefined;
   blobInfo: BlobInfoListState;
   blobStore: BlobStore;
   // The fold decision and row pitch come from the list data hook, which owns the
@@ -73,6 +74,7 @@ export function BlobListScreen(params: {
       <div className="explorer-blob-browser-screen">
         <BlobInfoTable
           activeBlob={null}
+          bleed={params.bleed}
           blobStore={params.blobStore}
           compact={params.compact}
           error={params.blobInfo.error}
@@ -119,6 +121,7 @@ function BlobPickHeader(params: { onCancel: () => void; slotLabel: string }) {
 // image slots, so non-image rows are shown but not selectable, and a row click
 // resolves the pick.
 export function BlobPickSurface(params: {
+  bleed?: boolean | undefined;
   blobStore: BlobStore;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   onCancel: () => void;
@@ -137,6 +140,7 @@ export function BlobPickSurface(params: {
     <>
       <BlobPickHeader onCancel={params.onCancel} slotLabel={params.slotLabel} />
       <BlobListScreen
+        bleed={params.bleed}
         blobInfo={data.blobInfo}
         blobStore={params.blobStore}
         compact={data.compact}

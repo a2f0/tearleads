@@ -271,7 +271,7 @@ export function ExplorerSyncLaneList(params: {
   );
 
   return (
-    <MiniAppTableFrame className="explorer-sync-lane-table-wrap">
+    <MiniAppTableFrame className="explorer-sync-lane-table-wrap mini-app-table-frame--bleed">
       <MiniAppTable
         aria-label={EXPLORER_LABELS.syncLanesTitle}
         columns={columns}

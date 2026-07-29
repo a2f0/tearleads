@@ -420,7 +420,7 @@ export function ExplorerWriteQueueTable(params: WriteQueueTableProps) {
 
   return (
     <>
-      <MiniAppTableFrame className="explorer-write-queue-table-wrap">
+      <MiniAppTableFrame className="explorer-write-queue-table-wrap mini-app-table-frame--bleed">
         <MiniAppTable
           aria-label={EXPLORER_LABELS.writeQueueTitle}
           columns={columns}
