@@ -1,7 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
-import { MiniAppClipboardButton } from "../mini-app/MiniAppLayout";
+import { useEffect, useState } from "react";
+import {
+  MiniAppClipboardButton,
+  MiniAppImageViewer,
+} from "../mini-app/MiniAppLayout";
 import { Window } from "./Window";
 import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
 
@@ -60,6 +63,51 @@ function WindowClipboardHarness() {
 
   return (
     <div>
+      {windows.map((window) => (
+        <Window key={window.id} windowId={window.id} />
+      ))}
+    </div>
+  );
+}
+
+function ImageViewerWindow() {
+  const [viewerOpen, setViewerOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setViewerOpen(true)}>
+        Open viewer
+      </button>
+      {viewerOpen ? (
+        <MiniAppImageViewer
+          label="photo.png"
+          onClose={() => setViewerOpen(false)}
+          url="blob:photo"
+        />
+      ) : null}
+    </>
+  );
+}
+
+function WindowViewerHarness() {
+  const { windows, create, restore } = useWindowState();
+
+  useEffect(() => {
+    create("Viewer", 0, 0, ImageViewerWindow);
+  }, [create]);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => {
+          const viewerWindow = windows[0];
+          if (viewerWindow) {
+            restore(viewerWindow.id);
+          }
+        }}
+      >
+        Restore viewer
+      </button>
       {windows.map((window) => (
         <Window key={window.id} windowId={window.id} />
       ))}
@@ -191,4 +239,33 @@ test("right-clicking a rendered window title bar opens the window menu", async (
 
   expect(view.getByText("Move Forward")).toBeTruthy();
   expect(view.getByText("Move Backward")).toBeTruthy();
+});
+
+test("restoring a window refreshes its image viewer host", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <WindowViewerHarness />
+    </WindowStateProvider>,
+  );
+
+  const open = await view.findByRole("button", { name: "Open viewer" });
+  const firstHost = open.closest<HTMLDivElement>(".window");
+  if (!firstHost) throw new Error("viewer window not found");
+
+  const minimize =
+    firstHost.querySelector<HTMLButtonElement>(".window-minimize");
+  if (!minimize) throw new Error("minimize button not found");
+  fireEvent.click(minimize);
+  expect(firstHost.isConnected).toBe(false);
+
+  fireEvent.click(view.getByRole("button", { name: "Restore viewer" }));
+  const restoredOpen = await view.findByRole("button", {
+    name: "Open viewer",
+  });
+  const restoredHost = restoredOpen.closest<HTMLDivElement>(".window");
+  if (!restoredHost) throw new Error("restored viewer window not found");
+  expect(restoredHost).not.toBe(firstHost);
+
+  fireEvent.click(restoredOpen);
+  expect(view.getByRole("dialog").parentElement).toBe(restoredHost);
 });

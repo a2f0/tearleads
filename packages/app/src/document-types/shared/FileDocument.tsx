@@ -193,7 +193,10 @@ export function FileDocumentFields({
       {/* For media, the preview is the point of the view: render it above the
           metadata so it lands on top without a scroll. */}
       {mediaPreview ? (
-        <FileDocumentMediaPreviewPanel preview={mediaPreview} />
+        <FileDocumentMediaPreviewPanel
+          onDownload={downloadDisabled ? undefined : onDownload}
+          preview={mediaPreview}
+        />
       ) : null}
       {pdfPreview ? <FileDocumentPdfPreviewPanel preview={pdfPreview} /> : null}
       {downloadError ? (

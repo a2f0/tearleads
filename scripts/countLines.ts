@@ -18,6 +18,12 @@ type FileStats = Stats & {
   name: string;
 };
 
+type ModuleRow = {
+  module: string;
+  source: Stats;
+  test: Stats;
+};
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, "..");
 
@@ -168,6 +174,63 @@ const createRows = (fileStats: FileStats[]): Row[] => {
   return rows;
 };
 
+const moduleNameForFile = (filePath: string): string => {
+  const normalizedPath = filePath.replaceAll("\\", "/").replace(/^\.\//u, "");
+  const normalizedRoot = rootDir.replaceAll("\\", "/");
+  const relativePath = normalizedPath.startsWith(`${normalizedRoot}/`)
+    ? normalizedPath.slice(normalizedRoot.length + 1)
+    : normalizedPath;
+  const [firstSegment, secondSegment] = relativePath.split("/");
+
+  if (firstSegment === "packages" && secondSegment) {
+    return `packages/${secondSegment}`;
+  }
+
+  return secondSegment ? (firstSegment ?? "(root)") : "(root)";
+};
+
+const createModuleRows = (stats: FileStats[]): ModuleRow[] => {
+  const rowsByModule = new Map<string, Omit<ModuleRow, "module">>();
+  let totalSource = emptyStats();
+  let totalTest = emptyStats();
+
+  for (const file of stats) {
+    const module = moduleNameForFile(file.name);
+    const current = rowsByModule.get(module) ?? {
+      source: emptyStats(),
+      test: emptyStats(),
+    };
+
+    if (isTestFile(file.name)) {
+      current.test = addStats(current.test, file);
+      totalTest = addStats(totalTest, file);
+    } else {
+      current.source = addStats(current.source, file);
+      totalSource = addStats(totalSource, file);
+    }
+
+    rowsByModule.set(module, current);
+  }
+
+  const rows = Array.from(rowsByModule.entries())
+    .map(([module, moduleStats]) => ({ module, ...moduleStats }))
+    .sort(
+      (left, right) =>
+        right.source.code +
+          right.test.code -
+          (left.source.code + left.test.code) ||
+        left.module.localeCompare(right.module),
+    );
+
+  rows.push({
+    module: "Total",
+    source: totalSource,
+    test: totalTest,
+  });
+
+  return rows;
+};
+
 const fileStats = Object.entries(data)
   .filter(([name]) => name !== "Total")
   .flatMap(([language, stats]) => collectLanguageFileStats(language, stats));
@@ -187,6 +250,16 @@ const headers = {
   blank: "Blank",
   comment: "Comment",
   code: "Code",
+};
+
+const moduleHeaders = {
+  module: "Module",
+  sourceFiles: "Src files",
+  sourceCode: "Src code",
+  testFiles: "Test files",
+  testCode: "Test code",
+  totalCode: "Total code",
+  testRatio: "Test/src",
 };
 
 const padRight = (value: string, width: number): string => value.padEnd(width);
@@ -242,6 +315,65 @@ const printTable = (title: string, rows: Row[]): void => {
   });
 };
 
+const formatRatio = (testCode: number, sourceCode: number): string =>
+  sourceCode === 0 ? "n/a" : `${Math.round((testCode / sourceCode) * 100)}%`;
+
+const printModuleTable = (rows: ModuleRow[]): void => {
+  const displayRows = rows.map((row) => ({
+    module: row.module,
+    sourceFiles: formatNumber(row.source.files),
+    sourceCode: formatNumber(row.source.code),
+    testFiles: formatNumber(row.test.files),
+    testCode: formatNumber(row.test.code),
+    totalCode: formatNumber(row.source.code + row.test.code),
+    testRatio: formatRatio(row.test.code, row.source.code),
+  }));
+  const columnWidths = displayRows.reduce(
+    (widths, row) => ({
+      module: Math.max(widths.module, row.module.length),
+      sourceFiles: Math.max(widths.sourceFiles, row.sourceFiles.length),
+      sourceCode: Math.max(widths.sourceCode, row.sourceCode.length),
+      testFiles: Math.max(widths.testFiles, row.testFiles.length),
+      testCode: Math.max(widths.testCode, row.testCode.length),
+      totalCode: Math.max(widths.totalCode, row.totalCode.length),
+      testRatio: Math.max(widths.testRatio, row.testRatio.length),
+    }),
+    Object.fromEntries(
+      Object.entries(moduleHeaders).map(([key, value]) => [key, value.length]),
+    ) as Record<keyof typeof moduleHeaders, number>,
+  );
+  const alignedValues = (
+    values: Record<keyof typeof moduleHeaders, string>,
+    fill = " ",
+  ): string[] =>
+    Object.keys(moduleHeaders).map((key, index) => {
+      const column = key as keyof typeof moduleHeaders;
+      const value = values[column];
+      const width = columnWidths[column];
+      return index === 0
+        ? value.padEnd(width, fill)
+        : value.padStart(width, fill);
+    });
+
+  console.log("Per-module code");
+  console.log(alignedValues(moduleHeaders).join("  "));
+  console.log(
+    alignedValues(
+      Object.fromEntries(
+        Object.keys(moduleHeaders).map((key) => [
+          key,
+          "-".repeat(columnWidths[key as keyof typeof moduleHeaders]),
+        ]),
+      ) as Record<keyof typeof moduleHeaders, string>,
+    ).join("  "),
+  );
+  displayRows.forEach((row) => {
+    console.log(alignedValues(row).join("  "));
+  });
+};
+
 printTable("Source files", sourceRows);
 console.log("");
 printTable("Test files", testRows);
+console.log("");
+printModuleTable(createModuleRows(fileStats));

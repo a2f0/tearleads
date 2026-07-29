@@ -8,6 +8,7 @@ import {
 interface CurrentWindowContextValue {
   close: () => void;
   id: string;
+  overlayHost: HTMLElement | null;
   showStatusMessage: (message: string) => void;
 }
 
@@ -19,11 +20,12 @@ export function CurrentWindowProvider({
   children,
   close,
   id,
+  overlayHost,
   showStatusMessage,
 }: PropsWithChildren<CurrentWindowContextValue>) {
   const value = useMemo(
-    () => ({ close, id, showStatusMessage }),
-    [close, id, showStatusMessage],
+    () => ({ close, id, overlayHost, showStatusMessage }),
+    [close, id, overlayHost, showStatusMessage],
   );
 
   return (

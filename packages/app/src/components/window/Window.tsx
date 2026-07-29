@@ -274,6 +274,7 @@ function WindowInnerContent({
 }: WindowInnerProps) {
   const { title, maximized, minimized, zIndex, component: Component } = entry;
   const windowRef = useRef<HTMLDivElement>(null);
+  const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
   const { sidebar } = useWindowSidebar();
@@ -323,13 +324,18 @@ function WindowInnerContent({
   };
   const style = getWindowStyle(maximized, position, size, zIndex);
 
+  const setWindowElement = useCallback((element: HTMLDivElement | null) => {
+    windowRef.current = element;
+    setOverlayHost(element);
+  }, []);
+
   if (minimized) {
     return null;
   }
 
   return (
     <div
-      ref={windowRef}
+      ref={setWindowElement}
       className={maximized ? "window window--maximized" : "window"}
       {...windowContextMenuTrapProps}
       onMouseDownCapture={handleWindowMouseDown}
@@ -353,6 +359,7 @@ function WindowInnerContent({
       <CurrentWindowProvider
         close={handleClose}
         id={entry.id}
+        overlayHost={overlayHost}
         showStatusMessage={showStatusMessage}
       >
         <WindowBodyWithSidebar showSidebar={showSidebar}>
