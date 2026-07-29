@@ -95,7 +95,7 @@ function UploadsTable(params: { rows: ReadonlyArray<UploadRow> }) {
   const visibleRows = params.rows.slice(0, rowLimit);
 
   return (
-    <MiniAppTableFrame>
+    <MiniAppTableFrame className="mini-app-table-frame--bleed">
       <MiniAppTable
         aria-label={EXPLORER_LABELS.uploadsTitle}
         columns={UPLOADS_COLUMNS}
@@ -209,7 +209,7 @@ export function ExplorerUploadsPanel(params: ExplorerUploadsPanelProps) {
         </MiniAppStatus>
       ) : null}
       {rows.length === 0 ? (
-        <MiniAppTableFrame>
+        <MiniAppTableFrame className="mini-app-table-frame--bleed">
           <MiniAppTable
             aria-label={EXPLORER_LABELS.uploadsTitle}
             columns={UPLOADS_COLUMNS}

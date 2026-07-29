@@ -178,6 +178,67 @@ for (const surface of TAB_STRIP_SURFACES) {
   });
 }
 
+const EXPLORER_DIAGNOSTICS_LISTS = [
+  {
+    name: "blob browser",
+    path: "/app/explorer/blobs",
+    selector: ".explorer-blob-browser-table-wrap",
+  },
+  {
+    name: "sync lanes",
+    path: "/app/explorer/sync",
+    selector: ".explorer-sync-lane-table-wrap",
+  },
+  {
+    name: "write queue",
+    path: "/app/explorer/writes",
+    selector: ".explorer-detail--write-queue .mini-app-table-frame",
+  },
+  {
+    name: "uploads",
+    path: "/app/explorer/uploads",
+    selector: ".explorer-detail--uploads .mini-app-table-frame",
+  },
+] as const;
+
+for (const surface of EXPLORER_DIAGNOSTICS_LISTS) {
+  test(`mobile Explorer diagnostics list reaches both screen edges (${surface.name})`, async ({
+    page,
+  }) => {
+    const viewportWidth = 599;
+    await page.setViewportSize({ width: viewportWidth, height: 800 });
+    await page.goto(surface.path);
+
+    const frame = page.locator(surface.selector).first();
+    await expect(frame).toBeVisible({ timeout: 30_000 });
+
+    const geometry = await frame.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const escaped: string[] = [];
+      let node: Element | null = element.parentElement;
+      while (node) {
+        const style = getComputedStyle(node);
+        if (style.overflowX !== "visible") {
+          const nodeBox = node.getBoundingClientRect();
+          const padLeft =
+            nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
+          const padRight =
+            nodeBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
+          if (box.left < padLeft || box.right > padRight) {
+            escaped.push(node.className);
+          }
+        }
+        node = node.parentElement;
+      }
+      return { escaped, left: box.left, width: box.width };
+    });
+
+    expect(geometry.left).toBe(0);
+    expect(geometry.width).toBe(viewportWidth);
+    expect(geometry.escaped).toEqual([]);
+  });
+}
+
 // One shared popover menu backs every context menu in the app, so this covers
 // Contacts, Notes, Org Manager and the rest as much as it covers Explorer. Its
 // routed block used to set only the 44px row height, which left the row

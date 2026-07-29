@@ -1,0 +1,13 @@
+/*
+ * The diagnostics lists opt into the shared mobile table bleed, but their
+ * active panels are also scrollports. A negative-margin table cannot escape a
+ * narrower scrollport: its leading edge is clipped and its trailing edge turns
+ * into horizontal overflow. Move the root inset onto the panel instead, so its
+ * content remains aligned while list frames can cancel that padding and reach
+ * both screen edges. This is the same scrollport handoff used for tab strips in
+ * MiniAppTabs.css.
+ */
+.routed-pane--mobile .explorer-sections-tab-panel > .explorer-detail {
+  margin-inline: calc(-1 * var(--space-md));
+  padding-inline: var(--space-md);
+}

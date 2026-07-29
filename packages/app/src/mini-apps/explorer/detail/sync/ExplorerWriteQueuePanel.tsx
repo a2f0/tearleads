@@ -159,7 +159,7 @@ function WriteQueueEmptyState(params: { error: boolean; loading: boolean }) {
       ? EXPLORER_LABELS.writeQueueFailedToLoad
       : EXPLORER_LABELS.writeQueueEmpty;
   return (
-    <MiniAppTableFrame>
+    <MiniAppTableFrame className="mini-app-table-frame--bleed">
       <MiniAppTable
         aria-label={EXPLORER_LABELS.writeQueueTitle}
         columns={columns}
@@ -198,8 +198,7 @@ function WriteQueueEntryBody(params: ExplorerWriteQueuePanelViewProps) {
     );
   }
 
-  // The list is still loading, so the entry may just not have arrived yet; keep
-  // the loading affordance rather than claiming it is gone.
+  // The entry may not have loaded yet; don't claim it is gone.
   if (params.loading) {
     return <MiniAppStatus>{EXPLORER_LABELS.writeQueueLoading}</MiniAppStatus>;
   }

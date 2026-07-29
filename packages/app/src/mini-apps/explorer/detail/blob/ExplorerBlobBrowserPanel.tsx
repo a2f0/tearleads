@@ -116,6 +116,7 @@ function BlobBrowserBrowseScreen(params: {
         </div>
       ) : (
         <BlobListScreen
+          bleed
           blobInfo={data.blobInfo}
           blobStore={params.blobStore}
           compact={data.compact}
@@ -184,6 +185,7 @@ export function ExplorerBlobBrowserPanel(
     >
       {params.pickTarget && pickBlob ? (
         <BlobPickSurface
+          bleed
           blobStore={params.blobStore}
           loadBlobInfo={params.loadBlobInfo}
           onCancel={onCancel}
