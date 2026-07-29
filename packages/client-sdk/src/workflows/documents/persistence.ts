@@ -430,11 +430,15 @@ export async function deletePersistedDocument(input: {
     documentProjectors,
     execSql: input.execSql,
   });
-  if (input.canStartDurableMutation && !input.canStartDurableMutation()) {
-    return false;
-  }
-
+  let deleted = false;
   await runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
+    // The guard runs INSIDE the claimed mutation: the pre-claim answer can go
+    // stale while the deletion waits behind another mutation (a store reset,
+    // a replacement generation's persist), and deleting on the stale answer
+    // would wipe rows the newer generation just wrote.
+    if (input.canStartDurableMutation && !input.canStartDurableMutation()) {
+      return;
+    }
     const existing = await input.persistence.loadDocument(
       lockedExecSql,
       input.localId,
@@ -446,8 +450,9 @@ export async function deletePersistedDocument(input: {
       localId: input.localId,
     });
     input.onDeletedInMutation?.();
+    deleted = true;
   });
-  return true;
+  return deleted;
 }
 
 export type DiscardedDocumentShellResult = DiscardDocumentToShellResult;
