@@ -58,7 +58,7 @@ async function persistRowMutation(
   // Row writes change neither prose nor structured fields; setReadySnapshot
   // always re-derives rows from the doc, so preserve the text/structured fields
   // in case this write overlaps an in-flight keystroke elsewhere.
-  await persistDocument(
+  const persisted = await persistDocument(
     state,
     currentDoc,
     { snapshotEndVersion: coveredVersion },
@@ -67,6 +67,11 @@ async function persistRowMutation(
       preserveSnapshotText: true,
     },
   );
+  if (!persisted) {
+    // Refused: the document was deleted while this persist was queued
+    // and the store is cleared — no state advance, no sync request.
+    return;
+  }
   advancePendingBaseVersion(state, currentDoc);
   requestDocumentStoreSync(state);
 }

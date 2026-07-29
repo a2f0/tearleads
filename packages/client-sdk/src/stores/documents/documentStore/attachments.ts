@@ -209,7 +209,7 @@ async function persistAttachedFiles(
   // re-derives attachments from the doc, but preserve the text/structured
   // fields so an attach that overlaps an in-flight keystroke does not republish
   // a stale doc read over the live optimistic editor value.
-  await persistDocument(
+  const persisted = await persistDocument(
     state,
     currentDoc,
     { snapshotEndVersion: coveredVersion },
@@ -218,6 +218,11 @@ async function persistAttachedFiles(
       preserveSnapshotText: true,
     },
   );
+  if (!persisted) {
+    // Refused: the document was deleted while this persist was queued
+    // and the store is cleared — no state advance, no sync request.
+    return;
+  }
   advancePendingBaseVersion(state, currentDoc);
   logAttachedFiles(state, files.length);
   requestDocumentStoreSync(state);
@@ -271,7 +276,7 @@ async function persistSlotAttachmentFile(
   }
   // Preserve the optimistic text/structured fields (see persistAttachedFiles):
   // a slot replacement overlapping a keystroke must not regress the editor.
-  await persistDocument(
+  const persisted = await persistDocument(
     state,
     currentDoc,
     { snapshotEndVersion: coveredVersion },
@@ -280,6 +285,11 @@ async function persistSlotAttachmentFile(
       preserveSnapshotText: true,
     },
   );
+  if (!persisted) {
+    // Refused: the document was deleted while this persist was queued
+    // and the store is cleared — no state advance, no sync request.
+    return;
+  }
   advancePendingBaseVersion(state, currentDoc);
   state.runtime.util.log(`Queued attachment ${file.name} for slot ${slotId}.`);
   requestDocumentStoreSync(state);
@@ -370,7 +380,7 @@ async function persistRemovedAttachment(
 
   // Preserve the optimistic text/structured fields (see persistAttachedFiles):
   // removing an attachment while typing must not regress the editor.
-  await persistDocument(
+  const persisted = await persistDocument(
     state,
     currentDoc,
     { snapshotEndVersion: coveredVersion },
@@ -379,6 +389,11 @@ async function persistRemovedAttachment(
       preserveSnapshotText: true,
     },
   );
+  if (!persisted) {
+    // Refused: the document was deleted while this persist was queued
+    // and the store is cleared — no state advance, no sync request.
+    return;
+  }
   advancePendingBaseVersion(state, currentDoc);
   state.runtime.util.log(
     `Removed attachment ${existingAttachment.name} from document ${state.localId}.`,
