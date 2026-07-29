@@ -666,6 +666,9 @@ export const containerCreateIntents = sqliteTable(
     remoteMetadataDocumentId: text("remote_metadata_document_id"),
     remoteMetadataAccessStateHash: text("remote_metadata_access_state_hash"),
     lastError: text("last_error"),
+    // Added WITHOUT a migration under the greenfield reset documented on the
+    // `documents` table: no database predating this column survives it.
+    lastAttemptedAt: text("last_attempted_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

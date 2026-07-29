@@ -75,6 +75,7 @@ export interface ContainerCreateIntentRecord {
   remoteMetadataDocumentId: string | null;
   remoteMetadataAccessStateHash: string | null;
   lastError: string | null;
+  lastAttemptedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -328,6 +329,7 @@ interface SelectedContainerCreateIntentRecord {
   remoteMetadataDocumentId: string | null;
   remoteMetadataAccessStateHash: string | null;
   lastError: string | null;
+  lastAttemptedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -357,6 +359,7 @@ function mapContainerCreateIntentRecord(
     remoteMetadataDocumentId: row.remoteMetadataDocumentId,
     remoteMetadataAccessStateHash: row.remoteMetadataAccessStateHash,
     lastError: row.lastError,
+    lastAttemptedAt: row.lastAttemptedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -543,6 +546,7 @@ async function saveContainerCreateIntent(input: {
       remoteMetadataDocumentId: null,
       remoteMetadataAccessStateHash: null,
       lastError: null,
+      lastAttemptedAt: null,
       createdAt: updatedAt,
       updatedAt,
     })
@@ -556,6 +560,7 @@ async function saveContainerCreateIntent(input: {
         remoteMetadataDocumentId: null,
         remoteMetadataAccessStateHash: null,
         lastError: null,
+        lastAttemptedAt: null,
         updatedAt,
       },
     })
@@ -1134,6 +1139,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         remoteMetadataAccessStateHash:
           containerCreateIntents.remoteMetadataAccessStateHash,
         lastError: containerCreateIntents.lastError,
+        lastAttemptedAt: containerCreateIntents.lastAttemptedAt,
         createdAt: containerCreateIntents.createdAt,
         updatedAt: containerCreateIntents.updatedAt,
       })
@@ -1224,11 +1230,13 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   },
   async recordCreateIntentError(execSql, containerId, message) {
     await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+      const updatedAt = new Date().toISOString();
       await db
         .update(containerCreateIntents)
         .set({
+          lastAttemptedAt: updatedAt,
           lastError: message,
-          updatedAt: new Date().toISOString(),
+          updatedAt,
         })
         .where(
           and(
