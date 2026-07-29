@@ -14,7 +14,10 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { groupPendingWriteCandidates } from "./pendingWrites/aggregation";
-import { listDeferredPendingWriteCandidates } from "./pendingWrites/deferredTails";
+import {
+  hasDeferredTailScopeWork,
+  listDeferredPendingWriteCandidates,
+} from "./pendingWrites/deferredTails";
 import { listPersistedPendingWriteCandidates } from "./pendingWrites/sources";
 import type { PendingWriteQueueItem } from "./pendingWritesTypes";
 
@@ -98,9 +101,10 @@ export async function resetPendingWriteRetryState(
 
 /**
  * Whether ANY durable outbound work exists for the scope — CRDT updates,
- * staged attachment uploads, move intents, or a never-created local document.
- * Mirrors the queue's own document candidate sources, so "failure-only" here
- * agrees with the item the panel rendered.
+ * staged attachment uploads, move intents, a never-created local document, or
+ * a deferred write whose only durable content is the history tail ahead of
+ * its covered frontier. Mirrors the queue's own document candidate sources,
+ * so "failure-only" here agrees with the item the panel rendered.
  */
 async function hasQueuedScopeWork(
   execSql: ExecSql,
@@ -139,5 +143,11 @@ async function hasQueuedScopeWork(
       scope.localId,
     ],
   );
-  return rows.length > 0;
+  if (rows.length > 0) {
+    return true;
+  }
+  // The queue's deferred-update source has no queued rows to probe: the
+  // write lives in the durable history tail, detectable only by the
+  // version-vector coverage check.
+  return hasDeferredTailScopeWork(execSql, scope);
 }

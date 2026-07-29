@@ -186,3 +186,55 @@ export async function listDeferredPendingWriteCandidates(
     return candidate ? [candidate] : [];
   });
 }
+
+const DEFERRED_TAIL_SCOPE_SQL = `
+  SELECT
+    stored.snapshot_end_version AS snapshot_end_version,
+    stored.pending_base_version AS pending_base_version,
+    (
+      SELECT pending.partial_end_version_vector
+      FROM document_pending_updates pending
+      WHERE pending.app_kind = stored.app_kind
+        AND pending.local_id = stored.local_id
+      ORDER BY pending.created_at DESC, pending.rowid DESC
+      LIMIT 1
+    ) AS latest_pending_end_version
+  FROM documents stored
+  WHERE stored.app_kind = ? AND stored.local_id = ?
+    AND stored.snapshot_end_version <> ''
+    -- Dormant retained metadata (row 4, access_revoked) has no containers
+    -- row; it is not queued work until re-attach, matching the candidate
+    -- scan's guard.
+    AND (stored.app_kind <> 'container-metadata'
+      OR EXISTS (SELECT 1 FROM containers WHERE containers.id = stored.local_id))
+  LIMIT 1
+`;
+
+/**
+ * Whether this one scope has a deferred write: durable-tail content ahead of
+ * its covered frontier, possibly with no queued update rows at all. The same
+ * coverage check as the candidate scan, narrowed to a single scope, so
+ * "queued work" classifications agree with the item the panel rendered.
+ */
+export async function hasDeferredTailScopeWork(
+  execSql: ExecSql,
+  scope: { appKind: string; localId: string },
+): Promise<boolean> {
+  const rows = await execSql(DEFERRED_TAIL_SCOPE_SQL, [
+    scope.appKind,
+    scope.localId,
+  ]);
+  const row = rows[0];
+  if (!row) {
+    return false;
+  }
+  const currentVersion = readString(row, "snapshot_end_version");
+  if (!currentVersion) {
+    return false;
+  }
+  return hasUncoveredTail({
+    currentVersion,
+    latestPendingEndVersion: readString(row, "latest_pending_end_version"),
+    pendingBaseVersion: readString(row, "pending_base_version"),
+  });
+}
