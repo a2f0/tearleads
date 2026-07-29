@@ -95,6 +95,7 @@ test("logged-out identity explains that active sessions require login", async ()
     expect(
       view.getByText("Log in to view and manage active sessions."),
     ).toBeTruthy();
+    expect(view.getByRole("button", { name: "Login" })).toBeTruthy();
     expect(view.queryByRole("table")).toBeNull();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
