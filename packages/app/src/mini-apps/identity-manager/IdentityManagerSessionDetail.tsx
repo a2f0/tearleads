@@ -40,11 +40,13 @@ function SessionIpAddressList({
   }
 
   return (
-    <span className="identity-manager-session-ip-list">
-      {ipAddresses.map((ipAddress) => (
-        <code key={ipAddress}>{ipAddress}</code>
-      ))}
-    </span>
+    <input
+      aria-label="Full session IP addresses"
+      className="identity-manager-session-ip-list"
+      readOnly
+      type="text"
+      value={ipAddresses.join(", ")}
+    />
   );
 }
 

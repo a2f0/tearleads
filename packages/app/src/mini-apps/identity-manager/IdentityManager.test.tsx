@@ -258,14 +258,14 @@ test("session rows open details and expose context menu actions", async () => {
     expect(view.getByText("Current Session")).toBeTruthy();
     expect(view.getByText(ACTIVE_SESSION.id)).toBeTruthy();
     expect(view.getByText(ACTIVE_SESSION.signingKeyFingerprint)).toBeTruthy();
-    const ipList = detailTable.querySelector(
-      ".identity-manager-session-ip-list",
-    );
-    if (!(ipList instanceof HTMLElement)) {
-      throw new Error("Expected full session IP list");
+    const ipList = view.getByRole("textbox", {
+      name: "Full session IP addresses",
+    });
+    if (!(ipList instanceof HTMLInputElement)) {
+      throw new Error("Expected session IP text field");
     }
-    expect(within(ipList).getByText("198.51.100.10")).toBeTruthy();
-    expect(within(ipList).getByText("203.0.113.9")).toBeTruthy();
+    expect(ipList.value).toBe("198.51.100.10, 203.0.113.9");
+    expect(ipList.readOnly).toBe(true);
     expect(view.queryByText("Active Sessions")).toBeNull();
     expect(view.queryByText("Identity")).toBeNull();
     expect(view.queryByRole("button", { name: "Copy session ID" })).toBeNull();
