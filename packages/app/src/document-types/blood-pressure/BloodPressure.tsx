@@ -1,6 +1,9 @@
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { useCallback, useId } from "react";
-import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
+import {
+  MiniAppButton,
+  MiniAppInput,
+} from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   type RowWriterResolver,
@@ -13,6 +16,7 @@ import {
   useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
+import { TrackerSaveAction } from "../shared/TrackerFormControls";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
 import {
   type BloodPressureField,
@@ -57,9 +61,9 @@ function BloodPressureReadFields(params: {
   } = params;
 
   return (
-    <div className="blood-pressure-document-fields">
-      <section className="blood-pressure-reading-list">
-        <div className="blood-pressure-reading-list-header">
+    <div className="tracker-document-fields">
+      <section className="blood-pressure-reading-list tracker-entry-list">
+        <div className="blood-pressure-reading-list-header tracker-entry-list-header">
           <strong>Readings</strong>
         </div>
         {onEnterEdit ? (
@@ -69,7 +73,7 @@ function BloodPressureReadFields(params: {
           />
         ) : null}
         {readings.length === 0 ? (
-          <div className="blood-pressure-empty-state">No readings</div>
+          <div className="tracker-empty-state">No readings</div>
         ) : (
           readings.map((reading, index) => (
             <BloodPressureReadingReadRow
@@ -82,7 +86,7 @@ function BloodPressureReadFields(params: {
             />
           ))
         )}
-        <div className="blood-pressure-reading-list-footer">
+        <div className="blood-pressure-reading-list-footer tracker-entry-list-footer">
           {readings.length} entries
         </div>
       </section>
@@ -95,6 +99,7 @@ function BloodPressureEditFields(params: {
   onAddReading: () => void;
   onRemoveReading: (id: string) => void;
   onRenameTracker: (value: string) => void;
+  onSave: () => void;
   onUpdateReading: UpdateReading;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   ready: boolean;
@@ -106,6 +111,7 @@ function BloodPressureEditFields(params: {
     onAddReading,
     onRemoveReading,
     onRenameTracker,
+    onSave,
     onUpdateReading,
     readings,
     ready,
@@ -114,13 +120,13 @@ function BloodPressureEditFields(params: {
   } = params;
 
   return (
-    <div className="blood-pressure-document-fields">
+    <div className="tracker-document-fields">
       <StructuredDocumentFields>
         <StructuredDocumentField
           inputId={trackerNameInputId}
           label="Tracker Name"
         >
-          <input
+          <MiniAppInput
             id={trackerNameInputId}
             aria-label="Blood pressure tracker name"
             value={trackerName}
@@ -131,13 +137,11 @@ function BloodPressureEditFields(params: {
           />
         </StructuredDocumentField>
       </StructuredDocumentFields>
-      <section className="blood-pressure-reading-list">
-        <div className="blood-pressure-reading-list-header">
-          <div className="blood-pressure-reading-list-title">
-            <strong>Readings</strong>
-          </div>
+      <section className="blood-pressure-reading-list tracker-entry-list">
+        <div className="blood-pressure-reading-list-header tracker-entry-list-header">
+          <strong>Readings</strong>
           <MiniAppButton
-            className="blood-pressure-add-button"
+            className="blood-pressure-add-button tracker-add-button"
             withIcon
             disabled={controlsDisabled}
             onClick={() => onAddReading()}
@@ -147,7 +151,7 @@ function BloodPressureEditFields(params: {
           </MiniAppButton>
         </div>
         {readings.length === 0 ? (
-          <div className="blood-pressure-empty-state">No readings</div>
+          <div className="tracker-empty-state">No readings</div>
         ) : (
           readings.map((reading, index) => (
             <BloodPressureReadingEditRow
@@ -160,10 +164,11 @@ function BloodPressureEditFields(params: {
             />
           ))
         )}
-        <div className="blood-pressure-reading-list-footer">
+        <div className="blood-pressure-reading-list-footer tracker-entry-list-footer">
           {readings.length} entries
         </div>
       </section>
+      <TrackerSaveAction disabled={controlsDisabled} onSave={onSave} />
     </div>
   );
 }
@@ -203,6 +208,7 @@ export function BloodPressureFields(params: {
   const controlsDisabled = disabled || !ready;
   useStructuredDocumentEditAction({
     disabled: controlsDisabled,
+    editingLabel: "Save",
     id: "blood-pressure-toggle-edit",
     isEditing,
     onToggleEditing,
@@ -227,6 +233,7 @@ export function BloodPressureFields(params: {
       onAddReading={onAddReading}
       onRemoveReading={onRemoveReading}
       onRenameTracker={onRenameTracker}
+      onSave={onToggleEditing}
       onUpdateReading={onUpdateReading}
       readings={readings}
       ready={ready}

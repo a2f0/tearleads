@@ -1,5 +1,7 @@
-import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
-import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
+import {
+  TrackerInputField,
+  TrackerRemoveAction,
+} from "../shared/TrackerFormControls";
 import {
   BLOOD_PRESSURE_DIASTOLIC_FIELD,
   BLOOD_PRESSURE_MEASURED_AT_FIELD,
@@ -52,22 +54,21 @@ function BloodPressureMeasurementInput(params: {
   const isInvalid = value.length > 0 && !isValidBloodPressureMeasurement(value);
 
   return (
-    <label className={`blood-pressure-reading-field ${className}`}>
-      {label}
-      <input
-        aria-invalid={isInvalid ? "true" : undefined}
-        aria-label={`Reading ${index + 1} ${label.toLowerCase()}`}
-        value={value}
-        onChange={(event) =>
-          onUpdateReading(reading.id, property, event.target.value)
-        }
-        inputMode="numeric"
-        pattern="\d*"
-        placeholder={placeholder}
-        disabled={controlsDisabled}
-        autoComplete="off"
-      />
-    </label>
+    <TrackerInputField
+      aria-invalid={isInvalid ? "true" : undefined}
+      aria-label={`Reading ${index + 1} ${label.toLowerCase()}`}
+      autoComplete="off"
+      className={`${className} tracker-entry-field--measurement`}
+      disabled={controlsDisabled}
+      inputMode="numeric"
+      label={label}
+      onChange={(event) =>
+        onUpdateReading(reading.id, property, event.target.value)
+      }
+      pattern="\d*"
+      placeholder={placeholder}
+      value={value}
+    />
   );
 }
 
@@ -90,7 +91,7 @@ export function BloodPressureReadingEditRow(params: {
   };
 
   return (
-    <div className="blood-pressure-reading-row">
+    <div className="blood-pressure-reading-row tracker-edit-row">
       <BloodPressureMeasurementInput
         {...measurementProps}
         className="blood-pressure-reading-field-systolic"
@@ -112,50 +113,42 @@ export function BloodPressureReadingEditRow(params: {
         placeholder="72"
         property={BLOOD_PRESSURE_PULSE_FIELD}
       />
-      <label className="blood-pressure-reading-field blood-pressure-reading-field-measured">
-        Measured At
-        <input
-          aria-label={`Reading ${index + 1} measured at`}
-          type="datetime-local"
-          value={reading.measuredAt}
-          onChange={(event) =>
-            onUpdateReading(
-              reading.id,
-              BLOOD_PRESSURE_MEASURED_AT_FIELD,
-              event.target.value,
-            )
-          }
-          disabled={controlsDisabled}
-        />
-      </label>
-      <label className="blood-pressure-reading-field blood-pressure-reading-notes-field">
-        Notes
-        <input
-          aria-label={`Reading ${index + 1} notes`}
-          value={reading.notes}
-          onChange={(event) =>
-            onUpdateReading(
-              reading.id,
-              BLOOD_PRESSURE_NOTES_FIELD,
-              event.target.value,
-            )
-          }
-          placeholder="After walk"
-          disabled={controlsDisabled}
-          autoComplete="off"
-        />
-      </label>
-      <MiniAppButton
-        aria-label={`Remove reading ${index + 1}`}
-        className="blood-pressure-remove-button"
-        withIcon
+      <TrackerInputField
+        aria-label={`Reading ${index + 1} measured at`}
+        className="blood-pressure-reading-field-measured tracker-entry-field--measured-at"
         disabled={controlsDisabled}
-        onClick={() => onRemoveReading(reading.id)}
-        title={`Remove reading ${index + 1}`}
-      >
-        <TrashIcon aria-hidden size={14} />
-        Remove
-      </MiniAppButton>
+        label="Measured At"
+        onChange={(event) =>
+          onUpdateReading(
+            reading.id,
+            BLOOD_PRESSURE_MEASURED_AT_FIELD,
+            event.target.value,
+          )
+        }
+        type="datetime-local"
+        value={reading.measuredAt}
+      />
+      <TrackerInputField
+        aria-label={`Reading ${index + 1} notes`}
+        autoComplete="off"
+        className="blood-pressure-reading-notes-field"
+        disabled={controlsDisabled}
+        label="Notes"
+        onChange={(event) =>
+          onUpdateReading(
+            reading.id,
+            BLOOD_PRESSURE_NOTES_FIELD,
+            event.target.value,
+          )
+        }
+        placeholder="After walk"
+        value={reading.notes}
+      />
+      <TrackerRemoveAction
+        ariaLabel={`Remove reading ${index + 1}`}
+        disabled={controlsDisabled}
+        onRemove={() => onRemoveReading(reading.id)}
+      />
     </div>
   );
 }

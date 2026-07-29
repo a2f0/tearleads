@@ -196,11 +196,11 @@ test("toggles editing from the toolbar, not a body button", async () => {
   expect(toggleCalls).toBe(1);
 });
 
-test("toolbar action becomes Done while editing", async () => {
+test("toolbar action matches the body Save action while editing", async () => {
   const view = renderWeightFields({ entries: [], isEditing: true });
 
   await waitFor(() => {
-    expect(view.getByRole("button", { name: "Toolbar Done" })).toBeTruthy();
+    expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
   });
   expect(view.queryByRole("button", { name: "Toolbar Edit" })).toBeNull();
 });
@@ -452,21 +452,19 @@ test("marks out-of-range weights invalid without blocking edits", () => {
   ).toBe("true");
 });
 
-test("add and remove buttons invoke their callbacks", () => {
-  let addCalls = 0;
-  const removeCalls: string[] = [];
+test("add, remove, and save actions invoke their callbacks", () => {
+  const calls: string[] = [];
   const view = renderWeightFields({
-    onAddEntry: () => {
-      addCalls += 1;
-    },
-    onRemoveEntry: (id) => removeCalls.push(id),
+    onAddEntry: () => calls.push("add"),
+    onRemoveEntry: (id) => calls.push(`remove ${id}`),
+    onToggleEditing: () => calls.push("save"),
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
   fireEvent.click(view.getByRole("button", { name: "Remove entry 1" }));
+  fireEvent.click(view.getByRole("button", { name: "Save" }));
 
-  expect(addCalls).toBe(1);
-  expect(removeCalls).toEqual(["e1"]);
+  expect(calls).toEqual(["add", "remove e1", "save"]);
 });
 
 test("disables controls while the document is loading", () => {
@@ -484,5 +482,8 @@ test("disables controls while the document is loading", () => {
   expect(
     (view.getByRole("button", { name: "Add Entry" }) as HTMLButtonElement)
       .disabled,
+  ).toBe(true);
+  expect(
+    (view.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled,
   ).toBe(true);
 });
