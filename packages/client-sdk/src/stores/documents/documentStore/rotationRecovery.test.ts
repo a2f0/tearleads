@@ -16,6 +16,7 @@ import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedU
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
 import type { DocumentsRuntime } from "../types";
 import {
   ensureDocumentStoreReady,
@@ -397,6 +398,72 @@ test("an edit after preflight remains replayable after the new key metadata is p
     importSnapshot(freshReader, baseline);
     importUpdates(freshReader, [base64ToBytes(pending?.updateData ?? "")]);
     expect(getTextValue(freshReader)).toBe("edit during unlink");
+  } finally {
+    close();
+  }
+});
+
+// The rotation preflight's terminal-failure handler carries the store
+// generation: a teardown (row 21's discard) racing the recovery invalidates
+// it, so a denied submit records nothing instead of resurrecting a failure
+// row for a document whose rows were just deleted.
+test("a torn-down store records no rotation preflight failure", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "rotation-recovery-torn-down",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const localId = "rotation-recovery-torn-down-local";
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+
+    const baseRuntime = createRuntime({ execSql, fixture });
+    let tearDownStore = () => {};
+    const runtime = {
+      ...baseRuntime,
+      apiClient: {
+        ...baseRuntime.apiClient,
+        syncDocumentResult: async () => {
+          // The concurrent discard lands while the submit is in flight.
+          tearDownStore();
+          return {
+            message: "Write access denied by the server (403)",
+            ok: false as const,
+            report: () => {},
+            status: 403,
+          };
+        },
+      } as unknown as DocumentsRuntime["apiClient"],
+    };
+    const state = createDocumentStoreState(
+      localId,
+      runtime,
+      sqlDocumentsPersistence,
+      ignoredPersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    if (!state.doc) {
+      throw new Error("Expected full-history document");
+    }
+    state.doc.getText("text").update("doomed local edit");
+    const pendingUpdate = pendingDeltaSinceBase(state, state.doc);
+    await enqueuePendingUpdate(state, pendingUpdate);
+    await persistDocument(state, state.doc);
+    advancePendingBaseVersion(state, state.doc);
+    tearDownStore = () => {
+      (state as { doc: unknown }).doc = null;
+    };
+
+    await expect(
+      assertDocumentStoreCanRotateContentKey(state),
+    ).rejects.toThrow();
+    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
   } finally {
     close();
   }
