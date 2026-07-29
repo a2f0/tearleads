@@ -126,3 +126,69 @@ test("contacts store promotes a deferred self contact on later ensure", async ()
     runtime.close();
   }
 });
+
+test("signed-out ensure preserves a promoted self contact without a deferred edit", async () => {
+  const baseRuntime = await createContactsRuntime();
+  const structuredFieldDeferOptions: Array<boolean | undefined> = [];
+  const runtime: ContactsRuntime & { close: () => void } = {
+    ...baseRuntime,
+    openDocumentStore: (input) => {
+      const documentStore = baseRuntime.openDocumentStore(input);
+      return {
+        ...documentStore,
+        setStructuredFields: async (kind, patch, options) => {
+          structuredFieldDeferOptions.push(options?.deferRemoteSync);
+          return documentStore.setStructuredFields(kind, patch, options);
+        },
+      };
+    },
+  };
+  const selfKey: ResolvedUserIdentity = {
+    encapsulationKeyFingerprint: "self-encapsulation-fingerprint",
+    encapsulationPublicKey: "self-encapsulation-public-key",
+    signingKeyFingerprint: "self-signing-fingerprint",
+    signingPublicKey: "self-signing-public-key",
+    userId: "self-user",
+  };
+  const store = createContactsStore(runtime, {
+    resolveUserIdentity: async () => {
+      throw new Error("unexpected remote self key fetch");
+    },
+    logError: (message, cause) => {
+      throw new Error(String(message), { cause });
+    },
+  });
+
+  try {
+    store.updateRuntime(runtime);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Contacts store did not initialize.",
+    );
+
+    const selfContactId = getSelfContactLocalId(selfKey.signingKeyFingerprint);
+    await store.ensureSelfContact({
+      encapsulationPublicKey: selfKey.encapsulationPublicKey,
+      localId: selfContactId,
+      userId: selfKey.userId,
+    });
+    expect(structuredFieldDeferOptions).toEqual([false]);
+
+    await store.ensureSelfContact({
+      deferRemoteSync: true,
+      localId: selfContactId,
+    });
+
+    expect(structuredFieldDeferOptions).toEqual([false]);
+    expect(store.getSnapshot().entries).toContainEqual(
+      expect.objectContaining({
+        encapsulationPublicKey: selfKey.encapsulationPublicKey,
+        id: selfContactId,
+        isSelf: true,
+        userId: selfKey.userId,
+      }),
+    );
+  } finally {
+    runtime.close();
+  }
+});

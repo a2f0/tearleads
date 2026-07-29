@@ -5,6 +5,8 @@ const SELF_CONTACT_ID_PREFIX = "self_contact_v1_";
 export interface EnsureSelfContactInput {
   readonly deferRemoteSync?: boolean | null | undefined;
   readonly encapsulationPublicKey?: string | null | undefined;
+  /** Existing-contact lookup hint only; never written into the contact. */
+  readonly lookupUserId?: string | null | undefined;
   readonly localId?: string | null | undefined;
   readonly userId?: string | null | undefined;
 }
@@ -38,16 +40,23 @@ export function isCurrentSelfContactLocalId(
 export function findPrimarySelfContact(
   entriesById: ReadonlyMap<string, ContactEntry>,
   identity: ResolvedSelfContactIdentity,
+  lookupUserId?: string | null | undefined,
 ): ContactEntry | null {
+  // A recovered contact can be stored under its remote document id, so the
+  // deterministic local id alone cannot find it after logout. The retained
+  // session user id is a lookup hint only; it never changes the identity that
+  // ensureSelfContact may persist.
+  const matchingUserId =
+    identity.userId ?? normalizeOptionalString(lookupUserId);
   // A writable self entry with this userId under a non-deterministic id is the
   // recovered cross-device identity. It outranks the creation fallback even if
   // that fallback was already promoted with the same userId while remote
   // hydration was in flight. Unrelated and read-only entries cannot displace a
   // self contact that this device can maintain.
-  if (identity.userId) {
+  if (matchingUserId) {
     for (const entry of entriesById.values()) {
       if (
-        entry.userId === identity.userId &&
+        entry.userId === matchingUserId &&
         entry.isSelf &&
         entry.canWrite !== false &&
         (!identity.localId || entry.id !== identity.localId)
@@ -66,9 +75,9 @@ export function findPrimarySelfContact(
 
   // Preserve the existing promotion behavior when no deterministic fallback
   // exists, but never select a shared/read-only contact for a write operation.
-  if (identity.userId) {
+  if (matchingUserId) {
     for (const entry of entriesById.values()) {
-      if (entry.userId === identity.userId && entry.canWrite !== false) {
+      if (entry.userId === matchingUserId && entry.canWrite !== false) {
         return entry;
       }
     }

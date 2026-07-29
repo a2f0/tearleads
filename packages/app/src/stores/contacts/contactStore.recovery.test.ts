@@ -144,6 +144,16 @@ test("named recovered self contact remains under its remote local id", async () 
       lastName: "User",
       nickname: "Primary",
     });
+
+    const signedOutContactId = await store.ensureSelfContact({
+      deferRemoteSync: true,
+      localId: getSelfContactLocalId(selfKey.signingKeyFingerprint),
+      lookupUserId: selfKey.userId,
+    });
+    expect(signedOutContactId).toBe(recoveredContactId);
+    expect(store.getSnapshot().entries.filter((entry) => entry.isSelf)).toEqual(
+      [expect.objectContaining({ id: recoveredContactId })],
+    );
   } finally {
     runtime.close();
   }
