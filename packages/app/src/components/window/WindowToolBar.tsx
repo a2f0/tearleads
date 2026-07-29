@@ -19,8 +19,7 @@ import {
  * action wins, and otherwise the button steps back through the host's own
  * history. `showHistoryBack` turns that fallback on for a window hosting a
  * routed mini-app, whose history is the window's Back stack (windows are not
- * backed by browser history); it stays visible-but-disabled at the first route
- * rather than appearing and disappearing as the stack empties.
+ * backed by browser history); the fallback is omitted when that stack is empty.
  *
  * Both surfaces read one shared registry (WindowMenuContext), so a mini-app
  * registers its actions once and they appear wherever it is hosted.
@@ -52,7 +51,7 @@ export function WindowToolBar({
   const actions = useWindowTitleBarActions();
   const reserved = useWindowToolbarReserved();
   const reservationReleased = useWindowToolbarReservationReleased();
-  const showBack = backAction !== null || showHistoryBack;
+  const showBack = backAction !== null || (showHistoryBack && canGoBack);
   const hasChrome = showBack || actions.length > 0;
   // Latch: this window's app has shown toolbar chrome at least once, so keep the
   // row reserved from here on rather than collapsing it on a transient empty.

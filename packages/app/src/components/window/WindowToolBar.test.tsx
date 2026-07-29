@@ -243,17 +243,14 @@ test("shows a history Back caret for a window hosting a routed mini-app", async 
   expect(wentBack).toEqual([1]);
 });
 
-// Visible-but-disabled at the first route, matching the routed app bar — it must
-// not appear and disappear as the stack empties and refills.
-test("keeps the history Back caret disabled when the stack is empty", () => {
+test("omits the history Back caret when the stack is empty", () => {
   const view = render(
     <WindowMenuProvider>
       <WindowToolBar showHistoryBack onGoBack={() => undefined} />
     </WindowMenuProvider>,
   );
 
-  const back = view.getByRole("button", { name: "Back" });
-  expect((back as HTMLButtonElement).disabled).toBe(true);
+  expect(view.queryByRole("button", { name: "Back" })).toBeNull();
 });
 
 test("omits the history Back caret for a window hosting no routed mini-app", () => {
