@@ -199,8 +199,12 @@ export function MiniAppImageViewer(params: {
       aria-labelledby={titleId}
       aria-modal={isWindowed ? undefined : "true"}
       className={`mini-app-image-viewer${isWindowed ? " mini-app-image-viewer--windowed" : ""}`}
+      onPointerDownCapture={() =>
+        viewerRef.current?.focus({ preventScroll: true })
+      }
       ref={viewerRef}
       role="dialog"
+      tabIndex={-1}
     >
       <ImageViewerChrome
         canZoomIn={viewer.canZoomIn}

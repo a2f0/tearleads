@@ -115,6 +115,17 @@ test("Escape closes only the viewer that owns focus", () => {
   expect(secondCloses).toBe(1);
 });
 
+test("Escape still closes after interacting with the image stage", () => {
+  let closes = 0;
+  const { stage } = renderViewer({ onClose: () => (closes += 1) });
+
+  fireEvent.pointerDown(stage, { pointerId: 1, pointerType: "mouse" });
+  expect(document.activeElement).toBe(stage.closest("[role=dialog]"));
+  fireEvent.keyDown(document, { key: "Escape" });
+
+  expect(closes).toBe(1);
+});
+
 // The name is on its own line so the control row stays all controls: at touch
 // sizes five 44px targets plus an unnamed blob's id do not share a phone's width.
 test("the image's name sits under the control row rather than in it", () => {
