@@ -234,6 +234,34 @@ test("windowed Back unwinds an Explorer window's route stack", async ({
   // A freshly created document opens in edit mode, so its toolbar carries Done.
   await expect(toolbar.getByRole("button", { name: "Done" })).toBeVisible();
 
+  await explorerWindow.getByRole("button", { name: "Add Reading" }).click();
+  for (const [label, expectedCap] of [
+    ["Reading 1 systolic", 7],
+    ["Reading 1 diastolic", 7],
+    ["Reading 1 pulse", 7],
+    ["Reading 1 measured at", 14],
+  ] as const) {
+    const input = explorerWindow.getByLabel(label);
+    await expect(input).toBeVisible();
+    const geometry = await input.evaluate((element) => {
+      const rawMaxWidth = getComputedStyle(element).maxWidth;
+      return {
+        maxWidth: rawMaxWidth.endsWith("px")
+          ? Number.parseFloat(rawMaxWidth)
+          : null,
+        parentWidth: element.parentElement?.getBoundingClientRect().width ?? 0,
+        rootFontSize: Number.parseFloat(
+          getComputedStyle(document.documentElement).fontSize,
+        ),
+        width: element.getBoundingClientRect().width,
+      };
+    });
+
+    expect(geometry.maxWidth).toBe(expectedCap * geometry.rootFontSize);
+    expect(geometry.parentWidth).toBeGreaterThan(geometry.maxWidth ?? 0);
+    expect(geometry.width).toBeCloseTo(geometry.maxWidth ?? 0, 0);
+  }
+
   await toolbar.getByRole("button", { name: "Get Info" }).click();
   await expect(toolbar.getByRole("button", { name: "Done" })).toBeHidden();
   await expect(back).toBeEnabled();

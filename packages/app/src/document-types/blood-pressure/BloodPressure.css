@@ -154,6 +154,24 @@
   border-color: var(--color-danger);
 }
 
+/* Keep compact, fixed-range values from expanding across a desktop window.
+   Routed layouts retain the full-width controls used by the touch UI. */
+:root[data-navigation-mode="windowed"]
+  :is(
+    .blood-pressure-reading-field-systolic,
+    .blood-pressure-reading-field-diastolic,
+    .blood-pressure-reading-field-pulse
+  )
+  input {
+  max-width: 7rem;
+}
+
+:root[data-navigation-mode="windowed"]
+  .blood-pressure-reading-field-measured
+  input {
+  max-width: 14rem;
+}
+
 /* Chrome comes from the shared MiniAppButton; only per-surface deltas here. */
 .blood-pressure-remove-button {
   min-width: var(--control-height);
