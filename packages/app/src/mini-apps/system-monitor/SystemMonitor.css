@@ -37,6 +37,17 @@
   overflow: visible;
 }
 
+/*
+ * Compact mobile: the mini-app root already gives tab content the same inline
+ * inset used by Explorer's Get Info views. Status and Environment also carry
+ * `.pane-content` for their desktop-pane rendering, so without this override
+ * they pick up a second inline inset and sit noticeably farther from the screen
+ * edges than those sibling detail views.
+ */
+.routed-pane--mobile .system-monitor-tab-panel .pane-content {
+  padding-inline: 0;
+}
+
 /* The user-agent row is one long unbroken token; without this it forces the
    whole info table wider than the pane. */
 .system-monitor-environment-value {
