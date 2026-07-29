@@ -52,7 +52,41 @@ test("org manager grant detail links group grants to their group", () => {
   expect(
     detailTable.classList.contains("mini-app-info-table--borderless"),
   ).toBe(true);
+  expect(view.queryByText(ORG_MANAGER_LABELS.signingKey)).toBeNull();
   fireEvent.click(view.getByRole("button", { name: "Readers" }));
 
   expect(openedGroupIds).toEqual(["group-1"]);
+});
+
+test("org manager grant detail shows signing keys for user grants", () => {
+  const signingKeyFingerprint = "user-signing-key-fingerprint";
+  const userGrant: OrganizationContainerGrant = {
+    ...grant,
+    groupId: null,
+    groupName: null,
+    signingKeyFingerprint,
+    subjectId: "user-1",
+    subjectType: "user",
+    userId: "user-1",
+  };
+  const view = render(
+    <GrantsView
+      canRevokeGrants
+      grants={{ grants: [userGrant], organizationId: "org-1" }}
+      pending={false}
+      mutating={false}
+      openGrantRoute={() => undefined}
+      openGroupRoute={() => undefined}
+      revokeGrant={() => undefined}
+      selectedGrant={userGrant}
+      selectedGrantRef={{
+        containerId: userGrant.containerId,
+        subjectId: userGrant.subjectId,
+        subjectType: userGrant.subjectType,
+      }}
+    />,
+  );
+
+  expect(view.getByText(ORG_MANAGER_LABELS.signingKey)).toBeTruthy();
+  expect(view.getByText(signingKeyFingerprint)).toBeTruthy();
 });
