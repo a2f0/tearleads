@@ -31,7 +31,7 @@ async function openExplorerWindow(page: Page): Promise<{
 async function createTracker(
   explorerWindow: Locator,
   toolbar: Locator,
-  type: "Blood Pressure" | "Weight",
+  type: ".env File" | "Blood Pressure" | "Weight",
 ): Promise<void> {
   await toolbar.getByRole("button", { name: "New Document" }).click();
   await explorerWindow
@@ -74,11 +74,10 @@ async function expectActionsFillRow(actions: Locator): Promise<void> {
   expect(Math.abs(saveBox.width - removeBox.width)).toBeLessThanOrEqual(1);
 }
 
-test("windowed health trackers share compact fields and finish actions", async ({
-  page,
-}) => {
-  const { explorerWindow, toolbar } = await openExplorerWindow(page);
-
+async function checkWindowedBloodPressure(
+  explorerWindow: Locator,
+  toolbar: Locator,
+) {
   await createTracker(explorerWindow, toolbar, "Blood Pressure");
   await explorerWindow.getByRole("button", { name: "Add Reading" }).click();
   await expect(
@@ -113,7 +112,9 @@ test("windowed health trackers share compact fields and finish actions", async (
   await expect(toolbar.getByRole("button", { name: "Save" })).toBeVisible();
   await toolbar.getByRole("button", { name: "Save" }).click();
   await expect(toolbar.getByRole("button", { name: "Edit" })).toBeVisible();
+}
 
+async function checkWindowedWeight(explorerWindow: Locator, toolbar: Locator) {
   await toolbar.getByRole("button", { name: "Back" }).click();
   await createTracker(explorerWindow, toolbar, "Weight");
   await explorerWindow.getByRole("button", { name: "Add Entry" }).click();
@@ -140,6 +141,49 @@ test("windowed health trackers share compact fields and finish actions", async (
   await expect(toolbar.getByRole("button", { name: "Save" })).toBeVisible();
   await toolbar.getByRole("button", { name: "Save" }).click();
   await expect(toolbar.getByRole("button", { name: "Edit" })).toBeVisible();
+}
+
+async function checkWindowedEnvFile(explorerWindow: Locator, toolbar: Locator) {
+  await toolbar.getByRole("button", { name: "Back" }).click();
+  await createTracker(explorerWindow, toolbar, ".env File");
+  await explorerWindow.getByRole("button", { name: "Add Variable" }).click();
+  await expect(
+    explorerWindow.getByRole("button", { name: "Add Variable" }),
+  ).toHaveCount(0);
+  await explorerWindow.getByLabel("Quick add env variable key").fill("API_URL");
+  await explorerWindow
+    .getByLabel("Quick add env variable value")
+    .fill("https://example.test");
+  await explorerWindow.getByRole("button", { name: "Save Variable" }).click();
+  await expectActionBelowField(
+    explorerWindow,
+    "Env variable 1 value",
+    "Remove env variable 1",
+  );
+  const variableActions = explorerWindow
+    .locator(".env-file-variable-row")
+    .locator(".tracker-row-actions");
+  await expectActionsShareRow(
+    variableActions,
+    "Save env variable 1",
+    "Remove env variable 1",
+  );
+  await variableActions
+    .getByRole("button", { name: "Save env variable 1" })
+    .click();
+  await expect(
+    explorerWindow.locator(".env-file-variable-read-row"),
+  ).toBeVisible();
+  await expect(toolbar.getByRole("button", { name: "Save" })).toBeVisible();
+}
+
+test("windowed health trackers share compact fields and finish actions", async ({
+  page,
+}) => {
+  const { explorerWindow, toolbar } = await openExplorerWindow(page);
+  await checkWindowedBloodPressure(explorerWindow, toolbar);
+  await checkWindowedWeight(explorerWindow, toolbar);
+  await checkWindowedEnvFile(explorerWindow, toolbar);
 });
 
 test("mobile tracker actions span their rows", async ({ page }) => {
@@ -162,5 +206,38 @@ test("mobile tracker actions span their rows", async ({ page }) => {
   const rowActions = row.locator(".tracker-row-actions");
   await expectActionBelowField(row, "Entry 1 notes", "Remove entry 1");
   await expectActionsShareRow(rowActions, "Save entry 1", "Remove entry 1");
+  await expectActionsFillRow(rowActions);
+});
+
+test("mobile env variable actions span their row", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/app/explorer");
+
+  const newDocument = page.getByRole("button", { name: "New Document" });
+  await expect(newDocument).toBeVisible({ timeout: 30_000 });
+  await newDocument.click();
+  await page
+    .getByRole("button", { name: /\.env File/u })
+    .first()
+    .click();
+  await page.getByRole("button", { name: "Add Variable" }).click();
+  await expect(page.getByRole("button", { name: "Add Variable" })).toHaveCount(
+    0,
+  );
+  await page.getByLabel("Quick add env variable key").fill("API_TOKEN");
+  await page.getByRole("button", { name: "Save Variable" }).click();
+
+  const row = page.locator(".env-file-variable-row").first();
+  const rowActions = row.locator(".tracker-row-actions");
+  await expectActionBelowField(
+    row,
+    "Env variable 1 value",
+    "Remove env variable 1",
+  );
+  await expectActionsShareRow(
+    rowActions,
+    "Save env variable 1",
+    "Remove env variable 1",
+  );
   await expectActionsFillRow(rowActions);
 });

@@ -36,7 +36,7 @@ export function selectAttributionSegments(
 
 // Attribution is a synced-remote, authenticated, online concern. A local-only
 // document (no documentId), an offline/unauthenticated session, or a caller that
-// will not use the result (edit mode, no rows) has nothing worth fetching.
+// will not render row attribution has nothing worth fetching.
 export function shouldFetchAttribution(input: {
   documentId: string | null;
   enabled: boolean;

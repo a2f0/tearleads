@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { WithWindowToolbar } from "../../../test/helpers/windowToolbarProbe";
 import { EnvFileFields } from "./EnvFile";
+import type { EnvFileQuickVariable } from "./EnvFileQuickAdd";
 import { ENV_FILE_VARIABLE_NAME_PATTERN } from "./envFileDocumentDefinition";
 import type { EnvVariableRow } from "./envFileVariables";
 
@@ -67,7 +68,8 @@ const variables: EnvVariableRow[] = [
 function renderEnvFileFields(params?: {
   currentAuthorId?: string | null;
   isEditing?: boolean | undefined;
-  onAddVariable?: () => void;
+  onAddVariable?: (variable: EnvFileQuickVariable) => void;
+  onEnterEdit?: (() => void) | undefined;
   onRemoveVariable?: (id: string) => void;
   onRenameFile?: (value: string) => void;
   onToggleEditing?: () => void;
@@ -77,20 +79,23 @@ function renderEnvFileFields(params?: {
   variables?: EnvVariableRow[];
 }) {
   return render(
-    <EnvFileFields
-      currentAuthorId={params?.currentAuthorId ?? null}
-      fileName=".env.local"
-      fileNameInputId="env-file-name"
-      isEditing={params?.isEditing}
-      onAddVariable={params?.onAddVariable ?? (() => undefined)}
-      onRemoveVariable={params?.onRemoveVariable ?? (() => undefined)}
-      onRenameFile={params?.onRenameFile ?? (() => undefined)}
-      onToggleEditing={params?.onToggleEditing ?? (() => undefined)}
-      onUpdateVariable={params?.onUpdateVariable ?? (() => undefined)}
-      ready={params?.ready ?? true}
-      resolveRowWriter={params?.resolveRowWriter}
-      variables={params?.variables ?? variables}
-    />,
+    <WithWindowToolbar>
+      <EnvFileFields
+        currentAuthorId={params?.currentAuthorId ?? null}
+        fileName=".env.local"
+        fileNameInputId="env-file-name"
+        isEditing={params?.isEditing}
+        onAddVariable={params?.onAddVariable ?? (() => undefined)}
+        onEnterEdit={params?.onEnterEdit}
+        onRemoveVariable={params?.onRemoveVariable ?? (() => undefined)}
+        onRenameFile={params?.onRenameFile ?? (() => undefined)}
+        onToggleEditing={params?.onToggleEditing ?? (() => undefined)}
+        onUpdateVariable={params?.onUpdateVariable ?? (() => undefined)}
+        ready={params?.ready ?? true}
+        resolveRowWriter={params?.resolveRowWriter}
+        variables={params?.variables ?? variables}
+      />
+    </WithWindowToolbar>,
   );
 }
 
@@ -306,21 +311,111 @@ test("marks existing malformed variable keys invalid", () => {
   ).toBe(ENV_FILE_VARIABLE_NAME_PATTERN);
 });
 
-test("add and remove buttons invoke their callbacks", () => {
-  let addCalls = 0;
-  const removeCalls: string[] = [];
+test("edit mode keeps a new variable pending until it is saved", () => {
+  const added: EnvFileQuickVariable[] = [];
   const view = renderEnvFileFields({
-    onAddVariable: () => {
-      addCalls += 1;
-    },
-    onRemoveVariable: (id) => removeCalls.push(id),
+    isEditing: true,
+    onAddVariable: (variable) => added.push(variable),
+    variables: [],
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Variable" }));
-  fireEvent.click(view.getByRole("button", { name: "Remove env variable 1" }));
+  expect(view.queryByRole("button", { name: "Add Variable" })).toBeNull();
+  expect(view.queryByText("No variables")).toBeNull();
+  const toolbarSave = view.getByRole("button", { name: "Toolbar Save" });
+  expect((toolbarSave as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(toolbarSave);
+  expect(view.getByLabelText("Quick add env variable key")).toBeTruthy();
+  fireEvent.change(view.getByLabelText("Quick add env variable key"), {
+    target: { value: "API_TOKEN" },
+  });
+  fireEvent.change(view.getByLabelText("Quick add env variable value"), {
+    target: { value: "secret" },
+  });
+  fireEvent.click(view.getByRole("button", { name: "Save Variable" }));
 
-  expect(addCalls).toBe(1);
-  expect(removeCalls).toEqual(["v1"]);
+  expect(added).toEqual([{ key: "API_TOKEN", value: "secret" }]);
+  expect(view.getByRole("button", { name: "Add Variable" })).toBeTruthy();
+  expect((toolbarSave as HTMLButtonElement).disabled).toBe(false);
+});
+
+test("quick add rejects malformed keys and cancel clears the draft", () => {
+  const view = renderEnvFileFields();
+
+  fireEvent.click(view.getByRole("button", { name: "Add Variable" }));
+  const key = view.getByLabelText("Quick add env variable key");
+  fireEvent.change(key, { target: { value: "BAD KEY" } });
+  expect(key.getAttribute("aria-invalid")).toBe("true");
+  expect(
+    (view.getByRole("button", { name: "Save Variable" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+
+  fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(view.getByRole("button", { name: "Add Variable" }));
+  expect(
+    (view.getByLabelText("Quick add env variable key") as HTMLInputElement)
+      .value,
+  ).toBe("");
+});
+
+test("a pending variable owns the read-mode entry state", () => {
+  const view = renderEnvFileFields({
+    isEditing: false,
+    onEnterEdit: () => undefined,
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Add Variable" }));
+  expect(
+    (view.getByRole("button", { name: "Toolbar Edit" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  expect(
+    view.queryByRole("button", { name: "Env variable 1 actions" }),
+  ).toBeNull();
+  expect(
+    view.getByRole("button", { name: "Env variable 1 details" }),
+  ).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+  expect(
+    (view.getByRole("button", { name: "Toolbar Edit" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(false);
+});
+
+test("each variable saves independently beside Remove", () => {
+  const removals: string[] = [];
+  const view = renderEnvFileFields({
+    currentAuthorId: "user-alice",
+    onRemoveVariable: (id) => removals.push(id),
+    resolveRowWriter: (peer) => (peer === "9" ? "user-bob" : null),
+    variables: [
+      makeVariable({
+        id: "v1",
+        key: "API_TOKEN",
+        value: "secret",
+        updatedAt: "2026-07-16T09:00:00.000Z",
+        updatedBy: "user-alice",
+        updatedByPeer: "9",
+      }),
+      makeVariable({ id: "v2", key: "DEBUG", value: "true" }),
+    ],
+  });
+
+  const save = view.getByRole("button", { name: "Save env variable 1" });
+  const remove = view.getByRole("button", { name: "Remove env variable 1" });
+  expect(save.parentElement).toBe(remove.parentElement);
+  fireEvent.click(save);
+  expect(view.queryByLabelText("Env variable 1 key")).toBeNull();
+  expect(view.getByLabelText("Env variable 2 key")).toBeTruthy();
+  expect(view.getByText(/by user-bob/u)).toBeTruthy();
+  expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: "Env variable 1 actions" }));
+  fireEvent.click(view.getByRole("button", { name: "Edit" }));
+  fireEvent.click(view.getByRole("button", { name: "Remove env variable 1" }));
+  expect(removals).toEqual(["v1"]);
 });
 
 test("disables controls while the document is loading", () => {
@@ -336,29 +431,23 @@ test("disables controls while the document is loading", () => {
     (view.getByRole("button", { name: "Add Variable" }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
+  expect(
+    (
+      view.getByRole("button", {
+        name: "Save env variable 1",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
 });
 
 test("edit toggle lives in the toolbar, not the document body", () => {
   let toggles = 0;
-  const view = render(
-    <WithWindowToolbar>
-      <EnvFileFields
-        currentAuthorId={null}
-        fileName=".env.local"
-        fileNameInputId="env-file-name"
-        isEditing={false}
-        onAddVariable={() => undefined}
-        onRemoveVariable={() => undefined}
-        onRenameFile={() => undefined}
-        onToggleEditing={() => {
-          toggles += 1;
-        }}
-        onUpdateVariable={() => undefined}
-        ready
-        variables={variables}
-      />
-    </WithWindowToolbar>,
-  );
+  const view = renderEnvFileFields({
+    isEditing: false,
+    onToggleEditing: () => {
+      toggles += 1;
+    },
+  });
 
   expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
   fireEvent.click(view.getByRole("button", { name: "Toolbar Edit" }));
@@ -366,24 +455,11 @@ test("edit toggle lives in the toolbar, not the document body", () => {
   expect(toggles).toBe(1);
 });
 
-test("toolbar edit action reads Done while editing", () => {
-  const view = render(
-    <WithWindowToolbar>
-      <EnvFileFields
-        currentAuthorId={null}
-        fileName=".env.local"
-        fileNameInputId="env-file-name"
-        isEditing
-        onAddVariable={() => undefined}
-        onRemoveVariable={() => undefined}
-        onRenameFile={() => undefined}
-        onToggleEditing={() => undefined}
-        onUpdateVariable={() => undefined}
-        ready
-        variables={variables}
-      />
-    </WithWindowToolbar>,
-  );
+test("toolbar and entry actions use Save while editing", () => {
+  const view = renderEnvFileFields({ isEditing: true });
 
-  expect(view.getByRole("button", { name: "Toolbar Done" })).toBeTruthy();
+  expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
+  expect(
+    view.getByRole("button", { name: "Save env variable 1" }),
+  ).toBeTruthy();
 });

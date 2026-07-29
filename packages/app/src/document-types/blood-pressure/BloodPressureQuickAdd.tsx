@@ -1,7 +1,7 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
 import { isValidBloodPressureMeasurement } from "./bloodPressureDocumentDefinition";
@@ -107,7 +107,7 @@ function QuickReadingFields(params: {
 export function BloodPressureQuickAdd(params: {
   controlsDisabled: boolean;
   onAddReading: (reading: BloodPressureQuickReading) => void;
-  onPendingChange?: ((pending: boolean) => void) | undefined;
+  onPendingChange: (pending: boolean) => void;
 }) {
   const { controlsDisabled, onAddReading, onPendingChange } = params;
   const [open, setOpen] = useState(false);
@@ -118,10 +118,17 @@ export function BloodPressureQuickAdd(params: {
     (reading.pulse.length === 0 ||
       isValidBloodPressureMeasurement(reading.pulse));
 
+  useEffect(
+    () => () => {
+      onPendingChange(false);
+    },
+    [onPendingChange],
+  );
+
   function close() {
     setReading(EMPTY_READING);
     setOpen(false);
-    onPendingChange?.(false);
+    onPendingChange(false);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -142,7 +149,7 @@ export function BloodPressureQuickAdd(params: {
         disabled={controlsDisabled}
         onClick={() => {
           setOpen(true);
-          onPendingChange?.(true);
+          onPendingChange(true);
         }}
       >
         <PlusIcon aria-hidden size={14} />

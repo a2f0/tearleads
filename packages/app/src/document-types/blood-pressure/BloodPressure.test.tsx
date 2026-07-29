@@ -6,33 +6,12 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import {
-  useWindowTitleBarActions,
-  WindowMenuProvider,
-} from "../../components/window/WindowMenuContext";
+import { WithWindowToolbar } from "../../../test/helpers/windowToolbarProbe";
 import { BloodPressureFields } from "./BloodPressure";
 import type { BloodPressureQuickReading } from "./BloodPressureQuickAdd";
 import type { BloodPressureReadingRow } from "./bloodPressureReadings";
 
 afterEach(cleanup);
-
-function ToolbarProbe() {
-  const actions = useWindowTitleBarActions();
-
-  return (
-    <div aria-label="Toolbar" role="toolbar">
-      {actions.map((action) => (
-        <button
-          aria-label={`Toolbar ${action.label}`}
-          disabled={action.disabled}
-          key={action.id}
-          type="button"
-          onClick={action.onClick}
-        />
-      ))}
-    </div>
-  );
-}
 
 function makeReading(
   overrides: Partial<BloodPressureReadingRow> & { id: string },
@@ -123,8 +102,7 @@ function renderBloodPressureFields(params?: {
   trackerName?: string;
 }) {
   return render(
-    <WindowMenuProvider>
-      <ToolbarProbe />
+    <WithWindowToolbar>
       <BloodPressureFields
         currentAuthorId={params?.currentAuthorId ?? null}
         isEditing={params?.isEditing}
@@ -140,7 +118,7 @@ function renderBloodPressureFields(params?: {
         trackerName={params?.trackerName ?? "Home log"}
         trackerNameInputId="blood-pressure-name"
       />
-    </WindowMenuProvider>,
+    </WithWindowToolbar>,
   );
 }
 
@@ -181,6 +159,7 @@ test("toggles editing from the toolbar, not a body button", async () => {
   await waitFor(() => {
     expect(view.getByRole("button", { name: "Toolbar Edit" })).toBeTruthy();
   });
+  // The tracker body no longer carries its own Edit control.
   expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
 
   fireEvent.click(view.getByRole("button", { name: "Toolbar Edit" }));
@@ -229,6 +208,7 @@ test("read mode tolerates missing reading values", () => {
     isEditing: false,
   });
 
+  // Reading pair, pulse, and measured time all fall back to None.
   expect(view.getAllByText("None")).toHaveLength(3);
 });
 
@@ -241,6 +221,8 @@ test("read mode resolves an authoritative writer over the self-attested one", ()
         id: "r1",
         systolic: "120",
         diastolic: "80",
+        // Self-attested author claims alice, but the row was actually written
+        // by peer "9", which the resolver maps to the verified writer user-bob.
         updatedAt: "2026-07-16T08:30:00.000Z",
         updatedBy: "user-alice",
         updatedByPeer: "9",
@@ -257,6 +239,7 @@ test("read mode falls back to the self-attested author when unresolved", () => {
   const view = renderBloodPressureFields({
     currentAuthorId: "user-alice",
     isEditing: false,
+    // r1's updatedBy is user-alice (=== currentAuthorId) → "you".
     resolveRowWriter: () => null,
   });
 
@@ -267,6 +250,8 @@ test("read-only viewer opens attribution directly, without showing values", () =
   const view = renderBloodPressureFields({
     currentAuthorId: "user-alice",
     isEditing: false,
+    // No onEnterEdit → read-only viewer: the single-action kebab opens the
+    // attribution overlay directly rather than a one-item menu.
     readings: [attributedReading],
     resolveRowWriter: attributedResolver,
   });
@@ -278,12 +263,15 @@ test("read-only viewer opens attribution directly, without showing values", () =
   fireEvent.click(kebab);
 
   const dialog = view.getByRole("dialog", { name: "Reading 1" });
+  // Systolic resolves to the other writer; the remaining cells to the local one.
   expect(within(dialog).getByText("set by user-bob")).toBeTruthy();
   expect(within(dialog).getAllByText("set by you").length).toBeGreaterThan(0);
   // Attribution identifies field writers without exposing private values.
   expect(within(dialog).queryByText("120")).toBeNull();
   expect(within(dialog).queryByText("Before coffee")).toBeNull();
 
+  // Opening moves focus into the dialog; closing restores it to the kebab so a
+  // keyboard user never loses their place in the list.
   const close = view.getByRole("button", { name: "Close" });
   expect(document.activeElement).toBe(close);
   fireEvent.click(close);
@@ -303,6 +291,8 @@ test("writer's kebab menu offers Edit and Attribution", () => {
     resolveRowWriter: attributedResolver,
   });
 
+  // The kebab opens a menu (not the dialog directly). Attribution opens the
+  // overlay with per-field writers and no values.
   expect(view.queryByRole("dialog")).toBeNull();
   fireEvent.click(view.getByRole("button", { name: "Reading 1 actions" }));
   fireEvent.click(view.getByRole("button", { name: "Attribution" }));
@@ -312,6 +302,7 @@ test("writer's kebab menu offers Edit and Attribution", () => {
   expect(within(dialog).queryByText("120")).toBeNull();
   fireEvent.click(view.getByRole("button", { name: "Close" }));
 
+  // Edit switches the tracker into edit mode.
   fireEvent.click(view.getByRole("button", { name: "Reading 1 actions" }));
   fireEvent.click(view.getByRole("button", { name: "Edit" }));
   expect(editCalls).toBe(1);
@@ -333,10 +324,12 @@ test("edit mode keeps a new reading pending until it is saved", () => {
   const view = renderBloodPressureFields({
     isEditing: true,
     onAddReading: (reading) => added.push(reading),
+    readings: [],
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
   expect(view.queryByRole("button", { name: "Add Reading" })).toBeNull();
+  expect(view.queryByText("No readings")).toBeNull();
   const toolbarSave = view.getByRole("button", { name: "Toolbar Save" });
   expect((toolbarSave as HTMLButtonElement).disabled).toBe(true);
   fireEvent.click(toolbarSave);
@@ -378,6 +371,12 @@ test("quick add rejects invalid readings and cancel clears the draft", () => {
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
+  const toolbarEdit = view.getByRole("button", { name: "Toolbar Edit" });
+  expect((toolbarEdit as HTMLButtonElement).disabled).toBe(true);
+  expect(view.queryByRole("button", { name: "Reading 1 actions" })).toBeNull();
+  expect(
+    view.getByRole("button", { name: "Reading 1 attribution" }),
+  ).toBeTruthy();
   const systolic = view.getByLabelText("Quick add systolic");
   fireEvent.change(systolic, { target: { value: "900" } });
   fireEvent.change(view.getByLabelText("Quick add diastolic"), {
@@ -391,6 +390,7 @@ test("quick add rejects invalid readings and cancel clears the draft", () => {
   ).toBe(true);
 
   fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+  expect((toolbarEdit as HTMLButtonElement).disabled).toBe(false);
   fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
   expect(
     (view.getByLabelText("Quick add systolic") as HTMLInputElement).value,

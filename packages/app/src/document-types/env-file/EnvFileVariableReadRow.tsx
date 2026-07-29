@@ -1,11 +1,15 @@
 import { EyeIcon } from "@phosphor-icons/react/dist/csr/Eye";
 import { EyeSlashIcon } from "@phosphor-icons/react/dist/csr/EyeSlash";
-import { useState } from "react";
+import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
+import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
+import { type MouseEvent, useRef, useState } from "react";
 import {
   MiniAppButton,
   MiniAppClipboardButton,
 } from "../../components/mini-app/MiniAppLayout";
 import { MiniAppRowActionsButton } from "../../components/mini-app/MiniAppTable";
+import { Menu, type MenuPosition } from "../../components/shared/Menu";
+import { MenuItem } from "../../components/shared/MenuItem";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import {
   DocumentRowDetailOverlay,
@@ -22,15 +26,83 @@ import {
   getEnvFileVariableReadValue,
 } from "./envFileVariables";
 
+function EnvFileVariableActions(params: {
+  index: number;
+  onEnterEdit?: (() => void) | undefined;
+  onOpenDetails: () => void;
+}) {
+  const { index, onEnterEdit, onOpenDetails } = params;
+  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
+  const actionsButtonRef = useRef<HTMLButtonElement>(null);
+
+  if (!onEnterEdit) {
+    return (
+      <MiniAppRowActionsButton
+        aria-haspopup="dialog"
+        aria-label={`Env variable ${index + 1} details`}
+        className="env-file-variable-read-actions"
+        onClick={onOpenDetails}
+      />
+    );
+  }
+
+  const toggleMenu = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (menuPosition !== null) {
+      setMenuPosition(null);
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    setMenuPosition({ x: rect.left, y: rect.bottom });
+  };
+  const closeMenu = () => setMenuPosition(null);
+
+  return (
+    <>
+      <MiniAppRowActionsButton
+        ref={actionsButtonRef}
+        aria-expanded={menuPosition !== null}
+        aria-label={`Env variable ${index + 1} actions`}
+        className="env-file-variable-read-actions"
+        onClick={toggleMenu}
+        onMouseDown={(event) => event.stopPropagation()}
+      />
+      {menuPosition ? (
+        <Menu direction="down" onClose={closeMenu} position={menuPosition}>
+          <MenuItem
+            icon={PencilSimpleIcon}
+            label="Edit"
+            onClick={() => {
+              closeMenu();
+              onEnterEdit();
+            }}
+          />
+          <MenuItem
+            icon={InfoIcon}
+            label="Details"
+            onClick={() => {
+              actionsButtonRef.current?.focus();
+              closeMenu();
+              onOpenDetails();
+            }}
+          />
+        </Menu>
+      ) : null}
+    </>
+  );
+}
+
 // A single variable in read mode: masked key/value cells, value controls, a
 // kebab that opens the per-variable detail overlay, and the last-edit byline.
 export function EnvFileVariableReadRow(params: {
   currentAuthorId: string | null;
   index: number;
+  onEnterEdit?: (() => void) | undefined;
   resolveRowWriter?: RowWriterResolver | undefined;
   variable: EnvVariableRow;
 }) {
-  const { currentAuthorId, index, resolveRowWriter, variable } = params;
+  const { currentAuthorId, index, onEnterEdit, resolveRowWriter, variable } =
+    params;
   const [detailOpen, setDetailOpen] = useState(false);
   const [isValueRevealed, setIsValueRevealed] = useState(false);
   const keyTitle = variable.key.trim();
@@ -116,12 +188,10 @@ export function EnvFileVariableReadRow(params: {
           </span>
         </span>
         <span className="env-file-variable-read-index">{index + 1}</span>
-        <MiniAppRowActionsButton
-          aria-expanded={detailOpen}
-          aria-haspopup="dialog"
-          aria-label={`Env variable ${index + 1} details`}
-          className="env-file-variable-read-actions"
-          onClick={() => setDetailOpen(true)}
+        <EnvFileVariableActions
+          index={index}
+          onEnterEdit={onEnterEdit}
+          onOpenDetails={() => setDetailOpen(true)}
         />
         {attribution ? (
           <span className="env-file-variable-read-attribution">

@@ -1,7 +1,7 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
 import {
@@ -24,7 +24,7 @@ const EMPTY_ENTRY: WeightQuickEntry = {
 export function WeightQuickAdd(params: {
   controlsDisabled: boolean;
   onAddEntry: (entry: WeightQuickEntry) => void;
-  onPendingChange?: ((pending: boolean) => void) | undefined;
+  onPendingChange: (pending: boolean) => void;
   unit: WeightUnit;
 }) {
   const { controlsDisabled, onAddEntry, onPendingChange, unit } = params;
@@ -32,10 +32,17 @@ export function WeightQuickAdd(params: {
   const [open, setOpen] = useState(false);
   const valid = isValidWeightMeasurement(entry.weight);
 
+  useEffect(
+    () => () => {
+      onPendingChange(false);
+    },
+    [onPendingChange],
+  );
+
   function close() {
     setEntry(EMPTY_ENTRY);
     setOpen(false);
-    onPendingChange?.(false);
+    onPendingChange(false);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -56,7 +63,7 @@ export function WeightQuickAdd(params: {
         disabled={controlsDisabled}
         onClick={() => {
           setOpen(true);
-          onPendingChange?.(true);
+          onPendingChange(true);
         }}
       >
         <PlusIcon aria-hidden size={14} />

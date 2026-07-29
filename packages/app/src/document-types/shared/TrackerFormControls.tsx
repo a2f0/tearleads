@@ -37,6 +37,8 @@ export function TrackerRowActions(params: {
   removeAriaLabel: string;
   saveAriaLabel: string;
 }) {
+  // Cell edits persist as they change; Save completes this row's edit state and
+  // returns it to its read presentation without closing the surrounding form.
   const { disabled, onRemove, onSave, removeAriaLabel, saveAriaLabel } = params;
 
   return (
