@@ -244,6 +244,8 @@ test("session rows open details and expose context menu actions", async () => {
     fireEvent.click(within(table).getByText("203.0.113.9"));
 
     const detailTable = view.getByRole("table");
+    // The fixed aligned layout is what lets compact cells ellipsize, while the
+    // borderless modifier removes the grid from this detail view.
     expect(
       detailTable.classList.contains("mini-app-info-table--borderless"),
     ).toBe(true);
@@ -256,7 +258,14 @@ test("session rows open details and expose context menu actions", async () => {
     expect(view.getByText("Current Session")).toBeTruthy();
     expect(view.getByText(ACTIVE_SESSION.id)).toBeTruthy();
     expect(view.getByText(ACTIVE_SESSION.signingKeyFingerprint)).toBeTruthy();
-    expect(view.getByText("198.51.100.10, +1")).toBeTruthy();
+    const ipList = detailTable.querySelector(
+      ".identity-manager-session-ip-list",
+    );
+    if (!(ipList instanceof HTMLElement)) {
+      throw new Error("Expected full session IP list");
+    }
+    expect(within(ipList).getByText("198.51.100.10")).toBeTruthy();
+    expect(within(ipList).getByText("203.0.113.9")).toBeTruthy();
     expect(view.queryByText("Active Sessions")).toBeNull();
     expect(view.queryByText("Identity")).toBeNull();
     expect(view.queryByRole("button", { name: "Copy session ID" })).toBeNull();

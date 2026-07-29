@@ -141,16 +141,16 @@
   min-width: 0;
 }
 
+.identity-manager-session-detail-table {
+  --mini-app-info-label-width: 14ch;
+}
+
 .identity-manager-session-detail-table th,
 .identity-manager-session-detail-table td {
-  /* Compact routed panes keep keys and values on one scannable line. */
+  /* The aligned fixed layout makes compact keys and values safely ellipsize. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.identity-manager-session-detail-table {
-  --mini-app-info-label-width: 12ch;
 }
 
 .identity-manager-session-detail-value {
@@ -166,6 +166,19 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.identity-manager-session-ip-list {
+  display: flex;
+  gap: var(--space-xs);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.identity-manager-session-ip-list code {
+  flex: none;
 }
 
 /*
