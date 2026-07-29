@@ -167,7 +167,7 @@ async function checkWindowedEnvFile(explorerWindow: Locator, toolbar: Locator) {
   ).toHaveCount(0);
   await explorerWindow.getByLabel("Quick add env variable key").fill("API_URL");
   await explorerWindow
-    .getByLabel("Quick add env variable value")
+    .getByLabel("Quick add env variable value", { exact: true })
     .fill("https://example.test");
   await explorerWindow.getByRole("button", { name: "Save Variable" }).click();
   await expect(

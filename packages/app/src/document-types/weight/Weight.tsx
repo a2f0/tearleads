@@ -75,7 +75,7 @@ function WeightReadFields(params: {
   return (
     <div className="tracker-document-fields">
       <section className="weight-entry-list tracker-entry-list">
-        <div className="weight-entry-list-header tracker-entry-list-header">
+        <div className="weight-entry-list-header">
           <strong>Entries</strong>
         </div>
         {onEnterEdit ? (
@@ -183,7 +183,7 @@ function WeightEditFields(params: {
         </StructuredDocumentField>
       </StructuredDocumentFields>
       <section className="weight-entry-list tracker-entry-list">
-        <div className="weight-entry-list-header tracker-entry-list-header">
+        <div className="weight-entry-list-header">
           <strong>Entries</strong>
         </div>
         <WeightQuickAdd

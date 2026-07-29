@@ -1,9 +1,10 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
-import type { InputHTMLAttributes, ReactNode } from "react";
+import { type InputHTMLAttributes, type ReactNode, useId } from "react";
 import {
   MiniAppButton,
   MiniAppField,
+  MiniAppFieldGroup,
   MiniAppInput,
 } from "../../components/mini-app/MiniAppLayout";
 import { classNames } from "../../components/shared/classNames";
@@ -24,17 +25,29 @@ export function TrackerInputField({
   label,
   ...inputProps
 }: TrackerInputFieldProps) {
+  const generatedInputId = useId();
+  const inputId = inputProps.id ?? generatedInputId;
+
+  if (action) {
+    // Interactive trailing controls must be siblings of the label. Nesting a
+    // button inside a label is invalid and redirects its click to the input.
+    return (
+      <MiniAppFieldGroup
+        className={classNames("tracker-entry-field", className)}
+      >
+        <label htmlFor={inputId}>{label}</label>
+        <span className="tracker-entry-field-control">
+          <MiniAppInput {...inputProps} id={inputId} />
+          <span className="tracker-entry-field-actions">{action}</span>
+        </span>
+      </MiniAppFieldGroup>
+    );
+  }
+
   return (
     <MiniAppField className={classNames("tracker-entry-field", className)}>
       <span>{label}</span>
-      {action ? (
-        <span className="tracker-entry-field-control">
-          <MiniAppInput {...inputProps} />
-          <span className="tracker-entry-field-actions">{action}</span>
-        </span>
-      ) : (
-        <MiniAppInput {...inputProps} />
-      )}
+      <MiniAppInput {...inputProps} id={inputId} />
     </MiniAppField>
   );
 }

@@ -6,6 +6,7 @@ import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
 import { useClearPendingOnUnmount } from "../shared/usePendingTrackerEntry";
 import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
+import { EnvFileValueField } from "./EnvFileValueField";
 import {
   ENV_FILE_VARIABLE_NAME_PATTERN,
   isValidEnvFileVariableName,
@@ -84,22 +85,15 @@ export function EnvFileQuickAdd(params: {
         title="Use a POSIX variable name like API_TOKEN."
         value={variable.key}
       />
-      <TrackerInputField
-        aria-label="Quick add env variable value"
-        autoCapitalize="off"
-        autoComplete="off"
-        className="env-file-variable-value-field"
+      <EnvFileValueField
+        ariaLabel="Quick add env variable value"
         disabled={controlsDisabled}
-        label="Value"
         onChange={(event) =>
           setVariable((current) => ({
             ...current,
             value: event.target.value,
           }))
         }
-        placeholder="secret"
-        spellCheck={false}
-        type="password"
         value={variable.value}
       />
       <div className="tracker-quick-add-actions">
