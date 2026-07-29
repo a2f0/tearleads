@@ -1,9 +1,14 @@
 import { expect, test } from "bun:test";
 import { createDocument } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
 import { createDocumentProjectorRegistry } from "../../documents";
+import { saveDocumentRecord } from "../../stores/documents/documentStore/persistence";
+import { createDocumentStoreState } from "../../stores/documents/documentStore/state";
+import type { DocumentsRuntime } from "../../stores/documents/types";
 import { persistDocumentState } from "./persistence";
 
 // A persist that expected to UPDATE must not resurrect a document another
@@ -98,6 +103,81 @@ test("a create persist still inserts a new row", async () => {
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "fresh-doc"),
     ).not.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+// Store-level: a persist refused by the resurrect guard clears the zombie
+// store, so callers that ignore the persist result (attachment settles, row
+// writes, history rebuilds) stop advancing state or scheduling sync against
+// a document another subsystem deleted.
+test("a refused persist marks the store removed", async () => {
+  const { close, execSql } = await createTestExecSql("persist-store-removed");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      id: "victim",
+      containerId: "container",
+      documentId: "victim-remote",
+      text: "before",
+      snapshotEndVersion: "v1",
+      accessEpoch: 1,
+    });
+    const currentRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      "victim",
+    );
+    if (!currentRecord) {
+      throw new Error("expected seeded document");
+    }
+    const runtime = {
+      auth: { isAuthenticated: true, organizationId: "org", userId: "user" },
+      crypto: {},
+      resolveTrustedUserIdentity: async () => null,
+      infra: {
+        dbStatus: "ready",
+        documentProjectors: defaultDocumentProjectorRegistry,
+        execSql,
+      },
+      state: {
+        containerId: "container",
+        domainScope: createDomainScope(),
+        events: [],
+        online: true,
+      },
+      util: { log: () => undefined },
+    } as unknown as DocumentsRuntime;
+    const state = createDocumentStoreState(
+      "victim",
+      runtime,
+      sqlDocumentsPersistence,
+      { emitPersistedDocument: () => {}, registerDocumentIdentity: () => {} },
+      "victim-remote",
+    );
+    const doc = await createDocument("persist-store-removed");
+    doc.getText("text").update("racing edit");
+    doc.commit();
+    state.doc = doc;
+    state.record = currentRecord;
+
+    let releaseHeldMutation = () => {};
+    const mutationHeld = new Promise<void>((resolve) => {
+      releaseHeldMutation = resolve;
+    });
+    const heldMutation = runSerializedSqlMutation(execSql, async (locked) => {
+      await mutationHeld;
+      await sqlDocumentsPersistence.deleteDocument(locked, "victim");
+    });
+    const queuedSave = saveDocumentRecord(state, doc);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    releaseHeldMutation();
+    await heldMutation;
+
+    expect(await queuedSave).toBeNull();
+    // The zombie store cleared: no record, no live doc, nothing to sync.
+    expect(state.record).toBeNull();
+    expect(state.doc).toBeNull();
   } finally {
     close();
   }

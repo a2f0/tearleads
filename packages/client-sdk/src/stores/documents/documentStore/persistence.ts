@@ -35,6 +35,7 @@ import { withLocalAttachmentDetachState } from "./attachmentDetachState";
 import {
   type DocumentState,
   type DocumentStoreState,
+  markDocumentStoreRemoved,
   type PersistedDocumentRecord,
   type SaveDocumentRecordOptions,
   setReadySnapshot,
@@ -117,6 +118,18 @@ export async function saveDocumentRecord(
       })
     : await persistDocumentState(persistenceInput);
   if (!persistedDocumentState) {
+    // With a stale generation the teardown that invalidated it owns the
+    // state. With a current (or absent) generation, the refusal means the
+    // durable row was deleted by ANOTHER subsystem while this persist was
+    // queued (the resurrect guard): this store is a zombie — clear it so
+    // callers that ignore the result stop advancing state or scheduling
+    // sync against a document that no longer exists.
+    if (
+      !expectedGeneration ||
+      isSyncGenerationCurrent(state, expectedGeneration)
+    ) {
+      markDocumentStoreRemoved(state);
+    }
     return null;
   }
   const { record: nextRecord, updatedAt } = persistedDocumentState;
