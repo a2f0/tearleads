@@ -12,6 +12,7 @@ import {
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
 import { FileDocumentFields } from "./FileDocument";
+import { resolveFileDocumentPdfPreview } from "./FileDocumentPdfPreview";
 import {
   isRenderableFileDocumentMediaMimeType,
   resolveFileDocumentMediaPreview,
@@ -276,6 +277,32 @@ test("skips unsupported local attachments when resolving a media preview", () =>
   });
 });
 
+test("resolves the latest local PDF without the automatic media size limit", () => {
+  const largePdf = { ...pdfAttachment, byteLength: 40 * 1024 * 1024 };
+  const preview = resolveFileDocumentPdfPreview([pdfAttachment, largePdf], {
+    "pdf-slot": "local-pdf",
+  });
+
+  expect(preview).toEqual({
+    attachment: largePdf,
+    storageKey: "local-pdf",
+  });
+});
+
+test("recognizes a parameterized PDF MIME type and requires local bytes", () => {
+  const parameterized = {
+    ...pdfAttachment,
+    mimeType: "Application/PDF; version=1.7",
+  };
+
+  expect(
+    resolveFileDocumentPdfPreview([parameterized], {
+      "pdf-slot": "local-pdf",
+    }),
+  ).toEqual({ attachment: parameterized, storageKey: "local-pdf" });
+  expect(resolveFileDocumentPdfPreview([parameterized], {})).toBeNull();
+});
+
 test("skips large local attachments when resolving a media preview", () => {
   const preview = resolveFileDocumentMediaPreview({
     attachments: [{ ...videoAttachment, byteLength: 5 * 1024 * 1024 + 1 }],
@@ -377,6 +404,65 @@ test("renders shared playback controls for audio and video previews", () => {
   expect(video.tagName).toBe("VIDEO");
   expect(video.controls).toBe(true);
   expect(video.getAttribute("src")).toBe("blob:video-preview");
+});
+
+test("offers an on-demand browser PDF preview", () => {
+  const opens: number[] = [];
+  const view = renderFields({
+    pdfPreview: {
+      attachment: pdfAttachment,
+      error: null,
+      loading: false,
+      native: false,
+      onOpen: () => opens.push(1),
+      storageKey: "local-pdf",
+      url: null,
+    },
+  });
+
+  expect(view.getByLabelText("PDF preview")).toBeTruthy();
+  expect(
+    view.getByText("Uses your browser's built-in PDF viewer."),
+  ).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "View PDF" }));
+  expect(opens).toEqual([1]);
+});
+
+test("renders a loaded PDF with the browser's native embed", () => {
+  const view = renderFields({
+    pdfPreview: {
+      attachment: pdfAttachment,
+      error: null,
+      loading: false,
+      native: false,
+      onOpen: () => undefined,
+      storageKey: "local-pdf",
+      url: "blob:pdf-preview",
+    },
+  });
+
+  const viewer = view.getByLabelText("paper.pdf");
+  expect(viewer.tagName).toBe("OBJECT");
+  expect(viewer.getAttribute("data")).toBe("blob:pdf-preview");
+});
+
+test("describes native PDF viewing and surfaces open failures", () => {
+  const view = renderFields({
+    pdfPreview: {
+      attachment: pdfAttachment,
+      error: "Couldn't open this PDF. You can still download it.",
+      loading: false,
+      native: true,
+      onOpen: () => undefined,
+      storageKey: "local-pdf",
+      url: null,
+    },
+  });
+
+  expect(view.getByText("Opens in your device's PDF viewer.")).toBeTruthy();
+  expect(
+    view.getByText("Couldn't open this PDF. You can still download it."),
+  ).toBeTruthy();
 });
 
 test("omits the media preview for non-media files", () => {

@@ -13,6 +13,7 @@ import {
 import { createRoot } from "react-dom/client";
 import { subscribeCapacitorConnectionRefresh } from "./capacitorConnectionRefresh";
 import { createCapacitorFileSaver } from "./capacitorFileSaver";
+import { createCapacitorFileViewer } from "./capacitorFileViewer";
 import { subscribeCapacitorKeyboardVisibility } from "./capacitorKeyboardVisibility";
 import { createCapacitorNetworkStatus } from "./capacitorNetworkStatus";
 import { createCapacitorPurchases } from "./capacitorPurchases";
@@ -86,6 +87,9 @@ const hostConfig = createAppHostConfig({
   // The WebView has no browser download destination, so the default anchor
   // saver is a no-op; write the bytes and open the native share sheet instead.
   createFileSaver: createCapacitorFileSaver,
+  createFileViewer: Capacitor.isNativePlatform()
+    ? createCapacitorFileViewer
+    : undefined,
   // Native connectivity via @capacitor/network — the Android WebView's
   // navigator.onLine reports offline while genuinely connected.
   createNetworkStatus: createCapacitorNetworkStatus,

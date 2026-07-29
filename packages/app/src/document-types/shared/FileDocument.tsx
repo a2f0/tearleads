@@ -11,6 +11,7 @@ import {
 } from "../../components/mini-app/rows/MiniAppRow";
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
+import { useFileViewer } from "../../providers/file-viewer/FileViewerProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import {
   useDocument,
@@ -18,6 +19,11 @@ import {
 } from "../../stores/documents/DocumentsProvider";
 import { formatByteLength } from "../../utils/formatByteLength";
 import "./FileDocument.css";
+import {
+  type FileDocumentPdfPreview,
+  FileDocumentPdfPreviewPanel,
+  useFileDocumentPdfPreview,
+} from "./FileDocumentPdfPreview";
 import {
   type FileDocumentMediaPreview,
   FileDocumentMediaPreviewPanel,
@@ -136,6 +142,7 @@ export function FileDocumentFields({
   hideEdit = false,
   isEditing,
   mediaPreview,
+  pdfPreview,
   onCommitFileName,
   onDownload,
   onToggleEditing,
@@ -151,6 +158,7 @@ export function FileDocumentFields({
   hideEdit?: boolean | undefined;
   isEditing: boolean;
   mediaPreview?: FileDocumentMediaPreview | null | undefined;
+  pdfPreview?: FileDocumentPdfPreview | null | undefined;
   onCommitFileName: (value: string) => void;
   onDownload: () => void;
   onToggleEditing: () => void;
@@ -190,6 +198,7 @@ export function FileDocumentFields({
           preview={mediaPreview}
         />
       ) : null}
+      {pdfPreview ? <FileDocumentPdfPreviewPanel preview={pdfPreview} /> : null}
       {downloadError ? (
         <MiniAppStatus as="span" tone="error">
           {downloadError}
@@ -254,6 +263,7 @@ function useFileDocument(params: {
   const { extraFieldLabels, initialEditing, title } = params;
   const { infra } = useTearleadsRuntime();
   const fileSaver = useFileSaver();
+  const fileViewer = useFileViewer();
   const {
     attachments,
     attachmentStorageKeyBySlotId,
@@ -284,6 +294,12 @@ function useFileDocument(params: {
     attachments,
     attachmentStorageKeyBySlotId,
     blobStore: infra.blobStore,
+  });
+  const pdfPreview = useFileDocumentPdfPreview({
+    attachments,
+    attachmentStorageKeyBySlotId,
+    blobStore: infra.blobStore,
+    fileViewer,
   });
 
   const commitFileName = useCallback(
@@ -337,6 +353,7 @@ function useFileDocument(params: {
     handleDownload,
     isEditing,
     mediaPreview,
+    pdfPreview,
     readFields,
     ready,
     toggleEditing,
@@ -364,6 +381,7 @@ export function FileDocument(params: {
           hideEdit={readOnly}
           isEditing={model.isEditing}
           mediaPreview={model.mediaPreview}
+          pdfPreview={model.pdfPreview}
           onCommitFileName={model.commitFileName}
           onDownload={model.handleDownload}
           onToggleEditing={model.toggleEditing}
