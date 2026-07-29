@@ -56,7 +56,8 @@
   flex: none;
 }
 
-.tracker-entry-field > .mini-app-input[aria-invalid="true"] {
+.tracker-entry-field > .mini-app-input[aria-invalid="true"],
+.tracker-entry-field-control > .mini-app-input[aria-invalid="true"] {
   border-color: var(--color-danger);
 }
 

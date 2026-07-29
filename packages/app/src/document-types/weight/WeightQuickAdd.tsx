@@ -48,7 +48,7 @@ export function WeightQuickAdd(params: {
       return;
     }
 
-    onAddEntry(entry);
+    void onAddEntry(entry);
     close();
   }
 

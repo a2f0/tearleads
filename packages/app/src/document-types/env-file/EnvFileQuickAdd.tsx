@@ -42,7 +42,7 @@ export function EnvFileQuickAdd(params: {
     if (controlsDisabled || !valid) {
       return;
     }
-    onAddVariable(variable);
+    void onAddVariable(variable);
     close();
   }
 

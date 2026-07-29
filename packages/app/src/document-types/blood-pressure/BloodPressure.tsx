@@ -67,9 +67,7 @@ function BloodPressureReadFields(params: {
   return (
     <div className="tracker-document-fields">
       <section className="blood-pressure-reading-list tracker-entry-list">
-        <div className="blood-pressure-reading-list-header">
-          <strong>Readings</strong>
-        </div>
+        <strong>Readings</strong>
         {onEnterEdit ? (
           <BloodPressureQuickAdd
             controlsDisabled={controlsDisabled}
@@ -150,9 +148,7 @@ function BloodPressureEditFields(params: {
         </StructuredDocumentField>
       </StructuredDocumentFields>
       <section className="blood-pressure-reading-list tracker-entry-list">
-        <div className="blood-pressure-reading-list-header">
-          <strong>Readings</strong>
-        </div>
+        <strong>Readings</strong>
         <BloodPressureQuickAdd
           controlsDisabled={controlsDisabled}
           onAddReading={(reading) => {

@@ -134,7 +134,7 @@ export function BloodPressureQuickAdd(params: {
       return;
     }
 
-    onAddReading(reading);
+    void onAddReading(reading);
     close();
   }
 

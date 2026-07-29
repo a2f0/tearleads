@@ -75,9 +75,7 @@ function WeightReadFields(params: {
   return (
     <div className="tracker-document-fields">
       <section className="weight-entry-list tracker-entry-list">
-        <div className="weight-entry-list-header">
-          <strong>Entries</strong>
-        </div>
+        <strong>Entries</strong>
         {onEnterEdit ? (
           <WeightQuickAdd
             controlsDisabled={controlsDisabled}
@@ -183,9 +181,7 @@ function WeightEditFields(params: {
         </StructuredDocumentField>
       </StructuredDocumentFields>
       <section className="weight-entry-list tracker-entry-list">
-        <div className="weight-entry-list-header">
-          <strong>Entries</strong>
-        </div>
+        <strong>Entries</strong>
         <WeightQuickAdd
           controlsDisabled={controlsDisabled}
           onAddEntry={(entry) => {
