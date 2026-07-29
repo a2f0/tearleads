@@ -13,6 +13,7 @@ import {
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import {
   compactIdentifier,
+  formatSessionIpAddresses,
   getSessionStatusLabel,
   sessionIpAddressesTitle,
   sessionIsMutating,
@@ -26,24 +27,6 @@ function SessionDetailValue({ value }: { value: string | null | undefined }) {
   return (
     <span className="identity-manager-session-detail-value">
       <span title={value}>{value}</span>
-    </span>
-  );
-}
-
-function SessionIpAddressList({
-  ipAddresses,
-}: {
-  ipAddresses: ReadonlyArray<string>;
-}) {
-  if (ipAddresses.length === 0) {
-    return <>None</>;
-  }
-
-  return (
-    <span className="identity-manager-session-ip-list">
-      {ipAddresses.map((ipAddress) => (
-        <code key={ipAddress}>{ipAddress}</code>
-      ))}
     </span>
   );
 }
@@ -98,7 +81,7 @@ export function SessionDetailSection({
             label="Full IP List"
             title={sessionIpAddressesTitle(session.ipAddresses)}
           >
-            <SessionIpAddressList ipAddresses={session.ipAddresses} />
+            {formatSessionIpAddresses(session.ipAddresses)}
           </MiniAppInfoRow>
           <MiniAppInfoRow label="Created" title={session.createdAt}>
             {formatMiniAppDateTime(session.createdAt)}

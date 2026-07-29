@@ -247,13 +247,16 @@ test("session rows open details and expose context menu actions", async () => {
     expect(
       detailTable.classList.contains("mini-app-info-table--borderless"),
     ).toBe(true);
+    expect(detailTable.classList.contains("mini-app-info-table--aligned")).toBe(
+      true,
+    );
     expect(
       detailTable.classList.contains("identity-manager-session-detail-table"),
     ).toBe(true);
     expect(view.getByText("Current Session")).toBeTruthy();
     expect(view.getByText(ACTIVE_SESSION.id)).toBeTruthy();
     expect(view.getByText(ACTIVE_SESSION.signingKeyFingerprint)).toBeTruthy();
-    expect(view.getByText("198.51.100.10")).toBeTruthy();
+    expect(view.getByText("198.51.100.10, +1")).toBeTruthy();
     expect(view.queryByText("Active Sessions")).toBeNull();
     expect(view.queryByText("Identity")).toBeNull();
     expect(view.queryByRole("button", { name: "Copy session ID" })).toBeNull();
