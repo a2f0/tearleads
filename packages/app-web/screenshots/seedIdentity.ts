@@ -33,6 +33,10 @@ export async function importSeedIdentity(
       .click();
   }
 
+  // Recovery Key opens on the Backup tab, while importing an existing key
+  // lives on the Recovery tab. Select it explicitly before locating the form.
+  await page.getByRole("tab", { name: "Recovery", exact: true }).click();
+
   // The section renders two textareas with the same class (the read-only current
   // recovery key + this restore input); target the restore one by its label.
   await page
