@@ -543,6 +543,13 @@ export async function relinkDocumentStore(
     // (possibly lagging) doc would republish a stale read over the live
     // optimistic snapshot and drop in-flight keystrokes; preserve the snapshot
     // like the keystroke and sync persists do.
+    // A prior chained write may have cleared this store (resurrect-guard
+    // refusal): persisting the captured doc against a null record would
+    // resurrect the document as a create. The identity check runs inside
+    // the chain, after every earlier write settled.
+    if (state.doc !== currentDoc) {
+      return null;
+    }
     return persistDocument(state, currentDoc, patch, {
       preserveSnapshotStructuredFields: true,
       preserveSnapshotText: true,
