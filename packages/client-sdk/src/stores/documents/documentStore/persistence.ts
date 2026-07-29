@@ -73,19 +73,10 @@ function documentSummaryFromRecord(
   };
 }
 
-export function saveDocumentRecord(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  patch?: Partial<DocumentRecord>,
-  options?: SaveDocumentRecordOptions,
-): Promise<PersistedDocumentRecord>;
-export function saveDocumentRecord(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  patch: Partial<DocumentRecord>,
-  options: SaveDocumentRecordOptions,
-  expectedGeneration: DocumentStoreSyncGeneration,
-): Promise<PersistedDocumentRecord | null>;
+// Nullable without a generation too: an update-persist refuses (returns
+// null) when the durable row was deleted while the persist was queued — the
+// resurrect guard in persistDocumentState — so callers must stop follow-up
+// state changes on null.
 export async function saveDocumentRecord(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -158,19 +149,6 @@ export async function saveDocumentRecord(
   };
 }
 
-export function persistDocument(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  patch?: Partial<DocumentRecord>,
-  options?: SaveDocumentRecordOptions,
-): Promise<PersistedDocumentRecord>;
-export function persistDocument(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  patch: Partial<DocumentRecord>,
-  options: SaveDocumentRecordOptions,
-  expectedGeneration: DocumentStoreSyncGeneration,
-): Promise<PersistedDocumentRecord | null>;
 export async function persistDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,

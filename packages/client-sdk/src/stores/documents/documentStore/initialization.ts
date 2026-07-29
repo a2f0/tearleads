@@ -516,41 +516,44 @@ export async function relinkDocumentStore(
   // eager create cannot interleave: a create that captured a null identity
   // before its network round trip would otherwise write the derived documentId
   // over the one this relink assigns.
-  const { record: nextRecord, updatedAt } = await chainIdentityWrite(
-    state,
-    async () => {
-      const currentAccessEpoch =
-        state.record?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
-      const patch: Partial<DocumentRecord> = {
-        accessEpoch: Math.max(currentAccessEpoch, input.accessEpoch),
-        accessStateHash:
-          input.accessStateHash === undefined
-            ? (state.record?.accessStateHash ?? null)
-            : input.accessStateHash,
-        containerId: input.containerId,
-        documentId: input.documentId,
-      };
-      if (input.contentKeyBundle !== undefined) {
-        patch.contentKeyBundle = input.contentKeyBundle;
-      }
-      if (input.documentKekTargets !== undefined) {
-        patch.documentKekTargets = input.documentKekTargets;
-      }
-      if (input.documentManifestBundle !== undefined) {
-        patch.documentManifestBundle = input.documentManifestBundle;
-      }
+  const persisted = await chainIdentityWrite(state, async () => {
+    const currentAccessEpoch =
+      state.record?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
+    const patch: Partial<DocumentRecord> = {
+      accessEpoch: Math.max(currentAccessEpoch, input.accessEpoch),
+      accessStateHash:
+        input.accessStateHash === undefined
+          ? (state.record?.accessStateHash ?? null)
+          : input.accessStateHash,
+      containerId: input.containerId,
+      documentId: input.documentId,
+    };
+    if (input.contentKeyBundle !== undefined) {
+      patch.contentKeyBundle = input.contentKeyBundle;
+    }
+    if (input.documentKekTargets !== undefined) {
+      patch.documentKekTargets = input.documentKekTargets;
+    }
+    if (input.documentManifestBundle !== undefined) {
+      patch.documentManifestBundle = input.documentManifestBundle;
+    }
 
-      // Relink rewrites access/identity metadata, not content. If it lands while
-      // the user is mid-edit, re-deriving text/structured fields from the
-      // (possibly lagging) doc would republish a stale read over the live
-      // optimistic snapshot and drop in-flight keystrokes; preserve the snapshot
-      // like the keystroke and sync persists do.
-      return persistDocument(state, currentDoc, patch, {
-        preserveSnapshotStructuredFields: true,
-        preserveSnapshotText: true,
-      });
-    },
-  );
+    // Relink rewrites access/identity metadata, not content. If it lands while
+    // the user is mid-edit, re-deriving text/structured fields from the
+    // (possibly lagging) doc would republish a stale read over the live
+    // optimistic snapshot and drop in-flight keystrokes; preserve the snapshot
+    // like the keystroke and sync persists do.
+    return persistDocument(state, currentDoc, patch, {
+      preserveSnapshotStructuredFields: true,
+      preserveSnapshotText: true,
+    });
+  });
+  // A refused persist means the durable row vanished mid-relink (resurrect
+  // guard); there is no summary to report.
+  if (!persisted) {
+    return null;
+  }
+  const { record: nextRecord, updatedAt } = persisted;
   return {
     accessStateHash: nextRecord.accessStateHash ?? null,
     effectiveAccessLevel: normalizeEffectiveAccessLevel(

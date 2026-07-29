@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createDocument } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
 import { createDocumentProjectorRegistry } from "../../documents";
 import { persistDocumentState } from "./persistence";
 
@@ -29,13 +30,25 @@ test("an update persist refuses to resurrect a deleted row", async () => {
       throw new Error("expected seeded document");
     }
 
-    // The concurrent deletion lands before the persist claims the mutex.
-    await sqlDocumentsPersistence.deleteDocument(execSql, "victim");
-
     const doc = await createDocument("persist-resurrect");
     doc.getText("text").update("racing edit");
     doc.commit();
-    const persisted = await persistDocumentState({
+
+    // The "concurrent teardown": holds the executor's mutex and deletes the
+    // row INSIDE it, while the persist queues behind. A pre-lock existence
+    // check would have seen the row alive; only the in-mutation check
+    // observes the deletion.
+    let releaseHeldMutation = () => {};
+    const mutationHeld = new Promise<void>((resolve) => {
+      releaseHeldMutation = resolve;
+    });
+    const heldMutation = runSerializedSqlMutation(execSql, async (locked) => {
+      await mutationHeld;
+      // The real deletion path (documents row AND projection), running
+      // inside the held mutation via serialized-exec re-entry.
+      await sqlDocumentsPersistence.deleteDocument(locked, "victim");
+    });
+    const queuedPersist = persistDocumentState({
       currentDoc: doc,
       currentRecord,
       documentProjectors: createDocumentProjectorRegistry([]),
@@ -44,8 +57,13 @@ test("an update persist refuses to resurrect a deleted row", async () => {
       localId: "victim",
       persistence: sqlDocumentsPersistence,
     });
+    // A macrotask drains every pending continuation: the persist parks at
+    // the held mutex — the row still alive — before the deletion lands.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    releaseHeldMutation();
+    await heldMutation;
 
-    expect(persisted).toBeNull();
+    expect(await queuedPersist).toBeNull();
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "victim"),
     ).toBeNull();
