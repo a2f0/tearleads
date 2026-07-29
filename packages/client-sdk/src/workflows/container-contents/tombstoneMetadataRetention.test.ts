@@ -54,6 +54,12 @@ async function seedContainerWithQueuedRename(
   await listPendingWrites(execSql);
   await saveContainerRow(execSql, containerId);
   await execSql(
+    `INSERT INTO document_history_updates (
+      id, app_kind, local_id, update_data, origin, created_at
+    ) VALUES (?, ?, ?, ?, 'local', ?)`,
+    [`tail-${containerId}`, "container-metadata", containerId, "payload", T1],
+  );
+  await execSql(
     `INSERT INTO document_pending_updates (
       id, app_kind, local_id, update_data,
       partial_start_version_vector, partial_end_version_vector,
@@ -105,6 +111,14 @@ test("deleted cascade drops the metadata document and queue", async () => {
     ).toBe(false);
     expect(await countRows(execSql, "documents", "doomed")).toBe(0);
     expect(await countRows(execSql, "document_pending_updates", "doomed")).toBe(
+      0,
+    );
+    // The metadata document's durable history goes with its record — no
+    // orphaned checkpoint or tail rows behind a deleted cascade.
+    expect(
+      await countRows(execSql, "document_history_checkpoints", "doomed"),
+    ).toBe(0);
+    expect(await countRows(execSql, "document_history_updates", "doomed")).toBe(
       0,
     );
   } finally {
@@ -207,6 +221,13 @@ test("a later deleted tombstone purges dormant retained metadata", async () => {
     expect(await countRows(execSql, "document_sync_failures", "revoked")).toBe(
       0,
     );
+    // The dormant purge drops the retained document's history rows too.
+    expect(
+      await countRows(execSql, "document_history_checkpoints", "revoked"),
+    ).toBe(0);
+    expect(
+      await countRows(execSql, "document_history_updates", "revoked"),
+    ).toBe(0);
   } finally {
     await close();
   }

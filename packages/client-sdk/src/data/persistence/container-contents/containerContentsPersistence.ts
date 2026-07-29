@@ -853,6 +853,66 @@ async function reparentLocalContainerChildren(input: {
     .run();
 }
 
+// Every durable row of a container's metadata document — the record, its
+// durable history (checkpoint + tail), the queued updates, and the failure
+// row. The deleted cascade, the dormant purge, and the local reconcile all
+// delete this same set, so orphaned metadata history cannot outlive its
+// record.
+async function deleteContainerMetadataDocumentRowsInTransaction(
+  tx: ClientSQLiteTransaction,
+  containerIds: readonly string[],
+): Promise<void> {
+  const ids = [...containerIds];
+  if (ids.length === 0) {
+    return;
+  }
+  await tx
+    .delete(documents)
+    .where(
+      and(
+        eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
+        inArray(documents.localId, ids),
+      ),
+    )
+    .run();
+  await tx
+    .delete(documentHistoryCheckpoints)
+    .where(
+      and(
+        eq(documentHistoryCheckpoints.appKind, CONTAINER_METADATA_APP_KIND),
+        inArray(documentHistoryCheckpoints.localId, ids),
+      ),
+    )
+    .run();
+  await tx
+    .delete(documentHistoryUpdates)
+    .where(
+      and(
+        eq(documentHistoryUpdates.appKind, CONTAINER_METADATA_APP_KIND),
+        inArray(documentHistoryUpdates.localId, ids),
+      ),
+    )
+    .run();
+  await tx
+    .delete(documentPendingUpdates)
+    .where(
+      and(
+        eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
+        inArray(documentPendingUpdates.localId, ids),
+      ),
+    )
+    .run();
+  await tx
+    .delete(documentSyncFailures)
+    .where(
+      and(
+        eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
+        inArray(documentSyncFailures.localId, ids),
+      ),
+    )
+    .run();
+}
+
 async function deleteLocalContainerRows(input: {
   containerId: string;
   tx: ClientSQLiteTransaction;
@@ -878,42 +938,7 @@ async function deleteLocalContainerRows(input: {
     .where(eq(containerProjection.containerId, containerId))
     .run();
   await tx.delete(containers).where(eq(containers.id, containerId)).run();
-  await tx
-    .delete(documents)
-    .where(
-      and(
-        eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-        eq(documents.localId, containerId),
-      ),
-    )
-    .run();
-  await tx
-    .delete(documentHistoryCheckpoints)
-    .where(
-      and(
-        eq(documentHistoryCheckpoints.appKind, CONTAINER_METADATA_APP_KIND),
-        eq(documentHistoryCheckpoints.localId, containerId),
-      ),
-    )
-    .run();
-  await tx
-    .delete(documentHistoryUpdates)
-    .where(
-      and(
-        eq(documentHistoryUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-        eq(documentHistoryUpdates.localId, containerId),
-      ),
-    )
-    .run();
-  await tx
-    .delete(documentPendingUpdates)
-    .where(
-      and(
-        eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-        eq(documentPendingUpdates.localId, containerId),
-      ),
-    )
-    .run();
+  await deleteContainerMetadataDocumentRowsInTransaction(tx, [containerId]);
   await tx
     .delete(containerSyncWatermarks)
     .where(
@@ -1044,38 +1069,10 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
             )
             .run();
           await deleteContainerRowsInTransaction(tx, uniqueContainerIds);
-          if (metadataDeleteIds.length > 0) {
-            await tx
-              .delete(documents)
-              .where(
-                and(
-                  eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-                  inArray(documents.localId, metadataDeleteIds),
-                ),
-              )
-              .run();
-            await tx
-              .delete(documentPendingUpdates)
-              .where(
-                and(
-                  eq(
-                    documentPendingUpdates.appKind,
-                    CONTAINER_METADATA_APP_KIND,
-                  ),
-                  inArray(documentPendingUpdates.localId, metadataDeleteIds),
-                ),
-              )
-              .run();
-            await tx
-              .delete(documentSyncFailures)
-              .where(
-                and(
-                  eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
-                  inArray(documentSyncFailures.localId, metadataDeleteIds),
-                ),
-              )
-              .run();
-          }
+          await deleteContainerMetadataDocumentRowsInTransaction(
+            tx,
+            metadataDeleteIds,
+          );
           await deleteContainerWatermarksInTransaction(tx, uniqueContainerIds);
         },
       );
@@ -1382,33 +1379,9 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       // against the replacement metadata document.
       await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
         async (tx) => {
-          await tx
-            .delete(documents)
-            .where(
-              and(
-                eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-                eq(documents.localId, containerId),
-              ),
-            )
-            .run();
-          await tx
-            .delete(documentPendingUpdates)
-            .where(
-              and(
-                eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-                eq(documentPendingUpdates.localId, containerId),
-              ),
-            )
-            .run();
-          await tx
-            .delete(documentSyncFailures)
-            .where(
-              and(
-                eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
-                eq(documentSyncFailures.localId, containerId),
-              ),
-            )
-            .run();
+          await deleteContainerMetadataDocumentRowsInTransaction(tx, [
+            containerId,
+          ]);
         },
       );
     });
