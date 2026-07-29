@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createDomainScope } from "../../data/domainScope";
-import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
@@ -338,65 +337,4 @@ test("stale root recovery retries a rejected adoption only after a runtime updat
   state.runtime = { ...runtime };
   await expect(recoverStoreStaleRoot(state)).resolves.toBe("context-changed");
   expect(reassignmentCount).toBe(2);
-});
-
-// Parked permission-denied moves (row 7) replay once per launch: a restart
-// loses the in-memory access-restored edge, and "an app restart re-attempts
-// everything retriable".
-test("denied moves replay once on the first priming pass", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "document-recovery-denied-replay",
-  );
-  try {
-    await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
-      documentId: "remote-a",
-      localId: "doc-a",
-      replaceLinkedContainers: false,
-      sourceContainerId: "from",
-      targetContainerId: "to",
-    });
-    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
-      denied: true,
-      documentId: "remote-a",
-      message: "denied",
-    });
-
-    const state = {
-      containersById: new Map<string, ContainerState>(),
-      documentStoresNeedPriming: true,
-      persistence:
-        defaultContainerContentsPersistence as ContainerContentsPersistence,
-      rootLaneHydrated: true,
-      runtime: {
-        adoptRootContainer: () => false,
-        auth: { organizationId: "organization-1" },
-        infra: { execSql },
-        state: { domainScope: createDomainScope() },
-        util: { log: () => {} },
-      } as unknown as ContainerContentsStoreWorkflowRuntime,
-    };
-
-    await primeStoreDocuments(state);
-    expect(
-      (
-        await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql)
-      ).map((intent) => intent.syncStatus),
-    ).toEqual(["pending"]);
-
-    // Within the same launch, a re-denied intent stays parked on the next
-    // priming pass — the launch replay happens exactly once.
-    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
-      denied: true,
-      documentId: "remote-a",
-      message: "denied again",
-    });
-    state.documentStoresNeedPriming = true;
-    await primeStoreDocuments(state);
-    expect(
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
-    ).toEqual([]);
-  } finally {
-    close();
-  }
 });

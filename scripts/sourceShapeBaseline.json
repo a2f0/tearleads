@@ -278,8 +278,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 523,
-      "bytes": 16691
+      "lines": 533,
+      "bytes": 16964
     },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
       "lines": 1166,
@@ -342,8 +342,8 @@
       "bytes": 18571
     },
     "packages/client-sdk/src/workflows/container-contents/documentMoveIntentSync.test.ts": {
-      "lines": 602,
-      "bytes": 21531
+      "lines": 689,
+      "bytes": 24661
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
       "lines": 590,

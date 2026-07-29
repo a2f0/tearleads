@@ -313,6 +313,16 @@ export interface DocumentLinkSetMutationApi {
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
+  getDocumentWriterProjectionResult?(
+    documentId: string,
+    options?: DocumentSyncRequestResultOptions | undefined,
+  ): Promise<
+    | {
+        readonly data: DocumentWriterProjectionResponse;
+        readonly ok: true;
+      }
+    | DocumentSyncSubmitFailure
+  >;
   primeDocumentWriterProjection(
     documentId: string,
     projection: DocumentWriterProjectionResponse,

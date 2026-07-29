@@ -78,7 +78,10 @@ const STARTUP_DOCUMENT_SYNC_WORK_SQL = `
     OR EXISTS (
       SELECT 1
       FROM document_move_intents intent
-      WHERE intent.sync_status = 'pending'
+      -- Parked denied moves count: the once-per-launch replay makes them
+      -- retriable, so a relaunch whose only durable work is a denied move
+      -- must still schedule the structural pass that replays it (row 7).
+      WHERE intent.sync_status IN ('pending', 'denied')
     )
   LIMIT 1
 `;

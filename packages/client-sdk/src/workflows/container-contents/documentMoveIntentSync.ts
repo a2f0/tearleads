@@ -3,7 +3,6 @@ import {
   type DocumentMoveIntentRecord,
   sqlDocumentMoveIntentPersistence,
 } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type DocumentLinkSetFailureHandler,
   type DocumentLinkSetMutationFailure,
@@ -346,24 +345,27 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   }
 }
 
-/**
- * Launch-time replay for parked permission-denied moves (row 7): a restart
- * loses the in-memory access-restored edge, and "an app restart re-attempts
- * everything retriable", so denied intents get one fresh attempt per launch.
- */
-export async function replayDeniedMoveIntents(execSql: ExecSql): Promise<void> {
-  await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(execSql);
-}
+// One replay per launch: parked denied intents flip back to pending ahead of
+// the first scan of this store lifecycle (row 7) — a restart loses the
+// in-memory access-restored edge, and "an app restart re-attempts everything
+// retriable". Running inside the scan keeps the ordering trivially correct:
+// the replayed intents are attempted by this same pass, not stranded until an
+// unrelated trigger. Marked complete only after the reset lands, so a
+// transient failure retries on the next pass.
+const deniedReplayCompleted = new WeakSet<DocumentMoveIntentSyncState>();
 
 export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   state: DocumentMoveIntentSyncState;
 }): Promise<number> {
+  const execSql = input.state.runtime.infra.execSql;
+  if (!deniedReplayCompleted.has(input.state)) {
+    await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(execSql);
+    deniedReplayCompleted.add(input.state);
+  }
   const pendingIntents =
-    await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(
-      input.state.runtime.infra.execSql,
-    );
+    await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
   let movedCount = 0;
 
   for (const intent of pendingIntents) {

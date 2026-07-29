@@ -1,5 +1,4 @@
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
-import { replayDeniedMoveIntents } from "../../workflows/container-contents/documentMoveIntentSync";
 import {
   primeDocumentsForContainerSubtree,
   primeDocumentsForLoadedRoots,
@@ -40,7 +39,6 @@ const staleRootRecoveryLogState = new WeakMap<
   DocumentRecoveryStoreState,
   StaleRootRecoveryLogState
 >();
-const deniedMovesReplayedOnLaunch = new WeakSet<DocumentRecoveryStoreState>();
 const rejectedAdoptionRuntime = new WeakMap<
   DocumentRecoveryStoreState,
   ContainerContentsStoreWorkflowRuntime
@@ -90,13 +88,6 @@ export async function primeStoreDocuments(
   // this pass erasing that newer signal when it completes.
   state.documentStoresNeedPriming = false;
   try {
-    if (!deniedMovesReplayedOnLaunch.has(state)) {
-      deniedMovesReplayedOnLaunch.add(state);
-      // "An app restart re-attempts everything retriable": parked
-      // permission-denied moves (row 7) get one replay per launch, since
-      // the in-memory access-restored edge cannot survive a restart.
-      await replayDeniedMoveIntents(state.runtime.infra.execSql);
-    }
     const result = await primeDocumentsForLoadedRoots({
       containersById: state.containersById,
       host: createPrimeHost(state),

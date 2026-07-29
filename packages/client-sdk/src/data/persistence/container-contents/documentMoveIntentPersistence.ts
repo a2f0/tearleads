@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
+  containerTables,
   documentMoveIntents,
   documentMoveIntentTables,
   documentProjectionTables,
@@ -12,6 +13,27 @@ import {
 } from "../../sqlite/sqlSchema";
 
 const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
+
+// Resolves the organization a parked move belongs to, in confidence order:
+// the move's target container, the document's preserved projection
+// attribution, then the container the document currently sits in. Normal
+// saves routinely leave projection attribution empty (deferred-tail
+// reporting resolves through the same container join), so the container rows
+// carry the common case; rows with no resolvable organization stay in every
+// scope (device-first shapes, matching orphan priming).
+const DENIED_INTENT_ORGANIZATION_SQL = `COALESCE(
+  NULLIF(target_container.organization_id, ''),
+  NULLIF(projection.organization_id, ''),
+  NULLIF(projection_container.organization_id, '')
+)`;
+
+const DENIED_INTENT_ORGANIZATION_JOINS_SQL = `
+  LEFT JOIN containers target_container
+    ON target_container.id = intent.target_container_id
+  LEFT JOIN document_projection projection
+    ON projection.local_id = intent.local_id
+  LEFT JOIN containers projection_container
+    ON projection_container.id = projection.container_id`;
 
 export type DocumentMoveIntentSyncStatus = "pending" | "blocked" | "denied";
 
@@ -254,15 +276,17 @@ export const sqlDocumentMoveIntentPersistence = {
     input?: { organizationId?: string },
   ): Promise<boolean> {
     await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
-    await ensureSqlTables(execSql, documentProjectionTables);
+    await ensureSqlTables(execSql, [
+      ...documentProjectionTables,
+      ...containerTables,
+    ]);
     const rows = await execSql(
       `SELECT intent.document_id AS document_id
        FROM document_move_intents intent
-       LEFT JOIN document_projection projection
-         ON projection.local_id = intent.local_id
+       ${input?.organizationId ? DENIED_INTENT_ORGANIZATION_JOINS_SQL : ""}
        WHERE intent.sync_status = 'denied'
          AND intent.intent_type = ?
-         ${input?.organizationId ? "AND (projection.organization_id = ? OR projection.organization_id IS NULL OR projection.organization_id = '')" : ""}
+         ${input?.organizationId ? `AND (${DENIED_INTENT_ORGANIZATION_SQL} = ? OR ${DENIED_INTENT_ORGANIZATION_SQL} IS NULL)` : ""}
        LIMIT 1`,
       input?.organizationId
         ? [DOCUMENT_MOVE_INTENT_TYPE, input.organizationId]
@@ -280,12 +304,15 @@ export const sqlDocumentMoveIntentPersistence = {
     input?: { localId?: string; organizationId?: string },
   ): Promise<void> {
     await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
-    await ensureSqlTables(execSql, documentProjectionTables);
+    await ensureSqlTables(execSql, [
+      ...documentProjectionTables,
+      ...containerTables,
+    ]);
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      // Organization scoping joins through the projection's preserved
-      // attribution: restoring one organization's access must not un-park
-      // moves that another organization still denies. Unattributed rows are
-      // included (device-first shapes), matching orphan priming.
+      // Organization scoping resolves each intent's organization through the
+      // container joins above: restoring one organization's access must not
+      // un-park moves that another organization still denies. Rows with no
+      // resolvable organization are included (device-first shapes).
       await lockedExecSql(
         `UPDATE document_move_intents
          SET sync_status = 'pending', updated_at = ?
@@ -295,12 +322,10 @@ export const sqlDocumentMoveIntentPersistence = {
            ${
              input?.organizationId
                ? `AND local_id IN (
-                    SELECT intent2.local_id FROM document_move_intents intent2
-                    LEFT JOIN document_projection projection
-                      ON projection.local_id = intent2.local_id
-                    WHERE projection.organization_id = ?
-                      OR projection.organization_id IS NULL
-                      OR projection.organization_id = ''
+                    SELECT intent.local_id FROM document_move_intents intent
+                    ${DENIED_INTENT_ORGANIZATION_JOINS_SQL}
+                    WHERE ${DENIED_INTENT_ORGANIZATION_SQL} = ?
+                      OR ${DENIED_INTENT_ORGANIZATION_SQL} IS NULL
                   )`
                : ""
            }`,
