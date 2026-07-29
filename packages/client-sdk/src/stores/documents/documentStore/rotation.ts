@@ -20,6 +20,10 @@ import {
   pendingDeltaSinceBase,
 } from "./persistence";
 import type { DocumentStoreState } from "./state";
+import {
+  captureDocumentStoreSyncGeneration,
+  type DocumentStoreSyncGeneration,
+} from "./syncGeneration";
 import { documentTerminalSubmitFailureHandler } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
 
@@ -55,6 +59,7 @@ function reconcileSentUpdateIds(
 
 async function pullVerifiedHistoryForRotation(input: {
   currentRecord: NonNullable<DocumentStoreState["record"]>;
+  generation: DocumentStoreSyncGeneration;
   localVersionVector: string | null;
   pendingUpdates: Awaited<ReturnType<typeof listPendingUpdates>>;
   state: DocumentStoreState;
@@ -90,6 +95,7 @@ async function pullVerifiedHistoryForRotation(input: {
       onSyncTrace: (line) => input.state.runtime.util.log(`Documents: ${line}`),
       onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
         input.state,
+        input.generation,
       ),
       pendingUpdates: input.pendingUpdates,
       persistedState: input.currentRecord,
@@ -137,6 +143,15 @@ async function recoverFullHistoryForRotation(
       "Document must finish loading before its content key can rotate",
     );
   }
+  // The teardown guard for the recovery's terminal-failure handler: captured
+  // before the pull so a discard (row 21) racing this preflight invalidates
+  // it, and the stale handler cannot resurrect a deleted failure row.
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) {
+    throw new Error(
+      "Document changed during rotation recovery; retry key rotation",
+    );
+  }
 
   const capturedVersion = encodeVersionVector(currentDoc);
   const uncoveredLocalDelta = pendingDeltaSinceBase(state, currentDoc);
@@ -150,6 +165,7 @@ async function recoverFullHistoryForRotation(
   // tail beyond the captured version.
   const synced = await pullVerifiedHistoryForRotation({
     currentRecord,
+    generation,
     localVersionVector: capturedVersion,
     pendingUpdates,
     state,

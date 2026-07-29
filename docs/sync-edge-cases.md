@@ -67,7 +67,7 @@ without counting as lane progress, so it cannot hot-loop the pump.
 | 18 | Create raced with a lost response (`"Document manifest already exists"`) | Adopts the existing remote document instead of duplicating. | working as designed |
 | 19 | Billing-gated organization (payment required) | Write-bearing submissions stop silently; queue shows `pending` with a "billing paused" note; lifted by the billing recovery signal. | working as designed |
 | 20 | Re-key exhaustion (5 attempts) on a conflicted pending update | Synthetic terminal failure row; the pending row remains and conflicts on future submits until "Retry sync" resets the budget (row 11) or the edits are discarded (row 21). | working as designed |
-| 21 | Queue that can never sync (e.g. a recovery loop that never converges) | Write queue "Discard local edits" (documents with a remote copy only): atomically converts the record to the discovered-share shell — queued updates, staged uploads (rows and bytes), durable history, and the failure row dropped in one transaction; identity, title, placement, and links kept — then re-pulls the server copy in-session. Refused for local-only, unlinked, or move-pending documents. In-flight writers (edits, attachment settles/resume, initialization recovery) validate a store generation inside the serialized mutation, so a racing write either lands before the teardown (and is wiped by it) or is skipped. | working as designed |
+| 21 | Queue that can never sync (e.g. a recovery loop that never converges) | Write queue "Discard local edits" (documents with a remote copy only): atomically converts the record to the discovered-share shell — queued updates, staged uploads (rows and bytes), durable history, and the failure row dropped in one transaction; identity, title, placement, and links kept — then re-pulls the server copy in-session. Refused for local-only, unlinked, or move-pending documents. In-flight writers (edits, attachment settles/resume, initialization recovery, the rotation preflight's terminal-failure handler) validate a store generation inside the serialized mutation, so a racing write either lands before the teardown (and is wiped by it) or is skipped. | working as designed |
 
 ## Known gaps / follow-ups
 
@@ -106,8 +106,6 @@ without counting as lane progress, so it cannot hot-loop the pump.
   excluded from retention (nothing to re-attach: their create intents die in
   the cascade), and like the `deleted` branch their history rows also
   survive as residue.
-- Row 7: consider parking permission-denied moves for the
-  org-access-restored signal instead of retrying on every trigger.
 - Create intents (`container_create_intents`) have no `last_attempted_at`
   column, so a create stuck in error shows no attempt timestamp.
 - Latent race: a document store's in-flight persist can resurrect a document
