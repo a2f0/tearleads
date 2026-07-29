@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import {
   useWindowTitleBarActions,
   WindowMenuProvider,
@@ -300,6 +306,29 @@ test("renders the media preview above the metadata when a URL is available", () 
     previewPanel.compareDocumentPosition(mimeType) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
+});
+
+test("clicking an image preview opens the shared image viewer", () => {
+  let downloads = 0;
+  const view = renderFields({
+    mediaPreview: {
+      attachment: pngAttachment,
+      mediaKind: "image",
+      mediaUrl: "blob:png-preview",
+    },
+    onDownload: () => (downloads += 1),
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Open full screen" }));
+
+  const viewer = view.getByRole("dialog");
+  expect(
+    viewer.querySelector<HTMLImageElement>('img[alt="logo.png"]')?.src,
+  ).toContain("blob:png-preview");
+  fireEvent.click(within(viewer).getByRole("button", { name: "Download" }));
+  expect(downloads).toBe(1);
+  fireEvent.click(view.getByRole("button", { name: "Close" }));
+  expect(view.queryByRole("dialog")).toBeNull();
 });
 
 test("renders shared playback controls for audio and video previews", () => {

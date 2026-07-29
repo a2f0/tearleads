@@ -1,5 +1,6 @@
 import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
+import { MiniAppImageViewer } from "../../components/mini-app/MiniAppLayout";
 import { isAutomaticBlobPreviewAllowed } from "./documentAttachmentUtils";
 import {
   getMediaPreviewKind,
@@ -152,28 +153,59 @@ export function useFileDocumentMediaPreview(params: {
 }
 
 export function FileDocumentMediaPreviewPanel(params: {
+  onDownload: () => void;
   preview: FileDocumentMediaPreview;
 }) {
   const { attachment, mediaKind, mediaUrl } = params.preview;
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const imageCanOpen = mediaKind === "image" && mediaUrl !== null;
+
   return (
-    <section className="file-document-preview" aria-label="File preview">
-      <div
-        aria-busy={!mediaUrl || undefined}
-        className="file-document-preview-frame"
-      >
-        {mediaUrl ? (
-          <MediaPreview
-            className="file-document-media-preview"
-            kind={mediaKind}
-            label={attachment.name}
-            url={mediaUrl}
-          />
-        ) : (
-          <span className="structured-document-slot-description">
-            Loading preview...
-          </span>
-        )}
-      </div>
-    </section>
+    <>
+      <section className="file-document-preview" aria-label="File preview">
+        <div
+          aria-busy={!mediaUrl || undefined}
+          className="file-document-preview-frame"
+        >
+          {mediaUrl ? (
+            imageCanOpen ? (
+              <button
+                aria-label="Open full screen"
+                className="file-document-preview-open"
+                onClick={() => setViewerOpen(true)}
+                title="Open full screen"
+                type="button"
+              >
+                <MediaPreview
+                  className="file-document-media-preview"
+                  kind={mediaKind}
+                  label={attachment.name}
+                  url={mediaUrl}
+                />
+              </button>
+            ) : (
+              <MediaPreview
+                className="file-document-media-preview"
+                kind={mediaKind}
+                label={attachment.name}
+                url={mediaUrl}
+              />
+            )
+          ) : (
+            <span className="structured-document-slot-description">
+              Loading preview...
+            </span>
+          )}
+        </div>
+      </section>
+      {viewerOpen && imageCanOpen ? (
+        <MiniAppImageViewer
+          label={attachment.name}
+          onClose={() => setViewerOpen(false)}
+          onDownload={params.onDownload}
+          url={mediaUrl}
+        />
+      ) : null}
+    </>
   );
 }

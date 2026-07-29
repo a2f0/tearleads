@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import { CurrentWindowProvider } from "../../window/CurrentWindowContext";
 import { MiniAppImageViewer } from "./MiniAppImageViewer";
 
 afterEach(cleanup);
@@ -57,6 +58,34 @@ test("the viewer shows only the image and its toolbar", () => {
   expect(
     image.parentElement?.classList.contains("mini-app-image-viewer-stage"),
   ).toBe(true);
+});
+
+test("a window hosts the viewer inside its own bounds", () => {
+  const overlayHost = document.createElement("div");
+  overlayHost.className = "window";
+  document.body.append(overlayHost);
+
+  const view = render(
+    <CurrentWindowProvider
+      close={() => undefined}
+      id="window-1"
+      overlayHost={overlayHost}
+      showStatusMessage={() => undefined}
+    >
+      <MiniAppImageViewer
+        label="photo.png"
+        onClose={() => undefined}
+        url="blob:photo"
+      />
+    </CurrentWindowProvider>,
+  );
+
+  const viewer = view.getByRole("dialog");
+  expect(viewer.parentElement).toBe(overlayHost);
+  expect(viewer.classList.contains("mini-app-image-viewer--windowed")).toBe(
+    true,
+  );
+  overlayHost.remove();
 });
 
 // The name is on its own line so the control row stays all controls: at touch

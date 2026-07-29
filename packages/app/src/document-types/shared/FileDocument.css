@@ -44,6 +44,20 @@
   object-fit: contain;
 }
 
+/* Image previews open the shared zoomable viewer. Keep the button visually
+   identical to the old plain image while retaining the browser focus ring. */
+.file-document-preview-open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: zoom-in;
+}
+
 .file-document-media-preview.media-preview--audio {
   width: min(100%, 36rem);
   height: auto;

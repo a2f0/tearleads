@@ -11,6 +11,7 @@ import {
   useRef,
 } from "react";
 import { createPortal } from "react-dom";
+import { useCurrentWindow } from "../../window/CurrentWindowContext";
 import "./MiniAppImageViewer.css";
 import { useImageViewerState } from "./useImageViewerState";
 
@@ -164,10 +165,10 @@ function useImageViewerDismissal(params: {
  * no room, and no way in. Here the image fills the screen and pinch, wheel,
  * drag, and double-tap zoom and pan it (see {@link useImageViewerState}).
  *
- * Rendered through a portal into <body> and fixed to the viewport so it covers
- * the whole app rather than being clipped by the pane or window that opened it,
- * and the stage takes `touch-action: none` so the browser hands the pinch to the
- * viewer instead of page-zooming behind it.
+ * Routed layouts portal into <body> and fill the viewport. A desktop window
+ * instead becomes the portal host so the viewer fills only the window that
+ * opened it. The stage takes `touch-action: none` so the browser hands the
+ * pinch to the viewer instead of page-zooming behind it.
  */
 export function MiniAppImageViewer(params: {
   label: string;
@@ -178,6 +179,9 @@ export function MiniAppImageViewer(params: {
   const viewer = useImageViewerState();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
+  const currentWindow = useCurrentWindow();
+  const portalHost = currentWindow?.overlayHost ?? document.body;
+  const isWindowed = portalHost !== document.body;
 
   useImageViewerDismissal({ closeButtonRef, onClose: params.onClose });
 
@@ -185,7 +189,7 @@ export function MiniAppImageViewer(params: {
     <div
       aria-labelledby={titleId}
       aria-modal="true"
-      className="mini-app-image-viewer"
+      className={`mini-app-image-viewer${isWindowed ? " mini-app-image-viewer--windowed" : ""}`}
       role="dialog"
     >
       <ImageViewerChrome
@@ -227,6 +231,6 @@ export function MiniAppImageViewer(params: {
         )}
       </div>
     </div>,
-    document.body,
+    portalHost,
   );
 }

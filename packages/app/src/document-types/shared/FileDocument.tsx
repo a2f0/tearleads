@@ -185,7 +185,10 @@ export function FileDocumentFields({
       {/* For media, the preview is the point of the view: render it above the
           metadata so it lands on top without a scroll. */}
       {mediaPreview ? (
-        <FileDocumentMediaPreviewPanel preview={mediaPreview} />
+        <FileDocumentMediaPreviewPanel
+          onDownload={onDownload}
+          preview={mediaPreview}
+        />
       ) : null}
       {downloadError ? (
         <MiniAppStatus as="span" tone="error">
