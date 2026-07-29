@@ -65,7 +65,9 @@ function ActiveSessionsSection({
               disabled={identityBusy}
               onClick={() => void identityMutations.authenticate()}
             >
-              Login
+              {identityMutations.identityBusy === "authenticate"
+                ? "Logging in..."
+                : "Login"}
             </MiniAppButton>
           </MiniAppToolbar>
         )}
