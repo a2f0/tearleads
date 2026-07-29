@@ -182,16 +182,16 @@ function DocumentAttachmentSlotCard(params: {
         slot={slot}
         storedAttachment={storedAttachment}
       />
-      <div className="structured-document-slot-meta">
-        <span className="structured-document-slot-name">
-          {storedAttachment?.name ?? "No file selected"}
-        </span>
-        {storedAttachment ? (
+      {storedAttachment ? (
+        <div className="structured-document-slot-meta">
+          <span className="structured-document-slot-name">
+            {storedAttachment.name}
+          </span>
           <span className="structured-document-slot-detail">
             {formatByteLength(storedAttachment.byteLength)}
           </span>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       <div className="structured-document-slot-actions">
         <DocumentAttachmentSlotActions
           blobPicker={blobPicker}
