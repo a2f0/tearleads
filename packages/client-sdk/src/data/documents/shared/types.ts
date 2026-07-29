@@ -310,6 +310,16 @@ export interface DocumentLinkSetMutationApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
+  getContainerWriterProjectionResult?(
+    containerId: string,
+    options?: DocumentSyncRequestResultOptions | undefined,
+  ): Promise<
+    | {
+        readonly data: ContainerWriterProjectionResponse;
+        readonly ok: true;
+      }
+    | DocumentSyncSubmitFailure
+  >;
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;

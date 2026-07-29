@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { CONTAINER_METADATA_APP_KIND } from "../../data/persistence/container-contents/containerContentsPersistence";
+import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/internal/constants";
 import {
@@ -104,6 +105,50 @@ test("container retry resets the metadata scope's budget and failure row", async
     });
     expect(pending?.rekeyCount).toBe(0);
     expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
+  } finally {
+    close();
+  }
+});
+
+// A parked permission-denied move is part of the manual-retry surface: the
+// deliberate signal un-parks it, scoped to that document alone — another
+// document's parked move stays parked (row 7).
+test("manual retry un-parks only that document's denied move", async () => {
+  const { close, execSql } = await createTestExecSql("pending-retry-denied");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    for (const [doc, local] of [
+      ["retry-remote", LOCAL_ID],
+      ["other-remote", "other-doc"],
+    ] as const) {
+      await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+        documentId: doc,
+        localId: local,
+        replaceLinkedContainers: false,
+        sourceContainerId: "from",
+        targetContainerId: "to",
+      });
+      await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+        denied: true,
+        documentId: doc,
+        message: "denied",
+      });
+    }
+
+    await resetPendingWriteRetryState(execSql, {
+      localId: LOCAL_ID,
+      namespace: null,
+      objectKind: "document",
+    });
+
+    expect(
+      (
+        await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql)
+      ).map((intent) => intent.documentId),
+    ).toEqual(["retry-remote"]);
+    expect(
+      await sqlDocumentMoveIntentPersistence.hasDeniedMoveIntents(execSql),
+    ).toBe(true);
   } finally {
     close();
   }

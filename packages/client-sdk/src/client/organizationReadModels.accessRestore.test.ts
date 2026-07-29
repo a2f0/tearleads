@@ -11,11 +11,14 @@ import {
 import type { BlobStore } from "../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { createDomainScope } from "../data/domainScope";
+import { sqlDocumentMoveIntentPersistence } from "../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   ensureDocumentTables,
   recordDocumentSyncFailure,
 } from "../data/sqlite/documentPersistence";
+import { containerTables } from "../data/sqlite/schema";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
+import { ensureSqlTables } from "../data/sqlite/sqlSchema";
 import {
   disposeDomainSyncCoordinator,
   getOrCreateDomainSyncCoordinator,
@@ -203,6 +206,100 @@ test("a failed reconcile after a denial does not re-arm sync lanes", async () =>
     await expect(coordinator.reconcile()).resolves.not.toBeNull();
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(laneRuns).toBe(1);
+  } finally {
+    disposeDomainSyncCoordinator(domainScope);
+    close();
+  }
+});
+
+// A parked permission-denied move is re-arm evidence on its own, and the
+// restored organization's reset is scoped: other organizations' parked moves
+// stay parked (row 7).
+test("restored access replays that organization's denied moves", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-denied-move-restore-test",
+  );
+  const { runtime, workflowInput } = createRuntime(execSql);
+  const domainScope = workflowInput.state.domainScope;
+  try {
+    let laneRuns = 0;
+    let markLaneRan = () => {};
+    const laneRan = new Promise<void>((resolve) => {
+      markLaneRan = resolve;
+    });
+    getOrCreateDomainSyncCoordinator(domainScope).registerLane(
+      "documents:stranded",
+      {
+        label: "Stranded write lane",
+        phase: "document",
+        run: async () => {
+          laneRuns += 1;
+          markLaneRan();
+        },
+      },
+    );
+    const coordinator = createOrganizationReadModelCoordinator(runtime);
+    const accessInput = {
+      execSql,
+      organizationId: organizationReadModelOrganizationId,
+      requesterUserId: organizationReadModelUserId,
+    };
+
+    await ensureDocumentTables(execSql);
+    await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+    await ensureSqlTables(execSql, containerTables);
+    for (const [container, org] of [
+      ["restored-target", organizationReadModelOrganizationId],
+      ["foreign-target", "some-other-organization"],
+    ] as const) {
+      await execSql(
+        `INSERT INTO containers (
+          id, organization_id, local_created_at, local_updated_at
+        ) VALUES (?, ?, ?, ?)`,
+        [
+          container,
+          org,
+          "2026-01-01T00:00:00.000Z",
+          "2026-01-01T00:00:00.000Z",
+        ],
+      );
+    }
+    for (const [doc, local, target] of [
+      ["restored-remote", "restored-doc", "restored-target"],
+      ["foreign-remote", "foreign-doc", "foreign-target"],
+    ] as const) {
+      await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+        documentId: doc,
+        localId: local,
+        replaceLinkedContainers: false,
+        sourceContainerId: "from",
+        targetContainerId: target,
+      });
+      await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+        denied: true,
+        documentId: doc,
+        message: "denied",
+      });
+    }
+
+    // The denied → restored edge re-arms lanes on the parked move alone —
+    // no recorded terminal failure rows required.
+    denyOrganizationPresentationAccess(accessInput, ["readModel", "usage"]);
+    await expect(coordinator.reconcile()).resolves.not.toBeNull();
+    await laneRan;
+    expect(laneRuns).toBe(1);
+
+    // The restored organization's move replays; the other stays parked.
+    expect(
+      (
+        await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql)
+      ).map((intent) => intent.documentId),
+    ).toEqual(["restored-remote"]);
+    expect(
+      await sqlDocumentMoveIntentPersistence.hasDeniedMoveIntents(execSql, {
+        organizationId: "some-other-organization",
+      }),
+    ).toBe(true);
   } finally {
     disposeDomainSyncCoordinator(domainScope);
     close();

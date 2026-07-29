@@ -55,6 +55,9 @@ function remoteContainerState(input: {
 }
 
 async function runQueuedDocumentMoveFixture(input: {
+  containerProjectionFailure?:
+    | { message: string; status: number | null }
+    | undefined;
   linkFailure?: { message: string; status: number | null } | undefined;
   testDbName: string;
   unlinkAvailable: boolean;
@@ -164,6 +167,16 @@ async function runQueuedDocumentMoveFixture(input: {
         getDocumentWriterProjection: async (documentId: string) =>
           documentId === writerProjection.documentId ? writerProjection : null,
         primeDocumentWriterProjection: () => {},
+        ...(input.containerProjectionFailure
+          ? {
+              getContainerWriterProjectionResult: async () => ({
+                message: input.containerProjectionFailure?.message ?? "",
+                ok: false as const,
+                report: () => {},
+                status: input.containerProjectionFailure?.status ?? null,
+              }),
+            }
+          : {}),
         ...(input.linkFailure
           ? {
               linkDocumentResult: async () => ({
@@ -599,6 +612,29 @@ test("deleting a document deletes its queued move intents", async () => {
   } finally {
     close();
   }
+});
+
+// A cold-cache container projection denial is the same signal as a denied
+// link mutation: the fetch keeps its 403 and the move parks (row 7) instead
+// of collapsing to a retriable null.
+test("a container projection denial parks the move as denied", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    containerProjectionFailure: {
+      message: "Container writer projection request failed (403)",
+      status: 403,
+    },
+    testDbName: "queued-move-projection-denied",
+    unlinkAvailable: true,
+  });
+
+  expect(fixture.syncedCount).toBe(0);
+  expect(fixture.pendingIntents).toEqual([]);
+  expect(fixture.intentRows).toEqual([
+    {
+      lastError: expect.stringContaining("(403)"),
+      syncStatus: "denied",
+    },
+  ]);
 });
 
 // One replay per launch, ahead of the scan: a fresh store state (relaunch)
