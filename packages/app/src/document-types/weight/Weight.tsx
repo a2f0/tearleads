@@ -204,8 +204,8 @@ function WeightEditFields(params: {
         <div className="weight-entry-list-footer tracker-entry-list-footer">
           {entries.length} entries
         </div>
-        <TrackerSaveAction disabled={controlsDisabled} onSave={onSave} />
       </section>
+      <TrackerSaveAction disabled={controlsDisabled} onSave={onSave} />
     </div>
   );
 }

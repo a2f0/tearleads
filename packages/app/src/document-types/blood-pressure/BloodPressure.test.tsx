@@ -465,22 +465,19 @@ test("marks out-of-range measurements invalid without blocking edits", () => {
   ).toBeNull();
 });
 
-test("remove and save actions invoke their callbacks", () => {
-  const removeCalls: string[] = [];
-  let saveCalls = 0;
+test("add, remove, and save actions invoke their callbacks", () => {
+  const calls: string[] = [];
   const view = renderBloodPressureFields({
-    onRemoveReading: (id) => removeCalls.push(id),
-    onToggleEditing: () => {
-      saveCalls += 1;
-    },
+    onAddReading: () => calls.push("add"),
+    onRemoveReading: (id) => calls.push(`remove ${id}`),
+    onToggleEditing: () => calls.push("save"),
   });
 
-  const remove = view.getByRole("button", { name: "Remove reading 1" });
-  fireEvent.click(remove);
+  fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
+  fireEvent.click(view.getByRole("button", { name: "Remove reading 1" }));
   fireEvent.click(view.getByRole("button", { name: "Save" }));
 
-  expect(removeCalls).toEqual(["r1"]);
-  expect(saveCalls).toBe(1);
+  expect(calls).toEqual(["add", "remove r1", "save"]);
 });
 
 test("disables controls while the document is loading", () => {
@@ -496,5 +493,8 @@ test("disables controls while the document is loading", () => {
   expect(
     (view.getByRole("button", { name: "Add Reading" }) as HTMLButtonElement)
       .disabled,
+  ).toBe(true);
+  expect(
+    (view.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled,
   ).toBe(true);
 });

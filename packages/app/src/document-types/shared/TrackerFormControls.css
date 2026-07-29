@@ -32,7 +32,9 @@
   border: var(--border);
 }
 
-.tracker-entry-field {
+/* Tracker grids own their field width, so opt out of MiniAppField's general
+   form-column measure with specificity that does not depend on bundle order. */
+.tracker-edit-row > .tracker-entry-field {
   max-width: none;
 }
 

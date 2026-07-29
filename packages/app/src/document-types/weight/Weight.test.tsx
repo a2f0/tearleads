@@ -452,22 +452,19 @@ test("marks out-of-range weights invalid without blocking edits", () => {
   ).toBe("true");
 });
 
-test("remove and save actions invoke their callbacks", () => {
-  const removeCalls: string[] = [];
-  let saveCalls = 0;
+test("add, remove, and save actions invoke their callbacks", () => {
+  const calls: string[] = [];
   const view = renderWeightFields({
-    onRemoveEntry: (id) => removeCalls.push(id),
-    onToggleEditing: () => {
-      saveCalls += 1;
-    },
+    onAddEntry: () => calls.push("add"),
+    onRemoveEntry: (id) => calls.push(`remove ${id}`),
+    onToggleEditing: () => calls.push("save"),
   });
 
-  const remove = view.getByRole("button", { name: "Remove entry 1" });
-  fireEvent.click(remove);
+  fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
+  fireEvent.click(view.getByRole("button", { name: "Remove entry 1" }));
   fireEvent.click(view.getByRole("button", { name: "Save" }));
 
-  expect(removeCalls).toEqual(["e1"]);
-  expect(saveCalls).toBe(1);
+  expect(calls).toEqual(["add", "remove e1", "save"]);
 });
 
 test("disables controls while the document is loading", () => {
@@ -485,5 +482,8 @@ test("disables controls while the document is loading", () => {
   expect(
     (view.getByRole("button", { name: "Add Entry" }) as HTMLButtonElement)
       .disabled,
+  ).toBe(true);
+  expect(
+    (view.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled,
   ).toBe(true);
 });

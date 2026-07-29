@@ -24,7 +24,7 @@ export function TrackerInputField({
 }: TrackerInputFieldProps) {
   return (
     <MiniAppField className={classNames("tracker-entry-field", className)}>
-      {label}
+      <span>{label}</span>
       <MiniAppInput {...inputProps} />
     </MiniAppField>
   );

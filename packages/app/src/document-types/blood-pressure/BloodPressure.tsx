@@ -173,8 +173,8 @@ function BloodPressureEditFields(params: {
         <div className="blood-pressure-reading-list-footer tracker-entry-list-footer">
           {readings.length} entries
         </div>
-        <TrackerSaveAction disabled={controlsDisabled} onSave={onSave} />
       </section>
+      <TrackerSaveAction disabled={controlsDisabled} onSave={onSave} />
     </div>
   );
 }

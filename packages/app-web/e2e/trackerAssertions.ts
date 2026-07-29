@@ -32,10 +32,12 @@ export async function expectActionBelowField(
   fieldLabel: string,
   actionLabel: string,
 ): Promise<void> {
-  const fieldBox = await scope.getByLabel(fieldLabel).boundingBox();
-  const actionBox = await scope
-    .getByRole("button", { name: actionLabel })
-    .boundingBox();
+  const field = scope.getByLabel(fieldLabel);
+  const action = scope.getByRole("button", { name: actionLabel });
+  await expect(field).toBeVisible();
+  await expect(action).toBeVisible();
+  const fieldBox = await field.boundingBox();
+  const actionBox = await action.boundingBox();
   if (!fieldBox || !actionBox) {
     throw new Error(`Could not measure ${fieldLabel} and ${actionLabel}`);
   }
