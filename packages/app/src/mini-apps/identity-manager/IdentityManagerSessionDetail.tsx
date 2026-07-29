@@ -1,4 +1,5 @@
 import type { UserSession } from "@tearleads/client-sdk";
+import { useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -25,14 +26,22 @@ function SessionDetailValue({
   label: string;
   value: string | null | undefined;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (!value) {
+    return <span>None</span>;
+  }
+
   return (
-    <input
-      aria-label={label}
-      className="identity-manager-session-detail-value"
-      readOnly
-      type="text"
-      value={value || "None"}
-    />
+    <button
+      aria-expanded={expanded}
+      aria-label={`${expanded ? "Collapse" : "Show full"} ${label}`}
+      className={`identity-manager-session-detail-value${expanded ? " identity-manager-session-detail-value--expanded" : ""}`}
+      onClick={() => setExpanded((current) => !current)}
+      type="button"
+    >
+      {value}
+    </button>
   );
 }
 

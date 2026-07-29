@@ -152,7 +152,7 @@
 }
 
 .identity-manager-session-detail-value {
-  box-sizing: border-box;
+  display: block;
   width: 100%;
   min-width: 0;
   padding: 0;
@@ -160,6 +160,17 @@
   background: transparent;
   color: inherit;
   font: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.identity-manager-session-detail-value--expanded {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 /*
