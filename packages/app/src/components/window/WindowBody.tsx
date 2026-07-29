@@ -3,7 +3,7 @@ import "./WindowBody.css";
 import { WindowSidebar } from "./WindowSidebar";
 
 interface WindowBodyProps {
-  contentRef?: Ref<HTMLDivElement>;
+  contentRef?: Ref<HTMLDivElement> | undefined;
   showSidebar?: boolean;
   sidebar?: React.ReactNode;
 }
@@ -17,10 +17,7 @@ export function WindowBody({
   return (
     <div className="window-body">
       {showSidebar ? (
-        <WindowSidebar
-          {...(contentRef ? { contentRef } : {})}
-          sidebar={sidebar}
-        >
+        <WindowSidebar contentRef={contentRef} sidebar={sidebar}>
           {children}
         </WindowSidebar>
       ) : (

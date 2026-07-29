@@ -31,6 +31,7 @@
 .mini-app-image-viewer-chrome {
   display: flex;
   flex: 0 0 auto;
+  flex-direction: column;
   background: var(--color-muted);
   border-bottom: var(--border);
   user-select: none;

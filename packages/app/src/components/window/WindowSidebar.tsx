@@ -23,7 +23,7 @@ export function WindowSidebar({
   sidebar,
   children,
 }: PropsWithChildren<{
-  contentRef?: Ref<HTMLDivElement>;
+  contentRef?: Ref<HTMLDivElement> | undefined;
   defaultWidth?: number;
   sidebar?: React.ReactNode;
 }>) {
