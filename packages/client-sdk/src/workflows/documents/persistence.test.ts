@@ -288,11 +288,10 @@ test("a guard that goes stale while queued refuses the deletion", async () => {
   const mutationHeld = new Promise<void>((resolve) => {
     releaseHeldMutation = resolve;
   });
-  // The "concurrent teardown": holds the executor's mutex, then flips the
-  // guard before releasing — after the deletion's pre-claim window closed.
+  // The "concurrent teardown": holds the executor's mutex while the deletion
+  // queues behind it.
   const heldMutation = runSerializedSqlMutation(execSql, async () => {
     await mutationHeld;
-    canDelete = false;
   });
   const queuedDeletion = deletePersistedDocument({
     canStartDurableMutation: () => canDelete,
@@ -301,6 +300,12 @@ test("a guard that goes stale while queued refuses the deletion", async () => {
     localId: "local-document",
     persistence,
   });
+  // A macrotask drains every pending continuation: the deletion's schema
+  // setup completes and it parks at the held mutex — the only thing it can
+  // still be waiting on — BEFORE the guard flips. A pre-claim guard has
+  // provably already run (and passed) by this point.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  canDelete = false;
   releaseHeldMutation();
   await heldMutation;
 
