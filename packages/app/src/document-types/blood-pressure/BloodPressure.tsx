@@ -14,7 +14,10 @@ import {
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
 import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
-import { useSavedTrackerRows } from "../shared/useSavedTrackerRows";
+import {
+  type AddTrackerRow,
+  useSavedTrackerRows,
+} from "../shared/useSavedTrackerRows";
 import {
   type BloodPressureField,
   BloodPressureReadingEditRow,
@@ -44,7 +47,7 @@ function BloodPressureReadFields(params: {
   currentAuthorId: string | null;
   controlsDisabled: boolean;
   entryPending: boolean;
-  onAddReading: (reading: BloodPressureQuickReading) => void;
+  onAddReading: AddTrackerRow<BloodPressureQuickReading>;
   onEnterEdit?: (() => void) | undefined;
   onPendingChange: (pending: boolean) => void;
   readings: ReadonlyArray<BloodPressureReadingRow>;
@@ -100,7 +103,7 @@ function BloodPressureEditFields(params: {
   currentAuthorId: string | null;
   controlsDisabled: boolean;
   entryPending: boolean;
-  onAddReading: (reading: BloodPressureQuickReading) => void;
+  onAddReading: AddTrackerRow<BloodPressureQuickReading>;
   onRemoveReading: (id: string) => void;
   onRenameTracker: (value: string) => void;
   onPendingChange: (pending: boolean) => void;
@@ -126,6 +129,7 @@ function BloodPressureEditFields(params: {
     trackerName,
     trackerNameInputId,
   } = params;
+  const { saveAddedRow, savedRowIds, setRowSaved } = useSavedTrackerRows();
 
   return (
     <div className="tracker-document-fields">
@@ -151,7 +155,11 @@ function BloodPressureEditFields(params: {
         </div>
         <BloodPressureQuickAdd
           controlsDisabled={controlsDisabled}
-          onAddReading={onAddReading}
+          onAddReading={(reading) => {
+            const addedRow = onAddReading(reading);
+            void saveAddedRow(addedRow);
+            return addedRow;
+          }}
           onPendingChange={onPendingChange}
         />
         {readings.length === 0 && !entryPending ? (
@@ -164,6 +172,8 @@ function BloodPressureEditFields(params: {
           onUpdateReading={onUpdateReading}
           readings={readings}
           resolveRowWriter={resolveRowWriter}
+          savedRowIds={savedRowIds}
+          setRowSaved={setRowSaved}
         />
         <div className="blood-pressure-reading-list-footer tracker-entry-list-footer">
           {readings.length} entries
@@ -180,16 +190,16 @@ function BloodPressureEditRows(params: {
   onUpdateReading: UpdateReading;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   resolveRowWriter?: RowWriterResolver | undefined;
+  savedRowIds: ReadonlySet<string>;
+  setRowSaved: (id: string, saved: boolean) => void;
 }) {
-  const { savedRowIds, setRowSaved } = useSavedTrackerRows();
-
   return params.readings.map((reading, index) =>
-    savedRowIds.has(reading.id) ? (
+    params.savedRowIds.has(reading.id) ? (
       <BloodPressureReadingReadRow
         key={reading.id}
         currentAuthorId={params.currentAuthorId}
         index={index}
-        onEnterEdit={() => setRowSaved(reading.id, false)}
+        onEnterEdit={() => params.setRowSaved(reading.id, false)}
         reading={reading}
         resolveRowWriter={params.resolveRowWriter}
       />
@@ -199,7 +209,7 @@ function BloodPressureEditRows(params: {
         controlsDisabled={params.controlsDisabled}
         index={index}
         onRemoveReading={params.onRemoveReading}
-        onSaveReading={(id) => setRowSaved(id, true)}
+        onSaveReading={(id) => params.setRowSaved(id, true)}
         onUpdateReading={params.onUpdateReading}
         reading={reading}
       />
@@ -211,7 +221,7 @@ export function BloodPressureFields(params: {
   currentAuthorId?: string | null;
   disabled?: boolean | undefined;
   isEditing?: boolean | undefined;
-  onAddReading: (reading: BloodPressureQuickReading) => void;
+  onAddReading: AddTrackerRow<BloodPressureQuickReading>;
   onEnterEdit?: (() => void) | undefined;
   onRemoveReading: (id: string) => void;
   onRenameTracker: (value: string) => void;
@@ -342,7 +352,7 @@ export function BloodPressure(params: {
           onEnterEdit={canWrite ? () => setIsEditing(true) : undefined}
           onAddReading={(reading) => {
             if (canWrite) {
-              void addRow({
+              return addRow({
                 [BLOOD_PRESSURE_SYSTOLIC_FIELD]: reading.systolic,
                 [BLOOD_PRESSURE_DIASTOLIC_FIELD]: reading.diastolic,
                 [BLOOD_PRESSURE_PULSE_FIELD]: reading.pulse,
@@ -350,6 +360,7 @@ export function BloodPressure(params: {
                 [BLOOD_PRESSURE_NOTES_FIELD]: reading.notes,
               });
             }
+            return Promise.resolve(null);
           }}
           onRemoveReading={(id) => {
             if (canWrite) {

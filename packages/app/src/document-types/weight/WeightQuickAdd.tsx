@@ -5,6 +5,7 @@ import { type FormEvent, useState } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
 import { useClearPendingOnUnmount } from "../shared/usePendingTrackerEntry";
+import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import {
   isValidWeightMeasurement,
   type WeightUnit,
@@ -24,7 +25,7 @@ const EMPTY_ENTRY: WeightQuickEntry = {
 
 export function WeightQuickAdd(params: {
   controlsDisabled: boolean;
-  onAddEntry: (entry: WeightQuickEntry) => void;
+  onAddEntry: AddTrackerRow<WeightQuickEntry>;
   onPendingChange: (pending: boolean) => void;
   unit: WeightUnit;
 }) {
@@ -125,6 +126,7 @@ export function WeightQuickAdd(params: {
           <CheckIcon aria-hidden size={14} />
           Save Entry
         </MiniAppButton>
+        {/* Loading can begin with a draft open, so Cancel must stay available. */}
         <MiniAppButton withIcon onClick={close}>
           <XIcon aria-hidden size={14} />
           Cancel

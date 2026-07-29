@@ -32,7 +32,7 @@ export async function expectActionBelowField(
   fieldLabel: string,
   actionLabel: string,
 ): Promise<void> {
-  const field = scope.getByLabel(fieldLabel);
+  const field = scope.getByLabel(fieldLabel, { exact: true });
   const action = scope.getByRole("button", { name: actionLabel });
   await expect(field).toBeVisible();
   await expect(action).toBeVisible();

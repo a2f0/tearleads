@@ -84,7 +84,7 @@ function renderWeightFields(params?: {
   currentAuthorId?: string | null;
   entries?: WeightEntryRow[];
   isEditing?: boolean | undefined;
-  onAddEntry?: (entry: WeightQuickEntry) => void;
+  onAddEntry?: (entry: WeightQuickEntry) => Promise<string | null>;
   onChangeUnit?: (unit: WeightUnit) => void;
   onEnterEdit?: (() => void) | undefined;
   onRemoveEntry?: (id: string) => void;
@@ -102,7 +102,7 @@ function renderWeightFields(params?: {
         currentAuthorId={params?.currentAuthorId ?? null}
         entries={params?.entries ?? entries}
         isEditing={params?.isEditing}
-        onAddEntry={params?.onAddEntry ?? (() => undefined)}
+        onAddEntry={params?.onAddEntry ?? (() => Promise.resolve("new-entry"))}
         onChangeUnit={params?.onChangeUnit ?? (() => undefined)}
         onEnterEdit={params?.onEnterEdit}
         onRemoveEntry={params?.onRemoveEntry ?? (() => undefined)}
@@ -254,7 +254,10 @@ test("read mode saves a new entry without entering edit mode", () => {
   const view = renderWeightFields({
     entries: [],
     isEditing: false,
-    onAddEntry: (entry) => added.push(entry),
+    onAddEntry: (entry) => {
+      added.push(entry);
+      return Promise.resolve("e-new");
+    },
     onEnterEdit: () => undefined,
     onToggleEditing: () => {
       toggleCalls += 1;

@@ -122,6 +122,7 @@ export function EnvFileVariableReadRow(params: {
           actionsAriaLabel={`Env variable ${index + 1} actions`}
           className="env-file-variable-read-actions"
           detailLabel="Details"
+          detailsOpen={detailOpen}
           directAriaLabel={`Env variable ${index + 1} details`}
           onEnterEdit={onEnterEdit}
           onOpenDetails={() => setDetailOpen(true)}

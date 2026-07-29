@@ -5,6 +5,7 @@ import { type FormEvent, useState } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
 import { useClearPendingOnUnmount } from "../shared/usePendingTrackerEntry";
+import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import {
   ENV_FILE_VARIABLE_NAME_PATTERN,
   isValidEnvFileVariableName,
@@ -19,7 +20,7 @@ const EMPTY_VARIABLE: EnvFileQuickVariable = { key: "", value: "" };
 
 export function EnvFileQuickAdd(params: {
   controlsDisabled: boolean;
-  onAddVariable: (variable: EnvFileQuickVariable) => void;
+  onAddVariable: AddTrackerRow<EnvFileQuickVariable>;
   onPendingChange: (pending: boolean) => void;
 }) {
   const { controlsDisabled, onAddVariable, onPendingChange } = params;
@@ -47,7 +48,7 @@ export function EnvFileQuickAdd(params: {
   if (!open) {
     return (
       <MiniAppButton
-        className="env-file-add-button tracker-add-button"
+        className="tracker-add-button"
         withIcon
         disabled={controlsDisabled}
         onClick={() => {
@@ -101,7 +102,7 @@ export function EnvFileQuickAdd(params: {
         type="password"
         value={variable.value}
       />
-      <div className="env-file-quick-add-actions tracker-quick-add-actions">
+      <div className="tracker-quick-add-actions">
         <MiniAppButton
           withIcon
           disabled={controlsDisabled || !valid}
@@ -110,6 +111,7 @@ export function EnvFileQuickAdd(params: {
           <CheckIcon aria-hidden size={14} />
           Save Variable
         </MiniAppButton>
+        {/* Loading can begin with a draft open, so Cancel must stay available. */}
         <MiniAppButton withIcon onClick={close}>
           <XIcon aria-hidden size={14} />
           Cancel

@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 
+export type AddTrackerRow<Entry> = (entry: Entry) => Promise<string | null>;
+
 export function useSavedTrackerRows() {
   const [savedRowIds, setSavedRowIds] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -15,6 +17,15 @@ export function useSavedTrackerRows() {
       return next;
     });
   }, []);
+  const saveAddedRow = useCallback(
+    async (addedRow: Promise<string | null>) => {
+      const id = await addedRow;
+      if (id) {
+        setRowSaved(id, true);
+      }
+    },
+    [setRowSaved],
+  );
 
-  return { savedRowIds, setRowSaved };
+  return { saveAddedRow, savedRowIds, setRowSaved };
 }

@@ -14,7 +14,10 @@ import {
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
 import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
-import { useSavedTrackerRows } from "../shared/useSavedTrackerRows";
+import {
+  type AddTrackerRow,
+  useSavedTrackerRows,
+} from "../shared/useSavedTrackerRows";
 import {
   EnvFileVariableEditRow,
   type EnvVariableField,
@@ -42,7 +45,7 @@ function EnvFileReadFields(params: {
   controlsDisabled: boolean;
   currentAuthorId: string | null;
   entryPending: boolean;
-  onAddVariable: (variable: EnvFileQuickVariable) => void;
+  onAddVariable: AddTrackerRow<EnvFileQuickVariable>;
   onEnterEdit?: (() => void) | undefined;
   onPendingChange: (pending: boolean) => void;
   resolveRowWriter?: RowWriterResolver | undefined;
@@ -60,9 +63,9 @@ function EnvFileReadFields(params: {
   } = params;
 
   return (
-    <div className="env-file-document-fields tracker-document-fields">
-      <section className="env-file-variable-list tracker-entry-list">
-        <div className="env-file-variable-list-header tracker-entry-list-header">
+    <div className="tracker-document-fields">
+      <section className="tracker-entry-list">
+        <div>
           <strong>Variables</strong>
         </div>
         {onEnterEdit ? (
@@ -73,9 +76,7 @@ function EnvFileReadFields(params: {
           />
         ) : null}
         {variables.length === 0 && !entryPending ? (
-          <div className="env-file-empty-state tracker-empty-state">
-            No variables
-          </div>
+          <div className="tracker-empty-state">No variables</div>
         ) : (
           variables.map((variable, index) => (
             <EnvFileVariableReadRow
@@ -88,7 +89,7 @@ function EnvFileReadFields(params: {
             />
           ))
         )}
-        <div className="env-file-variable-list-footer tracker-entry-list-footer">
+        <div className="tracker-entry-list-footer">
           {variables.length} entries
         </div>
       </section>
@@ -102,7 +103,7 @@ function EnvFileEditFields(params: {
   entryPending: boolean;
   fileName: string;
   fileNameInputId: string;
-  onAddVariable: (variable: EnvFileQuickVariable) => void;
+  onAddVariable: AddTrackerRow<EnvFileQuickVariable>;
   onPendingChange: (pending: boolean) => void;
   onRemoveVariable: (id: string) => void;
   onRenameFile: (value: string) => void;
@@ -126,9 +127,10 @@ function EnvFileEditFields(params: {
     resolveRowWriter,
     variables,
   } = params;
+  const { saveAddedRow, savedRowIds, setRowSaved } = useSavedTrackerRows();
 
   return (
-    <div className="env-file-document-fields tracker-document-fields">
+    <div className="tracker-document-fields">
       <StructuredDocumentFields>
         <StructuredDocumentField inputId={fileNameInputId} label="File Name">
           <MiniAppInput
@@ -142,19 +144,21 @@ function EnvFileEditFields(params: {
           />
         </StructuredDocumentField>
       </StructuredDocumentFields>
-      <section className="env-file-variable-list tracker-entry-list">
-        <div className="env-file-variable-list-header tracker-entry-list-header">
+      <section className="tracker-entry-list">
+        <div>
           <strong>Variables</strong>
         </div>
         <EnvFileQuickAdd
           controlsDisabled={controlsDisabled}
-          onAddVariable={onAddVariable}
+          onAddVariable={(variable) => {
+            const addedRow = onAddVariable(variable);
+            void saveAddedRow(addedRow);
+            return addedRow;
+          }}
           onPendingChange={onPendingChange}
         />
         {variables.length === 0 && !entryPending ? (
-          <div className="env-file-empty-state tracker-empty-state">
-            No variables
-          </div>
+          <div className="tracker-empty-state">No variables</div>
         ) : null}
         <EnvFileEditRows
           controlsDisabled={controlsDisabled}
@@ -162,9 +166,11 @@ function EnvFileEditFields(params: {
           onRemoveVariable={onRemoveVariable}
           onUpdateVariable={onUpdateVariable}
           resolveRowWriter={resolveRowWriter}
+          savedRowIds={savedRowIds}
+          setRowSaved={setRowSaved}
           variables={variables}
         />
-        <div className="env-file-variable-list-footer tracker-entry-list-footer">
+        <div className="tracker-entry-list-footer">
           {variables.length} entries
         </div>
       </section>
@@ -178,17 +184,17 @@ function EnvFileEditRows(params: {
   onRemoveVariable: (id: string) => void;
   onUpdateVariable: UpdateEnvVariable;
   resolveRowWriter?: RowWriterResolver | undefined;
+  savedRowIds: ReadonlySet<string>;
+  setRowSaved: (id: string, saved: boolean) => void;
   variables: ReadonlyArray<EnvVariableRow>;
 }) {
-  const { savedRowIds, setRowSaved } = useSavedTrackerRows();
-
   return params.variables.map((variable, index) =>
-    savedRowIds.has(variable.id) ? (
+    params.savedRowIds.has(variable.id) ? (
       <EnvFileVariableReadRow
         key={variable.id}
         currentAuthorId={params.currentAuthorId}
         index={index}
-        onEnterEdit={() => setRowSaved(variable.id, false)}
+        onEnterEdit={() => params.setRowSaved(variable.id, false)}
         resolveRowWriter={params.resolveRowWriter}
         variable={variable}
       />
@@ -198,7 +204,7 @@ function EnvFileEditRows(params: {
         controlsDisabled={params.controlsDisabled}
         index={index}
         onRemoveVariable={params.onRemoveVariable}
-        onSaveVariable={(id) => setRowSaved(id, true)}
+        onSaveVariable={(id) => params.setRowSaved(id, true)}
         onUpdateVariable={params.onUpdateVariable}
         variable={variable}
       />
@@ -212,7 +218,7 @@ export function EnvFileFields(params: {
   fileName: string;
   fileNameInputId: string;
   isEditing?: boolean | undefined;
-  onAddVariable: (variable: EnvFileQuickVariable) => void;
+  onAddVariable: AddTrackerRow<EnvFileQuickVariable>;
   onEnterEdit?: (() => void) | undefined;
   onRemoveVariable: (id: string) => void;
   onRenameFile: (value: string) => void;
@@ -343,11 +349,12 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
           onEnterEdit={canWrite ? () => setIsEditing(true) : undefined}
           onAddVariable={(variable) => {
             if (canWrite) {
-              void addRow({
+              return addRow({
                 [ENV_FILE_VARIABLE_KEY_FIELD]: variable.key,
                 [ENV_FILE_VARIABLE_VALUE_FIELD]: variable.value,
               });
             }
+            return Promise.resolve(null);
           }}
           onRemoveVariable={(id) => {
             if (canWrite) {

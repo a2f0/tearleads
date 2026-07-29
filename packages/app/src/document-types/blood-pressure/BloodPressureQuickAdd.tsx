@@ -5,6 +5,7 @@ import { type FormEvent, useState } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
 import { useClearPendingOnUnmount } from "../shared/usePendingTrackerEntry";
+import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import { isValidBloodPressureMeasurement } from "./bloodPressureDocumentDefinition";
 
 export interface BloodPressureQuickReading {
@@ -107,7 +108,7 @@ function QuickReadingFields(params: {
 
 export function BloodPressureQuickAdd(params: {
   controlsDisabled: boolean;
-  onAddReading: (reading: BloodPressureQuickReading) => void;
+  onAddReading: AddTrackerRow<BloodPressureQuickReading>;
   onPendingChange: (pending: boolean) => void;
 }) {
   const { controlsDisabled, onAddReading, onPendingChange } = params;
@@ -175,6 +176,7 @@ export function BloodPressureQuickAdd(params: {
           <CheckIcon aria-hidden size={14} />
           Save Reading
         </MiniAppButton>
+        {/* Loading can begin with a draft open, so Cancel must stay available. */}
         <MiniAppButton withIcon onClick={close}>
           <XIcon aria-hidden size={14} />
           Cancel

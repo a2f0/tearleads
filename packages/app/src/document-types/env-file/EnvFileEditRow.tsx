@@ -1,3 +1,7 @@
+import { EyeIcon } from "@phosphor-icons/react/dist/csr/Eye";
+import { EyeSlashIcon } from "@phosphor-icons/react/dist/csr/EyeSlash";
+import { useState } from "react";
+import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import {
   TrackerInputField,
   TrackerRowActions,
@@ -36,8 +40,11 @@ export function EnvFileVariableEditRow(params: {
     onUpdateVariable,
     variable,
   } = params;
+  const [isValueRevealed, setIsValueRevealed] = useState(false);
   const keyIsInvalid =
     variable.key.length > 0 && !isValidEnvFileVariableName(variable.key);
+  const valueLabel = `Env variable ${index + 1} value`;
+  const revealAction = `${isValueRevealed ? "Hide" : "Show"} ${valueLabel}`;
 
   return (
     <div className="env-file-variable-row tracker-edit-row">
@@ -63,7 +70,24 @@ export function EnvFileVariableEditRow(params: {
         value={variable.key}
       />
       <TrackerInputField
-        aria-label={`Env variable ${index + 1} value`}
+        action={
+          <MiniAppButton
+            aria-label={revealAction}
+            aria-pressed={isValueRevealed}
+            className="mini-app-icon-button"
+            disabled={controlsDisabled || variable.value.length === 0}
+            onClick={() => setIsValueRevealed((revealed) => !revealed)}
+            title={revealAction}
+            variant="ghost"
+          >
+            {isValueRevealed ? (
+              <EyeSlashIcon aria-hidden size={16} />
+            ) : (
+              <EyeIcon aria-hidden size={16} />
+            )}
+          </MiniAppButton>
+        }
+        aria-label={valueLabel}
         autoCapitalize="off"
         autoComplete="off"
         className="env-file-variable-value-field"
@@ -78,6 +102,7 @@ export function EnvFileVariableEditRow(params: {
         }
         placeholder="secret"
         spellCheck={false}
+        type={isValueRevealed ? "text" : "password"}
         value={variable.value}
       />
       <TrackerRowActions

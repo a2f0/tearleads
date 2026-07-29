@@ -13,11 +13,13 @@ type TrackerInputFieldProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
   "children" | "className"
 > & {
+  action?: ReactNode | undefined;
   className?: string | undefined;
   label: ReactNode;
 };
 
 export function TrackerInputField({
+  action,
   className,
   label,
   ...inputProps
@@ -25,7 +27,14 @@ export function TrackerInputField({
   return (
     <MiniAppField className={classNames("tracker-entry-field", className)}>
       <span>{label}</span>
-      <MiniAppInput {...inputProps} />
+      {action ? (
+        <span className="tracker-entry-field-control">
+          <MiniAppInput {...inputProps} />
+          <span className="tracker-entry-field-actions">{action}</span>
+        </span>
+      ) : (
+        <MiniAppInput {...inputProps} />
+      )}
     </MiniAppField>
   );
 }

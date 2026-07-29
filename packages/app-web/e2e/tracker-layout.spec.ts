@@ -96,6 +96,13 @@ async function checkWindowedBloodPressure(
   await explorerWindow.getByLabel("Quick add systolic").fill("120");
   await explorerWindow.getByLabel("Quick add diastolic").fill("80");
   await explorerWindow.getByRole("button", { name: "Save Reading" }).click();
+  await expect(
+    explorerWindow.locator(".blood-pressure-reading-read-row"),
+  ).toBeVisible();
+  await explorerWindow
+    .getByRole("button", { name: "Reading 1 actions" })
+    .click();
+  await explorerWindow.page().getByRole("button", { name: "Edit" }).click();
   await expectActionBelowField(
     explorerWindow,
     "Reading 1 notes",
@@ -103,6 +110,7 @@ async function checkWindowedBloodPressure(
   );
   const readingActions = explorerWindow
     .locator(".blood-pressure-reading-row")
+    .first()
     .locator(".tracker-row-actions");
   await expectActionsShareRow(
     readingActions,
@@ -131,6 +139,9 @@ async function checkWindowedWeight(explorerWindow: Locator, toolbar: Locator) {
   ]);
   await explorerWindow.getByLabel("Quick add weight").fill("180");
   await explorerWindow.getByRole("button", { name: "Save Entry" }).click();
+  await expect(explorerWindow.locator(".weight-entry-read-row")).toBeVisible();
+  await explorerWindow.getByRole("button", { name: "Entry 1 actions" }).click();
+  await explorerWindow.page().getByRole("button", { name: "Edit" }).click();
   await expectActionBelowField(
     explorerWindow,
     "Entry 1 notes",
@@ -159,6 +170,13 @@ async function checkWindowedEnvFile(explorerWindow: Locator, toolbar: Locator) {
     .getByLabel("Quick add env variable value")
     .fill("https://example.test");
   await explorerWindow.getByRole("button", { name: "Save Variable" }).click();
+  await expect(
+    explorerWindow.locator(".env-file-variable-read-row"),
+  ).toBeVisible();
+  await explorerWindow
+    .getByRole("button", { name: "Env variable 1 actions" })
+    .click();
+  await explorerWindow.page().getByRole("button", { name: "Edit" }).click();
   await expectActionBelowField(
     explorerWindow,
     "Env variable 1 value",
@@ -166,6 +184,7 @@ async function checkWindowedEnvFile(explorerWindow: Locator, toolbar: Locator) {
   );
   const variableActions = explorerWindow
     .locator(".env-file-variable-row")
+    .first()
     .locator(".tracker-row-actions");
   await expectActionsShareRow(
     variableActions,
@@ -207,6 +226,8 @@ test("mobile tracker actions span their rows", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Add Entry" })).toHaveCount(0);
   await page.getByLabel("Quick add weight").fill("180");
   await page.getByRole("button", { name: "Save Entry" }).click();
+  await page.getByRole("button", { name: "Entry 1 actions" }).click();
+  await page.getByRole("button", { name: "Edit" }).click();
 
   const row = page.locator(".weight-entry-row").first();
   const rowActions = row.locator(".tracker-row-actions");
@@ -223,7 +244,7 @@ test("mobile env variable actions span their row", async ({ page }) => {
   await expect(newDocument).toBeVisible({ timeout: 30_000 });
   await newDocument.click();
   await page
-    .getByRole("button", { name: /\.env File/u })
+    .getByRole("button", { name: literalPattern(".env File") })
     .first()
     .click();
   await page.getByRole("button", { name: "Add Variable" }).click();
@@ -232,6 +253,8 @@ test("mobile env variable actions span their row", async ({ page }) => {
   );
   await page.getByLabel("Quick add env variable key").fill("API_TOKEN");
   await page.getByRole("button", { name: "Save Variable" }).click();
+  await page.getByRole("button", { name: "Env variable 1 actions" }).click();
+  await page.getByRole("button", { name: "Edit" }).click();
 
   const row = page.locator(".env-file-variable-row").first();
   const rowActions = row.locator(".tracker-row-actions");

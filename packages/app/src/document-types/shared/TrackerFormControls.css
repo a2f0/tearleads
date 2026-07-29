@@ -34,8 +34,26 @@
   max-width: none;
 }
 
-.tracker-entry-field > .mini-app-input {
+.tracker-entry-field > .mini-app-input,
+.tracker-entry-field-control > .mini-app-input {
   width: 100%;
+}
+
+.tracker-entry-field-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.tracker-entry-field-control > .mini-app-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.tracker-entry-field-actions {
+  display: flex;
+  flex: none;
 }
 
 .tracker-entry-field > .mini-app-input[aria-invalid="true"] {

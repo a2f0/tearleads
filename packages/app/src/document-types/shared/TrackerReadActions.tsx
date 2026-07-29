@@ -10,6 +10,7 @@ export function TrackerReadActions(params: {
   actionsAriaLabel: string;
   className?: string | undefined;
   detailLabel: string;
+  detailsOpen: boolean;
   directAriaLabel: string;
   onEnterEdit?: (() => void) | undefined;
   onOpenDetails: () => void;
@@ -18,6 +19,7 @@ export function TrackerReadActions(params: {
     actionsAriaLabel,
     className,
     detailLabel,
+    detailsOpen,
     directAriaLabel,
     onEnterEdit,
     onOpenDetails,
@@ -32,8 +34,11 @@ export function TrackerReadActions(params: {
   }, [onEnterEdit]);
 
   if (!onEnterEdit) {
+    // A read-only viewer has one action, so open the detail directly instead of
+    // making keyboard and pointer users traverse a one-item menu.
     return (
       <MiniAppRowActionsButton
+        aria-expanded={detailsOpen}
         aria-haspopup="dialog"
         aria-label={directAriaLabel}
         className={classNames("tracker-read-actions", className)}
@@ -48,6 +53,8 @@ export function TrackerReadActions(params: {
       setMenuPosition(null);
       return;
     }
+    // Anchor to the button box so keyboard activation, which reports 0,0
+    // pointer coordinates, still opens the menu below its trigger.
     const rect = event.currentTarget.getBoundingClientRect();
     setMenuPosition({ x: rect.left, y: rect.bottom });
   };
@@ -61,6 +68,8 @@ export function TrackerReadActions(params: {
         aria-label={actionsAriaLabel}
         className={classNames("tracker-read-actions", className)}
         onClick={toggleMenu}
+        // Keep mousedown away from the Menu outside-click handler so clicking
+        // the trigger again can toggle the open menu shut.
         onMouseDown={(event) => event.stopPropagation()}
       />
       {menuPosition ? (
@@ -77,6 +86,8 @@ export function TrackerReadActions(params: {
             icon={InfoIcon}
             label={detailLabel}
             onClick={() => {
+              // Restore focus to the trigger before the overlay mounts so its
+              // own close-time focus restore has a stable destination.
               actionsButtonRef.current?.focus();
               closeMenu();
               onOpenDetails();

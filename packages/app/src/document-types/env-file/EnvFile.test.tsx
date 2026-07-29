@@ -68,7 +68,7 @@ const variables: EnvVariableRow[] = [
 function renderEnvFileFields(params?: {
   currentAuthorId?: string | null;
   isEditing?: boolean | undefined;
-  onAddVariable?: (variable: EnvFileQuickVariable) => void;
+  onAddVariable?: (variable: EnvFileQuickVariable) => Promise<string | null>;
   onEnterEdit?: (() => void) | undefined;
   onRemoveVariable?: (id: string) => void;
   onRenameFile?: (value: string) => void;
@@ -85,7 +85,9 @@ function renderEnvFileFields(params?: {
         fileName=".env.local"
         fileNameInputId="env-file-name"
         isEditing={params?.isEditing}
-        onAddVariable={params?.onAddVariable ?? (() => undefined)}
+        onAddVariable={
+          params?.onAddVariable ?? (() => Promise.resolve("new-variable"))
+        }
         onEnterEdit={params?.onEnterEdit}
         onRemoveVariable={params?.onRemoveVariable ?? (() => undefined)}
         onRenameFile={params?.onRenameFile ?? (() => undefined)}
@@ -108,9 +110,17 @@ test("renders env variables as editable key value rows", () => {
   expect(
     (view.getByLabelText("Env variable 1 key") as HTMLInputElement).value,
   ).toBe("API_URL");
-  expect(
-    (view.getByLabelText("Env variable 1 value") as HTMLInputElement).value,
-  ).toBe("https://api.example.test");
+  const value = view.getByLabelText("Env variable 1 value") as HTMLInputElement;
+  expect(value.value).toBe("https://api.example.test");
+  expect(value.type).toBe("password");
+  fireEvent.click(
+    view.getByRole("button", { name: "Show Env variable 1 value" }),
+  );
+  expect(value.type).toBe("text");
+  fireEvent.click(
+    view.getByRole("button", { name: "Hide Env variable 1 value" }),
+  );
+  expect(value.type).toBe("password");
   expect(view.container.querySelector(".env-file-variable-row")).toBeTruthy();
 });
 
@@ -170,7 +180,7 @@ test("read mode reveals and copies the original env value", async () => {
 test("variable count follows the rows", () => {
   const view = renderEnvFileFields({ isEditing: false });
   const rows = view.container.querySelectorAll(".env-file-variable-read-row");
-  const footer = view.container.querySelector(".env-file-variable-list-footer");
+  const footer = view.container.querySelector(".tracker-entry-list-footer");
   expect(footer).not.toBeNull();
   const position =
     rows[rows.length - 1]?.compareDocumentPosition(footer as Node) ?? 0;
@@ -255,9 +265,11 @@ test("read mode drills into a variable detail, keeping secrets masked", () => {
 
   expect(view.queryByRole("dialog")).toBeNull();
   const kebab = view.getByRole("button", { name: "Env variable 1 details" });
+  expect(kebab.getAttribute("aria-expanded")).toBe("false");
   kebab.focus();
   fireEvent.click(kebab);
 
+  expect(kebab.getAttribute("aria-expanded")).toBe("true");
   expect(view.getByRole("dialog", { name: "DATABASE_PASSWORD" })).toBeTruthy();
   // The secret stays masked in the drill-down and never leaks in cleartext.
   expect(view.queryByText("super-secret")).toBeNull();
@@ -316,7 +328,10 @@ test("read mode saves a new variable without entering edit mode", () => {
   let toggleCalls = 0;
   const view = renderEnvFileFields({
     isEditing: false,
-    onAddVariable: (variable) => added.push(variable),
+    onAddVariable: (variable) => {
+      added.push(variable);
+      return Promise.resolve("v-new");
+    },
     onEnterEdit: () => undefined,
     onToggleEditing: () => {
       toggleCalls += 1;
@@ -376,6 +391,8 @@ test("a pending variable owns the read-mode entry state", () => {
     onEnterEdit: () => undefined,
   });
 
+  fireEvent.click(view.getByRole("button", { name: "Env variable 1 actions" }));
+  expect(view.getByRole("button", { name: "Edit" })).toBeTruthy();
   fireEvent.click(view.getByRole("button", { name: "Add Variable" }));
   expect(
     (view.getByRole("button", { name: "Toolbar Edit" }) as HTMLButtonElement)
@@ -389,6 +406,7 @@ test("a pending variable owns the read-mode entry state", () => {
   ).toBeTruthy();
 
   fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+  expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
   expect(
     (view.getByRole("button", { name: "Toolbar Edit" }) as HTMLButtonElement)
       .disabled,

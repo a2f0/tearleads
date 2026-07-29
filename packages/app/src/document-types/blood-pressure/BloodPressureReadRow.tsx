@@ -108,6 +108,7 @@ export function BloodPressureReadingReadRow(params: {
         <TrackerReadActions
           actionsAriaLabel={`Reading ${index + 1} actions`}
           detailLabel="Attribution"
+          detailsOpen={detailOpen}
           directAriaLabel={`Reading ${index + 1} attribution`}
           onEnterEdit={onEnterEdit}
           onOpenDetails={() => setDetailOpen(true)}

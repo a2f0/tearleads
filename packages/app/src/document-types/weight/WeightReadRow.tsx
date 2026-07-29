@@ -99,6 +99,7 @@ export function WeightEntryReadRow(params: {
         <TrackerReadActions
           actionsAriaLabel={`Entry ${index + 1} actions`}
           detailLabel="Attribution"
+          detailsOpen={detailOpen}
           directAriaLabel={`Entry ${index + 1} attribution`}
           onEnterEdit={onEnterEdit}
           onOpenDetails={() => setDetailOpen(true)}
