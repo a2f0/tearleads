@@ -11,7 +11,7 @@ import "./TrackerFormControls.css";
 
 type TrackerInputFieldProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
-  "className"
+  "children" | "className"
 > & {
   className?: string | undefined;
   label: ReactNode;

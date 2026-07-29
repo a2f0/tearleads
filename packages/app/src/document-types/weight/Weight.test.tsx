@@ -196,11 +196,11 @@ test("toggles editing from the toolbar, not a body button", async () => {
   expect(toggleCalls).toBe(1);
 });
 
-test("toolbar action becomes Done while editing", async () => {
+test("toolbar action matches the body Save action while editing", async () => {
   const view = renderWeightFields({ entries: [], isEditing: true });
 
   await waitFor(() => {
-    expect(view.getByRole("button", { name: "Toolbar Done" })).toBeTruthy();
+    expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
   });
   expect(view.queryByRole("button", { name: "Toolbar Edit" })).toBeNull();
 });

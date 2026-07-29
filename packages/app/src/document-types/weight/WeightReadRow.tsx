@@ -10,6 +10,7 @@ import {
   type RowDetailField,
 } from "../shared/DocumentRowDetail";
 import { formatRowAttribution } from "../shared/rowAttribution";
+import "../shared/TrackerFormControls.css";
 import {
   WEIGHT_MEASURED_AT_FIELD,
   WEIGHT_MEASUREMENT_FIELD,
@@ -70,7 +71,7 @@ function WeightEntryActions(params: {
       <MiniAppRowActionsButton
         aria-haspopup="dialog"
         aria-label={`Entry ${index + 1} attribution`}
-        className="weight-entry-read-actions tracker-read-actions"
+        className="tracker-read-actions"
         onClick={onOpenAttribution}
       />
     );
@@ -95,7 +96,7 @@ function WeightEntryActions(params: {
         ref={actionsButtonRef}
         aria-expanded={menuPosition !== null}
         aria-label={`Entry ${index + 1} actions`}
-        className="weight-entry-read-actions tracker-read-actions"
+        className="tracker-read-actions"
         onClick={toggleMenu}
         // Keep the trigger's mousedown from reaching the Menu's outside-click
         // handler so re-clicking the trigger can toggle the menu shut.
@@ -164,44 +165,31 @@ export function WeightEntryReadRow(params: {
   return (
     <>
       <div className="weight-entry-read-row tracker-read-row">
-        <span className="weight-entry-read-cell tracker-read-cell">
+        <span className="tracker-read-cell">
           <strong>Weight</strong>
-          <span className="weight-entry-read-value tracker-read-value">
-            {formatWeight(entry)}
-          </span>
+          <span className="tracker-read-value">{formatWeight(entry)}</span>
         </span>
-        <span className="weight-entry-read-cell tracker-read-cell">
+        <span className="tracker-read-cell">
           <strong>Change</strong>
-          <span className="weight-entry-read-value tracker-read-value">
-            {change ?? "—"}
-          </span>
+          <span className="tracker-read-value">{change ?? "—"}</span>
         </span>
-        <span className="weight-entry-read-cell tracker-read-cell">
+        <span className="tracker-read-cell">
           <strong>Measured</strong>
-          <span className="weight-entry-read-value tracker-read-value">
-            {formatMeasuredAt(entry)}
-          </span>
+          <span className="tracker-read-value">{formatMeasuredAt(entry)}</span>
         </span>
-        <span className="weight-entry-read-index tracker-read-index">
-          {index + 1}
-        </span>
+        <span className="tracker-read-index">{index + 1}</span>
         <WeightEntryActions
           index={index}
           onEnterEdit={onEnterEdit}
           onOpenAttribution={() => setDetailOpen(true)}
         />
         {notes.length > 0 ? (
-          <span
-            className="weight-entry-read-notes tracker-read-notes"
-            title={notes}
-          >
+          <span className="tracker-read-notes" title={notes}>
             {notes}
           </span>
         ) : null}
         {attribution ? (
-          <span className="weight-entry-read-attribution tracker-read-attribution">
-            {attribution}
-          </span>
+          <span className="tracker-read-attribution">{attribution}</span>
         ) : null}
       </div>
       {detailOpen ? (

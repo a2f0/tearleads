@@ -61,7 +61,7 @@ function BloodPressureReadFields(params: {
   } = params;
 
   return (
-    <div className="blood-pressure-document-fields tracker-document-fields">
+    <div className="tracker-document-fields">
       <section className="blood-pressure-reading-list tracker-entry-list">
         <div className="blood-pressure-reading-list-header tracker-entry-list-header">
           <strong>Readings</strong>
@@ -73,9 +73,7 @@ function BloodPressureReadFields(params: {
           />
         ) : null}
         {readings.length === 0 ? (
-          <div className="blood-pressure-empty-state tracker-empty-state">
-            No readings
-          </div>
+          <div className="tracker-empty-state">No readings</div>
         ) : (
           readings.map((reading, index) => (
             <BloodPressureReadingReadRow
@@ -122,7 +120,7 @@ function BloodPressureEditFields(params: {
   } = params;
 
   return (
-    <div className="blood-pressure-document-fields tracker-document-fields">
+    <div className="tracker-document-fields">
       <StructuredDocumentFields>
         <StructuredDocumentField
           inputId={trackerNameInputId}
@@ -141,9 +139,7 @@ function BloodPressureEditFields(params: {
       </StructuredDocumentFields>
       <section className="blood-pressure-reading-list tracker-entry-list">
         <div className="blood-pressure-reading-list-header tracker-entry-list-header">
-          <div className="blood-pressure-reading-list-title">
-            <strong>Readings</strong>
-          </div>
+          <strong>Readings</strong>
           <MiniAppButton
             className="blood-pressure-add-button tracker-add-button"
             withIcon
@@ -155,9 +151,7 @@ function BloodPressureEditFields(params: {
           </MiniAppButton>
         </div>
         {readings.length === 0 ? (
-          <div className="blood-pressure-empty-state tracker-empty-state">
-            No readings
-          </div>
+          <div className="tracker-empty-state">No readings</div>
         ) : (
           readings.map((reading, index) => (
             <BloodPressureReadingEditRow
@@ -214,6 +208,7 @@ export function BloodPressureFields(params: {
   const controlsDisabled = disabled || !ready;
   useStructuredDocumentEditAction({
     disabled: controlsDisabled,
+    editingLabel: "Save",
     id: "blood-pressure-toggle-edit",
     isEditing,
     onToggleEditing,

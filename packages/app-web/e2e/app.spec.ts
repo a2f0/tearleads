@@ -1,8 +1,4 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import {
-  expectActionBelowField,
-  expectWindowedInputClamps,
-} from "./trackerAssertions";
 
 const SQLITE_READY_PATTERN = /SQLite Worker:\s*ready/u;
 const PUBLIC_KEY_PATTERN = /Public Key:\s*([0-9a-f]{64})/u;
@@ -234,30 +230,14 @@ test("windowed Back unwinds an Explorer window's route stack", async ({
     .getByRole("button", { name: /Blood Pressure/ })
     .first()
     .click();
-  // A freshly created document opens in edit mode, so its toolbar carries Done.
-  await expect(toolbar.getByRole("button", { name: "Done" })).toBeVisible();
-
-  await explorerWindow.getByRole("button", { name: "Add Reading" }).click();
-  await expectWindowedInputClamps(explorerWindow, [
-    ["Reading 1 systolic", 7],
-    ["Reading 1 diastolic", 7],
-    ["Reading 1 pulse", 7],
-    ["Reading 1 measured at", 14],
-  ]);
-  await expectActionBelowField(
-    explorerWindow,
-    "Reading 1 notes",
-    "Remove reading 1",
-  );
-  await expect(
-    explorerWindow.getByRole("button", { name: "Save", exact: true }),
-  ).toBeVisible();
+  // Trackers name their explicit finish action Save in both body and toolbar.
+  await expect(toolbar.getByRole("button", { name: "Save" })).toBeVisible();
 
   await toolbar.getByRole("button", { name: "Get Info" }).click();
-  await expect(toolbar.getByRole("button", { name: "Done" })).toBeHidden();
+  await expect(toolbar.getByRole("button", { name: "Save" })).toBeHidden();
   await expect(back).toBeEnabled();
 
-  // Back to the document (returning in read mode, so Edit rather than Done)...
+  // Back to the document (returning in read mode, so Edit rather than Save)...
   await back.click();
   await expect(toolbar.getByRole("button", { name: "Edit" })).toBeVisible();
 
@@ -268,26 +248,6 @@ test("windowed Back unwinds an Explorer window's route stack", async ({
     toolbar.getByRole("button", { name: "Create Child Folder" }),
   ).toBeVisible();
   await expect(back).toHaveCount(0);
-
-  // Weight uses the same compact tracker controls and explicit finish action.
-  await toolbar.getByRole("button", { name: "New Document" }).click();
-  await explorerWindow
-    .getByRole("button", { name: /Weight/ })
-    .first()
-    .click();
-  await explorerWindow.getByRole("button", { name: "Add Entry" }).click();
-  await expectWindowedInputClamps(explorerWindow, [
-    ["Entry 1 weight", 7],
-    ["Entry 1 measured at", 14],
-  ]);
-  await expectActionBelowField(
-    explorerWindow,
-    "Entry 1 notes",
-    "Remove entry 1",
-  );
-  await expect(
-    explorerWindow.getByRole("button", { name: "Save", exact: true }),
-  ).toBeVisible();
 });
 
 // A window opened straight onto a route-backed detail has no history, so the

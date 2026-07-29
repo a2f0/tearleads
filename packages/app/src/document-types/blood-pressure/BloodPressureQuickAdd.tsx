@@ -148,7 +148,7 @@ export function BloodPressureQuickAdd(params: {
 
   return (
     <form
-      className="blood-pressure-reading-row blood-pressure-quick-add-row tracker-edit-row"
+      className="blood-pressure-reading-row tracker-edit-row"
       onSubmit={submit}
     >
       <QuickReadingFields

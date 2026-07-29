@@ -61,10 +61,7 @@ export function WeightQuickAdd(params: {
   }
 
   return (
-    <form
-      className="weight-entry-row weight-quick-add-row tracker-edit-row"
-      onSubmit={submit}
-    >
+    <form className="weight-entry-row tracker-edit-row" onSubmit={submit}>
       <TrackerInputField
         aria-invalid={entry.weight.length > 0 && !valid ? "true" : undefined}
         aria-label="Quick add weight"

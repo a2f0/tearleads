@@ -67,7 +67,7 @@ function WeightReadFields(params: {
   } = params;
 
   return (
-    <div className="weight-document-fields tracker-document-fields">
+    <div className="tracker-document-fields">
       <section className="weight-entry-list tracker-entry-list">
         <div className="weight-entry-list-header tracker-entry-list-header">
           <strong>Entries</strong>
@@ -80,9 +80,7 @@ function WeightReadFields(params: {
           />
         ) : null}
         {entries.length === 0 ? (
-          <div className="weight-empty-state tracker-empty-state">
-            No entries
-          </div>
+          <div className="tracker-empty-state">No entries</div>
         ) : (
           entries.map((entry, index) => (
             <WeightEntryReadRow
@@ -136,7 +134,7 @@ function WeightEditFields(params: {
   } = params;
 
   return (
-    <div className="weight-document-fields tracker-document-fields">
+    <div className="tracker-document-fields">
       <StructuredDocumentFields>
         <StructuredDocumentField
           inputId={trackerNameInputId}
@@ -172,9 +170,7 @@ function WeightEditFields(params: {
       </StructuredDocumentFields>
       <section className="weight-entry-list tracker-entry-list">
         <div className="weight-entry-list-header tracker-entry-list-header">
-          <div className="weight-entry-list-title">
-            <strong>Entries</strong>
-          </div>
+          <strong>Entries</strong>
           <MiniAppButton
             className="weight-add-button tracker-add-button"
             withIcon
@@ -186,9 +182,7 @@ function WeightEditFields(params: {
           </MiniAppButton>
         </div>
         {entries.length === 0 ? (
-          <div className="weight-empty-state tracker-empty-state">
-            No entries
-          </div>
+          <div className="tracker-empty-state">No entries</div>
         ) : (
           entries.map((entry, index) => (
             <WeightEntryEditRow
@@ -251,6 +245,7 @@ export function WeightFields(params: {
   const controlsDisabled = disabled || !ready;
   useStructuredDocumentEditAction({
     disabled: controlsDisabled,
+    editingLabel: "Save",
     id: "weight-toggle-edit",
     isEditing,
     onToggleEditing,
