@@ -98,8 +98,6 @@ without counting as lane progress, so it cannot hot-loop the pump.
   is never purged (no tombstone reaches the revoked user — deliberate, see
   row 4's accepted bound). A future local sweep (e.g. dormant rows still
   unmatched after an access-restored full resync) could reclaim it.
-- Create intents (`container_create_intents`) have no `last_attempted_at`
-  column, so a create stuck in error shows no attempt timestamp.
 - Latent race: a document store's in-flight persist can resurrect a document
   that another subsystem deleted concurrently (observed with the contacts
   duplicate-self cleanup racing a deferred write's persist). The persist path
