@@ -105,9 +105,9 @@ export async function installRebuiltDocument(input: {
   if (!persisted) {
     // The resurrect guard refused: another subsystem deleted this document
     // while the rebuild was in flight, and saveDocumentRecord cleared the
-    // zombie store. Restoring the rebuilt doc or projection here would
-    // resurrect it in memory over the cleared state.
-    input.state.pendingBaseVersion = previousPendingBaseVersion;
+    // zombie store — pendingBaseVersion included. Restoring the rebuilt doc,
+    // projection, or the captured base version here would resurrect state
+    // over that clearing.
     throw new Error(
       "Document was deleted while its history rebuild was in flight",
     );
