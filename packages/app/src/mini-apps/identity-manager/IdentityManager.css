@@ -141,6 +141,23 @@
   min-width: 0;
 }
 
+.identity-manager-session-detail-table th,
+.identity-manager-session-detail-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+.identity-manager-session-detail-table th {
+  overflow-wrap: normal;
+}
+
+.identity-manager-session-detail-table code {
+  white-space: nowrap;
+  word-break: normal;
+}
+
 .identity-manager-session-detail-value {
   display: inline-flex;
   align-items: center;
@@ -158,8 +175,11 @@
 
 .identity-manager-session-ip-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--space-xs);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /*

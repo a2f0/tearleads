@@ -243,6 +243,13 @@ test("session rows open details and expose context menu actions", async () => {
 
     fireEvent.click(within(table).getByText("203.0.113.9"));
 
+    const detailTable = view.getByRole("table");
+    expect(
+      detailTable.classList.contains("mini-app-info-table--borderless"),
+    ).toBe(true);
+    expect(
+      detailTable.classList.contains("identity-manager-session-detail-table"),
+    ).toBe(true);
     expect(view.getByText("Current Session")).toBeTruthy();
     expect(view.getByText(ACTIVE_SESSION.id)).toBeTruthy();
     expect(view.getByText(ACTIVE_SESSION.signingKeyFingerprint)).toBeTruthy();

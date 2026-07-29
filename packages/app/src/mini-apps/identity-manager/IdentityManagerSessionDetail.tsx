@@ -8,7 +8,7 @@ import {
 } from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,
-  MiniAppInfoTable,
+  MiniAppKeyValueTable,
 } from "../../components/mini-app/MiniAppTable";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import {
@@ -80,7 +80,7 @@ export function SessionDetailSection({
           </MiniAppButton>
         </MiniAppActions>
       </MiniAppHeader>
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable className="identity-manager-session-detail-table">
         <tbody>
           <MiniAppInfoRow label="Status">
             {getSessionStatusLabel(session)}
@@ -113,7 +113,7 @@ export function SessionDetailSection({
             <SessionDetailValue value={session.id} />
           </MiniAppInfoRow>
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppSection>
   );
 }
