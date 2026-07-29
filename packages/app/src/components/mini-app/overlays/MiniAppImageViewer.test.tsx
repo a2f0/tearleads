@@ -62,7 +62,7 @@ test("the viewer shows only the image and its toolbar", () => {
 
 test("a window hosts the viewer inside its own bounds", () => {
   const overlayHost = document.createElement("div");
-  overlayHost.className = "window";
+  overlayHost.className = "window-sidebar-content";
   document.body.append(overlayHost);
 
   try {
@@ -126,21 +126,15 @@ test("Escape still closes after interacting with the image stage", () => {
   expect(closes).toBe(1);
 });
 
-// The name is on its own line so the control row stays all controls: at touch
-// sizes five 44px targets plus an unnamed blob's id do not share a phone's width.
-test("the image's name sits under the control row rather than in it", () => {
+test("the image's name labels the dialog without a visible subheader", () => {
   const { view } = renderViewer();
 
   const toolbar = view.getByRole("toolbar");
-  const title = view.getByText("photo.png");
-  expect(toolbar.contains(title)).toBe(false);
   expect(
     Array.from(toolbar.children).every((child) => child.tagName === "BUTTON"),
   ).toBe(true);
-  // Off the row, but still what names the dialog.
-  expect(view.getByRole("dialog").getAttribute("aria-labelledby")).toBe(
-    title.id,
-  );
+  expect(view.queryByText("photo.png")).toBeNull();
+  expect(view.getByRole("dialog").getAttribute("aria-label")).toBe("photo.png");
 });
 
 test("close is reachable from the toolbar and from Escape", () => {

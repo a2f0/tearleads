@@ -324,18 +324,13 @@ function WindowInnerContent({
   };
   const style = getWindowStyle(maximized, position, size, zIndex);
 
-  const setWindowElement = useCallback((element: HTMLDivElement | null) => {
-    windowRef.current = element;
-    setOverlayHost(element);
-  }, []);
-
   if (minimized) {
     return null;
   }
 
   return (
     <div
-      ref={setWindowElement}
+      ref={windowRef}
       className={maximized ? "window window--maximized" : "window"}
       {...windowContextMenuTrapProps}
       onMouseDownCapture={handleWindowMouseDown}
@@ -362,7 +357,10 @@ function WindowInnerContent({
         overlayHost={overlayHost}
         showStatusMessage={showStatusMessage}
       >
-        <WindowBodyWithSidebar showSidebar={showSidebar}>
+        <WindowBodyWithSidebar
+          overlayHostRef={setOverlayHost}
+          showSidebar={showSidebar}
+        >
           <WindowMiniAppRouteBoundary entry={entry}>
             {Component && <Component />}
           </WindowMiniAppRouteBoundary>
@@ -378,14 +376,22 @@ function WindowInnerContent({
 
 function WindowBodyWithSidebar({
   showSidebar,
+  overlayHostRef,
   children,
-}: PropsWithChildren<{ showSidebar: boolean }>) {
+}: PropsWithChildren<{
+  overlayHostRef: (element: HTMLDivElement | null) => void;
+  showSidebar: boolean;
+}>) {
   const { sidebar } = useWindowSidebar();
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
 
   return (
-    <WindowBody showSidebar={showSidebar && hasSidebar} sidebar={sidebar}>
+    <WindowBody
+      contentRef={overlayHostRef}
+      showSidebar={showSidebar && hasSidebar}
+      sidebar={sidebar}
+    >
       {children}
     </WindowBody>
   );
