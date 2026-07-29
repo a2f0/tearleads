@@ -2,7 +2,7 @@ import {
   createContext,
   type PropsWithChildren,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useMemo,
 } from "react";
 
@@ -53,11 +53,14 @@ export function useCurrentWindow() {
  * window's row would otherwise stack directly above it — two toolbars, one of
  * them driving chrome the overlay covers. Outside a window this is inert, since
  * the routed shell's overlays cover the whole viewport already.
+ *
+ * Suppressing in a layout effect keeps the row from being painted alongside the
+ * overlay's own toolbar for a frame and then resizing the pane out from under it.
  */
 export function useSuppressWindowToolbar(active: boolean) {
   const suppressToolbar = useCurrentWindow()?.suppressToolbar;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!active || !suppressToolbar) {
       return;
     }
