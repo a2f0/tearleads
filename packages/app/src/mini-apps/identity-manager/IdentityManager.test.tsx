@@ -243,10 +243,32 @@ test("session rows open details and expose context menu actions", async () => {
 
     fireEvent.click(within(table).getByText("203.0.113.9"));
 
+    const detailTable = view.getByRole("table");
+    expect(detailTable.className).toContain("mini-app-info-table--borderless");
+    expect(detailTable.className).toContain("mini-app-info-table--aligned");
+    expect(detailTable.className).toContain(
+      "identity-manager-session-detail-table",
+    );
     expect(view.getByText("Current Session")).toBeTruthy();
-    expect(view.getByText(ACTIVE_SESSION.id)).toBeTruthy();
-    expect(view.getByText(ACTIVE_SESSION.signingKeyFingerprint)).toBeTruthy();
-    expect(view.getByText("198.51.100.10")).toBeTruthy();
+    const getDetailValue = (label: string) => {
+      const valueButton = view.getByRole("button", {
+        name: new RegExp(`Show full ${label}`),
+      });
+      if (!(valueButton instanceof HTMLButtonElement)) {
+        throw new Error(`Expected ${label} disclosure`);
+      }
+      return valueButton;
+    };
+    const sessionIdValue = getDetailValue("Session ID");
+    expect(sessionIdValue.textContent).toBe(ACTIVE_SESSION.id);
+    expect(getDetailValue("Signing Key").textContent).toBe(
+      ACTIVE_SESSION.signingKeyFingerprint,
+    );
+    expect(getDetailValue("Full IP List").textContent).toBe(
+      "198.51.100.10, 203.0.113.9",
+    );
+    fireEvent.click(sessionIdValue);
+    expect(sessionIdValue.getAttribute("aria-pressed")).toBe("true");
     expect(view.queryByText("Active Sessions")).toBeNull();
     expect(view.queryByText("Identity")).toBeNull();
     expect(view.queryByRole("button", { name: "Copy session ID" })).toBeNull();
@@ -285,7 +307,7 @@ test("session rows open details and expose context menu actions", async () => {
     fireEvent.click(getMenuButton("Get Info"));
 
     expect(view.getByText("Active Session")).toBeTruthy();
-    expect(view.getByText(REMOTE_SESSION.id)).toBeTruthy();
+    expect(getDetailValue("Session ID").textContent).toBe(REMOTE_SESSION.id);
     expect(view.queryByText("Active Sessions")).toBeNull();
 
     fireEvent.click(view.getByRole("button", { name: "Back" }));

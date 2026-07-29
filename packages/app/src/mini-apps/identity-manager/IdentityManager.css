@@ -141,32 +141,51 @@
   min-width: 0;
 }
 
-.identity-manager-session-detail-value {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-width: 0;
-  max-width: 100%;
+.identity-manager-session-detail-table {
+  /* These fixed labels need less room than the shared compact-id default. */
+  --mini-app-info-label-width: 14ch;
 }
 
-.identity-manager-session-detail-value > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.identity-manager-session-detail-table th {
+  /* All labels are fixed literals no longer than the 14ch key column. */
   white-space: nowrap;
 }
 
-.identity-manager-session-ip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
+.identity-manager-session-detail-value {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.identity-manager-session-detail-value--expanded {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.identity-manager-session-detail-value:hover,
+.identity-manager-session-detail-value:focus-visible {
+  text-decoration: underline;
 }
 
 /*
- * Touch sizing (routed layout): widen the gap between a detail value and its
- * inline clipboard button so the two touch targets are not crowded.
+ * Touch sizing (routed layout): widen the gap between an identity detail value
+ * and its inline clipboard button so the two touch targets are not crowded.
  */
-:root[data-navigation-mode="routed"] .identity-manager-details dd,
-:root[data-navigation-mode="routed"] .identity-manager-session-detail-value {
+:root[data-navigation-mode="routed"] .identity-manager-details dd {
   gap: var(--space-sm);
+}
+
+:root[data-navigation-mode="routed"] .identity-manager-session-detail-value {
+  min-height: var(--control-height);
 }

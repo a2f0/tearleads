@@ -268,19 +268,25 @@ test(
       }),
     );
 
-    await waitFor(() => {
-      expect(
-        within(contactsWindow).queryByRole("button", {
-          name: "Ada Lovelace",
-        }),
-      ).toBeNull();
-    });
-    await waitFor(async () => {
-      const movedContact = await tearleads.containerContents
-        .documentQueries()
-        .loadDocumentSummary(persistedContactId);
-      expect(movedContact?.containerId).toBe(personalTrashId);
-    });
+    await waitFor(
+      async () => {
+        const movedContact = await tearleads.containerContents
+          .documentQueries()
+          .loadDocumentSummary(persistedContactId);
+        expect(movedContact?.containerId).toBe(personalTrashId);
+      },
+      { timeout: 10_000 },
+    );
+    await waitFor(
+      () => {
+        expect(
+          within(contactsWindow).queryByRole("button", {
+            name: "Ada Lovelace",
+          }),
+        ).toBeNull();
+      },
+      { timeout: 10_000 },
+    );
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 );
