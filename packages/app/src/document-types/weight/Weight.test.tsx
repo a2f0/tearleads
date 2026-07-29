@@ -196,12 +196,13 @@ test("toggles editing from the toolbar, not a body button", async () => {
   expect(toggleCalls).toBe(1);
 });
 
-test("toolbar action matches the body Save action while editing", async () => {
-  const view = renderWeightFields({ entries: [], isEditing: true });
+test("toolbar and entry actions use Save while editing", async () => {
+  const view = renderWeightFields({ isEditing: true });
 
   await waitFor(() => {
     expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
   });
+  expect(view.getByRole("button", { name: "Save entry 1" })).toBeTruthy();
   expect(view.queryByRole("button", { name: "Toolbar Edit" })).toBeNull();
 });
 
@@ -284,6 +285,7 @@ test("quick add saves a populated entry without entering edit mode", () => {
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
+  expect(view.queryByRole("button", { name: "Add Entry" })).toBeNull();
   fireEvent.change(view.getByLabelText("Quick add weight"), {
     target: { value: "178.5" },
   });
@@ -452,19 +454,20 @@ test("marks out-of-range weights invalid without blocking edits", () => {
   ).toBe("true");
 });
 
-test("add, remove, and save actions invoke their callbacks", () => {
+test("each entry keeps Save beside Remove", () => {
   const calls: string[] = [];
   const view = renderWeightFields({
-    onAddEntry: () => calls.push("add"),
     onRemoveEntry: (id) => calls.push(`remove ${id}`),
     onToggleEditing: () => calls.push("save"),
   });
 
-  fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
-  fireEvent.click(view.getByRole("button", { name: "Remove entry 1" }));
-  fireEvent.click(view.getByRole("button", { name: "Save" }));
+  const remove = view.getByRole("button", { name: "Remove entry 1" });
+  const save = view.getByRole("button", { name: "Save entry 1" });
+  expect(save.parentElement).toBe(remove.parentElement);
+  fireEvent.click(remove);
+  fireEvent.click(save);
 
-  expect(calls).toEqual(["add", "remove e1", "save"]);
+  expect(calls).toEqual(["remove e1", "save"]);
 });
 
 test("disables controls while the document is loading", () => {
@@ -484,6 +487,10 @@ test("disables controls while the document is loading", () => {
       .disabled,
   ).toBe(true);
   expect(
-    (view.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled,
+    (
+      view.getByRole("button", {
+        name: "Save entry 1",
+      }) as HTMLButtonElement
+    ).disabled,
   ).toBe(true);
 });

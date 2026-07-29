@@ -1,7 +1,5 @@
-import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { useCallback, useId } from "react";
 import {
-  MiniAppButton,
   MiniAppInput,
   MiniAppSelect,
 } from "../../components/mini-app/MiniAppLayout";
@@ -17,7 +15,6 @@ import {
   useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
-import { TrackerSaveAction } from "../shared/TrackerFormControls";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
 import {
   type UpdateEntry,
@@ -105,7 +102,7 @@ function WeightReadFields(params: {
 function WeightEditFields(params: {
   controlsDisabled: boolean;
   entries: ReadonlyArray<WeightEntryRow>;
-  onAddEntry: () => void;
+  onAddEntry: (entry?: WeightQuickEntry) => void;
   onChangeUnit: (unit: WeightUnit) => void;
   onRemoveEntry: (id: string) => void;
   onRenameTracker: (value: string) => void;
@@ -171,16 +168,12 @@ function WeightEditFields(params: {
       <section className="weight-entry-list tracker-entry-list">
         <div className="weight-entry-list-header tracker-entry-list-header">
           <strong>Entries</strong>
-          <MiniAppButton
-            className="weight-add-button tracker-add-button"
-            withIcon
-            disabled={controlsDisabled}
-            onClick={() => onAddEntry()}
-          >
-            <PlusIcon aria-hidden size={14} />
-            Add Entry
-          </MiniAppButton>
         </div>
+        <WeightQuickAdd
+          controlsDisabled={controlsDisabled}
+          onAddEntry={onAddEntry}
+          unit={unit}
+        />
         {entries.length === 0 ? (
           <div className="tracker-empty-state">No entries</div>
         ) : (
@@ -191,6 +184,7 @@ function WeightEditFields(params: {
               entry={entry}
               index={index}
               onRemoveEntry={onRemoveEntry}
+              onSave={onSave}
               onUpdateEntry={onUpdateEntry}
             />
           ))
@@ -199,7 +193,6 @@ function WeightEditFields(params: {
           {entries.length} entries
         </div>
       </section>
-      <TrackerSaveAction disabled={controlsDisabled} onSave={onSave} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import {
   TrackerInputField,
-  TrackerRemoveAction,
+  TrackerRowActions,
 } from "../shared/TrackerFormControls";
 import {
   BLOOD_PRESSURE_DIASTOLIC_FIELD,
@@ -73,16 +73,23 @@ function BloodPressureMeasurementInput(params: {
 }
 
 // A single reading in edit mode: the measurement inputs, when it was taken, its
-// notes, and the control that removes it.
+// notes, and the controls that finish editing or remove it.
 export function BloodPressureReadingEditRow(params: {
   controlsDisabled: boolean;
   index: number;
   onRemoveReading: (id: string) => void;
+  onSave: () => void;
   onUpdateReading: UpdateReading;
   reading: BloodPressureReadingRow;
 }) {
-  const { controlsDisabled, index, onRemoveReading, onUpdateReading, reading } =
-    params;
+  const {
+    controlsDisabled,
+    index,
+    onRemoveReading,
+    onSave,
+    onUpdateReading,
+    reading,
+  } = params;
   const measurementProps = {
     controlsDisabled,
     index,
@@ -144,10 +151,12 @@ export function BloodPressureReadingEditRow(params: {
         placeholder="After walk"
         value={reading.notes}
       />
-      <TrackerRemoveAction
-        ariaLabel={`Remove reading ${index + 1}`}
+      <TrackerRowActions
         disabled={controlsDisabled}
         onRemove={() => onRemoveReading(reading.id)}
+        onSave={onSave}
+        removeAriaLabel={`Remove reading ${index + 1}`}
+        saveAriaLabel={`Save reading ${index + 1}`}
       />
     </div>
   );

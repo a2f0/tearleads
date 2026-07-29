@@ -23,6 +23,10 @@
   text-align: end;
 }
 
+.tracker-add-button {
+  justify-self: end;
+}
+
 .tracker-edit-row {
   display: grid;
   gap: var(--space-sm);
@@ -60,20 +64,17 @@
   max-width: 14rem;
 }
 
-.tracker-row-actions,
-.tracker-save-actions {
+.tracker-row-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-sm);
-}
-
-.tracker-row-actions {
   grid-area: actions;
   padding-top: var(--space-xs);
   border-top: var(--border);
 }
 
-.tracker-remove-button {
+.tracker-remove-button,
+.tracker-save-button {
   min-width: var(--control-height);
   padding-inline: var(--space-sm);
 }
@@ -153,6 +154,7 @@
   }
 
   .tracker-add-button {
+    justify-self: stretch;
     width: 100%;
   }
 
@@ -165,18 +167,12 @@
   }
 
   .tracker-row-actions,
-  .tracker-save-actions,
   .tracker-quick-add-actions {
     display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .tracker-remove-button,
-  .tracker-save-actions > .mini-app-button {
-    width: 100%;
-  }
-
-  .tracker-quick-add-actions {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .tracker-row-actions > .mini-app-button {
+    width: 100%;
   }
 }

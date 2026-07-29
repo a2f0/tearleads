@@ -30,41 +30,38 @@ export function TrackerInputField({
   );
 }
 
-export function TrackerRemoveAction(params: {
-  ariaLabel: string;
+export function TrackerRowActions(params: {
   disabled: boolean;
   onRemove: () => void;
+  onSave: () => void;
+  removeAriaLabel: string;
+  saveAriaLabel: string;
 }) {
-  const { ariaLabel, disabled, onRemove } = params;
+  const { disabled, onRemove, onSave, removeAriaLabel, saveAriaLabel } = params;
 
   return (
     <div className="tracker-row-actions">
       <MiniAppButton
-        aria-label={ariaLabel}
+        aria-label={saveAriaLabel}
+        className="tracker-save-button"
+        withIcon
+        disabled={disabled}
+        onClick={onSave}
+        title={saveAriaLabel}
+      >
+        <CheckIcon aria-hidden size={14} />
+        Save
+      </MiniAppButton>
+      <MiniAppButton
+        aria-label={removeAriaLabel}
         className="tracker-remove-button"
         withIcon
         disabled={disabled}
         onClick={onRemove}
-        title={ariaLabel}
+        title={removeAriaLabel}
       >
         <TrashIcon aria-hidden size={14} />
         Remove
-      </MiniAppButton>
-    </div>
-  );
-}
-
-export function TrackerSaveAction(params: {
-  disabled: boolean;
-  onSave: () => void;
-}) {
-  const { disabled, onSave } = params;
-
-  return (
-    <div className="tracker-save-actions">
-      <MiniAppButton withIcon disabled={disabled} onClick={onSave}>
-        <CheckIcon aria-hidden size={14} />
-        Save
       </MiniAppButton>
     </div>
   );

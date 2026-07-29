@@ -1,9 +1,5 @@
-import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { useCallback, useId } from "react";
-import {
-  MiniAppButton,
-  MiniAppInput,
-} from "../../components/mini-app/MiniAppLayout";
+import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   type RowWriterResolver,
@@ -16,7 +12,6 @@ import {
   useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
-import { TrackerSaveAction } from "../shared/TrackerFormControls";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
 import {
   type BloodPressureField,
@@ -96,7 +91,7 @@ function BloodPressureReadFields(params: {
 
 function BloodPressureEditFields(params: {
   controlsDisabled: boolean;
-  onAddReading: () => void;
+  onAddReading: (reading?: BloodPressureQuickReading) => void;
   onRemoveReading: (id: string) => void;
   onRenameTracker: (value: string) => void;
   onSave: () => void;
@@ -140,16 +135,11 @@ function BloodPressureEditFields(params: {
       <section className="blood-pressure-reading-list tracker-entry-list">
         <div className="blood-pressure-reading-list-header tracker-entry-list-header">
           <strong>Readings</strong>
-          <MiniAppButton
-            className="blood-pressure-add-button tracker-add-button"
-            withIcon
-            disabled={controlsDisabled}
-            onClick={() => onAddReading()}
-          >
-            <PlusIcon aria-hidden size={14} />
-            Add Reading
-          </MiniAppButton>
         </div>
+        <BloodPressureQuickAdd
+          controlsDisabled={controlsDisabled}
+          onAddReading={onAddReading}
+        />
         {readings.length === 0 ? (
           <div className="tracker-empty-state">No readings</div>
         ) : (
@@ -159,6 +149,7 @@ function BloodPressureEditFields(params: {
               controlsDisabled={controlsDisabled}
               index={index}
               onRemoveReading={onRemoveReading}
+              onSave={onSave}
               onUpdateReading={onUpdateReading}
               reading={reading}
             />
@@ -168,7 +159,6 @@ function BloodPressureEditFields(params: {
           {readings.length} entries
         </div>
       </section>
-      <TrackerSaveAction disabled={controlsDisabled} onSave={onSave} />
     </div>
   );
 }
