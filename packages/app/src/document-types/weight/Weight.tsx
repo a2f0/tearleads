@@ -16,10 +16,8 @@ import {
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
-import {
-  usePendingTrackerEntry,
-  useSavedTrackerRows,
-} from "../shared/useTrackerEntryState";
+import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
+import { useSavedTrackerRows } from "../shared/useSavedTrackerRows";
 import {
   type UpdateEntry,
   WeightEntryEditRow,
@@ -192,16 +190,15 @@ function WeightEditFields(params: {
         />
         {entries.length === 0 && !entryPending ? (
           <div className="tracker-empty-state">No entries</div>
-        ) : (
-          <WeightEditRows
-            currentAuthorId={currentAuthorId}
-            controlsDisabled={controlsDisabled}
-            entries={entries}
-            onRemoveEntry={onRemoveEntry}
-            onUpdateEntry={onUpdateEntry}
-            resolveRowWriter={resolveRowWriter}
-          />
-        )}
+        ) : null}
+        <WeightEditRows
+          currentAuthorId={currentAuthorId}
+          controlsDisabled={controlsDisabled}
+          entries={entries}
+          onRemoveEntry={onRemoveEntry}
+          onUpdateEntry={onUpdateEntry}
+          resolveRowWriter={resolveRowWriter}
+        />
         <div className="weight-entry-list-footer tracker-entry-list-footer">
           {entries.length} entries
         </div>

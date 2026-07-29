@@ -311,20 +311,25 @@ test("marks existing malformed variable keys invalid", () => {
   ).toBe(ENV_FILE_VARIABLE_NAME_PATTERN);
 });
 
-test("edit mode keeps a new variable pending until it is saved", () => {
+test("read mode saves a new variable without entering edit mode", () => {
   const added: EnvFileQuickVariable[] = [];
+  let toggleCalls = 0;
   const view = renderEnvFileFields({
-    isEditing: true,
+    isEditing: false,
     onAddVariable: (variable) => added.push(variable),
+    onEnterEdit: () => undefined,
+    onToggleEditing: () => {
+      toggleCalls += 1;
+    },
     variables: [],
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Variable" }));
   expect(view.queryByRole("button", { name: "Add Variable" })).toBeNull();
   expect(view.queryByText("No variables")).toBeNull();
-  const toolbarSave = view.getByRole("button", { name: "Toolbar Save" });
-  expect((toolbarSave as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.click(toolbarSave);
+  const toolbarEdit = view.getByRole("button", { name: "Toolbar Edit" });
+  expect((toolbarEdit as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(toolbarEdit);
   expect(view.getByLabelText("Quick add env variable key")).toBeTruthy();
   fireEvent.change(view.getByLabelText("Quick add env variable key"), {
     target: { value: "API_TOKEN" },
@@ -332,11 +337,17 @@ test("edit mode keeps a new variable pending until it is saved", () => {
   fireEvent.change(view.getByLabelText("Quick add env variable value"), {
     target: { value: "secret" },
   });
+  expect(
+    (view.getByLabelText("Quick add env variable value") as HTMLInputElement)
+      .type,
+  ).toBe("password");
   fireEvent.click(view.getByRole("button", { name: "Save Variable" }));
 
   expect(added).toEqual([{ key: "API_TOKEN", value: "secret" }]);
   expect(view.getByRole("button", { name: "Add Variable" })).toBeTruthy();
-  expect((toolbarSave as HTMLButtonElement).disabled).toBe(false);
+  expect((toolbarEdit as HTMLButtonElement).disabled).toBe(false);
+  expect(view.queryByLabelText(".env file name")).toBeNull();
+  expect(toggleCalls).toBe(0);
 });
 
 test("quick add rejects malformed keys and cancel clears the draft", () => {

@@ -1,9 +1,10 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
+import { useClearPendingOnUnmount } from "../shared/usePendingTrackerEntry";
 import { isValidBloodPressureMeasurement } from "./bloodPressureDocumentDefinition";
 
 export interface BloodPressureQuickReading {
@@ -118,12 +119,7 @@ export function BloodPressureQuickAdd(params: {
     (reading.pulse.length === 0 ||
       isValidBloodPressureMeasurement(reading.pulse));
 
-  useEffect(
-    () => () => {
-      onPendingChange(false);
-    },
-    [onPendingChange],
-  );
+  useClearPendingOnUnmount(onPendingChange);
 
   function close() {
     setReading(EMPTY_READING);
@@ -179,7 +175,7 @@ export function BloodPressureQuickAdd(params: {
           <CheckIcon aria-hidden size={14} />
           Save Reading
         </MiniAppButton>
-        <MiniAppButton withIcon disabled={controlsDisabled} onClick={close}>
+        <MiniAppButton withIcon onClick={close}>
           <XIcon aria-hidden size={14} />
           Cancel
         </MiniAppButton>

@@ -159,7 +159,6 @@ test("toggles editing from the toolbar, not a body button", async () => {
   await waitFor(() => {
     expect(view.getByRole("button", { name: "Toolbar Edit" })).toBeTruthy();
   });
-  // The tracker body no longer carries its own Edit control.
   expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
 
   fireEvent.click(view.getByRole("button", { name: "Toolbar Edit" }));
@@ -208,7 +207,6 @@ test("read mode tolerates missing reading values", () => {
     isEditing: false,
   });
 
-  // Reading pair, pulse, and measured time all fall back to None.
   expect(view.getAllByText("None")).toHaveLength(3);
 });
 
@@ -291,8 +289,6 @@ test("writer's kebab menu offers Edit and Attribution", () => {
     resolveRowWriter: attributedResolver,
   });
 
-  // The kebab opens a menu (not the dialog directly). Attribution opens the
-  // overlay with per-field writers and no values.
   expect(view.queryByRole("dialog")).toBeNull();
   fireEvent.click(view.getByRole("button", { name: "Reading 1 actions" }));
   fireEvent.click(view.getByRole("button", { name: "Attribution" }));
@@ -302,7 +298,6 @@ test("writer's kebab menu offers Edit and Attribution", () => {
   expect(within(dialog).queryByText("120")).toBeNull();
   fireEvent.click(view.getByRole("button", { name: "Close" }));
 
-  // Edit switches the tracker into edit mode.
   fireEvent.click(view.getByRole("button", { name: "Reading 1 actions" }));
   fireEvent.click(view.getByRole("button", { name: "Edit" }));
   expect(editCalls).toBe(1);
@@ -319,20 +314,25 @@ test("read mode leaves the tracker name to the document title bar", () => {
   expect(view.getByText("0 entries")).toBeTruthy();
 });
 
-test("edit mode keeps a new reading pending until it is saved", () => {
+test("read mode saves a new reading without entering edit mode", () => {
   const added: BloodPressureQuickReading[] = [];
+  let toggleCalls = 0;
   const view = renderBloodPressureFields({
-    isEditing: true,
+    isEditing: false,
     onAddReading: (reading) => added.push(reading),
+    onEnterEdit: () => undefined,
+    onToggleEditing: () => {
+      toggleCalls += 1;
+    },
     readings: [],
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
   expect(view.queryByRole("button", { name: "Add Reading" })).toBeNull();
   expect(view.queryByText("No readings")).toBeNull();
-  const toolbarSave = view.getByRole("button", { name: "Toolbar Save" });
-  expect((toolbarSave as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.click(toolbarSave);
+  const toolbarEdit = view.getByRole("button", { name: "Toolbar Edit" });
+  expect((toolbarEdit as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(toolbarEdit);
   expect(view.getByLabelText("Quick add systolic")).toBeTruthy();
   fireEvent.change(view.getByLabelText("Quick add systolic"), {
     target: { value: "119" },
@@ -360,8 +360,9 @@ test("edit mode keeps a new reading pending until it is saved", () => {
       systolic: "119",
     },
   ]);
-  expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
-  expect(view.getByLabelText("Blood pressure tracker name")).toBeTruthy();
+  expect(view.getByRole("button", { name: "Toolbar Edit" })).toBeTruthy();
+  expect(view.queryByLabelText("Blood pressure tracker name")).toBeNull();
+  expect(toggleCalls).toBe(0);
 });
 
 test("quick add rejects invalid readings and cancel clears the draft", () => {

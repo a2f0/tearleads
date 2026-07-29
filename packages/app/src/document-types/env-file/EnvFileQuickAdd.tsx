@@ -1,9 +1,10 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
+import { useClearPendingOnUnmount } from "../shared/usePendingTrackerEntry";
 import {
   ENV_FILE_VARIABLE_NAME_PATTERN,
   isValidEnvFileVariableName,
@@ -26,12 +27,7 @@ export function EnvFileQuickAdd(params: {
   const [variable, setVariable] = useState(EMPTY_VARIABLE);
   const valid = isValidEnvFileVariableName(variable.key);
 
-  useEffect(
-    () => () => {
-      onPendingChange(false);
-    },
-    [onPendingChange],
-  );
+  useClearPendingOnUnmount(onPendingChange);
 
   function close() {
     setVariable(EMPTY_VARIABLE);
@@ -102,6 +98,7 @@ export function EnvFileQuickAdd(params: {
         }
         placeholder="secret"
         spellCheck={false}
+        type="password"
         value={variable.value}
       />
       <div className="env-file-quick-add-actions tracker-quick-add-actions">
@@ -113,7 +110,7 @@ export function EnvFileQuickAdd(params: {
           <CheckIcon aria-hidden size={14} />
           Save Variable
         </MiniAppButton>
-        <MiniAppButton withIcon disabled={controlsDisabled} onClick={close}>
+        <MiniAppButton withIcon onClick={close}>
           <XIcon aria-hidden size={14} />
           Cancel
         </MiniAppButton>

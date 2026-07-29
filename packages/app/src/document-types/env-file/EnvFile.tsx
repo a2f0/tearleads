@@ -13,10 +13,8 @@ import {
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
-import {
-  usePendingTrackerEntry,
-  useSavedTrackerRows,
-} from "../shared/useTrackerEntryState";
+import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
+import { useSavedTrackerRows } from "../shared/useSavedTrackerRows";
 import {
   EnvFileVariableEditRow,
   type EnvVariableField,
@@ -157,16 +155,15 @@ function EnvFileEditFields(params: {
           <div className="env-file-empty-state tracker-empty-state">
             No variables
           </div>
-        ) : (
-          <EnvFileEditRows
-            controlsDisabled={controlsDisabled}
-            currentAuthorId={currentAuthorId}
-            onRemoveVariable={onRemoveVariable}
-            onUpdateVariable={onUpdateVariable}
-            resolveRowWriter={resolveRowWriter}
-            variables={variables}
-          />
-        )}
+        ) : null}
+        <EnvFileEditRows
+          controlsDisabled={controlsDisabled}
+          currentAuthorId={currentAuthorId}
+          onRemoveVariable={onRemoveVariable}
+          onUpdateVariable={onUpdateVariable}
+          resolveRowWriter={resolveRowWriter}
+          variables={variables}
+        />
         <div className="env-file-variable-list-footer tracker-entry-list-footer">
           {variables.length} entries
         </div>

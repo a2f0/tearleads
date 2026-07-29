@@ -248,20 +248,25 @@ test("read mode leaves the tracker name to the document title bar", () => {
   expect(view.getByText("0 entries")).toBeTruthy();
 });
 
-test("edit mode keeps a new entry pending until it is saved", () => {
+test("read mode saves a new entry without entering edit mode", () => {
   const added: WeightQuickEntry[] = [];
+  let toggleCalls = 0;
   const view = renderWeightFields({
     entries: [],
-    isEditing: true,
+    isEditing: false,
     onAddEntry: (entry) => added.push(entry),
+    onEnterEdit: () => undefined,
+    onToggleEditing: () => {
+      toggleCalls += 1;
+    },
   });
 
   fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
   expect(view.queryByRole("button", { name: "Add Entry" })).toBeNull();
   expect(view.queryByText("No entries")).toBeNull();
-  const toolbarSave = view.getByRole("button", { name: "Toolbar Save" });
-  expect((toolbarSave as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.click(toolbarSave);
+  const toolbarEdit = view.getByRole("button", { name: "Toolbar Edit" });
+  expect((toolbarEdit as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(toolbarEdit);
   expect(view.getByLabelText("Quick add weight")).toBeTruthy();
   fireEvent.change(view.getByLabelText("Quick add weight"), {
     target: { value: "178.5" },
@@ -281,8 +286,9 @@ test("edit mode keeps a new entry pending until it is saved", () => {
       weight: "178.5",
     },
   ]);
-  expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
-  expect(view.getByLabelText("Weight tracker name")).toBeTruthy();
+  expect(view.getByRole("button", { name: "Toolbar Edit" })).toBeTruthy();
+  expect(view.queryByLabelText("Weight tracker name")).toBeNull();
+  expect(toggleCalls).toBe(0);
 });
 
 test("quick add rejects invalid weights and cancel clears the draft", () => {

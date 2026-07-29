@@ -13,10 +13,8 @@ import {
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
-import {
-  usePendingTrackerEntry,
-  useSavedTrackerRows,
-} from "../shared/useTrackerEntryState";
+import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
+import { useSavedTrackerRows } from "../shared/useSavedTrackerRows";
 import {
   type BloodPressureField,
   BloodPressureReadingEditRow,
@@ -158,16 +156,15 @@ function BloodPressureEditFields(params: {
         />
         {readings.length === 0 && !entryPending ? (
           <div className="tracker-empty-state">No readings</div>
-        ) : (
-          <BloodPressureEditRows
-            currentAuthorId={currentAuthorId}
-            controlsDisabled={controlsDisabled}
-            onRemoveReading={onRemoveReading}
-            onUpdateReading={onUpdateReading}
-            readings={readings}
-            resolveRowWriter={resolveRowWriter}
-          />
-        )}
+        ) : null}
+        <BloodPressureEditRows
+          currentAuthorId={currentAuthorId}
+          controlsDisabled={controlsDisabled}
+          onRemoveReading={onRemoveReading}
+          onUpdateReading={onUpdateReading}
+          readings={readings}
+          resolveRowWriter={resolveRowWriter}
+        />
         <div className="blood-pressure-reading-list-footer tracker-entry-list-footer">
           {readings.length} entries
         </div>

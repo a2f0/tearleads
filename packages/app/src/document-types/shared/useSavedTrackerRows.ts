@@ -1,19 +1,5 @@
 import { useCallback, useState } from "react";
 
-export function usePendingTrackerEntry(onToggleEditing: () => void) {
-  const [entryPending, setEntryPending] = useState(false);
-  const toggleEditing = useCallback(() => {
-    setEntryPending(false);
-    onToggleEditing();
-  }, [onToggleEditing]);
-
-  return {
-    entryPending,
-    onPendingChange: setEntryPending,
-    toggleEditing,
-  };
-}
-
 export function useSavedTrackerRows() {
   const [savedRowIds, setSavedRowIds] = useState<ReadonlySet<string>>(
     () => new Set(),

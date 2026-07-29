@@ -8,6 +8,10 @@ function visiblePane(page: Page): Locator {
   return page.locator(".pane:not(.pane-hidden)").first();
 }
 
+function literalPattern(value: string): RegExp {
+  return new RegExp(value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u");
+}
+
 async function openExplorerWindow(page: Page): Promise<{
   explorerWindow: Locator;
   toolbar: Locator;
@@ -35,7 +39,7 @@ async function createTracker(
 ): Promise<void> {
   await toolbar.getByRole("button", { name: "New Document" }).click();
   await explorerWindow
-    .getByRole("button", { name: new RegExp(type, "u") })
+    .getByRole("button", { name: literalPattern(type) })
     .first()
     .click();
   await expect(toolbar.getByRole("button", { name: "Save" })).toBeVisible();
@@ -175,6 +179,8 @@ async function checkWindowedEnvFile(explorerWindow: Locator, toolbar: Locator) {
     explorerWindow.locator(".env-file-variable-read-row"),
   ).toBeVisible();
   await expect(toolbar.getByRole("button", { name: "Save" })).toBeVisible();
+  await toolbar.getByRole("button", { name: "Save" }).click();
+  await expect(toolbar.getByRole("button", { name: "Edit" })).toBeVisible();
 }
 
 test("windowed health trackers share compact fields and finish actions", async ({

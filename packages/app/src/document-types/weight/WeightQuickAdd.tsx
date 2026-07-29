@@ -1,9 +1,10 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
+import { useClearPendingOnUnmount } from "../shared/usePendingTrackerEntry";
 import {
   isValidWeightMeasurement,
   type WeightUnit,
@@ -32,12 +33,7 @@ export function WeightQuickAdd(params: {
   const [open, setOpen] = useState(false);
   const valid = isValidWeightMeasurement(entry.weight);
 
-  useEffect(
-    () => () => {
-      onPendingChange(false);
-    },
-    [onPendingChange],
-  );
+  useClearPendingOnUnmount(onPendingChange);
 
   function close() {
     setEntry(EMPTY_ENTRY);
@@ -129,7 +125,7 @@ export function WeightQuickAdd(params: {
           <CheckIcon aria-hidden size={14} />
           Save Entry
         </MiniAppButton>
-        <MiniAppButton withIcon disabled={controlsDisabled} onClick={close}>
+        <MiniAppButton withIcon onClick={close}>
           <XIcon aria-hidden size={14} />
           Cancel
         </MiniAppButton>
