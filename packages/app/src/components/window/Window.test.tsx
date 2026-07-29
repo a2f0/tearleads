@@ -6,6 +6,7 @@ import {
   MiniAppImageViewer,
 } from "../mini-app/MiniAppLayout";
 import { Window } from "./Window";
+import { useWindowSidebar } from "./WindowSidebarContext";
 import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
 
 const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
@@ -70,8 +71,17 @@ function WindowClipboardHarness() {
   );
 }
 
-function ImageViewerWindow() {
+function ImageViewerWindow({ withSidebar = true }: { withSidebar?: boolean }) {
   const [viewerOpen, setViewerOpen] = useState(false);
+  const { setSidebar } = useWindowSidebar();
+
+  useEffect(() => {
+    if (!withSidebar) return;
+
+    setSidebar(<div>Viewer sidebar</div>);
+    return () => setSidebar(null);
+  }, [setSidebar, withSidebar]);
+
   return (
     <>
       <button type="button" onClick={() => setViewerOpen(true)}>
@@ -88,12 +98,25 @@ function ImageViewerWindow() {
   );
 }
 
-function WindowViewerHarness() {
+function SidebarlessImageViewerWindow() {
+  return <ImageViewerWindow withSidebar={false} />;
+}
+
+function WindowViewerHarness({
+  withSidebar = true,
+}: {
+  withSidebar?: boolean;
+}) {
   const { windows, create, restore } = useWindowState();
 
   useEffect(() => {
-    create("Viewer", 0, 0, ImageViewerWindow);
-  }, [create]);
+    create(
+      "Viewer",
+      0,
+      0,
+      withSidebar ? ImageViewerWindow : SidebarlessImageViewerWindow,
+    );
+  }, [create, withSidebar]);
 
   return (
     <div>
@@ -241,7 +264,7 @@ test("right-clicking a rendered window title bar opens the window menu", async (
   expect(view.getByText("Move Backward")).toBeTruthy();
 });
 
-test("restoring a window refreshes its image viewer host", async () => {
+test("the image viewer stays in the right pane after restoring its window", async () => {
   const view = render(
     <WindowStateProvider>
       <WindowViewerHarness />
@@ -267,5 +290,24 @@ test("restoring a window refreshes its image viewer host", async () => {
   expect(restoredHost).not.toBe(firstHost);
 
   fireEvent.click(restoredOpen);
-  expect(view.getByRole("dialog").parentElement).toBe(restoredHost);
+  const rightPane = restoredHost.querySelector<HTMLDivElement>(
+    ".window-sidebar-content",
+  );
+  const sidebar = restoredHost.querySelector(".window-sidebar");
+  expect(view.getByRole("dialog").parentElement).toBe(rightPane);
+  expect(sidebar?.contains(view.getByRole("dialog"))).toBe(false);
+});
+
+test("a sidebarless image viewer stays in the window content pane", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <WindowViewerHarness withSidebar={false} />
+    </WindowStateProvider>,
+  );
+
+  fireEvent.click(await view.findByRole("button", { name: "Open viewer" }));
+
+  const viewer = view.getByRole("dialog");
+  expect(viewer.parentElement?.className).toBe("window-body-content");
+  expect(viewer.parentElement?.closest(".window")).toBeTruthy();
 });

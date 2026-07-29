@@ -1,11 +1,21 @@
 .window-body {
+  display: flex;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.window-body-content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.window-body-content-scroll {
+  height: 100%;
   padding: var(--space-md);
   overflow: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
-}
-
-.window-body:has(.window-sidebar-layout) {
-  padding: 0;
-  overflow: hidden;
 }

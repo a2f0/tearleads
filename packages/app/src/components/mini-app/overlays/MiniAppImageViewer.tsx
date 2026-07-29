@@ -3,13 +3,7 @@ import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimpl
 import { MagnifyingGlassMinusIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGlassMinus";
 import { MagnifyingGlassPlusIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGlassPlus";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import {
-  type ReactNode,
-  type RefObject,
-  useEffect,
-  useId,
-  useRef,
-} from "react";
+import { type ReactNode, type RefObject, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useCurrentWindow } from "../../window/CurrentWindowContext";
 import "./MiniAppImageViewer.css";
@@ -48,28 +42,15 @@ function ImageViewerButton(params: {
   );
 }
 
-/**
- * The viewer's header: one row of controls, with the image's name on a line of
- * its own beneath it.
- *
- * The name used to share the control row, which worked only because the buttons
- * were dense desktop targets. On touch each control is a 44px square (see the
- * routed rules in the stylesheet), and five of them plus an unnamed blob's
- * 36-character id do not fit a phone's width — the name would squeeze the
- * controls back below the hit target it exists to protect. Giving it its own
- * line keeps the row at full size in both layouts.
- */
 function ImageViewerChrome(params: {
   canZoomIn: boolean;
   closeButtonRef: RefObject<HTMLButtonElement | null>;
   isZoomed: boolean;
-  label: string;
   onClose: () => void;
   onDownload?: (() => void) | undefined;
   onReset: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
-  titleId: string;
 }) {
   const { onDownload } = params;
 
@@ -117,13 +98,6 @@ function ImageViewerChrome(params: {
           <XIcon aria-hidden size={18} />
         </ImageViewerButton>
       </div>
-      <span
-        className="mini-app-image-viewer-title"
-        id={params.titleId}
-        title={params.label}
-      >
-        {params.label}
-      </span>
     </div>
   );
 }
@@ -169,10 +143,10 @@ function useImageViewerDismissal(params: {
  * no room, and no way in. Here the image fills the screen and pinch, wheel,
  * drag, and double-tap zoom and pan it (see {@link useImageViewerState}).
  *
- * Routed layouts portal into <body> and fill the viewport. A desktop window
- * instead becomes the portal host so the viewer fills only the window that
- * opened it. The stage takes `touch-action: none` so the browser hands the
- * pinch to the viewer instead of page-zooming behind it.
+ * Routed layouts portal into <body> and fill the viewport. A desktop window's
+ * content pane instead becomes the portal host so the viewer leaves the window
+ * chrome and sidebar available. The stage takes `touch-action: none` so the
+ * browser hands the pinch to the viewer instead of page-zooming behind it.
  */
 export function MiniAppImageViewer(params: {
   label: string;
@@ -183,7 +157,6 @@ export function MiniAppImageViewer(params: {
   const viewer = useImageViewerState();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const titleId = useId();
   const currentWindow = useCurrentWindow();
   const portalHost = currentWindow?.overlayHost ?? document.body;
   const isWindowed = portalHost !== document.body;
@@ -196,7 +169,7 @@ export function MiniAppImageViewer(params: {
 
   return createPortal(
     <div
-      aria-labelledby={titleId}
+      aria-label={params.label}
       aria-modal={isWindowed ? undefined : "true"}
       className={`mini-app-image-viewer${isWindowed ? " mini-app-image-viewer--windowed" : ""}`}
       onPointerDownCapture={() =>
@@ -210,13 +183,11 @@ export function MiniAppImageViewer(params: {
         canZoomIn={viewer.canZoomIn}
         closeButtonRef={closeButtonRef}
         isZoomed={viewer.isZoomed}
-        label={params.label}
         onClose={params.onClose}
         onDownload={params.onDownload}
         onReset={viewer.reset}
         onZoomIn={viewer.zoomIn}
         onZoomOut={viewer.zoomOut}
-        titleId={titleId}
       />
       {/* The stage runs its own pointer interaction model rather than exposing
           discrete controls, which is what role="application" announces — the

@@ -1,5 +1,6 @@
 import {
   type PropsWithChildren,
+  type Ref,
   useCallback,
   useEffect,
   useRef,
@@ -17,10 +18,12 @@ function clampSidebarWidth(width: number) {
 }
 
 export function WindowSidebar({
+  contentRef,
   defaultWidth = DEFAULT_WIDTH,
   sidebar,
   children,
 }: PropsWithChildren<{
+  contentRef?: Ref<HTMLDivElement> | undefined;
   defaultWidth?: number;
   sidebar?: React.ReactNode;
 }>) {
@@ -101,7 +104,9 @@ export function WindowSidebar({
         onMouseDown={handleMouseDown}
         tabIndex={0}
       />
-      <div className="window-sidebar-content">{children}</div>
+      <div className="window-sidebar-content" ref={contentRef}>
+        <div className="window-sidebar-content-scroll">{children}</div>
+      </div>
     </div>
   );
 }

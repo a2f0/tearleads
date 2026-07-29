@@ -19,17 +19,15 @@
   overscroll-behavior: contain;
 }
 
-/* Desktop windows are their own viewing surface. The portal is a direct child
-   of `.window`, whose positioned box bounds this absolute overlay; clearing the
-   viewport height and safe-area padding keeps the viewer inside that frame. */
+/* Desktop content panes are their own viewing surface. Their positioned boxes
+   bound this absolute overlay; clearing the viewport height and safe-area
+   padding keeps the viewer inside the pane. */
 .mini-app-image-viewer--windowed {
   position: absolute;
   height: auto;
   padding: 0;
 }
 
-/* The header stacks its control row over the image's name; see
-   ImageViewerChrome for why the name is not on the row itself. */
 .mini-app-image-viewer-chrome {
   display: flex;
   flex: 0 0 auto;
@@ -49,17 +47,6 @@
     calc(18px + var(--window-bar-block-padding) * 2)
   );
   padding-inline: var(--space-sm);
-}
-
-/* An unnamed blob falls back to its id, which is longer than any phone is wide;
-   clip it rather than wrap the header to a third line. */
-.mini-app-image-viewer-title {
-  overflow: hidden;
-  padding: 0 var(--space-sm) var(--space-2xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-size-xs);
-  opacity: var(--opacity-muted);
 }
 
 .mini-app-image-viewer-button {
