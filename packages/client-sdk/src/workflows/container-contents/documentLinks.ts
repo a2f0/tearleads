@@ -31,6 +31,42 @@ type ContainerDocumentLinkOperation = Parameters<
 type RemoteDocumentPersistedState =
   RelinkRemoteDocumentResult["persistedState"];
 
+// A cold-cache denial must keep its HTTP status: collapsing a 403 to null
+// would leave an access-denied move routinely retriable instead of parking
+// it for the access-restored signal (row 7).
+async function fetchMoveWriterProjection(input: {
+  documentId: string;
+  onFailure?: DocumentLinkSetFailureHandler | undefined;
+  runtime: ContainerDocumentLinkRuntime;
+}): Promise<Awaited<
+  ReturnType<ContainerDocumentLinkApi["getDocumentWriterProjection"]>
+> | null> {
+  const { apiClient } = input.runtime;
+  if (apiClient.getDocumentWriterProjectionResult) {
+    const result = await apiClient.getDocumentWriterProjectionResult(
+      input.documentId,
+      { reportErrors: false },
+    );
+    if (result.ok) {
+      return result.data;
+    }
+    result.report();
+    input.onFailure?.({ message: result.message, status: result.status });
+    return null;
+  }
+  const writerProjection = await apiClient.getDocumentWriterProjection(
+    input.documentId,
+  );
+  if (writerProjection) {
+    return writerProjection;
+  }
+  input.onFailure?.({
+    message: "Document writer projection is unavailable",
+    status: null,
+  });
+  return null;
+}
+
 interface ContainerDocumentLinkRuntime
   extends Pick<
     ContainerContentsWorkflowRuntime,
@@ -321,6 +357,7 @@ export async function linkRemoteContainerDocument(input: {
 export async function unlinkRemoteContainerDocument(input: {
   documentId: string;
   noteId: string;
+  onFailure?: DocumentLinkSetFailureHandler | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   rotationSnapshot: Uint8Array;
   runtime: ContainerDocumentLinkRuntime;
@@ -353,13 +390,12 @@ export async function moveRemoteContainerDocument(input: {
     runtime,
     targetContainerId,
   } = input;
-  const writerProjection =
-    await runtime.apiClient.getDocumentWriterProjection(documentId);
+  const writerProjection = await fetchMoveWriterProjection({
+    documentId,
+    onFailure: input.onFailure,
+    runtime,
+  });
   if (!writerProjection) {
-    input.onFailure?.({
-      message: "Document writer projection is unavailable",
-      status: null,
-    });
     return null;
   }
   const initialLinkedContainerIds =
@@ -396,6 +432,7 @@ export async function moveRemoteContainerDocument(input: {
     const unlinkedDocument = await unlinkRemoteContainerDocument({
       documentId,
       noteId,
+      onFailure: input.onFailure,
       resolveProjectionUserKey,
       rotationSnapshot,
       runtime,

@@ -428,6 +428,74 @@ async function submitLinkSetMutation(input: {
   return response;
 }
 
+interface LinkSetProjectionFetch<TProjection> {
+  failure: { message: string; status: number | null } | null;
+  projection: TProjection | null;
+}
+
+// Cold-cache projection fetches must keep their HTTP status: collapsing a
+// 403 to null would leave an access-denied link/unlink routinely retriable
+// instead of parking its move for the access-restored signal (row 7).
+async function fetchLinkSetDocumentProjection(
+  apiClient: DocumentLinkSetMutationApi,
+  documentId: string,
+): Promise<LinkSetProjectionFetch<DocumentWriterProjectionResponse>> {
+  if (apiClient.getDocumentWriterProjectionResult) {
+    const result = await apiClient.getDocumentWriterProjectionResult(
+      documentId,
+      { reportErrors: false },
+    );
+    if (result.ok) {
+      return { failure: null, projection: result.data };
+    }
+    result.report();
+    return {
+      failure: { message: result.message, status: result.status },
+      projection: null,
+    };
+  }
+  const projection = await apiClient.getDocumentWriterProjection(documentId);
+  return projection
+    ? { failure: null, projection }
+    : {
+        failure: {
+          message: "Document writer projection is unavailable",
+          status: null,
+        },
+        projection: null,
+      };
+}
+
+async function fetchLinkSetContainerProjection(
+  apiClient: DocumentLinkSetMutationApi,
+  containerId: string,
+): Promise<LinkSetProjectionFetch<ContainerWriterProjectionResponse>> {
+  if (apiClient.getContainerWriterProjectionResult) {
+    const result = await apiClient.getContainerWriterProjectionResult(
+      containerId,
+      { reportErrors: false },
+    );
+    if (result.ok) {
+      return { failure: null, projection: result.data };
+    }
+    result.report();
+    return {
+      failure: { message: result.message, status: result.status },
+      projection: null,
+    };
+  }
+  const projection = await apiClient.getContainerWriterProjection(containerId);
+  return projection
+    ? { failure: null, projection }
+    : {
+        failure: {
+          message: "Container writer projection is unavailable",
+          status: null,
+        },
+        projection: null,
+      };
+}
+
 export async function relinkRemoteDocument(input: {
   apiClient: DocumentLinkSetMutationApi;
   author: DocumentCreateAuthor;
@@ -453,19 +521,26 @@ export async function relinkRemoteDocument(input: {
     input.resolveProjectionUserKey,
     "Remote document link-set mutation",
   );
-  const [writerProjection, targetContainerProjection] = await Promise.all([
-    input.apiClient.getDocumentWriterProjection(input.documentId),
-    input.apiClient.getContainerWriterProjection(input.targetContainerId),
+  const [writerFetch, targetContainerFetch] = await Promise.all([
+    fetchLinkSetDocumentProjection(input.apiClient, input.documentId),
+    fetchLinkSetContainerProjection(input.apiClient, input.targetContainerId),
   ]);
-  if (!writerProjection || !targetContainerProjection) {
-    input.onFailure?.({
-      message: writerProjection
-        ? "Container writer projection is unavailable"
-        : "Document writer projection is unavailable",
-      status: null,
-    });
+  // A 403 from either fetch wins the report: any permission denial in the
+  // pass parks the move (row 7), so a non-403 document failure must not mask
+  // a container denial when both fetches fail.
+  const fetchFailures = [writerFetch.failure, targetContainerFetch.failure];
+  const projectionFailure =
+    fetchFailures.find((failure) => failure?.status === 403) ??
+    fetchFailures.find((failure) => failure !== null) ??
+    null;
+  if (!writerFetch.projection || !targetContainerFetch.projection) {
+    if (projectionFailure) {
+      input.onFailure?.(projectionFailure);
+    }
     return null;
   }
+  const writerProjection = writerFetch.projection;
+  const targetContainerProjection = targetContainerFetch.projection;
 
   const signedAt = input.signedAt ?? new Date().toISOString();
   const materializedPlan = await buildMaterializedDocumentLinkSetMutationPlan({

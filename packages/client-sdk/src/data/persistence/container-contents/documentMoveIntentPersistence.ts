@@ -1,7 +1,9 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
+  containerTables,
   documentMoveIntents,
   documentMoveIntentTables,
+  documentProjectionTables,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -12,7 +14,28 @@ import {
 
 const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
 
-export type DocumentMoveIntentSyncStatus = "pending" | "blocked";
+// Resolves the organization a parked move belongs to, in confidence order:
+// the move's target container, the document's preserved projection
+// attribution, then the container the document currently sits in. Normal
+// saves routinely leave projection attribution empty (deferred-tail
+// reporting resolves through the same container join), so the container rows
+// carry the common case; rows with no resolvable organization stay in every
+// scope (device-first shapes, matching orphan priming).
+const DENIED_INTENT_ORGANIZATION_SQL = `COALESCE(
+  NULLIF(target_container.organization_id, ''),
+  NULLIF(projection.organization_id, ''),
+  NULLIF(projection_container.organization_id, '')
+)`;
+
+const DENIED_INTENT_ORGANIZATION_JOINS_SQL = `
+  LEFT JOIN containers target_container
+    ON target_container.id = intent.target_container_id
+  LEFT JOIN document_projection projection
+    ON projection.local_id = intent.local_id
+  LEFT JOIN containers projection_container
+    ON projection_container.id = projection.container_id`;
+
+export type DocumentMoveIntentSyncStatus = "pending" | "blocked" | "denied";
 
 export interface DocumentMoveIntentRecord {
   id: string;
@@ -56,7 +79,10 @@ interface SelectedDocumentMoveIntentRecord {
 function parseDocumentMoveIntentSyncStatus(
   value: unknown,
 ): DocumentMoveIntentSyncStatus {
-  return value === "blocked" ? "blocked" : "pending";
+  if (value === "blocked" || value === "denied") {
+    return value;
+  }
+  return "pending";
 }
 
 function mapDocumentMoveIntentRecord(
@@ -191,7 +217,19 @@ export const sqlDocumentMoveIntentPersistence = {
     execSql: ExecSql,
     input: {
       blocked?: boolean | undefined;
+      /**
+       * A permission denial (403): the intent parks as `denied` — excluded
+       * from routine structural replays — until the org-access-restored
+       * signal or a manual retry flips it back to pending (edge-case row 7).
+       */
+      denied?: boolean | undefined;
       documentId: string;
+      /**
+       * Optimistic concurrency: when given, the error only records against
+       * the intent revision the pass read — a re-enqueued move (new
+       * updatedAt) is never parked by a stale in-flight failure.
+       */
+      expectedUpdatedAt?: string | undefined;
       message: string;
     },
   ): Promise<void> {
@@ -202,20 +240,102 @@ export const sqlDocumentMoveIntentPersistence = {
         .set({
           lastAttemptedAt: updatedAt,
           lastError: input.message,
-          syncStatus: input.blocked ? "blocked" : "pending",
+          syncStatus: input.denied
+            ? "denied"
+            : input.blocked
+              ? "blocked"
+              : "pending",
           updatedAt,
         })
         .where(
           and(
             eq(documentMoveIntents.documentId, input.documentId),
-            // Blocked rows must stay updatable: a retried blocked intent
+            // Blocked/denied rows must stay updatable: a retried intent
             // records its fresh outcome, and a transient failure flips it
             // back to pending instead of freezing it forever.
-            inArray(documentMoveIntents.syncStatus, ["pending", "blocked"]),
+            inArray(documentMoveIntents.syncStatus, [
+              "pending",
+              "blocked",
+              "denied",
+            ]),
             eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+            ...(input.expectedUpdatedAt
+              ? [eq(documentMoveIntents.updatedAt, input.expectedUpdatedAt)]
+              : []),
           ),
         )
         .run();
+    });
+  },
+  /**
+   * Evidence for the org-access-restored re-arm gate: a parked
+   * permission-denied move proves a queued write was refused.
+   */
+  async hasDeniedMoveIntents(
+    execSql: ExecSql,
+    input?: { organizationId?: string },
+  ): Promise<boolean> {
+    await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+    await ensureSqlTables(execSql, [
+      ...documentProjectionTables,
+      ...containerTables,
+    ]);
+    const rows = await execSql(
+      `SELECT intent.document_id AS document_id
+       FROM document_move_intents intent
+       ${input?.organizationId ? DENIED_INTENT_ORGANIZATION_JOINS_SQL : ""}
+       WHERE intent.sync_status = 'denied'
+         AND intent.intent_type = ?
+         ${input?.organizationId ? `AND (${DENIED_INTENT_ORGANIZATION_SQL} = ? OR ${DENIED_INTENT_ORGANIZATION_SQL} IS NULL)` : ""}
+       LIMIT 1`,
+      input?.organizationId
+        ? [DOCUMENT_MOVE_INTENT_TYPE, input.organizationId]
+        : [DOCUMENT_MOVE_INTENT_TYPE],
+    );
+    return rows.length > 0;
+  },
+  /**
+   * Flip parked permission-denied moves back to pending so the re-armed
+   * structural pass replays them (access restored, or a manual retry scoped
+   * to one document).
+   */
+  async resetDeniedMoveIntents(
+    execSql: ExecSql,
+    input?: { localId?: string; organizationId?: string },
+  ): Promise<void> {
+    await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+    await ensureSqlTables(execSql, [
+      ...documentProjectionTables,
+      ...containerTables,
+    ]);
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      // Organization scoping resolves each intent's organization through the
+      // container joins above: restoring one organization's access must not
+      // un-park moves that another organization still denies. Rows with no
+      // resolvable organization are included (device-first shapes).
+      await lockedExecSql(
+        `UPDATE document_move_intents
+         SET sync_status = 'pending', updated_at = ?
+         WHERE sync_status = 'denied'
+           AND intent_type = ?
+           ${input?.localId ? "AND local_id = ?" : ""}
+           ${
+             input?.organizationId
+               ? `AND local_id IN (
+                    SELECT intent.local_id FROM document_move_intents intent
+                    ${DENIED_INTENT_ORGANIZATION_JOINS_SQL}
+                    WHERE ${DENIED_INTENT_ORGANIZATION_SQL} = ?
+                      OR ${DENIED_INTENT_ORGANIZATION_SQL} IS NULL
+                  )`
+               : ""
+           }`,
+        [
+          new Date().toISOString(),
+          DOCUMENT_MOVE_INTENT_TYPE,
+          ...(input?.localId ? [input.localId] : []),
+          ...(input?.organizationId ? [input.organizationId] : []),
+        ],
+      );
     });
   },
 };

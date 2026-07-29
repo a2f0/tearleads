@@ -78,7 +78,12 @@ const STARTUP_DOCUMENT_SYNC_WORK_SQL = `
     OR EXISTS (
       SELECT 1
       FROM document_move_intents intent
-      WHERE intent.sync_status = 'pending'
+      -- Blocked and parked denied moves count: blocked intents replay on
+      -- every scan (the blocking condition can heal after hydration), and
+      -- the once-per-launch replay makes denied moves retriable — so a
+      -- relaunch whose only durable work is either kind must still schedule
+      -- the structural pass that re-attempts it (row 7).
+      WHERE intent.sync_status IN ('pending', 'blocked', 'denied')
     )
   LIMIT 1
 `;

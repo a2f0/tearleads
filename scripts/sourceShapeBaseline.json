@@ -278,8 +278,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 523,
-      "bytes": 16691
+      "lines": 543,
+      "bytes": 17240
     },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
       "lines": 1166,
@@ -342,8 +342,8 @@
       "bytes": 18571
     },
     "packages/client-sdk/src/workflows/container-contents/documentMoveIntentSync.test.ts": {
-      "lines": 575,
-      "bytes": 20468
+      "lines": 725,
+      "bytes": 25908
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
       "lines": 590,
@@ -370,8 +370,8 @@
       "bytes": 24145
     },
     "packages/client-sdk/src/workflows/documents/linkSet.ts": {
-      "lines": 527,
-      "bytes": 17677
+      "lines": 602,
+      "bytes": 20263
     },
     "packages/client-sdk/src/workflows/documents/persistence.ts": {
       "lines": 514,
