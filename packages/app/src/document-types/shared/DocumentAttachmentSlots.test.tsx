@@ -80,6 +80,8 @@ test("clear image buttons forward the front and back slot ids", () => {
 
   expect(view.getByText("1.0 KB")).toBeTruthy();
   expect(view.getByText("2.0 KB")).toBeTruthy();
+  expect(view.getByText("front.png")).toBeTruthy();
+  expect(view.getByText("back.jpg")).toBeTruthy();
 
   fireEvent.click(view.getByRole("button", { name: "Clear Front Image" }));
   fireEvent.click(view.getByRole("button", { name: "Clear Back Image" }));
@@ -90,6 +92,8 @@ test("clear image buttons forward the front and back slot ids", () => {
 test("clear image buttons are hidden for empty slots", () => {
   const view = renderAttachmentSlots({ attachments: [] });
 
+  expect(view.getAllByText("No image selected")).toHaveLength(2);
+  expect(view.queryByText("No file selected")).toBeNull();
   expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
   expect(view.queryByRole("button", { name: "Clear Back Image" })).toBeNull();
   expect(view.queryByText("Attach an image to bind this slot.")).toBeNull();
