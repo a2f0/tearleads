@@ -103,9 +103,12 @@ test("the preview takes the pane's spare height, leaving none below the metadata
   }
 
   // The metadata sits under the picture, and the slack the frame absorbed is
-  // what used to be a dead band beneath those rows.
+  // what used to be a dead band beneath those rows. The band is measured from
+  // both sides: a negative one would mean the rows ran off the foot of the pane
+  // — no wasted space, but only because the metadata is no longer on screen.
   expect(metadataBox.y).toBeGreaterThan(frameBox.y + frameBox.height - 1);
   const spareBelowMetadata =
     bodyBox.y + bodyBox.height - (metadataBox.y + metadataBox.height);
+  expect(spareBelowMetadata).toBeGreaterThanOrEqual(0);
   expect(spareBelowMetadata).toBeLessThan(48);
 });
