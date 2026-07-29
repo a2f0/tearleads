@@ -525,7 +525,14 @@ export async function relinkRemoteDocument(input: {
     fetchLinkSetDocumentProjection(input.apiClient, input.documentId),
     fetchLinkSetContainerProjection(input.apiClient, input.targetContainerId),
   ]);
-  const projectionFailure = writerFetch.failure ?? targetContainerFetch.failure;
+  // A 403 from either fetch wins the report: any permission denial in the
+  // pass parks the move (row 7), so a non-403 document failure must not mask
+  // a container denial when both fetches fail.
+  const fetchFailures = [writerFetch.failure, targetContainerFetch.failure];
+  const projectionFailure =
+    fetchFailures.find((failure) => failure?.status === 403) ??
+    fetchFailures.find((failure) => failure !== null) ??
+    null;
   if (!writerFetch.projection || !targetContainerFetch.projection) {
     if (projectionFailure) {
       input.onFailure?.(projectionFailure);

@@ -370,8 +370,8 @@
       "bytes": 24145
     },
     "packages/client-sdk/src/workflows/documents/linkSet.ts": {
-      "lines": 595,
-      "bytes": 19907
+      "lines": 602,
+      "bytes": 20263
     },
     "packages/client-sdk/src/workflows/documents/persistence.ts": {
       "lines": 514,
