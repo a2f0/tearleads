@@ -87,11 +87,14 @@ test("ignores a second open while the first one is still loading", async () => {
 test("creates and revokes a browser object URL only after opening", async () => {
   const originalCreateObjectUrl = URL.createObjectURL;
   const originalRevokeObjectUrl = URL.revokeObjectURL;
+  let createCount = 0;
   const revoked: string[] = [];
 
   try {
-    URL.createObjectURL = (() =>
-      "blob:pdf-preview") as typeof URL.createObjectURL;
+    URL.createObjectURL = (() => {
+      createCount += 1;
+      return "blob:pdf-preview";
+    }) as typeof URL.createObjectURL;
     URL.revokeObjectURL = ((url: string) => {
       revoked.push(url);
     }) as typeof URL.revokeObjectURL;
@@ -109,6 +112,8 @@ test("creates and revokes a browser object URL only after opening", async () => 
     await waitFor(() =>
       expect(hook.result.current?.url).toBe("blob:pdf-preview"),
     );
+    act(() => hook.result.current?.onOpen());
+    expect(createCount).toBe(1);
 
     hook.unmount();
     expect(revoked).toEqual(["blob:pdf-preview"]);

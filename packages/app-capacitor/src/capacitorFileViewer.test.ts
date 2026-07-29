@@ -16,6 +16,7 @@ interface CacheEntry {
 const fixture: {
   cacheEntries: CacheEntry[];
   deletePaths: string[];
+  openGate: Promise<void> | null;
   openPaths: string[];
   openRejection: Error | null;
   platform: string;
@@ -23,6 +24,7 @@ const fixture: {
 } = {
   cacheEntries: [],
   deletePaths: [],
+  openGate: null,
   openPaths: [],
   openRejection: null,
   platform: "ios",
@@ -39,7 +41,7 @@ mock.module("@capacitor/file-viewer", () => ({
       fixture.openPaths.push(path);
       return fixture.openRejection
         ? Promise.reject(fixture.openRejection)
-        : Promise.resolve();
+        : (fixture.openGate ?? Promise.resolve());
     },
   },
 }));
@@ -64,6 +66,7 @@ const { createCapacitorFileViewer } = await import("./capacitorFileViewer");
 afterEach(() => {
   fixture.cacheEntries = [];
   fixture.deletePaths = [];
+  fixture.openGate = null;
   fixture.openPaths = [];
   fixture.openRejection = null;
   fixture.platform = "ios";
@@ -135,6 +138,34 @@ test("keeps only the latest Android cache copy for the external PDF app", async 
 
   expect(writtenPath(1)).not.toBe(firstPath);
   expect(fixture.deletePaths).toEqual([firstPath]);
+});
+
+test("serializes overlapping native viewer requests", async () => {
+  fixture.platform = "android";
+  let releaseFirst: (() => void) | undefined;
+  fixture.openGate = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const viewer = createCapacitorFileViewer();
+
+  const first = viewer.viewFile({
+    data: new Uint8Array([1]) as Uint8Array<ArrayBuffer>,
+    fileName: "first.pdf",
+  });
+  const second = viewer.viewFile({
+    data: new Uint8Array([2]) as Uint8Array<ArrayBuffer>,
+    fileName: "second.pdf",
+  });
+  await flushAsync();
+  expect(fixture.writeCalls).toHaveLength(1);
+
+  fixture.openGate = null;
+  releaseFirst?.();
+  await first;
+  await second;
+
+  expect(fixture.writeCalls).toHaveLength(2);
+  expect(fixture.deletePaths).toEqual([writtenPath()]);
 });
 
 test("removes preview cache files left by the prior app session", async () => {

@@ -11,7 +11,7 @@ import {
 } from "../../components/mini-app/rows/MiniAppRow";
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
-import { useFileViewer } from "../../providers/file-viewer/useFileViewer";
+import { useFileViewer } from "../../providers/file-viewer/FileViewerProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import {
   useDocument,

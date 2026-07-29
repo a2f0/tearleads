@@ -96,6 +96,9 @@ export function useFileDocumentPdfPreview(params: {
         if (!bytes) {
           throw new Error("PDF bytes are not available locally.");
         }
+        if (generation !== generationRef.current) {
+          return;
+        }
         if (fileViewer) {
           await fileViewer.viewFile({
             data: bytes,
@@ -104,10 +107,6 @@ export function useFileDocumentPdfPreview(params: {
           });
           return;
         }
-        if (generation !== generationRef.current) {
-          return;
-        }
-
         const nextUrl = URL.createObjectURL(
           new Blob([bytes], { type: "application/pdf" }),
         );

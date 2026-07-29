@@ -1,3 +1,6 @@
+// Each deployment target uses a different bundler, so the shells stamp these
+// values and pass them through the host config instead of app source reading a
+// bundler-specific environment API.
 type AppBuildTarget = "capacitor" | "electrobun" | "web";
 
 /** Build identity stamped by each deployment target's own bundler. */
@@ -9,7 +12,7 @@ export interface AppBuildInfo {
 
 const UNKNOWN_BUILD_VALUE = "unknown";
 
-/** Normalizes unset build-time values to a stable support-report sentinel. */
+/** Empty strings and absent defines share one stable support-report sentinel. */
 export function createAppBuildInfo(input: {
   readonly commit: string | undefined;
   readonly target: AppBuildTarget;

@@ -27,28 +27,35 @@ export function createCapacitorFileViewer(): FileViewer {
     () => undefined,
   );
   let priorAndroidPreviewPath: string | null = null;
+  let pendingView = Promise.resolve();
 
   return {
-    async viewFile(request) {
-      await startupCleanup;
-      if (Capacitor.getPlatform() === "android" && priorAndroidPreviewPath) {
-        await deleteCacheFile(priorAndroidPreviewPath).catch(() => undefined);
-        priorAndroidPreviewPath = null;
-      }
+    viewFile(request) {
+      const view = pendingView.then(async () => {
+        await startupCleanup;
+        if (Capacitor.getPlatform() === "android" && priorAndroidPreviewPath) {
+          await deleteCacheFile(priorAndroidPreviewPath).catch(() => undefined);
+          priorAndroidPreviewPath = null;
+        }
 
-      const staged = await writeCacheFile(request, nextPreviewCachePrefix());
-      try {
-        await NativeFileViewer.openDocumentFromLocalPath({ path: staged.uri });
-      } catch (error) {
-        void deleteCacheFile(staged.path).catch(() => undefined);
-        throw error;
-      }
+        const staged = await writeCacheFile(request, nextPreviewCachePrefix());
+        try {
+          await NativeFileViewer.openDocumentFromLocalPath({
+            path: staged.uri,
+          });
+        } catch (error) {
+          void deleteCacheFile(staged.path).catch(() => undefined);
+          throw error;
+        }
 
-      if (Capacitor.getPlatform() === "android") {
-        priorAndroidPreviewPath = staged.path;
-      } else {
-        void deleteCacheFile(staged.path).catch(() => undefined);
-      }
+        if (Capacitor.getPlatform() === "android") {
+          priorAndroidPreviewPath = staged.path;
+        } else {
+          void deleteCacheFile(staged.path).catch(() => undefined);
+        }
+      });
+      pendingView = view.catch(() => undefined);
+      return view;
     },
   };
 }
