@@ -29,6 +29,15 @@
       }
     },
     {
+      "identity" : "ion-ios-fileviewer",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ionic-team/ion-ios-fileviewer.git",
+      "state" : {
+        "revision" : "e00a7f5ede0da6054d36b9913495ad18e887f5ab",
+        "version" : "1.0.3"
+      }
+    },
+    {
       "identity" : "purchases-hybrid-common",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/RevenueCat/purchases-hybrid-common.git",
