@@ -78,8 +78,9 @@ export async function installRebuiltDocument(input: {
   );
   const previousPendingBaseVersion = input.state.pendingBaseVersion;
   advancePendingBaseVersion(input.state, input.rebuiltDoc);
+  let persisted: Awaited<ReturnType<typeof persistDocument>>;
   try {
-    await persistDocument(
+    persisted = await persistDocument(
       input.state,
       input.rebuiltDoc,
       {
@@ -100,6 +101,16 @@ export async function installRebuiltDocument(input: {
   } catch (error) {
     input.state.pendingBaseVersion = previousPendingBaseVersion;
     throw error;
+  }
+  if (!persisted) {
+    // The resurrect guard refused: another subsystem deleted this document
+    // while the rebuild was in flight, and saveDocumentRecord cleared the
+    // zombie store. Restoring the rebuilt doc or projection here would
+    // resurrect it in memory over the cleared state.
+    input.state.pendingBaseVersion = previousPendingBaseVersion;
+    throw new Error(
+      "Document was deleted while its history rebuild was in flight",
+    );
   }
   input.state.doc = input.rebuiltDoc;
   input.state.writerProjection =
