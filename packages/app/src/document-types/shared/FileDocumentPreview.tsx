@@ -159,10 +159,15 @@ export function FileDocumentMediaPreviewPanel(params: {
   const { attachment, mediaKind, mediaUrl } = params.preview;
   const [viewerOpen, setViewerOpen] = useState(false);
   const imageCanOpen = mediaKind === "image" && mediaUrl !== null;
+  // Audio has no picture to grow into the pane, so its panel stays inline.
+  const inline = mediaKind === "audio";
 
   return (
     <>
-      <section className="file-document-preview" aria-label="File preview">
+      <section
+        className={`file-document-preview${inline ? " file-document-preview--inline" : ""}`}
+        aria-label="File preview"
+      >
         <div
           aria-busy={!mediaUrl || undefined}
           className="file-document-preview-frame"

@@ -333,6 +333,11 @@ test("renders the media preview above the metadata when a URL is available", () 
     previewPanel.compareDocumentPosition(mimeType) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
+  // ...and it claims the pane's spare height, so the metadata sits under the
+  // picture rather than above a dead band at the foot.
+  expect(
+    view.container.querySelector(".file-document-fields--fill"),
+  ).toBeTruthy();
 });
 
 test("clicking an image preview opens the shared image viewer", () => {
@@ -390,6 +395,16 @@ test("renders shared playback controls for audio and video previews", () => {
   expect(audio.tagName).toBe("AUDIO");
   expect(audio.controls).toBe(true);
   expect(audio.getAttribute("src")).toBe("blob:audio-preview");
+  // A player has no picture to grow, so it stays inline instead of taking the
+  // pane's spare height the way an image or video preview does.
+  expect(
+    audioView
+      .getByLabelText("File preview")
+      .classList.contains("file-document-preview--inline"),
+  ).toBe(true);
+  expect(
+    audioView.container.querySelector(".file-document-fields--fill"),
+  ).toBeNull();
 
   cleanup();
   const videoView = renderFields({

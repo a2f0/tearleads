@@ -5,7 +5,10 @@ import { MagnifyingGlassPlusIcon } from "@phosphor-icons/react/dist/csr/Magnifyi
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { type ReactNode, type RefObject, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useCurrentWindow } from "../../window/CurrentWindowContext";
+import {
+  useCurrentWindow,
+  useSuppressWindowToolbar,
+} from "../../window/CurrentWindowContext";
 import "./MiniAppImageViewer.css";
 import { useImageViewerState } from "./useImageViewerState";
 
@@ -145,8 +148,10 @@ function useImageViewerDismissal(params: {
  *
  * Routed layouts portal into <body> and fill the viewport. A desktop window's
  * content pane instead becomes the portal host so the viewer leaves the window
- * chrome and sidebar available. The stage takes `touch-action: none` so the
- * browser hands the pinch to the viewer instead of page-zooming behind it.
+ * frame and sidebar available; that window's toolbar row stands down while the
+ * viewer is open, since the toolbar below carries the same surface's controls.
+ * The stage takes `touch-action: none` so the browser hands the pinch to the
+ * viewer instead of page-zooming behind it.
  */
 export function MiniAppImageViewer(params: {
   label: string;
@@ -166,6 +171,9 @@ export function MiniAppImageViewer(params: {
     onClose: params.onClose,
     viewerRef,
   });
+  // The viewer covers the window's content pane and carries the zoom controls,
+  // so the window's own toolbar row stands down while it is open.
+  useSuppressWindowToolbar(isWindowed);
 
   return createPortal(
     <div

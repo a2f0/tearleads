@@ -1,11 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppClipboardButton,
   MiniAppImageViewer,
 } from "../mini-app/MiniAppLayout";
 import { Window } from "./Window";
+import { useWindowTitleBarAction } from "./WindowMenuContext";
 import { useWindowSidebar } from "./WindowSidebarContext";
 import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
 
@@ -74,6 +75,18 @@ function WindowClipboardHarness() {
 function ImageViewerWindow({ withSidebar = true }: { withSidebar?: boolean }) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const { setSidebar } = useWindowSidebar();
+  // Stands in for the document actions a real host registers (Edit, Download),
+  // which is what puts a toolbar row above the viewer's own.
+  const toolbarAction = useMemo(
+    () => ({
+      icon: <span aria-hidden>+</span>,
+      id: "viewer-window-action",
+      label: "Window action",
+      onClick: () => undefined,
+    }),
+    [],
+  );
+  useWindowTitleBarAction(toolbarAction);
 
   useEffect(() => {
     if (!withSidebar) return;
@@ -296,6 +309,32 @@ test("the image viewer stays in the right pane after restoring its window", asyn
   const sidebar = restoredHost.querySelector(".window-sidebar");
   expect(view.getByRole("dialog").parentElement).toBe(rightPane);
   expect(sidebar?.contains(view.getByRole("dialog"))).toBe(false);
+});
+
+// The viewer brings its own toolbar, so the window's row steps aside for it and
+// the pane is never chromed by two toolbars at once.
+test("only the viewer's toolbar is left while it is open", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <WindowViewerHarness withSidebar={false} />
+    </WindowStateProvider>,
+  );
+
+  const open = await view.findByRole("button", { name: "Open viewer" });
+  const host = open.closest<HTMLDivElement>(".window");
+  if (!host) throw new Error("viewer window not found");
+  await waitFor(() => {
+    expect(host.querySelector(".window-toolbar")).toBeTruthy();
+  });
+
+  fireEvent.click(open);
+  expect(host.querySelector(".window-toolbar")).toBeNull();
+  expect(host.querySelector(".mini-app-image-viewer-toolbar")).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: "Close" }));
+  await waitFor(() => {
+    expect(host.querySelector(".window-toolbar")).toBeTruthy();
+  });
 });
 
 test("a sidebarless image viewer stays in the window content pane", async () => {

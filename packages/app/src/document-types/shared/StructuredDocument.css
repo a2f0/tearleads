@@ -18,6 +18,13 @@
   align-content: start;
 }
 
+/* ...unless the body asks to fill it. A media/PDF file view is one row whose
+   preview grows into the slack, so stretching that row is what pins its metadata
+   under the picture rather than leaving the gap at the foot. */
+.structured-document:has(> .file-document-fields--fill) {
+  align-content: stretch;
+}
+
 .structured-document-read-fields {
   display: grid;
   gap: var(--space-xs);

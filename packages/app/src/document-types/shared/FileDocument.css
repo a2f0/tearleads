@@ -4,6 +4,13 @@
   gap: var(--space-md);
 }
 
+/* A view whose preview fills the pane: the fields stretch to the document's
+   height (see the `align-content` rule in StructuredDocument.css) and the
+   preview panel absorbs whatever the rows do not use. */
+.file-document-fields--fill {
+  min-height: 0;
+}
+
 /* The rename input sits inside a row stack; stretch it to the row width so it
    reads as an editable field rather than a narrow inline box — up to the form
    measure, past which it is a rule rather than a field. */
@@ -21,35 +28,60 @@
   align-items: start;
 }
 
+/* The picture is the point of a media file's view, so its panel takes the pane's
+   leftover height (see `.file-document-fields--fill`): the metadata then sits
+   directly under the frame instead of leaving a dead band below itself. */
 .file-document-preview {
-  display: grid;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   gap: var(--space-sm);
   min-width: 0;
+  /* A floor, not a height: a short pane still shows a usable frame and scrolls
+     the metadata below it, while a tall one hands the whole slack to the picture.
+     The old `clamp(..., 52vh, ...)` measured the viewport rather than this pane,
+     so in a small window the frame outgrew the body and clipped the image. The
+     floor belongs to the panel rather than the frame inside it: a frame that
+     refuses to shrink inside a panel that does would spill over the metadata. */
+  min-height: 12rem;
 }
 
 .file-document-preview-frame {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
-  height: clamp(12rem, 52vh, 34rem);
+  min-height: 0;
   border: var(--border);
   background: color-mix(in srgb, currentColor 4%, transparent);
   overflow: hidden;
 }
 
+/* Sized by the flex frame rather than by percentages: the media element stretches
+   to the frame's content box on both axes and `object-fit: contain` letterboxes
+   the pixels inside it, so the whole image is visible at its own aspect ratio.
+   Percentage heights would resolve against an indefinite parent and hand the
+   image its intrinsic height, which is what used to crop tall images. */
 .file-document-media-preview {
   display: block;
-  width: 100%;
-  height: 100%;
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  width: auto;
+  height: auto;
   object-fit: contain;
 }
 
 /* Image previews open the shared zoomable viewer. Keep the button visually
-   identical to the old plain image while retaining the browser focus ring. */
+   identical to the plain image while retaining the browser focus ring. */
 .file-document-preview-open {
-  display: block;
-  width: 100%;
-  height: 100%;
+  display: flex;
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
   padding: 0;
   border: 0;
   background: none;
@@ -58,14 +90,33 @@
   cursor: zoom-in;
 }
 
+/* An audio player has no picture to grow: it keeps its natural height and the
+   frame shrink-wraps it (see `.file-document-preview--inline`). */
 .file-document-media-preview.media-preview--audio {
+  flex: 0 0 auto;
+  align-self: center;
   width: min(100%, 36rem);
   height: auto;
 }
 
+.file-document-preview--inline {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.file-document-preview--inline .file-document-preview-frame {
+  flex: 0 0 auto;
+  /* Browsers that render the audio transport at zero height (and the moment
+     before the element has one) would otherwise collapse the frame to a sliver. */
+  min-height: var(--control-height);
+  padding: var(--space-md);
+}
+
 .file-document-pdf-preview {
-  width: 100%;
-  height: 100%;
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
   border: 0;
 }
 
