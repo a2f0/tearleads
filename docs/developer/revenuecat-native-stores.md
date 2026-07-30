@@ -112,10 +112,13 @@ Android staging inherits the release build type and deliberately uses the same
 upload keystore as production; package IDs and separate store records isolate
 the apps, not their signing key.
 
-The staging identifier changed before its first store release. Because the
-SQLite keychain prefix follows the app identifier, existing local staging
-installs must be removed before installing this target; production data is
-unaffected.
+Builds using the former `com.tearleads.app.staging` identifier can coexist with
+the current staging app, but their local data does not carry over because each
+identifier has its own app container and keychain prefix. Delete an old staging
+install when it is no longer needed; production data is unaffected. The
+RevenueCat staging records were renamed in place. Retire any developer-portal
+or store test records created with the former identifier manually because the
+release lanes never delete external records.
 
 One-time store setup is still required; the release lanes are intentionally
 readonly for signing and store records:

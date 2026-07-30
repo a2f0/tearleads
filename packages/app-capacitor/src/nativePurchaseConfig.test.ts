@@ -27,6 +27,33 @@ function parseNativeIdentity(stdout: string) {
   };
 }
 
+async function readNativeIdentity(tier: string | null) {
+  const environment = { ...process.env };
+  Reflect.deleteProperty(environment, "NATIVE_RELEASE_TIER");
+  if (tier !== null) {
+    Object.assign(environment, { NATIVE_RELEASE_TIER: tier });
+  }
+  const child = Bun.spawn(
+    [
+      "bun",
+      "-e",
+      "import config from './capacitor.config.ts'; process.stdout.write(JSON.stringify({appId: config.appId, iosKeychainPrefix: config.plugins?.CapacitorSQLite?.iosKeychainPrefix}));",
+    ],
+    {
+      cwd: packageRoot,
+      env: environment,
+      stderr: "pipe",
+      stdout: "pipe",
+    },
+  );
+  const [exitCode, stderr, stdout] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+    new Response(child.stdout).text(),
+  ]);
+  return { exitCode, stderr, stdout };
+}
+
 function packageScripts(value: unknown) {
   if (!isRecord(value)) {
     throw new Error("Capacitor package scripts are invalid");
@@ -126,7 +153,41 @@ function effectiveAndroidApplicationId(gradle: string, buildType: string) {
     namedBraceBlock(gradle, "buildTypes"),
     buildType,
   );
-  return `${baseId}${quotedGradleSetting(buildTypeBlock, "applicationIdSuffix")}`;
+  const suffix = quotedGradleSetting(buildTypeBlock, "applicationIdSuffix");
+  const inheritedBuildType = buildTypeBlock.match(/\binitWith\s+(\w+)/)?.[1];
+  const initWithIndex = buildTypeBlock.search(/\binitWith\s+\w+/);
+  const suffixIndex = buildTypeBlock.search(/\bapplicationIdSuffix\s+"/);
+  if (inheritedBuildType !== undefined && initWithIndex > suffixIndex) {
+    return effectiveAndroidApplicationId(gradle, inheritedBuildType);
+  }
+  return `${baseId}${suffix}`;
+}
+
+function androidBuildTypeNames(gradle: string) {
+  const buildTypes = namedBraceBlock(gradle, "buildTypes");
+  const names: string[] = [];
+  let depth = 0;
+  for (const match of buildTypes.matchAll(/\b(\w+)\s*\{|[{}]/g)) {
+    if (match[0] === "{") {
+      depth += 1;
+    } else if (match[0] === "}") {
+      depth -= 1;
+    } else {
+      if (depth === 0 && match[1] !== undefined) {
+        names.push(match[1]);
+      }
+      depth += 1;
+    }
+  }
+  return names;
+}
+
+function requiredMatch(source: string, pattern: RegExp, description: string) {
+  const value = source.match(pattern)?.[1];
+  if (value === undefined) {
+    throw new Error(`Could not find ${description}`);
+  }
+  return value;
 }
 
 test("Android can resume a purchase after external payment verification", async () => {
@@ -173,38 +234,16 @@ test("Android staging inherits the production release signing variant", async ()
   expect(effectiveAndroidApplicationId(gradle, "staging")).toBe(
     "com.tearleads.staging.app",
   );
+  for (const buildType of androidBuildTypeNames(gradle)) {
+    expect(
+      namedBraceBlock(namedBraceBlock(gradle, "buildTypes"), buildType),
+    ).toContain("applicationIdSuffix");
+  }
   expect(stagingStrings).toContain("com.tearleads.staging.app");
   expect(stagingStrings).toContain("Tearleads Staging");
 });
 
 test("Capacitor pins production identity and rejects unknown release tiers", async () => {
-  const readNativeIdentity = async (tier: string | null) => {
-    const environment = { ...process.env };
-    Reflect.deleteProperty(environment, "NATIVE_RELEASE_TIER");
-    if (tier !== null) {
-      Object.assign(environment, { NATIVE_RELEASE_TIER: tier });
-    }
-    const child = Bun.spawn(
-      [
-        "bun",
-        "-e",
-        "import config from './capacitor.config.ts'; process.stdout.write(JSON.stringify({appId: config.appId, iosKeychainPrefix: config.plugins?.CapacitorSQLite?.iosKeychainPrefix}));",
-      ],
-      {
-        cwd: packageRoot,
-        env: environment,
-        stderr: "pipe",
-        stdout: "pipe",
-      },
-    );
-    const [exitCode, stderr, stdout] = await Promise.all([
-      child.exited,
-      new Response(child.stderr).text(),
-      new Response(child.stdout).text(),
-    ]);
-    return { exitCode, stderr, stdout };
-  };
-
   const productionIdentity = {
     appId: "com.tearleads.app",
     iosKeychainPrefix: "com.tearleads.app",
@@ -366,32 +405,43 @@ test("Fastlane selects store identities from one shared release target", async (
 });
 
 test("native staging store identifiers stay aligned", async () => {
-  const [capacitorConfig, gradle, project, releaseTarget] = await Promise.all([
-    Bun.file(resolve(packageRoot, "capacitor.config.ts")).text(),
-    Bun.file(resolve(packageRoot, "android/app/build.gradle")).text(),
-    Bun.file(
-      resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
-    ).text(),
-    Bun.file(resolve(packageRoot, "fastlane/native_release_target.rb")).text(),
-  ]);
-  const capacitorId = capacitorConfig.match(
-    /isStagingRelease\s*\?\s*"([^"]+)"/,
-  )?.[1];
-  const fastlaneId = releaseTarget.match(
-    /'staging'\s*=>\s*\{[\s\S]*?app_identifier:\s*'([^']+)'/,
-  )?.[1];
-  const xcodeId = xcodeConfigurationSettings(
-    project,
-    "PBXNativeTarget",
-    "Release-Staging",
-  )
-    .find((setting) => setting.startsWith("PRODUCT_BUNDLE_IDENTIFIER ="))
-    ?.match(/= ([^;]+);/)?.[1];
+  const [capacitorIdentity, gradle, project, releaseTarget] = await Promise.all(
+    [
+      readNativeIdentity(" Staging "),
+      Bun.file(resolve(packageRoot, "android/app/build.gradle")).text(),
+      Bun.file(
+        resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
+      ).text(),
+      Bun.file(
+        resolve(packageRoot, "fastlane/native_release_target.rb"),
+      ).text(),
+    ],
+  );
+  expect(capacitorIdentity.exitCode).toBe(0);
+  const identifiers = {
+    android: effectiveAndroidApplicationId(gradle, "staging"),
+    capacitor: parseNativeIdentity(capacitorIdentity.stdout).appId,
+    fastlane: requiredMatch(
+      releaseTarget,
+      /'staging'\s*=>\s*\{[\s\S]*?app_identifier:\s*'([^']+)'/,
+      "Fastlane staging app identifier",
+    ),
+    xcode: requiredMatch(
+      xcodeConfigurationSettings(
+        project,
+        "PBXNativeTarget",
+        "Release-Staging",
+      ).find((setting) => setting.startsWith("PRODUCT_BUNDLE_IDENTIFIER =")) ??
+        "",
+      /= ([^;]+);/,
+      "Xcode staging bundle identifier",
+    ),
+  };
 
-  expect([
-    effectiveAndroidApplicationId(gradle, "staging"),
-    capacitorId,
-    fastlaneId,
-    xcodeId,
-  ]).toEqual(Array.from({ length: 4 }, () => "com.tearleads.staging.app"));
+  expect(identifiers).toEqual({
+    android: "com.tearleads.staging.app",
+    capacitor: "com.tearleads.staging.app",
+    fastlane: "com.tearleads.staging.app",
+    xcode: "com.tearleads.staging.app",
+  });
 });
