@@ -50,8 +50,8 @@ if [ ! -f "$WRAPPER_JAR" ]; then
   fi
 fi
 
-# shellcheck source=scripts/rejectDevOnlyUrl.sh
-. "$SCRIPT_DIR/rejectDevOnlyUrl.sh"
+# shellcheck source=scripts/releaseGuards.sh
+. "$SCRIPT_DIR/releaseGuards.sh"
 
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
 reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"

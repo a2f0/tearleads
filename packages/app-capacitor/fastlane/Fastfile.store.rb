@@ -3,6 +3,7 @@
 require 'dotenv'
 require 'json'
 require 'shellwords'
+require_relative 'revenuecat_release_key'
 
 STORE_APP_IDENTIFIER = 'com.tearleads.app'
 STORE_REPO_ROOT = File.expand_path('../../..', __dir__)
@@ -46,23 +47,6 @@ def ensure_bundled_release_capacitor_config!(config_path, label, sync_command)
   )
 rescue Errno::ENOENT, Errno::EACCES, JSON::ParserError => e
   UI.user_error!("Could not load #{config_path}: #{e.message}")
-end
-
-def revenuecat_store_key_problem(value, expected_prefix)
-  key = value.to_s.strip
-  return 'is missing' if key.empty?
-  return nil if key.start_with?(expected_prefix) && key.length > expected_prefix.length
-
-  "must start with #{expected_prefix}"
-end
-
-def ensure_revenuecat_store_key!(env_name, expected_prefix)
-  problem = revenuecat_store_key_problem(ENV.fetch(env_name, nil), expected_prefix)
-  return if problem.nil?
-
-  UI.user_error!(
-    "#{env_name} #{problem}; store releases require the platform-specific RevenueCat public SDK key."
-  )
 end
 
 # Regenerate the native app icon and splash images from assets/logo.svg before a

@@ -8,8 +8,9 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <!-- RevenueCat requires standard/singleTop so returning from external
-             payment verification does not cancel the purchase. -->
+        <!-- Keep this singleTop when regenerating the Capacitor platform: other
+             launch modes can cancel external payment verification returns.
+             https://www.revenuecat.com/docs/getting-started/installation/capacitor -->
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:windowSoftInputMode="adjustResize"

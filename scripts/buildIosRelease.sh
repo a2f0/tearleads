@@ -34,8 +34,8 @@ esac
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
 cd "$SCRIPT_DIR/../packages/app-capacitor" || exit 1
 
-# shellcheck source=scripts/rejectDevOnlyUrl.sh
-. "$SCRIPT_DIR/rejectDevOnlyUrl.sh"
+# shellcheck source=scripts/releaseGuards.sh
+. "$SCRIPT_DIR/releaseGuards.sh"
 
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
 reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"

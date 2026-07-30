@@ -5,6 +5,12 @@
     "composite": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "scripts", "vite.config.ts", "capacitor.config.ts"],
+  "include": [
+    "src",
+    "tests",
+    "scripts",
+    "vite.config.ts",
+    "capacitor.config.ts"
+  ],
   "exclude": ["node_modules", "dist", "../../node_modules"]
 }
