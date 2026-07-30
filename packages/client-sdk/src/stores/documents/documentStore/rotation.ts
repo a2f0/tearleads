@@ -13,13 +13,13 @@ import {
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
 import { importPendingUpdates, installRebuiltDocument } from "./historyRebuild";
-import { createStoredDocument } from "./initialization";
 import {
   enqueuePendingUpdate,
   listPendingUpdates,
   pendingDeltaSinceBase,
 } from "./persistence";
 import type { DocumentStoreState } from "./state";
+import { createStoredDocument } from "./storedDocument";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,

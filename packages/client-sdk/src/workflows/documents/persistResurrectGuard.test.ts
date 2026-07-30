@@ -4,12 +4,22 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
+import {
+  ensureSqlTables,
+  runSerializedSqlMutation,
+} from "../../data/sqlite/sqlSchema";
 import { createDocumentProjectorRegistry } from "../../documents";
 import { saveDocumentRecord } from "../../stores/documents/documentStore/persistence";
 import { createDocumentStoreState } from "../../stores/documents/documentStore/state";
 import type { DocumentsRuntime } from "../../stores/documents/types";
 import { persistDocumentState } from "./persistence";
+
+const racingContactProjectionTable = {
+  createSql:
+    'CREATE TABLE IF NOT EXISTS "test_contact_projection" ("local_id" TEXT PRIMARY KEY)',
+  indexes: [],
+  name: "test_contact_projection",
+};
 
 // A persist that expected to UPDATE must not resurrect a document another
 // subsystem deleted while the persist was in flight (the contacts
@@ -19,14 +29,35 @@ test("an update persist refuses to resurrect a deleted row", async () => {
   const { close, execSql } = await createTestExecSql("persist-resurrect");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
+    await ensureSqlTables(execSql, [racingContactProjectionTable]);
     await sqlDocumentsPersistence.saveDocument(execSql, {
       id: "victim",
       containerId: "container",
       documentId: "victim-remote",
+      documentKind: "contact",
       text: "before",
       snapshotEndVersion: "v1",
       accessEpoch: 1,
     });
+    await execSql(
+      'INSERT INTO "test_contact_projection" ("local_id") VALUES (?)',
+      ["victim"],
+    );
+    const documentProjectors = createDocumentProjectorRegistry([
+      {
+        kind: "contact",
+        clientProjection: {
+          delete: async ({ execSql: projectionExecSql, localId }) => {
+            await projectionExecSql(
+              'DELETE FROM "test_contact_projection" WHERE "local_id" = ?',
+              [localId],
+            );
+          },
+          save: async () => undefined,
+          tables: [racingContactProjectionTable],
+        },
+      },
+    ]);
     const currentRecord = await sqlDocumentsPersistence.loadDocument(
       execSql,
       "victim",
@@ -53,10 +84,44 @@ test("an update persist refuses to resurrect a deleted row", async () => {
       // inside the held mutation via serialized-exec re-entry.
       await sqlDocumentsPersistence.deleteDocument(locked, "victim");
     });
+    // This side write queues AFTER deletion but BEFORE the guarded persist. It
+    // models the edit flows whose durable queue/history append is a separate
+    // mutation from their record write.
+    const queuedSideWrite = sqlDocumentsPersistence.enqueuePendingUpdate(
+      execSql,
+      {
+        localId: "victim",
+        partialEndVersionVector: "end",
+        partialStartVersionVector: "start",
+        sourceVersionVector: null,
+        updateData: "b3JwaGFuZWQtc2lkZS13cml0ZQ==",
+      },
+    );
+    const queuedAttachmentWrite = sqlDocumentsPersistence.savePendingAttachment(
+      execSql,
+      {
+        byteLength: 1,
+        localId: "victim",
+        mimeType: "text/plain",
+        name: "racing.txt",
+        slotId: "racing-slot",
+        storageKey: "racing-storage",
+      },
+    );
+    const queuedLocalAttachmentWrite =
+      sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+        blobId: "racing-blob",
+        byteLength: 1,
+        detachedAt: null,
+        localId: "victim",
+        mimeType: "text/plain",
+        slotId: "racing-local-slot",
+        storageKey: "racing-local-storage",
+      });
     const queuedPersist = persistDocumentState({
       currentDoc: doc,
       currentRecord,
-      documentProjectors: createDocumentProjectorRegistry([]),
+      documentProjectors,
       execSql,
       historyUpdates: ["cmFjaW5nLXRhaWw="],
       localId: "victim",
@@ -67,15 +132,32 @@ test("an update persist refuses to resurrect a deleted row", async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     releaseHeldMutation();
     await heldMutation;
+    await queuedSideWrite;
+    await queuedAttachmentWrite;
+    await queuedLocalAttachmentWrite;
 
     expect(await queuedPersist).toBeNull();
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "victim"),
     ).toBeNull();
+    expect(
+      await execSql('SELECT "local_id" FROM "test_contact_projection"'),
+    ).toEqual([]);
     const tails = await execSql(
       "SELECT id FROM document_history_updates WHERE local_id = 'victim'",
     );
     expect(tails).toEqual([]);
+    expect(
+      await sqlDocumentsPersistence.listPendingUpdates(execSql, "victim"),
+    ).toEqual([]);
+    expect(
+      await execSql(
+        "SELECT storage_key FROM document_orphan_blob_reclaims ORDER BY storage_key",
+      ),
+    ).toEqual([
+      { storage_key: "racing-local-storage" },
+      { storage_key: "racing-storage" },
+    ]);
   } finally {
     close();
   }
@@ -103,6 +185,59 @@ test("a create persist still inserts a new row", async () => {
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "fresh-doc"),
     ).not.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("the guard uses canonical existence instead of custom load semantics", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "persist-custom-existence",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      id: "custom",
+      containerId: null,
+      documentId: null,
+      text: "before",
+      snapshotEndVersion: "v1",
+      accessEpoch: 1,
+    });
+    const currentRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      "custom",
+    );
+    if (!currentRecord) {
+      throw new Error("expected seeded document");
+    }
+    const doc = await createDocument("persist-custom-existence");
+    doc.getText("text").update("after");
+    doc.commit();
+    let deleteCalls = 0;
+    const persistence = {
+      ...sqlDocumentsPersistence,
+      deleteDocument: async () => {
+        deleteCalls += 1;
+      },
+      hasDocument: async () => true,
+      loadDocument: async () => null,
+    };
+
+    expect(
+      await persistDocumentState({
+        currentDoc: doc,
+        currentRecord,
+        documentProjectors: createDocumentProjectorRegistry([]),
+        execSql,
+        localId: "custom",
+        persistence,
+      }),
+    ).not.toBeNull();
+    expect(deleteCalls).toBe(0);
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "custom"),
+    ).toMatchObject({ text: "after" });
   } finally {
     close();
   }

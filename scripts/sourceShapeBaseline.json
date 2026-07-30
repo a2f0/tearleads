@@ -245,10 +245,6 @@
       "lines": 503,
       "bytes": 14866
     },
-    "packages/app/test/helpers/documentStoreFixtures.ts": {
-      "lines": 503,
-      "bytes": 15697
-    },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 1023,
       "bytes": 30269
@@ -294,8 +290,8 @@
       "bytes": 30411
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 885,
-      "bytes": 35168
+      "lines": 895,
+      "bytes": 35552
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 579,

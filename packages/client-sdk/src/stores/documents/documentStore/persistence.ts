@@ -19,6 +19,7 @@ import {
   DOCUMENT_HISTORY_COMPACTION_MAX_BYTES,
   DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
   type DocumentRecord,
+  defaultDocumentsPersistence,
   deleteLocalDocumentAttachment,
   deletePendingDocumentAttachment,
   enqueuePendingDocumentUpdate,
@@ -27,6 +28,7 @@ import {
   type PendingAttachmentRecord,
   type PendingUpdateRecord,
   persistDocumentState,
+  reclaimDocumentOrphanBlobs,
   runSerializedSqlMutation,
   saveLocalDocumentAttachments,
   savePendingDocumentAttachment,
@@ -129,6 +131,9 @@ export async function saveDocumentRecord(
       isSyncGenerationCurrent(state, expectedGeneration)
     ) {
       markDocumentStoreRemoved(state);
+    }
+    if (state.persistence === defaultDocumentsPersistence) {
+      void reclaimDocumentOrphanBlobs(state.runtime);
     }
     return null;
   }

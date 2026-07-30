@@ -104,9 +104,9 @@ test("persistDocumentState ensures client projection tables once per executor an
   }) as ExecSql;
   let currentRecord: DocumentRecord | null = null;
   const persistence = {
-    // No projection row exists for this localId, so the container-unmanaged
-    // persist falls back to the current record / runtime container as before.
-    loadDocumentContainer: async () => undefined,
+    hasDocument: async () => currentRecord !== null,
+    loadDocumentContainer: async () =>
+      currentRecord ? { containerId: currentRecord.containerId } : undefined,
     saveDocument: async (_execSql: ExecSql, record: DocumentRecord) => {
       currentRecord = record;
       return "2026-05-24T00:00:00.000Z";
@@ -216,6 +216,7 @@ test("a persist without an explicit frontier retains the stored one", async () =
   const persistence = {
     // The row exists (orphan placement): a missing row would now refuse the
     // update-persist outright via the resurrect guard.
+    hasDocument: async () => true,
     loadDocumentContainer: async () => ({ containerId: null }),
     saveDocument: async (
       _execSql: ExecSql,
@@ -237,6 +238,44 @@ test("a persist without an explicit frontier retains the stored one", async () =
   });
 
   expect(savedFrontiers).toEqual(["stored-frontier"]);
+});
+
+test("a missing container projection does not delete a canonical document", async () => {
+  const currentDoc = await createDocument("missing-container-projection");
+  const currentRecord = {
+    id: "local-document",
+    accessEpoch: 1,
+    containerId: "container",
+    documentId: "remote-1",
+    snapshotEndVersion: "stored-frontier",
+    text: "before",
+  } as DocumentRecord;
+  let deletes = 0;
+  let saves = 0;
+  const persistence = {
+    deleteDocument: async () => {
+      deletes += 1;
+    },
+    hasDocument: async () => true,
+    loadDocumentContainer: async () => undefined,
+    saveDocument: async () => {
+      saves += 1;
+      return "2026-07-30T00:00:00.000Z";
+    },
+  } as unknown as DocumentsPersistence;
+
+  expect(
+    await persistDocumentState({
+      currentDoc,
+      currentRecord,
+      documentProjectors: createDocumentProjectorRegistry([]),
+      execSql: createNoopExecSql(),
+      localId: "local-document",
+      persistence,
+    }),
+  ).not.toBeNull();
+  expect(deletes).toBe(0);
+  expect(saves).toBe(1);
 });
 
 test("guarded deletion aborts before reading or deleting the durable row", async () => {

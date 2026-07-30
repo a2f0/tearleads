@@ -132,6 +132,8 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     containerId: string,
   ) => Promise<string[]>;
+  /** Canonical-row probe; false authorizes destructive orphan teardown. */
+  hasDocument: (execSql: ExecSql, localId: string) => Promise<boolean>;
   loadDocument: (
     execSql: ExecSql,
     localId: string,

@@ -7,6 +7,10 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 import {
+  documentOrphanBlobReclaims,
+  documentOrphanBlobReclaimTable,
+} from "./documentOrphanBlobReclaims";
+import {
   organizationDataUsageSQLiteSchema,
   organizationDataUsageTables,
 } from "./organizationDataUsageSchema";
@@ -576,6 +580,7 @@ export const documentPendingAttachments = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.localId, table.slotId] }),
     index("document_pending_attachments_mime_type_idx").on(table.mimeType),
+    index("document_pending_attachments_storage_key_idx").on(table.storageKey),
   ],
 );
 
@@ -621,6 +626,9 @@ export const documentAttachmentBlobProjection = sqliteTable(
     primaryKey({ columns: [table.localId, table.slotId] }),
     index("document_attachment_blob_projection_mime_type_idx").on(
       table.mimeType,
+    ),
+    index("document_attachment_blob_projection_storage_key_idx").on(
+      table.storageKey,
     ),
   ],
 );
@@ -828,6 +836,7 @@ export const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documentProjectionText),
   defineSqlTableSchema(documentPendingAttachments),
   defineSqlTableSchema(documentAttachmentBlobProjection),
+  documentOrphanBlobReclaimTable,
 ];
 
 export const containerCreateIntentTables: ReadonlyArray<SqlTableSchema> = [
@@ -876,6 +885,7 @@ export const clientSQLiteSchema = {
   documentProjection,
   documentPendingAttachments,
   documentAttachmentBlobProjection,
+  documentOrphanBlobReclaims: documentOrphanBlobReclaims,
   containerCreateIntents,
   containerMoveIntents,
   containerSyncLaneChecks,

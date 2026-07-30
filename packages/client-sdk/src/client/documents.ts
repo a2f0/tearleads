@@ -21,6 +21,7 @@ import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
   deletePersistedDocument,
+  reclaimDocumentOrphanBlobs,
 } from "../workflows/documents";
 import type { InternalRuntime } from "./workflowRuntime";
 
@@ -99,12 +100,14 @@ class DocumentsService implements Documents {
       return false;
     }
 
-    await deletePersistedDocument({
+    const deleted = await deletePersistedDocument({
       documentProjectors: runtime.infra.documentProjectors,
       execSql: runtime.infra.execSql,
       localId,
       persistence: defaultDocumentsPersistence,
     });
+    if (!deleted) return false;
+    void reclaimDocumentOrphanBlobs(runtime);
     emitPersistedDocumentDeletion(runtime.state.domainScope, localId);
     return true;
   }
