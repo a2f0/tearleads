@@ -104,9 +104,8 @@ test("persistDocumentState ensures client projection tables once per executor an
   }) as ExecSql;
   let currentRecord: DocumentRecord | null = null;
   const persistence = {
-    // No projection row exists for this localId, so the container-unmanaged
-    // persist falls back to the current record / runtime container as before.
-    loadDocumentContainer: async () => undefined,
+    loadDocumentContainer: async () =>
+      currentRecord ? { containerId: currentRecord.containerId } : undefined,
     saveDocument: async (_execSql: ExecSql, record: DocumentRecord) => {
       currentRecord = record;
       return "2026-05-24T00:00:00.000Z";

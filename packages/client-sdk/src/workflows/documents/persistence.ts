@@ -330,15 +330,14 @@ export async function persistDocumentState(
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     // A persist that expected to UPDATE must never resurrect: another
     // subsystem (e.g. the contacts duplicate-self cleanup) may have deleted
-    // this document while the persist waited on the mutation queue, and the
-    // upsert below would silently re-create it. The existence check runs
-    // INSIDE the claimed mutation, so it cannot go stale; a missing row
-    // refuses the whole persist — history appends included, which would
-    // otherwise recreate orphaned tail rows first.
+    // this document while the persist waited on the mutation queue. Check
+    // INSIDE the claimed mutation, then repeat teardown to remove side writes
+    // that may have queued behind the delete but ahead of this guard.
     if (
       currentRecord &&
       !(await persistence.loadDocumentContainer(lockedExecSql, localId))
     ) {
+      await persistence.deleteDocument(lockedExecSql, localId);
       return null;
     }
     // Deferred-write deltas ride in the same claimed mutation as the record

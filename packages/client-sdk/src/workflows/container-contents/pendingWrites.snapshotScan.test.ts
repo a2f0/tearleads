@@ -95,14 +95,14 @@ test("listPendingWrites never queries the durable content tables", async () => {
     // ...while the listing never materializes content blobs: content lives in
     // the durable-history tables (checkpoint + tail), and with the 1000-file
     // stress profile a content scan is O(total stored content) that re-fires
-    // while sync drains. Schema DDL (CREATE/ALTER/PRAGMA) legitimately names
-    // the tables; queries must not touch them.
+    // while sync drains. Schema setup and orphan cleanup legitimately name the
+    // tables; reads must not touch them.
     expect(
       capturedSql.filter(
         (sql) =>
           (sql.includes("document_history_checkpoints") ||
             sql.includes("document_history_updates")) &&
-          !/^\s*(?:CREATE|ALTER|PRAGMA)/iu.test(sql),
+          !/^\s*(?:CREATE|ALTER|DELETE|PRAGMA)/iu.test(sql),
       ),
     ).toEqual([]);
   } finally {

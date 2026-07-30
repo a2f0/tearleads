@@ -87,6 +87,7 @@ import {
   resolvePersistedAccessStateHash,
   resolvePersistedDocumentRuntimeState,
 } from "./internal/documentRuntimeState";
+import { deleteOrphanedDocumentSideRows } from "./internal/orphanSideRows";
 import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
 import type {
   ContainerDocumentTombstoneInput,
@@ -449,14 +450,13 @@ async function listDocumentsByContainerIdsOrDocumentIds(
 
 const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async ensureSchema(execSql) {
-    // Once ensured on this connection, skip the outer mutation lock entirely:
-    // ensureSchema runs on every query path, and re-acquiring the lock just to
-    // no-op would queue reads behind unrelated writes.
+    // Skip locking once this connection's schema and sweep are complete.
     await runOncePerConnection(execSql, "ensure:documents", () =>
       runSerializedSqlMutation(execSql, async (lockedExecSql) => {
         await ensureDocumentTables(lockedExecSql);
         await ensureDocumentProjectionTables(lockedExecSql);
         await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
+        await deleteOrphanedDocumentSideRows(lockedExecSql);
       }),
     );
   },

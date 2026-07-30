@@ -53,6 +53,19 @@ test("an update persist refuses to resurrect a deleted row", async () => {
       // inside the held mutation via serialized-exec re-entry.
       await sqlDocumentsPersistence.deleteDocument(locked, "victim");
     });
+    // This side write queues AFTER deletion but BEFORE the guarded persist. It
+    // models the edit flows whose durable queue/history append is a separate
+    // mutation from their record write.
+    const queuedSideWrite = sqlDocumentsPersistence.enqueuePendingUpdate(
+      execSql,
+      {
+        localId: "victim",
+        partialEndVersionVector: "end",
+        partialStartVersionVector: "start",
+        sourceVersionVector: null,
+        updateData: "b3JwaGFuZWQtc2lkZS13cml0ZQ==",
+      },
+    );
     const queuedPersist = persistDocumentState({
       currentDoc: doc,
       currentRecord,
@@ -67,6 +80,7 @@ test("an update persist refuses to resurrect a deleted row", async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     releaseHeldMutation();
     await heldMutation;
+    await queuedSideWrite;
 
     expect(await queuedPersist).toBeNull();
     expect(
@@ -76,6 +90,9 @@ test("an update persist refuses to resurrect a deleted row", async () => {
       "SELECT id FROM document_history_updates WHERE local_id = 'victim'",
     );
     expect(tails).toEqual([]);
+    expect(
+      await sqlDocumentsPersistence.listPendingUpdates(execSql, "victim"),
+    ).toEqual([]);
   } finally {
     close();
   }
