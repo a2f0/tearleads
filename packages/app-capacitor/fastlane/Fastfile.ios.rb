@@ -14,16 +14,9 @@ IOS_PROJECT_PATH = File.join(IOS_APP_DIR, 'App.xcodeproj')
 IOS_TARGET = 'App'
 IOS_SCHEME = NATIVE_RELEASE_TARGET.fetch(:ios_scheme)
 IOS_CONFIGURATION = NATIVE_RELEASE_TARGET.fetch(:ios_configuration)
-IOS_OUTPUT_DIR = if NATIVE_RELEASE_TIER == 'staging'
-                   File.join(IOS_APP_DIR, 'output', 'staging')
-                 else
-                   File.join(IOS_APP_DIR, 'output')
-                 end
-IOS_IPA_NAME = NATIVE_RELEASE_TIER == 'staging' ? 'Tearleads-Staging.ipa' : 'Tearleads.ipa'
-IOS_ARCHIVE_PATH = File.join(
-  IOS_OUTPUT_DIR,
-  NATIVE_RELEASE_TIER == 'staging' ? 'Tearleads-Staging.xcarchive' : 'Tearleads.xcarchive'
-)
+IOS_OUTPUT_DIR = File.join(IOS_APP_DIR, NATIVE_RELEASE_TARGET.fetch(:ios_output_directory))
+IOS_IPA_NAME = NATIVE_RELEASE_TARGET.fetch(:ios_ipa_name)
+IOS_ARCHIVE_PATH = File.join(IOS_OUTPUT_DIR, NATIVE_RELEASE_TARGET.fetch(:ios_archive_name))
 IOS_CAPACITOR_CONFIG_PATH = File.join(IOS_APP_DIR, 'App/capacitor.config.json')
 IOS_BUILD_IMAGES_SCRIPT = File.join(IOS_PACKAGE_DIR, 'scripts/buildIosImages.sh')
 IOS_MERGED_GITHUB_PRS_COMMAND = [
@@ -450,7 +443,11 @@ platform :ios do
   desc 'Build signed iOS IPA for TestFlight'
   lane :build_testflight_release do |options|
     load_ios_release_secrets_env
-    ensure_revenuecat_store_key!('VITE_REVENUECAT_IOS_API_KEY', 'appl_')
+    ensure_revenuecat_store_key!(
+      'VITE_REVENUECAT_IOS_API_KEY',
+      'appl_',
+      native_release_disallowed_store_key('VITE_REVENUECAT_IOS_API_KEY')
+    )
     release_build = next_ios_release_build_number(options)
     team_id = require_ios_team_id!(options)
     Dir.chdir(IOS_PACKAGE_DIR) do

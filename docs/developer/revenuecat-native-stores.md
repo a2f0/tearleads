@@ -109,12 +109,15 @@ set this automatically:
 Create separate RevenueCat Apple and Google apps with that platform identifier,
 then set their public keys in `.secrets/staging.env` as
 `VITE_REVENUECAT_IOS_API_KEY` and `VITE_REVENUECAT_ANDROID_API_KEY`. Fastlane
-loads release credentials from `root.env`, but imports only those two allowlisted
-public keys from the server-oriented `staging.env`. Explicit caller overrides
-still win. If staging has no platform key, it does not inherit the production
-key and fails the release guard before the store build begins. Add any future
-root `VITE_*` setting that staging must inherit intentionally to
-`NATIVE_SHARED_VITE_ENV_NAMES`; otherwise it is stripped from staging builds.
+loads release credentials from `root.env`, but imports only allowlisted native
+RevenueCat client settings from the server-oriented `staging.env`. Explicit
+caller overrides still win when they differ from the production platform key.
+If staging has no platform key, or resolves to the production key, it fails the
+release guard before the store build begins. Staging may override the shared
+`VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses a different entitlement
+identifier. Add any future root `VITE_*` setting that staging must inherit
+intentionally to `NATIVE_SHARED_VITE_ENV_NAMES`; otherwise it is stripped from
+staging builds.
 
 The staging server must also have `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` during
 its Ansible deploy. This controls webhook application only; it is separate from

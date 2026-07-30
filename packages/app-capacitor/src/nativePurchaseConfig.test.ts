@@ -3,6 +3,24 @@ import { resolve } from "node:path";
 
 const packageRoot = resolve(import.meta.dir, "..");
 
+async function loadFastlaneTier(tier: "production" | "staging") {
+  const child = Bun.spawn(["bundle", "exec", "fastlane", "lanes"], {
+    cwd: packageRoot,
+    env: { ...process.env, NATIVE_RELEASE_TIER: tier },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [exitCode, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+    new Response(child.stdout).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`Fastlane failed to load ${tier}: ${stderr}`);
+  }
+  return stderr;
+}
+
 test("Android can resume a purchase after external payment verification", async () => {
   const manifest = await Bun.file(
     resolve(packageRoot, "android/app/src/main/AndroidManifest.xml"),
@@ -88,11 +106,36 @@ test("iOS exposes a staging release configuration and shared scheme", async () =
   expect(project).toContain(
     "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.app.staging;",
   );
-  expect(project.match(/APP_DISPLAY_NAME = Tearleads;/g)).toHaveLength(2);
+  const targetBuildSettings = Array.from(
+    project.matchAll(
+      /buildSettings = \{((?:(?!\n\s*\};)[\s\S])*?INFOPLIST_FILE = App\/Info\.plist;(?:(?!\n\s*\};)[\s\S])*?)\n\s*\};/g,
+    ),
+    (match) => match[1] ?? "",
+  );
+  expect(targetBuildSettings).toHaveLength(3);
   expect(
-    project.match(/APP_DISPLAY_NAME = "Tearleads Staging";/g),
+    targetBuildSettings.filter((settings) =>
+      settings.includes("APP_DISPLAY_NAME = Tearleads;"),
+    ),
+  ).toHaveLength(2);
+  expect(
+    targetBuildSettings.filter((settings) =>
+      settings.includes('APP_DISPLAY_NAME = "Tearleads Staging";'),
+    ),
   ).toHaveLength(1);
+  expect(
+    targetBuildSettings.every((settings) =>
+      settings.includes("APP_DISPLAY_NAME ="),
+    ),
+  ).toBeTrue();
   expect(scheme).toContain('buildConfiguration = "Release-Staging"');
+});
+
+test("Fastlane loads both release tiers without redefining constants", async () => {
+  for (const tier of ["production", "staging"] as const) {
+    const stderr = await loadFastlaneTier(tier);
+    expect(stderr).not.toContain("already initialized constant");
+  }
 });
 
 test("Fastlane selects store identities from one shared release target", async () => {

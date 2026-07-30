@@ -14,19 +14,6 @@ def load_store_secrets_env
   load_native_release_secrets_env
 end
 
-# `cap run --live-reload` leaves a
-# server.url pointing the WebView at a LAN dev server (e.g. 10.0.1.10:8085),
-# which shows "the webpage at <ip> is not available" once installed;
-# The tier-specific sync command restores both the expected app ID and a bundled
-# WebView configuration.
-#
-# CapacitorHttp is intentionally enabled on EVERY build (see capacitor.config.ts):
-# routing requests through native HTTP is what lets the release WebView reach the
-# API at all — the WKWebView's own cross-origin fetch from the app's
-# https://localhost origin fails. So `CapacitorHttp.enabled: true` is no longer a
-# debug-leftover signal and must not fail the release guard. A wrong app ID or a
-# stray server.url does.
-
 # Fails the build unless the native config at config_path is a fully bundled
 # release config. Shared by the Android and iOS release lanes.
 def ensure_bundled_release_capacitor_config!(config_path, label, sync_command)

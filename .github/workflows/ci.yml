@@ -50,6 +50,9 @@ jobs:
           OPENAPI_BASE_REF: ${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
         run: bun run check:fast
 
+      - name: Run native release tests
+        run: bun run --cwd packages/app-capacitor test
+
   build:
     name: Build and test
     runs-on: ubuntu-latest

@@ -440,7 +440,11 @@ platform :android do
   desc 'Build signed Android App Bundle and upload companion assets for Google Play'
   lane :build_google_play_release do |options|
     load_android_release_secrets_env
-    ensure_revenuecat_store_key!('VITE_REVENUECAT_ANDROID_API_KEY', 'goog_')
+    ensure_revenuecat_store_key!(
+      'VITE_REVENUECAT_ANDROID_API_KEY',
+      'goog_',
+      native_release_disallowed_store_key('VITE_REVENUECAT_ANDROID_API_KEY')
+    )
     release_build = next_android_release_build_number(options)
     require_android_release_signing!
     sh('bun run build')

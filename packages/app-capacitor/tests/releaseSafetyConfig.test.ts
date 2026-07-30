@@ -38,16 +38,21 @@ async function runStoreKeyGuard(key: string, expectedPrefix: string) {
   return { exitCode, stderr };
 }
 
-async function readFastlaneKeyProblem(key: string, expectedPrefix: string) {
+async function readFastlaneKeyProblem(
+  key: string,
+  expectedPrefix: string,
+  disallowedValue = "",
+) {
   const process = Bun.spawn(
     [
       "ruby",
       "-r",
       fastlaneGuardPath,
       "-e",
-      "print(revenuecat_store_key_problem(ARGV.fetch(0), ARGV.fetch(1)) || 'ok')",
+      "print(revenuecat_store_key_problem(ARGV.fetch(0), ARGV.fetch(1), ARGV.fetch(2)) || 'ok')",
       key,
       expectedPrefix,
+      disallowedValue,
     ],
     { stderr: "pipe", stdout: "pipe" },
   );
@@ -165,9 +170,6 @@ async function readNativeReleaseEnvironment(
     ]);
     if (exitCode !== 0) {
       throw new Error(`Ruby native release target failed: ${stderr}`);
-    }
-    if (stderr.includes("already initialized constant")) {
-      throw new Error(`Ruby native release target loaded twice: ${stderr}`);
     }
     return JSON.parse(stdout) as NativeReleaseSnapshot;
   } finally {
@@ -288,6 +290,9 @@ describe("RevenueCat store-release safety", () => {
     await expect(readFastlaneKeyProblem("appl_example", "appl_")).resolves.toBe(
       "ok",
     );
+    await expect(
+      readFastlaneKeyProblem("appl_production", "appl_", "appl_production"),
+    ).resolves.toContain("matches the production key");
   });
 
   test("Fastlane rejects a generated config for the wrong native target", async () => {
@@ -356,6 +361,15 @@ describe("RevenueCat store-release safety", () => {
       "root",
       null,
     ]);
+  });
+
+  test("staging can override the shared RevenueCat entitlement", async () => {
+    const snapshot = await readNativeReleaseEnvironment(
+      "VITE_REVENUECAT_SYNC_ENTITLEMENT=production-sync\n",
+      "VITE_REVENUECAT_SYNC_ENTITLEMENT=staging-sync\n",
+    );
+
+    expect(snapshot.environment[2]).toBe("staging-sync");
   });
 
   test("production keeps its default target and root release environment", async () => {
@@ -461,18 +475,24 @@ describe("RevenueCat store-release safety", () => {
       "    load_android_release_secrets_env",
     );
     const androidGuardIndex = androidFastfile.indexOf(
-      "    ensure_revenuecat_store_key!('VITE_REVENUECAT_ANDROID_API_KEY', 'goog_')",
+      "    ensure_revenuecat_store_key!(",
     );
     const iosLoadIndex = iosFastfile.indexOf(
       "    load_ios_release_secrets_env",
     );
     const iosGuardIndex = iosFastfile.indexOf(
-      "    ensure_revenuecat_store_key!('VITE_REVENUECAT_IOS_API_KEY', 'appl_')",
+      "    ensure_revenuecat_store_key!(",
     );
 
     expect(androidLoadIndex).toBeGreaterThan(-1);
     expect(androidGuardIndex).toBeGreaterThan(androidLoadIndex);
+    expect(androidFastfile).toContain(
+      "native_release_disallowed_store_key('VITE_REVENUECAT_ANDROID_API_KEY')",
+    );
     expect(iosLoadIndex).toBeGreaterThan(-1);
     expect(iosGuardIndex).toBeGreaterThan(iosLoadIndex);
+    expect(iosFastfile).toContain(
+      "native_release_disallowed_store_key('VITE_REVENUECAT_IOS_API_KEY')",
+    );
   });
 });

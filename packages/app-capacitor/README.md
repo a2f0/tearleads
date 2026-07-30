@@ -53,11 +53,12 @@ Before the first staging upload, put the `goog_...` and `appl_...` public SDK
 keys for the RevenueCat apps configured with `com.tearleads.app.staging` in
 `.secrets/staging.env` as `VITE_REVENUECAT_ANDROID_API_KEY` and
 `VITE_REVENUECAT_IOS_API_KEY`. A staging release deliberately does not inherit
-the production mobile SDK keys from `.secrets/root.env`. Those are the only
-values imported from the server-oriented staging env; unrelated deploy secrets
-never enter the native build process. If another root `VITE_*` setting must be
-shared with staging later, add it intentionally to
-`NATIVE_SHARED_VITE_ENV_NAMES`. The Google Play service account must have
+the production mobile SDK keys from `.secrets/root.env`, and rejects an exported
+key that matches either production key. The staging env may also override
+`VITE_REVENUECAT_SYNC_ENTITLEMENT`; unrelated deploy secrets never enter the
+native build process. If another root `VITE_*` setting must be shared with
+staging later, add it intentionally to `NATIVE_SHARED_VITE_ENV_NAMES`. The
+Google Play service account must have
 access to the staging Play app, and the match repository must contain an App
 Store distribution profile for the staging bundle ID. Verify the latter with:
 
