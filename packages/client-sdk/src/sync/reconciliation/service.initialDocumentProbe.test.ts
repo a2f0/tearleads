@@ -108,6 +108,7 @@ test("initial probe uses every authoritative listing and bounded batches once", 
 test("initial probe skips an exhausted listing and completes healthy lanes", async () => {
   const probes: InitialDocumentProbeBatchInput[] = [];
   const listingAttempts = new Map<string, number>();
+  const secondListingAttemptTimes: number[] = [];
   let secondListingAvailable = false;
   const service = createReconciliationService(
     createProbeHost({
@@ -115,6 +116,7 @@ test("initial probe skips an exhausted listing and completes healthy lanes", asy
         const attempt = (listingAttempts.get(containerId) ?? 0) + 1;
         listingAttempts.set(containerId, attempt);
         if (containerId === "c-2" && !secondListingAvailable) {
+          secondListingAttemptTimes.push(Date.now());
           if (attempt === 1) {
             throw new Error("transient listing failure");
           }
@@ -132,6 +134,16 @@ test("initial probe skips an exhausted listing and completes healthy lanes", asy
   service.enqueueIdleBackfill();
 
   await waitFor(
+    () => listingAttempts.get("c-2") === 1,
+    "Expected first failed listing",
+  );
+  for (let index = 0; index < 10; index += 1) {
+    service.enqueueIdleBackfill();
+  }
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(listingAttempts.get("c-2")).toBe(1);
+
+  await waitFor(
     () => probes.length === 1,
     "Expected bounded listing retries",
     4_000,
@@ -142,6 +154,12 @@ test("initial probe skips an exhausted listing and completes healthy lanes", asy
       ["c-2", 3],
     ]),
   );
+  expect(
+    (secondListingAttemptTimes[1] ?? 0) - (secondListingAttemptTimes[0] ?? 0),
+  ).toBeGreaterThanOrEqual(900);
+  expect(
+    (secondListingAttemptTimes[2] ?? 0) - (secondListingAttemptTimes[1] ?? 0),
+  ).toBeGreaterThanOrEqual(1_800);
   expect([...(probes[0]?.listedContainerIds ?? [])]).toEqual(["c-1"]);
   expect([...(probes[0]?.listedDocumentIds ?? [])]).toEqual(["listed-c-1"]);
 
@@ -163,6 +181,32 @@ test("initial probe skips an exhausted listing and completes healthy lanes", asy
     "listed-c-1",
     "listed-c-2",
   ]);
+});
+
+test("stop cancels a pending listing retry timer", async () => {
+  let listingAttempts = 0;
+  const service = createReconciliationService(
+    createProbeHost({
+      listKnownContainerIds: () => ["c-1"],
+      listContainerDocumentIds: async () => {
+        listingAttempts += 1;
+        return null;
+      },
+      probeUndiscoveredDocumentsBatch: async () => ({
+        done: true,
+        nextCursor: null,
+        requestedCount: 0,
+      }),
+    }),
+  );
+  service.start();
+  service.enqueueIdleBackfill();
+  await waitFor(() => listingAttempts === 1, "Expected first listing attempt");
+
+  service.stop();
+  await new Promise((resolve) => setTimeout(resolve, 1_100));
+
+  expect(listingAttempts).toBe(1);
 });
 
 test("a non-advancing candidate batch completes instead of looping", async () => {

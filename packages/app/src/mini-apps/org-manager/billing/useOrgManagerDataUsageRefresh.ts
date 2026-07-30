@@ -45,17 +45,6 @@ export async function refreshDataUsageOnEntry(input: {
   await input.refreshDataUsage({ clearError: true, manageLoading: false });
 }
 
-export function shouldRefreshDataUsageAfterSync(input: {
-  readonly enabled: boolean;
-  readonly pending: boolean;
-  readonly previouslyPending: boolean;
-  readonly visible: boolean;
-}): boolean {
-  return (
-    input.enabled && input.visible && input.previouslyPending && !input.pending
-  );
-}
-
 export function createDataUsageSyncSettleController(input: {
   readonly onSettled: () => void;
   readonly readPending: () => boolean;

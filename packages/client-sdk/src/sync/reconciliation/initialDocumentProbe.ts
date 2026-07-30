@@ -24,6 +24,7 @@ export interface InitialDocumentProbe {
   readonly arm: (eligibleContainerIds: ReadonlyArray<string>) => void;
   readonly canRun: () => boolean;
   readonly continuationDelayMs: () => number;
+  readonly hasPendingWork: () => boolean;
   readonly resetPending: () => void;
   readonly resetSkippedListings: () => void;
   readonly run: () => Promise<void>;
@@ -40,9 +41,9 @@ interface InitialDocumentProbeState {
   listedDocumentIds: ReadonlySet<string> | null;
   listedDocumentIdsByContainer: Map<string, ReadonlySet<string>>;
   listingAttemptsByContainer: Map<string, number>;
+  listingRetryNotBeforeByContainer: Map<string, number>;
   probedContainerIds: Set<string>;
   reported: boolean;
-  retryContinuationDelayMs: number;
   requestedCount: number;
   running: boolean;
   skippedContainerIds: Set<string>;
@@ -52,15 +53,16 @@ export function scheduleInitialDocumentProbeContinuation(input: {
   readonly canContinue: () => boolean;
   readonly delayMs: number;
   readonly requestRun: () => void;
-}): void {
+}): () => void {
   if (!input.canContinue()) {
-    return;
+    return () => undefined;
   }
-  setTimeout(() => {
+  const timeout = setTimeout(() => {
     if (input.canContinue()) {
       input.requestRun();
     }
   }, input.delayMs);
+  return () => clearTimeout(timeout);
 }
 
 function createInitialDocumentProbeState(): InitialDocumentProbeState {
@@ -72,9 +74,9 @@ function createInitialDocumentProbeState(): InitialDocumentProbeState {
     listedDocumentIds: null,
     listedDocumentIdsByContainer: new Map(),
     listingAttemptsByContainer: new Map(),
+    listingRetryNotBeforeByContainer: new Map(),
     probedContainerIds: new Set(),
     reported: false,
-    retryContinuationDelayMs: 0,
     requestedCount: 0,
     running: false,
     skippedContainerIds: new Set(),
@@ -106,8 +108,32 @@ function hasPendingWork(state: InitialDocumentProbeState): boolean {
   );
 }
 
-function canRun(state: InitialDocumentProbeState): boolean {
-  return state.armed && !state.running && hasPendingWork(state);
+function canRun(state: InitialDocumentProbeState, nowMs = Date.now()): boolean {
+  if (!state.armed || state.running || !hasPendingWork(state)) {
+    return false;
+  }
+  const unlistedContainerIds = [...state.eligibleContainerIds].filter(
+    (id) => !state.listedDocumentIdsByContainer.has(id),
+  );
+  return (
+    unlistedContainerIds.length === 0 ||
+    unlistedContainerIds.some(
+      (id) => (state.listingRetryNotBeforeByContainer.get(id) ?? 0) <= nowMs,
+    )
+  );
+}
+
+function continuationDelayMs(
+  state: InitialDocumentProbeState,
+  nowMs = Date.now(),
+): number {
+  const retryTimes = [...state.eligibleContainerIds]
+    .filter((id) => !state.listedDocumentIdsByContainer.has(id))
+    .map((id) => state.listingRetryNotBeforeByContainer.get(id) ?? 0);
+  if (retryTimes.length === 0 || retryTimes.some((time) => time <= nowMs)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(...retryTimes) - nowMs);
 }
 
 function resetPending(state: InitialDocumentProbeState): void {
@@ -118,9 +144,9 @@ function resetPending(state: InitialDocumentProbeState): void {
   state.listedDocumentIds = null;
   state.listedDocumentIdsByContainer.clear();
   state.listingAttemptsByContainer.clear();
+  state.listingRetryNotBeforeByContainer.clear();
   state.probedContainerIds.clear();
   state.reported = false;
-  state.retryContinuationDelayMs = 0;
   state.requestedCount = 0;
   state.skippedContainerIds.clear();
 }
@@ -137,8 +163,8 @@ function resetSkippedListings(state: InitialDocumentProbeState): void {
   state.cursor = null;
   state.listedDocumentIds = null;
   state.listingAttemptsByContainer.clear();
+  state.listingRetryNotBeforeByContainer.clear();
   state.reported = false;
-  state.retryContinuationDelayMs = 0;
   state.requestedCount = 0;
   state.skippedContainerIds.clear();
 }
@@ -157,6 +183,12 @@ function retainEligibleProbeState(
       state.probedContainerIds.delete(containerId);
     }
   }
+  for (const containerId of state.listingAttemptsByContainer.keys()) {
+    if (!nextIds.has(containerId)) {
+      state.listingAttemptsByContainer.delete(containerId);
+      state.listingRetryNotBeforeByContainer.delete(containerId);
+    }
+  }
 }
 
 function replaceEligibleContainerIds(
@@ -167,8 +199,6 @@ function replaceEligibleContainerIds(
   state.cursor = null;
   state.eligibleContainerIds = nextIds;
   state.listedDocumentIds = null;
-  state.listingAttemptsByContainer.clear();
-  state.retryContinuationDelayMs = 0;
   retainEligibleProbeState(state, nextIds);
 }
 
@@ -215,8 +245,11 @@ async function listNextEligibleContainer(input: {
   readonly state: InitialDocumentProbeState;
 }): Promise<boolean> {
   const { eligibleIds, host, runGeneration, state } = input;
+  const nowMs = Date.now();
   const containerId = eligibleIds.find(
-    (id) => !state.listedDocumentIdsByContainer.has(id),
+    (id) =>
+      !state.listedDocumentIdsByContainer.has(id) &&
+      (state.listingRetryNotBeforeByContainer.get(id) ?? 0) <= nowMs,
   );
   if (!containerId) {
     return false;
@@ -242,14 +275,19 @@ async function listNextEligibleContainer(input: {
       state.skippedContainerIds.add(containerId);
       state.eligibleContainerIds.delete(containerId);
       state.listingAttemptsByContainer.delete(containerId);
-      state.retryContinuationDelayMs = 0;
+      state.listingRetryNotBeforeByContainer.delete(containerId);
     } else {
-      state.retryContinuationDelayMs =
+      const retryDelayMs =
         INITIAL_DOCUMENT_LISTING_RETRY_BASE_DELAY_MS * 2 ** (attempts - 1);
+      state.listingRetryNotBeforeByContainer.set(
+        containerId,
+        Date.now() + retryDelayMs,
+      );
     }
     return true;
   }
   state.listingAttemptsByContainer.delete(containerId);
+  state.listingRetryNotBeforeByContainer.delete(containerId);
   state.listedDocumentIdsByContainer.set(containerId, new Set(documentIds));
   return true;
 }
@@ -263,7 +301,6 @@ async function runProbe(
   }
 
   state.running = true;
-  state.retryContinuationDelayMs = 0;
   const runGeneration = state.generation;
   try {
     const eligibleIds = [...state.eligibleContainerIds];
@@ -275,6 +312,9 @@ async function runProbe(
         state,
       })
     ) {
+      return;
+    }
+    if (eligibleIds.some((id) => !state.listedDocumentIdsByContainer.has(id))) {
       return;
     }
 
@@ -330,7 +370,8 @@ export function createInitialDocumentProbe(
   return {
     arm: (eligibleContainerIds) => armProbe(state, eligibleContainerIds),
     canRun: () => canRun(state),
-    continuationDelayMs: () => state.retryContinuationDelayMs,
+    continuationDelayMs: () => continuationDelayMs(state),
+    hasPendingWork: () => state.armed && hasPendingWork(state),
     resetPending: () => resetPending(state),
     resetSkippedListings: () => resetSkippedListings(state),
     run: () => runProbe(host, state),

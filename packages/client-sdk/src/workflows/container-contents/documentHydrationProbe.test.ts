@@ -50,7 +50,7 @@ async function waitFor(
   throw new Error(message);
 }
 
-test("hydration probe includes shared-org documents in completed container lanes", async () => {
+test("hydration probe includes shared-org and primary-only documents", async () => {
   const { close, execSql } = await createTestExecSql(
     "document-hydration-probe",
   );
@@ -77,6 +77,7 @@ test("hydration probe includes shared-org documents in completed container lanes
     const documents = [
       ["listed-local", "listed-remote", "root-a"],
       ["missing-local", "missing-remote", "root-a"],
+      ["primary-only-local", "primary-only-remote", "root-a"],
       ["foreign-local", "foreign-remote", "root-b"],
       ["local-only", null, "root-a"],
       ["orphan-local", "orphan-remote", "root-a"],
@@ -91,7 +92,7 @@ test("hydration probe includes shared-org documents in completed container lanes
         title: id,
         updatedAt: "2026-07-30T12:00:00.000Z",
       });
-      if (documentId) {
+      if (documentId && id !== "primary-only-local") {
         await execSql(
           `INSERT INTO document_container_projection
              (document_id, container_id, updated_at)
@@ -131,11 +132,12 @@ test("hydration probe includes shared-org documents in completed container lanes
     expect(result).toEqual({
       done: true,
       nextCursor: null,
-      requestedCount: 2,
+      requestedCount: 3,
     });
     expect(opened).toEqual([
       { containerId: "root-b", localId: "foreign-local" },
       { containerId: "root-a", localId: "missing-local" },
+      { containerId: "root-a", localId: "primary-only-local" },
     ]);
   } finally {
     close();

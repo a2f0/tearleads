@@ -3,7 +3,6 @@ import type { DataUsageRefreshOptions } from "../refresh";
 import {
   createDataUsageSyncSettleController,
   refreshDataUsageOnEntry,
-  shouldRefreshDataUsageAfterSync,
 } from "./useOrgManagerDataUsageRefresh";
 
 test("usage entry paints local data before reconciling once", async () => {
@@ -96,41 +95,6 @@ test("usage entry rechecks pending sync after painting local data", async () => 
   await entry;
 
   expect(refreshDataUsage).toHaveBeenCalledTimes(1);
-});
-
-test("usage refresh waits for visible sync work to settle", () => {
-  expect(
-    shouldRefreshDataUsageAfterSync({
-      enabled: true,
-      pending: false,
-      previouslyPending: true,
-      visible: true,
-    }),
-  ).toBe(true);
-  expect(
-    shouldRefreshDataUsageAfterSync({
-      enabled: true,
-      pending: true,
-      previouslyPending: false,
-      visible: true,
-    }),
-  ).toBe(false);
-  expect(
-    shouldRefreshDataUsageAfterSync({
-      enabled: true,
-      pending: false,
-      previouslyPending: true,
-      visible: false,
-    }),
-  ).toBe(false);
-  expect(
-    shouldRefreshDataUsageAfterSync({
-      enabled: false,
-      pending: false,
-      previouslyPending: true,
-      visible: true,
-    }),
-  ).toBe(false);
 });
 
 test("usage settle quiet window cancels on resumed work and rechecks pending", () => {

@@ -35,6 +35,10 @@ function valuePlaceholders(values: ReadonlyArray<unknown>): string {
   return values.map(() => "?").join(", ");
 }
 
+function valueRows(values: ReadonlyArray<unknown>): string {
+  return values.map(() => "(?)").join(", ");
+}
+
 function readProbeTarget(row: unknown): RemoteDocumentProbeTarget {
   // These aliases are wholly internal SQL contracts; fail loudly if a query
   // edit violates them instead of silently skipping a persisted document.
@@ -67,38 +71,48 @@ async function listRemoteDocumentProbeBatchForContainerIds(input: {
 }): Promise<RemoteDocumentProbeTarget[]> {
   const rows = await input.runtime.infra.execSql(
     `
+      WITH eligible_container_ids(container_id) AS (
+        VALUES ${valueRows(input.containerIds)}
+      )
       SELECT
         stored.local_id AS local_id,
         stored.document_id AS document_id,
         projection.container_id AS projected_container_id,
         COALESCE(
-          MIN(CASE
-            WHEN link.container_id = projection.container_id
-              THEN link.container_id
-            ELSE NULL
-          END),
-          MIN(link.container_id)
+          projected_container.container_id,
+          MIN(linked_container.container_id)
         ) AS container_id
       FROM documents stored
       INNER JOIN document_projection projection
         ON projection.local_id = stored.local_id
-      INNER JOIN document_container_projection link
+      LEFT JOIN eligible_container_ids projected_container
+        ON projected_container.container_id = projection.container_id
+      LEFT JOIN document_container_projection link
         ON link.document_id = stored.document_id
+      LEFT JOIN eligible_container_ids linked_container
+        ON linked_container.container_id = link.container_id
       WHERE stored.app_kind = 'documents'
         AND stored.document_id IS NOT NULL
         AND (? IS NULL OR stored.local_id > ?)
-        AND link.container_id IN (${valuePlaceholders(input.containerIds)})
+        AND (
+          projected_container.container_id IS NOT NULL
+          OR linked_container.container_id IS NOT NULL
+        )
         AND projection.document_kind NOT IN (${valuePlaceholders(
           HIDDEN_DOCUMENT_SUMMARY_KINDS,
         )})
-      GROUP BY stored.local_id, stored.document_id, projection.container_id
+      GROUP BY
+        stored.local_id,
+        stored.document_id,
+        projection.container_id,
+        projected_container.container_id
       ORDER BY stored.local_id ASC
       LIMIT ?
     `,
     [
-      input.afterLocalId,
-      input.afterLocalId,
       ...input.containerIds,
+      input.afterLocalId,
+      input.afterLocalId,
       ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
       DOCUMENT_HYDRATION_PROBE_SCAN_BATCH_SIZE,
     ],

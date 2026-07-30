@@ -37,6 +37,7 @@ interface ReconciliationState {
   forcedContainerIds: Set<string>;
   initialDocumentProbe: InitialDocumentProbe;
   lane: SyncLane | null;
+  probeContinuationCancel: (() => void) | null;
   queue: ReconcileQueue;
   /**
    * In-flight sweep promise. {@link reconcileKnownContainersAfterRefresh}
@@ -183,14 +184,18 @@ function scheduleProbeContinuation(
   host: ReconciliationHost,
   state: ReconciliationState,
 ): void {
-  scheduleInitialDocumentProbeContinuation({
+  state.probeContinuationCancel?.();
+  state.probeContinuationCancel = scheduleInitialDocumentProbeContinuation({
     canContinue: () =>
       state.active &&
       state.queue.size === 0 &&
       canReconcile(host.getRuntimeStatus()) &&
-      state.initialDocumentProbe.canRun(),
+      state.initialDocumentProbe.hasPendingWork(),
     delayMs: state.initialDocumentProbe.continuationDelayMs(),
-    requestRun: () => state.lane?.requestSync(),
+    requestRun: () => {
+      state.probeContinuationCancel = null;
+      state.lane?.requestSync();
+    },
   });
 }
 
@@ -331,10 +336,32 @@ function createReconciliationState(
     forcedContainerIds: new Set(),
     initialDocumentProbe: createInitialDocumentProbe(host),
     lane: null,
+    probeContinuationCancel: null,
     queue: createReconcileQueue(),
     refreshPromise: null,
     refreshType: null,
   };
+}
+
+function stopReconciliationService(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+): void {
+  state.active = false;
+  state.probeContinuationCancel?.();
+  state.probeContinuationCancel = null;
+  state.queue.clear();
+  state.forcedContainerIds.clear();
+  state.refreshPromise = null;
+  state.refreshType = null;
+  state.initialDocumentProbe.resetPending();
+  // Drop the per-session discovered suppression cache too: a stopped
+  // reconciler is being torn down (scope/identity change) or paused across
+  // a prerequisite loss, after which every container must be re-validated.
+  state.discoveredContainerIds.clear();
+  // Drop pending self-echo originations too — they are session-scoped and a
+  // teardown invalidates them.
+  clearOriginatedDocuments(host.domainScope);
 }
 
 export function createReconciliationService(
@@ -352,6 +379,8 @@ export function createReconciliationService(
     if (!canReconcile(host.getRuntimeStatus())) {
       return;
     }
+    state.probeContinuationCancel?.();
+    state.probeContinuationCancel = null;
     state.lane?.requestSync();
   };
 
@@ -431,20 +460,6 @@ export function createReconciliationService(
         () => listFullRefreshContainerIds(host, state.activeContainerId),
         "full",
       ),
-    stop: () => {
-      state.active = false;
-      state.queue.clear();
-      state.forcedContainerIds.clear();
-      state.refreshPromise = null;
-      state.refreshType = null;
-      state.initialDocumentProbe.resetPending();
-      // Drop the per-session discovered suppression cache too: a stopped
-      // reconciler is being torn down (scope/identity change) or paused across
-      // a prerequisite loss, after which every container must be re-validated.
-      state.discoveredContainerIds.clear();
-      // Drop pending self-echo originations too — they are session-scoped and a
-      // teardown invalidates them.
-      clearOriginatedDocuments(host.domainScope);
-    },
+    stop: () => stopReconciliationService(host, state),
   };
 }
