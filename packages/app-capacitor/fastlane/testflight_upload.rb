@@ -59,7 +59,7 @@ end
 def base_upload_ios_testflight_options(options, release_result)
   {
     api_key: app_store_connect_api_key(app_store_connect_api_key_options),
-    app_identifier: IOS_APP_ID,
+    app_identifier: NATIVE_APP_IDENTIFIER,
     distribute_external: testflight_distribute_external?(options),
     ipa: release_result.fetch(:ipa),
     skip_submission: testflight_skip_submission?(options),

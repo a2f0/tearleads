@@ -1,2 +1,4 @@
-app_identifier("com.tearleads.app")
-package_name("com.tearleads.app")
+require File.expand_path('native_release_target', Dir.pwd)
+
+app_identifier(NATIVE_APP_IDENTIFIER)
+package_name(NATIVE_APP_IDENTIFIER)

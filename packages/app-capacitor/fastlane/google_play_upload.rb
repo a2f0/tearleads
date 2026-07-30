@@ -14,7 +14,7 @@ end
 
 def google_play_release_binary_upload_options(release_result)
   options = {
-    package_name: ANDROID_APP_ID,
+    package_name: NATIVE_APP_IDENTIFIER,
     json_key: require_existing_file!(google_play_json_key_path, 'Google Play JSON key'),
     aab: RELEASE_AAB_PATH
   }

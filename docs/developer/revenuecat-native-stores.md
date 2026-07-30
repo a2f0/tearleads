@@ -91,6 +91,30 @@ webhook, and entitlement mapping. It does not exercise StoreKit or Google Play
 Billing. Never submit a build containing a `test_...` key; RevenueCat requires a
 platform-specific public key in store builds.
 
+## Dedicated staging store apps
+
+The native staging apps use `com.tearleads.app.staging` on both platforms so
+they can coexist with production and keep sandbox store history isolated. The
+Android `staging` build variant and the iOS `App-Staging` / `Release-Staging`
+pair are selected by `NATIVE_RELEASE_TIER=staging`; the staging upload wrappers
+set this automatically:
+
+```sh
+./scripts/uploadAndroidStagingRelease.sh
+./scripts/uploadIosStagingRelease.sh
+```
+
+Create separate RevenueCat Apple and Google apps with that platform identifier,
+then set their public keys in `.secrets/staging.env` as
+`VITE_REVENUECAT_IOS_API_KEY` and `VITE_REVENUECAT_ANDROID_API_KEY`. Fastlane
+loads root secrets first and tier secrets second while preserving explicit
+caller overrides. If staging has no platform key, it removes the inherited
+production key and fails the release guard before the store build begins.
+
+The staging server must also have `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` during
+its Ansible deploy. This controls webhook application only; it is separate from
+the public SDK keys bundled into the native clients.
+
 ## Apple sandbox / TestFlight
 
 Before testing the real Apple purchase sheet:

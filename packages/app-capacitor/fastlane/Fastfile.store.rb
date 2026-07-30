@@ -3,17 +3,15 @@
 require 'dotenv'
 require 'json'
 require 'shellwords'
+require_relative 'native_release_target'
 require_relative 'revenuecat_release_key'
 
-STORE_APP_IDENTIFIER = 'com.tearleads.app'
-STORE_REPO_ROOT = File.expand_path('../../..', __dir__)
-STORE_SECRETS_DIR = File.join(STORE_REPO_ROOT, '.secrets')
-STORE_ROOT_ENV_PATH = File.join(STORE_SECRETS_DIR, 'root.env')
-GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH = File.join(STORE_SECRETS_DIR, 'google-play-service-account.json')
+STORE_SECRETS_DIR = NATIVE_SECRETS_DIR
+GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH = File.join(NATIVE_SECRETS_DIR, 'google-play-service-account.json')
 GOOGLE_PLAY_DEFAULT_TRACKS = %w[production beta alpha internal].freeze
 
 def load_store_secrets_env
-  Dotenv.load(STORE_ROOT_ENV_PATH) if File.file?(STORE_ROOT_ENV_PATH)
+  load_native_release_secrets_env
 end
 
 # Returns why a generated capacitor.config.json is not a shippable release
@@ -146,7 +144,7 @@ end
 
 def google_play_track_version_code_values(track)
   google_play_track_version_codes(
-    package_name: STORE_APP_IDENTIFIER,
+    package_name: NATIVE_APP_IDENTIFIER,
     track: track,
     json_key: require_existing_file!(google_play_json_key_path, 'Google Play JSON key')
   )
@@ -167,7 +165,7 @@ end
 
 def latest_app_store_build_number(options)
   app_store_options = {
-    app_identifier: STORE_APP_IDENTIFIER,
+    app_identifier: NATIVE_APP_IDENTIFIER,
     api_key: app_store_connect_key_for_store_build_numbers,
     live: lane_boolean_option(options, :apple_live, 'APP_STORE_LIVE', true)
   }

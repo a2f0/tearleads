@@ -101,42 +101,52 @@ describe("RevenueCat store-release safety", () => {
     );
   });
 
-  const guardedReleaseScripts = {
-    "buildAndroidRelease.sh": {
-      keyName: "VITE_REVENUECAT_ANDROID_API_KEY",
-      prefix: "goog_",
-    },
-    "buildIosRelease.sh": {
-      keyName: "VITE_REVENUECAT_IOS_API_KEY",
-      prefix: "appl_",
-    },
-    "uploadAndroidRelease.sh": {
-      keyName: "VITE_REVENUECAT_ANDROID_API_KEY",
-      prefix: "goog_",
-    },
-    "uploadIosRelease.sh": {
-      keyName: "VITE_REVENUECAT_IOS_API_KEY",
-      prefix: "appl_",
-    },
+  const releaseScriptTargets = {
+    "buildAndroidRelease.sh": "android build production",
+    "buildIosRelease.sh": "ios build production",
+    "uploadAndroidRelease.sh": "android upload production",
+    "uploadAndroidStagingRelease.sh": "android upload staging",
+    "uploadIosRelease.sh": "ios upload production",
+    "uploadIosStagingRelease.sh": "ios upload staging",
   } as const;
 
-  for (const [scriptName, { keyName, prefix }] of Object.entries(
-    guardedReleaseScripts,
-  )) {
-    test(`${scriptName} guards ${keyName}`, async () => {
+  for (const [scriptName, target] of Object.entries(releaseScriptTargets)) {
+    test(`${scriptName} delegates to the shared ${target} runner`, async () => {
       const script = await Bun.file(
         resolve(repositoryRoot, "scripts", scriptName),
       ).text();
-      const normalizedScript = script
-        .replace(/\\\n\s*/g, " ")
-        .replace(/\s+/g, " ");
-      const keyExpansion = `"\${${keyName}:-}"`;
 
-      expect(normalizedScript).toContain(
-        `reject_invalid_revenuecat_store_key ${keyName} ${keyExpansion} ${prefix}`,
-      );
+      expect(script).toContain('. "$SCRIPT_DIR/nativeRelease.sh"');
+      expect(script).toContain(`native_release_main ${target} "$@"`);
     });
   }
+
+  test("the shared runner guards both platform keys", async () => {
+    const script = await Bun.file(
+      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+    ).text();
+    const normalizedScript = script
+      .replace(/\\\n\s*/g, " ")
+      .replace(/\s+/g, " ");
+
+    expect(normalizedScript).toContain(
+      `reject_invalid_revenuecat_store_key VITE_REVENUECAT_ANDROID_API_KEY "\${VITE_REVENUECAT_ANDROID_API_KEY:-}" goog_`,
+    );
+    expect(normalizedScript).toContain(
+      `reject_invalid_revenuecat_store_key VITE_REVENUECAT_IOS_API_KEY "\${VITE_REVENUECAT_IOS_API_KEY:-}" appl_`,
+    );
+  });
+
+  test("staging API defaults stay out of production wrappers", async () => {
+    const sharedRunner = await Bun.file(
+      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+    ).text();
+
+    expect(sharedRunner).toContain(
+      '[ "$native_tier" = staging ] && native_default_api="https://api.tearleads.de"',
+    );
+    expect(sharedRunner).toContain('export NATIVE_RELEASE_TIER="$native_tier"');
+  });
 
   test("Fastlane validates keys after loading release secrets", async () => {
     const androidFastfile = await Bun.file(

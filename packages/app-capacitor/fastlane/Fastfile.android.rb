@@ -1,31 +1,29 @@
 # frozen_string_literal: true
 
 require 'date'
-require 'dotenv'
 require 'json'
 require 'open3'
 require 'shellwords'
 require 'time'
 
-ANDROID_APP_ID = 'com.tearleads.app'
-ANDROID_REPO_ROOT = File.expand_path('../../..', __dir__)
 ANDROID_DIR = File.expand_path('../android', __dir__)
 ANDROID_ASSETS_DIR = File.join(ANDROID_DIR, 'app/src/main/assets')
 ANDROID_BUILD_IMAGES_SCRIPT = File.expand_path('../scripts/buildAndroidImages.sh', __dir__)
-ANDROID_SECRETS_DIR = File.join(ANDROID_REPO_ROOT, '.secrets')
-ANDROID_ROOT_ENV_PATH = File.join(ANDROID_SECRETS_DIR, 'root.env')
-ANDROID_RELEASE_KEYSTORE_PATH = File.join(ANDROID_SECRETS_DIR, 'tearleads-release.keystore')
+ANDROID_BUILD_VARIANT = NATIVE_RELEASE_TARGET.fetch(:android_build_variant)
+ANDROID_BUILD_VARIANT_TASK = ANDROID_BUILD_VARIANT.capitalize
+ANDROID_RELEASE_KEYSTORE_PATH = File.join(NATIVE_SECRETS_DIR, 'tearleads-release.keystore')
 ANDROID_RELEASE_SIGNING_ENV_NAMES = %w[
   ANDROID_KEYSTORE_STORE_PASS
   ANDROID_KEYSTORE_KEY_PASS
 ].freeze
 DEBUG_APK_PATH = File.join(ANDROID_DIR, 'app/build/outputs/apk/debug/app-debug.apk')
-RELEASE_APK_PATH = File.join(ANDROID_DIR, 'app/build/outputs/apk/release/app-release.apk')
-RELEASE_AAB_PATH = File.join(ANDROID_DIR, 'app/build/outputs/bundle/release/app-release.aab')
-RELEASE_MAPPING_PATH = File.join(ANDROID_DIR, 'app/build/outputs/mapping/release/mapping.txt')
+ANDROID_OUTPUT_DIR = File.join(ANDROID_DIR, 'app/build/outputs')
+RELEASE_APK_PATH = File.join(ANDROID_OUTPUT_DIR, "apk/#{ANDROID_BUILD_VARIANT}/app-#{ANDROID_BUILD_VARIANT}.apk")
+RELEASE_AAB_PATH = File.join(ANDROID_OUTPUT_DIR, "bundle/#{ANDROID_BUILD_VARIANT}/app-#{ANDROID_BUILD_VARIANT}.aab")
+RELEASE_MAPPING_PATH = File.join(ANDROID_OUTPUT_DIR, "mapping/#{ANDROID_BUILD_VARIANT}/mapping.txt")
 RELEASE_NATIVE_DEBUG_SYMBOLS_PATH = File.join(
-  ANDROID_DIR,
-  'app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip'
+  ANDROID_OUTPUT_DIR,
+  "native-debug-symbols/#{ANDROID_BUILD_VARIANT}/native-debug-symbols.zip"
 )
 RELEASE_PLAY_ASSET_PATHS = [
   RELEASE_AAB_PATH,
@@ -120,12 +118,12 @@ def ensure_release_capacitor_sync!
   ensure_bundled_release_capacitor_config!(
     File.join(ANDROID_ASSETS_DIR, 'capacitor.config.json'),
     'Android',
-    'bun run cap:sync:release android'
+    "bun run #{NATIVE_CAPACITOR_SYNC_SCRIPT} android"
   )
 end
 
 def load_android_release_secrets_env
-  Dotenv.load(ANDROID_ROOT_ENV_PATH) if File.file?(ANDROID_ROOT_ENV_PATH)
+  load_native_release_secrets_env
 end
 
 def positive_android_integer(value, description)
@@ -393,7 +391,7 @@ def require_android_release_signing!
 
   UI.user_error!(
     "Android release signing is not configured. Missing #{missing_names.join(', ')} " \
-    "in the environment or #{ANDROID_ROOT_ENV_PATH}."
+    "in the environment or #{NATIVE_ROOT_ENV_PATH}."
   )
 end
 
@@ -433,9 +431,9 @@ platform :android do
   desc 'Build release APK'
   lane :build_release do
     sh('bun run build')
-    sh('bun run cap:sync:release android')
+    sh("bun run #{NATIVE_CAPACITOR_SYNC_SCRIPT} android")
     ensure_release_capacitor_sync!
-    run_android_gradle('assembleRelease')
+    run_android_gradle("assemble#{ANDROID_BUILD_VARIANT_TASK}")
   end
 
   desc 'Build signed Android App Bundle and upload companion assets for Google Play'
@@ -445,11 +443,11 @@ platform :android do
     release_build = next_android_release_build_number(options)
     require_android_release_signing!
     sh('bun run build')
-    sh('bun run cap:sync:release android')
+    sh("bun run #{NATIVE_CAPACITOR_SYNC_SCRIPT} android")
     ensure_release_capacitor_sync!
     generate_capacitor_image_assets!(ANDROID_BUILD_IMAGES_SCRIPT)
     run_android_gradle(
-      'bundleRelease',
+      "bundle#{ANDROID_BUILD_VARIANT_TASK}",
       "-P#{ANDROID_RELEASE_VERSION_CODE_PROPERTY}=#{release_build.fetch(:build_number)}"
     )
     assets = require_android_play_release_assets!

@@ -24,6 +24,42 @@ Ansible deploy. Production intentionally ignores sandbox grants. Full setup and
 the real Apple/Google sandbox checklist are in
 [`revenuecat-native-stores.md`](../../docs/developer/revenuecat-native-stores.md).
 
+## Production and staging store apps
+
+Native store releases have two targets backed by shared shell and Fastlane
+configuration:
+
+| Tier | iOS bundle ID / Android application ID | Android variant | iOS scheme / configuration |
+| --- | --- | --- | --- |
+| Production | `com.tearleads.app` | `release` | `App` / `Release` |
+| Staging | `com.tearleads.app.staging` | `staging` | `App-Staging` / `Release-Staging` |
+
+Upload staging builds with:
+
+```sh
+./scripts/uploadAndroidStagingRelease.sh
+./scripts/uploadIosStagingRelease.sh
+```
+
+The staging wrappers default to `https://api.tearleads.de`; production wrappers
+continue to default to `https://api.tearleads.com`. All wrappers delegate to
+`scripts/nativeRelease.sh`, while
+`fastlane/native_release_target.rb` owns the app identifier, Gradle variant,
+Xcode scheme, and Xcode configuration mapping.
+
+Before the first staging upload, put the `goog_...` and `appl_...` public SDK
+keys for the RevenueCat apps configured with `com.tearleads.app.staging` in
+`.secrets/staging.env` as `VITE_REVENUECAT_ANDROID_API_KEY` and
+`VITE_REVENUECAT_IOS_API_KEY`. A staging release deliberately does not inherit
+the production mobile SDK keys from `.secrets/root.env`. The Google Play service
+account must have access to the staging Play app, and the match repository must
+contain an App Store distribution profile for the staging bundle ID. Verify the
+latter with:
+
+```sh
+bun run --cwd packages/app-capacitor ios:fetch:appstore-profile:staging
+```
+
 ## Android Sideload
 
 Install repo-managed tools and Ruby gems once:
@@ -46,7 +82,8 @@ Set `ANDROID_SERIAL` when more than one device or emulator is attached:
 ANDROID_SERIAL=<device-id> bun run android:sideload:debug
 ```
 
-The release APK lane runs a release Capacitor sync before building, which disables Capacitor HTTP in the generated native config:
+The release APK lane runs a release Capacitor sync before building, which clears
+any live-reload URL from the generated native config:
 
 ```sh
 bun run android:sideload:release
@@ -105,7 +142,7 @@ bun run ios:build:testflight
 ```
 
 The lane loads `.secrets/root.env`, runs a release Capacitor sync, verifies that
-Capacitor HTTP is disabled in the generated native config, and builds
+the generated native config is fully bundled, and builds
 `ios/App/output/Tearleads.ipa`. Release signing requires a Developer Team ID via
 `IOS_TEAM_ID`, `APPLE_TEAM_ID`, `DEVELOPMENT_TEAM`, `FASTLANE_TEAM_ID`, or the
 Fastlane option `team_id:<id>`. With automatic signing, the lane passes

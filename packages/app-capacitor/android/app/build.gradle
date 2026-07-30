@@ -36,6 +36,15 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             ndk { debugSymbolLevel 'FULL' }
         }
+        staging {
+            initWith release
+            applicationIdSuffix ".staging"
+            matchingFallbacks = ['release']
+            resValue "string", "app_name", "Tearleads Staging"
+            resValue "string", "title_activity_main", "Tearleads Staging"
+            resValue "string", "package_name", "com.tearleads.app.staging"
+            resValue "string", "custom_url_scheme", "com.tearleads.app.staging"
+        }
     }
 }
 
