@@ -2,8 +2,8 @@
  * Download and store the blob bytes for a synced document's attachment slots.
  *
  * This runs inside a sync pass, so every write it makes is re-checked against
- * the pass's generation. Byte writes and their live rows share the SQL mutation
- * lock with orphan reclamation, and the rows go through
+ * the pass's generation. Byte writes and their live rows share a blob-key lock
+ * with orphan reclamation, and the rows go through
  * `saveLocalAttachmentRecords` — which realigns them with the document, so a
  * slot unlinked mid-hydration is written detached rather than live.
  */
@@ -12,7 +12,7 @@ import { hydrateDocumentAttachmentBlobs } from "../../../workflows/blobs";
 import {
   type DocumentRecord,
   type LocalAttachmentRecord,
-  runSerializedSqlMutation,
+  runSerializedDocumentBlobMutation,
 } from "../../../workflows/documents";
 import { saveLocalAttachmentRecords } from "./persistence";
 import type { DocumentState, DocumentStoreState } from "./state";
@@ -65,13 +65,13 @@ export async function hydrateAttachmentBlobs(
     return;
   }
 
-  const replacedStorageKeys = await runSerializedSqlMutation(
-    runtime.infra.execSql,
-    async (lockedExecSql) => {
-      if (!generationIsCurrent()) return null;
-      const localAttachmentRecords: LocalAttachmentRecord[] = [];
-      const nextReplacedStorageKeys: string[] = [];
-      for (const hydratedBlob of hydratedBlobs) {
+  const replacedStorageKeys: string[] = [];
+  for (const hydratedBlob of hydratedBlobs) {
+    const stored = await runSerializedDocumentBlobMutation(
+      runtime.infra.execSql,
+      hydratedBlob.storageKey,
+      async () => {
+        if (!generationIsCurrent()) return null;
         const previousStorageKey =
           state.attachmentStorageKeyBySlotId[hydratedBlob.attachment.slotId];
         await runtime.infra.blobStore.writeBytes(
@@ -79,13 +79,7 @@ export async function hydrateAttachmentBlobs(
           hydratedBlob.bytes,
         );
         if (!generationIsCurrent()) return null;
-        if (
-          previousStorageKey &&
-          previousStorageKey !== hydratedBlob.storageKey
-        ) {
-          nextReplacedStorageKeys.push(previousStorageKey);
-        }
-        localAttachmentRecords.push({
+        const localAttachmentRecord: LocalAttachmentRecord = {
           blobId: hydratedBlob.binding.blobId,
           byteLength: hydratedBlob.attachment.byteLength,
           detachedAt: null,
@@ -93,20 +87,22 @@ export async function hydrateAttachmentBlobs(
           mimeType: hydratedBlob.attachment.mimeType,
           slotId: hydratedBlob.attachment.slotId,
           storageKey: hydratedBlob.storageKey,
-        });
-      }
+        };
 
-      await saveLocalAttachmentRecords(
-        state,
-        localAttachmentRecords,
-        currentDoc,
-        expectedGeneration,
-        lockedExecSql,
-      );
-      return generationIsCurrent() ? nextReplacedStorageKeys : null;
-    },
-  );
-  if (!replacedStorageKeys) return;
+        await saveLocalAttachmentRecords(
+          state,
+          [localAttachmentRecord],
+          currentDoc,
+          expectedGeneration,
+        );
+        return generationIsCurrent() ? previousStorageKey : null;
+      },
+    );
+    if (stored === null) return;
+    if (stored && stored !== hydratedBlob.storageKey) {
+      replacedStorageKeys.push(stored);
+    }
+  }
 
   await Promise.allSettled(
     replacedStorageKeys.map((storageKey) =>

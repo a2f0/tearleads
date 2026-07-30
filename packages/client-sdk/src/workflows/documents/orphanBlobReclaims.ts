@@ -9,11 +9,13 @@ import {
   runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
+import { runSerializedDocumentBlobMutation } from "./blobMutationLock";
 import { defaultDocumentsPersistence } from "./persistence";
 import type { DocumentsWorkflowRuntimeGroups } from "./runtime";
 
 const reclaimByExecSql = new WeakMap<ExecSql, Promise<void>>();
 const ORPHAN_MAINTENANCE_KEY = "maintain:document-orphans";
+const ORPHAN_BLOB_RECLAIM_BATCH_SIZE = 64;
 
 async function reclaimQueuedBlobs(
   runtime: DocumentsWorkflowRuntimeGroups,
@@ -21,17 +23,42 @@ async function reclaimQueuedBlobs(
   const execSql = runtime.infra.execSql;
   await defaultDocumentsPersistence.ensureSchema(execSql);
   await deleteOrphanedDocumentSideRows(execSql);
-  const storageKeys = await listDocumentOrphanBlobReclaims(execSql);
+  const storageKeys = await listDocumentOrphanBlobReclaims(
+    execSql,
+    ORPHAN_BLOB_RECLAIM_BATCH_SIZE,
+  );
+  const firstStorageKey = storageKeys[0];
+  if (firstStorageKey) {
+    // Initialize lazy keyring/OPFS-backed stores before taking any blob-key
+    // lock. A failed preview is harmless: deletion can still reclaim the key.
+    await runtime.infra.blobStore
+      .openByteSource(firstStorageKey)
+      .catch(() => undefined);
+  }
   const failedStorageKeys: string[] = [];
   for (const storageKey of storageKeys) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      if (await isDocumentBlobStorageKeyReferenced(lockedExecSql, storageKey)) {
-        await acknowledgeDocumentOrphanBlobReclaim(lockedExecSql, storageKey);
-        return;
-      }
+    await runSerializedDocumentBlobMutation(execSql, storageKey, async () => {
+      const shouldDelete = await runSerializedSqlMutation(
+        execSql,
+        async (lockedExecSql) => {
+          if (
+            await isDocumentBlobStorageKeyReferenced(lockedExecSql, storageKey)
+          ) {
+            await acknowledgeDocumentOrphanBlobReclaim(
+              lockedExecSql,
+              storageKey,
+            );
+            return false;
+          }
+          return true;
+        },
+      );
+      if (!shouldDelete) return;
       try {
         await runtime.infra.blobStore.deleteBytes(storageKey);
-        await acknowledgeDocumentOrphanBlobReclaim(lockedExecSql, storageKey);
+        await runSerializedSqlMutation(execSql, (lockedExecSql) =>
+          acknowledgeDocumentOrphanBlobReclaim(lockedExecSql, storageKey),
+        );
       } catch {
         failedStorageKeys.push(storageKey);
       }

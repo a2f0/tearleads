@@ -581,7 +581,9 @@ export const documentPendingAttachments = sqliteTable(
 );
 
 /**
- * Local attachment blobs; `blobId` stays optional until remote identity.
+ * Local attachment blob projection for stored documents.
+ *
+ * Tracks locally available blobs; `blobId` is optional before remote identity.
  *
  * Columns:
  * - `localId`: Local document id that owns the attachment slot.

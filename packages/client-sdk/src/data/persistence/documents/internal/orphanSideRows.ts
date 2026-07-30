@@ -1,4 +1,4 @@
-import { and, eq, lt, notExists, type SQL } from "drizzle-orm";
+import { and, asc, eq, lt, notExists, type SQL } from "drizzle-orm";
 import { documentOrphanBlobReclaims } from "../../../sqlite/documentOrphanBlobReclaims";
 import {
   documentAttachmentBlobProjection,
@@ -16,6 +16,8 @@ import {
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { DOCUMENTS_APP_KIND } from "./constants";
 
+// Crash residue gets a full day to outlive slow devices and wall-clock skew;
+// canonical-row absence is necessary but never sufficient for fresh writes.
 const DOCUMENT_ORPHAN_SWEEP_MIN_AGE_MS = 24 * 60 * 60 * 1000;
 
 type DocumentSideLocalIdColumn =
@@ -164,11 +166,14 @@ export async function deleteOrphanedDocumentSideRows(
 
 export async function listDocumentOrphanBlobReclaims(
   execSql: ExecSql,
+  limit: number,
 ): Promise<ReadonlyArray<string>> {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({ storageKey: documentOrphanBlobReclaims.storageKey })
-    .from(documentOrphanBlobReclaims);
+    .from(documentOrphanBlobReclaims)
+    .orderBy(asc(documentOrphanBlobReclaims.storageKey))
+    .limit(limit);
   return rows.map((row) => row.storageKey);
 }
 

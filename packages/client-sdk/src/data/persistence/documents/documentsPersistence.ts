@@ -76,6 +76,7 @@ import {
 } from "./internal/documentProjectionRows";
 import {
   getDocumentScope,
+  hasDocumentRow,
   resolveDocumentSaveTimestamp,
   saveDocumentRows,
 } from "./internal/documentRows";
@@ -491,9 +492,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       .filter((localId): localId is string => localId !== null);
   },
   async hasDocument(execSql, localId) {
-    return (
-      (await loadDocumentRecord(execSql, getDocumentScope(localId))) !== null
-    );
+    return hasDocumentRow(execSql, localId);
   },
   async loadDocument(execSql, localId) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);

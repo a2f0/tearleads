@@ -30,6 +30,7 @@ export {
   savePendingDocumentAttachment,
 } from "./attachmentPersistence";
 export { resolveDocumentCreateAuthor } from "./author";
+export { runSerializedDocumentBlobMutation } from "./blobMutationLock";
 export {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,

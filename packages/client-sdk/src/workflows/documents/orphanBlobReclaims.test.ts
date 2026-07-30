@@ -4,10 +4,8 @@ import type { BlobBytes, BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import {
-  resetConnectionSchemaMemo,
-  runSerializedSqlMutation,
-} from "../../data/sqlite/sqlSchema";
+import { resetConnectionSchemaMemo } from "../../data/sqlite/sqlSchema";
+import { runSerializedDocumentBlobMutation } from "./blobMutationLock";
 import { reclaimDocumentOrphanBlobs } from "./orphanBlobReclaims";
 import type { DocumentsWorkflowRuntimeGroups } from "./runtime";
 
@@ -191,12 +189,13 @@ test("reclaim and hydration serialize byte deletion before the live row write", 
     await deleteStarted;
 
     let hydrationStarted = false;
-    const hydration = runSerializedSqlMutation(
+    const hydration = runSerializedDocumentBlobMutation(
       execSql,
-      async (lockedExecSql) => {
+      "shared-storage",
+      async () => {
         hydrationStarted = true;
         await blobStore.writeBytes("shared-storage", new Uint8Array([1]));
-        await sqlDocumentsPersistence.saveLocalAttachment(lockedExecSql, {
+        await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
           blobId: "blob-id",
           byteLength: 1,
           detachedAt: null,
@@ -220,6 +219,49 @@ test("reclaim and hydration serialize byte deletion before the live row write", 
     ).toEqual([{ storage_key: "shared-storage" }]);
   } finally {
     releaseDelete();
+    close();
+  }
+});
+
+test("orphan byte reclaim work is bounded per connection", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "bounded-orphan-blob-reclaim",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const storageKeys = Array.from(
+      { length: 65 },
+      (_, index) => `orphan-${index.toString().padStart(2, "0")}`,
+    );
+    await execSql(
+      `INSERT INTO document_orphan_blob_reclaims (storage_key)
+       VALUES ${storageKeys.map(() => "(?)").join(", ")}`,
+      storageKeys,
+    );
+    const deletedStorageKeys: string[] = [];
+    await reclaimDocumentOrphanBlobs(
+      createRuntime({
+        blobStore: {
+          deleteBytes: async (storageKey) => {
+            deletedStorageKeys.push(storageKey);
+          },
+          openByteSource: async () => null,
+          readBytes: async () => null,
+          writeByteSource: async () => undefined,
+          writeBytes: async () => undefined,
+        },
+        execSql,
+        logs: [],
+      }),
+    );
+
+    expect(deletedStorageKeys).toHaveLength(64);
+    expect(
+      await execSql(
+        "SELECT COUNT(*) AS count FROM document_orphan_blob_reclaims",
+      ),
+    ).toEqual([{ count: 1 }]);
+  } finally {
     close();
   }
 });
