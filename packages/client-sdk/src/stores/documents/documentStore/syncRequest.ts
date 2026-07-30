@@ -7,8 +7,10 @@ import {
   createDocumentWriterPublicKeyResolver,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  defaultDocumentsPersistence,
   deletePersistedDocument,
   type PendingUpdateRecord,
+  reclaimDocumentOrphanBlobs,
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../../../workflows/documents";
@@ -74,6 +76,9 @@ export async function deleteUpstreamDeletedDocument(
     });
     if (!deletionStarted || !removedInMutation) {
       return;
+    }
+    if (state.persistence === defaultDocumentsPersistence) {
+      void reclaimDocumentOrphanBlobs(state.runtime);
     }
     state.runtime.util.log(
       `Documents: removed local document ${state.localId} after remote deletion.`,

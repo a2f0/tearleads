@@ -9,6 +9,7 @@ import {
   defaultDocumentsPersistence,
   deletePersistedDocument,
   type RelinkRemoteDocumentResult,
+  reclaimDocumentOrphanBlobs,
   relinkRemoteDocument,
   resolveDocumentCreateAuthor,
 } from "../documents";
@@ -283,12 +284,15 @@ export async function purgeRemoteContainerDocument(input: {
     // document record, its client projection, pending updates, pending/local
     // attachment rows, the attachment blob projection, and the
     // document-container link projection in a single transaction.
-    await deletePersistedDocument({
+    const deleted = await deletePersistedDocument({
       documentProjectors: runtime.infra.documentProjectors,
       execSql: runtime.infra.execSql,
       localId: noteId,
       persistence,
     });
+    if (deleted && persistence === defaultDocumentsPersistence) {
+      void reclaimDocumentOrphanBlobs(runtime);
+    }
 
     runtime.util.log(
       `Container contents: purged note ${noteId} (document ${documentId})`,
@@ -319,12 +323,15 @@ export async function purgeLocalContainerDocument(input: {
   const persistence = input.persistence ?? defaultDocumentsPersistence;
 
   try {
-    await deletePersistedDocument({
+    const deleted = await deletePersistedDocument({
       documentProjectors: runtime.infra.documentProjectors,
       execSql: runtime.infra.execSql,
       localId: noteId,
       persistence,
     });
+    if (deleted && persistence === defaultDocumentsPersistence) {
+      void reclaimDocumentOrphanBlobs(runtime);
+    }
 
     runtime.util.log(`Container contents: purged local-only note ${noteId}`);
     return {

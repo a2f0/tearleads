@@ -1,6 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
-  createDocument,
   encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
@@ -9,7 +8,6 @@ import {
   mergeVersionVectors,
 } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
-import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
@@ -18,7 +16,6 @@ import {
 import {
   addDocumentAttachments,
   type DocumentAttachment,
-  ensureDocumentAttachmentStructure,
   getDocumentAttachments,
 } from "../../../data/documents/documentContent";
 import {
@@ -26,9 +23,7 @@ import {
   projectStoredDocumentState,
   readStoredDocumentState,
 } from "../../../data/documents/documentKinds";
-import { ensureDocumentRowsStructure } from "../../../data/documents/documentRowList";
 import {
-  DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentsPersistence,
   importDocumentHistoryTailUpdates,
@@ -39,6 +34,7 @@ import {
 import type { DocumentStoreRelinkInput } from "../types";
 import { reconcileLocalAttachmentDetachState } from "./attachmentDetachState";
 import { chainIdentityWrite } from "./identityWriteChain";
+import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
   advancePendingBaseVersion,
   enqueuePendingUpdate,
@@ -53,27 +49,11 @@ import {
   type DocumentStoreState,
   setReadySnapshot,
 } from "./state";
+import { createStoredDocument } from "./storedDocument";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
 } from "./syncGeneration";
-
-export async function createStoredDocument(
-  state: DocumentStoreState,
-): Promise<DocumentState> {
-  // Scope the peer seed per pane so two panes editing the same document derive
-  // distinct Loro peer ids (sharing one would corrupt the CRDT). A null
-  // peerScope (single-pane) keeps the bare scope, so the device-stable peer is
-  // unchanged for the common case.
-  const peerScope = state.runtime.state.peerScope;
-  const scope = peerScope
-    ? `${DOCUMENTS_APP_KIND}:${peerScope}`
-    : DOCUMENTS_APP_KIND;
-  const createdDoc = await createDocument(await getScopedPeerSeed(scope));
-  ensureDocumentAttachmentStructure(createdDoc);
-  ensureDocumentRowsStructure(createdDoc);
-  return createdDoc;
-}
 
 // Re-derive any attachment slot that lives in a durable pending-upload row but
 // is missing (or stale) in the loaded snapshot. The attach write path persists
@@ -440,6 +420,7 @@ async function initializeDocumentStore(
     logRevalidationScheduled(state.runtime, "startup");
   }
   scheduleSync();
+  void runDocumentOrphanMaintenance(state);
 }
 
 export function ensureDocumentStoreInitialized(

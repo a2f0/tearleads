@@ -51,7 +51,7 @@ const clientExecSqls = new WeakMap<ExecSqlClientLike, ExecSql>();
 // wrapper a caller holds.
 const serializedSqlExecCanonicals = new WeakMap<ExecSql, ExecSql>();
 
-function resolveCanonicalExecSql(execSql: ExecSql): ExecSql {
+export function resolveCanonicalExecSql(execSql: ExecSql): ExecSql {
   return serializedSqlExecCanonicals.get(execSql) ?? execSql;
 }
 

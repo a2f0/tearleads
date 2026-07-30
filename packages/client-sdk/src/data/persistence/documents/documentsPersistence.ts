@@ -33,8 +33,6 @@ import {
   deleteDocumentPendingUpdates,
   deleteDocumentRecord,
   enqueueDocumentPendingUpdateWithHistory,
-  ensureDocumentProjectionTables,
-  ensureDocumentTables,
   findLocalIdByDocumentId,
   listDocumentPendingUpdates,
   loadDocumentRecord,
@@ -43,7 +41,6 @@ import {
 import {
   documentAttachmentBlobProjection,
   documentContainerProjection,
-  documentContainerProjectionTables,
   documentMoveIntents,
   documentMoveIntentTables,
   documentPendingAttachments,
@@ -56,7 +53,6 @@ import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenc
 import {
   type ExecSql,
   ensureSqlTables,
-  runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
 import {
@@ -80,6 +76,7 @@ import {
 } from "./internal/documentProjectionRows";
 import {
   getDocumentScope,
+  hasDocumentRow,
   resolveDocumentSaveTimestamp,
   saveDocumentRows,
 } from "./internal/documentRows";
@@ -87,6 +84,8 @@ import {
   resolvePersistedAccessStateHash,
   resolvePersistedDocumentRuntimeState,
 } from "./internal/documentRuntimeState";
+import { ensureDocumentsSchema } from "./internal/ensureDocumentsSchema";
+import { queueDocumentAttachmentBlobReclaims } from "./internal/orphanSideRows";
 import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
 import type {
   ContainerDocumentTombstoneInput,
@@ -448,18 +447,7 @@ async function listDocumentsByContainerIdsOrDocumentIds(
 }
 
 const sqlStoredDocumentsPersistence: DocumentsPersistence = {
-  async ensureSchema(execSql) {
-    // Once ensured on this connection, skip the outer mutation lock entirely:
-    // ensureSchema runs on every query path, and re-acquiring the lock just to
-    // no-op would queue reads behind unrelated writes.
-    await runOncePerConnection(execSql, "ensure:documents", () =>
-      runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-        await ensureDocumentTables(lockedExecSql);
-        await ensureDocumentProjectionTables(lockedExecSql);
-        await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
-      }),
-    );
-  },
+  ensureSchema: ensureDocumentsSchema,
   async listDocuments(execSql) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     const rows = await db
@@ -502,6 +490,9 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     return rows
       .map((row) => row.localId)
       .filter((localId): localId is string => localId !== null);
+  },
+  async hasDocument(execSql, localId) {
+    return hasDocumentRow(execSql, localId);
   },
   async loadDocument(execSql, localId) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
@@ -618,13 +609,18 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       // container-contents schema, which callers of this persistence may not
       // have ensured yet.
       await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
-      const existingDocument = await sqlStoredDocumentsPersistence.loadDocument(
+      const existingDocument = await loadDocumentRecord(
         lockedExecSql,
-        localId,
+        getDocumentScope(localId),
       );
 
       await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
         async (tx) => {
+          await queueDocumentAttachmentBlobReclaims({
+            localWhere: eq(documentAttachmentBlobProjection.localId, localId),
+            pendingWhere: eq(documentPendingAttachments.localId, localId),
+            tx,
+          });
           await tx
             .delete(documentProjection)
             .where(eq(documentProjection.localId, localId))

@@ -11,7 +11,11 @@ import {
   documentProjectionText,
   documents,
 } from "../../../sqlite/schema";
-import type { ClientSQLiteTransaction } from "../../../sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteTransaction,
+  getClientSQLitePersistenceRuntime,
+} from "../../../sqlite/sqlitePersistenceRuntime";
+import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { StoredDocumentRecord } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
 import {
@@ -27,6 +31,24 @@ export function getDocumentScope(localId: string): DocumentScope {
     appKind: DOCUMENTS_APP_KIND,
     localId,
   };
+}
+
+export async function hasDocumentRow(
+  execSql: ExecSql,
+  localId: string,
+): Promise<boolean> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const rows = await db
+    .select({ localId: documents.localId })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.appKind, DOCUMENTS_APP_KIND),
+        eq(documents.localId, localId),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
 }
 
 async function loadDocumentRecordInTransaction(input: {

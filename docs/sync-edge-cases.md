@@ -93,8 +93,12 @@ without counting as lane progress, so it cannot hot-loop the pump.
   row 4's accepted bound). A future local sweep (e.g. dormant rows still
   unmatched after an access-restored full resync) could reclaim it.
 - Resurrect race (closed): a persist that expected to update re-checks the
-  row's existence inside its claimed serialized mutation and refuses —
-  history appends included — when another subsystem (e.g. the contacts
-  duplicate-self cleanup) deleted the document while the persist was queued.
-  The store's own teardown additionally invalidates its generation inside
-  the deletion mutation (row 21).
+  row's existence inside its claimed serialized mutation and refuses when
+  another subsystem deleted the document while it was queued. The refusal
+  repeats document teardown to remove side writes that queued after deletion,
+  and detached startup maintenance sweeps aged crash residue without touching
+  fresh in-progress writes or live documents; the attachment side tables are
+  document-only. Canonical SQL deletion queues attachment bytes for durable
+  reclamation across store, container-purge, and remote-delete paths; failed
+  byte deletes stay queued for the next connection. Deletion also invalidates
+  the store generation inside the mutation (row 21).

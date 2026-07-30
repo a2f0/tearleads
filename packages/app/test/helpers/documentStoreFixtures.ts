@@ -1,6 +1,5 @@
 import type { DocumentSummary, DocumentsRuntime } from "@tearleads/client-sdk";
 import {
-  createBlobByteSource,
   createDocumentsWorkflowRuntime,
   createDomainScope,
   type DocumentRecord,
@@ -9,10 +8,10 @@ import {
   type PendingAttachmentRecord,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
-  readBlobByteSource,
 } from "@tearleads/client-sdk";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
+import { createFixtureBlobStore } from "./documentStoreBlobStore";
 
 interface StoredDocumentsState {
   document: DocumentRecord | null;
@@ -38,10 +37,6 @@ type RuntimeInputOverrides = {
   state?: Partial<RuntimeInput["state"]>;
   util?: Partial<RuntimeInput["util"]>;
 };
-type FixtureBlobBytes = Parameters<
-  RuntimeInput["infra"]["blobStore"]["writeBytes"]
->[1];
-
 function documentSummaryFromRecord(record: DocumentRecord): DocumentSummary {
   return {
     accessStateHash: record.accessStateHash ?? null,
@@ -54,35 +49,13 @@ function documentSummaryFromRecord(record: DocumentRecord): DocumentSummary {
   };
 }
 
-function createFixtureBlobStore(): RuntimeInput["infra"]["blobStore"] {
-  const blobs = new Map<string, FixtureBlobBytes>();
-
-  return {
-    async deleteBytes(storageKey) {
-      blobs.delete(storageKey);
-    },
-    async readBytes(storageKey) {
-      return blobs.get(storageKey) ?? null;
-    },
-    async openByteSource(storageKey) {
-      const bytes = blobs.get(storageKey);
-      return bytes ? createBlobByteSource(bytes) : null;
-    },
-    async writeByteSource(storageKey, source) {
-      blobs.set(storageKey, await readBlobByteSource(source));
-    },
-    async writeBytes(storageKey, bytes) {
-      blobs.set(storageKey, bytes);
-    },
-  };
-}
-
 function createDocumentReadPersistence(
   state: MutableDocumentsState,
 ): Pick<
   DocumentsPersistence,
   | "ensureSchema"
   | "findDocumentLocalIdsByContainerId"
+  | "hasDocument"
   | "listDocumentSummaries"
   | "listDocuments"
   | "listDocumentsByContainerIdsOrDocumentIds"
@@ -95,6 +68,9 @@ function createDocumentReadPersistence(
       return state.document?.containerId === containerId
         ? [state.document.id]
         : [];
+    },
+    async hasDocument(_execSql, localId) {
+      return state.document?.id === localId;
     },
     async listDocuments() {
       return state.document ? [documentSummaryFromRecord(state.document)] : [];

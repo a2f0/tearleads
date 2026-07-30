@@ -10,6 +10,7 @@ export type {
 export {
   createExecSql,
   resetConnectionSchemaMemo,
+  resolveCanonicalExecSql,
   runOncePerConnection,
   runSerializedSqlMutation,
   unavailableExecSql,
