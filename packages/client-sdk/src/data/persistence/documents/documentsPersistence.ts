@@ -84,6 +84,7 @@ import {
   resolvePersistedDocumentRuntimeState,
 } from "./internal/documentRuntimeState";
 import { ensureDocumentsSchema } from "./internal/ensureDocumentsSchema";
+import { queueDocumentAttachmentBlobReclaims } from "./internal/orphanSideRows";
 import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
 import type {
   ContainerDocumentTombstoneInput,
@@ -611,6 +612,11 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
 
       await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
         async (tx) => {
+          await queueDocumentAttachmentBlobReclaims(
+            tx,
+            eq(documentPendingAttachments.localId, localId),
+            eq(documentAttachmentBlobProjection.localId, localId),
+          );
           await tx
             .delete(documentProjection)
             .where(eq(documentProjection.localId, localId))

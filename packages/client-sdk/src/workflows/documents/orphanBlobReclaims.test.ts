@@ -4,11 +4,10 @@ import type { BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import { resetConnectionSchemaMemo } from "../../data/sqlite/sqlSchema";
 import { reclaimDocumentOrphanBlobs } from "./orphanBlobReclaims";
 import type { DocumentsWorkflowRuntimeGroups } from "./runtime";
 
-const NOW = "2026-07-30T00:00:00.000Z";
+const OLD = "2026-07-01T00:00:00.000Z";
 
 function createRuntime(input: {
   blobStore: BlobStore;
@@ -51,9 +50,8 @@ test("orphan attachment bytes stay queued until local deletion succeeds", async 
       `INSERT INTO document_pending_attachments (
         local_id, slot_id, name, storage_key, byte_length, created_at
       ) VALUES ('orphan', 'slot', 'orphan.txt', 'orphan-storage', 1, ?)`,
-      [NOW],
+      [OLD],
     );
-    resetConnectionSchemaMemo(execSql);
 
     const deletedStorageKeys: string[] = [];
     const logs: string[] = [];
@@ -77,7 +75,7 @@ test("orphan attachment bytes stay queued until local deletion succeeds", async 
       await execSql("SELECT storage_key FROM document_orphan_blob_reclaims"),
     ).toEqual([{ storage_key: "orphan-storage" }]);
     expect(logs).toEqual([
-      "Documents: could not reclaim orphan blob orphan-storage",
+      "Documents: orphan maintenance failed: could not reclaim 1 orphan blob(s): orphan-storage",
     ]);
 
     failDeletes = false;
@@ -89,6 +87,56 @@ test("orphan attachment bytes stay queued until local deletion succeeds", async 
     expect(
       await execSql("SELECT local_id FROM document_pending_attachments"),
     ).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("a queued key still referenced by a live row is acknowledged but not deleted", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "referenced-orphan-blob-reclaim",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await execSql(
+      `INSERT INTO documents (app_kind, local_id, updated_at)
+       VALUES ('documents', 'live', ?)`,
+      [OLD],
+    );
+    await execSql(
+      `INSERT INTO document_pending_attachments (
+        local_id, slot_id, name, storage_key, byte_length, created_at
+      ) VALUES ('live', 'slot', 'live.txt', 'shared-storage', 1, ?)`,
+      [OLD],
+    );
+    await execSql(
+      `INSERT INTO document_orphan_blob_reclaims (storage_key)
+       VALUES ('shared-storage')`,
+    );
+    const deletedStorageKeys: string[] = [];
+    const runtime = createRuntime({
+      blobStore: {
+        deleteBytes: async (storageKey) => {
+          deletedStorageKeys.push(storageKey);
+        },
+        openByteSource: async () => null,
+        readBytes: async () => null,
+        writeByteSource: async () => undefined,
+        writeBytes: async () => undefined,
+      },
+      execSql,
+      logs: [],
+    });
+
+    await reclaimDocumentOrphanBlobs(runtime);
+
+    expect(deletedStorageKeys).toEqual([]);
+    expect(
+      await execSql("SELECT storage_key FROM document_orphan_blob_reclaims"),
+    ).toEqual([]);
+    expect(
+      await execSql("SELECT storage_key FROM document_pending_attachments"),
+    ).toEqual([{ storage_key: "shared-storage" }]);
   } finally {
     close();
   }

@@ -66,6 +66,17 @@ test("an update persist refuses to resurrect a deleted row", async () => {
         updateData: "b3JwaGFuZWQtc2lkZS13cml0ZQ==",
       },
     );
+    const queuedAttachmentWrite = sqlDocumentsPersistence.savePendingAttachment(
+      execSql,
+      {
+        byteLength: 1,
+        localId: "victim",
+        mimeType: "text/plain",
+        name: "racing.txt",
+        slotId: "racing-slot",
+        storageKey: "racing-storage",
+      },
+    );
     const queuedPersist = persistDocumentState({
       currentDoc: doc,
       currentRecord,
@@ -81,6 +92,7 @@ test("an update persist refuses to resurrect a deleted row", async () => {
     releaseHeldMutation();
     await heldMutation;
     await queuedSideWrite;
+    await queuedAttachmentWrite;
 
     expect(await queuedPersist).toBeNull();
     expect(
@@ -93,6 +105,9 @@ test("an update persist refuses to resurrect a deleted row", async () => {
     expect(
       await sqlDocumentsPersistence.listPendingUpdates(execSql, "victim"),
     ).toEqual([]);
+    expect(
+      await execSql("SELECT storage_key FROM document_orphan_blob_reclaims"),
+    ).toEqual([{ storage_key: "racing-storage" }]);
   } finally {
     close();
   }

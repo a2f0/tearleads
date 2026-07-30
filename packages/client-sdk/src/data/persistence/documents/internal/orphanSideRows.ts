@@ -1,4 +1,4 @@
-import { and, eq, notExists, type SQL } from "drizzle-orm";
+import { and, eq, lt, notExists, type SQL } from "drizzle-orm";
 import { documentOrphanBlobReclaims } from "../../../sqlite/documentOrphanBlobReclaims";
 import {
   documentAttachmentBlobProjection,
@@ -15,6 +15,8 @@ import {
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { DOCUMENTS_APP_KIND } from "./constants";
+
+const DOCUMENT_ORPHAN_SWEEP_MIN_AGE_MS = 24 * 60 * 60 * 1000;
 
 type DocumentSideLocalIdColumn =
   | typeof documentAttachmentBlobProjection.localId
@@ -41,40 +43,64 @@ function hasNoDocument(
   );
 }
 
-/** Remove document side writes left behind without a canonical record row. */
+export async function queueDocumentAttachmentBlobReclaims(
+  tx: ClientSQLiteTransaction,
+  pendingWhere: SQL | undefined,
+  localWhere: SQL | undefined,
+): Promise<void> {
+  const [pendingAttachmentRows, localAttachmentRows] = await Promise.all([
+    tx
+      .select({ storageKey: documentPendingAttachments.storageKey })
+      .from(documentPendingAttachments)
+      .where(pendingWhere),
+    tx
+      .select({ storageKey: documentAttachmentBlobProjection.storageKey })
+      .from(documentAttachmentBlobProjection)
+      .where(localWhere),
+  ]);
+  const storageKeys = [
+    ...new Set(
+      [...pendingAttachmentRows, ...localAttachmentRows].map(
+        (row) => row.storageKey,
+      ),
+    ),
+  ];
+  if (storageKeys.length > 0) {
+    await tx
+      .insert(documentOrphanBlobReclaims)
+      .values(storageKeys.map((storageKey) => ({ storageKey })))
+      .onConflictDoNothing()
+      .run();
+  }
+}
+
+/** Remove aged document side writes left behind without a canonical row. */
 export async function deleteOrphanedDocumentSideRows(
   execSql: ExecSql,
+  olderThan = new Date(
+    Date.now() - DOCUMENT_ORPHAN_SWEEP_MIN_AGE_MS,
+  ).toISOString(),
 ): Promise<void> {
   await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    const [pendingAttachmentRows, localAttachmentRows] = await Promise.all([
-      tx
-        .select({ storageKey: documentPendingAttachments.storageKey })
-        .from(documentPendingAttachments)
-        .where(hasNoDocument(tx, documentPendingAttachments.localId)),
-      tx
-        .select({ storageKey: documentAttachmentBlobProjection.storageKey })
-        .from(documentAttachmentBlobProjection)
-        .where(hasNoDocument(tx, documentAttachmentBlobProjection.localId)),
-    ]);
-    const storageKeys = [
-      ...new Set(
-        [...pendingAttachmentRows, ...localAttachmentRows].map(
-          (row) => row.storageKey,
-        ),
-      ),
-    ];
-    if (storageKeys.length > 0) {
-      await tx
-        .insert(documentOrphanBlobReclaims)
-        .values(storageKeys.map((storageKey) => ({ storageKey })))
-        .onConflictDoNothing()
-        .run();
-    }
+    const pendingAttachmentWhere = and(
+      lt(documentPendingAttachments.createdAt, olderThan),
+      hasNoDocument(tx, documentPendingAttachments.localId),
+    );
+    const localAttachmentWhere = and(
+      lt(documentAttachmentBlobProjection.updatedAt, olderThan),
+      hasNoDocument(tx, documentAttachmentBlobProjection.localId),
+    );
+    await queueDocumentAttachmentBlobReclaims(
+      tx,
+      pendingAttachmentWhere,
+      localAttachmentWhere,
+    );
     await tx
       .delete(documentHistoryCheckpoints)
       .where(
         and(
           eq(documentHistoryCheckpoints.appKind, DOCUMENTS_APP_KIND),
+          lt(documentHistoryCheckpoints.updatedAt, olderThan),
           hasNoDocument(tx, documentHistoryCheckpoints.localId),
         ),
       )
@@ -84,6 +110,7 @@ export async function deleteOrphanedDocumentSideRows(
       .where(
         and(
           eq(documentHistoryUpdates.appKind, DOCUMENTS_APP_KIND),
+          lt(documentHistoryUpdates.createdAt, olderThan),
           hasNoDocument(tx, documentHistoryUpdates.localId),
         ),
       )
@@ -93,6 +120,7 @@ export async function deleteOrphanedDocumentSideRows(
       .where(
         and(
           eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
+          lt(documentPendingUpdates.createdAt, olderThan),
           hasNoDocument(tx, documentPendingUpdates.localId),
         ),
       )
@@ -102,17 +130,18 @@ export async function deleteOrphanedDocumentSideRows(
       .where(
         and(
           eq(documentSyncFailures.appKind, DOCUMENTS_APP_KIND),
+          lt(documentSyncFailures.attemptedAt, olderThan),
           hasNoDocument(tx, documentSyncFailures.localId),
         ),
       )
       .run();
     await tx
       .delete(documentPendingAttachments)
-      .where(hasNoDocument(tx, documentPendingAttachments.localId))
+      .where(pendingAttachmentWhere)
       .run();
     await tx
       .delete(documentAttachmentBlobProjection)
-      .where(hasNoDocument(tx, documentAttachmentBlobProjection.localId))
+      .where(localAttachmentWhere)
       .run();
   });
 }

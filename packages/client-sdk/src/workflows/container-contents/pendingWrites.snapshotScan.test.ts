@@ -83,8 +83,6 @@ test("listPendingWrites never queries the durable content tables", async () => {
       return execSql(sql, bind, options);
     }) as ExecSql;
 
-    await sqlDocumentsPersistence.ensureSchema(spyExecSql);
-    capturedSql.length = 0;
     const items = await listPendingWrites(spyExecSql);
 
     // The deferred tail must still be detected through the derived column...

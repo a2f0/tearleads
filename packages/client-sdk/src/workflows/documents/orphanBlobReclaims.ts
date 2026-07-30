@@ -1,53 +1,43 @@
 import {
   acknowledgeDocumentOrphanBlobReclaim,
+  deleteOrphanedDocumentSideRows,
   isDocumentBlobStorageKeyReferenced,
   listDocumentOrphanBlobReclaims,
 } from "../../data/persistence/documents/internal/orphanSideRows";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  type ExecSql,
+  runOncePerConnection,
+} from "../../data/sqlite/sqlSchema";
 import { defaultDocumentsPersistence } from "./persistence";
 import type { DocumentsWorkflowRuntimeGroups } from "./runtime";
 
-const BLOB_RECLAIM_ATTEMPTS = 3;
 const reclaimByExecSql = new WeakMap<ExecSql, Promise<void>>();
-
-async function deleteBlobBytes(
-  runtime: DocumentsWorkflowRuntimeGroups,
-  storageKey: string,
-): Promise<boolean> {
-  for (let attempt = 0; attempt < BLOB_RECLAIM_ATTEMPTS; attempt += 1) {
-    try {
-      await runtime.infra.blobStore.deleteBytes(storageKey);
-      return true;
-    } catch {
-      // Local byte stores can fail transiently while a handle is still open.
-    }
-  }
-  return false;
-}
+const ORPHAN_MAINTENANCE_KEY = "maintain:document-orphans";
 
 async function reclaimQueuedBlobs(
   runtime: DocumentsWorkflowRuntimeGroups,
 ): Promise<void> {
   const execSql = runtime.infra.execSql;
-  try {
-    await defaultDocumentsPersistence.ensureSchema(execSql);
-    const storageKeys = await listDocumentOrphanBlobReclaims(execSql);
-    for (const storageKey of storageKeys) {
-      const stillReferenced = await isDocumentBlobStorageKeyReferenced(
-        execSql,
-        storageKey,
-      );
-      if (!stillReferenced && !(await deleteBlobBytes(runtime, storageKey))) {
-        runtime.util.log(
-          `Documents: could not reclaim orphan blob ${storageKey}`,
-        );
-        continue;
-      }
+  await defaultDocumentsPersistence.ensureSchema(execSql);
+  await deleteOrphanedDocumentSideRows(execSql);
+  const storageKeys = await listDocumentOrphanBlobReclaims(execSql);
+  const failedStorageKeys: string[] = [];
+  for (const storageKey of storageKeys) {
+    if (await isDocumentBlobStorageKeyReferenced(execSql, storageKey)) {
       await acknowledgeDocumentOrphanBlobReclaim(execSql, storageKey);
+      continue;
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    runtime.util.log(`Documents: orphan blob maintenance failed: ${message}`);
+    try {
+      await runtime.infra.blobStore.deleteBytes(storageKey);
+      await acknowledgeDocumentOrphanBlobReclaim(execSql, storageKey);
+    } catch {
+      failedStorageKeys.push(storageKey);
+    }
+  }
+  if (failedStorageKeys.length > 0) {
+    throw new Error(
+      `could not reclaim ${failedStorageKeys.length} orphan blob(s): ${failedStorageKeys.join(", ")}`,
+    );
   }
 }
 
@@ -62,9 +52,16 @@ export function reclaimDocumentOrphanBlobs(
   if (existing) {
     return existing;
   }
-  const reclaim = reclaimQueuedBlobs(runtime).finally(() => {
-    reclaimByExecSql.delete(runtime.infra.execSql);
-  });
+  const reclaim = runOncePerConnection(
+    runtime.infra.execSql,
+    ORPHAN_MAINTENANCE_KEY,
+    () => reclaimQueuedBlobs(runtime),
+  )
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      runtime.util.log(`Documents: orphan maintenance failed: ${message}`);
+    })
+    .finally(() => reclaimByExecSql.delete(runtime.infra.execSql));
   reclaimByExecSql.set(runtime.infra.execSql, reclaim);
   return reclaim;
 }

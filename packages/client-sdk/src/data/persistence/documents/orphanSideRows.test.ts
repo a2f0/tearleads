@@ -4,12 +4,14 @@ import {
   ensureDocumentProjectionTables,
   ensureDocumentTables,
 } from "../../sqlite/documentPersistence";
-import { resetConnectionSchemaMemo } from "../../sqlite/sqlSchema";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
+import { deleteOrphanedDocumentSideRows } from "./internal/orphanSideRows";
 
-const NOW = "2026-07-30T00:00:00.000Z";
+const OLD = "2026-07-01T00:00:00.000Z";
+const FRESH = "2026-07-30T00:00:00.000Z";
+const CUTOFF = "2026-07-29T00:00:00.000Z";
 
-test("schema initialization sweeps orphan document side rows", async () => {
+test("maintenance sweeps aged orphan rows but preserves fresh and live rows", async () => {
   const { close, execSql } = await createTestExecSql("orphan-side-row-sweep");
   try {
     await ensureDocumentTables(execSql);
@@ -17,7 +19,7 @@ test("schema initialization sweeps orphan document side rows", async () => {
     await execSql(
       `INSERT INTO documents (app_kind, local_id, updated_at)
        VALUES ('documents', 'live', ?)`,
-      [NOW],
+      [OLD],
     );
     await execSql(
       `INSERT INTO document_history_checkpoints (
@@ -25,8 +27,9 @@ test("schema initialization sweeps orphan document side rows", async () => {
       ) VALUES
         ('documents', 'live', 'snapshot', 'end', 'live-revision', ?),
         ('documents', 'orphan', 'snapshot', 'end', 'orphan-revision', ?),
+        ('documents', 'fresh', 'snapshot', 'end', 'fresh-revision', ?),
         ('container-metadata', 'metadata', 'snapshot', 'end', 'metadata-revision', ?)`,
-      [NOW, NOW, NOW],
+      [OLD, OLD, FRESH, OLD],
     );
     await execSql(
       `INSERT INTO document_history_updates (
@@ -34,8 +37,9 @@ test("schema initialization sweeps orphan document side rows", async () => {
       ) VALUES
         ('live-history', 'documents', 'live', 'update', 'local', ?),
         ('orphan-history', 'documents', 'orphan', 'update', 'local', ?),
+        ('fresh-history', 'documents', 'fresh', 'update', 'local', ?),
         ('metadata-history', 'container-metadata', 'metadata', 'update', 'local', ?)`,
-      [NOW, NOW, NOW],
+      [OLD, OLD, FRESH, OLD],
     );
     await execSql(
       `INSERT INTO document_pending_updates (
@@ -44,8 +48,9 @@ test("schema initialization sweeps orphan document side rows", async () => {
       ) VALUES
         ('live-update', 'documents', 'live', 'update', 'start', 'end', ?),
         ('orphan-update', 'documents', 'orphan', 'update', 'start', 'end', ?),
+        ('fresh-update', 'documents', 'fresh', 'update', 'start', 'end', ?),
         ('metadata-update', 'container-metadata', 'metadata', 'update', 'start', 'end', ?)`,
-      [NOW, NOW, NOW],
+      [OLD, OLD, FRESH, OLD],
     );
     await execSql(
       `INSERT INTO document_sync_failures (
@@ -53,27 +58,31 @@ test("schema initialization sweeps orphan document side rows", async () => {
       ) VALUES
         ('documents', 'live', 409, 'live', ?),
         ('documents', 'orphan', 409, 'orphan', ?),
+        ('documents', 'fresh', 409, 'fresh', ?),
         ('container-metadata', 'metadata', 409, 'metadata', ?)`,
-      [NOW, NOW, NOW],
+      [OLD, OLD, FRESH, OLD],
     );
     await execSql(
       `INSERT INTO document_pending_attachments (
         local_id, slot_id, name, storage_key, byte_length, created_at
       ) VALUES
         ('live', 'live-slot', 'live.txt', 'live-pending', 1, ?),
-        ('orphan', 'orphan-slot', 'orphan.txt', 'orphan-pending', 1, ?)`,
-      [NOW, NOW],
+        ('orphan', 'orphan-slot', 'orphan.txt', 'orphan-pending', 1, ?),
+        ('fresh', 'fresh-slot', 'fresh.txt', 'fresh-pending', 1, ?)`,
+      [OLD, OLD, FRESH],
     );
     await execSql(
       `INSERT INTO document_attachment_blob_projection (
         local_id, slot_id, storage_key, byte_length, updated_at
       ) VALUES
         ('live', 'live-slot', 'live-local', 1, ?),
-        ('orphan', 'orphan-slot', 'orphan-local', 1, ?)`,
-      [NOW, NOW],
+        ('orphan', 'orphan-slot', 'orphan-local', 1, ?),
+        ('fresh', 'fresh-slot', 'fresh-local', 1, ?)`,
+      [OLD, OLD, FRESH],
     );
 
     await sqlDocumentsPersistence.ensureSchema(execSql);
+    await deleteOrphanedDocumentSideRows(execSql, CUTOFF);
 
     for (const table of [
       "document_history_checkpoints",
@@ -88,6 +97,7 @@ test("schema initialization sweeps orphan document side rows", async () => {
         ),
       ).toEqual([
         { appKind: "container-metadata", localId: "metadata" },
+        { appKind: "documents", localId: "fresh" },
         { appKind: "documents", localId: "live" },
       ]);
     }
@@ -99,7 +109,7 @@ test("schema initialization sweeps orphan document side rows", async () => {
         await execSql(
           `SELECT local_id AS localId FROM ${table} ORDER BY local_id`,
         ),
-      ).toEqual([{ localId: "live" }]);
+      ).toEqual([{ localId: "fresh" }, { localId: "live" }]);
     }
     expect(
       await execSql(
@@ -110,28 +120,6 @@ test("schema initialization sweeps orphan document side rows", async () => {
       { storageKey: "orphan-local" },
       { storageKey: "orphan-pending" },
     ]);
-
-    await execSql(
-      `INSERT INTO document_pending_updates (
-        id, app_kind, local_id, update_data,
-        partial_start_version_vector, partial_end_version_vector, created_at
-      ) VALUES ('late', 'documents', 'late-orphan', 'update', 'start', 'end', ?)`,
-      [NOW],
-    );
-    await sqlDocumentsPersistence.ensureSchema(execSql);
-    expect(
-      await execSql(
-        "SELECT id FROM document_pending_updates WHERE id = 'late'",
-      ),
-    ).toEqual([{ id: "late" }]);
-
-    resetConnectionSchemaMemo(execSql);
-    await sqlDocumentsPersistence.ensureSchema(execSql);
-    expect(
-      await execSql(
-        "SELECT id FROM document_pending_updates WHERE id = 'late'",
-      ),
-    ).toEqual([]);
   } finally {
     close();
   }
