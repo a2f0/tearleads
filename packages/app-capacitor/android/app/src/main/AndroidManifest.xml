@@ -8,13 +8,16 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- Keep this singleTop when regenerating the Capacitor platform: other
+             launch modes can cancel external payment verification returns.
+             https://www.revenuecat.com/docs/getting-started/installation/capacitor -->
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:windowSoftInputMode="adjustResize"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
-            android:launchMode="singleTask"
+            android:launchMode="singleTop"
             android:exported="true">
 
             <intent-filter>

@@ -442,6 +442,7 @@ platform :ios do
   desc 'Build signed iOS IPA for TestFlight'
   lane :build_testflight_release do |options|
     load_ios_release_secrets_env
+    ensure_revenuecat_store_key!('VITE_REVENUECAT_IOS_API_KEY', 'appl_')
     release_build = next_ios_release_build_number(options)
     team_id = require_ios_team_id!(options)
     Dir.chdir(IOS_PACKAGE_DIR) do

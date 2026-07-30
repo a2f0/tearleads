@@ -46,6 +46,96 @@ The key is selected by `Capacitor.getPlatform()`, and the Capacitor web preview
 (`cap run` in a browser) always gets the unavailable stub: it has no store
 bridge, regardless of which keys are inlined.
 
+## Fastest path: RevenueCat Test Store
+
+Use the Test Store first to prove the app-side flow before waiting on App Store
+Connect or Play Console. The project's current `default` offering already has a
+`$rc_monthly` package whose Test Store product is `sync_monthly`, attached to
+the `sync` entitlement. `@revenuecat/purchases-capacitor` 13.2.1 is newer than
+RevenueCat's minimum Test Store-compatible Capacitor SDK (11.2.6).
+
+Pass the public Test Store key as a one-build override. The run scripts preserve
+an already-exported value, so the platform keys in `.secrets/root.env` remain
+untouched:
+
+```sh
+VITE_REVENUECAT_IOS_API_KEY=test_... ./scripts/runIos.sh
+VITE_REVENUECAT_ANDROID_API_KEY=test_... ./scripts/runAndroid.sh
+```
+
+For an end-to-end staging test, point the mobile bundle at the reachable staging
+API instead of the local default:
+
+```sh
+VITE_API_BASE_URL=https://api.tearleads.de \
+VITE_REVENUECAT_IOS_API_KEY=test_... \
+./scripts/runIos.sh
+```
+
+Then sign in, open Organization Manager → Billing as an organization admin, and
+verify this sequence:
+
+1. The `Sync` monthly option and its price load from the current offering.
+2. Subscribe opens the RevenueCat Test Store sheet; cancelling returns without
+   a failure message.
+3. Completing the purchase activates the `sync` entitlement for the signed-in
+   app user in RevenueCat.
+4. The RevenueCat customer has the selected organization's `orgId` subscriber
+   attribute.
+5. With sandbox events enabled on staging, the webhook updates the organization
+   billing snapshot and the activation-pending state clears.
+6. Restore Purchases completes and the entitlement remains active.
+
+This proves the Capacitor bridge, shared billing UI, identity, org attribution,
+webhook, and entitlement mapping. It does not exercise StoreKit or Google Play
+Billing. Never submit a build containing a `test_...` key; RevenueCat requires a
+platform-specific public key in store builds.
+
+## Apple sandbox / TestFlight
+
+Before testing the real Apple purchase sheet:
+
+1. In App Store Connect, create the auto-renewable subscription under bundle ID
+   `com.tearleads.app` and finish its required localization, price, and review
+   metadata.
+2. Connect that Apple app to RevenueCat, including its In-App Purchase key, and
+   import the product. Attach it to `$rc_monthly` in the current `default`
+   offering and to the `sync` entitlement.
+3. Keep `VITE_REVENUECAT_IOS_API_KEY` set to that Apple app's public `appl_...`
+   key. The Xcode project records the In-App Purchase capability and Swift 5;
+   StoreKit does not use a code-signing entitlement for in-app purchases, so
+   App Store Connect and RevenueCat configuration remain authoritative.
+4. Create an App Store Connect sandbox tester. Run from Xcode on a device, or
+   use TestFlight; use the sandbox account when StoreKit prompts.
+5. Repeat the purchase/cancel/restore checks above and confirm the transaction
+   appears with sandbox data enabled in RevenueCat.
+
+An Xcode StoreKit configuration file is useful for local StoreKit behavior, but
+its product must still exist in RevenueCat and its certificate must be uploaded
+to the RevenueCat Apple app. A physical device or TestFlight remains the final
+check for the real store integration.
+
+## Google Play sandbox
+
+Before testing the real Google Play purchase sheet:
+
+1. In Play Console, create and activate the subscription product and base plan
+   for application ID `com.tearleads.app`.
+2. Connect that Google app and its service credentials to RevenueCat, import the
+   product, and attach it to `$rc_monthly` plus the `sync` entitlement.
+3. Keep `VITE_REVENUECAT_ANDROID_API_KEY` set to that Google app's public
+   `goog_...` key. The activity uses `singleTop`, so returning from a banking or
+   verification app does not cancel the purchase flow.
+4. Upload a signed bundle to a Play testing track, make it available in the
+   tester's country, add the account as both a track tester and a license tester,
+   and open the track opt-in URL with that account.
+5. Test on a device signed into only that licensed tester account (or a Play
+   Services emulator), then confirm purchase/cancel/restore and RevenueCat's
+   sandbox transaction.
+
+The Google Billing permission is contributed by the SDK's Play Billing
+dependency during manifest merging.
+
 ## Getting the SDK key into a dev build
 
 Fastlane's `Dotenv.load` puts the whole of `.secrets/root.env` into the
@@ -101,8 +191,8 @@ webhook secret.
 ## Not yet decided
 
 The native lane can observe and mirror entitlements today, but what it *sells*
-is unrecorded — there is no store product, no RevenueCat offering, and no seat
-semantics for a store purchase. Until that is settled:
+is unrecorded — there is no Apple/Google store product and no seat semantics for
+a store purchase. Until that is settled:
 
 - A store subscription carries no quantity. Stripe is the seat-quantity authority
   for web (see [revenuecat-billing.md](./revenuecat-billing.md#per-seat-behavior)),
@@ -111,3 +201,9 @@ semantics for a store purchase. Until that is settled:
 - Cancel is provider-managed. The panel's inline cancel is Stripe-only; a store
   subscription surfaces the RevenueCat management URL instead, which resolves to
   the platform's own subscriptions page.
+
+The Test Store checklist above is therefore an integration proof, not a product
+decision. Before real store products are offered, decide whether a mobile
+subscription licenses one organization at a fixed capacity, is single-user
+only, or maps to another server-enforced seat model. Store subscriptions do not
+carry Stripe-style item quantity.

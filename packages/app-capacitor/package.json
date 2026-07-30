@@ -29,7 +29,7 @@
     "ios:fetch:appstore-profile": "bundle exec fastlane ios fetch_appstore_profile",
     "store:build-numbers": "bundle exec fastlane store_build_numbers",
     "lint:rubocop": "bundle exec rubocop",
-    "test": "bun test src --pass-with-no-tests"
+    "test": "bun test src tests --pass-with-no-tests"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "8.1.0",
