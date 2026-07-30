@@ -95,11 +95,27 @@ function toggleColumn(view: ReturnType<typeof render>, label: string) {
   );
 }
 
+/**
+ * Every body row's cell under the named column, found by the column's accessible
+ * name rather than by position — so switching another column on or off does not
+ * silently move which cell an assertion reads.
+ */
+function cellsUnder(view: ReturnType<typeof render>, name: string) {
+  const index = view
+    .getAllByRole("columnheader")
+    .indexOf(view.getByRole("columnheader", { name }));
+  return view
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => row.querySelectorAll("td")[index]?.textContent);
+}
+
 test("read mode lists every entry under one set of column headers", () => {
   const view = renderReadTable();
   const table = view.getByRole("table", { name: "Readings" });
-  // The default column set: attribution starts switched off (see below).
-  const columnNames = ["#", "Reading", "Pulse", "Measured", "Notes", "Actions"];
+  // The default column set: the ordinal and the attribution both start
+  // switched off (see below), so the table opens on the measurements.
+  const columnNames = ["Reading", "Pulse", "Measured", "Notes", "Actions"];
 
   for (const name of columnNames) {
     expect(within(table).getByRole("columnheader", { name })).toBeTruthy();
@@ -116,29 +132,25 @@ test("read mode lists every entry under one set of column headers", () => {
 
 test("read mode sorts by a column without renumbering the entries", () => {
   const view = renderReadTable();
-  const cellsInColumn = (column: number) =>
-    view
-      .getAllByRole("row")
-      .slice(1)
-      .map((row) => row.querySelectorAll("td")[column]?.textContent);
+  toggleColumn(view, "#");
   const sortState = () =>
     view
       .getByRole("columnheader", { name: "Reading" })
       .getAttribute("aria-sort");
 
-  expect(cellsInColumn(1)).toEqual(["120/80 mmHg", "118/76 mmHg"]);
+  expect(cellsUnder(view, "Reading")).toEqual(["120/80 mmHg", "118/76 mmHg"]);
 
   // Ascending by systolic puts the lower reading first. The ordinals travel with
   // their rows, because they name the reading — and the controls named after it —
   // rather than its position on screen.
   fireEvent.click(view.getByRole("button", { name: "Reading" }));
-  expect(cellsInColumn(1)).toEqual(["118/76 mmHg", "120/80 mmHg"]);
-  expect(cellsInColumn(0)).toEqual(["2", "1"]);
+  expect(cellsUnder(view, "Reading")).toEqual(["118/76 mmHg", "120/80 mmHg"]);
+  expect(cellsUnder(view, "#")).toEqual(["2", "1"]);
   expect(sortState()).toBe("ascending");
 
   // Clicking the active header again reverses it.
   fireEvent.click(view.getByRole("button", { name: "Reading" }));
-  expect(cellsInColumn(1)).toEqual(["120/80 mmHg", "118/76 mmHg"]);
+  expect(cellsUnder(view, "Reading")).toEqual(["120/80 mmHg", "118/76 mmHg"]);
   expect(sortState()).toBe("descending");
 });
 
@@ -150,11 +162,7 @@ test("read mode orders a column's blank cells last in both directions", () => {
       makeReading({ id: "r-high", diastolic: "90", systolic: "140" }),
     ],
   });
-  const readings = () =>
-    view
-      .getAllByRole("row")
-      .slice(1)
-      .map((row) => row.querySelectorAll("td")[1]?.textContent);
+  const readings = () => cellsUnder(view, "Reading");
 
   fireEvent.click(view.getByRole("button", { name: "Reading" }));
   expect(readings()).toEqual(["110/70 mmHg", "140/90 mmHg", "None"]);
@@ -228,11 +236,7 @@ test("hiding the sorted column returns to the default order, and un-hiding resto
       makeReading({ diastolic: "76", id: "r2", pulse: "60", systolic: "118" }),
     ],
   });
-  const readings = () =>
-    view
-      .getAllByRole("row")
-      .slice(1)
-      .map((row) => row.querySelectorAll("td")[1]?.textContent);
+  const readings = () => cellsUnder(view, "Reading");
 
   fireEvent.click(view.getByRole("button", { name: "Pulse" }));
   expect(readings()).toEqual(["118/76 mmHg", "120/80 mmHg"]);
@@ -243,9 +247,13 @@ test("hiding the sorted column returns to the default order, and un-hiding resto
   toggleColumn(view, "Pulse");
   expect(view.queryByRole("columnheader", { name: "Pulse" })).toBeNull();
   expect(readings()).toEqual(["120/80 mmHg", "118/76 mmHg"]);
+  // Back to the list's own order, and with the ordinal off there is no header
+  // left claiming a sort — which is the honest reading of an unsorted table.
   expect(
-    view.getByRole("columnheader", { name: "#" }).getAttribute("aria-sort"),
-  ).toBe("ascending");
+    view
+      .getAllByRole("columnheader")
+      .map((header) => header.getAttribute("aria-sort")),
+  ).not.toContain("ascending");
 
   // The chosen sort was kept, not discarded, so bringing the column back resumes
   // it rather than making the reader pick it again.
@@ -264,11 +272,7 @@ test("a half-recorded reading sorts last in both directions", () => {
       makeReading({ diastolic: "70", id: "r-low", systolic: "110" }),
     ],
   });
-  const readings = () =>
-    view
-      .getAllByRole("row")
-      .slice(1)
-      .map((row) => row.querySelectorAll("td")[1]?.textContent);
+  const readings = () => cellsUnder(view, "Reading");
 
   fireEvent.click(view.getByRole("button", { name: "Reading" }));
   expect(readings()).toEqual(["110/70 mmHg", "120/80 mmHg", "120/— mmHg"]);

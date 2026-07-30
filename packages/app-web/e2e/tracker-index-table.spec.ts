@@ -105,14 +105,17 @@ test("windowed tracker index draws its readings as one column grid", async ({
   await expect(table).toBeVisible();
   await expectColumnarRows(table, 2);
 
-  // Sorting is the header's, and it reorders the rows in place rather than
-  // renumbering them: the ordinal names the reading, not its row.
-  await expect(
-    explorerWindow.locator("th[aria-sort='ascending']").getByText("#"),
-  ).toBeVisible();
+  // The table opens on the list's own order, claiming no sort of its own: the
+  // ordinal column that would carry that claim is off by default.
+  await expect(table.locator("th[aria-sort='ascending']")).toHaveCount(0);
+  await expect(table.getByRole("columnheader", { name: "#" })).toHaveCount(0);
+
+  // Sorting is the header's, and it reorders the rows in place.
   await table.getByRole("button", { exact: true, name: "Reading" }).click();
   await expect(table.locator("tbody tr").first()).toContainText("118/76 mmHg");
-  await expect(table.locator("tbody tr").first()).toContainText("2");
+  await expect(
+    table.locator("th[aria-sort='ascending']").getByText("Reading"),
+  ).toBeVisible();
 });
 
 test("routed tracker index folds on a phone and unfolds on a tablet", async ({
