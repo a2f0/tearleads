@@ -154,7 +154,8 @@ function renderContainerItemTable(
 
 // The detail pane resolves compact/rowHeight and hands them down, so a folded
 // render is expressed by passing them rather than by faking a viewport. The
-// routed mock stays: it still drives the touch-only kebab column.
+// routed mock stays: these are the phone's assertions, and the routed layout is
+// what the fold's own CSS and row pitch key off.
 function renderFoldedItemTable(
   overrides: Partial<ExplorerContainerItemTableProps> = {},
 ) {

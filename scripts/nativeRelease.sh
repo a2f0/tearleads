@@ -25,7 +25,7 @@ ${native_action_description} the ${native_tier} ${native_platform} store release
 
 The native app identifier is selected by NATIVE_RELEASE_TIER:
   production  com.tearleads.app
-  staging     com.tearleads.app.staging
+  staging     com.tearleads.staging.app
 
 Environment:
   VITE_API_BASE_URL  API URL inlined into the Capacitor bundle.

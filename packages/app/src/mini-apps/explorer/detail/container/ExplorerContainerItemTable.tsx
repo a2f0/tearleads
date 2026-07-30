@@ -6,7 +6,6 @@ import type {
 } from "@tearleads/client-sdk";
 import { type DragEvent, type MouseEvent, useMemo } from "react";
 import {
-  addMiniAppTableHeaderAction,
   MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
   MiniAppTable,
@@ -21,7 +20,6 @@ import {
 } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../../../components/shared/classNames";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
-import { useRoutedLayoutActive } from "../../../../navigation/useRoutedLayoutActive";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../../labels";
 import {
@@ -302,14 +300,11 @@ function useExplorerContainerItemTableColumns({
   ItemTableProps,
   "compact" | "hiddenColumns" | "onSort" | "sort" | "toggleColumn"
 >) {
-  // `compact` folds the data columns into one two-line summary column; the
-  // touch (routed) layout — phone AND tablet/iPad — adds the trailing kebab,
-  // the stand-in for right-click.
-  const showActions = useRoutedLayoutActive();
+  // `compact` folds the data columns into one two-line summary column. The
+  // trailing kebab is not layout-dependent: every tier carries it.
   const columnIds = useMemo(
-    () =>
-      getVisibleExplorerItemColumnIds({ compact, hiddenColumns, showActions }),
-    [compact, hiddenColumns, showActions],
+    () => getVisibleExplorerItemColumnIds({ compact, hiddenColumns }),
+    [compact, hiddenColumns],
   );
   const columns = useMemo(() => {
     const columnMenu = compact ? null : (
@@ -324,21 +319,16 @@ function useExplorerContainerItemTableColumns({
         toggleColumn={toggleColumn}
       />
     );
-    const dataColumnIds = columnIds.filter((id) => id !== "actions");
-    const dataColumns = getExplorerItemTableColumns({
-      columnIds: dataColumnIds,
-      onSort,
-      sort,
-    });
-    if (dataColumnIds.length === columnIds.length) {
-      return addMiniAppTableHeaderAction(dataColumns, columnMenu);
-    }
 
-    // The kebab column is the trailing edge on touch layouts, so the
-    // column-menu button rides in its header to stay flush right — on the last
-    // data column it would sit one narrow column in from the edge.
+    // The kebab column is the table's trailing edge, so the column-menu button
+    // rides in its header to stay flush right — on the last data column it
+    // would sit one narrow column in from the edge.
     return [
-      ...dataColumns,
+      ...getExplorerItemTableColumns({
+        columnIds: columnIds.filter((id) => id !== "actions"),
+        onSort,
+        sort,
+      }),
       ...getExplorerItemTableColumns({
         columnIds: ["actions"],
         columnMenu,

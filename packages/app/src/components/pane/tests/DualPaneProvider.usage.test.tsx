@@ -39,6 +39,7 @@ import { Pane } from "../shell/Pane";
 
 const ORG_MANAGER_USAGE_TEST_TIMEOUT_MS = 20_000;
 const BOOTSTRAP_SYNC_SETTLE_TIMEOUT_MS = 6_000;
+const ORG_MANAGER_RENDER_TIMEOUT_MS = 3_000;
 const NETWORK_IDLE_QUIET_MS = 25;
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
 const PANE_USER_ID_PATTERN =
@@ -143,9 +144,12 @@ async function openOrgManager(pane: HTMLElement) {
     fireEvent.click(openOrgManagerButton);
   });
 
-  await waitFor(() => {
-    expect(within(pane).getByRole("button", { name: "Groups" })).toBeTruthy();
-  });
+  await waitFor(
+    () => {
+      expect(within(pane).getByRole("button", { name: "Groups" })).toBeTruthy();
+    },
+    { timeout: ORG_MANAGER_RENDER_TIMEOUT_MS },
+  );
 }
 
 async function openOrgManagerUsage(pane: HTMLElement) {
@@ -156,11 +160,14 @@ async function openOrgManagerUsage(pane: HTMLElement) {
     );
   });
 
-  await waitFor(() => {
-    expect(
-      within(pane).getByText(ORG_MANAGER_LABELS.organizationDataUsage),
-    ).toBeTruthy();
-  });
+  await waitFor(
+    () => {
+      expect(
+        within(pane).getByText(ORG_MANAGER_LABELS.organizationDataUsage),
+      ).toBeTruthy();
+    },
+    { timeout: ORG_MANAGER_RENDER_TIMEOUT_MS },
+  );
 }
 
 function getOrgManagerWindowRoot(pane: HTMLElement): HTMLElement {

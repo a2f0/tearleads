@@ -8,7 +8,9 @@ android {
         buildConfig true
     }
     defaultConfig {
-        applicationId "com.tearleads.app"
+        // Every build type must add a suffix to this non-shippable base ID.
+        // Staging inherits release, then overrides its suffix below.
+        applicationId "com.tearleads"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode configuredVersionCode()
@@ -29,7 +31,11 @@ android {
         }
     }
     buildTypes {
+        debug {
+            applicationIdSuffix ".app"
+        }
         release {
+            applicationIdSuffix ".app"
             signingConfig hasReleaseKeystore() ? signingConfigs.release : signingConfigs.debug
             minifyEnabled true
             shrinkResources true
@@ -38,7 +44,7 @@ android {
         }
         staging {
             initWith release
-            applicationIdSuffix ".staging"
+            applicationIdSuffix ".staging.app"
             matchingFallbacks = ['release']
         }
     }
