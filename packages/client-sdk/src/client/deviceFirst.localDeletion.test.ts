@@ -87,6 +87,16 @@ test("local deletion evicts a cached device-first summary until disposal", async
   );
   const domainScope = createDomainScope();
   const apiClient = createMockApiClient();
+  const deletedStorageKeys: string[] = [];
+  const blobStore = {
+    deleteBytes: async (storageKey: string) => {
+      deletedStorageKeys.push(storageKey);
+    },
+    openByteSource: async () => null,
+    readBytes: async () => null,
+    writeByteSource: async () => undefined,
+    writeBytes: async () => undefined,
+  } satisfies BlobStore;
   const workflowInput = {
     apiClient,
     resolveTrustedUserIdentity: async () => null,
@@ -101,7 +111,7 @@ test("local deletion evicts a cached device-first summary until disposal", async
       signingKeyPair: null,
     },
     infra: {
-      blobStore: {} as BlobStore,
+      blobStore,
       dbStatus: "ready",
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
@@ -146,6 +156,14 @@ test("local deletion evicts a cached device-first summary until disposal", async
 
   try {
     await seedCachedDocuments(execSql);
+    await defaultDocumentsPersistence.savePendingAttachment(execSql, {
+      byteLength: 1,
+      localId: "note-1",
+      mimeType: "text/plain",
+      name: "queued.txt",
+      slotId: "queued-slot",
+      storageKey: "queued-storage",
+    });
     const view = deviceFirst.openView();
     view.updateRuntime(runtime);
     await waitFor(
@@ -165,6 +183,10 @@ test("local deletion evicts a cached device-first summary until disposal", async
       notifications += 1;
     });
     await expect(documents.delete("note-1")).resolves.toBe(true);
+    await waitFor(
+      () => deletedStorageKeys.includes("queued-storage"),
+      "Document deletion did not wake orphan blob reclamation.",
+    );
     expect(
       view
         .getSnapshot()

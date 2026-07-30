@@ -577,13 +577,16 @@ export const documentPendingAttachments = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.localId, table.slotId] }),
     index("document_pending_attachments_mime_type_idx").on(table.mimeType),
+    index("document_pending_attachments_storage_key_idx").on(table.storageKey),
   ],
 );
 
 /**
  * Local attachment blob projection for stored documents.
  *
- * Tracks locally available blobs; `blobId` is optional before remote identity.
+ * This table tracks the attachment blobs currently available to the client for
+ * each document slot. `blobId` is optional because the local storage key can be
+ * known before the server blob identity has been assigned or downloaded.
  *
  * Columns:
  * - `localId`: Local document id that owns the attachment slot.
@@ -620,6 +623,9 @@ export const documentAttachmentBlobProjection = sqliteTable(
     primaryKey({ columns: [table.localId, table.slotId] }),
     index("document_attachment_blob_projection_mime_type_idx").on(
       table.mimeType,
+    ),
+    index("document_attachment_blob_projection_storage_key_idx").on(
+      table.storageKey,
     ),
   ],
 );

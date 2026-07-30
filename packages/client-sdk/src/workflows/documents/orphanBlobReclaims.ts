@@ -14,84 +14,156 @@ import { defaultDocumentsPersistence } from "./persistence";
 import type { DocumentsWorkflowRuntimeGroups } from "./runtime";
 
 const reclaimByExecSql = new WeakMap<ExecSql, Promise<void>>();
+const reclaimRerunByExecSql = new WeakSet<ExecSql>();
+const deferredStorageKeysByExecSql = new WeakMap<
+  ExecSql,
+  Map<string, number>
+>();
 const ORPHAN_MAINTENANCE_KEY = "maintain:document-orphans";
 const ORPHAN_BLOB_RECLAIM_BATCH_SIZE = 64;
+const ORPHAN_BLOB_RECLAIM_TIME_BUDGET_MS = 250;
+const ORPHAN_BLOB_RECLAIM_RETRY_DELAY_MS = 30_000;
+const ORPHAN_BLOB_RECLAIM_LOG_SAMPLE_SIZE = 3;
+
+export type DocumentOrphanBlobReclaimRuntime = Pick<
+  DocumentsWorkflowRuntimeGroups,
+  "infra" | "util"
+>;
+
+function clearExpiredDeferredStorageKeys(
+  deferredStorageKeys: Map<string, number>,
+  now: number,
+): void {
+  for (const [storageKey, retryAt] of deferredStorageKeys) {
+    if (retryAt <= now) deferredStorageKeys.delete(storageKey);
+  }
+}
 
 async function reclaimQueuedBlobs(
-  runtime: DocumentsWorkflowRuntimeGroups,
-): Promise<void> {
+  runtime: DocumentOrphanBlobReclaimRuntime,
+): Promise<boolean> {
   const execSql = runtime.infra.execSql;
   await defaultDocumentsPersistence.ensureSchema(execSql);
-  await deleteOrphanedDocumentSideRows(execSql);
-  const storageKeys = await listDocumentOrphanBlobReclaims(
-    execSql,
-    ORPHAN_BLOB_RECLAIM_BATCH_SIZE,
+  await runOncePerConnection(execSql, ORPHAN_MAINTENANCE_KEY, () =>
+    deleteOrphanedDocumentSideRows(execSql),
   );
-  const firstStorageKey = storageKeys[0];
-  if (firstStorageKey) {
-    // Initialize lazy keyring/OPFS-backed stores before taking any blob-key
-    // lock. A failed preview is harmless: deletion can still reclaim the key.
-    await runtime.infra.blobStore
-      .openByteSource(firstStorageKey)
-      .catch(() => undefined);
-  }
+
+  const startedAt = Date.now();
+  const deferredStorageKeys =
+    deferredStorageKeysByExecSql.get(execSql) ?? new Map<string, number>();
+  deferredStorageKeysByExecSql.set(execSql, deferredStorageKeys);
   const failedStorageKeys: string[] = [];
-  for (const storageKey of storageKeys) {
-    await runSerializedDocumentBlobMutation(execSql, storageKey, async () => {
-      const shouldDelete = await runSerializedSqlMutation(
-        execSql,
-        async (lockedExecSql) => {
-          if (
-            await isDocumentBlobStorageKeyReferenced(lockedExecSql, storageKey)
-          ) {
-            await acknowledgeDocumentOrphanBlobReclaim(
-              lockedExecSql,
-              storageKey,
-            );
-            return false;
-          }
-          return true;
-        },
-      );
-      if (!shouldDelete) return;
-      try {
-        await runtime.infra.blobStore.deleteBytes(storageKey);
-        await runSerializedSqlMutation(execSql, (lockedExecSql) =>
-          acknowledgeDocumentOrphanBlobReclaim(lockedExecSql, storageKey),
+  let warmedBlobStore = false;
+
+  while (true) {
+    clearExpiredDeferredStorageKeys(deferredStorageKeys, Date.now());
+    const queuedStorageKeys = await listDocumentOrphanBlobReclaims(
+      execSql,
+      ORPHAN_BLOB_RECLAIM_BATCH_SIZE + deferredStorageKeys.size,
+    );
+    const storageKeys = queuedStorageKeys
+      .filter((storageKey) => !deferredStorageKeys.has(storageKey))
+      .slice(0, ORPHAN_BLOB_RECLAIM_BATCH_SIZE);
+    if (storageKeys.length === 0) break;
+
+    const firstStorageKey = storageKeys[0];
+    if (!warmedBlobStore && firstStorageKey) {
+      // Initialize lazy keyring/OPFS-backed stores before taking any blob-key
+      // lock. A failed preview is harmless: deletion can still reclaim the key.
+      await runtime.infra.blobStore
+        .openByteSource(firstStorageKey)
+        .catch(() => undefined);
+      warmedBlobStore = true;
+    }
+
+    for (const storageKey of storageKeys) {
+      await runSerializedDocumentBlobMutation(execSql, storageKey, async () => {
+        const shouldDelete = await runSerializedSqlMutation(
+          execSql,
+          async (lockedExecSql) => {
+            if (
+              await isDocumentBlobStorageKeyReferenced(
+                lockedExecSql,
+                storageKey,
+              )
+            ) {
+              await acknowledgeDocumentOrphanBlobReclaim(
+                lockedExecSql,
+                storageKey,
+              );
+              return false;
+            }
+            return true;
+          },
         );
-      } catch {
-        failedStorageKeys.push(storageKey);
-      }
-    });
+        if (!shouldDelete) return;
+        try {
+          await runtime.infra.blobStore.deleteBytes(storageKey);
+          await runSerializedSqlMutation(execSql, (lockedExecSql) =>
+            acknowledgeDocumentOrphanBlobReclaim(lockedExecSql, storageKey),
+          );
+        } catch {
+          failedStorageKeys.push(storageKey);
+          deferredStorageKeys.set(
+            storageKey,
+            Date.now() + ORPHAN_BLOB_RECLAIM_RETRY_DELAY_MS,
+          );
+        }
+      });
+    }
+
+    if (Date.now() - startedAt >= ORPHAN_BLOB_RECLAIM_TIME_BUDGET_MS) {
+      if (failedStorageKeys.length > 0) break;
+      return true;
+    }
+  }
+
+  if (deferredStorageKeys.size === 0) {
+    deferredStorageKeysByExecSql.delete(execSql);
   }
   if (failedStorageKeys.length > 0) {
+    const sample = failedStorageKeys
+      .slice(0, ORPHAN_BLOB_RECLAIM_LOG_SAMPLE_SIZE)
+      .join(", ");
     runtime.util.log(
-      `Documents: orphan maintenance deferred ${failedStorageKeys.length} blob(s): ${failedStorageKeys.join(", ")}`,
+      `Documents: orphan maintenance deferred ${failedStorageKeys.length} blob(s): ${sample}`,
     );
   }
+  return false;
 }
 
 /** Sweep orphan rows and reclaim their queued local attachment bytes. */
 export function reclaimDocumentOrphanBlobs(
-  runtime: DocumentsWorkflowRuntimeGroups,
+  runtime: DocumentOrphanBlobReclaimRuntime,
 ): Promise<void> {
   if (runtime.infra.dbStatus !== "ready") {
     return Promise.resolve();
   }
-  const existing = reclaimByExecSql.get(runtime.infra.execSql);
+  const execSql = runtime.infra.execSql;
+  const existing = reclaimByExecSql.get(execSql);
   if (existing) {
+    reclaimRerunByExecSql.add(execSql);
     return existing;
   }
-  const reclaim = runOncePerConnection(
-    runtime.infra.execSql,
-    ORPHAN_MAINTENANCE_KEY,
-    () => reclaimQueuedBlobs(runtime),
-  )
+
+  let shouldContinue = false;
+  const reclaim = reclaimQueuedBlobs(runtime)
+    .then((hasMore) => {
+      shouldContinue = hasMore;
+    })
     .catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       runtime.util.log(`Documents: orphan maintenance failed: ${message}`);
     })
-    .finally(() => reclaimByExecSql.delete(runtime.infra.execSql));
-  reclaimByExecSql.set(runtime.infra.execSql, reclaim);
+    .finally(() => {
+      reclaimByExecSql.delete(execSql);
+      const wasRerunRequested = reclaimRerunByExecSql.delete(execSql);
+      if (shouldContinue || wasRerunRequested) {
+        setTimeout(() => {
+          void reclaimDocumentOrphanBlobs(runtime);
+        }, 0);
+      }
+    });
+  reclaimByExecSql.set(execSql, reclaim);
   return reclaim;
 }

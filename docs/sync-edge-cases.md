@@ -97,7 +97,8 @@ without counting as lane progress, so it cannot hot-loop the pump.
   another subsystem deleted the document while it was queued. The refusal
   repeats document teardown to remove side writes that queued after deletion,
   and detached startup maintenance sweeps aged crash residue without touching
-  fresh in-progress writes, live documents, or other app kinds. Canonical SQL
+  fresh in-progress writes or live documents; the attachment side tables are
+  document-only. Canonical SQL
   deletion queues attachment bytes for durable reclamation across store,
   container-purge, and remote-delete paths; failed byte deletes stay queued for
   the next connection. Deletion also invalidates the store generation inside

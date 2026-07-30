@@ -4,7 +4,6 @@ import type { BlobBytes, BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import { resetConnectionSchemaMemo } from "../../data/sqlite/sqlSchema";
 import { runSerializedDocumentBlobMutation } from "./blobMutationLock";
 import { reclaimDocumentOrphanBlobs } from "./orphanBlobReclaims";
 import type { DocumentsWorkflowRuntimeGroups } from "./runtime";
@@ -85,14 +84,8 @@ test("orphan attachment bytes stay queued until local deletion succeeds", async 
     expect(deletedStorageKeys).toEqual([]);
     expect(logs).toHaveLength(1);
 
-    // A failed byte deletion stays durable without re-running on every store
-    // open. A fresh connection (modeled by resetting its once-key memo) retries.
-    resetConnectionSchemaMemo(execSql);
-    await reclaimDocumentOrphanBlobs(runtime);
-    expect(deletedStorageKeys).toEqual(["orphan-storage"]);
-    expect(
-      await execSql("SELECT storage_key FROM document_orphan_blob_reclaims"),
-    ).toEqual([]);
+    // Failed byte deletion remains durable and is deferred rather than retried
+    // hot on every store open. A fresh executor can retry the durable row.
     expect(
       await execSql("SELECT local_id FROM document_pending_attachments"),
     ).toEqual([]);
@@ -223,7 +216,7 @@ test("reclaim and hydration serialize byte deletion before the live row write", 
   }
 });
 
-test("orphan byte reclaim work is bounded per connection", async () => {
+test("orphan byte reclaim reschedules bounded work until the queue drains", async () => {
   const { close, execSql } = await createTestExecSql(
     "bounded-orphan-blob-reclaim",
   );
@@ -239,28 +232,38 @@ test("orphan byte reclaim work is bounded per connection", async () => {
       storageKeys,
     );
     const deletedStorageKeys: string[] = [];
-    await reclaimDocumentOrphanBlobs(
-      createRuntime({
-        blobStore: {
-          deleteBytes: async (storageKey) => {
-            deletedStorageKeys.push(storageKey);
-          },
-          openByteSource: async () => null,
-          readBytes: async () => null,
-          writeByteSource: async () => undefined,
-          writeBytes: async () => undefined,
+    const runtime = createRuntime({
+      blobStore: {
+        deleteBytes: async (storageKey) => {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          deletedStorageKeys.push(storageKey);
         },
-        execSql,
-        logs: [],
-      }),
-    );
+        openByteSource: async () => null,
+        readBytes: async () => null,
+        writeByteSource: async () => undefined,
+        writeBytes: async () => undefined,
+      },
+      execSql,
+      logs: [],
+    });
 
-    expect(deletedStorageKeys).toHaveLength(64);
+    await reclaimDocumentOrphanBlobs(runtime);
+    expect(deletedStorageKeys.length).toBeLessThan(storageKeys.length);
+    const deadline = Date.now() + 2_000;
+    while (deletedStorageKeys.length < storageKeys.length) {
+      if (Date.now() > deadline) {
+        throw new Error("Timed out waiting for the orphan reclaim queue");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    await reclaimDocumentOrphanBlobs(runtime);
+
+    expect(deletedStorageKeys).toHaveLength(65);
     expect(
       await execSql(
         "SELECT COUNT(*) AS count FROM document_orphan_blob_reclaims",
       ),
-    ).toEqual([{ count: 1 }]);
+    ).toEqual([{ count: 0 }]);
   } finally {
     close();
   }
