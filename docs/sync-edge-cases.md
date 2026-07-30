@@ -96,7 +96,8 @@ without counting as lane progress, so it cannot hot-loop the pump.
   row's existence inside its claimed serialized mutation and refuses when
   another subsystem deleted the document while it was queued. The refusal
   repeats document teardown to remove side writes that queued after deletion,
-  and startup maintenance sweeps aged crash residue without touching fresh
-  in-progress writes, live documents, or other app kinds. The store's teardown
-  queues attachment bytes for durable reclamation and additionally
-  invalidates its generation inside the deletion mutation (row 21).
+  and detached startup maintenance sweeps aged crash residue without touching
+  fresh in-progress writes, live documents, or other app kinds. The store's
+  teardown queues attachment bytes for durable reclamation; failed byte deletes
+  stay queued for the next connection. Deletion also invalidates the store
+  generation inside the mutation (row 21).

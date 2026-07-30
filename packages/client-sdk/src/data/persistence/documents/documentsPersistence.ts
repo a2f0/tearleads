@@ -490,6 +490,11 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       .map((row) => row.localId)
       .filter((localId): localId is string => localId !== null);
   },
+  async hasDocument(execSql, localId) {
+    return (
+      (await loadDocumentRecord(execSql, getDocumentScope(localId))) !== null
+    );
+  },
   async loadDocument(execSql, localId) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     const [documentRecord, projectionRows] = await Promise.all([
@@ -605,18 +610,18 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       // container-contents schema, which callers of this persistence may not
       // have ensured yet.
       await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
-      const existingDocument = await sqlStoredDocumentsPersistence.loadDocument(
+      const existingDocument = await loadDocumentRecord(
         lockedExecSql,
-        localId,
+        getDocumentScope(localId),
       );
 
       await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
         async (tx) => {
-          await queueDocumentAttachmentBlobReclaims(
+          await queueDocumentAttachmentBlobReclaims({
+            localWhere: eq(documentAttachmentBlobProjection.localId, localId),
+            pendingWhere: eq(documentPendingAttachments.localId, localId),
             tx,
-            eq(documentPendingAttachments.localId, localId),
-            eq(documentAttachmentBlobProjection.localId, localId),
-          );
+          });
           await tx
             .delete(documentProjection)
             .where(eq(documentProjection.localId, localId))

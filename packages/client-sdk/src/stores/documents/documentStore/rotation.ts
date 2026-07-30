@@ -18,8 +18,8 @@ import {
   listPendingUpdates,
   pendingDeltaSinceBase,
 } from "./persistence";
-import { createStoredDocument } from "./startup";
 import type { DocumentStoreState } from "./state";
+import { createStoredDocument } from "./storedDocument";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,

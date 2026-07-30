@@ -26,10 +26,20 @@ type DocumentSideLocalIdColumn =
   | typeof documentPendingUpdates.localId
   | typeof documentSyncFailures.localId;
 
+function requirePredicate(predicate: SQL | undefined): SQL {
+  if (!predicate) {
+    throw new Error("Document orphan cleanup requires a SQL predicate");
+  }
+  return predicate;
+}
+
 function hasNoDocument(
   tx: ClientSQLiteTransaction,
   localId: DocumentSideLocalIdColumn,
 ): SQL {
+  // Attachment tables have no app-kind discriminator because they are owned
+  // exclusively by documents. If another app kind gains attachments, it must
+  // get its own tables or add app-kind before sharing this orphan predicate.
   return notExists(
     tx
       .select({ localId: documents.localId })
@@ -43,11 +53,12 @@ function hasNoDocument(
   );
 }
 
-export async function queueDocumentAttachmentBlobReclaims(
-  tx: ClientSQLiteTransaction,
-  pendingWhere: SQL | undefined,
-  localWhere: SQL | undefined,
-): Promise<void> {
+export async function queueDocumentAttachmentBlobReclaims(input: {
+  localWhere: SQL;
+  pendingWhere: SQL;
+  tx: ClientSQLiteTransaction;
+}): Promise<void> {
+  const { localWhere, pendingWhere, tx } = input;
   const [pendingAttachmentRows, localAttachmentRows] = await Promise.all([
     tx
       .select({ storageKey: documentPendingAttachments.storageKey })
@@ -77,24 +88,29 @@ export async function queueDocumentAttachmentBlobReclaims(
 /** Remove aged document side writes left behind without a canonical row. */
 export async function deleteOrphanedDocumentSideRows(
   execSql: ExecSql,
-  olderThan = new Date(
-    Date.now() - DOCUMENT_ORPHAN_SWEEP_MIN_AGE_MS,
-  ).toISOString(),
+  options: { now?: Date | undefined } = {},
 ): Promise<void> {
+  const olderThan = new Date(
+    (options.now?.getTime() ?? Date.now()) - DOCUMENT_ORPHAN_SWEEP_MIN_AGE_MS,
+  ).toISOString();
   await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    const pendingAttachmentWhere = and(
-      lt(documentPendingAttachments.createdAt, olderThan),
-      hasNoDocument(tx, documentPendingAttachments.localId),
+    const pendingAttachmentWhere = requirePredicate(
+      and(
+        lt(documentPendingAttachments.createdAt, olderThan),
+        hasNoDocument(tx, documentPendingAttachments.localId),
+      ),
     );
-    const localAttachmentWhere = and(
-      lt(documentAttachmentBlobProjection.updatedAt, olderThan),
-      hasNoDocument(tx, documentAttachmentBlobProjection.localId),
+    const localAttachmentWhere = requirePredicate(
+      and(
+        lt(documentAttachmentBlobProjection.updatedAt, olderThan),
+        hasNoDocument(tx, documentAttachmentBlobProjection.localId),
+      ),
     );
-    await queueDocumentAttachmentBlobReclaims(
+    await queueDocumentAttachmentBlobReclaims({
+      localWhere: localAttachmentWhere,
+      pendingWhere: pendingAttachmentWhere,
       tx,
-      pendingAttachmentWhere,
-      localAttachmentWhere,
-    );
+    });
     await tx
       .delete(documentHistoryCheckpoints)
       .where(

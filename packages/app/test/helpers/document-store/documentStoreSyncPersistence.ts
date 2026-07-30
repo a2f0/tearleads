@@ -107,6 +107,9 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async findDocumentLocalIdsByContainerId(_execSql, containerId) {
       return document?.containerId === containerId ? [document.id] : [];
     },
+    async hasDocument(_execSql, localId) {
+      return document?.id === localId;
+    },
     getState() {
       return {
         document,

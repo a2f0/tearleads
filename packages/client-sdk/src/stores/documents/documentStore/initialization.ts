@@ -34,6 +34,7 @@ import {
 import type { DocumentStoreRelinkInput } from "../types";
 import { reconcileLocalAttachmentDetachState } from "./attachmentDetachState";
 import { chainIdentityWrite } from "./identityWriteChain";
+import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
   advancePendingBaseVersion,
   enqueuePendingUpdate,
@@ -43,12 +44,12 @@ import {
   saveLocalAttachmentRecord,
 } from "./persistence";
 import { logRevalidationScheduled } from "./remoteRevalidationTelemetry";
-import { createStoredDocument, runDocumentOrphanMaintenance } from "./startup";
 import {
   type DocumentState,
   type DocumentStoreState,
   setReadySnapshot,
 } from "./state";
+import { createStoredDocument } from "./storedDocument";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
@@ -307,7 +308,7 @@ async function initializeDocumentStore(
   // replaced record and doc back to life. Every reset bumps the local write
   // generation, so a stale capture here aborts before each assignment batch.
   const initializeGeneration = state.localWriteGeneration;
-  await runDocumentOrphanMaintenance(state);
+  void runDocumentOrphanMaintenance(state);
 
   const nextDoc = await createStoredDocument(state);
   const persistedState = await loadPersistedDocumentStoreState({

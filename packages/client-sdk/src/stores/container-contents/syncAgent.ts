@@ -27,7 +27,6 @@ import {
   isDatabaseUnavailableError,
   registerContainerContentsSyncLane,
 } from "../../workflows/container-contents/syncLane";
-import { reclaimDocumentOrphanBlobs } from "../../workflows/documents";
 import { openDocumentStore, requestDomainDocumentSync } from "../documents";
 import {
   primeStoreDocumentSubtree,
@@ -188,7 +187,6 @@ async function initializeContainerContentsStore(input: {
     return;
   }
 
-  await reclaimDocumentOrphanBlobs(state.runtime);
   const localContainerStates = await loadLocalContainerStates({
     persistence: state.persistence,
     runtime: state.runtime,

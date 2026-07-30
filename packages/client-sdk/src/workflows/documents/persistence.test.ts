@@ -104,7 +104,7 @@ test("persistDocumentState ensures client projection tables once per executor an
   }) as ExecSql;
   let currentRecord: DocumentRecord | null = null;
   const persistence = {
-    loadDocument: async () => currentRecord,
+    hasDocument: async () => currentRecord !== null,
     loadDocumentContainer: async () =>
       currentRecord ? { containerId: currentRecord.containerId } : undefined,
     saveDocument: async (_execSql: ExecSql, record: DocumentRecord) => {
@@ -216,7 +216,7 @@ test("a persist without an explicit frontier retains the stored one", async () =
   const persistence = {
     // The row exists (orphan placement): a missing row would now refuse the
     // update-persist outright via the resurrect guard.
-    loadDocument: async () => currentRecord,
+    hasDocument: async () => true,
     loadDocumentContainer: async () => ({ containerId: null }),
     saveDocument: async (
       _execSql: ExecSql,
@@ -256,7 +256,7 @@ test("a missing container projection does not delete a canonical document", asyn
     deleteDocument: async () => {
       deletes += 1;
     },
-    loadDocument: async () => currentRecord,
+    hasDocument: async () => true,
     loadDocumentContainer: async () => undefined,
     saveDocument: async () => {
       saves += 1;

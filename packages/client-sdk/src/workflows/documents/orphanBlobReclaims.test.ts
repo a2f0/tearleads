@@ -4,6 +4,7 @@ import type { BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import { resetConnectionSchemaMemo } from "../../data/sqlite/sqlSchema";
 import { reclaimDocumentOrphanBlobs } from "./orphanBlobReclaims";
 import type { DocumentsWorkflowRuntimeGroups } from "./runtime";
 
@@ -75,10 +76,17 @@ test("orphan attachment bytes stay queued until local deletion succeeds", async 
       await execSql("SELECT storage_key FROM document_orphan_blob_reclaims"),
     ).toEqual([{ storage_key: "orphan-storage" }]);
     expect(logs).toEqual([
-      "Documents: orphan maintenance failed: could not reclaim 1 orphan blob(s): orphan-storage",
+      "Documents: orphan maintenance deferred 1 blob(s): orphan-storage",
     ]);
 
     failDeletes = false;
+    await reclaimDocumentOrphanBlobs(runtime);
+    expect(deletedStorageKeys).toEqual([]);
+    expect(logs).toHaveLength(1);
+
+    // A failed byte deletion stays durable without re-running on every store
+    // open. A fresh connection (modeled by resetting its once-key memo) retries.
+    resetConnectionSchemaMemo(execSql);
     await reclaimDocumentOrphanBlobs(runtime);
     expect(deletedStorageKeys).toEqual(["orphan-storage"]);
     expect(

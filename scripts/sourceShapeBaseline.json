@@ -245,10 +245,6 @@
       "lines": 503,
       "bytes": 14866
     },
-    "packages/app/test/helpers/documentStoreFixtures.ts": {
-      "lines": 503,
-      "bytes": 15697
-    },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 1023,
       "bytes": 30269

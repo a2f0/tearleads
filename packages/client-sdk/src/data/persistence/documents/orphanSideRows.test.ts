@@ -9,7 +9,7 @@ import { deleteOrphanedDocumentSideRows } from "./internal/orphanSideRows";
 
 const OLD = "2026-07-01T00:00:00.000Z";
 const FRESH = "2026-07-30T00:00:00.000Z";
-const CUTOFF = "2026-07-29T00:00:00.000Z";
+const NOW = new Date("2026-07-30T12:00:00.000Z");
 
 test("maintenance sweeps aged orphan rows but preserves fresh and live rows", async () => {
   const { close, execSql } = await createTestExecSql("orphan-side-row-sweep");
@@ -82,7 +82,7 @@ test("maintenance sweeps aged orphan rows but preserves fresh and live rows", as
     );
 
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    await deleteOrphanedDocumentSideRows(execSql, CUTOFF);
+    await deleteOrphanedDocumentSideRows(execSql, { now: NOW });
 
     for (const table of [
       "document_history_checkpoints",

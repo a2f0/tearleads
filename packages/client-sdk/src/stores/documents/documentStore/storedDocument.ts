@@ -2,11 +2,7 @@ import { createDocument } from "@tearleads/loro";
 import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
 import { ensureDocumentAttachmentStructure } from "../../../data/documents/documentContent";
 import { ensureDocumentRowsStructure } from "../../../data/documents/documentRowList";
-import {
-  DOCUMENTS_APP_KIND,
-  defaultDocumentsPersistence,
-  reclaimDocumentOrphanBlobs,
-} from "../../../workflows/documents";
+import { DOCUMENTS_APP_KIND } from "../../../workflows/documents";
 import type { DocumentState, DocumentStoreState } from "./state";
 
 export async function createStoredDocument(
@@ -24,12 +20,4 @@ export async function createStoredDocument(
   ensureDocumentAttachmentStructure(createdDoc);
   ensureDocumentRowsStructure(createdDoc);
   return createdDoc;
-}
-
-export async function runDocumentOrphanMaintenance(
-  state: DocumentStoreState,
-): Promise<void> {
-  if (state.persistence === defaultDocumentsPersistence) {
-    await reclaimDocumentOrphanBlobs(state.runtime);
-  }
 }

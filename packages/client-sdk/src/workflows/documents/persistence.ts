@@ -328,12 +328,12 @@ export async function persistDocumentState(
   }
 
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    // Refuse an UPDATE after canonical deletion, checking inside this mutation.
-    // Repeat teardown for side writes queued behind deletion; absence of only
-    // the container projection is not deletion.
+    // A persist that expected to UPDATE must never resurrect a canonical row
+    // deleted while it waited for this mutation lock. Refuse the whole persist,
+    // including history, and clear side writes that queued behind the deletion.
     if (
       currentRecord &&
-      !(await persistence.loadDocument(lockedExecSql, localId))
+      !(await persistence.hasDocument(lockedExecSql, localId))
     ) {
       await persistence.deleteDocument(lockedExecSql, localId);
       await documentProjectors.deleteStoredDocumentClientProjection({

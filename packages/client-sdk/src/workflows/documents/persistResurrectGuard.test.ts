@@ -140,6 +140,59 @@ test("a create persist still inserts a new row", async () => {
   }
 });
 
+test("the guard uses canonical existence instead of custom load semantics", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "persist-custom-existence",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      id: "custom",
+      containerId: null,
+      documentId: null,
+      text: "before",
+      snapshotEndVersion: "v1",
+      accessEpoch: 1,
+    });
+    const currentRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      "custom",
+    );
+    if (!currentRecord) {
+      throw new Error("expected seeded document");
+    }
+    const doc = await createDocument("persist-custom-existence");
+    doc.getText("text").update("after");
+    doc.commit();
+    let deleteCalls = 0;
+    const persistence = {
+      ...sqlDocumentsPersistence,
+      deleteDocument: async () => {
+        deleteCalls += 1;
+      },
+      hasDocument: async () => true,
+      loadDocument: async () => null,
+    };
+
+    expect(
+      await persistDocumentState({
+        currentDoc: doc,
+        currentRecord,
+        documentProjectors: createDocumentProjectorRegistry([]),
+        execSql,
+        localId: "custom",
+        persistence,
+      }),
+    ).not.toBeNull();
+    expect(deleteCalls).toBe(0);
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "custom"),
+    ).toMatchObject({ text: "after" });
+  } finally {
+    close();
+  }
+});
+
 // Store-level: a persist refused by the resurrect guard clears the zombie
 // store, so callers that ignore the persist result (attachment settles, row
 // writes, history rebuilds) stop advancing state or scheduling sync against

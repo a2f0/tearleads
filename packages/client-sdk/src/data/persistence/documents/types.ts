@@ -132,6 +132,7 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     containerId: string,
   ) => Promise<string[]>;
+  hasDocument: (execSql: ExecSql, localId: string) => Promise<boolean>;
   loadDocument: (
     execSql: ExecSql,
     localId: string,

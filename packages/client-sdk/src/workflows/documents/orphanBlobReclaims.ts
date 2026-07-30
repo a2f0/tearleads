@@ -35,8 +35,8 @@ async function reclaimQueuedBlobs(
     }
   }
   if (failedStorageKeys.length > 0) {
-    throw new Error(
-      `could not reclaim ${failedStorageKeys.length} orphan blob(s): ${failedStorageKeys.join(", ")}`,
+    runtime.util.log(
+      `Documents: orphan maintenance deferred ${failedStorageKeys.length} blob(s): ${failedStorageKeys.join(", ")}`,
     );
   }
 }

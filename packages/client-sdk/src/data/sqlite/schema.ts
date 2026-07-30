@@ -6,7 +6,7 @@ import {
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
-import { documentOrphanBlobReclaimTable } from "./documentOrphanBlobReclaims";
+import * as documentOrphanBlobSchema from "./documentOrphanBlobReclaims";
 import {
   organizationDataUsageSQLiteSchema,
   organizationDataUsageTables,
@@ -581,9 +581,7 @@ export const documentPendingAttachments = sqliteTable(
 );
 
 /**
- * Local attachment blob projection for stored documents.
- *
- * Tracks locally available blobs; `blobId` is optional before remote identity.
+ * Local attachment blobs; `blobId` stays optional until remote identity.
  *
  * Columns:
  * - `localId`: Local document id that owns the attachment slot.
@@ -827,7 +825,7 @@ export const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documentProjectionText),
   defineSqlTableSchema(documentPendingAttachments),
   defineSqlTableSchema(documentAttachmentBlobProjection),
-  documentOrphanBlobReclaimTable,
+  documentOrphanBlobSchema.documentOrphanBlobReclaimTable,
 ];
 
 export const containerCreateIntentTables: ReadonlyArray<SqlTableSchema> = [
@@ -876,6 +874,8 @@ export const clientSQLiteSchema = {
   documentProjection,
   documentPendingAttachments,
   documentAttachmentBlobProjection,
+  documentOrphanBlobReclaims:
+    documentOrphanBlobSchema.documentOrphanBlobReclaims,
   containerCreateIntents,
   containerMoveIntents,
   containerSyncLaneChecks,
