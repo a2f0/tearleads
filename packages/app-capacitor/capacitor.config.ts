@@ -11,7 +11,7 @@ if (nativeReleaseTier !== "production" && nativeReleaseTier !== "staging") {
 }
 const isStagingRelease = nativeReleaseTier === "staging";
 const appId = isStagingRelease
-  ? "com.tearleads.app.staging"
+  ? "com.tearleads.staging.app"
   : "com.tearleads.app";
 
 const config: CapacitorConfig = {
