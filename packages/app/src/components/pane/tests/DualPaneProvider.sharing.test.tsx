@@ -52,14 +52,18 @@ import {
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Startup recovery deliberately adds two read-only document probes; one may
-  // also warm a writer projection. Four post-change profiles measured 90-91
-  // total requests, with 26 document syncs and at most 11 document writer
-  // projections. Keep the deleted singular endpoint pinned to zero.
-  total: 91,
+  // also warm a writer projection. Initial hydration now authoritatively lists
+  // remotely listable lanes across both panes and forces normal sync for local
+  // documents absent from those listings, including primary projections that
+  // have not acquired a discovery-link row yet. Repair profiles measured 102
+  // total requests, at most 27 container-document listings, and 28 document
+  // syncs. Keep narrow headroom and the deleted singular endpoint pinned to
+  // zero.
+  total: 105,
   byRequest: {
     "GET /documents/:documentId/writer-projection": 11,
-    "POST /documents/:documentId/sync": 26,
-    "GET /containers/:containerId/documents": 14,
+    "POST /documents/:documentId/sync": 30,
+    "GET /containers/:containerId/documents": 27,
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 9,
     "GET /auth/user-identity/:userId": 2,

@@ -1,17 +1,19 @@
 import type { DocumentSummary } from "../../data/documentSummary";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import {
+  listAllContainerDocuments,
+  listContainerDocumentsFromApi,
+} from "./containerDocumentListing";
+import {
   collectDiscoveredDocumentInputs,
   getApplicableDocumentTombstones,
   uniqueReferencedPrincipalStates,
 } from "./documentDiscoveryInputs";
 import type {
   ContainerDocumentDiscoveryApi,
-  ContainerDocumentTombstone,
   ContainerParentDiscoveryLane,
   DiscoverAllContainerDocumentsOptions,
   DiscoverContainerDocumentsOptions,
-  ListedContainerDocument,
   ListedContainerDocuments,
   ListedContainerDocumentsLane,
   RefreshAllContainerDocumentsFromApiOptions,
@@ -79,78 +81,6 @@ function collectRemoteContainerIds(
   }
 
   return items.map(({ id }) => id);
-}
-
-function isUnavailableContainerDocumentLane(
-  failure: Awaited<
-    ReturnType<
-      NonNullable<ContainerDocumentDiscoveryApi["listContainerDocumentsResult"]>
-    >
-  >,
-): boolean {
-  return !failure.ok && failure.status === 404;
-}
-
-async function listContainerDocumentsFromApi(
-  apiClient: Pick<
-    ContainerDocumentDiscoveryApi,
-    "listContainerDocuments" | "listContainerDocumentsResult"
-  >,
-  containerId: string,
-  options?: Parameters<
-    ContainerDocumentDiscoveryApi["listContainerDocuments"]
-  >[1],
-): ReturnType<ContainerDocumentDiscoveryApi["listContainerDocuments"]> {
-  if (apiClient.listContainerDocumentsResult) {
-    const result = await apiClient.listContainerDocumentsResult(
-      containerId,
-      options,
-      { reportErrors: false },
-    );
-    if (result.ok) {
-      return result.data;
-    }
-    if (!isUnavailableContainerDocumentLane(result)) {
-      result.report();
-    }
-    return null;
-  }
-
-  return apiClient.listContainerDocuments(containerId, options);
-}
-
-async function listAllContainerDocuments(input: {
-  containerId: string;
-  loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
-  listContainerDocuments: DiscoverContainerDocumentsOptions["listContainerDocuments"];
-}): Promise<ListedContainerDocuments | null> {
-  const items: ListedContainerDocument[] = [];
-  const tombstones: ContainerDocumentTombstone[] = [];
-  let watermark = await input.loadContainerDocumentWatermark(input.containerId);
-
-  while (true) {
-    const response = await input.listContainerDocuments(input.containerId, {
-      watermark,
-    });
-    if (!response) {
-      return null;
-    }
-    items.push(...response.items);
-    tombstones.push(...response.tombstones);
-    watermark = response.nextWatermark;
-
-    if (!response.hasMore) {
-      return {
-        items,
-        nextWatermark: watermark,
-        tombstones,
-      };
-    }
-
-    if (!watermark) {
-      return null;
-    }
-  }
 }
 
 async function saveAppliedContainerDocumentWatermark(input: {

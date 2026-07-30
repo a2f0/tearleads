@@ -169,8 +169,30 @@ every discovered document. System-container documents are opened eagerly once
 per observed remote version because their derived projections cannot depend on
 a document window.
 
-Two one-shot probes close gaps that container discovery cannot observe:
+Three bounded probes close gaps that container discovery cannot observe:
 
+- after the initial idle discovery sweep, the reconciler pages an authoritative
+  unwatermarked listing for every known remotely listable container. It then
+  opens locally persisted, visible remote documents linked to those completed
+  lanes — including shared containers from another organization — but absent
+  from every full listing. An empty early tree does not complete the pass, and
+  remote-container growth while the pass is still settling restarts its
+  candidate cursor so hydration order cannot strand an earlier local-id range.
+  Once the first non-empty pass completes, later user-created containers do not
+  reopen it. Hidden system documents retain their
+  specialized sync paths. Listing failures receive three short, backed-off
+  attempts; a lane that remains unlistable is skipped for that service lifecycle
+  so it cannot starve successfully listed lanes. Each low-priority candidate
+  turn scans up to 64 local rows but opens at most eight stores, so a healthy
+  listed prefix advances cheaply and a restored replica converges old remote
+  deletions without treating an incremental watermark delta as the full remote
+  set or monopolizing the sync coordinator. Progress survives reconnects within
+  the service lifecycle. The
+  completion marker is deliberately not durable: a local backup restore can
+  replace document rows underneath the runtime, and a persisted marker would
+  incorrectly skip the restored rows on the next service lifecycle. The tradeoff
+  is one unwatermarked listing per remotely listable container on every service
+  launch, so initial probe traffic scales linearly with the container count;
 - opening a persisted remote document arms an initialization probe. Websocket
   invalidations live only in process memory, so a clean cached snapshot cannot
   prove that no peer committed an update before restart;
@@ -188,11 +210,14 @@ as an authoritative removal. `known_containers_ack` is sent after in-memory
 routing changes and before best-effort persistence, so a later event is either
 delivered or causes the in-flight probe's signal sequence to arm a trailing pass.
 
-Both probes use the normal HTTP document-sync response: verified incoming Loro
-updates are merged and projected first, then current attachment bindings and
-blob bytes are hydrated. Ordinary documents that have never been opened remain
-lazy until a document window, explicit registered-store revalidation, or other
-owning workflow opens them.
+All three probes use the normal HTTP document-sync response: verified incoming
+Loro updates are merged and projected first, then current attachment bindings
+and blob bytes are hydrated. Only the existing coded `document_not_found`
+response authorizes local destruction; a bare 404 remains non-destructive, and
+403s keep the normal read-only suppression or write-bearing parking behavior.
+After the initial missing-listing convergence pass, ordinary documents that
+have never been opened remain lazy until a document window, explicit
+registered-store revalidation, or other owning workflow opens them.
 
 Remote document discovery requires a current metadata document for every
 container. Local-first roots, regular folders, and system slots are never sent

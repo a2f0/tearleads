@@ -9,6 +9,7 @@ import {
   isReconcilableContainerNode,
   isRemoteBackedContainerNode,
 } from "../stores/container-contents";
+import { openDocumentStore } from "../stores/documents";
 import {
   requestRegisteredDocumentRemoteSync,
   subscribeToPersistedDocumentDeletions,
@@ -26,9 +27,12 @@ import {
   type ReconciliationService,
 } from "../sync/reconciliation";
 import { createReconciledDocumentContentPuller } from "../sync/reconciliation/documentContentPull";
+import { listAllContainerDocumentIdsFromApi } from "../workflows/container-contents/containerDocumentListing";
+import { probeUndiscoveredRemoteDocumentBatch } from "../workflows/container-contents/documentHydrationProbe";
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../workflows/container-contents/projectionView";
 import {
   type ContainerContentsStoreWorkflowRuntime,
+  createContainerContentsDocumentsRuntime,
   createContainerContentsStoreWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
 import type { ContainerContents } from "./containerContents";
@@ -65,6 +69,52 @@ interface DeviceFirstScopeEntry {
   store: LocalProjectionStore;
   unsubscribePersistedDocumentDeletions: () => void;
   view: LocalProjectionView;
+}
+
+function createInitialDocumentProbeHost(
+  runtimeService: InternalRuntime,
+  domainScope: ReconciliationHost["domainScope"],
+): Pick<
+  ReconciliationHost,
+  | "listContainerDocumentIds"
+  | "probeUndiscoveredDocumentsBatch"
+  | "reportInitialDocumentProbeComplete"
+> {
+  return {
+    listContainerDocumentIds: (containerId) => {
+      const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
+      return listAllContainerDocumentIdsFromApi({
+        apiClient: runtime.apiClient,
+        containerId,
+        reportErrors: false,
+      });
+    },
+    probeUndiscoveredDocumentsBatch: async (input) => {
+      const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
+      return probeUndiscoveredRemoteDocumentBatch({
+        ...input,
+        host: {
+          documentWorkflowRuntime: (containerId) =>
+            createContainerContentsDocumentsRuntime(runtime, containerId),
+          openDocumentStore: (target) =>
+            openDocumentStore(
+              domainScope,
+              target.localId,
+              target.runtime,
+              target.documentId,
+            ),
+        },
+        runtime,
+      });
+    },
+    reportInitialDocumentProbeComplete: (requestedCount) => {
+      runtimeService
+        .workflowInput()
+        .util.log(
+          `Initial document hydration probe requested ${requestedCount} syncs`,
+        );
+    },
+  };
 }
 
 class DeviceFirstService implements DeviceFirst {
@@ -244,6 +294,7 @@ class DeviceFirstService implements DeviceFirst {
       },
       applyReconciled: (delta) => store.applyReconciled(delta),
       requestDocumentContentPull,
+      ...createInitialDocumentProbeHost(runtimeService, domainScope),
       refreshTree: async () => {
         await store.getContainerStore().refresh();
       },
