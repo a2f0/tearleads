@@ -197,6 +197,71 @@ test("hydration probe advances through bounded candidate batches", async () => {
   }
 });
 
+test("hydration probe batches large container-id sets below SQLite limits", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-hydration-probe-container-batches",
+  );
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveTestContainer({
+      execSql,
+      id: "root-a",
+      name: "Root A",
+      organizationId: "org-a",
+      parentId: null,
+      timestamp: "2026-07-30T12:00:00.000Z",
+    });
+    await saveTestDocument({
+      containerId: "root-a",
+      documentId: "missing-remote",
+      execSql,
+      id: "missing-local",
+      title: "Missing",
+      updatedAt: "2026-07-30T12:00:00.000Z",
+    });
+    await execSql(
+      `INSERT INTO document_container_projection
+         (document_id, container_id, updated_at)
+       VALUES (?, ?, ?)`,
+      ["missing-remote", "root-a", "2026-07-30T12:00:00.000Z"],
+    );
+
+    const probeParameterCounts: number[] = [];
+    const boundedExecSql = new Proxy(execSql, {
+      apply: (target, thisArg, args) => {
+        const [sql, params] = args;
+        if (typeof sql === "string" && sql.includes("FROM documents stored")) {
+          probeParameterCounts.push(Array.isArray(params) ? params.length : 0);
+        }
+        return Reflect.apply(target, thisArg, args);
+      },
+    });
+    const listedContainerIds = new Set([
+      "root-a",
+      ...Array.from({ length: 1_000 }, (_, index) => `missing-${index}`),
+    ]);
+    const opened: Array<{ containerId: string | null; localId: string }> = [];
+
+    const result = await probeUndiscoveredRemoteDocumentBatch({
+      afterLocalId: null,
+      host: createProbeHost(opened),
+      listedContainerIds,
+      listedDocumentIds: new Set(),
+      runtime: { infra: { execSql: boundedExecSql } },
+    });
+
+    expect(probeParameterCounts).toHaveLength(3);
+    expect(Math.max(...probeParameterCounts)).toBeLessThanOrEqual(504);
+    expect(result.requestedCount).toBe(1);
+    expect(opened).toEqual([
+      { containerId: "root-a", localId: "missing-local" },
+    ]);
+  } finally {
+    close();
+  }
+});
+
 test("an undiscovered probe uses coded deletion to destroy local state", async () => {
   const { close, execSql } = await createTestExecSql(
     "document-hydration-probe-coded-deletion",

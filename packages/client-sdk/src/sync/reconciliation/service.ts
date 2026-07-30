@@ -378,7 +378,7 @@ export function createReconciliationService(
   const enqueueIdleBackfill = () => {
     const eligibleContainerIds = host
       .listKnownContainerIds()
-      .filter(host.canDiscoverContainerDocuments);
+      .filter((id) => host.canDiscoverContainerDocuments(id));
     state.initialDocumentProbe.arm(eligibleContainerIds);
     for (const containerId of eligibleContainerIds) {
       if (state.discoveredContainerIds.has(containerId)) {

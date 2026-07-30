@@ -97,20 +97,24 @@ test("initial probe uses every authoritative listing and bounded batches once", 
   ]);
   expect(batches[0]?.afterLocalId).toBeNull();
   expect(batches[1]?.afterLocalId).toBe("local-8");
+  expect(batches[1]?.listedDocumentIds).toBe(batches[0]?.listedDocumentIds);
 
   service.enqueueIdleBackfill();
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(batches).toHaveLength(2);
 });
 
-test("initial probe pauses until every authoritative listing succeeds", async () => {
+test("initial probe retries listings in bounded turns before pausing", async () => {
   const probes: InitialDocumentProbeBatchInput[] = [];
-  let listingAttempts = 0;
+  const listingAttempts = new Map<string, number>();
   let secondListingAvailable = false;
   const service = createReconciliationService(
     createProbeHost({
       listContainerDocumentIds: async (containerId) => {
-        listingAttempts += 1;
+        listingAttempts.set(
+          containerId,
+          (listingAttempts.get(containerId) ?? 0) + 1,
+        );
         if (containerId === "c-2" && !secondListingAvailable) {
           return null;
         }
@@ -125,13 +129,23 @@ test("initial probe pauses until every authoritative listing succeeds", async ()
   service.start();
   service.enqueueIdleBackfill();
 
-  await waitFor(() => listingAttempts === 2, "Expected full listings");
+  await waitFor(
+    () => listingAttempts.get("c-2") === 3,
+    "Expected bounded listing retries",
+  );
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(probes).toEqual([]);
+  expect(listingAttempts).toEqual(
+    new Map([
+      ["c-1", 1],
+      ["c-2", 3],
+    ]),
+  );
 
   secondListingAvailable = true;
   service.enqueueIdleBackfill();
   await waitFor(() => probes.length === 1, "Expected probe after retry");
+  expect(listingAttempts.get("c-2")).toBe(4);
   expect([...(probes[0]?.listedDocumentIds ?? [])].sort()).toEqual([
     "listed-c-1",
     "listed-c-2",

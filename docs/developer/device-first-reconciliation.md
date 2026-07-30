@@ -186,7 +186,9 @@ Three bounded probes close gaps that container discovery cannot observe:
   coordinator. Progress survives reconnects within the service lifecycle. The
   completion marker is deliberately not durable: a local backup restore can
   replace document rows underneath the runtime, and a persisted marker would
-  incorrectly skip the restored rows on the next service lifecycle;
+  incorrectly skip the restored rows on the next service lifecycle. The tradeoff
+  is one unwatermarked listing per remotely listable container on every service
+  launch, so initial probe traffic scales linearly with the container count;
 - opening a persisted remote document arms an initialization probe. Websocket
   invalidations live only in process memory, so a clean cached snapshot cannot
   prove that no peer committed an update before restart;

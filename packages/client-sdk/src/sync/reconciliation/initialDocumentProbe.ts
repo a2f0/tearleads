@@ -27,12 +27,16 @@ export interface InitialDocumentProbe {
   readonly run: () => Promise<void>;
 }
 
+const MAX_INITIAL_DOCUMENT_LISTING_ATTEMPTS = 3;
+
 interface InitialDocumentProbeState {
   armed: boolean;
   cursor: string | null;
   eligibleContainerIds: Set<string>;
   generation: number;
+  listedDocumentIds: ReadonlySet<string> | null;
   listedDocumentIdsByContainer: Map<string, ReadonlySet<string>>;
+  listingAttemptsByContainer: Map<string, number>;
   probedContainerIds: Set<string>;
   reported: boolean;
   requestedCount: number;
@@ -59,7 +63,9 @@ function createInitialDocumentProbeState(): InitialDocumentProbeState {
     cursor: null,
     eligibleContainerIds: new Set(),
     generation: 0,
+    listedDocumentIds: null,
     listedDocumentIdsByContainer: new Map(),
+    listingAttemptsByContainer: new Map(),
     probedContainerIds: new Set(),
     reported: false,
     requestedCount: 0,
@@ -101,10 +107,51 @@ function resetPending(state: InitialDocumentProbeState): void {
   state.armed = false;
   state.cursor = null;
   state.eligibleContainerIds.clear();
+  state.listedDocumentIds = null;
   state.listedDocumentIdsByContainer.clear();
+  state.listingAttemptsByContainer.clear();
   state.probedContainerIds.clear();
   state.reported = false;
   state.requestedCount = 0;
+}
+
+function retainEligibleProbeState(
+  state: InitialDocumentProbeState,
+  nextIds: ReadonlySet<string>,
+): void {
+  for (const containerId of state.listedDocumentIdsByContainer.keys()) {
+    if (!nextIds.has(containerId)) {
+      state.listedDocumentIdsByContainer.delete(containerId);
+    }
+  }
+  for (const containerId of state.probedContainerIds) {
+    if (!nextIds.has(containerId)) {
+      state.probedContainerIds.delete(containerId);
+    }
+  }
+}
+
+function replaceEligibleContainerIds(
+  state: InitialDocumentProbeState,
+  nextIds: Set<string>,
+): void {
+  state.generation += 1;
+  state.cursor = null;
+  state.eligibleContainerIds = nextIds;
+  state.listedDocumentIds = null;
+  state.listingAttemptsByContainer.clear();
+  retainEligibleProbeState(state, nextIds);
+}
+
+function resetIncompleteListingAttemptBudget(
+  state: InitialDocumentProbeState,
+  nextIds: ReadonlySet<string>,
+): void {
+  for (const containerId of nextIds) {
+    if (!state.listedDocumentIdsByContainer.has(containerId)) {
+      state.listingAttemptsByContainer.delete(containerId);
+    }
+  }
 }
 
 function armProbe(
@@ -116,23 +163,30 @@ function armProbe(
   }
   const nextIds = new Set(nextEligibleContainerIds.filter(Boolean));
   if (!sameIds(state.eligibleContainerIds, nextIds)) {
-    state.generation += 1;
-    state.cursor = null;
-    state.eligibleContainerIds = nextIds;
-    for (const containerId of state.listedDocumentIdsByContainer.keys()) {
-      if (!nextIds.has(containerId)) {
-        state.listedDocumentIdsByContainer.delete(containerId);
-      }
-    }
-    for (const containerId of state.probedContainerIds) {
-      if (!nextIds.has(containerId)) {
-        state.probedContainerIds.delete(containerId);
-      }
-    }
+    replaceEligibleContainerIds(state, nextIds);
   }
-  if (hasPendingWork(state)) {
-    state.armed = true;
+  if (!hasPendingWork(state)) {
+    return;
   }
+  if (!state.armed) {
+    resetIncompleteListingAttemptBudget(state, nextIds);
+  }
+  state.armed = true;
+}
+
+function readListedDocumentIds(
+  state: InitialDocumentProbeState,
+  eligibleIds: ReadonlyArray<string>,
+): ReadonlySet<string> {
+  if (state.listedDocumentIds !== null) {
+    return state.listedDocumentIds;
+  }
+  state.listedDocumentIds = new Set(
+    eligibleIds.flatMap((containerId) => [
+      ...(state.listedDocumentIdsByContainer.get(containerId) ?? []),
+    ]),
+  );
+  return state.listedDocumentIds;
 }
 
 async function listNextEligibleContainer(input: {
@@ -154,10 +208,17 @@ async function listNextEligibleContainer(input: {
     return true;
   }
   if (documentIds === null) {
-    // A later idle-backfill signal retries without hot-looping the lane.
-    state.armed = false;
+    const attempts =
+      (state.listingAttemptsByContainer.get(containerId) ?? 0) + 1;
+    state.listingAttemptsByContainer.set(containerId, attempts);
+    // Retry transient listing failures in bounded, yielded turns. Exhaustion
+    // pauses the pass until a later idle-backfill signal grants a fresh budget.
+    if (attempts >= MAX_INITIAL_DOCUMENT_LISTING_ATTEMPTS) {
+      state.armed = false;
+    }
     return true;
   }
+  state.listingAttemptsByContainer.delete(containerId);
   state.listedDocumentIdsByContainer.set(containerId, new Set(documentIds));
   return true;
 }
@@ -190,15 +251,10 @@ async function runProbe(
       state.armed = false;
       return;
     }
-    const listedDocumentIds = new Set(
-      eligibleIds.flatMap((containerId) => [
-        ...(state.listedDocumentIdsByContainer.get(containerId) ?? []),
-      ]),
-    );
     const batch = await host.probeUndiscoveredDocumentsBatch({
       afterLocalId: state.cursor,
       listedContainerIds: new Set(candidateContainerIds),
-      listedDocumentIds,
+      listedDocumentIds: readListedDocumentIds(state, eligibleIds),
     });
     if (state.generation !== runGeneration) {
       return;

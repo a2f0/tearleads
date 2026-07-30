@@ -57,7 +57,7 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // documents absent from those listings. Repair profiles measured 101-102
   // total requests, at most 27 container-document listings, and 26 document
   // syncs. Keep the deleted singular endpoint pinned to zero.
-  total: 105,
+  total: 102,
   byRequest: {
     "GET /documents/:documentId/writer-projection": 11,
     "POST /documents/:documentId/sync": 26,

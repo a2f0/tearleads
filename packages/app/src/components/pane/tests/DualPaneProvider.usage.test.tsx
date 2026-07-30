@@ -263,9 +263,10 @@ test(
         timeoutMs: BOOTSTRAP_SYNC_SETTLE_TIMEOUT_MS,
       });
     });
-    // The clean-replica probe lists the five eligible bootstrap containers in
-    // separate yielded coordinator turns. A visible Usage view may reconcile
-    // after each pending-to-settled edge, plus its entry read.
+    // The measured ceiling is exactly six requests with no slack: the
+    // clean-replica probe lists five eligible bootstrap containers in separate
+    // yielded coordinator turns, and the visible Usage view reconciles after
+    // each pending-to-settled edge plus its entry read.
     expect(countOrganizationDataUsageRequests()).toBeLessThanOrEqual(
       INITIAL_HYDRATION_DATA_USAGE_REQUEST_BUDGET,
     );
