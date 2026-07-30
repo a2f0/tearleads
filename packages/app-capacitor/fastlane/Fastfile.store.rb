@@ -1,44 +1,23 @@
 # frozen_string_literal: true
 
-require 'dotenv'
 require 'json'
 require 'shellwords'
+require_relative 'capacitor_release_config'
+require_relative 'native_release_target'
 require_relative 'revenuecat_release_key'
 
-STORE_APP_IDENTIFIER = 'com.tearleads.app'
-STORE_REPO_ROOT = File.expand_path('../../..', __dir__)
-STORE_SECRETS_DIR = File.join(STORE_REPO_ROOT, '.secrets')
-STORE_ROOT_ENV_PATH = File.join(STORE_SECRETS_DIR, 'root.env')
-GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH = File.join(STORE_SECRETS_DIR, 'google-play-service-account.json')
+GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH = File.join(NATIVE_SECRETS_DIR, 'google-play-service-account.json')
 GOOGLE_PLAY_DEFAULT_TRACKS = %w[production beta alpha internal].freeze
 
 def load_store_secrets_env
-  Dotenv.load(STORE_ROOT_ENV_PATH) if File.file?(STORE_ROOT_ENV_PATH)
-end
-
-# Returns why a generated capacitor.config.json is not a shippable release
-# config, or nil when it is fully bundled. `cap run --live-reload` leaves a
-# server.url pointing the WebView at a LAN dev server (e.g. 10.0.1.10:8085),
-# which shows "the webpage at <ip> is not available" once installed;
-# `cap:sync:release` clears it.
-#
-# CapacitorHttp is intentionally enabled on EVERY build (see capacitor.config.ts):
-# routing requests through native HTTP is what lets the release WebView reach the
-# API at all — the WKWebView's own cross-origin fetch from the app's
-# https://localhost origin fails. So `CapacitorHttp.enabled: true` is no longer a
-# debug-leftover signal and must not fail the release guard; only a stray
-# server.url does.
-def capacitor_release_problem(config)
-  server_url = config.dig('server', 'url').to_s
-  return "sets server.url=#{server_url} (usually a leftover live-reload URL)" unless server_url.empty?
-
-  nil
+  # store_build_numbers performs credential-only reads and never builds an app.
+  load_native_release_secrets_env(validate_service_urls: false)
 end
 
 # Fails the build unless the native config at config_path is a fully bundled
 # release config. Shared by the Android and iOS release lanes.
 def ensure_bundled_release_capacitor_config!(config_path, label, sync_command)
-  problem = capacitor_release_problem(JSON.parse(File.read(config_path)))
+  problem = capacitor_release_problem(JSON.parse(File.read(config_path)), NATIVE_APP_IDENTIFIER)
   return if problem.nil?
 
   UI.user_error!(
@@ -109,7 +88,7 @@ end
 def app_store_connect_key_filepath(key_id)
   ENV.fetch('APP_STORE_CONNECT_API_KEY_KEY_FILEPATH', nil) ||
     ENV.fetch('APP_STORE_CONNECT_KEY_FILEPATH', nil) ||
-    File.join(STORE_SECRETS_DIR, "AuthKey_#{key_id}.p8")
+    File.join(NATIVE_SECRETS_DIR, "AuthKey_#{key_id}.p8")
 end
 
 def app_store_configured?
@@ -146,7 +125,7 @@ end
 
 def google_play_track_version_code_values(track)
   google_play_track_version_codes(
-    package_name: STORE_APP_IDENTIFIER,
+    package_name: NATIVE_APP_IDENTIFIER,
     track: track,
     json_key: require_existing_file!(google_play_json_key_path, 'Google Play JSON key')
   )
@@ -167,7 +146,7 @@ end
 
 def latest_app_store_build_number(options)
   app_store_options = {
-    app_identifier: STORE_APP_IDENTIFIER,
+    app_identifier: NATIVE_APP_IDENTIFIER,
     api_key: app_store_connect_key_for_store_build_numbers,
     live: lane_boolean_option(options, :apple_live, 'APP_STORE_LIVE', true)
   }

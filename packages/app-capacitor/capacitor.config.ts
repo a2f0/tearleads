@@ -1,8 +1,22 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
+const { NATIVE_RELEASE_TIER } = process.env;
+const nativeReleaseTier = (NATIVE_RELEASE_TIER ?? "production")
+  .trim()
+  .toLowerCase();
+if (nativeReleaseTier !== "production" && nativeReleaseTier !== "staging") {
+  throw new Error(
+    `Unknown NATIVE_RELEASE_TIER=${JSON.stringify(nativeReleaseTier)}. Expected production or staging.`,
+  );
+}
+const isStagingRelease = nativeReleaseTier === "staging";
+const appId = isStagingRelease
+  ? "com.tearleads.app.staging"
+  : "com.tearleads.app";
+
 const config: CapacitorConfig = {
-  appId: "com.tearleads.app",
-  appName: "Tearleads",
+  appId,
+  appName: isStagingRelease ? "Tearleads Staging" : "Tearleads",
   webDir: "dist",
   server: {
     androidScheme: "https",
@@ -38,7 +52,7 @@ const config: CapacitorConfig = {
       iosDatabaseLocation: "Library/CapacitorDatabase",
       iosIsEncryption: true,
       androidIsEncryption: true,
-      iosKeychainPrefix: "com.tearleads.app",
+      iosKeychainPrefix: appId,
       iosBiometric: {
         biometricAuth: false,
       },

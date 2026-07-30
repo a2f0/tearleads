@@ -1,26 +1,24 @@
 # frozen_string_literal: true
 
 require 'date'
-require 'dotenv'
 require 'json'
 require 'open3'
 require 'shellwords'
 require 'time'
+require_relative 'native_release_target'
 
-IOS_APP_ID = 'com.tearleads.app'
-IOS_REPO_ROOT = File.expand_path('../../..', __dir__)
 IOS_PACKAGE_DIR = File.expand_path('..', __dir__)
 IOS_DIR = File.expand_path('../ios', __dir__)
 IOS_APP_DIR = File.join(IOS_DIR, 'App')
 IOS_PROJECT_PATH = File.join(IOS_APP_DIR, 'App.xcodeproj')
-IOS_SCHEME = 'App'
-IOS_CONFIGURATION = 'Release'
-IOS_OUTPUT_DIR = File.join(IOS_APP_DIR, 'output')
-IOS_IPA_NAME = 'Tearleads.ipa'
-IOS_ARCHIVE_PATH = File.join(IOS_OUTPUT_DIR, 'Tearleads.xcarchive')
+IOS_TARGET = 'App'
+IOS_SCHEME = NATIVE_RELEASE_TARGET.fetch(:ios_scheme)
+IOS_CONFIGURATION = NATIVE_RELEASE_TARGET.fetch(:ios_configuration)
+IOS_OUTPUT_DIR = File.join(IOS_APP_DIR, NATIVE_RELEASE_TARGET.fetch(:ios_output_directory))
+IOS_IPA_NAME = NATIVE_RELEASE_TARGET.fetch(:ios_ipa_name)
+IOS_ARCHIVE_PATH = File.join(IOS_APP_DIR, native_release_ios_archive_relative_path)
 IOS_CAPACITOR_CONFIG_PATH = File.join(IOS_APP_DIR, 'App/capacitor.config.json')
 IOS_BUILD_IMAGES_SCRIPT = File.join(IOS_PACKAGE_DIR, 'scripts/buildIosImages.sh')
-IOS_ROOT_ENV_PATH = File.join(IOS_REPO_ROOT, '.secrets/root.env')
 IOS_MERGED_GITHUB_PRS_COMMAND = [
   'gh',
   'pr',
@@ -35,7 +33,7 @@ IOS_MERGED_GITHUB_PRS_COMMAND = [
 IOS_RELEASE_PR_PATTERN = /\(#(?<number>\d+)\)/
 
 def load_ios_release_secrets_env
-  Dotenv.load(IOS_ROOT_ENV_PATH) if File.file?(IOS_ROOT_ENV_PATH)
+  load_native_release_secrets_env
 end
 
 def positive_ios_integer(value, description)
@@ -210,7 +208,7 @@ def ios_release_version(options)
 
   get_version_number(
     xcodeproj: IOS_PROJECT_PATH,
-    target: IOS_SCHEME,
+    target: IOS_TARGET,
     configuration: IOS_CONFIGURATION
   )
 end
@@ -250,7 +248,7 @@ end
 
 def fetch_ios_testflight_build_number(version)
   latest_testflight_build_number(
-    app_identifier: IOS_APP_ID,
+    app_identifier: NATIVE_APP_IDENTIFIER,
     api_key: app_store_connect_key_for_store_build_numbers,
     version: version,
     initial_build_number: 0
@@ -362,7 +360,7 @@ def configure_ios_manual_signing!(profile_name, team_id)
     team_id: team_id,
     code_sign_identity: 'Apple Distribution',
     profile_name: profile_name,
-    targets: [IOS_SCHEME],
+    targets: [IOS_TARGET],
     build_configurations: [IOS_CONFIGURATION]
   )
 end
@@ -375,17 +373,20 @@ end
 def install_ios_appstore_signing_assets!
   match(
     type: 'appstore',
-    app_identifier: IOS_APP_ID,
+    app_identifier: NATIVE_APP_IDENTIFIER,
     readonly: true
   )
-  ENV.fetch("sigh_#{IOS_APP_ID}_appstore_profile-name", "match AppStore #{IOS_APP_ID}")
+  ENV.fetch(
+    "sigh_#{NATIVE_APP_IDENTIFIER}_appstore_profile-name",
+    "match AppStore #{NATIVE_APP_IDENTIFIER}"
+  )
 end
 
 def ios_export_options(team_id, profile_name)
   {
     manageAppVersionAndBuildNumber: false,
     method: 'app-store',
-    provisioningProfiles: { IOS_APP_ID => profile_name },
+    provisioningProfiles: { NATIVE_APP_IDENTIFIER => profile_name },
     signingStyle: 'manual',
     teamID: team_id,
     uploadSymbols: true
@@ -396,7 +397,7 @@ def ensure_release_ios_capacitor_sync!
   ensure_bundled_release_capacitor_config!(
     IOS_CAPACITOR_CONFIG_PATH,
     'iOS',
-    'bun run cap:sync:release ios'
+    "bun run #{NATIVE_CAPACITOR_SYNC_SCRIPT} ios"
   )
 end
 
@@ -442,12 +443,17 @@ platform :ios do
   desc 'Build signed iOS IPA for TestFlight'
   lane :build_testflight_release do |options|
     load_ios_release_secrets_env
-    ensure_revenuecat_store_key!('VITE_REVENUECAT_IOS_API_KEY', 'appl_')
+    ensure_revenuecat_store_key!(
+      'VITE_REVENUECAT_IOS_API_KEY',
+      'appl_',
+      production_value: native_release_production_store_key('VITE_REVENUECAT_IOS_API_KEY'),
+      release_tier: NATIVE_RELEASE_TIER
+    )
     release_build = next_ios_release_build_number(options)
     team_id = require_ios_team_id!(options)
     Dir.chdir(IOS_PACKAGE_DIR) do
       sh('bun run build')
-      sh('bun run cap:sync:release ios')
+      sh("bun run #{NATIVE_CAPACITOR_SYNC_SCRIPT} ios")
     end
     ensure_release_ios_capacitor_sync!
     generate_capacitor_image_assets!(IOS_BUILD_IMAGES_SCRIPT)
