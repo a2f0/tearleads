@@ -8,6 +8,8 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- RevenueCat requires standard/singleTop so returning from external
+             payment verification does not cancel the purchase. -->
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:windowSoftInputMode="adjustResize"

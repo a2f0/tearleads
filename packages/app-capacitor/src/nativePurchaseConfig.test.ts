@@ -8,11 +8,14 @@ test("Android can resume a purchase after external payment verification", async 
     resolve(packageRoot, "android/app/src/main/AndroidManifest.xml"),
   ).text();
 
-  expect(manifest).toContain('android:launchMode="singleTop"');
-  expect(manifest).not.toContain('android:launchMode="singleTask"');
+  const mainActivity = manifest
+    .match(/<activity\b[\s\S]*?<\/activity>/g)
+    ?.find((activity) => activity.includes('android:name=".MainActivity"'));
+
+  expect(mainActivity).toContain('android:launchMode="singleTop"');
 });
 
-test("iOS declares the In-App Purchase capability", async () => {
+test("iOS pins the In-App Purchase project attribute", async () => {
   const project = await Bun.file(
     resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
   ).text();

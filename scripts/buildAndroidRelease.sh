@@ -56,6 +56,7 @@ fi
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
 reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
 reject_dev_only_url VITE_WS_URL "${VITE_WS_URL:-}"
+reject_test_store_key VITE_REVENUECAT_ANDROID_API_KEY "${VITE_REVENUECAT_ANDROID_API_KEY:-}"
 echo "Building Android release with VITE_API_BASE_URL=$VITE_API_BASE_URL"
 
 exec bun run android:build:google-play "$@"

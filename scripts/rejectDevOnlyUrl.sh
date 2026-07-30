@@ -28,3 +28,21 @@ reject_dev_only_url() {
       ;;
   esac
 }
+
+# RevenueCat Test Store keys are useful for local native builds, but Apple and
+# Google store releases must use their platform-specific public SDK keys. Guard
+# exported overrides before Fastlane loads its dotenv files (dotenv preserves
+# an already-exported value).
+reject_test_store_key() {
+  reject_name="$1"
+  reject_key="$2"
+  [ -n "$reject_key" ] || return 0
+  case "$reject_key" in
+    test_*)
+      echo "Error: $reject_name contains a RevenueCat Test Store key." >&2
+      echo "A store release must use the platform-specific public SDK key." >&2
+      echo "Unset $reject_name (or set it to the platform key) and re-run." >&2
+      exit 1
+      ;;
+  esac
+}

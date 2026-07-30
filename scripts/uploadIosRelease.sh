@@ -62,6 +62,7 @@ cd "$SCRIPT_DIR/../packages/app-capacitor" || exit 1
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
 reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
 reject_dev_only_url VITE_WS_URL "${VITE_WS_URL:-}"
+reject_test_store_key VITE_REVENUECAT_IOS_API_KEY "${VITE_REVENUECAT_IOS_API_KEY:-}"
 echo "Building and uploading iOS release with VITE_API_BASE_URL=$VITE_API_BASE_URL"
 
 # Prepare the signing keychain up front so the password prompts happen now,
