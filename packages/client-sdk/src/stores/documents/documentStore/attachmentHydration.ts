@@ -89,6 +89,10 @@ export async function hydrateAttachmentBlobs(
           storageKey: hydratedBlob.storageKey,
         };
 
+        // Keep the durable row in the same per-key critical section as its
+        // bytes. One SQL mutation per hydrated blob is deliberate: batching
+        // rows after releasing their individual key locks reopens the reclaim
+        // race this lock closes.
         await saveLocalAttachmentRecords(
           state,
           [localAttachmentRecord],

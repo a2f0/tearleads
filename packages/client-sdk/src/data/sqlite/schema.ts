@@ -6,7 +6,10 @@ import {
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
-import * as documentOrphanBlobSchema from "./documentOrphanBlobReclaims";
+import {
+  documentOrphanBlobReclaims,
+  documentOrphanBlobReclaimTable,
+} from "./documentOrphanBlobReclaims";
 import {
   organizationDataUsageSQLiteSchema,
   organizationDataUsageTables,
@@ -833,7 +836,7 @@ export const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documentProjectionText),
   defineSqlTableSchema(documentPendingAttachments),
   defineSqlTableSchema(documentAttachmentBlobProjection),
-  documentOrphanBlobSchema.documentOrphanBlobReclaimTable,
+  documentOrphanBlobReclaimTable,
 ];
 
 export const containerCreateIntentTables: ReadonlyArray<SqlTableSchema> = [
@@ -882,8 +885,7 @@ export const clientSQLiteSchema = {
   documentProjection,
   documentPendingAttachments,
   documentAttachmentBlobProjection,
-  documentOrphanBlobReclaims:
-    documentOrphanBlobSchema.documentOrphanBlobReclaims,
+  documentOrphanBlobReclaims: documentOrphanBlobReclaims,
   containerCreateIntents,
   containerMoveIntents,
   containerSyncLaneChecks,

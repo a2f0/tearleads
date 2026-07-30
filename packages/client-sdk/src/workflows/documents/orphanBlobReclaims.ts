@@ -6,7 +6,7 @@ import {
 } from "../../data/persistence/documents/internal/orphanSideRows";
 import {
   type ExecSql,
-  runOncePerConnection,
+  resolveCanonicalExecSql,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
 import { runSerializedDocumentBlobMutation } from "./blobMutationLock";
@@ -19,13 +19,13 @@ const deferredStorageKeysByExecSql = new WeakMap<
   ExecSql,
   Map<string, number>
 >();
-const ORPHAN_MAINTENANCE_KEY = "maintain:document-orphans";
-const ORPHAN_BLOB_RECLAIM_BATCH_SIZE = 64;
+const ORPHAN_BLOB_RECLAIM_BATCH_SIZE = 16;
 const ORPHAN_BLOB_RECLAIM_TIME_BUDGET_MS = 250;
 const ORPHAN_BLOB_RECLAIM_RETRY_DELAY_MS = 30_000;
 const ORPHAN_BLOB_RECLAIM_LOG_SAMPLE_SIZE = 3;
+const ORPHAN_BLOB_RECLAIM_YIELD_MS = 16;
 
-export type DocumentOrphanBlobReclaimRuntime = Pick<
+type DocumentOrphanBlobReclaimRuntime = Pick<
   DocumentsWorkflowRuntimeGroups,
   "infra" | "util"
 >;
@@ -44,18 +44,18 @@ async function reclaimQueuedBlobs(
 ): Promise<boolean> {
   const execSql = runtime.infra.execSql;
   await defaultDocumentsPersistence.ensureSchema(execSql);
-  await runOncePerConnection(execSql, ORPHAN_MAINTENANCE_KEY, () =>
-    deleteOrphanedDocumentSideRows(execSql),
-  );
+  let shouldContinue = await deleteOrphanedDocumentSideRows(execSql);
 
   const startedAt = Date.now();
+  const canonicalExecSql = resolveCanonicalExecSql(execSql);
   const deferredStorageKeys =
-    deferredStorageKeysByExecSql.get(execSql) ?? new Map<string, number>();
-  deferredStorageKeysByExecSql.set(execSql, deferredStorageKeys);
+    deferredStorageKeysByExecSql.get(canonicalExecSql) ??
+    new Map<string, number>();
+  deferredStorageKeysByExecSql.set(canonicalExecSql, deferredStorageKeys);
   const failedStorageKeys: string[] = [];
   let warmedBlobStore = false;
 
-  while (true) {
+  reclaimQueue: while (true) {
     clearExpiredDeferredStorageKeys(deferredStorageKeys, Date.now());
     const queuedStorageKeys = await listDocumentOrphanBlobReclaims(
       execSql,
@@ -110,16 +110,15 @@ async function reclaimQueuedBlobs(
           );
         }
       });
-    }
-
-    if (Date.now() - startedAt >= ORPHAN_BLOB_RECLAIM_TIME_BUDGET_MS) {
-      if (failedStorageKeys.length > 0) break;
-      return true;
+      if (Date.now() - startedAt >= ORPHAN_BLOB_RECLAIM_TIME_BUDGET_MS) {
+        shouldContinue = true;
+        break reclaimQueue;
+      }
     }
   }
 
   if (deferredStorageKeys.size === 0) {
-    deferredStorageKeysByExecSql.delete(execSql);
+    deferredStorageKeysByExecSql.delete(canonicalExecSql);
   }
   if (failedStorageKeys.length > 0) {
     const sample = failedStorageKeys
@@ -129,7 +128,7 @@ async function reclaimQueuedBlobs(
       `Documents: orphan maintenance deferred ${failedStorageKeys.length} blob(s): ${sample}`,
     );
   }
-  return false;
+  return shouldContinue;
 }
 
 /** Sweep orphan rows and reclaim their queued local attachment bytes. */
@@ -139,7 +138,7 @@ export function reclaimDocumentOrphanBlobs(
   if (runtime.infra.dbStatus !== "ready") {
     return Promise.resolve();
   }
-  const execSql = runtime.infra.execSql;
+  const execSql = resolveCanonicalExecSql(runtime.infra.execSql);
   const existing = reclaimByExecSql.get(execSql);
   if (existing) {
     reclaimRerunByExecSql.add(execSql);
@@ -161,7 +160,7 @@ export function reclaimDocumentOrphanBlobs(
       if (shouldContinue || wasRerunRequested) {
         setTimeout(() => {
           void reclaimDocumentOrphanBlobs(runtime);
-        }, 0);
+        }, ORPHAN_BLOB_RECLAIM_YIELD_MS);
       }
     });
   reclaimByExecSql.set(execSql, reclaim);

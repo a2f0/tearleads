@@ -124,3 +124,38 @@ test("maintenance sweeps aged orphan rows but preserves fresh and live rows", as
     close();
   }
 });
+
+test("maintenance bounds each orphan side-row transaction", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "bounded-orphan-side-row-sweep",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const updates = Array.from({ length: 33 }, (_, index) => ({
+      id: `orphan-history-${index}`,
+      localId: `orphan-${index}`,
+    }));
+    await execSql(
+      `INSERT INTO document_history_updates (
+        id, app_kind, local_id, update_data, origin, created_at
+      ) VALUES ${updates.map(() => "(?, 'documents', ?, 'update', 'local', ?)").join(", ")}`,
+      updates.flatMap((update) => [update.id, update.localId, OLD]),
+    );
+
+    expect(await deleteOrphanedDocumentSideRows(execSql, { now: NOW })).toBe(
+      true,
+    );
+    expect(
+      await execSql("SELECT COUNT(*) AS count FROM document_history_updates"),
+    ).toEqual([{ count: 1 }]);
+
+    expect(await deleteOrphanedDocumentSideRows(execSql, { now: NOW })).toBe(
+      false,
+    );
+    expect(
+      await execSql("SELECT COUNT(*) AS count FROM document_history_updates"),
+    ).toEqual([{ count: 0 }]);
+  } finally {
+    close();
+  }
+});

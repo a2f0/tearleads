@@ -44,10 +44,7 @@ export {
   buildMaterializedDocumentLinkSetMutationPlan,
   relinkRemoteDocument,
 } from "./linkSet";
-export {
-  type DocumentOrphanBlobReclaimRuntime,
-  reclaimDocumentOrphanBlobs,
-} from "./orphanBlobReclaims";
+export { reclaimDocumentOrphanBlobs } from "./orphanBlobReclaims";
 export {
   type DiscardedDocumentShellResult,
   DOCUMENTS_APP_KIND,

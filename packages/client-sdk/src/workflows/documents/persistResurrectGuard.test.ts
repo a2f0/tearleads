@@ -4,12 +4,22 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
+import {
+  ensureSqlTables,
+  runSerializedSqlMutation,
+} from "../../data/sqlite/sqlSchema";
 import { createDocumentProjectorRegistry } from "../../documents";
 import { saveDocumentRecord } from "../../stores/documents/documentStore/persistence";
 import { createDocumentStoreState } from "../../stores/documents/documentStore/state";
 import type { DocumentsRuntime } from "../../stores/documents/types";
 import { persistDocumentState } from "./persistence";
+
+const racingContactProjectionTable = {
+  createSql:
+    'CREATE TABLE IF NOT EXISTS "test_contact_projection" ("local_id" TEXT PRIMARY KEY)',
+  indexes: [],
+  name: "test_contact_projection",
+};
 
 // A persist that expected to UPDATE must not resurrect a document another
 // subsystem deleted while the persist was in flight (the contacts
@@ -19,14 +29,35 @@ test("an update persist refuses to resurrect a deleted row", async () => {
   const { close, execSql } = await createTestExecSql("persist-resurrect");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
+    await ensureSqlTables(execSql, [racingContactProjectionTable]);
     await sqlDocumentsPersistence.saveDocument(execSql, {
       id: "victim",
       containerId: "container",
       documentId: "victim-remote",
+      documentKind: "contact",
       text: "before",
       snapshotEndVersion: "v1",
       accessEpoch: 1,
     });
+    await execSql(
+      'INSERT INTO "test_contact_projection" ("local_id") VALUES (?)',
+      ["victim"],
+    );
+    const documentProjectors = createDocumentProjectorRegistry([
+      {
+        kind: "contact",
+        clientProjection: {
+          delete: async ({ execSql: projectionExecSql, localId }) => {
+            await projectionExecSql(
+              'DELETE FROM "test_contact_projection" WHERE "local_id" = ?',
+              [localId],
+            );
+          },
+          save: async () => undefined,
+          tables: [racingContactProjectionTable],
+        },
+      },
+    ]);
     const currentRecord = await sqlDocumentsPersistence.loadDocument(
       execSql,
       "victim",
@@ -90,7 +121,7 @@ test("an update persist refuses to resurrect a deleted row", async () => {
     const queuedPersist = persistDocumentState({
       currentDoc: doc,
       currentRecord,
-      documentProjectors: createDocumentProjectorRegistry([]),
+      documentProjectors,
       execSql,
       historyUpdates: ["cmFjaW5nLXRhaWw="],
       localId: "victim",
@@ -109,6 +140,9 @@ test("an update persist refuses to resurrect a deleted row", async () => {
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "victim"),
     ).toBeNull();
+    expect(
+      await execSql('SELECT "local_id" FROM "test_contact_projection"'),
+    ).toEqual([]);
     const tails = await execSql(
       "SELECT id FROM document_history_updates WHERE local_id = 'victim'",
     );
