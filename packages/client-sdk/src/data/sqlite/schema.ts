@@ -7,6 +7,10 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 import {
+  containerSQLiteSchema,
+  containerTableSchemas,
+} from "./containerSchema";
+import {
   documentOrphanBlobReclaims,
   documentOrphanBlobReclaimTable,
 } from "./documentOrphanBlobReclaims";
@@ -26,6 +30,12 @@ import {
 } from "./principalPolicySchema";
 import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 
+export {
+  containerProjection,
+  containers,
+  dormantContainerMetadata,
+  dormantMetadataSweepRequests,
+} from "./containerSchema";
 export {
   principalPolicies,
   principalPolicyBundleHistory,
@@ -304,74 +314,6 @@ export const trustedUserIdentityPins = sqliteTable(
       columns: [table.identityTrustDomain, table.userId],
     }),
   ],
-);
-
-/**
- * Materialized local container tree.
- *
- * Container rows describe the tree and its encrypted metadata document. Display
- * fields are kept in `containerProjection`; metadata rows live in `documents`.
- *
- * Columns:
- * - `id`: Stable local/server container id.
- * - `organizationId`: Organization boundary that owns the container.
- * - `parentId`: Parent container id, or `null` for a root container.
- * - `metadataDocumentId`: Server document id for the container metadata
- *   document when known.
- * - `systemSlot`: Optional opaque app-owned system slot.
- * - `localCreatedAt`: Timestamp for when this client first created or stored
- *   the container.
- * - `localUpdatedAt`: Timestamp for the latest local structural change.
- * - `serverCreatedAt`: Server creation timestamp when the container has synced.
- * - `serverUpdatedAt`: Server update timestamp when the container has synced.
- *
- * Indexes:
- * - `id` is the primary key for structural container lookups.
- */
-export const containers = sqliteTable(
-  "containers",
-  {
-    id: text("id"),
-    organizationId: text("organization_id").notNull(),
-    parentId: text("parent_id"),
-    metadataDocumentId: text("metadata_document_id"),
-    systemSlot: text("system_slot"),
-    effectiveAccessLevel: text(accessLevelColumn).notNull().default("read"),
-    localCreatedAt: text("local_created_at").notNull(),
-    localUpdatedAt: text("local_updated_at").notNull(),
-    serverCreatedAt: text("server_created_at"),
-    serverUpdatedAt: text("server_updated_at"),
-  },
-  (table) => [primaryKey({ columns: [table.id] })],
-);
-
-/**
- * Decrypted container metadata read model.
- *
- * Container metadata is authored as a Loro document, but container lists need a
- * small queryable projection for names and icons. This table is updated
- * together with `containers` when local metadata changes or sync applies remote
- * metadata.
- *
- * Columns:
- * - `containerId`: Container whose metadata is projected.
- * - `displayName`: Decrypted display name, or `null` when the UI should fall
- *   back to a default such as `/` or `Untitled`.
- * - `icon`: Optional decrypted icon value for container display.
- * - `updatedAt`: Local timestamp for the projection update.
- *
- * Indexes:
- * - `containerId` is the primary key and joins back to `containers.id`.
- */
-export const containerProjection = sqliteTable(
-  "container_projection",
-  {
-    containerId: text("container_id"),
-    displayName: text("display_name"),
-    icon: text("icon"),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.containerId] })],
 );
 
 /**
@@ -819,10 +761,7 @@ export const trustedUserIdentityPinTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(trustedUserIdentityPins),
 ];
 
-export const containerTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(containers),
-  defineSqlTableSchema(containerProjection),
-];
+export const containerTables = containerTableSchemas;
 
 export const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> =
   [defineSqlTableSchema(documentContainerProjection)];
@@ -878,8 +817,7 @@ export const clientSQLiteSchema = {
   accessManifestCheckpoints,
   principalPolicyCheckpoints,
   trustedUserIdentityPins,
-  containers,
-  containerProjection,
+  ...containerSQLiteSchema,
   documentContainerProjection,
   documentMoveIntents,
   documentProjection,

@@ -53,6 +53,10 @@ export function createContainerContentsPersistence(input: {
   }>;
 }): ContainerContentsPersistence {
   return {
+    async claimDormantMetadataSweepAttempt() {
+      return false;
+    },
+    async completeDormantMetadataSweepRequest() {},
     async containerExists() {
       return false;
     },
@@ -82,10 +86,19 @@ export function createContainerContentsPersistence(input: {
       return null;
     },
     async purgeDormantContainerMetadata() {},
+    async listDormantMetadataSweepCandidates() {
+      return [];
+    },
+    async purgeDormantContainerMetadataCandidates() {
+      return 0;
+    },
     async rekeyPendingUpdate() {
       return null;
     },
     async listPendingUpdates() {
+      return [];
+    },
+    async listDormantMetadataSweepRequests() {
       return [];
     },
     async loadContainers() {

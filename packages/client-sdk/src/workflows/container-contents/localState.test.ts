@@ -58,6 +58,10 @@ function createContainerContentsPersistence(input: {
   storedContainers: ReadonlyArray<StoredContainerState>;
 }): ContainerContentsPersistence {
   return {
+    async claimDormantMetadataSweepAttempt() {
+      return false;
+    },
+    async completeDormantMetadataSweepRequest() {},
     async containerExists() {
       return false;
     },
@@ -67,6 +71,12 @@ function createContainerContentsPersistence(input: {
       return null;
     },
     async purgeDormantContainerMetadata() {},
+    async listDormantMetadataSweepCandidates() {
+      return [];
+    },
+    async purgeDormantContainerMetadataCandidates() {
+      return 0;
+    },
     async deletePendingUpdates() {},
     async ensureSchema() {},
     async enqueuePendingUpdate(receivedExecSql, pendingUpdate) {
@@ -91,6 +101,9 @@ function createContainerContentsPersistence(input: {
       return null;
     },
     async listPendingUpdates() {
+      return [];
+    },
+    async listDormantMetadataSweepRequests() {
       return [];
     },
     async recordCreateIntentError() {},

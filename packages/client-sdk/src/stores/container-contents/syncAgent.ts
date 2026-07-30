@@ -1,33 +1,24 @@
 import { syncPendingContainerCreateIntents } from "../../workflows/container-contents/container-state/createIntentSync";
 import { syncPendingContainerMoveIntents } from "../../workflows/container-contents/container-state/moveIntentSync";
-import { listContainerParentIdsForEventHydration } from "../../workflows/container-contents/containerEvents";
-import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import {
   type DocumentMoveIntentSyncHost,
   syncPendingDocumentMoveIntents,
 } from "../../workflows/container-contents/documentMoveIntentSync";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
-import {
-  listContainerMetadataDocumentUpdateIds,
-  syncContainerMetadataState,
-} from "../../workflows/container-contents/metadata";
-import type { ContainerContentsProjectionUserKeyResolver } from "../../workflows/container-contents/projectionKeys";
+import { syncContainerMetadataState } from "../../workflows/container-contents/metadata";
 import {
   type ContainerState,
   createRemoteContainerIngestor,
   type RemoteContainer,
   type RemoteContainerHydrationHost,
 } from "../../workflows/container-contents/remoteHydration";
+import { createContainerContentsDocumentsRuntime } from "../../workflows/container-contents/runtime";
 import {
-  type ContainerContentsStoreWorkflowRuntime,
-  createContainerContentsDocumentsRuntime,
-} from "../../workflows/container-contents/runtime";
-import {
-  type ContainerContentsSyncLane,
   isDatabaseUnavailableError,
   registerContainerContentsSyncLane,
 } from "../../workflows/container-contents/syncLane";
 import { openDocumentStore, requestDomainDocumentSync } from "../documents";
+import { createRestoredAccessReconciler } from "./accessRestorationSweep";
 import {
   primeStoreDocumentSubtree,
   primeStoreDocuments,
@@ -36,11 +27,12 @@ import {
 import { runContainerDocumentWork } from "./documentWork";
 import { refreshLocalContainerStates } from "./localRefresh";
 import {
-  bumpMetadataSyncSeq,
   clearMetadataSyncQueueIfUnchanged,
   readMetadataSyncSeq,
 } from "./metadataSyncSignal";
+import { handleContainerContentsRemoteEvents } from "./remoteEventSync";
 import {
+  type RemoteHydrationRefreshOptions,
   refreshAllRemoteHydration,
   refreshRootRemoteHydration,
 } from "./remoteHydrationRefresh";
@@ -49,53 +41,16 @@ import {
   hasStartupContainerSyncWork,
   scheduleStaleStartupRemoteHydration,
 } from "./startupHydration";
+import type {
+  ContainerContentsStoreRuntime,
+  ContainerContentsStoreSyncState,
+} from "./syncAgentTypes";
 
+export type {
+  ContainerContentsStoreRuntime,
+  ContainerContentsStoreSyncState,
+} from "./syncAgentTypes";
 export type { ContainerState };
-
-export type ContainerContentsStoreRuntime =
-  ContainerContentsStoreWorkflowRuntime;
-
-export interface ContainerContentsStoreSyncState {
-  containersById: Map<string, ContainerState>;
-  documentStoresNeedPriming: boolean;
-  initializePromise: Promise<void> | null;
-  initialized: boolean;
-  localContainerRefreshPromise: Promise<void> | null;
-  localContainersNeedRefresh: boolean;
-  lastEventCount: number;
-  /**
-   * Update ids this client sent for container metadata documents, registered
-   * before the network await of each metadata sync pass. The author's own
-   * `document_update_created` echo consumes its ids here instead of arming a
-   * redundant forced read-sync; a genuine peer update always carries unknown
-   * ids and still forces one. Shared across all metadata docs in the store —
-   * update ids are globally unique.
-   */
-  locallyAcceptedMetadataUpdateIds: Set<string>;
-  logLabel?: string | undefined;
-  metadataDocumentIdsNeedingSync: Set<string>;
-  /**
-   * Per-metadata-document enqueue sequence. Bumped for a specific id whenever a
-   * remote event re-queues it in {@link metadataDocumentIdsNeedingSync}. A sync
-   * pass snapshots the id's sequence before its GET and only clears the id if it
-   * is unchanged at pass end, so a mid-pass re-queue of THIS container is not
-   * erased. Keyed per id (not a single global counter) so a remote event for an
-   * unrelated container does not force a redundant re-sync of this one. See
-   * {@link clearMetadataSyncQueueIfUnchanged}.
-   */
-  metadataSyncSignalSeqById: Map<string, number>;
-  containerParentIdsNeedingHydration: Set<string | null>;
-  persistence: ContainerContentsPersistence;
-  remoteHydrationPromise: Promise<void> | null;
-  resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
-  /** True after this store has fully applied an authoritative root lane. */
-  rootLaneHydrated: boolean;
-  runtime: ContainerContentsStoreRuntime;
-  snapshot: {
-    ready: boolean;
-  };
-  syncLane: ContainerContentsSyncLane | null;
-}
 
 export interface ContainerContentsStoreSyncAgent {
   ensureInitialized: () => void;
@@ -209,6 +164,14 @@ async function initializeContainerContentsStore(input: {
         }),
       state,
     });
+  const hasPendingRestorationSweep =
+    typeof state.runtime.auth.userId === "string" &&
+    (
+      await state.persistence.listDormantMetadataSweepRequests(
+        state.runtime.infra.execSql,
+        state.runtime.auth.userId,
+      )
+    ).length > 0;
 
   host.updateSnapshot();
 
@@ -220,6 +183,7 @@ async function initializeContainerContentsStore(input: {
     state.runtime.auth.isAuthenticated &&
     state.runtime.state.online &&
     (shouldScheduleStaleRootRecovery ||
+      hasPendingRestorationSweep ||
       (await hasStartupContainerSyncWork(state)))
   ) {
     state.runtime.util.log(
@@ -317,9 +281,10 @@ async function syncSingleContainerMetadata(input: {
 
 async function runContainerContentsStoreSyncIteration(input: {
   host: ContainerContentsStoreSyncHost;
+  reconcileRestoredAccess: () => Promise<void>;
   state: ContainerContentsStoreSyncState;
 }) {
-  const { host, state } = input;
+  const { host, reconcileRestoredAccess, state } = input;
   const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
   if (
     state.runtime.infra.dbStatus !== "ready" ||
@@ -330,6 +295,7 @@ async function runContainerContentsStoreSyncIteration(input: {
   ) {
     return;
   }
+  await reconcileRestoredAccess();
   const isOrganizationBlocked = (organizationId: string) =>
     isRemoteSyncBlocked(state, organizationId);
 
@@ -394,11 +360,6 @@ export function createContainerContentsStoreSyncAgent(input: {
   state: ContainerContentsStoreSyncState;
 }): ContainerContentsStoreSyncAgent {
   const { host, state } = input;
-
-  state.syncLane = registerContainerContentsSyncLane({
-    domainScope: state.runtime.state.domainScope,
-    run: () => runContainerContentsStoreSyncIteration({ host, state }),
-  });
   const scheduleSync = () => requestContainerContentsStoreSync(state);
   const ingestRemoteContainer = createSchedulingRemoteContainerIngestor({
     host,
@@ -415,56 +376,37 @@ export function createContainerContentsStoreSyncAgent(input: {
         scheduleSync,
         state,
       });
-  const requestRefreshHydration = (options: {
-    followDiscoveredParentLanes?: boolean | undefined;
-    parentIds?: ReadonlyArray<string | null> | undefined;
-    resetRootLaneWatermark?: boolean | undefined;
-    scheduleSyncAfterHydration?: boolean | undefined;
-  }) =>
+  const requestRefreshHydration = (options: RemoteHydrationRefreshOptions) =>
     requestContainerContentsRemoteHydration({
       ...options,
       host,
       scheduleSync,
       state,
     });
+  const reconcileRestoredAccess = createRestoredAccessReconciler({
+    requestHydration: requestRefreshHydration,
+    state,
+  });
+
+  state.syncLane = registerContainerContentsSyncLane({
+    domainScope: state.runtime.state.domainScope,
+    run: () =>
+      runContainerContentsStoreSyncIteration({
+        host,
+        reconcileRestoredAccess,
+        state,
+      }),
+  });
 
   return {
     ensureInitialized: () =>
       ensureContainerContentsStoreInitialized({ host, scheduleSync, state }),
-    handleRemoteEvents: () => {
-      const nextEvents = state.runtime.state.events.slice(state.lastEventCount);
-      state.lastEventCount = state.runtime.state.events.length;
-      let addedContainerParentHydrationLane = false;
-      for (const parentId of listContainerParentIdsForEventHydration(
-        nextEvents,
-      )) {
-        if (!state.containerParentIdsNeedingHydration.has(parentId)) {
-          addedContainerParentHydrationLane = true;
-        }
-        state.containerParentIdsNeedingHydration.add(parentId);
-      }
-      if (addedContainerParentHydrationLane) {
-        void requestHydration();
-      }
-      const metadataDocumentIds = listContainerMetadataDocumentUpdateIds(
-        nextEvents,
-        state.containersById.values(),
-        state.locallyAcceptedMetadataUpdateIds,
-      );
-      for (const metadataDocumentId of metadataDocumentIds) {
-        state.metadataDocumentIdsNeedingSync.add(metadataDocumentId);
-        // Bump this id's sequence so an in-flight pass syncing this same
-        // container detects the fresh re-queue and does not clear it.
-        bumpMetadataSyncSeq(
-          state.metadataSyncSignalSeqById,
-          metadataDocumentId,
-        );
-      }
-
-      if (metadataDocumentIds.length > 0) {
-        scheduleSync();
-      }
-    },
+    handleRemoteEvents: () =>
+      handleContainerContentsRemoteEvents({
+        requestHydration,
+        scheduleSync,
+        state,
+      }),
     ingestRemoteContainer,
     primeDocumentsForSharedSubtree: (rootContainerId: string) =>
       primeStoreDocumentSubtree(state, rootContainerId),

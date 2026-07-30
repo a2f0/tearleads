@@ -23,6 +23,10 @@ import { beginUploadLane } from "./uploadLane";
 // error type it discriminates on.
 export { isDatabaseUnavailableError } from "../databaseUnavailable";
 export type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";
+export {
+  didRegainSyncPrerequisites,
+  type SyncRuntimeStatus,
+} from "./syncPrerequisites";
 export type {
   DomainSyncSnapshot,
   SyncLaneLastAction,
@@ -32,18 +36,6 @@ export type {
   SyncLaneStatus,
 } from "./syncTelemetry";
 export type { UploadSyncLane, UploadSyncLaneOptions } from "./uploadLane";
-
-export interface SyncRuntimeStatus {
-  crypto: {
-    encapsulationKeyPair: unknown;
-  };
-  auth: {
-    isAuthenticated: boolean;
-  };
-  state: {
-    online: boolean;
-  };
-}
 
 export interface SyncIdleOptions {
   intervalMs?: number;
@@ -64,6 +56,8 @@ export interface DomainSyncCoordinator {
   // durable owners stranded by a transient failure. Observational upload rows
   // are updated only by those owners' real attachment upload attempts.
   requestAllLanes: () => void;
+  // Request one registered pump lane without re-driving unrelated owners.
+  requestLane: (key: string) => void;
   hasPendingWork: () => boolean;
   subscribe: (listener: () => void) => () => void;
   waitForIdle: (options?: SyncIdleOptions) => Promise<boolean>;
@@ -502,6 +496,12 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
     requestAllLanes() {
       requestAllPumpDrivenLanes(coordinatorState);
     },
+    requestLane(key: string) {
+      const lane = coordinatorState.lanes.get(key);
+      if (lane?.pumpDriven) {
+        requestLaneSync(coordinatorState, lane);
+      }
+    },
     subscribe(listener: () => void) {
       coordinatorState.listeners.add(listener);
       return () => {
@@ -539,6 +539,13 @@ export function hasDomainSyncCoordinatorPendingWork(
 // (nothing has been synced) or it has been disposed.
 export function requestAllDomainSyncLanes(domainScope: DomainScope): void {
   coordinatorsByScope.get(domainScope)?.requestAllLanes();
+}
+
+export function requestDomainSyncLane(
+  domainScope: DomainScope,
+  key: string,
+): void {
+  coordinatorsByScope.get(domainScope)?.requestLane(key);
 }
 
 // Force-stop the coordinator for a scope and drop it from the registry, so a
@@ -585,18 +592,5 @@ export function waitForDomainSyncCoordinatorToSettle(
   return (
     coordinatorsByScope.get(domainScope)?.waitForIdle(options) ??
     Promise.resolve(true)
-  );
-}
-
-export function didRegainSyncPrerequisites<TRuntime extends SyncRuntimeStatus>(
-  previousRuntime: TRuntime,
-  nextRuntime: TRuntime,
-): boolean {
-  return (
-    (!previousRuntime.state.online && nextRuntime.state.online) ||
-    (!previousRuntime.auth.isAuthenticated &&
-      nextRuntime.auth.isAuthenticated) ||
-    (!previousRuntime.crypto.encapsulationKeyPair &&
-      !!nextRuntime.crypto.encapsulationKeyPair)
   );
 }

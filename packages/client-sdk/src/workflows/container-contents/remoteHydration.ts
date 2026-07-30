@@ -14,6 +14,7 @@ import {
   moveIndexedContainerChild,
   removeIndexedContainerChild,
 } from "./remoteHydration/childIndex";
+import { finishRemoteHydration } from "./remoteHydration/completeHydration";
 import { markContainerParentLaneFetched } from "./remoteHydration/laneFetchMarkers";
 import { fetchContainerParentLaneBatch } from "./remoteHydration/parentLaneFetch";
 import { createContainerParentHydrationQueue } from "./remoteHydration/parentLaneQueue";
@@ -40,7 +41,6 @@ import type {
   RemoteContainerIngestQueue,
   SaveContainerOptions,
 } from "./remoteHydration/types";
-import { describeRemoteContainerHydration } from "./remoteHydrationLog";
 
 export type {
   ContainerState,
@@ -896,7 +896,9 @@ async function hydrateContainerParentLanes(input: {
 export async function hydrateRemoteContainers(input: {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
+  onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
+  resetAllLaneWatermarks?: boolean | undefined;
   resetRootLaneWatermark?: boolean | undefined;
   state: RemoteContainerHydrationState;
 }): Promise<number> {
@@ -911,20 +913,12 @@ export async function hydrateRemoteContainers(input: {
   const { lanes, queueParentLane } = createContainerParentHydrationQueue({
     containerIds: state.containersById.keys(),
     parentIds: input.parentIds,
+    resetAllLaneWatermarks: input.resetAllLaneWatermarks,
     resetRootLaneWatermark: input.resetRootLaneWatermark,
   });
-  // Follow a discovered container's child lane when EITHER the caller opted into a
-  // full recursive crawl (explicit refresh sets followDiscoveredParentLanes), OR
-  // the container is one we had never hydrated before this pass. The second clause
-  // is what lets a newly-authorized root auto-populate its children: when a group
-  // grant surfaces the owner's root on the null lane, that root is absent from
-  // containerIdsBeforeHydration, so its child lane is queued and the recursion
-  // continues into each freshly discovered descendant (Contacts, Trash, ...) within
-  // the same pass. Without it, automatic paths (startup, shared_with_you event,
-  // event-tick) discover the root but never list its remote children, so they only
-  // appear after a manual View -> Refresh. Already-known containers are still NOT
-  // re-crawled on a routine tick — that stays gated behind followDiscoveredParentLanes
-  // — so steady-state hydration remains shallow and cache-first.
+  // Follow child lanes during an explicit recursive crawl or for containers first
+  // discovered in this pass. The latter lets a newly authorized root populate its
+  // descendants immediately, while routine ticks keep known subtrees cache-first.
   const queueDiscoveredParentLane: QueueContainerParentLane = (containerId) => {
     if (
       input.followDiscoveredParentLanes ||
@@ -933,7 +927,7 @@ export async function hydrateRemoteContainers(input: {
       queueParentLane(containerId);
     }
   };
-  const { changedCount } = await hydrateContainerParentLanes({
+  const result = await hydrateContainerParentLanes({
     childIdsByParentId,
     host,
     lanes,
@@ -941,18 +935,15 @@ export async function hydrateRemoteContainers(input: {
     seenContainerIds,
     state,
   });
-
-  if (changedCount > 0) {
-    host.updateSnapshot();
-    let insertedCount = 0;
-    for (const containerId of seenContainerIds) {
-      if (!containerIdsBeforeHydration.has(containerId)) {
-        insertedCount++;
-      }
-    }
-    state.runtime.util.log(
-      describeRemoteContainerHydration({ changedCount, insertedCount }),
-    );
-  }
+  const { changedCount } = result;
+  await finishRemoteHydration({
+    changedCount,
+    complete: !result.shouldStop && canHydrateRemoteContainers(state),
+    containerIdsBeforeHydration,
+    host,
+    onFullyHydrated: input.onFullyHydrated,
+    seenContainerIds,
+    state,
+  });
   return changedCount;
 }

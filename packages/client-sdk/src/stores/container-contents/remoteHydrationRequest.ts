@@ -22,9 +22,12 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
 export function requestContainerContentsRemoteHydration(input: {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
+  onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
+  resetAllLaneWatermarks?: boolean | undefined;
   resetRootLaneWatermark?: boolean | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
+  scheduleSyncOnHydrationChange?: boolean | undefined;
   scheduleSync: () => void;
   state: RemoteHydrationRequestState;
 }): Promise<void> {
@@ -63,7 +66,9 @@ export function requestContainerContentsRemoteHydration(input: {
       hydrateRemoteContainers({
         followDiscoveredParentLanes,
         host,
+        onFullyHydrated: input.onFullyHydrated,
         parentIds,
+        resetAllLaneWatermarks: input.resetAllLaneWatermarks,
         resetRootLaneWatermark: input.resetRootLaneWatermark,
         state,
       }),
@@ -82,8 +87,9 @@ export function requestContainerContentsRemoteHydration(input: {
       state.remoteHydrationPromise = null;
 
       if (
-        (appliedRemoteContainerChange ||
-          (!rootLaneHydratedBeforeRequest && state.rootLaneHydrated) ||
+        (((input.scheduleSyncOnHydrationChange ?? true) &&
+          (appliedRemoteContainerChange ||
+            (!rootLaneHydratedBeforeRequest && state.rootLaneHydrated))) ||
           input.scheduleSyncAfterHydration) &&
         state.snapshot.ready &&
         state.runtime.auth.isAuthenticated &&
