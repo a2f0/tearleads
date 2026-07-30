@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   listDormantMetadataSweepRequests,
   requestDormantMetadataRestorationSweep,
-} from "../../data/persistence/container-contents/dormantContainerMetadata";
+} from "../../data/persistence/container-contents/dormantMetadataSweep";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { listPendingWrites } from "./pendingWrites";
@@ -117,10 +117,17 @@ test("restoration sweep purges only unmatched metadata in its organization", asy
     if (!sweep) {
       throw new Error("Expected a restoration sweep");
     }
-    await expect(
-      defaultContainerContentsPersistence.purgeUnmatchedDormantContainerMetadata(
+    const candidates =
+      await defaultContainerContentsPersistence.listDormantMetadataSweepCandidates(
         execSql,
         sweep,
+      );
+    expect(candidates).toEqual(["deleted-after-revoke"]);
+    await expect(
+      defaultContainerContentsPersistence.purgeDormantContainerMetadataCandidates(
+        execSql,
+        sweep,
+        candidates,
       ),
     ).resolves.toBe(1);
 

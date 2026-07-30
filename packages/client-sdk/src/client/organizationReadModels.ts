@@ -1,6 +1,6 @@
 import type { DomainScope } from "../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../data/persistence/container-contents/documentMoveIntentPersistence";
-import { requestDormantMetadataRestorationSweep } from "../data/persistence/container-contents/dormantContainerMetadata";
+import { requestDormantMetadataRestorationSweep } from "../data/persistence/container-contents/dormantMetadataSweep";
 import { hasRecordedTerminalSyncFailures } from "../data/sqlite/documentPersistence";
 import {
   requestAllDomainSyncLanes,
@@ -374,14 +374,20 @@ class OrganizationReadModelCoordinatorImpl
           directoryAndGroups !== null &&
           directoryAndGroups !== undefined;
         if (accessWasRestored) {
-          await requestDormantMetadataRestorationSweep(
-            active.runtime.infra.execSql,
-            {
-              organizationId: active.organizationId,
-              requesterUserId: active.userId,
-            },
-          );
-          requestDomainSyncLane(domainScope, CONTAINER_CONTENTS_SYNC_LANE_KEY);
+          const requestedDormantSweep =
+            await requestDormantMetadataRestorationSweep(
+              active.runtime.infra.execSql,
+              {
+                organizationId: active.organizationId,
+                requesterUserId: active.userId,
+              },
+            );
+          if (requestedDormantSweep) {
+            requestDomainSyncLane(
+              domainScope,
+              CONTAINER_CONTENTS_SYNC_LANE_KEY,
+            );
+          }
         }
 
         // The evidence gate: re-arm only when some queued write actually

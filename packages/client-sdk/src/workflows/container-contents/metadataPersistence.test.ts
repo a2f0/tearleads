@@ -70,7 +70,10 @@ function createPersistence(): ContainerContentsPersistence {
       return null;
     },
     async purgeDormantContainerMetadata() {},
-    async purgeUnmatchedDormantContainerMetadata() {
+    async listDormantMetadataSweepCandidates() {
+      return [];
+    },
+    async purgeDormantContainerMetadataCandidates() {
       return 0;
     },
     async listPendingCreateIntents() {

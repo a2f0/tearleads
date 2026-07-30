@@ -58,13 +58,16 @@ import { reassignContainerDocumentsInTransaction } from "./containerDocumentReas
 import {
   CONTAINER_METADATA_APP_KIND,
   clearDormantContainerMetadataInTransaction,
-  completeDormantMetadataSweepRequest,
-  type DormantContainerMetadataPersistence,
   deleteContainerMetadataDocumentRowsInTransaction,
-  listDormantMetadataSweepRequests,
-  purgeUnmatchedDormantContainerMetadata,
   retainDormantContainerMetadataInTransaction,
 } from "./dormantContainerMetadata";
+import {
+  completeDormantMetadataSweepRequest,
+  type DormantMetadataSweepPersistence,
+  listDormantMetadataSweepCandidates,
+  listDormantMetadataSweepRequests,
+  purgeDormantContainerMetadataCandidates,
+} from "./dormantMetadataSweep";
 
 export { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
 
@@ -135,7 +138,7 @@ export interface StoredContainerState {
 }
 
 export interface ContainerContentsPersistence
-  extends DormantContainerMetadataPersistence {
+  extends DormantMetadataSweepPersistence {
   containerExists: (execSql: ExecSql, containerId: string) => Promise<boolean>;
   deleteContainer: (
     execSql: ExecSql,
@@ -1375,7 +1378,8 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       );
     });
   },
-  purgeUnmatchedDormantContainerMetadata,
+  listDormantMetadataSweepCandidates,
+  purgeDormantContainerMetadataCandidates,
   async loadContainers(execSql) {
     const containers = await loadContainerRecords(execSql);
     const storedContainers = await Promise.all(

@@ -12,7 +12,7 @@ import { createDomainScope } from "../../data/domainScope";
 import {
   listDormantMetadataSweepRequests,
   requestDormantMetadataRestorationSweep,
-} from "../../data/persistence/container-contents/dormantContainerMetadata";
+} from "../../data/persistence/container-contents/dormantMetadataSweep";
 import {
   disposeDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
@@ -36,12 +36,46 @@ async function countMetadataDocuments(
   execSql: Parameters<
     typeof defaultContainerContentsPersistence.ensureSchema
   >[0],
+  containerId: string,
 ): Promise<number> {
   const rows = await execSql(
     `SELECT COUNT(*) AS n FROM documents
-     WHERE app_kind = 'container-metadata' AND local_id = 'revoked'`,
+     WHERE app_kind = 'container-metadata' AND local_id = ?`,
+    [containerId],
   );
   return Number(Reflect.get(rows[0] ?? {}, "n") ?? 0);
+}
+
+async function seedDormantMetadata(
+  execSql: Parameters<
+    typeof defaultContainerContentsPersistence.ensureSchema
+  >[0],
+  containerId: string,
+): Promise<void> {
+  await defaultContainerContentsPersistence.saveContainer(
+    execSql,
+    {
+      effectiveAccessLevel: "write",
+      icon: null,
+      id: containerId,
+      metadataDocumentId: `metadata-${containerId}`,
+      name: "Revoked",
+      organizationId: ORGANIZATION_ID,
+      parentId: null,
+    },
+    {
+      accessEpoch: 1,
+      documentId: `metadata-${containerId}`,
+      id: containerId,
+      metadataUpdates: "c2VlZA==",
+      snapshotEndVersion: "",
+    },
+  );
+  await defaultContainerContentsPersistence.deleteContainers(
+    execSql,
+    [containerId],
+    { retainMetadataForContainerIds: [containerId] },
+  );
 }
 
 async function waitFor(
@@ -67,38 +101,27 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
   let hydrationRequests = 0;
   try {
     await defaultContainerContentsPersistence.ensureSchema(execSql);
-    await defaultContainerContentsPersistence.saveContainer(
-      execSql,
-      {
-        effectiveAccessLevel: "write",
-        icon: null,
-        id: "revoked",
-        metadataDocumentId: "metadata-revoked",
-        name: "Revoked",
-        organizationId: ORGANIZATION_ID,
-        parentId: null,
-      },
-      {
-        accessEpoch: 1,
-        documentId: "metadata-revoked",
-        id: "revoked",
-        metadataUpdates: "c2VlZA==",
-        snapshotEndVersion: "",
-      },
-    );
-    await defaultContainerContentsPersistence.deleteContainers(
-      execSql,
-      ["revoked"],
-      {
-        retainMetadataForContainerIds: ["revoked"],
-      },
-    );
+    await seedDormantMetadata(execSql, "revoked");
+    await seedDormantMetadata(execSql, "still-revoked");
     await requestDormantMetadataRestorationSweep(execSql, {
       organizationId: ORGANIZATION_ID,
       requesterUserId: "user-1",
     });
 
     const apiClient = createMockApiClient({
+      getContainerWriterProjectionResult: async (containerId) => {
+        const status = containerId === "revoked" ? 404 : 403;
+        return {
+          kind: "http" as const,
+          message: `GET projection failed with ${status}`,
+          method: "GET" as const,
+          ok: false as const,
+          path: `/containers/${containerId}/writer-projection`,
+          report: () => {},
+          status,
+          statusText: status === 404 ? "Not Found" : "Forbidden",
+        };
+      },
       listContainerParentLanes: batchParentLanes(async () => {
         hydrationRequests += 1;
         return failHydration ? null : emptyContainerPage();
@@ -139,7 +162,12 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
       "Restoration did not request a recursive hydration.",
     );
     await waitForDomainSyncCoordinatorToSettle(domainScope);
-    expect(await countMetadataDocuments(execSql)).toBe(1);
+    const hydrationRequestsAfterFailure = hydrationRequests;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    await waitForDomainSyncCoordinatorToSettle(domainScope);
+    expect(hydrationRequests).toBe(hydrationRequestsAfterFailure);
+    expect(await countMetadataDocuments(execSql, "revoked")).toBe(1);
+    expect(await countMetadataDocuments(execSql, "still-revoked")).toBe(1);
     expect(
       await listDormantMetadataSweepRequests(execSql, "user-1"),
     ).toHaveLength(1);
@@ -147,11 +175,13 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
     failHydration = false;
     store.requestSync();
     await waitFor(
-      () => hydrationRequests > 1,
+      () => hydrationRequests > hydrationRequestsAfterFailure,
       "Restoration hydration was not retryable.",
     );
     await waitForDomainSyncCoordinatorToSettle(domainScope);
-    expect(await countMetadataDocuments(execSql)).toBe(0);
+    expect(hydrationRequests).toBeGreaterThan(hydrationRequestsAfterFailure);
+    expect(await countMetadataDocuments(execSql, "revoked")).toBe(0);
+    expect(await countMetadataDocuments(execSql, "still-revoked")).toBe(1);
     expect(await listDormantMetadataSweepRequests(execSql, "user-1")).toEqual(
       [],
     );

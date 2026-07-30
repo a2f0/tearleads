@@ -15,7 +15,7 @@ import { sqlDocumentMoveIntentPersistence } from "../data/persistence/container-
 import {
   completeDormantMetadataSweepRequest,
   listDormantMetadataSweepRequests,
-} from "../data/persistence/container-contents/dormantContainerMetadata";
+} from "../data/persistence/container-contents/dormantMetadataSweep";
 import {
   ensureDocumentTables,
   recordDocumentSyncFailure,
@@ -165,6 +165,13 @@ test("restored access requests an organization-scoped container cleanup", async 
   const { runtime, workflowInput } = createRuntime(execSql);
   const domainScope = workflowInput.state.domainScope;
   try {
+    await ensureSqlTables(execSql, containerTables);
+    await execSql(
+      `INSERT INTO dormant_container_metadata
+        (container_id, organization_id, retained_at)
+       VALUES (?, ?, '2026-01-01T00:00:00.000Z')`,
+      ["revoked-container", organizationReadModelOrganizationId],
+    );
     const sweptOrganizations: string[][] = [];
     let markLaneRan = () => {};
     const laneRan = new Promise<void>((resolve) => {

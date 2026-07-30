@@ -2,6 +2,7 @@ export interface RemoteHydrationRefreshOptions {
   followDiscoveredParentLanes?: boolean | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
+  resetAllLaneWatermarks?: boolean | undefined;
   resetRootLaneWatermark?: boolean | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
 }
@@ -105,6 +106,8 @@ function canRefreshRemoteHydration(
 export function refreshAllRemoteHydration(input: {
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
   requestHydration: RemoteHydrationRequester;
+  resetAllLaneWatermarks?: boolean | undefined;
+  scheduleSyncAfterHydration?: boolean | undefined;
   state: RemoteHydrationRefreshState;
 }): Promise<boolean> {
   const { requestHydration, state } = input;
@@ -122,8 +125,9 @@ export function refreshAllRemoteHydration(input: {
   return requestHydration({
     followDiscoveredParentLanes: true,
     onFullyHydrated: input.onFullyHydrated,
+    ...(input.resetAllLaneWatermarks ? { resetAllLaneWatermarks: true } : {}),
     resetRootLaneWatermark: true,
-    scheduleSyncAfterHydration: true,
+    scheduleSyncAfterHydration: input.scheduleSyncAfterHydration ?? true,
   }).then(() => true);
 }
 
