@@ -109,7 +109,7 @@ export function EnvFileReadTable(params: {
         actionsLabel="Actions"
         ariaLabel="Variables"
         columns={columns}
-        columnStorageKey="tearleads.env-file.variables:hidden-columns"
+        columnStorageKey="tearleads.env-file.variables:hidden-columns:v2"
         defaultSortColumnId="ordinal"
         emptyLabel="No variables"
         renderActions={(row) => (

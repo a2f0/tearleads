@@ -334,7 +334,16 @@ export function TrackerReadTable<TRow>(params: {
   /** The sr-only heading of the trailing kebab column. */
   actionsLabel: string;
   ariaLabel: string;
-  /** Where this tracker remembers which columns the reader switched off. */
+  /**
+   * Where this tracker remembers which columns the reader switched off.
+   *
+   * Version the key (`…:v2`) whenever a column's `defaultHidden` changes. A
+   * stored preference is the whole hidden set, not a diff from the defaults, so
+   * it wins outright: a reader who had ever opened the columns menu would keep
+   * seeing the column the new default hides, and only they would — the hardest
+   * kind of difference to notice, because it looks correct to everyone testing
+   * with fresh storage.
+   */
   columnStorageKey: string;
   columns: ReadonlyArray<TrackerReadColumn<TRow>>;
   defaultSortColumnId: string;
