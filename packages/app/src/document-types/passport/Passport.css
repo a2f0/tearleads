@@ -1,0 +1,6 @@
+/* A passport has one image slot, so it would otherwise stretch across the
+   entire detail pane on iPad. Keep it at the shared form measure while the
+   mobile tier's token override still lets it use the available width. */
+.passport-attachment-slots {
+  max-width: var(--form-measure);
+}
