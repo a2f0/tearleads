@@ -136,7 +136,7 @@ native_release_require_tier_host() {
     VITE_API_BASE_URL:https | VITE_WS_URL:wss) ;;
     *)
       echo "Error: $native_url_guard_name must use a secure release scheme." >&2
-      exit 1
+      return 1
       ;;
   esac
 
@@ -156,7 +156,7 @@ native_release_require_tier_host() {
   else
     echo "A $native_url_guard_tier release WebSocket must use $native_url_guard_domain or one of its subdomains." >&2
   fi
-  exit 1
+  return 1
 }
 
 native_release_guard_environment() {

@@ -232,7 +232,7 @@ describe("RevenueCat store-release safety", () => {
     ).resolves.toContain("does not match the production key");
     await expect(
       readFastlaneKeyProblem("appl_production", "appl_", "", "production"),
-    ).resolves.toContain("production key is unavailable");
+    ).resolves.toContain("independent baseline is unavailable");
     await expect(
       readFastlaneKeyProblem("appl_example", "appl_", "appl_root", "preview"),
     ).resolves.toContain("unknown release tier");

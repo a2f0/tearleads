@@ -1,10 +1,16 @@
 # frozen_string_literal: true
 
+def missing_production_baseline_problem(release_tier)
+  return 'cannot verify staging isolation because the production key is unavailable' if release_tier == 'staging'
+
+  'cannot verify the production key because its independent baseline is unavailable'
+end
+
 def revenuecat_key_identity_problem(key, production_value, release_tier)
   return "has unknown release tier #{release_tier.inspect}" unless %w[production staging].include?(release_tier)
 
   production_key = production_value.to_s.strip
-  return "cannot verify #{release_tier} isolation because the production key is unavailable" if production_key.empty?
+  return missing_production_baseline_problem(release_tier) if production_key.empty?
 
   keys_match = key == production_key
   return 'does not match the production key' if release_tier == 'production' && !keys_match

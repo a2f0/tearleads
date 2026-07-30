@@ -4,6 +4,27 @@ import { requireRubyBundle } from "./requireRubyBundle";
 
 const packageRoot = resolve(import.meta.dir, "..");
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function recordValue(value: Record<string, unknown>, key: string): unknown {
+  return value[key];
+}
+
+function parseStoreIdentity(stdout: string) {
+  const value: unknown = JSON.parse(stdout);
+  if (!isRecord(value)) {
+    throw new Error("Fastlane store identity must be an object");
+  }
+  const appIdentifier = recordValue(value, "appIdentifier");
+  const packageName = recordValue(value, "packageName");
+  if (typeof appIdentifier !== "string" || typeof packageName !== "string") {
+    throw new Error("Fastlane store identity fields must be strings");
+  }
+  return { appIdentifier, packageName };
+}
+
 async function readFastlaneAppIdentifier(tier: string) {
   await requireRubyBundle();
   const child = Bun.spawn(
@@ -35,7 +56,7 @@ async function readFastlaneAppIdentifier(tier: string) {
     throw new Error(`Fastlane failed to load ${tier}: ${stderr}`);
   }
   try {
-    return { identities: JSON.parse(stdout), stderr };
+    return { identities: parseStoreIdentity(stdout), stderr };
   } catch {
     throw new Error(`Fastlane failed to load ${tier}: ${stderr}${stdout}`);
   }
