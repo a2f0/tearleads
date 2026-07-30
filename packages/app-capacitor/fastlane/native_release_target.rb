@@ -43,10 +43,19 @@ NATIVE_STAGING_ENV_PATH = File.join(NATIVE_SECRETS_DIR, 'staging.env')
 NATIVE_SHARED_VITE_ENV_NAMES = %w[
   VITE_REVENUECAT_SYNC_ENTITLEMENT
 ].freeze
-NATIVE_STAGING_ENV_NAMES = (%w[
+NATIVE_STAGING_PLATFORM_VITE_ENV_NAMES = %w[
   VITE_REVENUECAT_ANDROID_API_KEY
   VITE_REVENUECAT_IOS_API_KEY
-] + NATIVE_SHARED_VITE_ENV_NAMES).freeze
+].freeze
+NATIVE_RELEASE_MANAGED_VITE_ENV_NAMES = %w[
+  VITE_API_BASE_URL
+  VITE_APP_VERSION
+  VITE_GIT_SHA
+  VITE_WS_URL
+].freeze
+NATIVE_STAGING_ENV_NAMES = (
+  NATIVE_STAGING_PLATFORM_VITE_ENV_NAMES + NATIVE_SHARED_VITE_ENV_NAMES
+).freeze
 
 def parsed_native_release_env(path)
   File.file?(path) ? Dotenv.parse(path) : {}
@@ -87,6 +96,9 @@ def load_native_release_secrets_env(validate_service_urls: true)
     ENV[name] = value unless process_environment.key?(name)
   end
 
+  if ENV.fetch('VITE_API_BASE_URL', '').strip.empty?
+    ENV['VITE_API_BASE_URL'] = "https://#{NATIVE_RELEASE_TARGET.fetch(:api_host)}"
+  end
   ensure_native_release_service_urls! if validate_service_urls
 end
 
@@ -104,16 +116,23 @@ def native_release_websocket_host_problem(host)
   "must use #{service_domain} or one of its subdomains for a #{NATIVE_RELEASE_TIER} release"
 end
 
-def native_release_service_url_problem(env_name, value)
-  url = value.to_s.strip
-  return nil if url.empty?
+def native_release_parsed_url_problem(env_name, parsed_url)
+  expected_scheme = env_name == 'VITE_API_BASE_URL' ? 'https' : 'wss'
+  return "must use the #{expected_scheme} scheme" unless parsed_url.scheme.to_s.downcase == expected_scheme
 
-  host = URI.parse(url).host&.downcase&.delete_suffix('.')
-  return 'must be an absolute URL with a host' if host.to_s.empty?
+  host = parsed_url.host.to_s.downcase.delete_suffix('.')
+  return 'must be an absolute URL with a host' if host.empty?
 
   return native_release_api_host_problem(host) if env_name == 'VITE_API_BASE_URL'
 
   native_release_websocket_host_problem(host)
+end
+
+def native_release_service_url_problem(env_name, value)
+  url = value.to_s.strip
+  return nil if url.empty?
+
+  native_release_parsed_url_problem(env_name, URI.parse(url))
 rescue URI::InvalidURIError
   'must be an absolute URL with a host'
 end

@@ -64,7 +64,7 @@ test("iOS pins the In-App Purchase project attribute", async () => {
   );
 });
 
-test("Android exposes a signed staging release variant", async () => {
+test("Android staging inherits the production release signing variant", async () => {
   const [gradle, stagingStrings] = await Promise.all([
     Bun.file(resolve(packageRoot, "android/app/build.gradle")).text(),
     Bun.file(
@@ -72,6 +72,9 @@ test("Android exposes a signed staging release variant", async () => {
     ).text(),
   ]);
 
+  expect(gradle).toMatch(
+    /release\s*\{[\s\S]*?signingConfig hasReleaseKeystore\(\) \? signingConfigs\.release : signingConfigs\.debug/,
+  );
   expect(gradle).toMatch(/staging\s*\{[\s\S]*?initWith release/);
   expect(gradle).toContain('applicationIdSuffix ".staging"');
   expect(stagingStrings).toContain("com.tearleads.app.staging");

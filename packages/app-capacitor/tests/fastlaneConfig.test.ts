@@ -4,7 +4,7 @@ import { requireRubyBundle } from "./requireRubyBundle";
 
 const packageRoot = resolve(import.meta.dir, "..");
 
-async function readFastlaneAppIdentifier(tier: "production" | "staging") {
+async function readFastlaneAppIdentifier(tier: string) {
   await requireRubyBundle();
   const child = Bun.spawn(
     [
@@ -34,7 +34,11 @@ async function readFastlaneAppIdentifier(tier: "production" | "staging") {
   if (exitCode !== 0) {
     throw new Error(`Fastlane failed to load ${tier}: ${stderr}`);
   }
-  return { identities: JSON.parse(stdout), stderr };
+  try {
+    return { identities: JSON.parse(stdout), stderr };
+  } catch {
+    throw new Error(`Fastlane failed to load ${tier}: ${stderr}${stdout}`);
+  }
 }
 
 test("Fastlane Appfile selects each release tier's store identity", async () => {
@@ -51,4 +55,10 @@ test("Fastlane Appfile selects each release tier's store identity", async () => 
   });
   expect(production.stderr).not.toContain("already initialized constant");
   expect(staging.stderr).not.toContain("already initialized constant");
+});
+
+test("Fastlane Appfile rejects an unknown release tier", async () => {
+  await expect(readFastlaneAppIdentifier("preview")).rejects.toThrow(
+    "Unknown NATIVE_RELEASE_TIER",
+  );
 });

@@ -15,6 +15,16 @@ const snapshotScriptPath = resolve(
   "tests/native_release_snapshot.rb",
 );
 
+function rubyWordArray(source: string, constantName: string): string[] {
+  const body = source.match(
+    new RegExp(`${constantName} = %w\\[([\\s\\S]*?)\\]\\.freeze`),
+  )?.[1];
+  if (body === undefined) {
+    throw new Error(`Could not find Ruby word array ${constantName}`);
+  }
+  return body.trim().split(/\s+/);
+}
+
 interface NativeReleaseSnapshot {
   androidBuildVariant: string;
   appIdentifier: string;
@@ -156,6 +166,29 @@ async function readNativeReleaseEnvironment(
 }
 
 describe("native release environments", () => {
+  test("classifies every declared Capacitor Vite environment name", async () => {
+    const [declarations, targetSource] = await Promise.all([
+      Bun.file(resolve(packageRoot, "src/vite-env.d.ts")).text(),
+      Bun.file(nativeReleaseTargetPath).text(),
+    ]);
+    const declaredNames = [
+      ...declarations.matchAll(/readonly (VITE_[A-Z0-9_]+)\?:/g),
+    ].map((match) => {
+      const name = match[1];
+      if (name === undefined) {
+        throw new Error("Vite environment declaration has no name");
+      }
+      return name;
+    });
+    const classifiedNames = [
+      ...rubyWordArray(targetSource, "NATIVE_SHARED_VITE_ENV_NAMES"),
+      ...rubyWordArray(targetSource, "NATIVE_STAGING_PLATFORM_VITE_ENV_NAMES"),
+      ...rubyWordArray(targetSource, "NATIVE_RELEASE_MANAGED_VITE_ENV_NAMES"),
+    ];
+
+    expect(classifiedNames.sort()).toEqual(declaredNames.sort());
+  });
+
   test("staging imports only its allowlisted native client settings", async () => {
     const snapshot = await readNativeReleaseEnvironment(
       "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_REVENUECAT_SYNC_ENTITLEMENT=sync\nVITE_WS_URL=wss://production.example\nNATIVE_TEST_VALUE=root\n",
@@ -168,6 +201,7 @@ describe("native release environments", () => {
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "root",
+        VITE_API_BASE_URL: "https://api.tearleads.de",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_staging",
         VITE_REVENUECAT_IOS_API_KEY: "appl_staging",
         VITE_REVENUECAT_SYNC_ENTITLEMENT: "sync",
@@ -193,6 +227,7 @@ describe("native release environments", () => {
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "process",
+        VITE_API_BASE_URL: "https://api.tearleads.de",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_staging",
         VITE_REVENUECAT_IOS_API_KEY: "appl_process",
         VITE_REVENUECAT_SYNC_ENTITLEMENT: null,
@@ -213,6 +248,7 @@ describe("native release environments", () => {
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "root",
+        VITE_API_BASE_URL: "https://api.tearleads.de",
         VITE_REVENUECAT_ANDROID_API_KEY: null,
         VITE_REVENUECAT_IOS_API_KEY: null,
         VITE_REVENUECAT_SYNC_ENTITLEMENT: null,
@@ -233,6 +269,7 @@ describe("native release environments", () => {
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: null,
+        VITE_API_BASE_URL: "https://api.tearleads.de",
         VITE_REVENUECAT_ANDROID_API_KEY: null,
         VITE_REVENUECAT_IOS_API_KEY: null,
         VITE_REVENUECAT_SYNC_ENTITLEMENT: "staging-sync",
@@ -256,6 +293,7 @@ describe("native release environments", () => {
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "root",
+        VITE_API_BASE_URL: "https://api.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_root",
         VITE_REVENUECAT_IOS_API_KEY: "appl_root",
         VITE_REVENUECAT_SYNC_ENTITLEMENT: null,
@@ -289,5 +327,17 @@ describe("native release environments", () => {
         VITE_WS_URL: "wss://events.tearleads.com/socket",
       }),
     ).rejects.toThrow("VITE_WS_URL must use tearleads.de");
+
+    await expect(
+      readNativeReleaseEnvironment("", "", {
+        VITE_API_BASE_URL: "http://api.tearleads.de",
+      }),
+    ).rejects.toThrow("VITE_API_BASE_URL must use the https scheme");
+
+    await expect(
+      readNativeReleaseEnvironment("", "", {
+        VITE_WS_URL: "ws://events.tearleads.de/socket",
+      }),
+    ).rejects.toThrow("VITE_WS_URL must use the wss scheme");
   });
 });
