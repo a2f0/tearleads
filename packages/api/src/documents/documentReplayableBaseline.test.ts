@@ -15,12 +15,14 @@ async function fixture() {
   const updateId = crypto.randomUUID();
   const partialStartVersionVector = emptyVersionVector();
   const partialEndVersionVector = encodeVersionVector(document);
+  const plaintextHash = "replayable-baseline-plaintext-hash";
   const metadataHash = await computeDocumentContentRecordMetadataHash({
     checkpointKind: "rotate_baseline",
     checkpointPayloadKind: "full_history_snapshot",
     documentId,
     partialEndVersionVector,
     partialStartVersionVector,
+    plaintextHash,
     sourceVersionVector: partialEndVersionVector,
     updateId,
   });
@@ -30,6 +32,7 @@ async function fixture() {
     metadataHash,
     partialEndVersionVector,
     partialStartVersionVector,
+    plaintextHash,
     sourceVersionVector: partialEndVersionVector,
     updateId,
   };
@@ -45,6 +48,7 @@ test("rejects a legacy checkpoint whose metadata hash did not bind checkpoint fi
     documentId: baseline.documentId,
     partialEndVersionVector: baseline.partialEndVersionVector,
     partialStartVersionVector: baseline.partialStartVersionVector,
+    plaintextHash: baseline.plaintextHash,
     updateId: baseline.updateId,
   });
   expect(
@@ -77,6 +81,7 @@ test("rejects an authenticated dependency-bearing rotation baseline", async () =
     documentId: baseline.documentId,
     partialEndVersionVector: baseline.partialEndVersionVector,
     partialStartVersionVector,
+    plaintextHash: baseline.plaintextHash,
     sourceVersionVector: baseline.sourceVersionVector,
     updateId: baseline.updateId,
   });

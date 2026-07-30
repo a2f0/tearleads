@@ -517,6 +517,14 @@ preferred rule is:
 6. reject duplicate `contentRecordId` or duplicate derived nonce domains for the
  same object/content-key epoch.
 
+For document updates, the header's signed `metadataHash` also commits a
+domain-separated hash of the plaintext update bytes. Readers authenticate that
+metadata, decrypt the record, and reject a plaintext-hash mismatch before
+importing it into Loro. The commitment lets a reader retaining original signed
+updates prove that a later rotation baseline substituted different plaintext;
+it does not replace the stronger future design of per-update re-encryption with
+inner author signatures.
+
 The initial suite is
 `aes-256-gcm-hkdf-sha256-record-key`. A content writer supplies a UUIDv4
 `contentRecordId`, commits the suite in the signed write header, and commits a

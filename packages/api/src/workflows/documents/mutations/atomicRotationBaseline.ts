@@ -62,6 +62,7 @@ export async function assertAtomicRotationBaselineCoversCommittedFrontier(
       metadataHash: header.metadataHash,
       partialEndVersionVector: input.baseline.partialEndVersionVector,
       partialStartVersionVector: input.baseline.partialStartVersionVector,
+      plaintextHash: input.baseline.plaintextHash,
       sourceVersionVector: metadata.sourceVersionVector,
       updateId: input.baseline.id,
     }))

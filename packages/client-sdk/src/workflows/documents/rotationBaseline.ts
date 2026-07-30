@@ -110,6 +110,7 @@ export async function buildDocumentRotationBaseline(input: {
       metadataHash: encrypted.metadataHash,
       partialEndVersionVector: pendingFields.partialEndVersionVector,
       partialStartVersionVector: pendingFields.partialStartVersionVector,
+      plaintextHash: encrypted.plaintextHash,
       sourceVersionVector: metadata.partialEndVersionVector,
     },
   });

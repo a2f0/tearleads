@@ -89,6 +89,7 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
     documentId: input.documentId,
     partialEndVersionVector: input.update.partialEndVersionVector,
     partialStartVersionVector: input.update.partialStartVersionVector,
+    plaintextHash: input.update.plaintextHash,
     ...(input.update.sourceVersionVector === undefined
       ? {}
       : { sourceVersionVector: input.update.sourceVersionVector }),
@@ -178,6 +179,7 @@ export async function assertRetryUpdateMatchesAcceptedContent(input: {
         readonly encryptedData: string;
         readonly partialEndVersionVector: string;
         readonly partialStartVersionVector: string;
+        readonly plaintextHash: string;
       }
     | undefined;
   readonly update: DocumentOutgoingUpdate;
@@ -188,7 +190,8 @@ export async function assertRetryUpdateMatchesAcceptedContent(input: {
     input.existingRow.partialStartVersionVector !==
       input.update.partialStartVersionVector ||
     input.existingRow.partialEndVersionVector !==
-      input.update.partialEndVersionVector
+      input.update.partialEndVersionVector ||
+    input.existingRow.plaintextHash !== input.update.plaintextHash
   ) {
     throw documentUpdateIdConflict();
   }
@@ -214,6 +217,7 @@ function assertDuplicateOutgoingUpdateMatches(
     first.encryptedData === next.encryptedData &&
     first.partialStartVersionVector === next.partialStartVersionVector &&
     first.partialEndVersionVector === next.partialEndVersionVector &&
+    first.plaintextHash === next.plaintextHash &&
     (first.sourceVersionVector ?? null) ===
       (next.sourceVersionVector ?? null) &&
     (first.checkpointKind ?? null) === (next.checkpointKind ?? null) &&

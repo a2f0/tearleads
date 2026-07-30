@@ -162,6 +162,7 @@ export {
   computeDocumentContentKeyTargetHash,
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
+  computeDocumentContentRecordPlaintextHash,
   computeDocumentLinkSetGrantRoot,
   computeDocumentLinkSetKeyTargetHash,
   computeDocumentLinkSetStructuralHash,

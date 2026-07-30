@@ -4,6 +4,7 @@ import {
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
+  computeDocumentContentRecordPlaintextHash,
   createAesGcmIv,
   type KeyingCanonicalJson,
   serializeKeyingCanonicalJson,
@@ -14,6 +15,7 @@ import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObj
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { PendingUpdateRecord } from "../../sqlite/documentPersistence";
 import { assertDecryptedDocumentUpdateMetadata } from "./documentUpdateIntegrity";
+import { assertDocumentUpdatePlaintextHash } from "./plaintextHash";
 import {
   assertOnlyRecordKeys,
   asWebCryptoBytes,
@@ -128,6 +130,9 @@ export async function encryptDocumentPendingUpdate(input: {
   organizationId: string;
   update: PendingUpdateRecord;
 }): Promise<DocumentEncryptedPendingUpdate> {
+  const plaintext = base64ToBytes(input.update.updateData);
+  const plaintextHash =
+    await computeDocumentContentRecordPlaintextHash(plaintext);
   const contentRecordId = input.update.id;
   const nonceDomainHash = await computeContentRecordNonceDomainHash({
     version: 1,
@@ -149,6 +154,7 @@ export async function encryptDocumentPendingUpdate(input: {
     documentId: input.documentId,
     partialEndVersionVector: input.update.partialEndVersionVector,
     partialStartVersionVector: input.update.partialStartVersionVector,
+    plaintextHash,
     updateId: input.update.id,
   });
   const recordKey = await deriveDocumentContentRecordKey({
@@ -175,7 +181,7 @@ export async function encryptDocumentPendingUpdate(input: {
         }),
       },
       recordKey,
-      asWebCryptoBytes(base64ToBytes(input.update.updateData)),
+      asWebCryptoBytes(plaintext),
     ),
   );
   const encryptedData = serializeKeyingCanonicalJson({
@@ -194,6 +200,7 @@ export async function encryptDocumentPendingUpdate(input: {
     contentRecordId,
     encryptedData,
     metadataHash,
+    plaintextHash,
     ciphertextHash:
       await computeDocumentContentRecordCiphertextHash(encryptedData),
   };
@@ -323,6 +330,7 @@ async function assertDocumentEncryptedUpdateMatchesHeader(input: {
     documentId: input.documentId,
     partialEndVersionVector: update.partialEndVersionVector,
     partialStartVersionVector: update.partialStartVersionVector,
+    plaintextHash: update.plaintextHash,
     ...(update.sourceVersionVector === undefined
       ? {}
       : { sourceVersionVector: update.sourceVersionVector }),
@@ -405,6 +413,11 @@ async function decryptDocumentSyncUpdate(input: {
       recordKey,
       asWebCryptoBytes(encrypted.ciphertext),
     ),
+  );
+
+  await assertDocumentUpdatePlaintextHash(
+    updateData,
+    input.update.plaintextHash,
   );
 
   assertDecryptedDocumentUpdateMetadata(updateData, input.update);

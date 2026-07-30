@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { computeDocumentContentRecordPlaintextHash } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
@@ -14,6 +15,29 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
 import { decryptDocumentSyncUpdates } from "./crypto";
+import { assertDocumentUpdatePlaintextHash } from "./plaintextHash";
+
+test("plaintext hashes distinguish forged content with the same version-vector shape", async () => {
+  const honest = await createDocument("plaintext-hash-proof");
+  honest.getText("text").update("honest history");
+  const honestSnapshot = exportFullHistorySnapshot(honest);
+
+  const forged = await createDocument("plaintext-hash-proof");
+  forged.getText("text").update("forged history");
+  const forgedSnapshot = exportFullHistorySnapshot(forged);
+
+  expect(getUpdateVersionVectors(forgedSnapshot)).toEqual(
+    getUpdateVersionVectors(honestSnapshot),
+  );
+  const honestHash =
+    await computeDocumentContentRecordPlaintextHash(honestSnapshot);
+  expect(
+    await computeDocumentContentRecordPlaintextHash(forgedSnapshot),
+  ).not.toBe(honestHash);
+  await expect(
+    assertDocumentUpdatePlaintextHash(forgedSnapshot, honestHash),
+  ).rejects.toThrow("Document update plaintext hash mismatch");
+});
 
 test("decryptDocumentSyncUpdates verifies and decrypts content records", async () => {
   const { author, contentKey, secretKey, writerProjection } =

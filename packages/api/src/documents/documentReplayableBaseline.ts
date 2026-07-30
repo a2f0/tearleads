@@ -11,6 +11,7 @@ interface ReplayableBaselineMetadata {
   readonly metadataHash: string;
   readonly partialEndVersionVector: string;
   readonly partialStartVersionVector: string;
+  readonly plaintextHash: string;
   readonly sourceVersionVector: string;
   readonly updateId: string;
 }
@@ -55,6 +56,7 @@ export async function isAuthenticatedReplayableBaseline(
     documentId: input.documentId,
     partialEndVersionVector: input.partialEndVersionVector,
     partialStartVersionVector: input.partialStartVersionVector,
+    plaintextHash: input.plaintextHash,
     sourceVersionVector: input.sourceVersionVector,
     updateId: input.updateId,
   });

@@ -26,6 +26,7 @@ function seedRequest(input: {
         encryptedData: "ciphertext",
         partialStartVersionVector: input.startVersionVector,
         partialEndVersionVector: input.endVersionVector,
+        plaintextHash: "provisioned-initial-plaintext-hash",
         writeHeader: {},
       },
     ],

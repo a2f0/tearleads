@@ -94,6 +94,7 @@ export const DocumentOutgoingUpdateSchema =
       }),
       partialEndVersionVector: nonEmptyStringSchema,
       partialStartVersionVector: nonEmptyStringSchema,
+      plaintextHash: nonEmptyStringSchema,
       sourceVersionVector: nonEmptyStringSchema.optional(),
       writeHeader: plainObjectSchema,
     }).superRefine((update, context) => {

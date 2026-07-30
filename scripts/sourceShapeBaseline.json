@@ -42,24 +42,24 @@
       "bytes": 24003
     },
     "docs/document-rekey-and-audit-history.md": {
-      "lines": 526,
-      "bytes": 19944
+      "lines": 535,
+      "bytes": 20716
     },
     "docs/glossary.md": {
       "lines": 506,
       "bytes": 18158
     },
     "docs/keying-design.md": {
-      "lines": 885,
-      "bytes": 37936
+      "lines": 892,
+      "bytes": 38372
     },
     "docs/loro-e2ee-sync-protocol.md": {
-      "lines": 541,
-      "bytes": 22215
+      "lines": 537,
+      "bytes": 22469
     },
     "docs/openapi.json": {
-      "lines": 877,
-      "bytes": 34161
+      "lines": 887,
+      "bytes": 34563
     },
     "docs/protocol-specification.md": {
       "lines": 511,
@@ -274,8 +274,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 543,
-      "bytes": 17240
+      "lines": 545,
+      "bytes": 17290
     },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
       "lines": 1166,
@@ -378,8 +378,8 @@
       "bytes": 59993
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1642,
-      "bytes": 57910
+      "lines": 1644,
+      "bytes": 58005
     },
     "packages/client-sdk/src/workflows/documents/syncFailures.ts": {
       "lines": 514,
@@ -435,7 +435,7 @@
     },
     "packages/crypto/src/keying/types.ts": {
       "lines": 1059,
-      "bytes": 32251
+      "bytes": 32254
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,

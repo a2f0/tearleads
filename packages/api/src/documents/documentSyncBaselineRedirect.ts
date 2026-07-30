@@ -98,6 +98,7 @@ export async function loadLatestReadableBaselineCoverage(
       header: documentContentWriteHeaders.header,
       partialEndVersionVector: documentUpdates.partialEndVersionVector,
       partialStartVersionVector: documentUpdates.partialStartVersionVector,
+      plaintextHash: documentUpdates.plaintextHash,
       sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
       updateId: documentAuditCheckpoints.baselineUpdateId,
     })
@@ -130,6 +131,7 @@ export async function loadLatestReadableBaselineCoverage(
         metadataHash: row.header.metadataHash,
         partialEndVersionVector: row.partialEndVersionVector,
         partialStartVersionVector: row.partialStartVersionVector,
+        plaintextHash: row.plaintextHash,
         sourceVersionVector: row.sourceVersionVector,
         updateId: row.updateId,
       })

@@ -43,6 +43,7 @@ async function insertStoredUpdate(input: {
     byteLength: textEncoder.encode(input.encryptedData).byteLength,
     partialStartVersionVector: input.partialStartVersionVector,
     partialEndVersionVector: input.partialEndVersionVector,
+    plaintextHash: `plaintext-${input.id}`,
   });
   await insertDocumentUpdateSpans(db, {
     documentId: input.documentId,

@@ -64,6 +64,7 @@ async function insertNewDocumentUpdates(input: {
         byteLength: documentUpdateByteLength(update),
         partialStartVersionVector: update.partialStartVersionVector,
         partialEndVersionVector: update.partialEndVersionVector,
+        plaintextHash: update.plaintextHash,
       })),
     )
     .onConflictDoNothing({ target: documentUpdates.id })
@@ -137,6 +138,7 @@ async function loadExistingDocumentUpdateRows(input: {
       id: documentUpdates.id,
       partialEndVersionVector: documentUpdates.partialEndVersionVector,
       partialStartVersionVector: documentUpdates.partialStartVersionVector,
+      plaintextHash: documentUpdates.plaintextHash,
     })
     .from(documentUpdates)
     .where(inArray(documentUpdates.id, input.updateIds));
@@ -185,7 +187,8 @@ async function assertConcurrentlyCommittedUpdatesMatch(input: {
       committedRow.encryptedData !== update.encryptedData ||
       committedRow.partialStartVersionVector !==
         update.partialStartVersionVector ||
-      committedRow.partialEndVersionVector !== update.partialEndVersionVector
+      committedRow.partialEndVersionVector !== update.partialEndVersionVector ||
+      committedRow.plaintextHash !== update.plaintextHash
     ) {
       throw documentUpdateIdConflict();
     }

@@ -60,6 +60,7 @@ async function createSignedDocumentSyncRequest(input: {
     exportUpdatesSince(document, partialStartVersionVector),
   );
   const encryptedData = `encrypted-lapsed-sync-update:${updateId}`;
+  const plaintextHash = `plaintext-hash:${updateId}`;
   const organizationId = asVerifiedContainerManifest(input.root.bundle).state
     .organizationId;
   const writeHeader = await signWriteHeader(
@@ -86,6 +87,7 @@ async function createSignedDocumentSyncRequest(input: {
         documentId: input.created.id,
         partialEndVersionVector: vectors.partialEndVersionVector,
         partialStartVersionVector: vectors.partialStartVersionVector,
+        plaintextHash,
         updateId,
       }),
       ciphertextHash:
@@ -118,6 +120,7 @@ async function createSignedDocumentSyncRequest(input: {
         id: updateId,
         partialStartVersionVector: vectors.partialStartVersionVector,
         partialEndVersionVector: vectors.partialEndVersionVector,
+        plaintextHash,
         writeHeader: writeHeader as unknown as Record<string, unknown>,
       },
     ],

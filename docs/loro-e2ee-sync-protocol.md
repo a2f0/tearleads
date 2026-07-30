@@ -61,16 +61,19 @@ Document write routes:
  server resolves the signed container manifests it already stores, while
  `expectedLinkSetManifestHash` pins the document head without echoing its bundle
  - each outgoing update includes `id`, encrypted `encryptedData`, visible
- `partialStartVersionVector`, visible `partialEndVersionVector`, optional
- `sourceVersionVector`, optional `checkpointKind`, and a signed
- `writeHeader`
+ `partialStartVersionVector`, visible `partialEndVersionVector`, required
+ `plaintextHash`, optional `sourceVersionVector`, optional `checkpointKind`,
+ and a signed `writeHeader`; the header's authenticated metadata hash commits
+ the domain-separated plaintext hash
  - response shape: `DocumentSyncResponse`
  - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
  `contentKeyBundle`, `contentKeyBundles[]`, `documentId`,
  `documentKekTargets`, and encrypted `updates[]`
  - `contentKeyBundles[]` covers every served update's signed content-key epoch
  - each returned update includes its stored `accessEpoch`, visible causal
- metadata, and signed `writeHeader`, which names that content-key epoch
+ metadata, `plaintextHash`, and signed `writeHeader`, which names that
+ content-key epoch; readers verify the signed metadata commitment, decrypt,
+ and reject a plaintext-hash mismatch before importing the Loro update
 
 Attachment write routes:
 

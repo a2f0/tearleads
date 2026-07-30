@@ -3,6 +3,7 @@
 set -eu
 
 OPENAPI_PATH=docs/openapi.json
+ERROR_IGNORE_PATH=scripts/checks/openApiCompatibilityErrors.ignore
 
 fail() {
   echo "Error: $*" >&2
@@ -63,6 +64,10 @@ trap - EXIT
 set -- breaking "$base_spec" "$OPENAPI_PATH" \
   --fail-on WARN \
   --allow-external-refs=false
+
+if [ -f "$ERROR_IGNORE_PATH" ]; then
+  set -- "$@" --err-ignore "$ERROR_IGNORE_PATH"
+fi
 
 if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
   set -- "$@" --format githubactions

@@ -53,6 +53,7 @@ async function createSignedOrdinaryUpdate(input: {
       : {}),
   };
   const encryptedData = `encrypted-sync-audit-update:${id}`;
+  const plaintextHash = `plaintext-hash:${id}`;
   const organizationId = String(
     Reflect.get(input.created.accessManifest.state, "organizationId"),
   );
@@ -87,6 +88,7 @@ async function createSignedOrdinaryUpdate(input: {
         documentId: input.created.id,
         partialEndVersionVector: vectors.partialEndVersionVector,
         partialStartVersionVector: vectors.partialStartVersionVector,
+        plaintextHash,
         updateId: id,
       }),
       ciphertextHash:
@@ -101,6 +103,7 @@ async function createSignedOrdinaryUpdate(input: {
   return {
     encryptedData,
     id,
+    plaintextHash,
     vectors,
     writeHeader: writeHeader as unknown as Record<string, unknown>,
   };
@@ -167,6 +170,7 @@ export async function createSignedDocumentSyncRequest(input: {
           id: update.id,
           partialStartVersionVector: update.vectors.partialStartVersionVector,
           partialEndVersionVector: update.vectors.partialEndVersionVector,
+          plaintextHash: update.plaintextHash,
           writeHeader: update.writeHeader,
         },
       ],
@@ -195,6 +199,7 @@ export async function createSignedAtomicRotationBaseline(input: {
   const id = crypto.randomUUID();
   const partialStartVersionVector = emptyVersionVector();
   const encryptedData = `encrypted-rotation-baseline:${id}`;
+  const plaintextHash = `plaintext-hash:${id}`;
   const writeHeader = await signWriteHeader(
     {
       version: 1,
@@ -221,6 +226,7 @@ export async function createSignedAtomicRotationBaseline(input: {
         documentId: input.documentId,
         partialEndVersionVector: sourceVersionVector,
         partialStartVersionVector,
+        plaintextHash,
         sourceVersionVector,
         updateId: id,
       }),
@@ -240,6 +246,7 @@ export async function createSignedAtomicRotationBaseline(input: {
     encryptedData,
     partialStartVersionVector,
     partialEndVersionVector: sourceVersionVector,
+    plaintextHash,
     sourceVersionVector,
     writeHeader: { ...writeHeader },
   };

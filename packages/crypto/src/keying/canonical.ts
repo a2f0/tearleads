@@ -1,3 +1,4 @@
+import { bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { toFingerprint } from "../fingerprint";
 import { compareCanonicalStrings, throwVerification } from "./shared";
@@ -143,6 +144,7 @@ export function documentContentRecordMetadata(
     updateId: input.updateId,
     partialStartVersionVector: input.partialStartVersionVector,
     partialEndVersionVector: input.partialEndVersionVector,
+    plaintextHash: input.plaintextHash,
     ...(input.checkpointKind === undefined
       ? {}
       : { checkpointKind: input.checkpointKind }),
@@ -170,5 +172,14 @@ export async function computeDocumentContentRecordCiphertextHash(
   return computeKeyingDomainHash(
     "tearleads.document.content-record-ciphertext",
     encryptedData,
+  );
+}
+
+export async function computeDocumentContentRecordPlaintextHash(
+  plaintext: Uint8Array,
+): Promise<string> {
+  return computeKeyingDomainHash(
+    "tearleads.document.content-record-plaintext",
+    bytesToBase64(plaintext),
   );
 }

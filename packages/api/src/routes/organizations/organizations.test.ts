@@ -117,6 +117,7 @@ async function seedUsageDocument(input: {
       byteLength: update.byteLength,
       partialStartVersionVector: `${input.documentId}-start-${index}`,
       partialEndVersionVector: `${input.documentId}-end-${index}`,
+      plaintextHash: `${input.documentId}-plaintext-${index}`,
     })),
   );
   await db.insert(documentContentWriteHeaders).values(

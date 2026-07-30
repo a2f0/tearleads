@@ -129,6 +129,7 @@ async function assertDocumentSyncResponseUpdateHashes(input: {
     documentId: update.documentId,
     partialEndVersionVector: update.partialEndVersionVector,
     partialStartVersionVector: update.partialStartVersionVector,
+    plaintextHash: update.plaintextHash,
     ...(update.sourceVersionVector === undefined
       ? {}
       : { sourceVersionVector: update.sourceVersionVector }),

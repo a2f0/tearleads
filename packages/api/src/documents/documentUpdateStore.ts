@@ -29,6 +29,7 @@ interface MissingDocumentUpdateRow {
   id: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
+  plaintextHash: string;
   sequence: number;
 }
 
@@ -70,6 +71,7 @@ function isMissingDocumentUpdateRow(
     value,
     "partialStartVersionVector",
   );
+  const plaintextHash = Reflect.get(value, "plaintextHash");
   const sequence = Reflect.get(value, "sequence");
 
   return (
@@ -86,6 +88,7 @@ function isMissingDocumentUpdateRow(
     typeof id === "string" &&
     typeof partialEndVersionVector === "string" &&
     typeof partialStartVersionVector === "string" &&
+    typeof plaintextHash === "string" &&
     typeof sequence === "number" &&
     Number.isInteger(sequence)
   );
@@ -179,6 +182,7 @@ export async function listMissingDocumentUpdates(
     "u",
     documentUpdates.partialEndVersionVector,
   );
+  const updatePlaintextHash = aliasedColumn("u", documentUpdates.plaintextHash);
   const updateCreatedAt = aliasedColumn("u", documentUpdates.createdAt);
   const spanDocumentId = aliasedColumn("s", documentUpdateSpans.documentId);
   const spanUpdateId = aliasedColumn("s", documentUpdateSpans.updateId);
@@ -197,6 +201,7 @@ export async function listMissingDocumentUpdates(
       ${updateByteLength} as "byteLength",
       ${updatePartialStartVersionVector} as "partialStartVersionVector",
       ${updatePartialEndVersionVector} as "partialEndVersionVector",
+      ${updatePlaintextHash} as "plaintextHash",
       ${updateCreatedAt} as "createdAt"
     from ${documentUpdates} u
     where ${updateDocumentId} = ${uuidValue(input.documentId)}
@@ -244,6 +249,7 @@ export async function listMissingDocumentUpdates(
       id: row.id,
       partialEndVersionVector: row.partialEndVersionVector,
       partialStartVersionVector: row.partialStartVersionVector,
+      plaintextHash: row.plaintextHash,
       sequence: row.sequence,
     });
   }

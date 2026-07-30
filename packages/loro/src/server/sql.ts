@@ -21,6 +21,7 @@ const postgresLoroSql = `
     byte_length INTEGER NOT NULL,
     partial_start_version_vector TEXT NOT NULL,
     partial_end_version_vector TEXT NOT NULL,
+    plaintext_hash TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
   );
   CREATE TABLE IF NOT EXISTS document_update_spans (
@@ -59,6 +60,7 @@ const sqliteLoroSql = `
     byte_length INTEGER NOT NULL,
     partial_start_version_vector TEXT NOT NULL,
     partial_end_version_vector TEXT NOT NULL,
+    plaintext_hash TEXT NOT NULL,
     created_at INTEGER NOT NULL DEFAULT (${sqliteNow})
   );
   CREATE TABLE IF NOT EXISTS document_update_spans (

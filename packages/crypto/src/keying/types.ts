@@ -25,6 +25,7 @@ export type KeyingCanonicalPayload<T> = T extends CanonicalJsonPrimitive
 export type KeyingHashDomain =
   | "tearleads.document.content-record-ciphertext"
   | "tearleads.document.content-record-metadata"
+  | "tearleads.document.content-record-plaintext"
   | "tearleads.keying.access-event-body"
   | "tearleads.keying.access-event-signing"
   | "tearleads.keying.access-event"
@@ -338,6 +339,7 @@ export interface DocumentContentRecordMetadataInput {
   documentId: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
+  plaintextHash: string;
   sourceVersionVector?: string;
   updateId: string;
 }

@@ -1,5 +1,5 @@
 {
-  "id": "2f8e690e-f50b-4493-a441-a7a0f8fb309a",
+  "id": "9ff76218-ed10-49cb-a4a7-ff9cef4db7d3",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -3773,6 +3773,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "plaintext_hash": {
+          "name": "plaintext_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "encrypted_update_sha256": {
           "name": "encrypted_update_sha256",
           "type": "text",
@@ -3967,6 +3973,12 @@
         },
         "partial_end_version_vector": {
           "name": "partial_end_version_vector",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plaintext_hash": {
+          "name": "plaintext_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": true

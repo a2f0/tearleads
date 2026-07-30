@@ -60,6 +60,7 @@ export async function buildInitialDocumentSyncRequest(input: {
       partialStartVersionVector: pendingUpdate.partialStartVersionVector,
       metadataHash: encrypted.metadataHash,
       ciphertextHash: encrypted.ciphertextHash,
+      plaintextHash: encrypted.plaintextHash,
     },
   });
 

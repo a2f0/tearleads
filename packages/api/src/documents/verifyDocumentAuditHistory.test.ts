@@ -68,6 +68,7 @@ async function createDocumentWithAuditHistory() {
     id: crypto.randomUUID(),
     partialEndVersionVector: "baseline-end-version-vector",
     partialStartVersionVector: "baseline-start-version-vector",
+    plaintextHash: "baseline-plaintext-hash",
     sourceVersionVector: "baseline-source-version-vector",
   } as const;
   const auditEntryHashByUpdateId = await appendDocumentUpdateAuditEntries(db, {
@@ -134,7 +135,7 @@ test("verifyDocumentAuditHistory detects tampered document update audit metadata
 
   await db
     .update(documentUpdateAuditEvents)
-    .set({ encryptedUpdateSha256: "tampered-update-sha256" })
+    .set({ plaintextHash: "tampered-plaintext-hash" })
     .where(
       eq(documentUpdateAuditEvents.auditEntryId, updateEvent.auditEntryId),
     );
@@ -289,6 +290,7 @@ test("audit entry sequences are engine-assigned and strictly increasing", async 
           id: crypto.randomUUID(),
           partialEndVersionVector: `sequence-end-${index}`,
           partialStartVersionVector: `sequence-start-${index}`,
+          plaintextHash: `sequence-plaintext-${index}`,
         },
       ],
     });

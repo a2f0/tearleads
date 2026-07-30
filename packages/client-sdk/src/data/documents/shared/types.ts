@@ -377,6 +377,7 @@ export interface DocumentSyncPreparedUpdate {
   metadataHash: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
+  plaintextHash: string;
   signedAt?: string | undefined;
   sourceVersionVector?: string | undefined;
 }
@@ -386,6 +387,7 @@ export interface DocumentEncryptedPendingUpdate {
   encryptedData: string;
   metadataHash: string;
   ciphertextHash: string;
+  plaintextHash: string;
 }
 
 export interface ParsedDocumentEncryptedUpdate {
