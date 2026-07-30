@@ -95,7 +95,8 @@ test("tablet Explorer rows draw centered touch-size glyphs", async ({
 // ones, placed by two rules that never mention each other: the header spreads
 // its children to the panel's edges, the rows are inset by their actions cell's
 // padding. They drifted apart by exactly that inset, which reads as a wobble
-// rather than a bug. Tablet tier because the kebab column is touch-only.
+// rather than a bug. Tablet tier because that is where the 44px touch button
+// made the drift the widest and the fix is scoped to it.
 test("tablet container header kebab lines up with the row kebabs", async ({
   page,
 }) => {

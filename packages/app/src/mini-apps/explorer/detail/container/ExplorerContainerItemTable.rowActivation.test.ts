@@ -19,49 +19,7 @@ import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
  * every tap opened the bottom item.
  */
 
-const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
-  globalThis.window ?? {},
-  "matchMedia",
-);
-
-afterEach(() => {
-  cleanup();
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  document.documentElement.removeAttribute("data-navigation-mode");
-
-  if (originalMatchMediaDescriptor) {
-    Object.defineProperty(window, "matchMedia", originalMatchMediaDescriptor);
-    return;
-  }
-
-  Object.defineProperty(window, "matchMedia", {
-    configurable: true,
-    value: undefined,
-  });
-});
-
-function mockRoutedLayoutTier(tier: "mobile" | "tablet") {
-  if (typeof window === "undefined") {
-    throw new Error("Expected a DOM window.");
-  }
-
-  Object.defineProperty(window, "matchMedia", {
-    configurable: true,
-    value: (query: string) => ({
-      addEventListener: () => undefined,
-      addListener: () => undefined,
-      dispatchEvent: () => false,
-      matches: tier === "tablet",
-      media: query,
-      onchange: null,
-      removeEventListener: () => undefined,
-      removeListener: () => undefined,
-    }),
-  });
-}
+afterEach(cleanup);
 
 const selectedNode: ContainerNode = {
   id: "root-container",
@@ -199,10 +157,8 @@ test("container item table opens an item once when its name button is clicked", 
 });
 
 test("container item table does not open the item from the actions kebab", () => {
-  // The kebab is a touch-layout affordance, so the routed mode has to be
-  // stamped alongside the phone tier for it to render at all.
-  document.documentElement.setAttribute("data-navigation-mode", "routed");
-  mockRoutedLayoutTier("mobile");
+  // The kebab renders in every layout, so this holds without stamping one: a
+  // click on it opens the row's menu and must not also open the row.
   const selectedIds: Array<string | null> = [];
   const view = renderContainerItemTable({
     rows: [archiveRow],

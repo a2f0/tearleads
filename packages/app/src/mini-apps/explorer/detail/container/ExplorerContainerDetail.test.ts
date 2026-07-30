@@ -36,7 +36,8 @@ afterEach(() => {
   });
 });
 
-// The touch (routed) layout drives the kebab; the tier only trims columns.
+// The kebab rides every layout; the routed mode only sizes the touch button and
+// the tier only trims columns.
 function mockRoutedLayoutActive() {
   document.documentElement.setAttribute("data-navigation-mode", "routed");
 }
@@ -385,18 +386,28 @@ test("tablet container item table keeps the columns menu on the trailing actions
   expect(lastHeaderCell?.contains(columnsButton)).toBe(true);
 });
 
-test("desktop container item table hides the actions kebab", () => {
-  mockRoutedLayoutTier("tablet");
+test("desktop container item table shows the actions kebab too", () => {
+  // No routed mode stamped: the windowed layout still gets the kebab, so the
+  // row's actions are discoverable there rather than reachable by right-click
+  // alone.
+  const rows: ContainerItemRow[] = [];
   const view = renderContainerItemTable({
+    onItemContextMenu: (event, row) => {
+      event.preventDefault();
+      event.stopPropagation();
+      rows.push(row);
+    },
     rows: [archiveRow],
     totalCount: 1,
   });
 
-  expect(
-    view.queryByRole("button", {
+  fireEvent.click(
+    view.getByRole("button", {
       name: `${EXPLORER_LABELS.itemActionsButtonPrefix} ${archiveRow.name}`,
     }),
-  ).toBeNull();
+  );
+
+  expect(rows).toEqual([archiveRow]);
 });
 
 test("container item table highlights the row matching the open context menu", () => {
