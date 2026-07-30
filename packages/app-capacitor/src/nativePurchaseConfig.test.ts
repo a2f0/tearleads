@@ -74,9 +74,6 @@ test("Android exposes a signed staging release variant", async () => {
 
   expect(gradle).toMatch(/staging\s*\{[\s\S]*?initWith release/);
   expect(gradle).toContain('applicationIdSuffix ".staging"');
-  expect(gradle).toMatch(
-    /staging\s*\{[\s\S]*?signingConfig hasReleaseKeystore\(\) \? signingConfigs\.release : signingConfigs\.debug/,
-  );
   expect(stagingStrings).toContain("com.tearleads.app.staging");
   expect(stagingStrings).toContain("Tearleads Staging");
 });
@@ -239,7 +236,33 @@ test("Fastlane selects store identities from one shared release target", async (
       "NATIVE_RELEASE_TIER=production",
     );
   }
-  expect(packageManifest.scripts["store:build-numbers:staging"]).toContain(
-    "NATIVE_RELEASE_TIER=staging",
-  );
+  for (const scriptName of [
+    "android:build:debug",
+    "android:build:google-play",
+    "android:build:release",
+    "android:sideload",
+    "android:sideload:debug",
+    "android:sideload:release",
+    "android:upload:google-play",
+    "ios:build:testflight",
+    "ios:fetch:appstore-profile",
+    "ios:upload:testflight",
+    "store:build-numbers",
+  ]) {
+    expect(packageManifest.scripts[scriptName]).toContain(
+      "NATIVE_RELEASE_TIER=production",
+    );
+  }
+  for (const scriptName of [
+    "android:build:google-play:staging",
+    "android:upload:google-play:staging",
+    "ios:build:testflight:staging",
+    "ios:fetch:appstore-profile:staging",
+    "ios:upload:testflight:staging",
+    "store:build-numbers:staging",
+  ]) {
+    expect(packageManifest.scripts[scriptName]).toContain(
+      "NATIVE_RELEASE_TIER=staging",
+    );
+  }
 });

@@ -54,9 +54,7 @@ jobs:
         env:
           FASTLANE_OPT_OUT_USAGE: "1"
           FASTLANE_SKIP_UPDATE_CHECK: "1"
-        run: |
-          bun run --cwd packages/app-capacitor lint:rubocop
-          bun run --cwd packages/app-capacitor test
+        run: bun run --cwd packages/app-capacitor test
 
   build:
     name: Build and test

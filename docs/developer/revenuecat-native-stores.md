@@ -106,6 +106,20 @@ set this automatically:
 ./scripts/uploadIosStagingRelease.sh
 ```
 
+One-time store setup is still required; the release lanes are intentionally
+readonly for signing and store records:
+
+1. Register `com.tearleads.app.staging` in Apple Developer and create its App
+   Store Connect app record with the In-App Purchase capability.
+2. Use the team's match administration workflow to create and commit an App
+   Store distribution profile for `com.tearleads.app.staging`. The repo's
+   `ios:fetch:appstore-profile:staging` lane only verifies/fetches it with
+   `readonly: true`; it cannot generate a missing profile.
+3. Create the `com.tearleads.app.staging` Play Console app, grant the configured
+   Google Play service account access, and create an internal testing track.
+4. Create the corresponding Apple and Google apps in RevenueCat and connect
+   their store credentials before adding the public SDK keys below.
+
 Query both staging stores without building with
 `bun run --cwd packages/app-capacitor store:build-numbers:staging`.
 
@@ -133,8 +147,8 @@ the public SDK keys bundled into the native clients.
 
 The wrappers set their public API default before Fastlane loads dotenv files.
 Export `VITE_API_BASE_URL` explicitly when overriding the default; the release
-guard rejects API and WebSocket hosts belonging to the other tier. Do not put
-that override in `.secrets/staging.env`.
+guard requires API and WebSocket URLs to use the selected tier's host. Do not
+put that override in `.secrets/staging.env`.
 
 ## Apple sandbox / TestFlight
 

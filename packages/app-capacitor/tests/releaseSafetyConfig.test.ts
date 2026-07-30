@@ -36,7 +36,7 @@ async function readFastlaneKeyProblem(
   key: string,
   expectedPrefix: string,
   productionValue = "",
-  releaseTier: "production" | "staging" = "staging",
+  releaseTier = "staging",
 ) {
   const process = Bun.spawn(
     [
@@ -156,7 +156,33 @@ async function nativeDefaultApi(tier: "production" | "staging") {
   return stdout.trim();
 }
 
-async function runCrossTierUrlGuard(
+async function nativeBunCommand(
+  platform: "android" | "ios",
+  action: "build" | "upload",
+  tier: "production" | "staging",
+) {
+  const child = Bun.spawn(
+    [
+      "sh",
+      "-c",
+      '. "$1"; native_release_bun_command "$2" "$3" "$4"',
+      "sh",
+      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+      platform,
+      action,
+      tier,
+    ],
+    { stdout: "pipe" },
+  );
+  const [exitCode, stdout] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+  ]);
+  expect(exitCode).toBe(0);
+  return stdout.trim();
+}
+
+async function runTierHostGuard(
   name: "VITE_API_BASE_URL" | "VITE_WS_URL",
   tier: "production" | "staging",
   url: string,
@@ -165,7 +191,7 @@ async function runCrossTierUrlGuard(
     [
       "sh",
       "-c",
-      '. "$1"; native_release_reject_cross_tier_url "$2" "$3" "$4"',
+      '. "$1"; native_release_require_tier_host "$2" "$3" "$4"',
       "sh",
       resolve(repositoryRoot, "scripts/nativeRelease.sh"),
       name,
@@ -252,6 +278,9 @@ describe("RevenueCat store-release safety", () => {
     await expect(
       readFastlaneKeyProblem("appl_production", "appl_", "", "production"),
     ).resolves.toContain("production key is unavailable");
+    await expect(
+      readFastlaneKeyProblem("appl_example", "appl_", "appl_root", "preview"),
+    ).resolves.toContain("unknown release tier");
   });
 
   test("Fastlane rejects a generated config for the wrong native target", async () => {
@@ -317,6 +346,21 @@ describe("RevenueCat store-release safety", () => {
     );
   });
 
+  test("shared runner selects a tier-pinned Fastlane command", async () => {
+    await expect(
+      nativeBunCommand("android", "build", "production"),
+    ).resolves.toBe("android:build:google-play");
+    await expect(
+      nativeBunCommand("android", "upload", "staging"),
+    ).resolves.toBe("android:upload:google-play:staging");
+    await expect(nativeBunCommand("ios", "build", "staging")).resolves.toBe(
+      "ios:build:testflight:staging",
+    );
+    await expect(nativeBunCommand("ios", "upload", "production")).resolves.toBe(
+      "ios:upload:testflight",
+    );
+  });
+
   test("native releases reject the other tier's API", async () => {
     const stagingWrongUrls = [
       "https://api.tearleads.com/",
@@ -326,34 +370,42 @@ describe("RevenueCat store-release safety", () => {
     ];
     const stagingWrong = await Promise.all(
       stagingWrongUrls.map((url) =>
-        runCrossTierUrlGuard("VITE_API_BASE_URL", "staging", url),
+        runTierHostGuard("VITE_API_BASE_URL", "staging", url),
       ),
     );
-    const productionWrong = await runCrossTierUrlGuard(
+    const productionWrong = await runTierHostGuard(
       "VITE_API_BASE_URL",
       "production",
       "https://api.tearleads.de",
     );
-    const stagingSocketWrong = await runCrossTierUrlGuard(
+    const stagingSocketWrong = await runTierHostGuard(
       "VITE_WS_URL",
       "staging",
       "wss://api.tearleads.com/v1/events",
     );
-    const stagingCorrect = await runCrossTierUrlGuard(
+    const stagingUnknown = await runTierHostGuard(
+      "VITE_API_BASE_URL",
+      "staging",
+      "https://tearleads.com",
+    );
+    const stagingCorrect = await runTierHostGuard(
       "VITE_API_BASE_URL",
       "staging",
       "https://api.tearleads.de",
     );
+    const emptySocket = await runTierHostGuard("VITE_WS_URL", "staging", "");
 
     for (const result of stagingWrong) {
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain("other release tier");
+      expect(result.stderr).toContain("must use api.tearleads.de");
     }
     expect(productionWrong.exitCode).toBe(1);
-    expect(productionWrong.stderr).toContain("other release tier");
+    expect(productionWrong.stderr).toContain("must use api.tearleads.com");
     expect(stagingSocketWrong.exitCode).toBe(1);
     expect(stagingSocketWrong.stderr).toContain("VITE_WS_URL");
+    expect(stagingUnknown.exitCode).toBe(1);
     expect(stagingCorrect.exitCode).toBe(0);
+    expect(emptySocket.exitCode).toBe(0);
   });
 
   test("build-number options are scoped to their store platform", async () => {

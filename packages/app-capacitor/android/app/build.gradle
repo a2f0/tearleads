@@ -40,7 +40,6 @@ android {
             initWith release
             applicationIdSuffix ".staging"
             matchingFallbacks = ['release']
-            signingConfig hasReleaseKeystore() ? signingConfigs.release : signingConfigs.debug
         }
     }
 }

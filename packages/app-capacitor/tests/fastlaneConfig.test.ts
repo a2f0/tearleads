@@ -10,7 +10,7 @@ async function readFastlaneAppIdentifier(tier: "production" | "staging") {
       "exec",
       "ruby",
       "-e",
-      'require "credentials_manager"; puts CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)',
+      'require "json"; require "credentials_manager"; puts JSON.generate({appIdentifier: CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier), packageName: CredentialsManager::AppfileConfig.try_fetch_value(:package_name)})',
     ],
     {
       cwd: packageRoot,
@@ -32,15 +32,21 @@ async function readFastlaneAppIdentifier(tier: "production" | "staging") {
   if (exitCode !== 0) {
     throw new Error(`Fastlane failed to load ${tier}: ${stderr}`);
   }
-  return { appIdentifier: stdout.trim(), stderr };
+  return { identities: JSON.parse(stdout), stderr };
 }
 
 test("Fastlane Appfile selects each release tier's store identity", async () => {
   const production = await readFastlaneAppIdentifier("production");
   const staging = await readFastlaneAppIdentifier("staging");
 
-  expect(production.appIdentifier).toBe("com.tearleads.app");
-  expect(staging.appIdentifier).toBe("com.tearleads.app.staging");
+  expect(production.identities).toEqual({
+    appIdentifier: "com.tearleads.app",
+    packageName: "com.tearleads.app",
+  });
+  expect(staging.identities).toEqual({
+    appIdentifier: "com.tearleads.app.staging",
+    packageName: "com.tearleads.app.staging",
+  });
   expect(production.stderr).not.toContain("already initialized constant");
   expect(staging.stderr).not.toContain("already initialized constant");
 });

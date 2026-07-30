@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 def revenuecat_key_identity_problem(key, production_value, release_tier)
+  return "has unknown release tier #{release_tier.inspect}" unless %w[production staging].include?(release_tier)
+
   production_key = production_value.to_s.strip
   return "cannot verify #{release_tier} isolation because the production key is unavailable" if production_key.empty?
 

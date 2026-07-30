@@ -110,24 +110,24 @@ native_release_url_host() {
   printf '%s\n' "$native_url_host" | tr '[:upper:]' '[:lower:]'
 }
 
-native_release_reject_cross_tier_url() {
+native_release_require_tier_host() {
   native_url_guard_name="$1"
   native_url_guard_tier="$2"
   native_url_guard_value="$3"
-  native_url_guard_host="$(native_release_url_host "$native_url_guard_value")"
-  if [ "$native_url_guard_tier" = staging ]; then
-    native_url_guard_disallowed_url="$(native_release_default_api production)"
-  else
-    native_url_guard_disallowed_url="$(native_release_default_api staging)"
-  fi
-  native_url_guard_disallowed_host="$(native_release_url_host "$native_url_guard_disallowed_url")"
-  if [ "$native_url_guard_host" != "$native_url_guard_disallowed_host" ]; then
+  if [ -z "$native_url_guard_value" ]; then
     return 0
   fi
 
-  echo "Error: $native_url_guard_name=$native_url_guard_value points the $native_url_guard_tier app at the other release tier." >&2
-  echo "Unset $native_url_guard_name (or set it to the selected tier's service) and re-run." >&2
-  return 1
+  native_url_guard_host="$(native_release_url_host "$native_url_guard_value")"
+  native_url_guard_expected_url="$(native_release_default_api "$native_url_guard_tier")"
+  native_url_guard_expected_host="$(native_release_url_host "$native_url_guard_expected_url")"
+  if [ "$native_url_guard_host" = "$native_url_guard_expected_host" ]; then
+    return 0
+  fi
+
+  echo "Error: $native_url_guard_name=$native_url_guard_value uses host $native_url_guard_host." >&2
+  echo "A $native_url_guard_tier release must use $native_url_guard_expected_host." >&2
+  exit 1
 }
 
 native_release_guard_environment() {
@@ -137,9 +137,9 @@ native_release_guard_environment() {
 
   export VITE_API_BASE_URL="${VITE_API_BASE_URL:-$native_default_api}"
   reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
-  native_release_reject_cross_tier_url VITE_API_BASE_URL "$native_tier" "$VITE_API_BASE_URL"
+  native_release_require_tier_host VITE_API_BASE_URL "$native_tier" "$VITE_API_BASE_URL"
   reject_dev_only_url VITE_WS_URL "${VITE_WS_URL:-}"
-  native_release_reject_cross_tier_url VITE_WS_URL "$native_tier" "${VITE_WS_URL:-}"
+  native_release_require_tier_host VITE_WS_URL "$native_tier" "${VITE_WS_URL:-}"
 
   if [ "$native_platform" = android ]; then
     reject_invalid_revenuecat_store_key \
@@ -195,18 +195,23 @@ native_release_prepare_ios_keychain() {
 native_release_bun_command() {
   native_platform="$1"
   native_action="$2"
+  native_command_tier="$3"
+  native_command_suffix=""
+  if [ "$native_command_tier" = staging ]; then
+    native_command_suffix=":staging"
+  fi
 
   if [ "$native_platform" = android ]; then
     if [ "$native_action" = upload ]; then
-      printf '%s\n' android:upload:google-play
+      printf '%s%s\n' android:upload:google-play "$native_command_suffix"
     else
-      printf '%s\n' android:build:google-play
+      printf '%s%s\n' android:build:google-play "$native_command_suffix"
     fi
   else
     if [ "$native_action" = upload ]; then
-      printf '%s\n' ios:upload:testflight
+      printf '%s%s\n' ios:upload:testflight "$native_command_suffix"
     else
-      printf '%s\n' ios:build:testflight
+      printf '%s%s\n' ios:build:testflight "$native_command_suffix"
     fi
   fi
 }
@@ -276,7 +281,7 @@ native_release_main() {
     native_release_prepare_ios_keychain "$native_script_dir"
   fi
 
-  native_command="$(native_release_bun_command "$native_platform" "$native_action")"
+  native_command="$(native_release_bun_command "$native_platform" "$native_action" "$native_tier")"
   echo "${native_action}ing ${native_tier} ${native_platform} release (NATIVE_RELEASE_TIER=${native_tier})"
   echo "VITE_API_BASE_URL=$VITE_API_BASE_URL"
 
