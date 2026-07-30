@@ -34,6 +34,10 @@ Environment:
 Store credentials and signing values are loaded by Fastlane from
 .secrets/root.env plus .secrets/${native_tier}.env where applicable. Explicitly
 exported environment variables take precedence.
+
+NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_ANDROID_API_KEY and
+NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY may provide an independent
+production-key comparison baseline for env-only CI or key rotation.
 EOF
 
   if [ "$native_action" = upload ]; then
@@ -125,6 +129,16 @@ native_release_require_tier_host() {
   if [ -z "$native_url_guard_value" ]; then
     return 0
   fi
+
+  native_url_guard_scheme="${native_url_guard_value%%:*}"
+  native_url_guard_scheme="$(printf '%s\n' "$native_url_guard_scheme" | tr '[:upper:]' '[:lower:]')"
+  case "$native_url_guard_name:$native_url_guard_scheme" in
+    VITE_API_BASE_URL:https | VITE_WS_URL:wss) ;;
+    *)
+      echo "Error: $native_url_guard_name must use a secure release scheme." >&2
+      exit 1
+      ;;
+  esac
 
   native_url_guard_host="$(native_release_url_host "$native_url_guard_value")"
   native_url_guard_expected_url="$(native_release_default_api "$native_url_guard_tier")"

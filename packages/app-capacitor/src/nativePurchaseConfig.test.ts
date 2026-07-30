@@ -3,6 +3,53 @@ import { resolve } from "node:path";
 
 const packageRoot = resolve(import.meta.dir, "..");
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function recordValue(value: Record<string, unknown>, key: string): unknown {
+  return value[key];
+}
+
+function parseNativeIdentity(stdout: string) {
+  const value: unknown = JSON.parse(stdout);
+  if (!isRecord(value)) {
+    throw new Error("Native identity output is invalid");
+  }
+  const appId = recordValue(value, "appId");
+  const iosKeychainPrefix = recordValue(value, "iosKeychainPrefix");
+  if (typeof appId !== "string" || typeof iosKeychainPrefix !== "string") {
+    throw new Error("Native identity output is invalid");
+  }
+  return {
+    appId,
+    iosKeychainPrefix,
+  };
+}
+
+function packageScripts(value: unknown) {
+  if (!isRecord(value)) {
+    throw new Error("Capacitor package scripts are invalid");
+  }
+  const scriptsValue = recordValue(value, "scripts");
+  if (!isRecord(scriptsValue)) {
+    throw new Error("Capacitor package scripts are invalid");
+  }
+  const scripts: Record<string, string> = {};
+  for (const [name, script] of Object.entries(scriptsValue)) {
+    if (typeof script !== "string") {
+      throw new Error("Capacitor package scripts must be strings");
+    }
+    scripts[name] = script;
+  }
+  return scripts;
+}
+
+async function readJson(path: string): Promise<unknown> {
+  const value: unknown = await Bun.file(path).json();
+  return value;
+}
+
 function xcodeConfigurationSettings(
   project: string,
   owner: "PBXProject" | "PBXNativeTarget",
@@ -115,13 +162,17 @@ test("Capacitor pins production identity and rejects unknown release tiers", asy
   };
   const defaultProduction = await readNativeIdentity(null);
   expect(defaultProduction.exitCode).toBe(0);
-  expect(JSON.parse(defaultProduction.stdout)).toEqual(productionIdentity);
+  expect(parseNativeIdentity(defaultProduction.stdout)).toEqual(
+    productionIdentity,
+  );
   const explicitProduction = await readNativeIdentity("production");
   expect(explicitProduction.exitCode).toBe(0);
-  expect(JSON.parse(explicitProduction.stdout)).toEqual(productionIdentity);
+  expect(parseNativeIdentity(explicitProduction.stdout)).toEqual(
+    productionIdentity,
+  );
   const staging = await readNativeIdentity(" Staging ");
   expect(staging.exitCode).toBe(0);
-  expect(JSON.parse(staging.stdout)).toEqual({
+  expect(parseNativeIdentity(staging.stdout)).toEqual({
     appId: "com.tearleads.app.staging",
     iosKeychainPrefix: "com.tearleads.app.staging",
   });
@@ -213,20 +264,19 @@ test("iOS staging release settings stay aligned with production", async () => {
 });
 
 test("Fastlane selects store identities from one shared release target", async () => {
-  const [releaseTarget, packageManifest] = await Promise.all([
+  const [releaseTarget, packageManifestValue] = await Promise.all([
     Bun.file(resolve(packageRoot, "fastlane/native_release_target.rb")).text(),
-    Bun.file(resolve(packageRoot, "package.json")).json(),
+    readJson(resolve(packageRoot, "package.json")),
   ]);
+  const scripts = packageScripts(packageManifestValue);
 
   expect(releaseTarget).toContain("'com.tearleads.app'");
   expect(releaseTarget).toContain("'com.tearleads.app.staging'");
   expect(releaseTarget).toContain("ios_scheme: 'App-Staging'");
   expect(releaseTarget).toContain("android_build_variant: 'staging'");
   expect(releaseTarget).toContain("'cap:sync:staging'");
-  expect(packageManifest.scripts["cap:sync:debug"]).toContain(
-    "NATIVE_RELEASE_TIER=production",
-  );
-  expect(packageManifest.scripts["cap:sync:release"]).toContain(
+  expect(scripts["cap:sync:debug"]).toContain("NATIVE_RELEASE_TIER=production");
+  expect(scripts["cap:sync:release"]).toContain(
     "NATIVE_RELEASE_TIER=production",
   );
   for (const scriptName of [
@@ -235,9 +285,7 @@ test("Fastlane selects store identities from one shared release target", async (
     "cap:run:android",
     "cap:run:ios",
   ]) {
-    expect(packageManifest.scripts[scriptName]).toContain(
-      "NATIVE_RELEASE_TIER=production",
-    );
+    expect(scripts[scriptName]).toContain("NATIVE_RELEASE_TIER=production");
   }
   for (const scriptName of [
     "android:build:debug",
@@ -252,9 +300,7 @@ test("Fastlane selects store identities from one shared release target", async (
     "ios:upload:testflight",
     "store:build-numbers",
   ]) {
-    expect(packageManifest.scripts[scriptName]).toContain(
-      "NATIVE_RELEASE_TIER=production",
-    );
+    expect(scripts[scriptName]).toContain("NATIVE_RELEASE_TIER=production");
   }
   for (const scriptName of [
     "android:build:google-play:staging",
@@ -264,8 +310,6 @@ test("Fastlane selects store identities from one shared release target", async (
     "ios:upload:testflight:staging",
     "store:build-numbers:staging",
   ]) {
-    expect(packageManifest.scripts[scriptName]).toContain(
-      "NATIVE_RELEASE_TIER=staging",
-    );
+    expect(scripts[scriptName]).toContain("NATIVE_RELEASE_TIER=staging");
   }
 });

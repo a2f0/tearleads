@@ -130,16 +130,20 @@ loads release credentials from `root.env`, but imports only allowlisted native
 RevenueCat client settings from the server-oriented `staging.env`. Explicit
 caller overrides still win when they differ from the production platform key.
 If staging has no platform key, or resolves to the production key, it fails the
-release guard before the store build begins. The production key must remain in
-`root.env`; without that comparison baseline, staging also fails closed. Staging
-may override the shared `VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses
-a different entitlement identifier. Production releases likewise reject the
-resolved platform key unless it exactly matches the production value in
-`root.env`. The allowlist controls dotenv imports only; callers remain
-responsible for variables they export explicitly. Add any future root `VITE_*`
-setting that staging must inherit intentionally to
-`NATIVE_SHARED_VITE_ENV_NAMES`; otherwise it is stripped from staging dotenv
-imports.
+release guard before the store build begins. The production key in `root.env`
+is the default comparison baseline. Env-only CI and key-rotation workflows may
+instead export the independent
+`NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY` or
+`NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_ANDROID_API_KEY` baseline. Without
+either the root default or an explicit baseline, staging fails closed. Staging
+may override the shared
+`VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses a different entitlement
+identifier. Production releases likewise reject the resolved platform key
+unless it exactly matches its independent production baseline. The allowlist
+controls dotenv imports only; callers remain responsible for variables they
+export explicitly. Add any future root `VITE_*` setting that staging must
+inherit intentionally to `NATIVE_SHARED_VITE_ENV_NAMES`; otherwise it is
+stripped from staging dotenv imports.
 
 The staging server must also have `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` during
 its Ansible deploy. This controls webhook application only; it is separate from

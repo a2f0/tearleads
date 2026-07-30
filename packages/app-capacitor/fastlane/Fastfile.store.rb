@@ -6,7 +6,6 @@ require_relative 'capacitor_release_config'
 require_relative 'native_release_target'
 require_relative 'revenuecat_release_key'
 
-STORE_SECRETS_DIR = NATIVE_SECRETS_DIR
 GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH = File.join(NATIVE_SECRETS_DIR, 'google-play-service-account.json')
 GOOGLE_PLAY_DEFAULT_TRACKS = %w[production beta alpha internal].freeze
 
@@ -88,7 +87,7 @@ end
 def app_store_connect_key_filepath(key_id)
   ENV.fetch('APP_STORE_CONNECT_API_KEY_KEY_FILEPATH', nil) ||
     ENV.fetch('APP_STORE_CONNECT_KEY_FILEPATH', nil) ||
-    File.join(STORE_SECRETS_DIR, "AuthKey_#{key_id}.p8")
+    File.join(NATIVE_SECRETS_DIR, "AuthKey_#{key_id}.p8")
 end
 
 def app_store_configured?

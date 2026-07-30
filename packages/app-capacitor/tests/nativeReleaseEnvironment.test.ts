@@ -100,7 +100,7 @@ const stagingTarget = {
   iosScheme: "App-Staging",
 };
 
-async function readNativeReleaseEnvironment(
+async function readNativeReleaseEnvironmentResult(
   rootEnv: string,
   stagingEnv: string,
   processEnvironment: Record<string, string> = {},
@@ -127,6 +127,8 @@ async function readNativeReleaseEnvironment(
   for (const name of [
     "DEEPSEEK_API_KEY",
     "NATIVE_RELEASE_TIER",
+    "NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_ANDROID_API_KEY",
+    "NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY",
     "NATIVE_TEST_VALUE",
     "VITE_API_BASE_URL",
     "VITE_REVENUECAT_ANDROID_API_KEY",
@@ -159,10 +161,25 @@ async function readNativeReleaseEnvironment(
     if (exitCode !== 0) {
       throw new Error(`Ruby native release target failed: ${stderr}`);
     }
-    return parseNativeReleaseSnapshot(stdout);
+    return { snapshot: parseNativeReleaseSnapshot(stdout), stderr };
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
+}
+
+async function readNativeReleaseEnvironment(
+  rootEnv: string,
+  stagingEnv: string,
+  processEnvironment: Record<string, string> = {},
+  tier: string | null = "staging",
+) {
+  const result = await readNativeReleaseEnvironmentResult(
+    rootEnv,
+    stagingEnv,
+    processEnvironment,
+    tier,
+  );
+  return result.snapshot;
 }
 
 describe("native release environments", () => {
@@ -210,6 +227,18 @@ describe("native release environments", () => {
     });
   });
 
+  test("warns when staging.env contains ignored Vite settings", async () => {
+    const result = await readNativeReleaseEnvironmentResult(
+      "VITE_REVENUECAT_SYNC_ENTITLEMENT=sync\n",
+      "VITE_WS_URL=wss://events.tearleads.de/socket\n",
+    );
+
+    expect(result.stderr).toContain(
+      "Ignoring staging.env Vite settings for staging: VITE_WS_URL",
+    );
+    expect(recordValue(result.snapshot.environment, "VITE_WS_URL")).toBeNull();
+  });
+
   test("explicit native release environment values beat dotenv files", async () => {
     const snapshot = await readNativeReleaseEnvironment(
       "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
@@ -234,6 +263,22 @@ describe("native release environments", () => {
         VITE_WS_URL: "wss://events.tearleads.de/socket",
       },
     });
+  });
+
+  test("accepts an independent production key baseline override", async () => {
+    const snapshot = await readNativeReleaseEnvironment(
+      "",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_staging\n",
+      {
+        NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY:
+          "appl_production_baseline",
+      },
+    );
+
+    expect(snapshot.productionIosStoreKey).toBe("appl_production_baseline");
+    expect(
+      recordValue(snapshot.environment, "VITE_REVENUECAT_IOS_API_KEY"),
+    ).toBe("appl_staging");
   });
 
   test("staging drops production platform keys when staging omits them", async () => {

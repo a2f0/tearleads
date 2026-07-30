@@ -61,13 +61,34 @@ def parsed_native_release_env(path)
   File.file?(path) ? Dotenv.parse(path) : {}
 end
 
-def warn_ignored_native_staging_vite_names(environment)
+def warn_ignored_native_staging_vite_names(environment, source, allowed_names)
   ignored_names = environment.keys.select do |name|
-    name.start_with?('VITE_') && !NATIVE_SHARED_VITE_ENV_NAMES.include?(name)
+    name.start_with?('VITE_') && !allowed_names.include?(name)
   end
   return if ignored_names.empty?
 
-  warn "Ignoring root.env Vite settings for staging: #{ignored_names.sort.join(', ')}"
+  warn "Ignoring #{source} Vite settings for staging: #{ignored_names.sort.join(', ')}"
+end
+
+def native_release_staging_root_environment(root_environment)
+  warn_ignored_native_staging_vite_names(
+    root_environment,
+    'root.env',
+    NATIVE_SHARED_VITE_ENV_NAMES
+  )
+  root_environment.delete_if do |name, _value|
+    name.start_with?('VITE_') && !NATIVE_SHARED_VITE_ENV_NAMES.include?(name)
+  end
+end
+
+def native_release_staging_environment
+  staging_environment = parsed_native_release_env(NATIVE_STAGING_ENV_PATH)
+  warn_ignored_native_staging_vite_names(
+    staging_environment,
+    'staging.env',
+    NATIVE_STAGING_ENV_NAMES
+  )
+  staging_environment.slice(*NATIVE_STAGING_ENV_NAMES)
 end
 
 # Staging keeps signing and store credentials from root.env, but only explicitly
@@ -77,14 +98,9 @@ def native_release_file_environment
   root_environment = parsed_native_release_env(NATIVE_ROOT_ENV_PATH)
   return root_environment unless NATIVE_RELEASE_TIER == 'staging'
 
-  warn_ignored_native_staging_vite_names(root_environment)
-  root_environment.delete_if do |name, _value|
-    name.start_with?('VITE_') && !NATIVE_SHARED_VITE_ENV_NAMES.include?(name)
-  end
-  staging_environment = parsed_native_release_env(NATIVE_STAGING_ENV_PATH)
-  staging_environment.select! { |name, _value| NATIVE_STAGING_ENV_NAMES.include?(name) }
-
-  root_environment.merge(staging_environment)
+  native_release_staging_root_environment(root_environment).merge(
+    native_release_staging_environment
+  )
 end
 
 # Load release values while preserving every variable explicitly set by the
@@ -147,8 +163,13 @@ def ensure_native_release_service_urls!
   end
 end
 
-# Production must resolve to its root.env public key, while staging must differ
-# from that same baseline. This catches exported overrides in either direction.
+# Production must resolve to an independent baseline, while staging must differ
+# from it. A caller-supplied baseline supports env-only CI and key rotation
+# without comparing an exported candidate key to itself.
 def native_release_production_store_key(env_name)
+  baseline_name = "NATIVE_RELEASE_PRODUCTION_#{env_name}"
+  explicit_baseline = ENV.fetch(baseline_name, '').strip
+  return explicit_baseline unless explicit_baseline.empty?
+
   parsed_native_release_env(NATIVE_ROOT_ENV_PATH)[env_name]
 end
