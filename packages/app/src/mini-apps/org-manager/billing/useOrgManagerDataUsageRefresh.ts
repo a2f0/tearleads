@@ -2,7 +2,7 @@ import {
   getDomainSyncCoordinatorSnapshot,
   subscribeToDomainSyncCoordinator,
 } from "@tearleads/client-sdk";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import type { DataUsageRefreshOptions } from "../refresh";
 
@@ -14,7 +14,20 @@ interface DataUsageRefreshInput {
   readonly visible: boolean;
 }
 
-const DATA_USAGE_SYNC_SETTLE_QUIET_MS = 25;
+const DATA_USAGE_SYNC_SETTLE_QUIET_MS = 100;
+
+type DataUsageQuietScheduler = (
+  callback: () => void,
+  delayMs: number,
+) => () => void;
+
+function scheduleDataUsageQuietWindow(
+  callback: () => void,
+  delayMs: number,
+): () => void {
+  const timeout = setTimeout(callback, delayMs);
+  return () => clearTimeout(timeout);
+}
 
 export async function refreshDataUsageOnEntry(input: {
   readonly cancelled: () => boolean;
@@ -43,6 +56,50 @@ export function shouldRefreshDataUsageAfterSync(input: {
   );
 }
 
+export function createDataUsageSyncSettleController(input: {
+  readonly onSettled: () => void;
+  readonly readPending: () => boolean;
+  readonly schedule?: DataUsageQuietScheduler;
+}): {
+  readonly dispose: () => void;
+  readonly observe: (pending: boolean) => void;
+} {
+  const schedule = input.schedule ?? scheduleDataUsageQuietWindow;
+  let cancelScheduled: (() => void) | null = null;
+  let disposed = false;
+  let previouslyPending = false;
+
+  const cancelSettle = () => {
+    cancelScheduled?.();
+    cancelScheduled = null;
+  };
+
+  return {
+    dispose: () => {
+      disposed = true;
+      cancelSettle();
+    },
+    observe: (pending) => {
+      const shouldSettle = previouslyPending && !pending;
+      previouslyPending = pending;
+      if (pending) {
+        cancelSettle();
+        return;
+      }
+      if (!shouldSettle) {
+        return;
+      }
+      cancelSettle();
+      cancelScheduled = schedule(() => {
+        cancelScheduled = null;
+        if (!disposed && !input.readPending()) {
+          input.onSettled();
+        }
+      }, DATA_USAGE_SYNC_SETTLE_QUIET_MS);
+    },
+  };
+}
+
 /** Paints local usage on entry, then reconciles after entry or sync settles. */
 export function useOrgManagerDataUsageRefresh({
   enabled,
@@ -51,7 +108,6 @@ export function useOrgManagerDataUsageRefresh({
 }: DataUsageRefreshInput): void {
   const tearleads = useTearleads();
   const domainScope = tearleads.domainScope;
-  const previouslyPendingRef = useRef(false);
 
   useEffect(() => {
     if (!enabled || !visible) {
@@ -71,46 +127,21 @@ export function useOrgManagerDataUsageRefresh({
 
   useEffect(() => {
     if (!enabled || !visible) {
-      previouslyPendingRef.current = false;
       return;
     }
 
     let cancelled = false;
-    let settleTimeout: ReturnType<typeof setTimeout> | null = null;
-    const cancelSettle = () => {
-      if (settleTimeout !== null) {
-        clearTimeout(settleTimeout);
-        settleTimeout = null;
-      }
-    };
+    const settleController = createDataUsageSyncSettleController({
+      onSettled: () => {
+        void refreshDataUsage({ clearError: true, manageLoading: false });
+      },
+      readPending: () =>
+        getDomainSyncCoordinatorSnapshot(domainScope).hasPendingWork,
+    });
     const readPendingState = () => {
       const pending =
         getDomainSyncCoordinatorSnapshot(domainScope).hasPendingWork;
-      const previouslyPending = previouslyPendingRef.current;
-      previouslyPendingRef.current = pending;
-      if (pending) {
-        cancelSettle();
-        return;
-      }
-      if (
-        shouldRefreshDataUsageAfterSync({
-          enabled,
-          pending,
-          previouslyPending,
-          visible,
-        })
-      ) {
-        cancelSettle();
-        settleTimeout = setTimeout(() => {
-          settleTimeout = null;
-          if (
-            !cancelled &&
-            !getDomainSyncCoordinatorSnapshot(domainScope).hasPendingWork
-          ) {
-            void refreshDataUsage({ clearError: true, manageLoading: false });
-          }
-        }, DATA_USAGE_SYNC_SETTLE_QUIET_MS);
-      }
+      settleController.observe(pending);
     };
     readPendingState();
     const unsubscribe = subscribeToDomainSyncCoordinator(domainScope, () => {
@@ -122,7 +153,7 @@ export function useOrgManagerDataUsageRefresh({
     });
     return () => {
       cancelled = true;
-      cancelSettle();
+      settleController.dispose();
       unsubscribe();
     };
   }, [domainScope, enabled, refreshDataUsage, visible]);

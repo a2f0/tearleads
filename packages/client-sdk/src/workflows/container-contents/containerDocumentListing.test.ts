@@ -68,3 +68,27 @@ test("authoritative document listing requires every page", async () => {
 
   expect(documentIds).toBeNull();
 });
+
+test("initial probe listings can suppress transient failure reports", async () => {
+  const reports: string[] = [];
+  const documentIds = await listAllContainerDocumentIdsFromApi({
+    apiClient: {
+      listContainerDocuments: async () => {
+        throw new Error("Expected result API to be used.");
+      },
+      listContainerDocumentsResult: async () => ({
+        message: "GET /containers/container-a/documents: 503 Unavailable",
+        ok: false,
+        report: () => {
+          reports.push("reported");
+        },
+        status: 503,
+      }),
+    },
+    containerId: "container-a",
+    reportErrors: false,
+  });
+
+  expect(documentIds).toBeNull();
+  expect(reports).toEqual([]);
+});

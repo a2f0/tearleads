@@ -106,3 +106,51 @@ test("explicit refresh excludes an ineligible active container", async () => {
 
   expect(discovered).toEqual(["remote"]);
 });
+
+test("idle backfill rechecks remote eligibility when queued work drains", async () => {
+  const discovered: string[] = [];
+  let online = false;
+  let remoteBacked = false;
+  const host: ReconciliationHost = {
+    applyReconciled: () => {},
+    canDiscoverContainerDocuments: () => remoteBacked,
+    discoverContainerDocuments: async (containerId) => {
+      discovered.push(containerId);
+    },
+    domainScope: {} as DomainScope,
+    getRuntimeStatus: () => ({
+      dbStatus: "ready",
+      isAuthenticated: true,
+      online,
+    }),
+    isIgnorableError: () => false,
+    listAutomaticRootCatchupContainerIds: () => [],
+    listContainerDocumentIds: async () => [],
+    listKnownContainerIds: () => ["candidate"],
+    loadContainerDelta: async (containerId) => ({
+      containerId,
+      documentSummaries: [],
+    }),
+    refreshRootTree: async () => {},
+    refreshTree: async () => {},
+    probeUndiscoveredDocumentsBatch: async () => ({
+      done: true,
+      nextCursor: null,
+      requestedCount: 0,
+    }),
+    reportInitialDocumentProbeComplete: () => undefined,
+  };
+  const service = createReconciliationService(host);
+  service.start();
+  service.enqueueIdleBackfill();
+
+  remoteBacked = true;
+  online = true;
+  service.start();
+
+  await waitFor(
+    () => discovered.length === 1,
+    "Expected dequeue-time eligibility to admit the container",
+  );
+  expect(discovered).toEqual(["candidate"]);
+});

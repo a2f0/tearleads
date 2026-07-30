@@ -65,8 +65,9 @@ export interface ReconciliationService {
    * Forget which containers were reconciled this session so the next enqueue of
    * each re-validates against the server exactly once. Call on the
    * cannot-reconcile → can-reconcile edge (relogin/reconnect): the discovered
-   * set is a per-session suppression cache, and a previously-visited container
-   * may have changed remotely while this client could not reach the server.
+   * set is a per-session suppression cache, a previously-visited container may
+   * have changed remotely, and initial-probe listings that exhausted their
+   * retries need a fresh opportunity once the server is reachable again.
    */
   resetDiscovered: () => void;
   reconcileRootContainersNow: () => Promise<void>;

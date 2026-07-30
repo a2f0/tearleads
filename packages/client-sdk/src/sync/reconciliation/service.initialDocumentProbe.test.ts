@@ -49,8 +49,9 @@ function createProbeHost(input: {
 async function waitFor(
   predicate: () => boolean,
   message: string,
+  timeoutMs = 1_000,
 ): Promise<void> {
-  const deadline = Date.now() + 1_000;
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() <= deadline) {
     if (predicate()) {
       return;
@@ -111,11 +112,12 @@ test("initial probe skips an exhausted listing and completes healthy lanes", asy
   const service = createReconciliationService(
     createProbeHost({
       listContainerDocumentIds: async (containerId) => {
-        listingAttempts.set(
-          containerId,
-          (listingAttempts.get(containerId) ?? 0) + 1,
-        );
+        const attempt = (listingAttempts.get(containerId) ?? 0) + 1;
+        listingAttempts.set(containerId, attempt);
         if (containerId === "c-2" && !secondListingAvailable) {
+          if (attempt === 1) {
+            throw new Error("transient listing failure");
+          }
           return null;
         }
         return [`listed-${containerId}`];
@@ -129,7 +131,11 @@ test("initial probe skips an exhausted listing and completes healthy lanes", asy
   service.start();
   service.enqueueIdleBackfill();
 
-  await waitFor(() => probes.length === 1, "Expected bounded listing retries");
+  await waitFor(
+    () => probes.length === 1,
+    "Expected bounded listing retries",
+    4_000,
+  );
   expect(listingAttempts).toEqual(
     new Map([
       ["c-1", 1],
@@ -144,6 +150,19 @@ test("initial probe skips an exhausted listing and completes healthy lanes", asy
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(listingAttempts.get("c-2")).toBe(3);
   expect(probes).toHaveLength(1);
+
+  service.resetDiscovered();
+  service.enqueueIdleBackfill();
+  await waitFor(
+    () => probes.length === 2,
+    "Expected reconnect to retry the exhausted listing",
+  );
+  expect(listingAttempts.get("c-2")).toBe(4);
+  expect([...(probes[1]?.listedContainerIds ?? [])]).toEqual(["c-2"]);
+  expect([...(probes[1]?.listedDocumentIds ?? [])].sort()).toEqual([
+    "listed-c-1",
+    "listed-c-2",
+  ]);
 });
 
 test("a non-advancing candidate batch completes instead of looping", async () => {

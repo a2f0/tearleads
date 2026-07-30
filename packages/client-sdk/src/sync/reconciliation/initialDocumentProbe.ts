@@ -25,11 +25,12 @@ export interface InitialDocumentProbe {
   readonly canRun: () => boolean;
   readonly continuationDelayMs: () => number;
   readonly resetPending: () => void;
+  readonly resetSkippedListings: () => void;
   readonly run: () => Promise<void>;
 }
 
 const MAX_INITIAL_DOCUMENT_LISTING_ATTEMPTS = 3;
-const INITIAL_DOCUMENT_LISTING_RETRY_BASE_DELAY_MS = 25;
+const INITIAL_DOCUMENT_LISTING_RETRY_BASE_DELAY_MS = 1_000;
 
 interface InitialDocumentProbeState {
   armed: boolean;
@@ -124,6 +125,24 @@ function resetPending(state: InitialDocumentProbeState): void {
   state.skippedContainerIds.clear();
 }
 
+function resetSkippedListings(state: InitialDocumentProbeState): void {
+  if (state.skippedContainerIds.size === 0) {
+    return;
+  }
+  // A reconnect is a new opportunity for lanes that exhausted their bounded
+  // listing retries. Preserve completed healthy lanes, but invalidate any
+  // candidate cursor because the authoritative listing set can now grow.
+  state.generation += 1;
+  state.armed = false;
+  state.cursor = null;
+  state.listedDocumentIds = null;
+  state.listingAttemptsByContainer.clear();
+  state.reported = false;
+  state.retryContinuationDelayMs = 0;
+  state.requestedCount = 0;
+  state.skippedContainerIds.clear();
+}
+
 function retainEligibleProbeState(
   state: InitialDocumentProbeState,
   nextIds: ReadonlySet<string>,
@@ -203,7 +222,12 @@ async function listNextEligibleContainer(input: {
     return false;
   }
 
-  const documentIds = await host.listContainerDocumentIds(containerId);
+  let documentIds: ReadonlyArray<string> | null;
+  try {
+    documentIds = await host.listContainerDocumentIds(containerId);
+  } catch {
+    documentIds = null;
+  }
   if (state.generation !== runGeneration) {
     return true;
   }
@@ -211,8 +235,9 @@ async function listNextEligibleContainer(input: {
     const attempts =
       (state.listingAttemptsByContainer.get(containerId) ?? 0) + 1;
     state.listingAttemptsByContainer.set(containerId, attempts);
-    // Retry transient listing failures with bounded backoff. Exhausted lanes
-    // are skipped for this service lifecycle so healthy lanes can converge.
+    // Retry transient listing failures with bounded, seconds-scale backoff.
+    // Exhausted lanes are skipped until prerequisites are regained so healthy
+    // lanes can converge without suppressing the failed lane forever.
     if (attempts >= MAX_INITIAL_DOCUMENT_LISTING_ATTEMPTS) {
       state.skippedContainerIds.add(containerId);
       state.eligibleContainerIds.delete(containerId);
@@ -307,6 +332,7 @@ export function createInitialDocumentProbe(
     canRun: () => canRun(state),
     continuationDelayMs: () => state.retryContinuationDelayMs,
     resetPending: () => resetPending(state),
+    resetSkippedListings: () => resetSkippedListings(state),
     run: () => runProbe(host, state),
   };
 }

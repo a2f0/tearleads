@@ -377,11 +377,12 @@ export function createReconciliationService(
   };
 
   const enqueueIdleBackfill = () => {
-    const eligibleContainerIds = host
-      .listKnownContainerIds()
-      .filter((id) => host.canDiscoverContainerDocuments(id));
+    const knownContainerIds = host.listKnownContainerIds();
+    const eligibleContainerIds = knownContainerIds.filter((id) =>
+      host.canDiscoverContainerDocuments(id),
+    );
     state.initialDocumentProbe.arm(eligibleContainerIds);
-    for (const containerId of eligibleContainerIds) {
+    for (const containerId of knownContainerIds) {
       if (state.discoveredContainerIds.has(containerId)) {
         continue;
       }
@@ -412,6 +413,7 @@ export function createReconciliationService(
     enqueueIdleBackfill,
     resetDiscovered: () => {
       state.discoveredContainerIds.clear();
+      state.initialDocumentProbe.resetSkippedListings();
     },
     reconcileRootContainersNow: () =>
       reconcileKnownContainersSingleFlight(

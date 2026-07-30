@@ -86,6 +86,7 @@ function createInitialDocumentProbeHost(
       return listAllContainerDocumentIdsFromApi({
         apiClient: runtime.apiClient,
         containerId,
+        reportErrors: false,
       });
     },
     probeUndiscoveredDocumentsBatch: async (input) => {

@@ -27,6 +27,7 @@ export async function listContainerDocumentsFromApi(
   options?: Parameters<
     ContainerDocumentDiscoveryApi["listContainerDocuments"]
   >[1],
+  reportErrors = true,
 ): ReturnType<ContainerDocumentDiscoveryApi["listContainerDocuments"]> {
   if (apiClient.listContainerDocumentsResult) {
     const result = await apiClient.listContainerDocumentsResult(
@@ -37,7 +38,7 @@ export async function listContainerDocumentsFromApi(
     if (result.ok) {
       return result.data;
     }
-    if (!isUnavailableContainerDocumentLane(result)) {
+    if (reportErrors && !isUnavailableContainerDocumentLane(result)) {
       result.report();
     }
     return null;
@@ -79,12 +80,18 @@ export async function listAllContainerDocuments(input: {
 export async function listAllContainerDocumentIdsFromApi(input: {
   readonly apiClient: ContainerDocumentListApi;
   readonly containerId: string;
+  readonly reportErrors?: boolean;
 }): Promise<ReadonlyArray<string> | null> {
   const listed = await listAllContainerDocuments({
     containerId: input.containerId,
     loadContainerDocumentWatermark: async () => null,
     listContainerDocuments: (containerId, options) =>
-      listContainerDocumentsFromApi(input.apiClient, containerId, options),
+      listContainerDocumentsFromApi(
+        input.apiClient,
+        containerId,
+        options,
+        input.reportErrors,
+      ),
   });
   return listed
     ? Array.from(new Set(listed.items.map((document) => document.id)))
