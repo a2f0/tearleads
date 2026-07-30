@@ -9,6 +9,32 @@ type DormantMetadataSweep = Awaited<
     ContainerContentsStoreSyncState["persistence"]["listDormantMetadataSweepRequests"]
   >
 >[number];
+type DeletionProbeResult = "deleted" | "preserved" | "retry";
+
+const DELETION_PROBE_CONCURRENCY = 4;
+
+async function probeContainerDeletion(
+  state: ContainerContentsStoreSyncState,
+  containerId: string,
+): Promise<DeletionProbeResult> {
+  // A cached success can predate revocation. Evict it so this request is a
+  // fresh server-side existence proof made after the full restoration crawl.
+  state.runtime.apiClient.evictContainerWriterProjection(containerId);
+  const result =
+    await state.runtime.apiClient.getContainerWriterProjectionResult(
+      containerId,
+      { reportErrors: false },
+    );
+  if (!result.ok && result.kind === "http" && result.status === 404) {
+    return "deleted";
+  }
+  if (!result.ok && result.status !== 403) {
+    return "retry";
+  }
+  // A 403 means the container is live but still unavailable (including a
+  // read-only grant), so its edits stay dormant. A success is equally live.
+  return "preserved";
+}
 
 async function proveDeletedContainerIds(
   state: ContainerContentsStoreSyncState,
@@ -29,23 +55,24 @@ async function proveDeletedContainerIds(
       return { deletedContainerIds, shouldRetry };
     }
 
-    for (const containerId of candidates) {
-      // A cached success can predate revocation. Evict it so this request is a
-      // fresh server-side existence proof made after the full restoration crawl.
-      state.runtime.apiClient.evictContainerWriterProjection(containerId);
-      const result =
-        await state.runtime.apiClient.getContainerWriterProjectionResult(
-          containerId,
-          { reportErrors: false },
-        );
-      if (!result.ok && result.kind === "http" && result.status === 404) {
-        deletedContainerIds.push(containerId);
-      } else if (!result.ok && result.status !== 403) {
-        // A 403 means the container is live but still unavailable (including a
-        // read-only grant), so its edits stay dormant. Every other failure is
-        // inconclusive and keeps the durable request for a later natural retry.
-        shouldRetry = true;
-      }
+    for (
+      let offset = 0;
+      offset < candidates.length;
+      offset += DELETION_PROBE_CONCURRENCY
+    ) {
+      const batch = candidates.slice(
+        offset,
+        offset + DELETION_PROBE_CONCURRENCY,
+      );
+      const results = await Promise.all(
+        batch.map((containerId) => probeContainerDeletion(state, containerId)),
+      );
+      deletedContainerIds.push(
+        ...batch.filter((_containerId, index) => results[index] === "deleted"),
+      );
+      // Inconclusive answers retain the durable request for a later natural
+      // trigger; the restoration crawl itself is forbidden from re-arming.
+      shouldRetry ||= results.includes("retry");
     }
 
     afterContainerId = candidates.at(-1);
@@ -119,6 +146,7 @@ export function createRestoredAccessReconciler(input: {
       requestHydration,
       resetAllLaneWatermarks: true,
       scheduleSyncAfterHydration: false,
+      scheduleSyncOnHydrationChange: false,
       state,
     });
   };

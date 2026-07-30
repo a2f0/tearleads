@@ -99,10 +99,12 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
   const domainScope = createDomainScope();
   let failHydration = true;
   let hydrationRequests = 0;
+  let retryProbeStatus = 503;
   try {
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     await seedDormantMetadata(execSql, "revoked");
     await seedDormantMetadata(execSql, "still-revoked");
+    await seedDormantMetadata(execSql, "retry-probe");
     await requestDormantMetadataRestorationSweep(execSql, {
       organizationId: ORGANIZATION_ID,
       requesterUserId: "user-1",
@@ -110,7 +112,12 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
 
     const apiClient = createMockApiClient({
       getContainerWriterProjectionResult: async (containerId) => {
-        const status = containerId === "revoked" ? 404 : 403;
+        const status =
+          containerId === "revoked"
+            ? 404
+            : containerId === "still-revoked"
+              ? 403
+              : retryProbeStatus;
         return {
           kind: "http" as const,
           message: `GET projection failed with ${status}`,
@@ -168,6 +175,7 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
     expect(hydrationRequests).toBe(hydrationRequestsAfterFailure);
     expect(await countMetadataDocuments(execSql, "revoked")).toBe(1);
     expect(await countMetadataDocuments(execSql, "still-revoked")).toBe(1);
+    expect(await countMetadataDocuments(execSql, "retry-probe")).toBe(1);
     expect(
       await listDormantMetadataSweepRequests(execSql, "user-1"),
     ).toHaveLength(1);
@@ -181,6 +189,25 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(hydrationRequests).toBeGreaterThan(hydrationRequestsAfterFailure);
     expect(await countMetadataDocuments(execSql, "revoked")).toBe(0);
+    expect(await countMetadataDocuments(execSql, "still-revoked")).toBe(1);
+    expect(await countMetadataDocuments(execSql, "retry-probe")).toBe(1);
+    expect(
+      await listDormantMetadataSweepRequests(execSql, "user-1"),
+    ).toHaveLength(1);
+
+    const hydrationRequestsAfterAmbiguousProbe = hydrationRequests;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    await waitForDomainSyncCoordinatorToSettle(domainScope);
+    expect(hydrationRequests).toBe(hydrationRequestsAfterAmbiguousProbe);
+
+    retryProbeStatus = 404;
+    store.requestSync();
+    await waitFor(
+      () => hydrationRequests > hydrationRequestsAfterAmbiguousProbe,
+      "Deferred restoration probe was not retryable.",
+    );
+    await waitForDomainSyncCoordinatorToSettle(domainScope);
+    expect(await countMetadataDocuments(execSql, "retry-probe")).toBe(0);
     expect(await countMetadataDocuments(execSql, "still-revoked")).toBe(1);
     expect(await listDormantMetadataSweepRequests(execSql, "user-1")).toEqual(
       [],

@@ -5,6 +5,7 @@ export interface RemoteHydrationRefreshOptions {
   resetAllLaneWatermarks?: boolean | undefined;
   resetRootLaneWatermark?: boolean | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
+  scheduleSyncOnHydrationChange?: boolean | undefined;
 }
 
 export type RemoteHydrationRequester = (
@@ -108,6 +109,7 @@ export function refreshAllRemoteHydration(input: {
   requestHydration: RemoteHydrationRequester;
   resetAllLaneWatermarks?: boolean | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
+  scheduleSyncOnHydrationChange?: boolean | undefined;
   state: RemoteHydrationRefreshState;
 }): Promise<boolean> {
   const { requestHydration, state } = input;
@@ -128,6 +130,9 @@ export function refreshAllRemoteHydration(input: {
     ...(input.resetAllLaneWatermarks ? { resetAllLaneWatermarks: true } : {}),
     resetRootLaneWatermark: true,
     scheduleSyncAfterHydration: input.scheduleSyncAfterHydration ?? true,
+    ...(input.scheduleSyncOnHydrationChange === false
+      ? { scheduleSyncOnHydrationChange: false }
+      : {}),
   }).then(() => true);
 }
 

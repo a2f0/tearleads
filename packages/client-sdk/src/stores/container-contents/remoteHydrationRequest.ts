@@ -27,6 +27,7 @@ export function requestContainerContentsRemoteHydration(input: {
   resetAllLaneWatermarks?: boolean | undefined;
   resetRootLaneWatermark?: boolean | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
+  scheduleSyncOnHydrationChange?: boolean | undefined;
   scheduleSync: () => void;
   state: RemoteHydrationRequestState;
 }): Promise<void> {
@@ -86,8 +87,9 @@ export function requestContainerContentsRemoteHydration(input: {
       state.remoteHydrationPromise = null;
 
       if (
-        (appliedRemoteContainerChange ||
-          (!rootLaneHydratedBeforeRequest && state.rootLaneHydrated) ||
+        (((input.scheduleSyncOnHydrationChange ?? true) &&
+          (appliedRemoteContainerChange ||
+            (!rootLaneHydratedBeforeRequest && state.rootLaneHydrated))) ||
           input.scheduleSyncAfterHydration) &&
         state.snapshot.ready &&
         state.runtime.auth.isAuthenticated &&

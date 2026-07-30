@@ -9,7 +9,16 @@ import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 
 const accessLevelColumn = "effective_access_level";
 
-/** Materialized local container tree. */
+/**
+ * Materialized local container tree.
+ *
+ * Container rows describe the tree and its encrypted metadata document. Display
+ * fields are kept in `containerProjection`; metadata rows live in `documents`.
+ * `id` is the primary key for structural lookups. `metadataDocumentId` is the
+ * server metadata-document id when known; `systemSlot` is an optional opaque
+ * app-owned slot. Local timestamps track client storage/structural changes,
+ * while server timestamps are populated once the container has synced.
+ */
 export const containers = sqliteTable(
   "containers",
   {
@@ -62,7 +71,14 @@ export const dormantMetadataSweepRequests = sqliteTable(
   ],
 );
 
-/** Decrypted container metadata read model. */
+/**
+ * Decrypted container metadata read model.
+ *
+ * Container metadata is authored as a Loro document, but lists need a small
+ * queryable projection for names and icons. `displayName` remains nullable so
+ * presentation can fall back to `/` or `Untitled`; `containerId` is the primary
+ * key joining the projection back to `containers.id`.
+ */
 export const containerProjection = sqliteTable(
   "container_projection",
   {

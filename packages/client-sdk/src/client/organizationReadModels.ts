@@ -373,23 +373,6 @@ class OrganizationReadModelCoordinatorImpl
           accessWasDenied &&
           directoryAndGroups !== null &&
           directoryAndGroups !== undefined;
-        if (accessWasRestored) {
-          const requestedDormantSweep =
-            await requestDormantMetadataRestorationSweep(
-              active.runtime.infra.execSql,
-              {
-                organizationId: active.organizationId,
-                requesterUserId: active.userId,
-              },
-            );
-          if (requestedDormantSweep) {
-            requestDomainSyncLane(
-              domainScope,
-              CONTAINER_CONTENTS_SYNC_LANE_KEY,
-            );
-          }
-        }
-
         // The evidence gate: re-arm only when some queued write actually
         // recorded a terminal failure. A transient denial during bootstrap
         // (e.g. a read-model 403 before grants propagate) also flips the
@@ -413,6 +396,25 @@ class OrganizationReadModelCoordinatorImpl
             { organizationId: active.organizationId },
           );
           requestAllDomainSyncLanes(domainScope);
+        }
+        // Keep dormant cleanup independent from the write-lane evidence gate,
+        // but run it afterward so a SQLite failure cannot suppress the
+        // pre-existing denied-write and move-intent recovery signal.
+        if (accessWasRestored) {
+          const requestedDormantSweep =
+            await requestDormantMetadataRestorationSweep(
+              active.runtime.infra.execSql,
+              {
+                organizationId: active.organizationId,
+                requesterUserId: active.userId,
+              },
+            );
+          if (requestedDormantSweep) {
+            requestDomainSyncLane(
+              domainScope,
+              CONTAINER_CONTENTS_SYNC_LANE_KEY,
+            );
+          }
         }
         return directoryAndGroups;
       })
