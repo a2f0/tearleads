@@ -29,10 +29,10 @@ the real Apple/Google sandbox checklist are in
 Native store releases have two targets backed by shared shell and Fastlane
 configuration:
 
-| Tier | Android application ID | iOS bundle ID | Android variant | iOS scheme / configuration |
-| --- | --- | --- | --- | --- |
-| Production | `com.tearleads.app` | `com.tearleads.app` | `release` | `App` / `Release` |
-| Staging | `com.tearleads.staging.app` | `com.tearleads.staging.app` | `staging` | `App-Staging` / `Release-Staging` |
+| Tier | Native app identifier | Android variant | iOS scheme / configuration |
+| --- | --- | --- | --- |
+| Production | `com.tearleads.app` | `release` | `App` / `Release` |
+| Staging | `com.tearleads.staging.app` | `staging` | `App-Staging` / `Release-Staging` |
 
 Build or upload staging releases with:
 

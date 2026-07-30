@@ -8,6 +8,8 @@ android {
         buildConfig true
     }
     defaultConfig {
+        // Every build type must add a suffix to this non-shippable base ID.
+        // Staging inherits release, then overrides its suffix below.
         applicationId "com.tearleads"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion

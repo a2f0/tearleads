@@ -88,6 +88,47 @@ function withoutXcodeSettings(settings: string[], excludedNames: string[]) {
   );
 }
 
+function namedBraceBlock(source: string, name: string) {
+  const blockStart = new RegExp(`\\b${name}\\s*\\{`).exec(source);
+  if (blockStart === null) {
+    throw new Error(`Could not find ${name} block`);
+  }
+  const openingBrace = blockStart.index + blockStart[0].lastIndexOf("{");
+  let depth = 0;
+  for (let index = openingBrace; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === "{") {
+      depth += 1;
+    } else if (character === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(openingBrace + 1, index);
+      }
+    }
+  }
+  throw new Error(`Could not read ${name} block`);
+}
+
+function quotedGradleSetting(block: string, name: string) {
+  const value = block.match(new RegExp(`\\b${name}\\s+"([^"]+)"`))?.[1];
+  if (value === undefined) {
+    throw new Error(`Could not find Gradle setting ${name}`);
+  }
+  return value;
+}
+
+function effectiveAndroidApplicationId(gradle: string, buildType: string) {
+  const baseId = quotedGradleSetting(
+    namedBraceBlock(gradle, "defaultConfig"),
+    "applicationId",
+  );
+  const buildTypeBlock = namedBraceBlock(
+    namedBraceBlock(gradle, "buildTypes"),
+    buildType,
+  );
+  return `${baseId}${quotedGradleSetting(buildTypeBlock, "applicationIdSuffix")}`;
+}
+
 test("Android can resume a purchase after external payment verification", async () => {
   const manifest = await Bun.file(
     resolve(packageRoot, "android/app/src/main/AndroidManifest.xml"),
@@ -123,9 +164,15 @@ test("Android staging inherits the production release signing variant", async ()
     /release\s*\{[\s\S]*?signingConfig hasReleaseKeystore\(\) \? signingConfigs\.release : signingConfigs\.debug/,
   );
   expect(gradle).toMatch(/staging\s*\{[\s\S]*?initWith release/);
-  expect(gradle).toContain('applicationId "com.tearleads"');
-  expect(gradle).toContain('applicationIdSuffix ".app"');
-  expect(gradle).toContain('applicationIdSuffix ".staging.app"');
+  expect(effectiveAndroidApplicationId(gradle, "debug")).toBe(
+    "com.tearleads.app",
+  );
+  expect(effectiveAndroidApplicationId(gradle, "release")).toBe(
+    "com.tearleads.app",
+  );
+  expect(effectiveAndroidApplicationId(gradle, "staging")).toBe(
+    "com.tearleads.staging.app",
+  );
   expect(stagingStrings).toContain("com.tearleads.staging.app");
   expect(stagingStrings).toContain("Tearleads Staging");
 });
@@ -316,4 +363,35 @@ test("Fastlane selects store identities from one shared release target", async (
   ]) {
     expect(scripts[scriptName]).toContain("NATIVE_RELEASE_TIER=staging");
   }
+});
+
+test("native staging store identifiers stay aligned", async () => {
+  const [capacitorConfig, gradle, project, releaseTarget] = await Promise.all([
+    Bun.file(resolve(packageRoot, "capacitor.config.ts")).text(),
+    Bun.file(resolve(packageRoot, "android/app/build.gradle")).text(),
+    Bun.file(
+      resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
+    ).text(),
+    Bun.file(resolve(packageRoot, "fastlane/native_release_target.rb")).text(),
+  ]);
+  const capacitorId = capacitorConfig.match(
+    /isStagingRelease\s*\?\s*"([^"]+)"/,
+  )?.[1];
+  const fastlaneId = releaseTarget.match(
+    /'staging'\s*=>\s*\{[\s\S]*?app_identifier:\s*'([^']+)'/,
+  )?.[1];
+  const xcodeId = xcodeConfigurationSettings(
+    project,
+    "PBXNativeTarget",
+    "Release-Staging",
+  )
+    .find((setting) => setting.startsWith("PRODUCT_BUNDLE_IDENTIFIER ="))
+    ?.match(/= ([^;]+);/)?.[1];
+
+  expect([
+    effectiveAndroidApplicationId(gradle, "staging"),
+    capacitorId,
+    fastlaneId,
+    xcodeId,
+  ]).toEqual(Array.from({ length: 4 }, () => "com.tearleads.staging.app"));
 });

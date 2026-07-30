@@ -112,6 +112,11 @@ Android staging inherits the release build type and deliberately uses the same
 upload keystore as production; package IDs and separate store records isolate
 the apps, not their signing key.
 
+The staging identifier changed before its first store release. Because the
+SQLite keychain prefix follows the app identifier, existing local staging
+installs must be removed before installing this target; production data is
+unaffected.
+
 One-time store setup is still required; the release lanes are intentionally
 readonly for signing and store records:
 
