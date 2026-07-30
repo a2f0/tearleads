@@ -53,15 +53,23 @@ async function expectColumnarRows(table: Locator, rowCount: number) {
 
 async function addWindowedReading(
   explorerWindow: Locator,
+  ordinal: number,
   systolic: string,
   diastolic: string,
 ) {
   await explorerWindow.getByRole("button", { name: "Add Reading" }).click();
   await explorerWindow.getByLabel("Quick add systolic").fill(systolic);
   await explorerWindow.getByLabel("Quick add diastolic").fill(diastolic);
-  await explorerWindow.getByRole("button", { name: "Save Reading" }).click();
+  // Exact, because a row that has not finished saving still carries its own
+  // "Save reading 1" — which a substring match collides with.
+  await explorerWindow
+    .getByRole("button", { exact: true, name: "Save Reading" })
+    .click();
+  // Wait for the row to reach its saved presentation, not merely for the form to
+  // close: saving is asynchronous, so adding the next reading while this one is
+  // still an edit row is what puts that second "Save reading N" on screen.
   await expect(
-    explorerWindow.getByRole("button", { name: "Add Reading" }),
+    explorerWindow.getByRole("button", { name: `Reading ${ordinal} actions` }),
   ).toBeVisible();
 }
 
@@ -87,8 +95,8 @@ test("windowed tracker index draws its readings as one column grid", async ({
     .first()
     .click();
 
-  await addWindowedReading(explorerWindow, "120", "80");
-  await addWindowedReading(explorerWindow, "118", "76");
+  await addWindowedReading(explorerWindow, 1, "120", "80");
+  await addWindowedReading(explorerWindow, 2, "118", "76");
   // Leave edit mode: the index table is read mode's presentation of the rows.
   await toolbar.getByRole("button", { name: "Save" }).click();
   await expect(toolbar.getByRole("button", { name: "Edit" })).toBeVisible();
