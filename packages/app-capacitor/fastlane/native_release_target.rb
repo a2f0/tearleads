@@ -80,14 +80,14 @@ end
 
 # Load release values while preserving every variable explicitly set by the
 # caller. Parsing first lets the tier-specific native allowlist override root.
-def load_native_release_secrets_env
+def load_native_release_secrets_env(validate_service_urls: true)
   process_environment = ENV.to_h
 
   native_release_file_environment.each do |name, value|
     ENV[name] = value unless process_environment.key?(name)
   end
 
-  ensure_native_release_service_urls!
+  ensure_native_release_service_urls! if validate_service_urls
 end
 
 def native_release_api_host_problem(host)

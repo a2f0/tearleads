@@ -24,6 +24,65 @@ interface NativeReleaseSnapshot {
   iosScheme: string;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function recordValue(value: Record<string, unknown>, key: string): unknown {
+  return value[key];
+}
+
+function parseNativeReleaseSnapshot(stdout: string): NativeReleaseSnapshot {
+  const value: unknown = JSON.parse(stdout);
+  if (!isRecord(value)) {
+    throw new Error("Native release snapshot must be an object");
+  }
+  const environmentValue = recordValue(value, "environment");
+  if (!isRecord(environmentValue)) {
+    throw new Error(
+      "Native release snapshot must be an object with an environment",
+    );
+  }
+
+  const androidBuildVariant = recordValue(value, "androidBuildVariant");
+  const appIdentifier = recordValue(value, "appIdentifier");
+  const iosConfiguration = recordValue(value, "iosConfiguration");
+  const iosScheme = recordValue(value, "iosScheme");
+  if (
+    typeof androidBuildVariant !== "string" ||
+    typeof appIdentifier !== "string" ||
+    typeof iosConfiguration !== "string" ||
+    typeof iosScheme !== "string"
+  ) {
+    throw new Error("Native release snapshot target fields must be strings");
+  }
+  const productionIosStoreKey = recordValue(value, "productionIosStoreKey");
+  if (
+    productionIosStoreKey !== null &&
+    typeof productionIosStoreKey !== "string"
+  ) {
+    throw new Error("Native release snapshot production key must be nullable");
+  }
+  const environment: Record<string, string | null> = {};
+  for (const [name, entry] of Object.entries(environmentValue)) {
+    if (entry !== null && typeof entry !== "string") {
+      throw new Error(
+        "Native release snapshot environment values must be nullable strings",
+      );
+    }
+    environment[name] = entry;
+  }
+
+  return {
+    androidBuildVariant,
+    appIdentifier,
+    environment,
+    iosConfiguration,
+    iosScheme,
+    productionIosStoreKey,
+  };
+}
+
 const stagingTarget = {
   androidBuildVariant: "staging",
   appIdentifier: "com.tearleads.app.staging",
@@ -90,7 +149,7 @@ async function readNativeReleaseEnvironment(
     if (exitCode !== 0) {
       throw new Error(`Ruby native release target failed: ${stderr}`);
     }
-    return JSON.parse(stdout) as NativeReleaseSnapshot;
+    return parseNativeReleaseSnapshot(stdout);
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }

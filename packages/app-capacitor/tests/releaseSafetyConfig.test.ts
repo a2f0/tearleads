@@ -296,6 +296,13 @@ describe("RevenueCat store-release safety", () => {
         "com.tearleads.app.staging",
       ),
     ).resolves.toBe("ok");
+    await expect(
+      readCapacitorReleaseProblem(
+        "com.tearleads.app.staging",
+        "com.tearleads.app.staging",
+        "http://localhost:5173",
+      ),
+    ).resolves.toContain("server.url");
   });
 
   const releaseScriptTargets = {
@@ -383,10 +390,12 @@ describe("RevenueCat store-release safety", () => {
       "staging",
       "wss://api.tearleads.com/v1/events",
     );
-    const deceptiveStagingSocket = await runTierHostGuard(
-      "VITE_WS_URL",
-      "staging",
-      "wss://tearleads.de.example/socket",
+    const deceptiveStagingSockets = await Promise.all(
+      [
+        "wss://tearleads.de.example/socket",
+        "wss://evil.example#@events.tearleads.de",
+        "wss://evil.example?next=@events.tearleads.de",
+      ].map((url) => runTierHostGuard("VITE_WS_URL", "staging", url)),
     );
     const stagingUnknown = await runTierHostGuard(
       "VITE_API_BASE_URL",
@@ -418,7 +427,9 @@ describe("RevenueCat store-release safety", () => {
     expect(productionWrong.stderr).toContain("must use api.tearleads.com");
     expect(stagingSocketWrong.exitCode).toBe(1);
     expect(stagingSocketWrong.stderr).toContain("VITE_WS_URL");
-    expect(deceptiveStagingSocket.exitCode).toBe(1);
+    for (const result of deceptiveStagingSockets) {
+      expect(result.exitCode).toBe(1);
+    }
     expect(stagingUnknown.exitCode).toBe(1);
     expect(stagingCorrect.exitCode).toBe(0);
     expect(stagingSocketCorrect.exitCode).toBe(0);

@@ -123,6 +123,8 @@ print_timing_summary() {
 echo "=== Tearleads Full Release ==="
 echo ""
 
+# Staging store uploads are intentionally separate:
+# uploadIosStagingRelease.sh and uploadAndroidStagingRelease.sh.
 run_upload_step "ios" "$SCRIPT_DIR/uploadIosRelease.sh"
 run_upload_step "android" "$SCRIPT_DIR/uploadAndroidRelease.sh"
 run_step "staging" "$SCRIPT_DIR/deployStaging.sh" --skip-infra

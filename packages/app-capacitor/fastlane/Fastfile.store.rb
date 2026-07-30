@@ -11,7 +11,7 @@ GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH = File.join(NATIVE_SECRETS_DIR, 'google-play-s
 GOOGLE_PLAY_DEFAULT_TRACKS = %w[production beta alpha internal].freeze
 
 def load_store_secrets_env
-  load_native_release_secrets_env
+  load_native_release_secrets_env(validate_service_urls: false)
 end
 
 # Fails the build unless the native config at config_path is a fully bundled

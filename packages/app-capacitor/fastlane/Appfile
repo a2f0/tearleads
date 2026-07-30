@@ -1,10 +1,11 @@
-# Fastlane evals Appfile from either the package or fastlane directory, so
-# __dir__ and require_relative are not stable anchors here. Invoke these lanes
-# from packages/app-capacitor; repo-root --fastfile invocation is unsupported.
-native_release_target_path = %w[
+# Fastlane evals Appfile from either the package or fastlane directory. Prefer
+# those supported working directories, with the Appfile directory as a fallback.
+native_release_target_paths = %w[
   fastlane/native_release_target.rb
   native_release_target.rb
-].map { |path| File.expand_path(path, Dir.pwd) }.find { |path| File.file?(path) }
+].map { |path| File.expand_path(path, Dir.pwd) }
+native_release_target_paths << File.expand_path('native_release_target.rb', __dir__)
+native_release_target_path = native_release_target_paths.find { |path| File.file?(path) }
 raise LoadError, 'Could not locate fastlane/native_release_target.rb' if native_release_target_path.nil?
 
 require File.realpath(native_release_target_path)

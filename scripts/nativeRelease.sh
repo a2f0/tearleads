@@ -104,7 +104,7 @@ native_release_ensure_android_wrapper() {
 
 native_release_url_host() {
   native_url_value="${1#*://}"
-  native_url_authority="${native_url_value%%/*}"
+  native_url_authority="${native_url_value%%[/?#]*}"
   native_url_authority="${native_url_authority##*@}"
   native_url_host="${native_url_authority%%:*}"
   printf '%s\n' "$native_url_host" | tr '[:upper:]' '[:lower:]'
