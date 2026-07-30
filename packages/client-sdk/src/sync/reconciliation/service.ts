@@ -1,86 +1,30 @@
-import type { DocumentSummary } from "../../data/documentSummary";
-import type { DomainScope } from "../../data/domainScope";
 import {
   getOrCreateDomainSyncCoordinator,
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
-import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
+import {
+  createInitialDocumentProbe,
+  type InitialDocumentProbe,
+  scheduleInitialDocumentProbeContinuation,
+} from "./initialDocumentProbe";
 import { clearOriginatedDocuments } from "./originatedDocuments";
 import {
   createReconcileQueue,
   type ReconcilePriority,
   type ReconcileQueue,
 } from "./queue";
+import { listFullRefreshContainerIds } from "./refreshContainerIds";
+import type {
+  ReconciliationHost,
+  ReconciliationRuntimeStatus,
+  ReconciliationService,
+} from "./serviceTypes";
 
-export interface ReconciliationRuntimeStatus {
-  dbStatus: string;
-  isAuthenticated: boolean;
-  online: boolean;
-}
-
-/**
- * Host contract injected by the device-first facade. Keeps the reconciler
- * React-free and decoupled from runtime/persistence construction — it only
- * orchestrates *when* these run and routes their results into Layer A.
- */
-export interface ReconciliationHost {
-  domainScope: DomainScope;
-  getRuntimeStatus: () => ReconciliationRuntimeStatus;
-  /** Whether this id currently has a remotely listable container lane. */
-  canDiscoverContainerDocuments: (containerId: string) => boolean;
-  /** Known container ids, used for idle backfill and event mapping. */
-  listKnownContainerIds: () => ReadonlyArray<string>;
-  /** Known ids eligible after an automatic root-lane discovery hint. */
-  listAutomaticRootCatchupContainerIds: () => ReadonlyArray<string>;
-  /** Discover + persist a container's documents from the server. */
-  discoverContainerDocuments: (containerId: string) => Promise<unknown>;
-  /** Read a container's freshly-persisted summaries+links from SQLite. */
-  loadContainerDelta: (
-    containerId: string,
-  ) => Promise<LocalProjectionReconciledDelta>;
-  /** Push a reconciled delta into the local projection store. */
-  applyReconciled: (delta: LocalProjectionReconciledDelta) => void;
-  /**
-   * Sync document bodies for a reconciled container. `force` (an explicit
-   * refresh) revalidates registered ordinary documents and retries system
-   * documents; otherwise only unopened system documents are synced, so a
-   * background pass can materialize projection-owned content without eagerly
-   * opening every ordinary document.
-   */
-  requestDocumentContentPull?: (
-    containerId: string,
-    documents: ReadonlyArray<DocumentSummary>,
-    force: boolean,
-  ) => void;
-  /** Refresh the container tree from the server (explicit refresh). */
-  refreshTree: () => Promise<void>;
-  /** Refresh only the top-level root lane from the server. */
-  refreshRootTree: () => Promise<void>;
-  /** True if the destroyed-db error should be swallowed rather than surfaced. */
-  isIgnorableError: (error: unknown) => boolean;
-}
-
-export interface ReconciliationService {
-  start: () => void;
-  setActiveContainer: (containerId: string | null) => void;
-  enqueueContainer: (
-    containerId: string,
-    priority: ReconcilePriority,
-    force?: boolean,
-  ) => void;
-  enqueueIdleBackfill: () => void;
-  /**
-   * Forget which containers were reconciled this session so the next enqueue of
-   * each re-validates against the server exactly once. Call on the
-   * cannot-reconcile → can-reconcile edge (relogin/reconnect): the discovered
-   * set is a per-session suppression cache, and a previously-visited container
-   * may have changed remotely while this client could not reach the server.
-   */
-  resetDiscovered: () => void;
-  reconcileRootContainersNow: () => Promise<void>;
-  reconcileNow: () => Promise<void>;
-  stop: () => void;
-}
+export type {
+  ReconciliationHost,
+  ReconciliationRuntimeStatus,
+  ReconciliationService,
+} from "./serviceTypes";
 
 function canReconcile(status: ReconciliationRuntimeStatus): boolean {
   return status.dbStatus === "ready" && status.isAuthenticated && status.online;
@@ -91,7 +35,9 @@ interface ReconciliationState {
   activeContainerId: string | null;
   discoveredContainerIds: Set<string>;
   forcedContainerIds: Set<string>;
+  initialDocumentProbe: InitialDocumentProbe;
   lane: SyncLane | null;
+  probeContinuationCancel: (() => void) | null;
   queue: ReconcileQueue;
   /**
    * In-flight sweep promise. {@link reconcileKnownContainersAfterRefresh}
@@ -201,6 +147,8 @@ async function runReconcileLane(
 
   const containerId = state.queue.dequeue();
   if (!containerId) {
+    await state.initialDocumentProbe.run();
+    scheduleProbeContinuation(host, state);
     return;
   }
 
@@ -227,7 +175,28 @@ async function runReconcileLane(
   // Keep draining: schedule another pass while the queue holds work.
   if (state.queue.size > 0) {
     state.lane?.requestSync();
+  } else {
+    scheduleProbeContinuation(host, state);
   }
+}
+
+function scheduleProbeContinuation(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+): void {
+  state.probeContinuationCancel?.();
+  state.probeContinuationCancel = scheduleInitialDocumentProbeContinuation({
+    canContinue: () =>
+      state.active &&
+      state.queue.size === 0 &&
+      canReconcile(host.getRuntimeStatus()) &&
+      state.initialDocumentProbe.hasPendingWork(),
+    delayMs: state.initialDocumentProbe.continuationDelayMs(),
+    requestRun: () => {
+      state.probeContinuationCancel = null;
+      state.lane?.requestSync();
+    },
+  });
 }
 
 function forgetIneligibleDiscoveredContainers(
@@ -357,48 +326,61 @@ function startReconciliationLane(
   );
 }
 
-function listFullRefreshContainerIds(
+function createReconciliationState(
+  host: ReconciliationHost,
+): ReconciliationState {
+  return {
+    active: false,
+    activeContainerId: null,
+    discoveredContainerIds: new Set(),
+    forcedContainerIds: new Set(),
+    initialDocumentProbe: createInitialDocumentProbe(host),
+    lane: null,
+    probeContinuationCancel: null,
+    queue: createReconcileQueue(),
+    refreshPromise: null,
+    refreshType: null,
+  };
+}
+
+function stopReconciliationService(
   host: ReconciliationHost,
   state: ReconciliationState,
-): ReadonlyArray<string> {
-  const knownIds = host.listKnownContainerIds();
-  const activeContainerId = state.activeContainerId;
-  if (
-    !activeContainerId ||
-    knownIds.includes(activeContainerId) ||
-    !host.canDiscoverContainerDocuments(activeContainerId)
-  ) {
-    return knownIds;
-  }
-
-  // The generic known set intentionally excludes write-only foreign system
-  // containers. A user can still explicitly open one (for example a directly
-  // shared Contacts folder), and Refresh must retry that active surface even
-  // though background sweeps remain security-filtered.
-  return [...knownIds, activeContainerId];
+): void {
+  state.active = false;
+  state.probeContinuationCancel?.();
+  state.probeContinuationCancel = null;
+  state.queue.clear();
+  state.forcedContainerIds.clear();
+  state.refreshPromise = null;
+  state.refreshType = null;
+  state.initialDocumentProbe.resetPending();
+  // Drop the per-session discovered suppression cache too: a stopped
+  // reconciler is being torn down (scope/identity change) or paused across
+  // a prerequisite loss, after which every container must be re-validated.
+  state.discoveredContainerIds.clear();
+  // Drop pending self-echo originations too — they are session-scoped and a
+  // teardown invalidates them.
+  clearOriginatedDocuments(host.domainScope);
 }
 
 export function createReconciliationService(
   host: ReconciliationHost,
 ): ReconciliationService {
-  const state: ReconciliationState = {
-    active: false,
-    activeContainerId: null,
-    discoveredContainerIds: new Set(),
-    forcedContainerIds: new Set(),
-    lane: null,
-    queue: createReconcileQueue(),
-    refreshPromise: null,
-    refreshType: null,
-  };
+  const state = createReconciliationState(host);
 
   const scheduleDrain = () => {
-    if (!state.active || state.queue.size === 0) {
+    if (
+      !state.active ||
+      (state.queue.size === 0 && !state.initialDocumentProbe.canRun())
+    ) {
       return;
     }
     if (!canReconcile(host.getRuntimeStatus())) {
       return;
     }
+    state.probeContinuationCancel?.();
+    state.probeContinuationCancel = null;
     state.lane?.requestSync();
   };
 
@@ -424,7 +406,12 @@ export function createReconciliationService(
   };
 
   const enqueueIdleBackfill = () => {
-    for (const containerId of host.listKnownContainerIds()) {
+    const knownContainerIds = host.listKnownContainerIds();
+    const eligibleContainerIds = knownContainerIds.filter((id) =>
+      host.canDiscoverContainerDocuments(id),
+    );
+    state.initialDocumentProbe.arm(eligibleContainerIds);
+    for (const containerId of knownContainerIds) {
       if (state.discoveredContainerIds.has(containerId)) {
         continue;
       }
@@ -455,6 +442,7 @@ export function createReconciliationService(
     enqueueIdleBackfill,
     resetDiscovered: () => {
       state.discoveredContainerIds.clear();
+      state.initialDocumentProbe.resetSkippedListings();
     },
     reconcileRootContainersNow: () =>
       reconcileKnownContainersSingleFlight(
@@ -469,22 +457,9 @@ export function createReconciliationService(
         host,
         state,
         host.refreshTree,
-        () => listFullRefreshContainerIds(host, state),
+        () => listFullRefreshContainerIds(host, state.activeContainerId),
         "full",
       ),
-    stop: () => {
-      state.active = false;
-      state.queue.clear();
-      state.forcedContainerIds.clear();
-      state.refreshPromise = null;
-      state.refreshType = null;
-      // Drop the per-session discovered suppression cache too: a stopped
-      // reconciler is being torn down (scope/identity change) or paused across
-      // a prerequisite loss, after which every container must be re-validated.
-      state.discoveredContainerIds.clear();
-      // Drop pending self-echo originations too — they are session-scoped and a
-      // teardown invalidates them.
-      clearOriginatedDocuments(host.domainScope);
-    },
+    stop: () => stopReconciliationService(host, state),
   };
 }

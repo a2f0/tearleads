@@ -258,6 +258,8 @@ test(
         timeoutMs: BOOTSTRAP_SYNC_SETTLE_TIMEOUT_MS,
       });
     });
+    // The settle quiet window coalesces the probe's yielded per-container turns
+    // into one remote Usage reconcile after all startup sync work is quiet.
     expect(countOrganizationDataUsageRequests()).toBeLessThanOrEqual(1);
 
     // This is the org-manager-plus-system-bootstrap baseline. Usage counts

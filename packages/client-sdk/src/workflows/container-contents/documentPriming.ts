@@ -1,3 +1,4 @@
+import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../data/documentSummary";
 import {
   documentContainerProjectionTables,
   documentMoveIntentTables,
@@ -12,6 +13,7 @@ import type {
   ContainerDocumentPrimeHost,
   ContainerDocumentQueriesRuntime,
 } from "./documentQueries/types";
+import { requestDocumentRuntimeTargetSync } from "./documentRuntimeTargetSync";
 
 interface PrimeRequiredDocumentCandidate {
   readonly localId: string;
@@ -167,7 +169,9 @@ const ORPHANED_PRIME_TARGET_SQL = `
       OR projection.organization_id IS NULL
       OR projection.organization_id = ''
     )
-    AND projection.document_kind NOT IN ('organization_profile')
+    AND projection.document_kind NOT IN (${HIDDEN_DOCUMENT_SUMMARY_KINDS.map(
+      () => "?",
+    ).join(", ")})
     AND (
       stored.document_id IS NULL
       OR NOT EXISTS (
@@ -195,6 +199,7 @@ async function listOrphanedDocumentPrimeTargets(
   ]);
   const rows = await runtime.infra.execSql(ORPHANED_PRIME_TARGET_SQL, [
     organizationId,
+    ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
   ]);
   return rows.flatMap((row) => {
     const localId = Reflect.get(row, "local_id");
@@ -210,48 +215,6 @@ async function listOrphanedDocumentPrimeTargets(
       },
     ];
   });
-}
-
-// Stores opened per macrotask during a prime pass. Opening is fire-and-forget,
-// so yielding between chunks keeps the main thread and serialized SQLite queue
-// responsive while a real backlog primes.
-const PRIME_OPEN_CHUNK_SIZE = 8;
-
-async function primeDocumentRuntimeTargets<TRuntime>(input: {
-  readonly host: ContainerDocumentPrimeHost<TRuntime>;
-  readonly targets: ReadonlyArray<ContainerContentsDocumentRuntimeTarget>;
-}): Promise<ReadonlySet<string>> {
-  const primedLocalIds = new Set<string>();
-  const runtimesByContainerId = new Map<string | null, TRuntime>();
-  for (const target of input.targets) {
-    if (primedLocalIds.has(target.localId)) {
-      continue;
-    }
-    if (
-      primedLocalIds.size > 0 &&
-      primedLocalIds.size % PRIME_OPEN_CHUNK_SIZE === 0
-    ) {
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-    }
-
-    let runtime = runtimesByContainerId.get(target.runtimeContainerId);
-    if (runtime === undefined) {
-      runtime = input.host.documentWorkflowRuntime(target.runtimeContainerId);
-      runtimesByContainerId.set(target.runtimeContainerId, runtime);
-    }
-
-    const store = input.host.openDocumentStore({
-      documentId: target.documentId,
-      localId: target.localId,
-      runtime,
-    });
-    primedLocalIds.add(target.localId);
-    if (store.getSnapshot?.().ready ?? true) {
-      store.requestSync();
-    }
-  }
-
-  return primedLocalIds;
 }
 
 export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
@@ -270,7 +233,7 @@ export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
     input.primeRequiredLocalIds ??
       listPrimeRequiredLocalIdsFromRuntime(input.runtime),
   ]);
-  const primed = await primeDocumentRuntimeTargets({
+  const primed = await requestDocumentRuntimeTargetSync({
     host: input.host,
     targets: targets.filter((target) =>
       primeRequiredLocalIds.has(target.localId),
@@ -314,7 +277,7 @@ export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
         rootContainerId,
         runtime: input.runtime,
       });
-    const primed = await primeDocumentRuntimeTargets({
+    const primed = await requestDocumentRuntimeTargetSync({
       host: input.host,
       targets: targets.filter(
         (target) =>
@@ -339,7 +302,7 @@ export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
       requiredLocalIds.has(target.localId) &&
       !primedLocalIds.has(target.localId),
   );
-  const orphanPrimed = await primeDocumentRuntimeTargets({
+  const orphanPrimed = await requestDocumentRuntimeTargetSync({
     host: input.host,
     targets: orphanTargets,
   });
