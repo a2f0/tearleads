@@ -122,36 +122,29 @@ test("tablet passport image stops at the measure", async ({ page }) => {
 
   const attachmentSlots = page.locator(".passport-attachment-slots");
   await expect(attachmentSlots).toBeVisible({ timeout: 30_000 });
-  const geometry = await attachmentSlots.evaluate((element) => {
-    const parent = element.parentElement;
-    if (!parent) {
-      throw new Error("passport-attachment-slots has no parent to measure.");
-    }
-    const rawCap = getComputedStyle(element).maxWidth;
-    const pane = document.querySelector('[class*="routed-pane--"]');
+  const geometry = await measureAttached("passport attachment slots", () =>
+    attachmentSlots.evaluate((element) => {
+      // Reached by creating a document, so the panel around it is still
+      // settling; a detached node reports an empty computed style, which reads
+      // as a cap that is not a length.
+      if (!element.isConnected) {
+        return null;
+      }
 
-    return {
-      capPx: rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null,
-      diag: {
-        elementClass: element.className,
-        fieldCount: document.querySelectorAll(".mini-app-field").length,
-        formMeasure: getComputedStyle(element)
-          .getPropertyValue("--form-measure")
-          .trim(),
-        innerWidth: window.innerWidth,
-        pane: pane ? pane.className : "NO PANE",
-        rawCap,
-        styleTags: document.querySelectorAll("style,link[rel=stylesheet]")
-          .length,
-      },
-      parentWidth: parent.getBoundingClientRect().width,
-      width: element.getBoundingClientRect().width,
-    };
-  });
+      const parent = element.parentElement;
+      if (!parent) {
+        throw new Error("passport-attachment-slots has no parent to measure.");
+      }
+      const rawCap = getComputedStyle(element).maxWidth;
 
-  if (geometry.capPx === null) {
-    console.log("DIAG form-measure:", JSON.stringify(geometry.diag));
-  }
+      return {
+        capPx: rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null,
+        parentWidth: parent.getBoundingClientRect().width,
+        width: element.getBoundingClientRect().width,
+      };
+    }),
+  );
+
   expect(geometry.capPx).not.toBeNull();
   expect(geometry.width).toBeCloseTo(geometry.capPx ?? 0, 0);
   expect(geometry.width).toBeLessThan(geometry.parentWidth);

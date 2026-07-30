@@ -290,8 +290,15 @@ test("mobile context menu items meet the touch type and glyph size", async ({
   if (!itemBox || !glyphBox) {
     throw new Error("Expected a visible menu item and its icon.");
   }
-  const fontSize = await item.evaluate((element) =>
-    Number.parseFloat(getComputedStyle(element).fontSize),
+  // Same guard as the geometry above: an orphaned node's computed style is
+  // empty, so its font size parses to NaN — which fails as if the touch type
+  // rule had been dropped.
+  const fontSize = await measureAttached("context menu item type", () =>
+    item.evaluate((element) =>
+      element.isConnected
+        ? Number.parseFloat(getComputedStyle(element).fontSize)
+        : null,
+    ),
   );
 
   expect(itemBox.height).toBeGreaterThanOrEqual(44);
