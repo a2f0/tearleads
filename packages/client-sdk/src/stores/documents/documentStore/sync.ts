@@ -1,6 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { getImportBlobMetadata, mergeVersionVectors } from "@tearleads/loro";
-import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
 import {
   type DocumentRecord,
   type DocumentSyncLane,
@@ -8,10 +7,7 @@ import {
   resolveDocumentCreateAuthor,
   settleOutgoingPassAndDecideReArm,
 } from "../../../workflows/documents";
-import {
-  isDatabaseUnavailableError,
-  sequenceUnchanged,
-} from "../../../workflows/documents/syncLane";
+import { isDatabaseUnavailableError } from "../../../workflows/documents/syncLane";
 import { requestDocumentStoreSync } from "../registry";
 import { hydrateAttachmentBlobs } from "./attachmentHydration";
 import { chainIdentityWrite } from "./identityWriteChain";
@@ -42,6 +38,7 @@ import {
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
+import { clearConsumedRemoteUpdateSignal } from "./syncRemoteSignals";
 import { requestRemoteDocumentSync } from "./syncRequest";
 import {
   ensureRemoteDocument,
@@ -62,49 +59,6 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.runtime.crypto.encapsulationKeyPair !== null &&
     resolveDocumentCreateAuthor(state.runtime) !== null
   );
-}
-
-function getDocumentUpdateEventDetails(
-  event: unknown,
-): { documentId: string; updateIds: readonly string[] | null } | null {
-  if (!isDocumentUpdateCreatedEvent(event)) {
-    return null;
-  }
-
-  return {
-    documentId: event.documentId,
-    updateIds: event.updateIds ?? null,
-  };
-}
-
-export function hasRemoteDocumentUpdateEvent(
-  state: DocumentStoreState,
-  events: ReadonlyArray<unknown>,
-): boolean {
-  let remoteUpdateFound = false;
-
-  for (const event of events) {
-    const updateEvent = getDocumentUpdateEventDetails(event);
-    if (!updateEvent || updateEvent.documentId !== state.record?.documentId) {
-      continue;
-    }
-
-    if (updateEvent.updateIds && updateEvent.updateIds.length > 0) {
-      for (const updateId of updateEvent.updateIds) {
-        if (!state.locallyAcceptedUpdateIds.has(updateId)) {
-          remoteUpdateFound = true;
-          continue;
-        }
-
-        state.locallyAcceptedUpdateIds.delete(updateId);
-      }
-      continue;
-    }
-
-    remoteUpdateFound = true;
-  }
-
-  return remoteUpdateFound;
 }
 
 function documentWriterProjectionMatchesSyncResponse(
@@ -140,28 +94,6 @@ function resolveSyncedDocumentWriterProjection(
     documentWriterProjectionMatchesSyncResponse(writerProjection, synced)
     ? writerProjection
     : null;
-}
-
-/** Clear the remote-update signal only when its consumed sequence is unchanged.
- * A moved sequence means a newer remote event arrived mid-pass and must survive
- * for the coalesced re-run to avoid the convergence-stall race.
- */
-export const canClearRemoteUpdateSignalAfterSync = sequenceUnchanged;
-
-function clearConsumedRemoteUpdateSignal(
-  state: DocumentStoreState,
-  consumedSignalSequence: number,
-): void {
-  // A peer event can arrive while the HTTP request is in flight. Clear only
-  // the sequence this pass consumed so the newer event survives for a re-run.
-  if (
-    canClearRemoteUpdateSignalAfterSync(
-      state.remoteUpdateSignalSeq,
-      consumedSignalSequence,
-    )
-  ) {
-    state.remoteUpdatePending = false;
-  }
 }
 
 /**
@@ -221,6 +153,7 @@ async function finalizeDocumentSync(
   generation: DocumentStoreSyncGeneration,
   sentUpdateIds: readonly string[],
   wasRemoteProbe: boolean,
+  hydrateBlobs = true,
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
@@ -330,7 +263,9 @@ async function finalizeDocumentSync(
     requestDocumentStoreSync(state);
   }
 
-  await hydrateAttachmentBlobs(state, mergedDoc, nextRecord, generation);
+  if (hydrateBlobs) {
+    await hydrateAttachmentBlobs(state, mergedDoc, nextRecord, generation);
+  }
   logApplied(state, mergedDoc, synced.decryptedUpdates.length, wasRemoteProbe);
   return nextRecord;
 }
@@ -452,12 +387,76 @@ async function syncDocumentState(
   );
 }
 
+async function revalidateRemoteDocumentBeforeAttachments(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  nextRecord: DocumentRecord,
+  encapsulationKeyPair: EncapsulationKeyPair,
+): Promise<{ canSyncAttachments: boolean; nextRecord: DocumentRecord }> {
+  if (state.pendingAttachments.length === 0 || !nextRecord.documentId) {
+    return { canSyncAttachments: true, nextRecord };
+  }
+
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) {
+    requestDocumentStoreSync(state);
+    return { canSyncAttachments: false, nextRecord };
+  }
+
+  const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
+  const wasRemoteProbe = state.remoteUpdatePending;
+  const syncAttempt = await requestRemoteDocumentSync({
+    state,
+    currentDoc,
+    currentRecord: nextRecord,
+    encapsulationKeyPair,
+    generation,
+    pendingUpdates: [],
+    unavailableWriterLogMessage:
+      "Documents: skipped pre-attachment revalidation because the writer context is unavailable.",
+  });
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    return { canSyncAttachments: false, nextRecord };
+  }
+  if (!syncAttempt) {
+    logUnavailable(state, wasRemoteProbe);
+    return { canSyncAttachments: false, nextRecord };
+  }
+
+  const refreshedRecord = await finalizeDocumentSync(
+    state,
+    currentDoc,
+    nextRecord,
+    syncAttempt,
+    consumedRemoteUpdateSignalSeq,
+    generation,
+    [],
+    wasRemoteProbe,
+    false,
+  );
+  return {
+    canSyncAttachments: isDocumentStoreSyncGenerationCurrent(state, generation),
+    nextRecord: refreshedRecord,
+  };
+}
+
 async function runDocumentSyncPass(state: DocumentStoreState) {
   const currentDoc = state.doc;
   const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
   let nextRecord = state.record;
 
   if (!currentDoc || !nextRecord || !encapsulationKeyPair) {
+    return;
+  }
+
+  const revalidation = await revalidateRemoteDocumentBeforeAttachments(
+    state,
+    currentDoc,
+    nextRecord,
+    encapsulationKeyPair,
+  );
+  nextRecord = revalidation.nextRecord;
+  if (!revalidation.canSyncAttachments) {
     return;
   }
 
@@ -551,27 +550,6 @@ async function runScheduledSyncLoop(state: DocumentStoreState) {
     ) {
       setDocumentSyncing(state, false);
     }
-  }
-}
-
-export function handleDocumentRemoteEvents(
-  state: DocumentStoreState,
-  scheduleSync: () => void,
-) {
-  if (!state.record?.documentId) {
-    state.lastEventCount = state.runtime.state.events.length;
-    return;
-  }
-
-  const nextEvents = state.runtime.state.events.slice(state.lastEventCount);
-  state.lastEventCount = state.runtime.state.events.length;
-
-  if (hasRemoteDocumentUpdateEvent(state, nextEvents)) {
-    state.remoteUpdatePending = true;
-    // Bump the signal sequence so an in-flight sync pass can detect that a NEW
-    // remote update arrived after it consumed the signal and must not clear it.
-    state.remoteUpdateSignalSeq += 1;
-    scheduleSync();
   }
 }
 

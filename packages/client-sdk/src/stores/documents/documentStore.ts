@@ -38,10 +38,8 @@ import {
   resetDocumentStore,
   subscribeToDocumentStore,
 } from "./documentStore/state";
-import {
-  handleDocumentRemoteEvents,
-  registerDocumentStoreSyncLane,
-} from "./documentStore/sync";
+import { registerDocumentStoreSyncLane } from "./documentStore/sync";
+import { handleDocumentRemoteEvents } from "./documentStore/syncRemoteSignals";
 import {
   createDocumentStoreFacade,
   emitPersistedDocument,

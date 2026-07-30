@@ -4,7 +4,7 @@ import {
   canClearRemoteUpdateSignalAfterSync,
   handleDocumentRemoteEvents,
   hasRemoteDocumentUpdateEvent,
-} from "./sync";
+} from "./syncRemoteSignals";
 
 function createEventTestState(
   locallyAcceptedUpdateIds: readonly string[],

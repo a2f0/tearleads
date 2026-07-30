@@ -114,7 +114,9 @@ A document pass runs in this order:
 1. If the document already exists remotely and has pending attachment
    mutations, issue a no-outgoing document sync probe first. This refreshes
    incoming document updates, commit LSN, and content-key material before the
-   later writer projection fetch and attachment bind.
+   later writer projection fetch and attachment bind. Attachment work proceeds
+   only after a successful probe; a coded remote-deletion response takes the
+   normal destructive cleanup path before any blob staging begins.
 2. Sync pending attachment uploads. If the document does not exist remotely yet,
    create the remote document first. Then read the local pending bytes, fetch
    the current document writer projection, derive blob key targets from that

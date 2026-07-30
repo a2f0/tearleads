@@ -203,7 +203,7 @@ test("document store reloads persisted attachment metadata from the note snapsho
   ]);
 });
 
-test("document store uploads attachments without a pre-upload document sync probe", async () => {
+test("document store revalidates before uploading attachments", async () => {
   const persistence = createDocumentsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const attachmentBinds: Array<{
@@ -258,8 +258,10 @@ test("document store uploads attachments without a pre-upload document sync prob
   await waitForCondition(
     () =>
       attachmentBinds.length === 1 &&
-      persistence.getState().pendingAttachments.length === 0,
-    "Attachment upload did not complete without a pre-upload document sync probe.",
+      persistence.getState().pendingAttachments.length === 0 &&
+      syncCalls.length === 4 &&
+      !store.getSnapshot().syncing,
+    "Attachment upload did not complete after document revalidation.",
     2_000,
     10,
   );
@@ -273,10 +275,22 @@ test("document store uploads attachments without a pre-upload document sync prob
       minLsn: "0/10",
       outgoingUpdateCount: 1,
     },
+    {
+      minLsn: "0/20",
+      outgoingUpdateCount: 0,
+    },
+    {
+      minLsn: "0/30",
+      outgoingUpdateCount: 1,
+    },
   ]);
   expect(attachmentBinds).toHaveLength(1);
   expect(documentWriterProjectionCalls).toEqual([]);
-  expect(listDocumentAttachmentsCalls).toEqual([]);
+  const syncedDocumentId = persistence.getState().document?.documentId;
+  if (!syncedDocumentId) {
+    throw new Error("Expected a synced document after attachment upload.");
+  }
+  expect(listDocumentAttachmentsCalls).toEqual([syncedDocumentId]);
 });
 
 test("document store marks a synced attachment detached before the detach flushes", async () => {
