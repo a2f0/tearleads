@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { measureAttached } from "./domMeasure";
 
 /*
  * Geometry for the form measure (`--form-measure`, packages/ui/src/styles.css).
@@ -26,29 +27,39 @@ async function readColumnGeometry(page: Page): Promise<ColumnGeometry> {
   await expect(column).toBeVisible({ timeout: 30_000 });
   await expect(page.locator(".backup-restore-panel")).toBeVisible();
 
-  return column.evaluate((element) => {
-    const parent = element.parentElement;
-    if (!parent) {
-      throw new Error("backup-restore-main has no parent to measure against.");
-    }
-    const parentStyle = getComputedStyle(parent);
-    const parentContentWidth =
-      parent.clientWidth -
-      Number.parseFloat(parentStyle.paddingLeft) -
-      Number.parseFloat(parentStyle.paddingRight);
-    // `max-width: 34rem` resolves to px here; the mobile tier's `100%` does not,
-    // which is exactly the distinction the assertions below turn on.
-    const rawCap = getComputedStyle(element).maxWidth;
-    const capPx = rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null;
-    const panel = element.querySelector(".backup-restore-panel");
+  return measureAttached("backup-restore column", () =>
+    column.evaluate((element) => {
+      // A detached node reports every box as zero and every computed style as
+      // "", so a stale read here fails exactly like a dropped cap would.
+      if (!element.isConnected) {
+        return null;
+      }
 
-    return {
-      capPx,
-      panelWidth: panel ? panel.getBoundingClientRect().width : 0,
-      parentContentWidth,
-      width: element.getBoundingClientRect().width,
-    };
-  });
+      const parent = element.parentElement;
+      if (!parent) {
+        throw new Error(
+          "backup-restore-main has no parent to measure against.",
+        );
+      }
+      const parentStyle = getComputedStyle(parent);
+      const parentContentWidth =
+        parent.clientWidth -
+        Number.parseFloat(parentStyle.paddingLeft) -
+        Number.parseFloat(parentStyle.paddingRight);
+      // `max-width: 34rem` resolves to px here; the mobile tier's `100%` does
+      // not, which is exactly the distinction the assertions below turn on.
+      const rawCap = getComputedStyle(element).maxWidth;
+      const capPx = rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null;
+      const panel = element.querySelector(".backup-restore-panel");
+
+      return {
+        capPx,
+        panelWidth: panel ? panel.getBoundingClientRect().width : 0,
+        parentContentWidth,
+        width: element.getBoundingClientRect().width,
+      };
+    }),
+  );
 }
 
 // The windowed shell is where the stretch was worst: a maximized window drew the
@@ -111,19 +122,28 @@ test("tablet passport image stops at the measure", async ({ page }) => {
 
   const attachmentSlots = page.locator(".passport-attachment-slots");
   await expect(attachmentSlots).toBeVisible({ timeout: 30_000 });
-  const geometry = await attachmentSlots.evaluate((element) => {
-    const parent = element.parentElement;
-    if (!parent) {
-      throw new Error("passport-attachment-slots has no parent to measure.");
-    }
-    const rawCap = getComputedStyle(element).maxWidth;
+  const geometry = await measureAttached("passport attachment slots", () =>
+    attachmentSlots.evaluate((element) => {
+      // Reached by creating a document, so the panel around it is still
+      // settling; a detached node reports an empty computed style, which reads
+      // as a cap that is not a length.
+      if (!element.isConnected) {
+        return null;
+      }
 
-    return {
-      capPx: rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null,
-      parentWidth: parent.getBoundingClientRect().width,
-      width: element.getBoundingClientRect().width,
-    };
-  });
+      const parent = element.parentElement;
+      if (!parent) {
+        throw new Error("passport-attachment-slots has no parent to measure.");
+      }
+      const rawCap = getComputedStyle(element).maxWidth;
+
+      return {
+        capPx: rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null,
+        parentWidth: parent.getBoundingClientRect().width,
+        width: element.getBoundingClientRect().width,
+      };
+    }),
+  );
 
   expect(geometry.capPx).not.toBeNull();
   expect(geometry.width).toBeCloseTo(geometry.capPx ?? 0, 0);
@@ -149,19 +169,27 @@ test("a field caps itself inside an uncapped panel", async ({ page }) => {
   const field = page.locator(".mini-app-field").first();
   await expect(field).toBeVisible({ timeout: 30_000 });
 
-  const geometry = await field.evaluate((element) => {
-    const parent = element.parentElement;
-    if (!parent) {
-      throw new Error("mini-app-field has no parent to measure against.");
-    }
-    const rawCap = getComputedStyle(element).maxWidth;
+  const geometry = await measureAttached("contacts field", () =>
+    field.evaluate((element) => {
+      // An orphaned field has an empty computed style, so its cap reads as "not
+      // a length" — the same signal a genuinely missing cap gives.
+      if (!element.isConnected) {
+        return null;
+      }
 
-    return {
-      capPx: rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null,
-      parentWidth: parent.getBoundingClientRect().width,
-      width: element.getBoundingClientRect().width,
-    };
-  });
+      const parent = element.parentElement;
+      if (!parent) {
+        throw new Error("mini-app-field has no parent to measure against.");
+      }
+      const rawCap = getComputedStyle(element).maxWidth;
+
+      return {
+        capPx: rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null,
+        parentWidth: parent.getBoundingClientRect().width,
+        width: element.getBoundingClientRect().width,
+      };
+    }),
+  );
 
   expect(geometry.capPx).not.toBeNull();
   // Without this the test would be vacuous, exactly as the group-capped case is.

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { measureAttached } from "./domMeasure";
 
 /*
  * Routed-tier geometry at phone width, below the 760px line: the compact shell
@@ -133,42 +134,52 @@ for (const surface of TAB_STRIP_SURFACES) {
       await expect(page.getByRole("tab", { name: surface.tab })).toBeVisible();
     }
 
-    const drawn = await strip.evaluate((element) => {
-      const box = element.getBoundingClientRect();
-      const midY = Math.round(box.top + box.height / 2);
-      const paintsAt = (x: number) =>
-        document
-          .elementsFromPoint(x, midY)
-          .some((hit) => hit.closest(".mini-app-tabs") !== null);
-      // The strip must fit inside every scroll container between it and the
-      // viewport. Deliberately not a scrollWidth check on those ancestors: long
-      // unbreakable content (a hash in the System Monitor log) overflows them for
-      // reasons that have nothing to do with the strip. Comparing the boxes asks
-      // the precise question — did the bleed escape its scrollport?
-      const escaped: string[] = [];
-      let node: Element | null = element.parentElement;
-      while (node) {
-        const style = getComputedStyle(node);
-        if (style.overflowX !== "visible") {
-          const nodeBox = node.getBoundingClientRect();
-          const padLeft =
-            nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
-          const padRight =
-            nodeBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
-          if (box.left < padLeft || box.right > padRight) {
-            escaped.push(node.className);
-          }
+    const drawn = await measureAttached(`tab strip (${surface.name})`, () =>
+      strip.evaluate((element) => {
+        // The Explorer's sections hub remounts within ~300ms of a deep link, so
+        // the element the visibility gate resolved can be an orphan by the time
+        // this runs — and an orphan's every box is zero, which is exactly what a
+        // bleed spanning nothing would look like.
+        if (!element.isConnected) {
+          return null;
         }
-        node = node.parentElement;
-      }
-      return {
-        left: box.x,
-        width: box.width,
-        paintsAtLeftEdge: paintsAt(1),
-        paintsAtRightEdge: paintsAt(window.innerWidth - 2),
-        escaped,
-      };
-    });
+
+        const box = element.getBoundingClientRect();
+        const midY = Math.round(box.top + box.height / 2);
+        const paintsAt = (x: number) =>
+          document
+            .elementsFromPoint(x, midY)
+            .some((hit) => hit.closest(".mini-app-tabs") !== null);
+        // The strip must fit inside every scroll container between it and the
+        // viewport. Deliberately not a scrollWidth check on those ancestors: long
+        // unbreakable content (a hash in the System Monitor log) overflows them for
+        // reasons that have nothing to do with the strip. Comparing the boxes asks
+        // the precise question — did the bleed escape its scrollport?
+        const escaped: string[] = [];
+        let node: Element | null = element.parentElement;
+        while (node) {
+          const style = getComputedStyle(node);
+          if (style.overflowX !== "visible") {
+            const nodeBox = node.getBoundingClientRect();
+            const padLeft =
+              nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
+            const padRight =
+              nodeBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
+            if (box.left < padLeft || box.right > padRight) {
+              escaped.push(node.className);
+            }
+          }
+          node = node.parentElement;
+        }
+        return {
+          left: box.x,
+          width: box.width,
+          paintsAtLeftEdge: paintsAt(1),
+          paintsAtRightEdge: paintsAt(window.innerWidth - 2),
+          escaped,
+        };
+      }),
+    );
 
     expect(drawn.left).toBe(0);
     expect(drawn.width).toBe(viewportWidth);
@@ -212,26 +223,37 @@ for (const surface of EXPLORER_DIAGNOSTICS_LISTS) {
     const frame = page.locator(surface.selector).first();
     await expect(frame).toBeVisible({ timeout: 30_000 });
 
-    const geometry = await frame.evaluate((element) => {
-      const box = element.getBoundingClientRect();
-      const escaped: string[] = [];
-      let node: Element | null = element.parentElement;
-      while (node) {
-        const style = getComputedStyle(node);
-        if (style.overflowX !== "visible") {
-          const nodeBox = node.getBoundingClientRect();
-          const padLeft =
-            nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
-          const padRight =
-            nodeBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
-          if (box.left < padLeft || box.right > padRight) {
-            escaped.push(node.className);
+    const geometry = await measureAttached(
+      `diagnostics list (${surface.name})`,
+      () =>
+        frame.evaluate((element) => {
+          // Same hazard as the tab strip above: these frames live inside the
+          // sections hub, which remounts shortly after a deep link.
+          if (!element.isConnected) {
+            return null;
           }
-        }
-        node = node.parentElement;
-      }
-      return { escaped, left: box.left, width: box.width };
-    });
+
+          const box = element.getBoundingClientRect();
+          const escaped: string[] = [];
+          let node: Element | null = element.parentElement;
+          while (node) {
+            const style = getComputedStyle(node);
+            if (style.overflowX !== "visible") {
+              const nodeBox = node.getBoundingClientRect();
+              const padLeft =
+                nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
+              const padRight =
+                nodeBox.right -
+                (Number.parseFloat(style.borderRightWidth) || 0);
+              if (box.left < padLeft || box.right > padRight) {
+                escaped.push(node.className);
+              }
+            }
+            node = node.parentElement;
+          }
+          return { escaped, left: box.left, width: box.width };
+        }),
+    );
 
     expect(geometry.left).toBe(0);
     expect(geometry.width).toBe(viewportWidth);
@@ -268,8 +290,15 @@ test("mobile context menu items meet the touch type and glyph size", async ({
   if (!itemBox || !glyphBox) {
     throw new Error("Expected a visible menu item and its icon.");
   }
-  const fontSize = await item.evaluate((element) =>
-    Number.parseFloat(getComputedStyle(element).fontSize),
+  // Same guard as the geometry above: an orphaned node's computed style is
+  // empty, so its font size parses to NaN — which fails as if the touch type
+  // rule had been dropped.
+  const fontSize = await measureAttached("context menu item type", () =>
+    item.evaluate((element) =>
+      element.isConnected
+        ? Number.parseFloat(getComputedStyle(element).fontSize)
+        : null,
+    ),
   );
 
   expect(itemBox.height).toBeGreaterThanOrEqual(44);
@@ -389,29 +418,37 @@ test("document info reserves a key column that fits a compacted id", async ({
   const key = page.locator(".mini-app-info-table--aligned th").first();
   await expect(key).toBeVisible({ timeout: 30_000 });
 
-  const measured = await key.evaluate((cell) => {
-    const style = getComputedStyle(cell);
-    const probe = document.createElement("span");
-    probe.style.cssText = "position:fixed;visibility:hidden;white-space:pre;";
-    probe.style.font = style.font;
-    // The widest key these tables carry: `compactId` of a uuid (see
-    // explorer/detail/compactId.ts), which has no break opportunity but its
-    // hyphen and dots.
-    probe.textContent = "1f8b3134-e...6155a6";
-    document.body.appendChild(probe);
-    const compactIdWidth = probe.getBoundingClientRect().width;
-    probe.remove();
+  const measured = await measureAttached("document info key column", () =>
+    key.evaluate((cell) => {
+      // An Explorer detail surface, so the same remount hazard applies: a
+      // detached cell has an empty computed style and a zero-width box.
+      if (!cell.isConnected) {
+        return null;
+      }
 
-    const table = cell.closest("table") as HTMLElement;
-    return {
-      compactIdWidth,
-      contentWidth:
-        cell.getBoundingClientRect().width -
-        Number.parseFloat(style.paddingLeft) -
-        Number.parseFloat(style.paddingRight),
-      tableWidth: table.getBoundingClientRect().width,
-    };
-  });
+      const style = getComputedStyle(cell);
+      const probe = document.createElement("span");
+      probe.style.cssText = "position:fixed;visibility:hidden;white-space:pre;";
+      probe.style.font = style.font;
+      // The widest key these tables carry: `compactId` of a uuid (see
+      // explorer/detail/compactId.ts), which has no break opportunity but its
+      // hyphen and dots.
+      probe.textContent = "1f8b3134-e...6155a6";
+      document.body.appendChild(probe);
+      const compactIdWidth = probe.getBoundingClientRect().width;
+      probe.remove();
+
+      const table = cell.closest("table") as HTMLElement;
+      return {
+        compactIdWidth,
+        contentWidth:
+          cell.getBoundingClientRect().width -
+          Number.parseFloat(style.paddingLeft) -
+          Number.parseFloat(style.paddingRight),
+        tableWidth: table.getBoundingClientRect().width,
+      };
+    }),
+  );
 
   expect(measured.contentWidth).toBeGreaterThan(measured.compactIdWidth);
   // Guards the specific silent fallback: an evenly split table is exactly half.
