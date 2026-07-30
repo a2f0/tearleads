@@ -242,19 +242,19 @@ describe("RevenueCat store-release safety", () => {
     await expect(
       readCapacitorReleaseProblem(
         "com.tearleads.app",
-        "com.tearleads.app.staging",
+        "com.tearleads.staging.app",
       ),
-    ).resolves.toContain('instead of "com.tearleads.app.staging"');
+    ).resolves.toContain('instead of "com.tearleads.staging.app"');
     await expect(
       readCapacitorReleaseProblem(
-        "com.tearleads.app.staging",
-        "com.tearleads.app.staging",
+        "com.tearleads.staging.app",
+        "com.tearleads.staging.app",
       ),
     ).resolves.toBe("ok");
     await expect(
       readCapacitorReleaseProblem(
-        "com.tearleads.app.staging",
-        "com.tearleads.app.staging",
+        "com.tearleads.staging.app",
+        "com.tearleads.staging.app",
         "http://localhost:5173",
       ),
     ).resolves.toContain("server.url");

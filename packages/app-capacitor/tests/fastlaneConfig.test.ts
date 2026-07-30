@@ -71,8 +71,8 @@ test("Fastlane Appfile selects each release tier's store identity", async () => 
     packageName: "com.tearleads.app",
   });
   expect(staging.identities).toEqual({
-    appIdentifier: "com.tearleads.app.staging",
-    packageName: "com.tearleads.app.staging",
+    appIdentifier: "com.tearleads.staging.app",
+    packageName: "com.tearleads.staging.app",
   });
   expect(production.stderr).not.toContain("already initialized constant");
   expect(staging.stderr).not.toContain("already initialized constant");

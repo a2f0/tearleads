@@ -19,7 +19,7 @@ NATIVE_RELEASE_TARGETS = {
   'staging' => {
     android_build_variant: 'staging',
     api_host: 'api.tearleads.de',
-    app_identifier: 'com.tearleads.app.staging',
+    app_identifier: 'com.tearleads.staging.app',
     capacitor_sync_script: 'cap:sync:staging',
     ios_archive_name: 'Tearleads-Staging.xcarchive',
     ios_configuration: 'Release-Staging',

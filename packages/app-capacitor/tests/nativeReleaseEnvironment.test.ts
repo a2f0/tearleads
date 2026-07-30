@@ -122,7 +122,7 @@ function parseNativeReleaseSnapshot(stdout: string): NativeReleaseSnapshot {
 const stagingTarget = {
   androidBuildVariant: "staging",
   androidBuildVariantTask: "Staging",
-  appIdentifier: "com.tearleads.app.staging",
+  appIdentifier: "com.tearleads.staging.app",
   iosArchiveRelativePath: "output/staging/Tearleads-Staging.xcarchive",
   iosConfiguration: "Release-Staging",
   iosScheme: "App-Staging",
