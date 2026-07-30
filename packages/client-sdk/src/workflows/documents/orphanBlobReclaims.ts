@@ -7,6 +7,7 @@ import {
 import {
   type ExecSql,
   resolveCanonicalExecSql,
+  runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
 import { runSerializedDocumentBlobMutation } from "./blobMutationLock";
@@ -24,6 +25,7 @@ const ORPHAN_BLOB_RECLAIM_TIME_BUDGET_MS = 250;
 const ORPHAN_BLOB_RECLAIM_RETRY_DELAY_MS = 30_000;
 const ORPHAN_BLOB_RECLAIM_LOG_SAMPLE_SIZE = 3;
 const ORPHAN_BLOB_RECLAIM_YIELD_MS = 16;
+const DOCUMENT_ORPHAN_SWEEP_ONCE_KEY = "sweep:document-orphans";
 
 type DocumentOrphanBlobReclaimRuntime = Pick<
   DocumentsWorkflowRuntimeGroups,
@@ -39,12 +41,33 @@ function clearExpiredDeferredStorageKeys(
   }
 }
 
+function waitForMaintenanceYield(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ORPHAN_BLOB_RECLAIM_YIELD_MS);
+  });
+}
+
+async function sweepAgedDocumentOrphans(execSql: ExecSql): Promise<boolean> {
+  let swept = false;
+  await runOncePerConnection(
+    execSql,
+    DOCUMENT_ORPHAN_SWEEP_ONCE_KEY,
+    async () => {
+      swept = true;
+      while (await deleteOrphanedDocumentSideRows(execSql)) {
+        await waitForMaintenanceYield();
+      }
+    },
+  );
+  return swept;
+}
+
 async function reclaimQueuedBlobs(
   runtime: DocumentOrphanBlobReclaimRuntime,
 ): Promise<boolean> {
   const execSql = runtime.infra.execSql;
   await defaultDocumentsPersistence.ensureSchema(execSql);
-  let shouldContinue = await deleteOrphanedDocumentSideRows(execSql);
+  let shouldContinue = false;
 
   const startedAt = Date.now();
   const canonicalExecSql = resolveCanonicalExecSql(execSql);
@@ -54,6 +77,7 @@ async function reclaimQueuedBlobs(
   deferredStorageKeysByExecSql.set(canonicalExecSql, deferredStorageKeys);
   const failedStorageKeys: string[] = [];
   let warmedBlobStore = false;
+  let sweptAgedOrphans = false;
 
   reclaimQueue: while (true) {
     clearExpiredDeferredStorageKeys(deferredStorageKeys, Date.now());
@@ -64,7 +88,15 @@ async function reclaimQueuedBlobs(
     const storageKeys = queuedStorageKeys
       .filter((storageKey) => !deferredStorageKeys.has(storageKey))
       .slice(0, ORPHAN_BLOB_RECLAIM_BATCH_SIZE);
-    if (storageKeys.length === 0) break;
+    if (storageKeys.length === 0) {
+      // Explicit delete paths get priority. Once their queue is drained, sweep
+      // crash residue once per connection and immediately drain what it queues.
+      if (!sweptAgedOrphans && (await sweepAgedDocumentOrphans(execSql))) {
+        sweptAgedOrphans = true;
+        continue;
+      }
+      break;
+    }
 
     const firstStorageKey = storageKeys[0];
     if (!warmedBlobStore && firstStorageKey) {

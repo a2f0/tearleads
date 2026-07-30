@@ -13,6 +13,39 @@ import { createDocumentStore } from "../documentStore";
 import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import type { DocumentStoreState } from "./state";
 
+function createMaintenanceRuntime(
+  execSql: DocumentsWorkflowRuntimeInput["infra"]["execSql"],
+  blobStore: BlobStore,
+) {
+  return createDocumentsWorkflowRuntime({
+    apiClient: {} as DocumentsWorkflowRuntimeInput["apiClient"],
+    auth: {
+      isAuthenticated: false,
+      organizationId: null,
+      userId: null,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore,
+      dbStatus: "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql,
+    },
+    resolveTrustedUserIdentity: async () => null,
+    state: {
+      containerId: null,
+      domainScope: createDomainScope(),
+      events: [],
+      online: false,
+    },
+    util: { log: () => undefined },
+  });
+}
+
 async function settleWithin<T>(promise: Promise<T>): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -60,33 +93,7 @@ test("document startup does not wait for orphan byte maintenance", async () => {
       writeByteSource: async () => undefined,
       writeBytes: async () => undefined,
     } satisfies BlobStore;
-    const runtime = createDocumentsWorkflowRuntime({
-      apiClient: {} as DocumentsWorkflowRuntimeInput["apiClient"],
-      auth: {
-        isAuthenticated: false,
-        organizationId: null,
-        userId: null,
-      },
-      crypto: {
-        encapsulationKeyPair: null,
-        signingFingerprint: null,
-        signingKeyPair: null,
-      },
-      infra: {
-        blobStore,
-        dbStatus: "ready",
-        documentProjectors: defaultDocumentProjectorRegistry,
-        execSql,
-      },
-      resolveTrustedUserIdentity: async () => null,
-      state: {
-        containerId: null,
-        domainScope: createDomainScope(),
-        events: [],
-        online: false,
-      },
-      util: { log: () => undefined },
-    });
+    const runtime = createMaintenanceRuntime(execSql, blobStore);
     const store = createDocumentStore(
       "startup-document",
       runtime,
@@ -100,6 +107,41 @@ test("document startup does not wait for orphan byte maintenance", async () => {
     await reclaimDocumentOrphanBlobs(runtime);
   } finally {
     releaseDelete();
+    close();
+  }
+});
+
+test("aged orphan sweep runs only once per connection", async () => {
+  const { close, execSql } = await createTestExecSql("once-orphan-maintenance");
+  const blobStore = {
+    deleteBytes: async () => undefined,
+    openByteSource: async () => null,
+    readBytes: async () => null,
+    writeByteSource: async () => undefined,
+    writeBytes: async () => undefined,
+  } satisfies BlobStore;
+  const runtime = createMaintenanceRuntime(execSql, blobStore);
+  const insertOrphan = (id: string) =>
+    execSql(
+      `INSERT INTO document_history_updates (
+        id, app_kind, local_id, update_data, origin, created_at
+      ) VALUES (?, 'documents', ?, 'update', 'local', ?)`,
+      [id, id, "2000-01-01T00:00:00.000Z"],
+    );
+  try {
+    await defaultDocumentsPersistence.ensureSchema(execSql);
+    await insertOrphan("first-orphan");
+    await reclaimDocumentOrphanBlobs(runtime);
+    expect(
+      await execSql("SELECT id FROM document_history_updates ORDER BY id"),
+    ).toEqual([]);
+
+    await insertOrphan("second-orphan");
+    await reclaimDocumentOrphanBlobs(runtime);
+    expect(
+      await execSql("SELECT id FROM document_history_updates ORDER BY id"),
+    ).toEqual([{ id: "second-orphan" }]);
+  } finally {
     close();
   }
 });

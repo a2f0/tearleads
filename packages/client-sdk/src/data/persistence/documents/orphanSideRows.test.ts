@@ -18,8 +18,10 @@ test("maintenance sweeps aged orphan rows but preserves fresh and live rows", as
     await ensureDocumentProjectionTables(execSql);
     await execSql(
       `INSERT INTO documents (app_kind, local_id, updated_at)
-       VALUES ('documents', 'live', ?)`,
-      [OLD],
+       VALUES
+         ('documents', 'live', ?),
+         ('container-metadata', 'metadata-live', ?)`,
+      [OLD, OLD],
     );
     await execSql(
       `INSERT INTO document_history_checkpoints (
@@ -67,18 +69,20 @@ test("maintenance sweeps aged orphan rows but preserves fresh and live rows", as
         local_id, slot_id, name, storage_key, byte_length, created_at
       ) VALUES
         ('live', 'live-slot', 'live.txt', 'live-pending', 1, ?),
+        ('metadata-live', 'metadata-slot', 'metadata.txt', 'metadata-pending', 1, ?),
         ('orphan', 'orphan-slot', 'orphan.txt', 'orphan-pending', 1, ?),
         ('fresh', 'fresh-slot', 'fresh.txt', 'fresh-pending', 1, ?)`,
-      [OLD, OLD, FRESH],
+      [OLD, OLD, OLD, FRESH],
     );
     await execSql(
       `INSERT INTO document_attachment_blob_projection (
         local_id, slot_id, storage_key, byte_length, updated_at
       ) VALUES
         ('live', 'live-slot', 'live-local', 1, ?),
+        ('metadata-live', 'metadata-slot', 'metadata-local', 1, ?),
         ('orphan', 'orphan-slot', 'orphan-local', 1, ?),
         ('fresh', 'fresh-slot', 'fresh-local', 1, ?)`,
-      [OLD, OLD, FRESH],
+      [OLD, OLD, OLD, FRESH],
     );
 
     await sqlDocumentsPersistence.ensureSchema(execSql);
@@ -109,7 +113,11 @@ test("maintenance sweeps aged orphan rows but preserves fresh and live rows", as
         await execSql(
           `SELECT local_id AS localId FROM ${table} ORDER BY local_id`,
         ),
-      ).toEqual([{ localId: "fresh" }, { localId: "live" }]);
+      ).toEqual([
+        { localId: "fresh" },
+        { localId: "live" },
+        { localId: "metadata-live" },
+      ]);
     }
     expect(
       await execSql(

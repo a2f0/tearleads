@@ -52,19 +52,16 @@ function requirePredicate(predicate: SQL | undefined): SQL {
 function hasNoDocument(
   tx: ClientSQLiteTransaction,
   localId: DocumentSideLocalIdColumn,
+  appKind: string | null = DOCUMENTS_APP_KIND,
 ): SQL {
-  // Attachment tables have no app-kind discriminator because they are owned
-  // exclusively by documents. If another app kind gains attachments, it must
-  // get its own tables or add app-kind before sharing this orphan predicate.
   return notExists(
     tx
       .select({ localId: documents.localId })
       .from(documents)
       .where(
-        and(
-          eq(documents.appKind, DOCUMENTS_APP_KIND),
-          eq(documents.localId, localId),
-        ),
+        appKind === null
+          ? eq(documents.localId, localId)
+          : and(eq(documents.appKind, appKind), eq(documents.localId, localId)),
       ),
   );
 }
@@ -233,7 +230,7 @@ async function selectAttachmentSweepCandidates(
     .where(
       and(
         lt(documentPendingAttachments.createdAt, olderThan),
-        hasNoDocument(tx, documentPendingAttachments.localId),
+        hasNoDocument(tx, documentPendingAttachments.localId, null),
       ),
     )
     .limit(DOCUMENT_ORPHAN_SWEEP_BATCH_SIZE);
@@ -247,7 +244,7 @@ async function selectAttachmentSweepCandidates(
     .where(
       and(
         lt(documentAttachmentBlobProjection.updatedAt, olderThan),
-        hasNoDocument(tx, documentAttachmentBlobProjection.localId),
+        hasNoDocument(tx, documentAttachmentBlobProjection.localId, null),
       ),
     )
     .limit(DOCUMENT_ORPHAN_SWEEP_BATCH_SIZE);
