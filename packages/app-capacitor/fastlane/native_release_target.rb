@@ -57,6 +57,26 @@ NATIVE_STAGING_ENV_NAMES = (
   NATIVE_STAGING_PLATFORM_VITE_ENV_NAMES + NATIVE_SHARED_VITE_ENV_NAMES
 ).freeze
 
+def native_release_android_build_variant_task
+  NATIVE_RELEASE_TARGET.fetch(:android_build_variant).capitalize
+end
+
+def native_release_android_artifact_relative_paths
+  variant = NATIVE_RELEASE_TARGET.fetch(:android_build_variant)
+  {
+    aab: "bundle/#{variant}/app-#{variant}.aab",
+    mapping: "mapping/#{variant}/mapping.txt",
+    native_debug_symbols: "native-debug-symbols/#{variant}/native-debug-symbols.zip"
+  }.freeze
+end
+
+def native_release_ios_archive_relative_path
+  File.join(
+    NATIVE_RELEASE_TARGET.fetch(:ios_output_directory),
+    NATIVE_RELEASE_TARGET.fetch(:ios_archive_name)
+  )
+end
+
 def parsed_native_release_env(path)
   File.file?(path) ? Dotenv.parse(path) : {}
 end
@@ -163,9 +183,9 @@ def ensure_native_release_service_urls!
   end
 end
 
-# Production must resolve to an independent baseline, while staging must differ
-# from it. A caller-supplied baseline supports env-only CI and key rotation
-# without comparing an exported candidate key to itself.
+# Production must resolve to an independent source value so exported candidates
+# stay consistent with the configured production key; staging must differ from
+# that value. A caller-supplied baseline supports env-only CI and key rotation.
 def native_release_production_store_key(env_name)
   baseline_name = "NATIVE_RELEASE_PRODUCTION_#{env_name}"
   explicit_baseline = ENV.fetch(baseline_name, '').strip

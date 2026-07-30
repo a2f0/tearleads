@@ -276,23 +276,25 @@ native_release_run_upload() {
 }
 
 native_release_main() {
+  # These POSIX-shell globals are intentionally reused by the helpers below;
+  # every call in one release invocation carries the same target tuple.
   native_platform="$1"
   native_action="$2"
   native_tier="$3"
   shift 3
-
-  case "${1:-}" in
-    -h | --help)
-      native_release_usage "$native_platform" "$native_action" "$native_tier"
-      return 0
-      ;;
-  esac
 
   case "$native_platform:$native_action:$native_tier" in
     android:build:production | android:build:staging | android:upload:production | android:upload:staging | ios:build:production | ios:build:staging | ios:upload:production | ios:upload:staging) ;;
     *)
       echo "Error: invalid native release target $native_platform:$native_action:$native_tier" >&2
       return 1
+      ;;
+  esac
+
+  case "${1:-}" in
+    -h | --help)
+      native_release_usage "$native_platform" "$native_action" "$native_tier"
+      return 0
       ;;
   esac
 

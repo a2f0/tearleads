@@ -27,8 +27,13 @@ function rubyWordArray(source: string, constantName: string): string[] {
 
 interface NativeReleaseSnapshot {
   androidBuildVariant: string;
+  androidBuildVariantTask: string;
   appIdentifier: string;
+  iosArchiveRelativePath: string;
   productionIosStoreKey: string | null;
+  releaseAabRelativePath: string;
+  releaseMappingRelativePath: string;
+  releaseNativeDebugSymbolsRelativePath: string;
   environment: Record<string, string | null>;
   iosConfiguration: string;
   iosScheme: string;
@@ -55,14 +60,30 @@ function parseNativeReleaseSnapshot(stdout: string): NativeReleaseSnapshot {
   }
 
   const androidBuildVariant = recordValue(value, "androidBuildVariant");
+  const androidBuildVariantTask = recordValue(value, "androidBuildVariantTask");
   const appIdentifier = recordValue(value, "appIdentifier");
+  const iosArchiveRelativePath = recordValue(value, "iosArchiveRelativePath");
   const iosConfiguration = recordValue(value, "iosConfiguration");
   const iosScheme = recordValue(value, "iosScheme");
+  const releaseAabRelativePath = recordValue(value, "releaseAabRelativePath");
+  const releaseMappingRelativePath = recordValue(
+    value,
+    "releaseMappingRelativePath",
+  );
+  const releaseNativeDebugSymbolsRelativePath = recordValue(
+    value,
+    "releaseNativeDebugSymbolsRelativePath",
+  );
   if (
     typeof androidBuildVariant !== "string" ||
+    typeof androidBuildVariantTask !== "string" ||
     typeof appIdentifier !== "string" ||
+    typeof iosArchiveRelativePath !== "string" ||
     typeof iosConfiguration !== "string" ||
-    typeof iosScheme !== "string"
+    typeof iosScheme !== "string" ||
+    typeof releaseAabRelativePath !== "string" ||
+    typeof releaseMappingRelativePath !== "string" ||
+    typeof releaseNativeDebugSymbolsRelativePath !== "string"
   ) {
     throw new Error("Native release snapshot target fields must be strings");
   }
@@ -85,19 +106,30 @@ function parseNativeReleaseSnapshot(stdout: string): NativeReleaseSnapshot {
 
   return {
     androidBuildVariant,
+    androidBuildVariantTask,
     appIdentifier,
     environment,
+    iosArchiveRelativePath,
     iosConfiguration,
     iosScheme,
     productionIosStoreKey,
+    releaseAabRelativePath,
+    releaseMappingRelativePath,
+    releaseNativeDebugSymbolsRelativePath,
   };
 }
 
 const stagingTarget = {
   androidBuildVariant: "staging",
+  androidBuildVariantTask: "Staging",
   appIdentifier: "com.tearleads.app.staging",
+  iosArchiveRelativePath: "output/staging/Tearleads-Staging.xcarchive",
   iosConfiguration: "Release-Staging",
   iosScheme: "App-Staging",
+  releaseAabRelativePath: "bundle/staging/app-staging.aab",
+  releaseMappingRelativePath: "mapping/staging/mapping.txt",
+  releaseNativeDebugSymbolsRelativePath:
+    "native-debug-symbols/staging/native-debug-symbols.zip",
 };
 
 async function readNativeReleaseEnvironmentResult(
@@ -281,6 +313,24 @@ describe("native release environments", () => {
     ).toBe("appl_staging");
   });
 
+  test("production supports an env-only key and independent baseline", async () => {
+    const snapshot = await readNativeReleaseEnvironment(
+      "",
+      "",
+      {
+        NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY:
+          "appl_production",
+        VITE_REVENUECAT_IOS_API_KEY: "appl_production",
+      },
+      "production",
+    );
+
+    expect(snapshot.productionIosStoreKey).toBe("appl_production");
+    expect(
+      recordValue(snapshot.environment, "VITE_REVENUECAT_IOS_API_KEY"),
+    ).toBe("appl_production");
+  });
+
   test("staging drops production platform keys when staging omits them", async () => {
     const snapshot = await readNativeReleaseEnvironment(
       "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
@@ -333,8 +383,14 @@ describe("native release environments", () => {
 
     expect(snapshot).toEqual({
       androidBuildVariant: "release",
+      androidBuildVariantTask: "Release",
       appIdentifier: "com.tearleads.app",
+      iosArchiveRelativePath: "output/Tearleads.xcarchive",
       productionIosStoreKey: "appl_root",
+      releaseAabRelativePath: "bundle/release/app-release.aab",
+      releaseMappingRelativePath: "mapping/release/mapping.txt",
+      releaseNativeDebugSymbolsRelativePath:
+        "native-debug-symbols/release/native-debug-symbols.zip",
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "root",

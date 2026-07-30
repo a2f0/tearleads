@@ -38,6 +38,28 @@ test("the shared native release runner rejects an invalid target", async () => {
   );
 });
 
+test("help still rejects an invalid native release target", async () => {
+  const child = Bun.spawn(
+    [
+      "sh",
+      "-c",
+      '. "$1"; native_release_main desktop build staging --help',
+      "sh",
+      nativeReleaseScript,
+    ],
+    { stderr: "pipe" },
+  );
+  const [exitCode, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+  ]);
+
+  expect(exitCode).toBe(1);
+  expect(stderr).toContain(
+    "invalid native release target desktop:build:staging",
+  );
+});
+
 test("the shared runner guards and exports its tier before building", async () => {
   const temporaryDirectory = await mkdtemp(
     resolve(tmpdir(), "tearleads-native-release-command-"),

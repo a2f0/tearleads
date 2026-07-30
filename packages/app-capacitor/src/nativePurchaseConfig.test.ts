@@ -182,7 +182,8 @@ test("Capacitor pins production identity and rejects unknown release tiers", asy
 });
 
 test("iOS exposes a staging release configuration and shared scheme", async () => {
-  const [project, scheme] = await Promise.all([
+  const [infoPlist, project, scheme] = await Promise.all([
+    Bun.file(resolve(packageRoot, "ios/App/App/Info.plist")).text(),
     Bun.file(
       resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
     ).text(),
@@ -220,6 +221,7 @@ test("iOS exposes a staging release configuration and shared scheme", async () =
       settings.includes("APP_DISPLAY_NAME ="),
     ),
   ).toBeTrue();
+  expect(infoPlist).toContain("$(APP_DISPLAY_NAME:default=Tearleads)");
   expect(scheme).toContain('buildConfiguration = "Release-Staging"');
 });
 

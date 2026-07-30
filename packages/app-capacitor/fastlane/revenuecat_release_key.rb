@@ -47,8 +47,8 @@ def ensure_revenuecat_store_key!(
   problem = revenuecat_store_key_problem(
     ENV.fetch(env_name, nil),
     expected_prefix,
-    production_value:,
-    release_tier:
+    production_value: production_value,
+    release_tier: release_tier
   )
   return if problem.nil?
 

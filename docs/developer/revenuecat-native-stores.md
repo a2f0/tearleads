@@ -106,6 +106,12 @@ set this automatically:
 ./scripts/uploadIosStagingRelease.sh
 ```
 
+The production `App` scheme and staging `App-Staging` scheme are both committed
+as shared Xcode schemes because Fastlane archives them non-interactively.
+Android staging inherits the release build type and deliberately uses the same
+upload keystore as production; package IDs and separate store records isolate
+the apps, not their signing key.
+
 One-time store setup is still required; the release lanes are intentionally
 readonly for signing and store records:
 

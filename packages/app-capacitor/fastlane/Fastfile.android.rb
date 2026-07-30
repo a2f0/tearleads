@@ -11,7 +11,7 @@ ANDROID_DIR = File.expand_path('../android', __dir__)
 ANDROID_ASSETS_DIR = File.join(ANDROID_DIR, 'app/src/main/assets')
 ANDROID_BUILD_IMAGES_SCRIPT = File.expand_path('../scripts/buildAndroidImages.sh', __dir__)
 ANDROID_BUILD_VARIANT = NATIVE_RELEASE_TARGET.fetch(:android_build_variant)
-ANDROID_BUILD_VARIANT_TASK = ANDROID_BUILD_VARIANT.capitalize
+ANDROID_BUILD_VARIANT_TASK = native_release_android_build_variant_task
 ANDROID_RELEASE_KEYSTORE_PATH = File.join(NATIVE_SECRETS_DIR, 'tearleads-release.keystore')
 ANDROID_RELEASE_SIGNING_ENV_NAMES = %w[
   ANDROID_KEYSTORE_STORE_PASS
@@ -20,11 +20,12 @@ ANDROID_RELEASE_SIGNING_ENV_NAMES = %w[
 DEBUG_APK_PATH = File.join(ANDROID_DIR, 'app/build/outputs/apk/debug/app-debug.apk')
 ANDROID_OUTPUT_DIR = File.join(ANDROID_DIR, 'app/build/outputs')
 RELEASE_APK_PATH = File.join(ANDROID_OUTPUT_DIR, "apk/#{ANDROID_BUILD_VARIANT}/app-#{ANDROID_BUILD_VARIANT}.apk")
-RELEASE_AAB_PATH = File.join(ANDROID_OUTPUT_DIR, "bundle/#{ANDROID_BUILD_VARIANT}/app-#{ANDROID_BUILD_VARIANT}.aab")
-RELEASE_MAPPING_PATH = File.join(ANDROID_OUTPUT_DIR, "mapping/#{ANDROID_BUILD_VARIANT}/mapping.txt")
+ANDROID_RELEASE_ARTIFACT_RELATIVE_PATHS = native_release_android_artifact_relative_paths
+RELEASE_AAB_PATH = File.join(ANDROID_OUTPUT_DIR, ANDROID_RELEASE_ARTIFACT_RELATIVE_PATHS.fetch(:aab))
+RELEASE_MAPPING_PATH = File.join(ANDROID_OUTPUT_DIR, ANDROID_RELEASE_ARTIFACT_RELATIVE_PATHS.fetch(:mapping))
 RELEASE_NATIVE_DEBUG_SYMBOLS_PATH = File.join(
   ANDROID_OUTPUT_DIR,
-  "native-debug-symbols/#{ANDROID_BUILD_VARIANT}/native-debug-symbols.zip"
+  ANDROID_RELEASE_ARTIFACT_RELATIVE_PATHS.fetch(:native_debug_symbols)
 )
 RELEASE_PLAY_ASSET_PATHS = [
   RELEASE_AAB_PATH,
