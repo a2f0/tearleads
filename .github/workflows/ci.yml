@@ -38,6 +38,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
+          ruby-version: "3.3.0"
           bundler-cache: true
           working-directory: packages/app-capacitor
 
@@ -72,6 +73,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
+          ruby-version: "3.3.0"
           bundler-cache: true
           working-directory: packages/app-capacitor
 

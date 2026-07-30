@@ -54,10 +54,13 @@ keys for the RevenueCat apps configured with `com.tearleads.app.staging` in
 `.secrets/staging.env` as `VITE_REVENUECAT_ANDROID_API_KEY` and
 `VITE_REVENUECAT_IOS_API_KEY`. A staging release deliberately does not inherit
 the production mobile SDK keys from `.secrets/root.env`, and rejects an exported
-key that matches either production key. The staging env may also override
+key that matches either production key. Production also rejects the
+corresponding key from `staging.env` when present. The staging env may override
 `VITE_REVENUECAT_SYNC_ENTITLEMENT`; unrelated deploy secrets never enter the
-native build process. If another root `VITE_*` setting must be shared with
-staging later, add it intentionally to `NATIVE_SHARED_VITE_ENV_NAMES`. The
+native build process through dotenv loading. This allowlist is file-scoped;
+callers remain responsible for variables they export explicitly. If another
+root `VITE_*` setting must be shared with staging later, add it intentionally to
+`NATIVE_SHARED_VITE_ENV_NAMES`. The
 production platform keys must remain present in `.secrets/root.env` so staging
 can prove it is not reusing them. The Google Play service account must have
 access to the staging Play app, and the match repository must contain an App

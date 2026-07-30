@@ -60,23 +60,28 @@ test("Android exposes a signed staging release variant", async () => {
   expect(gradle).toMatch(/staging\s*\{[\s\S]*?initWith release/);
   expect(gradle).toContain('applicationIdSuffix ".staging"');
   expect(gradle).toMatch(
-    /staging\s*\{[\s\S]*?signingConfig signingConfigs\.release/,
+    /staging\s*\{[\s\S]*?signingConfig hasReleaseKeystore\(\) \? signingConfigs\.release : signingConfigs\.debug/,
   );
   expect(stagingStrings).toContain("com.tearleads.app.staging");
   expect(stagingStrings).toContain("Tearleads Staging");
 });
 
-test("Capacitor normalizes staging and rejects unknown release tiers", async () => {
-  const readAppId = async (tier: string) => {
+test("Capacitor pins production identity and rejects unknown release tiers", async () => {
+  const readNativeIdentity = async (tier: string | null) => {
+    const environment = { ...process.env };
+    Reflect.deleteProperty(environment, "NATIVE_RELEASE_TIER");
+    if (tier !== null) {
+      environment.NATIVE_RELEASE_TIER = tier;
+    }
     const child = Bun.spawn(
       [
         "bun",
         "-e",
-        "import config from './capacitor.config.ts'; process.stdout.write(config.appId);",
+        "import config from './capacitor.config.ts'; process.stdout.write(JSON.stringify({appId: config.appId, iosKeychainPrefix: config.plugins?.CapacitorSQLite?.iosKeychainPrefix}));",
       ],
       {
         cwd: packageRoot,
-        env: { ...process.env, NATIVE_RELEASE_TIER: tier },
+        env: environment,
         stderr: "pipe",
         stdout: "pipe",
       },
@@ -89,10 +94,23 @@ test("Capacitor normalizes staging and rejects unknown release tiers", async () 
     return { exitCode, stderr, stdout };
   };
 
-  const staging = await readAppId(" Staging ");
+  const productionIdentity = {
+    appId: "com.tearleads.app",
+    iosKeychainPrefix: "com.tearleads.app",
+  };
+  const defaultProduction = await readNativeIdentity(null);
+  expect(defaultProduction.exitCode).toBe(0);
+  expect(JSON.parse(defaultProduction.stdout)).toEqual(productionIdentity);
+  const explicitProduction = await readNativeIdentity("production");
+  expect(explicitProduction.exitCode).toBe(0);
+  expect(JSON.parse(explicitProduction.stdout)).toEqual(productionIdentity);
+  const staging = await readNativeIdentity(" Staging ");
   expect(staging.exitCode).toBe(0);
-  expect(staging.stdout).toBe("com.tearleads.app.staging");
-  const unknown = await readAppId("preview");
+  expect(JSON.parse(staging.stdout)).toEqual({
+    appId: "com.tearleads.app.staging",
+    iosKeychainPrefix: "com.tearleads.app.staging",
+  });
+  const unknown = await readNativeIdentity("preview");
   expect(unknown.exitCode).not.toBe(0);
   expect(unknown.stderr).toContain("Unknown NATIVE_RELEASE_TIER");
 });

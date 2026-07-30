@@ -17,6 +17,7 @@ const snapshotScriptPath = resolve(
 interface NativeReleaseSnapshot {
   androidBuildVariant: string;
   appIdentifier: string;
+  disallowedIosStoreKey: string | null;
   environment: Record<string, string | null>;
   iosConfiguration: string;
   iosScheme: string;
@@ -101,6 +102,7 @@ describe("native release environments", () => {
 
     expect(snapshot).toEqual({
       ...stagingTarget,
+      disallowedIosStoreKey: "appl_root",
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "root",
@@ -125,6 +127,7 @@ describe("native release environments", () => {
 
     expect(snapshot).toEqual({
       ...stagingTarget,
+      disallowedIosStoreKey: "appl_root",
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "process",
@@ -144,6 +147,7 @@ describe("native release environments", () => {
 
     expect(snapshot).toEqual({
       ...stagingTarget,
+      disallowedIosStoreKey: "appl_root",
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "root",
@@ -163,6 +167,7 @@ describe("native release environments", () => {
 
     expect(snapshot).toEqual({
       ...stagingTarget,
+      disallowedIosStoreKey: null,
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: null,
@@ -185,6 +190,7 @@ describe("native release environments", () => {
     expect(snapshot).toEqual({
       androidBuildVariant: "release",
       appIdentifier: "com.tearleads.app",
+      disallowedIosStoreKey: "appl_staging",
       environment: {
         DEEPSEEK_API_KEY: null,
         NATIVE_TEST_VALUE: "root",

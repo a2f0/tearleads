@@ -10,6 +10,14 @@ native_release_default_api() {
   esac
 }
 
+native_release_app_identifier() {
+  case "$1" in
+    production) printf '%s\n' "com.tearleads.app" ;;
+    staging) printf '%s\n' "com.tearleads.app.staging" ;;
+    *) return 1 ;;
+  esac
+}
+
 native_release_usage() {
   native_platform="$1"
   native_action="$2"
@@ -77,6 +85,10 @@ iOS options:
 The upload wrapper prepares the login keychain before the archive and may prompt
 for the macOS login password. iOS releases regenerate icons and splash images,
 so ImageMagick must be installed.
+
+App Store Connect authentication uses APP_STORE_CONNECT_KEY_ID,
+APP_STORE_CONNECT_ISSUER_ID, and TEAM_ID. The private key defaults to
+.secrets/AuthKey_<key-id>.p8.
 EOF
   fi
 }
@@ -241,7 +253,8 @@ native_release_main() {
   fi
 
   native_command="$(native_release_bun_command "$native_platform" "$native_action")"
-  echo "${native_action}ing ${native_tier} ${native_platform} release with app ID selected by Fastlane"
+  native_app_identifier="$(native_release_app_identifier "$native_tier")"
+  echo "${native_action}ing ${native_tier} ${native_platform} release with app ID ${native_app_identifier}"
   echo "VITE_API_BASE_URL=$VITE_API_BASE_URL"
 
   if [ "$native_action" = upload ]; then

@@ -1,5 +1,6 @@
 # Fastlane evals Appfile from either the package or fastlane directory, so
-# __dir__ and require_relative are not stable anchors here.
+# __dir__ and require_relative are not stable anchors here. Invoke these lanes
+# from packages/app-capacitor; repo-root --fastfile invocation is unsupported.
 native_release_target_path = %w[
   fastlane/native_release_target.rb
   native_release_target.rb

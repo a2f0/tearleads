@@ -73,10 +73,14 @@ def load_native_release_secrets_env
   end
 end
 
-# Staging store apps must never resolve to the production project's public key,
-# including when a caller exported root.env before running a release wrapper.
+# A store app must never resolve to the other tier's public key, including when
+# a caller exported a dotenv file before running a release wrapper.
 def native_release_disallowed_store_key(env_name)
-  return nil unless NATIVE_RELEASE_TIER == 'staging'
+  other_tier_env_path = if NATIVE_RELEASE_TIER == 'staging'
+                          NATIVE_ROOT_ENV_PATH
+                        else
+                          NATIVE_STAGING_ENV_PATH
+                        end
 
-  parsed_native_release_env(NATIVE_ROOT_ENV_PATH)[env_name]
+  parsed_native_release_env(other_tier_env_path)[env_name]
 end
