@@ -1,7 +1,7 @@
 const ATTACHED_MEASURE_TIMEOUT_MS = 10_000;
 const ATTACHED_MEASURE_INTERVAL_MS = 50;
 
-export interface MeasureAttachedOptions {
+interface MeasureAttachedOptions {
   /** How long between retries. Exposed so the unit test need not wait. */
   intervalMs?: number | undefined;
   /** How long to keep retrying before giving up. */
@@ -24,6 +24,9 @@ export interface MeasureAttachedOptions {
  * unmounts and remounts within ~300ms of a deep link, so a locator resolved by
  * the visibility gate can be an orphan by the time the measurement runs. Under
  * parallel load that window is wide enough to hit regularly.
+ *
+ * Covered by scripts/domMeasure.test.ts — `e2e/` is Playwright's, so this
+ * helper's own unit test lives with the package's other bun tests.
  *
  * Deliberately guards attachment only. A *connected* element measuring zero is a
  * genuine failure and must still fail — retrying until the numbers look right

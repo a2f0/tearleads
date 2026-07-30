@@ -1,13 +1,14 @@
 import { expect, test } from "bun:test";
-import { measureAttached } from "./domMeasure";
+import { measureAttached } from "../e2e/domMeasure";
 
 /*
  * The retry in measureAttached only runs when a real remount races a real
  * measurement, so the e2e callers exercise it by luck rather than by design.
  * These drive both paths directly.
  *
- * Run by `bun test`, not Playwright: the config matches `*.spec.ts` so a
- * `*.test.ts` beside the specs stays a unit test.
+ * Lives here rather than beside the helper because `e2e/` is Playwright's —
+ * knip treats it as `*.spec.ts` entries, and this package's bun tests all live
+ * in `scripts/`.
  */
 
 const FAST = { intervalMs: 1, timeoutMs: 200 };
