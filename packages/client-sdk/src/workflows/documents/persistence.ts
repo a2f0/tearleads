@@ -328,23 +328,23 @@ export async function persistDocumentState(
   }
 
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    // A persist that expected to UPDATE must never resurrect: another
-    // subsystem (e.g. the contacts duplicate-self cleanup) may have deleted
-    // this document while the persist waited on the mutation queue. Check
-    // INSIDE the claimed mutation, then repeat teardown to remove side writes
-    // that may have queued behind the delete but ahead of this guard.
+    // Refuse an UPDATE after canonical deletion, checking inside this mutation.
+    // Repeat teardown for side writes queued behind deletion; absence of only
+    // the container projection is not deletion.
     if (
       currentRecord &&
-      !(await persistence.loadDocumentContainer(lockedExecSql, localId))
+      !(await persistence.loadDocument(lockedExecSql, localId))
     ) {
       await persistence.deleteDocument(lockedExecSql, localId);
+      await documentProjectors.deleteStoredDocumentClientProjection({
+        documentKind: currentRecord.documentKind ?? DEFAULT_DOCUMENT_KIND,
+        execSql: lockedExecSql,
+        localId,
+      });
       return null;
     }
-    // Deferred-write deltas ride in the same claimed mutation as the record
-    // write, appended FIRST: the tail is the only durable content store, so
-    // a crash between the two leaves a tail row ahead of the record frontier
-    // — the restore replays it and the next edit re-derives the outgoing
-    // delta — never a published frontier whose content no durable row holds.
+    // Append history first: a crash leaves a replayable tail ahead of the
+    // frontier, never a published frontier without durable content.
     if (input.historyUpdates && input.historyUpdates.length > 0) {
       await persistence.appendHistoryUpdates(lockedExecSql, {
         localId,

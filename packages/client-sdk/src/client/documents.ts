@@ -21,6 +21,7 @@ import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
   deletePersistedDocument,
+  reclaimDocumentOrphanBlobs,
 } from "../workflows/documents";
 import type { InternalRuntime } from "./workflowRuntime";
 
@@ -116,6 +117,7 @@ class DocumentsService implements Documents {
     }
 
     await this.ensureSchema(runtime.infra.execSql);
+    await reclaimDocumentOrphanBlobs(createDocumentsWorkflowRuntime(runtime));
     return defaultDocumentsPersistence.listDocumentSummaries(
       runtime.infra.execSql,
       input,
@@ -142,6 +144,7 @@ class DocumentsService implements Documents {
     } = input;
     const runtime =
       options.workflowRuntime ?? this.workflowRuntime(containerId);
+    void reclaimDocumentOrphanBlobs(runtime);
     return openDocumentStore(
       runtime.state.domainScope,
       localId,

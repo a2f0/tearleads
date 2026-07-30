@@ -1,5 +1,5 @@
 import { and, eq, notExists, type SQL } from "drizzle-orm";
-import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
+import { documentOrphanBlobReclaims } from "../../../sqlite/documentOrphanBlobReclaims";
 import {
   documentAttachmentBlobProjection,
   documentHistoryCheckpoints,
@@ -16,9 +16,17 @@ import {
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { DOCUMENTS_APP_KIND } from "./constants";
 
+type DocumentSideLocalIdColumn =
+  | typeof documentAttachmentBlobProjection.localId
+  | typeof documentHistoryCheckpoints.localId
+  | typeof documentHistoryUpdates.localId
+  | typeof documentPendingAttachments.localId
+  | typeof documentPendingUpdates.localId
+  | typeof documentSyncFailures.localId;
+
 function hasNoDocument(
   tx: ClientSQLiteTransaction,
-  localId: SQLiteColumn,
+  localId: DocumentSideLocalIdColumn,
 ): SQL {
   return notExists(
     tx
@@ -38,6 +46,30 @@ export async function deleteOrphanedDocumentSideRows(
   execSql: ExecSql,
 ): Promise<void> {
   await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
+    const [pendingAttachmentRows, localAttachmentRows] = await Promise.all([
+      tx
+        .select({ storageKey: documentPendingAttachments.storageKey })
+        .from(documentPendingAttachments)
+        .where(hasNoDocument(tx, documentPendingAttachments.localId)),
+      tx
+        .select({ storageKey: documentAttachmentBlobProjection.storageKey })
+        .from(documentAttachmentBlobProjection)
+        .where(hasNoDocument(tx, documentAttachmentBlobProjection.localId)),
+    ]);
+    const storageKeys = [
+      ...new Set(
+        [...pendingAttachmentRows, ...localAttachmentRows].map(
+          (row) => row.storageKey,
+        ),
+      ),
+    ];
+    if (storageKeys.length > 0) {
+      await tx
+        .insert(documentOrphanBlobReclaims)
+        .values(storageKeys.map((storageKey) => ({ storageKey })))
+        .onConflictDoNothing()
+        .run();
+    }
     await tx
       .delete(documentHistoryCheckpoints)
       .where(
@@ -83,4 +115,45 @@ export async function deleteOrphanedDocumentSideRows(
       .where(hasNoDocument(tx, documentAttachmentBlobProjection.localId))
       .run();
   });
+}
+
+export async function listDocumentOrphanBlobReclaims(
+  execSql: ExecSql,
+): Promise<ReadonlyArray<string>> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const rows = await db
+    .select({ storageKey: documentOrphanBlobReclaims.storageKey })
+    .from(documentOrphanBlobReclaims);
+  return rows.map((row) => row.storageKey);
+}
+
+export async function isDocumentBlobStorageKeyReferenced(
+  execSql: ExecSql,
+  storageKey: string,
+): Promise<boolean> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const [pendingRows, localRows] = await Promise.all([
+    db
+      .select({ storageKey: documentPendingAttachments.storageKey })
+      .from(documentPendingAttachments)
+      .where(eq(documentPendingAttachments.storageKey, storageKey))
+      .limit(1),
+    db
+      .select({ storageKey: documentAttachmentBlobProjection.storageKey })
+      .from(documentAttachmentBlobProjection)
+      .where(eq(documentAttachmentBlobProjection.storageKey, storageKey))
+      .limit(1),
+  ]);
+  return pendingRows.length > 0 || localRows.length > 0;
+}
+
+export async function acknowledgeDocumentOrphanBlobReclaim(
+  execSql: ExecSql,
+  storageKey: string,
+): Promise<void> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  await db
+    .delete(documentOrphanBlobReclaims)
+    .where(eq(documentOrphanBlobReclaims.storageKey, storageKey))
+    .run();
 }

@@ -4,6 +4,7 @@ import {
   ensureDocumentProjectionTables,
   ensureDocumentTables,
 } from "../../sqlite/documentPersistence";
+import { resetConnectionSchemaMemo } from "../../sqlite/sqlSchema";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 const NOW = "2026-07-30T00:00:00.000Z";
@@ -100,6 +101,37 @@ test("schema initialization sweeps orphan document side rows", async () => {
         ),
       ).toEqual([{ localId: "live" }]);
     }
+    expect(
+      await execSql(
+        `SELECT storage_key AS storageKey
+         FROM document_orphan_blob_reclaims ORDER BY storage_key`,
+      ),
+    ).toEqual([
+      { storageKey: "orphan-local" },
+      { storageKey: "orphan-pending" },
+    ]);
+
+    await execSql(
+      `INSERT INTO document_pending_updates (
+        id, app_kind, local_id, update_data,
+        partial_start_version_vector, partial_end_version_vector, created_at
+      ) VALUES ('late', 'documents', 'late-orphan', 'update', 'start', 'end', ?)`,
+      [NOW],
+    );
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    expect(
+      await execSql(
+        "SELECT id FROM document_pending_updates WHERE id = 'late'",
+      ),
+    ).toEqual([{ id: "late" }]);
+
+    resetConnectionSchemaMemo(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    expect(
+      await execSql(
+        "SELECT id FROM document_pending_updates WHERE id = 'late'",
+      ),
+    ).toEqual([]);
   } finally {
     close();
   }

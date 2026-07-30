@@ -33,8 +33,6 @@ import {
   deleteDocumentPendingUpdates,
   deleteDocumentRecord,
   enqueueDocumentPendingUpdateWithHistory,
-  ensureDocumentProjectionTables,
-  ensureDocumentTables,
   findLocalIdByDocumentId,
   listDocumentPendingUpdates,
   loadDocumentRecord,
@@ -43,7 +41,6 @@ import {
 import {
   documentAttachmentBlobProjection,
   documentContainerProjection,
-  documentContainerProjectionTables,
   documentMoveIntents,
   documentMoveIntentTables,
   documentPendingAttachments,
@@ -56,7 +53,6 @@ import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenc
 import {
   type ExecSql,
   ensureSqlTables,
-  runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
 import {
@@ -87,7 +83,7 @@ import {
   resolvePersistedAccessStateHash,
   resolvePersistedDocumentRuntimeState,
 } from "./internal/documentRuntimeState";
-import { deleteOrphanedDocumentSideRows } from "./internal/orphanSideRows";
+import { ensureDocumentsSchema } from "./internal/ensureDocumentsSchema";
 import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
 import type {
   ContainerDocumentTombstoneInput,
@@ -449,17 +445,7 @@ async function listDocumentsByContainerIdsOrDocumentIds(
 }
 
 const sqlStoredDocumentsPersistence: DocumentsPersistence = {
-  async ensureSchema(execSql) {
-    // Skip locking once this connection's schema and sweep are complete.
-    await runOncePerConnection(execSql, "ensure:documents", () =>
-      runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-        await ensureDocumentTables(lockedExecSql);
-        await ensureDocumentProjectionTables(lockedExecSql);
-        await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
-        await deleteOrphanedDocumentSideRows(lockedExecSql);
-      }),
-    );
-  },
+  ensureSchema: ensureDocumentsSchema,
   async listDocuments(execSql) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     const rows = await db
