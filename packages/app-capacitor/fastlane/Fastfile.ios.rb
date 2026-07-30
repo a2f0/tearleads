@@ -446,7 +446,8 @@ platform :ios do
     ensure_revenuecat_store_key!(
       'VITE_REVENUECAT_IOS_API_KEY',
       'appl_',
-      native_release_disallowed_store_key('VITE_REVENUECAT_IOS_API_KEY')
+      native_release_disallowed_store_key('VITE_REVENUECAT_IOS_API_KEY'),
+      comparison_required: NATIVE_RELEASE_TIER == 'staging'
     )
     release_build = next_ios_release_build_number(options)
     team_id = require_ios_team_id!(options)

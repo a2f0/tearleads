@@ -58,7 +58,8 @@ key that matches either production key. The staging env may also override
 `VITE_REVENUECAT_SYNC_ENTITLEMENT`; unrelated deploy secrets never enter the
 native build process. If another root `VITE_*` setting must be shared with
 staging later, add it intentionally to `NATIVE_SHARED_VITE_ENV_NAMES`. The
-Google Play service account must have
+production platform keys must remain present in `.secrets/root.env` so staging
+can prove it is not reusing them. The Google Play service account must have
 access to the staging Play app, and the match repository must contain an App
 Store distribution profile for the staging bundle ID. Verify the latter with:
 

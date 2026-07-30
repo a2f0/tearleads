@@ -34,11 +34,21 @@ Environment:
 Store credentials and signing values are loaded by Fastlane from
 .secrets/root.env plus .secrets/${native_tier}.env where applicable. Explicitly
 exported environment variables take precedence.
-
-Upload wrappers default to the next value in the selected app's store. Build
-wrappers default to the larger of today's merged PR number and the store's next
-value. Pass build_number:<number> to select an explicit build number.
 EOF
+
+  if [ "$native_action" = upload ]; then
+    cat <<'EOF'
+
+Upload wrappers default to the next value in the selected app's store. Pass
+build_number:<number> to select an explicit build number.
+EOF
+  else
+    cat <<'EOF'
+
+Build wrappers default to the larger of today's merged PR number and the store's
+next value. Pass build_number:<number> to select an explicit build number.
+EOF
+  fi
 
   if [ "$native_platform" = android ]; then
     cat <<'EOF'

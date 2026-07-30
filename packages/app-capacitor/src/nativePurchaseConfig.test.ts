@@ -6,7 +6,12 @@ const packageRoot = resolve(import.meta.dir, "..");
 async function loadFastlaneTier(tier: "production" | "staging") {
   const child = Bun.spawn(["bundle", "exec", "fastlane", "lanes"], {
     cwd: packageRoot,
-    env: { ...process.env, NATIVE_RELEASE_TIER: tier },
+    env: {
+      ...process.env,
+      FASTLANE_OPT_OUT_USAGE: "1",
+      FASTLANE_SKIP_UPDATE_CHECK: "1",
+      NATIVE_RELEASE_TIER: tier,
+    },
     stderr: "pipe",
     stdout: "pipe",
   });
@@ -54,6 +59,9 @@ test("Android exposes a signed staging release variant", async () => {
 
   expect(gradle).toMatch(/staging\s*\{[\s\S]*?initWith release/);
   expect(gradle).toContain('applicationIdSuffix ".staging"');
+  expect(gradle).toMatch(
+    /staging\s*\{[\s\S]*?signingConfig signingConfigs\.release/,
+  );
   expect(stagingStrings).toContain("com.tearleads.app.staging");
   expect(stagingStrings).toContain("Tearleads Staging");
 });
