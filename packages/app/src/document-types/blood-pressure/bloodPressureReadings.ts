@@ -1,4 +1,10 @@
 import type { DocumentRow } from "@tearleads/client-sdk";
+import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
+import type { RowDetailField } from "../shared/DocumentRowDetail";
+import {
+  formatTrackerMeasuredAt,
+  TRACKER_EMPTY_VALUE,
+} from "../shared/trackerValues";
 import {
   BLOOD_PRESSURE_DIASTOLIC_FIELD,
   BLOOD_PRESSURE_MEASURED_AT_FIELD,
@@ -27,8 +33,6 @@ export interface BloodPressureReadingRow {
   // attribution in the row detail.
   fieldEditors: Record<string, string | null>;
 }
-
-const BLOOD_PRESSURE_EMPTY_VALUE = "None";
 
 export function readTrackerNameField(
   structuredFields: Readonly<Record<string, string>>,
@@ -86,7 +90,7 @@ export function formatMeasurementPair(
   const systolic = reading.systolic.trim();
   const diastolic = reading.diastolic.trim();
   if (systolic.length === 0 && diastolic.length === 0) {
-    return BLOOD_PRESSURE_EMPTY_VALUE;
+    return TRACKER_EMPTY_VALUE;
   }
 
   return `${systolic || "—"}/${diastolic || "—"} mmHg`;
@@ -94,14 +98,47 @@ export function formatMeasurementPair(
 
 export function formatPulse(reading: BloodPressureReadingRow): string {
   const pulse = reading.pulse.trim();
-  return pulse.length > 0 ? `${pulse} bpm` : BLOOD_PRESSURE_EMPTY_VALUE;
+  return pulse.length > 0 ? `${pulse} bpm` : TRACKER_EMPTY_VALUE;
 }
 
-// datetime-local values look like "2026-07-16T08:30"; swap the "T" for a space
-// so the read view is legible without pulling in locale-dependent Date parsing.
 export function formatMeasuredAt(reading: BloodPressureReadingRow): string {
-  const measuredAt = reading.measuredAt.trim();
-  return measuredAt.length > 0
-    ? measuredAt.replace("T", " ")
-    : BLOOD_PRESSURE_EMPTY_VALUE;
+  return formatTrackerMeasuredAt(reading.measuredAt);
+}
+
+// The per-field attribution rows for a reading's drill-down. Each cell's
+// verified writer is resolved from its last-editor peer; null when unknown
+// (attribution not synced) so the overlay can omit it.
+export function toBloodPressureReadingDetailFields(
+  reading: BloodPressureReadingRow,
+  resolveRowWriter?: RowWriterResolver | undefined,
+): RowDetailField[] {
+  const fieldWriter = (field: string): string | null =>
+    resolveRowWriter?.(reading.fieldEditors[field] ?? null) ?? null;
+  return [
+    {
+      label: "Systolic",
+      value: reading.systolic,
+      writerUserId: fieldWriter(BLOOD_PRESSURE_SYSTOLIC_FIELD),
+    },
+    {
+      label: "Diastolic",
+      value: reading.diastolic,
+      writerUserId: fieldWriter(BLOOD_PRESSURE_DIASTOLIC_FIELD),
+    },
+    {
+      label: "Pulse",
+      value: reading.pulse,
+      writerUserId: fieldWriter(BLOOD_PRESSURE_PULSE_FIELD),
+    },
+    {
+      label: "Measured at",
+      value: formatMeasuredAt(reading),
+      writerUserId: fieldWriter(BLOOD_PRESSURE_MEASURED_AT_FIELD),
+    },
+    {
+      label: "Notes",
+      value: reading.notes,
+      writerUserId: fieldWriter(BLOOD_PRESSURE_NOTES_FIELD),
+    },
+  ];
 }

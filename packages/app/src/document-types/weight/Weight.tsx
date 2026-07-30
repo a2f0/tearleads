@@ -28,6 +28,7 @@ import {
 } from "./WeightEditRow";
 import { WeightQuickAdd, type WeightQuickEntry } from "./WeightQuickAdd";
 import { WeightEntryReadRow } from "./WeightReadRow";
+import { WeightReadTable } from "./WeightReadTable";
 import {
   toWeightUnit,
   WEIGHT_DOCUMENT_KIND,
@@ -84,20 +85,16 @@ function WeightReadFields(params: {
             unit={unit}
           />
         ) : null}
-        {entries.length === 0 && !entryPending ? (
-          <div className="tracker-empty-state">No entries</div>
-        ) : (
-          entries.map((entry, index) => (
-            <WeightEntryReadRow
-              key={entry.id}
-              currentAuthorId={currentAuthorId}
-              entry={entry}
-              index={index}
-              onEnterEdit={entryPending ? undefined : onEnterEdit}
-              previous={entries[index - 1]}
-              resolveRowWriter={resolveRowWriter}
-            />
-          ))
+        {/* An entry being typed into the expanded quick-add form is the whole of
+            the list's business until it is saved, so the (empty) table stays out
+            of the way rather than heading it with a "no entries" row. */}
+        {entries.length === 0 && entryPending ? null : (
+          <WeightReadTable
+            currentAuthorId={currentAuthorId}
+            entries={entries}
+            onEnterEdit={entryPending ? undefined : onEnterEdit}
+            resolveRowWriter={resolveRowWriter}
+          />
         )}
         <div className="weight-entry-list-footer tracker-entry-list-footer">
           {entries.length} entries

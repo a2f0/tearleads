@@ -325,43 +325,8 @@
   opacity: var(--opacity-icon);
 }
 
-.explorer-table-sort-button {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-weight: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.explorer-table-sort-button span {
-  display: inline;
-}
-
-.explorer-table-sort-button:hover,
-.explorer-table-sort-button:focus-visible {
-  text-decoration: underline;
-}
-
-.explorer-table-sort-indicator {
-  flex-shrink: 0;
-  width: var(--explorer-glyph-size);
-  opacity: var(--opacity-muted);
-  text-align: center;
-}
-
-/* Touch: the column sort control lives in the sticky (non-virtualized) table
-   header, so it can grow to a 44px tap height. */
-:root[data-navigation-mode="routed"] .explorer-table-sort-button {
-  min-height: var(--control-height);
-}
+/* The column sort button and the folded sort menu are the shared table controls
+   (see MiniAppTableSort.css). */
 
 .explorer-info-inline-action {
   align-self: flex-start;

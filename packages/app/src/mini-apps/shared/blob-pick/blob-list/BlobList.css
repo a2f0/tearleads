@@ -1,10 +1,11 @@
 /* Styles for the shared blob-list surface. Self-contained so the surface renders
    correctly in a mini-app (e.g. Notes) that never loads Explorer.css. A few rules
-   below intentionally mirror Explorer.css: the row/sort classes are also used by
-   the Explorer's own tables, whose rules stay in Explorer.css, and duplicating the
+   below intentionally mirror Explorer.css: the row classes are also used by the
+   Explorer's own tables, whose rules stay in Explorer.css, and duplicating the
    identical declarations here keeps the shared surface independent. Only global
-   design tokens (from @tearleads/ui) are referenced; the one Explorer-local token
-   (--explorer-glyph-size) is inlined. */
+   design tokens (from @tearleads/ui) are referenced. The sort controls are the
+   shared table ones (see MiniAppTableSort.css), which every table already loads
+   through the shared table components. */
 
 .explorer-blob-browser-screen {
   display: flex;
@@ -97,56 +98,4 @@
 
 .explorer-blob-browser-thumb-icon {
   opacity: var(--opacity-icon);
-}
-
-.explorer-table-sort-button {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-weight: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.explorer-table-sort-button span {
-  display: inline;
-}
-
-.explorer-table-sort-button:hover,
-.explorer-table-sort-button:focus-visible {
-  text-decoration: underline;
-}
-
-.explorer-table-sort-indicator {
-  flex-shrink: 0;
-  width: 0.65rem;
-  opacity: var(--opacity-muted);
-  text-align: center;
-}
-
-/* Touch: the column sort control lives in the sticky (non-virtualized) table
-   header, so it can grow to a 44px tap height. */
-:root[data-navigation-mode="routed"] .explorer-table-sort-button {
-  min-height: var(--control-height);
-}
-
-/* Folded header: the per-column sort buttons collapse into one select menu,
-   styled as a header label rather than as a button. */
-.explorer-blob-browser-sort-menu {
-  width: min(12rem, 100%);
-}
-
-.explorer-blob-browser-sort-menu .mini-app-button.mini-app-select-menu-trigger {
-  align-items: center;
-  min-height: var(--control-height);
-  padding: 0;
-  border: 0;
-  font-weight: inherit;
 }
