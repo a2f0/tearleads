@@ -4,12 +4,14 @@
 
 1. Install `mise` with `brew install mise`
 2. Run `mise install`.
-3. Run `source scripts/session.sh` to extend the path for scripts. Or, alternatively:
+3. Run `bundle install` from `packages/app-capacitor` so the native release
+   checks can run.
+4. Run `source scripts/session.sh` to extend the path for scripts. Or, alternatively:
    - Add `tl() { . /path/to/checkout/scripts/session.sh /path/to/checkout; } && tl` to `~/.zshrc`
-4. Run `buildSqliteMultipleCiphers.sh`.
-5. Run `install-hooks.sh` to install Git hooks.
-6. Run `bun run --filter=@tearleads/api dev` to start the API.
-7. Run `bun run --filter=app-web dev` to start the dev server.
+5. Run `buildSqliteMultipleCiphers.sh`.
+6. Run `install-hooks.sh` to install Git hooks.
+7. Run `bun run --filter=@tearleads/api dev` to start the API.
+8. Run `bun run --filter=app-web dev` to start the dev server.
 
 ## Running Tests
 

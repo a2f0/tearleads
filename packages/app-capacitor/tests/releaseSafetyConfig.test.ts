@@ -7,6 +7,10 @@ const fastlaneGuardPath = resolve(
   repositoryRoot,
   "packages/app-capacitor/fastlane/revenuecat_release_key.rb",
 );
+const capacitorReleaseConfigPath = resolve(
+  repositoryRoot,
+  "packages/app-capacitor/fastlane/capacitor_release_config.rb",
+);
 
 async function runStoreKeyGuard(key: string, expectedPrefix: string) {
   const process = Bun.spawn(
@@ -28,16 +32,23 @@ async function runStoreKeyGuard(key: string, expectedPrefix: string) {
   return { exitCode, stderr };
 }
 
-async function readFastlaneKeyProblem(key: string, expectedPrefix: string) {
+async function readFastlaneKeyProblem(
+  key: string,
+  expectedPrefix: string,
+  productionValue = "",
+  releaseTier = "staging",
+) {
   const process = Bun.spawn(
     [
       "ruby",
       "-r",
       fastlaneGuardPath,
       "-e",
-      "print(revenuecat_store_key_problem(ARGV.fetch(0), ARGV.fetch(1)) || 'ok')",
+      "print(revenuecat_store_key_problem(ARGV.fetch(0), ARGV.fetch(1), production_value: ARGV.fetch(2), release_tier: ARGV.fetch(3)) || 'ok')",
       key,
       expectedPrefix,
+      productionValue,
+      releaseTier,
     ],
     { stderr: "pipe", stdout: "pipe" },
   );
@@ -46,8 +57,109 @@ async function readFastlaneKeyProblem(key: string, expectedPrefix: string) {
     new Response(process.stderr).text(),
     new Response(process.stdout).text(),
   ]);
-  expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
+  if (exitCode !== 0) {
+    throw new Error(`Ruby key validation failed: ${stderr}`);
+  }
   return stdout;
+}
+
+async function readCapacitorReleaseProblem(
+  appId: string,
+  expectedAppId: string,
+  serverUrl = "",
+) {
+  const process = Bun.spawn(
+    [
+      "ruby",
+      "-r",
+      capacitorReleaseConfigPath,
+      "-e",
+      "print(capacitor_release_problem({'appId' => ARGV.fetch(0), 'server' => {'url' => ARGV.fetch(2)}}, ARGV.fetch(1)) || 'ok')",
+      appId,
+      expectedAppId,
+      serverUrl,
+    ],
+    { stderr: "pipe", stdout: "pipe" },
+  );
+  const [exitCode, stderr, stdout] = await Promise.all([
+    process.exited,
+    new Response(process.stderr).text(),
+    new Response(process.stdout).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`Ruby Capacitor release validation failed: ${stderr}`);
+  }
+  return stdout;
+}
+
+async function buildNumberSelection(
+  platform: "android" | "ios",
+  option: string,
+) {
+  const environment = { ...process.env };
+  for (const name of [
+    "ANDROID_BUILD_NUMBER",
+    "ANDROID_RELEASE_MERGED_DATE",
+    "ANDROID_RELEASE_MERGED_PR_NUMBER",
+    "ANDROID_RELEASE_NEXT_GOOGLE_PLAY",
+    "ANDROID_RELEASE_PR_NUMBER",
+    "ANDROID_VERSION_CODE",
+    "APPLE_BUILD_NUMBER",
+    "IOS_BUILD_NUMBER",
+    "IOS_RELEASE_MERGED_DATE",
+    "IOS_RELEASE_MERGED_PR_NUMBER",
+    "IOS_RELEASE_NEXT_TESTFLIGHT",
+    "IOS_RELEASE_PR_NUMBER",
+  ]) {
+    Reflect.deleteProperty(environment, name);
+  }
+  const child = Bun.spawn(
+    [
+      "sh",
+      "-c",
+      '. "$1"; if native_release_build_number_chosen "$2" "$3"; then printf chosen; else printf unselected; fi',
+      "sh",
+      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+      platform,
+      option,
+    ],
+    { env: environment, stderr: "pipe", stdout: "pipe" },
+  );
+  const [exitCode, stderr, stdout] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+    new Response(child.stdout).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`Shell build-number selection failed: ${stderr}`);
+  }
+  return stdout;
+}
+
+async function nativeBunCommand(
+  platform: "android" | "ios",
+  action: "build" | "upload",
+  tier: "production" | "staging",
+) {
+  const child = Bun.spawn(
+    [
+      "sh",
+      "-c",
+      '. "$1"; native_release_bun_command "$2" "$3" "$4"',
+      "sh",
+      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+      platform,
+      action,
+      tier,
+    ],
+    { stdout: "pipe" },
+  );
+  const [exitCode, stdout] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+  ]);
+  expect(exitCode).toBe(0);
+  return stdout.trim();
 }
 
 describe("RevenueCat store-release safety", () => {
@@ -96,47 +208,126 @@ describe("RevenueCat store-release safety", () => {
     await expect(readFastlaneKeyProblem("goog_example", "appl_")).resolves.toBe(
       "must start with appl_",
     );
-    await expect(readFastlaneKeyProblem("appl_example", "appl_")).resolves.toBe(
-      "ok",
-    );
+    await expect(
+      readFastlaneKeyProblem(
+        "appl_example",
+        "appl_",
+        "appl_example",
+        "production",
+      ),
+    ).resolves.toBe("ok");
+    await expect(
+      readFastlaneKeyProblem("appl_production", "appl_", "appl_production"),
+    ).resolves.toContain("matches the production key");
+    await expect(
+      readFastlaneKeyProblem("appl_staging", "appl_"),
+    ).resolves.toContain("production key is unavailable");
+    await expect(
+      readFastlaneKeyProblem(
+        "appl_staging",
+        "appl_",
+        "appl_production",
+        "production",
+      ),
+    ).resolves.toContain("does not match the production key");
+    await expect(
+      readFastlaneKeyProblem("appl_production", "appl_", "", "production"),
+    ).resolves.toContain("independent baseline is unavailable");
+    await expect(
+      readFastlaneKeyProblem("appl_example", "appl_", "appl_root", "preview"),
+    ).resolves.toContain("unknown release tier");
   });
 
-  const guardedReleaseScripts = {
-    "buildAndroidRelease.sh": {
-      keyName: "VITE_REVENUECAT_ANDROID_API_KEY",
-      prefix: "goog_",
-    },
-    "buildIosRelease.sh": {
-      keyName: "VITE_REVENUECAT_IOS_API_KEY",
-      prefix: "appl_",
-    },
-    "uploadAndroidRelease.sh": {
-      keyName: "VITE_REVENUECAT_ANDROID_API_KEY",
-      prefix: "goog_",
-    },
-    "uploadIosRelease.sh": {
-      keyName: "VITE_REVENUECAT_IOS_API_KEY",
-      prefix: "appl_",
-    },
+  test("Fastlane rejects a generated config for the wrong native target", async () => {
+    await expect(
+      readCapacitorReleaseProblem(
+        "com.tearleads.app",
+        "com.tearleads.app.staging",
+      ),
+    ).resolves.toContain('instead of "com.tearleads.app.staging"');
+    await expect(
+      readCapacitorReleaseProblem(
+        "com.tearleads.app.staging",
+        "com.tearleads.app.staging",
+      ),
+    ).resolves.toBe("ok");
+    await expect(
+      readCapacitorReleaseProblem(
+        "com.tearleads.app.staging",
+        "com.tearleads.app.staging",
+        "http://localhost:5173",
+      ),
+    ).resolves.toContain("server.url");
+  });
+
+  const releaseScriptTargets = {
+    "buildAndroidRelease.sh": "android build production",
+    "buildAndroidStagingRelease.sh": "android build staging",
+    "buildIosRelease.sh": "ios build production",
+    "buildIosStagingRelease.sh": "ios build staging",
+    "uploadAndroidRelease.sh": "android upload production",
+    "uploadAndroidStagingRelease.sh": "android upload staging",
+    "uploadIosRelease.sh": "ios upload production",
+    "uploadIosStagingRelease.sh": "ios upload staging",
   } as const;
 
-  for (const [scriptName, { keyName, prefix }] of Object.entries(
-    guardedReleaseScripts,
-  )) {
-    test(`${scriptName} guards ${keyName}`, async () => {
+  for (const [scriptName, target] of Object.entries(releaseScriptTargets)) {
+    test(`${scriptName} delegates to the shared ${target} runner`, async () => {
       const script = await Bun.file(
         resolve(repositoryRoot, "scripts", scriptName),
       ).text();
-      const normalizedScript = script
-        .replace(/\\\n\s*/g, " ")
-        .replace(/\s+/g, " ");
-      const keyExpansion = `"\${${keyName}:-}"`;
 
-      expect(normalizedScript).toContain(
-        `reject_invalid_revenuecat_store_key ${keyName} ${keyExpansion} ${prefix}`,
-      );
+      expect(script).toContain('. "$SCRIPT_DIR/nativeRelease.sh"');
+      expect(script).toContain(`native_release_main ${target} "$@"`);
     });
   }
+
+  test("the shared runner guards both platform keys", async () => {
+    const script = await Bun.file(
+      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+    ).text();
+    const normalizedScript = script
+      .replace(/\\\n\s*/g, " ")
+      .replace(/\s+/g, " ");
+
+    expect(normalizedScript).toContain(
+      `reject_invalid_revenuecat_store_key VITE_REVENUECAT_ANDROID_API_KEY "\${VITE_REVENUECAT_ANDROID_API_KEY:-}" goog_`,
+    );
+    expect(normalizedScript).toContain(
+      `reject_invalid_revenuecat_store_key VITE_REVENUECAT_IOS_API_KEY "\${VITE_REVENUECAT_IOS_API_KEY:-}" appl_`,
+    );
+    expect(script).toContain('export NATIVE_RELEASE_TIER="$native_tier"');
+  });
+
+  test("shared runner selects a tier-pinned Fastlane command", async () => {
+    await expect(
+      nativeBunCommand("android", "build", "production"),
+    ).resolves.toBe("android:build:google-play");
+    await expect(
+      nativeBunCommand("android", "upload", "staging"),
+    ).resolves.toBe("android:upload:google-play:staging");
+    await expect(nativeBunCommand("ios", "build", "staging")).resolves.toBe(
+      "ios:build:testflight:staging",
+    );
+    await expect(nativeBunCommand("ios", "upload", "production")).resolves.toBe(
+      "ios:upload:testflight",
+    );
+  });
+
+  test("build-number options are scoped to their store platform", async () => {
+    await expect(
+      buildNumberSelection("android", "version_code:42"),
+    ).resolves.toBe("chosen");
+    await expect(
+      buildNumberSelection("android", "next_testflight:true"),
+    ).resolves.toBe("unselected");
+    await expect(
+      buildNumberSelection("ios", "apple_build_number:42"),
+    ).resolves.toBe("chosen");
+    await expect(
+      buildNumberSelection("ios", "next_google_play:true"),
+    ).resolves.toBe("unselected");
+  });
 
   test("Fastlane validates keys after loading release secrets", async () => {
     const androidFastfile = await Bun.file(
@@ -155,18 +346,28 @@ describe("RevenueCat store-release safety", () => {
       "    load_android_release_secrets_env",
     );
     const androidGuardIndex = androidFastfile.indexOf(
-      "    ensure_revenuecat_store_key!('VITE_REVENUECAT_ANDROID_API_KEY', 'goog_')",
+      "    ensure_revenuecat_store_key!(",
     );
     const iosLoadIndex = iosFastfile.indexOf(
       "    load_ios_release_secrets_env",
     );
     const iosGuardIndex = iosFastfile.indexOf(
-      "    ensure_revenuecat_store_key!('VITE_REVENUECAT_IOS_API_KEY', 'appl_')",
+      "    ensure_revenuecat_store_key!(",
     );
 
     expect(androidLoadIndex).toBeGreaterThan(-1);
     expect(androidGuardIndex).toBeGreaterThan(androidLoadIndex);
+    expect(androidFastfile).toContain(
+      "native_release_production_store_key('VITE_REVENUECAT_ANDROID_API_KEY')",
+    );
+    expect(androidFastfile).toContain("production_value:");
+    expect(androidFastfile).toContain("release_tier: NATIVE_RELEASE_TIER");
     expect(iosLoadIndex).toBeGreaterThan(-1);
     expect(iosGuardIndex).toBeGreaterThan(iosLoadIndex);
+    expect(iosFastfile).toContain(
+      "native_release_production_store_key('VITE_REVENUECAT_IOS_API_KEY')",
+    );
+    expect(iosFastfile).toContain("production_value:");
+    expect(iosFastfile).toContain("release_tier: NATIVE_RELEASE_TIER");
   });
 });

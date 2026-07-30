@@ -36,6 +36,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             ndk { debugSymbolLevel 'FULL' }
         }
+        staging {
+            initWith release
+            applicationIdSuffix ".staging"
+            matchingFallbacks = ['release']
+        }
     }
 }
 

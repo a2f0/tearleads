@@ -91,6 +91,77 @@ webhook, and entitlement mapping. It does not exercise StoreKit or Google Play
 Billing. Never submit a build containing a `test_...` key; RevenueCat requires a
 platform-specific public key in store builds.
 
+## Dedicated staging store apps
+
+The native staging apps use `com.tearleads.app.staging` on both platforms so
+they can coexist with production and keep sandbox store history isolated. The
+Android `staging` build variant and the iOS `App-Staging` / `Release-Staging`
+pair are selected by `NATIVE_RELEASE_TIER=staging`; the staging release wrappers
+set this automatically:
+
+```sh
+./scripts/buildAndroidStagingRelease.sh
+./scripts/buildIosStagingRelease.sh
+./scripts/uploadAndroidStagingRelease.sh
+./scripts/uploadIosStagingRelease.sh
+```
+
+The production `App` scheme and staging `App-Staging` scheme are both committed
+as shared Xcode schemes because Fastlane archives them non-interactively.
+Android staging inherits the release build type and deliberately uses the same
+upload keystore as production; package IDs and separate store records isolate
+the apps, not their signing key.
+
+One-time store setup is still required; the release lanes are intentionally
+readonly for signing and store records:
+
+1. Register `com.tearleads.app.staging` in Apple Developer and create its App
+   Store Connect app record with the In-App Purchase capability.
+2. Use the team's match administration workflow to create and commit an App
+   Store distribution profile for `com.tearleads.app.staging`. The repo's
+   `ios:fetch:appstore-profile:staging` lane only verifies/fetches it with
+   `readonly: true`; it cannot generate a missing profile.
+3. Create the `com.tearleads.app.staging` Play Console app, grant the configured
+   Google Play service account access, and create an internal testing track.
+4. Create the corresponding Apple and Google apps in RevenueCat and connect
+   their store credentials before adding the public SDK keys below.
+
+Query both staging stores without building with
+`bun run --cwd packages/app-capacitor store:build-numbers:staging`.
+
+Create separate RevenueCat Apple and Google apps with that platform identifier,
+then set their public keys in `.secrets/staging.env` as
+`VITE_REVENUECAT_IOS_API_KEY` and `VITE_REVENUECAT_ANDROID_API_KEY`. Fastlane
+loads release credentials from `root.env`, but imports only allowlisted native
+RevenueCat client settings from the server-oriented `staging.env`. Explicit
+caller overrides still win when they differ from the production platform key.
+If staging has no platform key, or resolves to the production key, it fails the
+release guard before the store build begins. The production key in `root.env`
+is the default comparison baseline. Env-only CI and key-rotation workflows may
+instead export the independent
+`NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY` or
+`NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_ANDROID_API_KEY` baseline. Without
+either the root default or an explicit baseline, staging fails closed. Staging
+may override the shared
+`VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses a different entitlement
+identifier. Production releases likewise reject the resolved platform key
+unless it exactly matches its independent production baseline. The allowlist
+controls dotenv imports only; callers remain responsible for variables they
+export explicitly. Add any future root `VITE_*` setting that staging must
+inherit intentionally to `NATIVE_SHARED_VITE_ENV_NAMES`; otherwise it is
+stripped from staging dotenv imports.
+
+The staging server must also have `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` during
+its Ansible deploy. This controls webhook application only; it is separate from
+the public SDK keys bundled into the native clients.
+
+The wrappers set their public API default before Fastlane loads dotenv files.
+Export `VITE_API_BASE_URL` explicitly when overriding the default; the release
+guard requires the exact selected-tier API host and permits WebSocket hosts only
+on the selected tier's domain. Fastlane repeats these checks after dotenv is
+resolved, so values from `root.env` cannot bypass them. Do not put an API
+override in `.secrets/staging.env`.
+
 ## Apple sandbox / TestFlight
 
 Before testing the real Apple purchase sheet:
