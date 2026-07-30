@@ -5,12 +5,18 @@ import {
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
+import {
+  createInitialDocumentProbe,
+  type InitialDocumentProbe,
+  type InitialDocumentProbeHost,
+} from "./initialDocumentProbe";
 import { clearOriginatedDocuments } from "./originatedDocuments";
 import {
   createReconcileQueue,
   type ReconcilePriority,
   type ReconcileQueue,
 } from "./queue";
+import { listFullRefreshContainerIds } from "./refreshContainerIds";
 
 export interface ReconciliationRuntimeStatus {
   dbStatus: string;
@@ -23,13 +29,9 @@ export interface ReconciliationRuntimeStatus {
  * React-free and decoupled from runtime/persistence construction — it only
  * orchestrates *when* these run and routes their results into Layer A.
  */
-export interface ReconciliationHost {
+export interface ReconciliationHost extends InitialDocumentProbeHost {
   domainScope: DomainScope;
   getRuntimeStatus: () => ReconciliationRuntimeStatus;
-  /** Whether this id currently has a remotely listable container lane. */
-  canDiscoverContainerDocuments: (containerId: string) => boolean;
-  /** Known container ids, used for idle backfill and event mapping. */
-  listKnownContainerIds: () => ReadonlyArray<string>;
   /** Known ids eligible after an automatic root-lane discovery hint. */
   listAutomaticRootCatchupContainerIds: () => ReadonlyArray<string>;
   /** Discover + persist a container's documents from the server. */
@@ -52,6 +54,10 @@ export interface ReconciliationHost {
     documents: ReadonlyArray<DocumentSummary>,
     force: boolean,
   ) => void;
+  /** Revalidate local remote documents absent from the initial listings. */
+  probeUndiscoveredDocuments?: (
+    listedDocumentIds: ReadonlySet<string>,
+  ) => Promise<void>;
   /** Refresh the container tree from the server (explicit refresh). */
   refreshTree: () => Promise<void>;
   /** Refresh only the top-level root lane from the server. */
@@ -91,6 +97,7 @@ interface ReconciliationState {
   activeContainerId: string | null;
   discoveredContainerIds: Set<string>;
   forcedContainerIds: Set<string>;
+  initialDocumentProbe: InitialDocumentProbe;
   lane: SyncLane | null;
   queue: ReconcileQueue;
   /**
@@ -115,7 +122,13 @@ interface ReconciliationState {
 async function reconcileOneContainer(
   host: ReconciliationHost,
   containerId: string,
-  options: { forceDocumentContentPull?: boolean } = {},
+  options: {
+    forceDocumentContentPull?: boolean;
+    recordInitialListing?: (
+      containerId: string,
+      listedDocuments: unknown,
+    ) => void;
+  } = {},
 ): Promise<boolean> {
   // Structural hydration can replace a queued local root/system id before the
   // document phase runs. Re-check current state at dequeue/sweep time so that
@@ -125,7 +138,7 @@ async function reconcileOneContainer(
   }
 
   try {
-    await host.discoverContainerDocuments(containerId);
+    const listedDocuments = await host.discoverContainerDocuments(containerId);
     const delta = await host.loadContainerDelta(containerId);
     host.applyReconciled(delta);
     // Always offer the delta for content sync. A forced pull (explicit refresh)
@@ -137,7 +150,8 @@ async function reconcileOneContainer(
       delta.documentSummaries,
       options.forceDocumentContentPull ?? false,
     );
-    return true;
+    options.recordInitialListing?.(containerId, listedDocuments);
+    return listedDocuments !== null;
   } catch (error) {
     if (host.isIgnorableError(error)) {
       return true;
@@ -175,6 +189,7 @@ async function sweepKnownContainers(
         state.forcedContainerIds.delete(containerId);
       const reconciled = await reconcileOneContainer(host, containerId, {
         forceDocumentContentPull,
+        recordInitialListing: state.initialDocumentProbe.recordListing,
       });
       if (!reconciled) {
         state.discoveredContainerIds.delete(containerId);
@@ -201,6 +216,7 @@ async function runReconcileLane(
 
   const containerId = state.queue.dequeue();
   if (!containerId) {
+    await state.initialDocumentProbe.run();
     return;
   }
 
@@ -214,6 +230,7 @@ async function runReconcileLane(
     try {
       const reconciled = await reconcileOneContainer(host, containerId, {
         forceDocumentContentPull: shouldForce,
+        recordInitialListing: state.initialDocumentProbe.recordListing,
       });
       if (!reconciled) {
         state.discoveredContainerIds.delete(containerId);
@@ -225,7 +242,7 @@ async function runReconcileLane(
   }
 
   // Keep draining: schedule another pass while the queue holds work.
-  if (state.queue.size > 0) {
+  if (state.queue.size > 0 || state.initialDocumentProbe.canRun()) {
     state.lane?.requestSync();
   }
 }
@@ -357,43 +374,32 @@ function startReconciliationLane(
   );
 }
 
-function listFullRefreshContainerIds(
+function createReconciliationState(
   host: ReconciliationHost,
-  state: ReconciliationState,
-): ReadonlyArray<string> {
-  const knownIds = host.listKnownContainerIds();
-  const activeContainerId = state.activeContainerId;
-  if (
-    !activeContainerId ||
-    knownIds.includes(activeContainerId) ||
-    !host.canDiscoverContainerDocuments(activeContainerId)
-  ) {
-    return knownIds;
-  }
-
-  // The generic known set intentionally excludes write-only foreign system
-  // containers. A user can still explicitly open one (for example a directly
-  // shared Contacts folder), and Refresh must retry that active surface even
-  // though background sweeps remain security-filtered.
-  return [...knownIds, activeContainerId];
-}
-
-export function createReconciliationService(
-  host: ReconciliationHost,
-): ReconciliationService {
-  const state: ReconciliationState = {
+): ReconciliationState {
+  return {
     active: false,
     activeContainerId: null,
     discoveredContainerIds: new Set(),
     forcedContainerIds: new Set(),
+    initialDocumentProbe: createInitialDocumentProbe(host),
     lane: null,
     queue: createReconcileQueue(),
     refreshPromise: null,
     refreshType: null,
   };
+}
+
+export function createReconciliationService(
+  host: ReconciliationHost,
+): ReconciliationService {
+  const state = createReconciliationState(host);
 
   const scheduleDrain = () => {
-    if (!state.active || state.queue.size === 0) {
+    if (
+      !state.active ||
+      (state.queue.size === 0 && !state.initialDocumentProbe.canRun())
+    ) {
       return;
     }
     if (!canReconcile(host.getRuntimeStatus())) {
@@ -424,6 +430,7 @@ export function createReconciliationService(
   };
 
   const enqueueIdleBackfill = () => {
+    state.initialDocumentProbe.arm();
     for (const containerId of host.listKnownContainerIds()) {
       if (state.discoveredContainerIds.has(containerId)) {
         continue;
@@ -455,6 +462,7 @@ export function createReconciliationService(
     enqueueIdleBackfill,
     resetDiscovered: () => {
       state.discoveredContainerIds.clear();
+      state.initialDocumentProbe.resetPending();
     },
     reconcileRootContainersNow: () =>
       reconcileKnownContainersSingleFlight(
@@ -469,7 +477,7 @@ export function createReconciliationService(
         host,
         state,
         host.refreshTree,
-        () => listFullRefreshContainerIds(host, state),
+        () => listFullRefreshContainerIds(host, state.activeContainerId),
         "full",
       ),
     stop: () => {
@@ -478,6 +486,7 @@ export function createReconciliationService(
       state.forcedContainerIds.clear();
       state.refreshPromise = null;
       state.refreshType = null;
+      state.initialDocumentProbe.resetPending();
       // Drop the per-session discovered suppression cache too: a stopped
       // reconciler is being torn down (scope/identity change) or paused across
       // a prerequisite loss, after which every container must be re-validated.

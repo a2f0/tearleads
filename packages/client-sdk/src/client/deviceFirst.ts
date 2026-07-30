@@ -9,6 +9,7 @@ import {
   isReconcilableContainerNode,
   isRemoteBackedContainerNode,
 } from "../stores/container-contents";
+import { openDocumentStore } from "../stores/documents";
 import {
   requestRegisteredDocumentRemoteSync,
   subscribeToPersistedDocumentDeletions,
@@ -26,9 +27,11 @@ import {
   type ReconciliationService,
 } from "../sync/reconciliation";
 import { createReconciledDocumentContentPuller } from "../sync/reconciliation/documentContentPull";
+import { probeUndiscoveredRemoteDocuments } from "../workflows/container-contents/documentHydrationProbe";
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../workflows/container-contents/projectionView";
 import {
   type ContainerContentsStoreWorkflowRuntime,
+  createContainerContentsDocumentsRuntime,
   createContainerContentsStoreWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
 import type { ContainerContents } from "./containerContents";
@@ -65,6 +68,36 @@ interface DeviceFirstScopeEntry {
   store: LocalProjectionStore;
   unsubscribePersistedDocumentDeletions: () => void;
   view: LocalProjectionView;
+}
+
+function createUndiscoveredDocumentProbe(
+  runtimeService: InternalRuntime,
+  domainScope: ReconciliationHost["domainScope"],
+): NonNullable<ReconciliationHost["probeUndiscoveredDocuments"]> {
+  return async (listedDocumentIds) => {
+    const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
+    const organizationId = runtime.auth.organizationId;
+    if (!organizationId) {
+      return;
+    }
+
+    await probeUndiscoveredRemoteDocuments({
+      host: {
+        documentWorkflowRuntime: (containerId) =>
+          createContainerContentsDocumentsRuntime(runtime, containerId),
+        openDocumentStore: (input) =>
+          openDocumentStore(
+            domainScope,
+            input.localId,
+            input.runtime,
+            input.documentId,
+          ),
+      },
+      listedDocumentIds,
+      organizationId,
+      runtime,
+    });
+  };
 }
 
 class DeviceFirstService implements DeviceFirst {
@@ -244,6 +277,10 @@ class DeviceFirstService implements DeviceFirst {
       },
       applyReconciled: (delta) => store.applyReconciled(delta),
       requestDocumentContentPull,
+      probeUndiscoveredDocuments: createUndiscoveredDocumentProbe(
+        runtimeService,
+        domainScope,
+      ),
       refreshTree: async () => {
         await store.getContainerStore().refresh();
       },
