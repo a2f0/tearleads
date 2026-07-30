@@ -34,18 +34,23 @@ afterEach(async () => {
 // bytes upload -> attachment binding). Run with DUAL_PANE_REQUEST_PROFILE=1 to
 // print the observed volume when re-baselining.
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
+  // The profiled steady path currently uses nine requests, so the aggregate cap
+  // keeps one request of headroom. Per-route caps are independent maxima: the
+  // second attachment-list allowance and the optional writer/discovery reads
+  // are scenario-specific headroom and do not occur in that steady path.
   total: 10,
   byRequest: {
     // Create the image document shell, upload + bind its attachment blob, and
-    // sync the document content twice (push update, then the post-binding
-    // follow-up). A small encrypted blob is one multipart part.
+    // probe the remote document before blob staging, then sync the document
+    // content before and after the attachment bind. A small encrypted blob is
+    // one multipart part.
     "POST /documents": 1,
     "POST /blobs/stages/multipart": 1,
     "PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes": 1,
     "POST /blobs/stages/multipart/:stageId/complete": 1,
     "POST /blobs/:blobId/attachment-bindings": 1,
-    "POST /documents/:documentId/sync": 2,
-    "GET /documents/:documentId/attachments": 1,
+    "POST /documents/:documentId/sync": 3,
+    "GET /documents/:documentId/attachments": 2,
     // With system bootstrap decoupled from Explorer startup, the upload path may
     // be the first writer to need the root container projection in this settled
     // test window.

@@ -81,12 +81,6 @@ without counting as lane progress, so it cannot hot-loop the pump.
   without that organization's auth context no pass could resolve them
   anyway, which is no worse than before and keeps every edit intact. An
   orphaned-documents surface in the explorer remains an open UX question.
-- Pre-existing pass-ordering gap (global, not orphan-specific): a document
-  whose remote was deleted while attachment uploads are still pending parks
-  as attachment failures — the pass aborts before the document sync request,
-  so the coded 404 that would destroy it (row 1) is never observed until the
-  uploads stop failing. Revalidating before attachment sync (or handling
-  coded 404s in attachment staging) would close it.
 - Resolved: access restoration now prunes stale `access_revoked` container
   sync tombstones server-side (`pruneRegainedAccessTombstones`, wired into
   the principal-policy transition and `container.grant` flows), so restores
