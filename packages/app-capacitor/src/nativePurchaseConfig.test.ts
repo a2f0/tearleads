@@ -88,17 +88,28 @@ test("iOS exposes a staging release configuration and shared scheme", async () =
   expect(project).toContain(
     "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.app.staging;",
   );
+  expect(project.match(/APP_DISPLAY_NAME = Tearleads;/g)).toHaveLength(2);
+  expect(
+    project.match(/APP_DISPLAY_NAME = "Tearleads Staging";/g),
+  ).toHaveLength(1);
   expect(scheme).toContain('buildConfiguration = "Release-Staging"');
 });
 
 test("Fastlane selects store identities from one shared release target", async () => {
-  const releaseTarget = await Bun.file(
-    resolve(packageRoot, "fastlane/native_release_target.rb"),
-  ).text();
+  const [releaseTarget, packageManifest] = await Promise.all([
+    Bun.file(resolve(packageRoot, "fastlane/native_release_target.rb")).text(),
+    Bun.file(resolve(packageRoot, "package.json")).json(),
+  ]);
 
   expect(releaseTarget).toContain("'com.tearleads.app'");
   expect(releaseTarget).toContain("'com.tearleads.app.staging'");
   expect(releaseTarget).toContain("ios_scheme: 'App-Staging'");
   expect(releaseTarget).toContain("android_build_variant: 'staging'");
   expect(releaseTarget).toContain("'cap:sync:staging'");
+  expect(packageManifest.scripts["cap:sync:debug"]).toContain(
+    "NATIVE_RELEASE_TIER=production",
+  );
+  expect(packageManifest.scripts["cap:sync:release"]).toContain(
+    "NATIVE_RELEASE_TIER=production",
+  );
 });

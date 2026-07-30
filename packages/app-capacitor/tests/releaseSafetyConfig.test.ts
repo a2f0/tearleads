@@ -13,6 +13,10 @@ const nativeReleaseTargetPath = resolve(
   repositoryRoot,
   "packages/app-capacitor/fastlane/native_release_target.rb",
 );
+const capacitorReleaseConfigPath = resolve(
+  repositoryRoot,
+  "packages/app-capacitor/fastlane/capacitor_release_config.rb",
+);
 
 async function runStoreKeyGuard(key: string, expectedPrefix: string) {
   const process = Bun.spawn(
@@ -54,6 +58,35 @@ async function readFastlaneKeyProblem(key: string, expectedPrefix: string) {
   ]);
   if (exitCode !== 0) {
     throw new Error(`Ruby key validation failed: ${stderr}`);
+  }
+  return stdout;
+}
+
+async function readCapacitorReleaseProblem(
+  appId: string,
+  expectedAppId: string,
+  serverUrl = "",
+) {
+  const process = Bun.spawn(
+    [
+      "ruby",
+      "-r",
+      capacitorReleaseConfigPath,
+      "-e",
+      "print(capacitor_release_problem({'appId' => ARGV.fetch(0), 'server' => {'url' => ARGV.fetch(2)}}, ARGV.fetch(1)) || 'ok')",
+      appId,
+      expectedAppId,
+      serverUrl,
+    ],
+    { stderr: "pipe", stdout: "pipe" },
+  );
+  const [exitCode, stderr, stdout] = await Promise.all([
+    process.exited,
+    new Response(process.stderr).text(),
+    new Response(process.stdout).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`Ruby Capacitor release validation failed: ${stderr}`);
   }
   return stdout;
 }
@@ -133,6 +166,9 @@ async function readNativeReleaseEnvironment(
     if (exitCode !== 0) {
       throw new Error(`Ruby native release target failed: ${stderr}`);
     }
+    if (stderr.includes("already initialized constant")) {
+      throw new Error(`Ruby native release target loaded twice: ${stderr}`);
+    }
     return JSON.parse(stdout) as NativeReleaseSnapshot;
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
@@ -143,6 +179,23 @@ async function buildNumberSelection(
   platform: "android" | "ios",
   option: string,
 ) {
+  const environment = { ...process.env };
+  for (const name of [
+    "ANDROID_BUILD_NUMBER",
+    "ANDROID_RELEASE_MERGED_DATE",
+    "ANDROID_RELEASE_MERGED_PR_NUMBER",
+    "ANDROID_RELEASE_NEXT_GOOGLE_PLAY",
+    "ANDROID_RELEASE_PR_NUMBER",
+    "ANDROID_VERSION_CODE",
+    "APPLE_BUILD_NUMBER",
+    "IOS_BUILD_NUMBER",
+    "IOS_RELEASE_MERGED_DATE",
+    "IOS_RELEASE_MERGED_PR_NUMBER",
+    "IOS_RELEASE_NEXT_TESTFLIGHT",
+    "IOS_RELEASE_PR_NUMBER",
+  ]) {
+    Reflect.deleteProperty(environment, name);
+  }
   const child = Bun.spawn(
     [
       "sh",
@@ -153,7 +206,7 @@ async function buildNumberSelection(
       platform,
       option,
     ],
-    { stderr: "pipe", stdout: "pipe" },
+    { env: environment, stderr: "pipe", stdout: "pipe" },
   );
   const [exitCode, stderr, stdout] = await Promise.all([
     child.exited,
@@ -235,6 +288,21 @@ describe("RevenueCat store-release safety", () => {
     await expect(readFastlaneKeyProblem("appl_example", "appl_")).resolves.toBe(
       "ok",
     );
+  });
+
+  test("Fastlane rejects a generated config for the wrong native target", async () => {
+    await expect(
+      readCapacitorReleaseProblem(
+        "com.tearleads.app",
+        "com.tearleads.app.staging",
+      ),
+    ).resolves.toContain('instead of "com.tearleads.app.staging"');
+    await expect(
+      readCapacitorReleaseProblem(
+        "com.tearleads.app.staging",
+        "com.tearleads.app.staging",
+      ),
+    ).resolves.toBe("ok");
   });
 
   test("staging imports only its allowlisted native public keys", async () => {

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require 'dotenv'
 require 'json'
 require 'shellwords'
+require_relative 'capacitor_release_config'
 require_relative 'native_release_target'
 require_relative 'revenuecat_release_key'
 
@@ -14,29 +14,23 @@ def load_store_secrets_env
   load_native_release_secrets_env
 end
 
-# Returns why a generated capacitor.config.json is not a shippable release
-# config, or nil when it is fully bundled. `cap run --live-reload` leaves a
+# `cap run --live-reload` leaves a
 # server.url pointing the WebView at a LAN dev server (e.g. 10.0.1.10:8085),
 # which shows "the webpage at <ip> is not available" once installed;
-# `cap:sync:release` clears it.
+# The tier-specific sync command restores both the expected app ID and a bundled
+# WebView configuration.
 #
 # CapacitorHttp is intentionally enabled on EVERY build (see capacitor.config.ts):
 # routing requests through native HTTP is what lets the release WebView reach the
 # API at all — the WKWebView's own cross-origin fetch from the app's
 # https://localhost origin fails. So `CapacitorHttp.enabled: true` is no longer a
-# debug-leftover signal and must not fail the release guard; only a stray
-# server.url does.
-def capacitor_release_problem(config)
-  server_url = config.dig('server', 'url').to_s
-  return "sets server.url=#{server_url} (usually a leftover live-reload URL)" unless server_url.empty?
-
-  nil
-end
+# debug-leftover signal and must not fail the release guard. A wrong app ID or a
+# stray server.url does.
 
 # Fails the build unless the native config at config_path is a fully bundled
 # release config. Shared by the Android and iOS release lanes.
 def ensure_bundled_release_capacitor_config!(config_path, label, sync_command)
-  problem = capacitor_release_problem(JSON.parse(File.read(config_path)))
+  problem = capacitor_release_problem(JSON.parse(File.read(config_path)), NATIVE_APP_IDENTIFIER)
   return if problem.nil?
 
   UI.user_error!(
