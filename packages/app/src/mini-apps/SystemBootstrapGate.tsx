@@ -1,4 +1,9 @@
-import { type PropsWithChildren, useMemo, useRef } from "react";
+import {
+  type PropsWithChildren,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import {
   MiniAppRoot,
   MiniAppSidebar,
@@ -34,11 +39,20 @@ import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstra
  */
 export function useSystemBootstrapBlocking(isBootstrapping: boolean): boolean {
   const hasRendered = useRef(false);
-  if (!isBootstrapping) {
-    hasRendered.current = true;
-  }
+  const blocking = isBootstrapping && !hasRendered.current;
 
-  return isBootstrapping && !hasRendered.current;
+  // Latched in an effect rather than during render, so only a render that
+  // actually committed counts as having shown the app. React may abandon a
+  // concurrent render, and latching there would let a later run through on the
+  // strength of a render the user never saw — waving past the one case this gate
+  // exists to catch.
+  useLayoutEffect(() => {
+    if (!blocking) {
+      hasRendered.current = true;
+    }
+  }, [blocking]);
+
+  return blocking;
 }
 
 export function SystemBootstrapGate({
