@@ -24,6 +24,23 @@
         "!**/.DS_Store"
       ]
     },
+    "app-capacitor#test": {
+      "dependsOn": ["^build", "//#test:architecture"],
+      "outputs": [],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/scripts/buildAndroidRelease.sh",
+        "$TURBO_ROOT$/scripts/buildIosRelease.sh",
+        "$TURBO_ROOT$/scripts/rejectDevOnlyUrl.sh",
+        "$TURBO_ROOT$/scripts/uploadAndroidRelease.sh",
+        "$TURBO_ROOT$/scripts/uploadIosRelease.sh",
+        "!.turbo/**",
+        "!dist/**",
+        "!pkg/**",
+        "!**/*.tsbuildinfo",
+        "!**/.DS_Store"
+      ]
+    },
     "e2e": {
       "dependsOn": ["^build"],
       "outputs": [],

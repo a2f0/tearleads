@@ -102,7 +102,9 @@ Before testing the real Apple purchase sheet:
    import the product. Attach it to `$rc_monthly` in the current `default`
    offering and to the `sync` entitlement.
 3. Keep `VITE_REVENUECAT_IOS_API_KEY` set to that Apple app's public `appl_...`
-   key. The Xcode target declares In-App Purchase and Swift 5.
+   key. The Xcode project records the In-App Purchase capability and Swift 5;
+   StoreKit does not use a code-signing entitlement for in-app purchases, so
+   App Store Connect and RevenueCat configuration remain authoritative.
 4. Create an App Store Connect sandbox tester. Run from Xcode on a device, or
    use TestFlight; use the sandbox account when StoreKit prompts.
 5. Repeat the purchase/cancel/restore checks above and confirm the transaction
@@ -189,8 +191,8 @@ webhook secret.
 ## Not yet decided
 
 The native lane can observe and mirror entitlements today, but what it *sells*
-is unrecorded — there is no store product, no RevenueCat offering, and no seat
-semantics for a store purchase. Until that is settled:
+is unrecorded — there is no Apple/Google store product and no seat semantics for
+a store purchase. Until that is settled:
 
 - A store subscription carries no quantity. Stripe is the seat-quantity authority
   for web (see [revenuecat-billing.md](./revenuecat-billing.md#per-seat-behavior)),

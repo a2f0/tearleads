@@ -12,6 +12,7 @@ test("Android can resume a purchase after external payment verification", async 
     .match(/<activity\b[\s\S]*?<\/activity>/g)
     ?.find((activity) => activity.includes('android:name=".MainActivity"'));
 
+  expect(mainActivity).toBeDefined();
   expect(mainActivity).toContain('android:launchMode="singleTop"');
 });
 
