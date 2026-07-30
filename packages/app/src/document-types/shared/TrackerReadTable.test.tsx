@@ -280,3 +280,19 @@ test("a half-recorded reading sorts last in both directions", () => {
   fireEvent.click(view.getByRole("button", { name: "Reading" }));
   expect(readings()).toEqual(["120/80 mmHg", "110/70 mmHg", "120/— mmHg"]);
 });
+
+test("a preference stored before the ordinal was hidden does not resurrect it", () => {
+  // A stored hidden set is the whole set, not a diff from the defaults, so it
+  // wins outright. Anyone who had opened the columns menu under the previous
+  // version carries a set that never mentions the ordinal — which, read against
+  // the new defaults, would show the very column those defaults hide. Versioning
+  // the key is what retires it.
+  globalThis.localStorage.setItem(
+    "tearleads.blood-pressure.readings:hidden-columns",
+    JSON.stringify(["updated"]),
+  );
+  const view = renderReadTable();
+
+  expect(view.queryByRole("columnheader", { name: "#" })).toBeNull();
+  expect(view.getByRole("columnheader", { name: "Reading" })).toBeTruthy();
+});

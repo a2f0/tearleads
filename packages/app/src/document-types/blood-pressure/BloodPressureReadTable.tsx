@@ -104,7 +104,7 @@ export function BloodPressureReadTable(params: {
         actionsLabel="Actions"
         ariaLabel="Readings"
         columns={columns}
-        columnStorageKey="tearleads.blood-pressure.readings:hidden-columns"
+        columnStorageKey="tearleads.blood-pressure.readings:hidden-columns:v2"
         defaultSortColumnId="ordinal"
         emptyLabel="No readings"
         renderActions={(row) => (
