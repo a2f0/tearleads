@@ -193,7 +193,7 @@ test("toolbar action is disabled while the document is loading", async () => {
   });
 });
 
-test("read mode renders formatted weights, change, and attribution", () => {
+test("read mode renders formatted weights and change", () => {
   const view = renderWeightFields({
     currentAuthorId: "user-alice",
     isEditing: false,
@@ -203,12 +203,12 @@ test("read mode renders formatted weights, change, and attribution", () => {
   expect(view.queryByText("New Entry Unit")).toBeNull();
   expect(view.getByText("180.5 lb")).toBeTruthy();
   expect(view.getByText("179 lb")).toBeTruthy();
-  // The first entry has nothing to compare against; the second dropped 1.5 lb.
-  expect(view.getByText("—")).toBeTruthy();
+  // The first entry has nothing to compare against; the second dropped 1.5 lb
+  // and carries no note — two em-dashed cells in all.
+  expect(view.getAllByText("—")).toHaveLength(2);
   expect(view.getByText("−1.5 lb")).toBeTruthy();
   expect(view.getByText("2026-07-16 08:30")).toBeTruthy();
   expect(view.getByText("Before breakfast")).toBeTruthy();
-  expect(view.getByText("Updated 2026-07-16 08:30 by you")).toBeTruthy();
   expect(view.queryByLabelText("Weight tracker name")).toBeNull();
 });
 
@@ -232,9 +232,10 @@ test("read mode tolerates missing entry values", () => {
     isEditing: false,
   });
 
-  // Weight and measured time both fall back to None; the change is omitted.
+  // Weight and measured time fall back to None; the change and the note have
+  // nothing to report at all.
   expect(view.getAllByText("None")).toHaveLength(2);
-  expect(view.getByText("—")).toBeTruthy();
+  expect(view.getAllByText("—")).toHaveLength(2);
 });
 
 test("read mode leaves the tracker name to the document title bar", () => {
@@ -326,7 +327,7 @@ test("quick add rejects invalid weights and cancel clears the draft", () => {
 
 test("entry count follows the rows", () => {
   const view = renderWeightFields({ isEditing: false });
-  const rows = view.container.querySelectorAll(".weight-entry-read-row");
+  const rows = view.container.querySelectorAll(".tracker-read-table-row");
   const footer = view.container.querySelector(".weight-entry-list-footer");
   expect(footer).not.toBeNull();
   const position =

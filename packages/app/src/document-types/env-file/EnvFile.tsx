@@ -24,6 +24,7 @@ import {
   type UpdateEnvVariable,
 } from "./EnvFileEditRow";
 import { EnvFileQuickAdd, type EnvFileQuickVariable } from "./EnvFileQuickAdd";
+import { EnvFileReadTable } from "./EnvFileReadTable";
 import { EnvFileVariableReadRow } from "./EnvFileVariableReadRow";
 import {
   ENV_FILE_DOCUMENT_KIND,
@@ -75,19 +76,16 @@ function EnvFileReadFields(params: {
             onPendingChange={onPendingChange}
           />
         ) : null}
-        {variables.length === 0 && !entryPending ? (
-          <div className="tracker-empty-state">No variables</div>
-        ) : (
-          variables.map((variable, index) => (
-            <EnvFileVariableReadRow
-              key={variable.id}
-              currentAuthorId={currentAuthorId}
-              index={index}
-              onEnterEdit={entryPending ? undefined : onEnterEdit}
-              resolveRowWriter={resolveRowWriter}
-              variable={variable}
-            />
-          ))
+        {/* A variable being typed into the expanded quick-add form is the whole
+            of the list's business until it is saved, so the (empty) table stays
+            out of the way rather than heading it with a "no variables" row. */}
+        {variables.length === 0 && entryPending ? null : (
+          <EnvFileReadTable
+            currentAuthorId={currentAuthorId}
+            onEnterEdit={entryPending ? undefined : onEnterEdit}
+            resolveRowWriter={resolveRowWriter}
+            variables={variables}
+          />
         )}
         <div className="tracker-entry-list-footer">
           {variables.length} entries

@@ -1,4 +1,6 @@
 import type { DocumentRow } from "@tearleads/client-sdk";
+import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
+import type { RowDetailField } from "../shared/DocumentRowDetail";
 import {
   ENV_FILE_VARIABLE_KEY_FIELD,
   ENV_FILE_VARIABLE_VALUE_FIELD,
@@ -73,4 +75,28 @@ export function getEnvFileVariableReadValue(
   }
 
   return `${ENV_FILE_MASKED_VALUE_PREFIX}${variable.value.slice(-ENV_FILE_VISIBLE_VALUE_LENGTH)}`;
+}
+
+// The per-field rows for a variable's drill-down, each with the verified writer
+// of its current value (null when the cell's editor is unknown, e.g. attribution
+// not yet synced). The detail stays masked: revealing a value is an explicit,
+// local action.
+export function toEnvVariableDetailFields(
+  variable: EnvVariableRow,
+  resolveRowWriter?: RowWriterResolver | undefined,
+): RowDetailField[] {
+  const fieldWriter = (field: string): string | null =>
+    resolveRowWriter?.(variable.fieldEditors[field] ?? null) ?? null;
+  return [
+    {
+      label: "Key",
+      value: variable.key,
+      writerUserId: fieldWriter(ENV_FILE_VARIABLE_KEY_FIELD),
+    },
+    {
+      label: "Value",
+      value: getEnvFileVariableReadValue(variable),
+      writerUserId: fieldWriter(ENV_FILE_VARIABLE_VALUE_FIELD),
+    },
+  ];
 }

@@ -28,6 +28,7 @@ import {
   type BloodPressureQuickReading,
 } from "./BloodPressureQuickAdd";
 import { BloodPressureReadingReadRow } from "./BloodPressureReadRow";
+import { BloodPressureReadTable } from "./BloodPressureReadTable";
 import {
   BLOOD_PRESSURE_DIASTOLIC_FIELD,
   BLOOD_PRESSURE_DOCUMENT_KIND,
@@ -75,19 +76,16 @@ function BloodPressureReadFields(params: {
             onPendingChange={onPendingChange}
           />
         ) : null}
-        {readings.length === 0 && !entryPending ? (
-          <div className="tracker-empty-state">No readings</div>
-        ) : (
-          readings.map((reading, index) => (
-            <BloodPressureReadingReadRow
-              key={reading.id}
-              currentAuthorId={currentAuthorId}
-              index={index}
-              onEnterEdit={entryPending ? undefined : onEnterEdit}
-              reading={reading}
-              resolveRowWriter={resolveRowWriter}
-            />
-          ))
+        {/* A reading being typed into the expanded quick-add form is the whole
+            of the list's business until it is saved, so the (empty) table stays
+            out of the way rather than heading it with a "no readings" row. */}
+        {readings.length === 0 && entryPending ? null : (
+          <BloodPressureReadTable
+            currentAuthorId={currentAuthorId}
+            onEnterEdit={entryPending ? undefined : onEnterEdit}
+            readings={readings}
+            resolveRowWriter={resolveRowWriter}
+          />
         )}
         <div className="blood-pressure-reading-list-footer tracker-entry-list-footer">
           {readings.length} entries

@@ -1,0 +1,57 @@
+/*
+ * Sort controls for a mini-app list table: a per-column header button on a wide
+ * table, and the single select menu those buttons collapse into once the table
+ * folds to one summary column. Shared so the explorer's container listing, the
+ * blob browser, and the tracker index tables sort with the same chrome.
+ */
+.mini-app-table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mini-app-table-sort-button span {
+  display: inline;
+}
+
+.mini-app-table-sort-button:hover,
+.mini-app-table-sort-button:focus-visible {
+  text-decoration: underline;
+}
+
+.mini-app-table-sort-indicator {
+  flex-shrink: 0;
+  width: 0.65rem;
+  opacity: var(--opacity-muted);
+  text-align: center;
+}
+
+/* Touch: the column sort control lives in the sticky (non-virtualized) table
+   header, so it can grow to a 44px tap height. */
+:root[data-navigation-mode="routed"] .mini-app-table-sort-button {
+  min-height: var(--control-height);
+}
+
+/* Folded header: the per-column sort buttons collapse into one select menu,
+   styled as a header label rather than as a button. */
+.mini-app-compact-sort-menu {
+  width: min(12rem, 100%);
+}
+
+.mini-app-compact-sort-menu .mini-app-button.mini-app-select-menu-trigger {
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0;
+  border: 0;
+  font-weight: inherit;
+}

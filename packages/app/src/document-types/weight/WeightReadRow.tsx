@@ -1,55 +1,22 @@
 import { useState } from "react";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
-import {
-  DocumentRowDetailOverlay,
-  type RowDetailField,
-} from "../shared/DocumentRowDetail";
+import { DocumentRowDetailOverlay } from "../shared/DocumentRowDetail";
 import { formatRowAttribution } from "../shared/rowAttribution";
 import { TrackerReadActions } from "../shared/TrackerReadActions";
 import "../shared/TrackerFormControls.css";
 import {
-  WEIGHT_MEASURED_AT_FIELD,
-  WEIGHT_MEASUREMENT_FIELD,
-  WEIGHT_NOTES_FIELD,
-} from "./weightDocumentDefinition";
-import {
   formatMeasuredAt,
   formatWeight,
   formatWeightChange,
+  toWeightEntryDetailFields,
   type WeightEntryRow,
 } from "./weightEntries";
 
-// Build the per-field attribution rows for the drill-down. Each cell's verified
-// writer is resolved from its last-editor peer; null when unknown (attribution
-// not synced) so the overlay can omit it.
-function toEntryDetailFields(
-  entry: WeightEntryRow,
-  resolveRowWriter?: RowWriterResolver | undefined,
-): RowDetailField[] {
-  const fieldWriter = (field: string): string | null =>
-    resolveRowWriter?.(entry.fieldEditors[field] ?? null) ?? null;
-  return [
-    {
-      label: "Weight",
-      value: formatWeight(entry),
-      writerUserId: fieldWriter(WEIGHT_MEASUREMENT_FIELD),
-    },
-    {
-      label: "Measured at",
-      value: formatMeasuredAt(entry),
-      writerUserId: fieldWriter(WEIGHT_MEASURED_AT_FIELD),
-    },
-    {
-      label: "Notes",
-      value: entry.notes,
-      writerUserId: fieldWriter(WEIGHT_NOTES_FIELD),
-    },
-  ];
-}
-
-// A single entry in read mode: the weight and how it moved since the previous
-// entry, a kebab that opens a small actions menu (Edit / Attribution), and the
-// row's last-edit attribution line.
+// One saved entry as a card, which is how the editor collapses a row the user has
+// finished with: the weight and how it moved since the previous entry, a kebab
+// that opens a small actions menu (Edit / Attribution), and the row's last-edit
+// attribution line. Read mode presents the same entries as a sortable table
+// instead — see WeightReadTable.
 export function WeightEntryReadRow(params: {
   currentAuthorId: string | null;
   entry: WeightEntryRow;
@@ -78,7 +45,7 @@ export function WeightEntryReadRow(params: {
     updatedBy,
   });
   const change = formatWeightChange(entry, previous);
-  const detailFields = toEntryDetailFields(entry, resolveRowWriter);
+  const detailFields = toWeightEntryDetailFields(entry, resolveRowWriter);
 
   return (
     <>
