@@ -71,7 +71,7 @@ test("Capacitor pins production identity and rejects unknown release tiers", asy
     const environment = { ...process.env };
     Reflect.deleteProperty(environment, "NATIVE_RELEASE_TIER");
     if (tier !== null) {
-      environment.NATIVE_RELEASE_TIER = tier;
+      Object.assign(environment, { NATIVE_RELEASE_TIER: tier });
     }
     const child = Bun.spawn(
       [
