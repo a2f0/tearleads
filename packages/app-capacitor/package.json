@@ -30,6 +30,7 @@
     "ios:fetch:appstore-profile": "bundle exec fastlane ios fetch_appstore_profile",
     "ios:fetch:appstore-profile:staging": "NATIVE_RELEASE_TIER=staging bundle exec fastlane ios fetch_appstore_profile",
     "store:build-numbers": "bundle exec fastlane store_build_numbers",
+    "store:build-numbers:staging": "NATIVE_RELEASE_TIER=staging bundle exec fastlane store_build_numbers",
     "lint:rubocop": "bundle exec rubocop",
     "test": "bun test src tests --pass-with-no-tests"
   },

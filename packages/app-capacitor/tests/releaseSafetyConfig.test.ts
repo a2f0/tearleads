@@ -35,8 +35,7 @@ async function runStoreKeyGuard(key: string, expectedPrefix: string) {
 async function readFastlaneKeyProblem(
   key: string,
   expectedPrefix: string,
-  disallowedValue = "",
-  comparisonRequired = false,
+  productionValue = "",
   releaseTier: "production" | "staging" = "staging",
 ) {
   const process = Bun.spawn(
@@ -45,11 +44,10 @@ async function readFastlaneKeyProblem(
       "-r",
       fastlaneGuardPath,
       "-e",
-      "print(revenuecat_store_key_problem(ARGV.fetch(0), ARGV.fetch(1), ARGV.fetch(2), comparison_required: ARGV.fetch(3) == 'true', release_tier: ARGV.fetch(4)) || 'ok')",
+      "print(revenuecat_store_key_problem(ARGV.fetch(0), ARGV.fetch(1), production_value: ARGV.fetch(2), release_tier: ARGV.fetch(3)) || 'ok')",
       key,
       expectedPrefix,
-      disallowedValue,
-      String(comparisonRequired),
+      productionValue,
       releaseTier,
     ],
     { stderr: "pipe", stdout: "pipe" },
@@ -158,19 +156,21 @@ async function nativeDefaultApi(tier: "production" | "staging") {
   return stdout.trim();
 }
 
-async function runCrossTierApiGuard(
+async function runCrossTierUrlGuard(
+  name: "VITE_API_BASE_URL" | "VITE_WS_URL",
   tier: "production" | "staging",
-  apiUrl: string,
+  url: string,
 ) {
   const child = Bun.spawn(
     [
       "sh",
       "-c",
-      '. "$1"; native_release_reject_cross_tier_api "$2" "$3"',
+      '. "$1"; native_release_reject_cross_tier_url "$2" "$3" "$4"',
       "sh",
       resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+      name,
       tier,
-      apiUrl,
+      url,
     ],
     { stderr: "pipe" },
   );
@@ -227,26 +227,31 @@ describe("RevenueCat store-release safety", () => {
     await expect(readFastlaneKeyProblem("goog_example", "appl_")).resolves.toBe(
       "must start with appl_",
     );
-    await expect(readFastlaneKeyProblem("appl_example", "appl_")).resolves.toBe(
-      "ok",
-    );
+    await expect(
+      readFastlaneKeyProblem(
+        "appl_example",
+        "appl_",
+        "appl_example",
+        "production",
+      ),
+    ).resolves.toBe("ok");
     await expect(
       readFastlaneKeyProblem("appl_production", "appl_", "appl_production"),
     ).resolves.toContain("matches the production key");
     await expect(
-      readFastlaneKeyProblem("appl_staging", "appl_", "", true),
+      readFastlaneKeyProblem("appl_staging", "appl_"),
     ).resolves.toContain("production key is unavailable");
     await expect(
       readFastlaneKeyProblem(
         "appl_staging",
         "appl_",
-        "appl_staging",
-        false,
+        "appl_production",
         "production",
       ),
-    ).resolves.toContain(
-      "matches the staging key and cannot be used for production",
-    );
+    ).resolves.toContain("does not match the production key");
+    await expect(
+      readFastlaneKeyProblem("appl_production", "appl_", "", "production"),
+    ).resolves.toContain("production key is unavailable");
   });
 
   test("Fastlane rejects a generated config for the wrong native target", async () => {
@@ -300,6 +305,7 @@ describe("RevenueCat store-release safety", () => {
     expect(normalizedScript).toContain(
       `reject_invalid_revenuecat_store_key VITE_REVENUECAT_IOS_API_KEY "\${VITE_REVENUECAT_IOS_API_KEY:-}" appl_`,
     );
+    expect(script).toContain('export NATIVE_RELEASE_TIER="$native_tier"');
   });
 
   test("native API defaults are tier-specific", async () => {
@@ -319,13 +325,22 @@ describe("RevenueCat store-release safety", () => {
       "https://api.tearleads.com/v1",
     ];
     const stagingWrong = await Promise.all(
-      stagingWrongUrls.map((url) => runCrossTierApiGuard("staging", url)),
+      stagingWrongUrls.map((url) =>
+        runCrossTierUrlGuard("VITE_API_BASE_URL", "staging", url),
+      ),
     );
-    const productionWrong = await runCrossTierApiGuard(
+    const productionWrong = await runCrossTierUrlGuard(
+      "VITE_API_BASE_URL",
       "production",
       "https://api.tearleads.de",
     );
-    const stagingCorrect = await runCrossTierApiGuard(
+    const stagingSocketWrong = await runCrossTierUrlGuard(
+      "VITE_WS_URL",
+      "staging",
+      "wss://api.tearleads.com/v1/events",
+    );
+    const stagingCorrect = await runCrossTierUrlGuard(
+      "VITE_API_BASE_URL",
       "staging",
       "https://api.tearleads.de",
     );
@@ -336,6 +351,8 @@ describe("RevenueCat store-release safety", () => {
     }
     expect(productionWrong.exitCode).toBe(1);
     expect(productionWrong.stderr).toContain("other release tier");
+    expect(stagingSocketWrong.exitCode).toBe(1);
+    expect(stagingSocketWrong.stderr).toContain("VITE_WS_URL");
     expect(stagingCorrect.exitCode).toBe(0);
   });
 
@@ -383,16 +400,16 @@ describe("RevenueCat store-release safety", () => {
     expect(androidLoadIndex).toBeGreaterThan(-1);
     expect(androidGuardIndex).toBeGreaterThan(androidLoadIndex);
     expect(androidFastfile).toContain(
-      "native_release_disallowed_store_key('VITE_REVENUECAT_ANDROID_API_KEY')",
+      "native_release_production_store_key('VITE_REVENUECAT_ANDROID_API_KEY')",
     );
-    expect(androidFastfile).toContain("NATIVE_RELEASE_TIER == 'staging'");
+    expect(androidFastfile).toContain("production_value:");
     expect(androidFastfile).toContain("release_tier: NATIVE_RELEASE_TIER");
     expect(iosLoadIndex).toBeGreaterThan(-1);
     expect(iosGuardIndex).toBeGreaterThan(iosLoadIndex);
     expect(iosFastfile).toContain(
-      "native_release_disallowed_store_key('VITE_REVENUECAT_IOS_API_KEY')",
+      "native_release_production_store_key('VITE_REVENUECAT_IOS_API_KEY')",
     );
-    expect(iosFastfile).toContain("NATIVE_RELEASE_TIER == 'staging'");
+    expect(iosFastfile).toContain("production_value:");
     expect(iosFastfile).toContain("release_tier: NATIVE_RELEASE_TIER");
   });
 });

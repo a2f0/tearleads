@@ -106,6 +106,9 @@ set this automatically:
 ./scripts/uploadIosStagingRelease.sh
 ```
 
+Query both staging stores without building with
+`bun run --cwd packages/app-capacitor store:build-numbers:staging`.
+
 Create separate RevenueCat Apple and Google apps with that platform identifier,
 then set their public keys in `.secrets/staging.env` as
 `VITE_REVENUECAT_IOS_API_KEY` and `VITE_REVENUECAT_ANDROID_API_KEY`. Fastlane
@@ -117,10 +120,10 @@ release guard before the store build begins. The production key must remain in
 `root.env`; without that comparison baseline, staging also fails closed. Staging
 may override the shared `VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses
 a different entitlement identifier. Production releases likewise reject the
-corresponding platform key from `staging.env` when it is configured. The
-allowlist controls dotenv imports only; callers remain responsible for variables
-they export explicitly. Add any future
-root `VITE_*` setting that staging must inherit intentionally to
+resolved platform key unless it exactly matches the production value in
+`root.env`. The allowlist controls dotenv imports only; callers remain
+responsible for variables they export explicitly. Add any future root `VITE_*`
+setting that staging must inherit intentionally to
 `NATIVE_SHARED_VITE_ENV_NAMES`; otherwise it is stripped from staging dotenv
 imports.
 
@@ -130,8 +133,8 @@ the public SDK keys bundled into the native clients.
 
 The wrappers set their public API default before Fastlane loads dotenv files.
 Export `VITE_API_BASE_URL` explicitly when overriding the default; the release
-guard rejects an API host belonging to the other tier. Do not put that override
-in `.secrets/staging.env`.
+guard rejects API and WebSocket hosts belonging to the other tier. Do not put
+that override in `.secrets/staging.env`.
 
 ## Apple sandbox / TestFlight
 

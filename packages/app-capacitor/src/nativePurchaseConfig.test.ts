@@ -239,4 +239,7 @@ test("Fastlane selects store identities from one shared release target", async (
       "NATIVE_RELEASE_TIER=production",
     );
   }
+  expect(packageManifest.scripts["store:build-numbers:staging"]).toContain(
+    "NATIVE_RELEASE_TIER=staging",
+  );
 });

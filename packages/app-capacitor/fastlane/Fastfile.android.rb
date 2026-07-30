@@ -443,8 +443,7 @@ platform :android do
     ensure_revenuecat_store_key!(
       'VITE_REVENUECAT_ANDROID_API_KEY',
       'goog_',
-      native_release_disallowed_store_key('VITE_REVENUECAT_ANDROID_API_KEY'),
-      comparison_required: NATIVE_RELEASE_TIER == 'staging',
+      production_value: native_release_production_store_key('VITE_REVENUECAT_ANDROID_API_KEY'),
       release_tier: NATIVE_RELEASE_TIER
     )
     release_build = next_android_release_build_number(options)

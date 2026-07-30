@@ -1,24 +1,21 @@
 # frozen_string_literal: true
 
-def revenuecat_key_comparison_problem(key, disallowed_value, comparison_required, release_tier)
-  other_tier = release_tier == 'staging' ? 'production' : 'staging'
-  disallowed_key = disallowed_value.to_s.strip
-  if comparison_required && disallowed_key.empty?
-    return "cannot verify #{release_tier} isolation because the #{other_tier} key is unavailable"
-  end
+def revenuecat_key_identity_problem(key, production_value, release_tier)
+  production_key = production_value.to_s.strip
+  return "cannot verify #{release_tier} isolation because the production key is unavailable" if production_key.empty?
 
-  keys_match = !disallowed_key.empty? && key == disallowed_key
-  return nil unless keys_match
+  keys_match = key == production_key
+  return 'does not match the production key' if release_tier == 'production' && !keys_match
+  return 'matches the production key and cannot be used for staging' if release_tier == 'staging' && keys_match
 
-  "matches the #{other_tier} key and cannot be used for #{release_tier}"
+  nil
 end
 
 def revenuecat_store_key_problem(
   value,
   expected_prefix,
-  disallowed_value = nil,
-  release_tier:,
-  comparison_required: false
+  production_value:,
+  release_tier:
 )
   key = value.to_s.strip
   return 'is missing' if key.empty?
@@ -26,7 +23,7 @@ def revenuecat_store_key_problem(
   valid_platform_key = key.start_with?(expected_prefix) && key.length > expected_prefix.length
   return "must start with #{expected_prefix}" unless valid_platform_key
 
-  revenuecat_key_comparison_problem(key, disallowed_value, comparison_required, release_tier)
+  revenuecat_key_identity_problem(key, production_value, release_tier)
 end
 
 def revenuecat_store_key_error_message(env_name, problem)
@@ -36,15 +33,13 @@ end
 def ensure_revenuecat_store_key!(
   env_name,
   expected_prefix,
-  disallowed_value = nil,
-  release_tier:,
-  comparison_required: false
+  production_value:,
+  release_tier:
 )
   problem = revenuecat_store_key_problem(
     ENV.fetch(env_name, nil),
     expected_prefix,
-    disallowed_value,
-    comparison_required:,
+    production_value:,
     release_tier:
   )
   return if problem.nil?

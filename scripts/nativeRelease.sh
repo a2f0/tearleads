@@ -110,21 +110,23 @@ native_release_url_host() {
   printf '%s\n' "$native_url_host" | tr '[:upper:]' '[:lower:]'
 }
 
-native_release_reject_cross_tier_api() {
-  native_api_guard_tier="$1"
-  native_api_guard_host="$(native_release_url_host "$2")"
-  if [ "$native_api_guard_tier" = staging ]; then
-    native_api_guard_disallowed_url="$(native_release_default_api production)"
+native_release_reject_cross_tier_url() {
+  native_url_guard_name="$1"
+  native_url_guard_tier="$2"
+  native_url_guard_value="$3"
+  native_url_guard_host="$(native_release_url_host "$native_url_guard_value")"
+  if [ "$native_url_guard_tier" = staging ]; then
+    native_url_guard_disallowed_url="$(native_release_default_api production)"
   else
-    native_api_guard_disallowed_url="$(native_release_default_api staging)"
+    native_url_guard_disallowed_url="$(native_release_default_api staging)"
   fi
-  native_api_guard_disallowed_host="$(native_release_url_host "$native_api_guard_disallowed_url")"
-  if [ "$native_api_guard_host" != "$native_api_guard_disallowed_host" ]; then
+  native_url_guard_disallowed_host="$(native_release_url_host "$native_url_guard_disallowed_url")"
+  if [ "$native_url_guard_host" != "$native_url_guard_disallowed_host" ]; then
     return 0
   fi
 
-  echo "Error: VITE_API_BASE_URL=$2 points the $native_api_guard_tier app at the other release tier." >&2
-  echo "Unset VITE_API_BASE_URL (or set it to the selected tier's API) and re-run." >&2
+  echo "Error: $native_url_guard_name=$native_url_guard_value points the $native_url_guard_tier app at the other release tier." >&2
+  echo "Unset $native_url_guard_name (or set it to the selected tier's service) and re-run." >&2
   return 1
 }
 
@@ -135,8 +137,9 @@ native_release_guard_environment() {
 
   export VITE_API_BASE_URL="${VITE_API_BASE_URL:-$native_default_api}"
   reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
-  native_release_reject_cross_tier_api "$native_tier" "$VITE_API_BASE_URL"
+  native_release_reject_cross_tier_url VITE_API_BASE_URL "$native_tier" "$VITE_API_BASE_URL"
   reject_dev_only_url VITE_WS_URL "${VITE_WS_URL:-}"
+  native_release_reject_cross_tier_url VITE_WS_URL "$native_tier" "${VITE_WS_URL:-}"
 
   if [ "$native_platform" = android ]; then
     reject_invalid_revenuecat_store_key \

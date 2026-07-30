@@ -17,7 +17,7 @@ environment_names = %w[
 print JSON.generate(
   androidBuildVariant: NATIVE_RELEASE_TARGET.fetch(:android_build_variant),
   appIdentifier: NATIVE_APP_IDENTIFIER,
-  disallowedIosStoreKey: native_release_disallowed_store_key('VITE_REVENUECAT_IOS_API_KEY'),
+  productionIosStoreKey: native_release_production_store_key('VITE_REVENUECAT_IOS_API_KEY'),
   environment: environment_names.to_h { |name| [name, ENV.fetch(name, nil)] },
   iosConfiguration: NATIVE_RELEASE_TARGET.fetch(:ios_configuration),
   iosScheme: NATIVE_RELEASE_TARGET.fetch(:ios_scheme)
