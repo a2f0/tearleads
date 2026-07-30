@@ -8,7 +8,7 @@ android {
         buildConfig true
     }
     defaultConfig {
-        applicationId "com.tearleads.app"
+        applicationId "com.tearleads"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode configuredVersionCode()
@@ -29,7 +29,11 @@ android {
         }
     }
     buildTypes {
+        debug {
+            applicationIdSuffix ".app"
+        }
         release {
+            applicationIdSuffix ".app"
             signingConfig hasReleaseKeystore() ? signingConfigs.release : signingConfigs.debug
             minifyEnabled true
             shrinkResources true
@@ -38,7 +42,7 @@ android {
         }
         staging {
             initWith release
-            applicationIdSuffix ".staging"
+            applicationIdSuffix ".staging.app"
             matchingFallbacks = ['release']
         }
     }

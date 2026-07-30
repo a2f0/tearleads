@@ -93,7 +93,7 @@ platform-specific public key in store builds.
 
 ## Dedicated staging store apps
 
-The native staging apps use `com.tearleads.app.staging` on both platforms so
+The native staging apps use `com.tearleads.staging.app` on both platforms so
 they can coexist with production and keep sandbox store history isolated. The
 Android `staging` build variant and the iOS `App-Staging` / `Release-Staging`
 pair are selected by `NATIVE_RELEASE_TIER=staging`; the staging release wrappers
@@ -115,13 +115,13 @@ the apps, not their signing key.
 One-time store setup is still required; the release lanes are intentionally
 readonly for signing and store records:
 
-1. Register `com.tearleads.app.staging` in Apple Developer and create its App
+1. Register `com.tearleads.staging.app` in Apple Developer and create its App
    Store Connect app record with the In-App Purchase capability.
 2. Use the team's match administration workflow to create and commit an App
-   Store distribution profile for `com.tearleads.app.staging`. The repo's
+   Store distribution profile for `com.tearleads.staging.app`. The repo's
    `ios:fetch:appstore-profile:staging` lane only verifies/fetches it with
    `readonly: true`; it cannot generate a missing profile.
-3. Create the `com.tearleads.app.staging` Play Console app, grant the configured
+3. Create the `com.tearleads.staging.app` Play Console app, grant the configured
    Google Play service account access, and create an internal testing track.
 4. Create the corresponding Apple and Google apps in RevenueCat and connect
    their store credentials before adding the public SDK keys below.

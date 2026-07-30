@@ -123,8 +123,10 @@ test("Android staging inherits the production release signing variant", async ()
     /release\s*\{[\s\S]*?signingConfig hasReleaseKeystore\(\) \? signingConfigs\.release : signingConfigs\.debug/,
   );
   expect(gradle).toMatch(/staging\s*\{[\s\S]*?initWith release/);
-  expect(gradle).toContain('applicationIdSuffix ".staging"');
-  expect(stagingStrings).toContain("com.tearleads.app.staging");
+  expect(gradle).toContain('applicationId "com.tearleads"');
+  expect(gradle).toContain('applicationIdSuffix ".app"');
+  expect(gradle).toContain('applicationIdSuffix ".staging.app"');
+  expect(stagingStrings).toContain("com.tearleads.staging.app");
   expect(stagingStrings).toContain("Tearleads Staging");
 });
 
@@ -173,8 +175,8 @@ test("Capacitor pins production identity and rejects unknown release tiers", asy
   const staging = await readNativeIdentity(" Staging ");
   expect(staging.exitCode).toBe(0);
   expect(parseNativeIdentity(staging.stdout)).toEqual({
-    appId: "com.tearleads.app.staging",
-    iosKeychainPrefix: "com.tearleads.app.staging",
+    appId: "com.tearleads.staging.app",
+    iosKeychainPrefix: "com.tearleads.staging.app",
   });
   const unknown = await readNativeIdentity("preview");
   expect(unknown.exitCode).not.toBe(0);
@@ -197,7 +199,7 @@ test("iOS exposes a staging release configuration and shared scheme", async () =
 
   expect(project).toContain("Release-Staging");
   expect(project).toContain(
-    "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.app.staging;",
+    "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.staging.app;",
   );
   const targetBuildSettings = Array.from(
     project.matchAll(
@@ -261,7 +263,7 @@ test("iOS staging release settings stay aligned with production", async () => {
   );
   expect(targetStaging).toContain('APP_DISPLAY_NAME = "Tearleads Staging";');
   expect(targetStaging).toContain(
-    "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.app.staging;",
+    "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.staging.app;",
   );
 });
 
@@ -273,7 +275,7 @@ test("Fastlane selects store identities from one shared release target", async (
   const scripts = packageScripts(packageManifestValue);
 
   expect(releaseTarget).toContain("'com.tearleads.app'");
-  expect(releaseTarget).toContain("'com.tearleads.app.staging'");
+  expect(releaseTarget).toContain("'com.tearleads.staging.app'");
   expect(releaseTarget).toContain("ios_scheme: 'App-Staging'");
   expect(releaseTarget).toContain("android_build_variant: 'staging'");
   expect(releaseTarget).toContain("'cap:sync:staging'");
