@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createDocumentStore } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
+import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { cloneDocumentsTestRuntime } from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createSyncRuntime } from "../../../../test/helpers/document-store/documentStoreSyncRuntime";
@@ -47,16 +48,18 @@ async function createStoreWithPendingAttachment(localId: string) {
 }
 
 function createSyncFailureRuntime(input: {
-  attachmentProjectionCalls: string[];
+  blobStageCalls: number[];
   code?: string | undefined;
   offlineRuntime: Awaited<ReturnType<typeof createSyncRuntime>>;
   reportedErrors: string[];
+  status?: number | undefined;
   syncResultCalls: string[];
 }) {
+  const status = input.status ?? 404;
   return cloneDocumentsTestRuntime(input.offlineRuntime, {
     apiClient: createMockApiClient({
-      getDocumentWriterProjection: async (documentId) => {
-        input.attachmentProjectionCalls.push(documentId);
+      initiateMultipartBlobStage: async () => {
+        input.blobStageCalls.push(1);
         return null;
       },
       syncDocumentResult: async (documentId) => {
@@ -64,15 +67,15 @@ function createSyncFailureRuntime(input: {
         return {
           ...(input.code ? { code: input.code } : {}),
           kind: "http",
-          message: `Remote document ${documentId} was not found`,
+          message: `Remote document ${documentId} sync failed`,
           method: "POST",
           ok: false,
           path: `/documents/${documentId}/sync`,
           report: () => {
             input.reportedErrors.push(documentId);
           },
-          status: 404,
-          statusText: "Not Found",
+          status,
+          statusText: status === 404 ? "Not Found" : "Server Error",
         };
       },
     }),
@@ -83,12 +86,12 @@ function createSyncFailureRuntime(input: {
 test("coded deletion clears a document before pending attachment upload", async () => {
   const { offlineRuntime, persistence, remoteDocumentId, store } =
     await createStoreWithPendingAttachment("deleted-before-attachment");
-  const attachmentProjectionCalls: string[] = [];
+  const blobStageCalls: number[] = [];
   const reportedErrors: string[] = [];
   const syncResultCalls: string[] = [];
   const onlineRuntime = createSyncFailureRuntime({
-    attachmentProjectionCalls,
-    code: "document_not_found",
+    blobStageCalls,
+    code: DOCUMENT_NOT_FOUND_ERROR_CODE,
     offlineRuntime,
     reportedErrors,
     syncResultCalls,
@@ -108,18 +111,18 @@ test("coded deletion clears a document before pending attachment upload", async 
   expect(persistence.getState().pendingAttachments).toEqual([]);
   expect(persistence.getState().pendingUpdates).toEqual([]);
   expect(syncResultCalls).toEqual([remoteDocumentId]);
-  expect(attachmentProjectionCalls).toEqual([]);
+  expect(blobStageCalls).toEqual([]);
   expect(reportedErrors).toEqual([]);
 });
 
 test("bare 404 keeps pending attachment state without attempting upload", async () => {
   const { offlineRuntime, persistence, remoteDocumentId, store } =
     await createStoreWithPendingAttachment("uncoded-before-attachment");
-  const attachmentProjectionCalls: string[] = [];
+  const blobStageCalls: number[] = [];
   const reportedErrors: string[] = [];
   const syncResultCalls: string[] = [];
   const onlineRuntime = createSyncFailureRuntime({
-    attachmentProjectionCalls,
+    blobStageCalls,
     offlineRuntime,
     reportedErrors,
     syncResultCalls,
@@ -137,6 +140,37 @@ test("bare 404 keeps pending attachment state without attempting upload", async 
   expect(persistence.getState().pendingAttachments).toHaveLength(1);
   expect(persistence.getState().pendingUpdates.length).toBeGreaterThan(0);
   expect(store.getSnapshot().ready).toBe(true);
-  expect(attachmentProjectionCalls).toEqual([]);
+  expect(blobStageCalls).toEqual([]);
+  expect(reportedErrors).toEqual([remoteDocumentId]);
+});
+
+test("transient sync failure parks attachment upload without hot-looping", async () => {
+  const { offlineRuntime, persistence, remoteDocumentId, store } =
+    await createStoreWithPendingAttachment("transient-before-attachment");
+  const blobStageCalls: number[] = [];
+  const reportedErrors: string[] = [];
+  const syncResultCalls: string[] = [];
+  const onlineRuntime = createSyncFailureRuntime({
+    blobStageCalls,
+    offlineRuntime,
+    reportedErrors,
+    status: 500,
+    syncResultCalls,
+  });
+
+  store.updateRuntime(onlineRuntime);
+  store.requestSync();
+
+  await waitForCondition(
+    () => syncResultCalls.length === 1 && !store.getSnapshot().syncing,
+    "Transient failure did not finish the attachment revalidation pass.",
+  );
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  expect(syncResultCalls).toEqual([remoteDocumentId]);
+  expect(persistence.getState().document).not.toBeNull();
+  expect(persistence.getState().pendingAttachments).toHaveLength(1);
+  expect(persistence.getState().pendingUpdates.length).toBeGreaterThan(0);
+  expect(blobStageCalls).toEqual([]);
   expect(reportedErrors).toEqual([remoteDocumentId]);
 });
