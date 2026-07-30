@@ -110,6 +110,14 @@ native_release_url_host() {
   printf '%s\n' "$native_url_host" | tr '[:upper:]' '[:lower:]'
 }
 
+native_release_tier_domain() {
+  case "$1" in
+    production) printf '%s\n' "tearleads.com" ;;
+    staging) printf '%s\n' "tearleads.de" ;;
+    *) return 1 ;;
+  esac
+}
+
 native_release_require_tier_host() {
   native_url_guard_name="$1"
   native_url_guard_tier="$2"
@@ -121,12 +129,19 @@ native_release_require_tier_host() {
   native_url_guard_host="$(native_release_url_host "$native_url_guard_value")"
   native_url_guard_expected_url="$(native_release_default_api "$native_url_guard_tier")"
   native_url_guard_expected_host="$(native_release_url_host "$native_url_guard_expected_url")"
-  if [ "$native_url_guard_host" = "$native_url_guard_expected_host" ]; then
-    return 0
-  fi
+  native_url_guard_domain="$(native_release_tier_domain "$native_url_guard_tier")"
+  case "$native_url_guard_name:$native_url_guard_host" in
+    VITE_API_BASE_URL:"$native_url_guard_expected_host" | \
+      VITE_WS_URL:"$native_url_guard_domain" | \
+      VITE_WS_URL:*."$native_url_guard_domain") return 0 ;;
+  esac
 
   echo "Error: $native_url_guard_name=$native_url_guard_value uses host $native_url_guard_host." >&2
-  echo "A $native_url_guard_tier release must use $native_url_guard_expected_host." >&2
+  if [ "$native_url_guard_name" = VITE_API_BASE_URL ]; then
+    echo "A $native_url_guard_tier release API must use $native_url_guard_expected_host." >&2
+  else
+    echo "A $native_url_guard_tier release WebSocket must use $native_url_guard_domain or one of its subdomains." >&2
+  fi
   exit 1
 }
 
@@ -271,7 +286,7 @@ native_release_main() {
   native_package_dir="$native_script_dir/../packages/app-capacitor"
   cd "$native_package_dir" || return 1
 
-  # shellcheck disable=SC1091
+  # shellcheck source=scripts/releaseGuards.sh
   . "$native_script_dir/releaseGuards.sh"
 
   export NATIVE_RELEASE_TIER="$native_tier"

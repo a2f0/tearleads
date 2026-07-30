@@ -147,8 +147,10 @@ the public SDK keys bundled into the native clients.
 
 The wrappers set their public API default before Fastlane loads dotenv files.
 Export `VITE_API_BASE_URL` explicitly when overriding the default; the release
-guard requires API and WebSocket URLs to use the selected tier's host. Do not
-put that override in `.secrets/staging.env`.
+guard requires the exact selected-tier API host and permits WebSocket hosts only
+on the selected tier's domain. Fastlane repeats these checks after dotenv is
+resolved, so values from `root.env` cannot bypass them. Do not put an API
+override in `.secrets/staging.env`.
 
 ## Apple sandbox / TestFlight
 

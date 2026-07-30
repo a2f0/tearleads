@@ -1,27 +1,32 @@
 # frozen_string_literal: true
 
 require 'dotenv'
+require 'uri'
 
 NATIVE_RELEASE_TARGETS = {
   'production' => {
     android_build_variant: 'release',
+    api_host: 'api.tearleads.com',
     app_identifier: 'com.tearleads.app',
     capacitor_sync_script: 'cap:sync:release',
     ios_archive_name: 'Tearleads.xcarchive',
     ios_configuration: 'Release',
     ios_ipa_name: 'Tearleads.ipa',
     ios_output_directory: 'output',
-    ios_scheme: 'App'
+    ios_scheme: 'App',
+    service_domain: 'tearleads.com'
   }.freeze,
   'staging' => {
     android_build_variant: 'staging',
+    api_host: 'api.tearleads.de',
     app_identifier: 'com.tearleads.app.staging',
     capacitor_sync_script: 'cap:sync:staging',
     ios_archive_name: 'Tearleads-Staging.xcarchive',
     ios_configuration: 'Release-Staging',
     ios_ipa_name: 'Tearleads-Staging.ipa',
     ios_output_directory: 'output/staging',
-    ios_scheme: 'App-Staging'
+    ios_scheme: 'App-Staging',
+    service_domain: 'tearleads.de'
   }.freeze
 }.freeze
 
@@ -80,6 +85,46 @@ def load_native_release_secrets_env
 
   native_release_file_environment.each do |name, value|
     ENV[name] = value unless process_environment.key?(name)
+  end
+
+  ensure_native_release_service_urls!
+end
+
+def native_release_api_host_problem(host)
+  expected_host = NATIVE_RELEASE_TARGET.fetch(:api_host)
+  return nil if host == expected_host
+
+  "must use #{expected_host} for a #{NATIVE_RELEASE_TIER} release"
+end
+
+def native_release_websocket_host_problem(host)
+  service_domain = NATIVE_RELEASE_TARGET.fetch(:service_domain)
+  return nil if host == service_domain || host.end_with?(".#{service_domain}")
+
+  "must use #{service_domain} or one of its subdomains for a #{NATIVE_RELEASE_TIER} release"
+end
+
+def native_release_service_url_problem(env_name, value)
+  url = value.to_s.strip
+  return nil if url.empty?
+
+  host = URI.parse(url).host&.downcase&.delete_suffix('.')
+  return 'must be an absolute URL with a host' if host.to_s.empty?
+
+  return native_release_api_host_problem(host) if env_name == 'VITE_API_BASE_URL'
+
+  native_release_websocket_host_problem(host)
+rescue URI::InvalidURIError
+  'must be an absolute URL with a host'
+end
+
+def ensure_native_release_service_urls!
+  %w[VITE_API_BASE_URL VITE_WS_URL].each do |env_name|
+    problem = native_release_service_url_problem(env_name, ENV.fetch(env_name, nil))
+    next if problem.nil?
+
+    message = "#{env_name} #{problem}."
+    defined?(UI) ? UI.user_error!(message) : raise(message)
   end
 end
 

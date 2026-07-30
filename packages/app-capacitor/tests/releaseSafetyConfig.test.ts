@@ -383,6 +383,11 @@ describe("RevenueCat store-release safety", () => {
       "staging",
       "wss://api.tearleads.com/v1/events",
     );
+    const deceptiveStagingSocket = await runTierHostGuard(
+      "VITE_WS_URL",
+      "staging",
+      "wss://tearleads.de.example/socket",
+    );
     const stagingUnknown = await runTierHostGuard(
       "VITE_API_BASE_URL",
       "staging",
@@ -392,6 +397,16 @@ describe("RevenueCat store-release safety", () => {
       "VITE_API_BASE_URL",
       "staging",
       "https://api.tearleads.de",
+    );
+    const stagingSocketCorrect = await runTierHostGuard(
+      "VITE_WS_URL",
+      "staging",
+      "wss://events.tearleads.de/socket",
+    );
+    const productionSocketCorrect = await runTierHostGuard(
+      "VITE_WS_URL",
+      "production",
+      "wss://events.tearleads.com/socket",
     );
     const emptySocket = await runTierHostGuard("VITE_WS_URL", "staging", "");
 
@@ -403,8 +418,11 @@ describe("RevenueCat store-release safety", () => {
     expect(productionWrong.stderr).toContain("must use api.tearleads.com");
     expect(stagingSocketWrong.exitCode).toBe(1);
     expect(stagingSocketWrong.stderr).toContain("VITE_WS_URL");
+    expect(deceptiveStagingSocket.exitCode).toBe(1);
     expect(stagingUnknown.exitCode).toBe(1);
     expect(stagingCorrect.exitCode).toBe(0);
+    expect(stagingSocketCorrect.exitCode).toBe(0);
+    expect(productionSocketCorrect.exitCode).toBe(0);
     expect(emptySocket.exitCode).toBe(0);
   });
 

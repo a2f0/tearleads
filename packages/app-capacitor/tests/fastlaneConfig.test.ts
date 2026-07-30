@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
+import { requireRubyBundle } from "./requireRubyBundle";
 
 const packageRoot = resolve(import.meta.dir, "..");
 
 async function readFastlaneAppIdentifier(tier: "production" | "staging") {
+  await requireRubyBundle();
   const child = Bun.spawn(
     [
       "bundle",

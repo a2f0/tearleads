@@ -22,10 +22,11 @@ fi
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-http://10.0.2.2:3001}"
 echo "Building with VITE_API_BASE_URL=$VITE_API_BASE_URL"
 
-# Store releases get the RevenueCat public SDK key from fastlane's Dotenv.load;
-# this script has no fastlane in the path, so read the same file directly.
+# Store releases get the RevenueCat public SDK key from Fastlane's selectively
+# loaded dotenv environment; this script reads the same file directly.
 # Without it the build inlines no key and billing degrades to the unavailable
 # stub — a purchase cannot be exercised on the emulator or a device at all.
+# shellcheck source=scripts/exportRevenueCatKeys.sh
 . "$SCRIPT_DIR/exportRevenueCatKeys.sh"
 export_revenuecat_keys "$SCRIPT_DIR/../.secrets/root.env"
 report_revenuecat_key VITE_REVENUECAT_ANDROID_API_KEY

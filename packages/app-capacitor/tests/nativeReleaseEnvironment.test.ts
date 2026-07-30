@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { requireRubyBundle } from "./requireRubyBundle";
 
 const repositoryRoot = resolve(import.meta.dir, "../../..");
 const packageRoot = resolve(repositoryRoot, "packages/app-capacitor");
@@ -36,6 +37,7 @@ async function readNativeReleaseEnvironment(
   processEnvironment: Record<string, string> = {},
   tier: string | null = "staging",
 ) {
+  await requireRubyBundle();
   const temporaryRoot = await mkdtemp(
     join(tmpdir(), "tearleads-native-release-target-"),
   );
@@ -57,6 +59,7 @@ async function readNativeReleaseEnvironment(
     "DEEPSEEK_API_KEY",
     "NATIVE_RELEASE_TIER",
     "NATIVE_TEST_VALUE",
+    "VITE_API_BASE_URL",
     "VITE_REVENUECAT_ANDROID_API_KEY",
     "VITE_REVENUECAT_IOS_API_KEY",
     "VITE_REVENUECAT_SYNC_ENTITLEMENT",
@@ -121,7 +124,7 @@ describe("native release environments", () => {
       {
         NATIVE_TEST_VALUE: "process",
         VITE_REVENUECAT_IOS_API_KEY: "appl_process",
-        VITE_WS_URL: "wss://process.example",
+        VITE_WS_URL: "wss://events.tearleads.de/socket",
       },
     );
 
@@ -134,7 +137,7 @@ describe("native release environments", () => {
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_staging",
         VITE_REVENUECAT_IOS_API_KEY: "appl_process",
         VITE_REVENUECAT_SYNC_ENTITLEMENT: null,
-        VITE_WS_URL: "wss://process.example",
+        VITE_WS_URL: "wss://events.tearleads.de/socket",
       },
     });
   });
@@ -181,7 +184,7 @@ describe("native release environments", () => {
 
   test("production keeps its default target and root release environment", async () => {
     const snapshot = await readNativeReleaseEnvironment(
-      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_WS_URL=wss://production.example\nNATIVE_TEST_VALUE=root\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_WS_URL=wss://events.tearleads.com/socket\nNATIVE_TEST_VALUE=root\n",
       "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nDEEPSEEK_API_KEY=server-secret\n",
       {},
       null,
@@ -197,10 +200,35 @@ describe("native release environments", () => {
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_root",
         VITE_REVENUECAT_IOS_API_KEY: "appl_root",
         VITE_REVENUECAT_SYNC_ENTITLEMENT: null,
-        VITE_WS_URL: "wss://production.example",
+        VITE_WS_URL: "wss://events.tearleads.com/socket",
       },
       iosConfiguration: "Release",
       iosScheme: "App",
     });
+  });
+
+  test("validates service URLs after dotenv and explicit values resolve", async () => {
+    await expect(
+      readNativeReleaseEnvironment(
+        "VITE_WS_URL=wss://events.tearleads.de/socket\n",
+        "",
+        {},
+        null,
+      ),
+    ).rejects.toThrow("VITE_WS_URL must use tearleads.com");
+
+    await expect(
+      readNativeReleaseEnvironment("", "", {
+        VITE_API_BASE_URL: "https://api.tearleads.de/v1",
+        VITE_WS_URL: "wss://events.tearleads.de/socket",
+      }),
+    ).resolves.toMatchObject(stagingTarget);
+
+    await expect(
+      readNativeReleaseEnvironment("", "", {
+        VITE_API_BASE_URL: "https://api.tearleads.de",
+        VITE_WS_URL: "wss://events.tearleads.com/socket",
+      }),
+    ).rejects.toThrow("VITE_WS_URL must use tearleads.de");
   });
 });
