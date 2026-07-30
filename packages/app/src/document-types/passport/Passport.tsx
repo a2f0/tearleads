@@ -18,6 +18,7 @@ import {
   type PassportDocumentFields,
   readPassportFields,
 } from "./passportDocument";
+import "./Passport.css";
 
 type PassportStructuredFieldSetter = ReturnType<
   typeof useDocument
@@ -217,17 +218,19 @@ export function Passport(params: PassportProps) {
   return (
     <StructuredDocument
       attachments={
-        <DocumentAttachmentSlots
-          attachmentStorageKeyBySlotId={attachmentStorageKeyBySlotId}
-          attachmentStatusBySlotId={attachmentStatusBySlotId}
-          attachments={attachments}
-          blobPicker={blobPicker}
-          canAttach={canAttach && isEditing && canWrite}
-          imageUrlBySlotId={imageUrlBySlotId}
-          onClearAttachment={removeAttachment}
-          onSelectedAttachment={handleSelectedAttachment}
-          slots={PASSPORT_ATTACHMENT_SLOTS}
-        />
+        <div className="passport-attachment-slots">
+          <DocumentAttachmentSlots
+            attachmentStorageKeyBySlotId={attachmentStorageKeyBySlotId}
+            attachmentStatusBySlotId={attachmentStatusBySlotId}
+            attachments={attachments}
+            blobPicker={blobPicker}
+            canAttach={canAttach && isEditing && canWrite}
+            imageUrlBySlotId={imageUrlBySlotId}
+            onClearAttachment={removeAttachment}
+            onSelectedAttachment={handleSelectedAttachment}
+            slots={PASSPORT_ATTACHMENT_SLOTS}
+          />
+        </div>
       }
       fields={
         <PassportDocumentFieldsPane
