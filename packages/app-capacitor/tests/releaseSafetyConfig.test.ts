@@ -1,11 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const repositoryRoot = resolve(import.meta.dir, "../../..");
 const guardPath = resolve(repositoryRoot, "scripts/releaseGuards.sh");
 const fastlaneGuardPath = resolve(
   repositoryRoot,
   "packages/app-capacitor/fastlane/revenuecat_release_key.rb",
+);
+const nativeReleaseTargetPath = resolve(
+  repositoryRoot,
+  "packages/app-capacitor/fastlane/native_release_target.rb",
 );
 
 async function runStoreKeyGuard(key: string, expectedPrefix: string) {
@@ -45,6 +51,92 @@ async function readFastlaneKeyProblem(key: string, expectedPrefix: string) {
     process.exited,
     new Response(process.stderr).text(),
     new Response(process.stdout).text(),
+  ]);
+  expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
+  return stdout;
+}
+
+async function readNativeReleaseEnvironment(
+  rootEnv: string,
+  stagingEnv: string,
+  processEnvironment: Record<string, string> = {},
+) {
+  const temporaryRoot = await mkdtemp(
+    join(tmpdir(), "tearleads-native-release-target-"),
+  );
+  const copiedTargetPath = join(
+    temporaryRoot,
+    "packages/app-capacitor/fastlane/native_release_target.rb",
+  );
+  const secretsDirectory = join(temporaryRoot, ".secrets");
+  await mkdir(resolve(copiedTargetPath, ".."), { recursive: true });
+  await mkdir(secretsDirectory, { recursive: true });
+  await Promise.all([
+    Bun.write(copiedTargetPath, Bun.file(nativeReleaseTargetPath)),
+    Bun.write(join(secretsDirectory, "root.env"), rootEnv),
+    Bun.write(join(secretsDirectory, "staging.env"), stagingEnv),
+  ]);
+
+  const environment = { ...process.env };
+  Reflect.deleteProperty(environment, "VITE_REVENUECAT_ANDROID_API_KEY");
+  Reflect.deleteProperty(environment, "VITE_REVENUECAT_IOS_API_KEY");
+  Reflect.deleteProperty(environment, "NATIVE_TEST_VALUE");
+  Object.assign(environment, processEnvironment, {
+    NATIVE_RELEASE_TIER: "staging",
+  });
+
+  try {
+    const child = Bun.spawn(
+      [
+        "bundle",
+        "exec",
+        "ruby",
+        "-r",
+        copiedTargetPath,
+        "-r",
+        "json",
+        "-e",
+        "load_native_release_secrets_env; print JSON.generate(%w[VITE_REVENUECAT_IOS_API_KEY VITE_REVENUECAT_ANDROID_API_KEY NATIVE_TEST_VALUE].map { |name| ENV[name] })",
+      ],
+      {
+        cwd: resolve(repositoryRoot, "packages/app-capacitor"),
+        env: environment,
+        stderr: "pipe",
+        stdout: "pipe",
+      },
+    );
+    const [exitCode, stderr, stdout] = await Promise.all([
+      child.exited,
+      new Response(child.stderr).text(),
+      new Response(child.stdout).text(),
+    ]);
+    expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
+    return JSON.parse(stdout) as [string | null, string | null, string | null];
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+}
+
+async function buildNumberSelection(
+  platform: "android" | "ios",
+  option: string,
+) {
+  const child = Bun.spawn(
+    [
+      "sh",
+      "-c",
+      '. "$1"; if native_release_build_number_chosen "$2" "$3"; then printf chosen; else printf unselected; fi',
+      "sh",
+      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+      platform,
+      option,
+    ],
+    { stderr: "pipe", stdout: "pipe" },
+  );
+  const [exitCode, stderr, stdout] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+    new Response(child.stdout).text(),
   ]);
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
   return stdout;
@@ -101,9 +193,42 @@ describe("RevenueCat store-release safety", () => {
     );
   });
 
+  test("staging dotenv values override root dotenv values", async () => {
+    await expect(
+      readNativeReleaseEnvironment(
+        "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
+        "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nVITE_REVENUECAT_ANDROID_API_KEY=goog_staging\nNATIVE_TEST_VALUE=staging\n",
+      ),
+    ).resolves.toEqual(["appl_staging", "goog_staging", "staging"]);
+  });
+
+  test("explicit native release environment values beat dotenv files", async () => {
+    await expect(
+      readNativeReleaseEnvironment(
+        "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
+        "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nVITE_REVENUECAT_ANDROID_API_KEY=goog_staging\nNATIVE_TEST_VALUE=staging\n",
+        {
+          NATIVE_TEST_VALUE: "process",
+          VITE_REVENUECAT_IOS_API_KEY: "appl_process",
+        },
+      ),
+    ).resolves.toEqual(["appl_process", "goog_staging", "process"]);
+  });
+
+  test("staging drops production RevenueCat keys when its dotenv omits them", async () => {
+    await expect(
+      readNativeReleaseEnvironment(
+        "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
+        "NATIVE_TEST_VALUE=staging\n",
+      ),
+    ).resolves.toEqual([null, null, "staging"]);
+  });
+
   const releaseScriptTargets = {
     "buildAndroidRelease.sh": "android build production",
+    "buildAndroidStagingRelease.sh": "android build staging",
     "buildIosRelease.sh": "ios build production",
+    "buildIosStagingRelease.sh": "ios build staging",
     "uploadAndroidRelease.sh": "android upload production",
     "uploadAndroidStagingRelease.sh": "android upload staging",
     "uploadIosRelease.sh": "ios upload production",
@@ -143,9 +268,24 @@ describe("RevenueCat store-release safety", () => {
     ).text();
 
     expect(sharedRunner).toContain(
-      '[ "$native_tier" = staging ] && native_default_api="https://api.tearleads.de"',
+      "staging) printf '%s\\n' \"https://api.tearleads.de\"",
     );
     expect(sharedRunner).toContain('export NATIVE_RELEASE_TIER="$native_tier"');
+  });
+
+  test("build-number options are scoped to their store platform", async () => {
+    await expect(
+      buildNumberSelection("android", "version_code:42"),
+    ).resolves.toBe("chosen");
+    await expect(
+      buildNumberSelection("android", "next_testflight:true"),
+    ).resolves.toBe("unselected");
+    await expect(
+      buildNumberSelection("ios", "apple_build_number:42"),
+    ).resolves.toBe("chosen");
+    await expect(
+      buildNumberSelection("ios", "next_google_play:true"),
+    ).resolves.toBe("unselected");
   });
 
   test("Fastlane validates keys after loading release secrets", async () => {

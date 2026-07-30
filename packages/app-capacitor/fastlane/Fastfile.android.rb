@@ -5,6 +5,7 @@ require 'json'
 require 'open3'
 require 'shellwords'
 require 'time'
+require_relative 'native_release_target'
 
 ANDROID_DIR = File.expand_path('../android', __dir__)
 ANDROID_ASSETS_DIR = File.join(ANDROID_DIR, 'app/src/main/assets')

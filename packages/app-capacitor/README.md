@@ -34,9 +34,11 @@ configuration:
 | Production | `com.tearleads.app` | `release` | `App` / `Release` |
 | Staging | `com.tearleads.app.staging` | `staging` | `App-Staging` / `Release-Staging` |
 
-Upload staging builds with:
+Build or upload staging releases with:
 
 ```sh
+./scripts/buildAndroidStagingRelease.sh
+./scripts/buildIosStagingRelease.sh
 ./scripts/uploadAndroidStagingRelease.sh
 ./scripts/uploadIosStagingRelease.sh
 ```

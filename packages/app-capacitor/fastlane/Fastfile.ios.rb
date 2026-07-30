@@ -5,6 +5,7 @@ require 'json'
 require 'open3'
 require 'shellwords'
 require 'time'
+require_relative 'native_release_target'
 
 IOS_PACKAGE_DIR = File.expand_path('..', __dir__)
 IOS_DIR = File.expand_path('../ios', __dir__)

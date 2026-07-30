@@ -1,4 +1,10 @@
-require File.expand_path('native_release_target', Dir.pwd)
+native_release_target_path = %w[
+  fastlane/native_release_target.rb
+  native_release_target.rb
+].map { |path| File.expand_path(path, Dir.pwd) }.find { |path| File.file?(path) }
+raise LoadError, 'Could not locate fastlane/native_release_target.rb' if native_release_target_path.nil?
+
+require native_release_target_path
 
 app_identifier(NATIVE_APP_IDENTIFIER)
 package_name(NATIVE_APP_IDENTIFIER)

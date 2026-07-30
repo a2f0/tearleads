@@ -96,10 +96,12 @@ platform-specific public key in store builds.
 The native staging apps use `com.tearleads.app.staging` on both platforms so
 they can coexist with production and keep sandbox store history isolated. The
 Android `staging` build variant and the iOS `App-Staging` / `Release-Staging`
-pair are selected by `NATIVE_RELEASE_TIER=staging`; the staging upload wrappers
+pair are selected by `NATIVE_RELEASE_TIER=staging`; the staging release wrappers
 set this automatically:
 
 ```sh
+./scripts/buildAndroidStagingRelease.sh
+./scripts/buildIosStagingRelease.sh
 ./scripts/uploadAndroidStagingRelease.sh
 ./scripts/uploadIosStagingRelease.sh
 ```
@@ -114,6 +116,10 @@ production key and fails the release guard before the store build begins.
 The staging server must also have `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` during
 its Ansible deploy. This controls webhook application only; it is separate from
 the public SDK keys bundled into the native clients.
+
+The wrappers set their public API default before Fastlane loads dotenv files.
+Export `VITE_API_BASE_URL` explicitly when overriding the staging default; do
+not put that override in `.secrets/staging.env`.
 
 ## Apple sandbox / TestFlight
 

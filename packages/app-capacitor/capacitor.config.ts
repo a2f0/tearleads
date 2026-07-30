@@ -1,6 +1,14 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-const { NATIVE_RELEASE_TIER: nativeReleaseTier } = process.env;
+const { NATIVE_RELEASE_TIER } = process.env;
+const nativeReleaseTier = (NATIVE_RELEASE_TIER ?? "production")
+  .trim()
+  .toLowerCase();
+if (nativeReleaseTier !== "production" && nativeReleaseTier !== "staging") {
+  throw new Error(
+    `Unknown NATIVE_RELEASE_TIER=${JSON.stringify(nativeReleaseTier)}. Expected production or staging.`,
+  );
+}
 const isStagingRelease = nativeReleaseTier === "staging";
 const appId = isStagingRelease
   ? "com.tearleads.app.staging"

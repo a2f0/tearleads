@@ -6,7 +6,9 @@
       "inputs": [
         "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/scripts/buildAndroidRelease.sh",
+        "$TURBO_ROOT$/scripts/buildAndroidStagingRelease.sh",
         "$TURBO_ROOT$/scripts/buildIosRelease.sh",
+        "$TURBO_ROOT$/scripts/buildIosStagingRelease.sh",
         "$TURBO_ROOT$/scripts/nativeRelease.sh",
         "$TURBO_ROOT$/scripts/releaseGuards.sh",
         "$TURBO_ROOT$/scripts/uploadAndroidRelease.sh",

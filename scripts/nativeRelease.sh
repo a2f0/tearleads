@@ -2,17 +2,27 @@
 # Shared implementation for native store build/upload wrappers. Source this file
 # and call native_release_main with platform, action, and tier.
 
+native_release_default_api() {
+  case "$1" in
+    production) printf '%s\n' "https://api.tearleads.com" ;;
+    staging) printf '%s\n' "https://api.tearleads.de" ;;
+    *) return 1 ;;
+  esac
+}
+
 native_release_usage() {
   native_platform="$1"
   native_action="$2"
   native_tier="$3"
-  native_default_api="https://api.tearleads.com"
-  [ "$native_tier" = staging ] && native_default_api="https://api.tearleads.de"
+  native_default_api="$(native_release_default_api "$native_tier")"
+  native_action_description="Build"
+  [ "$native_action" != upload ] || native_action_description="Build and upload"
 
   cat <<EOF
 Usage: $(basename "$0") [fastlane-options...]
 
-${native_action} the ${native_tier} ${native_platform} store release.
+${native_action_description} the ${native_tier}
+${native_platform} store release.
 
 The native app identifier is selected by NATIVE_RELEASE_TIER:
   production  com.tearleads.app
@@ -26,10 +36,40 @@ Store credentials and signing values are loaded by Fastlane from
 .secrets/root.env plus .secrets/${native_tier}.env where applicable. Explicitly
 exported environment variables take precedence.
 
-Build numbers default to the next value in the selected app's store. Pass an
-explicit build_number:<number> to override that behavior. All other arguments
-are passed through to Fastlane.
+Upload wrappers default to the next value in the selected app's store. Build
+wrappers default to the larger of today's merged PR number and the store's next
+value. Pass build_number:<number> to select an explicit build number.
 EOF
+
+  if [ "$native_platform" = android ]; then
+    cat <<'EOF'
+
+Android options:
+  version_code:<number>       Alias for an explicit build number.
+  next_google_play:true       Use the latest Play version code plus one.
+  google_track:<track>        Upload track; defaults to internal.
+  release_status:<status>     Upload release status; defaults to completed.
+  validate_only:true          Validate the upload without publishing.
+
+GOOGLE_PLAY_JSON_KEY_FILE (or SUPPLY_JSON_KEY) can override the default Google
+Play service-account key path.
+EOF
+  else
+    cat <<'EOF'
+
+iOS options:
+  apple_build_number:<number> Alias for an explicit build number.
+  next_testflight:true        Use the latest TestFlight build number plus one.
+  changelog:<text>            Set the TestFlight What to Test notes.
+  distribute_external:true    Distribute to external testers.
+  groups:<name,name>          Select external TestFlight groups.
+  skip_submission:true        Upload without submitting for review.
+
+The upload wrapper prepares the login keychain before the archive and may prompt
+for the macOS login password. iOS releases regenerate icons and splash images,
+so ImageMagick must be installed.
+EOF
+  fi
 }
 
 native_release_ensure_android_wrapper() {
@@ -50,8 +90,7 @@ native_release_ensure_android_wrapper() {
 native_release_guard_environment() {
   native_platform="$1"
   native_tier="$2"
-  native_default_api="https://api.tearleads.com"
-  [ "$native_tier" = staging ] && native_default_api="https://api.tearleads.de"
+  native_default_api="$(native_release_default_api "$native_tier")"
 
   export VITE_API_BASE_URL="${VITE_API_BASE_URL:-$native_default_api}"
   reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
@@ -87,8 +126,9 @@ native_release_build_number_chosen() {
   fi
 
   for native_arg in "$@"; do
-    case "$native_arg" in
-      build_number:* | version_code:* | apple_build_number:* | next_google_play:* | next_testflight:* | merged_pr_number:* | pr_number:* | merged_date:*)
+    case "$native_platform:$native_arg" in
+      android:build_number:* | android:version_code:* | android:next_google_play:* | android:merged_pr_number:* | android:pr_number:* | android:merged_date:* | \
+        ios:build_number:* | ios:apple_build_number:* | ios:next_testflight:* | ios:merged_pr_number:* | ios:pr_number:* | ios:merged_date:*)
         return 0
         ;;
     esac
