@@ -53,7 +53,7 @@ export function trackerMeasuredAtColumn<
 >(): TrackerReadColumn<TrackerIndexRow<TEntry>> {
   return {
     cell: (row) => ({
-      absent: row.entry.measuredAt.trim().length === 0,
+      unranked: row.entry.measuredAt.trim().length === 0,
       text: formatTrackerMeasuredAt(row.entry.measuredAt),
     }),
     compare: (left, right) =>
@@ -81,7 +81,7 @@ export function trackerNotesColumn<
     cell: (row) => {
       const notes = row.entry.notes.trim();
       return {
-        absent: notes.length === 0,
+        unranked: notes.length === 0,
         text: notes.length > 0 ? notes : TRACKER_ABSENT_VALUE,
         ...(notes.length > 0 ? { title: notes } : {}),
       };
@@ -123,7 +123,7 @@ export function trackerUpdatedColumn<
         currentAuthorId: context.currentAuthorId,
       });
       return {
-        absent: byline === null,
+        unranked: byline === null,
         text: byline ?? TRACKER_ABSENT_VALUE,
         ...(byline === null ? {} : { title: byline }),
       };

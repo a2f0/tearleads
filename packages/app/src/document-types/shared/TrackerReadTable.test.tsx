@@ -218,3 +218,37 @@ test("the attribution column falls back to the self-attested author", () => {
 
   expect(view.getByText("2026-07-16 08:30 by you")).toBeTruthy();
 });
+
+test("hiding the sorted column returns to the default order, and un-hiding restores it", () => {
+  // Pulse ordering deliberately disagrees with document order, so the fallback
+  // is visible in the rows rather than only in the header.
+  const view = renderReadTable({
+    rows: [
+      makeReading({ diastolic: "80", id: "r1", pulse: "90", systolic: "120" }),
+      makeReading({ diastolic: "76", id: "r2", pulse: "60", systolic: "118" }),
+    ],
+  });
+  const readings = () =>
+    view
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelectorAll("td")[1]?.textContent);
+
+  fireEvent.click(view.getByRole("button", { name: "Pulse" }));
+  expect(readings()).toEqual(["118/76 mmHg", "120/80 mmHg"]);
+
+  // Switching the sorted column off would otherwise leave the rows ordered by a
+  // value no longer on screen, with no header left to carry the indicator that
+  // explains it. Fall back to the default column, whose indicator is visible.
+  toggleColumn(view, "Pulse");
+  expect(view.queryByRole("columnheader", { name: "Pulse" })).toBeNull();
+  expect(readings()).toEqual(["120/80 mmHg", "118/76 mmHg"]);
+  expect(
+    view.getByRole("columnheader", { name: "#" }).getAttribute("aria-sort"),
+  ).toBe("ascending");
+
+  // The chosen sort was kept, not discarded, so bringing the column back resumes
+  // it rather than making the reader pick it again.
+  toggleColumn(view, "Pulse");
+  expect(readings()).toEqual(["118/76 mmHg", "120/80 mmHg"]);
+});

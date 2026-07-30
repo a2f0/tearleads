@@ -127,6 +127,41 @@ export function toWeightEntryDetailFields(
   ];
 }
 
+// One kilogram in pounds. Used only to *order* entries against each other —
+// never to restate a weight on screen, which is the rule the rest of this
+// document type keeps (an entry always reads in the unit it was recorded in, and
+// a change across units is not reported at all).
+const WEIGHT_POUNDS_PER_KILOGRAM = 2.2046226218;
+
+// A weight (or a change in weight) as a single comparable magnitude, so a
+// tracker holding both units orders by what was actually weighed rather than by
+// the bare figure. Ordering 90 kg below 180 lb — as a raw numeric compare does —
+// files the heavier entry first, which is simply the wrong answer to "sort by
+// weight". NaN for a value the document would reject, so a half-typed cell has
+// no magnitude to be ordered by.
+export function toComparableWeight(value: string, unit: WeightUnit): number {
+  const trimmed = value.trim();
+  if (!isValidWeightMeasurement(trimmed)) {
+    return Number.NaN;
+  }
+
+  return toComparableMagnitude(Number(trimmed), unit);
+}
+
+// The delta {@link getWeightChange} reports, in the same comparable magnitude —
+// it is expressed in its entry's own unit, so +2 kg and +2 lb are no more
+// comparable as raw numbers than the weights they came from.
+export function toComparableWeightChange(
+  change: number | null,
+  unit: WeightUnit,
+): number {
+  return change === null ? Number.NaN : toComparableMagnitude(change, unit);
+}
+
+function toComparableMagnitude(value: number, unit: WeightUnit): number {
+  return unit === "kg" ? value * WEIGHT_POUNDS_PER_KILOGRAM : value;
+}
+
 // The signed difference from the previous entry in list order, as a number. Null
 // when either side is missing or not a valid measurement, so the first entry —
 // and a tracker holding a half-typed or out-of-range value — has no delta rather

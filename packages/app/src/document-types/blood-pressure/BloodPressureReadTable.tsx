@@ -14,6 +14,7 @@ import {
   trackerUpdatedColumn,
 } from "../shared/trackerIndexColumns";
 import { compareTrackerNumbers } from "../shared/trackerValues";
+import { isValidBloodPressureMeasurement } from "./bloodPressureDocumentDefinition";
 import {
   type BloodPressureReadingRow,
   formatMeasurementPair,
@@ -31,10 +32,10 @@ function getBloodPressureColumns(context: {
     trackerOrdinalColumn<BloodPressureReadingRow>("Reading order"),
     {
       cell: (row) => ({
-        absent:
-          row.entry.systolic.trim().length === 0 &&
-          row.entry.diastolic.trim().length === 0,
         text: formatMeasurementPair(row.entry),
+        // Systolic is the key this column ranks by, so a reading without a valid
+        // one has no place among the ordered readings in either direction.
+        unranked: !isValidBloodPressureMeasurement(row.entry.systolic),
       }),
       // Systolic is the figure a reading is read by; diastolic only settles ties
       // between two readings that share it.
@@ -49,8 +50,8 @@ function getBloodPressureColumns(context: {
     },
     {
       cell: (row) => ({
-        absent: row.entry.pulse.trim().length === 0,
         text: formatPulse(row.entry),
+        unranked: !isValidBloodPressureMeasurement(row.entry.pulse),
       }),
       compare: (left, right) =>
         compareTrackerNumbers(left.entry.pulse, right.entry.pulse),

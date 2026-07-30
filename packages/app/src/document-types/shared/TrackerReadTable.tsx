@@ -25,12 +25,15 @@ import "./TrackerReadTable.css";
 /** One column's value for one row, in both of its presentations. */
 export interface TrackerReadCell {
   /**
-   * This row has nothing to show in this column, so `text` is a placeholder
-   * ("None", "—") rather than a value. Set it wherever such a placeholder is
-   * produced: it is what keeps the row at the bottom of a sort by this column in
-   * *both* directions (see {@link orderTrackerRows}).
+   * This row has no value this column can rank — an unset cell showing a
+   * placeholder ("None", "—"), or one holding something the document itself
+   * would reject ("180abc"). Set it wherever either is produced: it is what keeps
+   * the row at the bottom of a sort by this column in *both* directions (see
+   * {@link orderTrackerRows}). A column that ranks values its comparator cannot
+   * order, without saying so here, gets those rows lifted to the top when the
+   * header is reversed.
    */
-  absent?: boolean | undefined;
+  unranked?: boolean | undefined;
   /**
    * Markup for values that are not plain text — the .env value and its
    * reveal/copy controls. Rendered in place of `text`, which is still required:
@@ -94,23 +97,23 @@ function orderTrackerRows<TRow>(
     return rows;
   }
 
-  // "Has nothing here" is not a value to be ordered among the others, so it is
-  // settled before the comparator runs and stays put in both directions.
-  // Inverting the comparator alone would lift every blank cell to the top of a
+  // "Nothing here to rank" is not a value to be ordered among the others, so it
+  // is settled before the comparator runs and stays put in both directions.
+  // Leaving it to the comparator would lift every such row to the top of a
   // descending sort — the opposite of what sorting by a column means to a reader,
   // who wants the rows that *have* this value first either way. Resolved once per
   // row rather than per comparison, and from the same cell the table draws, so it
-  // cannot disagree with the placeholder on screen.
-  const absent = new Map(
-    rows.map((row) => [row, column.cell(row).absent === true] as const),
+  // cannot disagree with what is on screen.
+  const unranked = new Map(
+    rows.map((row) => [row, column.cell(row).unranked === true] as const),
   );
   // Inverting the comparator rather than reversing the sorted array keeps the
   // sort stable in both directions: rows the column cannot tell apart hold
   // their document order instead of flipping with the header.
   return [...rows].sort((left, right) => {
-    const leftAbsent = absent.get(left) ?? false;
-    if (leftAbsent !== (absent.get(right) ?? false)) {
-      return leftAbsent ? 1 : -1;
+    const leftUnranked = unranked.get(left) ?? false;
+    if (leftUnranked !== (unranked.get(right) ?? false)) {
+      return leftUnranked ? 1 : -1;
     }
 
     return sort.direction === "asc"
@@ -370,12 +373,20 @@ export function TrackerReadTable<TRow>(params: {
   // leave `sort.key` with no matching option — a blank trigger whose accessible
   // name read "undefined".
   const displayColumns = compact ? columns : visibleColumns;
-  // Ordered from the full column list, not the visible one: switching a column
-  // off is about what the table shows, and silently dropping back to document
-  // order would be a second, unasked-for change.
+  // Switching off the column a table is sorted by would otherwise leave the rows
+  // reordered by a value that is no longer on screen, with no header left to
+  // carry the indicator explaining it. Fall back to the default column while that
+  // is the case — the rows and the visible indicator then always agree — and keep
+  // the chosen sort in state, so re-showing the column restores it rather than
+  // making the reader pick it again.
+  const effectiveSort = displayColumns.some(
+    (column) => column.id === sort.key && column.compare,
+  )
+    ? sort
+    : { direction: "asc" as const, key: defaultSortColumnId };
   const orderedRows = useMemo(
-    () => orderTrackerRows(rows, columns, sort),
-    [columns, rows, sort],
+    () => orderTrackerRows(rows, displayColumns, effectiveSort),
+    [displayColumns, effectiveSort, rows],
   );
   const tableColumns = buildTrackerReadTableColumns({
     actionsLabel,
@@ -391,7 +402,7 @@ export function TrackerReadTable<TRow>(params: {
             }
           : { direction: "asc", key: columnId },
       ),
-    sort,
+    sort: effectiveSort,
     sortMenuLabel,
   });
 

@@ -13,14 +13,13 @@ import {
   trackerOrdinalColumn,
   trackerUpdatedColumn,
 } from "../shared/trackerIndexColumns";
-import {
-  compareTrackerNumbers,
-  TRACKER_ABSENT_VALUE,
-} from "../shared/trackerValues";
+import { TRACKER_ABSENT_VALUE } from "../shared/trackerValues";
 import {
   formatWeight,
   formatWeightChange,
   getWeightChange,
+  toComparableWeight,
+  toComparableWeightChange,
   toWeightEntryDetailFields,
   type WeightEntryRow,
 } from "./weightEntries";
@@ -35,9 +34,20 @@ type WeightIndexRow = TrackerIndexRow<WeightEntryRow> & {
   changeValue: number | null;
 };
 
-/** A row whose change is not comparable sorts after every row whose change is. */
-function toSortableChange(change: number | null): number {
-  return change ?? Number.POSITIVE_INFINITY;
+/**
+ * Ascending order over two comparable magnitudes. A row with no magnitude at all
+ * (an unset or half-typed weight, a change across units) reads as NaN, which no
+ * comparison can order. Those rows declare themselves `unranked` and the table
+ * pins them below the rest in both directions, so this only has to stay total
+ * rather than place them itself — placing them here is what would let a reversed
+ * header lift them to the top.
+ */
+function compareWeightMagnitudes(left: number, right: number): number {
+  if (Number.isNaN(left) || Number.isNaN(right)) {
+    return 0;
+  }
+
+  return left - right;
 }
 
 function getWeightColumns(context: {
@@ -48,13 +58,21 @@ function getWeightColumns(context: {
     trackerOrdinalColumn<WeightEntryRow>("Entry order"),
     {
       cell: (row) => ({
-        absent: row.entry.weight.trim().length === 0,
         text: formatWeight(row.entry),
+        // A weight the document would reject has no magnitude to be ranked by,
+        // so it sits below the real ones however the column is turned.
+        unranked: Number.isNaN(
+          toComparableWeight(row.entry.weight, row.entry.unit),
+        ),
       }),
-      // Entries recorded in different units are not converted, here or anywhere
-      // else in this document type, so this orders the figures as logged.
+      // Compared as magnitudes, not as the bare figures: a tracker holding both
+      // units would otherwise file 90 kg below 180 lb. Nothing converted here
+      // reaches the screen — the cell above still reads what was recorded.
       compare: (left, right) =>
-        compareTrackerNumbers(left.entry.weight, right.entry.weight),
+        compareWeightMagnitudes(
+          toComparableWeight(left.entry.weight, left.entry.unit),
+          toComparableWeight(right.entry.weight, right.entry.unit),
+        ),
       fold: "primary",
       header: "Weight",
       id: "weight",
@@ -63,12 +81,16 @@ function getWeightColumns(context: {
     },
     {
       cell: (row) => ({
-        absent: row.change === null,
         text: row.change ?? TRACKER_ABSENT_VALUE,
+        unranked: row.change === null,
       }),
+      // A change carries its entry's unit too, so +2 kg and +2 lb are no more
+      // comparable as raw numbers than the weights they came from.
       compare: (left, right) =>
-        toSortableChange(left.changeValue) -
-        toSortableChange(right.changeValue),
+        compareWeightMagnitudes(
+          toComparableWeightChange(left.changeValue, left.entry.unit),
+          toComparableWeightChange(right.changeValue, right.entry.unit),
+        ),
       fold: "secondary",
       header: "Change",
       hideable: true,

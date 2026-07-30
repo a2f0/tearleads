@@ -50,6 +50,14 @@ export function compareTrackerText(left: string, right: string): number {
 }
 
 function toSortableNumber(value: string): number {
-  const parsed = Number.parseFloat(value.trim());
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  // `Number`, not `Number.parseFloat`: the latter reads a leading prefix, so a
+  // half-typed "180abc" would order as 180 among the real measurements instead of
+  // falling to the end with the rest of the values this cannot rank.
+  const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : Number.POSITIVE_INFINITY;
 }
