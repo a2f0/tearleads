@@ -142,22 +142,28 @@ test("read mode sorts by a column without renumbering the entries", () => {
   expect(sortState()).toBe("descending");
 });
 
-test("read mode orders a column's blank cells last", () => {
+test("read mode orders a column's blank cells last in both directions", () => {
   const view = renderReadTable({
     rows: [
       makeReading({ id: "r-blank" }),
       makeReading({ id: "r-low", diastolic: "70", systolic: "110" }),
+      makeReading({ id: "r-high", diastolic: "90", systolic: "140" }),
     ],
   });
-
-  fireEvent.click(view.getByRole("button", { name: "Reading" }));
-
-  expect(
+  const readings = () =>
     view
       .getAllByRole("row")
       .slice(1)
-      .map((row) => row.querySelectorAll("td")[1]?.textContent),
-  ).toEqual(["110/70 mmHg", "None"]);
+      .map((row) => row.querySelectorAll("td")[1]?.textContent);
+
+  fireEvent.click(view.getByRole("button", { name: "Reading" }));
+  expect(readings()).toEqual(["110/70 mmHg", "140/90 mmHg", "None"]);
+
+  // A row with no reading at all has no place among the ordered ones, so
+  // reversing the column must not lift it to the top: only the rows that have a
+  // value change places.
+  fireEvent.click(view.getByRole("button", { name: "Reading" }));
+  expect(readings()).toEqual(["140/90 mmHg", "110/70 mmHg", "None"]);
 });
 
 test("read mode heads an empty tracker with its columns and an empty row", () => {

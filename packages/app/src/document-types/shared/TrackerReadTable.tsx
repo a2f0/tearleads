@@ -25,6 +25,13 @@ import "./TrackerReadTable.css";
 /** One column's value for one row, in both of its presentations. */
 export interface TrackerReadCell {
   /**
+   * This row has nothing to show in this column, so `text` is a placeholder
+   * ("None", "—") rather than a value. Set it wherever such a placeholder is
+   * produced: it is what keeps the row at the bottom of a sort by this column in
+   * *both* directions (see {@link orderTrackerRows}).
+   */
+  absent?: boolean | undefined;
+  /**
    * Markup for values that are not plain text — the .env value and its
    * reveal/copy controls. Rendered in place of `text`, which is still required:
    * it is what the folded row announces the column by, and what a caller
@@ -81,17 +88,35 @@ function orderTrackerRows<TRow>(
   columns: ReadonlyArray<TrackerReadColumn<TRow>>,
   sort: MiniAppTableSortState,
 ): ReadonlyArray<TRow> {
-  const compare = columns.find((column) => column.id === sort.key)?.compare;
-  if (!compare) {
+  const column = columns.find((candidate) => candidate.id === sort.key);
+  const compare = column?.compare;
+  if (!column || !compare) {
     return rows;
   }
 
+  // "Has nothing here" is not a value to be ordered among the others, so it is
+  // settled before the comparator runs and stays put in both directions.
+  // Inverting the comparator alone would lift every blank cell to the top of a
+  // descending sort — the opposite of what sorting by a column means to a reader,
+  // who wants the rows that *have* this value first either way. Resolved once per
+  // row rather than per comparison, and from the same cell the table draws, so it
+  // cannot disagree with the placeholder on screen.
+  const absent = new Map(
+    rows.map((row) => [row, column.cell(row).absent === true] as const),
+  );
   // Inverting the comparator rather than reversing the sorted array keeps the
   // sort stable in both directions: rows the column cannot tell apart hold
   // their document order instead of flipping with the header.
-  return [...rows].sort((left, right) =>
-    sort.direction === "asc" ? compare(left, right) : compare(right, left),
-  );
+  return [...rows].sort((left, right) => {
+    const leftAbsent = absent.get(left) ?? false;
+    if (leftAbsent !== (absent.get(right) ?? false)) {
+      return leftAbsent ? 1 : -1;
+    }
+
+    return sort.direction === "asc"
+      ? compare(left, right)
+      : compare(right, left);
+  });
 }
 
 function toFoldedFields<TRow>(
@@ -338,6 +363,13 @@ export function TrackerReadTable<TRow>(params: {
     columns,
     compact,
   });
+  // A folded table has one summary column and no columns menu, so switching a
+  // column off is a wide-table preference that does not apply to it. Folding on
+  // the full set is also what keeps the sort honest: were the folded sort menu
+  // built from the visible columns, sorting by a column and then hiding it would
+  // leave `sort.key` with no matching option — a blank trigger whose accessible
+  // name read "undefined".
+  const displayColumns = compact ? columns : visibleColumns;
   // Ordered from the full column list, not the visible one: switching a column
   // off is about what the table shows, and silently dropping back to document
   // order would be a second, unasked-for change.
@@ -348,7 +380,7 @@ export function TrackerReadTable<TRow>(params: {
   const tableColumns = buildTrackerReadTableColumns({
     actionsLabel,
     columnMenu,
-    columns: visibleColumns,
+    columns: displayColumns,
     compact,
     onSort: (columnId) =>
       setSort((current) =>
@@ -385,7 +417,7 @@ export function TrackerReadTable<TRow>(params: {
             <TrackerReadTableRow
               key={rowKey(row)}
               actions={renderActions(row)}
-              columns={visibleColumns}
+              columns={displayColumns}
               compact={compact}
               row={row}
             />

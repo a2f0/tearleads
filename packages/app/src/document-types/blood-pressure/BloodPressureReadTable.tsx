@@ -30,7 +30,12 @@ function getBloodPressureColumns(context: {
   return [
     trackerOrdinalColumn<BloodPressureReadingRow>("Reading order"),
     {
-      cell: (row) => ({ text: formatMeasurementPair(row.entry) }),
+      cell: (row) => ({
+        absent:
+          row.entry.systolic.trim().length === 0 &&
+          row.entry.diastolic.trim().length === 0,
+        text: formatMeasurementPair(row.entry),
+      }),
       // Systolic is the figure a reading is read by; diastolic only settles ties
       // between two readings that share it.
       compare: (left, right) =>
@@ -43,7 +48,10 @@ function getBloodPressureColumns(context: {
       width: "9rem",
     },
     {
-      cell: (row) => ({ text: formatPulse(row.entry) }),
+      cell: (row) => ({
+        absent: row.entry.pulse.trim().length === 0,
+        text: formatPulse(row.entry),
+      }),
       compare: (left, right) =>
         compareTrackerNumbers(left.entry.pulse, right.entry.pulse),
       fold: "secondary",

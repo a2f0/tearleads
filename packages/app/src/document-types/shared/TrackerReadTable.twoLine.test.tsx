@@ -163,3 +163,24 @@ test("phone tracker table sorts from the folded header's select menu", () => {
 
   expect(weights()).toEqual(["Weight: 179 lb", "Weight: 180.5 lb"]);
 });
+
+test("phone tracker table can sort by a column a wide table hides", () => {
+  const view = renderFoldedWeightTable();
+  const trigger = () =>
+    view.getByRole("combobox", { name: /^Sort entries: /u });
+
+  // A folded table has one summary column and no columns menu, so the wide
+  // table's hidden set does not apply to it: every sortable column is offered,
+  // Updated included, which is what keeps the active key from ever falling out
+  // of the menu and leaving the trigger labelled "undefined".
+  fireEvent.click(trigger());
+  expect(view.getByRole("option", { name: "Updated" })).toBeTruthy();
+
+  fireEvent.click(view.getByRole("option", { name: "Updated" }));
+  expect(
+    view.getByRole("combobox", {
+      name: "Sort entries: Updated, sorted ascending",
+    }),
+  ).toBeTruthy();
+  expect(trigger().textContent).not.toContain("undefined");
+});

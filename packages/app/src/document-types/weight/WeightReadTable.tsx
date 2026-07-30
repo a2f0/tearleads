@@ -47,7 +47,10 @@ function getWeightColumns(context: {
   return [
     trackerOrdinalColumn<WeightEntryRow>("Entry order"),
     {
-      cell: (row) => ({ text: formatWeight(row.entry) }),
+      cell: (row) => ({
+        absent: row.entry.weight.trim().length === 0,
+        text: formatWeight(row.entry),
+      }),
       // Entries recorded in different units are not converted, here or anywhere
       // else in this document type, so this orders the figures as logged.
       compare: (left, right) =>
@@ -59,7 +62,10 @@ function getWeightColumns(context: {
       width: "8rem",
     },
     {
-      cell: (row) => ({ text: row.change ?? TRACKER_ABSENT_VALUE }),
+      cell: (row) => ({
+        absent: row.change === null,
+        text: row.change ?? TRACKER_ABSENT_VALUE,
+      }),
       compare: (left, right) =>
         toSortableChange(left.changeValue) -
         toSortableChange(right.changeValue),

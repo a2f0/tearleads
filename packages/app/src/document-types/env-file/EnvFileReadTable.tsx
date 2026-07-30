@@ -35,6 +35,7 @@ function getEnvFileColumns(context: {
       cell: (row) => {
         const key = row.entry.key.trim();
         return {
+          absent: key.length === 0,
           text: getEnvFileReadValue(row.entry.key),
           ...(key.length > 0 ? { title: key } : {}),
         };

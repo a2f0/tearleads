@@ -52,7 +52,10 @@ export function trackerMeasuredAtColumn<
   TEntry extends TrackerIndexEntry & { measuredAt: string },
 >(): TrackerReadColumn<TrackerIndexRow<TEntry>> {
   return {
-    cell: (row) => ({ text: formatTrackerMeasuredAt(row.entry.measuredAt) }),
+    cell: (row) => ({
+      absent: row.entry.measuredAt.trim().length === 0,
+      text: formatTrackerMeasuredAt(row.entry.measuredAt),
+    }),
     compare: (left, right) =>
       compareTrackerText(left.entry.measuredAt, right.entry.measuredAt),
     fold: "primary",
@@ -78,6 +81,7 @@ export function trackerNotesColumn<
     cell: (row) => {
       const notes = row.entry.notes.trim();
       return {
+        absent: notes.length === 0,
         text: notes.length > 0 ? notes : TRACKER_ABSENT_VALUE,
         ...(notes.length > 0 ? { title: notes } : {}),
       };
@@ -119,6 +123,7 @@ export function trackerUpdatedColumn<
         currentAuthorId: context.currentAuthorId,
       });
       return {
+        absent: byline === null,
         text: byline ?? TRACKER_ABSENT_VALUE,
         ...(byline === null ? {} : { title: byline }),
       };
