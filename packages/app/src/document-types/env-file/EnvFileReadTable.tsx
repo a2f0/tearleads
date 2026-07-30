@@ -62,7 +62,11 @@ function getEnvFileColumns(context: {
         // the cell shows rather than the secret behind it.
         text: getEnvFileVariableReadValue(row.entry),
       }),
-      fold: "primary",
+      // Its own folded line, not a half-width share of the primary one: the
+      // masked value ends in the four characters that tell two variables apart,
+      // and beside a key — with two touch-sized controls of its own to seat — that
+      // is exactly the end a half-width cell truncates away.
+      fold: "secondary",
       header: "Value",
       id: "value",
       width: "15rem",

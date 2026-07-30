@@ -14,7 +14,7 @@ import {
  * A variable's value in read mode: masked by default, with the controls that
  * reveal it locally or copy it whole. Whether it is revealed is this control's
  * own state — deliberately not the document's — so a value is never exposed by
- * anything but an explicit press, and never for more than one row at a time.
+ * anything but an explicit press, and no reveal outlives the row that made it.
  *
  * Shared by the index table's value cell and the entry card the editor collapses
  * a saved row into, so both mask and reveal identically.
