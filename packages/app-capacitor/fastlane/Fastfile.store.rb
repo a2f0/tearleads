@@ -3,6 +3,7 @@
 require 'dotenv'
 require 'json'
 require 'shellwords'
+require_relative 'revenuecat_release_key'
 
 STORE_APP_IDENTIFIER = 'com.tearleads.app'
 STORE_REPO_ROOT = File.expand_path('../../..', __dir__)

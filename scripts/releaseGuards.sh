@@ -1,6 +1,6 @@
 # shellcheck shell=sh
-# Shared guard for the store-release build/upload scripts. Not executable on its
-# own — source it: `. "$SCRIPT_DIR/rejectDevOnlyUrl.sh"`.
+# Shared guards for the store-release build/upload scripts. Not executable on
+# their own — source this file from a release wrapper.
 #
 # Refuses a dev-only backend URL before it is inlined into a store bundle. A
 # laptop's LAN address (10.x, 192.168.x, 172.16-31.x), loopback, 0.0.0.0, or a
@@ -24,6 +24,27 @@ reject_dev_only_url() {
       echo "Error: $reject_name=$reject_url points at a dev-only host ($reject_host)." >&2
       echo "A store release must use a public API URL (e.g. https://api.tearleads.com)." >&2
       echo "Unset $reject_name (or set it to a public URL) and re-run." >&2
+      exit 1
+      ;;
+  esac
+}
+
+# RevenueCat Test Store keys are useful for local native builds, but Apple and
+# Google store releases must use their platform-specific public SDK keys. Guard
+# exported overrides before Fastlane loads its dotenv files (dotenv preserves
+# an already-exported value). An empty value is allowed here because Fastlane
+# may load the key from the release dotenv file; Fastlane validates it again.
+reject_invalid_revenuecat_store_key() {
+  reject_name="$1"
+  reject_key="$2"
+  reject_prefix="$3"
+  [ -n "$reject_key" ] || return 0
+  case "$reject_key" in
+    "$reject_prefix"?*) return 0 ;;
+    *)
+      echo "Error: $reject_name is not a RevenueCat platform public SDK key." >&2
+      echo "A store release key for this platform must start with $reject_prefix." >&2
+      echo "Unset $reject_name (or set it to the platform key) and re-run." >&2
       exit 1
       ;;
   esac

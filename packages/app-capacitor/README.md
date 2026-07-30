@@ -1,5 +1,29 @@
 # App Capacitor
 
+## Test a native subscription
+
+The Capacitor shell already presents the RevenueCat-managed store flow from
+Organization Manager → Billing. For the fastest first pass, use the project's
+RevenueCat Test Store key as a one-off override; do not replace the platform
+keys in `.secrets/root.env`:
+
+```sh
+VITE_REVENUECAT_IOS_API_KEY=test_... ./scripts/runIos.sh
+VITE_REVENUECAT_ANDROID_API_KEY=test_... ./scripts/runAndroid.sh
+```
+
+The current RevenueCat offering contains the Test Store `sync_monthly` product,
+so this path can exercise package loading, the purchase sheet, entitlement
+activation, cancellation, and restore without App Store Connect or Play Console
+setup. The Test Store key must never be used for an App Store, TestFlight, or
+Google Play release.
+
+To test the server-side billing activation too, point the build at staging and
+enable `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` on the staging API before its
+Ansible deploy. Production intentionally ignores sandbox grants. Full setup and
+the real Apple/Google sandbox checklist are in
+[`revenuecat-native-stores.md`](../../docs/developer/revenuecat-native-stores.md).
+
 ## Android Sideload
 
 Install repo-managed tools and Ruby gems once:
