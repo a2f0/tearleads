@@ -120,12 +120,13 @@
  * cell padding; the two then miss each other by exactly that inset. Give the
  * header button the same one so the trailing edge reads as a single column.
  *
- * Tablet-scoped, and neither of the other two tiers wants it. Windowed layouts
- * keep right-click and render no kebab column at all for the header to line up
- * with (see useRoutedLayoutActive). On a phone the list bleeds out through the
- * panel's `--space-md` padding and re-insets its kebabs by `--space-sm`, so the
- * header and the column deliberately sit on different edges there — adding this
- * inset would widen that gap rather than close it.
+ * Tablet-scoped, and neither of the other two tiers wants it. A windowed pane
+ * draws the desktop-sized button in a cell whose padding already lands it on
+ * the header button's trailing edge (measured: under 2px apart), so the inset
+ * would push it back off. On a phone the list bleeds out through the panel's
+ * `--space-md` padding and re-insets its kebabs by `--space-sm`, so the header
+ * and the column deliberately sit on different edges there — adding this inset
+ * would widen that gap rather than close it.
  */
 .routed-pane--tablet .mini-app-header .mini-app-row-actions-button {
   margin-inline-end: var(--mini-app-row-actions-inset);
