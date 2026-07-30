@@ -143,7 +143,7 @@ export function WeightReadTable(params: {
         actionsLabel="Actions"
         ariaLabel="Entries"
         columns={columns}
-        columnStorageKey="tearleads.weight.entries:hidden-columns"
+        columnStorageKey="tearleads.weight.entries:hidden-columns:v2"
         defaultSortColumnId="ordinal"
         emptyLabel="No entries"
         renderActions={(row) => (

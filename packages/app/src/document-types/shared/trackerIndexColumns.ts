@@ -28,9 +28,18 @@ export interface TrackerIndexRow<TEntry extends TrackerIndexEntry> {
 }
 
 /**
- * The ordinal a tracker index table leads with, and its default sort: ascending
- * is document order, so the table opens in the order entries were logged and one
- * click on the header flips to newest-first.
+ * The entry's position in the document, and the table's default sort: ascending
+ * is document order, so the table opens in the order entries were logged.
+ *
+ * Off by default. The number is a *position*, not an identity — it renumbers
+ * when an earlier entry is removed, and a tracker synced from two peers orders by
+ * how the merge interleaved the rows rather than by when anything was measured —
+ * so it earns its place in the columns menu rather than in the opening view. The
+ * default sort still refers to it, which with the column switched off is simply
+ * the list's own order. A wide table shows that as no sort at all — no header
+ * carries an indicator until the reader picks a column. A folded one has a single
+ * select menu that must always name its active key, so there it reads as "Entry
+ * order", which is what the rows are in either way.
  */
 export function trackerOrdinalColumn<TEntry extends TrackerIndexEntry>(
   sortLabel: string,
@@ -39,8 +48,10 @@ export function trackerOrdinalColumn<TEntry extends TrackerIndexEntry>(
     cell: (row) => ({ text: `${row.index + 1}` }),
     className: "tracker-read-table-ordinal",
     compare: (left, right) => left.index - right.index,
+    defaultHidden: true,
     fold: "none",
     header: "#",
+    hideable: true,
     id: "ordinal",
     sortLabel,
     width: "3.5rem",

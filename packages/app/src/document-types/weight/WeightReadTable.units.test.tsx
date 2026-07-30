@@ -47,11 +47,19 @@ function renderWeightTable(entries: WeightEntryRow[]) {
   );
 }
 
-function weightCells(view: ReturnType<typeof render>) {
+/**
+ * Every body row's cell under the named column, found by the column's accessible
+ * name rather than by position, so switching another column on or off does not
+ * silently move which cell an assertion reads.
+ */
+function cellsUnder(view: ReturnType<typeof render>, name: string) {
+  const index = view
+    .getAllByRole("columnheader")
+    .indexOf(view.getByRole("columnheader", { name }));
   return view
     .getAllByRole("row")
     .slice(1)
-    .map((row) => row.querySelectorAll("td")[1]?.textContent);
+    .map((row) => row.querySelectorAll("td")[index]?.textContent);
 }
 
 test("weight sorts across units by what was weighed, not by the figure", () => {
@@ -65,10 +73,20 @@ test("weight sorts across units by what was weighed, not by the figure", () => {
   ]);
 
   fireEvent.click(view.getByRole("button", { name: "Weight" }));
-  expect(weightCells(view)).toEqual(["70 kg", "160 lb", "180 lb", "90 kg"]);
+  expect(cellsUnder(view, "Weight")).toEqual([
+    "70 kg",
+    "160 lb",
+    "180 lb",
+    "90 kg",
+  ]);
 
   fireEvent.click(view.getByRole("button", { name: "Weight" }));
-  expect(weightCells(view)).toEqual(["90 kg", "180 lb", "160 lb", "70 kg"]);
+  expect(cellsUnder(view, "Weight")).toEqual([
+    "90 kg",
+    "180 lb",
+    "160 lb",
+    "70 kg",
+  ]);
 });
 
 test("a weight the document would reject sorts last in both directions", () => {
@@ -81,10 +99,10 @@ test("a weight the document would reject sorts last in both directions", () => {
   ]);
 
   fireEvent.click(view.getByRole("button", { name: "Weight" }));
-  expect(weightCells(view)).toEqual(["120 lb", "200 lb", "180abc lb"]);
+  expect(cellsUnder(view, "Weight")).toEqual(["120 lb", "200 lb", "180abc lb"]);
 
   fireEvent.click(view.getByRole("button", { name: "Weight" }));
-  expect(weightCells(view)).toEqual(["200 lb", "120 lb", "180abc lb"]);
+  expect(cellsUnder(view, "Weight")).toEqual(["200 lb", "120 lb", "180abc lb"]);
 });
 
 test("change sorts across units by the magnitude of the change", () => {
@@ -96,11 +114,7 @@ test("change sorts across units by the magnitude of the change", () => {
     makeEntry({ id: "e3", unit: "kg", weight: "80" }),
     makeEntry({ id: "e4", unit: "kg", weight: "85" }),
   ]);
-  const changeCells = () =>
-    view
-      .getAllByRole("row")
-      .slice(1)
-      .map((row) => row.querySelectorAll("td")[2]?.textContent);
+  const changeCells = () => cellsUnder(view, "Change");
 
   fireEvent.click(view.getByRole("button", { name: "Change" }));
   // e1 and e3 have no comparable predecessor, so they hold the tail.
