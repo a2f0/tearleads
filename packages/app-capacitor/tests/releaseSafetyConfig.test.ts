@@ -37,6 +37,7 @@ async function readFastlaneKeyProblem(
   expectedPrefix: string,
   disallowedValue = "",
   comparisonRequired = false,
+  releaseTier: "production" | "staging" = "staging",
 ) {
   const process = Bun.spawn(
     [
@@ -44,11 +45,12 @@ async function readFastlaneKeyProblem(
       "-r",
       fastlaneGuardPath,
       "-e",
-      "print(revenuecat_store_key_problem(ARGV.fetch(0), ARGV.fetch(1), ARGV.fetch(2), comparison_required: ARGV.fetch(3) == 'true') || 'ok')",
+      "print(revenuecat_store_key_problem(ARGV.fetch(0), ARGV.fetch(1), ARGV.fetch(2), comparison_required: ARGV.fetch(3) == 'true', release_tier: ARGV.fetch(4)) || 'ok')",
       key,
       expectedPrefix,
       disallowedValue,
       String(comparisonRequired),
+      releaseTier,
     ],
     { stderr: "pipe", stdout: "pipe" },
   );
@@ -156,6 +158,29 @@ async function nativeDefaultApi(tier: "production" | "staging") {
   return stdout.trim();
 }
 
+async function runCrossTierApiGuard(
+  tier: "production" | "staging",
+  apiUrl: string,
+) {
+  const child = Bun.spawn(
+    [
+      "sh",
+      "-c",
+      '. "$1"; native_release_reject_cross_tier_api "$2" "$3"',
+      "sh",
+      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+      tier,
+      apiUrl,
+    ],
+    { stderr: "pipe" },
+  );
+  const [exitCode, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+  ]);
+  return { exitCode, stderr };
+}
+
 describe("RevenueCat store-release safety", () => {
   test("rejects an exported Test Store key", async () => {
     const result = await runStoreKeyGuard("test_example", "appl_");
@@ -211,6 +236,17 @@ describe("RevenueCat store-release safety", () => {
     await expect(
       readFastlaneKeyProblem("appl_staging", "appl_", "", true),
     ).resolves.toContain("production key is unavailable");
+    await expect(
+      readFastlaneKeyProblem(
+        "appl_staging",
+        "appl_",
+        "appl_staging",
+        false,
+        "production",
+      ),
+    ).resolves.toContain(
+      "matches the staging key and cannot be used for production",
+    );
   });
 
   test("Fastlane rejects a generated config for the wrong native target", async () => {
@@ -275,6 +311,27 @@ describe("RevenueCat store-release safety", () => {
     );
   });
 
+  test("native releases reject the other tier's API", async () => {
+    const stagingWrong = await runCrossTierApiGuard(
+      "staging",
+      "https://api.tearleads.com/",
+    );
+    const productionWrong = await runCrossTierApiGuard(
+      "production",
+      "https://api.tearleads.de",
+    );
+    const stagingCorrect = await runCrossTierApiGuard(
+      "staging",
+      "https://api.tearleads.de",
+    );
+
+    expect(stagingWrong.exitCode).toBe(1);
+    expect(stagingWrong.stderr).toContain("other release tier");
+    expect(productionWrong.exitCode).toBe(1);
+    expect(productionWrong.stderr).toContain("other release tier");
+    expect(stagingCorrect.exitCode).toBe(0);
+  });
+
   test("build-number options are scoped to their store platform", async () => {
     await expect(
       buildNumberSelection("android", "version_code:42"),
@@ -322,11 +379,13 @@ describe("RevenueCat store-release safety", () => {
       "native_release_disallowed_store_key('VITE_REVENUECAT_ANDROID_API_KEY')",
     );
     expect(androidFastfile).toContain("NATIVE_RELEASE_TIER == 'staging'");
+    expect(androidFastfile).toContain("release_tier: NATIVE_RELEASE_TIER");
     expect(iosLoadIndex).toBeGreaterThan(-1);
     expect(iosGuardIndex).toBeGreaterThan(iosLoadIndex);
     expect(iosFastfile).toContain(
       "native_release_disallowed_store_key('VITE_REVENUECAT_IOS_API_KEY')",
     );
     expect(iosFastfile).toContain("NATIVE_RELEASE_TIER == 'staging'");
+    expect(iosFastfile).toContain("release_tier: NATIVE_RELEASE_TIER");
   });
 });

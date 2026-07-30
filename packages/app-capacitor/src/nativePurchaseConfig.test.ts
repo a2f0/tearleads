@@ -3,27 +3,42 @@ import { resolve } from "node:path";
 
 const packageRoot = resolve(import.meta.dir, "..");
 
-async function loadFastlaneTier(tier: "production" | "staging") {
-  const child = Bun.spawn(["bundle", "exec", "fastlane", "lanes"], {
-    cwd: packageRoot,
-    env: {
-      ...process.env,
-      FASTLANE_OPT_OUT_USAGE: "1",
-      FASTLANE_SKIP_UPDATE_CHECK: "1",
-      NATIVE_RELEASE_TIER: tier,
-    },
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [exitCode, stderr] = await Promise.all([
-    child.exited,
-    new Response(child.stderr).text(),
-    new Response(child.stdout).text(),
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`Fastlane failed to load ${tier}: ${stderr}`);
+function xcodeConfigurationSettings(
+  project: string,
+  owner: "PBXProject" | "PBXNativeTarget",
+  configuration: "Release" | "Release-Staging",
+) {
+  const configurationList = project.match(
+    new RegExp(
+      `Build configuration list for ${owner} "App" \\*/ = \\{[\\s\\S]*?buildConfigurations = \\(([\\s\\S]*?)\\);`,
+    ),
+  )?.[1];
+  const configurationId = configurationList?.match(
+    new RegExp(`([A-F0-9]{24}) /\\* ${configuration} \\*/`),
+  )?.[1];
+  if (configurationId === undefined) {
+    throw new Error(`Could not find ${owner} ${configuration} configuration`);
   }
-  return stderr;
+
+  const settings = project.match(
+    new RegExp(
+      `${configurationId} /\\* ${configuration} \\*/ = \\{[\\s\\S]*?buildSettings = \\{([\\s\\S]*?)\\n\\s*\\};`,
+    ),
+  )?.[1];
+  if (settings === undefined) {
+    throw new Error(`Could not read ${owner} ${configuration} settings`);
+  }
+
+  return settings
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function withoutXcodeSettings(settings: string[], excludedNames: string[]) {
+  return settings.filter(
+    (line) => !excludedNames.some((name) => line.startsWith(`${name} =`)),
+  );
 }
 
 test("Android can resume a purchase after external payment verification", async () => {
@@ -157,11 +172,44 @@ test("iOS exposes a staging release configuration and shared scheme", async () =
   expect(scheme).toContain('buildConfiguration = "Release-Staging"');
 });
 
-test("Fastlane loads both release tiers without redefining constants", async () => {
-  for (const tier of ["production", "staging"] as const) {
-    const stderr = await loadFastlaneTier(tier);
-    expect(stderr).not.toContain("already initialized constant");
-  }
+test("iOS staging release settings stay aligned with production", async () => {
+  const project = await Bun.file(
+    resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
+  ).text();
+  const projectRelease = xcodeConfigurationSettings(
+    project,
+    "PBXProject",
+    "Release",
+  );
+  const projectStaging = xcodeConfigurationSettings(
+    project,
+    "PBXProject",
+    "Release-Staging",
+  );
+  expect(projectStaging).toEqual(projectRelease);
+
+  const targetRelease = xcodeConfigurationSettings(
+    project,
+    "PBXNativeTarget",
+    "Release",
+  );
+  const targetStaging = xcodeConfigurationSettings(
+    project,
+    "PBXNativeTarget",
+    "Release-Staging",
+  );
+  const intendedDifferences = ["APP_DISPLAY_NAME", "PRODUCT_BUNDLE_IDENTIFIER"];
+  expect(withoutXcodeSettings(targetStaging, intendedDifferences)).toEqual(
+    withoutXcodeSettings(targetRelease, intendedDifferences),
+  );
+  expect(targetRelease).toContain("APP_DISPLAY_NAME = Tearleads;");
+  expect(targetRelease).toContain(
+    "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.app;",
+  );
+  expect(targetStaging).toContain('APP_DISPLAY_NAME = "Tearleads Staging";');
+  expect(targetStaging).toContain(
+    "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.app.staging;",
+  );
 });
 
 test("Fastlane selects store identities from one shared release target", async () => {
@@ -181,4 +229,14 @@ test("Fastlane selects store identities from one shared release target", async (
   expect(packageManifest.scripts["cap:sync:release"]).toContain(
     "NATIVE_RELEASE_TIER=production",
   );
+  for (const scriptName of [
+    "cap:open:android",
+    "cap:open:ios",
+    "cap:run:android",
+    "cap:run:ios",
+  ]) {
+    expect(packageManifest.scripts[scriptName]).toContain(
+      "NATIVE_RELEASE_TIER=production",
+    );
+  }
 });

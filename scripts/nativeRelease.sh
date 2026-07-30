@@ -10,14 +10,6 @@ native_release_default_api() {
   esac
 }
 
-native_release_app_identifier() {
-  case "$1" in
-    production) printf '%s\n' "com.tearleads.app" ;;
-    staging) printf '%s\n' "com.tearleads.app.staging" ;;
-    *) return 1 ;;
-  esac
-}
-
 native_release_usage() {
   native_platform="$1"
   native_action="$2"
@@ -95,7 +87,9 @@ EOF
 
 native_release_ensure_android_wrapper() {
   native_wrapper_jar="android/gradle/wrapper/gradle-wrapper.jar"
-  [ -f "$native_wrapper_jar" ] && return 0
+  if [ -f "$native_wrapper_jar" ]; then
+    return 0
+  fi
 
   echo "Generating $native_wrapper_jar from repo-managed Gradle..."
   if command -v gradle > /dev/null 2>&1; then
@@ -108,6 +102,23 @@ native_release_ensure_android_wrapper() {
   fi
 }
 
+native_release_reject_cross_tier_api() {
+  native_api_tier="$1"
+  native_api_url="${2%/}"
+  if [ "$native_api_tier" = staging ]; then
+    native_disallowed_api="$(native_release_default_api production)"
+  else
+    native_disallowed_api="$(native_release_default_api staging)"
+  fi
+  if [ "$native_api_url" != "$native_disallowed_api" ]; then
+    return 0
+  fi
+
+  echo "Error: VITE_API_BASE_URL=$2 points the $native_api_tier app at the other release tier." >&2
+  echo "Unset VITE_API_BASE_URL (or set it to the selected tier's API) and re-run." >&2
+  return 1
+}
+
 native_release_guard_environment() {
   native_platform="$1"
   native_tier="$2"
@@ -115,6 +126,7 @@ native_release_guard_environment() {
 
   export VITE_API_BASE_URL="${VITE_API_BASE_URL:-$native_default_api}"
   reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
+  native_release_reject_cross_tier_api "$native_tier" "$VITE_API_BASE_URL"
   reject_dev_only_url VITE_WS_URL "${VITE_WS_URL:-}"
 
   if [ "$native_platform" = android ]; then
@@ -253,8 +265,7 @@ native_release_main() {
   fi
 
   native_command="$(native_release_bun_command "$native_platform" "$native_action")"
-  native_app_identifier="$(native_release_app_identifier "$native_tier")"
-  echo "${native_action}ing ${native_tier} ${native_platform} release with app ID ${native_app_identifier}"
+  echo "${native_action}ing ${native_tier} ${native_platform} release (NATIVE_RELEASE_TIER=${native_tier})"
   echo "VITE_API_BASE_URL=$VITE_API_BASE_URL"
 
   if [ "$native_action" = upload ]; then
