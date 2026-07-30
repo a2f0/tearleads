@@ -16,7 +16,7 @@
     "build": "export NODE_ENV=production && rm -rf dist && sh ../../scripts/withBuildInfoEnv.sh bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --env='BUN_PUBLIC_*' --public-path=/ && bun scripts/buildStaticAssets.ts && sh scripts/buildWebImages.sh && bun scripts/buildServiceWorker.ts",
     "prestart": "bun run build:client-sdk",
     "start": "sh ../../scripts/withBuildInfoEnv.sh bun src/servers/devServer.ts",
-    "test": "bun test scripts --max-concurrency=1"
+    "test": "bun test scripts e2e/domMeasure.test.ts --max-concurrency=1"
   },
   "dependencies": {
     "@revenuecat/purchases-js": "1.47.0",

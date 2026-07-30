@@ -1,6 +1,13 @@
 const ATTACHED_MEASURE_TIMEOUT_MS = 10_000;
 const ATTACHED_MEASURE_INTERVAL_MS = 50;
 
+export interface MeasureAttachedOptions {
+  /** How long between retries. Exposed so the unit test need not wait. */
+  intervalMs?: number | undefined;
+  /** How long to keep retrying before giving up. */
+  timeoutMs?: number | undefined;
+}
+
 /**
  * Take a DOM measurement, retrying until it runs against an element that is
  * still attached to the document. `read` returns `null` to mean "the element I
@@ -25,8 +32,11 @@ const ATTACHED_MEASURE_INTERVAL_MS = 50;
 export async function measureAttached<T>(
   what: string,
   read: () => Promise<T | null>,
+  options: MeasureAttachedOptions = {},
 ): Promise<T> {
-  const deadline = Date.now() + ATTACHED_MEASURE_TIMEOUT_MS;
+  const timeoutMs = options.timeoutMs ?? ATTACHED_MEASURE_TIMEOUT_MS;
+  const intervalMs = options.intervalMs ?? ATTACHED_MEASURE_INTERVAL_MS;
+  const deadline = Date.now() + timeoutMs;
   for (;;) {
     const value = await read();
     if (value !== null) {
@@ -35,12 +45,12 @@ export async function measureAttached<T>(
 
     if (Date.now() >= deadline) {
       throw new Error(
-        `${what}: never measured while attached to the document within ${ATTACHED_MEASURE_TIMEOUT_MS}ms`,
+        `${what}: never measured while attached to the document within ${timeoutMs}ms`,
       );
     }
 
     await new Promise((resolve) => {
-      setTimeout(resolve, ATTACHED_MEASURE_INTERVAL_MS);
+      setTimeout(resolve, intervalMs);
     });
   }
 }
