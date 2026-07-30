@@ -1,11 +1,12 @@
-interface RemoteHydrationRefreshOptions {
+export interface RemoteHydrationRefreshOptions {
   followDiscoveredParentLanes?: boolean | undefined;
+  onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetRootLaneWatermark?: boolean | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
 }
 
-type RemoteHydrationRequester = (
+export type RemoteHydrationRequester = (
   options: RemoteHydrationRefreshOptions,
 ) => Promise<void>;
 
@@ -102,6 +103,7 @@ function canRefreshRemoteHydration(
 }
 
 export function refreshAllRemoteHydration(input: {
+  onFullyHydrated?: (() => Promise<void> | void) | undefined;
   requestHydration: RemoteHydrationRequester;
   state: RemoteHydrationRefreshState;
 }): Promise<boolean> {
@@ -119,6 +121,7 @@ export function refreshAllRemoteHydration(input: {
   // container's updatedAt, so a persisted watermark would hide it forever.
   return requestHydration({
     followDiscoveredParentLanes: true,
+    onFullyHydrated: input.onFullyHydrated,
     resetRootLaneWatermark: true,
     scheduleSyncAfterHydration: true,
   }).then(() => true);

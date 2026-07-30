@@ -14,13 +14,14 @@ export {
 } from "../../data/sync/syncCoordinator";
 
 export type ContainerContentsSyncLane = SyncLane;
+export const CONTAINER_CONTENTS_SYNC_LANE_KEY = "container-contents";
 
 export function registerContainerContentsSyncLane(input: {
   readonly domainScope: DomainScope;
   readonly run: () => Promise<void>;
 }): ContainerContentsSyncLane {
   return getOrCreateDomainSyncCoordinator(input.domainScope).registerLane(
-    "container-contents",
+    CONTAINER_CONTENTS_SYNC_LANE_KEY,
     {
       label: "Container contents",
       phase: "structural",

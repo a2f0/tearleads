@@ -54,6 +54,7 @@ function createMetadataWriterProjection(
 
 function createPersistence(): ContainerContentsPersistence {
   return {
+    async completeDormantMetadataSweepRequest() {},
     async containerExists() {
       return false;
     },
@@ -69,6 +70,9 @@ function createPersistence(): ContainerContentsPersistence {
       return null;
     },
     async purgeDormantContainerMetadata() {},
+    async purgeUnmatchedDormantContainerMetadata() {
+      return 0;
+    },
     async listPendingCreateIntents() {
       return [];
     },
@@ -79,6 +83,9 @@ function createPersistence(): ContainerContentsPersistence {
       return null;
     },
     async listPendingUpdates() {
+      return [];
+    },
+    async listDormantMetadataSweepRequests() {
       return [];
     },
     async listUnsyncedMoveIntents() {

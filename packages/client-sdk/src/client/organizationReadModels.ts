@@ -1,7 +1,12 @@
 import type { DomainScope } from "../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../data/persistence/container-contents/documentMoveIntentPersistence";
+import { requestDormantMetadataRestorationSweep } from "../data/persistence/container-contents/dormantContainerMetadata";
 import { hasRecordedTerminalSyncFailures } from "../data/sqlite/documentPersistence";
-import { requestAllDomainSyncLanes } from "../data/sync/syncCoordinator";
+import {
+  requestAllDomainSyncLanes,
+  requestDomainSyncLane,
+} from "../data/sync/syncCoordinator";
+import { CONTAINER_CONTENTS_SYNC_LANE_KEY } from "../workflows/container-contents/syncLane";
 import {
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationDirectoryAndGroups,
@@ -364,6 +369,21 @@ class OrganizationReadModelCoordinatorImpl
       organizationId: active.organizationId,
     })
       .then(async (directoryAndGroups) => {
+        const accessWasRestored =
+          accessWasDenied &&
+          directoryAndGroups !== null &&
+          directoryAndGroups !== undefined;
+        if (accessWasRestored) {
+          await requestDormantMetadataRestorationSweep(
+            active.runtime.infra.execSql,
+            {
+              organizationId: active.organizationId,
+              requesterUserId: active.userId,
+            },
+          );
+          requestDomainSyncLane(domainScope, CONTAINER_CONTENTS_SYNC_LANE_KEY);
+        }
+
         // The evidence gate: re-arm only when some queued write actually
         // recorded a terminal failure. A transient denial during bootstrap
         // (e.g. a read-model 403 before grants propagate) also flips the
@@ -371,9 +391,7 @@ class OrganizationReadModelCoordinatorImpl
         // A failed pass (`undefined`) proves nothing about restored access,
         // so it must not re-arm either.
         if (
-          accessWasDenied &&
-          directoryAndGroups !== null &&
-          directoryAndGroups !== undefined &&
+          accessWasRestored &&
           ((await hasRecordedTerminalSyncFailures(
             active.runtime.infra.execSql,
           )) ||

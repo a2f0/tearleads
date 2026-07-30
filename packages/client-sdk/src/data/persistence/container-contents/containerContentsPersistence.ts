@@ -24,12 +24,10 @@ import {
   documentContainerProjection,
   documentContainerProjectionTables,
   documentHistoryCheckpoints,
-  documentHistoryUpdates,
   documentMoveIntentTables,
   documentPendingUpdates,
   documentProjection,
   documentProjectionTables,
-  documentSyncFailures,
   documents,
 } from "../../sqlite/schema";
 import {
@@ -57,8 +55,19 @@ import {
   sqlContainerSyncWatermarkPersistence,
 } from "../containers/containerSyncWatermarkPersistence";
 import { reassignContainerDocumentsInTransaction } from "./containerDocumentReassignment";
+import {
+  CONTAINER_METADATA_APP_KIND,
+  clearDormantContainerMetadataInTransaction,
+  completeDormantMetadataSweepRequest,
+  type DormantContainerMetadataPersistence,
+  deleteContainerMetadataDocumentRowsInTransaction,
+  listDormantMetadataSweepRequests,
+  purgeUnmatchedDormantContainerMetadata,
+  retainDormantContainerMetadataInTransaction,
+} from "./dormantContainerMetadata";
 
-export const CONTAINER_METADATA_APP_KIND = "container-metadata";
+export { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
+
 const CONTAINER_CREATE_INTENT_TYPE = "container.create";
 const CONTAINER_MOVE_INTENT_TYPE = "container.move";
 
@@ -125,7 +134,8 @@ export interface StoredContainerState {
   record: ContainerMetadataRecord | null;
 }
 
-export interface ContainerContentsPersistence {
+export interface ContainerContentsPersistence
+  extends DormantContainerMetadataPersistence {
   containerExists: (execSql: ExecSql, containerId: string) => Promise<boolean>;
   deleteContainer: (
     execSql: ExecSql,
@@ -493,6 +503,7 @@ async function saveContainerContentsContainerRows(input: {
     tx,
     localUpdatedAt,
   });
+  await clearDormantContainerMetadataInTransaction(tx, [container.id]);
 
   if (record) {
     await saveContainerMetadataRecord({
@@ -858,66 +869,6 @@ async function reparentLocalContainerChildren(input: {
     .run();
 }
 
-// Every durable row of a container's metadata document — the record, its
-// durable history (checkpoint + tail), the queued updates, and the failure
-// row. The deleted cascade, the dormant purge, and the local reconcile all
-// delete this same set, so orphaned metadata history cannot outlive its
-// record.
-async function deleteContainerMetadataDocumentRowsInTransaction(
-  tx: ClientSQLiteTransaction,
-  containerIds: readonly string[],
-): Promise<void> {
-  const ids = [...containerIds];
-  if (ids.length === 0) {
-    return;
-  }
-  await tx
-    .delete(documents)
-    .where(
-      and(
-        eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-        inArray(documents.localId, ids),
-      ),
-    )
-    .run();
-  await tx
-    .delete(documentHistoryCheckpoints)
-    .where(
-      and(
-        eq(documentHistoryCheckpoints.appKind, CONTAINER_METADATA_APP_KIND),
-        inArray(documentHistoryCheckpoints.localId, ids),
-      ),
-    )
-    .run();
-  await tx
-    .delete(documentHistoryUpdates)
-    .where(
-      and(
-        eq(documentHistoryUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-        inArray(documentHistoryUpdates.localId, ids),
-      ),
-    )
-    .run();
-  await tx
-    .delete(documentPendingUpdates)
-    .where(
-      and(
-        eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-        inArray(documentPendingUpdates.localId, ids),
-      ),
-    )
-    .run();
-  await tx
-    .delete(documentSyncFailures)
-    .where(
-      and(
-        eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
-        inArray(documentSyncFailures.localId, ids),
-      ),
-    )
-    .run();
-}
-
 async function deleteLocalContainerRows(input: {
   containerId: string;
   tx: ClientSQLiteTransaction;
@@ -1015,6 +966,7 @@ async function selectContainerMetadataRecord(
 }
 
 export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
+  completeDormantMetadataSweepRequest,
   async containerExists(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
     const { db } = getClientSQLitePersistenceRuntime(execSql);
@@ -1048,14 +1000,42 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
       await ensureDocumentProjectionTables(lockedExecSql);
       await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
+      const uniqueContainerIdSet = new Set(uniqueContainerIds);
       const retainMetadataIds = new Set(
-        options?.retainMetadataForContainerIds ?? [],
+        (options?.retainMetadataForContainerIds ?? []).filter((containerId) =>
+          uniqueContainerIdSet.has(containerId),
+        ),
       );
       const metadataDeleteIds = uniqueContainerIds.filter(
         (containerId) => !retainMetadataIds.has(containerId),
       );
+      const retainedAt = new Date().toISOString();
       await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
         async (tx) => {
+          const retainedContainers =
+            retainMetadataIds.size === 0
+              ? []
+              : await tx
+                  .select({
+                    containerId: containers.id,
+                    organizationId: containers.organizationId,
+                  })
+                  .from(containers)
+                  .where(inArray(containers.id, Array.from(retainMetadataIds)));
+          await retainDormantContainerMetadataInTransaction(
+            tx,
+            retainedContainers.flatMap((container) =>
+              container.containerId
+                ? [
+                    {
+                      containerId: container.containerId,
+                      organizationId: container.organizationId,
+                      retainedAt,
+                    },
+                  ]
+                : [],
+            ),
+          );
           await repairDocumentsForRemovedContainersInTransaction({
             containerIds: uniqueContainerIds,
             tx,
@@ -1122,6 +1102,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       getContainerMetadataScope(containerId),
     );
   },
+  listDormantMetadataSweepRequests,
   async rekeyPendingUpdate(execSql, id) {
     return rekeyDocumentPendingUpdate(execSql, id);
   },
@@ -1394,6 +1375,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       );
     });
   },
+  purgeUnmatchedDormantContainerMetadata,
   async loadContainers(execSql) {
     const containers = await loadContainerRecords(execSql);
     const storedContainers = await Promise.all(

@@ -13,6 +13,10 @@ import { defaultDocumentProjectorRegistry } from "../data/documents/documentKind
 import { createDomainScope } from "../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
+  completeDormantMetadataSweepRequest,
+  listDormantMetadataSweepRequests,
+} from "../data/persistence/container-contents/dormantContainerMetadata";
+import {
   ensureDocumentTables,
   recordDocumentSyncFailure,
 } from "../data/sqlite/documentPersistence";
@@ -24,6 +28,7 @@ import {
   getOrCreateDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
 } from "../data/sync/syncCoordinator";
+import { CONTAINER_CONTENTS_SYNC_LANE_KEY } from "../workflows/container-contents/syncLane";
 import { denyOrganizationPresentationAccess } from "../workflows/organizations/organizationPresentationAccessState";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 import type {
@@ -147,6 +152,57 @@ test("a reconcile that restores denied org access re-requests all sync lanes", a
     await expect(coordinator.reconcile()).resolves.not.toBeNull();
     await laneRan;
     expect(laneRuns).toBe(1);
+  } finally {
+    disposeDomainSyncCoordinator(domainScope);
+    close();
+  }
+});
+
+test("restored access requests an organization-scoped container cleanup", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-dormant-cleanup-test",
+  );
+  const { runtime, workflowInput } = createRuntime(execSql);
+  const domainScope = workflowInput.state.domainScope;
+  try {
+    const sweptOrganizations: string[][] = [];
+    let markLaneRan = () => {};
+    const laneRan = new Promise<void>((resolve) => {
+      markLaneRan = resolve;
+    });
+    getOrCreateDomainSyncCoordinator(domainScope).registerLane(
+      CONTAINER_CONTENTS_SYNC_LANE_KEY,
+      {
+        label: "Container contents",
+        phase: "structural",
+        run: async () => {
+          const sweeps = await listDormantMetadataSweepRequests(
+            execSql,
+            organizationReadModelUserId,
+          );
+          sweptOrganizations.push(sweeps.map((sweep) => sweep.organizationId));
+          for (const sweep of sweeps) {
+            await completeDormantMetadataSweepRequest(execSql, sweep);
+          }
+          markLaneRan();
+        },
+      },
+    );
+    const coordinator = createOrganizationReadModelCoordinator(runtime);
+    denyOrganizationPresentationAccess(
+      {
+        execSql,
+        organizationId: organizationReadModelOrganizationId,
+        requesterUserId: organizationReadModelUserId,
+      },
+      ["readModel", "usage"],
+    );
+
+    // No terminal write failure is needed: dormant cleanup has its own
+    // organization-scoped structural signal and does not re-drive other lanes.
+    await expect(coordinator.reconcile()).resolves.not.toBeNull();
+    await laneRan;
+    expect(sweptOrganizations).toEqual([[organizationReadModelOrganizationId]]);
   } finally {
     disposeDomainSyncCoordinator(domainScope);
     close();

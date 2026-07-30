@@ -20,6 +20,7 @@ const METADATA_SCOPE = { appKind: "container-metadata", localId: "revoked" };
 async function saveContainerRow(
   execSql: ExecSql,
   containerId: string,
+  organizationId = "peer-organization",
 ): Promise<void> {
   await defaultContainerContentsPersistence.saveContainer(
     execSql,
@@ -29,7 +30,7 @@ async function saveContainerRow(
       id: containerId,
       metadataDocumentId: `metadata-${containerId}`,
       name: "Shared",
-      organizationId: "peer-organization",
+      organizationId,
       parentId: null,
     },
     {
@@ -50,9 +51,10 @@ async function saveContainerRow(
 async function seedContainerWithQueuedRename(
   execSql: ExecSql,
   containerId: string,
+  organizationId = "peer-organization",
 ): Promise<void> {
   await listPendingWrites(execSql);
-  await saveContainerRow(execSql, containerId);
+  await saveContainerRow(execSql, containerId, organizationId);
   await execSql(
     `INSERT INTO document_history_updates (
       id, app_kind, local_id, update_data, origin, created_at
@@ -75,6 +77,18 @@ async function seedContainerWithQueuedRename(
       T1,
     ],
   );
+}
+
+async function countDormantMarkers(
+  execSql: ExecSql,
+  containerId: string,
+): Promise<number> {
+  const rows = await execSql(
+    `SELECT COUNT(*) AS n FROM dormant_container_metadata
+     WHERE container_id = ?`,
+    [containerId],
+  );
+  return Number(Reflect.get(rows[0] ?? {}, "n") ?? 0);
 }
 
 async function countRows(
@@ -161,6 +175,7 @@ test("access_revoked cascade retains the metadata document dormant", async () =>
     expect(await countRows(execSql, "document_sync_failures", "revoked")).toBe(
       1,
     );
+    expect(await countDormantMarkers(execSql, "revoked")).toBe(1);
   } finally {
     await close();
   }
@@ -228,6 +243,7 @@ test("a later deleted tombstone purges dormant retained metadata", async () => {
     expect(
       await countRows(execSql, "document_history_updates", "revoked"),
     ).toBe(0);
+    expect(await countDormantMarkers(execSql, "revoked")).toBe(0);
   } finally {
     await close();
   }

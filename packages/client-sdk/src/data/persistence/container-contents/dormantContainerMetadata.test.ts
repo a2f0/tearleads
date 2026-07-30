@@ -1,0 +1,63 @@
+import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  completeDormantMetadataSweepRequest,
+  listDormantMetadataSweepRequests,
+  purgeUnmatchedDormantContainerMetadata,
+  requestDormantMetadataRestorationSweep,
+} from "./dormantContainerMetadata";
+
+test("sweeps preserve newer requests and post-request retentions", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "dormant-metadata-sweep-generation",
+  );
+  try {
+    const request = { organizationId: "org-1", requesterUserId: "user-1" };
+    await requestDormantMetadataRestorationSweep(execSql, request);
+    await requestDormantMetadataRestorationSweep(execSql, {
+      ...request,
+      requesterUserId: "user-2",
+    });
+    const firstSweep = (
+      await listDormantMetadataSweepRequests(execSql, request.requesterUserId)
+    )[0];
+    if (!firstSweep) {
+      throw new Error("Expected the first restoration sweep");
+    }
+    await execSql(
+      `INSERT INTO dormant_container_metadata
+        (container_id, organization_id, retained_at)
+       VALUES ('old-marker', 'org-1', '2000-01-01T00:00:00.000Z'),
+              ('late-marker', 'org-1', '9999-01-01T00:00:00.000Z')`,
+    );
+
+    await requestDormantMetadataRestorationSweep(execSql, request);
+    expect(
+      await purgeUnmatchedDormantContainerMetadata(execSql, firstSweep),
+    ).toBe(0);
+    await completeDormantMetadataSweepRequest(execSql, firstSweep);
+    const latestSweep = (
+      await listDormantMetadataSweepRequests(execSql, request.requesterUserId)
+    )[0];
+    expect(latestSweep?.generation).toBe(firstSweep.generation + 1);
+    if (!latestSweep) {
+      throw new Error("Expected the newer restoration sweep");
+    }
+    expect(
+      await purgeUnmatchedDormantContainerMetadata(execSql, latestSweep),
+    ).toBe(1);
+    const remainingMarkers = await execSql(
+      "SELECT container_id FROM dormant_container_metadata ORDER BY container_id",
+    );
+    expect(remainingMarkers).toEqual([{ container_id: "late-marker" }]);
+    await completeDormantMetadataSweepRequest(execSql, latestSweep);
+    expect(
+      await listDormantMetadataSweepRequests(execSql, request.requesterUserId),
+    ).toEqual([]);
+    expect(
+      await listDormantMetadataSweepRequests(execSql, "user-2"),
+    ).toHaveLength(1);
+  } finally {
+    await close();
+  }
+});

@@ -14,6 +14,7 @@ import {
   moveIndexedContainerChild,
   removeIndexedContainerChild,
 } from "./remoteHydration/childIndex";
+import { finishRemoteHydration } from "./remoteHydration/completeHydration";
 import { markContainerParentLaneFetched } from "./remoteHydration/laneFetchMarkers";
 import { fetchContainerParentLaneBatch } from "./remoteHydration/parentLaneFetch";
 import { createContainerParentHydrationQueue } from "./remoteHydration/parentLaneQueue";
@@ -40,7 +41,6 @@ import type {
   RemoteContainerIngestQueue,
   SaveContainerOptions,
 } from "./remoteHydration/types";
-import { describeRemoteContainerHydration } from "./remoteHydrationLog";
 
 export type {
   ContainerState,
@@ -896,6 +896,7 @@ async function hydrateContainerParentLanes(input: {
 export async function hydrateRemoteContainers(input: {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
+  onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetRootLaneWatermark?: boolean | undefined;
   state: RemoteContainerHydrationState;
@@ -933,7 +934,7 @@ export async function hydrateRemoteContainers(input: {
       queueParentLane(containerId);
     }
   };
-  const { changedCount } = await hydrateContainerParentLanes({
+  const result = await hydrateContainerParentLanes({
     childIdsByParentId,
     host,
     lanes,
@@ -941,18 +942,15 @@ export async function hydrateRemoteContainers(input: {
     seenContainerIds,
     state,
   });
-
-  if (changedCount > 0) {
-    host.updateSnapshot();
-    let insertedCount = 0;
-    for (const containerId of seenContainerIds) {
-      if (!containerIdsBeforeHydration.has(containerId)) {
-        insertedCount++;
-      }
-    }
-    state.runtime.util.log(
-      describeRemoteContainerHydration({ changedCount, insertedCount }),
-    );
-  }
+  const { changedCount } = result;
+  await finishRemoteHydration({
+    changedCount,
+    complete: !result.shouldStop && canHydrateRemoteContainers(state),
+    containerIdsBeforeHydration,
+    host,
+    onFullyHydrated: input.onFullyHydrated,
+    seenContainerIds,
+    state,
+  });
   return changedCount;
 }

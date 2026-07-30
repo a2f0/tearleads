@@ -22,6 +22,7 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
 export function requestContainerContentsRemoteHydration(input: {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
+  onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetRootLaneWatermark?: boolean | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
@@ -63,6 +64,7 @@ export function requestContainerContentsRemoteHydration(input: {
       hydrateRemoteContainers({
         followDiscoveredParentLanes,
         host,
+        onFullyHydrated: input.onFullyHydrated,
         parentIds,
         resetRootLaneWatermark: input.resetRootLaneWatermark,
         state,
