@@ -1,3 +1,4 @@
+import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../data/documentSummary";
 import {
   documentContainerProjectionTables,
   documentMoveIntentTables,
@@ -168,7 +169,9 @@ const ORPHANED_PRIME_TARGET_SQL = `
       OR projection.organization_id IS NULL
       OR projection.organization_id = ''
     )
-    AND projection.document_kind NOT IN ('organization_profile')
+    AND projection.document_kind NOT IN (${HIDDEN_DOCUMENT_SUMMARY_KINDS.map(
+      () => "?",
+    ).join(", ")})
     AND (
       stored.document_id IS NULL
       OR NOT EXISTS (
@@ -196,6 +199,7 @@ async function listOrphanedDocumentPrimeTargets(
   ]);
   const rows = await runtime.infra.execSql(ORPHANED_PRIME_TARGET_SQL, [
     organizationId,
+    ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
   ]);
   return rows.flatMap((row) => {
     const localId = Reflect.get(row, "local_id");

@@ -28,6 +28,7 @@ function createRootRefreshHarness(input: {
         input.canDiscoverContainerDocuments ?? (() => true),
       discoverContainerDocuments: async (containerId) => {
         calls.push(`discover:${containerId}`);
+        return [];
       },
       domainScope: createDomainScope(),
       getRuntimeStatus: () => ({
@@ -37,6 +38,7 @@ function createRootRefreshHarness(input: {
       }),
       isIgnorableError: () => false,
       listAutomaticRootCatchupContainerIds: input.automaticContainerIds,
+      listContainerDocumentIds: async () => [],
       listKnownContainerIds: input.automaticContainerIds,
       loadContainerDelta: async (
         containerId,
@@ -49,6 +51,12 @@ function createRootRefreshHarness(input: {
         await input.onRefreshRoot?.();
       },
       refreshTree: async () => undefined,
+      probeUndiscoveredDocumentsBatch: async () => ({
+        done: true,
+        nextCursor: null,
+        requestedCount: 0,
+      }),
+      reportInitialDocumentProbeComplete: () => undefined,
       requestDocumentContentPull: (containerId, _documents, force) => {
         pulls.push({ containerId, force });
       },

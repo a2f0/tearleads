@@ -1,57 +1,104 @@
-function readListedDocumentId(value: unknown): string | null {
-  if (
-    value === null ||
-    (typeof value !== "object" && typeof value !== "function")
-  ) {
-    return null;
-  }
-  const documentId = Reflect.get(value, "documentId");
-  return typeof documentId === "string" ? documentId : null;
+export interface InitialDocumentProbeBatchInput {
+  readonly afterLocalId: string | null;
+  readonly listedContainerIds: ReadonlySet<string>;
+  readonly listedDocumentIds: ReadonlySet<string>;
+}
+
+export interface InitialDocumentProbeBatchResult {
+  readonly done: boolean;
+  readonly nextCursor: string | null;
+  readonly requestedCount: number;
 }
 
 export interface InitialDocumentProbeHost {
   readonly canDiscoverContainerDocuments: (containerId: string) => boolean;
   readonly listKnownContainerIds: () => ReadonlyArray<string>;
-  readonly probeUndiscoveredDocuments?: (
-    listedDocumentIds: ReadonlySet<string>,
-  ) => Promise<void>;
+  readonly listContainerDocumentIds: (
+    containerId: string,
+  ) => Promise<ReadonlyArray<string> | null>;
+  readonly probeUndiscoveredDocumentsBatch: (
+    input: InitialDocumentProbeBatchInput,
+  ) => Promise<InitialDocumentProbeBatchResult>;
+  readonly reportInitialDocumentProbeComplete: (requestedCount: number) => void;
 }
 
 export interface InitialDocumentProbe {
   readonly arm: () => void;
   readonly canRun: () => boolean;
-  readonly recordListing: (
-    containerId: string,
-    listedDocuments: unknown,
-  ) => void;
   readonly resetPending: () => void;
   readonly run: () => Promise<void>;
 }
 
+export function scheduleInitialDocumentProbeContinuation(input: {
+  readonly canContinue: () => boolean;
+  readonly requestRun: () => void;
+}): void {
+  if (!input.canContinue()) {
+    return;
+  }
+  setTimeout(() => {
+    if (input.canContinue()) {
+      input.requestRun();
+    }
+  }, 0);
+}
+
 /**
- * Tracks the first complete background document-listing sweep for a replica.
- * The controller deliberately records the API discovery result, not the local
- * projection loaded afterward: a stale local row missing from the server list
- * is exactly the document the resulting probe must revalidate.
+ * Runs one bounded unit per call: first one authoritative container listing,
+ * then one local candidate batch. Incremental discovery watermarks are never
+ * used as evidence that a document is absent from the server.
  */
 export function createInitialDocumentProbe(
   host: InitialDocumentProbeHost,
 ): InitialDocumentProbe {
-  const completedContainerIds = new Set<string>();
-  const listedDocumentIds = new Set<string>();
+  const listedDocumentIdsByContainer = new Map<string, ReadonlySet<string>>();
   let armed = false;
   let complete = false;
+  let cursor: string | null = null;
+  let generation = 0;
+  let requestedCount = 0;
   let running = false;
 
-  const canRun = () => {
-    if (!armed || complete || running || !host.probeUndiscoveredDocuments) {
+  const eligibleContainerIds = () =>
+    Array.from(new Set(host.listKnownContainerIds())).filter(
+      host.canDiscoverContainerDocuments,
+    );
+
+  const canRun = () => armed && !complete && !running;
+
+  const resetPending = () => {
+    if (complete) {
+      return;
+    }
+    generation += 1;
+    armed = false;
+    cursor = null;
+    requestedCount = 0;
+    listedDocumentIdsByContainer.clear();
+  };
+
+  const listNextEligibleContainer = async (
+    eligibleIds: ReadonlyArray<string>,
+    runGeneration: number,
+  ): Promise<boolean> => {
+    const containerId = eligibleIds.find(
+      (id) => !listedDocumentIdsByContainer.has(id),
+    );
+    if (!containerId) {
       return false;
     }
 
-    return host
-      .listKnownContainerIds()
-      .filter(host.canDiscoverContainerDocuments)
-      .every((containerId) => completedContainerIds.has(containerId));
+    const documentIds = await host.listContainerDocumentIds(containerId);
+    if (generation !== runGeneration) {
+      return true;
+    }
+    if (documentIds === null) {
+      // A later idle-backfill signal retries without hot-looping the lane.
+      armed = false;
+      return true;
+    }
+    listedDocumentIdsByContainer.set(containerId, new Set(documentIds));
+    return true;
   };
 
   return {
@@ -61,39 +108,41 @@ export function createInitialDocumentProbe(
       }
     },
     canRun,
-    recordListing: (containerId, listedDocuments) => {
-      if (complete || listedDocuments === null) {
-        return;
-      }
-
-      completedContainerIds.add(containerId);
-      if (!Array.isArray(listedDocuments)) {
-        return;
-      }
-      for (const listedDocument of listedDocuments) {
-        const documentId = readListedDocumentId(listedDocument);
-        if (documentId) {
-          listedDocumentIds.add(documentId);
-        }
-      }
-    },
-    resetPending: () => {
-      if (complete) {
-        return;
-      }
-      armed = false;
-      completedContainerIds.clear();
-      listedDocumentIds.clear();
-    },
+    resetPending,
     run: async () => {
-      if (!canRun() || !host.probeUndiscoveredDocuments) {
+      if (!canRun()) {
         return;
       }
 
       running = true;
+      const runGeneration = generation;
       try {
-        await host.probeUndiscoveredDocuments(new Set(listedDocumentIds));
-        complete = true;
+        const eligibleIds = eligibleContainerIds();
+        if (await listNextEligibleContainer(eligibleIds, runGeneration)) {
+          return;
+        }
+
+        const listedDocumentIds = new Set(
+          eligibleIds.flatMap((containerId) => [
+            ...(listedDocumentIdsByContainer.get(containerId) ?? []),
+          ]),
+        );
+        const batch = await host.probeUndiscoveredDocumentsBatch({
+          afterLocalId: cursor,
+          listedContainerIds: new Set(eligibleIds),
+          listedDocumentIds,
+        });
+        if (generation !== runGeneration) {
+          return;
+        }
+
+        cursor = batch.nextCursor;
+        requestedCount += batch.requestedCount;
+        if (batch.done) {
+          armed = false;
+          complete = true;
+          host.reportInitialDocumentProbeComplete(requestedCount);
+        }
       } finally {
         running = false;
       }

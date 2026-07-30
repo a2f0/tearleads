@@ -171,13 +171,14 @@ a document window.
 
 Three one-shot probes close gaps that container discovery cannot observe:
 
-- after the initial idle discovery sweep completes every known remotely
-  listable container lane, the reconciler opens locally persisted, visible
-  remote documents that appeared in none of those listings. Hidden system
-  documents retain their specialized sync paths. Stores are opened in
-  batches of eight with a macrotask yield between batches, so a restored
-  replica converges old remote deletions without monopolizing the coordinator
-  or waiting for every stale document to be opened organically;
+- after the initial idle discovery sweep, the reconciler pages an authoritative
+  unwatermarked listing for every known remotely listable container. It then
+  opens locally persisted, visible remote documents linked to those completed
+  lanes but absent from every full listing. Hidden system documents retain
+  their specialized sync paths. One batch of eight is scheduled per low-priority
+  turn, so a restored replica converges old remote deletions without treating an
+  incremental watermark delta as the full remote set or monopolizing the sync
+  coordinator;
 - opening a persisted remote document arms an initialization probe. Websocket
   invalidations live only in process memory, so a clean cached snapshot cannot
   prove that no peer committed an update before restart;
@@ -195,14 +196,14 @@ as an authoritative removal. `known_containers_ack` is sent after in-memory
 routing changes and before best-effort persistence, so a later event is either
 delivered or causes the in-flight probe's signal sequence to arm a trailing pass.
 
-All three probes use the normal HTTP document-sync response: verified incoming Loro
-updates are merged and projected first, then current attachment bindings and
-blob bytes are hydrated. Only the existing coded `document_not_found` response
-authorizes local destruction; a bare 404 remains non-destructive, and 403s keep
-the normal read-only suppression or write-bearing parking behavior. After the
-initial missing-listing convergence pass, ordinary documents that have never
-been opened remain lazy until a document window, explicit registered-store
-revalidation, or other owning workflow opens them.
+All three probes use the normal HTTP document-sync response: verified incoming
+Loro updates are merged and projected first, then current attachment bindings
+and blob bytes are hydrated. Only the existing coded `document_not_found`
+response authorizes local destruction; a bare 404 remains non-destructive, and
+403s keep the normal read-only suppression or write-bearing parking behavior.
+After the initial missing-listing convergence pass, ordinary documents that
+have never been opened remain lazy until a document window, explicit
+registered-store revalidation, or other owning workflow opens them.
 
 Remote document discovery requires a current metadata document for every
 container. Local-first roots, regular folders, and system slots are never sent

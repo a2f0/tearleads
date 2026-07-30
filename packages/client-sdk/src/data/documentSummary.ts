@@ -1,6 +1,9 @@
 import type { ContainerAccessLevel } from "@tearleads/crypto";
 import type { StoredDocumentKind } from "./documents/documentKinds";
 
+export const HIDDEN_DOCUMENT_SUMMARY_KINDS: ReadonlyArray<StoredDocumentKind> =
+  ["organization_profile"];
+
 export interface DocumentSummary {
   accessStateHash?: string | null;
   createdAt?: string | null;

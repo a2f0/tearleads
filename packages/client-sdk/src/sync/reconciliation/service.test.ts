@@ -6,6 +6,7 @@ import {
   type ReconciliationHost,
   type ReconciliationRuntimeStatus,
 } from "./service";
+import { silenceExpectedTransientDiscoveryError } from "./service.testFixtures";
 
 function createHost(
   overrides: Partial<ReconciliationHost> & {
@@ -33,6 +34,7 @@ function createHost(
       [],
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
+      return [];
     },
     loadContainerDelta: async (
       containerId,
@@ -41,6 +43,13 @@ function createHost(
       documentSummaries: [],
     }),
     applyReconciled: () => {},
+    listContainerDocumentIds: async () => [],
+    probeUndiscoveredDocumentsBatch: async () => ({
+      done: true,
+      nextCursor: null,
+      requestedCount: 0,
+    }),
+    reportInitialDocumentProbeComplete: () => {},
     refreshTree: async () => {},
     refreshRootTree: async () => {},
     isIgnorableError: () => false,
@@ -66,31 +75,6 @@ async function waitFor(
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
   throw new Error(message);
-}
-
-function silenceExpectedTransientDiscoveryError(): () => void {
-  const originalConsoleError = console.error;
-  let expectedErrorCount = 0;
-
-  console.error = (...args: unknown[]) => {
-    const isExpectedDiscoveryFailure =
-      args[0] === "Device-first reconciliation failed:" &&
-      args.some(
-        (arg) =>
-          arg instanceof Error && arg.message === "transient discovery failure",
-      );
-    if (isExpectedDiscoveryFailure) {
-      expectedErrorCount += 1;
-      return;
-    }
-
-    originalConsoleError(...args);
-  };
-
-  return () => {
-    console.error = originalConsoleError;
-    expect(expectedErrorCount).toBe(1);
-  };
 }
 
 test("service reconciles the active container before idle backfill", async () => {
@@ -186,6 +170,7 @@ test("service retries a container after a failed reconciliation", async () => {
           failNext = false;
           throw new Error("transient discovery failure");
         }
+        return [];
       },
     });
     const service = createReconciliationService(host);
@@ -216,6 +201,7 @@ test("service force-reconciles a discovered container", async () => {
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       attempts.push(containerId);
+      return [];
     },
     requestDocumentContentPull: (_containerId, _documents, force) => {
       contentPulls.push(force);
@@ -249,6 +235,7 @@ test("service retries a container that failed during explicit refresh", async ()
         failNext = false;
         throw new Error("transient refresh failure");
       }
+      return [];
     },
   });
   const service = createReconciliationService(host);
@@ -273,6 +260,7 @@ test("root refresh retains a directly granted non-root container in catch-up", a
     automaticRootCatchupContainerIds: ["root", "directly-granted-child"],
     discoverContainerDocuments: async (containerId) => {
       calls.push(`discover:${containerId}`);
+      return [];
     },
     refreshRootTree: async () => {
       calls.push("refresh-root");
@@ -330,6 +318,7 @@ test("a full refresh during an in-flight root refresh still runs the full tree r
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       calls.push(`discover:${containerId}`);
+      return [];
     },
     refreshRootTree: async () => {
       calls.push("refresh-root");
@@ -368,6 +357,7 @@ test("a root refresh during an in-flight root refresh coalesces into it", async 
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       calls.push(`discover:${containerId}`);
+      return [];
     },
     refreshRootTree: async () => {
       calls.push("refresh-root");
@@ -394,6 +384,7 @@ test("resetDiscovered lets a previously-reconciled container refetch", async () 
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       attempts.push(containerId);
+      return [];
     },
   });
   const service = createReconciliationService(host);
@@ -423,6 +414,7 @@ test("stop clears the discovered set so a restarted lane refetches", async () =>
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       attempts.push(containerId);
+      return [];
     },
   });
   const service = createReconciliationService(host);

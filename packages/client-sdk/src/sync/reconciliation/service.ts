@@ -9,6 +9,7 @@ import {
   createInitialDocumentProbe,
   type InitialDocumentProbe,
   type InitialDocumentProbeHost,
+  scheduleInitialDocumentProbeContinuation,
 } from "./initialDocumentProbe";
 import { clearOriginatedDocuments } from "./originatedDocuments";
 import {
@@ -24,18 +25,15 @@ export interface ReconciliationRuntimeStatus {
   online: boolean;
 }
 
-/**
- * Host contract injected by the device-first facade. Keeps the reconciler
- * React-free and decoupled from runtime/persistence construction — it only
- * orchestrates *when* these run and routes their results into Layer A.
- */
+/** Device-first scheduling host; runtime and persistence stay injected. */
 export interface ReconciliationHost extends InitialDocumentProbeHost {
   domainScope: DomainScope;
   getRuntimeStatus: () => ReconciliationRuntimeStatus;
-  /** Known ids eligible after an automatic root-lane discovery hint. */
   listAutomaticRootCatchupContainerIds: () => ReadonlyArray<string>;
   /** Discover + persist a container's documents from the server. */
-  discoverContainerDocuments: (containerId: string) => Promise<unknown>;
+  discoverContainerDocuments: (
+    containerId: string,
+  ) => Promise<ReadonlyArray<DocumentSummary> | null>;
   /** Read a container's freshly-persisted summaries+links from SQLite. */
   loadContainerDelta: (
     containerId: string,
@@ -54,15 +52,10 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
     documents: ReadonlyArray<DocumentSummary>,
     force: boolean,
   ) => void;
-  /** Revalidate local remote documents absent from the initial listings. */
-  probeUndiscoveredDocuments?: (
-    listedDocumentIds: ReadonlySet<string>,
-  ) => Promise<void>;
   /** Refresh the container tree from the server (explicit refresh). */
   refreshTree: () => Promise<void>;
   /** Refresh only the top-level root lane from the server. */
   refreshRootTree: () => Promise<void>;
-  /** True if the destroyed-db error should be swallowed rather than surfaced. */
   isIgnorableError: (error: unknown) => boolean;
 }
 
@@ -122,13 +115,7 @@ interface ReconciliationState {
 async function reconcileOneContainer(
   host: ReconciliationHost,
   containerId: string,
-  options: {
-    forceDocumentContentPull?: boolean;
-    recordInitialListing?: (
-      containerId: string,
-      listedDocuments: unknown,
-    ) => void;
-  } = {},
+  options: { forceDocumentContentPull?: boolean } = {},
 ): Promise<boolean> {
   // Structural hydration can replace a queued local root/system id before the
   // document phase runs. Re-check current state at dequeue/sweep time so that
@@ -138,7 +125,7 @@ async function reconcileOneContainer(
   }
 
   try {
-    const listedDocuments = await host.discoverContainerDocuments(containerId);
+    await host.discoverContainerDocuments(containerId);
     const delta = await host.loadContainerDelta(containerId);
     host.applyReconciled(delta);
     // Always offer the delta for content sync. A forced pull (explicit refresh)
@@ -150,8 +137,7 @@ async function reconcileOneContainer(
       delta.documentSummaries,
       options.forceDocumentContentPull ?? false,
     );
-    options.recordInitialListing?.(containerId, listedDocuments);
-    return listedDocuments !== null;
+    return true;
   } catch (error) {
     if (host.isIgnorableError(error)) {
       return true;
@@ -189,7 +175,6 @@ async function sweepKnownContainers(
         state.forcedContainerIds.delete(containerId);
       const reconciled = await reconcileOneContainer(host, containerId, {
         forceDocumentContentPull,
-        recordInitialListing: state.initialDocumentProbe.recordListing,
       });
       if (!reconciled) {
         state.discoveredContainerIds.delete(containerId);
@@ -217,6 +202,7 @@ async function runReconcileLane(
   const containerId = state.queue.dequeue();
   if (!containerId) {
     await state.initialDocumentProbe.run();
+    scheduleProbeContinuation(host, state);
     return;
   }
 
@@ -230,7 +216,6 @@ async function runReconcileLane(
     try {
       const reconciled = await reconcileOneContainer(host, containerId, {
         forceDocumentContentPull: shouldForce,
-        recordInitialListing: state.initialDocumentProbe.recordListing,
       });
       if (!reconciled) {
         state.discoveredContainerIds.delete(containerId);
@@ -242,9 +227,25 @@ async function runReconcileLane(
   }
 
   // Keep draining: schedule another pass while the queue holds work.
-  if (state.queue.size > 0 || state.initialDocumentProbe.canRun()) {
+  if (state.queue.size > 0) {
     state.lane?.requestSync();
+  } else {
+    scheduleProbeContinuation(host, state);
   }
+}
+
+function scheduleProbeContinuation(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+): void {
+  scheduleInitialDocumentProbeContinuation({
+    canContinue: () =>
+      state.active &&
+      state.queue.size === 0 &&
+      canReconcile(host.getRuntimeStatus()) &&
+      state.initialDocumentProbe.canRun(),
+    requestRun: () => state.lane?.requestSync(),
+  });
 }
 
 function forgetIneligibleDiscoveredContainers(

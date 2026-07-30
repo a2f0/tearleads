@@ -27,7 +27,8 @@ import {
   type ReconciliationService,
 } from "../sync/reconciliation";
 import { createReconciledDocumentContentPuller } from "../sync/reconciliation/documentContentPull";
-import { probeUndiscoveredRemoteDocuments } from "../workflows/container-contents/documentHydrationProbe";
+import { listAllContainerDocumentIdsFromApi } from "../workflows/container-contents/containerDocumentListing";
+import { probeUndiscoveredRemoteDocumentBatch } from "../workflows/container-contents/documentHydrationProbe";
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../workflows/container-contents/projectionView";
 import {
   type ContainerContentsStoreWorkflowRuntime,
@@ -70,33 +71,56 @@ interface DeviceFirstScopeEntry {
   view: LocalProjectionView;
 }
 
-function createUndiscoveredDocumentProbe(
+function createInitialDocumentProbeHost(
   runtimeService: InternalRuntime,
   domainScope: ReconciliationHost["domainScope"],
-): NonNullable<ReconciliationHost["probeUndiscoveredDocuments"]> {
-  return async (listedDocumentIds) => {
-    const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
-    const organizationId = runtime.auth.organizationId;
-    if (!organizationId) {
-      return;
-    }
+): Pick<
+  ReconciliationHost,
+  | "listContainerDocumentIds"
+  | "probeUndiscoveredDocumentsBatch"
+  | "reportInitialDocumentProbeComplete"
+> {
+  return {
+    listContainerDocumentIds: (containerId) => {
+      const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
+      return listAllContainerDocumentIdsFromApi({
+        apiClient: runtime.apiClient,
+        containerId,
+      });
+    },
+    probeUndiscoveredDocumentsBatch: async (input) => {
+      const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
+      const organizationId = runtime.auth.organizationId;
+      if (!organizationId) {
+        throw new Error(
+          "Initial document hydration probe requires an organization",
+        );
+      }
 
-    await probeUndiscoveredRemoteDocuments({
-      host: {
-        documentWorkflowRuntime: (containerId) =>
-          createContainerContentsDocumentsRuntime(runtime, containerId),
-        openDocumentStore: (input) =>
-          openDocumentStore(
-            domainScope,
-            input.localId,
-            input.runtime,
-            input.documentId,
-          ),
-      },
-      listedDocumentIds,
-      organizationId,
-      runtime,
-    });
+      return probeUndiscoveredRemoteDocumentBatch({
+        ...input,
+        host: {
+          documentWorkflowRuntime: (containerId) =>
+            createContainerContentsDocumentsRuntime(runtime, containerId),
+          openDocumentStore: (target) =>
+            openDocumentStore(
+              domainScope,
+              target.localId,
+              target.runtime,
+              target.documentId,
+            ),
+        },
+        organizationId,
+        runtime,
+      });
+    },
+    reportInitialDocumentProbeComplete: (requestedCount) => {
+      runtimeService
+        .workflowInput()
+        .util.log(
+          `Initial document hydration probe requested ${requestedCount} syncs`,
+        );
+    },
   };
 }
 
@@ -277,10 +301,7 @@ class DeviceFirstService implements DeviceFirst {
       },
       applyReconciled: (delta) => store.applyReconciled(delta),
       requestDocumentContentPull,
-      probeUndiscoveredDocuments: createUndiscoveredDocumentProbe(
-        runtimeService,
-        domainScope,
-      ),
+      ...createInitialDocumentProbeHost(runtimeService, domainScope),
       refreshTree: async () => {
         await store.getContainerStore().refresh();
       },

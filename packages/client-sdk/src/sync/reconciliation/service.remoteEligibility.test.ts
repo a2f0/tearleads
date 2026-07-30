@@ -27,6 +27,7 @@ test("service drops a stale local active id and re-arms it after remote backing"
     canDiscoverContainerDocuments: () => remoteBacked,
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
+      return [];
     },
     domainScope: {} as DomainScope,
     getRuntimeStatus: () => ({
@@ -36,6 +37,7 @@ test("service drops a stale local active id and re-arms it after remote backing"
     }),
     isIgnorableError: () => false,
     listAutomaticRootCatchupContainerIds: () => [],
+    listContainerDocumentIds: async () => [],
     listKnownContainerIds: () => (remoteBacked ? ["active"] : []),
     loadContainerDelta: async (containerId) => ({
       containerId,
@@ -43,6 +45,12 @@ test("service drops a stale local active id and re-arms it after remote backing"
     }),
     refreshRootTree: async () => {},
     refreshTree: async () => {},
+    probeUndiscoveredDocumentsBatch: async () => ({
+      done: true,
+      nextCursor: null,
+      requestedCount: 0,
+    }),
+    reportInitialDocumentProbeComplete: () => undefined,
   };
   const service = createReconciliationService(host);
   service.start();
@@ -67,6 +75,7 @@ test("explicit refresh excludes an ineligible active container", async () => {
     canDiscoverContainerDocuments: (containerId) => containerId === "remote",
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
+      return [];
     },
     domainScope: {} as DomainScope,
     getRuntimeStatus: () => ({
@@ -76,6 +85,7 @@ test("explicit refresh excludes an ineligible active container", async () => {
     }),
     isIgnorableError: () => false,
     listAutomaticRootCatchupContainerIds: () => [],
+    listContainerDocumentIds: async () => [],
     listKnownContainerIds: () => ["remote"],
     loadContainerDelta: async (containerId) => ({
       containerId,
@@ -83,6 +93,12 @@ test("explicit refresh excludes an ineligible active container", async () => {
     }),
     refreshRootTree: async () => {},
     refreshTree: async () => {},
+    probeUndiscoveredDocumentsBatch: async () => ({
+      done: true,
+      nextCursor: null,
+      requestedCount: 0,
+    }),
+    reportInitialDocumentProbeComplete: () => undefined,
   };
   const service = createReconciliationService(host);
   service.start();

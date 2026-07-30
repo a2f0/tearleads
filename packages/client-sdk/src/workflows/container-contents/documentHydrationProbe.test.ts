@@ -2,13 +2,12 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
-import { probeUndiscoveredRemoteDocuments } from "./documentHydrationProbe";
+import { probeUndiscoveredRemoteDocumentBatch } from "./documentHydrationProbe";
 import type { ContainerDocumentPrimeHost } from "./documentQueries/types";
 import {
   saveTestContainer,
   saveTestDocument,
 } from "./documentQueries.testFixtures";
-import { requestDocumentRuntimeTargetSync } from "./documentRuntimeTargetSync";
 
 function createProbeHost(
   opened: Array<{ containerId: string | null; localId: string }>,
@@ -28,7 +27,7 @@ function createProbeHost(
   };
 }
 
-test("hydration probe opens only unlisted remote documents in the active organization", async () => {
+test("hydration probe scopes unlisted documents to completed container lanes", async () => {
   const { close, execSql } = await createTestExecSql(
     "document-hydration-probe",
   );
@@ -69,10 +68,22 @@ test("hydration probe opens only unlisted remote documents in the active organiz
         title: id,
         updatedAt: "2026-07-30T12:00:00.000Z",
       });
+      if (documentId) {
+        await execSql(
+          `INSERT INTO document_container_projection
+             (document_id, container_id, updated_at)
+           VALUES (?, ?, ?)`,
+          [documentId, containerId, "2026-07-30T12:00:00.000Z"],
+        );
+      }
     }
     await execSql(
       "UPDATE document_projection SET container_id = NULL, organization_id = ? WHERE local_id = ?",
       ["org-a", "orphan-local"],
+    );
+    await execSql(
+      "DELETE FROM document_container_projection WHERE document_id = ?",
+      ["orphan-remote"],
     );
     await execSql(
       "UPDATE document_projection SET document_kind = 'organization_profile' WHERE local_id = ?",
@@ -80,45 +91,87 @@ test("hydration probe opens only unlisted remote documents in the active organiz
     );
 
     const opened: Array<{ containerId: string | null; localId: string }> = [];
-    const probeCount = await probeUndiscoveredRemoteDocuments({
+    const result = await probeUndiscoveredRemoteDocumentBatch({
+      afterLocalId: null,
       host: createProbeHost(opened),
+      listedContainerIds: new Set(["root-a"]),
       listedDocumentIds: new Set(["listed-remote"]),
       organizationId: "org-a",
       runtime: { infra: { execSql } },
     });
 
-    expect(probeCount).toBe(2);
+    expect(result).toEqual({
+      done: true,
+      nextCursor: null,
+      requestedCount: 1,
+    });
     expect(opened).toEqual([
       { containerId: "root-a", localId: "missing-local" },
-      { containerId: null, localId: "orphan-local" },
     ]);
   } finally {
     close();
   }
 });
 
-test("document runtime target sync yields between eight-store chunks", async () => {
-  const openedAfterYield: boolean[] = [];
-  let yielded = false;
-  setTimeout(() => {
-    yielded = true;
-  }, 0);
+test("hydration probe advances through bounded candidate batches", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-hydration-probe-batches",
+  );
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveTestContainer({
+      execSql,
+      id: "root-a",
+      name: "Root A",
+      organizationId: "org-a",
+      parentId: null,
+      timestamp: "2026-07-30T12:00:00.000Z",
+    });
+    for (let index = 0; index < 9; index += 1) {
+      await saveTestDocument({
+        containerId: "root-a",
+        documentId: `remote-${index}`,
+        execSql,
+        id: `local-${index}`,
+        title: `Document ${index}`,
+        updatedAt: "2026-07-30T12:00:00.000Z",
+      });
+      await execSql(
+        `INSERT INTO document_container_projection
+           (document_id, container_id, updated_at)
+         VALUES (?, ?, ?)`,
+        [`remote-${index}`, "root-a", "2026-07-30T12:00:00.000Z"],
+      );
+    }
 
-  await requestDocumentRuntimeTargetSync({
-    host: {
-      documentWorkflowRuntime: (containerId) => containerId,
-      openDocumentStore: () => {
-        openedAfterYield.push(yielded);
-        return { requestSync: () => undefined };
-      },
-    },
-    targets: Array.from({ length: 9 }, (_, index) => ({
-      documentId: `document-${index}`,
-      localId: `local-${index}`,
-      runtimeContainerId: "root",
-    })),
-  });
+    const opened: Array<{ containerId: string | null; localId: string }> = [];
+    const first = await probeUndiscoveredRemoteDocumentBatch({
+      afterLocalId: null,
+      host: createProbeHost(opened),
+      listedContainerIds: new Set(["root-a"]),
+      listedDocumentIds: new Set(),
+      organizationId: "org-a",
+      runtime: { infra: { execSql } },
+    });
+    const second = await probeUndiscoveredRemoteDocumentBatch({
+      afterLocalId: first.nextCursor,
+      host: createProbeHost(opened),
+      listedContainerIds: new Set(["root-a"]),
+      listedDocumentIds: new Set(),
+      organizationId: "org-a",
+      runtime: { infra: { execSql } },
+    });
 
-  expect(openedAfterYield.slice(0, 8)).toEqual(Array(8).fill(false));
-  expect(openedAfterYield[8]).toBe(true);
+    expect(first.done).toBe(false);
+    expect(first.requestedCount).toBe(8);
+    expect(second).toEqual({
+      done: true,
+      nextCursor: null,
+      requestedCount: 1,
+    });
+    expect(opened).toHaveLength(9);
+  } finally {
+    close();
+  }
 });
