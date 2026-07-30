@@ -46,6 +46,10 @@ import {
   isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
 } from "./syncGeneration";
 
+type DocumentExecSql = Parameters<
+  typeof saveLocalDocumentAttachments
+>[0]["execSql"];
+
 function documentSummaryFromRecord(
   record: DocumentRecord,
   updatedAt: string,
@@ -464,6 +468,7 @@ export async function saveLocalAttachmentRecords(
   attachments: ReadonlyArray<LocalAttachmentRecord>,
   currentDoc: DocumentState | null = state.doc,
   expectedGeneration?: DocumentStoreSyncGeneration,
+  execSql: DocumentExecSql = state.runtime.infra.execSql,
 ) {
   if (attachments.length === 0) {
     return;
@@ -478,25 +483,22 @@ export async function saveLocalAttachmentRecords(
   if (!expectedGeneration) {
     await saveLocalDocumentAttachments({
       attachments: withLocalAttachmentDetachState(attachments, currentDoc),
-      execSql: state.runtime.infra.execSql,
+      execSql,
       persistence: state.persistence,
     });
     saved = true;
   } else {
-    await runSerializedSqlMutation(
-      state.runtime.infra.execSql,
-      async (lockedExecSql) => {
-        if (!isSyncGenerationCurrent(state, expectedGeneration)) {
-          return;
-        }
-        await saveLocalDocumentAttachments({
-          attachments: withLocalAttachmentDetachState(attachments, currentDoc),
-          execSql: lockedExecSql,
-          persistence: state.persistence,
-        });
-        saved = true;
-      },
-    );
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      if (!isSyncGenerationCurrent(state, expectedGeneration)) {
+        return;
+      }
+      await saveLocalDocumentAttachments({
+        attachments: withLocalAttachmentDetachState(attachments, currentDoc),
+        execSql: lockedExecSql,
+        persistence: state.persistence,
+      });
+      saved = true;
+    });
   }
   if (
     !saved ||

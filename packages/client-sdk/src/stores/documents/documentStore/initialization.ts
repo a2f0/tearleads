@@ -308,7 +308,6 @@ async function initializeDocumentStore(
   // replaced record and doc back to life. Every reset bumps the local write
   // generation, so a stale capture here aborts before each assignment batch.
   const initializeGeneration = state.localWriteGeneration;
-  void runDocumentOrphanMaintenance(state);
 
   const nextDoc = await createStoredDocument(state);
   const persistedState = await loadPersistedDocumentStoreState({
@@ -421,6 +420,7 @@ async function initializeDocumentStore(
     logRevalidationScheduled(state.runtime, "startup");
   }
   scheduleSync();
+  void runDocumentOrphanMaintenance(state);
 }
 
 export function ensureDocumentStoreInitialized(

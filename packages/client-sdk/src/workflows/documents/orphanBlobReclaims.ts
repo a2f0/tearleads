@@ -7,6 +7,7 @@ import {
 import {
   type ExecSql,
   runOncePerConnection,
+  runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
 import { defaultDocumentsPersistence } from "./persistence";
 import type { DocumentsWorkflowRuntimeGroups } from "./runtime";
@@ -23,16 +24,18 @@ async function reclaimQueuedBlobs(
   const storageKeys = await listDocumentOrphanBlobReclaims(execSql);
   const failedStorageKeys: string[] = [];
   for (const storageKey of storageKeys) {
-    if (await isDocumentBlobStorageKeyReferenced(execSql, storageKey)) {
-      await acknowledgeDocumentOrphanBlobReclaim(execSql, storageKey);
-      continue;
-    }
-    try {
-      await runtime.infra.blobStore.deleteBytes(storageKey);
-      await acknowledgeDocumentOrphanBlobReclaim(execSql, storageKey);
-    } catch {
-      failedStorageKeys.push(storageKey);
-    }
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      if (await isDocumentBlobStorageKeyReferenced(lockedExecSql, storageKey)) {
+        await acknowledgeDocumentOrphanBlobReclaim(lockedExecSql, storageKey);
+        return;
+      }
+      try {
+        await runtime.infra.blobStore.deleteBytes(storageKey);
+        await acknowledgeDocumentOrphanBlobReclaim(lockedExecSql, storageKey);
+      } catch {
+        failedStorageKeys.push(storageKey);
+      }
+    });
   }
   if (failedStorageKeys.length > 0) {
     runtime.util.log(

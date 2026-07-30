@@ -1,10 +1,13 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { BlobStore } from "../../data/blobContracts";
+import type { BlobBytes, BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import { resetConnectionSchemaMemo } from "../../data/sqlite/sqlSchema";
+import {
+  resetConnectionSchemaMemo,
+  runSerializedSqlMutation,
+} from "../../data/sqlite/sqlSchema";
 import { reclaimDocumentOrphanBlobs } from "./orphanBlobReclaims";
 import type { DocumentsWorkflowRuntimeGroups } from "./runtime";
 
@@ -146,6 +149,77 @@ test("a queued key still referenced by a live row is acknowledged but not delete
       await execSql("SELECT storage_key FROM document_pending_attachments"),
     ).toEqual([{ storage_key: "shared-storage" }]);
   } finally {
+    close();
+  }
+});
+
+test("reclaim and hydration serialize byte deletion before the live row write", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "serialized-orphan-blob-reclaim",
+  );
+  let releaseDelete: () => void = () => undefined;
+  const deleteBlocked = new Promise<void>((resolve) => {
+    releaseDelete = resolve;
+  });
+  let markDeleteStarted: () => void = () => undefined;
+  const deleteStarted = new Promise<void>((resolve) => {
+    markDeleteStarted = resolve;
+  });
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await execSql(
+      `INSERT INTO document_orphan_blob_reclaims (storage_key)
+       VALUES ('shared-storage')`,
+    );
+    let storedBytes: BlobBytes | null = new Uint8Array([0]);
+    const blobStore = {
+      deleteBytes: async () => {
+        markDeleteStarted();
+        await deleteBlocked;
+        storedBytes = null;
+      },
+      openByteSource: async () => null,
+      readBytes: async () => storedBytes,
+      writeByteSource: async () => undefined,
+      writeBytes: async (_storageKey, bytes) => {
+        storedBytes = bytes;
+      },
+    } satisfies BlobStore;
+    const reclaim = reclaimDocumentOrphanBlobs(
+      createRuntime({ blobStore, execSql, logs: [] }),
+    );
+    await deleteStarted;
+
+    let hydrationStarted = false;
+    const hydration = runSerializedSqlMutation(
+      execSql,
+      async (lockedExecSql) => {
+        hydrationStarted = true;
+        await blobStore.writeBytes("shared-storage", new Uint8Array([1]));
+        await sqlDocumentsPersistence.saveLocalAttachment(lockedExecSql, {
+          blobId: "blob-id",
+          byteLength: 1,
+          detachedAt: null,
+          localId: "live",
+          mimeType: "application/octet-stream",
+          slotId: "slot",
+          storageKey: "shared-storage",
+        });
+      },
+    );
+    await Promise.resolve();
+    expect(hydrationStarted).toBe(false);
+
+    releaseDelete();
+    await Promise.all([reclaim, hydration]);
+    expect(storedBytes).toEqual(new Uint8Array([1]));
+    expect(
+      await execSql(
+        "SELECT storage_key FROM document_attachment_blob_projection",
+      ),
+    ).toEqual([{ storage_key: "shared-storage" }]);
+  } finally {
+    releaseDelete();
     close();
   }
 });
