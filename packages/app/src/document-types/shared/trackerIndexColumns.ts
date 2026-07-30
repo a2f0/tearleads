@@ -36,8 +36,10 @@ export interface TrackerIndexRow<TEntry extends TrackerIndexEntry> {
  * how the merge interleaved the rows rather than by when anything was measured —
  * so it earns its place in the columns menu rather than in the opening view. The
  * default sort still refers to it, which with the column switched off is simply
- * the list's own order and no claim of a sort: no header carries an indicator
- * until the reader picks a column.
+ * the list's own order. A wide table shows that as no sort at all — no header
+ * carries an indicator until the reader picks a column. A folded one has a single
+ * select menu that must always name its active key, so there it reads as "Entry
+ * order", which is what the rows are in either way.
  */
 export function trackerOrdinalColumn<TEntry extends TrackerIndexEntry>(
   sortLabel: string,
