@@ -124,7 +124,7 @@ test("renders env variables as editable key value rows", () => {
   expect(view.container.querySelector(".env-file-variable-row")).toBeTruthy();
 });
 
-test("read mode masks every value, shows the final four characters, and shows attribution", () => {
+test("read mode masks every value and shows the final four characters", () => {
   const view = renderEnvFileFields({
     currentAuthorId: "user-alice",
     variables: [
@@ -147,9 +147,6 @@ test("read mode masks every value, shows the final four characters, and shows at
   expect(view.getByText("********cret")).toBeTruthy();
   expect(view.queryByText("https://api.example.test")).toBeNull();
   expect(view.queryByText("super-secret")).toBeNull();
-  // The local writer reads as "you"; another writer shows a shortened id.
-  expect(view.getByText("Updated 2026-07-16 08:30 by you")).toBeTruthy();
-  expect(view.getByText("Updated 2026-07-16 09:00 by user-bob")).toBeTruthy();
   expect(view.queryByLabelText(".env file name")).toBeNull();
 });
 
@@ -179,7 +176,7 @@ test("read mode reveals and copies the original env value", async () => {
 
 test("variable count follows the rows", () => {
   const view = renderEnvFileFields({ isEditing: false });
-  const rows = view.container.querySelectorAll(".env-file-variable-read-row");
+  const rows = view.container.querySelectorAll(".tracker-read-table-row");
   const footer = view.container.querySelector(".tracker-entry-list-footer");
   expect(footer).not.toBeNull();
   const position =
@@ -196,40 +193,6 @@ test("read mode tolerates missing variable values", () => {
   });
 
   expect(view.getAllByText("None")).toHaveLength(2);
-});
-
-test("read mode resolves an authoritative writer over the self-attested one", () => {
-  const view = renderEnvFileFields({
-    currentAuthorId: "user-alice",
-    isEditing: false,
-    variables: [
-      makeVariable({
-        id: "v1",
-        key: "API_URL",
-        value: "x",
-        // Self-attested author claims alice, but the variable was written by
-        // peer "9", which resolves to the verified writer user-bob.
-        updatedAt: "2026-07-16T08:30:00.000Z",
-        updatedBy: "user-alice",
-        updatedByPeer: "9",
-      }),
-    ],
-    resolveRowWriter: (peer) => (peer === "9" ? "user-bob" : null),
-  });
-
-  expect(view.getByText("Updated 2026-07-16 08:30 by user-bob")).toBeTruthy();
-  expect(view.queryByText("Updated 2026-07-16 08:30 by you")).toBeNull();
-});
-
-test("read mode falls back to the self-attested author when unresolved", () => {
-  const view = renderEnvFileFields({
-    currentAuthorId: "user-alice",
-    isEditing: false,
-    // v1's updatedBy is user-alice (=== currentAuthorId) → "you".
-    resolveRowWriter: () => null,
-  });
-
-  expect(view.getByText("Updated 2026-07-16 08:30 by you")).toBeTruthy();
 });
 
 test("read mode drills into a variable detail, keeping secrets masked", () => {

@@ -1,12 +1,10 @@
-import type {
-  BlobInfoSort,
-  BlobInfoSortDirection,
-  BlobInfoSortKey,
-} from "@tearleads/client-sdk";
+import type { BlobInfoSort, BlobInfoSortKey } from "@tearleads/client-sdk";
 import {
+  getMiniAppTableSortAria,
   getVisibleMiniAppTableColumnIds,
   type MiniAppColumnMenuOption,
   type MiniAppTableColumn,
+  MiniAppTableSortButton,
 } from "../../../../components/mini-app/MiniAppTable";
 import { BlobListCompactSortHeader } from "./BlobListCompactSortHeader";
 import { BLOB_LIST_LABELS } from "./blobListLabels";
@@ -43,42 +41,6 @@ function getBlobInfoColumnIds(
   return includeSync
     ? BLOB_INFO_COLUMN_IDS
     : BLOB_INFO_COLUMN_IDS.filter((id) => id !== "sync");
-}
-
-function getBlobSortAria(
-  sort: BlobInfoSort,
-  key: BlobInfoSortKey,
-): MiniAppTableColumn["ariaSort"] {
-  if (sort.key !== key) {
-    return "none";
-  }
-
-  return sort.direction === "asc" ? "ascending" : "descending";
-}
-
-function BlobSortableTableHeader(params: {
-  activeDirection: BlobInfoSortDirection | null;
-  label: string;
-  onClick: () => void;
-}) {
-  const { activeDirection, label, onClick } = params;
-
-  return (
-    <button
-      type="button"
-      className="explorer-table-sort-button"
-      onClick={onClick}
-    >
-      <span>{label}</span>
-      <span aria-hidden="true" className="explorer-table-sort-indicator">
-        {activeDirection === "asc"
-          ? "^"
-          : activeDirection === "desc"
-            ? "v"
-            : ""}
-      </span>
-    </button>
-  );
 }
 
 export function getBlobInfoColumnLabel(id: BlobInfoColumnId): string {
@@ -130,7 +92,7 @@ function buildBlobInfoColumn(
 ): MiniAppTableColumn {
   const { onSort, sort } = params;
   const sortableHeader = (key: BlobInfoSortKey, label: string) => (
-    <BlobSortableTableHeader
+    <MiniAppTableSortButton
       activeDirection={sort.key === key ? sort.direction : null}
       label={label}
       onClick={() => onSort(key)}
@@ -153,7 +115,7 @@ function buildBlobInfoColumn(
       };
     case "mime":
       return {
-        ariaSort: getBlobSortAria(sort, "mimeType"),
+        ariaSort: getMiniAppTableSortAria(sort, "mimeType"),
         header: sortableHeader("mimeType", getBlobInfoColumnLabel(id)),
         id,
         // No fixed width: this is the flexible column that soaks up leftover
@@ -162,7 +124,7 @@ function buildBlobInfoColumn(
       };
     case "size":
       return {
-        ariaSort: getBlobSortAria(sort, "byteLength"),
+        ariaSort: getMiniAppTableSortAria(sort, "byteLength"),
         header: sortableHeader("byteLength", getBlobInfoColumnLabel(id)),
         id,
         width: "7rem",
@@ -175,7 +137,7 @@ function buildBlobInfoColumn(
       };
     case "updated":
       return {
-        ariaSort: getBlobSortAria(sort, "updated"),
+        ariaSort: getMiniAppTableSortAria(sort, "updated"),
         header: sortableHeader("updated", getBlobInfoColumnLabel(id)),
         id,
         width: "11rem",

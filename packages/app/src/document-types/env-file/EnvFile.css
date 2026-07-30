@@ -56,6 +56,11 @@
   align-items: center;
   gap: var(--space-xs);
   min-width: 0;
+  /* The reveal and copy buttons cannot shrink, so in a table cell narrower than
+     the pair of them the row would otherwise paint over the column beside it.
+     Clip at the cell edge: a tight value column loses the tail of its buttons
+     rather than the neighbouring column losing its content. */
+  overflow: hidden;
 }
 
 .env-file-variable-read-value-with-actions .env-file-variable-read-value {

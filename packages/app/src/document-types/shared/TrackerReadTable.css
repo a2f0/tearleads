@@ -1,0 +1,34 @@
+/*
+ * The tracker index (list) view: every entry is one row of a single table with
+ * one set of sortable column headers, the same shape the Explorer's container
+ * listing has. The shared table components own the chrome — compact row pitch,
+ * the trailing kebab column, and the two-line fold a narrow frame falls back to
+ * (see MiniAppTable.css / MiniAppCompactTable.css). Only what is specific to a
+ * tracker's values lives here.
+ */
+.tracker-read-table {
+  /* A grid item's default `min-width: auto` would let a wide column set push the
+     document body into horizontal scroll. Keep the overflow inside the frame,
+     which is the box that knows how to scroll it. */
+  min-width: 0;
+}
+
+/* Measurements, keys and timestamps are data, not prose: the same monospace
+   treatment the entry cards used, so digits line up down the column. */
+.tracker-read-table-value {
+  font-family:
+    ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
+    monospace;
+}
+
+/*
+ * The entry number reads as a figure, so it and its header align to the end of
+ * their narrow column. Both selectors are doubled up deliberately: the shared
+ * `.mini-app-table th, .mini-app-table-cell` rule sets `text-align: left`, and a
+ * lone class either ties with it (the cell) or loses to it (the header), leaving
+ * the winner to bundle order.
+ */
+.mini-app-table-cell.tracker-read-table-ordinal,
+.mini-app-table th.tracker-read-table-ordinal {
+  text-align: right;
+}

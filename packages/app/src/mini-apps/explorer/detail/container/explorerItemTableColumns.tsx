@@ -2,15 +2,16 @@ import type { Icon } from "@phosphor-icons/react";
 import type {
   ContainerItemRow,
   ContainerItemSort,
-  ContainerItemSortDirection,
   ContainerItemSortKey,
 } from "@tearleads/client-sdk";
 import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
 import type { MouseEvent, ReactNode } from "react";
 import {
+  getMiniAppTableSortAria,
   MiniAppRowActionsButton,
   MiniAppTableCell,
   type MiniAppTableColumn,
+  MiniAppTableSortButton,
   MiniAppTableText,
   miniAppRowActionsColumn,
 } from "../../../../components/mini-app/MiniAppTable";
@@ -28,42 +29,6 @@ import { ExplorerCompactSortHeader } from "../ExplorerCompactSortHeader";
 import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
 import "./ExplorerContainerDetail.css";
 
-function getSortAria(
-  sort: ContainerItemSort,
-  key: ContainerItemSortKey,
-): MiniAppTableColumn["ariaSort"] {
-  if (sort.key !== key) {
-    return "none";
-  }
-
-  return sort.direction === "asc" ? "ascending" : "descending";
-}
-
-function ExplorerSortableTableHeader(params: {
-  activeDirection: ContainerItemSortDirection | null;
-  label: string;
-  onClick: () => void;
-}) {
-  const { activeDirection, label, onClick } = params;
-
-  return (
-    <button
-      type="button"
-      className="explorer-table-sort-button"
-      onClick={onClick}
-    >
-      <span>{label}</span>
-      <span aria-hidden="true" className="explorer-table-sort-indicator">
-        {activeDirection === "asc"
-          ? "^"
-          : activeDirection === "desc"
-            ? "v"
-            : ""}
-      </span>
-    </button>
-  );
-}
-
 interface ColumnBuildContext {
   columnMenu?: ReactNode;
   onSort: (key: ContainerItemSortKey) => void;
@@ -76,7 +41,7 @@ function buildExplorerItemColumn(
 ): MiniAppTableColumn {
   const { columnMenu, onSort, sort } = ctx;
   const sortableHeader = (key: ContainerItemSortKey, label: string) => (
-    <ExplorerSortableTableHeader
+    <MiniAppTableSortButton
       activeDirection={sort.key === key ? sort.direction : null}
       label={label}
       onClick={() => onSort(key)}
@@ -91,28 +56,28 @@ function buildExplorerItemColumn(
       );
     case "name":
       return {
-        ariaSort: getSortAria(sort, "name"),
+        ariaSort: getMiniAppTableSortAria(sort, "name"),
         id,
         header: sortableHeader("name", EXPLORER_LABELS.itemNameColumn),
         width: "40%",
       };
     case "type":
       return {
-        ariaSort: getSortAria(sort, "type"),
+        ariaSort: getMiniAppTableSortAria(sort, "type"),
         id,
         header: sortableHeader("type", EXPLORER_LABELS.itemTypeColumn),
         width: "8rem",
       };
     case "created":
       return {
-        ariaSort: getSortAria(sort, "created"),
+        ariaSort: getMiniAppTableSortAria(sort, "created"),
         id,
         header: sortableHeader("created", EXPLORER_LABELS.dateCreatedColumn),
         width: "11rem",
       };
     case "modified":
       return {
-        ariaSort: getSortAria(sort, "modified"),
+        ariaSort: getMiniAppTableSortAria(sort, "modified"),
         id,
         header: sortableHeader("modified", EXPLORER_LABELS.dateModifiedColumn),
         width: "11rem",

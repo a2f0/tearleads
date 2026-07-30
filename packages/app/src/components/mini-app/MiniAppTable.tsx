@@ -37,3 +37,9 @@ export {
   MiniAppTableText,
   miniAppRowActionsColumn,
 } from "./tables/MiniAppTable";
+export {
+  getMiniAppTableSortAria,
+  MiniAppCompactSortMenu,
+  MiniAppTableSortButton,
+  type MiniAppTableSortState,
+} from "./tables/MiniAppTableSort";
