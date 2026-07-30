@@ -1,4 +1,3 @@
-import { bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { toFingerprint } from "../fingerprint";
 import { compareCanonicalStrings, throwVerification } from "./shared";
@@ -10,6 +9,8 @@ import type {
 } from "./types";
 
 const TEXT_ENCODER = new TextEncoder();
+const DOCUMENT_PLAINTEXT_HASH_DOMAIN =
+  "tearleads.document.content-record-plaintext";
 
 export function normalizeCanonicalJsonValue(
   value: KeyingCanonicalJson,
@@ -177,9 +178,15 @@ export async function computeDocumentContentRecordCiphertextHash(
 
 export async function computeDocumentContentRecordPlaintextHash(
   plaintext: Uint8Array,
+  plaintextHashKey: CryptoKey,
 ): Promise<string> {
-  return computeKeyingDomainHash(
-    "tearleads.document.content-record-plaintext",
-    bytesToBase64(plaintext),
+  const domain = TEXT_ENCODER.encode(DOCUMENT_PLAINTEXT_HASH_DOMAIN);
+  const input = new Uint8Array(4 + domain.byteLength + plaintext.byteLength);
+  new DataView(input.buffer).setUint32(0, domain.byteLength, false);
+  input.set(domain, 4);
+  input.set(plaintext, 4 + domain.byteLength);
+  const mac = new Uint8Array(
+    await crypto.subtle.sign("HMAC", plaintextHashKey, input),
   );
+  return Array.from(mac, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }

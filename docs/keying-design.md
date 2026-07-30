@@ -518,12 +518,15 @@ preferred rule is:
  same object/content-key epoch.
 
 For document updates, the header's signed `metadataHash` also commits a
-domain-separated hash of the plaintext update bytes. Readers authenticate that
-metadata, decrypt the record, and reject a plaintext-hash mismatch before
-importing it into Loro. The commitment lets a reader retaining original signed
-updates prove that a later rotation baseline substituted different plaintext;
-it does not replace the stronger future design of per-update re-encryption with
-inner author signatures.
+domain-separated HMAC of the plaintext update bytes. Its key is derived by
+HKDF from the document content key and record domain, so authorized readers can
+verify it without exposing an offline plaintext-confirmation oracle to the
+server. Readers authenticate the metadata, decrypt the record, and reject a
+plaintext-hash mismatch before importing it into Loro. The audit chain thereby
+retains a keyed identity for an authored plaintext even after its ciphertext is
+pruned. A flattened rotation snapshot's commitment is not comparable to its
+constituent per-update commitments, so this does not replace the stronger
+future design of per-update re-encryption with inner author signatures.
 
 The initial suite is
 `aes-256-gcm-hkdf-sha256-record-key`. A content writer supplies a UUIDv4

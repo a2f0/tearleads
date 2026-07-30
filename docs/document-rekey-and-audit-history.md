@@ -136,13 +136,18 @@ This is an accepted design property (roadmap #1607), with these bounds:
   preserving the visible version-vector shape
 - the declaration is durable and attributable: checkpoint rows persist the
   claimed frontier and signed baseline checkpoints commit it to the audit
-  ledger. Every document update also commits a domain-separated plaintext hash
-  through its signed metadata hash. A reader retaining the original signed
-  updates can therefore prove that replacement plaintext differs, while a
-  current-epoch reader can compare a baseline's actual frontier to its claim.
-  A post-pruning joiner lacks the original plaintext evidence and cannot make
-  that comparison. The server cannot inspect E2EE plaintext, and cleared
-  payloads are not recoverable
+  ledger. Existing signed ciphertext hashes attribute the exact encrypted
+  record while that record is retained. Every document update additionally
+  commits a domain-separated, record-key-derived HMAC through its signed
+  metadata hash and the audit chain. A reader holding the original content key
+  and update bytes can confirm that plaintext identity after ciphertext
+  pruning, without giving the server a plaintext-guessing oracle. This
+  per-update commitment is not directly comparable to a flattened snapshot's
+  commitment, so it does not by itself prove that the snapshot faithfully
+  contains every committed update. A current-epoch reader can still compare a
+  baseline's actual frontier to its claim. A post-pruning joiner lacks the
+  original plaintext evidence and cannot make that comparison. The server
+  cannot inspect E2EE plaintext, and cleared payloads are not recoverable
 
 The stronger history-preserving mitigation remains per-update re-encryption on
 rotation with inner author signatures over the plaintext update bytes. That

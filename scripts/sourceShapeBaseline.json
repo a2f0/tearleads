@@ -42,20 +42,20 @@
       "bytes": 24003
     },
     "docs/document-rekey-and-audit-history.md": {
-      "lines": 535,
-      "bytes": 20716
+      "lines": 540,
+      "bytes": 21124
     },
     "docs/glossary.md": {
       "lines": 506,
       "bytes": 18158
     },
     "docs/keying-design.md": {
-      "lines": 892,
-      "bytes": 38372
+      "lines": 895,
+      "bytes": 38644
     },
     "docs/loro-e2ee-sync-protocol.md": {
-      "lines": 537,
-      "bytes": 22469
+      "lines": 538,
+      "bytes": 22521
     },
     "docs/openapi.json": {
       "lines": 887,
@@ -274,8 +274,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 545,
-      "bytes": 17290
+      "lines": 547,
+      "bytes": 17423
     },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
       "lines": 1166,

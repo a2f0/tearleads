@@ -64,7 +64,8 @@ Document write routes:
  `partialStartVersionVector`, visible `partialEndVersionVector`, required
  `plaintextHash`, optional `sourceVersionVector`, optional `checkpointKind`,
  and a signed `writeHeader`; the header's authenticated metadata hash commits
- the domain-separated plaintext hash
+ the domain-separated, record-key-derived plaintext HMAC, which is opaque to
+ the server
  - response shape: `DocumentSyncResponse`
  - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
  `contentKeyBundle`, `contentKeyBundles[]`, `documentId`,

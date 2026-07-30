@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { computeDocumentContentRecordPlaintextHash } from "@tearleads/crypto";
+import {
+  CONTENT_RECORD_ENCRYPTION_SUITE,
+  computeDocumentContentRecordCiphertextHash,
+  computeDocumentContentRecordPlaintextHash,
+  createAesGcmIv,
+  serializeKeyingCanonicalJson,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
@@ -14,8 +20,28 @@ import {
   createSyncResponse,
 } from "../../../../test/helpers/documentFixtures";
 import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
+import {
+  deriveDocumentContentRecordKey,
+  documentContentRecordDerivationPayload,
+  importDocumentContentKeyMaterial,
+} from "./contentRecordKeys";
 import { decryptDocumentSyncUpdates } from "./crypto";
 import { assertDocumentUpdatePlaintextHash } from "./plaintextHash";
+import {
+  DOCUMENT_CONTENT_RECORD_AAD_DOMAIN,
+  DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
+  TEXT_ENCODER,
+} from "./types";
+
+async function importPlaintextHashTestKey(seed: number): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    "raw",
+    new Uint8Array(32).fill(seed),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+}
 
 test("plaintext hashes distinguish forged content with the same version-vector shape", async () => {
   const honest = await createDocument("plaintext-hash-proof");
@@ -29,15 +55,101 @@ test("plaintext hashes distinguish forged content with the same version-vector s
   expect(getUpdateVersionVectors(forgedSnapshot)).toEqual(
     getUpdateVersionVectors(honestSnapshot),
   );
-  const honestHash =
-    await computeDocumentContentRecordPlaintextHash(honestSnapshot);
+  const plaintextHashKey = await importPlaintextHashTestKey(1);
+  const honestHash = await computeDocumentContentRecordPlaintextHash(
+    honestSnapshot,
+    plaintextHashKey,
+  );
   expect(
-    await computeDocumentContentRecordPlaintextHash(forgedSnapshot),
+    await computeDocumentContentRecordPlaintextHash(
+      forgedSnapshot,
+      plaintextHashKey,
+    ),
   ).not.toBe(honestHash);
   await expect(
-    assertDocumentUpdatePlaintextHash(forgedSnapshot, honestHash),
+    assertDocumentUpdatePlaintextHash(
+      forgedSnapshot,
+      honestHash,
+      plaintextHashKey,
+    ),
   ).rejects.toThrow("Document update plaintext hash mismatch");
+  expect(
+    await computeDocumentContentRecordPlaintextHash(
+      honestSnapshot,
+      await importPlaintextHashTestKey(2),
+    ),
+  ).not.toBe(honestHash);
 });
+
+async function replaceEncryptedPlaintext(input: {
+  contentKey: Uint8Array;
+  documentId: string;
+  organizationId: string;
+  update: Awaited<ReturnType<typeof createSyncResponse>>["updates"][number];
+}) {
+  // Header signature verification is upstream of this unit. Model a writer
+  // committing this ciphertext while retaining a hash for different bytes.
+  const encrypted = JSON.parse(input.update.encryptedData) as {
+    contentKeyEpoch: number;
+    contentRecordId: string;
+    metadataHash: string;
+    nonceDomainHash: string;
+  };
+  const contentKeyMaterial = await importDocumentContentKeyMaterial(
+    input.contentKey,
+  );
+  const recordKey = await deriveDocumentContentRecordKey({
+    contentKeyMaterial,
+    contentKeyEpoch: encrypted.contentKeyEpoch,
+    contentRecordId: encrypted.contentRecordId,
+    documentId: input.documentId,
+    organizationId: input.organizationId,
+    usage: "encrypt",
+  });
+  const iv = createAesGcmIv();
+  const additionalData = TEXT_ENCODER.encode(
+    serializeKeyingCanonicalJson({
+      domain: DOCUMENT_CONTENT_RECORD_AAD_DOMAIN,
+      payload: {
+        ...documentContentRecordDerivationPayload({
+          contentKeyEpoch: encrypted.contentKeyEpoch,
+          contentRecordId: encrypted.contentRecordId,
+          documentId: input.documentId,
+          organizationId: input.organizationId,
+        }),
+        metadataHash: encrypted.metadataHash,
+        nonceDomainHash: encrypted.nonceDomainHash,
+      },
+    }),
+  );
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv, additionalData },
+      recordKey,
+      new Uint8Array([1, 2, 3]),
+    ),
+  );
+  const encryptedData = serializeKeyingCanonicalJson({
+    format: DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
+    version: 1,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+    contentKeyEpoch: encrypted.contentKeyEpoch,
+    contentRecordId: encrypted.contentRecordId,
+    nonceDomainHash: encrypted.nonceDomainHash,
+    metadataHash: encrypted.metadataHash,
+    iv: bytesToBase64(iv),
+    ciphertext: bytesToBase64(ciphertext),
+  });
+  return {
+    ...input.update,
+    encryptedData,
+    writeHeader: {
+      ...input.update.writeHeader,
+      ciphertextHash:
+        await computeDocumentContentRecordCiphertextHash(encryptedData),
+    },
+  };
+}
 
 test("decryptDocumentSyncUpdates verifies and decrypts content records", async () => {
   const { author, contentKey, secretKey, writerProjection } =
@@ -70,6 +182,27 @@ test("decryptDocumentSyncUpdates verifies and decrypts content records", async (
   const reader = await createDocument("crypto-test-reader");
   importUpdates(reader, [updateData]);
   expect(getTextValue(reader)).toBe("materialized update");
+  const responseUpdate = response.updates[0];
+  if (!responseUpdate) {
+    throw new Error("Expected a response update");
+  }
+
+  await expect(
+    decryptDocumentSyncUpdates({
+      contentKey,
+      contentKeyEpoch: materialized.plan.contentKeyEpoch,
+      documentId: materialized.plan.documentId,
+      organizationId: materialized.plan.organizationId,
+      updates: [
+        await replaceEncryptedPlaintext({
+          contentKey,
+          documentId: materialized.plan.documentId,
+          organizationId: materialized.plan.organizationId,
+          update: responseUpdate,
+        }),
+      ],
+    }),
+  ).rejects.toThrow("Document update plaintext hash mismatch");
 
   await expect(
     decryptDocumentSyncUpdates({

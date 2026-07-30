@@ -20,6 +20,11 @@ OpenAPI compatibility and protocol-model checks use mise-pinned tooling. Run
 and fetch `origin/main` or set `OPENAPI_BASE_REF` when checking OpenAPI against
 another base commit.
 
+Intentional flag-day OpenAPI breaks may temporarily list an exact oasdiff
+diagnostic in `scripts/checks/openApiCompatibilityErrors.ignore`. Each entry
+must name its issue and removal condition in adjacent comments, and must be
+deleted as soon as the default branch contains the new contract.
+
 ## Ownership Lanes
 
 - `packages/api`: HTTP routes, service facades, workflow orchestration, persistence schema, and server adapters.

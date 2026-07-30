@@ -153,8 +153,9 @@ export const documentContentKeyTargets = pgTable(
  * ciphertext. The header binds an update to a document, content-key epoch,
  * access manifest, target set, encryption suite, content record id, nonce
  * domain, writer, ciphertext hash, and a metadata hash that commits the
- * update's domain-separated plaintext hash. Replays for the same `updateId`
- * are accepted only when the computed `headerHash` matches the stored value.
+ * update's domain-separated, record-key-derived plaintext HMAC. Replays for
+ * the same `updateId` are accepted only when the computed `headerHash` matches
+ * the stored value.
  *
  * Columns:
  * - `updateId`: Primary key matching the live document update id.

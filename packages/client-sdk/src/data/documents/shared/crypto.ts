@@ -6,7 +6,6 @@ import {
   computeDocumentContentRecordMetadataHash,
   computeDocumentContentRecordPlaintextHash,
   createAesGcmIv,
-  type KeyingCanonicalJson,
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
@@ -14,6 +13,12 @@ import { versionVectorsEqual } from "@tearleads/loro";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { PendingUpdateRecord } from "../../sqlite/documentPersistence";
+import {
+  deriveDocumentContentRecordKey,
+  deriveDocumentPlaintextHashKey,
+  documentContentRecordDerivationPayload,
+  importDocumentContentKeyMaterial,
+} from "./contentRecordKeys";
 import { assertDecryptedDocumentUpdateMetadata } from "./documentUpdateIntegrity";
 import { assertDocumentUpdatePlaintextHash } from "./plaintextHash";
 import {
@@ -26,45 +31,12 @@ import {
 import {
   type DecryptedDocumentSyncUpdate,
   DOCUMENT_CONTENT_RECORD_AAD_DOMAIN,
-  DOCUMENT_CONTENT_RECORD_HKDF_SALT,
-  DOCUMENT_CONTENT_RECORD_KEY_INFO_DOMAIN,
   DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
   DOCUMENT_ENCRYPTED_UPDATE_KEYS,
   type DocumentEncryptedPendingUpdate,
   type ParsedDocumentEncryptedUpdate,
   TEXT_ENCODER,
 } from "./types";
-
-function contentRecordDerivationPayload(input: {
-  contentKeyEpoch: number;
-  contentRecordId: string;
-  documentId: string;
-  organizationId: string;
-}): Record<string, KeyingCanonicalJson> {
-  return {
-    version: 1,
-    organizationId: input.organizationId,
-    objectKind: "document",
-    objectId: input.documentId,
-    contentKeyEpoch: input.contentKeyEpoch,
-    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-    contentRecordId: input.contentRecordId,
-  };
-}
-
-function contentRecordDerivationBytes(input: {
-  contentKeyEpoch: number;
-  contentRecordId: string;
-  documentId: string;
-  organizationId: string;
-}): Uint8Array<ArrayBuffer> {
-  return TEXT_ENCODER.encode(
-    serializeKeyingCanonicalJson({
-      domain: DOCUMENT_CONTENT_RECORD_KEY_INFO_DOMAIN,
-      payload: contentRecordDerivationPayload(input),
-    }),
-  );
-}
 
 function contentRecordAdditionalDataBytes(input: {
   contentKeyEpoch: number;
@@ -78,7 +50,7 @@ function contentRecordAdditionalDataBytes(input: {
     serializeKeyingCanonicalJson({
       domain: DOCUMENT_CONTENT_RECORD_AAD_DOMAIN,
       payload: {
-        ...contentRecordDerivationPayload(input),
+        ...documentContentRecordDerivationPayload(input),
         metadataHash: input.metadataHash,
         nonceDomainHash: input.nonceDomainHash,
       },
@@ -86,42 +58,7 @@ function contentRecordAdditionalDataBytes(input: {
   );
 }
 
-async function deriveDocumentContentRecordKey(input: {
-  contentKeyMaterial: CryptoKey;
-  contentKeyEpoch: number;
-  contentRecordId: string;
-  documentId: string;
-  organizationId: string;
-  usage: "decrypt" | "encrypt";
-}): Promise<CryptoKey> {
-  return crypto.subtle.deriveKey(
-    {
-      name: "HKDF",
-      hash: "SHA-256",
-      salt: DOCUMENT_CONTENT_RECORD_HKDF_SALT,
-      info: contentRecordDerivationBytes(input),
-    },
-    input.contentKeyMaterial,
-    {
-      name: "AES-GCM",
-      length: 256,
-    },
-    false,
-    [input.usage],
-  );
-}
-
-export async function importDocumentContentKeyMaterial(
-  contentKey: Uint8Array,
-): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "raw",
-    asWebCryptoBytes(contentKey),
-    "HKDF",
-    false,
-    ["deriveKey"],
-  );
-}
+export { importDocumentContentKeyMaterial };
 
 export async function encryptDocumentPendingUpdate(input: {
   contentKeyMaterial: CryptoKey;
@@ -131,8 +68,6 @@ export async function encryptDocumentPendingUpdate(input: {
   update: PendingUpdateRecord;
 }): Promise<DocumentEncryptedPendingUpdate> {
   const plaintext = base64ToBytes(input.update.updateData);
-  const plaintextHash =
-    await computeDocumentContentRecordPlaintextHash(plaintext);
   const contentRecordId = input.update.id;
   const nonceDomainHash = await computeContentRecordNonceDomainHash({
     version: 1,
@@ -143,6 +78,17 @@ export async function encryptDocumentPendingUpdate(input: {
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId,
   });
+  const plaintextHashKey = await deriveDocumentPlaintextHashKey({
+    contentKeyMaterial: input.contentKeyMaterial,
+    contentKeyEpoch: input.contentKeyEpoch,
+    contentRecordId,
+    documentId: input.documentId,
+    organizationId: input.organizationId,
+  });
+  const plaintextHash = await computeDocumentContentRecordPlaintextHash(
+    plaintext,
+    plaintextHashKey,
+  );
   const metadataHash = await computeDocumentContentRecordMetadataHash({
     ...(input.update.sourceVersionVector
       ? {
@@ -388,14 +334,23 @@ async function decryptDocumentSyncUpdate(input: {
     organizationId: input.organizationId,
     update: input.update,
   });
-  const recordKey = await deriveDocumentContentRecordKey({
-    contentKeyMaterial: input.contentKeyMaterial,
-    contentKeyEpoch: input.contentKeyEpoch,
-    contentRecordId: encrypted.contentRecordId,
-    documentId: input.documentId,
-    organizationId: input.organizationId,
-    usage: "decrypt",
-  });
+  const [recordKey, plaintextHashKey] = await Promise.all([
+    deriveDocumentContentRecordKey({
+      contentKeyMaterial: input.contentKeyMaterial,
+      contentKeyEpoch: input.contentKeyEpoch,
+      contentRecordId: encrypted.contentRecordId,
+      documentId: input.documentId,
+      organizationId: input.organizationId,
+      usage: "decrypt",
+    }),
+    deriveDocumentPlaintextHashKey({
+      contentKeyMaterial: input.contentKeyMaterial,
+      contentKeyEpoch: input.contentKeyEpoch,
+      contentRecordId: encrypted.contentRecordId,
+      documentId: input.documentId,
+      organizationId: input.organizationId,
+    }),
+  ]);
   const updateData = new Uint8Array(
     await crypto.subtle.decrypt(
       {
@@ -418,6 +373,7 @@ async function decryptDocumentSyncUpdate(input: {
   await assertDocumentUpdatePlaintextHash(
     updateData,
     input.update.plaintextHash,
+    plaintextHashKey,
   );
 
   assertDecryptedDocumentUpdateMetadata(updateData, input.update);
