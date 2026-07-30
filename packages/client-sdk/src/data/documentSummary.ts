@@ -1,8 +1,10 @@
 import type { ContainerAccessLevel } from "@tearleads/crypto";
 import type { StoredDocumentKind } from "./documents/documentKinds";
 
-export const HIDDEN_DOCUMENT_SUMMARY_KINDS: ReadonlyArray<StoredDocumentKind> =
-  ["organization_profile"];
+/** Non-empty because callers use this tuple to build SQL `NOT IN` clauses. */
+export const HIDDEN_DOCUMENT_SUMMARY_KINDS = [
+  "organization_profile",
+] as const satisfies ReadonlyArray<StoredDocumentKind>;
 
 export interface DocumentSummary {
   accessStateHash?: string | null;

@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { requestDocumentRuntimeTargetSync } from "./documentRuntimeTargetSync";
+import {
+  requestDocumentRuntimeTargetSync,
+  requestRemoteDocumentRuntimeTargetSync,
+} from "./documentRuntimeTargetSync";
 
 test("document runtime target sync yields between eight-store chunks", async () => {
   const openedAfterYield: boolean[] = [];
@@ -25,4 +28,28 @@ test("document runtime target sync yields between eight-store chunks", async () 
 
   expect(openedAfterYield.slice(0, 8)).toEqual(Array(8).fill(false));
   expect(openedAfterYield[8]).toBe(true);
+});
+
+test("remote target sync records a probe before store initialization", async () => {
+  let remoteSyncRequests = 0;
+
+  await requestRemoteDocumentRuntimeTargetSync({
+    host: {
+      documentWorkflowRuntime: (containerId) => containerId,
+      openDocumentStore: () => ({
+        requestRemoteSync: () => {
+          remoteSyncRequests += 1;
+        },
+      }),
+    },
+    targets: [
+      {
+        documentId: "document-1",
+        localId: "local-1",
+        runtimeContainerId: "root",
+      },
+    ],
+  });
+
+  expect(remoteSyncRequests).toBe(1);
 });

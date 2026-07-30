@@ -90,13 +90,6 @@ function createInitialDocumentProbeHost(
     },
     probeUndiscoveredDocumentsBatch: async (input) => {
       const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
-      const organizationId = runtime.auth.organizationId;
-      if (!organizationId) {
-        throw new Error(
-          "Initial document hydration probe requires an organization",
-        );
-      }
-
       return probeUndiscoveredRemoteDocumentBatch({
         ...input,
         host: {
@@ -110,7 +103,6 @@ function createInitialDocumentProbeHost(
               target.documentId,
             ),
         },
-        organizationId,
         runtime,
       });
     },

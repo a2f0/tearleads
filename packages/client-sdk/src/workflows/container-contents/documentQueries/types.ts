@@ -81,6 +81,10 @@ export interface ContainerDocumentPrimeStore {
   requestSync: () => void;
 }
 
+export interface ContainerDocumentProbeStore {
+  requestRemoteSync: () => void;
+}
+
 export interface ContainerDocumentPrimeHost<TRuntime> {
   documentWorkflowRuntime: (containerId: string | null) => TRuntime;
   openDocumentStore: (input: {
@@ -88,6 +92,15 @@ export interface ContainerDocumentPrimeHost<TRuntime> {
     localId: string;
     runtime: TRuntime;
   }) => ContainerDocumentPrimeStore;
+}
+
+export interface ContainerDocumentProbeHost<TRuntime> {
+  documentWorkflowRuntime: (containerId: string | null) => TRuntime;
+  openDocumentStore: (input: {
+    documentId: string | null;
+    localId: string;
+    runtime: TRuntime;
+  }) => ContainerDocumentProbeStore;
 }
 
 export interface ContainerContentsSharedDocumentSummaries {

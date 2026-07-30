@@ -28,7 +28,6 @@ function createRootRefreshHarness(input: {
         input.canDiscoverContainerDocuments ?? (() => true),
       discoverContainerDocuments: async (containerId) => {
         calls.push(`discover:${containerId}`);
-        return [];
       },
       domainScope: createDomainScope(),
       getRuntimeStatus: () => ({

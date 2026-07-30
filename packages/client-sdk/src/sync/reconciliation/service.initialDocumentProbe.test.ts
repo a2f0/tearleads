@@ -10,6 +10,7 @@ import {
 } from "./service";
 
 function createProbeHost(input: {
+  readonly listKnownContainerIds?: () => ReadonlyArray<string>;
   readonly listContainerDocumentIds: (
     containerId: string,
   ) => Promise<ReadonlyArray<string> | null>;
@@ -26,7 +27,8 @@ function createProbeHost(input: {
       isAuthenticated: true,
       online: true,
     }),
-    listKnownContainerIds: () => ["c-1", "c-2"],
+    listKnownContainerIds:
+      input.listKnownContainerIds ?? (() => ["c-1", "c-2"]),
     listAutomaticRootCatchupContainerIds: () => ["c-1", "c-2"],
     listContainerDocumentIds: input.listContainerDocumentIds,
     discoverContainerDocuments: async () => [],
@@ -134,6 +136,152 @@ test("initial probe pauses until every authoritative listing succeeds", async ()
     "listed-c-1",
     "listed-c-2",
   ]);
+});
+
+test("an empty early tree does not complete before remote containers arrive", async () => {
+  let knownContainerIds: ReadonlyArray<string> = [];
+  const listedContainerIds: string[] = [];
+  const completedCounts: number[] = [];
+  let probeCount = 0;
+  const service = createReconciliationService(
+    createProbeHost({
+      listKnownContainerIds: () => knownContainerIds,
+      listContainerDocumentIds: async (containerId) => {
+        listedContainerIds.push(containerId);
+        return [`listed-${containerId}`];
+      },
+      probeUndiscoveredDocumentsBatch: async () => {
+        probeCount += 1;
+        return { done: true, nextCursor: null, requestedCount: 0 };
+      },
+      reportComplete: (requestedCount) => {
+        completedCounts.push(requestedCount);
+      },
+    }),
+  );
+  service.start();
+  service.enqueueIdleBackfill();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  expect(listedContainerIds).toEqual([]);
+  expect(probeCount).toBe(0);
+  expect(completedCounts).toEqual([]);
+
+  knownContainerIds = ["c-1"];
+  service.enqueueIdleBackfill();
+  await waitFor(() => probeCount === 1, "Expected late-container probe");
+  expect(listedContainerIds).toEqual(["c-1"]);
+  expect(completedCounts).toEqual([0]);
+});
+
+test("container growth does not reopen a completed initial pass", async () => {
+  let knownContainerIds: ReadonlyArray<string> = ["c-1"];
+  const batches: InitialDocumentProbeBatchInput[] = [];
+  const completedCounts: number[] = [];
+  const service = createReconciliationService(
+    createProbeHost({
+      listKnownContainerIds: () => knownContainerIds,
+      listContainerDocumentIds: async (containerId) => [
+        `listed-${containerId}`,
+      ],
+      probeUndiscoveredDocumentsBatch: async (batch) => {
+        batches.push(batch);
+        return { done: true, nextCursor: null, requestedCount: 1 };
+      },
+      reportComplete: (requestedCount) => {
+        completedCounts.push(requestedCount);
+      },
+    }),
+  );
+  service.start();
+  service.enqueueIdleBackfill();
+  await waitFor(() => batches.length === 1, "Expected first probe pass");
+
+  knownContainerIds = ["c-1", "c-2"];
+  service.enqueueIdleBackfill();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  expect([...(batches[0]?.listedContainerIds ?? [])]).toEqual(["c-1"]);
+  expect(batches).toHaveLength(1);
+  expect(completedCounts).toEqual([1]);
+});
+
+test("container growth invalidates an in-flight candidate cursor", async () => {
+  let knownContainerIds: ReadonlyArray<string> = ["c-1"];
+  let releaseFirstBatch: (() => void) | undefined;
+  const batches: InitialDocumentProbeBatchInput[] = [];
+  const service = createReconciliationService(
+    createProbeHost({
+      listKnownContainerIds: () => knownContainerIds,
+      listContainerDocumentIds: async (containerId) => [
+        `listed-${containerId}`,
+      ],
+      probeUndiscoveredDocumentsBatch: async (batch) => {
+        batches.push(batch);
+        if (batches.length === 1) {
+          await new Promise<void>((resolve) => {
+            releaseFirstBatch = resolve;
+          });
+          return { done: false, nextCursor: "local-8", requestedCount: 8 };
+        }
+        return { done: true, nextCursor: null, requestedCount: 0 };
+      },
+    }),
+  );
+  service.start();
+  service.enqueueIdleBackfill();
+  await waitFor(
+    () => releaseFirstBatch !== undefined,
+    "Expected in-flight candidate batch",
+  );
+
+  knownContainerIds = ["c-1", "c-2"];
+  service.enqueueIdleBackfill();
+  releaseFirstBatch?.();
+  await waitFor(
+    () => batches.length === 2,
+    "Expected restarted candidate scan",
+  );
+
+  expect(batches[1]?.afterLocalId).toBeNull();
+  expect([...(batches[1]?.listedContainerIds ?? [])].sort()).toEqual([
+    "c-1",
+    "c-2",
+  ]);
+});
+
+test("discovery reset preserves an in-progress probe cursor", async () => {
+  const batches: InitialDocumentProbeBatchInput[] = [];
+  let online = true;
+  const service = createReconciliationService({
+    ...createProbeHost({
+      listKnownContainerIds: () => ["c-1"],
+      listContainerDocumentIds: async () => ["listed-c-1"],
+      probeUndiscoveredDocumentsBatch: async (batch) => {
+        batches.push(batch);
+        if (batches.length === 1) {
+          online = false;
+          return { done: false, nextCursor: "local-8", requestedCount: 8 };
+        }
+        return { done: true, nextCursor: null, requestedCount: 0 };
+      },
+    }),
+    getRuntimeStatus: () => ({
+      dbStatus: "ready",
+      isAuthenticated: true,
+      online,
+    }),
+  });
+  service.start();
+  service.enqueueIdleBackfill();
+  await waitFor(() => batches.length === 1, "Expected first candidate batch");
+
+  service.resetDiscovered();
+  online = true;
+  service.enqueueIdleBackfill();
+  await waitFor(() => batches.length === 2, "Expected resumed candidate batch");
+
+  expect(batches[1]?.afterLocalId).toBe("local-8");
 });
 
 test("stop invalidates an in-flight listing before a restarted probe", async () => {

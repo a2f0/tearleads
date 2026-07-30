@@ -1,6 +1,7 @@
 import type {
   ContainerContentsDocumentRuntimeTarget,
   ContainerDocumentPrimeHost,
+  ContainerDocumentProbeHost,
 } from "./documentQueries/types";
 
 // Stores opened per macrotask. Opening is fire-and-forget, so yielding between
@@ -8,8 +9,16 @@ import type {
 // restored replica schedules a real backlog.
 const DOCUMENT_STORE_OPEN_CHUNK_SIZE = 8;
 
-export async function requestDocumentRuntimeTargetSync<TRuntime>(input: {
-  readonly host: ContainerDocumentPrimeHost<TRuntime>;
+async function requestRuntimeTargetSync<TRuntime, TStore>(input: {
+  readonly host: {
+    documentWorkflowRuntime: (containerId: string | null) => TRuntime;
+    openDocumentStore: (input: {
+      documentId: string | null;
+      localId: string;
+      runtime: TRuntime;
+    }) => TStore;
+  };
+  readonly requestStoreSync: (store: TStore) => void;
   readonly targets: ReadonlyArray<ContainerContentsDocumentRuntimeTarget>;
 }): Promise<ReadonlySet<string>> {
   const requestedLocalIds = new Set<string>();
@@ -38,10 +47,35 @@ export async function requestDocumentRuntimeTargetSync<TRuntime>(input: {
       runtime,
     });
     requestedLocalIds.add(target.localId);
-    if (store.getSnapshot?.().ready ?? true) {
-      store.requestSync();
-    }
+    input.requestStoreSync(store);
   }
 
   return requestedLocalIds;
+}
+
+export function requestDocumentRuntimeTargetSync<TRuntime>(input: {
+  readonly host: ContainerDocumentPrimeHost<TRuntime>;
+  readonly targets: ReadonlyArray<ContainerContentsDocumentRuntimeTarget>;
+}): Promise<ReadonlySet<string>> {
+  return requestRuntimeTargetSync({
+    ...input,
+    requestStoreSync: (store) => {
+      if (store.getSnapshot?.().ready ?? true) {
+        store.requestSync();
+      }
+    },
+  });
+}
+
+export function requestRemoteDocumentRuntimeTargetSync<TRuntime>(input: {
+  readonly host: ContainerDocumentProbeHost<TRuntime>;
+  readonly targets: ReadonlyArray<ContainerContentsDocumentRuntimeTarget>;
+}): Promise<ReadonlySet<string>> {
+  return requestRuntimeTargetSync({
+    ...input,
+    // Unlike ordinary startup priming, a probe must survive a freshly opened
+    // store's initialization. requestRemoteSync records that intent before
+    // scheduling, so the first ready pass performs an HTTP revalidation.
+    requestStoreSync: (store) => store.requestRemoteSync(),
+  });
 }

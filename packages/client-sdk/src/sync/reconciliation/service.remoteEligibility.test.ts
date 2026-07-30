@@ -27,7 +27,6 @@ test("service drops a stale local active id and re-arms it after remote backing"
     canDiscoverContainerDocuments: () => remoteBacked,
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
-      return [];
     },
     domainScope: {} as DomainScope,
     getRuntimeStatus: () => ({
@@ -75,7 +74,6 @@ test("explicit refresh excludes an ineligible active container", async () => {
     canDiscoverContainerDocuments: (containerId) => containerId === "remote",
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
-      return [];
     },
     domainScope: {} as DomainScope,
     getRuntimeStatus: () => ({

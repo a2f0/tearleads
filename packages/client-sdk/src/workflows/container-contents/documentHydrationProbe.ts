@@ -8,10 +8,10 @@ import {
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import type {
   ContainerContentsDocumentRuntimeTarget,
-  ContainerDocumentPrimeHost,
+  ContainerDocumentProbeHost,
   ContainerDocumentQueriesRuntime,
 } from "./documentQueries/types";
-import { requestDocumentRuntimeTargetSync } from "./documentRuntimeTargetSync";
+import { requestRemoteDocumentRuntimeTargetSync } from "./documentRuntimeTargetSync";
 
 const DOCUMENT_HYDRATION_PROBE_BATCH_SIZE = 8;
 
@@ -21,11 +21,16 @@ interface DocumentHydrationProbeBatchResult {
   readonly requestedCount: number;
 }
 
+type RemoteDocumentProbeTarget = Omit<
+  ContainerContentsDocumentRuntimeTarget,
+  "documentId"
+> & { readonly documentId: string };
+
 function valuePlaceholders(values: ReadonlyArray<unknown>): string {
   return values.map(() => "?").join(", ");
 }
 
-function readProbeTarget(row: unknown): ContainerContentsDocumentRuntimeTarget {
+function readProbeTarget(row: unknown): RemoteDocumentProbeTarget {
   if (row === null || (typeof row !== "object" && typeof row !== "function")) {
     throw new Error("Document hydration probe returned an invalid target");
   }
@@ -45,9 +50,8 @@ function readProbeTarget(row: unknown): ContainerContentsDocumentRuntimeTarget {
 async function listRemoteDocumentProbeBatch(input: {
   readonly afterLocalId: string | null;
   readonly listedContainerIds: ReadonlySet<string>;
-  readonly organizationId: string;
   readonly runtime: ContainerDocumentQueriesRuntime;
-}): Promise<ContainerContentsDocumentRuntimeTarget[]> {
+}): Promise<RemoteDocumentProbeTarget[]> {
   const containerIds = [...input.listedContainerIds];
   if (containerIds.length === 0) {
     return [];
@@ -76,7 +80,6 @@ async function listRemoteDocumentProbeBatch(input: {
         AND stored.document_id IS NOT NULL
         AND (? IS NULL OR stored.local_id > ?)
         AND link.container_id IN (${valuePlaceholders(containerIds)})
-        AND owner.organization_id = ?
         AND projection.document_kind NOT IN (${valuePlaceholders(
           HIDDEN_DOCUMENT_SUMMARY_KINDS,
         )})
@@ -88,7 +91,6 @@ async function listRemoteDocumentProbeBatch(input: {
       input.afterLocalId,
       input.afterLocalId,
       ...containerIds,
-      input.organizationId,
       ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
       DOCUMENT_HYDRATION_PROBE_BATCH_SIZE,
     ],
@@ -103,18 +105,16 @@ async function listRemoteDocumentProbeBatch(input: {
  */
 export async function probeUndiscoveredRemoteDocumentBatch<TRuntime>(input: {
   readonly afterLocalId: string | null;
-  readonly host: ContainerDocumentPrimeHost<TRuntime>;
+  readonly host: ContainerDocumentProbeHost<TRuntime>;
   readonly listedContainerIds: ReadonlySet<string>;
   readonly listedDocumentIds: ReadonlySet<string>;
-  readonly organizationId: string;
   readonly runtime: ContainerDocumentQueriesRuntime;
 }): Promise<DocumentHydrationProbeBatchResult> {
   const scanned = await listRemoteDocumentProbeBatch(input);
-  const requested = await requestDocumentRuntimeTargetSync({
+  const requested = await requestRemoteDocumentRuntimeTargetSync({
     host: input.host,
     targets: scanned.filter(
-      (target) =>
-        !target.documentId || !input.listedDocumentIds.has(target.documentId),
+      (target) => !input.listedDocumentIds.has(target.documentId),
     ),
   });
   const done = scanned.length < DOCUMENT_HYDRATION_PROBE_BATCH_SIZE;

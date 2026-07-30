@@ -169,16 +169,24 @@ every discovered document. System-container documents are opened eagerly once
 per observed remote version because their derived projections cannot depend on
 a document window.
 
-Three one-shot probes close gaps that container discovery cannot observe:
+Three bounded probes close gaps that container discovery cannot observe:
 
 - after the initial idle discovery sweep, the reconciler pages an authoritative
   unwatermarked listing for every known remotely listable container. It then
   opens locally persisted, visible remote documents linked to those completed
-  lanes but absent from every full listing. Hidden system documents retain
-  their specialized sync paths. One batch of eight is scheduled per low-priority
-  turn, so a restored replica converges old remote deletions without treating an
+  lanes — including shared containers from another organization — but absent
+  from every full listing. An empty early tree does not complete the pass, and
+  remote-container growth while the pass is still settling restarts its
+  candidate cursor so hydration order cannot strand an earlier local-id range.
+  Once the first non-empty pass completes, later user-created containers do not
+  reopen it. Hidden system documents retain their
+  specialized sync paths. One batch of eight is scheduled per low-priority turn,
+  so a restored replica converges old remote deletions without treating an
   incremental watermark delta as the full remote set or monopolizing the sync
-  coordinator;
+  coordinator. Progress survives reconnects within the service lifecycle. The
+  completion marker is deliberately not durable: a local backup restore can
+  replace document rows underneath the runtime, and a persisted marker would
+  incorrectly skip the restored rows on the next service lifecycle;
 - opening a persisted remote document arms an initialization probe. Websocket
   invalidations live only in process memory, so a clean cached snapshot cannot
   prove that no peer committed an update before restart;

@@ -1,14 +1,10 @@
-import type { DocumentSummary } from "../../data/documentSummary";
-import type { DomainScope } from "../../data/domainScope";
 import {
   getOrCreateDomainSyncCoordinator,
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
-import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
 import {
   createInitialDocumentProbe,
   type InitialDocumentProbe,
-  type InitialDocumentProbeHost,
   scheduleInitialDocumentProbeContinuation,
 } from "./initialDocumentProbe";
 import { clearOriginatedDocuments } from "./originatedDocuments";
@@ -18,68 +14,17 @@ import {
   type ReconcileQueue,
 } from "./queue";
 import { listFullRefreshContainerIds } from "./refreshContainerIds";
+import type {
+  ReconciliationHost,
+  ReconciliationRuntimeStatus,
+  ReconciliationService,
+} from "./serviceTypes";
 
-export interface ReconciliationRuntimeStatus {
-  dbStatus: string;
-  isAuthenticated: boolean;
-  online: boolean;
-}
-
-/** Device-first scheduling host; runtime and persistence stay injected. */
-export interface ReconciliationHost extends InitialDocumentProbeHost {
-  domainScope: DomainScope;
-  getRuntimeStatus: () => ReconciliationRuntimeStatus;
-  listAutomaticRootCatchupContainerIds: () => ReadonlyArray<string>;
-  /** Discover + persist a container's documents from the server. */
-  discoverContainerDocuments: (
-    containerId: string,
-  ) => Promise<ReadonlyArray<DocumentSummary> | null>;
-  /** Read a container's freshly-persisted summaries+links from SQLite. */
-  loadContainerDelta: (
-    containerId: string,
-  ) => Promise<LocalProjectionReconciledDelta>;
-  /** Push a reconciled delta into the local projection store. */
-  applyReconciled: (delta: LocalProjectionReconciledDelta) => void;
-  /**
-   * Sync document bodies for a reconciled container. `force` (an explicit
-   * refresh) revalidates registered ordinary documents and retries system
-   * documents; otherwise only unopened system documents are synced, so a
-   * background pass can materialize projection-owned content without eagerly
-   * opening every ordinary document.
-   */
-  requestDocumentContentPull?: (
-    containerId: string,
-    documents: ReadonlyArray<DocumentSummary>,
-    force: boolean,
-  ) => void;
-  /** Refresh the container tree from the server (explicit refresh). */
-  refreshTree: () => Promise<void>;
-  /** Refresh only the top-level root lane from the server. */
-  refreshRootTree: () => Promise<void>;
-  isIgnorableError: (error: unknown) => boolean;
-}
-
-export interface ReconciliationService {
-  start: () => void;
-  setActiveContainer: (containerId: string | null) => void;
-  enqueueContainer: (
-    containerId: string,
-    priority: ReconcilePriority,
-    force?: boolean,
-  ) => void;
-  enqueueIdleBackfill: () => void;
-  /**
-   * Forget which containers were reconciled this session so the next enqueue of
-   * each re-validates against the server exactly once. Call on the
-   * cannot-reconcile → can-reconcile edge (relogin/reconnect): the discovered
-   * set is a per-session suppression cache, and a previously-visited container
-   * may have changed remotely while this client could not reach the server.
-   */
-  resetDiscovered: () => void;
-  reconcileRootContainersNow: () => Promise<void>;
-  reconcileNow: () => Promise<void>;
-  stop: () => void;
-}
+export type {
+  ReconciliationHost,
+  ReconciliationRuntimeStatus,
+  ReconciliationService,
+} from "./serviceTypes";
 
 function canReconcile(status: ReconciliationRuntimeStatus): boolean {
   return status.dbStatus === "ready" && status.isAuthenticated && status.online;
@@ -431,8 +376,11 @@ export function createReconciliationService(
   };
 
   const enqueueIdleBackfill = () => {
-    state.initialDocumentProbe.arm();
-    for (const containerId of host.listKnownContainerIds()) {
+    const eligibleContainerIds = host
+      .listKnownContainerIds()
+      .filter(host.canDiscoverContainerDocuments);
+    state.initialDocumentProbe.arm(eligibleContainerIds);
+    for (const containerId of eligibleContainerIds) {
       if (state.discoveredContainerIds.has(containerId)) {
         continue;
       }
@@ -463,7 +411,6 @@ export function createReconciliationService(
     enqueueIdleBackfill,
     resetDiscovered: () => {
       state.discoveredContainerIds.clear();
-      state.initialDocumentProbe.resetPending();
     },
     reconcileRootContainersNow: () =>
       reconcileKnownContainersSingleFlight(

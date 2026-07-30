@@ -38,8 +38,10 @@ import { PaneProvider } from "../runtime/PaneProvider";
 import { Pane } from "../shell/Pane";
 
 const ORG_MANAGER_USAGE_TEST_TIMEOUT_MS = 20_000;
+const ORG_MANAGER_OPEN_TIMEOUT_MS = 3_000;
 const BOOTSTRAP_SYNC_SETTLE_TIMEOUT_MS = 6_000;
 const NETWORK_IDLE_QUIET_MS = 25;
+const INITIAL_HYDRATION_DATA_USAGE_REQUEST_BUDGET = 6;
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
 const PANE_USER_ID_PATTERN =
   /userId:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/u;
@@ -143,9 +145,12 @@ async function openOrgManager(pane: HTMLElement) {
     fireEvent.click(openOrgManagerButton);
   });
 
-  await waitFor(() => {
-    expect(within(pane).getByRole("button", { name: "Groups" })).toBeTruthy();
-  });
+  await waitFor(
+    () => {
+      expect(within(pane).getByRole("button", { name: "Groups" })).toBeTruthy();
+    },
+    { timeout: ORG_MANAGER_OPEN_TIMEOUT_MS },
+  );
 }
 
 async function openOrgManagerUsage(pane: HTMLElement) {
@@ -258,7 +263,12 @@ test(
         timeoutMs: BOOTSTRAP_SYNC_SETTLE_TIMEOUT_MS,
       });
     });
-    expect(countOrganizationDataUsageRequests()).toBeLessThanOrEqual(1);
+    // The clean-replica probe lists the five eligible bootstrap containers in
+    // separate yielded coordinator turns. A visible Usage view may reconcile
+    // after each pending-to-settled edge, plus its entry read.
+    expect(countOrganizationDataUsageRequests()).toBeLessThanOrEqual(
+      INITIAL_HYDRATION_DATA_USAGE_REQUEST_BUDGET,
+    );
 
     // This is the org-manager-plus-system-bootstrap baseline. Usage counts
     // synced document update rows, not every document shell created by

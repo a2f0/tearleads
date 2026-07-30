@@ -34,7 +34,6 @@ function createHost(
       [],
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
-      return [];
     },
     loadContainerDelta: async (
       containerId,
@@ -170,7 +169,6 @@ test("service retries a container after a failed reconciliation", async () => {
           failNext = false;
           throw new Error("transient discovery failure");
         }
-        return [];
       },
     });
     const service = createReconciliationService(host);
@@ -201,7 +199,6 @@ test("service force-reconciles a discovered container", async () => {
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       attempts.push(containerId);
-      return [];
     },
     requestDocumentContentPull: (_containerId, _documents, force) => {
       contentPulls.push(force);
@@ -235,7 +232,6 @@ test("service retries a container that failed during explicit refresh", async ()
         failNext = false;
         throw new Error("transient refresh failure");
       }
-      return [];
     },
   });
   const service = createReconciliationService(host);
@@ -260,7 +256,6 @@ test("root refresh retains a directly granted non-root container in catch-up", a
     automaticRootCatchupContainerIds: ["root", "directly-granted-child"],
     discoverContainerDocuments: async (containerId) => {
       calls.push(`discover:${containerId}`);
-      return [];
     },
     refreshRootTree: async () => {
       calls.push("refresh-root");
@@ -318,7 +313,6 @@ test("a full refresh during an in-flight root refresh still runs the full tree r
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       calls.push(`discover:${containerId}`);
-      return [];
     },
     refreshRootTree: async () => {
       calls.push("refresh-root");
@@ -357,7 +351,6 @@ test("a root refresh during an in-flight root refresh coalesces into it", async 
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       calls.push(`discover:${containerId}`);
-      return [];
     },
     refreshRootTree: async () => {
       calls.push("refresh-root");
@@ -384,7 +377,6 @@ test("resetDiscovered lets a previously-reconciled container refetch", async () 
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       attempts.push(containerId);
-      return [];
     },
   });
   const service = createReconciliationService(host);
@@ -414,7 +406,6 @@ test("stop clears the discovered set so a restarted lane refetches", async () =>
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       attempts.push(containerId);
-      return [];
     },
   });
   const service = createReconciliationService(host);
