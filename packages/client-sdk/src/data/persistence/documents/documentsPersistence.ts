@@ -11,9 +11,10 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm";
-import type {
-  DiscoveredDocumentInput,
-  DocumentSummary,
+import {
+  type DiscoveredDocumentInput,
+  type DocumentSummary,
+  HIDDEN_DOCUMENT_SUMMARY_KINDS,
 } from "../../documentSummary";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
@@ -98,7 +99,6 @@ import type {
   StoredDocumentRecord,
 } from "./types";
 
-const HIDDEN_DOCUMENT_SUMMARY_KINDS = ["organization_profile"];
 const DISCOVERED_DOCUMENT_PLACEHOLDER_TITLE = "Syncing document...";
 const DEFAULT_DOCUMENT_SUMMARY_SORT: DocumentSummarySort = {
   direction: "desc",
@@ -147,7 +147,9 @@ function getDocumentSummaryFilters(
   input: ListDocumentSummariesInput,
 ): SQL | undefined {
   const conditions: SQL[] = [
-    notInArray(documentProjection.documentKind, HIDDEN_DOCUMENT_SUMMARY_KINDS),
+    notInArray(documentProjection.documentKind, [
+      ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
+    ]),
   ];
   if (input.documentKind) {
     conditions.push(eq(documentProjection.documentKind, input.documentKind));
@@ -387,10 +389,9 @@ export async function listDocumentsByContainerIds(
     .where(
       and(
         inArray(documentProjection.containerId, uniqueContainerIds),
-        notInArray(
-          documentProjection.documentKind,
-          HIDDEN_DOCUMENT_SUMMARY_KINDS,
-        ),
+        notInArray(documentProjection.documentKind, [
+          ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
+        ]),
       ),
     )
     .orderBy(
@@ -432,10 +433,9 @@ async function listDocumentsByContainerIdsOrDocumentIds(
     .where(
       and(
         whereCondition,
-        notInArray(
-          documentProjection.documentKind,
-          HIDDEN_DOCUMENT_SUMMARY_KINDS,
-        ),
+        notInArray(documentProjection.documentKind, [
+          ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
+        ]),
       ),
     )
     .orderBy(
@@ -455,10 +455,9 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       .from(documentProjection)
       .leftJoin(documents, documentSummaryJoin)
       .where(
-        notInArray(
-          documentProjection.documentKind,
-          HIDDEN_DOCUMENT_SUMMARY_KINDS,
-        ),
+        notInArray(documentProjection.documentKind, [
+          ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
+        ]),
       )
       .orderBy(
         desc(documentProjection.updatedAt),

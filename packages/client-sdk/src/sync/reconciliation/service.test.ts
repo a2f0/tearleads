@@ -6,6 +6,7 @@ import {
   type ReconciliationHost,
   type ReconciliationRuntimeStatus,
 } from "./service";
+import { silenceExpectedTransientDiscoveryError } from "./service.testFixtures";
 
 function createHost(
   overrides: Partial<ReconciliationHost> & {
@@ -41,6 +42,13 @@ function createHost(
       documentSummaries: [],
     }),
     applyReconciled: () => {},
+    listContainerDocumentIds: async () => [],
+    probeUndiscoveredDocumentsBatch: async () => ({
+      done: true,
+      nextCursor: null,
+      requestedCount: 0,
+    }),
+    reportInitialDocumentProbeComplete: () => {},
     refreshTree: async () => {},
     refreshRootTree: async () => {},
     isIgnorableError: () => false,
@@ -66,31 +74,6 @@ async function waitFor(
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
   throw new Error(message);
-}
-
-function silenceExpectedTransientDiscoveryError(): () => void {
-  const originalConsoleError = console.error;
-  let expectedErrorCount = 0;
-
-  console.error = (...args: unknown[]) => {
-    const isExpectedDiscoveryFailure =
-      args[0] === "Device-first reconciliation failed:" &&
-      args.some(
-        (arg) =>
-          arg instanceof Error && arg.message === "transient discovery failure",
-      );
-    if (isExpectedDiscoveryFailure) {
-      expectedErrorCount += 1;
-      return;
-    }
-
-    originalConsoleError(...args);
-  };
-
-  return () => {
-    console.error = originalConsoleError;
-    expect(expectedErrorCount).toBe(1);
-  };
 }
 
 test("service reconciles the active container before idle backfill", async () => {

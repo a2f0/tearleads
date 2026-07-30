@@ -1,8 +1,8 @@
 import { expect, mock, test } from "bun:test";
 import type { DataUsageRefreshOptions } from "../refresh";
 import {
+  createDataUsageSyncSettleController,
   refreshDataUsageOnEntry,
-  shouldRefreshDataUsageAfterSync,
 } from "./useOrgManagerDataUsageRefresh";
 
 test("usage entry paints local data before reconciling once", async () => {
@@ -97,37 +97,44 @@ test("usage entry rechecks pending sync after painting local data", async () => 
   expect(refreshDataUsage).toHaveBeenCalledTimes(1);
 });
 
-test("usage refresh waits for visible sync work to settle", () => {
-  expect(
-    shouldRefreshDataUsageAfterSync({
-      enabled: true,
-      pending: false,
-      previouslyPending: true,
-      visible: true,
-    }),
-  ).toBe(true);
-  expect(
-    shouldRefreshDataUsageAfterSync({
-      enabled: true,
-      pending: true,
-      previouslyPending: false,
-      visible: true,
-    }),
-  ).toBe(false);
-  expect(
-    shouldRefreshDataUsageAfterSync({
-      enabled: true,
-      pending: false,
-      previouslyPending: true,
-      visible: false,
-    }),
-  ).toBe(false);
-  expect(
-    shouldRefreshDataUsageAfterSync({
-      enabled: false,
-      pending: false,
-      previouslyPending: true,
-      visible: true,
-    }),
-  ).toBe(false);
+test("usage settle quiet window cancels on resumed work and rechecks pending", () => {
+  let pending = false;
+  let scheduled: (() => void) | undefined;
+  const cancellations: number[] = [];
+  const settled = mock(() => {});
+  const controller = createDataUsageSyncSettleController({
+    onSettled: settled,
+    readPending: () => pending,
+    schedule: (callback, delayMs) => {
+      expect(delayMs).toBe(100);
+      scheduled = callback;
+      return () => {
+        cancellations.push(delayMs);
+      };
+    },
+  });
+
+  pending = true;
+  controller.observe(pending);
+  pending = false;
+  controller.observe(pending);
+  expect(scheduled).toBeDefined();
+
+  pending = true;
+  controller.observe(pending);
+  expect(cancellations).toEqual([100]);
+  scheduled?.();
+  expect(settled).not.toHaveBeenCalled();
+
+  pending = false;
+  controller.observe(pending);
+  pending = true;
+  scheduled?.();
+  expect(settled).not.toHaveBeenCalled();
+
+  controller.observe(pending);
+  pending = false;
+  controller.observe(pending);
+  controller.dispose();
+  expect(cancellations).toEqual([100, 100]);
 });
