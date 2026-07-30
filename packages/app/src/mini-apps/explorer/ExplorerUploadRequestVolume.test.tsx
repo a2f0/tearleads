@@ -34,6 +34,9 @@ afterEach(async () => {
 // bytes upload -> attachment binding). Run with DUAL_PANE_REQUEST_PROFILE=1 to
 // print the observed volume when re-baselining.
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
+  // The aggregate cap is the profiled steady path plus one request of
+  // headroom. Per-route caps below are independent maxima: optional writer and
+  // discovery reads need not occur together and therefore need not sum to it.
   total: 10,
   byRequest: {
     // Create the image document shell, upload + bind its attachment blob, and
@@ -46,7 +49,7 @@ const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "POST /blobs/stages/multipart/:stageId/complete": 1,
     "POST /blobs/:blobId/attachment-bindings": 1,
     "POST /documents/:documentId/sync": 3,
-    "GET /documents/:documentId/attachments": 1,
+    "GET /documents/:documentId/attachments": 2,
     // With system bootstrap decoupled from Explorer startup, the upload path may
     // be the first writer to need the root container projection in this settled
     // test window.

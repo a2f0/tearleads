@@ -290,7 +290,10 @@ test("document store revalidates before uploading attachments", async () => {
   if (!syncedDocumentId) {
     throw new Error("Expected a synced document after attachment upload.");
   }
-  expect(listDocumentAttachmentsCalls).toEqual([syncedDocumentId]);
+  expect(listDocumentAttachmentsCalls).toEqual([
+    syncedDocumentId,
+    syncedDocumentId,
+  ]);
 });
 
 test("document store marks a synced attachment detached before the detach flushes", async () => {

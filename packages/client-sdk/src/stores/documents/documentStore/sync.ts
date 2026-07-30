@@ -153,7 +153,6 @@ async function finalizeDocumentSync(
   generation: DocumentStoreSyncGeneration,
   sentUpdateIds: readonly string[],
   wasRemoteProbe: boolean,
-  hydrateBlobs = true,
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
@@ -263,9 +262,7 @@ async function finalizeDocumentSync(
     requestDocumentStoreSync(state);
   }
 
-  if (hydrateBlobs) {
-    await hydrateAttachmentBlobs(state, mergedDoc, nextRecord, generation);
-  }
+  await hydrateAttachmentBlobs(state, mergedDoc, nextRecord, generation);
   logApplied(state, mergedDoc, synced.decryptedUpdates.length, wasRemoteProbe);
   return nextRecord;
 }
@@ -432,7 +429,6 @@ async function revalidateRemoteDocumentBeforeAttachments(
     generation,
     [],
     wasRemoteProbe,
-    false,
   );
   return {
     canSyncAttachments: isDocumentStoreSyncGenerationCurrent(state, generation),
