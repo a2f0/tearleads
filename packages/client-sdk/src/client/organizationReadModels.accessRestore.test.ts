@@ -158,7 +158,7 @@ test("a reconcile that restores denied org access re-requests all sync lanes", a
   }
 });
 
-test("restored access requests an organization-scoped container cleanup", async () => {
+test("restored access requests cleanup for every marked organization", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-dormant-cleanup-test",
   );
@@ -169,8 +169,14 @@ test("restored access requests an organization-scoped container cleanup", async 
     await execSql(
       `INSERT INTO dormant_container_metadata
         (container_id, organization_id, retained_at)
-       VALUES (?, ?, '2026-01-01T00:00:00.000Z')`,
-      ["revoked-container", organizationReadModelOrganizationId],
+       VALUES (?, ?, '2026-01-01T00:00:00.000Z'),
+              (?, ?, '2026-01-01T00:00:00.000Z')`,
+      [
+        "revoked-container",
+        organizationReadModelOrganizationId,
+        "peer-revoked-container",
+        "peer-org",
+      ],
     );
     const sweptOrganizations: string[][] = [];
     let markLaneRan = () => {};
@@ -209,7 +215,10 @@ test("restored access requests an organization-scoped container cleanup", async 
     // organization-scoped structural signal and does not re-drive other lanes.
     await expect(coordinator.reconcile()).resolves.not.toBeNull();
     await laneRan;
-    expect(sweptOrganizations).toEqual([[organizationReadModelOrganizationId]]);
+    expect(sweptOrganizations[0]).toEqual([
+      organizationReadModelOrganizationId,
+      "peer-org",
+    ]);
   } finally {
     disposeDomainSyncCoordinator(domainScope);
     close();

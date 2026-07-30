@@ -53,6 +53,9 @@ export function createContainerContentsPersistence(input: {
   }>;
 }): ContainerContentsPersistence {
   return {
+    async claimDormantMetadataSweepAttempt() {
+      return false;
+    },
     async completeDormantMetadataSweepRequest() {},
     async containerExists() {
       return false;

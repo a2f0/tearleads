@@ -1,6 +1,6 @@
 import type { DomainScope } from "../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../data/persistence/container-contents/documentMoveIntentPersistence";
-import { requestDormantMetadataRestorationSweep } from "../data/persistence/container-contents/dormantMetadataSweep";
+import { requestDormantMetadataRestorationSweeps } from "../data/persistence/container-contents/dormantMetadataSweep";
 import { hasRecordedTerminalSyncFailures } from "../data/sqlite/documentPersistence";
 import {
   requestAllDomainSyncLanes,
@@ -401,15 +401,14 @@ class OrganizationReadModelCoordinatorImpl
         // but run it afterward so a SQLite failure cannot suppress the
         // pre-existing denied-write and move-intent recovery signal.
         if (accessWasRestored) {
-          const requestedDormantSweep =
-            await requestDormantMetadataRestorationSweep(
+          const requestedDormantSweepCount =
+            await requestDormantMetadataRestorationSweeps(
               active.runtime.infra.execSql,
               {
-                organizationId: active.organizationId,
                 requesterUserId: active.userId,
               },
             );
-          if (requestedDormantSweep) {
+          if (requestedDormantSweepCount > 0) {
             requestDomainSyncLane(
               domainScope,
               CONTAINER_CONTENTS_SYNC_LANE_KEY,

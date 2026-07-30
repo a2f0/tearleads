@@ -13,13 +13,20 @@ import { deleteContainerMetadataDocumentRowsInTransaction } from "./dormantConta
 const DORMANT_METADATA_SWEEP_BATCH_SIZE = 64;
 
 export interface DormantMetadataSweepRequest {
+  readonly attemptCount: number;
   readonly generation: number;
+  readonly lastAttemptedAt: string | null;
   readonly organizationId: string;
   readonly requestedAt: string;
   readonly requesterUserId: string;
 }
 
 export interface DormantMetadataSweepPersistence {
+  claimDormantMetadataSweepAttempt: (
+    execSql: ExecSql,
+    sweep: DormantMetadataSweepRequest,
+    attemptedAt: string,
+  ) => Promise<boolean>;
   completeDormantMetadataSweepRequest: (
     execSql: ExecSql,
     sweep: DormantMetadataSweepRequest,
@@ -40,37 +47,49 @@ export interface DormantMetadataSweepPersistence {
   ) => Promise<number>;
 }
 
-export async function requestDormantMetadataRestorationSweep(
+export async function requestDormantMetadataRestorationSweeps(
   execSql: ExecSql,
-  input: { organizationId: string; requesterUserId: string },
-): Promise<boolean> {
+  input: { requesterUserId: string },
+): Promise<number> {
   await ensureContainerTables(execSql);
   const requestedAt = new Date().toISOString();
   return getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    const [dormant] = await db
-      .select({ containerId: dormantContainerMetadata.containerId })
+    const organizations = await db
+      .selectDistinct({
+        organizationId: dormantContainerMetadata.organizationId,
+      })
       .from(dormantContainerMetadata)
-      .where(eq(dormantContainerMetadata.organizationId, input.organizationId))
-      .limit(1);
-    if (!dormant) {
-      return false;
+      .orderBy(dormantContainerMetadata.organizationId);
+    if (organizations.length === 0) {
+      return 0;
     }
 
     await db
       .insert(dormantMetadataSweepRequests)
-      .values({ generation: 1, ...input, requestedAt })
+      .values(
+        organizations.map(({ organizationId }) => ({
+          attemptCount: 0,
+          generation: 1,
+          lastAttemptedAt: null,
+          organizationId,
+          requestedAt,
+          requesterUserId: input.requesterUserId,
+        })),
+      )
       .onConflictDoUpdate({
         target: [
           dormantMetadataSweepRequests.organizationId,
           dormantMetadataSweepRequests.requesterUserId,
         ],
         set: {
+          attemptCount: 0,
           generation: sql`${dormantMetadataSweepRequests.generation} + 1`,
+          lastAttemptedAt: null,
           requestedAt: sql`excluded.requested_at`,
         },
       })
       .run();
-    return true;
+    return organizations.length;
   });
 }
 
@@ -81,7 +100,9 @@ export async function listDormantMetadataSweepRequests(
   await ensureContainerTables(execSql);
   return getClientSQLitePersistenceRuntime(execSql)
     .db.select({
+      attemptCount: dormantMetadataSweepRequests.attemptCount,
       generation: dormantMetadataSweepRequests.generation,
+      lastAttemptedAt: dormantMetadataSweepRequests.lastAttemptedAt,
       organizationId: dormantMetadataSweepRequests.organizationId,
       requestedAt: dormantMetadataSweepRequests.requestedAt,
       requesterUserId: dormantMetadataSweepRequests.requesterUserId,
@@ -89,6 +110,52 @@ export async function listDormantMetadataSweepRequests(
     .from(dormantMetadataSweepRequests)
     .where(eq(dormantMetadataSweepRequests.requesterUserId, requesterUserId))
     .orderBy(dormantMetadataSweepRequests.organizationId);
+}
+
+export async function claimDormantMetadataSweepAttempt(
+  execSql: ExecSql,
+  sweep: DormantMetadataSweepRequest,
+  attemptedAt: string,
+): Promise<boolean> {
+  await ensureContainerTables(execSql);
+  return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
+    const [current] = await tx
+      .select({ attemptCount: dormantMetadataSweepRequests.attemptCount })
+      .from(dormantMetadataSweepRequests)
+      .where(
+        and(
+          eq(dormantMetadataSweepRequests.organizationId, sweep.organizationId),
+          eq(
+            dormantMetadataSweepRequests.requesterUserId,
+            sweep.requesterUserId,
+          ),
+          eq(dormantMetadataSweepRequests.generation, sweep.generation),
+        ),
+      )
+      .limit(1);
+    if (!current || current.attemptCount !== sweep.attemptCount) {
+      return false;
+    }
+    await tx
+      .update(dormantMetadataSweepRequests)
+      .set({
+        attemptCount: current.attemptCount + 1,
+        lastAttemptedAt: attemptedAt,
+      })
+      .where(
+        and(
+          eq(dormantMetadataSweepRequests.organizationId, sweep.organizationId),
+          eq(
+            dormantMetadataSweepRequests.requesterUserId,
+            sweep.requesterUserId,
+          ),
+          eq(dormantMetadataSweepRequests.generation, sweep.generation),
+          eq(dormantMetadataSweepRequests.attemptCount, current.attemptCount),
+        ),
+      )
+      .run();
+    return true;
+  });
 }
 
 export async function completeDormantMetadataSweepRequest(

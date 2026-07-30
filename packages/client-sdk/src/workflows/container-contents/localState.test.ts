@@ -58,6 +58,9 @@ function createContainerContentsPersistence(input: {
   storedContainers: ReadonlyArray<StoredContainerState>;
 }): ContainerContentsPersistence {
   return {
+    async claimDormantMetadataSweepAttempt() {
+      return false;
+    },
     async completeDormantMetadataSweepRequest() {},
     async containerExists() {
       return false;

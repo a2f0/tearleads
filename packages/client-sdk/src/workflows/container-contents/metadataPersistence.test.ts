@@ -54,6 +54,9 @@ function createMetadataWriterProjection(
 
 function createPersistence(): ContainerContentsPersistence {
   return {
+    async claimDormantMetadataSweepAttempt() {
+      return false;
+    },
     async completeDormantMetadataSweepRequest() {},
     async containerExists() {
       return false;

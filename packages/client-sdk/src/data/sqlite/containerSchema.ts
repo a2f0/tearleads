@@ -57,13 +57,18 @@ export const dormantContainerMetadata = sqliteTable(
   ],
 );
 
-/** Durable request for a post-access-restoration container crawl and sweep. */
+/**
+ * Durable request for a post-access-restoration crawl and sweep. Attempt state
+ * enforces exponential backoff and a bounded retry budget across restarts.
+ */
 export const dormantMetadataSweepRequests = sqliteTable(
   "dormant_metadata_sweep_requests",
   {
     organizationId: text("organization_id").notNull(),
     requesterUserId: text("requester_user_id").notNull(),
     generation: integer("generation").notNull().default(1),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastAttemptedAt: text("last_attempted_at"),
     requestedAt: text("requested_at").notNull(),
   },
   (table) => [

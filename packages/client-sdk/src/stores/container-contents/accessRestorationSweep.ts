@@ -12,6 +12,24 @@ type DormantMetadataSweep = Awaited<
 type DeletionProbeResult = "deleted" | "preserved" | "retry";
 
 const DELETION_PROBE_CONCURRENCY = 4;
+const SWEEP_ATTEMPT_LIMIT = 5;
+const SWEEP_RETRY_BASE_MS = 60_000;
+const SWEEP_RETRY_MAX_MS = 15 * 60_000;
+
+function isSweepAttemptDue(sweep: DormantMetadataSweep, now: number): boolean {
+  if (!sweep.lastAttemptedAt) {
+    return true;
+  }
+  const lastAttemptedAt = Date.parse(sweep.lastAttemptedAt);
+  if (!Number.isFinite(lastAttemptedAt)) {
+    return true;
+  }
+  const retryDelay = Math.min(
+    SWEEP_RETRY_BASE_MS * 2 ** Math.max(0, sweep.attemptCount - 1),
+    SWEEP_RETRY_MAX_MS,
+  );
+  return lastAttemptedAt + retryDelay <= now;
+}
 
 async function probeContainerDeletion(
   state: ContainerContentsStoreSyncState,
@@ -94,7 +112,22 @@ async function completeRestorationSweeps(
         sweep,
         deletedContainerIds,
       );
+    if (purgedCount > 0) {
+      state.runtime.util.log(
+        `${state.logLabel ?? "Container contents"}: purged ${purgedCount} dormant metadata document(s) after access restoration`,
+      );
+    }
     if (shouldRetry) {
+      if (sweep.attemptCount >= SWEEP_ATTEMPT_LIMIT) {
+        await state.persistence.completeDormantMetadataSweepRequest(
+          state.runtime.infra.execSql,
+          sweep,
+        );
+        state.runtime.util.log(
+          `${state.logLabel ?? "Container contents"}: stopped dormant metadata sweep after ${sweep.attemptCount} inconclusive attempts; metadata remains dormant`,
+        );
+        continue;
+      }
       state.runtime.util.log(
         `${state.logLabel ?? "Container contents"}: deferred dormant metadata sweep after an inconclusive deletion probe`,
       );
@@ -104,50 +137,90 @@ async function completeRestorationSweeps(
       state.runtime.infra.execSql,
       sweep,
     );
-    if (purgedCount > 0) {
-      state.runtime.util.log(
-        `${state.logLabel ?? "Container contents"}: purged ${purgedCount} dormant metadata document(s) after access restoration`,
+  }
+}
+
+async function claimDueRestorationSweeps(
+  state: ContainerContentsStoreSyncState,
+  sweeps: readonly DormantMetadataSweep[],
+): Promise<DormantMetadataSweep[]> {
+  const now = Date.now();
+  const attemptedAt = new Date(now).toISOString();
+  const claimed: DormantMetadataSweep[] = [];
+  for (const sweep of sweeps) {
+    if (sweep.attemptCount >= SWEEP_ATTEMPT_LIMIT) {
+      await state.persistence.completeDormantMetadataSweepRequest(
+        state.runtime.infra.execSql,
+        sweep,
       );
+      state.runtime.util.log(
+        `${state.logLabel ?? "Container contents"}: retired exhausted dormant metadata sweep; metadata remains dormant`,
+      );
+      continue;
+    }
+    if (!isSweepAttemptDue(sweep, now)) {
+      continue;
+    }
+    const didClaim = await state.persistence.claimDormantMetadataSweepAttempt(
+      state.runtime.infra.execSql,
+      sweep,
+      attemptedAt,
+    );
+    if (didClaim) {
+      claimed.push({
+        ...sweep,
+        attemptCount: sweep.attemptCount + 1,
+        lastAttemptedAt: attemptedAt,
+      });
     }
   }
+  return claimed;
+}
+
+async function reconcileRestoredAccess(input: {
+  requestHydration: RemoteHydrationRequester;
+  state: ContainerContentsStoreSyncState;
+}): Promise<void> {
+  const { requestHydration, state } = input;
+  const requesterUserId = state.runtime.auth.userId;
+  if (!requesterUserId) {
+    return;
+  }
+  const pendingSweeps =
+    await state.persistence.listDormantMetadataSweepRequests(
+      state.runtime.infra.execSql,
+      requesterUserId,
+    );
+  const sweeps = await claimDueRestorationSweeps(state, pendingSweeps);
+  if (sweeps.length === 0) {
+    return;
+  }
+
+  await refreshAllRemoteHydration({
+    onFullyHydrated: () => completeRestorationSweeps(state, sweeps),
+    requestHydration,
+    resetAllLaneWatermarks: true,
+    scheduleSyncAfterHydration: false,
+    scheduleSyncOnHydrationChange: false,
+    state,
+  });
 }
 
 export function createRestoredAccessReconciler(input: {
   requestHydration: RemoteHydrationRequester;
   state: ContainerContentsStoreSyncState;
 }): () => Promise<void> {
-  const { requestHydration, state } = input;
+  const { state } = input;
   return async () => {
-    const requesterUserId = state.runtime.auth.userId;
-    if (!requesterUserId) {
-      return;
+    try {
+      await reconcileRestoredAccess(input);
+    } catch (error) {
+      const message = `${state.logLabel ?? "Container contents"}: dormant metadata sweep failed`;
+      if (state.runtime.util.logError) {
+        state.runtime.util.logError(message, error);
+      } else {
+        state.runtime.util.log(message);
+      }
     }
-    const sweeps = await state.persistence.listDormantMetadataSweepRequests(
-      state.runtime.infra.execSql,
-      requesterUserId,
-    );
-    if (sweeps.length === 0) {
-      return;
-    }
-
-    await refreshAllRemoteHydration({
-      onFullyHydrated: async () => {
-        try {
-          await completeRestorationSweeps(state, sweeps);
-        } catch (error) {
-          const message = `${state.logLabel ?? "Container contents"}: dormant metadata sweep failed`;
-          if (state.runtime.util.logError) {
-            state.runtime.util.logError(message, error);
-          } else {
-            state.runtime.util.log(message);
-          }
-        }
-      },
-      requestHydration,
-      resetAllLaneWatermarks: true,
-      scheduleSyncAfterHydration: false,
-      scheduleSyncOnHydrationChange: false,
-      state,
-    });
   };
 }

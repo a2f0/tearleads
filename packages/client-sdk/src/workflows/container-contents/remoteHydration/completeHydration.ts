@@ -13,24 +13,22 @@ export async function finishRemoteHydration(input: {
   containerIdsBeforeHydration: ReadonlySet<string>;
   state: RemoteContainerHydrationState;
 }): Promise<void> {
+  if (input.changedCount > 0) {
+    input.host.updateSnapshot();
+    let insertedCount = 0;
+    for (const containerId of input.seenContainerIds) {
+      if (!input.containerIdsBeforeHydration.has(containerId)) {
+        insertedCount++;
+      }
+    }
+    input.state.runtime.util.log(
+      describeRemoteContainerHydration({
+        changedCount: input.changedCount,
+        insertedCount,
+      }),
+    );
+  }
   if (input.complete && input.onFullyHydrated) {
     await input.onFullyHydrated();
   }
-  if (input.changedCount === 0) {
-    return;
-  }
-
-  input.host.updateSnapshot();
-  let insertedCount = 0;
-  for (const containerId of input.seenContainerIds) {
-    if (!input.containerIdsBeforeHydration.has(containerId)) {
-      insertedCount++;
-    }
-  }
-  input.state.runtime.util.log(
-    describeRemoteContainerHydration({
-      changedCount: input.changedCount,
-      insertedCount,
-    }),
-  );
 }

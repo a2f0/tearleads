@@ -2,11 +2,12 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { ensureContainerTables } from "../containers/containerPersistence";
 import {
+  claimDormantMetadataSweepAttempt,
   completeDormantMetadataSweepRequest,
   listDormantMetadataSweepCandidates,
   listDormantMetadataSweepRequests,
   purgeDormantContainerMetadataCandidates,
-  requestDormantMetadataRestorationSweep,
+  requestDormantMetadataRestorationSweeps,
 } from "./dormantMetadataSweep";
 
 test("restoration requests are skipped without dormant metadata", async () => {
@@ -15,11 +16,10 @@ test("restoration requests are skipped without dormant metadata", async () => {
   );
   try {
     await expect(
-      requestDormantMetadataRestorationSweep(execSql, {
-        organizationId: "org-1",
+      requestDormantMetadataRestorationSweeps(execSql, {
         requesterUserId: "user-1",
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBe(0);
     expect(await listDormantMetadataSweepRequests(execSql, "user-1")).toEqual(
       [],
     );
@@ -33,7 +33,7 @@ test("sweeps preserve newer requests and post-request retentions", async () => {
     "dormant-metadata-sweep-generation",
   );
   try {
-    const request = { organizationId: "org-1", requesterUserId: "user-1" };
+    const request = { requesterUserId: "user-1" };
     await ensureContainerTables(execSql);
     await execSql(
       `INSERT INTO dormant_container_metadata
@@ -41,8 +41,8 @@ test("sweeps preserve newer requests and post-request retentions", async () => {
        VALUES ('old-marker', 'org-1', '2000-01-01T00:00:00.000Z'),
               ('late-marker', 'org-1', '9999-01-01T00:00:00.000Z')`,
     );
-    await requestDormantMetadataRestorationSweep(execSql, request);
-    await requestDormantMetadataRestorationSweep(execSql, {
+    await requestDormantMetadataRestorationSweeps(execSql, request);
+    await requestDormantMetadataRestorationSweeps(execSql, {
       ...request,
       requesterUserId: "user-2",
     });
@@ -52,7 +52,26 @@ test("sweeps preserve newer requests and post-request retentions", async () => {
     if (!firstSweep) {
       throw new Error("Expected the first restoration sweep");
     }
-    await requestDormantMetadataRestorationSweep(execSql, request);
+    expect(firstSweep).toMatchObject({
+      attemptCount: 0,
+      lastAttemptedAt: null,
+    });
+    await expect(
+      claimDormantMetadataSweepAttempt(
+        execSql,
+        firstSweep,
+        "2026-01-01T00:00:00.000Z",
+      ),
+    ).resolves.toBe(true);
+    expect(
+      (
+        await listDormantMetadataSweepRequests(execSql, request.requesterUserId)
+      ).at(0),
+    ).toMatchObject({
+      attemptCount: 1,
+      lastAttemptedAt: "2026-01-01T00:00:00.000Z",
+    });
+    await requestDormantMetadataRestorationSweeps(execSql, request);
     expect(
       await listDormantMetadataSweepCandidates(execSql, firstSweep),
     ).toEqual([]);
@@ -66,6 +85,10 @@ test("sweeps preserve newer requests and post-request retentions", async () => {
       await listDormantMetadataSweepRequests(execSql, request.requesterUserId)
     )[0];
     expect(latestSweep?.generation).toBe(firstSweep.generation + 1);
+    expect(latestSweep).toMatchObject({
+      attemptCount: 0,
+      lastAttemptedAt: null,
+    });
     if (!latestSweep) {
       throw new Error("Expected the newer restoration sweep");
     }

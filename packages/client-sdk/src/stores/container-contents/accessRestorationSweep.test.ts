@@ -11,15 +11,17 @@ import { defaultDocumentProjectorRegistry } from "../../data/documents/documentK
 import { createDomainScope } from "../../data/domainScope";
 import {
   listDormantMetadataSweepRequests,
-  requestDormantMetadataRestorationSweep,
+  requestDormantMetadataRestorationSweeps,
 } from "../../data/persistence/container-contents/dormantMetadataSweep";
 import {
   disposeDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
 } from "../../data/sync/syncCoordinator";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
+import { createRestoredAccessReconciler } from "./accessRestorationSweep";
 import { createContainerContentsStore } from "./containerContentsStore";
 import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
+import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
 
 const ORGANIZATION_ID = "restored-organization";
 
@@ -78,6 +80,17 @@ async function seedDormantMetadata(
   );
 }
 
+async function makeRestorationSweepRetryDue(
+  execSql: Parameters<
+    typeof defaultContainerContentsPersistence.ensureSchema
+  >[0],
+): Promise<void> {
+  await execSql(
+    `UPDATE dormant_metadata_sweep_requests
+     SET last_attempted_at = '2000-01-01T00:00:00.000Z'`,
+  );
+}
+
 async function waitFor(
   predicate: () => boolean | Promise<boolean>,
   message: string,
@@ -92,6 +105,42 @@ async function waitFor(
   throw new Error(message);
 }
 
+test("restoration failures do not reject the structural sync pass", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-access-restoration-error-isolation",
+  );
+  const loggedErrors: unknown[] = [];
+  try {
+    const reconcile = createRestoredAccessReconciler({
+      requestHydration: async () => {
+        throw new Error("hydration must not run");
+      },
+      state: {
+        persistence: {
+          listDormantMetadataSweepRequests: async () => {
+            throw new Error("sweep storage unavailable");
+          },
+        },
+        runtime: {
+          auth: { userId: "user-1" },
+          infra: { execSql },
+          util: {
+            log: () => {},
+            logError: (_message: string | Error, error?: unknown) => {
+              loggedErrors.push(error);
+            },
+          },
+        },
+      } as unknown as ContainerContentsStoreSyncState,
+    });
+
+    await expect(reconcile()).resolves.toBeUndefined();
+    expect(loggedErrors).toHaveLength(1);
+  } finally {
+    await close();
+  }
+});
+
 test("restoration sweep waits for a complete recursive hydration", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-access-restoration-sweep",
@@ -105,8 +154,7 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
     await seedDormantMetadata(execSql, "revoked");
     await seedDormantMetadata(execSql, "still-revoked");
     await seedDormantMetadata(execSql, "retry-probe");
-    await requestDormantMetadataRestorationSweep(execSql, {
-      organizationId: ORGANIZATION_ID,
+    await requestDormantMetadataRestorationSweeps(execSql, {
       requesterUserId: "user-1",
     });
 
@@ -180,6 +228,11 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
       await listDormantMetadataSweepRequests(execSql, "user-1"),
     ).toHaveLength(1);
 
+    store.requestSync();
+    await waitForDomainSyncCoordinatorToSettle(domainScope);
+    expect(hydrationRequests).toBe(hydrationRequestsAfterFailure);
+
+    await makeRestorationSweepRetryDue(execSql);
     failHydration = false;
     store.requestSync();
     await waitFor(
@@ -197,14 +250,35 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
 
     const hydrationRequestsAfterAmbiguousProbe = hydrationRequests;
     await new Promise((resolve) => setTimeout(resolve, 25));
+    store.requestSync();
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(hydrationRequests).toBe(hydrationRequestsAfterAmbiguousProbe);
 
-    retryProbeStatus = 404;
+    await execSql(
+      `UPDATE dormant_metadata_sweep_requests
+       SET attempt_count = 4,
+           last_attempted_at = '2000-01-01T00:00:00.000Z'`,
+    );
     store.requestSync();
     await waitFor(
       () => hydrationRequests > hydrationRequestsAfterAmbiguousProbe,
-      "Deferred restoration probe was not retryable.",
+      "Final bounded restoration probe was not attempted.",
+    );
+    await waitForDomainSyncCoordinatorToSettle(domainScope);
+    expect(await countMetadataDocuments(execSql, "retry-probe")).toBe(1);
+    expect(await listDormantMetadataSweepRequests(execSql, "user-1")).toEqual(
+      [],
+    );
+
+    const hydrationRequestsAfterExhaustion = hydrationRequests;
+    await requestDormantMetadataRestorationSweeps(execSql, {
+      requesterUserId: "user-1",
+    });
+    retryProbeStatus = 404;
+    store.requestSync();
+    await waitFor(
+      () => hydrationRequests > hydrationRequestsAfterExhaustion,
+      "A new restoration edge did not reset the bounded probe budget.",
     );
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(await countMetadataDocuments(execSql, "retry-probe")).toBe(0);

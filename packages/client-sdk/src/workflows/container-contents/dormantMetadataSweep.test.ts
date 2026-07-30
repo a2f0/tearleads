@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   listDormantMetadataSweepRequests,
-  requestDormantMetadataRestorationSweep,
+  requestDormantMetadataRestorationSweeps,
 } from "../../data/persistence/container-contents/dormantMetadataSweep";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
@@ -107,13 +107,17 @@ test("restoration sweep purges only unmatched metadata in its organization", asy
 
     // The completed crawl found this container, so saving it clears its marker.
     await saveContainer(execSql, "reattached");
-    await requestDormantMetadataRestorationSweep(execSql, {
-      organizationId: "peer-organization",
+    await requestDormantMetadataRestorationSweeps(execSql, {
       requesterUserId: "user-1",
     });
-    const sweep = (
-      await listDormantMetadataSweepRequests(execSql, "user-1")
-    )[0];
+    const sweeps = await listDormantMetadataSweepRequests(execSql, "user-1");
+    expect(sweeps.map((sweep) => sweep.organizationId)).toEqual([
+      "other-organization",
+      "peer-organization",
+    ]);
+    const sweep = sweeps.find(
+      (candidate) => candidate.organizationId === "peer-organization",
+    );
     if (!sweep) {
       throw new Error("Expected a restoration sweep");
     }

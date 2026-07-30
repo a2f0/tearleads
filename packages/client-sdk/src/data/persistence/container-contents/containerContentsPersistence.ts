@@ -62,6 +62,7 @@ import {
   retainDormantContainerMetadataInTransaction,
 } from "./dormantContainerMetadata";
 import {
+  claimDormantMetadataSweepAttempt,
   completeDormantMetadataSweepRequest,
   type DormantMetadataSweepPersistence,
   listDormantMetadataSweepCandidates,
@@ -969,6 +970,7 @@ async function selectContainerMetadataRecord(
 }
 
 export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
+  claimDormantMetadataSweepAttempt,
   completeDormantMetadataSweepRequest,
   async containerExists(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
