@@ -79,3 +79,30 @@ test("a falsy-but-present reading is not mistaken for a detached one", async () 
   expect(value).toBe(0);
   expect(calls).toBe(1);
 });
+
+test("gives up on a read that never settles, without waiting on Playwright", async () => {
+  // The element never comes back, so `evaluate` never resolves. Bounded by this
+  // helper rather than by the whole test's timeout, so the failure still names
+  // the measurement.
+  const started = Date.now();
+  await expect(
+    measureAttached("never settles", () => new Promise<null>(() => {}), FAST),
+  ).rejects.toThrow(
+    "never settles: never measured while attached to the document within 200ms",
+  );
+
+  expect(Date.now() - started).toBeLessThan(2000);
+});
+
+test("propagates an error the read itself throws", async () => {
+  // A genuine page error is not a detached node and must not be retried away.
+  await expect(
+    measureAttached(
+      "broken read",
+      async () => {
+        throw new Error("page closed");
+      },
+      FAST,
+    ),
+  ).rejects.toThrow("page closed");
+});

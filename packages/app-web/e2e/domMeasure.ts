@@ -37,20 +37,60 @@ export async function measureAttached<T>(
   const timeoutMs = options.timeoutMs ?? ATTACHED_MEASURE_TIMEOUT_MS;
   const intervalMs = options.intervalMs ?? ATTACHED_MEASURE_INTERVAL_MS;
   const deadline = Date.now() + timeoutMs;
+  const expired = () =>
+    new Error(
+      `${what}: never measured while attached to the document within ${timeoutMs}ms`,
+    );
+
   for (;;) {
-    const value = await read();
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) {
+      throw expired();
+    }
+
+    const value = await readWithin(read(), remainingMs, expired);
     if (value !== null) {
       return value;
     }
 
     if (Date.now() >= deadline) {
-      throw new Error(
-        `${what}: never measured while attached to the document within ${timeoutMs}ms`,
-      );
+      throw expired();
     }
 
     await new Promise((resolve) => {
       setTimeout(resolve, intervalMs);
     });
+  }
+}
+
+/**
+ * Resolve `pending`, or give up once `remainingMs` has passed.
+ *
+ * The read itself has to be bounded, not just the interval between reads: a
+ * locator whose element never comes back leaves `evaluate` waiting, and Playwright
+ * bounds that only by the whole test's timeout. The failure would then say that
+ * something timed out rather than which measurement was waiting for what — which
+ * is the entire diagnostic value this helper adds.
+ */
+async function readWithin<T>(
+  pending: Promise<T | null>,
+  remainingMs: number,
+  expired: () => Error,
+): Promise<T | null> {
+  // Mark the read handled up front. Abandoning it below leaves it in flight, and
+  // an error arriving after the deadline would otherwise surface as an unhandled
+  // rejection attributed to whatever test happened to be running by then.
+  pending.catch(() => undefined);
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      pending,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(expired()), remainingMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
   }
 }
