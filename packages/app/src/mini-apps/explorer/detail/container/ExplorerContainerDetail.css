@@ -68,14 +68,5 @@
   white-space: nowrap;
 }
 
-.explorer-compact-sort-menu {
-  width: min(12rem, 100%);
-}
-
-.explorer-compact-sort-menu .mini-app-button.mini-app-select-menu-trigger {
-  align-items: center;
-  min-height: var(--control-height);
-  padding: 0;
-  border: 0;
-  font-weight: inherit;
-}
+/* The folded item list's sort menu takes the shared header chrome — see
+   MiniAppTableSort.css. */

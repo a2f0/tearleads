@@ -1,66 +1,22 @@
 import { useState } from "react";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
-import {
-  DocumentRowDetailOverlay,
-  type RowDetailField,
-} from "../shared/DocumentRowDetail";
+import { DocumentRowDetailOverlay } from "../shared/DocumentRowDetail";
 import { formatRowAttribution } from "../shared/rowAttribution";
 import { TrackerReadActions } from "../shared/TrackerReadActions";
 import "../shared/TrackerFormControls.css";
-import {
-  BLOOD_PRESSURE_DIASTOLIC_FIELD,
-  BLOOD_PRESSURE_MEASURED_AT_FIELD,
-  BLOOD_PRESSURE_NOTES_FIELD,
-  BLOOD_PRESSURE_PULSE_FIELD,
-  BLOOD_PRESSURE_SYSTOLIC_FIELD,
-} from "./bloodPressureDocumentDefinition";
 import {
   type BloodPressureReadingRow,
   formatMeasuredAt,
   formatMeasurementPair,
   formatPulse,
+  toBloodPressureReadingDetailFields,
 } from "./bloodPressureReadings";
 
-// Build the per-field attribution rows for the drill-down. Each cell's verified
-// writer is resolved from its last-editor peer; null when unknown (attribution
-// not synced) so the overlay can omit it.
-function toReadingDetailFields(
-  reading: BloodPressureReadingRow,
-  resolveRowWriter?: RowWriterResolver | undefined,
-): RowDetailField[] {
-  const fieldWriter = (field: string): string | null =>
-    resolveRowWriter?.(reading.fieldEditors[field] ?? null) ?? null;
-  return [
-    {
-      label: "Systolic",
-      value: reading.systolic,
-      writerUserId: fieldWriter(BLOOD_PRESSURE_SYSTOLIC_FIELD),
-    },
-    {
-      label: "Diastolic",
-      value: reading.diastolic,
-      writerUserId: fieldWriter(BLOOD_PRESSURE_DIASTOLIC_FIELD),
-    },
-    {
-      label: "Pulse",
-      value: reading.pulse,
-      writerUserId: fieldWriter(BLOOD_PRESSURE_PULSE_FIELD),
-    },
-    {
-      label: "Measured at",
-      value: formatMeasuredAt(reading),
-      writerUserId: fieldWriter(BLOOD_PRESSURE_MEASURED_AT_FIELD),
-    },
-    {
-      label: "Notes",
-      value: reading.notes,
-      writerUserId: fieldWriter(BLOOD_PRESSURE_NOTES_FIELD),
-    },
-  ];
-}
-
-// A single reading in read mode: the summary cells, a kebab that opens a small
-// actions menu (Edit / Attribution), and the row's last-edit attribution line.
+// One saved reading as a card, which is how the editor collapses a row the user
+// has finished with: the summary cells, a kebab that opens a small actions menu
+// (Edit / Attribution), and the row's last-edit attribution line. Read mode
+// presents the same readings as a sortable table instead — see
+// BloodPressureReadTable.
 export function BloodPressureReadingReadRow(params: {
   currentAuthorId: string | null;
   index: number;
@@ -83,7 +39,10 @@ export function BloodPressureReadingReadRow(params: {
     updatedAt: reading.updatedAt,
     updatedBy,
   });
-  const detailFields = toReadingDetailFields(reading, resolveRowWriter);
+  const detailFields = toBloodPressureReadingDetailFields(
+    reading,
+    resolveRowWriter,
+  );
 
   return (
     <>

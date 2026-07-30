@@ -182,7 +182,7 @@ test("toolbar action is disabled while the document is loading", async () => {
   });
 });
 
-test("read mode renders formatted measurements and attribution", () => {
+test("read mode renders formatted measurements", () => {
   const view = renderBloodPressureFields({
     currentAuthorId: "user-alice",
     isEditing: false,
@@ -192,7 +192,6 @@ test("read mode renders formatted measurements and attribution", () => {
   expect(view.getByText("72 bpm")).toBeTruthy();
   expect(view.getByText("2026-07-16 08:30")).toBeTruthy();
   expect(view.getByText("Before coffee")).toBeTruthy();
-  expect(view.getByText("Updated 2026-07-16 08:30 by you")).toBeTruthy();
   expect(view.queryByLabelText("Blood pressure tracker name")).toBeNull();
 });
 
@@ -204,39 +203,6 @@ test("read mode tolerates missing reading values", () => {
 
   // Reading pair, pulse, and measured time all fall back to None.
   expect(view.getAllByText("None")).toHaveLength(3);
-});
-
-test("read mode resolves an authoritative writer over the self-attested one", () => {
-  const view = renderBloodPressureFields({
-    currentAuthorId: "user-alice",
-    isEditing: false,
-    readings: [
-      makeReading({
-        id: "r1",
-        systolic: "120",
-        diastolic: "80",
-        // Peer 9 verifies user-bob over the row's self-attested user-alice.
-        updatedAt: "2026-07-16T08:30:00.000Z",
-        updatedBy: "user-alice",
-        updatedByPeer: "9",
-      }),
-    ],
-    resolveRowWriter: (peer) => (peer === "9" ? "user-bob" : null),
-  });
-
-  expect(view.getByText("Updated 2026-07-16 08:30 by user-bob")).toBeTruthy();
-  expect(view.queryByText("Updated 2026-07-16 08:30 by you")).toBeNull();
-});
-
-test("read mode falls back to the self-attested author when unresolved", () => {
-  const view = renderBloodPressureFields({
-    currentAuthorId: "user-alice",
-    isEditing: false,
-    // r1's updatedBy is user-alice (=== currentAuthorId) → "you".
-    resolveRowWriter: () => null,
-  });
-
-  expect(view.getByText("Updated 2026-07-16 08:30 by you")).toBeTruthy();
 });
 
 test("read-only viewer opens attribution directly, without showing values", () => {
@@ -394,9 +360,7 @@ test("quick add rejects invalid readings and cancel clears the draft", () => {
 
 test("reading count follows the rows", () => {
   const view = renderBloodPressureFields({ isEditing: false });
-  const rows = view.container.querySelectorAll(
-    ".blood-pressure-reading-read-row",
-  );
+  const rows = view.container.querySelectorAll(".tracker-read-table-row");
   const footer = view.container.querySelector(
     ".blood-pressure-reading-list-footer",
   );
