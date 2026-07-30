@@ -133,48 +133,57 @@ for (const surface of TAB_STRIP_SURFACES) {
       await expect(page.getByRole("tab", { name: surface.tab })).toBeVisible();
     }
 
-    const drawn = await strip.evaluate((element) => {
-      const box = element.getBoundingClientRect();
-      const midY = Math.round(box.top + box.height / 2);
-      const paintsAt = (x: number) =>
-        document
-          .elementsFromPoint(x, midY)
-          .some((hit) => hit.closest(".mini-app-tabs") !== null);
-      // The strip must fit inside every scroll container between it and the
-      // viewport. Deliberately not a scrollWidth check on those ancestors: long
-      // unbreakable content (a hash in the System Monitor log) overflows them for
-      // reasons that have nothing to do with the strip. Comparing the boxes asks
-      // the precise question — did the bleed escape its scrollport?
-      const escaped: string[] = [];
-      let node: Element | null = element.parentElement;
-      while (node) {
-        const style = getComputedStyle(node);
-        if (style.overflowX !== "visible") {
-          const nodeBox = node.getBoundingClientRect();
-          const padLeft =
-            nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
-          const padRight =
-            nodeBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
-          if (box.left < padLeft || box.right > padRight) {
-            escaped.push(node.className);
-          }
-        }
-        node = node.parentElement;
-      }
-      return {
-        left: box.x,
-        width: box.width,
-        paintsAtLeftEdge: paintsAt(1),
-        paintsAtRightEdge: paintsAt(window.innerWidth - 2),
-        escaped,
-      };
-    });
-
-    expect(drawn.left).toBe(0);
-    expect(drawn.width).toBe(viewportWidth);
-    expect(drawn.paintsAtLeftEdge).toBe(true);
-    expect(drawn.paintsAtRightEdge).toBe(true);
-    expect(drawn.escaped).toEqual([]);
+    await expect
+      .poll(
+        () =>
+          strip.evaluate((element) => {
+            const box = element.getBoundingClientRect();
+            const midY = Math.round(box.top + box.height / 2);
+            const paintsAt = (x: number) =>
+              document
+                .elementsFromPoint(x, midY)
+                .some((hit) => hit.closest(".mini-app-tabs") !== null);
+            // The strip must fit inside every scroll container between it and
+            // the viewport. Deliberately not a scrollWidth check on those
+            // ancestors: long unbreakable content (a hash in the System Monitor
+            // log) overflows them for reasons that have nothing to do with the
+            // strip. Comparing the boxes asks the precise question — did the
+            // bleed escape its scrollport?
+            const escaped: string[] = [];
+            let node: Element | null = element.parentElement;
+            while (node) {
+              const style = getComputedStyle(node);
+              if (style.overflowX !== "visible") {
+                const nodeBox = node.getBoundingClientRect();
+                const padLeft =
+                  nodeBox.left +
+                  (Number.parseFloat(style.borderLeftWidth) || 0);
+                const padRight =
+                  nodeBox.right -
+                  (Number.parseFloat(style.borderRightWidth) || 0);
+                if (box.left < padLeft || box.right > padRight) {
+                  escaped.push(node.className);
+                }
+              }
+              node = node.parentElement;
+            }
+            return {
+              left: box.x,
+              width: box.width,
+              paintsAtLeftEdge: paintsAt(1),
+              paintsAtRightEdge: paintsAt(window.innerWidth - 2),
+              escaped,
+            };
+          }),
+        { timeout: 30_000 },
+      )
+      .toEqual({
+        left: 0,
+        width: viewportWidth,
+        paintsAtLeftEdge: true,
+        paintsAtRightEdge: true,
+        escaped: [],
+      });
   });
 }
 
@@ -212,30 +221,34 @@ for (const surface of EXPLORER_DIAGNOSTICS_LISTS) {
     const frame = page.locator(surface.selector).first();
     await expect(frame).toBeVisible({ timeout: 30_000 });
 
-    const geometry = await frame.evaluate((element) => {
-      const box = element.getBoundingClientRect();
-      const escaped: string[] = [];
-      let node: Element | null = element.parentElement;
-      while (node) {
-        const style = getComputedStyle(node);
-        if (style.overflowX !== "visible") {
-          const nodeBox = node.getBoundingClientRect();
-          const padLeft =
-            nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
-          const padRight =
-            nodeBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
-          if (box.left < padLeft || box.right > padRight) {
-            escaped.push(node.className);
-          }
-        }
-        node = node.parentElement;
-      }
-      return { escaped, left: box.left, width: box.width };
-    });
-
-    expect(geometry.left).toBe(0);
-    expect(geometry.width).toBe(viewportWidth);
-    expect(geometry.escaped).toEqual([]);
+    await expect
+      .poll(
+        () =>
+          frame.evaluate((element) => {
+            const box = element.getBoundingClientRect();
+            const escaped: string[] = [];
+            let node: Element | null = element.parentElement;
+            while (node) {
+              const style = getComputedStyle(node);
+              if (style.overflowX !== "visible") {
+                const nodeBox = node.getBoundingClientRect();
+                const padLeft =
+                  nodeBox.left +
+                  (Number.parseFloat(style.borderLeftWidth) || 0);
+                const padRight =
+                  nodeBox.right -
+                  (Number.parseFloat(style.borderRightWidth) || 0);
+                if (box.left < padLeft || box.right > padRight) {
+                  escaped.push(node.className);
+                }
+              }
+              node = node.parentElement;
+            }
+            return { escaped, left: box.left, width: box.width };
+          }),
+        { timeout: 30_000 },
+      )
+      .toEqual({ escaped: [], left: 0, width: viewportWidth });
   });
 }
 

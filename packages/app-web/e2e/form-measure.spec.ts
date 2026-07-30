@@ -149,24 +149,37 @@ test("a field caps itself inside an uncapped panel", async ({ page }) => {
   const field = page.locator(".mini-app-field").first();
   await expect(field).toBeVisible({ timeout: 30_000 });
 
-  const geometry = await field.evaluate((element) => {
-    const parent = element.parentElement;
-    if (!parent) {
-      throw new Error("mini-app-field has no parent to measure against.");
-    }
-    const rawCap = getComputedStyle(element).maxWidth;
+  await expect
+    .poll(
+      () =>
+        field.evaluate((element) => {
+          const parent = element.parentElement;
+          if (!parent) {
+            throw new Error("mini-app-field has no parent to measure against.");
+          }
+          const rawCap = getComputedStyle(element).maxWidth;
+          const capPx = rawCap.endsWith("px")
+            ? Number.parseFloat(rawCap)
+            : null;
 
-    return {
-      capPx: rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null,
-      parentWidth: parent.getBoundingClientRect().width,
-      width: element.getBoundingClientRect().width,
-    };
-  });
-
-  expect(geometry.capPx).not.toBeNull();
-  // Without this the test would be vacuous, exactly as the group-capped case is.
-  expect(geometry.parentWidth).toBeGreaterThan(geometry.capPx ?? 0);
-  expect(geometry.width).toBeCloseTo(geometry.capPx ?? 0, 0);
+          return {
+            capIsPixels: capPx !== null,
+            parentWiderThanCap:
+              capPx !== null && parent.getBoundingClientRect().width > capPx,
+            widthMatchesCap:
+              capPx !== null &&
+              Math.abs(element.getBoundingClientRect().width - capPx) < 0.5,
+          };
+        }),
+      { timeout: 30_000 },
+    )
+    // The parent must stay wider than the cap or the field assertion is
+    // vacuous, exactly as it would be in the group-capped cases above.
+    .toEqual({
+      capIsPixels: true,
+      parentWiderThanCap: true,
+      widthMatchesCap: true,
+    });
 });
 
 // The mobile tier opts out (`--form-measure: 100%` in RoutedPane.css). 759px is
