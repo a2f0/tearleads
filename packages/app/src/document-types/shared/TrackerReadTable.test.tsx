@@ -252,3 +252,27 @@ test("hiding the sorted column returns to the default order, and un-hiding resto
   toggleColumn(view, "Pulse");
   expect(readings()).toEqual(["118/76 mmHg", "120/80 mmHg"]);
 });
+
+test("a half-recorded reading sorts last in both directions", () => {
+  // Systolic alone is not enough to rank a reading: diastolic settles ties, so a
+  // reading missing it would otherwise place either side of an equal-systolic
+  // one depending on which way the header was turned.
+  const view = renderReadTable({
+    rows: [
+      makeReading({ diastolic: "", id: "r-partial", systolic: "120" }),
+      makeReading({ diastolic: "80", id: "r-full", systolic: "120" }),
+      makeReading({ diastolic: "70", id: "r-low", systolic: "110" }),
+    ],
+  });
+  const readings = () =>
+    view
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelectorAll("td")[1]?.textContent);
+
+  fireEvent.click(view.getByRole("button", { name: "Reading" }));
+  expect(readings()).toEqual(["110/70 mmHg", "120/80 mmHg", "120/— mmHg"]);
+
+  fireEvent.click(view.getByRole("button", { name: "Reading" }));
+  expect(readings()).toEqual(["120/80 mmHg", "110/70 mmHg", "120/— mmHg"]);
+});

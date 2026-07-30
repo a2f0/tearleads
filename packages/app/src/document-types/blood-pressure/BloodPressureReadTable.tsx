@@ -33,9 +33,12 @@ function getBloodPressureColumns(context: {
     {
       cell: (row) => ({
         text: formatMeasurementPair(row.entry),
-        // Systolic is the key this column ranks by, so a reading without a valid
-        // one has no place among the ordered readings in either direction.
-        unranked: !isValidBloodPressureMeasurement(row.entry.systolic),
+        // The column ranks the pair, and diastolic settles ties between readings
+        // that share a systolic — so a half-recorded reading has no place among
+        // the ordered ones in either direction, not just a missing systolic.
+        unranked:
+          !isValidBloodPressureMeasurement(row.entry.systolic) ||
+          !isValidBloodPressureMeasurement(row.entry.diastolic),
       }),
       // Systolic is the figure a reading is read by; diastolic only settles ties
       // between two readings that share it.
