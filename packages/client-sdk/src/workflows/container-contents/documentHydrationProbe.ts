@@ -1,6 +1,5 @@
 import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../data/documentSummary";
 import {
-  containerTables,
   documentContainerProjectionTables,
   documentProjectionTables,
   documentTables,
@@ -14,7 +13,8 @@ import type {
 } from "./documentQueries/types";
 import { requestRemoteDocumentRuntimeTargetSync } from "./documentRuntimeTargetSync";
 
-const DOCUMENT_HYDRATION_PROBE_BATCH_SIZE = 8;
+const DOCUMENT_HYDRATION_PROBE_REQUEST_BATCH_SIZE = 8;
+const DOCUMENT_HYDRATION_PROBE_SCAN_BATCH_SIZE = 64;
 
 interface DocumentHydrationProbeBatchResult {
   readonly done: boolean;
@@ -25,7 +25,11 @@ interface DocumentHydrationProbeBatchResult {
 type RemoteDocumentProbeTarget = Omit<
   ContainerContentsDocumentRuntimeTarget,
   "documentId" | "runtimeContainerId"
-> & { readonly documentId: string; readonly runtimeContainerId: string };
+> & {
+  readonly documentId: string;
+  readonly preferredRuntimeContainer: boolean;
+  readonly runtimeContainerId: string;
+};
 
 function valuePlaceholders(values: ReadonlyArray<unknown>): string {
   return values.map(() => "?").join(", ");
@@ -39,6 +43,7 @@ function readProbeTarget(row: unknown): RemoteDocumentProbeTarget {
   }
   const documentId = Reflect.get(row, "document_id");
   const localId = Reflect.get(row, "local_id");
+  const projectedContainerId = Reflect.get(row, "projected_container_id");
   const runtimeContainerId = Reflect.get(row, "container_id");
   if (
     typeof documentId !== "string" ||
@@ -47,7 +52,12 @@ function readProbeTarget(row: unknown): RemoteDocumentProbeTarget {
   ) {
     throw new Error("Document hydration probe returned an invalid target");
   }
-  return { documentId, localId, runtimeContainerId };
+  return {
+    documentId,
+    localId,
+    preferredRuntimeContainer: projectedContainerId === runtimeContainerId,
+    runtimeContainerId,
+  };
 }
 
 async function listRemoteDocumentProbeBatchForContainerIds(input: {
@@ -60,14 +70,20 @@ async function listRemoteDocumentProbeBatchForContainerIds(input: {
       SELECT
         stored.local_id AS local_id,
         stored.document_id AS document_id,
-        MIN(link.container_id) AS container_id
+        projection.container_id AS projected_container_id,
+        COALESCE(
+          MIN(CASE
+            WHEN link.container_id = projection.container_id
+              THEN link.container_id
+            ELSE NULL
+          END),
+          MIN(link.container_id)
+        ) AS container_id
       FROM documents stored
       INNER JOIN document_projection projection
         ON projection.local_id = stored.local_id
       INNER JOIN document_container_projection link
         ON link.document_id = stored.document_id
-      INNER JOIN containers owner
-        ON owner.id = link.container_id
       WHERE stored.app_kind = 'documents'
         AND stored.document_id IS NOT NULL
         AND (? IS NULL OR stored.local_id > ?)
@@ -75,7 +91,7 @@ async function listRemoteDocumentProbeBatchForContainerIds(input: {
         AND projection.document_kind NOT IN (${valuePlaceholders(
           HIDDEN_DOCUMENT_SUMMARY_KINDS,
         )})
-      GROUP BY stored.local_id, stored.document_id
+      GROUP BY stored.local_id, stored.document_id, projection.container_id
       ORDER BY stored.local_id ASC
       LIMIT ?
     `,
@@ -84,7 +100,7 @@ async function listRemoteDocumentProbeBatchForContainerIds(input: {
       input.afterLocalId,
       ...input.containerIds,
       ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
-      DOCUMENT_HYDRATION_PROBE_BATCH_SIZE,
+      DOCUMENT_HYDRATION_PROBE_SCAN_BATCH_SIZE,
     ],
   );
   return rows.map(readProbeTarget);
@@ -99,7 +115,11 @@ function mergeRemoteDocumentProbeTargets(
       const existing = targetsByLocalId.get(target.localId);
       if (
         existing === undefined ||
-        target.runtimeContainerId < existing.runtimeContainerId
+        (target.preferredRuntimeContainer &&
+          !existing.preferredRuntimeContainer) ||
+        (target.preferredRuntimeContainer ===
+          existing.preferredRuntimeContainer &&
+          target.runtimeContainerId < existing.runtimeContainerId)
       ) {
         targetsByLocalId.set(target.localId, target);
       }
@@ -109,7 +129,7 @@ function mergeRemoteDocumentProbeTargets(
     .sort((left, right) =>
       left.localId < right.localId ? -1 : Number(left.localId > right.localId),
     )
-    .slice(0, DOCUMENT_HYDRATION_PROBE_BATCH_SIZE);
+    .slice(0, DOCUMENT_HYDRATION_PROBE_SCAN_BATCH_SIZE);
 }
 
 async function listRemoteDocumentProbeBatch(input: {
@@ -123,7 +143,6 @@ async function listRemoteDocumentProbeBatch(input: {
   }
 
   await ensureSqlTables(input.runtime.infra.execSql, [
-    ...containerTables,
     ...documentTables,
     ...documentProjectionTables,
     ...documentContainerProjectionTables,
@@ -156,16 +175,27 @@ export async function probeUndiscoveredRemoteDocumentBatch<TRuntime>(input: {
   readonly runtime: ContainerDocumentQueriesRuntime;
 }): Promise<DocumentHydrationProbeBatchResult> {
   const scanned = await listRemoteDocumentProbeBatch(input);
+  const candidates = scanned.filter(
+    (target) => !input.listedDocumentIds.has(target.documentId),
+  );
+  const targets = candidates.slice(
+    0,
+    DOCUMENT_HYDRATION_PROBE_REQUEST_BATCH_SIZE,
+  );
   const requested = await requestRemoteDocumentRuntimeTargetSync({
     host: input.host,
-    targets: scanned.filter(
-      (target) => !input.listedDocumentIds.has(target.documentId),
-    ),
+    targets,
   });
-  const done = scanned.length < DOCUMENT_HYDRATION_PROBE_BATCH_SIZE;
+  const hasUnrequestedCandidate = candidates.length > targets.length;
+  const scanPageMayContinue =
+    scanned.length === DOCUMENT_HYDRATION_PROBE_SCAN_BATCH_SIZE;
+  const done = !hasUnrequestedCandidate && !scanPageMayContinue;
+  const nextCursorTarget = hasUnrequestedCandidate
+    ? targets.at(-1)
+    : scanned.at(-1);
   return {
     done,
-    nextCursor: done ? null : (scanned.at(-1)?.localId ?? null),
+    nextCursor: done ? null : (nextCursorTarget?.localId ?? null),
     requestedCount: requested.size,
   };
 }

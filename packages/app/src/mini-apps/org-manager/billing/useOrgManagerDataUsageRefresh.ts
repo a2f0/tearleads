@@ -14,6 +14,8 @@ interface DataUsageRefreshInput {
   readonly visible: boolean;
 }
 
+const DATA_USAGE_SYNC_SETTLE_QUIET_MS = 25;
+
 export async function refreshDataUsageOnEntry(input: {
   readonly cancelled: () => boolean;
   readonly readPending: () => boolean;
@@ -74,11 +76,22 @@ export function useOrgManagerDataUsageRefresh({
     }
 
     let cancelled = false;
+    let settleTimeout: ReturnType<typeof setTimeout> | null = null;
+    const cancelSettle = () => {
+      if (settleTimeout !== null) {
+        clearTimeout(settleTimeout);
+        settleTimeout = null;
+      }
+    };
     const readPendingState = () => {
       const pending =
         getDomainSyncCoordinatorSnapshot(domainScope).hasPendingWork;
       const previouslyPending = previouslyPendingRef.current;
       previouslyPendingRef.current = pending;
+      if (pending) {
+        cancelSettle();
+        return;
+      }
       if (
         shouldRefreshDataUsageAfterSync({
           enabled,
@@ -87,7 +100,16 @@ export function useOrgManagerDataUsageRefresh({
           visible,
         })
       ) {
-        void refreshDataUsage({ clearError: true, manageLoading: false });
+        cancelSettle();
+        settleTimeout = setTimeout(() => {
+          settleTimeout = null;
+          if (
+            !cancelled &&
+            !getDomainSyncCoordinatorSnapshot(domainScope).hasPendingWork
+          ) {
+            void refreshDataUsage({ clearError: true, manageLoading: false });
+          }
+        }, DATA_USAGE_SYNC_SETTLE_QUIET_MS);
       }
     };
     readPendingState();
@@ -100,6 +122,7 @@ export function useOrgManagerDataUsageRefresh({
     });
     return () => {
       cancelled = true;
+      cancelSettle();
       unsubscribe();
     };
   }, [domainScope, enabled, refreshDataUsage, visible]);

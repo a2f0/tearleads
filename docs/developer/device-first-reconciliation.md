@@ -180,10 +180,14 @@ Three bounded probes close gaps that container discovery cannot observe:
   candidate cursor so hydration order cannot strand an earlier local-id range.
   Once the first non-empty pass completes, later user-created containers do not
   reopen it. Hidden system documents retain their
-  specialized sync paths. One batch of eight is scheduled per low-priority turn,
-  so a restored replica converges old remote deletions without treating an
-  incremental watermark delta as the full remote set or monopolizing the sync
-  coordinator. Progress survives reconnects within the service lifecycle. The
+  specialized sync paths. Listing failures receive three short, backed-off
+  attempts; a lane that remains unlistable is skipped for that service lifecycle
+  so it cannot starve successfully listed lanes. Each low-priority candidate
+  turn scans up to 64 local rows but opens at most eight stores, so a healthy
+  listed prefix advances cheaply and a restored replica converges old remote
+  deletions without treating an incremental watermark delta as the full remote
+  set or monopolizing the sync coordinator. Progress survives reconnects within
+  the service lifecycle. The
   completion marker is deliberately not durable: a local backup restore can
   replace document rows underneath the runtime, and a persisted marker would
   incorrectly skip the restored rows on the next service lifecycle. The tradeoff

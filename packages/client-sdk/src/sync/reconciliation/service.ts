@@ -189,6 +189,7 @@ function scheduleProbeContinuation(
       state.queue.size === 0 &&
       canReconcile(host.getRuntimeStatus()) &&
       state.initialDocumentProbe.canRun(),
+    delayMs: state.initialDocumentProbe.continuationDelayMs(),
     requestRun: () => state.lane?.requestSync(),
   });
 }

@@ -104,7 +104,7 @@ test("initial probe uses every authoritative listing and bounded batches once", 
   expect(batches).toHaveLength(2);
 });
 
-test("initial probe retries listings in bounded turns before pausing", async () => {
+test("initial probe skips an exhausted listing and completes healthy lanes", async () => {
   const probes: InitialDocumentProbeBatchInput[] = [];
   const listingAttempts = new Map<string, number>();
   let secondListingAvailable = false;
@@ -129,27 +129,45 @@ test("initial probe retries listings in bounded turns before pausing", async () 
   service.start();
   service.enqueueIdleBackfill();
 
-  await waitFor(
-    () => listingAttempts.get("c-2") === 3,
-    "Expected bounded listing retries",
-  );
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  expect(probes).toEqual([]);
+  await waitFor(() => probes.length === 1, "Expected bounded listing retries");
   expect(listingAttempts).toEqual(
     new Map([
       ["c-1", 1],
       ["c-2", 3],
     ]),
   );
+  expect([...(probes[0]?.listedContainerIds ?? [])]).toEqual(["c-1"]);
+  expect([...(probes[0]?.listedDocumentIds ?? [])]).toEqual(["listed-c-1"]);
 
   secondListingAvailable = true;
   service.enqueueIdleBackfill();
-  await waitFor(() => probes.length === 1, "Expected probe after retry");
-  expect(listingAttempts.get("c-2")).toBe(4);
-  expect([...(probes[0]?.listedDocumentIds ?? [])].sort()).toEqual([
-    "listed-c-1",
-    "listed-c-2",
-  ]);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(listingAttempts.get("c-2")).toBe(3);
+  expect(probes).toHaveLength(1);
+});
+
+test("a non-advancing candidate batch completes instead of looping", async () => {
+  let probeCount = 0;
+  const completedCounts: number[] = [];
+  const service = createReconciliationService(
+    createProbeHost({
+      listKnownContainerIds: () => ["c-1"],
+      listContainerDocumentIds: async () => [],
+      probeUndiscoveredDocumentsBatch: async () => {
+        probeCount += 1;
+        return { done: false, nextCursor: null, requestedCount: 1 };
+      },
+      reportComplete: (requestedCount) => {
+        completedCounts.push(requestedCount);
+      },
+    }),
+  );
+  service.start();
+  service.enqueueIdleBackfill();
+
+  await waitFor(() => completedCounts.length === 1, "Expected safe completion");
+  expect(probeCount).toBe(1);
+  expect(completedCounts).toEqual([1]);
 });
 
 test("an empty early tree does not complete before remote containers arrive", async () => {

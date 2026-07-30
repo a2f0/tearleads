@@ -112,6 +112,12 @@ test("hydration probe includes shared-org documents in completed container lanes
       "UPDATE document_projection SET document_kind = 'organization_profile' WHERE local_id = ?",
       ["hidden-local"],
     );
+    await execSql(
+      `INSERT INTO document_container_projection
+         (document_id, container_id, updated_at)
+       VALUES (?, ?, ?)`,
+      ["foreign-remote", "root-a", "2026-07-30T12:00:00.000Z"],
+    );
 
     const opened: Array<{ containerId: string | null; localId: string }> = [];
     const result = await probeUndiscoveredRemoteDocumentBatch({
@@ -192,6 +198,63 @@ test("hydration probe advances through bounded candidate batches", async () => {
       requestedCount: 1,
     });
     expect(opened).toHaveLength(9);
+  } finally {
+    close();
+  }
+});
+
+test("hydration probe scans past a healthy listed prefix in one turn", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-hydration-probe-listed-prefix",
+  );
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveTestContainer({
+      execSql,
+      id: "root-a",
+      name: "Root A",
+      organizationId: "org-a",
+      parentId: null,
+      timestamp: "2026-07-30T12:00:00.000Z",
+    });
+    const listedDocumentIds = new Set<string>();
+    for (let index = 0; index < 9; index += 1) {
+      const documentId = `remote-${index}`;
+      await saveTestDocument({
+        containerId: "root-a",
+        documentId,
+        execSql,
+        id: `local-${index}`,
+        title: `Document ${index}`,
+        updatedAt: "2026-07-30T12:00:00.000Z",
+      });
+      await execSql(
+        `INSERT INTO document_container_projection
+           (document_id, container_id, updated_at)
+         VALUES (?, ?, ?)`,
+        [documentId, "root-a", "2026-07-30T12:00:00.000Z"],
+      );
+      if (index < 8) {
+        listedDocumentIds.add(documentId);
+      }
+    }
+
+    const opened: Array<{ containerId: string | null; localId: string }> = [];
+    const result = await probeUndiscoveredRemoteDocumentBatch({
+      afterLocalId: null,
+      host: createProbeHost(opened),
+      listedContainerIds: new Set(["root-a"]),
+      listedDocumentIds,
+      runtime: { infra: { execSql } },
+    });
+
+    expect(result).toEqual({
+      done: true,
+      nextCursor: null,
+      requestedCount: 1,
+    });
+    expect(opened).toEqual([{ containerId: "root-a", localId: "local-8" }]);
   } finally {
     close();
   }
