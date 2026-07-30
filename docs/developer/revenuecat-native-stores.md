@@ -118,8 +118,8 @@ release guard before the store build begins. The production key must remain in
 may override the shared `VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses
 a different entitlement identifier. Production releases likewise reject the
 corresponding platform key from `staging.env` when it is configured. The
-allowlist controls dotenv imports only;
-callers remain responsible for variables they export explicitly. Add any future
+allowlist controls dotenv imports only; callers remain responsible for variables
+they export explicitly. Add any future
 root `VITE_*` setting that staging must inherit intentionally to
 `NATIVE_SHARED_VITE_ENV_NAMES`; otherwise it is stripped from staging dotenv
 imports.
@@ -129,8 +129,9 @@ its Ansible deploy. This controls webhook application only; it is separate from
 the public SDK keys bundled into the native clients.
 
 The wrappers set their public API default before Fastlane loads dotenv files.
-Export `VITE_API_BASE_URL` explicitly when overriding the staging default; do
-not put that override in `.secrets/staging.env`.
+Export `VITE_API_BASE_URL` explicitly when overriding the default; the release
+guard rejects an API host belonging to the other tier. Do not put that override
+in `.secrets/staging.env`.
 
 ## Apple sandbox / TestFlight
 

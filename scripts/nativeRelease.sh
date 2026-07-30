@@ -102,19 +102,28 @@ native_release_ensure_android_wrapper() {
   fi
 }
 
+native_release_url_host() {
+  native_url_value="${1#*://}"
+  native_url_authority="${native_url_value%%/*}"
+  native_url_authority="${native_url_authority##*@}"
+  native_url_host="${native_url_authority%%:*}"
+  printf '%s\n' "$native_url_host" | tr '[:upper:]' '[:lower:]'
+}
+
 native_release_reject_cross_tier_api() {
-  native_api_tier="$1"
-  native_api_url="${2%/}"
-  if [ "$native_api_tier" = staging ]; then
-    native_disallowed_api="$(native_release_default_api production)"
+  native_api_guard_tier="$1"
+  native_api_guard_host="$(native_release_url_host "$2")"
+  if [ "$native_api_guard_tier" = staging ]; then
+    native_api_guard_disallowed_url="$(native_release_default_api production)"
   else
-    native_disallowed_api="$(native_release_default_api staging)"
+    native_api_guard_disallowed_url="$(native_release_default_api staging)"
   fi
-  if [ "$native_api_url" != "$native_disallowed_api" ]; then
+  native_api_guard_disallowed_host="$(native_release_url_host "$native_api_guard_disallowed_url")"
+  if [ "$native_api_guard_host" != "$native_api_guard_disallowed_host" ]; then
     return 0
   fi
 
-  echo "Error: VITE_API_BASE_URL=$2 points the $native_api_tier app at the other release tier." >&2
+  echo "Error: VITE_API_BASE_URL=$2 points the $native_api_guard_tier app at the other release tier." >&2
   echo "Unset VITE_API_BASE_URL (or set it to the selected tier's API) and re-run." >&2
   return 1
 }

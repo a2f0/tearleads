@@ -49,26 +49,10 @@ continue to default to `https://api.tearleads.com`. All wrappers delegate to
 `fastlane/native_release_target.rb` owns the app identifier, Gradle variant,
 Xcode scheme, and Xcode configuration mapping.
 
-Before the first staging upload, put the `goog_...` and `appl_...` public SDK
-keys for the RevenueCat apps configured with `com.tearleads.app.staging` in
-`.secrets/staging.env` as `VITE_REVENUECAT_ANDROID_API_KEY` and
-`VITE_REVENUECAT_IOS_API_KEY`. A staging release deliberately does not inherit
-the production mobile SDK keys from `.secrets/root.env`, and rejects an exported
-key that matches either production key. Production also rejects the
-corresponding key from `staging.env` when present. The staging env may override
-`VITE_REVENUECAT_SYNC_ENTITLEMENT`; unrelated deploy secrets never enter the
-native build process through dotenv loading. This allowlist is file-scoped;
-callers remain responsible for variables they export explicitly. If another
-root `VITE_*` setting must be shared with staging later, add it intentionally to
-`NATIVE_SHARED_VITE_ENV_NAMES`. The
-production platform keys must remain present in `.secrets/root.env` so staging
-can prove it is not reusing them. The Google Play service account must have
-access to the staging Play app, and the match repository must contain an App
-Store distribution profile for the staging bundle ID. Verify the latter with:
-
-```sh
-bun run --cwd packages/app-capacitor ios:fetch:appstore-profile:staging
-```
+Before the first staging upload, follow the canonical
+[RevenueCat native staging setup](../../docs/developer/revenuecat-native-stores.md#dedicated-staging-store-apps).
+It covers the tier-isolated public SDK keys, fail-closed environment rules,
+Google Play access, and App Store signing profile.
 
 ## Android Sideload
 

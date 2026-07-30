@@ -17,8 +17,8 @@ def revenuecat_store_key_problem(
   value,
   expected_prefix,
   disallowed_value = nil,
-  comparison_required: false,
-  release_tier: 'staging'
+  release_tier:,
+  comparison_required: false
 )
   key = value.to_s.strip
   return 'is missing' if key.empty?
@@ -37,8 +37,8 @@ def ensure_revenuecat_store_key!(
   env_name,
   expected_prefix,
   disallowed_value = nil,
-  comparison_required: false,
-  release_tier: 'staging'
+  release_tier:,
+  comparison_required: false
 )
   problem = revenuecat_store_key_problem(
     ENV.fetch(env_name, nil),

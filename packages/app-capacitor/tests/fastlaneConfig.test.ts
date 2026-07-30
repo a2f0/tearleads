@@ -3,19 +3,28 @@ import { resolve } from "node:path";
 
 const packageRoot = resolve(import.meta.dir, "..");
 
-async function loadFastlaneTier(tier: "production" | "staging") {
-  const child = Bun.spawn(["bundle", "exec", "fastlane", "lanes"], {
-    cwd: packageRoot,
-    env: {
-      ...process.env,
-      FASTLANE_OPT_OUT_USAGE: "1",
-      FASTLANE_SKIP_UPDATE_CHECK: "1",
-      NATIVE_RELEASE_TIER: tier,
+async function readFastlaneAppIdentifier(tier: "production" | "staging") {
+  const child = Bun.spawn(
+    [
+      "bundle",
+      "exec",
+      "ruby",
+      "-e",
+      'require "credentials_manager"; puts CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)',
+    ],
+    {
+      cwd: packageRoot,
+      env: {
+        ...process.env,
+        FASTLANE_OPT_OUT_USAGE: "1",
+        FASTLANE_SKIP_UPDATE_CHECK: "1",
+        NATIVE_RELEASE_TIER: tier,
+      },
+      stderr: "pipe",
+      stdout: "pipe",
     },
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const [exitCode, stderr] = await Promise.all([
+  );
+  const [exitCode, stderr, stdout] = await Promise.all([
     child.exited,
     new Response(child.stderr).text(),
     new Response(child.stdout).text(),
@@ -23,12 +32,15 @@ async function loadFastlaneTier(tier: "production" | "staging") {
   if (exitCode !== 0) {
     throw new Error(`Fastlane failed to load ${tier}: ${stderr}`);
   }
-  return stderr;
+  return { appIdentifier: stdout.trim(), stderr };
 }
 
-test("Fastlane loads both release tiers without redefining constants", async () => {
-  for (const tier of ["production", "staging"] as const) {
-    const stderr = await loadFastlaneTier(tier);
-    expect(stderr).not.toContain("already initialized constant");
-  }
+test("Fastlane Appfile selects each release tier's store identity", async () => {
+  const production = await readFastlaneAppIdentifier("production");
+  const staging = await readFastlaneAppIdentifier("staging");
+
+  expect(production.appIdentifier).toBe("com.tearleads.app");
+  expect(staging.appIdentifier).toBe("com.tearleads.app.staging");
+  expect(production.stderr).not.toContain("already initialized constant");
+  expect(staging.stderr).not.toContain("already initialized constant");
 });

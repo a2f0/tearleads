@@ -47,6 +47,15 @@ def parsed_native_release_env(path)
   File.file?(path) ? Dotenv.parse(path) : {}
 end
 
+def warn_ignored_native_staging_vite_names(environment)
+  ignored_names = environment.keys.select do |name|
+    name.start_with?('VITE_') && !NATIVE_SHARED_VITE_ENV_NAMES.include?(name)
+  end
+  return if ignored_names.empty?
+
+  warn "Ignoring root.env Vite settings for staging: #{ignored_names.sort.join(', ')}"
+end
+
 # Staging keeps signing and store credentials from root.env, but only explicitly
 # shared Vite settings. Its server-oriented staging.env may contain unrelated
 # deploy secrets, so import only native RevenueCat client settings.
@@ -54,6 +63,7 @@ def native_release_file_environment
   root_environment = parsed_native_release_env(NATIVE_ROOT_ENV_PATH)
   return root_environment unless NATIVE_RELEASE_TIER == 'staging'
 
+  warn_ignored_native_staging_vite_names(root_environment)
   root_environment.delete_if do |name, _value|
     name.start_with?('VITE_') && !NATIVE_SHARED_VITE_ENV_NAMES.include?(name)
   end

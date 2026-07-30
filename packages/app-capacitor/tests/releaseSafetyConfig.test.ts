@@ -312,9 +312,14 @@ describe("RevenueCat store-release safety", () => {
   });
 
   test("native releases reject the other tier's API", async () => {
-    const stagingWrong = await runCrossTierApiGuard(
-      "staging",
+    const stagingWrongUrls = [
       "https://api.tearleads.com/",
+      "https://api.tearleads.com:443",
+      "https://API.tearleads.com",
+      "https://api.tearleads.com/v1",
+    ];
+    const stagingWrong = await Promise.all(
+      stagingWrongUrls.map((url) => runCrossTierApiGuard("staging", url)),
     );
     const productionWrong = await runCrossTierApiGuard(
       "production",
@@ -325,8 +330,10 @@ describe("RevenueCat store-release safety", () => {
       "https://api.tearleads.de",
     );
 
-    expect(stagingWrong.exitCode).toBe(1);
-    expect(stagingWrong.stderr).toContain("other release tier");
+    for (const result of stagingWrong) {
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain("other release tier");
+    }
     expect(productionWrong.exitCode).toBe(1);
     expect(productionWrong.stderr).toContain("other release tier");
     expect(stagingCorrect.exitCode).toBe(0);
