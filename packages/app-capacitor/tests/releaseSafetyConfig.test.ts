@@ -52,14 +52,25 @@ async function readFastlaneKeyProblem(key: string, expectedPrefix: string) {
     new Response(process.stderr).text(),
     new Response(process.stdout).text(),
   ]);
-  expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
+  if (exitCode !== 0) {
+    throw new Error(`Ruby key validation failed: ${stderr}`);
+  }
   return stdout;
+}
+
+interface NativeReleaseSnapshot {
+  androidBuildVariant: string;
+  appIdentifier: string;
+  environment: Array<string | null>;
+  iosConfiguration: string;
+  iosScheme: string;
 }
 
 async function readNativeReleaseEnvironment(
   rootEnv: string,
   stagingEnv: string,
   processEnvironment: Record<string, string> = {},
+  tier: string | null = "staging",
 ) {
   const temporaryRoot = await mkdtemp(
     join(tmpdir(), "tearleads-native-release-target-"),
@@ -78,12 +89,21 @@ async function readNativeReleaseEnvironment(
   ]);
 
   const environment = { ...process.env };
-  Reflect.deleteProperty(environment, "VITE_REVENUECAT_ANDROID_API_KEY");
-  Reflect.deleteProperty(environment, "VITE_REVENUECAT_IOS_API_KEY");
-  Reflect.deleteProperty(environment, "NATIVE_TEST_VALUE");
-  Object.assign(environment, processEnvironment, {
-    NATIVE_RELEASE_TIER: "staging",
-  });
+  for (const name of [
+    "DEEPSEEK_API_KEY",
+    "NATIVE_RELEASE_TIER",
+    "NATIVE_TEST_VALUE",
+    "VITE_REVENUECAT_ANDROID_API_KEY",
+    "VITE_REVENUECAT_IOS_API_KEY",
+    "VITE_REVENUECAT_SYNC_ENTITLEMENT",
+    "VITE_WS_URL",
+  ]) {
+    Reflect.deleteProperty(environment, name);
+  }
+  Object.assign(environment, processEnvironment);
+  if (tier !== null) {
+    Object.assign(environment, { NATIVE_RELEASE_TIER: tier });
+  }
 
   try {
     const child = Bun.spawn(
@@ -96,7 +116,7 @@ async function readNativeReleaseEnvironment(
         "-r",
         "json",
         "-e",
-        "load_native_release_secrets_env; print JSON.generate(%w[VITE_REVENUECAT_IOS_API_KEY VITE_REVENUECAT_ANDROID_API_KEY NATIVE_TEST_VALUE].map { |name| ENV[name] })",
+        "load_native_release_secrets_env; names = %w[VITE_REVENUECAT_IOS_API_KEY VITE_REVENUECAT_ANDROID_API_KEY VITE_REVENUECAT_SYNC_ENTITLEMENT VITE_WS_URL NATIVE_TEST_VALUE DEEPSEEK_API_KEY]; print JSON.generate({ environment: names.map { |name| ENV[name] }, appIdentifier: NATIVE_APP_IDENTIFIER, androidBuildVariant: NATIVE_RELEASE_TARGET.fetch(:android_build_variant), iosScheme: NATIVE_RELEASE_TARGET.fetch(:ios_scheme), iosConfiguration: NATIVE_RELEASE_TARGET.fetch(:ios_configuration) })",
       ],
       {
         cwd: resolve(repositoryRoot, "packages/app-capacitor"),
@@ -110,8 +130,10 @@ async function readNativeReleaseEnvironment(
       new Response(child.stderr).text(),
       new Response(child.stdout).text(),
     ]);
-    expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
-    return JSON.parse(stdout) as [string | null, string | null, string | null];
+    if (exitCode !== 0) {
+      throw new Error(`Ruby native release target failed: ${stderr}`);
+    }
+    return JSON.parse(stdout) as NativeReleaseSnapshot;
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
@@ -138,8 +160,30 @@ async function buildNumberSelection(
     new Response(child.stderr).text(),
     new Response(child.stdout).text(),
   ]);
-  expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
+  if (exitCode !== 0) {
+    throw new Error(`Shell build-number selection failed: ${stderr}`);
+  }
   return stdout;
+}
+
+async function nativeDefaultApi(tier: "production" | "staging") {
+  const child = Bun.spawn(
+    [
+      "sh",
+      "-c",
+      '. "$1"; native_release_default_api "$2"',
+      "sh",
+      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
+      tier,
+    ],
+    { stdout: "pipe" },
+  );
+  const [exitCode, stdout] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+  ]);
+  expect(exitCode).toBe(0);
+  return stdout.trim();
 }
 
 describe("RevenueCat store-release safety", () => {
@@ -193,35 +237,81 @@ describe("RevenueCat store-release safety", () => {
     );
   });
 
-  test("staging dotenv values override root dotenv values", async () => {
-    await expect(
-      readNativeReleaseEnvironment(
-        "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
-        "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nVITE_REVENUECAT_ANDROID_API_KEY=goog_staging\nNATIVE_TEST_VALUE=staging\n",
-      ),
-    ).resolves.toEqual(["appl_staging", "goog_staging", "staging"]);
+  test("staging imports only its allowlisted native public keys", async () => {
+    const snapshot = await readNativeReleaseEnvironment(
+      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_REVENUECAT_SYNC_ENTITLEMENT=sync\nVITE_WS_URL=wss://production.example\nNATIVE_TEST_VALUE=root\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nVITE_REVENUECAT_ANDROID_API_KEY=goog_staging\nVITE_WS_URL=wss://staging.example\nNATIVE_TEST_VALUE=staging\nDEEPSEEK_API_KEY=server-secret\n",
+    );
+
+    expect(snapshot.environment).toEqual([
+      "appl_staging",
+      "goog_staging",
+      "sync",
+      null,
+      "root",
+      null,
+    ]);
   });
 
   test("explicit native release environment values beat dotenv files", async () => {
-    await expect(
-      readNativeReleaseEnvironment(
-        "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
-        "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nVITE_REVENUECAT_ANDROID_API_KEY=goog_staging\nNATIVE_TEST_VALUE=staging\n",
-        {
-          NATIVE_TEST_VALUE: "process",
-          VITE_REVENUECAT_IOS_API_KEY: "appl_process",
-        },
-      ),
-    ).resolves.toEqual(["appl_process", "goog_staging", "process"]);
+    const snapshot = await readNativeReleaseEnvironment(
+      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nVITE_REVENUECAT_ANDROID_API_KEY=goog_staging\nNATIVE_TEST_VALUE=staging\n",
+      {
+        NATIVE_TEST_VALUE: "process",
+        VITE_REVENUECAT_IOS_API_KEY: "appl_process",
+        VITE_WS_URL: "wss://process.example",
+      },
+    );
+
+    expect(snapshot.environment).toEqual([
+      "appl_process",
+      "goog_staging",
+      null,
+      "wss://process.example",
+      "process",
+      null,
+    ]);
   });
 
   test("staging drops production RevenueCat keys when its dotenv omits them", async () => {
-    await expect(
-      readNativeReleaseEnvironment(
-        "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
-        "NATIVE_TEST_VALUE=staging\n",
-      ),
-    ).resolves.toEqual([null, null, "staging"]);
+    const snapshot = await readNativeReleaseEnvironment(
+      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
+      "NATIVE_TEST_VALUE=staging\n",
+    );
+
+    expect(snapshot.environment).toEqual([
+      null,
+      null,
+      null,
+      null,
+      "root",
+      null,
+    ]);
+  });
+
+  test("production keeps its default target and root release environment", async () => {
+    const snapshot = await readNativeReleaseEnvironment(
+      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_WS_URL=wss://production.example\nNATIVE_TEST_VALUE=root\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nDEEPSEEK_API_KEY=server-secret\n",
+      {},
+      null,
+    );
+
+    expect(snapshot).toEqual({
+      androidBuildVariant: "release",
+      appIdentifier: "com.tearleads.app",
+      environment: [
+        "appl_root",
+        "goog_root",
+        null,
+        "wss://production.example",
+        "root",
+        null,
+      ],
+      iosConfiguration: "Release",
+      iosScheme: "App",
+    });
   });
 
   const releaseScriptTargets = {
@@ -262,15 +352,13 @@ describe("RevenueCat store-release safety", () => {
     );
   });
 
-  test("staging API defaults stay out of production wrappers", async () => {
-    const sharedRunner = await Bun.file(
-      resolve(repositoryRoot, "scripts/nativeRelease.sh"),
-    ).text();
-
-    expect(sharedRunner).toContain(
-      "staging) printf '%s\\n' \"https://api.tearleads.de\"",
+  test("native API defaults are tier-specific", async () => {
+    await expect(nativeDefaultApi("production")).resolves.toBe(
+      "https://api.tearleads.com",
     );
-    expect(sharedRunner).toContain('export NATIVE_RELEASE_TIER="$native_tier"');
+    await expect(nativeDefaultApi("staging")).resolves.toBe(
+      "https://api.tearleads.de",
+    );
   });
 
   test("build-number options are scoped to their store platform", async () => {

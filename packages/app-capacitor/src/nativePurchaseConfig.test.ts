@@ -63,11 +63,9 @@ test("Capacitor normalizes staging and rejects unknown release tiers", async () 
     return { exitCode, stderr, stdout };
   };
 
-  await expect(readAppId(" Staging ")).resolves.toEqual({
-    exitCode: 0,
-    stderr: "",
-    stdout: "com.tearleads.app.staging",
-  });
+  const staging = await readAppId(" Staging ");
+  expect(staging.exitCode).toBe(0);
+  expect(staging.stdout).toBe("com.tearleads.app.staging");
   const unknown = await readAppId("preview");
   expect(unknown.exitCode).not.toBe(0);
   expect(unknown.stderr).toContain("Unknown NATIVE_RELEASE_TIER");

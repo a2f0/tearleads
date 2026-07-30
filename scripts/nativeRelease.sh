@@ -21,8 +21,7 @@ native_release_usage() {
   cat <<EOF
 Usage: $(basename "$0") [fastlane-options...]
 
-${native_action_description} the ${native_tier}
-${native_platform} store release.
+${native_action_description} the ${native_tier} ${native_platform} store release.
 
 The native app identifier is selected by NATIVE_RELEASE_TIER:
   production  com.tearleads.app
@@ -110,19 +109,23 @@ native_release_build_number_chosen() {
   shift
 
   if [ "$native_platform" = android ]; then
-    [ -n "${ANDROID_BUILD_NUMBER:-}" ] \
+    if [ -n "${ANDROID_BUILD_NUMBER:-}" ] \
       || [ -n "${ANDROID_VERSION_CODE:-}" ] \
       || [ -n "${ANDROID_RELEASE_NEXT_GOOGLE_PLAY:-}" ] \
       || [ -n "${ANDROID_RELEASE_MERGED_PR_NUMBER:-}" ] \
       || [ -n "${ANDROID_RELEASE_PR_NUMBER:-}" ] \
-      || [ -n "${ANDROID_RELEASE_MERGED_DATE:-}" ] && return 0
+      || [ -n "${ANDROID_RELEASE_MERGED_DATE:-}" ]; then
+      return 0
+    fi
   else
-    [ -n "${IOS_BUILD_NUMBER:-}" ] \
+    if [ -n "${IOS_BUILD_NUMBER:-}" ] \
       || [ -n "${APPLE_BUILD_NUMBER:-}" ] \
       || [ -n "${IOS_RELEASE_NEXT_TESTFLIGHT:-}" ] \
       || [ -n "${IOS_RELEASE_MERGED_PR_NUMBER:-}" ] \
       || [ -n "${IOS_RELEASE_PR_NUMBER:-}" ] \
-      || [ -n "${IOS_RELEASE_MERGED_DATE:-}" ] && return 0
+      || [ -n "${IOS_RELEASE_MERGED_DATE:-}" ]; then
+      return 0
+    fi
   fi
 
   for native_arg in "$@"; do
@@ -148,11 +151,17 @@ native_release_bun_command() {
   native_action="$2"
 
   if [ "$native_platform" = android ]; then
-    [ "$native_action" = upload ] && printf '%s\n' android:upload:google-play \
-      || printf '%s\n' android:build:google-play
+    if [ "$native_action" = upload ]; then
+      printf '%s\n' android:upload:google-play
+    else
+      printf '%s\n' android:build:google-play
+    fi
   else
-    [ "$native_action" = upload ] && printf '%s\n' ios:upload:testflight \
-      || printf '%s\n' ios:build:testflight
+    if [ "$native_action" = upload ]; then
+      printf '%s\n' ios:upload:testflight
+    else
+      printf '%s\n' ios:build:testflight
+    fi
   fi
 }
 

@@ -26,44 +26,41 @@ NATIVE_CAPACITOR_SYNC_SCRIPT = NATIVE_RELEASE_TIER == 'staging' ? 'cap:sync:stag
 NATIVE_REPO_ROOT = File.expand_path('../../..', __dir__)
 NATIVE_SECRETS_DIR = File.join(NATIVE_REPO_ROOT, '.secrets')
 NATIVE_ROOT_ENV_PATH = File.join(NATIVE_SECRETS_DIR, 'root.env')
+NATIVE_STAGING_ENV_PATH = File.join(NATIVE_SECRETS_DIR, 'staging.env')
+NATIVE_STAGING_ENV_NAMES = %w[
+  VITE_REVENUECAT_ANDROID_API_KEY
+  VITE_REVENUECAT_IOS_API_KEY
+].freeze
+NATIVE_SHARED_VITE_ENV_NAMES = %w[
+  VITE_REVENUECAT_SYNC_ENTITLEMENT
+].freeze
 
-def native_release_env_paths
-  paths = [NATIVE_ROOT_ENV_PATH]
-  paths << File.join(NATIVE_SECRETS_DIR, 'staging.env') if NATIVE_RELEASE_TIER == 'staging'
-  paths
+def parsed_native_release_env(path)
+  File.file?(path) ? Dotenv.parse(path) : {}
 end
 
-# Load root plus tier-specific values while preserving variables explicitly set
-# by the caller. Dotenv.load cannot express both requirements: it preserves the
-# process environment, but it also lets root.env win over staging.env. Parsing
-# and merging first gives the tier the expected precedence.
+# Staging keeps signing and store credentials from root.env, but only explicitly
+# shared Vite settings. Its server-oriented staging.env may contain unrelated
+# deploy secrets, so import only the two native RevenueCat public keys.
+def native_release_file_environment
+  root_environment = parsed_native_release_env(NATIVE_ROOT_ENV_PATH)
+  return root_environment unless NATIVE_RELEASE_TIER == 'staging'
+
+  root_environment.delete_if do |name, _value|
+    name.start_with?('VITE_') && !NATIVE_SHARED_VITE_ENV_NAMES.include?(name)
+  end
+  staging_environment = parsed_native_release_env(NATIVE_STAGING_ENV_PATH)
+  staging_environment.select! { |name, _value| NATIVE_STAGING_ENV_NAMES.include?(name) }
+
+  root_environment.merge(staging_environment)
+end
+
+# Load release values while preserving every variable explicitly set by the
+# caller. Parsing first lets the tier-specific native allowlist override root.
 def load_native_release_secrets_env
   process_environment = ENV.to_h
-  file_environment = native_release_env_paths.each_with_object({}) do |path, values|
-    values.merge!(Dotenv.parse(path)) if File.file?(path)
-  end
 
-  file_environment.each do |name, value|
+  native_release_file_environment.each do |name, value|
     ENV[name] = value unless process_environment.key?(name)
   end
-
-  clear_inherited_staging_revenuecat_keys!(process_environment)
-end
-
-# A staging app must have a RevenueCat app whose configured platform identifier
-# is com.tearleads.app.staging. Do not inherit the production platform key from
-# root.env when staging.env has not supplied its own value.
-def clear_inherited_staging_revenuecat_keys!(process_environment)
-  return unless NATIVE_RELEASE_TIER == 'staging'
-
-  %w[VITE_REVENUECAT_ANDROID_API_KEY VITE_REVENUECAT_IOS_API_KEY].each do |name|
-    next if process_environment.key?(name) || file_environment_from_staging?(name)
-
-    ENV.delete(name)
-  end
-end
-
-def file_environment_from_staging?(name)
-  staging_path = File.join(NATIVE_SECRETS_DIR, 'staging.env')
-  File.file?(staging_path) && Dotenv.parse(staging_path).key?(name)
 end
