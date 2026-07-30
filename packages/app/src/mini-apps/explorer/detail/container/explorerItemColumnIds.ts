@@ -38,16 +38,15 @@ export const TOGGLEABLE_COLUMN_IDS: ReadonlyArray<ExplorerItemColumnId> = [
 export function getVisibleExplorerItemColumnIds(params: {
   compact: boolean;
   hiddenColumns: ReadonlySet<ExplorerItemColumnId>;
-  // Append the trailing actions ("kebab") column. It is the touch stand-in for
-  // right-click, so it follows the routed layout rather than the fold: a phone
-  // and a touch tablet get it, and a narrow desktop pane does not — that pane
-  // still has right-click, and the kebab would eat width exactly where width is
-  // scarcest.
-  showActions?: boolean | undefined;
 }): ReadonlyArray<ExplorerItemColumnId> {
-  const { compact, hiddenColumns, showActions = false } = params;
+  const { compact, hiddenColumns } = params;
   const columnIds = compact
     ? COMPACT_COLUMN_ORDER
     : WIDE_COLUMN_ORDER.filter((id) => id === "name" || !hiddenColumns.has(id));
-  return showActions ? [...columnIds, "actions"] : columnIds;
+  // The trailing actions ("kebab") column rides every layout, folded or not.
+  // On touch it is the stand-in for right-click; on the desktop it is the
+  // discoverable route to the same menu, which right-click alone never
+  // advertises — and it is what makes a windowed listing read the same as the
+  // tracker index tables, which have carried the kebab in every layout.
+  return [...columnIds, "actions"];
 }

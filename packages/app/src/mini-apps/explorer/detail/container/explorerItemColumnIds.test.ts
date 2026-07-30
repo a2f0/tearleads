@@ -5,13 +5,13 @@ import {
   TOGGLEABLE_COLUMN_IDS,
 } from "./explorerItemColumnIds";
 
-test("wide layout shows every column with Sync last", () => {
+test("wide layout shows every column with Sync last before the kebab", () => {
   expect(
     getVisibleExplorerItemColumnIds({
       compact: false,
       hiddenColumns: new Set(),
     }),
-  ).toEqual(["name", "type", "created", "modified", "sync"]);
+  ).toEqual(["name", "type", "created", "modified", "sync", "actions"]);
 });
 
 test("wide layout drops hidden columns but keeps order and the Name column", () => {
@@ -20,7 +20,7 @@ test("wide layout drops hidden columns but keeps order and the Name column", () 
       compact: false,
       hiddenColumns: new Set(["created"]),
     }),
-  ).toEqual(["name", "type", "modified", "sync"]);
+  ).toEqual(["name", "type", "modified", "sync", "actions"]);
 
   // Name is structural and never hidden, even if it somehow lands in the set.
   expect(
@@ -28,26 +28,7 @@ test("wide layout drops hidden columns but keeps order and the Name column", () 
       compact: false,
       hiddenColumns: new Set<ExplorerItemColumnId>(["name", "type", "sync"]),
     }),
-  ).toEqual(["name", "created", "modified"]);
-});
-
-test("wide touch layout appends the actions column after the data columns", () => {
-  expect(
-    getVisibleExplorerItemColumnIds({
-      compact: false,
-      hiddenColumns: new Set(),
-      showActions: true,
-    }),
-  ).toEqual(["name", "type", "created", "modified", "sync", "actions"]);
-
-  // Hidden data columns still drop out; the kebab stays last.
-  expect(
-    getVisibleExplorerItemColumnIds({
-      compact: false,
-      hiddenColumns: new Set(["created", "sync"]),
-      showActions: true,
-    }),
-  ).toEqual(["name", "type", "modified", "actions"]);
+  ).toEqual(["name", "created", "modified", "actions"]);
 });
 
 test("compact layout uses a fixed summary set and ignores hidden preferences", () => {
@@ -56,27 +37,20 @@ test("compact layout uses a fixed summary set and ignores hidden preferences", (
       compact: true,
       hiddenColumns: new Set(["type", "modified"]),
     }),
-  ).toEqual(["summary"]);
+  ).toEqual(["summary", "actions"]);
 });
 
-test("the folded kebab follows the touch layout, not the fold", () => {
-  // A phone folds AND is routed, so it keeps the kebab.
-  expect(
-    getVisibleExplorerItemColumnIds({
-      compact: true,
-      hiddenColumns: new Set(),
-      showActions: true,
-    }),
-  ).toEqual(["summary", "actions"]);
-
-  // A narrow desktop pane folds but still has right-click, so the kebab would
-  // only eat width where width is scarcest.
-  expect(
-    getVisibleExplorerItemColumnIds({
-      compact: true,
-      hiddenColumns: new Set(),
-    }),
-  ).not.toContain("actions");
+test("the kebab is the trailing column of every layout", () => {
+  // Folded or wide, touch or desktop: the row's actions are always one click
+  // away rather than only behind a right-click the pointer layouts alone have.
+  for (const compact of [false, true]) {
+    expect(
+      getVisibleExplorerItemColumnIds({
+        compact,
+        hiddenColumns: new Set<ExplorerItemColumnId>(["type", "sync"]),
+      }).at(-1),
+    ).toBe("actions");
+  }
 });
 
 test("compact layout folds every data column into the summary column", () => {
