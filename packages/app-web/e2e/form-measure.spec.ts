@@ -102,6 +102,34 @@ test("tablet form column stops at the measure", async ({ page }) => {
   expect(geometry.panelWidth).toBeCloseTo(geometry.width, 0);
 });
 
+test("tablet passport image stops at the measure", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 1000 });
+  await page.goto("/app/explorer");
+
+  await page.getByRole("button", { name: "New Document" }).click();
+  await page.getByRole("button", { name: "Passport", exact: true }).click();
+
+  const attachmentSlots = page.locator(".passport-attachment-slots");
+  await expect(attachmentSlots).toBeVisible({ timeout: 30_000 });
+  const geometry = await attachmentSlots.evaluate((element) => {
+    const parent = element.parentElement;
+    if (!parent) {
+      throw new Error("passport-attachment-slots has no parent to measure.");
+    }
+    const rawCap = getComputedStyle(element).maxWidth;
+
+    return {
+      capPx: rawCap.endsWith("px") ? Number.parseFloat(rawCap) : null,
+      parentWidth: parent.getBoundingClientRect().width,
+      width: element.getBoundingClientRect().width,
+    };
+  });
+
+  expect(geometry.capPx).not.toBeNull();
+  expect(geometry.width).toBeCloseTo(geometry.capPx ?? 0, 0);
+  expect(geometry.width).toBeLessThan(geometry.parentWidth);
+});
+
 /*
  * The group caps above would hide a regression in the field cap itself: inside
  * a `.backup-restore-main` already held to the measure, a field is narrow even
