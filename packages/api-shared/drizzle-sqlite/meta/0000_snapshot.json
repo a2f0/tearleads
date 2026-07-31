@@ -1584,7 +1584,12 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "container_key_epochs_predecessor_bridge_complete": {
+          "name": "container_key_epochs_predecessor_bridge_complete",
+          "value": "(\n        (\"container_key_epochs\".\"predecessor_container_key_epoch_id\" is null and \"container_key_epochs\".\"predecessor_bridge_iv\" is null and \"container_key_epochs\".\"wrapped_predecessor_key\" is null)\n        or\n        (\"container_key_epochs\".\"predecessor_container_key_epoch_id\" is not null and \"container_key_epochs\".\"predecessor_bridge_iv\" is not null and \"container_key_epochs\".\"wrapped_predecessor_key\" is not null)\n      )"
+        }
+      }
     },
     "container_key_wraps": {
       "name": "container_key_wraps",

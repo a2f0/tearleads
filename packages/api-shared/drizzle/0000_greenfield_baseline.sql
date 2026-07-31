@@ -199,7 +199,12 @@ CREATE TABLE "container_key_epochs" (
 	"wrapped_predecessor_key" text,
 	"created_by_event_hash" text NOT NULL,
 	"created_by_manifest_hash" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "container_key_epochs_predecessor_bridge_complete" CHECK ((
+        ("container_key_epochs"."predecessor_container_key_epoch_id" is null and "container_key_epochs"."predecessor_bridge_iv" is null and "container_key_epochs"."wrapped_predecessor_key" is null)
+        or
+        ("container_key_epochs"."predecessor_container_key_epoch_id" is not null and "container_key_epochs"."predecessor_bridge_iv" is not null and "container_key_epochs"."wrapped_predecessor_key" is not null)
+      ))
 );
 --> statement-breakpoint
 CREATE TABLE "container_key_wraps" (

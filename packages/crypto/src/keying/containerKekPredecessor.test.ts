@@ -84,4 +84,22 @@ test("predecessor bridge metadata is authenticated", async () => {
       wrappedKey: "not-base64",
     }),
   ).toThrow();
+  await expect(
+    createContainerKekPredecessorBridge({
+      containerId,
+      predecessorContainerKey,
+      predecessorContainerKeyEpochId: bridge.predecessorContainerKeyEpochId,
+      successorContainerKey,
+      successorContainerKeyEpochId: bridge.predecessorContainerKeyEpochId,
+    }),
+  ).rejects.toThrow("must connect distinct epochs");
+  await expect(
+    createContainerKekPredecessorBridge({
+      containerId,
+      predecessorContainerKey: new Uint8Array(31),
+      predecessorContainerKeyEpochId: bridge.predecessorContainerKeyEpochId,
+      successorContainerKey,
+      successorContainerKeyEpochId: bridge.successorContainerKeyEpochId,
+    }),
+  ).rejects.toThrow("keys must be 32 bytes");
 });

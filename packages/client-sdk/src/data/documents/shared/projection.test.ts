@@ -146,6 +146,7 @@ async function rotateRootKekFixture() {
     fixture,
     predecessor,
     successor,
+    successorKey,
     successorEpochId,
   };
 }
@@ -168,7 +169,7 @@ test("unwrapContainerKekPath derives history and then resolves a descendant pinn
 });
 
 test("unwrapContainerKekPath rejects incomplete or inconsistent predecessor chains", async () => {
-  const { childKek, fixture, predecessor, successor } =
+  const { childKek, fixture, predecessor, successor, successorKey } =
     await rotateRootKekFixture();
   const unwrap = (root: typeof successor) =>
     unwrapContainerKekPath({
@@ -194,4 +195,23 @@ test("unwrapContainerKekPath rejects incomplete or inconsistent predecessor chai
       ],
     }),
   ).rejects.toThrow("predecessor bridge is inconsistent");
+
+  const substitutedBridge = await createContainerKekPredecessorBridge({
+    containerId: predecessor.containerId,
+    predecessorContainerKey: crypto.getRandomValues(new Uint8Array(32)),
+    predecessorContainerKeyEpochId: predecessor.containerKeyEpochId,
+    successorContainerKey: successorKey,
+    successorContainerKeyEpochId: successor.containerKeyEpochId,
+  });
+  await expect(
+    unwrap({
+      ...successor,
+      predecessorKeks: [
+        {
+          ...predecessor,
+          bridge: substitutedBridge as unknown as Record<string, unknown>,
+        },
+      ],
+    }),
+  ).rejects.toThrow("KEK material does not match committed epoch id");
 });

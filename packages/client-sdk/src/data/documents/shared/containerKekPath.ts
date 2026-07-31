@@ -320,10 +320,15 @@ async function unwrapPredecessorContainerKeksAtIndex(input: {
   let successorEpochId = input.kek.containerKeyEpochId;
   let successorEpoch = input.kek.containerKeyEpoch;
   let successorKeyMaterial = input.successorKeyMaterial;
+  const verifiedManifestHashes = new Set([
+    input.kek.accessManifestHash,
+    ...input.kek.containerManifestHistory.map((bundle) => bundle.manifestHash),
+  ]);
   for (const predecessor of input.kek.predecessorKeks) {
     if (
       predecessor.containerId !== input.kek.containerId ||
-      predecessor.containerKeyEpoch !== successorEpoch - 1
+      predecessor.containerKeyEpoch !== successorEpoch - 1 ||
+      !verifiedManifestHashes.has(predecessor.accessManifestHash)
     ) {
       throw new Error(
         `${projectionKekLabel(input.index)} predecessor epoch is inconsistent`,

@@ -138,7 +138,10 @@ export async function moveContainerProjection(input: {
           : null;
       },
       moveContainer: async (_containerId, request) =>
-        createMutationResponseFromRequest(request),
+        createMutationResponseFromRequest(
+          request,
+          input.sourceProjection.containerKeks.at(-1),
+        ),
     },
     author: input.parent.author,
     containerId: input.containerId,

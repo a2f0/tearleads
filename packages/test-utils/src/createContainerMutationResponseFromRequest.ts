@@ -13,8 +13,11 @@ import {
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
+  type ContainerWriterProjectionResponse,
   isAccessManifestBundleWireResponse,
 } from "@tearleads/validators/response";
+
+type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
 
 type PrincipalIdentity = {
   subjectId?: string | undefined;
@@ -131,6 +134,7 @@ function deriveMutationState(input: {
 
 export async function createContainerMutationResponseFromRequest(
   request: ContainerMutationRequest,
+  previousKek?: ProjectionKek | undefined,
 ): Promise<ContainerMutationResponse> {
   const event = request.event as unknown as AccessEvent;
   const body = request.body as ContainerAccessEventBody;
@@ -154,6 +158,11 @@ export async function createContainerMutationResponseFromRequest(
       return bundle;
     },
   );
+  const predecessorKeks = predecessorKeksFromRequest({
+    currentKeyEpoch: keyEpoch,
+    previousKek,
+    request,
+  });
 
   return {
     containerId: event.objectId,
@@ -186,7 +195,7 @@ export async function createContainerMutationResponseFromRequest(
         await computeContainerKekRecipientTargetHash(recipientTargets),
       parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
       containerManifestHistory,
-      predecessorKeks: [],
+      predecessorKeks,
       recipientTargets: recipientTargets as unknown as Record<
         string,
         unknown
@@ -195,4 +204,44 @@ export async function createContainerMutationResponseFromRequest(
     },
     referencedPrincipalHeads: [...state.referencedPrincipalHeads],
   };
+}
+
+function predecessorKeksFromRequest(input: {
+  readonly currentKeyEpoch: ContainerKeyEpoch;
+  readonly previousKek?: ProjectionKek | undefined;
+  readonly request: ContainerMutationRequest;
+}): ProjectionKek["predecessorKeks"] {
+  const bridge = input.request.predecessorBridge;
+  if (bridge === null) {
+    return input.previousKek?.predecessorKeks ?? [];
+  }
+  if (!input.previousKek) {
+    throw new Error(
+      "Rotating container mutation response fixture requires the previous KEK",
+    );
+  }
+  if (
+    Reflect.get(bridge, "predecessorContainerKeyEpochId") !==
+      input.previousKek.containerKeyEpochId ||
+    Reflect.get(bridge, "successorContainerKeyEpochId") !==
+      input.currentKeyEpoch.id
+  ) {
+    throw new Error(
+      "Container mutation response fixture predecessor bridge is inconsistent",
+    );
+  }
+
+  return [
+    {
+      accessManifestHash: input.previousKek.accessManifestHash,
+      bridge,
+      containerId: input.previousKek.containerId,
+      containerKeyEpoch: input.previousKek.containerKeyEpoch,
+      containerKeyEpochId: input.previousKek.containerKeyEpochId,
+      keyEpoch: input.previousKek.keyEpoch,
+      keyEpochHash: input.previousKek.keyEpochHash,
+      parentContainerKeyEpochId: input.previousKek.parentContainerKeyEpochId,
+    },
+    ...input.previousKek.predecessorKeks,
+  ];
 }

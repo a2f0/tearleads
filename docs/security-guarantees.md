@@ -192,6 +192,12 @@ container KEK wraps use ML-KEM-1024 plus AES-GCM for principals or AES-GCM
 under a parent or successor KEK. Rotations use the
 `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` suite for their
 immediate predecessor. Current clients must verify that chain through epoch 1.
+This deliberately changes compromise amplification: possession of the current
+container KEK also reveals every retained predecessor KEK through the bridge
+chain. That is the cost of history-inclusive current access. It does not weaken
+forward revocation—a user who lacks a post-revocation KEK still cannot derive
+that KEK or later epochs—but current-key compromise exposes retained historical
+content for that container.
 
 All container KEK epochs use a
 `tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the

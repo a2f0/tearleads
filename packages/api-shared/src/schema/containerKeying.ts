@@ -1,5 +1,7 @@
 import type { KekRecipientKind } from "@tearleads/crypto";
+import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   integer,
   pgTable,
@@ -76,6 +78,14 @@ export const containerKeyEpochs = pgTable(
     ),
     uniqueIndex("container_key_epochs_predecessor_idx").on(
       table.predecessorContainerKeyEpochId,
+    ),
+    check(
+      "container_key_epochs_predecessor_bridge_complete",
+      sql`(
+        (${table.predecessorContainerKeyEpochId} is null and ${table.predecessorBridgeIv} is null and ${table.wrappedPredecessorKey} is null)
+        or
+        (${table.predecessorContainerKeyEpochId} is not null and ${table.predecessorBridgeIv} is not null and ${table.wrappedPredecessorKey} is not null)
+      )`,
     ),
   ],
 );
