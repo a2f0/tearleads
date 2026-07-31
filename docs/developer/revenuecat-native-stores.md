@@ -20,6 +20,16 @@ is specific to the native bridge, as opposed to the web one:
 - **The bridge is untyped at runtime.** A `CustomerInfo` or package can arrive
   partial or nullish, so every field read is guarded rather than trusted; a bad
   payload reads as "no entitlement", never a crash.
+- **iOS purchase failures retain content-free diagnostics.** The first-party
+  `RevenueCatPurchasePlugin` purchases through RevenueCat's public Swift API and
+  returns only active entitlement IDs. On failure it preserves the RevenueCat
+  code, cancellation flag, and StoreKit domain/code.
+  If that bridge cannot validate its shared SDK state before presenting
+  StoreKit, the adapter retries the package through RevenueCat's official
+  bridge so diagnostics cannot become a purchase-availability dependency.
+  Android and every non-purchase operation continue through RevenueCat's
+  official Capacitor plugin. The System Monitor includes those bounded values
+  but still excludes receipt, account, and free-form provider text.
 - **A dismissed store sheet is a cancellation, not a failure.** The bridge
   serializes RevenueCat's `PurchasesError` across the native boundary, so what
   arrives is a plain object — `instanceof` cannot work the way it does on web.
@@ -27,11 +37,12 @@ is specific to the native bridge, as opposed to the web one:
   shared `PurchaseCancelledError`, which is the only rejection
   `useSubscribeAction` treats as a no-op. Without it, backing out of the sheet
   surfaces "Failed to subscribe".
-- **`abortSignal` is honored before the sheet, and only before it.** A presented
-  StoreKit or Play sheet has no programmatic dismissal, so the abort is checked
-  on entry and again after the offerings fetch — the last await before the sheet
-  goes up. It takes precedence over an unknown package so an abandoned flow's
-  outcome stays a pre-sheet abort.
+- **`abortSignal` is honored before the native purchase call, and only before
+  it.** A presented StoreKit or Play sheet has no programmatic dismissal, so the
+  abort is checked on entry and again after the adapter's offerings fetch. The
+  iOS diagnostic bridge performs a fresh native offerings fetch to resolve the
+  package after that point. The abort takes precedence over an unknown package
+  so an abandoned flow's outcome stays a pre-sheet abort.
 - **Configure binds the known buyer.** `Purchases.configure` receives the
   `appUserID` when the sdk has one; configuring anonymously and aliasing on the
   following `logIn` leaves a stray anonymous customer per fresh install.
@@ -174,9 +185,9 @@ override in `.secrets/staging.env`.
 
 Before testing the real Apple purchase sheet:
 
-1. In App Store Connect, create the auto-renewable subscription under bundle ID
-   `com.tearleads.app` and finish its required localization, price, and review
-   metadata.
+1. In App Store Connect, create the auto-renewable subscription under the app
+   being tested (`com.tearleads.staging.app` for staging) and finish its required
+   localization, price, and review metadata.
 2. Connect that Apple app to RevenueCat, including its In-App Purchase key, and
    import the product. Attach it to `$rc_monthly` in the current `default`
    offering and to the `sync` entitlement.
@@ -184,12 +195,28 @@ Before testing the real Apple purchase sheet:
    key. The Xcode project records the In-App Purchase capability and Swift 5;
    StoreKit does not use a code-signing entitlement for in-app purchases, so
    App Store Connect and RevenueCat configuration remain authoritative.
-4. Create an App Store Connect sandbox tester. Run from Xcode on a device, or
-   use TestFlight; use the sandbox account when StoreKit prompts.
-5. After purchasing, tap **Manage subscription**. iOS presents StoreKit's
-   in-app subscription-management sheet for the signed-in sandbox tester;
-   dismissing it refreshes the billing snapshot.
-6. Repeat the cancel/restore checks above and confirm the transaction appears
+   The project also pins `purchases-ios-spm` to the exact version resolved by
+   `@revenuecat/purchases-capacitor`; update that pin and regenerate
+   `Package.resolved` in lockstep whenever the Capacitor dependency changes.
+4. Create an App Store Connect sandbox tester. To use Apple's sandbox controls,
+   enable Developer Mode under **Settings > Privacy & Security > Developer
+   Mode**, restart the device, and use the **Sandbox Apple Account** control
+   that then appears under **Settings > Developer**.
+5. For TestFlight, first use a regular Apple Account to download the beta. For
+   a controlled sandbox test, sign that account out under **Settings > Apple
+   Account > Media & Purchases**, then sign the sandbox tester in under
+   **Settings > Developer > Sandbox Apple Account**. Do not enter a sandbox
+   tester under Media & Purchases: it is not an iTunes or App Store download
+   account. Leave Media & Purchases signed out while using the sandbox tester;
+   signing the regular account back in makes later purchases use that account
+   instead. If sandbox controls are unnecessary, the regular account may stay
+   signed in: TestFlight purchases still run in the sandbox and do not charge
+   it. See Apple's [sandbox testing
+   guide](https://developer.apple.com/documentation/storekit/testing-in-app-purchases-with-sandbox).
+6. After purchasing, tap **Manage subscription**. iOS presents StoreKit's
+   in-app subscription-management sheet for the account StoreKit is currently
+   using; dismissing it refreshes the billing snapshot.
+7. Repeat the cancel/restore checks above and confirm the transaction appears
    with sandbox data enabled in RevenueCat.
 
 An Xcode StoreKit configuration file is useful for local StoreKit behavior, but

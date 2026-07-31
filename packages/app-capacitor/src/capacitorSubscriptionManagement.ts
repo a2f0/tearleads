@@ -38,9 +38,10 @@ function isAppleSubscriptionManagementUrl(value: string): boolean {
 }
 
 /**
- * Opens Apple subscriptions with StoreKit on iOS, including its sandbox-aware
- * account sheet. Non-Apple provider links retain Capacitor's existing system
- * URL handoff so an org purchased on another platform stays manageable.
+ * Opens Apple subscriptions with StoreKit on iOS, using the account selected
+ * by the device's current StoreKit configuration. Non-Apple provider links
+ * retain Capacitor's existing system URL handoff so an org purchased on another
+ * platform stays manageable.
  */
 export function createCapacitorSubscriptionManagement(
   deps: SubscriptionManagementDeps,

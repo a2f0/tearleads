@@ -1,6 +1,5 @@
 import { Capacitor } from "@capacitor/core";
 import {
-  type CustomerInfo,
   PURCHASES_ERROR_CODE,
   Purchases,
   type PurchasesPackage,
@@ -12,22 +11,14 @@ import {
   PurchaseCancelledError,
   type PurchasesCapability,
   type RevenueCatBackend,
-  type RevenueCatCustomerInfo,
   type RevenueCatPackage,
 } from "@tearleads/client-sdk";
+import {
+  fromCapacitorCustomerInfo,
+  purchaseCapacitorRevenueCatPackage,
+} from "./capacitorRevenueCatPurchase";
 
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
-
-// The native bridge is effectively untyped at runtime; guard against a
-// malformed/partial CustomerInfo or package (including nullish results) so a bad
-// payload can't crash the app.
-function toRevenueCatCustomerInfo(
-  info: CustomerInfo | undefined,
-): RevenueCatCustomerInfo {
-  return {
-    activeEntitlementIds: Object.keys(info?.entitlements?.active ?? {}),
-  };
-}
 
 function toRevenueCatPackage(entry: PurchasesPackage): RevenueCatPackage {
   return {
@@ -48,10 +39,10 @@ async function currentPackages(): Promise<PurchasesPackage[]> {
  * True when the native SDK rejected because the buyer dismissed the store
  * sheet rather than because the purchase failed.
  *
- * The Capacitor bridge serializes RevenueCat's `PurchasesError` across the
- * native boundary, so what arrives is a plain object — not an `Error` instance
- * — which is why this reads the shape instead of using `instanceof` the way
- * the web adapter can. `code` is the documented signal.
+ * The official Android bridge and first-party iOS bridge both reject with a
+ * plain object — not an `Error` instance — which is why this reads the shape
+ * instead of using `instanceof` the way the web adapter can. `code` is the
+ * documented signal.
  */
 function isUserCancelledPurchase(error: unknown): boolean {
   if (typeof error !== "object" || error === null) {
@@ -100,10 +91,11 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
     const aPackage = (await currentPackages()).find(
       (entry) => entry?.identifier === packageId,
     );
-    // The offerings fetch above is the last await before the store sheet goes
-    // up, and a presented StoreKit / Play sheet has no programmatic dismissal.
-    // A caller that abandoned the flow while offerings were loading must not
-    // get a modal purchase sheet for a flow nobody is waiting on any more.
+    // This is the last abort-aware await. The iOS diagnostic bridge validates
+    // the package with one more native offerings fetch, but neither that call
+    // nor a presented StoreKit / Play sheet has programmatic cancellation.
+    // A caller that abandoned the flow while this offerings request was loading
+    // must not get a modal purchase sheet for a flow nobody awaits any more.
     // Aborted takes precedence over a missing package so an abandoned flow's
     // outcome stays a pre-sheet abort, matching webPurchases.ts.
     if (abortSignal?.aborted) {
@@ -113,8 +105,7 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
       throw new Error(`Unknown purchase package: ${packageId}`);
     }
     try {
-      const result = await Purchases.purchasePackage({ aPackage });
-      return toRevenueCatCustomerInfo(result?.customerInfo);
+      return await purchaseCapacitorRevenueCatPackage(aPackage);
     } catch (error) {
       // Backing out of the store sheet is a normal exit, not a failure.
       // Without this the panel surfaces "Failed to subscribe" and logs an
@@ -128,11 +119,11 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
   },
   async getCustomerInfo() {
     const result = await Purchases.getCustomerInfo();
-    return toRevenueCatCustomerInfo(result?.customerInfo);
+    return fromCapacitorCustomerInfo(result?.customerInfo);
   },
   async restorePurchases() {
     const result = await Purchases.restorePurchases();
-    return toRevenueCatCustomerInfo(result?.customerInfo);
+    return fromCapacitorCustomerInfo(result?.customerInfo);
   },
 };
 

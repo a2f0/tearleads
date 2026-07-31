@@ -331,8 +331,8 @@ export class AppHostConfig {
     readonly createFileViewer?: CreateFileViewerFn | undefined,
     /**
      * Platform-aware subscription management. iOS supplies a StoreKit-backed
-     * implementation for Apple subscriptions so sandbox testers do not get
-     * sent through the production Media & Purchases account surface.
+     * implementation for Apple subscriptions, using the account selected by
+     * the device's current StoreKit sandbox or Media & Purchases configuration.
      */
     readonly openSubscriptionManagement?:
       | OpenSubscriptionManagementFn
