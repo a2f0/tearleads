@@ -737,6 +737,17 @@ function readContainerKeyWraps(
   );
 }
 
+function assertInitialRootHasNoPredecessor(
+  request: OrganizationProvisioningRequest["initialRootContainer"],
+): void {
+  if (request.predecessorBridge !== null) {
+    throw new OrganizationProvisioningError(
+      "Initial root container KEK cannot have a predecessor bridge",
+      400,
+    );
+  }
+}
+
 async function storeInitialRootContainer(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
@@ -747,6 +758,7 @@ async function storeInitialRootContainer(
   metadataDocumentId: string;
 }> {
   const request = input.initialRootContainer;
+  assertInitialRootHasNoPredecessor(request);
   const metadataDocumentId = readInitialRootContainerMetadataDocumentId(input);
   const principalPolicies = principalPoliciesFromRequest(request);
   await assertPrincipalPoliciesCurrent(tx, principalPolicies);

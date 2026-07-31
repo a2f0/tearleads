@@ -3,7 +3,10 @@ import {
   normalizeContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
 import type { PredecessorContainerKekResponse } from "@tearleads/validators/response";
-import { getContainerKeyEpochById } from "../../../access/read/containerKekStore";
+import {
+  getContainerKeyEpochById,
+  listContainerKeyEpochs,
+} from "../../../access/read/containerKekStore";
 import { containerKeyEpochRecord, stripContainerKeyEpoch } from "./records";
 import {
   type ContainerWriterProjectionContext,
@@ -40,6 +43,11 @@ export async function loadPredecessorContainerKeks(input: {
   if (!currentEpoch) {
     throw new ContainerWriterProjectionError("Container KEK missing", 409);
   }
+  const epochs = await listContainerKeyEpochs(
+    currentEpoch.containerId,
+    input.context.executor,
+  );
+  const epochsById = new Map(epochs.map((epoch) => [epoch.id, epoch]));
 
   const predecessors: PredecessorContainerKekResponse[] = [];
   const visitedEpochIds = new Set([currentEpoch.id]);
@@ -68,10 +76,7 @@ export async function loadPredecessorContainerKeks(input: {
       );
     }
 
-    const predecessor = await getContainerKeyEpochById(
-      bridge.predecessorContainerKeyEpochId,
-      input.context.executor,
-    );
+    const predecessor = epochsById.get(bridge.predecessorContainerKeyEpochId);
     if (
       !predecessor ||
       predecessor.containerId !== currentEpoch.containerId ||

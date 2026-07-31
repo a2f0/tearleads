@@ -94,8 +94,14 @@ async function verifyPredecessorBridge(input: {
     return currentEpoch.predecessorBridge;
   }
 
+  if (keyEpoch.keyEpoch !== currentEpoch.keyEpoch + 1) {
+    throw new ContainerMutationError(
+      "Container KEK rotation must advance by exactly one epoch",
+      409,
+    );
+  }
+
   if (
-    keyEpoch.keyEpoch !== currentEpoch.keyEpoch + 1 ||
     bridge === null ||
     bridge.containerId !== manifest.state.containerId ||
     bridge.predecessorContainerKeyEpochId !== currentEpoch.id ||

@@ -414,6 +414,19 @@ export async function getCurrentContainerKeyEpoch(
   return keyEpoch ? toStoredContainerKeyEpoch(keyEpoch) : null;
 }
 
+export async function listContainerKeyEpochs(
+  containerId: string,
+  executor: DatabaseSession,
+): Promise<StoredContainerKeyEpoch[]> {
+  const rows = await executor
+    .select()
+    .from(containerKeyEpochs)
+    .where(eq(containerKeyEpochs.containerId, containerId))
+    .orderBy(asc(containerKeyEpochs.keyEpoch));
+
+  return rows.map(toStoredContainerKeyEpoch);
+}
+
 export async function listContainerKeyWraps(
   containerKeyEpochId: string,
   executor: DatabaseSession,

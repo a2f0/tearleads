@@ -308,6 +308,9 @@ async function unwrapPredecessorContainerKeksAtIndex(input: {
   if (!input.successorKeyMaterial) {
     return;
   }
+  // The projection may include updates encrypted under any epoch in document
+  // history. Returning only the current key would make those updates silently
+  // unreadable, so an authenticated-but-incomplete history is a hard failure.
   if (input.kek.predecessorKeks.length !== input.kek.containerKeyEpoch - 1) {
     throw new Error(
       `${projectionKekLabel(input.index)} predecessor chain is incomplete`,

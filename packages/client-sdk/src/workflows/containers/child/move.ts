@@ -261,6 +261,9 @@ async function buildMoveRotation(input: {
     keyMaterial: input.keyMaterial,
     override: input.override,
   });
+  // Moving changes the epoch's parent-key binding without changing the KEK
+  // material. Keep the mandatory predecessor link uniform so every rotation
+  // remains traversable, including this authenticated self-wrap across ids.
   const predecessorBridge = await createContainerKekPredecessorBridge({
     containerId: input.containerId,
     predecessorContainerKey: input.keyMaterial,

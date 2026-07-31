@@ -31,6 +31,7 @@ import {
 interface ContainerRekeyFixture {
   readonly bundle: AccessManifestBundleWire | VerifiedContainerAccessManifest;
   readonly kekState: VerifiedContainerKekState;
+  readonly plaintextKek?: Uint8Array | undefined;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
 }
 
@@ -39,9 +40,11 @@ interface BuiltContainerRekeyMutation {
   readonly container: {
     readonly bundle: VerifiedContainerAccessManifest;
     readonly kekState: VerifiedContainerKekState;
+    readonly plaintextKek: Uint8Array;
     readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   };
   readonly kekState: VerifiedContainerKekState;
+  readonly plaintextKek: Uint8Array;
   readonly request: ContainerMutationRequest;
 }
 
@@ -157,13 +160,18 @@ export async function buildRootContainerRekeyMutation(input: {
   const previous = asVerifiedContainerManifest(input.previous.bundle);
   const previousBundle = containerManifestBundle(previous);
   const nextKeyEpoch = input.previous.kekState.containerKeyEpoch + 1;
-  const { containerKeyEpochId } = await createTestContainerKekMaterial({
-    containerId: previous.state.containerId,
-    keyEpoch: nextKeyEpoch,
-  });
+  const { containerKeyEpochId, plaintextKek } =
+    await createTestContainerKekMaterial({
+      containerId: previous.state.containerId,
+      keyEpoch: nextKeyEpoch,
+    });
   const predecessorBridge = await createTestContainerKekPredecessorBridge({
     containerId: previous.state.containerId,
+    ...(input.previous.plaintextKek
+      ? { predecessorContainerKey: input.previous.plaintextKek }
+      : {}),
     predecessorContainerKeyEpochId: input.previous.kekState.containerKeyEpochId,
+    successorContainerKey: plaintextKek,
     successorContainerKeyEpochId: containerKeyEpochId,
   });
   const body: ContainerAccessEventBody = {
@@ -222,9 +230,11 @@ export async function buildRootContainerRekeyMutation(input: {
     container: {
       bundle: verifiedBundle,
       kekState: verifiedKekState.value,
+      plaintextKek,
       principalPolicies,
     },
     kekState: verifiedKekState.value,
+    plaintextKek,
     request: {
       event: event.event as unknown as Record<string, unknown>,
       body: body as unknown,

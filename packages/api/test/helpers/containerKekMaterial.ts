@@ -54,12 +54,19 @@ export async function createTestContainerKekId(
 
 export async function createTestContainerKekPredecessorBridge(input: {
   readonly containerId: string;
+  readonly predecessorContainerKey?: Uint8Array | undefined;
   readonly predecessorContainerKeyEpochId: string;
+  readonly successorContainerKey?: Uint8Array | undefined;
   readonly successorContainerKeyEpochId: string;
 }) {
   return createContainerKekPredecessorBridge({
-    ...input,
-    predecessorContainerKey: crypto.getRandomValues(new Uint8Array(32)),
-    successorContainerKey: crypto.getRandomValues(new Uint8Array(32)),
+    containerId: input.containerId,
+    predecessorContainerKey:
+      input.predecessorContainerKey ??
+      crypto.getRandomValues(new Uint8Array(32)),
+    predecessorContainerKeyEpochId: input.predecessorContainerKeyEpochId,
+    successorContainerKey:
+      input.successorContainerKey ?? crypto.getRandomValues(new Uint8Array(32)),
+    successorContainerKeyEpochId: input.successorContainerKeyEpochId,
   });
 }

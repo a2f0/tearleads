@@ -197,7 +197,7 @@ export async function unwrapContainerKekPredecessorBridge(input: {
   successorContainerKey: Uint8Array;
 }): Promise<Uint8Array> {
   const bridge = normalizeContainerKekPredecessorBridge(input.bridge);
-  return decryptWithDek(
+  const predecessorKey = await decryptWithDek(
     {
       iv: base64ToBytes(bridge.iv),
       ciphertext: base64ToBytes(bridge.wrappedKey),
@@ -205,4 +205,11 @@ export async function unwrapContainerKekPredecessorBridge(input: {
     input.successorContainerKey,
     bridgeAdditionalData(bridge),
   );
+  if (predecessorKey.byteLength !== 32) {
+    throwVerification(
+      "invalid_shape",
+      "container KEK predecessor bridge plaintext must be 32 bytes",
+    );
+  }
+  return predecessorKey;
 }
