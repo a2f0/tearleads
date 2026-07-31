@@ -19,14 +19,13 @@ import {
   exportFullHistorySnapshot,
   getTextValue,
   getUpdateVersionVectors,
-  importUpdates,
+  importSnapshot,
 } from "@tearleads/loro";
 import {
   loadLatestReadableBaselineCoverage,
   selectServedSyncUpdateEntries,
   selectServedSyncUpdates,
 } from "./documentSyncBaselineRedirect";
-import { planDominatedUpdatePrune } from "./documentUpdatePrune";
 
 function entry(contentKeyEpoch: number, partialEndVersionVector: string) {
   return {
@@ -93,7 +92,7 @@ test("falls back to serving everything when the baseline does not dominate an ol
   expect(served).toHaveLength(2);
 });
 
-test("a full-history rotation snapshot converges a fresh reader before and after old payload pruning", async () => {
+test("a full-history rotation snapshot converges a fresh reader", async () => {
   const author = await createDocument("rotation-regression-author");
   author.getText("text").update("state before rotation");
   author.commit();
@@ -127,38 +126,9 @@ test("a full-history rotation snapshot converges a fresh reader before and after
   });
   expect(served).toEqual([baselineEntry]);
 
-  const newcomerBeforePrune = await createDocument("newcomer-before-prune");
-  importUpdates(
-    newcomerBeforePrune,
-    served.map((item) => item.bytes),
-  );
-  expect(getTextValue(newcomerBeforePrune)).toBe("state before rotation");
-
-  expect(
-    planDominatedUpdatePrune({
-      baselines: [
-        {
-          baselineEpoch: 2,
-          documentId: "document-1",
-          sourceVersionVector: coverage,
-        },
-      ],
-      candidates: [
-        {
-          byteLength: oldEpochUpdate.byteLength,
-          contentKeyEpoch: 1,
-          documentId: "document-1",
-          id: "old-update",
-          partialEndVersionVector: oldEpochVectors.partialEndVersionVector,
-        },
-      ],
-      limit: 1,
-    }).updateIds,
-  ).toEqual(["old-update"]);
-
-  const newcomerAfterPrune = await createDocument("newcomer-after-prune");
-  importUpdates(newcomerAfterPrune, [baseline]);
-  expect(getTextValue(newcomerAfterPrune)).toBe("state before rotation");
+  const newcomer = await createDocument("rotation-regression-newcomer");
+  importSnapshot(newcomer, baselineEntry.bytes);
+  expect(getTextValue(newcomer)).toBe("state before rotation");
 });
 
 async function insertBaselineCheckpoint(input: {
@@ -257,11 +227,10 @@ test("loadLatestReadableBaselineCoverage returns the latest baseline under the r
   ).toBeNull();
 });
 
-// The prune/redirect coverage induction (#1607 L3 remainder): every epoch
-// advance normally carries a rotate_baseline, but a sync-carried content-key
-// bundle can advance the epoch alone. With no current-epoch baseline the
-// redirect must be unable to fire — a prior-epoch baseline, however valid,
-// must not stand in — so nothing is ever dropped.
+// Every epoch advance normally carries a rotate_baseline, but a sync-carried
+// content-key bundle can advance the epoch alone. With no current-epoch
+// baseline the redirect must be unable to fire — a prior-epoch baseline,
+// however valid, must not stand in — so nothing is ever omitted.
 test("an epoch advance with no current-epoch baseline serves everything", async () => {
   const documentId = randomUUID();
   const { vv1, vv2 } = await versionVectorTimeline();

@@ -31,9 +31,8 @@ silently increasing pull-request check time.
 ## Document Baseline Dominance
 
 [`document-sync/BaselineDominance.tla`](./document-sync/BaselineDominance.tla)
-models the no-data-loss gate shared by document sync baseline redirection and
-payload pruning. A baseline dominates an update exactly when both conditions
-hold:
+models the no-data-loss gate for document sync baseline redirection. A baseline
+dominates an update exactly when both conditions hold:
 
 1. the update's content-key epoch is strictly older than the baseline epoch;
 2. the baseline source version vector componentwise covers the update's end
@@ -44,26 +43,19 @@ The one-readable-baseline abstraction maps to production at these seams:
 | Model action or predicate | Production implementation |
 | --- | --- |
 | `Dominated` | `isDocumentUpdateDominatedByBaseline` |
-| `Prune` | `planDominatedUpdatePrune` |
 | `Serve` | `selectServedSyncUpdates` |
 
-The model's `live` set relies on `listMissingDocumentUpdates` excluding rows
-whose encrypted payload has been cleared. Removing that query predicate would
-break the modeled coupling between pruning a payload and omitting it from the
-next sync response.
+TLC explores the sync serve decision. The checked invariants require that:
 
-TLC explores every ordering of eligible prune actions followed by a sync serve
-decision. The checked invariants require that:
-
-- only dominated older payloads are pruned or omitted;
+- only dominated older updates are omitted from the response;
 - every uncovered update is served;
-- current-or-newer-epoch payloads remain live and are served;
+- current-or-newer-epoch updates are served;
 - after serving, every unserved update is carried by the readable baseline.
 
 The invariants are stated with the same `Dominated`/`Older` operators that
-guard the actions, so TLC verifies the prune/serve **composition** relative to
-those definitions — not the dominance definition itself. Mutation testing
-confirms this boundary: weakening `VectorCovers` or deleting its conjunct from
+guard the action, so TLC verifies the redirect decision relative to those
+definitions — not the dominance definition itself. Mutation testing confirms
+this boundary: weakening `VectorCovers` or deleting its conjunct from
 `Dominated` passes TLC unchanged, while removing the serve gate is caught. The
 ground truth for the dominance semantics is the TypeScript parity suite below,
 which `check:fast` runs on every push and pull request via
@@ -74,21 +66,19 @@ zero through two, three content-key epochs, and two arbitrary updates. The
 TypeScript bounded-parity test
 `packages/api/src/documents/documentBaselineDominance.test.ts` independently
 constructs real Loro version vectors for the same bounds. It checks 729
-predicate cases, 118,098 readable-baseline prune/serve transitions across both
-candidate orders and limits zero through two, and 4,374 missing-baseline cases.
-It also checks the order-preserving behavior that the set-based TLA+ abstraction
-intentionally omits. The test does not consume TLC-generated traces, so the
-explicit mapping above must stay synchronized as either side evolves.
+predicate cases, 39,366 readable-baseline redirect cases across both candidate
+orders, and 4,374 missing-baseline cases. It also checks the order-preserving
+behavior that the set-based TLA+ abstraction intentionally omits. The test does
+not consume TLC-generated traces, so the explicit mapping above must stay
+synchronized as either side evolves.
 
 This is exhaustive bounded model checking, not an unbounded mathematical proof.
 The model assumes well-formed persisted version vectors, one same-document
 baseline that has passed authenticated replayability checks, and continued
-availability of that current-epoch baseline. The production prune planner may
-choose among multiple historical baselines; cross-baseline retention is outside
-this first model. Cryptographic authenticity, database transactions, SQL
-ordering, and Loro's own CRDT correctness also remain outside the abstraction. A
-future TLAPS or theorem-prover layer could prove the parameterized invariant
-after this model has stabilized.
+availability of that current-epoch baseline. Cryptographic authenticity,
+database transactions, SQL ordering, and Loro's own CRDT correctness remain
+outside the abstraction. A future TLAPS or theorem-prover layer could prove the
+parameterized invariant after this model has stabilized.
 
 ## Deferred Document-Tail Settlement
 

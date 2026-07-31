@@ -7,7 +7,6 @@ import {
 } from "@tearleads/loro";
 import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
 import { selectServedSyncUpdates } from "./documentSyncBaselineRedirect";
-import { planDominatedUpdatePrune } from "./documentUpdatePrune";
 
 const COUNTERS = [0, 1, 2] as const;
 const EPOCHS = [1, 2, 3] as const;
@@ -116,7 +115,7 @@ test("bounded vectors conform to componentwise baseline dominance", async () => 
   expect(checkedCases).toBe(729);
 });
 
-test("bounded prune and serve traces retain every uncovered update", async () => {
+test("bounded redirect traces retain every uncovered update", async () => {
   const vectors = await buildBoundedVectors();
   let checkedTraces = 0;
 
@@ -169,66 +168,14 @@ test("bounded prune and serve traces retain every uncovered update", async () =>
                 });
                 expect(ids(served)).toEqual(ids(expectedServed));
 
-                for (const pruneLimit of [0, 1, 2]) {
-                  const prunePlan = planDominatedUpdatePrune({
-                    baselines: [
-                      {
-                        baselineEpoch: currentEpoch,
-                        documentId: "document",
-                        sourceVersionVector: baseline.encoded,
-                      },
-                    ],
-                    candidates: candidates.map((candidate) => ({
-                      byteLength: 1,
-                      contentKeyEpoch: candidate.writeHeader.contentKeyEpoch,
-                      documentId: "document",
-                      id: candidate.id,
-                      partialEndVersionVector:
-                        candidate.update.partialEndVersionVector,
-                    })),
-                    limit: pruneLimit,
-                  });
-                  expect(prunePlan.updateIds).toEqual(
-                    dominatedIds.slice(0, pruneLimit),
-                  );
-
-                  const prunedIds = new Set(prunePlan.updateIds);
-                  const liveMissing = missing.filter(
-                    (candidate) => !prunedIds.has(candidate.id),
-                  );
-                  const liveOlder = liveMissing.filter(
-                    (candidate) =>
-                      candidate.writeHeader.contentKeyEpoch < currentEpoch,
-                  );
-                  const canRedirectAfterPrune =
-                    liveOlder.length > 0 &&
-                    liveOlder.every((candidate) =>
-                      dominatedIds.includes(candidate.id),
-                    );
-                  const expectedAfterPrune = canRedirectAfterPrune
-                    ? liveMissing.filter(
-                        (candidate) =>
-                          candidate.writeHeader.contentKeyEpoch >= currentEpoch,
-                      )
-                    : liveMissing;
-                  const servedAfterPrune = selectServedSyncUpdates({
-                    baselineCoverage: baseline.encoded,
-                    currentContentKeyEpoch: currentEpoch,
-                    entries: liveMissing,
-                  });
-                  expect(ids(servedAfterPrune)).toEqual(
-                    ids(expectedAfterPrune),
-                  );
-
-                  const servedIds = new Set(ids(servedAfterPrune));
-                  const unavailableIds = ids(missing).filter(
-                    (id) => !servedIds.has(id),
-                  );
-                  expect(
-                    unavailableIds.every((id) => dominatedIds.includes(id)),
-                  ).toBe(true);
-                  checkedTraces += 1;
-                }
+                const servedIds = new Set(ids(served));
+                const unavailableIds = ids(missing).filter(
+                  (id) => !servedIds.has(id),
+                );
+                expect(
+                  unavailableIds.every((id) => dominatedIds.includes(id)),
+                ).toBe(true);
+                checkedTraces += 1;
               }
             }
           }
@@ -237,7 +184,7 @@ test("bounded prune and serve traces retain every uncovered update", async () =>
     }
   }
 
-  expect(checkedTraces).toBe(118_098);
+  expect(checkedTraces).toBe(39_366);
 });
 
 test("bounded missing-baseline cases fail closed", async () => {
@@ -265,20 +212,6 @@ test("bounded missing-baseline cases fail closed", async () => {
                   }),
                 ),
               ).toEqual(ids(missing));
-              expect(
-                planDominatedUpdatePrune({
-                  baselines: [],
-                  candidates: missing.map((candidate) => ({
-                    byteLength: 1,
-                    contentKeyEpoch: candidate.writeHeader.contentKeyEpoch,
-                    documentId: "document",
-                    id: candidate.id,
-                    partialEndVersionVector:
-                      candidate.update.partialEndVersionVector,
-                  })),
-                  limit: 2,
-                }).updateIds,
-              ).toEqual([]);
               checkedCases += 1;
             }
           }

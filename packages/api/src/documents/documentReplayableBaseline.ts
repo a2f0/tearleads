@@ -17,10 +17,9 @@ interface ReplayableBaselineMetadata {
 }
 
 /**
- * Gate redirect and destructive pruning on the authenticated v2 checkpoint
- * contract. Legacy rotate baselines did not bind their kind/source/snapshot
- * attestation into the signed content-record metadata, so they deliberately do
- * not pass this check.
+ * Gate redirect on the authenticated v2 checkpoint contract. Legacy rotate
+ * baselines did not bind their kind/source/snapshot attestation into the signed
+ * content-record metadata, so they deliberately do not pass this check.
  */
 export async function isAuthenticatedReplayableBaseline(
   input: ReplayableBaselineMetadata,
