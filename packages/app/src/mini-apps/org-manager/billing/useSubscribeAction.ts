@@ -1,4 +1,5 @@
 import {
+  PurchaseAbortedError,
   PurchaseCancelledError,
   type PurchasesCapability,
   type SyncSubscriptionOption,
@@ -29,11 +30,60 @@ type CancelPurchaseRef = RefObject<(() => void) | null>;
 function createAttemptHost(
   checkoutHost: HTMLElement | undefined,
 ): HTMLDivElement | undefined {
-  const attemptHost = checkoutHost?.ownerDocument.createElement("div");
-  if (checkoutHost && attemptHost) {
-    checkoutHost.appendChild(attemptHost);
+  if (!checkoutHost) {
+    return undefined;
   }
+  const attemptHost = checkoutHost.ownerDocument.createElement("div");
+  checkoutHost.appendChild(attemptHost);
   return attemptHost;
+}
+
+function observeLatePurchase({
+  cancelPurchaseRef,
+  isCancelled,
+  purchase,
+  refresh,
+  scope,
+  scopeRef,
+  trace,
+  traceError,
+  updateActionState,
+}: {
+  cancelPurchaseRef: CancelPurchaseRef;
+  isCancelled: () => boolean;
+  purchase: Promise<{ syncEntitlementActive: boolean }>;
+  refresh: () => Promise<void>;
+  scope: BillingActionScope;
+  scopeRef: BillingScopeRef;
+  trace: (line: string) => void;
+  traceError: (line: string) => void;
+  updateActionState: UpdateActionState;
+}): void {
+  purchase.then(
+    (result) => {
+      if (!isCancelled()) {
+        return;
+      }
+      trace(formatBillingPurchaseSuccess(result.syncEntitlementActive, true));
+      if (
+        !result.syncEntitlementActive ||
+        !scopeMatches(scopeRef.current, scope)
+      ) {
+        return;
+      }
+      cancelPurchaseRef.current?.();
+      updateActionState(scope, (current) => ({
+        ...current,
+        activationPending: true,
+      }));
+      void refresh();
+    },
+    (error) => {
+      if (isCancelled()) {
+        traceError(formatBillingPurchaseFailure(error, true));
+      }
+    },
+  );
 }
 
 export function useSubscribeAction({
@@ -57,7 +107,7 @@ export function useSubscribeAction({
   updateActionState: UpdateActionState;
   userId: string | null;
 }): (option: SyncSubscriptionOption) => void {
-  const { log } = useLog();
+  const { log, logError } = useLog();
   return useCallback(
     (option) => {
       const scope = currentScope;
@@ -79,6 +129,7 @@ export function useSubscribeAction({
         scope,
         scopeRef,
         trace: log,
+        traceError: logError,
         updateActionState,
         userId,
       });
@@ -88,10 +139,11 @@ export function useSubscribeAction({
       cancelPurchaseRef,
       checkoutHostRef,
       currentScope,
+      log,
+      logError,
       purchases,
       refresh,
       scopeRef,
-      log,
       updateActionState,
       userId,
     ],
@@ -123,6 +175,7 @@ async function purchaseForOrganization({
   scope,
   scopeRef,
   trace,
+  traceError,
   updateActionState,
   userId,
 }: {
@@ -134,6 +187,7 @@ async function purchaseForOrganization({
   scope: BillingActionScope;
   scopeRef: BillingScopeRef;
   trace: (line: string) => void;
+  traceError: (line: string) => void;
   updateActionState: UpdateActionState;
   userId: string;
 }): Promise<void> {
@@ -182,39 +236,19 @@ async function purchaseForOrganization({
       abortSignal: abortController.signal,
       ...(attemptHost ? { checkoutHost: attemptHost } : {}),
     });
-    purchase.then(
-      (lateResult) => {
-        // Only a purchase that was cancelled and then landed anyway needs
-        // handling here; every live outcome is delivered through the race
-        // below.
-        if (!cancelled) {
-          return;
-        }
-        // A cancellation only dismisses the checkout UI; a payment the
-        // provider had already taken can still land afterwards. Honor it —
-        // the entitlement is granted server-side regardless — by driving the
-        // same activation flow the un-cancelled path would have run. A
-        // replacement checkout for this same scope could now only duplicate
-        // the entitlement, so retire it first.
-        if (
-          !lateResult.syncEntitlementActive ||
-          !scopeMatches(scopeRef.current, scope)
-        ) {
-          return;
-        }
-        cancelPurchaseRef.current?.();
-        updateActionState(scope, (current) => ({
-          ...current,
-          activationPending: true,
-        }));
-        void refresh();
-      },
-      () => {
-        // A cancelled attempt failing late affects nothing outside its own
-        // (already detached) attempt host; this handler only keeps the loser
-        // of the race from surfacing as an unhandled rejection.
-      },
-    );
+    // A cancellation only dismisses the checkout UI. If the provider had
+    // already taken payment, the promise can still settle after the local race.
+    observeLatePurchase({
+      cancelPurchaseRef,
+      isCancelled: () => cancelled,
+      purchase,
+      refresh,
+      scope,
+      scopeRef,
+      trace,
+      traceError,
+      updateActionState,
+    });
     const result = await Promise.race([purchase, cancelSignal]);
     trace(formatBillingPurchaseSuccess(result.syncEntitlementActive));
     // The checkout is settled — Cancel has nothing left to reach, so retire
@@ -242,6 +276,10 @@ async function purchaseForOrganization({
     // Dismissing the checkout is a normal exit, not a failure — the attempt
     // host is removed (finally) and the busy state cleared without surfacing
     // an error.
+    if (error instanceof PurchaseAbortedError) {
+      trace(formatBillingPurchaseStage("aborted"));
+      return;
+    }
     if (error instanceof PurchaseCancelledError) {
       trace(formatBillingPurchaseStage("cancelled"));
       return;
@@ -250,7 +288,7 @@ async function purchaseForOrganization({
     // indistinguishable from a no-op. Log the real PurchasesError (e.g. a
     // ConfigurationError from a key/offering mismatch) so it is diagnosable,
     // while still surfacing the generic label to the user.
-    trace(formatBillingPurchaseFailure(error));
+    traceError(formatBillingPurchaseFailure(error));
     console.error("Failed to complete the organization sync purchase:", error);
     updateActionState(scope, (current) => ({
       ...current,

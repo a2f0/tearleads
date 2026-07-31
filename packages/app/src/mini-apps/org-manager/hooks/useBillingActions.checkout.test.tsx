@@ -1,5 +1,6 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import {
+  PurchaseAbortedError,
   PurchaseCancelledError,
   type PurchasesCapability,
   type SyncPurchaseResult,
@@ -12,6 +13,43 @@ import {
 } from "../../../../test/helpers/billingActionsTestKit";
 
 afterEach(() => cleanup());
+
+function purchaseTraceEntries(
+  entries: ReadonlyArray<{ level: "error" | "info"; message: string }>,
+) {
+  return entries.filter(({ message }) =>
+    message.startsWith("billing purchase "),
+  );
+}
+
+test("purchase failures emit an ordered error trace", async () => {
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: false }),
+    purchaseSync: mock(() =>
+      Promise.reject({
+        code: "5",
+        underlyingErrorMessage: "Product is unavailable",
+        userCancelled: null,
+      }),
+    ) as PurchasesCapability["purchaseSync"],
+  };
+  const { result } = renderBillingActions({ purchases });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => result.current.subscribe(OPTION));
+
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(purchaseTraceEntries(result.current.logEntries)).toEqual([
+    { level: "info", message: "billing purchase stage=started" },
+    { level: "info", message: "billing purchase stage=identified" },
+    { level: "info", message: "billing purchase stage=provider-started" },
+    {
+      level: "error",
+      message:
+        "billing purchase stage=failed code=product-unavailable native=none userCancelled=unknown",
+    },
+  ]);
+});
 
 test("subscribe embeds the checkout in a child of the host element", async () => {
   let purchaseInput:
@@ -288,6 +326,29 @@ test("a cancelled checkout clears the busy state without an error", async () => 
   await waitFor(() => expect(result.current.busy).toBe(null));
   expect(result.current.actionError).toBe(null);
   expect(result.current.activationPending).toBe(false);
+  expect(purchaseTraceEntries(result.current.logEntries)).toEqual([
+    { level: "info", message: "billing purchase stage=started" },
+    { level: "info", message: "billing purchase stage=identified" },
+    { level: "info", message: "billing purchase stage=provider-started" },
+    { level: "info", message: "billing purchase stage=cancelled" },
+  ]);
+});
+
+test("an abandoned purchase is distinct from a cancelled checkout", async () => {
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: true }),
+    purchaseSync: mock(() => Promise.reject(new PurchaseAbortedError())),
+  };
+  const { result } = renderBillingActions({ purchases });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => result.current.subscribe(OPTION));
+
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(purchaseTraceEntries(result.current.logEntries).at(-1)).toEqual({
+    level: "info",
+    message: "billing purchase stage=aborted",
+  });
 });
 
 /**

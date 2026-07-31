@@ -14,6 +14,14 @@ import {
 
 afterEach(() => cleanup());
 
+function purchaseTraceEntries(
+  entries: ReadonlyArray<{ level: "error" | "info"; message: string }>,
+) {
+  return entries.filter(({ message }) =>
+    message.startsWith("billing purchase "),
+  );
+}
+
 test("checkoutActive clears when the purchase settles, before the refresh", async () => {
   let resolveRefresh: (() => void) | undefined;
   const refresh = mock(
@@ -74,6 +82,10 @@ test("a purchase landing after cancellation still activates billing", async () =
 
   await waitFor(() => expect(result.current.activationPending).toBe(true));
   expect(refresh).toHaveBeenCalled();
+  expect(purchaseTraceEntries(result.current.logEntries).at(-1)).toEqual({
+    level: "info",
+    message: "billing purchase stage=late-succeeded entitlement=active",
+  });
 });
 
 test("a late success dismisses a newer checkout for the same scope", async () => {
@@ -296,6 +308,15 @@ test("a late failure of a cancelled checkout spares its replacement", async () =
     purchaseHandlers[0]?.reject(new Error("payment failed after dismissal"));
   });
   expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`);
+  expect(
+    purchaseTraceEntries(result.current.logEntries).find(({ message }) =>
+      message.includes("stage=late-failed"),
+    ),
+  ).toEqual({
+    level: "error",
+    message:
+      "billing purchase stage=late-failed code=other native=none userCancelled=unknown",
+  });
 
   await act(async () => {
     purchaseHandlers[1]?.resolve({ syncEntitlementActive: true });

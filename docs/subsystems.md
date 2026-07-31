@@ -90,7 +90,7 @@ Rolled out package by package. Registered: `packages/api`,
 | **Theming** | Color themes: the theme registry, persisted selection, the `<html data-theme>` attribute stamp, and the footer theme toggle. The per-theme design-token blocks live in `@tearleads/ui`'s `styles.css`. | `theme/ThemeProvider`; `theme/themes` | `theme/` |
 | **App Identity Provisioning** | App-level identity bootstrap: the identity autopilot, key-package backup, current-identity registration hooks, and the demo-only friendly peer bootstrap (auto-imported peer contact plus peer-labeled self/org names). | `identity/IdentityAutopilot`; `identity/useRegisterCurrentIdentity`; `demo/DemoPeerBootstrap` | `identity/`, `demo/` |
 | **App Document & Device State** | App-side domain state machines for documents and device-first projection, plus the system-containers store and its org-aware Trash resolver. | `stores/documents`; `stores/device-first` | `stores/documents/`, `stores/device-first/`, `stores/systemContainers.ts`, `stores/systemContainerTrash.ts` |
-| **App Utilities** | App-neutral presentation helpers: byte-length and date formatting, and error-message normalization. | `utils/*` direct import | `utils/formatByteLength.ts`, `utils/formatMiniAppDate.ts`, `utils/unknownErrorMessage.ts` |
+| **App Utilities** | App-neutral presentation helpers: byte-length and date formatting, error-message normalization, and clipboard-safe billing traces. | `utils/*` direct import | `utils/billingPurchaseTrace.ts`, `utils/formatByteLength.ts`, `utils/formatMiniAppDate.ts`, `utils/unknownErrorMessage.ts` |
 
 <!-- subsystems:end -->
 

@@ -15,7 +15,7 @@ import {
   useBillingActions,
 } from "../../src/mini-apps/org-manager/hooks/useBillingActions";
 import { AppHostConfigProvider } from "../../src/providers/host/AppHostConfigProvider";
-import { LogProvider } from "../../src/providers/logging/LogProvider";
+import { LogProvider, useLog } from "../../src/providers/logging/LogProvider";
 import { PurchasesProvider } from "../../src/providers/purchases/PurchasesProvider";
 
 /** Disables post-purchase polling by default so tests are unaffected. */
@@ -71,7 +71,12 @@ export function renderBillingActions(input: {
   startTrial?: () => Promise<boolean>;
 }) {
   return renderHook<
-    BillingActions,
+    BillingActions & {
+      logEntries: ReadonlyArray<{
+        level: "error" | "info";
+        message: string;
+      }>;
+    },
     {
       billingCanSync: boolean;
       isOrgAdmin?: boolean;
@@ -79,8 +84,8 @@ export function renderBillingActions(input: {
       userId: string;
     }
   >(
-    ({ billingCanSync, isOrgAdmin, organizationId, userId }) =>
-      useBillingActions({
+    ({ billingCanSync, isOrgAdmin, organizationId, userId }) => {
+      const actions = useBillingActions({
         activationPollDelaysMs: input.activationPollDelaysMs ?? NO_POLL,
         billingCanSync,
         ...(input.checkoutHostRef
@@ -91,7 +96,13 @@ export function renderBillingActions(input: {
         refresh: input.refresh ?? (() => Promise.resolve()),
         startTrial: input.startTrial ?? (() => Promise.resolve(true)),
         userId,
-      }),
+      });
+      const { entries } = useLog();
+      return {
+        ...actions,
+        logEntries: entries.map(({ level, message }) => ({ level, message })),
+      };
+    },
     {
       initialProps: {
         billingCanSync: input.billingCanSync ?? false,

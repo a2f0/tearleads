@@ -9,6 +9,7 @@
  */
 
 type BillingPurchaseStage =
+  | "aborted"
   | "cancelled"
   | "identified"
   | "provider-started"
@@ -70,13 +71,13 @@ const NATIVE_ERROR_DOMAIN_FRAGMENT = NATIVE_ERROR_DOMAINS.map(
   ([, name]) => name,
 ).join("|");
 
-export const BILLING_PURCHASE_TRACE_FRAGMENT = [
-  "billing purchase stage=(?:started|identified|provider-started|cancelled)",
-  "billing purchase stage=succeeded entitlement=(?:active|inactive)",
-  `billing purchase stage=failed code=(?:${PURCHASE_FAILURE_CODE_FRAGMENT}) native=(?:none|(?:${NATIVE_ERROR_DOMAIN_FRAGMENT}):-?\\d{1,10}) userCancelled=(?:true|false|unknown)`,
+export const BILLING_PURCHASE_TRACE_FRAGMENT = `(?:${[
+  "billing purchase stage=(?:started|identified|provider-started|aborted|cancelled)",
+  "billing purchase stage=(?:succeeded|late-succeeded) entitlement=(?:active|inactive)",
+  `billing purchase stage=(?:failed|late-failed) code=(?:${PURCHASE_FAILURE_CODE_FRAGMENT}) native=(?:none|(?:${NATIVE_ERROR_DOMAIN_FRAGMENT}):-?\\d{1,10}) userCancelled=(?:true|false|unknown)`,
 ]
   .map((alternative) => `(?:${alternative})`)
-  .join("|");
+  .join("|")})`;
 
 export const BILLING_PURCHASE_TRACE_PATTERN = new RegExp(
   `^(?:${BILLING_PURCHASE_TRACE_FRAGMENT})$`,
@@ -91,8 +92,9 @@ export function formatBillingPurchaseStage(
 
 export function formatBillingPurchaseSuccess(
   entitlementActive: boolean,
+  late = false,
 ): string {
-  return `billing purchase stage=succeeded entitlement=${entitlementActive ? "active" : "inactive"}`;
+  return `billing purchase stage=${late ? "late-succeeded" : "succeeded"} entitlement=${entitlementActive ? "active" : "inactive"}`;
 }
 
 function readErrorCode(error: unknown): string | undefined {
@@ -136,7 +138,7 @@ function classifyNativeError(error: unknown): string {
   }
   for (const [domain, safeName] of NATIVE_ERROR_DOMAINS) {
     const match = new RegExp(
-      `${domain}[^0-9-]{0,40}(?:Code=)?(-?\\d{1,10})`,
+      `${domain}[^0-9-]{0,40}Code=(-?\\d{1,10})(?!\\d)`,
       "u",
     ).exec(message);
     if (match?.[1]) {
@@ -146,8 +148,11 @@ function classifyNativeError(error: unknown): string {
   return "none";
 }
 
-export function formatBillingPurchaseFailure(error: unknown): string {
+export function formatBillingPurchaseFailure(
+  error: unknown,
+  late = false,
+): string {
   const code =
     PURCHASE_FAILURE_CODE_BY_VALUE.get(readErrorCode(error) ?? "") ?? "other";
-  return `billing purchase stage=failed code=${code} native=${classifyNativeError(error)} userCancelled=${readUserCancelled(error)}`;
+  return `billing purchase stage=${late ? "late-failed" : "failed"} code=${code} native=${classifyNativeError(error)} userCancelled=${readUserCancelled(error)}`;
 }

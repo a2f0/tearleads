@@ -9,11 +9,14 @@ import {
 test("formats purchase lifecycle stages as clipboard-safe telemetry", () => {
   const lines = [
     formatBillingPurchaseStage("started"),
+    formatBillingPurchaseStage("aborted"),
     formatBillingPurchaseStage("identified"),
     formatBillingPurchaseStage("provider-started"),
     formatBillingPurchaseStage("cancelled"),
     formatBillingPurchaseSuccess(true),
     formatBillingPurchaseSuccess(false),
+    formatBillingPurchaseSuccess(true, true),
+    formatBillingPurchaseFailure({ code: "5" }, true),
   ];
 
   for (const line of lines) {
@@ -51,4 +54,18 @@ test("unknown provider content fails closed", () => {
   expect(BILLING_PURCHASE_TRACE_PATTERN.test(line)).toBe(true);
   expect(line).not.toContain("PRIVATE");
   expect(line).not.toContain("cardiology");
+});
+
+test("native error classification requires a bounded Code field", () => {
+  const nearbyNumber = formatBillingPurchaseFailure({
+    code: "2",
+    underlyingErrorMessage: "ASDErrorDomain transaction 509",
+  });
+  const oversizedCode = formatBillingPurchaseFailure({
+    code: "2",
+    underlyingErrorMessage: "ASDErrorDomain Code=12345678901",
+  });
+
+  expect(nearbyNumber).toContain("native=none");
+  expect(oversizedCode).toContain("native=none");
 });
