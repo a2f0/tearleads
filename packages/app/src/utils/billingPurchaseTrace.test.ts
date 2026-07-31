@@ -73,7 +73,7 @@ test("unknown provider content fails closed", () => {
 });
 
 test("extracts safe diagnostics preserved by the native bridge", () => {
-  const line = formatBillingPurchaseFailure({
+  const nested = formatBillingPurchaseFailure({
     code: "native-error",
     data: {
       storeError: { code: 7, domain: "StoreKitErrorDomain" },
@@ -81,10 +81,20 @@ test("extracts safe diagnostics preserved by the native bridge", () => {
     },
   });
 
-  expect(line).toBe(
+  expect(nested).toBe(
     "billing purchase stage=failed code=native-bridge native=storekit:7 userCancelled=false",
   );
-  expect(BILLING_PURCHASE_TRACE_PATTERN.test(line)).toBe(true);
+  expect(BILLING_PURCHASE_TRACE_PATTERN.test(nested)).toBe(true);
+
+  const topLevel = formatBillingPurchaseFailure({
+    code: "native-error",
+    storeError: { code: 509, domain: "ASDErrorDomain" },
+    userCancelled: false,
+  });
+  expect(topLevel).toBe(
+    "billing purchase stage=failed code=native-bridge native=asd:509 userCancelled=false",
+  );
+  expect(BILLING_PURCHASE_TRACE_PATTERN.test(topLevel)).toBe(true);
 });
 
 test("new native diagnostic fields reject private or unbounded values", () => {

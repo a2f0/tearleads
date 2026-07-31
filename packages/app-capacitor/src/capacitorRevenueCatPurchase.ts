@@ -52,8 +52,8 @@ export async function purchaseCapacitorRevenueCatPackage(
   }
 
   const result = await getNativeRevenueCatPurchase().purchasePackage({
-    packageId: aPackage.identifier,
-    productId: aPackage.product.identifier,
+    packageId: aPackage?.identifier ?? "",
+    productId: aPackage?.product?.identifier ?? "",
   });
   return toRevenueCatCustomerInfo(
     normalizeActiveEntitlementIds(result?.activeEntitlementIds),

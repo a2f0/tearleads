@@ -345,6 +345,14 @@ test("survives a malformed package from the native bridge", async () => {
       priceLabel: "",
     },
   ]);
+
+  await createCapacitorPurchases().purchaseSync({
+    organizationId: "org-1",
+    packageId: "monthly",
+  });
+  expect(fixture.nativePurchaseCalls).toEqual([
+    { identifier: "monthly", productId: "" },
+  ]);
 });
 
 test("rejects a package the current offering does not contain", async () => {
@@ -364,11 +372,12 @@ test("rejects a package the current offering does not contain", async () => {
 test("treats a dismissed store sheet as a cancellation, not a failure", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
-  // The bridge serializes PurchasesError to a plain object, so this is
-  // deliberately not an Error instance.
+  // Match the first-party Swift plugin's CAPPluginCall.reject payload rather
+  // than the official bridge's PurchasesError serialization.
   fixture.purchaseRejection = {
     code: "1",
-    message: "Purchase was cancelled.",
+    message: "RevenueCat purchase failed",
+    data: { userCancelled: true },
   };
 
   // Without the normalization the panel shows "Failed to subscribe" every

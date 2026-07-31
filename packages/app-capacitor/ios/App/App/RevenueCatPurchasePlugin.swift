@@ -106,7 +106,10 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
 
     private static func storeError(from error: NSError) -> [String: Any]? {
         var currentError: NSError? = error
-        while let candidate = currentError {
+        for _ in 0..<8 {
+            guard let candidate = currentError else {
+                break
+            }
             if isStoreDiagnosticDomain(candidate.domain) {
                 return ["domain": candidate.domain, "code": candidate.code]
             }

@@ -52,10 +52,10 @@ async function currentPackages(): Promise<PurchasesPackage[]> {
  * True when the native SDK rejected because the buyer dismissed the store
  * sheet rather than because the purchase failed.
  *
- * The Capacitor bridge serializes RevenueCat's `PurchasesError` across the
- * native boundary, so what arrives is a plain object — not an `Error` instance
- * — which is why this reads the shape instead of using `instanceof` the way
- * the web adapter can. `code` is the documented signal.
+ * The official Android bridge and first-party iOS bridge both reject with a
+ * plain object — not an `Error` instance — which is why this reads the shape
+ * instead of using `instanceof` the way the web adapter can. `code` is the
+ * documented signal.
  */
 function isUserCancelledPurchase(error: unknown): boolean {
   if (typeof error !== "object" || error === null) {

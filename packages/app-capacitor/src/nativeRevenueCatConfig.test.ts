@@ -11,7 +11,7 @@ function requiredMatch(source: string, pattern: RegExp, description: string) {
   return value;
 }
 
-test("iOS compiles and registers the RevenueCat purchase plugin", async () => {
+test("iOS project registers the RevenueCat purchase plugin contract", async () => {
   const [project, bridgeController, purchasePlugin] = await Promise.all([
     Bun.file(
       resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
