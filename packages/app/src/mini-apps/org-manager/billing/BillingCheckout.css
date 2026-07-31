@@ -42,7 +42,7 @@
   overflow-y: visible !important;
 }
 
-/* The Cancel row itself is rendered (and removed) by BillingView based on the
+/* The Cancel button itself is rendered (and removed) by BillingView based on the
    platform's embedded-checkout support and the in-flight purchase state, so it
    is available for the whole embedded flow — including the pre-mount phase
    where this host is still empty. */

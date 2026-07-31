@@ -4,13 +4,14 @@ import type {
 } from "@tearleads/client-sdk";
 import { type Ref, useCallback } from "react";
 import {
+  MiniAppActions,
+  MiniAppButton,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
-  MiniAppRowButton,
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../../components/mini-app/rows/MiniAppRow";
@@ -73,6 +74,8 @@ export interface BillingViewProps {
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
   /** Provider manage/cancel page for the active subscription, or null if none. */
   readonly managementUrl: string | null;
+  /** Platform override for opening the provider's subscription management. */
+  readonly onManageSubscription?: ((url: string) => void) | undefined;
   readonly busy: BillingBusyAction | null;
   readonly activationPending: boolean;
   readonly actionError: string | null;
@@ -172,6 +175,32 @@ function BillingSummary({ view }: { view: OrganizationBillingView }) {
   );
 }
 
+export function BillingPurchaseOption({
+  actionLabel,
+  disabled,
+  name,
+  onSelect,
+  priceLabel,
+}: {
+  readonly actionLabel: string;
+  readonly disabled: boolean;
+  readonly name: string;
+  readonly onSelect: () => void;
+  readonly priceLabel: string;
+}) {
+  return (
+    <MiniAppRow density="roomy" variant="framed">
+      <MiniAppRowStack>
+        <strong>{name}</strong>
+        <MiniAppRowText muted>{priceLabel}</MiniAppRowText>
+      </MiniAppRowStack>
+      <MiniAppButton disabled={disabled} onClick={onSelect}>
+        {actionLabel}
+      </MiniAppButton>
+    </MiniAppRow>
+  );
+}
+
 function BillingSubscribeList({
   busy,
   canSubscribe,
@@ -191,42 +220,44 @@ function BillingSubscribeList({
   return (
     <>
       {options.map((option) => (
-        <MiniAppRowButton
+        <BillingPurchaseOption
+          actionLabel={
+            busy === `subscribe:${option.packageId}`
+              ? ORG_MANAGER_LABELS.billingSubscribing
+              : ORG_MANAGER_LABELS.billingSubscribe
+          }
           disabled={busy !== null || !canSubscribe}
           key={option.packageId}
-          onClick={() => onSubscribe(option)}
-        >
-          <MiniAppRowStack>
-            <strong>
-              {option.title || ORG_MANAGER_LABELS.billingSubscribe}
-            </strong>
-            <MiniAppRowText muted>{option.priceLabel}</MiniAppRowText>
-          </MiniAppRowStack>
-          <MiniAppRowText>
-            {busy === `subscribe:${option.packageId}`
-              ? ORG_MANAGER_LABELS.billingSubscribing
-              : ORG_MANAGER_LABELS.billingSubscribe}
-          </MiniAppRowText>
-        </MiniAppRowButton>
+          name={option.title || ORG_MANAGER_LABELS.billingSubscribe}
+          onSelect={() => onSubscribe(option)}
+          priceLabel={option.priceLabel}
+        />
       ))}
     </>
   );
 }
 
-// Opens the provider's manage/cancel page in a new tab. The URL is pre-loaded
-// into props, so window.open runs synchronously inside the click gesture (no
-// popup-blocker issue); `_blank` routes to the system browser on Capacitor.
-function BillingManageButton({ url }: { url: string }) {
+// Lets the host replace a provider URL with native management UI. Browser
+// shells fall back to a synchronous window.open inside the click gesture.
+function BillingManageButton({
+  onManageSubscription,
+  url,
+}: {
+  readonly onManageSubscription?: ((url: string) => void) | undefined;
+  readonly url: string;
+}) {
   return (
-    <MiniAppRowButton
+    <MiniAppButton
       onClick={() => {
+        if (onManageSubscription) {
+          onManageSubscription(url);
+          return;
+        }
         window.open(url, "_blank", "noopener,noreferrer");
       }}
     >
-      <MiniAppRowText>
-        {ORG_MANAGER_LABELS.billingManageSubscription}
-      </MiniAppRowText>
-    </MiniAppRowButton>
+      {ORG_MANAGER_LABELS.billingManageSubscription}
+    </MiniAppButton>
   );
 }
 
@@ -265,26 +296,18 @@ function BillingPurchaseSection({
       {props.embeddedCheckout ? (
         <div className="org-manager-billing-checkout" ref={checkoutHostRef} />
       ) : null}
-      {props.embeddedCheckout && props.checkoutActive ? (
-        <MiniAppRowButton
-          className="org-manager-billing-checkout-cancel"
-          onClick={props.onCancelCheckout}
-        >
-          <MiniAppRowText>
+      <MiniAppActions>
+        {props.embeddedCheckout && props.checkoutActive ? (
+          <MiniAppButton onClick={props.onCancelCheckout}>
             {ORG_MANAGER_LABELS.billingCancelCheckout}
-          </MiniAppRowText>
-        </MiniAppRowButton>
-      ) : null}
-      <MiniAppRowButton
-        disabled={props.busy !== null}
-        onClick={props.onRestore}
-      >
-        <MiniAppRowText>
+          </MiniAppButton>
+        ) : null}
+        <MiniAppButton disabled={props.busy !== null} onClick={props.onRestore}>
           {props.busy === "restore"
             ? ORG_MANAGER_LABELS.billingRestoring
             : ORG_MANAGER_LABELS.billingRestore}
-        </MiniAppRowText>
-      </MiniAppRowButton>
+        </MiniAppButton>
+      </MiniAppActions>
     </>
   );
 }
@@ -303,28 +326,31 @@ function BillingAdminActions({
   return (
     <MiniAppSection>
       {view.status === "local" ? (
-        <MiniAppRowButton
-          disabled={props.busy !== null}
-          onClick={props.onStartTrial}
-        >
-          <MiniAppRowText>
+        <MiniAppActions>
+          <MiniAppButton
+            disabled={props.busy !== null}
+            onClick={props.onStartTrial}
+          >
             {props.busy === "trial"
               ? ORG_MANAGER_LABELS.billingStartingTrial
               : ORG_MANAGER_LABELS.billingStartTrial}
-          </MiniAppRowText>
-        </MiniAppRowButton>
+          </MiniAppButton>
+        </MiniAppActions>
       ) : null}
 
       <BillingPurchaseSection {...props} checkoutHostRef={checkoutHostRef} />
 
-      {managementUrl ? <BillingManageButton url={managementUrl} /> : null}
-
-      <MiniAppRowButton
-        disabled={props.busy !== null}
-        onClick={props.onRefresh}
-      >
-        <MiniAppRowText>{ORG_MANAGER_LABELS.refresh}</MiniAppRowText>
-      </MiniAppRowButton>
+      <MiniAppActions>
+        {managementUrl ? (
+          <BillingManageButton
+            onManageSubscription={props.onManageSubscription}
+            url={managementUrl}
+          />
+        ) : null}
+        <MiniAppButton disabled={props.busy !== null} onClick={props.onRefresh}>
+          {ORG_MANAGER_LABELS.refresh}
+        </MiniAppButton>
+      </MiniAppActions>
 
       {props.activationPending ? (
         <MiniAppStatus className="org-manager-hint">

@@ -10,6 +10,7 @@ import { useBillingHistory } from "./useBillingHistory";
 import { useBillingManagementUrl } from "./useBillingManagementUrl";
 import { useCancelSubscription } from "./useCancelSubscription";
 import { useDirectCheckoutFlow } from "./useDirectCheckout";
+import { useOpenSubscriptionManagement } from "./useOpenSubscriptionManagement";
 
 /**
  * Container for the org-manager billing view: wires the billing snapshot
@@ -118,6 +119,7 @@ export function BillingPanel({
 }) {
   const billing = useOrganizationBilling();
   const { refresh } = billing;
+  const handleManageSubscription = useOpenSubscriptionManagement();
   // Where the Web Billing checkout embeds so a purchase runs inside the panel
   // (the view keeps the div mounted; the hook reads it at purchase time).
   const checkoutHostRef = useRef<HTMLDivElement | null>(null);
@@ -172,6 +174,7 @@ export function BillingPanel({
         isOrgAdmin={isOrgAdmin}
         loading={billing.loading}
         managementUrl={managementUrl}
+        onManageSubscription={handleManageSubscription}
         onCancelCheckout={actions.cancelCheckout}
         onRefresh={handleRefresh}
         onRestore={actions.restore}

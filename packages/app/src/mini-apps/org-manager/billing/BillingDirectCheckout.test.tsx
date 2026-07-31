@@ -110,7 +110,7 @@ test("renders nothing when the platform or option is unavailable", () => {
   expect(view.container.textContent).toBe("");
 });
 
-test("idle offers the priced subscribe row and hides the element host", () => {
+test("idle offers the priced subscription and hides the element host", () => {
   stubTearleads();
   const view = render(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
@@ -119,6 +119,18 @@ test("idle offers the priced subscribe row and hides the element host", () => {
   expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined();
   const host = view.container.querySelector(".org-manager-direct-checkout");
   expect(host?.hasAttribute("hidden")).toBe(true);
+});
+
+test("idle checkout actions use the standard button styling", () => {
+  stubTearleads();
+  const view = render(
+    <BillingDirectCheckout checkout={state({})} disabled={false} />,
+  );
+
+  for (const button of view.getAllByRole("button")) {
+    expect(button.classList.contains("mini-app-button")).toBe(true);
+    expect(button.classList.contains("mini-app-row--button")).toBe(false);
+  }
 });
 
 test("collecting shows Pay and Cancel over a visible element host", () => {

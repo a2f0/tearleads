@@ -192,8 +192,29 @@ test("subscribe options invoke onSubscribe with the chosen package", () => {
       })}
     />,
   );
-  fireEvent.click(view.getByText("$4.99").closest("button") as HTMLElement);
+  fireEvent.click(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.billingSubscribe }),
+  );
   expect(chosen).toEqual(["monthly"]);
+});
+
+test("subscription actions use the standard button styling", () => {
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({ status: "disabled", isLocal: false }),
+        purchaseAvailable: true,
+        canSubscribe: true,
+        options: [OPTION],
+        managementUrl: "https://billing.example/manage",
+      })}
+    />,
+  );
+
+  for (const button of view.getAllByRole("button")) {
+    expect(button.classList.contains("mini-app-button")).toBe(true);
+    expect(button.classList.contains("mini-app-row--button")).toBe(false);
+  }
 });
 
 test("platforms without purchases show the unavailable-purchases hint", () => {
@@ -260,6 +281,31 @@ test("an admin can open the provider manage page when a management URL exists", 
   }
 });
 
+test("subscription management delegates to the platform override", () => {
+  const managed: string[] = [];
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({
+          status: "active",
+          isLocal: false,
+          isActive: true,
+        }),
+        managementUrl: "https://apps.apple.com/account/subscriptions",
+        onManageSubscription: (url) => managed.push(url),
+      })}
+    />,
+  );
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: ORG_MANAGER_LABELS.billingManageSubscription,
+    }),
+  );
+
+  expect(managed).toEqual(["https://apps.apple.com/account/subscriptions"]);
+});
+
 test("no manage button renders without a management URL", () => {
   const view = render(
     <BillingView
@@ -293,7 +339,7 @@ test("refresh is always available to an admin", () => {
   expect(refreshed).toBe(1);
 });
 
-test("shows the Cancel row only during an embedded subscribe", () => {
+test("shows the Cancel button only during an embedded subscribe", () => {
   const embeddedBusy = props({
     purchaseAvailable: true,
     embeddedCheckout: true,
@@ -314,7 +360,7 @@ test("shows the Cancel row only during an embedded subscribe", () => {
   expect(view.queryByText(ORG_MANAGER_LABELS.billingCancelCheckout)).toBeNull();
 
   // Native platforms present their own store sheet with its own dismissal —
-  // an in-app Cancel row there would mislead.
+  // an in-app Cancel button there would mislead.
   view.rerender(
     <BillingView
       {...props({
@@ -341,7 +387,7 @@ test("shows the Cancel row only during an embedded subscribe", () => {
   expect(view.queryByText(ORG_MANAGER_LABELS.billingCancelCheckout)).toBeNull();
 });
 
-test("clicking the Cancel row dismisses the embedded checkout", () => {
+test("clicking the Cancel button dismisses the embedded checkout", () => {
   let cancelled = 0;
   const view = render(
     <BillingView
