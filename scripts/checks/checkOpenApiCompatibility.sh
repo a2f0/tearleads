@@ -3,6 +3,7 @@
 set -eu
 
 OPENAPI_PATH=docs/openapi.json
+ERROR_IGNORE_PATH=scripts/checks/openApiCompatibilityErrors.ignore
 
 fail() {
   echo "Error: $*" >&2
@@ -63,6 +64,41 @@ trap - EXIT
 set -- breaking "$base_spec" "$OPENAPI_PATH" \
   --fail-on WARN \
   --allow-external-refs=false
+
+if [ -f "$ERROR_IGNORE_PATH" ]; then
+  ignore_entries=$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' \
+    "$ERROR_IGNORE_PATH")
+  while IFS= read -r ignored_error || [ -n "$ignored_error" ]; do
+    case "$ignored_error" in
+      ''|'#'*) continue ;;
+    esac
+    reduced_ignore=$(mktemp "${TMPDIR:-/tmp}/openapi-ignore.XXXXXX")
+    reduced_output=$(mktemp "${TMPDIR:-/tmp}/openapi-output.XXXXXX")
+    trap 'rm -f "$reduced_ignore" "$reduced_output"' EXIT
+    awk -v ignored_error="$ignored_error" '
+      BEGIN { removed = 0 }
+      !removed && $0 == ignored_error { removed = 1; next }
+      { print }
+    ' "$ERROR_IGNORE_PATH" >"$reduced_ignore"
+    reduced_exit=0
+    mise exec github:oasdiff/oasdiff -- oasdiff "$@" \
+      --err-ignore "$reduced_ignore" \
+      --format text --color never >"$reduced_output" 2>&1 ||
+      reduced_exit=$?
+    if [ "$reduced_exit" -eq 0 ]; then
+      fail "unused OpenAPI compatibility ignore entry: $ignored_error"
+    fi
+    [ "$reduced_exit" -eq 1 ] || {
+      cat "$reduced_output" >&2
+      fail "oasdiff failed while validating the error ignore file."
+    }
+    rm -f "$reduced_ignore" "$reduced_output"
+    trap - EXIT
+  done <<EOF
+$ignore_entries
+EOF
+  set -- "$@" --err-ignore "$ERROR_IGNORE_PATH"
+fi
 
 if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
   set -- "$@" --format githubactions

@@ -71,6 +71,7 @@ export const DocumentSyncUpdateResponseSchema =
       id: z.string(),
       partialEndVersionVector: z.string(),
       partialStartVersionVector: z.string(),
+      plaintextHash: nonEmptyStringSchema,
       sourceVersionVector: z.string().min(1).optional(),
       writeHeader: plainObjectSchema,
     }).superRefine((update, context) => {

@@ -9,6 +9,8 @@ import type {
 } from "./types";
 
 const TEXT_ENCODER = new TextEncoder();
+const DOCUMENT_PLAINTEXT_HASH_DOMAIN =
+  "tearleads.document.content-record-plaintext";
 
 export function normalizeCanonicalJsonValue(
   value: KeyingCanonicalJson,
@@ -143,6 +145,7 @@ export function documentContentRecordMetadata(
     updateId: input.updateId,
     partialStartVersionVector: input.partialStartVersionVector,
     partialEndVersionVector: input.partialEndVersionVector,
+    plaintextHash: input.plaintextHash,
     ...(input.checkpointKind === undefined
       ? {}
       : { checkpointKind: input.checkpointKind }),
@@ -171,4 +174,19 @@ export async function computeDocumentContentRecordCiphertextHash(
     "tearleads.document.content-record-ciphertext",
     encryptedData,
   );
+}
+
+export async function computeDocumentContentRecordPlaintextHash(
+  plaintext: Uint8Array,
+  plaintextHashKey: CryptoKey,
+): Promise<string> {
+  const domain = TEXT_ENCODER.encode(DOCUMENT_PLAINTEXT_HASH_DOMAIN);
+  const input = new Uint8Array(4 + domain.byteLength + plaintext.byteLength);
+  new DataView(input.buffer).setUint32(0, domain.byteLength, false);
+  input.set(domain, 4);
+  input.set(plaintext, 4 + domain.byteLength);
+  const mac = new Uint8Array(
+    await crypto.subtle.sign("HMAC", plaintextHashKey, input),
+  );
+  return Array.from(mac, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }

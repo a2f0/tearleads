@@ -338,6 +338,7 @@ export interface DocumentContentRecordMetadataInput {
   documentId: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
+  plaintextHash: string;
   sourceVersionVector?: string;
   updateId: string;
 }

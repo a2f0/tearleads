@@ -34,6 +34,8 @@ export const DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT =
   "tearleads.document.loro-update";
 export const DOCUMENT_CONTENT_RECORD_KEY_INFO_DOMAIN =
   "tearleads.document.content-record-key-info";
+export const DOCUMENT_CONTENT_RECORD_PLAINTEXT_HASH_KEY_INFO_DOMAIN =
+  "tearleads.document.content-record-plaintext-hash-key-info";
 export const DOCUMENT_CONTENT_RECORD_AAD_DOMAIN =
   "tearleads.document.content-record-aad";
 export const DOCUMENT_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
@@ -377,6 +379,7 @@ export interface DocumentSyncPreparedUpdate {
   metadataHash: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
+  plaintextHash: string;
   signedAt?: string | undefined;
   sourceVersionVector?: string | undefined;
 }
@@ -386,6 +389,7 @@ export interface DocumentEncryptedPendingUpdate {
   encryptedData: string;
   metadataHash: string;
   ciphertextHash: string;
+  plaintextHash: string;
 }
 
 export interface ParsedDocumentEncryptedUpdate {

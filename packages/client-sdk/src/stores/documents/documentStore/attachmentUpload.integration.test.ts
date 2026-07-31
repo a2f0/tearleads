@@ -70,6 +70,7 @@ function createDocumentSyncResponse(input: {
         id: update.id,
         partialEndVersionVector: update.partialEndVersionVector,
         partialStartVersionVector: update.partialStartVersionVector,
+        plaintextHash: update.plaintextHash,
         writeHeader: update.writeHeader,
       };
     }),

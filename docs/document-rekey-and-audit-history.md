@@ -121,24 +121,38 @@ declares a coverage vector that dominates it. Under E2EE the server cannot open 
 cannot verify that the ciphertext actually contains the operations the
 coverage vector claims. A malicious authorized writer can therefore declare
 coverage its baseline does not carry and cause pruning of ciphertext the
-baseline cannot reproduce.
+baseline cannot reproduce. More strongly, version vectors describe causal
+shape rather than content: a rotation-capable writer can manufacture a
+full-history snapshot with the same peer/counter frontier but fabricated prior
+plaintext, sign it as the new baseline, and let pruning remove the original
+author-signed ciphertext.
 
 This is an accepted design property (roadmap #1607), with these bounds:
 
-- the damage requires an authorized writer for the document, and the impact
-  is data loss, not disclosure. Note the writer need not be able to read what
-  it destroys: a writer added after a rotation holds only the current-epoch
-  DEK, yet can declare coverage over pre-rotation updates it could never
-  decrypt
+- the damage requires an authorized writer for the document. A writer added
+  after a rotation can cause data loss without reading older epochs by
+  declaring coverage over updates it cannot decrypt. A writer that can read
+  the old history can additionally substitute fabricated prior content while
+  preserving the visible version-vector shape
 - the declaration is durable and attributable: checkpoint rows persist the
   claimed frontier and signed baseline checkpoints commit it to the audit
-  ledger. A false claim is detectable by any current-epoch reader — who can
-  decrypt the baseline and compare its actual frontier to the claimed one —
-  and attributable through the checkpoint's actor columns; the server can
-  never make that determination, and the cleared payloads are not
-  recoverable
+  ledger. Existing signed ciphertext hashes attribute the exact encrypted
+  record while that record is retained. Every document update additionally
+  commits a domain-separated, record-key-derived HMAC through its signed
+  metadata hash and the audit chain. A reader holding the original content key
+  and update bytes can confirm that plaintext identity after ciphertext
+  pruning, without giving the server a plaintext-guessing oracle. This
+  per-update commitment is not directly comparable to a flattened snapshot's
+  commitment, so it does not by itself prove that the snapshot faithfully
+  contains every committed update. A current-epoch reader can still compare a
+  baseline's actual frontier to its claim. A post-pruning joiner lacks the
+  original plaintext evidence and cannot make that comparison. The server
+  cannot inspect E2EE plaintext, and cleared payloads are not recoverable
 
-Candidate mitigations, deliberately not adopted:
+The stronger history-preserving mitigation remains per-update re-encryption on
+rotation with inner author signatures over the plaintext update bytes. That
+would preserve authorship across rekey and reduce a malicious rotator to the
+destruction-only bound. Other candidate mitigations, deliberately not adopted:
 
 - restrict `rotate_baseline` authorship by policy, narrowing which principals
   can trigger pruning

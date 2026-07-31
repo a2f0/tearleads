@@ -433,6 +433,10 @@
                           "type": "string",
                           "minLength": 1
                         },
+                        "plaintextHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
                         "sourceVersionVector": {
                           "type": "string",
                           "minLength": 1
@@ -448,6 +452,7 @@
                         "id",
                         "partialEndVersionVector",
                         "partialStartVersionVector",
+                        "plaintextHash",
                         "writeHeader"
                       ],
                       "additionalProperties": {}
@@ -731,6 +736,10 @@
                           "partialStartVersionVector": {
                             "type": "string"
                           },
+                          "plaintextHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
                           "sourceVersionVector": {
                             "type": "string",
                             "minLength": 1
@@ -750,6 +759,7 @@
                           "id",
                           "partialEndVersionVector",
                           "partialStartVersionVector",
+                          "plaintextHash",
                           "writeHeader"
                         ],
                         "additionalProperties": {}

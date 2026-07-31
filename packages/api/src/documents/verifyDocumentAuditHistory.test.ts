@@ -68,6 +68,7 @@ async function createDocumentWithAuditHistory() {
     id: crypto.randomUUID(),
     partialEndVersionVector: "baseline-end-version-vector",
     partialStartVersionVector: "baseline-start-version-vector",
+    plaintextHash: "baseline-plaintext-hash",
     sourceVersionVector: "baseline-source-version-vector",
   } as const;
   const auditEntryHashByUpdateId = await appendDocumentUpdateAuditEntries(db, {
@@ -116,7 +117,7 @@ test("verifyDocumentAuditHistory accepts a valid mixed document history", async 
   });
 });
 
-test("verifyDocumentAuditHistory detects tampered document update audit metadata", async () => {
+test("verifyDocumentAuditHistory detects a tampered plaintext hash", async () => {
   const { documentId } = await createDocumentWithAuditHistory();
 
   const [updateEvent] = await db
@@ -134,7 +135,42 @@ test("verifyDocumentAuditHistory detects tampered document update audit metadata
 
   await db
     .update(documentUpdateAuditEvents)
-    .set({ encryptedUpdateSha256: "tampered-update-sha256" })
+    .set({ plaintextHash: "tampered-plaintext-hash" })
+    .where(
+      eq(documentUpdateAuditEvents.auditEntryId, updateEvent.auditEntryId),
+    );
+
+  const result = await verifyDocumentAuditHistory(db, { documentId });
+
+  expect(result.isValid).toBe(false);
+  expect(
+    result.errors.some((error) =>
+      error.startsWith(
+        "Document update audit entry hash mismatch at sequence ",
+      ),
+    ),
+  ).toBe(true);
+});
+
+test("verifyDocumentAuditHistory detects a tampered ciphertext digest", async () => {
+  const { documentId } = await createDocumentWithAuditHistory();
+
+  const [updateEvent] = await db
+    .select({ auditEntryId: documentUpdateAuditEvents.auditEntryId })
+    .from(documentUpdateAuditEvents)
+    .innerJoin(
+      documentAuditEntries,
+      eq(documentAuditEntries.id, documentUpdateAuditEvents.auditEntryId),
+    )
+    .where(eq(documentAuditEntries.documentId, documentId))
+    .limit(1);
+  if (!updateEvent) {
+    throw new Error("Expected document update audit event");
+  }
+
+  await db
+    .update(documentUpdateAuditEvents)
+    .set({ encryptedUpdateSha256: "tampered-ciphertext-digest" })
     .where(
       eq(documentUpdateAuditEvents.auditEntryId, updateEvent.auditEntryId),
     );
@@ -289,6 +325,7 @@ test("audit entry sequences are engine-assigned and strictly increasing", async 
           id: crypto.randomUUID(),
           partialEndVersionVector: `sequence-end-${index}`,
           partialStartVersionVector: `sequence-start-${index}`,
+          plaintextHash: `sequence-plaintext-${index}`,
         },
       ],
     });

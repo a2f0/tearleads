@@ -180,6 +180,8 @@ export const documentAuditEntries = pgTable(
  *   update.
  * - `sourceVersionVector`: Optional source version vector supplied by the
  *   client.
+ * - `plaintextHash`: Domain-separated, record-key-derived HMAC of the decrypted
+ *   Loro update bytes committed by the signed document write metadata.
  * - `encryptedUpdateSha256`: SHA-256 digest of the encrypted update payload.
  * - `encryptedUpdateByteLength`: Byte length of the encrypted update payload.
  */
@@ -193,6 +195,7 @@ export const documentUpdateAuditEvents = pgTable(
     partialStartVersionVector: text("partial_start_version_vector").notNull(),
     partialEndVersionVector: text("partial_end_version_vector").notNull(),
     sourceVersionVector: text("source_version_vector"),
+    plaintextHash: text("plaintext_hash").notNull(),
     encryptedUpdateSha256: text("encrypted_update_sha256").notNull(),
     encryptedUpdateByteLength: integer(
       "encrypted_update_byte_length",

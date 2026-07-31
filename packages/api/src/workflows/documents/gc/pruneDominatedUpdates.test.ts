@@ -48,6 +48,7 @@ async function insertUpdate(input: {
 }): Promise<string> {
   const id = crypto.randomUUID();
   const partialStartVersionVector = emptyVersionVector();
+  const plaintextHash = `plaintext-${id}`;
   const metadataHash = input.sourceVersionVector
     ? await computeDocumentContentRecordMetadataHash({
         checkpointKind: "rotate_baseline",
@@ -55,6 +56,7 @@ async function insertUpdate(input: {
         documentId: input.documentId,
         partialEndVersionVector: input.partialEndVersionVector,
         partialStartVersionVector,
+        plaintextHash,
         sourceVersionVector: input.sourceVersionVector,
         updateId: id,
       })
@@ -68,6 +70,7 @@ async function insertUpdate(input: {
     id,
     partialEndVersionVector: input.partialEndVersionVector,
     partialStartVersionVector,
+    plaintextHash,
   });
   await db.insert(documentContentWriteHeaders).values({
     accessManifestHash: "manifest",

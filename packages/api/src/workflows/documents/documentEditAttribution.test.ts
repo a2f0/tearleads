@@ -52,6 +52,7 @@ async function insertUpdate(input: {
   writerKeyFingerprint: string;
 }): Promise<string> {
   const id = crypto.randomUUID();
+  const plaintextHash = `plaintext-${id}`;
   const partialStartVersionVector = input.checkpointSourceVersionVector
     ? emptyVersionVector()
     : "start";
@@ -66,6 +67,7 @@ async function insertUpdate(input: {
     documentId: input.documentId,
     partialEndVersionVector: input.partialEndVersionVector,
     partialStartVersionVector,
+    plaintextHash,
     updateId: id,
   });
   await db.insert(documentUpdates).values({
@@ -77,6 +79,7 @@ async function insertUpdate(input: {
     id,
     partialEndVersionVector: input.partialEndVersionVector,
     partialStartVersionVector,
+    plaintextHash,
   });
   await db.insert(documentContentWriteHeaders).values({
     accessManifestHash: "manifest",
@@ -258,6 +261,7 @@ test("rejects attribution spans whose write-header identity is missing", async (
     id: updateId,
     partialEndVersionVector: "end",
     partialStartVersionVector: "start",
+    plaintextHash: "missing-header-plaintext-hash",
   });
   await insertSpan({
     documentId: document.id,
