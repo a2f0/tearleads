@@ -195,6 +195,17 @@ async function seedKnownContainerKeks(input: {
   return keksByEpochId;
 }
 
+function successorKeyMaterial(
+  keksByEpochId: ReadonlyMap<string, UnwrappedContainerKek>,
+  kek: Pick<
+    ContainerWriterProjectionResponse["containerKeks"][number],
+    "containerKeyEpochId"
+  >,
+  unwrapped: Uint8Array | null,
+): Uint8Array | null {
+  return keksByEpochId.get(kek.containerKeyEpochId)?.keyMaterial ?? unwrapped;
+}
+
 export async function unwrapContainerKekPath(
   input: {
     execSql?: ExecSql | undefined;
@@ -290,7 +301,7 @@ export async function unwrapContainerKekPath(
       index,
       kek,
       keksByEpochId,
-      successorKeyMaterial: unwrapped,
+      successorKeyMaterial: successorKeyMaterial(keksByEpochId, kek, unwrapped),
       verifyBridgeCommitment: input.trustedLocalProjection !== true,
     });
   }

@@ -437,6 +437,12 @@ document rebaseline to read retained history. Fresh baselines remain a sync
 optimization and content-key rotation mechanism, not a key-recovery or
 liveness dependency.
 
+The complete predecessor chain is deliberately unbounded and projection size,
+server verification, and client bridge decryption therefore grow linearly with
+the number of rotations. A server or client must not cap or truncate that chain:
+doing so would make retained ciphertext undecryptable. Any future scalability
+optimization must preserve authenticated recovery of every retained epoch.
+
 An incomplete or corrupt predecessor chain is a hard integrity failure, not a
 state a client can repair or safely read around. The API never serves a
 truncated history: operators must restore the missing immutable epoch row or

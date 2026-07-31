@@ -104,7 +104,7 @@ async function loadPredecessorContainerKeksUncached(input: {
     successor = predecessor;
   }
 
-  if (successor.keyEpoch !== 1) {
+  if (successor.keyEpoch !== 1 || successor.predecessorBridge !== null) {
     throw new ContainerWriterProjectionError(
       "Container KEK predecessor chain does not reach its initial epoch",
       409,

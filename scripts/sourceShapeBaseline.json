@@ -50,8 +50,8 @@
       "bytes": 18158
     },
     "docs/keying-design.md": {
-      "lines": 932,
-      "bytes": 40925
+      "lines": 938,
+      "bytes": 41317
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 538,
@@ -138,8 +138,8 @@
       "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 4078,
-      "bytes": 134830
+      "lines": 4110,
+      "bytes": 135883
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1289,
@@ -271,7 +271,7 @@
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 1041,
-      "bytes": 36102
+      "bytes": 36123
     },
     "packages/client-sdk/src/data/documents/editAttribution.test.ts": {
       "lines": 580,

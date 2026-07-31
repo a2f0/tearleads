@@ -1485,6 +1485,38 @@ test("POST /containers materializes the signed metadata document binding", async
   });
 });
 
+test("POST /containers rejects a predecessor bridge on its initial KEK epoch", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const containerId = crypto.randomUUID();
+  const request = await buildCreateRequest({
+    containerId,
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const initialKeyEpochId = String(Reflect.get(request.keyEpoch, "id"));
+  request.predecessorBridge = (await createTestContainerKekPredecessorBridge({
+    containerId,
+    predecessorContainerKeyEpochId: initialKeyEpochId,
+    successorContainerKeyEpochId: await createTestContainerKekId(
+      containerId,
+      2,
+    ),
+  })) as unknown as Record<string, unknown>;
+
+  const response = await postMutation({
+    path: "/containers",
+    request,
+    token: owner.token,
+  });
+  expect(response.status).toBe(409);
+  await expect(response.json()).resolves.toEqual({
+    error: "Initial container KEK epoch cannot have a predecessor bridge",
+  });
+});
+
 test("POST /containers is rejected with 402 when the organization cannot sync", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);

@@ -527,6 +527,21 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
       Array.from(ownerRotatedKeks.get(rotatedContainerKeyEpochId) ?? []),
     ).toEqual(Array.from(rotatedContainerKek));
 
+    const preparedRewrapKeks = await unwrapContainerKekPath({
+      execSql,
+      knownContainerKeks: new Map([
+        [rotatedContainerKeyEpochId, rotatedContainerKek],
+      ]),
+      projection: revokedProjection,
+      resolveProjectionUserKey,
+      secretKey: revokedKeyPair.secretKey,
+    });
+    expect(
+      Array.from(
+        preparedRewrapKeks.get(parent.parentKekState.containerKeyEpochId) ?? [],
+      ),
+    ).toEqual(Array.from(parent.parentContainerKek));
+
     const substitutedProjection = structuredClone(revokedProjection);
     const substitutedBridge =
       substitutedProjection.containerKeks[0]?.predecessorKeks[0]?.bridge;

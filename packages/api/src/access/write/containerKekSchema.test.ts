@@ -13,5 +13,17 @@ test("container KEK predecessor bridge columns are all present or all absent", a
     createdByManifestHash: "partial-bridge-manifest",
   });
 
-  await expect(insert.execute()).rejects.toThrow();
+  const failure = await insert.execute().then(
+    () => null,
+    (error: unknown) => error,
+  );
+  expect(failure).toBeInstanceOf(Error);
+  const cause = failure instanceof Error ? failure.cause : null;
+  const constraint =
+    cause !== null && typeof cause === "object"
+      ? Reflect.get(cause, "constraint")
+      : null;
+  expect(`${String(failure)} ${String(cause)} ${String(constraint)}`).toContain(
+    "container_key_epochs_predecessor_bridge_complete",
+  );
 });
