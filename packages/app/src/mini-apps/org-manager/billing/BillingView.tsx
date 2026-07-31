@@ -75,7 +75,7 @@ export interface BillingViewProps {
   /** Provider manage/cancel page for the active subscription, or null if none. */
   readonly managementUrl: string | null;
   /** Platform override for opening the provider's subscription management. */
-  readonly onManageSubscription?: ((url: string) => void) | undefined;
+  readonly onManageSubscription: (url: string) => void;
   readonly busy: BillingBusyAction | null;
   readonly activationPending: boolean;
   readonly actionError: string | null;
@@ -237,25 +237,15 @@ function BillingSubscribeList({
   );
 }
 
-// Lets the host replace a provider URL with native management UI. Browser
-// shells fall back to a synchronous window.open inside the click gesture.
 function BillingManageButton({
   onManageSubscription,
   url,
 }: {
-  readonly onManageSubscription?: ((url: string) => void) | undefined;
+  readonly onManageSubscription: (url: string) => void;
   readonly url: string;
 }) {
   return (
-    <MiniAppButton
-      onClick={() => {
-        if (onManageSubscription) {
-          onManageSubscription(url);
-          return;
-        }
-        window.open(url, "_blank", "noopener,noreferrer");
-      }}
-    >
+    <MiniAppButton onClick={() => onManageSubscription(url)}>
       {ORG_MANAGER_LABELS.billingManageSubscription}
     </MiniAppButton>
   );

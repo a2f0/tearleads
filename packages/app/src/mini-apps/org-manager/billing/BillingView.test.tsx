@@ -46,6 +46,7 @@ function props(overrides: Partial<BillingViewProps>): BillingViewProps {
     busy: null,
     activationPending: false,
     actionError: null,
+    onManageSubscription: () => undefined,
     onStartTrial: () => undefined,
     onSubscribe: () => undefined,
     onRestore: () => undefined,
@@ -248,37 +249,6 @@ test("the direct-checkout path shows no subscribe list and no unavailable hint",
     view.queryByText(ORG_MANAGER_LABELS.billingPurchaseUnavailable),
   ).toBeNull();
   expect(view.queryByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeNull();
-});
-
-test("an admin can open the provider manage page when a management URL exists", () => {
-  const opened: Array<string | undefined> = [];
-  const originalOpen = window.open;
-  window.open = ((url?: string | URL) => {
-    opened.push(url === undefined ? undefined : String(url));
-    return null;
-  }) as typeof window.open;
-  try {
-    const view = render(
-      <BillingView
-        {...props({
-          view: billingView({
-            status: "active",
-            isLocal: false,
-            isActive: true,
-          }),
-          managementUrl: "https://billing.example/manage",
-        })}
-      />,
-    );
-    fireEvent.click(
-      view.getByRole("button", {
-        name: ORG_MANAGER_LABELS.billingManageSubscription,
-      }),
-    );
-    expect(opened).toEqual(["https://billing.example/manage"]);
-  } finally {
-    window.open = originalOpen;
-  }
 });
 
 test("subscription management delegates to the platform override", () => {

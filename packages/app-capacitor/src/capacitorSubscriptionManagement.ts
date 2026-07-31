@@ -29,7 +29,7 @@ function isAppleSubscriptionManagementUrl(value: string): boolean {
     return (
       url.protocol === "https:" &&
       url.hostname === "apps.apple.com" &&
-      url.pathname === "/account/subscriptions"
+      url.pathname.replace(/\/+$/, "") === "/account/subscriptions"
     );
   } catch {
     return false;

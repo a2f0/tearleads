@@ -119,7 +119,10 @@ export function BillingPanel({
 }) {
   const billing = useOrganizationBilling();
   const { refresh } = billing;
-  const handleManageSubscription = useOpenSubscriptionManagement();
+  const handleRefresh = useCallback(() => {
+    void refresh();
+  }, [refresh]);
+  const handleManageSubscription = useOpenSubscriptionManagement(handleRefresh);
   // Where the Web Billing checkout embeds so a purchase runs inside the panel
   // (the view keeps the div mounted; the hook reads it at purchase time).
   const checkoutHostRef = useRef<HTMLDivElement | null>(null);
@@ -139,9 +142,6 @@ export function BillingPanel({
     isOrgAdmin,
     billing.billing,
   );
-  const handleRefresh = useCallback(() => {
-    void refresh();
-  }, [refresh]);
   const {
     cancel,
     checkout,

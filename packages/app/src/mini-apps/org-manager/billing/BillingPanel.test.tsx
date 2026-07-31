@@ -1,7 +1,10 @@
-import { afterEach, expect, spyOn, test } from "bun:test";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
+import { cleanup, render, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
-import { createAppHostConfig } from "../../../host/AppHostConfig";
+import {
+  createAppHostConfig,
+  type OpenSubscriptionManagementFn,
+} from "../../../host/AppHostConfig";
 import * as BillingProvider from "../../../providers/billing/BillingProvider";
 import { DirectCheckoutProvider } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
@@ -10,6 +13,7 @@ import { PurchasesProvider } from "../../../providers/purchases/PurchasesProvide
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPanel } from "./BillingPanel";
+import { useOpenSubscriptionManagement } from "./useOpenSubscriptionManagement";
 
 /**
  * The container seam: where the in-app card checkout (issue #1654) and the
@@ -19,9 +23,11 @@ import { BillingPanel } from "./BillingPanel";
  */
 
 const spies: { mockRestore: () => void }[] = [];
+const originalWindowOpen = window.open;
 
 afterEach(() => {
   cleanup();
+  window.open = originalWindowOpen;
   while (spies.length > 0) {
     spies.pop()?.mockRestore();
   }
@@ -126,6 +132,29 @@ function wrapperWith(revenueCatAvailable: boolean) {
 
 /** RevenueCat unavailable: the card checkout stands on its own. */
 const wrapper = wrapperWith(false);
+
+function renderManagementHook(
+  openSubscriptionManagement?: OpenSubscriptionManagementFn,
+) {
+  const onNativeManagementClosed = mock(() => undefined);
+  const hostConfig = createAppHostConfig({
+    apiBaseUrl: "http://localhost",
+    openSubscriptionManagement,
+    wsUrl: "ws://localhost",
+  });
+  function ManagementWrapper({ children }: PropsWithChildren) {
+    return (
+      <AppHostConfigProvider value={hostConfig}>
+        {children}
+      </AppHostConfigProvider>
+    );
+  }
+  const hook = renderHook(
+    () => useOpenSubscriptionManagement(onNativeManagementClosed),
+    { wrapper: ManagementWrapper },
+  );
+  return { ...hook, onNativeManagementClosed };
+}
 
 test("an org that cannot sync is offered the in-app card checkout", async () => {
   stubEnvironment(false);
@@ -234,11 +263,13 @@ test("cancelling is offered for an active org with no provider-managed link", as
     { wrapper },
   );
 
-  await waitFor(() =>
-    expect(
-      view.getByText(ORG_MANAGER_LABELS.billingCancelSubscription),
-    ).toBeDefined(),
+  const cancelButton = await waitFor(() =>
+    view.getByRole("button", {
+      name: ORG_MANAGER_LABELS.billingCancelSubscription,
+    }),
   );
+  expect(cancelButton.classList.contains("mini-app-button")).toBe(true);
+  expect(cancelButton.classList.contains("mini-app-row--button")).toBe(false);
 });
 
 test("a trialing org can pay before the trial ends", async () => {
@@ -323,4 +354,56 @@ test("a non-admin cannot cancel", async () => {
       view.queryByText(ORG_MANAGER_LABELS.billingCancelSubscription),
     ).toBeNull(),
   );
+});
+
+test("subscription management opens the provider URL without a native host", () => {
+  const opened = mock(() => null);
+  window.open = opened as typeof window.open;
+  const { result, onNativeManagementClosed } = renderManagementHook();
+  const url = "https://apps.apple.com/account/subscriptions";
+
+  result.current(url);
+
+  expect(opened).toHaveBeenCalledWith(url, "_blank", "noopener,noreferrer");
+  expect(onNativeManagementClosed).not.toHaveBeenCalled();
+});
+
+test("subscription management refreshes after the native sheet closes", async () => {
+  const opened = mock(() => null);
+  window.open = opened as typeof window.open;
+  const openNative = mock(() => Promise.resolve());
+  const { result, onNativeManagementClosed } = renderManagementHook(openNative);
+  const url = "https://apps.apple.com/account/subscriptions";
+
+  result.current(url);
+
+  expect(openNative).toHaveBeenCalledWith(url);
+  await waitFor(() =>
+    expect(onNativeManagementClosed).toHaveBeenCalledTimes(1),
+  );
+  expect(opened).not.toHaveBeenCalled();
+});
+
+test("subscription management falls back when the native sheet fails", async () => {
+  const opened = mock(() => null);
+  window.open = opened as typeof window.open;
+  const nativeError = new Error("StoreKit unavailable");
+  const openNative = mock(() => Promise.reject(nativeError));
+  const consoleError = spyOn(console, "error").mockImplementation(
+    () => undefined,
+  );
+  spies.push(consoleError);
+  const { result, onNativeManagementClosed } = renderManagementHook(openNative);
+  const url = "https://apps.apple.com/account/subscriptions";
+
+  result.current(url);
+
+  await waitFor(() =>
+    expect(opened).toHaveBeenCalledWith(url, "_blank", "noopener,noreferrer"),
+  );
+  expect(consoleError).toHaveBeenCalledWith(
+    "Failed to open subscription management:",
+    nativeError,
+  );
+  expect(onNativeManagementClosed).not.toHaveBeenCalled();
 });

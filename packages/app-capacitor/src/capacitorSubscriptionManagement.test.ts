@@ -27,6 +27,15 @@ test("uses StoreKit for Apple subscription management on iOS", async () => {
   expect(fixture.openedUrls).toEqual([]);
 });
 
+test("uses StoreKit when Apple's management URL has a trailing slash", async () => {
+  const fixture = setup("ios");
+
+  await fixture.manage("https://apps.apple.com/account/subscriptions/");
+
+  expect(fixture.nativeCalls).toEqual(["show"]);
+  expect(fixture.openedUrls).toEqual([]);
+});
+
 test("keeps non-Apple provider links manageable from iOS", async () => {
   const fixture = setup("ios");
   const url = "https://play.google.com/store/account/subscriptions";

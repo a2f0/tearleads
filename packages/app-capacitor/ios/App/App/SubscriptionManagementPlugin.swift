@@ -12,7 +12,10 @@ final class SubscriptionManagementPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func show(_ call: CAPPluginCall) {
         Task { @MainActor [weak self] in
             guard let windowScene = self?.bridge?.viewController?.view.window?.windowScene else {
-                call.reject("No active window is available for subscription management")
+                call.reject(
+                    "No active window is available for subscription management",
+                    "WINDOW_UNAVAILABLE"
+                )
                 return
             }
 
@@ -22,7 +25,7 @@ final class SubscriptionManagementPlugin: CAPPlugin, CAPBridgedPlugin {
             } catch {
                 call.reject(
                     "Failed to show subscription management",
-                    (error as NSError).domain,
+                    "SHOW_FAILED",
                     error
                 )
             }
