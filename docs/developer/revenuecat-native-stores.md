@@ -23,7 +23,7 @@ is specific to the native bridge, as opposed to the web one:
 - **iOS purchase failures retain content-free diagnostics.** The first-party
   `RevenueCatPurchasePlugin` purchases through RevenueCat's public Swift API and
   returns only active entitlement IDs. On failure it preserves the RevenueCat
-  code, cancellation flag, numeric backend subcode, and StoreKit domain/code.
+  code, cancellation flag, and StoreKit domain/code.
   Android and every non-purchase operation continue through RevenueCat's
   official Capacitor plugin. The System Monitor includes those bounded values
   but still excludes receipt, account, and free-form provider text.

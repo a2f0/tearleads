@@ -39,7 +39,7 @@ test("purchase failures emit an ordered error trace", async () => {
     {
       level: "error",
       message:
-        "billing purchase stage=failed code=product-unavailable backend=none native=none userCancelled=unknown",
+        "billing purchase stage=failed code=product-unavailable native=none userCancelled=unknown",
     },
   ]);
 });

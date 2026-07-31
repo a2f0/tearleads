@@ -53,6 +53,7 @@ const PURCHASE_FAILURE_CODES: ReadonlyArray<readonly [string, string]> = [
   ["34", "invalid-promotional-offer"],
   ["35", "offline"],
   ["42", "test-store-simulated-purchase"],
+  ["native-error", "native-bridge"],
 ];
 
 const PURCHASE_FAILURE_CODE_BY_VALUE = new Map(PURCHASE_FAILURE_CODES);
@@ -82,7 +83,7 @@ const NATIVE_ERROR_DOMAIN_FRAGMENT = NATIVE_ERROR_DOMAINS.map(
 export const BILLING_PURCHASE_TRACE_FRAGMENT = `(?:${[
   "billing purchase stage=(?:started|identified|provider-started|aborted|cancelled|superseded)",
   "billing purchase stage=(?:succeeded|late-succeeded) entitlement=(?:active|inactive)",
-  `billing purchase stage=(?:failed|late-failed) code=(?:${PURCHASE_FAILURE_CODE_FRAGMENT}) backend=(?:none|-?\\d{1,10}) native=(?:none|(?:${NATIVE_ERROR_DOMAIN_FRAGMENT}):-?\\d{1,10}) userCancelled=(?:true|false|unknown)`,
+  `billing purchase stage=(?:failed|late-failed) code=(?:${PURCHASE_FAILURE_CODE_FRAGMENT}) native=(?:none|(?:${NATIVE_ERROR_DOMAIN_FRAGMENT}):-?\\d{1,10}) userCancelled=(?:true|false|unknown)`,
 ]
   .map((alternative) => `(?:${alternative})`)
   .join("|")})`;
@@ -136,12 +137,6 @@ function readBoundedInteger(value: unknown): string | undefined {
         ? value
         : undefined;
   return text && /^-?\d{1,10}$/u.test(text) ? text : undefined;
-}
-
-function readBackendErrorCode(error: unknown): string {
-  return (
-    readBoundedInteger(readDiagnosticField(error, "backendErrorCode")) ?? "none"
-  );
 }
 
 function readNativeErrorMessages(error: unknown): Array<string | undefined> {
@@ -204,5 +199,5 @@ export function formatBillingPurchaseFailure(
 ): string {
   const code =
     PURCHASE_FAILURE_CODE_BY_VALUE.get(readErrorCode(error) ?? "") ?? "other";
-  return `billing purchase stage=${late ? "late-failed" : "failed"} code=${code} backend=${readBackendErrorCode(error)} native=${classifyNativeError(error)} userCancelled=${readUserCancelled(error)}`;
+  return `billing purchase stage=${late ? "late-failed" : "failed"} code=${code} native=${classifyNativeError(error)} userCancelled=${readUserCancelled(error)}`;
 }

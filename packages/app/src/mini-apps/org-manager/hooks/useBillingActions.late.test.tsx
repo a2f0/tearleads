@@ -308,7 +308,7 @@ test("a late failure of a cancelled checkout spares its replacement", async () =
   ).toEqual({
     level: "error",
     message:
-      "billing purchase stage=late-failed code=other backend=none native=none userCancelled=unknown",
+      "billing purchase stage=late-failed code=other native=none userCancelled=unknown",
   });
 
   await act(async () => {

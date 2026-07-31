@@ -12,7 +12,7 @@ const fixture: {
   platform: string;
   configureCalls: { apiKey: string; appUserID?: string }[];
   purchaseCalls: { identifier: string }[];
-  nativePurchaseCalls: { identifier: string }[];
+  nativePurchaseCalls: { identifier: string; productId: string }[];
   attributeCalls: Record<string, string | null>[];
   packages: PurchasesPackage[];
   purchaseRejection: unknown;
@@ -61,8 +61,17 @@ mock.module("@capacitor/core", () => ({
         return { show: () => Promise.resolve() };
       }
       return {
-        purchasePackage: ({ packageId }: { packageId: string }) => {
-          fixture.nativePurchaseCalls.push({ identifier: packageId });
+        purchasePackage: ({
+          packageId,
+          productId,
+        }: {
+          packageId: string;
+          productId: string;
+        }) => {
+          fixture.nativePurchaseCalls.push({
+            identifier: packageId,
+            productId,
+          });
           if (fixture.purchaseRejection !== null) {
             return Promise.reject(fixture.purchaseRejection);
           }
@@ -247,7 +256,9 @@ test("binds the purchase to the organization before presenting the sheet", async
   // The server webhook resolves a non-Stripe store event against this
   // subscriber attribute, so it must be set before the purchase, not after.
   expect(fixture.attributeCalls).toEqual([{ orgId: "org-1" }]);
-  expect(fixture.nativePurchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(fixture.nativePurchaseCalls).toEqual([
+    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+  ]);
   expect(fixture.purchaseCalls).toEqual([]);
   expect(result.syncEntitlementActive).toBe(true);
 });
@@ -369,6 +380,21 @@ test("treats a dismissed store sheet as a cancellation, not a failure", async ()
       packageId: "monthly",
     }),
   ).rejects.toBeInstanceOf(PurchaseCancelledError);
+});
+
+test("normalizes cancellation from the Android RevenueCat bridge", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.purchaseRejection = { code: "1" };
+
+  await expect(
+    createCapacitorPurchases().purchaseSync({
+      organizationId: "org-1",
+      packageId: "monthly",
+    }),
+  ).rejects.toBeInstanceOf(PurchaseCancelledError);
+  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
 });
 
 test("propagates a genuine store failure unchanged", async () => {

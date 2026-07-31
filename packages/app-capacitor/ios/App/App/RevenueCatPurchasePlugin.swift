@@ -27,11 +27,20 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
             )
             return
         }
+        guard let productId = call.getString("productId"), !productId.isEmpty else {
+            Self.reject(
+                call,
+                code: ErrorCode.purchaseInvalidError.rawValue,
+                userCancelled: false
+            )
+            return
+        }
 
         Task { @MainActor in
             do {
                 let offerings = try await Purchases.shared.offerings()
-                guard let package = offerings.current?.package(identifier: packageId) else {
+                guard let package = offerings.current?.package(identifier: packageId),
+                      package.storeProduct.productIdentifier == productId else {
                     Self.reject(
                         call,
                         code: ErrorCode.productNotAvailableForPurchaseError.rawValue,
@@ -64,7 +73,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         call.reject(
             "RevenueCat purchase failed",
             isRevenueCatError ? String(nativeError.code) : "native-error",
-            nativeError,
+            nil,
             diagnosticData(
                 for: nativeError,
                 userCancelled: isRevenueCatError &&
@@ -88,11 +97,6 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
     ) -> [String: Any] {
         var data: [String: Any] = ["userCancelled": userCancelled]
 
-        // These private diagnostic keys were verified against RevenueCat 5.80.0.
-        // Missing or renamed keys fail closed by omitting the diagnostic value.
-        if let backendErrorCode = error.userInfo["rc_backend_error_code"] as? Int {
-            data["backendErrorCode"] = backendErrorCode
-        }
         if let storeError = storeError(from: error) {
             data["storeError"] = storeError
         }
@@ -101,25 +105,32 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private static func storeError(from error: NSError) -> [String: Any]? {
-        // `rc_root_error` is a private RevenueCat 5.80.0 diagnostic key.
+        var currentError: NSError? = error
+        while let candidate = currentError {
+            if isStoreDiagnosticDomain(candidate.domain) {
+                return ["domain": candidate.domain, "code": candidate.code]
+            }
+            currentError = candidate.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+
+        // RevenueCat 5.80.0's PurchasesError.asPublicError documents this
+        // content-only fallback when an underlying NSError is unavailable.
         if let rootError = error.userInfo["rc_root_error"] as? [String: Any],
            let domain = rootError["domain"] as? String,
            let code = rootError["code"] as? Int,
-           !domain.hasPrefix("RevenueCat") {
+           isStoreDiagnosticDomain(domain) {
             return ["domain": domain, "code": code]
         }
-
-        if !error.domain.hasPrefix("RevenueCat") {
-            return ["domain": error.domain, "code": error.code]
-        }
-
-        var currentError: NSError? = error
-        while let underlyingError = currentError?.userInfo[NSUnderlyingErrorKey] as? NSError {
-            if !underlyingError.domain.hasPrefix("RevenueCat") {
-                return ["domain": underlyingError.domain, "code": underlyingError.code]
-            }
-            currentError = underlyingError
-        }
         return nil
+    }
+
+    private static func isStoreDiagnosticDomain(_ domain: String) -> Bool {
+        return [
+            "AMSErrorDomain",
+            "ASDErrorDomain",
+            "NSURLErrorDomain",
+            "SKErrorDomain",
+            "StoreKitErrorDomain"
+        ].contains(domain)
     }
 }

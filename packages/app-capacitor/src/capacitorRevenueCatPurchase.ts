@@ -8,6 +8,7 @@ import type { RevenueCatCustomerInfo } from "@tearleads/client-sdk";
 interface NativeRevenueCatPurchasePlugin {
   purchasePackage(options: {
     packageId: string;
+    productId: string;
   }): Promise<{ activeEntitlementIds?: unknown }>;
 }
 
@@ -22,15 +23,17 @@ function getNativeRevenueCatPurchase(): NativeRevenueCatPurchasePlugin {
 }
 
 export function toRevenueCatCustomerInfo(
-  activeEntitlementIds: unknown,
+  activeEntitlementIds: readonly string[],
 ): RevenueCatCustomerInfo {
   return {
-    activeEntitlementIds: Array.isArray(activeEntitlementIds)
-      ? activeEntitlementIds.filter(
-          (entry): entry is string => typeof entry === "string",
-        )
-      : [],
+    activeEntitlementIds: [...activeEntitlementIds],
   };
+}
+
+function normalizeActiveEntitlementIds(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
 }
 
 /**
@@ -50,6 +53,9 @@ export async function purchaseCapacitorRevenueCatPackage(
 
   const result = await getNativeRevenueCatPurchase().purchasePackage({
     packageId: aPackage.identifier,
+    productId: aPackage.product.identifier,
   });
-  return toRevenueCatCustomerInfo(result?.activeEntitlementIds);
+  return toRevenueCatCustomerInfo(
+    normalizeActiveEntitlementIds(result?.activeEntitlementIds),
+  );
 }
