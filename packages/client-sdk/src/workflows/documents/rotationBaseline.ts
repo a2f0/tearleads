@@ -5,10 +5,8 @@ import {
 } from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import { createPendingUpdateFields } from "../../data/documentSync";
-import {
-  encryptDocumentPendingUpdate,
-  importDocumentContentKeyMaterial,
-} from "../../data/documents/shared/crypto";
+import { importDocumentContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
+import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
 import type {
   DocumentCreateAuthor,
   DocumentLinkSetMutationOperation,

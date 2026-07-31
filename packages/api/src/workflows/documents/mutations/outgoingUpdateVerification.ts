@@ -171,27 +171,40 @@ async function assertRetryWriteHeaderMatches(input: {
   }
 }
 
+interface StoredDocumentUpdateContent {
+  readonly encryptedData: string;
+  readonly partialEndVersionVector: string;
+  readonly partialStartVersionVector: string;
+  readonly plaintextHash: string;
+}
+
+export function storedDocumentUpdateMatchesOutgoingContent(
+  existing: StoredDocumentUpdateContent | undefined,
+  update: Pick<
+    DocumentOutgoingUpdate,
+    | "encryptedData"
+    | "partialEndVersionVector"
+    | "partialStartVersionVector"
+    | "plaintextHash"
+  >,
+): boolean {
+  return (
+    existing !== undefined &&
+    existing.encryptedData === update.encryptedData &&
+    existing.partialStartVersionVector === update.partialStartVersionVector &&
+    existing.partialEndVersionVector === update.partialEndVersionVector &&
+    existing.plaintextHash === update.plaintextHash
+  );
+}
+
 export async function assertRetryUpdateMatchesAcceptedContent(input: {
   readonly acceptedHeaderHash: string | undefined;
   readonly documentId: string;
-  readonly existingRow:
-    | {
-        readonly encryptedData: string;
-        readonly partialEndVersionVector: string;
-        readonly partialStartVersionVector: string;
-        readonly plaintextHash: string;
-      }
-    | undefined;
+  readonly existingRow: StoredDocumentUpdateContent | undefined;
   readonly update: DocumentOutgoingUpdate;
 }): Promise<void> {
   if (
-    !input.existingRow ||
-    input.existingRow.encryptedData !== input.update.encryptedData ||
-    input.existingRow.partialStartVersionVector !==
-      input.update.partialStartVersionVector ||
-    input.existingRow.partialEndVersionVector !==
-      input.update.partialEndVersionVector ||
-    input.existingRow.plaintextHash !== input.update.plaintextHash
+    !storedDocumentUpdateMatchesOutgoingContent(input.existingRow, input.update)
   ) {
     throw documentUpdateIdConflict();
   }

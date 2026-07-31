@@ -120,6 +120,32 @@ test("fails closed when the stored plaintext hash differs from signed metadata",
   });
 });
 
+test("fails closed when an ordinary update plaintext hash differs from signed metadata", async () => {
+  const fixture = await checkpointFixture();
+  const metadataHash = await computeDocumentContentRecordMetadataHash({
+    documentId: fixture.documentId,
+    partialEndVersionVector: fixture.partialEndVersionVector,
+    partialStartVersionVector: fixture.partialStartVersionVector,
+    plaintextHash: fixture.plaintextHash,
+    updateId: fixture.updateId,
+  });
+
+  await expect(
+    authenticateSyncCheckpointForResponse({
+      checkpoint: undefined,
+      documentId: fixture.documentId,
+      metadataHash,
+      partialEndVersionVector: fixture.partialEndVersionVector,
+      partialStartVersionVector: fixture.partialStartVersionVector,
+      plaintextHash: "tampered-plaintext-hash",
+      updateId: fixture.updateId,
+    }),
+  ).rejects.toMatchObject({
+    message: "Document update metadata failed integrity validation",
+    status: 409,
+  });
+});
+
 test("fails closed when an authenticated checkpoint lost its checkpoint row", async () => {
   const fixture = await checkpointFixture();
   const metadataHash = await computeDocumentContentRecordMetadataHash({

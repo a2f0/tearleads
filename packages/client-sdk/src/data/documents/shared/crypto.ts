@@ -58,8 +58,6 @@ function contentRecordAdditionalDataBytes(input: {
   );
 }
 
-export { importDocumentContentKeyMaterial };
-
 export async function encryptDocumentPendingUpdate(input: {
   contentKeyMaterial: CryptoKey;
   contentKeyEpoch: number;

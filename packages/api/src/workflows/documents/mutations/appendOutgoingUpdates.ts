@@ -13,6 +13,7 @@ import { uniqueSortedStrings } from "../../../utils/array";
 import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
 import {
   assertRetryUpdateMatchesAcceptedContent,
+  storedDocumentUpdateMatchesOutgoingContent,
   uniqueOutgoingUpdates,
   verifyOutgoingWriteHeader,
 } from "./outgoingUpdateVerification";
@@ -182,14 +183,7 @@ async function assertConcurrentlyCommittedUpdatesMatch(input: {
   const committedRowsById = new Map(committedRows.map((row) => [row.id, row]));
   for (const update of skippedUpdates) {
     const committedRow = committedRowsById.get(update.id);
-    if (
-      !committedRow ||
-      committedRow.encryptedData !== update.encryptedData ||
-      committedRow.partialStartVersionVector !==
-        update.partialStartVersionVector ||
-      committedRow.partialEndVersionVector !== update.partialEndVersionVector ||
-      committedRow.plaintextHash !== update.plaintextHash
-    ) {
+    if (!storedDocumentUpdateMatchesOutgoingContent(committedRow, update)) {
       throw documentUpdateIdConflict();
     }
   }

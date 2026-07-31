@@ -33,10 +33,10 @@ import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
 } from "../../data/documentSync";
+import { importDocumentContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import {
   decryptDocumentSyncUpdatesByEpoch,
   encryptDocumentPendingUpdate,
-  importDocumentContentKeyMaterial,
 } from "../../data/documents/shared/crypto";
 import {
   assertDocumentWriterProjectionConsistent,
