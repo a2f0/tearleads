@@ -3,6 +3,11 @@ export * from "./canonical";
 export * from "./checkpoints";
 export * from "./containerAccess";
 export * from "./containerKek";
+export {
+  createContainerKekPredecessorBridge,
+  normalizeContainerKekPredecessorBridge,
+  unwrapContainerKekPredecessorBridge,
+} from "./containerKekPredecessor";
 export * from "./documentAccess";
 export * from "./principalPolicy";
 export type {

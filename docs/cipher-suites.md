@@ -61,6 +61,7 @@ ML-KEM-wrapped out to users and principals.
 | Document & blob content records (per-record HKDF key) | `aes-256-gcm-hkdf-sha256-record-key` — `packages/client-sdk/src/data/documents/shared/crypto.ts`, `.../blob/shared/chunkedBlobCrypto.ts` |
 | Wrap content key to container KEK | `tearleads.{document,blob}.content-key-wrap.aes-256-gcm-container-kek` — `.../shared/projectionContentKeys.ts`, `.../blob/shared/projection.ts` |
 | Wrap container KEK to parent KEK | `tearleads.container-kek-wrap.aes-256-gcm-parent-kek` — `.../containers/shared/projection.ts` |
+| Wrap predecessor container KEK to successor KEK | `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` — `packages/crypto/src/keying/containerKekPredecessor.ts` |
 | DEK wrapping under a KEM shared secret | `packages/crypto/src/encapsulation/wrapDek.ts` |
 | Local keyring root-key wrapping (`account-root` envelope) | `packages/client-sdk/src/client/localKeyring.ts` |
 | Local identity package at rest | `packages/app/src/providers/identity/localIdentityPackageCrypto.ts` |

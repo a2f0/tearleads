@@ -194,6 +194,9 @@ CREATE TABLE "container_key_epochs" (
 	"key_epoch" integer NOT NULL,
 	"access_manifest_hash" text NOT NULL,
 	"parent_container_key_epoch_id" text,
+	"predecessor_container_key_epoch_id" text,
+	"predecessor_bridge_iv" text,
+	"wrapped_predecessor_key" text,
 	"created_by_event_hash" text NOT NULL,
 	"created_by_manifest_hash" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
@@ -697,6 +700,7 @@ CREATE UNIQUE INDEX "container_key_epochs_container_epoch_idx" ON "container_key
 CREATE INDEX "container_key_epochs_container_idx" ON "container_key_epochs" USING btree ("container_id");--> statement-breakpoint
 CREATE INDEX "container_key_epochs_access_manifest_idx" ON "container_key_epochs" USING btree ("access_manifest_hash");--> statement-breakpoint
 CREATE INDEX "container_key_epochs_parent_idx" ON "container_key_epochs" USING btree ("parent_container_key_epoch_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "container_key_epochs_predecessor_idx" ON "container_key_epochs" USING btree ("predecessor_container_key_epoch_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "container_key_wraps_epoch_recipient_idx" ON "container_key_wraps" USING btree ("container_key_epoch_id","recipient_kind","recipient_id","recipient_key_epoch_id");--> statement-breakpoint
 CREATE INDEX "container_key_wraps_epoch_idx" ON "container_key_wraps" USING btree ("container_key_epoch_id");--> statement-breakpoint
 CREATE INDEX "container_key_wraps_recipient_idx" ON "container_key_wraps" USING btree ("recipient_kind","recipient_id");--> statement-breakpoint

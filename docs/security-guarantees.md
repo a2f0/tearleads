@@ -188,8 +188,10 @@ recipient private key, a principal secret key, or an object DEK to decrypt.
 The content-record suite `aes-256-gcm-hkdf-sha256-record-key` applies only to
 document and blob payload records. Document and blob content-key wraps use
 explicit `tearleads.*.content-key-wrap.aes-256-gcm-container-kek` suites, while
-container KEK wraps use either ML-KEM-1024 plus AES-GCM for principal
-recipients or AES-GCM under the parent container KEK.
+container KEK wraps use ML-KEM-1024 plus AES-GCM for principals or AES-GCM
+under a parent or successor KEK. Rotations use the
+`tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` suite for their
+immediate predecessor. Current clients must verify that chain through epoch 1.
 
 All container KEK epochs use a
 `tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the

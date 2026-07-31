@@ -399,6 +399,7 @@ async function buildChildCreateRequest(input: {
         input.parent,
       ]))) as unknown as Record<string, unknown>[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
     userRecipientKeys: [],

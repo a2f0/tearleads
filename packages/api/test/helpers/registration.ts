@@ -603,6 +603,7 @@ async function createRootContainerArtifacts(input: {
       parentContainerPath: [],
       principalPolicies,
       keyEpoch: toWireRecord(keyEpoch, "root container request key epoch"),
+      predecessorBridge: null,
       wraps: toWireRecords([wrap], "root container request wraps"),
       userRecipientKeys: toWireRecords(
         userRecipientKeys,
@@ -777,6 +778,7 @@ async function createChildContainerArtifacts(input: {
       parentContainerPath: input.parentProjection.path,
       principalPolicies,
       keyEpoch: toWireRecord(keyEpoch, "child container request key epoch"),
+      predecessorBridge: null,
       wraps: toWireRecords(wraps, "child container request wraps"),
       parentKekState: toWireRecord(parentKek, "child container parent KEK"),
       userRecipientKeys: [],
@@ -830,6 +832,7 @@ function childContainerProjectionFromArtifacts(input: {
         keyEpochHash: input.child.keyEpochHash,
         keyTargetHash: input.child.keyTargetHash,
         containerManifestHistory: [],
+        predecessorKeks: [],
         parentContainerKeyEpochId: parentKek.containerKeyEpochId,
         recipientTargets: toWireRecords(
           input.child.recipientTargets,

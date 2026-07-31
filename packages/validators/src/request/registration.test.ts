@@ -131,6 +131,7 @@ test("isRegistrationRequest", () => {
       previousManifest: null,
       parentContainerPath: [],
       keyEpoch: { id: "container-key-epoch-id" },
+      predecessorBridge: null,
       principalPolicies: [],
       wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
       userRecipientKeys: [{ userId }],

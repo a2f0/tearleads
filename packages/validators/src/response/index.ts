@@ -50,12 +50,12 @@ export {
   type ContainerSummary,
   type ContainerSyncTombstone,
   type ContainerWriterProjectionResponse,
-  type HistoricalContainerKekResponse,
   isContainerDeleteResponse,
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,
   isListContainersResponse,
   type ListContainersResponse,
+  type PredecessorContainerKekResponse,
 } from "./container";
 export {
   type ContainerCreateWithMetadataDocumentResponse,

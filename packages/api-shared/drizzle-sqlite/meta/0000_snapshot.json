@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "96989aee-7276-4252-83dd-47229d6b2ce0",
+  "id": "8e7f0df6-5012-4679-920c-51d3be50e88b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -1510,6 +1510,27 @@
           "notNull": false,
           "autoincrement": false
         },
+        "predecessor_container_key_epoch_id": {
+          "name": "predecessor_container_key_epoch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "predecessor_bridge_iv": {
+          "name": "predecessor_bridge_iv",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "wrapped_predecessor_key": {
+          "name": "wrapped_predecessor_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_by_event_hash": {
           "name": "created_by_event_hash",
           "type": "text",
@@ -1553,6 +1574,11 @@
           "name": "container_key_epochs_parent_idx",
           "columns": ["parent_container_key_epoch_id"],
           "isUnique": false
+        },
+        "container_key_epochs_predecessor_idx": {
+          "name": "container_key_epochs_predecessor_idx",
+          "columns": ["predecessor_container_key_epoch_id"],
+          "isUnique": true
         }
       },
       "foreignKeys": {},

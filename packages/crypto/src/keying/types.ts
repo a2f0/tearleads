@@ -78,6 +78,8 @@ export const CONTAINER_KEK_USER_WRAP_SUITE =
   "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm" as const;
 export const CONTAINER_KEK_PARENT_WRAP_SUITE =
   "tearleads.container-kek-wrap.aes-256-gcm-parent-kek" as const;
+export const CONTAINER_KEK_PREDECESSOR_WRAP_SUITE =
+  "tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek" as const;
 export const CONTAINER_KEK_MATERIAL_ID_PREFIX =
   "tearleads.container-kek.v1.sha256:" as const;
 
@@ -276,6 +278,16 @@ export interface ContainerKeyWrap {
   kemCipherText: string;
   wrappedKey: string;
   wrapManifestHash: string;
+}
+
+export interface ContainerKekPredecessorBridge {
+  version: 1;
+  wrappingSuite: typeof CONTAINER_KEK_PREDECESSOR_WRAP_SUITE;
+  containerId: string;
+  predecessorContainerKeyEpochId: string;
+  successorContainerKeyEpochId: string;
+  iv: string;
+  wrappedKey: string;
 }
 
 export interface ContainerUserRecipientKey {

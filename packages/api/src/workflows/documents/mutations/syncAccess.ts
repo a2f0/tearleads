@@ -33,7 +33,7 @@ async function ensureDocumentAccess(
         executor: input.executor,
         // Authorization only — the response is discarded, so never pay the
         // manifest-lineage walk and historical policy loading here.
-        includeHistoricalKeks: false,
+        includePredecessorKeks: false,
         userId: input.userId,
       });
       return;

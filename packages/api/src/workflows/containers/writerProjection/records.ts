@@ -17,7 +17,7 @@ import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   ContainerKekResponse,
-  HistoricalContainerKekResponse,
+  PredecessorContainerKekResponse,
 } from "@tearleads/validators/response";
 import {
   projectionAccessManifestRecord,
@@ -302,7 +302,7 @@ export function stripContainerKeyEpoch(
   };
 }
 
-function containerKeyEpochRecord(
+export function containerKeyEpochRecord(
   keyEpoch: ContainerKeyEpoch,
 ): Record<string, unknown> {
   return {
@@ -331,7 +331,7 @@ export function stripContainerKeyWrap(
   };
 }
 
-export function containerKeyWrapRecord(
+function containerKeyWrapRecord(
   wrap: ContainerKeyWrap,
 ): Record<string, unknown> {
   return {
@@ -359,7 +359,7 @@ function containerKekRecipientTargetRecord(
 
 export function containerKekResponse(
   projection: ContainerKekProjection,
-  historicalKeks?: readonly HistoricalContainerKekResponse[],
+  predecessorKeks: readonly PredecessorContainerKekResponse[],
 ): ContainerKekResponse {
   const kekState = projection.state;
   return {
@@ -367,9 +367,7 @@ export function containerKekResponse(
     accessManifestHash: kekState.accessManifestHash,
     containerKeyEpochId: kekState.containerKeyEpochId,
     containerKeyEpoch: kekState.containerKeyEpoch,
-    ...(historicalKeks !== undefined && historicalKeks.length > 0
-      ? { historicalKeks: [...historicalKeks] }
-      : {}),
+    predecessorKeks: [...predecessorKeks],
     keyEpoch: containerKeyEpochRecord(kekState.keyEpoch),
     keyEpochHash: kekState.keyEpochHash,
     keyTargetHash: kekState.keyTargetHash,

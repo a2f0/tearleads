@@ -347,7 +347,7 @@ export async function mutateContainerWithExecutor(
     previousManifest: artifacts.previousManifest,
   });
   await assertMutationHeadCanAdvance(context, artifacts.manifest);
-  const kekState = await verifyContainerKekFromRequest(
+  const verifiedKekMutation = await verifyContainerKekFromRequest(
     context.executor,
     input.request,
     artifacts.manifest,
@@ -365,7 +365,7 @@ export async function mutateContainerWithExecutor(
   return persistVerifiedMutation(
     context,
     artifacts.manifest,
-    kekState,
+    verifiedKekMutation,
     artifacts.previousManifest,
     artifacts.previousContainerPath,
   );

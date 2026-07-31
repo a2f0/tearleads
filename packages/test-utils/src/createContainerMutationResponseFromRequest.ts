@@ -186,6 +186,7 @@ export async function createContainerMutationResponseFromRequest(
         await computeContainerKekRecipientTargetHash(recipientTargets),
       parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
       containerManifestHistory,
+      predecessorKeks: [],
       recipientTargets: recipientTargets as unknown as Record<
         string,
         unknown

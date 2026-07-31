@@ -10,6 +10,7 @@ import {
   computeContainerKeyEpochHash,
   computePrincipalStateHash,
   computeWriteHeaderHash,
+  createContainerKekPredecessorBridge,
   decryptWithDek,
   derivePrincipalRecipientKeyEpochId,
   generateKemSeedAndKeyPair,
@@ -464,6 +465,13 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
       throw verifiedRotatedKek.error;
     }
     const rotatedKekState = verifiedRotatedKek.value;
+    const predecessorBridge = await createContainerKekPredecessorBridge({
+      containerId: parent.parentKekState.containerId,
+      predecessorContainerKey: parent.parentContainerKek,
+      predecessorContainerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+      successorContainerKey: rotatedContainerKek,
+      successorContainerKeyEpochId: rotatedContainerKeyEpochId,
+    });
     const revokedProjection: ContainerWriterProjectionResponse = {
       containerId: parent.projection.containerId,
       organizationId: parent.projection.organizationId,
@@ -475,6 +483,22 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
           ...(rotatedKekState as unknown as ContainerWriterProjectionResponse["containerKeks"][number]),
           containerManifestHistory: [
             previousManifest as unknown as ContainerWriterProjectionResponse["path"][number],
+          ],
+          predecessorKeks: [
+            {
+              accessManifestHash: parent.parentKekState.accessManifestHash,
+              bridge: predecessorBridge as unknown as Record<string, unknown>,
+              containerId: parent.parentKekState.containerId,
+              containerKeyEpoch: parent.parentKekState.containerKeyEpoch,
+              containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+              keyEpoch: parent.parentKekState.keyEpoch as unknown as Record<
+                string,
+                unknown
+              >,
+              keyEpochHash: parent.parentKekState.keyEpochHash,
+              parentContainerKeyEpochId:
+                parent.parentKekState.parentContainerKeyEpochId,
+            },
           ],
         },
       ],
@@ -838,6 +862,7 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
           await computeContainerKekRecipientTargetHash(recipientTargets),
         parentContainerKeyEpochId: null,
         containerManifestHistory: [],
+        predecessorKeks: [],
         recipientTargets: recipientTargets as unknown as Record<
           string,
           unknown

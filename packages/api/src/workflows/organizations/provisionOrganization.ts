@@ -824,7 +824,7 @@ async function storeInitialRootContainer(
     tx,
   );
   await storeVerifiedContainerKekStateInTransaction(
-    { verifiedState: kekState },
+    { predecessorBridge: null, verifiedState: kekState },
     tx,
   );
   return {

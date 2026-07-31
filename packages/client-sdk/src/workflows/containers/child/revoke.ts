@@ -3,6 +3,7 @@ import type {
   AccessManifest,
   ContainerAccessManifestState,
   ContainerDirectGrant,
+  ContainerKekPredecessorBridge,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerRevokeAccessEventBody,
@@ -10,6 +11,7 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
+import { createContainerKekPredecessorBridge } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
@@ -70,6 +72,7 @@ function buildContainerRevokeRequest(input: {
   manifest: AccessManifest;
   manifestHash: string;
   parentKek: ContainerKekResponse | null;
+  predecessorBridge: ContainerKekPredecessorBridge;
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
   principalPolicies: readonly VerifiedPrincipalPolicy[];
@@ -92,6 +95,10 @@ function buildContainerRevokeRequest(input: {
       "Container revoke principal policies",
     ),
     keyEpoch: readCanonicalRecord(input.keyEpoch, "Container revoke key epoch"),
+    predecessorBridge: readCanonicalRecord(
+      input.predecessorBridge,
+      "Container revoke predecessor bridge",
+    ),
     wraps: readCanonicalRecords(input.wraps, "Container revoke wraps"),
     parentKekState:
       input.parentKek === null
@@ -249,6 +256,7 @@ function buildContainerRevokePlanResult(input: {
   manifest: AccessManifest;
   manifestHash: string;
   parentKek: ContainerKekResponse | null;
+  predecessorBridge: ContainerKekPredecessorBridge;
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
   principalPolicies: readonly VerifiedPrincipalPolicy[];
@@ -273,6 +281,7 @@ function buildContainerRevokePlanResult(input: {
       manifest: input.manifest,
       manifestHash: input.manifestHash,
       parentKek: input.parentKek,
+      predecessorBridge: input.predecessorBridge,
       previousManifest: input.previousManifest,
       previousProjection: input.previousProjection,
       principalPolicies: input.principalPolicies,
@@ -318,6 +327,12 @@ export async function buildMaterializedContainerRevokePlan(input: {
     ...projectionVerificationOptions(input),
   });
   const target = getTargetContainerContext(input.previousProjection);
+  const predecessorContainerKey = keksByEpochId.get(
+    target.kek.containerKeyEpochId,
+  );
+  if (!predecessorContainerKey) {
+    throw new Error("Container revoke predecessor KEK could not be unwrapped");
+  }
   const previousState = readContainerState(target.manifest);
   if (previousState.organizationId !== input.author.organizationId) {
     throw new Error("Container revoke author organization mismatch");
@@ -333,6 +348,13 @@ export async function buildMaterializedContainerRevokePlan(input: {
     keyEpoch: nextContainerKeyEpoch,
     keyMaterial: containerKey,
     override: input.containerKeyEpochId,
+  });
+  const predecessorBridge = await createContainerKekPredecessorBridge({
+    containerId: previousState.containerId,
+    predecessorContainerKey,
+    predecessorContainerKeyEpochId: target.kek.containerKeyEpochId,
+    successorContainerKey: containerKey,
+    successorContainerKeyEpochId: containerKeyEpochId,
   });
   const body: ContainerRevokeAccessEventBody = {
     eventType: "container.revoke",
@@ -395,6 +417,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
     manifest,
     manifestHash,
     parentKek,
+    predecessorBridge,
     previousManifest: asContainerManifestBundle(target.manifest),
     previousProjection: input.previousProjection,
     principalPolicies,

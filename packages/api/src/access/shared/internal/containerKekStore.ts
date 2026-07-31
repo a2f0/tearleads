@@ -8,6 +8,7 @@ import {
   containerKeyWraps,
 } from "@tearleads/api-shared/schema";
 import type {
+  ContainerKekPredecessorBridge,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
@@ -15,12 +16,16 @@ import type {
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import { verifyContainerKekState } from "@tearleads/crypto";
+import {
+  CONTAINER_KEK_PREDECESSOR_WRAP_SUITE,
+  verifyContainerKekState,
+} from "@tearleads/crypto";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { selectOneOrThrow } from "./selectOneOrThrow";
 
 interface StoredContainerKeyEpoch extends ContainerKeyEpoch {
   readonly createdAt: Date;
+  readonly predecessorBridge: ContainerKekPredecessorBridge | null;
 }
 
 interface StoredContainerKeyWrap extends ContainerKeyWrap {
@@ -29,6 +34,7 @@ interface StoredContainerKeyWrap extends ContainerKeyWrap {
 }
 
 interface StoreVerifiedContainerKekStateInput {
+  readonly predecessorBridge: ContainerKekPredecessorBridge | null;
   readonly verifiedState: VerifiedContainerKekState;
 }
 
@@ -38,6 +44,38 @@ interface ResolveStoredContainerKekStateInput {
   readonly parentKekState?: VerifiedContainerKekState | null;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
+}
+
+function predecessorBridgeFromRow(
+  row: typeof containerKeyEpochs.$inferSelect,
+): ContainerKekPredecessorBridge | null {
+  const predecessorId = row.predecessorContainerKeyEpochId;
+  const bridgeIv = row.predecessorBridgeIv;
+  const wrappedPredecessorKey = row.wrappedPredecessorKey;
+  if (
+    predecessorId === null &&
+    bridgeIv === null &&
+    wrappedPredecessorKey === null
+  ) {
+    return null;
+  }
+  if (
+    predecessorId === null ||
+    bridgeIv === null ||
+    wrappedPredecessorKey === null
+  ) {
+    throw new Error("Container key predecessor bridge is incomplete");
+  }
+
+  return {
+    version: 1,
+    wrappingSuite: CONTAINER_KEK_PREDECESSOR_WRAP_SUITE,
+    containerId: row.containerId,
+    predecessorContainerKeyEpochId: predecessorId,
+    successorContainerKeyEpochId: row.id,
+    iv: bridgeIv,
+    wrappedKey: wrappedPredecessorKey,
+  };
 }
 
 function toStoredContainerKeyEpoch(
@@ -52,7 +90,27 @@ function toStoredContainerKeyEpoch(
     createdByEventHash: row.createdByEventHash,
     createdByManifestHash: row.createdByManifestHash,
     createdAt: row.createdAt,
+    predecessorBridge: predecessorBridgeFromRow(row),
   };
+}
+
+function predecessorBridgesEqual(
+  left: ContainerKekPredecessorBridge | null,
+  right: ContainerKekPredecessorBridge | null,
+): boolean {
+  if (left === null || right === null) {
+    return left === right;
+  }
+  return (
+    left.version === right.version &&
+    left.wrappingSuite === right.wrappingSuite &&
+    left.containerId === right.containerId &&
+    left.predecessorContainerKeyEpochId ===
+      right.predecessorContainerKeyEpochId &&
+    left.successorContainerKeyEpochId === right.successorContainerKeyEpochId &&
+    left.iv === right.iv &&
+    left.wrappedKey === right.wrappedKey
+  );
 }
 
 function toStoredContainerKeyWrap(
@@ -130,6 +188,7 @@ function containerKeyWrapConflictKey(
 
 async function ensureStoredContainerKeyEpochMatches(
   keyEpoch: ContainerKeyEpoch,
+  predecessorBridge: ContainerKekPredecessorBridge | null,
   executor: DatabaseSession,
 ): Promise<void> {
   const storedEpoch = await getContainerKeyEpochById(keyEpoch.id, executor);
@@ -145,7 +204,8 @@ async function ensureStoredContainerKeyEpochMatches(
     storedEpoch.parentContainerKeyEpochId !==
       keyEpoch.parentContainerKeyEpochId ||
     storedEpoch.createdByEventHash !== keyEpoch.createdByEventHash ||
-    storedEpoch.createdByManifestHash !== keyEpoch.createdByManifestHash
+    storedEpoch.createdByManifestHash !== keyEpoch.createdByManifestHash ||
+    !predecessorBridgesEqual(storedEpoch.predecessorBridge, predecessorBridge)
   ) {
     throw new Error("Container key epoch conflict");
   }
@@ -176,6 +236,7 @@ async function ensureStoredContainerKeyWrapMatches(
 
 async function insertContainerKeyEpoch(
   keyEpoch: ContainerKeyEpoch,
+  predecessorBridge: ContainerKekPredecessorBridge | null,
   executor: DatabaseSession,
 ): Promise<void> {
   const [insertedEpoch] = await executor
@@ -186,6 +247,10 @@ async function insertContainerKeyEpoch(
       keyEpoch: keyEpoch.keyEpoch,
       accessManifestHash: keyEpoch.accessManifestHash,
       parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
+      predecessorContainerKeyEpochId:
+        predecessorBridge?.predecessorContainerKeyEpochId ?? null,
+      predecessorBridgeIv: predecessorBridge?.iv ?? null,
+      wrappedPredecessorKey: predecessorBridge?.wrappedKey ?? null,
       createdByEventHash: keyEpoch.createdByEventHash,
       createdByManifestHash: keyEpoch.createdByManifestHash,
     })
@@ -193,7 +258,11 @@ async function insertContainerKeyEpoch(
     .returning();
 
   if (!insertedEpoch) {
-    await ensureStoredContainerKeyEpochMatches(keyEpoch, executor);
+    await ensureStoredContainerKeyEpochMatches(
+      keyEpoch,
+      predecessorBridge,
+      executor,
+    );
   }
 }
 
@@ -285,7 +354,11 @@ export async function storeVerifiedContainerKekStateInTransaction(
   input: StoreVerifiedContainerKekStateInput,
   tx: DatabaseTransaction,
 ): Promise<VerifiedContainerKekState> {
-  await insertContainerKeyEpoch(input.verifiedState.keyEpoch, tx);
+  await insertContainerKeyEpoch(
+    input.verifiedState.keyEpoch,
+    input.predecessorBridge,
+    tx,
+  );
   await deleteStaleContainerKeyWraps(
     input.verifiedState.containerKeyEpochId,
     input.verifiedState.wraps,
@@ -325,19 +398,6 @@ export async function getContainerKeyEpochsById(
     .where(inArray(containerKeyEpochs.id, uniqueContainerKeyEpochIds));
 
   return new Map(rows.map((row) => [row.id, toStoredContainerKeyEpoch(row)]));
-}
-
-export async function listContainerKeyEpochs(
-  containerId: string,
-  executor: DatabaseSession,
-): Promise<StoredContainerKeyEpoch[]> {
-  const rows = await executor
-    .select()
-    .from(containerKeyEpochs)
-    .where(eq(containerKeyEpochs.containerId, containerId))
-    .orderBy(asc(containerKeyEpochs.keyEpoch));
-
-  return rows.map(toStoredContainerKeyEpoch);
 }
 
 export async function getCurrentContainerKeyEpoch(

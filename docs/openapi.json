@@ -200,6 +200,18 @@
                             }
                           ]
                         },
+                        "predecessorBridge": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "previousContainerPath": {
                           "type": "array",
                           "items": {
@@ -303,6 +315,7 @@
                         "expectedManifestHash",
                         "keyEpoch",
                         "manifest",
+                        "predecessorBridge",
                         "principalPolicies",
                         "wraps"
                       ],

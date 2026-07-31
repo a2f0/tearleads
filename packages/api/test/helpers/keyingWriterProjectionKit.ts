@@ -49,6 +49,7 @@ import { routeApp } from "../../src/routeApp";
 import {
   createRootContainerKeyEpoch,
   createTestContainerKekMaterial,
+  createTestContainerKekPredecessorBridge,
 } from "./containerKekMaterial";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
 
@@ -538,6 +539,7 @@ export async function buildRootGrantRequest(input: {
       string,
       unknown
     >,
+    predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: null,
     userRecipientKeys: [
@@ -561,6 +563,11 @@ export async function buildRootRevokeRequest(input: {
   const { containerKeyEpochId } = await createTestContainerKekMaterial({
     containerId: previous.state.containerId,
     keyEpoch: nextKeyEpoch,
+  });
+  const predecessorBridge = await createTestContainerKekPredecessorBridge({
+    containerId: previous.state.containerId,
+    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
+    successorContainerKeyEpochId: containerKeyEpochId,
   });
   const body: ContainerAccessEventBody = {
     eventType: "container.revoke",
@@ -630,6 +637,7 @@ export async function buildRootRevokeRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: kekState.wraps as unknown as Record<string, unknown>[],
     parentKekState: null,
     userRecipientKeys: userRecipientKeysFromKekTargets(

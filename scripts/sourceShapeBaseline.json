@@ -50,20 +50,20 @@
       "bytes": 18158
     },
     "docs/keying-design.md": {
-      "lines": 899,
-      "bytes": 38943
+      "lines": 916,
+      "bytes": 39975
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 538,
       "bytes": 22521
     },
     "docs/openapi.json": {
-      "lines": 887,
-      "bytes": 34563
+      "lines": 900,
+      "bytes": 35066
     },
     "docs/protocol-specification.md": {
-      "lines": 511,
-      "bytes": 22264
+      "lines": 520,
+      "bytes": 22784
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
@@ -134,16 +134,16 @@
       "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 4042,
-      "bytes": 133163
+      "lines": 4071,
+      "bytes": 134486
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1289,
       "bytes": 43277
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2241,
-      "bytes": 72751
+      "lines": 2251,
+      "bytes": 73168
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1169,
@@ -166,8 +166,8 @@
       "bytes": 40645
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
-      "lines": 628,
-      "bytes": 18130
+      "lines": 631,
+      "bytes": 18481
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 725,
@@ -191,7 +191,7 @@
     },
     "packages/api/test/helpers/keyingWriterProjectionKit.ts": {
       "lines": 649,
-      "bytes": 21521
+      "bytes": 21576
     },
     "packages/api/test/helpers/registration.ts": {
       "lines": 1211,
@@ -334,8 +334,8 @@
       "bytes": 30465
     },
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
-      "lines": 615,
-      "bytes": 18571
+      "lines": 616,
+      "bytes": 18604
     },
     "packages/client-sdk/src/workflows/container-contents/documentMoveIntentSync.test.ts": {
       "lines": 725,
@@ -434,8 +434,8 @@
       "bytes": 30430
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1059,
-      "bytes": 32254
+      "lines": 1068,
+      "bytes": 32596
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,

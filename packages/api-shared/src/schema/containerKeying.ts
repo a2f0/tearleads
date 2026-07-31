@@ -52,6 +52,12 @@ export const containerKeyEpochs = pgTable(
     keyEpoch: integer("key_epoch").notNull(),
     accessManifestHash: text("access_manifest_hash").notNull(),
     parentContainerKeyEpochId: text("parent_container_key_epoch_id"),
+    // A successor epoch authenticates and encrypts its immediate predecessor.
+    // Following this chain from the current KEK makes document history
+    // decryptable without retaining access to superseded recipient envelopes.
+    predecessorContainerKeyEpochId: text("predecessor_container_key_epoch_id"),
+    predecessorBridgeIv: text("predecessor_bridge_iv"),
+    wrappedPredecessorKey: text("wrapped_predecessor_key"),
     createdByEventHash: text("created_by_event_hash").notNull(),
     createdByManifestHash: text("created_by_manifest_hash").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -67,6 +73,9 @@ export const containerKeyEpochs = pgTable(
     ),
     index("container_key_epochs_parent_idx").on(
       table.parentContainerKeyEpochId,
+    ),
+    uniqueIndex("container_key_epochs_predecessor_idx").on(
+      table.predecessorContainerKeyEpochId,
     ),
   ],
 );

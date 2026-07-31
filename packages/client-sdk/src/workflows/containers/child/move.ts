@@ -2,6 +2,7 @@ import type {
   AccessEvent,
   AccessManifest,
   ContainerAccessManifestState,
+  ContainerKekPredecessorBridge,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerMoveAccessEventBody,
@@ -9,6 +10,7 @@ import type {
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
+  createContainerKekPredecessorBridge,
   deriveContainerAccessManifest,
 } from "@tearleads/crypto";
 import type {
@@ -94,6 +96,7 @@ function buildContainerMoveRequest(input: {
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
+  predecessorBridge: ContainerKekPredecessorBridge;
   principalPolicies: readonly VerifiedPrincipalPolicy[];
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
@@ -116,6 +119,10 @@ function buildContainerMoveRequest(input: {
       "Container move principal policies",
     ),
     keyEpoch: readCanonicalRecord(input.keyEpoch, "Container move key epoch"),
+    predecessorBridge: readCanonicalRecord(
+      input.predecessorBridge,
+      "Container move predecessor bridge",
+    ),
     wraps: readCanonicalRecords(input.wraps, "Container move wraps"),
     parentKekState: readCanonicalRecord(
       input.destinationParentKek,
@@ -238,6 +245,32 @@ async function collectContainerMoveProjectionPrincipalPolicies(input: {
   });
 }
 
+async function buildMoveRotation(input: {
+  containerId: string;
+  currentKek: ContainerKekResponse;
+  keyMaterial: Uint8Array;
+  override?: string | undefined;
+}): Promise<{
+  containerKeyEpochId: string;
+  predecessorBridge: ContainerKekPredecessorBridge;
+}> {
+  const keyEpoch = input.currentKek.containerKeyEpoch + 1;
+  const containerKeyEpochId = await resolveContainerKekEpochId({
+    containerId: input.containerId,
+    keyEpoch,
+    keyMaterial: input.keyMaterial,
+    override: input.override,
+  });
+  const predecessorBridge = await createContainerKekPredecessorBridge({
+    containerId: input.containerId,
+    predecessorContainerKey: input.keyMaterial,
+    predecessorContainerKeyEpochId: input.currentKek.containerKeyEpochId,
+    successorContainerKey: input.keyMaterial,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
+  return { containerKeyEpochId, predecessorBridge };
+}
+
 function buildContainerMovePlanResult(input: {
   body: ContainerMoveAccessEventBody;
   containerId: string;
@@ -252,6 +285,7 @@ function buildContainerMovePlanResult(input: {
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
+  predecessorBridge: ContainerKekPredecessorBridge;
   principalPolicies: readonly VerifiedPrincipalPolicy[];
   state: ContainerAccessManifestState;
   wraps: ContainerKeyWrap[];
@@ -276,6 +310,7 @@ function buildContainerMovePlanResult(input: {
       manifestHash: input.manifestHash,
       previousManifest: input.previousManifest,
       previousProjection: input.previousProjection,
+      predecessorBridge: input.predecessorBridge,
       principalPolicies: input.principalPolicies,
       wraps: input.wraps,
     }),
@@ -312,11 +347,11 @@ async function buildMaterializedContainerMovePlan(
   });
 
   const nextContainerKeyEpoch = source.kek.containerKeyEpoch + 1;
-  const containerKeyEpochId = await resolveContainerKekEpochId({
+  const { containerKeyEpochId, predecessorBridge } = await buildMoveRotation({
     containerId: previousState.containerId,
-    keyEpoch: nextContainerKeyEpoch,
     keyMaterial: containerKey,
     override: input.containerKeyEpochId,
+    currentKek: source.kek,
   });
   const body: ContainerMoveAccessEventBody = {
     eventType: "container.move",
@@ -373,6 +408,7 @@ async function buildMaterializedContainerMovePlan(
     manifestHash,
     previousManifest: asContainerManifestBundle(source.manifest),
     previousProjection: input.previousProjection,
+    predecessorBridge,
     principalPolicies,
     state,
     wraps,

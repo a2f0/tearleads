@@ -16,8 +16,8 @@ import {
   resolveSingleContainerAccessProjection,
 } from "./writerProjection/accessPaths";
 import { createContainerWriterProjectionContext } from "./writerProjection/context";
-import { loadHistoricalContainerKeks } from "./writerProjection/historicalKeks";
 import { loadContainerKekState } from "./writerProjection/kek";
+import { loadPredecessorContainerKeks } from "./writerProjection/predecessorKeks";
 import {
   loadPrincipalPoliciesForAccessPaths,
   verifiedPrincipalPolicyReferenceCacheKeys,
@@ -53,7 +53,7 @@ async function resolveContainerProjectionWithAccess(input: {
    * historical policy loading that only clients healing rotated content
    * need.
    */
-  readonly includeHistoricalKeks?: boolean;
+  readonly includePredecessorKeks?: boolean;
   readonly minimumAccessLevel: ContainerAccessLevel;
   readonly userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
@@ -78,34 +78,22 @@ async function resolveContainerProjectionWithAccess(input: {
     throw new ContainerWriterProjectionError("Container not found", 404);
   }
 
-  // Superseded key epochs travel with each path container so a member who
-  // spans a KEK rotation can still unwrap pre-rotation content (e.g. stale
-  // document content-key bundles after a revoke). Filtered per requester —
-  // see loadHistoricalContainerKeks. Parents are processed first, so the
-  // epochs admitted for each container gate the container wraps of every
-  // descendant on the path.
-  const admittedHistoricalEpochIds = new Map<string, ReadonlySet<string>>();
+  // Current access is history-inclusive. Each path KEK therefore carries its
+  // complete authenticated successor-to-predecessor chain.
   const containerKeks: ContainerWriterProjectionResponse["containerKeks"] = [];
-  for (const [index, manifest] of access.verifiedPath.entries()) {
+  for (const index of access.verifiedPath.keys()) {
     const kekState = containerKekStates[index];
     if (!kekState) {
       throw new ContainerWriterProjectionError("Container KEK missing", 409);
     }
-    const historicalKeks =
-      input.includeHistoricalKeks === false
+    const predecessorKeks =
+      input.includePredecessorKeks === false
         ? []
-        : await loadHistoricalContainerKeks({
-            admittedHistoricalEpochIds,
+        : await loadPredecessorContainerKeks({
+            containerKeyEpochId: kekState.state.containerKeyEpochId,
             context,
-            manifest,
-            principalPolicies: access.principalPolicies,
-            userId: input.userId,
           });
-    admittedHistoricalEpochIds.set(
-      manifest.state.containerId,
-      new Set(historicalKeks.map((kek) => kek.containerKeyEpochId)),
-    );
-    containerKeks.push(containerKekResponse(kekState, historicalKeks));
+    containerKeks.push(containerKekResponse(kekState, predecessorKeks));
   }
 
   return {
@@ -120,7 +108,7 @@ export async function resolveContainerReaderProjection(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseSession;
-  readonly includeHistoricalKeks?: boolean;
+  readonly includePredecessorKeks?: boolean;
   readonly userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
   return resolveContainerProjectionWithAccess({
@@ -133,7 +121,7 @@ export async function resolveContainerWriterProjection(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseSession;
-  readonly includeHistoricalKeks?: boolean;
+  readonly includePredecessorKeks?: boolean;
   readonly userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
   return resolveContainerProjectionWithAccess({

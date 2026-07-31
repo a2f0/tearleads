@@ -202,6 +202,7 @@ function buildContainerShareRequest(input: {
       "Container share principal policies",
     ),
     keyEpoch: readCanonicalRecord(input.keyEpoch, "Container share key epoch"),
+    predecessorBridge: null,
     wraps: readCanonicalRecords(input.wraps, "Container share wraps"),
     parentKekState:
       input.parentKek === null

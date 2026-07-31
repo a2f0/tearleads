@@ -65,7 +65,10 @@ import {
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
+import {
+  createTestContainerKekId,
+  createTestContainerKekPredecessorBridge,
+} from "../../../test/helpers/containerKekMaterial";
 import {
   createContainerKeyEpoch,
   createContainerKeyWrap,
@@ -609,6 +612,7 @@ async function buildCreateRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
     userRecipientKeys: [],
@@ -804,6 +808,7 @@ async function buildGrantRequest(input: {
       string,
       unknown
     >,
+    predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
     userRecipientKeys: [
@@ -919,6 +924,7 @@ async function buildGroupGrantRequest(input: {
       string,
       unknown
     >,
+    predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<
       string,
@@ -951,6 +957,11 @@ async function buildRevokeRequest(input: {
     previous.state.containerId,
     input.previousKekState.containerKeyEpoch + 1,
   );
+  const predecessorBridge = await createTestContainerKekPredecessorBridge({
+    containerId: previous.state.containerId,
+    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
   const revokedGrant = input.revokedGrant ?? {
     subjectType: "user" as const,
     subjectId: input.revokedUser?.userId,
@@ -1027,6 +1038,7 @@ async function buildRevokeRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
     userRecipientKeys: [],
@@ -1048,6 +1060,11 @@ async function buildRekeyRequest(input: {
     previous.state.containerId,
     input.previousKekState.containerKeyEpoch + 1,
   );
+  const predecessorBridge = await createTestContainerKekPredecessorBridge({
+    containerId: previous.state.containerId,
+    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId,
@@ -1103,6 +1120,7 @@ async function buildRekeyRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
     userRecipientKeys: [],
@@ -1130,6 +1148,11 @@ async function buildMoveRequest(input: {
     previous.state.containerId,
     input.previousKekState.containerKeyEpoch + 1,
   );
+  const predecessorBridge = await createTestContainerKekPredecessorBridge({
+    containerId: previous.state.containerId,
+    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
   const body: ContainerAccessEventBody = {
     eventType: "container.move",
     parentContainerId: destinationParent.state.containerId,
@@ -1192,6 +1215,7 @@ async function buildMoveRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.destinationParentKekState as unknown as Record<
       string,
@@ -3203,6 +3227,11 @@ test("POST /containers/:containerId/rekey materializes a writer KEK rotation", a
   expect(rekeyed.containerKek.containerKeyEpochId).not.toBe(
     childKek.containerKeyEpochId,
   );
+  expect(
+    rekeyed.containerKek.predecessorKeks.map(
+      (predecessor) => predecessor.containerKeyEpochId,
+    ),
+  ).toEqual([childKek.containerKeyEpochId]);
   expect(rekeyed.containerKek.recipientTargets).toEqual([
     {
       recipientKind: "container",

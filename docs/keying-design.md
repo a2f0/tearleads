@@ -347,11 +347,21 @@ type ContainerKeyEpoch = {
  keyEpoch: number;
  accessManifestHash: string;
  parentContainerKeyEpochId: string | null;
+ predecessorContainerKeyEpochId: string | null;
+ predecessorBridgeIv: string | null;
+ wrappedPredecessorKey: string | null;
  createdByEventHash: string;
  createdByManifestHash: string;
  createdAt: string;
 };
 ```
+
+Every epoch after the first stores an authenticated bridge encrypted under the
+new KEK whose plaintext is the immediately preceding KEK. The bridge binds the
+container id and both committed epoch ids as AES-GCM additional data. Initial
+epochs have all three predecessor fields null; later epochs have all three
+populated. A client that unwraps the current KEK follows this chain to epoch 1
+and verifies every recovered key against its material-committing epoch id.
 
 Container KEK epochs use ids of the form
 `tearleads.container-kek.v1.sha256:<hash>`, where the hash commits to the
@@ -395,6 +405,7 @@ Subtractive changes:
 
 - advance the signed access manifest;
 - create a new KEK epoch for the changed container;
+- require a bridge from that new KEK to the immediate previous KEK;
 - require descendants whose future access depends on the changed ancestor KEK to
  move to a post-change KEK epoch before accepting future writes;
 - do not rewrite old document/blob bytes unless a separate re-encryption job is
@@ -415,10 +426,14 @@ not know the plaintext KEK. For committed KEK epoch ids, a client that unwraps
 server-supplied replacement material rejects it unless the material hashes back
 to the id signed in the manifest.
 
-If no retained authorized client can unwrap the old container KEK and create
-the new wraps, the subtree needs admin-assisted recovery or a fresh-content
-baseline. The server should return a specific `rekey_required` conflict rather
-than accepting future writes under the unsafe old KEK chain.
+Current access is history-inclusive. A newly admitted user receives only a
+current recipient wrap, then derives every predecessor through the mandatory
+bridge chain; old user/principal envelopes are never served. Revocation remains
+forward-only because a user who possessed an old KEK may retain it, but a
+current user does not depend on a retained device, an old principal key, or a
+document rebaseline to read retained history. Fresh baselines remain a sync
+optimization and content-key rotation mechanism, not a key-recovery or
+liveness dependency.
 
 ## Document Content Keys
 
@@ -563,6 +578,8 @@ suite identifiers are:
   `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`
 - container KEK to parent-container KEK:
   `tearleads.container-kek-wrap.aes-256-gcm-parent-kek`
+- successor container KEK to predecessor container KEK:
+  `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek`
 
 Document and blob content-key target envelopes carry `wrappingMetadata.suite`
 and an AES-GCM IV. Container KEK wraps are an existing wire format without a

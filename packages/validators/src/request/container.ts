@@ -19,6 +19,7 @@ export interface ContainerMutationRequest {
   destinationParentContainerPath?: AccessManifestBundleWire[];
   principalPolicies: Record<string, unknown>[];
   keyEpoch: Record<string, unknown>;
+  predecessorBridge: Record<string, unknown> | null;
   wraps: Record<string, unknown>[];
   containerManifestHistory?: AccessManifestBundleWire[];
   parentKekState?: Record<string, unknown> | null;
@@ -57,6 +58,9 @@ export function isContainerMutationRequest(
   const keyEpoch = isPlainObject(value)
     ? Reflect.get(value, "keyEpoch")
     : undefined;
+  const predecessorBridge = isPlainObject(value)
+    ? Reflect.get(value, "predecessorBridge")
+    : undefined;
   const wraps = isPlainObject(value) ? Reflect.get(value, "wraps") : undefined;
   const containerManifestHistory = isPlainObject(value)
     ? Reflect.get(value, "containerManifestHistory")
@@ -84,6 +88,8 @@ export function isContainerMutationRequest(
     isOptionalAccessManifestBundleWireArray(destinationParentContainerPath) &&
     isRecordArray(principalPolicies) &&
     isPlainObject(keyEpoch) &&
+    Reflect.has(value, "predecessorBridge") &&
+    (predecessorBridge === null || isPlainObject(predecessorBridge)) &&
     isRecordArray(wraps) &&
     isOptionalAccessManifestBundleWireArray(containerManifestHistory) &&
     isOptionalParentKekState(parentKekState) &&

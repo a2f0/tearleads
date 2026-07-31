@@ -52,7 +52,10 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
-import { createTestContainerKekMaterial } from "../../test/helpers/containerKekMaterial";
+import {
+  createTestContainerKekMaterial,
+  createTestContainerKekPredecessorBridge,
+} from "../../test/helpers/containerKekMaterial";
 import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
@@ -164,6 +167,7 @@ async function createChildContainer(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: null,
     wraps: [wrap as unknown as Record<string, unknown>],
     parentKekState: input.parent.kekState as unknown as Record<string, unknown>,
     userRecipientKeys: [],
@@ -249,6 +253,11 @@ async function buildContainerMoveRequest(input: {
     parentKekState: input.destinationParentKekState,
     wrapManifestHash: bundle.manifestHash,
   });
+  const predecessorBridge = await createTestContainerKekPredecessorBridge({
+    containerId: previous.state.containerId,
+    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
 
   return {
     event: event.event as unknown as Record<string, unknown>,
@@ -263,6 +272,7 @@ async function buildContainerMoveRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: [wrap as unknown as Record<string, unknown>],
     parentKekState: input.destinationParentKekState as unknown as Record<
       string,
