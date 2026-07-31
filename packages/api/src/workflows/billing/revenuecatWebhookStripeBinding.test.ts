@@ -305,6 +305,44 @@ test("a Stripe renewal applies while its asynchronous tier update lags the roste
   expect(billing?.currentPeriodEndsAt?.getTime()).toBe(expirationAtMs);
 });
 
+test("an unknown Stripe price retries with an operator alert", async () => {
+  const organizationId = await createActiveBilling();
+  const eventId = crypto.randomUUID();
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: "price_unknown",
+    subscriptionId: "sub_unknown_price",
+    subscriptionItemId: "si_unknown_price",
+  });
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    app_user_id: crypto.randomUUID(),
+    entitlement_ids: ["sync"],
+    event_timestamp_ms: Date.now(),
+    expiration_at_ms: Date.now() + 30 * 24 * 60 * 60 * 1_000,
+    id: eventId,
+    original_transaction_id: "sub_unknown_price",
+    product_id: "prod_sync",
+    store: "STRIPE",
+    type: "RENEWAL",
+  });
+
+  expect(outcome).toEqual({
+    status: "retry",
+    reason: "Stripe subscription tier could not be resolved",
+  });
+  expect(errorSpy).toHaveBeenCalledWith(
+    `RevenueCat paid grant ${eventId} was not applied: Stripe subscription tier could not be resolved`,
+  );
+  const [claimed] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, eventId));
+  expect(claimed).toBeUndefined();
+  errorSpy.mockRestore();
+});
+
 test("an oversized Stripe grant is claimed, ignored, and alerted", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);

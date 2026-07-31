@@ -113,6 +113,7 @@ test("loads the purchasable option when the platform supports checkout", async (
   expect(result.current.available).toBe(true);
   expect(result.current.phase.kind).toBe("idle");
 });
+
 test("begin mounts the element into the panel's host and collects input", async () => {
   stubTearleads();
   const { capability, mounted } = capabilityWith({});

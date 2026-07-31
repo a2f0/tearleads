@@ -43,6 +43,10 @@ const STRIPE_STORE = "STRIPE";
 export const SANDBOX_IGNORED_REASON =
   "Sandbox environment event ignored on a production-only tier";
 
+/** Paid product id that does not map to one of Tearleads' fixed tiers. */
+export const UNCONFIGURED_SYNC_BILLING_TIER_REASON =
+  "Event product is not a configured sync billing tier";
+
 /**
  * Whether the event is a store-sandbox purchase this server must not apply.
  *
@@ -292,7 +296,7 @@ function classifyRevenueCatGrant(
   if (!seatCount) {
     return {
       kind: "ignore",
-      reason: "Event product is not a configured sync billing tier",
+      reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON,
     };
   }
   if (

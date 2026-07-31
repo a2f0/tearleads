@@ -100,6 +100,8 @@ async function loadBillingSeatState(input: {
       eq(organizations.id, organizationBilling.organizationId),
     )
     .leftJoin(
+      // The schema's unique organization-id index makes this a zero-or-one
+      // join, so locking only the billing row cannot duplicate seat state.
       organizationBillingStripeSeats,
       eq(
         organizationBillingStripeSeats.organizationId,
@@ -276,6 +278,7 @@ async function rotateOpenAssignmentsToBillingPeriod(input: {
   readonly openAssignments: readonly OpenSeatAssignment[];
   readonly source: BillingSeatSource;
   readonly periodChanged: boolean;
+  readonly requiredSeatCount: number;
 }): Promise<{
   readonly currentAssignments: readonly OpenSeatAssignment[];
   readonly licensedSeatCount: number;
@@ -298,10 +301,7 @@ async function rotateOpenAssignmentsToBillingPeriod(input: {
     source: input.source,
   });
 
-  const licensedSeatCount = requiredLicensedSeatCount(
-    input.billing,
-    input.activeUserIds.length,
-  );
+  const licensedSeatCount = input.requiredSeatCount;
   await updateLicensedSeatCount({
     activeSeatCount: input.activeUserIds.length,
     billing: input.billing,
@@ -365,20 +365,17 @@ async function reconcileLicensedCapacity(input: {
   readonly licensedSeatCount: number;
   readonly now: Date;
   readonly openAssignments: readonly OpenSeatAssignment[];
+  readonly requiredSeatCount: number;
   readonly source: BillingSeatSource;
 }): Promise<void> {
-  const requiredSeatCount = requiredLicensedSeatCount(
-    input.billing,
-    input.activeUserIds.length,
-  );
   const shouldInitialize =
     input.billing.seatCount === 0 &&
     input.openAssignments.length === 0 &&
-    requiredSeatCount > 0;
+    input.requiredSeatCount > 0;
   const eventType = shouldInitialize
     ? "licensed_seat_count_initialized"
     : "licensed_seat_count_increased";
-  if (!shouldInitialize && requiredSeatCount <= input.licensedSeatCount) {
+  if (!shouldInitialize && input.requiredSeatCount <= input.licensedSeatCount) {
     return;
   }
 
@@ -388,7 +385,7 @@ async function reconcileLicensedCapacity(input: {
     eventType,
     events: input.events,
     executor: input.executor,
-    nextSeatCount: requiredSeatCount,
+    nextSeatCount: input.requiredSeatCount,
     now: input.now,
     source: input.source,
   });
@@ -404,6 +401,8 @@ export async function reconcileOrganizationBillingSeats(input: {
   readonly executor: DatabaseSession;
   readonly now?: Date;
   readonly organizationId: string;
+  /** Active roster size immediately before the mutation being reconciled. */
+  readonly previousActiveSeatCount?: number;
   readonly source: BillingSeatSource;
 }): Promise<void> {
   const now = input.now ?? new Date();
@@ -422,7 +421,11 @@ export async function reconcileOrganizationBillingSeats(input: {
   // Validate fixed native capacity before changing assignments. Stripe-funded
   // organizations upgrade through the durable provider outbox below; native
   // organizations must first complete a store product change.
-  requiredLicensedSeatCount(billing, activeUserIds.length);
+  const requiredSeatCount = requiredLicensedSeatCount(
+    billing,
+    activeUserIds.length,
+    input.previousActiveSeatCount,
+  );
   const openAssignments = await listOpenSeatAssignments({
     executor: input.executor,
     organizationId: input.organizationId,
@@ -442,6 +445,7 @@ export async function reconcileOrganizationBillingSeats(input: {
       periodChanged:
         billing.seatPeriodKey !== null &&
         billing.seatPeriodKey !== nextSeatPeriodKey,
+      requiredSeatCount,
       source: input.source,
     });
 
@@ -463,6 +467,7 @@ export async function reconcileOrganizationBillingSeats(input: {
     licensedSeatCount,
     now,
     openAssignments,
+    requiredSeatCount,
     source: input.source,
   });
 

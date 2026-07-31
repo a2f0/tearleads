@@ -1,5 +1,6 @@
 import type { OrganizationBillingStatus } from "@tearleads/api-shared/schema";
 import {
+  getLargestSyncBillingTier,
   getSyncBillingTierForNativeProduct,
   getSyncBillingTierForSeatCount,
 } from "@tearleads/validators/billing";
@@ -15,6 +16,7 @@ interface BillingSeatCapacity {
 export function requiredLicensedSeatCount(
   billing: BillingSeatCapacity,
   activeSeatCount: number,
+  previousActiveSeatCount?: number,
 ): number {
   if (billing.status !== "active") {
     return activeSeatCount;
@@ -23,7 +25,11 @@ export function requiredLicensedSeatCount(
     billing.providerProductId,
   );
   if (nativeTier) {
-    if (activeSeatCount > nativeTier.seatLimit) {
+    if (
+      activeSeatCount > nativeTier.seatLimit &&
+      (previousActiveSeatCount === undefined ||
+        activeSeatCount > previousActiveSeatCount)
+    ) {
       const memberLabel = nativeTier.seatLimit === 1 ? "member" : "members";
       throw new OrganizationManagerError(
         `Upgrade the subscription before adding more than ${nativeTier.seatLimit} ${memberLabel}`,
@@ -37,10 +43,16 @@ export function requiredLicensedSeatCount(
       Math.max(1, activeSeatCount),
     );
     if (!requiredTier) {
-      throw new OrganizationManagerError(
-        "The organization exceeds the maximum subscription tier of 10 members",
-        409,
-      );
+      if (
+        previousActiveSeatCount === undefined ||
+        activeSeatCount > previousActiveSeatCount
+      ) {
+        throw new OrganizationManagerError(
+          "The organization exceeds the maximum subscription tier of 10 members",
+          409,
+        );
+      }
+      return getLargestSyncBillingTier().seatLimit;
     }
     return requiredTier.seatLimit;
   }

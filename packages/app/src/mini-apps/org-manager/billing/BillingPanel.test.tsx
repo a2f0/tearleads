@@ -14,13 +14,6 @@ import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPanel } from "./BillingPanel";
 
-/**
- * The container seam: where the in-app card checkout (issue #1654) and the
- * provider-hosted purchase flow interlock. Each half is unit-tested on its own;
- * these cover the wiring only this file owns — the render/teardown gate and
- * the cross-lock that keeps the two flows from competing.
- */
-
 const spies: { mockRestore: () => void }[] = [];
 
 afterEach(() => {
@@ -169,9 +162,6 @@ test("an org that cannot sync is offered the in-app card checkout", async () => 
     { wrapper },
   );
 
-  // The price row proves the option loaded and the gate let it render. It
-  // renders even though the RevenueCat capability is unavailable, which is the
-  // point: this checkout runs on our own Stripe account.
   await waitFor(() => expect(view.getByText("Sync")).toBeDefined());
   expect(view.getByText("$4.99/month")).toBeDefined();
   expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined();
@@ -194,14 +184,23 @@ test("a checkout eligibility failure is visible instead of leaving a blank panel
   );
 });
 
+test("an unconfigured checkout stays absent without showing a failure", async () => {
+  stubEnvironment(false, {
+    loadStripeCheckoutOptions: () => Promise.resolve({ options: [] }),
+  });
+
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    { wrapper },
+  );
+
+  await waitFor(() => expect(view.queryByText("Sync")).toBeNull());
+  expect(
+    view.queryByText(ORG_MANAGER_LABELS.billingCheckoutUnavailable),
+  ).toBeNull();
+});
+
 test("the direct checkout does not surface the 'purchases unavailable' notice", async () => {
-  // Regression: gating the RC subscribe list off (to avoid two Subscribe rows)
-  // must NOT trip BillingView's fallback notice. With a Stripe key present the
-  // checkout IS the purchase path, so "Purchases aren't available right now" is
-  // wrong — this shipped in #1679 and showed on every staging load.
-  //
-  // RevenueCat AVAILABLE so `purchaseAvailable` is only turned off by the
-  // direct-checkout gate, which is the exact path that regressed.
   stubEnvironment(false);
 
   const view = render(

@@ -11,6 +11,9 @@ type RevenueCatGrantCapacityDisposition =
   | { readonly kind: "ignore"; readonly reason: string }
   | { readonly kind: "apply_without_reconciliation"; readonly reason: string };
 
+export const STRIPE_GRANT_EXCEEDS_CAPACITY_REASON =
+  "Stripe subscription cannot cover more than 10 active members";
+
 /**
  * Compares a paid grant with the authoritative signed Members projection.
  * Stripe state above the largest sellable tier is malformed and is claimed for
@@ -44,8 +47,7 @@ export async function resolveRevenueCatGrantCapacity(input: {
       ? { kind: "within_capacity" }
       : {
           kind: "ignore",
-          reason:
-            "Stripe subscription cannot cover more than 10 active members",
+          reason: STRIPE_GRANT_EXCEEDS_CAPACITY_REASON,
         };
   }
   if (activeUserIds.length <= input.transition.fields.seatCount) {

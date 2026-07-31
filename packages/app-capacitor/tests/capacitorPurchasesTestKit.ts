@@ -1,4 +1,4 @@
-import { afterEach, mock } from "bun:test";
+import { mock } from "bun:test";
 import type { PurchasesPackage } from "@revenuecat/purchases-capacitor";
 
 export const fixture: {
@@ -177,7 +177,7 @@ export function clearEnv() {
   }
 }
 
-afterEach(() => {
+export function resetFixture(): void {
   fixture.platform = "ios";
   fixture.configureCalls = [];
   fixture.purchaseCalls = [];
@@ -190,4 +190,4 @@ afterEach(() => {
   fixture.nativePurchaseResult = null;
   fixture.onGetOfferings = null;
   clearEnv();
-});
+}

@@ -4,12 +4,10 @@ import {
   groups as groupsTable,
   organizationRosterEntries,
   organizations,
-  users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
-  toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -18,82 +16,17 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { getCurrentOrganizationAdminAuthority } from "../../../test/helpers/organizationAdmin";
-import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
-  createProjectionWithAdminSigner,
-  signPrincipalStateBundle,
-} from "../../../test/helpers/principalState";
+  createSignedPrincipalState,
+  getDefaultOrganizationId,
+} from "../../../test/helpers/principalPolicy";
+import { createProjectionWithAdminSigner } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
-
-async function createSignedPrincipalState(input: {
-  externalAuthority?: Parameters<
-    typeof signPrincipalStateBundle
-  >[0]["externalAuthority"];
-  keyEpoch?: number;
-  members: Array<{ principalType: "user" | "group"; principalId: string }>;
-  prevStateHash?: string | null;
-  principalKem?: ReturnType<typeof generateKemSeedAndKeyPair>;
-  principalId: string;
-  principalType: "group" | "organization";
-  signedAt?: string;
-  signerUserId: string;
-  signerUserKeyFingerprint: string;
-  signingPrivateKey: Uint8Array;
-  version?: number;
-  projection?: Array<{
-    memberPrincipalType: "user" | "group";
-    memberPrincipalId: string;
-    role: "member" | "admin";
-  }>;
-}) {
-  const principalKem = input.principalKem ?? generateKemSeedAndKeyPair();
-  const projection =
-    input.projection ??
-    createProjectionWithAdminSigner(input.signerUserId, input.members);
-  const { memberEnvelopes, stateMembers } =
-    await createPrincipalMemberEnvelopes({
-      principalSecretKey: principalKem.secretKey,
-      projection,
-    });
-
-  return signPrincipalStateBundle({
-    principalType: input.principalType,
-    principalId: input.principalId,
-    version: input.version ?? 1,
-    prevStateHash: input.prevStateHash ?? null,
-    keyEpoch: input.keyEpoch ?? 1,
-    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-    keyFingerprint: await toFingerprint(principalKem.publicKey),
-    members: stateMembers,
-    projection,
-    externalAuthority: input.externalAuthority ?? null,
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify(input.members)),
-    ),
-    signedAt:
-      input.signedAt ?? new Date("2026-04-08T16:00:00.000Z").toISOString(),
-    signerUserId: input.signerUserId,
-    signerUserKeyFingerprint: input.signerUserKeyFingerprint,
-    signingPrivateKey: input.signingPrivateKey,
-    memberEnvelopes,
-  });
-}
-
-async function getDefaultOrganizationId(userId: string): Promise<string> {
-  const [user] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  invariant(user, "expected registered user");
-  return user.organizationId;
-}
 
 async function addOrganizationMember(input: {
   actor: ReturnType<typeof createTestUser>;

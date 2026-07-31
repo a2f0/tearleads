@@ -9,6 +9,7 @@ import {
   users,
 } from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+import { isUuidV4String } from "@tearleads/validators/util";
 import { and, eq, gt } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
@@ -16,13 +17,17 @@ import {
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
   SANDBOX_IGNORED_REASON,
+  UNCONFIGURED_SYNC_BILLING_TIER_REASON,
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
-import { resolveRevenueCatGrantCapacity } from "./revenuecatGrantCapacity";
+import {
+  resolveRevenueCatGrantCapacity,
+  STRIPE_GRANT_EXCEEDS_CAPACITY_REASON,
+} from "./revenuecatGrantCapacity";
 import {
   type ImmutableStripeStoreOrgResolution,
   type LockedBillingIdentity,
@@ -147,6 +152,9 @@ async function resolveIgnoredReason(
     const store = event.store?.toUpperCase() ?? "UNKNOWN";
     const isNativeStore = store !== "STRIPE" && store !== "RC_BILLING";
     if (isNativeStore) {
+      if (!isUuidV4String(event.app_user_id)) {
+        return "Native purchase buyer is not a Tearleads user";
+      }
       const [buyer] = await executor
         .select({ defaultOrganizationId: users.defaultOrganizationId })
         .from(users)
@@ -431,6 +439,9 @@ export async function runRevenueCatWebhookWorkflow(
     stripeResolution.kind === "resolved" &&
     (stripeResolution.priceId === null || stripeResolution.seatCount === null)
   ) {
+    console.error(
+      `RevenueCat paid grant ${event.id} was not applied: Stripe subscription tier could not be resolved`,
+    );
     return {
       status: "retry",
       reason: "Stripe subscription tier could not be resolved",
@@ -475,9 +486,8 @@ function logUnappliedPaidGrant(
     return;
   }
   if (
-    outcome.reason !== "Event product is not a configured sync billing tier" &&
-    outcome.reason !==
-      "Stripe subscription cannot cover more than 10 active members"
+    outcome.reason !== UNCONFIGURED_SYNC_BILLING_TIER_REASON &&
+    outcome.reason !== STRIPE_GRANT_EXCEEDS_CAPACITY_REASON
   ) {
     return;
   }

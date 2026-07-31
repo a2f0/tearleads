@@ -47,6 +47,15 @@ export function getSyncBillingTierForSeatCount(
   return SYNC_BILLING_TIERS.find((tier) => tier.seatLimit >= seatCount) ?? null;
 }
 
+/** Largest tier in the canonical ascending-capacity tier list. */
+export function getLargestSyncBillingTier(): SyncBillingTier {
+  const tier = SYNC_BILLING_TIERS.at(-1);
+  if (!tier) {
+    throw new Error("At least one sync billing tier must be configured");
+  }
+  return tier;
+}
+
 /**
  * Product identifiers used in App Store, Play, and RevenueCat Test Store.
  * Staging suffixes and Play base-plan suffixes do not change the tier.

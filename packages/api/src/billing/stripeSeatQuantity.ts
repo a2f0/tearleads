@@ -1,6 +1,6 @@
 import {
+  getLargestSyncBillingTier,
   getSyncBillingTierForSeatCount,
-  SYNC_BILLING_TIERS,
 } from "@tearleads/validators/billing";
 import { resolveDeps, type StripeApiDeps, stripeRequest } from "./stripeHttp";
 
@@ -15,7 +15,7 @@ interface StripeSeatQuantityUpdate {
 
 /**
  * Rounds live seat state up to a fixed tier. Empty rosters retain Solo, and a
- * defensive clamp maps legacy oversized outbox state to Team 10 so the worker
+ * defensive fallback maps legacy oversized outbox state to the largest tier so the worker
  * can settle instead of retrying the same impossible target forever. Roster
  * writes and checkout reject new state above 10 before it reaches this helper.
  */
@@ -23,14 +23,10 @@ export function normalizeStripeSeatQuantity(seatQuantity: number): number {
   if (!Number.isSafeInteger(seatQuantity) || seatQuantity < 0) {
     throw new RangeError("Stripe seat quantity must be a non-negative integer");
   }
-  const boundedSeatQuantity = Math.min(10, Math.max(1, seatQuantity));
-  if (boundedSeatQuantity <= SYNC_BILLING_TIERS[0].seatLimit) {
-    return SYNC_BILLING_TIERS[0].seatLimit;
-  }
-  if (boundedSeatQuantity <= SYNC_BILLING_TIERS[1].seatLimit) {
-    return SYNC_BILLING_TIERS[1].seatLimit;
-  }
-  return SYNC_BILLING_TIERS[2].seatLimit;
+  return (
+    getSyncBillingTierForSeatCount(Math.max(1, seatQuantity)) ??
+    getLargestSyncBillingTier()
+  ).seatLimit;
 }
 
 /** Switches the subscription item to the fixed tier covering the seat target. */

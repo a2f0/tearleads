@@ -182,6 +182,29 @@ test("a production store purchase still activates sync", async () => {
   });
 });
 
+test("an anonymous native buyer id is claimed without reaching the UUID query", async () => {
+  const { organizationId } = await registerOrganizationAdmin();
+  const eventId = crypto.randomUUID();
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    appStorePurchase({
+      appUserId: "$RCAnonymousID:anonymous-buyer",
+      environment: "PRODUCTION",
+      eventId,
+      organizationId,
+    }),
+    new Date(),
+    { env: {} },
+  );
+
+  expect(outcome).toEqual({
+    status: "ignored",
+    reason: "Native purchase buyer is not a Tearleads user",
+  });
+  expect(await readEventOutcome(eventId)).toBe("ignored");
+});
+
 test("a store purchase with no environment is treated as production", async () => {
   const { organizationId, user } = await registerOrganizationAdmin();
 

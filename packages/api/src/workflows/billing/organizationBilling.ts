@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import {
   type OrganizationBillingProvider,
+  type OrganizationBillingStatus,
   organizationBilling,
   organizations,
 } from "@tearleads/api-shared/schema";
@@ -277,6 +278,7 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
   providerProductId: string | null;
   providerSubscriptionId: string | null;
   providerTransactionId: string | null;
+  status: OrganizationBillingStatus;
 }> {
   return db.transaction(async (tx) => {
     await requireDirectOrganizationAccess({
@@ -292,6 +294,7 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
         providerProductId: organizationBilling.providerProductId,
         providerSubscriptionId: organizationBilling.providerSubscriptionId,
         providerTransactionId: organizationBilling.providerTransactionId,
+        status: organizationBilling.status,
       })
       .from(organizationBilling)
       .where(eq(organizationBilling.organizationId, organizationId))
@@ -305,6 +308,7 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
       providerProductId: row.providerProductId,
       providerSubscriptionId: row.providerSubscriptionId,
       providerTransactionId: row.providerTransactionId,
+      status: row.status,
     };
   });
 }

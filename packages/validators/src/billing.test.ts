@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  getLargestSyncBillingTier,
   getSyncBillingTierForNativeProduct,
   getSyncBillingTierForSeatCount,
   isSyncBillingTierId,
@@ -24,6 +25,7 @@ test("fixed billing tiers preserve their public price and capacity contract", ()
   ]);
   expect(isSyncBillingTierId("team_5")).toBe(true);
   expect(isSyncBillingTierId("enterprise")).toBe(false);
+  expect(getLargestSyncBillingTier().id).toBe("team_10");
 });
 
 test("seat counts map to the smallest tier that covers them", () => {

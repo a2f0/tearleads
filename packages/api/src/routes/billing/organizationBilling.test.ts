@@ -150,6 +150,22 @@ test("management identifies Stripe and native subscription ownership", async () 
     managementUrl: null,
     subscriptionSource: "native",
   });
+
+  await db
+    .update(organizationBilling)
+    .set({ providerProductId: "price_solo_test", status: "disabled" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  const staleStripeManagement = await getOrganizationBillingManagementUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    { stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } } },
+  );
+  expect(staleStripeManagement).toEqual({
+    canCancelDirectly: false,
+    managementUrl: null,
+    subscriptionSource: null,
+  });
 });
 
 test("a non-member cannot read or change another org's billing", async () => {

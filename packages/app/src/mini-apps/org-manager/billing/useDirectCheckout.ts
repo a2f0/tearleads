@@ -110,9 +110,9 @@ function useCheckoutOption(
         if (!cancelled) {
           const option = result?.options[0] ?? null;
           setState({
-            error: option
-              ? null
-              : ORG_MANAGER_LABELS.billingCheckoutUnavailable,
+            // An empty list means the server integration is intentionally not
+            // configured. A rejected request is an actionable load failure.
+            error: null,
             option,
           });
         }

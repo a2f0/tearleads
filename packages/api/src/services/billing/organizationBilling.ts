@@ -65,12 +65,16 @@ export async function getOrganizationBillingManagementUrl(
     providerProductId,
     providerSubscriptionId,
     providerTransactionId,
+    status,
   } = await runResolveOrganizationBillingCustomerWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
   );
+  const hasActiveProviderSubscription =
+    status === "active" && provider === "revenuecat";
   const canCancelDirectly =
+    hasActiveProviderSubscription &&
     getSyncBillingTierForStripePrice(providerProductId, deps.stripe) !== null;
   if (canCancelDirectly) {
     return {
@@ -79,12 +83,12 @@ export async function getOrganizationBillingManagementUrl(
       subscriptionSource: "stripe",
     };
   }
-  const subscriptionSource = getSyncBillingTierForNativeProduct(
-    providerProductId,
-  )
-    ? "native"
-    : null;
-  if (provider !== "revenuecat" || !providerCustomerId) {
+  const subscriptionSource =
+    hasActiveProviderSubscription &&
+    getSyncBillingTierForNativeProduct(providerProductId)
+      ? "native"
+      : null;
+  if (!hasActiveProviderSubscription || !providerCustomerId) {
     return {
       canCancelDirectly: false,
       managementUrl: null,

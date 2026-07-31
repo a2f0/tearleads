@@ -249,6 +249,22 @@ test("options answer an empty list when unconfigured", async () => {
   expect(await response.json()).toEqual({ options: [] });
 });
 
+test("options reject an already-active organization before configuration", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await db
+    .update(organizationBilling)
+    .set({ status: "active" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/options`,
+    { headers: authHeader(admin) },
+  );
+
+  expect(response.status).toBe(409);
+});
+
 test("options reject an organization above the largest tier", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);

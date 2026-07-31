@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import type { PurchasesPackage } from "@revenuecat/purchases-capacitor";
 import {
   PurchaseAbortedError,
@@ -10,8 +10,11 @@ import {
   fixture,
   nativePackage,
   purchaseSync,
+  resetFixture,
   setEnv,
 } from "../tests/capacitorPurchasesTestKit";
+
+afterEach(resetFixture);
 
 test("degrades to the unavailable stub without a platform key", () => {
   clearEnv();
