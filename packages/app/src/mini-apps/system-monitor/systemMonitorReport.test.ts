@@ -220,11 +220,11 @@ test("report retains only anchored content-free telemetry", () => {
       createLogEntry(15, {
         level: "error",
         message:
-          "Billing: billing purchase stage=failed code=store-problem native=asd:509 userCancelled=false",
+          "Billing: billing purchase stage=failed code=store-problem backend=none native=asd:509 userCancelled=false",
       }),
       createLogEntry(16, {
         message:
-          "Billing: billing purchase stage=failed code=store-problem native=asd:509 userCancelled=false PRIVATE cardiology scan.pdf",
+          "Billing: billing purchase stage=failed code=store-problem backend=none native=asd:509 userCancelled=false PRIVATE cardiology scan.pdf",
       }),
     ],
     status: createStatus(),
@@ -235,7 +235,7 @@ test("report retains only anchored content-free telemetry", () => {
   );
   expect(report).not.toContain("PRIVATE");
   expect(report).toContain(
-    "ERROR: billing purchase stage=failed code=store-problem native=asd:509 userCancelled=false",
+    "ERROR: billing purchase stage=failed code=store-problem backend=none native=asd:509 userCancelled=false",
   );
   expect(report).toContain(
     "stale root recovery status=reassigned candidates=1",

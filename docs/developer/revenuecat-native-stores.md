@@ -20,6 +20,13 @@ is specific to the native bridge, as opposed to the web one:
 - **The bridge is untyped at runtime.** A `CustomerInfo` or package can arrive
   partial or nullish, so every field read is guarded rather than trusted; a bad
   payload reads as "no entitlement", never a crash.
+- **iOS purchase failures retain content-free diagnostics.** The first-party
+  `RevenueCatPurchasePlugin` purchases through RevenueCat's public Swift API and
+  returns only active entitlement IDs. On failure it preserves the readable
+  code, cancellation flag, numeric backend subcode, and StoreKit domain/code.
+  Android and every non-purchase operation continue through RevenueCat's
+  official Capacitor plugin. The System Monitor includes those bounded values
+  but still excludes receipt, account, and free-form provider text.
 - **A dismissed store sheet is a cancellation, not a failure.** The bridge
   serializes RevenueCat's `PurchasesError` across the native boundary, so what
   arrives is a plain object — `instanceof` cannot work the way it does on web.
@@ -174,9 +181,9 @@ override in `.secrets/staging.env`.
 
 Before testing the real Apple purchase sheet:
 
-1. In App Store Connect, create the auto-renewable subscription under bundle ID
-   `com.tearleads.app` and finish its required localization, price, and review
-   metadata.
+1. In App Store Connect, create the auto-renewable subscription under the app
+   being tested (`com.tearleads.staging.app` for staging) and finish its required
+   localization, price, and review metadata.
 2. Connect that Apple app to RevenueCat, including its In-App Purchase key, and
    import the product. Attach it to `$rc_monthly` in the current `default`
    offering and to the `sync` entitlement.
@@ -184,12 +191,22 @@ Before testing the real Apple purchase sheet:
    key. The Xcode project records the In-App Purchase capability and Swift 5;
    StoreKit does not use a code-signing entitlement for in-app purchases, so
    App Store Connect and RevenueCat configuration remain authoritative.
-4. Create an App Store Connect sandbox tester. Run from Xcode on a device, or
-   use TestFlight; use the sandbox account when StoreKit prompts.
-5. After purchasing, tap **Manage subscription**. iOS presents StoreKit's
-   in-app subscription-management sheet for the signed-in sandbox tester;
-   dismissing it refreshes the billing snapshot.
-6. Repeat the cancel/restore checks above and confirm the transaction appears
+4. Create an App Store Connect sandbox tester. For a development-signed build,
+   attempt a purchase once and then sign in under **Settings > Developer >
+   Sandbox Apple Account**; the production Media & Purchases account can remain
+   signed in for this build type.
+5. For TestFlight, use a regular Apple Account to download the beta, then sign
+   out under **Settings > Apple Account > Media & Purchases**. Do not enter the
+   sandbox tester there: sandbox accounts are not iTunes or App Store download
+   accounts. Instead, sign in under **Settings > Developer > Sandbox Apple
+   Account**, and leave Media & Purchases signed out while testing. Signing the
+   regular account back in makes TestFlight purchases use that account rather
+   than the configured sandbox tester. TestFlight purchases still run in the
+   sandbox environment and do not charge either account.
+6. After purchasing, tap **Manage subscription**. iOS presents StoreKit's
+   in-app subscription-management sheet for the account StoreKit is currently
+   using; dismissing it refreshes the billing snapshot.
+7. Repeat the cancel/restore checks above and confirm the transaction appears
    with sandbox data enabled in RevenueCat.
 
 An Xcode StoreKit configuration file is useful for local StoreKit behavior, but

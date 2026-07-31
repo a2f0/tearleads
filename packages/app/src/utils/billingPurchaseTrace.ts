@@ -82,7 +82,7 @@ const NATIVE_ERROR_DOMAIN_FRAGMENT = NATIVE_ERROR_DOMAINS.map(
 export const BILLING_PURCHASE_TRACE_FRAGMENT = `(?:${[
   "billing purchase stage=(?:started|identified|provider-started|aborted|cancelled|superseded)",
   "billing purchase stage=(?:succeeded|late-succeeded) entitlement=(?:active|inactive)",
-  `billing purchase stage=(?:failed|late-failed) code=(?:${PURCHASE_FAILURE_CODE_FRAGMENT}) native=(?:none|(?:${NATIVE_ERROR_DOMAIN_FRAGMENT}):-?\\d{1,10}) userCancelled=(?:true|false|unknown)`,
+  `billing purchase stage=(?:failed|late-failed) code=(?:${PURCHASE_FAILURE_CODE_FRAGMENT}) backend=(?:none|-?\\d{1,10}) native=(?:none|(?:${NATIVE_ERROR_DOMAIN_FRAGMENT}):-?\\d{1,10}) userCancelled=(?:true|false|unknown)`,
 ]
   .map((alternative) => `(?:${alternative})`)
   .join("|")})`;
@@ -114,6 +114,36 @@ function readErrorCode(error: unknown): string | undefined {
     : undefined;
 }
 
+function readObjectField(value: unknown, field: string): unknown {
+  if (typeof value !== "object" || value === null || !(field in value)) {
+    return undefined;
+  }
+  return Reflect.get(value, field);
+}
+
+function readDiagnosticField(error: unknown, field: string): unknown {
+  return (
+    readObjectField(error, field) ??
+    readObjectField(readObjectField(error, "data"), field)
+  );
+}
+
+function readBoundedInteger(value: unknown): string | undefined {
+  const text =
+    typeof value === "number" && Number.isSafeInteger(value)
+      ? String(value)
+      : typeof value === "string"
+        ? value
+        : undefined;
+  return text && /^-?\d{1,10}$/u.test(text) ? text : undefined;
+}
+
+function readBackendErrorCode(error: unknown): string {
+  return (
+    readBoundedInteger(readDiagnosticField(error, "backendErrorCode")) ?? "none"
+  );
+}
+
 function readNativeErrorMessages(error: unknown): Array<string | undefined> {
   if (typeof error !== "object" || error === null) {
     return [];
@@ -133,18 +163,27 @@ function readNativeErrorMessages(error: unknown): Array<string | undefined> {
 }
 
 function readUserCancelled(error: unknown): "false" | "true" | "unknown" {
-  if (
-    typeof error !== "object" ||
-    error === null ||
-    !("userCancelled" in error) ||
-    typeof error.userCancelled !== "boolean"
-  ) {
+  const userCancelled = readDiagnosticField(error, "userCancelled");
+  if (typeof userCancelled !== "boolean") {
     return "unknown";
   }
-  return error.userCancelled ? "true" : "false";
+  return userCancelled ? "true" : "false";
 }
 
 function classifyNativeError(error: unknown): string {
+  const storeError = readDiagnosticField(error, "storeError");
+  const storeErrorDomain = readObjectField(storeError, "domain");
+  const storeErrorCode = readBoundedInteger(
+    readObjectField(storeError, "code"),
+  );
+  if (typeof storeErrorDomain === "string" && storeErrorCode) {
+    const safeDomain = NATIVE_ERROR_DOMAINS.find(
+      ([domain]) => domain === storeErrorDomain,
+    )?.[1];
+    if (safeDomain) {
+      return `${safeDomain}:${storeErrorCode}`;
+    }
+  }
   for (const message of readNativeErrorMessages(error)) {
     if (!message) {
       continue;
@@ -165,5 +204,5 @@ export function formatBillingPurchaseFailure(
 ): string {
   const code =
     PURCHASE_FAILURE_CODE_BY_VALUE.get(readErrorCode(error) ?? "") ?? "other";
-  return `billing purchase stage=${late ? "late-failed" : "failed"} code=${code} native=${classifyNativeError(error)} userCancelled=${readUserCancelled(error)}`;
+  return `billing purchase stage=${late ? "late-failed" : "failed"} code=${code} backend=${readBackendErrorCode(error)} native=${classifyNativeError(error)} userCancelled=${readUserCancelled(error)}`;
 }

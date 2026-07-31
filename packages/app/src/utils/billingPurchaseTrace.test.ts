@@ -33,7 +33,7 @@ test("extracts native codes from the iOS Capacitor error shape", () => {
   });
 
   expect(line).toBe(
-    "billing purchase stage=failed code=product-unavailable native=asd:509 userCancelled=unknown",
+    "billing purchase stage=failed code=product-unavailable backend=none native=asd:509 userCancelled=unknown",
   );
   expect(BILLING_PURCHASE_TRACE_PATTERN.test(line)).toBe(true);
   expect(line).not.toContain("PRIVATE");
@@ -49,7 +49,7 @@ test("maps RevenueCat and Apple native error codes without free text", () => {
   });
 
   expect(line).toBe(
-    "billing purchase stage=failed code=store-problem native=asd:509 userCancelled=false",
+    "billing purchase stage=failed code=store-problem backend=none native=asd:509 userCancelled=false",
   );
   expect(BILLING_PURCHASE_TRACE_PATTERN.test(line)).toBe(true);
   expect(line).not.toContain("PRIVATE");
@@ -65,11 +65,27 @@ test("unknown provider content fails closed", () => {
   });
 
   expect(line).toBe(
-    "billing purchase stage=failed code=other native=none userCancelled=unknown",
+    "billing purchase stage=failed code=other backend=none native=none userCancelled=unknown",
   );
   expect(BILLING_PURCHASE_TRACE_PATTERN.test(line)).toBe(true);
   expect(line).not.toContain("PRIVATE");
   expect(line).not.toContain("cardiology");
+});
+
+test("extracts safe diagnostics preserved by the native bridge", () => {
+  const line = formatBillingPurchaseFailure({
+    code: "8",
+    data: {
+      backendErrorCode: 7712,
+      storeError: { code: 7, domain: "StoreKitErrorDomain" },
+      userCancelled: false,
+    },
+  });
+
+  expect(line).toBe(
+    "billing purchase stage=failed code=invalid-receipt backend=7712 native=storekit:7 userCancelled=false",
+  );
+  expect(BILLING_PURCHASE_TRACE_PATTERN.test(line)).toBe(true);
 });
 
 test("native error classification requires a bounded Code field", () => {

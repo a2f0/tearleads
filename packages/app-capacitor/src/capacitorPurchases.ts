@@ -15,6 +15,7 @@ import {
   type RevenueCatCustomerInfo,
   type RevenueCatPackage,
 } from "@tearleads/client-sdk";
+import { purchaseCapacitorRevenueCatPackage } from "./capacitorRevenueCatPurchase";
 
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
 
@@ -113,8 +114,7 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
       throw new Error(`Unknown purchase package: ${packageId}`);
     }
     try {
-      const result = await Purchases.purchasePackage({ aPackage });
-      return toRevenueCatCustomerInfo(result?.customerInfo);
+      return await purchaseCapacitorRevenueCatPackage(aPackage);
     } catch (error) {
       // Backing out of the store sheet is a normal exit, not a failure.
       // Without this the panel surfaces "Failed to subscribe" and logs an

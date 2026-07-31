@@ -12,6 +12,7 @@ const fixture: {
   platform: string;
   configureCalls: { apiKey: string; appUserID?: string }[];
   purchaseCalls: { identifier: string }[];
+  nativePurchaseCalls: { identifier: string }[];
   attributeCalls: Record<string, string | null>[];
   packages: PurchasesPackage[];
   purchaseRejection: unknown;
@@ -21,6 +22,7 @@ const fixture: {
   platform: "ios",
   configureCalls: [],
   purchaseCalls: [],
+  nativePurchaseCalls: [],
   attributeCalls: [],
   packages: [],
   purchaseRejection: null,
@@ -52,6 +54,32 @@ mock.module("@capacitor/core", () => ({
     getPlatform: () => fixture.platform,
     isNativePlatform: () => fixture.platform !== "web",
     isPluginAvailable: () => fixture.platform !== "web",
+    registerPlugin: (name: string) => {
+      if (name !== "RevenueCatPurchase") {
+        return { show: () => Promise.resolve() };
+      }
+      return {
+        purchasePackage: ({ packageId }: { packageId: string }) => {
+          fixture.nativePurchaseCalls.push({ identifier: packageId });
+          if (fixture.purchaseRejection !== null) {
+            return Promise.reject(fixture.purchaseRejection);
+          }
+          const customerInfo = fixture.customerInfo;
+          const activeEntitlements =
+            typeof customerInfo === "object" &&
+            customerInfo !== null &&
+            "entitlements" in customerInfo &&
+            typeof customerInfo.entitlements === "object" &&
+            customerInfo.entitlements !== null &&
+            "active" in customerInfo.entitlements &&
+            typeof customerInfo.entitlements.active === "object" &&
+            customerInfo.entitlements.active !== null
+              ? Object.keys(customerInfo.entitlements.active)
+              : [];
+          return Promise.resolve({ activeEntitlementIds: activeEntitlements });
+        },
+      };
+    },
   },
 }));
 
@@ -120,6 +148,7 @@ afterEach(() => {
   fixture.platform = "ios";
   fixture.configureCalls = [];
   fixture.purchaseCalls = [];
+  fixture.nativePurchaseCalls = [];
   fixture.attributeCalls = [];
   fixture.packages = [];
   fixture.purchaseRejection = null;
@@ -212,8 +241,23 @@ test("binds the purchase to the organization before presenting the sheet", async
   // The server webhook resolves a non-Stripe store event against this
   // subscriber attribute, so it must be set before the purchase, not after.
   expect(fixture.attributeCalls).toEqual([{ orgId: "org-1" }]);
-  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(fixture.nativePurchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(fixture.purchaseCalls).toEqual([]);
   expect(result.syncEntitlementActive).toBe(true);
+});
+
+test("keeps Android purchases on RevenueCat's official Capacitor bridge", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+
+  await createCapacitorPurchases().purchaseSync({
+    organizationId: "org-1",
+    packageId: "monthly",
+  });
+
+  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
 test("reports the entitlement as inactive when the purchase does not grant it", async () => {
@@ -276,6 +320,7 @@ test("rejects a package the current offering does not contain", async () => {
     }),
   ).rejects.toThrow("Unknown purchase package: annual");
   expect(fixture.purchaseCalls).toEqual([]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
 test("treats a dismissed store sheet as a cancellation, not a failure", async () => {
@@ -339,6 +384,7 @@ test("does not present a sheet for a purchase abandoned before it began", async 
     }),
   ).rejects.toBeInstanceOf(PurchaseAbortedError);
   expect(fixture.purchaseCalls).toEqual([]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
 test("does not present a sheet when abandoned while offerings loaded", async () => {
@@ -357,6 +403,7 @@ test("does not present a sheet when abandoned while offerings loaded", async () 
     }),
   ).rejects.toBeInstanceOf(PurchaseAbortedError);
   expect(fixture.purchaseCalls).toEqual([]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
 test("prefers the pre-sheet abort over an unknown package", async () => {
