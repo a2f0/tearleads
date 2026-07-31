@@ -50,8 +50,8 @@
       "bytes": 18158
     },
     "docs/keying-design.md": {
-      "lines": 930,
-      "bytes": 40772
+      "lines": 932,
+      "bytes": 40925
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 538,
@@ -66,8 +66,8 @@
       "bytes": 22784
     },
     "docs/security-guarantees.md": {
-      "lines": 418,
-      "bytes": 20354
+      "lines": 420,
+      "bytes": 20507
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
@@ -138,16 +138,16 @@
       "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 4071,
-      "bytes": 134486
+      "lines": 4078,
+      "bytes": 134830
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1289,
       "bytes": 43277
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2251,
-      "bytes": 73168
+      "lines": 2253,
+      "bytes": 73311
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1169,
@@ -194,8 +194,8 @@
       "bytes": 16424
     },
     "packages/api/test/helpers/keyingWriterProjectionKit.ts": {
-      "lines": 649,
-      "bytes": 21576
+      "lines": 650,
+      "bytes": 21720
     },
     "packages/api/test/helpers/registration.ts": {
       "lines": 1211,
@@ -402,12 +402,12 @@
       "bytes": 40297
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
-      "lines": 732,
-      "bytes": 22724
+      "lines": 739,
+      "bytes": 23033
     },
     "packages/crypto/src/keying/containerAccess.ts": {
-      "lines": 1279,
-      "bytes": 37092
+      "lines": 1301,
+      "bytes": 37603
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 650,
@@ -438,8 +438,8 @@
       "bytes": 30430
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1068,
-      "bytes": 32596
+      "lines": 1072,
+      "bytes": 32751
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,

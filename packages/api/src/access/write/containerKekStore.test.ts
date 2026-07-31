@@ -540,6 +540,18 @@ test("container KEK store advances current epoch after revoke rekey", async () =
     { predecessorBridge, verifiedState: newState.value },
     db,
   );
+  await expect(
+    storeVerifiedContainerKekState(
+      {
+        predecessorBridge: {
+          ...predecessorBridge,
+          wrappedKey: `${predecessorBridge.wrappedKey}tampered`,
+        },
+        verifiedState: newState.value,
+      },
+      db,
+    ),
+  ).rejects.toThrow("Container key epoch conflict");
 
   await expect(
     getCurrentContainerKeyEpoch(containerId, db),

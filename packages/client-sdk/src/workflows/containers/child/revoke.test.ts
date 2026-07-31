@@ -3,6 +3,7 @@ import {
   type ContainerKeyWrap,
   type ContainerRevokeAccessEventBody,
   type ContainerUserRecipientKey,
+  computeContainerKekPredecessorBridgeHash,
   generateKemSeedAndKeyPair,
   type KeyingCanonicalJson,
   toFingerprint,
@@ -94,9 +95,15 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
   expect(body).toEqual({
     eventType: "container.revoke",
     containerKeyEpochId: revoked.plan.containerKeyEpochId,
+    predecessorBridgeHash: body.predecessorBridgeHash,
     subjectId: revokedUserId,
     subjectType: "user",
   });
+  expect(body.predecessorBridgeHash).toBe(
+    await computeContainerKekPredecessorBridgeHash(
+      submittedRequest.predecessorBridge,
+    ),
+  );
   expect(revoked.plan.keyEpoch.keyEpoch).toBe(2);
   expect(revoked.plan.keyEpoch.id).not.toBe(
     parent.parentKekState.containerKeyEpochId,

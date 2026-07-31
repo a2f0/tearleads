@@ -20,6 +20,7 @@ import type {
 import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
+  computeContainerKekPredecessorBridgeHash,
   computeDocumentContentKeyTargetHash,
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
@@ -572,6 +573,8 @@ export async function buildRootRevokeRequest(input: {
   const body: ContainerAccessEventBody = {
     eventType: "container.revoke",
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
     subjectType: "user",
     subjectId: input.revokedUser.userId,
   };

@@ -6,6 +6,7 @@ import {
   type ContainerKeyEpoch,
   computeBlobAccessManifestHash,
   computeContainerKekMaterialId,
+  computeContainerKekPredecessorBridgeHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   computePrincipalStateHash,
@@ -416,12 +417,21 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
       keyEpoch: parent.parentKekState.containerKeyEpoch + 1,
       keyMaterial: rotatedContainerKek,
     });
+    const predecessorBridge = await createContainerKekPredecessorBridge({
+      containerId: parent.parentKekState.containerId,
+      predecessorContainerKey: parent.parentContainerKek,
+      predecessorContainerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+      successorContainerKey: rotatedContainerKek,
+      successorContainerKeyEpochId: rotatedContainerKeyEpochId,
+    });
     const revokedManifest = await createContainerRevokeManifestFixture({
       author: parent.author,
       containerId: parent.parentKekState.containerId,
       containerKeyEpochId: rotatedContainerKeyEpochId,
       eventId: "parent-container-revoke-event-2",
       organizationId: parent.projection.organizationId,
+      predecessorBridgeHash:
+        await computeContainerKekPredecessorBridgeHash(predecessorBridge),
       previousManifest,
       subjectId: revokedUserId,
       subjectType: "user",
@@ -465,13 +475,6 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
       throw verifiedRotatedKek.error;
     }
     const rotatedKekState = verifiedRotatedKek.value;
-    const predecessorBridge = await createContainerKekPredecessorBridge({
-      containerId: parent.parentKekState.containerId,
-      predecessorContainerKey: parent.parentContainerKek,
-      predecessorContainerKeyEpochId: parent.parentKekState.containerKeyEpochId,
-      successorContainerKey: rotatedContainerKek,
-      successorContainerKeyEpochId: rotatedContainerKeyEpochId,
-    });
     const revokedProjection: ContainerWriterProjectionResponse = {
       containerId: parent.projection.containerId,
       organizationId: parent.projection.organizationId,
@@ -523,6 +526,26 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
     expect(
       Array.from(ownerRotatedKeks.get(rotatedContainerKeyEpochId) ?? []),
     ).toEqual(Array.from(rotatedContainerKek));
+
+    const substitutedProjection = structuredClone(revokedProjection);
+    const substitutedBridge =
+      substitutedProjection.containerKeks[0]?.predecessorKeks[0]?.bridge;
+    if (!substitutedBridge) {
+      throw new Error("Expected projected predecessor bridge");
+    }
+    Reflect.set(
+      substitutedBridge,
+      "wrappedKey",
+      bytesToBase64(crypto.getRandomValues(new Uint8Array(48))),
+    );
+    await expect(
+      unwrapContainerKekPath({
+        execSql,
+        projection: substitutedProjection,
+        resolveProjectionUserKey,
+        secretKey: parent.secretKey,
+      }),
+    ).rejects.toThrow("predecessor bridge does not match its signed event");
 
     await expect(
       unwrapContainerKekPath({

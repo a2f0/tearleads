@@ -1,6 +1,9 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { assertAesGcmIv, decryptWithDek, encryptWithDek } from "../symmetric";
-import { serializeKeyingCanonicalJson } from "./canonical";
+import {
+  computeKeyingDomainHash,
+  serializeKeyingCanonicalJson,
+} from "./canonical";
 import { isContainerKekMaterialId } from "./containerKekMaterial";
 import {
   assertExactKeys,
@@ -154,6 +157,24 @@ export function normalizeContainerKekPredecessorBridge(
     );
   }
   return bridge;
+}
+
+export async function computeContainerKekPredecessorBridgeHash(
+  value: unknown,
+): Promise<string> {
+  const bridge = normalizeContainerKekPredecessorBridge(value);
+  return computeKeyingDomainHash(
+    "tearleads.keying.container-kek-predecessor-bridge",
+    {
+      version: bridge.version,
+      wrappingSuite: bridge.wrappingSuite,
+      containerId: bridge.containerId,
+      predecessorContainerKeyEpochId: bridge.predecessorContainerKeyEpochId,
+      successorContainerKeyEpochId: bridge.successorContainerKeyEpochId,
+      iv: bridge.iv,
+      wrappedKey: bridge.wrappedKey,
+    },
+  );
 }
 
 export async function createContainerKekPredecessorBridge(input: {

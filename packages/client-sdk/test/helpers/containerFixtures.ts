@@ -186,6 +186,7 @@ export async function createContainerRevokeManifestFixture(input: {
   containerKeyEpochId: string;
   eventId: string;
   organizationId: string;
+  predecessorBridgeHash?: string | undefined;
   previousManifest: VerifiedContainerAccessManifest;
   subjectId: string;
   subjectType: ContainerRevokeAccessEventBody["subjectType"];
@@ -194,6 +195,7 @@ export async function createContainerRevokeManifestFixture(input: {
   const body: ContainerRevokeAccessEventBody = {
     eventType: "container.revoke",
     containerKeyEpochId: input.containerKeyEpochId,
+    predecessorBridgeHash: input.predecessorBridgeHash ?? "0".repeat(64),
     subjectId: input.subjectId,
     subjectType: input.subjectType,
   };

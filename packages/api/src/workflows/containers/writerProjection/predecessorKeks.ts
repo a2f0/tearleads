@@ -7,6 +7,7 @@ import {
   getContainerKeyEpochById,
   listContainerKeyEpochs,
 } from "../../../access/read/containerKekStore";
+import { cachedProjectionValue } from "./context";
 import { containerKeyEpochRecord, stripContainerKeyEpoch } from "./records";
 import {
   type ContainerWriterProjectionContext,
@@ -32,7 +33,7 @@ function bridgeRecord(
  * already established current read/write access, so no historical audience
  * filtering belongs here: current document access is history-inclusive.
  */
-export async function loadPredecessorContainerKeks(input: {
+async function loadPredecessorContainerKeksUncached(input: {
   readonly containerKeyEpochId: string;
   readonly context: ContainerWriterProjectionContext;
 }): Promise<PredecessorContainerKekResponse[]> {
@@ -111,4 +112,15 @@ export async function loadPredecessorContainerKeks(input: {
   }
 
   return predecessors;
+}
+
+export function loadPredecessorContainerKeks(input: {
+  readonly containerKeyEpochId: string;
+  readonly context: ContainerWriterProjectionContext;
+}): Promise<PredecessorContainerKekResponse[]> {
+  return cachedProjectionValue(
+    input.context.predecessorContainerKeksByEpochId,
+    input.containerKeyEpochId,
+    () => loadPredecessorContainerKeksUncached(input),
+  );
 }

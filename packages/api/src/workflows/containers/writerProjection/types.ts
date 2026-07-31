@@ -5,7 +5,10 @@ import type {
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import type {
+  AccessManifestBundleWireResponse,
+  PredecessorContainerKekResponse,
+} from "@tearleads/validators/response";
 
 type ContainerWriterProjectionStatus = 403 | 404 | 409;
 
@@ -56,6 +59,10 @@ export interface ContainerWriterProjectionContext {
   readonly manifestBundleByHash: Map<
     string,
     Promise<AccessManifestBundleWireResponse>
+  >;
+  readonly predecessorContainerKeksByEpochId: Map<
+    string,
+    Promise<PredecessorContainerKekResponse[]>
   >;
 }
 

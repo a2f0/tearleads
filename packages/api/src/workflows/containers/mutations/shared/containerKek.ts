@@ -10,7 +10,9 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
+  computeContainerKekPredecessorBridgeHash,
   computeContainerKeyEpochHash,
+  normalizeContainerAccessEventBody,
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
@@ -109,6 +111,20 @@ async function verifyPredecessorBridge(input: {
   ) {
     throw new ContainerMutationError(
       "Container KEK rotation requires its immediate predecessor bridge",
+      409,
+    );
+  }
+
+  const eventBody = normalizeContainerAccessEventBody(manifest.event.body);
+  if (
+    (eventBody.eventType !== "container.move" &&
+      eventBody.eventType !== "container.rekey" &&
+      eventBody.eventType !== "container.revoke") ||
+    eventBody.predecessorBridgeHash !==
+      (await computeContainerKekPredecessorBridgeHash(bridge))
+  ) {
+    throw new ContainerMutationError(
+      "Container KEK predecessor bridge does not match its signed event",
       409,
     );
   }

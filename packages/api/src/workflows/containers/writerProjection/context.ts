@@ -10,6 +10,7 @@ export function createContainerWriterProjectionContext(
     executor,
     currentManifestBundleByContainerId: new Map(),
     manifestBundleByHash: new Map(),
+    predecessorContainerKeksByEpochId: new Map(),
   };
 }
 

@@ -358,7 +358,9 @@ type ContainerKeyEpoch = {
 
 Every epoch after the first stores an authenticated bridge encrypted under the
 new KEK whose plaintext is the immediately preceding KEK. The bridge binds the
-container id and both committed epoch ids as AES-GCM additional data. Initial
+container id and both committed epoch ids as AES-GCM additional data. Its
+canonical hash is also committed by the signed move, rekey, or revoke event, so
+server-side ciphertext substitution is detectable before decryption. Initial
 epochs have all three predecessor fields null; later epochs have all three
 populated. A client that unwraps the current KEK follows this chain to epoch 1
 and verifies every recovered key against its material-committing epoch id.

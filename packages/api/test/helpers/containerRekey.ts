@@ -13,6 +13,7 @@ import type {
 import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
+  computeContainerKekPredecessorBridgeHash,
   deriveContainerAccessManifest,
   signAccessEvent,
   verifyContainerKekState,
@@ -177,6 +178,8 @@ export async function buildRootContainerRekeyMutation(input: {
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
   };
   const event = await createSignedContainerRekeyEvent({
     body,

@@ -11,7 +11,10 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import { createContainerKekPredecessorBridge } from "@tearleads/crypto";
+import {
+  computeContainerKekPredecessorBridgeHash,
+  createContainerKekPredecessorBridge,
+} from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
@@ -359,6 +362,8 @@ export async function buildMaterializedContainerRevokePlan(input: {
   const body: ContainerRevokeAccessEventBody = {
     eventType: "container.revoke",
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
     subjectId: input.revokedSubject.subjectId,
     subjectType: input.revokedSubject.subjectType,
   };

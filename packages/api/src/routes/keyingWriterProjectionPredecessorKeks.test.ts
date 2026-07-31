@@ -4,6 +4,7 @@ import {
   type ContainerKekPredecessorBridge,
   unwrapContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import {
   type DocumentWriterProjectionResponse,
   isContainerMutationResponse,
@@ -237,6 +238,40 @@ test("a KEK rotation rejects mismatched predecessor bridge metadata", async () =
       error: "Container KEK rotation requires its immediate predecessor bridge",
     });
   }
+}, 15_000);
+
+test("a KEK rotation rejects bridge ciphertext not committed by its signed event", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const rekey = await buildRootContainerRekeyMutation({
+    previous: root,
+    signer: owner,
+  });
+  const bridge = rekey.request.predecessorBridge;
+  if (!bridge) throw new Error("expected a predecessor bridge");
+  Reflect.set(
+    bridge,
+    "wrappedKey",
+    bytesToBase64(crypto.getRandomValues(new Uint8Array(48))),
+  );
+
+  const response = await routeApp.request(
+    `/containers/${root.kekState.containerId}/rekey`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(rekey.request),
+    },
+  );
+  expect(response.status).toBe(409);
+  await expect(response.json()).resolves.toEqual({
+    error: "Container KEK predecessor bridge does not match its signed event",
+  });
 }, 15_000);
 
 test("a KEK rotation reports a non-consecutive epoch independently", async () => {

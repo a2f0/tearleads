@@ -27,6 +27,7 @@ import type {
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
+  computeContainerKekPredecessorBridgeHash,
   computeDocumentContentKeyTargetHash,
   deriveDocumentLinkSetManifest,
 } from "@tearleads/crypto";
@@ -209,11 +210,18 @@ async function buildContainerMoveRequest(input: {
     containerId: previous.state.containerId,
     keyEpoch: nextKeyEpoch,
   });
+  const predecessorBridge = await createTestContainerKekPredecessorBridge({
+    containerId: previous.state.containerId,
+    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
   const body: ContainerAccessEventBody = {
     eventType: "container.move",
     parentContainerId: destinationParent.state.containerId,
     parentManifestHash: input.destinationParent.manifestHash,
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
   };
   const event = await createSignedAccessEvent({
     body,
@@ -253,12 +261,6 @@ async function buildContainerMoveRequest(input: {
     parentKekState: input.destinationParentKekState,
     wrapManifestHash: bundle.manifestHash,
   });
-  const predecessorBridge = await createTestContainerKekPredecessorBridge({
-    containerId: previous.state.containerId,
-    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
-    successorContainerKeyEpochId: containerKeyEpochId,
-  });
-
   return {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,

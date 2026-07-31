@@ -39,6 +39,7 @@ import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
+  computeContainerKekPredecessorBridgeHash,
   computeDocumentContentKeyTargetHash,
   computePrincipalStateHash,
   deriveContainerAccessManifest,
@@ -972,6 +973,8 @@ async function buildRevokeRequest(input: {
   const body: ContainerAccessEventBody = {
     eventType: "container.revoke",
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
     subjectType: revokedGrant.subjectType,
     subjectId: revokedGrant.subjectId,
   };
@@ -1068,6 +1071,8 @@ async function buildRekeyRequest(input: {
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
   };
   const event = await createSignedContainerEvent({
     body,
@@ -1158,6 +1163,8 @@ async function buildMoveRequest(input: {
     parentContainerId: destinationParent.state.containerId,
     parentManifestHash: input.destinationParent.manifestHash,
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
   };
   const event = await createSignedContainerEvent({
     body,

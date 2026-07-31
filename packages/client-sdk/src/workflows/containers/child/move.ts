@@ -10,6 +10,7 @@ import type {
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
+  computeContainerKekPredecessorBridgeHash,
   createContainerKekPredecessorBridge,
   deriveContainerAccessManifest,
 } from "@tearleads/crypto";
@@ -248,16 +249,16 @@ async function collectContainerMoveProjectionPrincipalPolicies(input: {
 async function buildMoveRotation(input: {
   containerId: string;
   currentKek: ContainerKekResponse;
+  keyEpoch: number;
   keyMaterial: Uint8Array;
   override?: string | undefined;
 }): Promise<{
   containerKeyEpochId: string;
   predecessorBridge: ContainerKekPredecessorBridge;
 }> {
-  const keyEpoch = input.currentKek.containerKeyEpoch + 1;
   const containerKeyEpochId = await resolveContainerKekEpochId({
     containerId: input.containerId,
-    keyEpoch,
+    keyEpoch: input.keyEpoch,
     keyMaterial: input.keyMaterial,
     override: input.override,
   });
@@ -324,6 +325,23 @@ function buildContainerMovePlanResult(input: {
   return { containerKey: input.containerKey, plan };
 }
 
+async function buildContainerMoveEventBody(input: {
+  containerKeyEpochId: string;
+  parentContainerId: string;
+  parentManifestHash: string;
+  predecessorBridge: ContainerKekPredecessorBridge;
+}): Promise<ContainerMoveAccessEventBody> {
+  return {
+    eventType: "container.move",
+    parentContainerId: input.parentContainerId,
+    parentManifestHash: input.parentManifestHash,
+    containerKeyEpochId: input.containerKeyEpochId,
+    predecessorBridgeHash: await computeContainerKekPredecessorBridgeHash(
+      input.predecessorBridge,
+    ),
+  };
+}
+
 async function buildMaterializedContainerMovePlan(
   input: BuildMaterializedContainerMovePlanInput & {
     resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -348,20 +366,20 @@ async function buildMaterializedContainerMovePlan(
     destinationState,
     previousState,
   });
-
   const nextContainerKeyEpoch = source.kek.containerKeyEpoch + 1;
   const { containerKeyEpochId, predecessorBridge } = await buildMoveRotation({
     containerId: previousState.containerId,
     keyMaterial: containerKey,
+    keyEpoch: nextContainerKeyEpoch,
     override: input.containerKeyEpochId,
     currentKek: source.kek,
   });
-  const body: ContainerMoveAccessEventBody = {
-    eventType: "container.move",
+  const body = await buildContainerMoveEventBody({
+    containerKeyEpochId,
     parentContainerId: destinationState.containerId,
     parentManifestHash: destinationParent.manifest.manifestHash,
-    containerKeyEpochId,
-  };
+    predecessorBridge,
+  });
   const { event, eventHash } = await signContainerMutationEvent({
     author: input.author,
     body,

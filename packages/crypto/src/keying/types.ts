@@ -37,6 +37,7 @@ export type KeyingHashDomain =
   | "tearleads.keying.container-access-structural"
   | "tearleads.keying.container-key-epoch"
   | "tearleads.keying.container-kek-material-id"
+  | "tearleads.keying.container-kek-predecessor-bridge"
   | "tearleads.keying.container-kek-recipient-targets"
   | "tearleads.keying.document-content-key-targets"
   | "tearleads.keying.document-link-set-grants"
@@ -177,6 +178,7 @@ export interface ContainerGrantAccessEventBody extends ContainerAccessKeyState {
 export interface ContainerRevokeAccessEventBody
   extends ContainerAccessKeyState {
   eventType: "container.revoke";
+  predecessorBridgeHash: string;
   subjectId: string;
   subjectType: ContainerGrantSubjectType;
 }
@@ -184,12 +186,14 @@ export interface ContainerRevokeAccessEventBody
 export interface ContainerRekeyAccessEventBody {
   eventType: "container.rekey";
   containerKeyEpochId: string;
+  predecessorBridgeHash: string;
 }
 
 export interface ContainerMoveAccessEventBody
   extends ContainerAccessStructural,
     ContainerAccessKeyState {
   eventType: "container.move";
+  predecessorBridgeHash: string;
 }
 
 export type ContainerAccessEventBody =

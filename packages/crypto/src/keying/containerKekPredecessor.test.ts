@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { computeContainerKekMaterialId } from "./containerKekMaterial";
 import {
+  computeContainerKekPredecessorBridgeHash,
   createContainerKekPredecessorBridge,
   normalizeContainerKekPredecessorBridge,
   unwrapContainerKekPredecessorBridge,
@@ -102,4 +103,10 @@ test("predecessor bridge metadata is authenticated", async () => {
       successorContainerKeyEpochId: bridge.successorContainerKeyEpochId,
     }),
   ).rejects.toThrow("keys must be 32 bytes");
+  expect(await computeContainerKekPredecessorBridgeHash(bridge)).not.toBe(
+    await computeContainerKekPredecessorBridgeHash({
+      ...bridge,
+      iv: bridge.iv.replace(/^./, bridge.iv.startsWith("A") ? "B" : "A"),
+    }),
+  );
 });

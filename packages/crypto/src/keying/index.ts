@@ -4,6 +4,7 @@ export * from "./checkpoints";
 export * from "./containerAccess";
 export * from "./containerKek";
 export {
+  computeContainerKekPredecessorBridgeHash,
   createContainerKekPredecessorBridge,
   normalizeContainerKekPredecessorBridge,
   unwrapContainerKekPredecessorBridge,

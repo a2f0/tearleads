@@ -1,9 +1,11 @@
 import {
   type ContainerKeyWrap,
   computeContainerKekMaterialId,
+  computeContainerKekPredecessorBridgeHash,
   computeContainerKeyEpochHash,
   decryptWithDek,
   isContainerKekMaterialId,
+  normalizeContainerAccessEventBody,
   normalizeContainerKekPredecessorBridge,
   unwrapContainerKekPredecessorBridge,
   type VerifiedContainerAccessManifest,
@@ -11,6 +13,10 @@ import {
 import { base64ToBytes } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  readCanonicalJson,
+  readCanonicalRecord,
+} from "../../keyingCanonicalJson";
 import {
   type PrincipalPolicyCache,
   verifyContainerWriterProjection,
@@ -134,7 +140,7 @@ async function unwrapContainerKekFromParentWrap(input: {
 }
 
 async function assertUnwrappedContainerKekMatchesMaterialId(input: {
-  index: number;
+  label: string;
   keyMaterial: Uint8Array;
   kek: Pick<
     ContainerWriterProjectionResponse["containerKeks"][number],
@@ -143,7 +149,7 @@ async function assertUnwrappedContainerKekMatchesMaterialId(input: {
 }): Promise<void> {
   if (!isContainerKekMaterialId(input.kek.containerKeyEpochId)) {
     throw new Error(
-      `${projectionKekLabel(input.index)} KEK epoch id does not commit to key material`,
+      `${input.label} KEK epoch id does not commit to key material`,
     );
   }
 
@@ -154,7 +160,7 @@ async function assertUnwrappedContainerKekMatchesMaterialId(input: {
   });
   if (expectedId !== input.kek.containerKeyEpochId) {
     throw new Error(
-      `${projectionKekLabel(input.index)} KEK material does not match committed epoch id`,
+      `${input.label} KEK material does not match committed epoch id`,
     );
   }
 }
@@ -175,7 +181,7 @@ async function seedKnownContainerKeks(input: {
       continue;
     }
     await assertUnwrappedContainerKekMatchesMaterialId({
-      index,
+      label: projectionKekLabel(index),
       kek,
       keyMaterial,
     });
@@ -236,7 +242,8 @@ export async function unwrapContainerKekPath(
   ) {
     assertProjectionKekMatchesPath(input.projection, index);
     const kek = input.projection.containerKeks[index];
-    if (!kek) {
+    const currentManifest = input.projection.path[index];
+    if (!kek || !currentManifest) {
       throw new Error(`${projectionKekLabel(index)} is missing`);
     }
 
@@ -265,7 +272,7 @@ export async function unwrapContainerKekPath(
 
     if (unwrapped) {
       await assertUnwrappedContainerKekMatchesMaterialId({
-        index,
+        label: projectionKekLabel(index),
         kek,
         keyMaterial: unwrapped,
       });
@@ -279,10 +286,12 @@ export async function unwrapContainerKekPath(
     // Predecessors are derived immediately after their current path KEK so a
     // descendant still wrapped to an older parent epoch can be unwrapped.
     await unwrapPredecessorContainerKeksAtIndex({
+      currentManifest,
       index,
       kek,
       keksByEpochId,
       successorKeyMaterial: unwrapped,
+      verifyBridgeCommitment: input.trustedLocalProjection !== true,
     });
   }
 
@@ -300,10 +309,12 @@ export async function unwrapContainerKekPath(
 }
 
 async function unwrapPredecessorContainerKeksAtIndex(input: {
+  currentManifest: ContainerWriterProjectionResponse["path"][number];
   index: number;
   kek: ContainerWriterProjectionResponse["containerKeks"][number];
   keksByEpochId: Map<string, UnwrappedContainerKek>;
   successorKeyMaterial: Uint8Array | null;
+  verifyBridgeCommitment: boolean;
 }): Promise<void> {
   if (!input.successorKeyMaterial) {
     return;
@@ -319,6 +330,10 @@ async function unwrapPredecessorContainerKeksAtIndex(input: {
 
   let successorEpochId = input.kek.containerKeyEpochId;
   let successorEpoch = input.kek.containerKeyEpoch;
+  let successorManifestHash = readContainerKeyEpoch(
+    input.kek.keyEpoch,
+    `${projectionKekLabel(input.index)} key epoch`,
+  ).accessManifestHash;
   let successorKeyMaterial = input.successorKeyMaterial;
   const verifiedManifestHashes = new Set([
     input.kek.accessManifestHash,
@@ -365,12 +380,22 @@ async function unwrapPredecessorContainerKeksAtIndex(input: {
       );
     }
 
+    if (input.verifyBridgeCommitment) {
+      await assertPredecessorBridgeCommitment({
+        bridge,
+        currentManifest: input.currentManifest,
+        index: input.index,
+        kek: input.kek,
+        successorManifestHash,
+      });
+    }
+
     const predecessorKeyMaterial = await unwrapContainerKekPredecessorBridge({
       bridge,
       successorContainerKey: successorKeyMaterial,
     });
     await assertUnwrappedContainerKekMatchesMaterialId({
-      index: input.index,
+      label: `${projectionKekLabel(input.index)} predecessor ${predecessor.containerKeyEpochId}`,
       kek: predecessor,
       keyMaterial: predecessorKeyMaterial,
     });
@@ -381,6 +406,48 @@ async function unwrapPredecessorContainerKeksAtIndex(input: {
     });
     successorEpochId = predecessor.containerKeyEpochId;
     successorEpoch = predecessor.containerKeyEpoch;
+    successorManifestHash = predecessor.accessManifestHash;
     successorKeyMaterial = predecessorKeyMaterial;
+  }
+}
+
+async function assertPredecessorBridgeCommitment(input: {
+  bridge: ReturnType<typeof normalizeContainerKekPredecessorBridge>;
+  currentManifest: ContainerWriterProjectionResponse["path"][number];
+  index: number;
+  kek: ContainerWriterProjectionResponse["containerKeks"][number];
+  successorManifestHash: string;
+}): Promise<void> {
+  const successorManifest =
+    input.successorManifestHash === input.currentManifest.manifestHash
+      ? input.currentManifest
+      : input.kek.containerManifestHistory.find(
+          (bundle) => bundle.manifestHash === input.successorManifestHash,
+        );
+  if (!successorManifest) {
+    throw new Error(
+      `${projectionKekLabel(input.index)} predecessor bridge signer is missing`,
+    );
+  }
+  const eventBundle = readCanonicalRecord(
+    successorManifest.event,
+    `${projectionKekLabel(input.index)} predecessor bridge event`,
+  );
+  const eventBody = normalizeContainerAccessEventBody(
+    readCanonicalJson(
+      Reflect.get(eventBundle, "body"),
+      `${projectionKekLabel(input.index)} predecessor bridge event body`,
+    ),
+  );
+  if (
+    (eventBody.eventType !== "container.move" &&
+      eventBody.eventType !== "container.rekey" &&
+      eventBody.eventType !== "container.revoke") ||
+    eventBody.predecessorBridgeHash !==
+      (await computeContainerKekPredecessorBridgeHash(input.bridge))
+  ) {
+    throw new Error(
+      `${projectionKekLabel(input.index)} predecessor bridge does not match its signed event`,
+    );
   }
 }
