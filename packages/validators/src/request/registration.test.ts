@@ -96,6 +96,7 @@ test("isRegistrationRequest", () => {
     encryptedData: "ciphertext",
     partialStartVersionVector: "{}",
     partialEndVersionVector: '{"actor":1}',
+    plaintextHash: "plaintext-hash",
     writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440111" },
   };
   const createInitialSync = () => ({

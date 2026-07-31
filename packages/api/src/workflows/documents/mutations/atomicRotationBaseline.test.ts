@@ -23,12 +23,14 @@ async function rotationBaseline(input: {
 }): Promise<DocumentOutgoingUpdate> {
   const id = crypto.randomUUID();
   const partialStartVersionVector = emptyVersionVector();
+  const plaintextHash = `plaintext-${id}`;
   const metadataHash = await computeDocumentContentRecordMetadataHash({
     checkpointKind: "rotate_baseline",
     checkpointPayloadKind: "full_history_snapshot",
     documentId: input.documentId,
     partialEndVersionVector: input.sourceVersionVector,
     partialStartVersionVector,
+    plaintextHash,
     sourceVersionVector: input.sourceVersionVector,
     updateId: id,
   });
@@ -58,6 +60,7 @@ async function rotationBaseline(input: {
     encryptedData: "encrypted-rotation-baseline",
     partialStartVersionVector,
     partialEndVersionVector: input.sourceVersionVector,
+    plaintextHash,
     sourceVersionVector: input.sourceVersionVector,
     writeHeader: { ...header },
   };
@@ -86,6 +89,7 @@ test("atomic rotation baseline must cover the complete committed frontier", asyn
     byteLength: 29,
     partialStartVersionVector: emptyVersionVector(),
     partialEndVersionVector: committedFrontier,
+    plaintextHash: "pre-rotation-plaintext-hash",
   });
 
   await expect(
@@ -135,6 +139,7 @@ test("baseline-less unlink is allowed only for an empty committed frontier", asy
     byteLength: 17,
     partialStartVersionVector: emptyVersionVector(),
     partialEndVersionVector: encodeVersionVector(document),
+    plaintextHash: "committed-plaintext-hash",
   });
 
   await expect(

@@ -993,6 +993,7 @@ test("isDocumentSyncResponse", () => {
         encryptedData: "ciphertext",
         partialStartVersionVector: "{}",
         partialEndVersionVector: '{"actor":1}',
+        plaintextHash: "plaintext-hash",
         createdAt: new Date().toISOString(),
         writeHeader: { objectKind: "document" },
       },

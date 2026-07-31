@@ -8,6 +8,7 @@ import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContainerKekMaterialId,
   computeDocumentContentKeyTargetHash,
+  computeDocumentContentRecordPlaintextHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   isContainerKekMaterialId,
   serializeKeyingCanonicalJson,
@@ -86,6 +87,25 @@ test("keying canonical JSON sorts object keys deterministically", () => {
       a: "aye",
     }),
   ).toBe(`{"a":"aye","z":"zed","${umlautA}":"umlaut"}`);
+});
+
+test("document plaintext HMAC uses the domain-framed bytes", async () => {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new Uint8Array(Array.from({ length: 32 }, (_, index) => index)),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+
+  await expect(
+    computeDocumentContentRecordPlaintextHash(
+      new Uint8Array([0, 1, 2, 255]),
+      key,
+    ),
+  ).resolves.toBe(
+    "d37e1478496b72520180235a36fafbb1f0afc3a34382ed89f9ed53c5ad2bc447",
+  );
 });
 
 test("keying target hashes sort arrays where ordering is a set", async () => {

@@ -428,6 +428,7 @@ CREATE TABLE `document_update_audit_events` (
 	`partial_start_version_vector` text NOT NULL,
 	`partial_end_version_vector` text NOT NULL,
 	`source_version_vector` text,
+	`plaintext_hash` text NOT NULL,
 	`encrypted_update_sha256` text NOT NULL,
 	`encrypted_update_byte_length` integer NOT NULL,
 	FOREIGN KEY (`audit_entry_id`) REFERENCES `document_audit_entries`(`id`) ON UPDATE no action ON DELETE no action
@@ -454,6 +455,7 @@ CREATE TABLE `document_updates` (
 	`byte_length` integer NOT NULL,
 	`partial_start_version_vector` text NOT NULL,
 	`partial_end_version_vector` text NOT NULL,
+	`plaintext_hash` text NOT NULL,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint

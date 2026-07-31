@@ -17,6 +17,7 @@ interface DocumentAuditUpdateInput {
   encryptedData: string;
   partialStartVersionVector: string;
   partialEndVersionVector: string;
+  plaintextHash: string;
   sourceVersionVector?: string | undefined;
 }
 
@@ -27,6 +28,7 @@ interface DocumentAuditUpdateMetadata {
   encryptedUpdateSha256: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
+  plaintextHash: string;
   sourceVersionVector: string | null;
 }
 
@@ -43,6 +45,7 @@ function buildDocumentUpdateAuditEntryHashPayload(input: {
   liveUpdateId: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
+  plaintextHash: string;
   previousEntryHash: string | null;
   sourceVersionVector: string | null;
 }) {
@@ -74,6 +77,7 @@ function buildDocumentUpdateAuditEntryHashPayload(input: {
       "sourceVersionVector",
       input.sourceVersionVector ?? "",
     ),
+    serializeAuditHashField("plaintextHash", input.plaintextHash),
     serializeAuditHashField(
       "encryptedUpdateSha256",
       input.encryptedUpdateSha256,
@@ -98,6 +102,7 @@ export async function computeDocumentUpdateAuditEntryHash(input: {
   liveUpdateId: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
+  plaintextHash: string;
   previousEntryHash: string | null;
   sourceVersionVector: string | null;
 }) {
@@ -172,6 +177,7 @@ export async function appendDocumentUpdateAuditEntries(
       liveUpdateId: update.id,
       partialEndVersionVector: update.partialEndVersionVector,
       partialStartVersionVector: update.partialStartVersionVector,
+      plaintextHash: update.plaintextHash,
       previousEntryHash,
       sourceVersionVector: update.sourceVersionVector,
     });
@@ -194,6 +200,7 @@ export async function appendDocumentUpdateAuditEntries(
       partialStartVersionVector: update.partialStartVersionVector,
       partialEndVersionVector: update.partialEndVersionVector,
       sourceVersionVector: update.sourceVersionVector,
+      plaintextHash: update.plaintextHash,
       encryptedUpdateSha256: update.encryptedUpdateSha256,
       encryptedUpdateByteLength: update.encryptedUpdateByteLength,
     });

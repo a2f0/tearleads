@@ -94,6 +94,66 @@ test.skipIf(!onPostgres)(
   30_000,
 );
 
+test("sync rejects a plaintext hash not committed by signed metadata", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  const update = request.outgoingUpdates[0];
+  if (!update) {
+    throw new Error("Expected a signed outgoing update");
+  }
+
+  const response = await postDocumentSync(owner, created.id, {
+    ...request,
+    outgoingUpdates: [{ ...update, plaintextHash: "unsigned-plaintext-hash" }],
+  });
+
+  expect(response.status).toBe(400);
+  expect(((await response.json()) as { error?: string }).error).toBe(
+    "Document update metadata hash mismatch",
+  );
+});
+
+test("an idempotent retry rejects a changed plaintext hash", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  const update = request.outgoingUpdates[0];
+  if (!update) {
+    throw new Error("Expected a signed outgoing update");
+  }
+
+  const accepted = await postDocumentSync(owner, created.id, request);
+  expect(accepted.status).toBe(200);
+
+  const response = await postDocumentSync(owner, created.id, {
+    ...request,
+    outgoingUpdates: [
+      { ...update, plaintextHash: "retry-plaintext-hash-conflict" },
+    ],
+  });
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toMatchObject({
+    code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+    error: "Document update id conflict",
+  });
+});
+
 // The UUID guard on authorizing refs is code-level, so this pin runs on every
 // backend: a malformed container id must 400 before it reaches the uuid-typed
 // lock query, where it would surface as an uncaught SQLSTATE 22P02 500.

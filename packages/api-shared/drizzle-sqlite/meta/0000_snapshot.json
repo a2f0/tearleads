@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "14e36add-12d2-42bc-8800-5479b7097357",
+  "id": "96989aee-7276-4252-83dd-47229d6b2ce0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -2616,6 +2616,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "plaintext_hash": {
+          "name": "plaintext_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "encrypted_update_sha256": {
           "name": "encrypted_update_sha256",
           "type": "text",
@@ -2770,6 +2777,13 @@
         },
         "partial_end_version_vector": {
           "name": "partial_end_version_vector",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "plaintext_hash": {
+          "name": "plaintext_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

@@ -33,10 +33,10 @@ import {
   createPendingUpdateFields,
   isDocumentUpdateCreatedEvent,
 } from "../../data/documentSync";
+import { importDocumentContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import {
   decryptDocumentSyncUpdatesByEpoch,
   encryptDocumentPendingUpdate,
-  importDocumentContentKeyMaterial,
 } from "../../data/documents/shared/crypto";
 import {
   assertDocumentWriterProjectionConsistent,
@@ -151,6 +151,7 @@ async function prepareDocumentOutgoingUpdates(input: {
         partialEndVersionVector: update.partialEndVersionVector,
         metadataHash: encrypted.metadataHash,
         ciphertextHash: encrypted.ciphertextHash,
+        plaintextHash: encrypted.plaintextHash,
         ...(update.sourceVersionVector
           ? {
               checkpointKind: "rotate_baseline" as const,
@@ -1213,6 +1214,7 @@ export async function signDocumentOutgoingUpdate(input: {
     encryptedData: input.update.encryptedData,
     partialStartVersionVector: input.update.partialStartVersionVector,
     partialEndVersionVector: input.update.partialEndVersionVector,
+    plaintextHash: input.update.plaintextHash,
     ...(input.update.sourceVersionVector === undefined
       ? {}
       : { sourceVersionVector: input.update.sourceVersionVector }),

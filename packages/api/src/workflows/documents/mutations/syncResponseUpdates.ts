@@ -23,6 +23,7 @@ interface SyncCheckpointAuthenticationInput {
   readonly metadataHash: string;
   readonly partialEndVersionVector: string;
   readonly partialStartVersionVector: string;
+  readonly plaintextHash: string;
   readonly updateId: string;
 }
 
@@ -40,6 +41,7 @@ export async function authenticateSyncCheckpointForResponse(
         documentId: input.documentId,
         partialEndVersionVector: input.partialEndVersionVector,
         partialStartVersionVector: input.partialStartVersionVector,
+        plaintextHash: input.plaintextHash,
         updateId: input.updateId,
       },
     );
@@ -58,6 +60,7 @@ export async function authenticateSyncCheckpointForResponse(
     metadataHash: input.metadataHash,
     partialEndVersionVector: input.partialEndVersionVector,
     partialStartVersionVector: input.partialStartVersionVector,
+    plaintextHash: input.plaintextHash,
     sourceVersionVector: input.checkpoint.sourceVersionVector,
     updateId: input.updateId,
   });
@@ -121,6 +124,7 @@ function toSyncUpdate(
     encryptedData: update.encryptedData,
     partialStartVersionVector: update.partialStartVersionVector,
     partialEndVersionVector: update.partialEndVersionVector,
+    plaintextHash: update.plaintextHash,
     ...(checkpoint === undefined
       ? {}
       : { sourceVersionVector: checkpoint.sourceVersionVector }),
@@ -162,6 +166,7 @@ export async function listMissingSyncUpdateEntries(input: {
         metadataHash: writeHeader.header.metadataHash,
         partialEndVersionVector: update.partialEndVersionVector,
         partialStartVersionVector: update.partialStartVersionVector,
+        plaintextHash: update.plaintextHash,
         updateId: update.id,
       });
 

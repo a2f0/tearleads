@@ -89,6 +89,7 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
     documentId: input.documentId,
     partialEndVersionVector: input.update.partialEndVersionVector,
     partialStartVersionVector: input.update.partialStartVersionVector,
+    plaintextHash: input.update.plaintextHash,
     ...(input.update.sourceVersionVector === undefined
       ? {}
       : { sourceVersionVector: input.update.sourceVersionVector }),
@@ -170,25 +171,40 @@ async function assertRetryWriteHeaderMatches(input: {
   }
 }
 
+interface StoredDocumentUpdateContent {
+  readonly encryptedData: string;
+  readonly partialEndVersionVector: string;
+  readonly partialStartVersionVector: string;
+  readonly plaintextHash: string;
+}
+
+export function storedDocumentUpdateMatchesOutgoingContent(
+  existing: StoredDocumentUpdateContent | undefined,
+  update: Pick<
+    DocumentOutgoingUpdate,
+    | "encryptedData"
+    | "partialEndVersionVector"
+    | "partialStartVersionVector"
+    | "plaintextHash"
+  >,
+): boolean {
+  return (
+    existing !== undefined &&
+    existing.encryptedData === update.encryptedData &&
+    existing.partialStartVersionVector === update.partialStartVersionVector &&
+    existing.partialEndVersionVector === update.partialEndVersionVector &&
+    existing.plaintextHash === update.plaintextHash
+  );
+}
+
 export async function assertRetryUpdateMatchesAcceptedContent(input: {
   readonly acceptedHeaderHash: string | undefined;
   readonly documentId: string;
-  readonly existingRow:
-    | {
-        readonly encryptedData: string;
-        readonly partialEndVersionVector: string;
-        readonly partialStartVersionVector: string;
-      }
-    | undefined;
+  readonly existingRow: StoredDocumentUpdateContent | undefined;
   readonly update: DocumentOutgoingUpdate;
 }): Promise<void> {
   if (
-    !input.existingRow ||
-    input.existingRow.encryptedData !== input.update.encryptedData ||
-    input.existingRow.partialStartVersionVector !==
-      input.update.partialStartVersionVector ||
-    input.existingRow.partialEndVersionVector !==
-      input.update.partialEndVersionVector
+    !storedDocumentUpdateMatchesOutgoingContent(input.existingRow, input.update)
   ) {
     throw documentUpdateIdConflict();
   }
@@ -214,6 +230,7 @@ function assertDuplicateOutgoingUpdateMatches(
     first.encryptedData === next.encryptedData &&
     first.partialStartVersionVector === next.partialStartVersionVector &&
     first.partialEndVersionVector === next.partialEndVersionVector &&
+    first.plaintextHash === next.plaintextHash &&
     (first.sourceVersionVector ?? null) ===
       (next.sourceVersionVector ?? null) &&
     (first.checkpointKind ?? null) === (next.checkpointKind ?? null) &&

@@ -169,6 +169,7 @@ async function insertBaselineCheckpoint(input: {
   sourceVersionVector: string;
 }): Promise<void> {
   const partialStartVersionVector = emptyVersionVector();
+  const plaintextHash = `plaintext-${input.baselineUpdateId}`;
   const metadataHash = input.corruptMetadataHash
     ? `tampered-${input.baselineUpdateId}`
     : await computeDocumentContentRecordMetadataHash({
@@ -177,6 +178,7 @@ async function insertBaselineCheckpoint(input: {
         documentId: input.documentId,
         partialEndVersionVector: input.sourceVersionVector,
         partialStartVersionVector,
+        plaintextHash,
         sourceVersionVector: input.sourceVersionVector,
         updateId: input.baselineUpdateId,
       });
@@ -189,6 +191,7 @@ async function insertBaselineCheckpoint(input: {
     byteLength: 18,
     partialStartVersionVector,
     partialEndVersionVector: input.sourceVersionVector,
+    plaintextHash,
   });
   await db.insert(documentContentWriteHeaders).values({
     updateId: input.baselineUpdateId,

@@ -49,6 +49,7 @@ interface UpdateAuditEventRow {
   liveUpdateId: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
+  plaintextHash: string;
   sourceVersionVector: string | null;
 }
 
@@ -116,6 +117,7 @@ async function listUpdateAuditEvents(
         documentUpdateAuditEvents.partialEndVersionVector,
       partialStartVersionVector:
         documentUpdateAuditEvents.partialStartVersionVector,
+      plaintextHash: documentUpdateAuditEvents.plaintextHash,
       sourceVersionVector: documentUpdateAuditEvents.sourceVersionVector,
     })
     .from(documentUpdateAuditEvents)
@@ -219,6 +221,7 @@ async function verifyDocumentUpdateEntry(input: {
     liveUpdateId: updateEvent.liveUpdateId,
     partialEndVersionVector: updateEvent.partialEndVersionVector,
     partialStartVersionVector: updateEvent.partialStartVersionVector,
+    plaintextHash: updateEvent.plaintextHash,
     previousEntryHash: input.entry.prevEntryHash,
     sourceVersionVector: updateEvent.sourceVersionVector,
   });

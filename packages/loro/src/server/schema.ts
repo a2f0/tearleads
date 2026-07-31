@@ -38,6 +38,7 @@ export const documentUpdates = pgTable(
     byteLength: integer("byte_length").notNull(),
     partialStartVersionVector: text("partial_start_version_vector").notNull(),
     partialEndVersionVector: text("partial_end_version_vector").notNull(),
+    plaintextHash: text("plaintext_hash").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

@@ -338,6 +338,7 @@ CREATE TABLE "document_update_audit_events" (
 	"partial_start_version_vector" text NOT NULL,
 	"partial_end_version_vector" text NOT NULL,
 	"source_version_vector" text,
+	"plaintext_hash" text NOT NULL,
 	"encrypted_update_sha256" text NOT NULL,
 	"encrypted_update_byte_length" integer NOT NULL,
 	CONSTRAINT "document_update_audit_events_live_update_id_unique" UNIQUE("live_update_id")
@@ -361,6 +362,7 @@ CREATE TABLE "document_updates" (
 	"byte_length" integer NOT NULL,
 	"partial_start_version_vector" text NOT NULL,
 	"partial_end_version_vector" text NOT NULL,
+	"plaintext_hash" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "document_updates_id_unique" UNIQUE("id")
 );

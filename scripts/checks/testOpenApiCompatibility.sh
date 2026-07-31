@@ -82,6 +82,24 @@ fi
 assert_contains "$breaking_output" "[request-property-became-required]"
 assert_contains "$breaking_output" "name"
 
+mkdir -p "$TEST_ROOT/scripts/checks"
+printf '%s\n' 'POST /widgets has a stale ignored error' \
+  >"$TEST_ROOT/scripts/checks/openApiCompatibilityErrors.ignore"
+cp "$FIXTURE_ROOT/additive.json" "$TEST_ROOT/docs/openapi.json"
+
+if unused_ignore_output=$(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$revision_commit" \
+    "$CHECK_SCRIPT" 2>&1
+); then
+  fail "an unused OpenAPI compatibility ignore entry was accepted."
+fi
+assert_contains "$unused_ignore_output" \
+  "unused OpenAPI compatibility ignore entry"
+rm "$TEST_ROOT/scripts/checks/openApiCompatibilityErrors.ignore"
+
 cp "$FIXTURE_ROOT/refinementAdded.json" "$TEST_ROOT/docs/openapi.json"
 
 if refinement_output=$(

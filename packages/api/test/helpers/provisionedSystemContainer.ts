@@ -161,6 +161,7 @@ export async function createProvisionedDocumentFixture(input: {
     exportUpdatesSince(document, partialStartVersionVector),
   );
   const encryptedData = `encrypted-${input.fixtureLabel}:${updateId}`;
+  const plaintextHash = `plaintext-hash:${updateId}`;
   const bundle = input.document.contentKeyBundle;
   const nonceDomain = {
     version: 1 as const,
@@ -181,6 +182,7 @@ export async function createProvisionedDocumentFixture(input: {
         documentId: input.documentId,
         partialEndVersionVector: vectors.partialEndVersionVector,
         partialStartVersionVector: vectors.partialStartVersionVector,
+        plaintextHash,
         updateId,
       }),
       ciphertextHash:
@@ -213,6 +215,7 @@ export async function createProvisionedDocumentFixture(input: {
           id: updateId,
           partialStartVersionVector: vectors.partialStartVersionVector,
           partialEndVersionVector: vectors.partialEndVersionVector,
+          plaintextHash,
           writeHeader: toWireRecord(
             writeHeader,
             `${input.fixtureLabel} initial header`,
@@ -287,6 +290,7 @@ export async function makeProvisionedDocumentSeedDependencyBearing(
         documentId: nonceDomain.objectId,
         partialEndVersionVector: vectors.partialEndVersionVector,
         partialStartVersionVector: vectors.partialStartVersionVector,
+        plaintextHash: update.plaintextHash,
         updateId: update.id,
       }),
       ciphertextHash: await computeDocumentContentRecordCiphertextHash(

@@ -13,6 +13,7 @@ import { uniqueSortedStrings } from "../../../utils/array";
 import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
 import {
   assertRetryUpdateMatchesAcceptedContent,
+  storedDocumentUpdateMatchesOutgoingContent,
   uniqueOutgoingUpdates,
   verifyOutgoingWriteHeader,
 } from "./outgoingUpdateVerification";
@@ -64,6 +65,7 @@ async function insertNewDocumentUpdates(input: {
         byteLength: documentUpdateByteLength(update),
         partialStartVersionVector: update.partialStartVersionVector,
         partialEndVersionVector: update.partialEndVersionVector,
+        plaintextHash: update.plaintextHash,
       })),
     )
     .onConflictDoNothing({ target: documentUpdates.id })
@@ -137,6 +139,7 @@ async function loadExistingDocumentUpdateRows(input: {
       id: documentUpdates.id,
       partialEndVersionVector: documentUpdates.partialEndVersionVector,
       partialStartVersionVector: documentUpdates.partialStartVersionVector,
+      plaintextHash: documentUpdates.plaintextHash,
     })
     .from(documentUpdates)
     .where(inArray(documentUpdates.id, input.updateIds));
@@ -180,13 +183,7 @@ async function assertConcurrentlyCommittedUpdatesMatch(input: {
   const committedRowsById = new Map(committedRows.map((row) => [row.id, row]));
   for (const update of skippedUpdates) {
     const committedRow = committedRowsById.get(update.id);
-    if (
-      !committedRow ||
-      committedRow.encryptedData !== update.encryptedData ||
-      committedRow.partialStartVersionVector !==
-        update.partialStartVersionVector ||
-      committedRow.partialEndVersionVector !== update.partialEndVersionVector
-    ) {
+    if (!storedDocumentUpdateMatchesOutgoingContent(committedRow, update)) {
       throw documentUpdateIdConflict();
     }
   }

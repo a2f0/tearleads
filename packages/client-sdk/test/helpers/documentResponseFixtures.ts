@@ -313,6 +313,7 @@ export async function createPreparedUpdate(
     metadataHash?: string | undefined;
     partialEndVersionVector?: string | undefined;
     partialStartVersionVector?: string | undefined;
+    plaintextHash?: string | undefined;
     signedAt?: string | undefined;
     sourceVersionVector?: string | undefined;
   } = {},
@@ -324,6 +325,8 @@ export async function createPreparedUpdate(
     encryptedData: overrides.encryptedData ?? "encrypted-update",
     partialStartVersionVector: overrides.partialStartVersionVector ?? "{}",
     partialEndVersionVector,
+    plaintextHash:
+      overrides.plaintextHash ?? (await fixtureHash("plaintext-update")),
     metadataHash: overrides.metadataHash ?? (await fixtureHash("metadata")),
     ciphertextHash:
       overrides.ciphertextHash ?? (await fixtureHash("ciphertext")),
@@ -411,6 +414,7 @@ export async function createSyncResponse(
         encryptedData: update.encryptedData,
         partialStartVersionVector: update.partialStartVersionVector,
         partialEndVersionVector: update.partialEndVersionVector,
+        plaintextHash: update.plaintextHash,
         ...(update.sourceVersionVector === undefined
           ? {}
           : { sourceVersionVector: update.sourceVersionVector }),
@@ -446,6 +450,7 @@ export async function createSignedSyncResponseUpdate(input: {
   const encryptedData = "historical encrypted update";
   const partialStartVersionVector = "{}";
   const partialEndVersionVector = '{"actor":3}';
+  const plaintextHash = await fixtureHash(`plaintext:${id}`);
   const contentKeyEpoch = input.contentKeyEpoch ?? input.plan.contentKeyEpoch;
   const nonceDomain = {
     version: 1 as const,
@@ -466,6 +471,7 @@ export async function createSignedSyncResponseUpdate(input: {
         documentId: input.plan.documentId,
         partialEndVersionVector,
         partialStartVersionVector,
+        plaintextHash,
         updateId: id,
       }),
       ciphertextHash:
@@ -486,6 +492,7 @@ export async function createSignedSyncResponseUpdate(input: {
     encryptedData,
     partialStartVersionVector,
     partialEndVersionVector,
+    plaintextHash,
     createdAt: "2026-04-27T00:00:00.000Z",
     writeHeader: writeHeader as unknown as Record<string, unknown>,
   };

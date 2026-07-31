@@ -177,6 +177,7 @@ export interface operations {
                         id: string;
                         partialEndVersionVector: string;
                         partialStartVersionVector: string;
+                        plaintextHash: string;
                         sourceVersionVector?: string;
                         writeHeader: {
                             [key: string]: unknown;
@@ -265,6 +266,7 @@ export interface operations {
                             id: string;
                             partialEndVersionVector: string;
                             partialStartVersionVector: string;
+                            plaintextHash: string;
                             sourceVersionVector?: string;
                             writeHeader: {
                                 [key: string]: unknown;

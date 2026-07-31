@@ -32,6 +32,7 @@ test("sqlite commitLsn seeds from the latest persisted write's created_at", asyn
       byteLength: 4,
       partialStartVersionVector: "{}",
       partialEndVersionVector: "{}",
+      plaintextHash: "commit-lsn-plaintext-hash",
       createdAt: new Date(futureMs),
     });
 
