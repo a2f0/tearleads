@@ -14,7 +14,9 @@ import {
   type BillingActions,
   useBillingActions,
 } from "../../src/mini-apps/org-manager/hooks/useBillingActions";
+import { DirectCheckoutProvider } from "../../src/providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../src/providers/host/AppHostConfigProvider";
+import { LogProvider, useLog } from "../../src/providers/logging/LogProvider";
 import { PurchasesProvider } from "../../src/providers/purchases/PurchasesProvider";
 
 /** Disables post-purchase polling by default so tests are unaffected. */
@@ -27,6 +29,19 @@ export const OPTION: SyncSubscriptionOption = {
   description: "Cloud sync",
   priceLabel: "$4.99",
 };
+
+type BillingTraceEntry = {
+  level: "error" | "info";
+  message: string;
+};
+
+export function purchaseTraceEntries(
+  entries: ReadonlyArray<BillingTraceEntry>,
+): BillingTraceEntry[] {
+  return entries.filter(({ message }) =>
+    message.startsWith("billing purchase "),
+  );
+}
 
 export function createPurchases(
   purchaseResult: SyncPurchaseResult,
@@ -53,7 +68,11 @@ function wrapper(createPurchasesFn: CreatePurchasesFn) {
   return function BillingActionsWrapper({ children }: PropsWithChildren) {
     return (
       <AppHostConfigProvider value={hostConfig}>
-        <PurchasesProvider>{children}</PurchasesProvider>
+        <PurchasesProvider>
+          <DirectCheckoutProvider>
+            <LogProvider>{children}</LogProvider>
+          </DirectCheckoutProvider>
+        </PurchasesProvider>
       </AppHostConfigProvider>
     );
   };
@@ -68,7 +87,12 @@ export function renderBillingActions(input: {
   startTrial?: () => Promise<boolean>;
 }) {
   return renderHook<
-    BillingActions,
+    BillingActions & {
+      logEntries: ReadonlyArray<{
+        level: "error" | "info";
+        message: string;
+      }>;
+    },
     {
       billingCanSync: boolean;
       isOrgAdmin?: boolean;
@@ -76,8 +100,8 @@ export function renderBillingActions(input: {
       userId: string;
     }
   >(
-    ({ billingCanSync, isOrgAdmin, organizationId, userId }) =>
-      useBillingActions({
+    ({ billingCanSync, isOrgAdmin, organizationId, userId }) => {
+      const actions = useBillingActions({
         activationPollDelaysMs: input.activationPollDelaysMs ?? NO_POLL,
         billingCanSync,
         ...(input.checkoutHostRef
@@ -88,7 +112,13 @@ export function renderBillingActions(input: {
         refresh: input.refresh ?? (() => Promise.resolve()),
         startTrial: input.startTrial ?? (() => Promise.resolve(true)),
         userId,
-      }),
+      });
+      const { entries } = useLog();
+      return {
+        ...actions,
+        logEntries: entries.map(({ level, message }) => ({ level, message })),
+      };
+    },
     {
       initialProps: {
         billingCanSync: input.billingCanSync ?? false,

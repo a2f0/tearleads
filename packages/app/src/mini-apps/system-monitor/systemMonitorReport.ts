@@ -14,6 +14,7 @@ import {
   type SystemStatusSnapshot,
 } from "../../components/pane/status/useSystemStatusSnapshot";
 import { IDENTITY_TRANSITION_TRACE_FRAGMENT } from "../../providers/identity/identityTransitionTrace";
+import { BILLING_PURCHASE_TRACE_FRAGMENT } from "../../utils/billingPurchaseTrace";
 import type { EnvironmentRow } from "./useSystemEnvironment";
 
 /**
@@ -86,7 +87,7 @@ let clipboardSafeLogPattern: RegExp | null = null;
 
 function getClipboardSafeLogPattern(): RegExp {
   clipboardSafeLogPattern ??= new RegExp(
-    `(?:^|: )((?:document priming candidates=\\d+ roots=\\d+ primed=\\d+ unroutable=\\d+)|(?:stale root recovery status=(?:already-adopted|ambiguous|context-changed|reassigned|unsupported) candidates=\\d+(?: occurrences=\\d+)?)|(?:interest baseline containers=\\d+)|(?:interest declaration acknowledged)|(?:remote revalidation scheduled reason=(?:reconnect|startup))|(?:remote revalidation result=(?:applied incomingUpdates=\\d+ attachmentSlots=\\d+|unavailable))|(?:${DOCUMENT_SYNC_TRACE_FRAGMENT})|(?:${IDENTITY_TRANSITION_TRACE_FRAGMENT}))$`,
+    `(?:^|: )((?:document priming candidates=\\d+ roots=\\d+ primed=\\d+ unroutable=\\d+)|(?:stale root recovery status=(?:already-adopted|ambiguous|context-changed|reassigned|unsupported) candidates=\\d+(?: occurrences=\\d+)?)|(?:interest baseline containers=\\d+)|(?:interest declaration acknowledged)|(?:remote revalidation scheduled reason=(?:reconnect|startup))|(?:remote revalidation result=(?:applied incomingUpdates=\\d+ attachmentSlots=\\d+|unavailable))|(?:${DOCUMENT_SYNC_TRACE_FRAGMENT})|(?:${IDENTITY_TRANSITION_TRACE_FRAGMENT})|(?:${BILLING_PURCHASE_TRACE_FRAGMENT}))$`,
     "u",
   );
   return clipboardSafeLogPattern;

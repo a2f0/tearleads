@@ -5,6 +5,7 @@ import { createAppHostConfig } from "../../../host/AppHostConfig";
 import * as BillingProvider from "../../../providers/billing/BillingProvider";
 import { DirectCheckoutProvider } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
+import { LogProvider } from "../../../providers/logging/LogProvider";
 import { PurchasesProvider } from "../../../providers/purchases/PurchasesProvider";
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -114,7 +115,9 @@ function wrapperWith(revenueCatAvailable: boolean) {
     return (
       <AppHostConfigProvider value={hostConfig}>
         <PurchasesProvider>
-          <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
+          <LogProvider>
+            <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
+          </LogProvider>
         </PurchasesProvider>
       </AppHostConfigProvider>
     );
