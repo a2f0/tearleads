@@ -15,19 +15,22 @@ import {
   type RevenueCatCustomerInfo,
   type RevenueCatPackage,
 } from "@tearleads/client-sdk";
-import { purchaseCapacitorRevenueCatPackage } from "./capacitorRevenueCatPurchase";
+import {
+  purchaseCapacitorRevenueCatPackage,
+  toRevenueCatCustomerInfo,
+} from "./capacitorRevenueCatPurchase";
 
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
 
 // The native bridge is effectively untyped at runtime; guard against a
 // malformed/partial CustomerInfo or package (including nullish results) so a bad
 // payload can't crash the app.
-function toRevenueCatCustomerInfo(
+function toRevenueCatCustomerInfoFromNative(
   info: CustomerInfo | undefined,
 ): RevenueCatCustomerInfo {
-  return {
-    activeEntitlementIds: Object.keys(info?.entitlements?.active ?? {}),
-  };
+  return toRevenueCatCustomerInfo(
+    Object.keys(info?.entitlements?.active ?? {}),
+  );
 }
 
 function toRevenueCatPackage(entry: PurchasesPackage): RevenueCatPackage {
@@ -101,10 +104,11 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
     const aPackage = (await currentPackages()).find(
       (entry) => entry?.identifier === packageId,
     );
-    // The offerings fetch above is the last await before the store sheet goes
-    // up, and a presented StoreKit / Play sheet has no programmatic dismissal.
-    // A caller that abandoned the flow while offerings were loading must not
-    // get a modal purchase sheet for a flow nobody is waiting on any more.
+    // This is the last abort-aware await. The iOS diagnostic bridge validates
+    // the package with one more native offerings fetch, but neither that call
+    // nor a presented StoreKit / Play sheet has programmatic cancellation.
+    // A caller that abandoned the flow while this offerings request was loading
+    // must not get a modal purchase sheet for a flow nobody awaits any more.
     // Aborted takes precedence over a missing package so an abandoned flow's
     // outcome stays a pre-sheet abort, matching webPurchases.ts.
     if (abortSignal?.aborted) {
@@ -128,11 +132,11 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
   },
   async getCustomerInfo() {
     const result = await Purchases.getCustomerInfo();
-    return toRevenueCatCustomerInfo(result?.customerInfo);
+    return toRevenueCatCustomerInfoFromNative(result?.customerInfo);
   },
   async restorePurchases() {
     const result = await Purchases.restorePurchases();
-    return toRevenueCatCustomerInfo(result?.customerInfo);
+    return toRevenueCatCustomerInfoFromNative(result?.customerInfo);
   },
 };
 

@@ -22,7 +22,7 @@ is specific to the native bridge, as opposed to the web one:
   payload reads as "no entitlement", never a crash.
 - **iOS purchase failures retain content-free diagnostics.** The first-party
   `RevenueCatPurchasePlugin` purchases through RevenueCat's public Swift API and
-  returns only active entitlement IDs. On failure it preserves the readable
+  returns only active entitlement IDs. On failure it preserves the RevenueCat
   code, cancellation flag, numeric backend subcode, and StoreKit domain/code.
   Android and every non-purchase operation continue through RevenueCat's
   official Capacitor plugin. The System Monitor includes those bounded values
@@ -34,11 +34,12 @@ is specific to the native bridge, as opposed to the web one:
   shared `PurchaseCancelledError`, which is the only rejection
   `useSubscribeAction` treats as a no-op. Without it, backing out of the sheet
   surfaces "Failed to subscribe".
-- **`abortSignal` is honored before the sheet, and only before it.** A presented
-  StoreKit or Play sheet has no programmatic dismissal, so the abort is checked
-  on entry and again after the offerings fetch — the last await before the sheet
-  goes up. It takes precedence over an unknown package so an abandoned flow's
-  outcome stays a pre-sheet abort.
+- **`abortSignal` is honored before the native purchase call, and only before
+  it.** A presented StoreKit or Play sheet has no programmatic dismissal, so the
+  abort is checked on entry and again after the adapter's offerings fetch. The
+  iOS diagnostic bridge performs a fresh native offerings fetch to resolve the
+  package after that point. The abort takes precedence over an unknown package
+  so an abandoned flow's outcome stays a pre-sheet abort.
 - **Configure binds the known buyer.** `Purchases.configure` receives the
   `appUserID` when the sdk has one; configuring anonymously and aliasing on the
   following `logIn` leaves a stray anonymous customer per fresh install.
@@ -191,6 +192,9 @@ Before testing the real Apple purchase sheet:
    key. The Xcode project records the In-App Purchase capability and Swift 5;
    StoreKit does not use a code-signing entitlement for in-app purchases, so
    App Store Connect and RevenueCat configuration remain authoritative.
+   The project also pins `purchases-ios-spm` to the exact version resolved by
+   `@revenuecat/purchases-capacitor`; update that pin and regenerate
+   `Package.resolved` in lockstep whenever the Capacitor dependency changes.
 4. Create an App Store Connect sandbox tester. For a development-signed build,
    attempt a purchase once and then sign in under **Settings > Developer >
    Sandbox Apple Account**; the production Media & Purchases account can remain

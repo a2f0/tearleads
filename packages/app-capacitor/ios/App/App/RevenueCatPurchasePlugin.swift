@@ -12,7 +12,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func purchasePackage(_ call: CAPPluginCall) {
         guard Purchases.isConfigured else {
-            reject(
+            Self.reject(
                 call,
                 code: ErrorCode.configurationError.rawValue,
                 userCancelled: false
@@ -20,7 +20,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
         guard let packageId = call.getString("packageId"), !packageId.isEmpty else {
-            reject(
+            Self.reject(
                 call,
                 code: ErrorCode.purchaseInvalidError.rawValue,
                 userCancelled: false
@@ -28,11 +28,11 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        Task { @MainActor [weak self] in
+        Task { @MainActor in
             do {
                 let offerings = try await Purchases.shared.offerings()
                 guard let package = offerings.current?.package(identifier: packageId) else {
-                    self?.reject(
+                    Self.reject(
                         call,
                         code: ErrorCode.productNotAvailableForPurchaseError.rawValue,
                         userCancelled: false
@@ -42,7 +42,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
 
                 let result = try await Purchases.shared.purchase(package: package)
                 if result.userCancelled {
-                    self?.reject(
+                    Self.reject(
                         call,
                         code: ErrorCode.purchaseCancelledError.rawValue,
                         userCancelled: true
@@ -53,25 +53,27 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
                     "activeEntitlementIds": result.customerInfo.entitlements.active.keys.sorted()
                 ])
             } catch {
-                self?.reject(call, error: error)
+                Self.reject(call, error: error)
             }
         }
     }
 
-    private func reject(_ call: CAPPluginCall, error: Error) {
+    private static func reject(_ call: CAPPluginCall, error: Error) {
         let nativeError = error as NSError
+        let isRevenueCatError = nativeError.domain == ErrorCode.errorDomain
         call.reject(
             "RevenueCat purchase failed",
-            String(nativeError.code),
+            isRevenueCatError ? String(nativeError.code) : "native-error",
             nativeError,
             diagnosticData(
                 for: nativeError,
-                userCancelled: nativeError.code == ErrorCode.purchaseCancelledError.rawValue
+                userCancelled: isRevenueCatError &&
+                    nativeError.code == ErrorCode.purchaseCancelledError.rawValue
             )
         )
     }
 
-    private func reject(_ call: CAPPluginCall, code: Int, userCancelled: Bool) {
+    private static func reject(_ call: CAPPluginCall, code: Int, userCancelled: Bool) {
         call.reject(
             "RevenueCat purchase failed",
             String(code),
@@ -80,7 +82,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         )
     }
 
-    private func diagnosticData(
+    private static func diagnosticData(
         for error: NSError,
         userCancelled: Bool
     ) -> [String: Any] {
@@ -89,9 +91,6 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         if let backendErrorCode = error.userInfo["rc_backend_error_code"] as? Int {
             data["backendErrorCode"] = backendErrorCode
         }
-        if let readableErrorCode = error.userInfo["readable_error_code"] as? String {
-            data["readableErrorCode"] = readableErrorCode
-        }
         if let storeError = storeError(from: error) {
             data["storeError"] = storeError
         }
@@ -99,12 +98,16 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         return data
     }
 
-    private func storeError(from error: NSError) -> [String: Any]? {
+    private static func storeError(from error: NSError) -> [String: Any]? {
         if let rootError = error.userInfo["rc_root_error"] as? [String: Any],
            let domain = rootError["domain"] as? String,
            let code = rootError["code"] as? Int,
            !domain.hasPrefix("RevenueCat") {
             return ["domain": domain, "code": code]
+        }
+
+        if !error.domain.hasPrefix("RevenueCat") {
+            return ["domain": error.domain, "code": error.code]
         }
 
         var currentError: NSError? = error

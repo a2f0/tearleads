@@ -17,6 +17,7 @@ const fixture: {
   packages: PurchasesPackage[];
   purchaseRejection: unknown;
   customerInfo: unknown;
+  nativePurchaseResult: { activeEntitlementIds?: unknown } | null;
   onGetOfferings: (() => void) | null;
 } = {
   platform: "ios",
@@ -27,6 +28,7 @@ const fixture: {
   packages: [],
   purchaseRejection: null,
   customerInfo: { entitlements: { active: { sync: {} } } },
+  nativePurchaseResult: null,
   onGetOfferings: null,
 };
 
@@ -63,6 +65,9 @@ mock.module("@capacitor/core", () => ({
           fixture.nativePurchaseCalls.push({ identifier: packageId });
           if (fixture.purchaseRejection !== null) {
             return Promise.reject(fixture.purchaseRejection);
+          }
+          if (fixture.nativePurchaseResult !== null) {
+            return Promise.resolve(fixture.nativePurchaseResult);
           }
           const customerInfo = fixture.customerInfo;
           const activeEntitlements =
@@ -153,6 +158,7 @@ afterEach(() => {
   fixture.packages = [];
   fixture.purchaseRejection = null;
   fixture.customerInfo = { entitlements: { active: { sync: {} } } };
+  fixture.nativePurchaseResult = null;
   fixture.onGetOfferings = null;
   clearEnv();
 });
@@ -271,6 +277,27 @@ test("reports the entitlement as inactive when the purchase does not grant it", 
   });
 
   expect(result.syncEntitlementActive).toBe(false);
+});
+
+test("normalizes malformed entitlement ids from the iOS bridge", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+
+  fixture.nativePurchaseResult = {};
+  const missing = await createCapacitorPurchases().purchaseSync({
+    organizationId: "org-1",
+    packageId: "monthly",
+  });
+  expect(missing.syncEntitlementActive).toBe(false);
+
+  fixture.nativePurchaseResult = {
+    activeEntitlementIds: ["sync", 7, null],
+  };
+  const mixed = await createCapacitorPurchases().purchaseSync({
+    organizationId: "org-1",
+    packageId: "monthly",
+  });
+  expect(mixed.syncEntitlementActive).toBe(true);
 });
 
 test("honors a sync entitlement id overridden for this build", async () => {

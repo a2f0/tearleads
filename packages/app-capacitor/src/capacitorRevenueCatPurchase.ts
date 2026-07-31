@@ -21,11 +21,16 @@ function getNativeRevenueCatPurchase(): NativeRevenueCatPurchasePlugin {
   return nativeRevenueCatPurchase;
 }
 
-function normalizeActiveEntitlementIds(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((entry): entry is string => typeof entry === "string");
+export function toRevenueCatCustomerInfo(
+  activeEntitlementIds: unknown,
+): RevenueCatCustomerInfo {
+  return {
+    activeEntitlementIds: Array.isArray(activeEntitlementIds)
+      ? activeEntitlementIds.filter(
+          (entry): entry is string => typeof entry === "string",
+        )
+      : [],
+  };
 }
 
 /**
@@ -38,19 +43,13 @@ export async function purchaseCapacitorRevenueCatPackage(
 ): Promise<RevenueCatCustomerInfo> {
   if (Capacitor.getPlatform() !== "ios") {
     const result = await Purchases.purchasePackage({ aPackage });
-    return {
-      activeEntitlementIds: Object.keys(
-        result?.customerInfo?.entitlements?.active ?? {},
-      ),
-    };
+    return toRevenueCatCustomerInfo(
+      Object.keys(result?.customerInfo?.entitlements?.active ?? {}),
+    );
   }
 
   const result = await getNativeRevenueCatPurchase().purchasePackage({
     packageId: aPackage.identifier,
   });
-  return {
-    activeEntitlementIds: normalizeActiveEntitlementIds(
-      result?.activeEntitlementIds,
-    ),
-  };
+  return toRevenueCatCustomerInfo(result?.activeEntitlementIds);
 }

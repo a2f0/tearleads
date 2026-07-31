@@ -213,6 +213,31 @@ test("iOS pins the In-App Purchase project attribute", async () => {
   );
 });
 
+test("iOS compiles and registers the RevenueCat purchase plugin", async () => {
+  const [project, bridgeController, purchasePlugin] = await Promise.all([
+    Bun.file(
+      resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
+    ).text(),
+    Bun.file(
+      resolve(packageRoot, "ios/App/App/BridgeViewController.swift"),
+    ).text(),
+    Bun.file(
+      resolve(packageRoot, "ios/App/App/RevenueCatPurchasePlugin.swift"),
+    ).text(),
+  ]);
+
+  expect(project).toMatch(
+    /Begin PBXSourcesBuildPhase[\s\S]*RevenueCatPurchasePlugin\.swift in Sources[\s\S]*End PBXSourcesBuildPhase/,
+  );
+  expect(bridgeController).toContain(
+    "bridge?.registerPluginInstance(RevenueCatPurchasePlugin())",
+  );
+  expect(purchasePlugin).toContain(
+    "nativeError.domain == ErrorCode.errorDomain",
+  );
+  expect(purchasePlugin).not.toContain("[weak self]");
+});
+
 test("Android staging inherits the production release signing variant", async () => {
   const [gradle, stagingStrings] = await Promise.all([
     Bun.file(resolve(packageRoot, "android/app/build.gradle")).text(),
