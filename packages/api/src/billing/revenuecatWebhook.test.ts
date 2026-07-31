@@ -326,6 +326,7 @@ test("Stripe-store grants fall back to transaction_id for the subscription", () 
       transaction_id: "sub_only",
     }),
     ACTIVE_GRANT_NOW,
+    { stripeSeatCount: 1 },
   );
   // Without the fallback the billing row would store no subscription id and
   // the Billing Portal could never resolve this org's subscription.
@@ -423,7 +424,7 @@ test("an event with no environment is treated as production", () => {
   );
 });
 
-test("a Stripe test-mode event is exempt from the sandbox gate", () => {
+test("a resolved Stripe test-mode event is exempt from the sandbox gate", () => {
   // RevenueCat marks Stripe test-mode transactions SANDBOX too. Gating them
   // would stop a tier that exercises direct Stripe checkout with test-mode keys
   // from applying its own web billing — the documented way to test fixed-tier
@@ -432,6 +433,7 @@ test("a Stripe test-mode event is exempt from the sandbox gate", () => {
   const transition = classifyRevenueCatEvent(
     makeEvent({ store: "STRIPE", environment: "SANDBOX" }),
     ACTIVE_GRANT_NOW,
+    { stripeSeatCount: 1 },
   );
   expect(transition.kind).toBe("grant");
 });

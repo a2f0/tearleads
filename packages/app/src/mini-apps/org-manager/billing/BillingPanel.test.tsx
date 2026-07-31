@@ -299,6 +299,29 @@ test("an active native subscription can change fixed tier on native", async () =
   );
 });
 
+test("an unresolved personal organization does not flash the custom-org notice", async () => {
+  stubEnvironment(false);
+
+  const view = render(
+    <BillingPanel
+      isOrgAdmin
+      isPersonalOrganization={null}
+      organizationId="org-1"
+      userId="user-1"
+    />,
+    { wrapper: wrapperWith(true, { directCheckoutAvailable: false }) },
+  );
+
+  await waitFor(() =>
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.billingPurchaseUnavailable),
+    ).toBeDefined(),
+  );
+  expect(
+    view.queryByText(ORG_MANAGER_LABELS.billingCustomOrganizationWebOnly),
+  ).toBeNull();
+});
+
 test("a web Stripe subscription can be cancelled from a native shell", async () => {
   stubEnvironment(true, {
     canCancelDirectly: true,

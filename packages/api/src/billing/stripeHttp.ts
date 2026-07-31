@@ -89,9 +89,13 @@ export function getSyncBillingTierForStripePrice(
 /** True when the secret and all three fixed-tier prices are configured. */
 export function isStripeCheckoutConfigured(deps: StripeApiDeps = {}): boolean {
   const { secretKey, syncPriceIds } = resolveDeps(deps);
+  const configuredPriceIds = Object.values(syncPriceIds).filter(
+    (priceId): priceId is string => priceId !== null,
+  );
   return (
     secretKey !== null &&
-    SYNC_BILLING_TIERS.every((tier) => syncPriceIds[tier.id] !== null)
+    configuredPriceIds.length === SYNC_BILLING_TIERS.length &&
+    new Set(configuredPriceIds).size === SYNC_BILLING_TIERS.length
   );
 }
 

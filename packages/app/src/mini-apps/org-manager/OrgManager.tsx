@@ -175,7 +175,15 @@ function OrgManagerContent({
   if (model.view === "billing") {
     return (
       <BillingPanel
-        isPersonalOrganization={model.defaultOrganizationId === organizationId}
+        activeMemberCount={
+          model.directory?.users.filter((user) => user.status === "active")
+            .length ?? null
+        }
+        isPersonalOrganization={
+          model.defaultOrganizationId === null
+            ? null
+            : model.defaultOrganizationId === organizationId
+        }
         isOrgAdmin={model.isOrgAdmin}
         organizationId={organizationId}
         userId={model.userId}

@@ -20,7 +20,9 @@ export function requiredLicensedSeatCount(
     return activeSeatCount;
   }
   if (billing.hasStripeSubscription) {
-    const requiredTier = getSyncBillingTierForSeatCount(activeSeatCount);
+    const requiredTier = getSyncBillingTierForSeatCount(
+      Math.max(1, activeSeatCount),
+    );
     if (!requiredTier) {
       throw new OrganizationManagerError(
         "The organization exceeds the maximum subscription tier of 10 members",

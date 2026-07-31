@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import {
   cancelStripeSubscription,
@@ -145,6 +146,43 @@ test("options stay empty until the WHOLE flow is configured", async () => {
   );
   expect(result).toEqual({ options: [] });
   expect(urls).toHaveLength(0);
+});
+
+test("options select Team 5 for a two-member effective roster", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+  const urls: string[] = [];
+
+  const result = await getStripeCheckoutOptions(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    {
+      stripe: {
+        env: STRIPE_ENV,
+        fetchImpl: respondingFetch(
+          [
+            {
+              body: {
+                id: "price_team_5",
+                currency: "usd",
+                unit_amount: 1_000,
+                recurring: { interval: "month", interval_count: 1 },
+              },
+            },
+          ],
+          urls,
+        ),
+      },
+      revenueCat: { env: REVENUECAT_ENV },
+    },
+  );
+
+  expect(result.options).toEqual([
+    expect.objectContaining({ tierId: "team_5", seatLimit: 5 }),
+  ]);
+  expect(urls).toHaveLength(1);
 });
 
 test("a missing webhook secret fails closed", async () => {

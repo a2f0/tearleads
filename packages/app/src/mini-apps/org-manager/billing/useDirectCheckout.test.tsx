@@ -165,7 +165,8 @@ test("a successful payment tears down and hands off to activation", async () => 
 
   await act(async () => result.current.confirm());
 
-  // Back to idle; the shared billing view owns activation-pending display.
+  // Back to idle — the shared billing view owns the activation-pending
+  // display, so the checkout does not park in a state with no exit.
   await waitFor(() => expect(result.current.phase.kind).toBe("idle"));
   expect(unmount).toHaveBeenCalledTimes(1);
   // The entitlement arrives via the webhook, so the panel must re-read billing

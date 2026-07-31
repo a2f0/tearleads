@@ -76,6 +76,8 @@ export interface BillingViewProps {
    */
   readonly checkoutHostRef?: Ref<HTMLDivElement>;
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
+  /** Minimum capacity the current effective roster requires; null while unknown. */
+  readonly minimumSeatCount: number | null;
   /** Provider manage/cancel page for the active subscription, or null if none. */
   readonly managementUrl: string | null;
   /** Platform override for opening the provider's subscription management. */
@@ -208,13 +210,18 @@ export function BillingPurchaseOption({
 function BillingSubscribeList({
   busy,
   canSubscribe,
+  minimumSeatCount,
   onSubscribe,
   options,
 }: Pick<
   BillingViewProps,
-  "busy" | "canSubscribe" | "onSubscribe" | "options"
+  "busy" | "canSubscribe" | "minimumSeatCount" | "onSubscribe" | "options"
 >) {
-  if (options.length === 0) {
+  const eligibleOptions =
+    minimumSeatCount === null
+      ? []
+      : options.filter((option) => option.seatLimit >= minimumSeatCount);
+  if (eligibleOptions.length === 0) {
     return (
       <MiniAppStatus className="org-manager-hint">
         {ORG_MANAGER_LABELS.billingNoOptions}
@@ -223,7 +230,7 @@ function BillingSubscribeList({
   }
   return (
     <>
-      {options.map((option) => (
+      {eligibleOptions.map((option) => (
         <BillingPurchaseOption
           actionLabel={
             busy === `subscribe:${option.packageId}`
@@ -285,6 +292,7 @@ function BillingPurchaseSection({
       <BillingSubscribeList
         busy={props.busy}
         canSubscribe={props.canSubscribe}
+        minimumSeatCount={props.minimumSeatCount}
         onSubscribe={props.onSubscribe}
         options={props.options}
       />

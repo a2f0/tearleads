@@ -41,6 +41,7 @@ function props(overrides: Partial<BillingViewProps>): BillingViewProps {
     isOrgAdmin: true,
     purchaseAvailable: false,
     canSubscribe: false,
+    minimumSeatCount: 1,
     options: [],
     managementUrl: null,
     busy: null,
@@ -63,6 +64,16 @@ const OPTION: SyncSubscriptionOption = {
   title: "Sync",
   description: "Cloud sync",
   priceLabel: "$4.99",
+};
+
+const TEAM_OPTION: SyncSubscriptionOption = {
+  ...OPTION,
+  tierId: "team_5",
+  seatLimit: 5,
+  packageId: "team_5",
+  productId: "sync_team_5_monthly",
+  title: "Team (up to 5)",
+  priceLabel: "$9.99",
 };
 
 test("shows a loading hint before billing resolves", () => {
@@ -199,6 +210,23 @@ test("subscribe options invoke onSubscribe with the chosen package", () => {
     view.getByRole("button", { name: ORG_MANAGER_LABELS.billingSubscribe }),
   );
   expect(chosen).toEqual(["monthly"]);
+});
+
+test("native purchase options exclude tiers below the active roster", () => {
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({ status: "trialing", isLocal: false }),
+        purchaseAvailable: true,
+        canSubscribe: true,
+        minimumSeatCount: 2,
+        options: [OPTION, TEAM_OPTION],
+      })}
+    />,
+  );
+
+  expect(view.queryByText(OPTION.title)).toBeNull();
+  expect(view.getByText(TEAM_OPTION.title)).toBeDefined();
 });
 
 test("subscription actions use the standard button styling", () => {

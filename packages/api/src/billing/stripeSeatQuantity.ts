@@ -11,10 +11,10 @@ interface StripeSeatQuantityUpdate {
 }
 
 /**
- * A live sync subscription always retains one billable seat, even when its
- * effective Members group is temporarily empty. This keeps the Stripe item and
- * RevenueCat entitlement continuous; initial checkout still rejects an empty
- * roster rather than creating a one-seat subscription for nobody.
+ * Rounds live seat state up to a fixed tier. Empty rosters retain Solo, and a
+ * defensive clamp maps legacy oversized outbox state to Team 10 so the worker
+ * can settle instead of retrying the same impossible target forever. Roster
+ * writes and checkout reject new state above 10 before it reaches this helper.
  */
 export function normalizeStripeSeatQuantity(seatQuantity: number): number {
   if (!Number.isSafeInteger(seatQuantity) || seatQuantity < 0) {

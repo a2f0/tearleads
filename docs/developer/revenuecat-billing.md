@@ -44,6 +44,10 @@ quantity `1`. Apple, Google, and RevenueCat Test Store represent them as three
 products. `organization_billing.seat_count` stores the tier capacity (1, 5, or
 10), not the number of currently active members.
 
+The former `sync_monthly`, `sync_monthly_staging`, and
+`com.tearleads.sync.monthly` product identifiers remain accepted as Solo
+aliases for old receipts. New store products must use the fixed-tier stems.
+
 ## Entitlement
 
 The app gates org sync on a single entitlement, **`sync`**
@@ -280,8 +284,13 @@ own theme tokens.
   visitor because the web shell imports this module from its entry point.
   `/pure` defers the fetch to the first `loadStripe()` call, i.e. the first
   time someone actually opens the checkout.
-- The server pins the subscription to `card`; redirect-based methods are not
-  compatible with the client's `redirect: "if_required"` confirmation flow.
+- The subscription is pinned server-side to `card`
+  (`payment_settings[payment_method_types][]`). The Payment Element otherwise
+  offers whatever the Stripe dashboard has enabled, and any redirect-based
+  method (Amazon Pay, Cash App, iDEAL) breaks the client's
+  `redirect: "if_required"` confirm — the buyer would see only a generic
+  failure. Pinning keeps the offered methods matched to the flow we implement,
+  whatever the dashboard says.
 - **Cancelling a Stripe subscription** is inline — `POST
   /organizations/:id/billing/stripe/cancel` sets `cancel_at_period_end` on the
   subscription, and a confirm row in the panel drives it. No card entry, so no
@@ -316,10 +325,21 @@ own theme tokens.
   portal URLs expire in minutes, so resolving one at panel load would hand the
   admin an expired link. Card update (SetupIntent + Payment Element) and
   invoice history are the inline alternatives when those are wanted.
-- **Styling**: Stripe-hosted fields use the Appearance API. The app resolves its
-  computed theme tokens in
-  [`checkoutAppearance.ts`](../../packages/app/src/mini-apps/org-manager/billing/checkoutAppearance.ts),
-  and `webDirectCheckout.ts` selects Stripe's light or dark base theme.
+- **Styling**: the payment fields are still Stripe-hosted iframes (that is what
+  keeps us in PCI SAQ A), but on our own account Stripe's Appearance API
+  accepts far more than RevenueCat exposes — font family, font size, input
+  padding, and per-theme colors.
+  [`checkoutAppearance.ts`](../../packages/app/src/mini-apps/org-manager/billing/checkoutAppearance.ts)
+  resolves the app's tokens by applying them to a throwaway probe element and
+  reading back the **computed** values: an iframe cannot dereference
+  `var(--color-dark)`, and custom properties compute to their authored token
+  (`1rem`, an unevaluated `color-mix(...)`) rather than a used value. Reading
+  through the live panel means new themes work without touching this code. The
+  Payment Element's BASE theme is also picked by mode — `night` on a dark
+  surface, `stripe` on light (`webDirectCheckout.ts`, from the resolved
+  background's luma) — because its built-in defaults, like the card icon inside
+  the number field, come from that base and our variable overrides only refine
+  on top; a light base on a dark surface left that icon dark-on-dark.
 - **Hosted-page alternative**: a "Pay on Stripe instead" link creates a hosted
   Stripe **Checkout Session** (`POST …/billing/stripe/checkout-session`) and
   opens it in a new tab, falling back to same-tab navigation if the browser

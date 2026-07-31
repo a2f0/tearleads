@@ -304,3 +304,65 @@ test("a Stripe renewal applies while its asynchronous tier update lags the roste
     .where(eq(organizationBilling.organizationId, organizationId));
   expect(billing?.currentPeriodEndsAt?.getTime()).toBe(expirationAtMs);
 });
+
+test("an oversized Stripe grant retries without claiming the provider event", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  for (let index = 0; index < 10; index += 1) {
+    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+  }
+  await db
+    .update(organizationBilling)
+    .set({
+      providerCustomerId: admin.userId,
+      providerProductId: "price_team_10",
+      providerSubscriptionId: "sub_oversized",
+      seatCount: 10,
+      status: "trialing",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({
+      priceId: "price_team_10",
+      subscriptionId: "sub_oversized",
+      subscriptionItemId: "si_oversized",
+    })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const eventId = crypto.randomUUID();
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    {
+      app_user_id: admin.userId,
+      entitlement_ids: ["sync"],
+      event_timestamp_ms: Date.now(),
+      expiration_at_ms: Date.now() + 30 * 24 * 60 * 60 * 1_000,
+      id: eventId,
+      original_transaction_id: "sub_oversized",
+      product_id: "prod_sync",
+      store: "STRIPE",
+      type: "INITIAL_PURCHASE",
+    },
+    new Date(),
+    {
+      stripe: {
+        env: {
+          STRIPE_SECRET_KEY: "sk_test",
+          STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
+        },
+      },
+    },
+  );
+
+  expect(outcome).toEqual({
+    status: "retry",
+    reason: "Stripe subscription cannot cover more than 10 active members",
+  });
+  const [claimed] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, eventId));
+  expect(claimed).toBeUndefined();
+  expect(await readBillingStatus(organizationId)).toBe("trialing");
+});

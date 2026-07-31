@@ -93,12 +93,13 @@ function useDirectCheckoutWiring(input: {
 }
 
 function BillingPanelSubscriptionControls(input: {
+  readonly activeMemberCount: number | null;
   readonly actions: ReturnType<typeof useBillingActions>;
   readonly billing: ReturnType<typeof useOrganizationBilling>;
   readonly checkoutHostRef: RefObject<HTMLDivElement | null>;
   readonly direct: ReturnType<typeof useDirectCheckoutWiring>;
   readonly isOrgAdmin: boolean;
-  readonly isPersonalOrganization: boolean;
+  readonly isPersonalOrganization: boolean | null;
   readonly nativePurchaseAllowed: boolean;
   readonly onRefresh: () => void;
   readonly subscriptionManagement: ReturnType<
@@ -127,8 +128,9 @@ function BillingPanelSubscriptionControls(input: {
         isOrgAdmin={input.isOrgAdmin}
         loading={billing.loading}
         managementUrl={direct.managementUrl}
+        minimumSeatCount={input.activeMemberCount}
         nativePurchaseRestricted={
-          actions.purchaseAvailable && !input.isPersonalOrganization
+          actions.purchaseAvailable && input.isPersonalOrganization === false
         }
         onCancelCheckout={actions.cancelCheckout}
         onManageSubscription={input.subscriptionManagement.open}
@@ -158,13 +160,15 @@ function BillingPanelSubscriptionControls(input: {
 }
 
 export function BillingPanel({
+  activeMemberCount = 1,
   isOrgAdmin,
   isPersonalOrganization = true,
   organizationId,
   userId,
 }: {
+  activeMemberCount?: number | null;
   isOrgAdmin: boolean;
-  isPersonalOrganization?: boolean;
+  isPersonalOrganization?: boolean | null;
   organizationId: string;
   userId: string | null;
 }) {
@@ -186,7 +190,7 @@ export function BillingPanel({
     billing.billing,
   );
   const nativePurchaseAllowed =
-    isPersonalOrganization &&
+    isPersonalOrganization === true &&
     (!(billing.view?.isActive ?? false) ||
       management.subscriptionSource === "native");
   // Where the Web Billing checkout embeds so a purchase runs inside the panel
@@ -222,6 +226,7 @@ export function BillingPanel({
   return (
     <div>
       <BillingPanelSubscriptionControls
+        activeMemberCount={activeMemberCount}
         actions={actions}
         billing={billing}
         checkoutHostRef={checkoutHostRef}

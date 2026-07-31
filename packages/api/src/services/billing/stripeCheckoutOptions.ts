@@ -18,6 +18,8 @@ export async function getStripeCheckoutOptions(
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<{ options: StripeSyncOption[] }> {
   if (!isDirectCheckoutFullyConfigured(deps)) {
+    // Preserve the organization-admin and checkout-eligibility gates even when
+    // no provider option can be returned from this deployment.
     await runRequireCheckoutEligibleWorkflow(
       runtime.db,
       organizationId,

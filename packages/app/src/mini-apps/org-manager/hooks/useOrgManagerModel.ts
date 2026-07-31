@@ -44,7 +44,7 @@ import { useOrgManagerRoute } from "./useOrgManagerRoute";
 import { useOrgManagerRouteMessages } from "./useOrgManagerRouteMessages";
 import { useOrgSwitcher } from "./useOrgSwitcher";
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Preserves async refresh and mutation ordering.
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The hook keeps related async refresh and mutation ordering in one place.
 export function useOrgManagerModel() {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
@@ -317,7 +317,8 @@ export function useOrgManagerModel() {
     setUserDetail,
     view,
   });
-  // Register scope reset first so it clears abandoned state before refreshes.
+  // The scope reset must register before the view refreshers so its effect
+  // clears abandoned-scope state before the new scope's refreshes begin.
   useOrgManagerScopeReset({
     closeContextMenu: contextMenuState.closeContextMenu,
     resetDirectoryState,

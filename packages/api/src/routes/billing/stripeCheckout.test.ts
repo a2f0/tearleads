@@ -248,6 +248,20 @@ test("options answer an empty list when unconfigured", async () => {
   expect(await response.json()).toEqual({ options: [] });
 });
 
+test("options reject a caller outside the organization", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const outsider = createTestUser();
+  await registerAndAuthenticate(outsider);
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/options`,
+    { headers: authHeader(outsider) },
+  );
+
+  expect([403, 404]).toContain(response.status);
+});
+
 test("the portal validates its return url", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);

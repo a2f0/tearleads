@@ -59,6 +59,11 @@ test("configuration requires both the secret key and the price id", () => {
     isStripeCheckoutConfigured({ env: { STRIPE_SECRET_KEY: "sk_test_123" } }),
   ).toBe(false);
   expect(isStripeCheckoutConfigured({ env: {} })).toBe(false);
+  expect(
+    isStripeCheckoutConfigured({
+      env: { ...ENV, STRIPE_SYNC_TEAM_5_PRICE_ID: "price_solo" },
+    }),
+  ).toBe(false);
 });
 
 test("sync option maps the price with its product, pinned API version", async () => {
@@ -67,8 +72,8 @@ test("sync option maps the price with its product, pinned API version", async ()
       body: {
         id: "price_sync",
         currency: "usd",
-        unit_amount: 499,
-        recurring: { interval: "month", interval_count: 3 },
+        unit_amount: 1_000,
+        recurring: { interval: "month", interval_count: 1 },
         product: { name: "Sync" },
       },
     },
@@ -81,13 +86,30 @@ test("sync option maps the price with its product, pinned API version", async ()
     priceId: "price_sync",
     productName: "Team (up to 5)",
     currency: "usd",
-    unitAmount: 499,
+    unitAmount: 1_000,
     interval: "month",
-    intervalCount: 3,
+    intervalCount: 1,
   });
   expect(requests[0]?.url).toContain("/v1/prices/price_sync");
   expect(requests[0]?.headers.get("Stripe-Version")).not.toBeNull();
   expect(requests[0]?.headers.get("Authorization")).toBe("Bearer sk_test_123");
+});
+
+test("sync option rejects a configured Price with mismatched tier economics", async () => {
+  const { fetchImpl } = fakeFetch([
+    {
+      body: {
+        id: "price_sync",
+        currency: "usd",
+        unit_amount: 2_000,
+        recurring: { interval: "month", interval_count: 1 },
+      },
+    },
+  ]);
+
+  expect(
+    await getStripeSyncOption("team_5", { env: ENV, fetchImpl }),
+  ).toBeNull();
 });
 
 test("customer lookup reuses an existing metadata match", async () => {

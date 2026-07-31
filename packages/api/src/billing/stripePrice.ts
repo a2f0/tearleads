@@ -31,7 +31,7 @@ function readPositiveInteger(value: unknown): number | null {
     : null;
 }
 
-/** Fetches the configured sync price with its product expanded. */
+/** Fetches and validates the configured monthly USD Price for one tier. */
 export async function getStripeSyncOption(
   tierId: SyncBillingTierId,
   deps: StripeApiDeps = {},
@@ -41,27 +41,40 @@ export async function getStripeSyncOption(
   if (!secretKey || !syncPriceId) {
     return null;
   }
+  const tier = getSyncBillingTier(tierId);
   const body = await stripeRequest({
     fetchImpl,
     secretKey,
     method: "GET",
-    path: `/v1/prices/${encodeURIComponent(syncPriceId)}?expand[]=product`,
+    path: `/v1/prices/${encodeURIComponent(syncPriceId)}`,
     operation: "price lookup",
   });
   if (typeof body !== "object" || body === null) {
     return null;
   }
   const recurring = prop(body, "recurring");
-  const unitAmount = prop(body, "unit_amount");
-  const tier = getSyncBillingTier(tierId);
+  const unitAmount = readPositiveInteger(prop(body, "unit_amount"));
+  const priceId = readString(prop(body, "id"));
+  const currency = readString(prop(body, "currency"));
+  const interval = readString(prop(recurring, "interval"));
+  const intervalCount = readPositiveInteger(prop(recurring, "interval_count"));
+  if (
+    priceId !== syncPriceId ||
+    currency !== "usd" ||
+    unitAmount !== tier.monthlyPriceUsdCents ||
+    interval !== "month" ||
+    intervalCount !== 1
+  ) {
+    return null;
+  }
   return {
     tierId,
     seatLimit: tier.seatLimit,
-    priceId: readString(prop(body, "id")) ?? syncPriceId,
+    priceId,
     productName: tier.title,
-    currency: readString(prop(body, "currency")) ?? "usd",
-    unitAmount: typeof unitAmount === "number" ? unitAmount : null,
-    interval: readString(prop(recurring, "interval")),
-    intervalCount: readPositiveInteger(prop(recurring, "interval_count")),
+    currency,
+    unitAmount,
+    interval,
+    intervalCount,
   };
 }

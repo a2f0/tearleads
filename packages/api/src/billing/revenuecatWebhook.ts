@@ -7,7 +7,6 @@ import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "./organizationBilling";
 import type { StripeApiDeps } from "./stripeApi";
-import { getSyncBillingTierForStripePrice } from "./stripeHttp";
 import { getSubscriptionBinding } from "./stripeSubscriptionBinding";
 
 /**
@@ -268,7 +267,6 @@ function timestampMsToDate(value: number | null | undefined): Date | null {
 
 interface RevenueCatClassificationOptions {
   allowSandboxEvents?: boolean;
-  stripe?: StripeApiDeps;
   stripePriceId?: string;
   stripeSeatCount?: number;
 }
@@ -280,8 +278,7 @@ function classifyRevenueCatGrant(
 ): RevenueCatBillingTransition {
   const isStripeStore = event.store?.toUpperCase() === STRIPE_STORE;
   const tier = isStripeStore
-    ? (getSyncBillingTierForStripePrice(event.product_id, options.stripe) ??
-      getSyncBillingTierForNativeProduct(event.product_id))
+    ? null
     : getSyncBillingTierForNativeProduct(event.product_id);
   const seatCount = isStripeStore
     ? (options.stripeSeatCount ?? tier?.seatLimit)

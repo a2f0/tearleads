@@ -9,6 +9,7 @@ import {
   revenuecatWebhookEvents,
   users,
 } from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { and, eq, gt } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
@@ -204,6 +205,35 @@ type PreclaimDisposition =
   | { kind: "continue"; ignoredReason: string | null }
   | { kind: "retry"; reason: string };
 
+async function stripeGrantExceedsMaximumRoster(input: {
+  readonly event: RevenueCatWebhookEvent;
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+  readonly transition: RevenueCatBillingTransition;
+}): Promise<boolean> {
+  if (
+    input.transition.kind !== "grant" ||
+    input.event.store?.toUpperCase() !== "STRIPE"
+  ) {
+    return false;
+  }
+  const [organization] = await input.executor
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, input.organizationId))
+    .limit(1);
+  if (!organization) {
+    return false;
+  }
+  const activeUserIds = await listUsersReachableFromCurrentGroup({
+    executor: input.executor,
+    groupId: organization.memberGroupId,
+  });
+  return (
+    getSyncBillingTierForSeatCount(Math.max(1, activeUserIds.length)) === null
+  );
+}
+
 async function resolvePreclaimDisposition(input: {
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
@@ -230,6 +260,20 @@ async function resolvePreclaimDisposition(input: {
     return {
       kind: "retry",
       reason: "Stripe binding changed before RevenueCat event application",
+    };
+  }
+  if (
+    input.organizationId !== null &&
+    (await stripeGrantExceedsMaximumRoster({
+      event: input.event,
+      executor: input.executor,
+      organizationId: input.organizationId,
+      transition: input.transition,
+    }))
+  ) {
+    return {
+      kind: "retry",
+      reason: "Stripe subscription cannot cover more than 10 active members",
     };
   }
   return {
@@ -369,7 +413,6 @@ export async function runRevenueCatWebhookWorkflow(
     // testing) is free to the tester but emits an event otherwise identical to
     // a paid one, so only a tier that opts in applies it.
     allowSandboxEvents: allowsRevenueCatSandboxEvents(deps.env ?? process.env),
-    ...(deps.stripe ? { stripe: deps.stripe } : {}),
     // A Stripe grant's actual capacity comes from the immutable subscription
     // binding below. This placeholder lets classification determine whether
     // the event type needs that lookup without trusting RevenueCat's product id.
@@ -442,7 +485,7 @@ export async function runRevenueCatWebhookWorkflow(
         ? null
         : resolveOrganizationIdFromEvent(event);
 
-  return db.transaction((tx) =>
+  const outcome = await db.transaction((tx) =>
     runRevenueCatWebhookTransaction({
       event,
       executor: tx,
@@ -451,5 +494,26 @@ export async function runRevenueCatWebhookWorkflow(
       stripeResolution,
       transition,
     }),
+  );
+  logUnappliedPaidGrant(event.id, outcome);
+  return outcome;
+}
+
+function logUnappliedPaidGrant(
+  eventId: string,
+  outcome: RevenueCatWebhookOutcome,
+): void {
+  if (outcome.status !== "ignored") {
+    return;
+  }
+  if (
+    outcome.reason !== "Event product is not a configured sync billing tier" &&
+    outcome.reason !==
+      "Subscription tier does not cover the organization's active members"
+  ) {
+    return;
+  }
+  console.error(
+    `RevenueCat paid grant ${eventId} was not applied: ${outcome.reason}`,
   );
 }
