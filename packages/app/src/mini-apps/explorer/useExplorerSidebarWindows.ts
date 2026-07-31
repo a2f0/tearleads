@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMiniAppVirtualWindow } from "../../components/mini-app/virtual/MiniAppVirtual";
+import { explorerDocumentQueryContainerId } from "../../stores/explorer/orphanedDocuments";
 import {
   buildExplorerSidebarSections,
   countExplorerSidebarRows,
@@ -36,11 +37,13 @@ export function useExplorerSidebarDocumentWindows(params: {
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   nodes: ReadonlyArray<ContainerNode>;
+  currentOrganizationId: string | null;
   ready: boolean;
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
 }) {
   const {
     collapsedIds,
+    currentOrganizationId,
     documentLinkProjectionVersionByContainerId,
     documentListRevision,
     documentQueries,
@@ -105,7 +108,8 @@ export function useExplorerSidebarDocumentWindows(params: {
 
       void documentQueries
         .listContainerDocumentSidebarWindow({
-          containerId,
+          containerId: explorerDocumentQueryContainerId(containerId),
+          currentOrganizationId,
           limit,
           offset,
         })
@@ -168,7 +172,7 @@ export function useExplorerSidebarDocumentWindows(params: {
           });
         });
     },
-    [documentQueries],
+    [currentOrganizationId, documentQueries],
   );
 
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -176,9 +180,9 @@ export function useExplorerSidebarDocumentWindows(params: {
     loadGenerationRef.current += 1;
     latestWindowLoadKeyByContainerIdRef.current.clear();
     pendingWindowLoadKeysRef.current.clear();
-    // A reload pass armed against the previous queries object must not fire
-    // into the freshly wiped scope; the next version bump re-arms it against
-    // the new one.
+    // A reload pass armed against the previous query or organization scope
+    // must not fire into the freshly wiped scope; the next version bump
+    // re-arms it against the new one.
     if (reloadTimerRef.current !== null) {
       clearTimeout(reloadTimerRef.current);
       reloadTimerRef.current = null;
@@ -186,7 +190,7 @@ export function useExplorerSidebarDocumentWindows(params: {
     setDocumentWindowsByContainerId((currentWindows) =>
       currentWindows.size === 0 ? currentWindows : new Map(),
     );
-  }, [documentQueries]);
+  }, [currentOrganizationId, documentQueries]);
 
   const readyRef = useRef(ready);
   readyRef.current = ready;

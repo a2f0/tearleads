@@ -192,6 +192,11 @@ export function useExplorerContextMenu(
         return;
       }
 
+      if (row.containerId === null) {
+        event.preventDefault();
+        return;
+      }
+
       openContextMenu(event, {
         kind: "document",
         containerId: row.containerId,

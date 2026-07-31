@@ -223,7 +223,7 @@ class ContainerContentsService implements ContainerContents {
 
   documentLinks(): ContainerDocumentLinks {
     const runtime = this.workflowRuntime();
-    const documentRuntime = (containerId: string) =>
+    const documentRuntime = (containerId: string | null) =>
       createContainerContentsDocumentsRuntime(runtime, containerId);
     const openContainerDocument = (input: OpenContainerDocumentInput) =>
       openDocumentStore(

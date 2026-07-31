@@ -10,6 +10,7 @@ import type { MouseEvent } from "react";
 import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
+import { renderExplorerItemCell } from "./explorerItemTableColumns";
 
 const resizeObserverGlobal = globalThis as unknown as {
   ResizeObserver?: unknown;
@@ -452,4 +453,31 @@ test("the header kebab is the trailing control, after the sync indicator", () =>
   // The identity block and that group are the header's only children, so
   // space-between still pins the folder name left and the controls right.
   expect(header.children).toHaveLength(2);
+});
+
+test("an orphaned document renders an empty actions cell", () => {
+  const view = render(
+    <table>
+      <tbody>
+        <tr>
+          {renderExplorerItemCell("actions", {
+            contactAvatarUrlByLocalId: {},
+            currentSelfContactLocalId: null,
+            currentSigningFingerprint: null,
+            currentUserId: null,
+            onItemContextMenu: () => undefined,
+            online: true,
+            row: { ...alphaNoteRow, containerId: null },
+            selectDocumentProjection: () => undefined,
+            setSelectedId: () => undefined,
+          })}
+        </tr>
+      </tbody>
+    </table>,
+  );
+
+  expect(
+    view.container.querySelector(".mini-app-row-actions-cell"),
+  ).toBeTruthy();
+  expect(view.queryByRole("button")).toBeNull();
 });

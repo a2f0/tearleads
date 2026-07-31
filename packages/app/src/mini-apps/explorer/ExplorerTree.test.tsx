@@ -2,7 +2,6 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import type {
   ContainerDocumentQueries,
   ContainerNode,
-  ContainerDocumentSidebarRow as Row,
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState as syncedState } from "@tearleads/client-sdk";
 import {
@@ -23,6 +22,12 @@ import { WindowStateProvider } from "../../components/window/WindowStateProvider
 import { AppNavigationProvider } from "../../navigation/AppNavigationProvider";
 import type { MiniAppDefinition, MiniAppId } from "../types";
 import { useExplorerSidebarPanel } from "./ExplorerTree";
+import {
+  createExplorerDocumentQueries as createDocumentQueries,
+  createExplorerRowsByContainerId as createRowsByContainerId,
+  createExplorerSidebarRows as createSidebarRows,
+  type ExplorerSidebarWindowCall,
+} from "./ExplorerTree.testFixtures";
 import {
   buildExplorerTree,
   getExplorerSidebarWindowRange,
@@ -51,65 +56,6 @@ const defaultNodes: ContainerNode[] = [
     syncState: syncedState,
   },
 ];
-interface WindowCall {
-  containerId: string;
-  limit: number;
-  offset: number;
-}
-
-function createSidebarRows(
-  count: number,
-  containerId = "root-container",
-): Row[] {
-  return Array.from({ length: count }, (_, index) => {
-    const rowNumber = index + 1;
-    return {
-      containerId,
-      documentId: `remote-${containerId}-document-${rowNumber}`,
-      documentKind: "note",
-      localId: `${containerId}-document-${rowNumber}`,
-      syncState: syncedState,
-      title: `Document ${rowNumber}`,
-      updatedAt: `2026-05-17T00:${String(index).padStart(2, "0")}:00.000Z`,
-    };
-  });
-}
-
-function createDocumentQueries(
-  rowsByContainerId: ReadonlyMap<string, ReadonlyArray<Row>>,
-  calls: WindowCall[],
-): ContainerDocumentQueries {
-  return {
-    applyContainerDocumentTombstones: async () => [],
-    listContainerDocumentSidebarWindow: async ({
-      containerId,
-      limit,
-      offset,
-    }) => {
-      calls.push({ containerId, limit, offset });
-      const rows = rowsByContainerId.get(containerId) ?? [];
-      return {
-        rows: rows.slice(offset, offset + limit),
-        totalCount: rows.length,
-      };
-    },
-    listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
-    listPendingWrites: async () => [],
-    retryPendingWriteItem: async () => undefined,
-    loadContainerDocumentWatermark: async () => null,
-    loadDocumentSyncState: async () => null,
-    loadDocumentSummary: async () => null,
-    listLinkedContainerIdsByDocumentIds: async () => new Map(),
-    replaceDocumentLinksBatch: async () => undefined,
-    saveContainerDocumentWatermark: async () => undefined,
-    upsertDiscoveredDocuments: async () => [],
-  };
-}
-
-function createRowsByContainerId(rows: Row[]) {
-  return new Map([["root-container", rows]]);
-}
-
 const NO_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
 const NO_CONTAINER_VERSIONS: ReadonlyMap<string, number> = new Map();
 // Stable identity, for the same reason as NO_CONTAINER_VERSIONS: the sidebar
@@ -166,6 +112,7 @@ function ExplorerSidebarHarness(params: {
     currentSigningFingerprint: null,
     currentSelfContactLocalId: null,
     currentUserId: null,
+    currentOrganizationId: "org-1",
     databaseError: false,
     onRetryDatabase,
     documentLinkProjectionVersion: 0,
@@ -218,7 +165,7 @@ function getSidebarViewport(view: { container: HTMLElement }) {
 }
 
 test("explorer sidebar requests new document windows as the sidebar scrolls", async () => {
-  const calls: WindowCall[] = [];
+  const calls: ExplorerSidebarWindowCall[] = [];
   const documentQueries = createDocumentQueries(
     createRowsByContainerId(createSidebarRows(80)),
     calls,
@@ -271,7 +218,7 @@ test("explorer sidebar scroll requests windows for each folder independently", a
       syncState: syncedState,
     },
   ];
-  const calls: WindowCall[] = [];
+  const calls: ExplorerSidebarWindowCall[] = [];
   const documentQueries = createDocumentQueries(
     new Map([
       ["child-container", createSidebarRows(80, "child-container")],
@@ -386,7 +333,7 @@ test("explorer sidebar renders document type icons for documents", async () => {
 
 test("explorer sidebar ignores stale document windows during fast scrolling", async () => {
   const rows = createSidebarRows(90);
-  const calls: WindowCall[] = [];
+  const calls: ExplorerSidebarWindowCall[] = [];
   let resolveFirstScroll:
     | ((
         value: Awaited<
@@ -473,7 +420,7 @@ test("explorer sidebar ignores stale document windows during fast scrolling", as
 });
 
 test("explorer sidebar shows loading feedback during the first document window request", async () => {
-  const calls: WindowCall[] = [];
+  const calls: ExplorerSidebarWindowCall[] = [];
   const rows = createSidebarRows(1);
   let resolveWindow:
     | ((
@@ -540,7 +487,7 @@ test("explorer sidebar forwards document context-menu events with document and c
 });
 
 test("explorer sidebar can retry a failed initial document window", async () => {
-  const calls: WindowCall[] = [];
+  const calls: ExplorerSidebarWindowCall[] = [];
   const rows = createSidebarRows(1);
   const documentQueries = {
     ...createDocumentQueries(createRowsByContainerId(rows), calls),
@@ -580,7 +527,7 @@ test("explorer sidebar keeps existing documents visible during document list ref
     ...row,
     title: "Renamed Document",
   }));
-  const calls: WindowCall[] = [];
+  const calls: ExplorerSidebarWindowCall[] = [];
   let resolveRefresh:
     | ((
         value: Awaited<
@@ -641,7 +588,7 @@ test("explorer sidebar keeps existing documents visible during document list ref
 });
 
 test("explorer sidebar does not refresh loaded documents on collapsed state changes", async () => {
-  const calls: WindowCall[] = [];
+  const calls: ExplorerSidebarWindowCall[] = [];
   const documentQueries = createDocumentQueries(
     createRowsByContainerId(createSidebarRows(1)),
     calls,

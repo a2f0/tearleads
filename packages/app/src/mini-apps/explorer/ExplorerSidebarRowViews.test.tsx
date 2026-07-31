@@ -4,7 +4,8 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState as syncedState } from "@tearleads/client-sdk";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { EXPLORER_ORPHANED_DOCUMENTS_ID } from "../../stores/explorer/orphanedDocuments";
 import { ExplorerSidebarVirtualTree } from "./ExplorerSidebarRowViews";
 
 afterEach(() => cleanup());
@@ -75,8 +76,55 @@ test("explorer sidebar row updates when a container icon changes", async () => {
   });
 });
 
+test("the recovery collection suppresses the native context menu", () => {
+  const node: ContainerNode = {
+    id: EXPLORER_ORPHANED_DOCUMENTS_ID,
+    kind: "container",
+    name: "Orphaned Documents",
+    organizationId: "org-1",
+    parentId: null,
+    syncState: syncedState,
+  };
+  const view = render(
+    <ExplorerSidebarVirtualTree
+      activeContainerId={node.id}
+      contactAvatarUrlByLocalId={{}}
+      currentSigningFingerprint={null}
+      currentSelfContactLocalId={null}
+      currentUserId={null}
+      depth={0}
+      documentWindowsByContainerId={new Map()}
+      offset={0}
+      onContextMenu={() => undefined}
+      onDocumentContextMenu={() => undefined}
+      onRetryDocumentWindow={() => undefined}
+      onSelectContainer={() => undefined}
+      onSelectDocument={() => undefined}
+      onToggleCollapsed={() => undefined}
+      rows={[
+        {
+          depth: 0,
+          entry: { children: [], node },
+          isCollapsed: false,
+          key: node.id,
+          kind: "container",
+        },
+      ]}
+      selectedId={node.id}
+      totalRows={1}
+    />,
+  );
+
+  expect(
+    fireEvent.contextMenu(
+      view.getByRole("button", { name: "Orphaned Documents" }),
+    ),
+  ).toBe(false);
+});
+
+const CONTACTS_CONTAINER_ID = "contacts-container";
 const contactRow: ContainerDocumentSidebarRow = {
-  containerId: "contacts-container",
+  containerId: CONTACTS_CONTAINER_ID,
   documentId: "contact-doc",
   documentKind: "contact",
   localId: "contact-local-id",
@@ -104,7 +152,7 @@ function renderSidebarContact(avatarUrlByLocalId: Record<string, string>) {
       onToggleCollapsed={() => undefined}
       rows={[
         {
-          containerId: contactRow.containerId,
+          containerId: CONTACTS_CONTAINER_ID,
           depth: 1,
           documentIndex: 0,
           key: contactRow.localId,
@@ -150,4 +198,64 @@ test("explorer sidebar contact row shows the avatar in place of the glyph", asyn
   expect(
     contactButton.querySelector(".contact-avatar-image")?.getAttribute("src"),
   ).toBe("blob:avatar");
+});
+
+test("an orphan sidebar document opens without a context menu", () => {
+  const selected: Array<[string, string]> = [];
+  let contextMenuCount = 0;
+  const orphanRow: ContainerDocumentSidebarRow = {
+    ...contactRow,
+    containerId: null,
+    documentKind: "note",
+    localId: "orphan-local",
+    title: "Recovered note",
+  };
+  const view = render(
+    <ExplorerSidebarVirtualTree
+      activeContainerId={EXPLORER_ORPHANED_DOCUMENTS_ID}
+      contactAvatarUrlByLocalId={{}}
+      currentSigningFingerprint={null}
+      currentSelfContactLocalId={null}
+      currentUserId={null}
+      depth={0}
+      documentWindowsByContainerId={new Map()}
+      offset={0}
+      onContextMenu={() => undefined}
+      onDocumentContextMenu={() => {
+        contextMenuCount += 1;
+      }}
+      onRetryDocumentWindow={() => undefined}
+      onSelectContainer={() => undefined}
+      onSelectDocument={(localId, containerId) => {
+        selected.push([localId, containerId]);
+      }}
+      onToggleCollapsed={() => undefined}
+      rows={[
+        {
+          containerId: EXPLORER_ORPHANED_DOCUMENTS_ID,
+          depth: 1,
+          documentIndex: 0,
+          key: orphanRow.localId,
+          kind: "document",
+          state: {
+            error: null,
+            isLoading: false,
+            offset: 0,
+            rows: [orphanRow],
+            totalCount: 1,
+          },
+        },
+      ]}
+      selectedId={orphanRow.localId}
+      totalRows={1}
+    />,
+  );
+
+  const button = view.getByRole("button", { name: "Recovered note" });
+  expect(fireEvent.contextMenu(button)).toBe(false);
+  fireEvent.click(button);
+  expect(contextMenuCount).toBe(0);
+  expect(selected).toEqual([
+    [orphanRow.localId, EXPLORER_ORPHANED_DOCUMENTS_ID],
+  ]);
 });

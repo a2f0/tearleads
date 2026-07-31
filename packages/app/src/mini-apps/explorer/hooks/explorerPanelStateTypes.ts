@@ -4,6 +4,7 @@ import type {
   ContainerInfo,
   ContainerItemRow,
   DocumentInfo,
+  DocumentSummary,
 } from "@tearleads/client-sdk";
 import type { MouseEvent } from "react";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
@@ -61,6 +62,7 @@ export interface ExplorerPanelState {
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
+  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   modalState: ExplorerDocumentModalState;
   // Move a folder (and its whole subtree) into the Trash system container. The
   // folder counterpart to deleteDocument: a reversible relocation, not a hard

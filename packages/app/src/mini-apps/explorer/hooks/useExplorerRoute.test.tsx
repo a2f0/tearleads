@@ -41,9 +41,19 @@ function EmptyMiniApp() {
 }
 
 // Stable reference so the route-restoration effect's dependency is constant
-// across renders. These hook-level tests assert selection/route wiring via the
-// pending-selection mechanism, not summary loading, so a no-op suffices.
-const noopLoadDocumentSummary = () => Promise.resolve(null);
+// across renders. Ordinary document routes now validate the resolved summary
+// before selecting it, so this harness returns the matching stored container.
+const loadTestDocumentSummary = (localId: string, routeContainerId: string) =>
+  Promise.resolve({
+    documentSummary: {
+      containerId: routeContainerId,
+      documentId: localId,
+      id: localId,
+      title: "You",
+      updatedAt: "2026-07-30T00:00:00.000Z",
+    },
+    status: "loaded" as const,
+  });
 
 const TEST_MINI_APPS = {
   "backup-restore": {
@@ -73,7 +83,7 @@ function ExplorerRouteSelectionHarness() {
   const appRoute = useMiniAppRouteSegments("explorer");
   const selection = useExplorerSelection(nodes, []);
   const routeState = useExplorerRoute({
-    loadDocumentSummary: noopLoadDocumentSummary,
+    loadDocumentSummary: loadTestDocumentSummary,
     nodes,
     selectDocument: selection.selectDocument,
     setSelectedId: selection.setSelectedId,

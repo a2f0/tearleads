@@ -58,24 +58,26 @@ export function getSelectedDocumentMutationState(params: {
     appData.infra.dbStatus === "ready" &&
     selectedDocument?.documentId === null &&
     selectedDocumentWritable;
-  const canMoveOrDeleteSelectedDocument =
+  const canMoveSelectedDocument =
     appData.infra.dbStatus === "ready" &&
     selectedDocument !== undefined &&
-    selectedDocument.containerId !== null &&
     selectedDocumentWritable &&
     selectedDocumentContainerWritable;
+  const canDeleteContainerScopedDocument =
+    canMoveSelectedDocument &&
+    selectedDocument !== undefined &&
+    selectedDocument.containerId !== null;
 
   return {
     canDeleteSelectedDocument:
-      canMoveOrDeleteSelectedDocument &&
+      canDeleteContainerScopedDocument &&
       canResolveTrashContainer &&
       selectedDocument.containerId !== trashContainerId &&
       canDeleteDocumentByRules(rulesContext, selectedDocument),
     canLinkSelectedDocument:
       canMutateSelectedDocument && selectedDocumentLinkTargetOptions.length > 0,
     canMoveSelectedDocument:
-      canMoveOrDeleteSelectedDocument &&
-      selectedDocumentMoveTargetOptions.length > 0,
+      canMoveSelectedDocument && selectedDocumentMoveTargetOptions.length > 0,
     canPurgeSelectedDocument:
       (canMutateSelectedDocument || canMutateUnsyncedSelectedDocument) &&
       canResolveTrashContainer &&

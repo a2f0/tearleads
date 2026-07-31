@@ -20,6 +20,7 @@ import {
   isExplorerContainerUnderTrash,
   resolveExplorerDeleteTrashTarget,
 } from "../../../stores/explorer/ExplorerSystemContainers";
+import type { ExplorerRouteDocumentSummaryResult } from "../../../stores/explorer/useExplorerDocumentSummaryState";
 import {
   type ExplorerDroppedFileImportLabels,
   type ImportExplorerDroppedFiles,
@@ -72,6 +73,13 @@ export function useExplorerPanelState(params: {
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   bumpDocumentListRevision: () => void;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  loadOrphanedDocumentSummary: (
+    localId: string,
+  ) => Promise<DocumentSummary | null>;
+  loadRouteDocumentSummary: (
+    localId: string,
+    routeContainerId: string,
+  ) => Promise<ExplorerRouteDocumentSummaryResult>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
@@ -101,6 +109,8 @@ export function useExplorerPanelState(params: {
     linkedContainerIdsByDocumentId,
     bumpDocumentListRevision,
     loadDocumentSummary,
+    loadOrphanedDocumentSummary,
+    loadRouteDocumentSummary,
     mergeDocumentSummary,
     documentSummaries,
     onDocumentLinksChanged,
@@ -131,11 +141,28 @@ export function useExplorerPanelState(params: {
   const loadDocumentAttributionRanges =
     useExplorerDocumentAttributionRangesLoader();
   const routeState = useExplorerRoute({
-    loadDocumentSummary,
+    loadDocumentSummary: loadRouteDocumentSummary,
     nodes: explorer.nodes,
     selectDocument: selection.selectDocument,
     setSelectedId: selection.setSelectedId,
   });
+  const loadActiveRouteDocumentSummary = useCallback(
+    (localId: string) => {
+      const route = routeState.route;
+      if (
+        route.view !== "document-selection" &&
+        route.view !== "document-info"
+      ) {
+        return loadDocumentSummary(localId);
+      }
+
+      return loadRouteDocumentSummary(localId, route.containerId).then(
+        (result) =>
+          result.status === "loaded" ? result.documentSummary : null,
+      );
+    },
+    [loadDocumentSummary, loadRouteDocumentSummary, routeState.route],
+  );
   const tearleads = useTearleads();
   // Bind + memoize the loader so the resolver hook can depend on a stable
   // reference (a fresh inline closure each render would re-fire its effect).
@@ -164,6 +191,7 @@ export function useExplorerPanelState(params: {
     expandNode: selection.expandNode,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
+    loadOrphanedDocumentSummary,
     mergeDocumentSummary,
     nodes: explorer.nodes,
     documentSummaries,
@@ -203,6 +231,7 @@ export function useExplorerPanelState(params: {
     currentSigningFingerprint: appData.crypto.signingFingerprint,
     currentSelfContactLocalId,
     currentUserId: appData.auth.userId,
+    currentOrganizationId: appData.auth.organizationId ?? null,
     // Derived from the same worker status as Explorer's detail gate so both show
     // the boot error together; the retry callback is threaded from Explorer.
     databaseError: appData.infra.dbStatus === "error",
@@ -419,6 +448,7 @@ export function useExplorerPanelState(params: {
     loadContainerInfo,
     loadDocumentAttributionRanges,
     loadDocumentInfo,
+    loadDocumentSummary: loadActiveRouteDocumentSummary,
     modalState,
     moveContainerToTrash,
     purgeRun,

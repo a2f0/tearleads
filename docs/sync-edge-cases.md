@@ -71,16 +71,21 @@ without counting as lane progress, so it cannot hot-loop the pump.
 
 ## Known gaps / follow-ups
 
-- Orphaned documents (row 3) drop out of the explorer tree entirely (the
-  container index excludes `container_id IS NULL`); their queued edits stay
-  visible in the write queue, and priming now routes them with a null
-  container scope — bounded to the store scope's organization, matching the
-  per-organization invariant subtree routing provides — so their sync passes
-  resolve them. Orphans of an organization with no active scope (e.g. after
-  the whole organization's access was revoked) stay preserved-but-dormant:
-  without that organization's auth context no pass could resolve them
-  anyway, which is no worse than before and keeps every edit intact. An
-  orphaned-documents surface in the explorer remains an open UX question.
+- Resolved: Explorer exposes last-link orphans (row 3, `container_id IS NULL`
+  with no surviving link) in a read-only **Orphaned Documents** recovery
+  collection scoped to the active organization. Users can open a preserved
+  document and move it into a writable container; the collection itself cannot
+  accept creates, uploads, or folder mutations. Queued edits remain visible in
+  the write queue, and priming continues to route orphans with a null container
+  scope so their sync passes resolve them. Orphans of an organization with no
+  active scope (e.g. after the whole organization's access was revoked) stay
+  preserved-but-dormant: without that organization's auth context no pass could
+  resolve them. Attributed rows never cross organization scopes; legacy
+  device-first rows with no organization attribution appear in the active
+  scope, matching priming, and adopt that organization when created remotely.
+  Recovery classification is projection-based: it includes every non-hidden
+  `container_id IS NULL` row with no surviving links, whether detached by a
+  cascade or created locally before receiving its first container.
 - Resolved: access restoration now prunes stale `access_revoked` container
   sync tombstones server-side (`pruneRegainedAccessTombstones`, wired into
   the principal-policy transition and `container.grant` flows), so restores

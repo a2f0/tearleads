@@ -100,16 +100,16 @@ Client capabilities:
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, plus exact-head history from verified policy storage |
 | `tearleads.userIdentities` | pinned user identity bundles for cryptographic workflows |
 
-Prefer these instance services over constructing workflow runtimes directly
-from host code. The SDK keeps workflow cache scope aligned with the active
-database id and identity fingerprint, which lets document and
-container/document stores share the same sync and subscription boundary.
-Product app code should prefer the instance surface:
+Prefer instance services to hand-built runtimes. The SDK aligns workflow cache
+scope with the active database and identity so document and container/document
+stores share a sync and subscription boundary. Product app code should use:
 `tearleads.documents.open(...)`, `tearleads.documents.list(...)`,
 `tearleads.documents.subscribe(listener, { containerId })`,
 `tearleads.containerContents.openTree()`, and
-`tearleads.containerContents.documentQueries()`. Import lower-level store and
-workflow packages only when writing SDK internals or custom host integrations.
+`tearleads.containerContents.documentQueries()`. For orphan recovery, queries
+accept a null container plus the active organization; use the indexed
+`hasOrphanedDocuments(...)` visibility probe. Import internals only when
+developing the SDK or a custom host.
 
 Document stores initialize automatically before mutating operations such as
 `setText(...)`, `setStructuredFields(...)`, `attachFiles(...)`, and

@@ -7,6 +7,10 @@ import type {
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import {
+  createExplorerOrphanedDocumentsNode,
+  EXPLORER_ORPHANED_DOCUMENTS_ID,
+} from "../../stores/explorer/orphanedDocuments";
+import {
   buildExplorerSidebarSections,
   getExplorerSidebarRowsInRange,
 } from "./ExplorerSidebarRows";
@@ -59,6 +63,144 @@ function documentRow(
 
 afterEach(() => cleanup());
 
+test("the recovery sidebar window uses null scope for the active organization", async () => {
+  const calls: Array<
+    Parameters<
+      ContainerDocumentQueries["listContainerDocumentSidebarWindow"]
+    >[0]
+  > = [];
+  const queries = {
+    listContainerDocumentSidebarWindow: async (
+      input: Parameters<
+        ContainerDocumentQueries["listContainerDocumentSidebarWindow"]
+      >[0],
+    ) => {
+      calls.push(input);
+      return { rows: [], totalCount: 0 };
+    },
+  } as unknown as ContainerDocumentQueries;
+  const nodes = [
+    createExplorerOrphanedDocumentsNode("org-1", "Orphaned Documents"),
+  ];
+  const collapsedIds = new Set<string>();
+  const documentLinkProjectionVersionByContainerId = new Map<string, number>();
+  const treeEntries = buildExplorerTree(nodes);
+  const view = renderHook(() =>
+    useExplorerSidebarDocumentWindows({
+      collapsedIds,
+      documentLinkProjectionVersionByContainerId,
+      documentListRevision: 0,
+      documentQueries: queries,
+      nodes,
+      currentOrganizationId: "org-active",
+      ready: true,
+      treeEntries,
+    }),
+  );
+
+  act(() => {
+    view.result.current.requestDocumentWindow(
+      EXPLORER_ORPHANED_DOCUMENTS_ID,
+      0,
+      10,
+    );
+  });
+
+  await waitFor(() => {
+    expect(calls).toContainEqual({
+      containerId: null,
+      currentOrganizationId: "org-active",
+      limit: 10,
+      offset: 0,
+    });
+  });
+});
+
+test("changing organizations wipes the recovery sidebar window", async () => {
+  const calls: string[] = [];
+  const queries = {
+    listContainerDocumentSidebarWindow: async (
+      input: Parameters<
+        ContainerDocumentQueries["listContainerDocumentSidebarWindow"]
+      >[0],
+    ) => {
+      const organizationId = input.currentOrganizationId ?? "unattributed";
+      calls.push(organizationId);
+      return {
+        rows:
+          input.limit === 0
+            ? []
+            : [
+                documentRow({
+                  containerId: null,
+                  documentId: `${organizationId}-document`,
+                  localId: `${organizationId}-local`,
+                }),
+              ],
+        totalCount: 1,
+      };
+    },
+  } as unknown as ContainerDocumentQueries;
+  const nodes = [
+    createExplorerOrphanedDocumentsNode("org-1", "Orphaned Documents"),
+  ];
+  const treeEntries = buildExplorerTree(nodes);
+  const view = renderHook(
+    ({ currentOrganizationId }: { currentOrganizationId: string }) =>
+      useExplorerSidebarDocumentWindows({
+        collapsedIds: new Set(),
+        documentLinkProjectionVersionByContainerId: new Map(),
+        documentListRevision: 0,
+        documentQueries: queries,
+        nodes,
+        currentOrganizationId,
+        ready: true,
+        treeEntries,
+      }),
+    { initialProps: { currentOrganizationId: "org-1" } },
+  );
+
+  act(() => {
+    view.result.current.requestDocumentWindow(
+      EXPLORER_ORPHANED_DOCUMENTS_ID,
+      0,
+      10,
+    );
+  });
+  await waitFor(() => {
+    expect(
+      view.result.current.documentWindowsByContainerId.get(
+        EXPLORER_ORPHANED_DOCUMENTS_ID,
+      )?.rows[0]?.localId,
+    ).toBe("org-1-local");
+  });
+
+  view.rerender({ currentOrganizationId: "org-2" });
+  await waitFor(() => {
+    expect(
+      view.result.current.documentWindowsByContainerId
+        .get(EXPLORER_ORPHANED_DOCUMENTS_ID)
+        ?.rows.some((row) => row.localId === "org-1-local"),
+    ).not.toBe(true);
+  });
+
+  act(() => {
+    view.result.current.requestDocumentWindow(
+      EXPLORER_ORPHANED_DOCUMENTS_ID,
+      0,
+      10,
+    );
+  });
+  await waitFor(() => {
+    expect(calls.at(-1)).toBe("org-2");
+    expect(
+      view.result.current.documentWindowsByContainerId.get(
+        EXPLORER_ORPHANED_DOCUMENTS_ID,
+      )?.rows[0]?.localId,
+    ).toBe("org-2-local");
+  });
+});
+
 // A link refresh must never blank a populated container: the stale rows stay
 // rendered while the replacement window loads and swap in place when it lands.
 // A burst of membership bumps (bulk import) coalesces into one reload pass.
@@ -67,10 +209,18 @@ test("sidebar link refresh keeps stale rows visible until the reload lands", asy
     rows: ReadonlyArray<ContainerDocumentSidebarRow>;
     totalCount: number;
   }>();
-  const calls: Array<{ containerId: string; limit: number; offset: number }> =
-    [];
+  const calls: Array<{
+    containerId: string | null;
+    currentOrganizationId?: string | null | undefined;
+    limit: number;
+    offset: number;
+  }> = [];
   const queries = {
-    listContainerDocumentSidebarWindow: async (input) => {
+    listContainerDocumentSidebarWindow: async (
+      input: Parameters<
+        ContainerDocumentQueries["listContainerDocumentSidebarWindow"]
+      >[0],
+    ) => {
       calls.push(input);
       if (calls.length === 1) {
         return { rows: [documentRow()], totalCount: 1 };
@@ -99,6 +249,7 @@ test("sidebar link refresh keeps stale rows visible until the reload lands", asy
         documentListRevision,
         documentQueries: queries,
         nodes,
+        currentOrganizationId: null,
         ready,
         treeEntries,
       }),
@@ -150,6 +301,7 @@ test("sidebar link refresh keeps stale rows visible until the reload lands", asy
   });
   expect(calls[1]).toEqual({
     containerId: CONTACTS_CONTAINER_ID,
+    currentOrganizationId: null,
     limit: 1,
     offset: 0,
   });
@@ -198,14 +350,18 @@ test("sidebar link refresh keeps stale rows visible until the reload lands", asy
 // container, so a membership change in one org's container leaves both that
 // container's and the other org's rows on screen throughout the refresh.
 test("a version bump never blanks any expanded container's rows", async () => {
-  const calls: Array<{ containerId: string; limit: number; offset: number }> =
-    [];
+  const calls: Array<{
+    containerId: string | null;
+    currentOrganizationId?: string | null | undefined;
+    limit: number;
+    offset: number;
+  }> = [];
   const queries = {
-    listContainerDocumentSidebarWindow: async (input: {
-      containerId: string;
-      limit: number;
-      offset: number;
-    }) => {
+    listContainerDocumentSidebarWindow: async (
+      input: Parameters<
+        ContainerDocumentQueries["listContainerDocumentSidebarWindow"]
+      >[0],
+    ) => {
       calls.push(input);
       return {
         rows:
@@ -236,6 +392,7 @@ test("a version bump never blanks any expanded container's rows", async () => {
         documentListRevision: 0,
         documentQueries: queries,
         nodes,
+        currentOrganizationId: null,
         ready: true,
         treeEntries,
       }),

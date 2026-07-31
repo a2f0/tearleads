@@ -97,7 +97,7 @@ interface ExplorerModel {
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The model hook aggregates Explorer route, document, modal, and refresh state for the view.
 export function useExplorerModel(
   appData: RuntimeSnapshot,
-  explorer: ExplorerModelExplorer,
+  baseExplorer: ExplorerModelExplorer,
   setSidebar: (sidebar: ReactNode | null) => void,
   canShareWithPeer: boolean,
   peerUserId: string | null,
@@ -116,8 +116,11 @@ export function useExplorerModel(
     documentListRevision,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
+    loadOrphanedDocumentSummary,
+    loadRouteDocumentSummary,
     mergeDocumentSummaries,
     mergeDocumentSummary,
+    nodes,
     documentSummaries,
     selection,
     setLinkedContainerIdsForDocument,
@@ -125,8 +128,14 @@ export function useExplorerModel(
     appData,
     documentQueries,
     documentLinkProjectionVersion,
-    nodes: explorer.nodes,
+    nodes: baseExplorer.nodes,
+    ready: baseExplorer.ready,
   });
+  const explorer = useMemo(
+    () =>
+      nodes === baseExplorer.nodes ? baseExplorer : { ...baseExplorer, nodes },
+    [baseExplorer, nodes],
+  );
   const treeEntries = useMemo(
     () => buildExplorerTree(explorer.nodes),
     [explorer.nodes],
@@ -197,6 +206,7 @@ export function useExplorerModel(
     loadContainerInfo,
     loadDocumentAttributionRanges,
     loadDocumentInfo,
+    loadDocumentSummary: loadActiveRouteDocumentSummary,
     markDocumentStartsInEditMode,
     modalState,
     moveContainerToTrash,
@@ -220,6 +230,8 @@ export function useExplorerModel(
     bumpDocumentListRevision,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
+    loadOrphanedDocumentSummary,
+    loadRouteDocumentSummary,
     mergeDocumentSummary,
     documentSummaries,
     documentListRevision,
@@ -366,7 +378,7 @@ export function useExplorerModel(
     loadContainerInfo,
     loadDocumentAttributionRanges,
     loadDocumentInfo,
-    loadDocumentSummary,
+    loadDocumentSummary: loadActiveRouteDocumentSummary,
     linkedContainerIdsByDocumentId,
     markDocumentStartsInEditMode,
     modalState,

@@ -30,7 +30,7 @@ export type ContainerItemRow =
       updatedAt: string | null;
     }
   | {
-      containerId: string;
+      containerId: string | null;
       createdAt: string | null;
       documentId: string | null;
       documentKind: StoredDocumentKind;
@@ -47,7 +47,7 @@ export interface ContainerItemWindow {
 }
 
 export interface ContainerDocumentSidebarRow {
-  containerId: string;
+  containerId: string | null;
   documentId: string | null;
   documentKind: StoredDocumentKind;
   localId: string;

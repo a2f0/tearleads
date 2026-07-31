@@ -31,6 +31,7 @@ const rootNode: ContainerNode = {
 
 const documentQueries: ContainerDocumentQueries = {
   applyContainerDocumentTombstones: async () => [],
+  hasOrphanedDocuments: async () => false,
   listContainerDocumentSidebarWindow: async () => ({ rows: [], totalCount: 0 }),
   listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
   listPendingWrites: async () => [],
@@ -38,6 +39,7 @@ const documentQueries: ContainerDocumentQueries = {
   loadContainerDocumentWatermark: async () => null,
   loadDocumentSyncState: async () => null,
   loadDocumentSummary: async () => null,
+  loadOrphanedDocumentSummary: async () => null,
   listLinkedContainerIdsByDocumentIds: async () => new Map(),
   replaceDocumentLinksBatch: async () => undefined,
   saveContainerDocumentWatermark: async () => undefined,
@@ -90,6 +92,7 @@ function SidebarContextMenuHarness(params: {
     currentSigningFingerprint: null,
     currentSelfContactLocalId: null,
     currentUserId: null,
+    currentOrganizationId: rootNode.organizationId,
     databaseError: false,
     onRetryDatabase,
     documentLinkProjectionVersion: 0,

@@ -34,6 +34,9 @@ The local read path is network-free.
 `listContainerDocumentSidebarWindow`) reads purely from SQLite, and the
 projection it reads is authoritative for first paint.
 
+Nullable container windows and `hasOrphanedDocuments` expose and gate orphan
+recovery without replacing empty-tree state.
+
 ## Design: two layers in `client-sdk`
 
 ```

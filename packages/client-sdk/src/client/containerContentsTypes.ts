@@ -70,7 +70,7 @@ export interface DocumentInfoInput {
 export type MergeDocumentSummary = (nextDocument: DocumentSummary) => void;
 
 export interface OpenContainerDocumentInput {
-  readonly containerId: string;
+  readonly containerId: string | null;
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
   readonly initialText?: string | undefined;
@@ -120,7 +120,7 @@ export interface PurgeDocumentResult {
 
 export interface ContainerDocumentLinks
   extends ContainerContentsWorkflowRuntime {
-  documentRuntime(containerId: string): DocumentsWorkflowRuntime;
+  documentRuntime(containerId: string | null): DocumentsWorkflowRuntime;
   openDocument(input: OpenContainerDocumentInput): DocumentStore;
   setActiveDocumentContainer(
     input: SetActiveDocumentContainerInput,

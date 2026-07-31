@@ -155,6 +155,7 @@ function useExplorerMoveModalOpener(params: {
 
 function useExplorerMoveDocumentModalOpener(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
   setDraftName: (value: string) => void;
@@ -165,6 +166,7 @@ function useExplorerMoveDocumentModalOpener(params: {
 }) {
   const {
     documentSummaries,
+    linkedContainerIdsByDocumentId,
     nodes,
     rulesContext,
     setDraftName,
@@ -188,11 +190,13 @@ function useExplorerMoveDocumentModalOpener(params: {
           documentLocalId,
           targetLookups,
           rulesContext,
+          linkedContainerIdsByDocumentId,
         ),
       });
     },
     [
       documentSummaries,
+      linkedContainerIdsByDocumentId,
       nodes,
       rulesContext,
       setDraftName,

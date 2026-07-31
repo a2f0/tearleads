@@ -20,6 +20,7 @@ import type { AvatarUrlByContactId } from "../../../../document-types/contact/us
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { getDocumentTypeIcon } from "../../../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../../../stores/contacts/contactLabels";
+import { explorerDocumentRouteContainerId } from "../../../../stores/explorer/orphanedDocuments";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
 import { getExplorerContactAvatar } from "../../explorerContactAvatar";
@@ -199,7 +200,10 @@ export function openExplorerItem(
     return;
   }
 
-  ctx.selectDocumentProjection(row.localId, row.containerId);
+  ctx.selectDocumentProjection(
+    row.localId,
+    explorerDocumentRouteContainerId(row.containerId),
+  );
 }
 
 function getExplorerItemVisual(
@@ -300,6 +304,12 @@ function ExplorerItemSummaryCell(ctx: ExplorerItemCellContext): ReactNode {
 
 function ExplorerItemActionsCell(ctx: ExplorerItemCellContext): ReactNode {
   const { row } = ctx;
+  if (row.itemKind === "document" && row.containerId === null) {
+    return (
+      <MiniAppTableCell className="mini-app-row-actions-cell" key="actions" />
+    );
+  }
+
   const name = getExplorerContainerItemName(ctx);
 
   return (

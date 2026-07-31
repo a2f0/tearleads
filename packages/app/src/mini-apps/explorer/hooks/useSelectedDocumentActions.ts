@@ -18,7 +18,6 @@ import {
 import {
   canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
-  canMoveDocumentToContainerByRules,
   canPurgeDocumentByRules,
   canWriteContainerNode,
   canWriteDocumentSummary,
@@ -26,6 +25,10 @@ import {
 } from "../containerRules";
 import { getDocumentByLocalId } from "../documentSummaries";
 import type { ExplorerDocumentMutationOptions } from "./explorerModelTypes";
+import {
+  canMoveExplorerActionDocument,
+  canRecoverNullContainerDocument,
+} from "./selectedDocumentMoveRules";
 
 type LoadExplorerDocumentSummary = (
   localId: string,
@@ -42,22 +45,53 @@ async function resolveExplorerActionDocument(params: {
   );
 }
 
-function useMoveDocumentAction(params: {
+interface MoveDocumentActionParams {
   appData: ContainerDocumentLinks;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
+  loadOrphanedDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
   nodes: ReadonlyArray<ContainerNode>;
   onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
   rulesContext: ExplorerContainerRulesContext;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
-}) {
+}
+
+async function resolveMoveActionDocument(params: {
+  documentId: string;
+  documentSummaries: ReadonlyArray<DocumentSummary>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  loadDocumentSummary: LoadExplorerDocumentSummary;
+  loadOrphanedDocumentSummary: LoadExplorerDocumentSummary;
+}): Promise<DocumentSummary | null> {
+  const document = await resolveExplorerActionDocument(params);
+  if (!document || !canWriteDocumentSummary(document)) {
+    return null;
+  }
+  if (document.containerId === null) {
+    const scopedOrphan = await params.loadOrphanedDocumentSummary(document.id);
+    if (!scopedOrphan || scopedOrphan.documentId !== document.documentId) {
+      return null;
+    }
+  }
+  return canRecoverNullContainerDocument(
+    document,
+    params.linkedContainerIdsByDocumentId,
+  )
+    ? document
+    : null;
+}
+
+function useMoveDocumentAction(params: MoveDocumentActionParams) {
   const {
     appData,
     documentSummaries,
     expandNode,
+    linkedContainerIdsByDocumentId,
     loadDocumentSummary,
+    loadOrphanedDocumentSummary,
     mergeDocumentSummary,
     nodes,
     onDocumentLinksChanged,
@@ -71,39 +105,24 @@ function useMoveDocumentAction(params: {
       targetContainerId: string,
       options?: ExplorerDocumentMutationOptions,
     ) => {
-      const existingDocument = await resolveExplorerActionDocument({
+      const existingDocument = await resolveMoveActionDocument({
         documentSummaries,
         loadDocumentSummary,
+        loadOrphanedDocumentSummary,
         documentId,
+        linkedContainerIdsByDocumentId,
       });
-      if (!existingDocument || !canWriteDocumentSummary(existingDocument)) {
+      if (!existingDocument) {
         return null;
       }
-      const currentContainer =
-        existingDocument.containerId === null
-          ? null
-          : nodes.find((node) => node.id === existingDocument.containerId);
-      const canMoveDocument =
-        existingDocument.documentId === null
-          ? canMutateUnsyncedSelectedDocument(appData)
-          : appData.infra.dbStatus === "ready";
-      if (!canMoveDocument) {
-        return null;
-      }
-      const targetContainer = nodes.find(
-        (node) => node.id === targetContainerId,
-      );
-      // Refuse to relocate the pinned self contact (a Move to Trash would delete
-      // it), then honor the source/destination move rules. Contacts pins its
-      // contents for ordinary moves while still allowing the Trash destination.
       if (
-        !targetContainer ||
-        !canMoveDocumentToContainerByRules(
+        !canMoveExplorerActionDocument({
+          appData,
+          document: existingDocument,
+          nodes,
           rulesContext,
-          currentContainer,
-          targetContainer,
-          existingDocument,
-        )
+          targetContainerId,
+        })
       ) {
         return null;
       }
@@ -136,7 +155,9 @@ function useMoveDocumentAction(params: {
       appData,
       documentSummaries,
       expandNode,
+      linkedContainerIdsByDocumentId,
       loadDocumentSummary,
+      loadOrphanedDocumentSummary,
       mergeDocumentSummary,
       nodes,
       onDocumentLinksChanged,
@@ -400,7 +421,9 @@ export function useSelectedDocumentActions(params: {
   appData: ContainerDocumentLinks;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
+  loadOrphanedDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
   nodes: ReadonlyArray<ContainerNode>;
   onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
@@ -411,7 +434,9 @@ export function useSelectedDocumentActions(params: {
     appData,
     documentSummaries,
     expandNode,
+    linkedContainerIdsByDocumentId,
     loadDocumentSummary,
+    loadOrphanedDocumentSummary,
     mergeDocumentSummary,
     nodes,
     onDocumentLinksChanged,
@@ -423,7 +448,9 @@ export function useSelectedDocumentActions(params: {
     appData,
     documentSummaries,
     expandNode,
+    linkedContainerIdsByDocumentId,
     loadDocumentSummary,
+    loadOrphanedDocumentSummary,
     mergeDocumentSummary,
     nodes,
     onDocumentLinksChanged,

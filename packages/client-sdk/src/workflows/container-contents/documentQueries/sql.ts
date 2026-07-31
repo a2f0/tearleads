@@ -1,3 +1,4 @@
+import { getOrphanedDocumentWhereSql } from "../orphanedDocumentSql";
 import type { ContainerItemSort } from "./types";
 
 // Keep each IN clause below SQLite's historical 999 bind-parameter limit.
@@ -289,6 +290,81 @@ export function getContainerContentsDocumentRowsBaseSql(): string {
     )
     SELECT *
     FROM container_documents
+  `;
+}
+
+export function getOrphanedDocumentItemsBaseSql(): string {
+  return `
+    WITH ${getContainerContentsDocumentPendingStateCtes()},
+    orphaned_document_items AS (
+      SELECT
+        'document' AS item_kind,
+        1 AS item_kind_sort,
+        d.local_id AS item_id,
+        d.document_id AS document_id,
+        d.document_kind AS document_kind,
+        NULL AS metadata_document_id,
+        NULL AS local_updated_at,
+        NULL AS server_created_at,
+        NULL AS server_updated_at,
+        NULL AS icon,
+        COALESCE(document_updates.pending_update_count, 0) AS pending_update_count,
+        COALESCE(document_attachments.pending_attachment_count, 0) AS pending_attachment_count,
+        COALESCE(document_attachments.pending_attachment_bytes, 0) AS pending_attachment_bytes,
+        NULL AS sync_last_error,
+        d.title AS name,
+        d.document_kind AS type_sort,
+        d.updated_at AS created_at,
+        d.updated_at AS updated_at
+      FROM document_projection d
+      LEFT JOIN document_pending_update_counts document_updates
+        ON document_updates.local_id = d.local_id
+      LEFT JOIN document_pending_attachment_counts document_attachments
+        ON document_attachments.local_id = d.local_id
+      WHERE ${getOrphanedDocumentWhereSql({
+        documentIdSql: "d.document_id",
+        projectionAlias: "d",
+      })}
+    )
+    SELECT *
+    FROM orphaned_document_items
+  `;
+}
+
+export function getOrphanedDocumentRowsBaseSql(): string {
+  return `
+    WITH ${getContainerContentsDocumentPendingStateCtes()}
+    SELECT
+      d.local_id AS local_id,
+      d.document_id AS document_id,
+      d.container_id AS container_id,
+      d.document_kind AS document_kind,
+      COALESCE(document_updates.pending_update_count, 0) AS pending_update_count,
+      COALESCE(document_attachments.pending_attachment_count, 0) AS pending_attachment_count,
+      COALESCE(document_attachments.pending_attachment_bytes, 0) AS pending_attachment_bytes,
+      d.title AS title,
+      d.updated_at AS updated_at
+    FROM document_projection d
+    LEFT JOIN document_pending_update_counts document_updates
+      ON document_updates.local_id = d.local_id
+    LEFT JOIN document_pending_attachment_counts document_attachments
+      ON document_attachments.local_id = d.local_id
+    WHERE ${getOrphanedDocumentWhereSql({
+      documentIdSql: "d.document_id",
+      projectionAlias: "d",
+    })}
+  `;
+}
+
+export function getOrphanedDocumentExistsSql(): string {
+  return `
+    SELECT 1
+    FROM document_projection d
+    WHERE ${getOrphanedDocumentWhereSql({
+      documentIdSql: "d.document_id",
+      projectionAlias: "d",
+    })}
+    LIMIT 1
   `;
 }
 

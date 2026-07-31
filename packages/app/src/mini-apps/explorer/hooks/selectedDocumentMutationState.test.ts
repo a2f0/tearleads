@@ -386,6 +386,30 @@ test("moving out of trash is independent of the purge/delete trash gates", () =>
   expect(mutationState.canDeleteSelectedDocument).toBe(false);
 });
 
+test("a last-link orphan can move into its organization's writable containers", () => {
+  const orphanedDocument: DocumentSummary = {
+    ...selectedDocument,
+    containerId: null,
+  };
+  const moveTargetOptions = getDocumentMoveTargetOptions(
+    gateNodes,
+    [orphanedDocument],
+    orphanedDocument.id,
+    undefined,
+    { ...rulesContext, currentOrganizationId: "org-1" },
+    new Map([[orphanedDocument.documentId ?? "", []]]),
+  );
+
+  expect(moveTargetOptions.map(({ id }) => id)).toContain("source-container");
+  const mutationState = getMutationState({
+    selectedDocument: orphanedDocument,
+    selectedDocumentMoveTargetOptions: moveTargetOptions,
+  });
+  expect(mutationState.canMoveSelectedDocument).toBe(true);
+  expect(mutationState.canDeleteSelectedDocument).toBe(false);
+  expect(mutationState.canPurgeSelectedDocument).toBe(false);
+});
+
 // The two conditions that DO disable "move out of trash" — documenting the
 // real-world ways a user hits a greyed-out Move on a trashed item.
 
