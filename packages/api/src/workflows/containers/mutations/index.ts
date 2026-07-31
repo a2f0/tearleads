@@ -1,6 +1,7 @@
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { createContainerWriterProjectionContext } from "../writerProjection";
 import { ContainerMutationError, toMutationError } from "./errors";
 import { rekeyContainer } from "./rekeyContainer";
 import {
@@ -34,6 +35,9 @@ export async function applyContainerRekeys(input: {
   const context: ContainerMutationContext = {
     executor: input.executor,
     manifestHeadByContainerId: new Map(),
+    writerProjectionContext: createContainerWriterProjectionContext(
+      input.executor,
+    ),
   };
   await prelockContainerMutationBatch(
     context,

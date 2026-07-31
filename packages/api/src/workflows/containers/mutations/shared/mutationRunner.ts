@@ -7,6 +7,7 @@ import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { assertOrganizationCanSync } from "../../../billing/organizationBilling";
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../../organizations/readModelChanges";
 import { lockAndFindMissingGroupReferencesInTransaction } from "../../../principals/groupReferenceLock";
+import { createContainerWriterProjectionContext } from "../../writerProjection";
 import { ContainerMutationError } from "../errors";
 import type {
   ContainerMutationContext,
@@ -214,6 +215,9 @@ async function deriveVerifiedBatchScope(
   const preflightContext: ContainerMutationContext = {
     executor: context.executor,
     manifestHeadByContainerId: new Map(),
+    writerProjectionContext: createContainerWriterProjectionContext(
+      context.executor,
+    ),
   };
   const groupIds = new Set<string>();
   const organizationIds = new Set<string>();
@@ -310,6 +314,9 @@ export async function mutateContainerWithExecutor(
   const context: ContainerMutationContext = input.context ?? {
     executor: input.executor,
     manifestHeadByContainerId: new Map(),
+    writerProjectionContext: createContainerWriterProjectionContext(
+      input.executor,
+    ),
   };
   const prelockedBatchScope = prelockedBatchScopeByContext.get(context);
   let organizationId: string | null = null;

@@ -1,9 +1,8 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type {
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
-import { createContainerWriterProjectionContext } from "../../writerProjection";
+import type { ContainerWriterProjectionContext } from "../../writerProjection";
 import { loadContainerKekManifestHistory } from "../../writerProjection/kek";
 
 // Build the KEK's container manifest history for the mutation response so
@@ -14,14 +13,14 @@ import { loadContainerKekManifestHistory } from "../../writerProjection/kek";
 // bundle, so a later op reusing this container as a parent fails verification
 // with "previous manifest <hash> is missing".
 export async function loadMutationContainerKekHistory(
-  executor: DatabaseTransaction,
+  context: ContainerWriterProjectionContext,
   manifest: VerifiedContainerAccessManifest,
   kekState: VerifiedContainerKekState,
 ): Promise<
   Awaited<ReturnType<typeof loadContainerKekManifestHistory>>["bundles"]
 > {
   const history = await loadContainerKekManifestHistory({
-    context: createContainerWriterProjectionContext(executor),
+    context,
     currentManifest: manifest,
     keyEpoch: kekState.keyEpoch,
     wraps: kekState.wraps,

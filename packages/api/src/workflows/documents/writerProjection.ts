@@ -2,7 +2,6 @@ import type {
   ApiDatabase,
   DatabaseSession,
 } from "@tearleads/api-shared/postgres";
-import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import { documents } from "@tearleads/api-shared/schema";
 import type {
   AccessManifest,
@@ -11,7 +10,6 @@ import type {
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
-  ContainerWriterProjectionResponse,
   DocumentNotFoundErrorCode,
   DocumentProjectionErrorCode,
   DocumentSyncErrorCode,
@@ -49,14 +47,13 @@ import {
 } from "../../keyingProjectionRecords";
 import {
   type ContainerWriterProjectionContext,
-  ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
-  resolveContainerReaderProjection,
 } from "../containers/writerProjection";
 import {
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
 } from "./mutations/shared/records";
+import { resolveAuthorizingContainerPathCandidates } from "./writerProjectionContainerPaths";
 
 type DocumentWriterProjectionStatus = 403 | 404 | 409;
 
@@ -578,40 +575,18 @@ async function resolveAuthorizingContainerPaths(input: {
   readonly executor: DatabaseSession;
   readonly userId: string;
 }) {
-  const results = await gatherWithExecutor(
-    input.executor,
-    input.containerIds,
-    async (containerId): Promise<ContainerWriterProjectionResponse | null> => {
-      try {
-        // Document sync also uses this projection for read-only pulls. Mutations
-        // still verify write access before accepting document updates.
-        return await resolveContainerReaderProjection({
-          containerId,
-          context: input.context,
-          executor: input.executor,
-          userId: input.userId,
-        });
-      } catch (error) {
-        if (
-          error instanceof ContainerWriterProjectionError &&
-          error.status === 403
-        ) {
-          return null;
-        }
-
-        throw error;
-      }
-    },
-  );
-  const authorizingPaths = results.filter(
-    (path): path is ContainerWriterProjectionResponse => path !== null,
-  );
-
-  if (authorizingPaths.length === 0) {
+  const candidates = await resolveAuthorizingContainerPathCandidates(input);
+  if (candidates.paths.length === 0) {
+    // A corrupt linked path must not take down an independently healthy path.
+    // When none remain, preserve the integrity failure instead of disguising
+    // corrupt key history as an authorization denial.
+    if (candidates.integrityError) {
+      throw candidates.integrityError;
+    }
     throw new DocumentWriterProjectionError("Forbidden", 403);
   }
 
-  return authorizingPaths;
+  return candidates.paths;
 }
 
 async function resolveDocumentWriterProjection(input: {

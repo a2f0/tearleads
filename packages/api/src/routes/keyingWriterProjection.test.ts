@@ -1880,6 +1880,51 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
       ],
     ]),
   );
+
+  const destinationParent = await createChildContainer({
+    parent: root,
+    signer: owner,
+  });
+  const movedChild = await moveContainer({
+    destinationParent: accessManifestFromContainerResponse(destinationParent),
+    destinationParentKekState: kekStateFromContainerResponse(destinationParent),
+    destinationParentPath: [
+      root.bundle,
+      accessManifestFromContainerResponse(destinationParent),
+    ],
+    previous: accessManifestFromContainerResponse(child),
+    previousContainerPath: [
+      root.bundle,
+      accessManifestFromContainerResponse(child),
+    ],
+    previousKekState: kekStateFromContainerResponse(child),
+    signer: owner,
+  });
+  await db
+    .update(containerKeyEpochs)
+    .set({ wrappedPredecessorKey: "not-base64" })
+    .where(
+      eq(
+        containerKeyEpochs.id,
+        kekStateFromContainerResponse(movedChild).containerKeyEpochId,
+      ),
+    );
+
+  const healthyPathResponse = await routeApp.request(
+    `/documents/${createdDocument.id}/writer-projection`,
+    {
+      headers: { Authorization: `Bearer ${owner.token}` },
+    },
+  );
+  expect(healthyPathResponse.status).toBe(200);
+  const healthyPathProjection = (await healthyPathResponse.json()) as
+    | DocumentWriterProjectionResponse
+    | undefined;
+  expect(
+    healthyPathProjection?.authorizingContainerPaths.map(
+      (path) => path.containerId,
+    ),
+  ).toEqual([root.kekState.containerId]);
 });
 
 test("POST /documents/:documentId/link rejects stale previous manifests", async () => {

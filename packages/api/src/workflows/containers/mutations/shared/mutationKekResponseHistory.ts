@@ -1,13 +1,12 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type {
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
 import type { PredecessorContainerKekResponse } from "@tearleads/validators/response";
-import { createContainerWriterProjectionContext } from "../../writerProjection";
 import { loadPredecessorContainerKeks } from "../../writerProjection/predecessorKeks";
 import { ContainerWriterProjectionError } from "../../writerProjection/types";
 import { ContainerMutationError } from "../errors";
+import type { ContainerMutationContext } from "../types";
 import { loadMutationContainerKekHistory } from "./mutationKekHistory";
 
 interface MutationKekResponseHistory {
@@ -18,12 +17,12 @@ interface MutationKekResponseHistory {
 }
 
 export async function loadMutationKekResponseHistory(
-  executor: DatabaseTransaction,
+  context: ContainerMutationContext,
   manifest: VerifiedContainerAccessManifest,
   kekState: VerifiedContainerKekState,
 ): Promise<MutationKekResponseHistory> {
   const containerManifestHistory = await loadMutationContainerKekHistory(
-    executor,
+    context.writerProjectionContext,
     manifest,
     kekState,
   );
@@ -31,7 +30,7 @@ export async function loadMutationKekResponseHistory(
   try {
     predecessorKeks = await loadPredecessorContainerKeks({
       containerKeyEpochId: kekState.containerKeyEpochId,
-      context: createContainerWriterProjectionContext(executor),
+      context: context.writerProjectionContext,
     });
   } catch (error) {
     if (error instanceof ContainerWriterProjectionError) {

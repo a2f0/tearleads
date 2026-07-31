@@ -96,7 +96,11 @@ async function verifyPredecessorBridge(input: {
     return currentEpoch.predecessorBridge;
   }
 
-  if (keyEpoch.keyEpoch !== currentEpoch.keyEpoch + 1) {
+  if (keyEpoch.keyEpoch <= currentEpoch.keyEpoch) {
+    throw new ContainerMutationError("Container KEK epoch is stale", 409);
+  }
+
+  if (keyEpoch.keyEpoch > currentEpoch.keyEpoch + 1) {
     throw new ContainerMutationError(
       "Container KEK rotation must advance by exactly one epoch",
       409,

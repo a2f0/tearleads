@@ -50,8 +50,8 @@
       "bytes": 18158
     },
     "docs/keying-design.md": {
-      "lines": 938,
-      "bytes": 41317
+      "lines": 947,
+      "bytes": 41956
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 538,
@@ -66,8 +66,8 @@
       "bytes": 22784
     },
     "docs/security-guarantees.md": {
-      "lines": 420,
-      "bytes": 20507
+      "lines": 423,
+      "bytes": 20732
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
@@ -146,8 +146,8 @@
       "bytes": 43277
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2253,
-      "bytes": 73311
+      "lines": 2298,
+      "bytes": 74728
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1169,

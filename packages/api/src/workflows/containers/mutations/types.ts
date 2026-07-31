@@ -8,6 +8,7 @@ import type {
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { getCurrentAccessManifestHead } from "../../../access/read/accessManifestStore";
+import type { ContainerWriterProjectionContext } from "../writerProjection/types";
 
 export type { ApiDatabase };
 // 503 covers transient failures bubbling up from the metadata-document write
@@ -52,4 +53,5 @@ export type CurrentAccessManifestHead = Awaited<
 export interface ContainerMutationContext {
   readonly executor: DatabaseTransaction;
   readonly manifestHeadByContainerId: Map<string, CurrentAccessManifestHead>;
+  readonly writerProjectionContext: ContainerWriterProjectionContext;
 }

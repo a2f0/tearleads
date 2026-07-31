@@ -437,6 +437,12 @@ document rebaseline to read retained history. Fresh baselines remain a sync
 optimization and content-key rotation mechanism, not a key-recovery or
 liveness dependency.
 
+This also exposes retained-history metadata to every current member even before
+decryption: projection size, numeric epoch values, material-committing epoch
+ids, access-manifest hashes, and parent epoch references. The design accepts
+that metadata disclosure as part of history-inclusive access; only the old
+plaintext KEKs and content remain encrypted by the bridge chain.
+
 The complete predecessor chain is deliberately unbounded and projection size,
 server verification, and client bridge decryption therefore grow linearly with
 the number of rotations. A server or client must not cap or truncate that chain:
@@ -455,7 +461,10 @@ A container move creates a new epoch identity because the parent binding
 changes, but it currently retains the same KEK material. The mandatory bridge
 therefore encrypts that material under itself across two distinct committed
 epoch ids. This keeps traversal uniform without claiming that a move rotates
-the underlying secret.
+the underlying secret. This is an intentional key-dependent-message use of
+AES-256-GCM (`E_K(K)`); it must not be copied to a replacement cipher suite
+unless that suite explicitly supports this construction. A future suite that
+does not must generate fresh successor material for moves.
 
 ## Document Content Keys
 

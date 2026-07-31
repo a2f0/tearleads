@@ -199,7 +199,10 @@ container KEK also reveals every retained predecessor KEK through the bridge
 chain. That is the cost of history-inclusive current access. It does not weaken
 forward revocation—a user who lacks a post-revocation KEK still cannot derive
 that KEK or later epochs—but current-key compromise exposes retained historical
-content for that container.
+content for that container. Current members also learn retained-history
+metadata—including chain length, epoch ids and numbers, access-manifest hashes,
+and parent epoch references—even though bridge encryption still protects the
+old plaintext keys.
 
 All container KEK epochs use a
 `tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the

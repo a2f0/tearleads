@@ -590,7 +590,7 @@ export async function persistVerifiedMutation(
   );
 
   const { containerManifestHistory, predecessorKeks } =
-    await loadMutationKekResponseHistory(executor, manifest, kekState);
+    await loadMutationKekResponseHistory(context, manifest, kekState);
   await appendOrganizationReadModelChangeInTransaction(executor, {
     organizationId: manifest.state.organizationId,
     lane: "grants",
