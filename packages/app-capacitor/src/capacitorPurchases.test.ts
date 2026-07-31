@@ -72,6 +72,13 @@ mock.module("@capacitor/core", () => ({
             identifier: packageId,
             productId,
           });
+          if (!packageId || !productId) {
+            return Promise.reject({
+              code: "bridge-invalid",
+              message: "RevenueCat purchase failed",
+              data: { userCancelled: false },
+            });
+          }
           if (fixture.purchaseRejection !== null) {
             return Promise.reject(fixture.purchaseRejection);
           }
@@ -135,8 +142,6 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
   },
 }));
 
-// Imported after the module mocks so the source binds to them, not the real
-// native bridge.
 const { createCapacitorPurchases } = await import("./capacitorPurchases");
 
 const ENV_KEYS = [
@@ -145,9 +150,6 @@ const ENV_KEYS = [
   "VITE_REVENUECAT_SYNC_ENTITLEMENT",
 ] as const;
 
-// The adapter reads these through `import.meta.env`, which Bun backs with
-// process.env. Set through a helper so the indexed access stays in one place
-// rather than repeating a bracket-quoted key in every test.
 function setEnv(key: (typeof ENV_KEYS)[number], value: string): void {
   process.env[key] = value;
 }
@@ -346,10 +348,12 @@ test("survives a malformed package from the native bridge", async () => {
     },
   ]);
 
-  await createCapacitorPurchases().purchaseSync({
-    organizationId: "org-1",
-    packageId: "monthly",
-  });
+  await expect(
+    createCapacitorPurchases().purchaseSync({
+      organizationId: "org-1",
+      packageId: "monthly",
+    }),
+  ).rejects.toMatchObject({ code: "bridge-invalid" });
   expect(fixture.nativePurchaseCalls).toEqual([
     { identifier: "monthly", productId: "" },
   ]);
@@ -472,13 +476,8 @@ test("prefers the pre-sheet abort over an unknown package", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [];
   const controller = new AbortController();
-  // Aborted during the fetch so the precedence is decided at the post-fetch
-  // check; a pre-aborted signal would short-circuit before the lookup and the
-  // ordering would go untested.
   fixture.onGetOfferings = () => controller.abort();
 
-  // An abandoned flow's outcome stays a pre-sheet abort so callers can rely on
-  // PurchaseAbortedError meaning "nothing was ever shown".
   await expect(
     createCapacitorPurchases().purchaseSync({
       organizationId: "org-1",

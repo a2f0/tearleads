@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import {
+  type CustomerInfo,
   Purchases,
   type PurchasesPackage,
 } from "@revenuecat/purchases-capacitor";
@@ -22,12 +23,20 @@ function getNativeRevenueCatPurchase(): NativeRevenueCatPurchasePlugin {
   return nativeRevenueCatPurchase;
 }
 
-export function toRevenueCatCustomerInfo(
+function fromActiveEntitlementIds(
   activeEntitlementIds: readonly string[],
 ): RevenueCatCustomerInfo {
   return {
     activeEntitlementIds: [...activeEntitlementIds],
   };
+}
+
+export function fromCapacitorCustomerInfo(
+  info: CustomerInfo | undefined,
+): RevenueCatCustomerInfo {
+  return fromActiveEntitlementIds(
+    Object.keys(info?.entitlements?.active ?? {}),
+  );
 }
 
 function normalizeActiveEntitlementIds(value: unknown): string[] {
@@ -46,16 +55,14 @@ export async function purchaseCapacitorRevenueCatPackage(
 ): Promise<RevenueCatCustomerInfo> {
   if (Capacitor.getPlatform() !== "ios") {
     const result = await Purchases.purchasePackage({ aPackage });
-    return toRevenueCatCustomerInfo(
-      Object.keys(result?.customerInfo?.entitlements?.active ?? {}),
-    );
+    return fromCapacitorCustomerInfo(result?.customerInfo);
   }
 
   const result = await getNativeRevenueCatPurchase().purchasePackage({
     packageId: aPackage?.identifier ?? "",
     productId: aPackage?.product?.identifier ?? "",
   });
-  return toRevenueCatCustomerInfo(
+  return fromActiveEntitlementIds(
     normalizeActiveEntitlementIds(result?.activeEntitlementIds),
   );
 }

@@ -53,6 +53,7 @@ const PURCHASE_FAILURE_CODES: ReadonlyArray<readonly [string, string]> = [
   ["34", "invalid-promotional-offer"],
   ["35", "offline"],
   ["42", "test-store-simulated-purchase"],
+  ["bridge-invalid", "bridge-invalid"],
   ["native-error", "native-bridge"],
 ];
 
@@ -63,6 +64,8 @@ const PURCHASE_FAILURE_CODE_FRAGMENT = [
 ].join("|");
 
 const NATIVE_ERROR_DOMAINS: ReadonlyArray<readonly [string, string]> = [
+  // Keep in lockstep with RevenueCatPurchasePlugin.swift; the Capacitor source
+  // contract test enforces the five values crossing that native boundary.
   ["ASDErrorDomain", "asd"],
   ["AMSErrorDomain", "ams"],
   ["StoreKitErrorDomain", "storekit"],

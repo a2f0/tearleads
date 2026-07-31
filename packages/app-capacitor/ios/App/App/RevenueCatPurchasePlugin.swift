@@ -12,27 +12,15 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func purchasePackage(_ call: CAPPluginCall) {
         guard Purchases.isConfigured else {
-            Self.reject(
-                call,
-                code: ErrorCode.configurationError.rawValue,
-                userCancelled: false
-            )
+            Self.rejectBridgeValidation(call)
             return
         }
         guard let packageId = call.getString("packageId"), !packageId.isEmpty else {
-            Self.reject(
-                call,
-                code: ErrorCode.purchaseInvalidError.rawValue,
-                userCancelled: false
-            )
+            Self.rejectBridgeValidation(call)
             return
         }
         guard let productId = call.getString("productId"), !productId.isEmpty else {
-            Self.reject(
-                call,
-                code: ErrorCode.purchaseInvalidError.rawValue,
-                userCancelled: false
-            )
+            Self.rejectBridgeValidation(call)
             return
         }
 
@@ -41,11 +29,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
                 let offerings = try await Purchases.shared.offerings()
                 guard let package = offerings.current?.package(identifier: packageId),
                       package.storeProduct.productIdentifier == productId else {
-                    Self.reject(
-                        call,
-                        code: ErrorCode.productNotAvailableForPurchaseError.rawValue,
-                        userCancelled: false
-                    )
+                    Self.rejectBridgeValidation(call)
                     return
                 }
 
@@ -91,6 +75,15 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         )
     }
 
+    private static func rejectBridgeValidation(_ call: CAPPluginCall) {
+        call.reject(
+            "RevenueCat purchase failed",
+            "bridge-invalid",
+            nil,
+            ["userCancelled": false]
+        )
+    }
+
     private static func diagnosticData(
         for error: NSError,
         userCancelled: Bool
@@ -117,7 +110,8 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         // RevenueCat 5.80.0's PurchasesError.asPublicError documents this
-        // content-only fallback when an underlying NSError is unavailable.
+        // content-only fallback when an underlying NSError is unavailable:
+        // https://github.com/RevenueCat/purchases-ios-spm/blob/5.80.0/Sources/Error%20Handling/PurchasesError.swift
         if let rootError = error.userInfo["rc_root_error"] as? [String: Any],
            let domain = rootError["domain"] as? String,
            let code = rootError["code"] as? Int,
@@ -128,6 +122,8 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private static func isStoreDiagnosticDomain(_ domain: String) -> Bool {
+        // Keep in lockstep with billingPurchaseTrace.ts NATIVE_ERROR_DOMAINS;
+        // nativeRevenueCatConfig.test.ts enforces the cross-boundary contract.
         return [
             "AMSErrorDomain",
             "ASDErrorDomain",

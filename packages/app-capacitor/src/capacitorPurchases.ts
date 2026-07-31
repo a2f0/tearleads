@@ -1,6 +1,5 @@
 import { Capacitor } from "@capacitor/core";
 import {
-  type CustomerInfo,
   PURCHASES_ERROR_CODE,
   Purchases,
   type PurchasesPackage,
@@ -12,26 +11,14 @@ import {
   PurchaseCancelledError,
   type PurchasesCapability,
   type RevenueCatBackend,
-  type RevenueCatCustomerInfo,
   type RevenueCatPackage,
 } from "@tearleads/client-sdk";
 import {
+  fromCapacitorCustomerInfo,
   purchaseCapacitorRevenueCatPackage,
-  toRevenueCatCustomerInfo,
 } from "./capacitorRevenueCatPurchase";
 
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
-
-// The native bridge is effectively untyped at runtime; guard against a
-// malformed/partial CustomerInfo or package (including nullish results) so a bad
-// payload can't crash the app.
-function fromCapacitorCustomerInfo(
-  info: CustomerInfo | undefined,
-): RevenueCatCustomerInfo {
-  return toRevenueCatCustomerInfo(
-    Object.keys(info?.entitlements?.active ?? {}),
-  );
-}
 
 function toRevenueCatPackage(entry: PurchasesPackage): RevenueCatPackage {
   return {

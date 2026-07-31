@@ -40,6 +40,22 @@ test("iOS project registers the RevenueCat purchase plugin contract", async () =
   expect(purchasePlugin).toContain(
     "candidate.userInfo[NSUnderlyingErrorKey] as? NSError",
   );
+  expect(purchasePlugin).toContain('"bridge-invalid"');
+  expect(purchasePlugin).toContain('"native-error"');
+  expect(purchasePlugin).toContain('["userCancelled": userCancelled]');
+  expect(purchasePlugin).toContain('data["storeError"] = storeError');
+  expect(purchasePlugin).toContain(
+    '["domain": candidate.domain, "code": candidate.code]',
+  );
+  for (const domain of [
+    "AMSErrorDomain",
+    "ASDErrorDomain",
+    "NSURLErrorDomain",
+    "SKErrorDomain",
+    "StoreKitErrorDomain",
+  ]) {
+    expect(purchasePlugin).toContain(`"${domain}"`);
+  }
 });
 
 test("iOS RevenueCat project pin matches the resolved SDK version", async () => {
@@ -62,7 +78,7 @@ test("iOS RevenueCat project pin matches the resolved SDK version", async () => 
   );
   const resolvedVersion = requiredMatch(
     packageResolution,
-    /"identity" : "purchases-ios-spm"[\s\S]*?"version" : "([^"]+)"/,
+    /"identity" : "purchases-ios-spm",[\s\S]*?"state" : \{[^{}]*"version" : "([^"]+)"[^{}]*\}\s*\}/,
     "resolved RevenueCat package version",
   );
 
