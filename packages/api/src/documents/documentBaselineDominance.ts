@@ -1,7 +1,7 @@
 import { satisfiesVersionVector } from "@tearleads/loro";
 
 /**
- * The shared safety gate for omitting or pruning an encrypted document update.
+ * The safety gate for omitting an encrypted document update from sync.
  *
  * A baseline can carry an update forward only when it was written under a
  * strictly newer content-key epoch and its source frontier covers the update's
