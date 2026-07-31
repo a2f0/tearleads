@@ -9,6 +9,7 @@ import {
   serializeOrganizationBillingHistory,
 } from "../../billing/organizationBilling";
 import { fetchRevenueCatManagementUrl } from "../../billing/revenueCatApi";
+import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
 import {
   runGetOrganizationBillingWorkflow,
@@ -23,13 +24,12 @@ export async function getOrganizationBilling(
   organizationId: string,
   sessionUserId: string,
 ): Promise<OrganizationBillingResponse> {
-  return serializeOrganizationBilling(
-    await runGetOrganizationBillingWorkflow(
-      runtime.db,
-      organizationId,
-      sessionUserId,
-    ),
+  const result = await runGetOrganizationBillingWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
   );
+  return serializeOrganizationBilling(result.billing, result.activeMemberCount);
 }
 
 export async function getOrganizationBillingHistory(
@@ -57,6 +57,7 @@ export async function getOrganizationBillingManagementUrl(
   runtime: ApiServiceRuntime,
   organizationId: string,
   sessionUserId: string,
+  deps: { readonly stripe?: StripeApiDeps } = {},
 ): Promise<OrganizationBillingManagementUrlResponse> {
   const {
     provider,
@@ -70,7 +71,7 @@ export async function getOrganizationBillingManagementUrl(
     sessionUserId,
   );
   const canCancelDirectly =
-    getSyncBillingTierForStripePrice(providerProductId) !== null;
+    getSyncBillingTierForStripePrice(providerProductId, deps.stripe) !== null;
   if (canCancelDirectly) {
     return {
       canCancelDirectly: true,
@@ -105,11 +106,10 @@ export async function startOrganizationTrial(
   organizationId: string,
   sessionUserId: string,
 ): Promise<OrganizationBillingResponse> {
-  return serializeOrganizationBilling(
-    await runStartOrganizationTrialWorkflow(
-      runtime.db,
-      organizationId,
-      sessionUserId,
-    ),
+  const result = await runStartOrganizationTrialWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
   );
+  return serializeOrganizationBilling(result.billing, result.activeMemberCount);
 }

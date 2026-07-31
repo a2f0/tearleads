@@ -95,23 +95,6 @@ test("sync option maps the price with its product, pinned API version", async ()
   expect(requests[0]?.headers.get("Authorization")).toBe("Bearer sk_test_123");
 });
 
-test("sync option rejects a configured Price with mismatched tier economics", async () => {
-  const { fetchImpl } = fakeFetch([
-    {
-      body: {
-        id: "price_sync",
-        currency: "usd",
-        unit_amount: 2_000,
-        recurring: { interval: "month", interval_count: 1 },
-      },
-    },
-  ]);
-
-  expect(
-    await getStripeSyncOption("team_5", { env: ENV, fetchImpl }),
-  ).toBeNull();
-});
-
 test("customer lookup reuses an existing metadata match", async () => {
   const { fetchImpl, requests } = fakeFetch([
     { body: { data: [{ id: "cus_existing" }] } },

@@ -276,6 +276,12 @@ function classifyRevenueCatGrant(
   now: Date,
   options: RevenueCatClassificationOptions,
 ): RevenueCatBillingTransition {
+  if (event.store?.toUpperCase() === "RC_BILLING") {
+    return {
+      kind: "ignore",
+      reason: "RevenueCat Web Billing grants are not supported",
+    };
+  }
   const isStripeStore = event.store?.toUpperCase() === STRIPE_STORE;
   const tier = isStripeStore
     ? null

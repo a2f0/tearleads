@@ -2,10 +2,7 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBilling, users } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import {
-  isOrganizationBillingManagementUrlResponse,
-  isOrganizationBillingResponse,
-} from "@tearleads/validators/response";
+import { isOrganizationBillingResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -15,6 +12,8 @@ import {
 } from "../../../test/helpers/organizationBilling";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
+import { getOrganizationBillingManagementUrl } from "../../services/billing/organizationBilling";
+import { getDefaultApiServiceRuntime } from "../../services/runtime";
 
 async function registerAndAuthenticate(user: TestUser): Promise<string> {
   await registerUser(user);
@@ -51,6 +50,7 @@ test("an org admin reads local billing and starts a trial", async () => {
     "expected billing response",
   );
   expect(billing.status).toBe("local");
+  expect(billing.activeMemberCount).toBe(1);
   expect(billing.trialEndsAt).toBeNull();
 
   const trialResponse = await routeApp.request(
@@ -115,59 +115,41 @@ test("reading an expired trial reports disabled without writing on the read path
 test("management identifies Stripe and native subscription ownership", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
-  const stripePriceEnvKey = "STRIPE_SYNC_SOLO_PRICE_ID";
-  const previousStripePrice = process.env[stripePriceEnvKey];
-  process.env[stripePriceEnvKey] = "price_solo_test";
-  try {
-    await db
-      .update(organizationBilling)
-      .set({
-        provider: "revenuecat",
-        providerProductId: "price_solo_test",
-        status: "active",
-      })
-      .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerProductId: "price_solo_test",
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
 
-    const stripeResponse = await routeApp.request(
-      `/organizations/${organizationId}/billing/management-url`,
-      { headers: authHeader(admin) },
-    );
-    const stripeManagement = await stripeResponse.json();
-    invariant(
-      isOrganizationBillingManagementUrlResponse(stripeManagement),
-      "expected Stripe management response",
-    );
-    expect(stripeManagement).toEqual({
-      canCancelDirectly: true,
-      managementUrl: null,
-      subscriptionSource: "stripe",
-    });
+  const stripeManagement = await getOrganizationBillingManagementUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    { stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } } },
+  );
+  expect(stripeManagement).toEqual({
+    canCancelDirectly: true,
+    managementUrl: null,
+    subscriptionSource: "stripe",
+  });
 
-    await db
-      .update(organizationBilling)
-      .set({ providerProductId: "sync_team_5_monthly" })
-      .where(eq(organizationBilling.organizationId, organizationId));
-    const nativeResponse = await routeApp.request(
-      `/organizations/${organizationId}/billing/management-url`,
-      { headers: authHeader(admin) },
-    );
-    const nativeManagement = await nativeResponse.json();
-    invariant(
-      isOrganizationBillingManagementUrlResponse(nativeManagement),
-      "expected native management response",
-    );
-    expect(nativeManagement).toEqual({
-      canCancelDirectly: false,
-      managementUrl: null,
-      subscriptionSource: "native",
-    });
-  } finally {
-    if (previousStripePrice === undefined) {
-      delete process.env[stripePriceEnvKey];
-    } else {
-      process.env[stripePriceEnvKey] = previousStripePrice;
-    }
-  }
+  await db
+    .update(organizationBilling)
+    .set({ providerProductId: "sync_team_5_monthly" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  const nativeManagement = await getOrganizationBillingManagementUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+  );
+  expect(nativeManagement).toEqual({
+    canCancelDirectly: false,
+    managementUrl: null,
+    subscriptionSource: "native",
+  });
 });
 
 test("a non-member cannot read or change another org's billing", async () => {

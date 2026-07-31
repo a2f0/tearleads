@@ -49,6 +49,7 @@ function stubEnvironment(
     canCancelDirectly?: boolean;
     managementUrl?: string | null;
     subscriptionSource?: "native" | "stripe" | null;
+    loadStripeCheckoutOptions?: () => Promise<unknown>;
   } = {},
 ) {
   // Default `isActive` to `canSync` for the common active case; tests that
@@ -57,7 +58,7 @@ function stubEnvironment(
   const isTrialing = overrides.isTrialing ?? false;
   spies.push(
     spyOn(BillingProvider, "useOrganizationBilling").mockReturnValue({
-      billing: null,
+      billing: { activeMemberCount: 1 },
       error: null,
       loading: false,
       refresh: () => Promise.resolve(),
@@ -68,7 +69,9 @@ function stubEnvironment(
   spies.push(
     spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: {
-        loadStripeCheckoutOptions: () => Promise.resolve({ options: [OPTION] }),
+        loadStripeCheckoutOptions:
+          overrides.loadStripeCheckoutOptions ??
+          (() => Promise.resolve({ options: [OPTION] })),
         loadBillingManagementUrl: () =>
           Promise.resolve({
             canCancelDirectly:
@@ -172,6 +175,23 @@ test("an org that cannot sync is offered the in-app card checkout", async () => 
   await waitFor(() => expect(view.getByText("Sync")).toBeDefined());
   expect(view.getByText("$4.99/month")).toBeDefined();
   expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined();
+});
+
+test("a checkout eligibility failure is visible instead of leaving a blank panel", async () => {
+  stubEnvironment(false, {
+    loadStripeCheckoutOptions: () => Promise.reject(new Error("409")),
+  });
+
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    { wrapper },
+  );
+
+  await waitFor(() =>
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.billingCheckoutUnavailable),
+    ).toBeDefined(),
+  );
 });
 
 test("the direct checkout does not surface the 'purchases unavailable' notice", async () => {
@@ -320,6 +340,26 @@ test("an unresolved personal organization does not flash the custom-org notice",
   expect(
     view.queryByText(ORG_MANAGER_LABELS.billingCustomOrganizationWebOnly),
   ).toBeNull();
+});
+
+test("a custom organization directs native buyers to the web", async () => {
+  stubEnvironment(false);
+
+  const view = render(
+    <BillingPanel
+      isOrgAdmin
+      isPersonalOrganization={false}
+      organizationId="org-1"
+      userId="user-1"
+    />,
+    { wrapper: wrapperWith(true, { directCheckoutAvailable: false }) },
+  );
+
+  await waitFor(() =>
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.billingCustomOrganizationWebOnly),
+    ).toBeDefined(),
+  );
 });
 
 test("a web Stripe subscription can be cancelled from a native shell", async () => {

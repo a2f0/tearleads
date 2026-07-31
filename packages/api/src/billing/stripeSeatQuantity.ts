@@ -1,4 +1,7 @@
-import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
+import {
+  getSyncBillingTierForSeatCount,
+  SYNC_BILLING_TIERS,
+} from "@tearleads/validators/billing";
 import { resolveDeps, type StripeApiDeps, stripeRequest } from "./stripeHttp";
 
 type StripeSeatProrationBehavior = "create_prorations" | "none";
@@ -21,9 +24,13 @@ export function normalizeStripeSeatQuantity(seatQuantity: number): number {
     throw new RangeError("Stripe seat quantity must be a non-negative integer");
   }
   const boundedSeatQuantity = Math.min(10, Math.max(1, seatQuantity));
-  const tier = getSyncBillingTierForSeatCount(boundedSeatQuantity);
-  if (!tier) throw new Error("Fixed billing tiers are not configured");
-  return tier.seatLimit;
+  if (boundedSeatQuantity <= SYNC_BILLING_TIERS[0].seatLimit) {
+    return SYNC_BILLING_TIERS[0].seatLimit;
+  }
+  if (boundedSeatQuantity <= SYNC_BILLING_TIERS[1].seatLimit) {
+    return SYNC_BILLING_TIERS[1].seatLimit;
+  }
+  return SYNC_BILLING_TIERS[2].seatLimit;
 }
 
 /** Switches the subscription item to the fixed tier covering the seat target. */

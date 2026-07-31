@@ -332,6 +332,10 @@ webhook secret.
 - Adding members beyond a native product's capacity returns a conflict until
   the admin upgrades through the store. Stripe-backed custom organizations
   change Price automatically when their roster crosses 1/5/10 boundaries.
+- Native option filtering uses the active-member count returned with the server
+  billing snapshot, not a local directory projection. If the roster still races
+  a completed store purchase, the paid tier is activated and alerted rather
+  than silently dropped; further growth stays blocked until capacity catches up.
 - Store cancellation remains provider-managed. On web or native, the panel
   opens RevenueCat's exact management URL for the subscription. On iOS, the
   native shell presents StoreKit's management sheet; other provider URLs keep

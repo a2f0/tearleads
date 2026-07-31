@@ -217,10 +217,16 @@ function BillingSubscribeList({
   BillingViewProps,
   "busy" | "canSubscribe" | "minimumSeatCount" | "onSubscribe" | "options"
 >) {
-  const eligibleOptions =
-    minimumSeatCount === null
-      ? []
-      : options.filter((option) => option.seatLimit >= minimumSeatCount);
+  if (minimumSeatCount === null) {
+    return (
+      <MiniAppStatus className="org-manager-hint">
+        {ORG_MANAGER_LABELS.loadingBilling}
+      </MiniAppStatus>
+    );
+  }
+  const eligibleOptions = options.filter(
+    (option) => option.seatLimit >= minimumSeatCount,
+  );
   if (eligibleOptions.length === 0) {
     return (
       <MiniAppStatus className="org-manager-hint">

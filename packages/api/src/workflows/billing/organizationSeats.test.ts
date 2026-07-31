@@ -323,7 +323,7 @@ test("a migrated row initializes its period key without losing paid capacity", a
   });
 });
 
-test("a native fixed tier blocks membership beyond its capacity", async () => {
+test("a native fixed tier wins over a stale Stripe seat-sync row", async () => {
   const { memberGroupId, organizationId } = await createBillableOrganization();
   const userA = crypto.randomUUID();
   const userB = crypto.randomUUID();
@@ -335,6 +335,12 @@ test("a native fixed tier blocks membership beyond its capacity", async () => {
       seatCount: 1,
     })
     .where(eq(organizationBilling.organizationId, organizationId));
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: "price_cancelled",
+    subscriptionId: "sub_cancelled",
+    subscriptionItemId: "si_cancelled",
+  });
   await insertMemberGroupState({
     groupId: memberGroupId,
     signerUserId: userA,
@@ -361,5 +367,9 @@ test("a native fixed tier blocks membership beyond its capacity", async () => {
     .select()
     .from(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
-  expect(stripeRows).toHaveLength(0);
+  expect(stripeRows).toHaveLength(1);
+  expect(stripeRows[0]).toMatchObject({
+    priceId: "price_cancelled",
+    subscriptionId: "sub_cancelled",
+  });
 });

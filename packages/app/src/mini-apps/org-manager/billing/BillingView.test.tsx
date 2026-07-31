@@ -229,6 +229,23 @@ test("native purchase options exclude tiers below the active roster", () => {
   expect(view.getByText(TEAM_OPTION.title)).toBeDefined();
 });
 
+test("native options wait for the authoritative roster count", () => {
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({ status: "trialing", isLocal: false }),
+        purchaseAvailable: true,
+        canSubscribe: true,
+        minimumSeatCount: null,
+        options: [OPTION],
+      })}
+    />,
+  );
+
+  expect(view.getByText(ORG_MANAGER_LABELS.loadingBilling)).toBeDefined();
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingNoOptions)).toBeNull();
+});
+
 test("subscription actions use the standard button styling", () => {
   const view = render(
     <BillingView

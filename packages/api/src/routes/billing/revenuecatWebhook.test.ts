@@ -126,7 +126,7 @@ test("a native team purchase grants the fixed tier capacity", async () => {
   });
 });
 
-test("a native tier cannot activate below the personal roster size", async () => {
+test("a paid native tier activates but freezes an oversized roster", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   await setTestOrganizationBillingLocal(organizationId);
@@ -141,10 +141,12 @@ test("a native tier cannot activate below the personal roster size", async () =>
     }),
   );
 
-  expect(await response.json()).toEqual({ received: true, outcome: "ignored" });
+  expect(await response.json()).toEqual({ received: true, outcome: "applied" });
   expect(await readBilling(organizationId)).toMatchObject({
-    providerCustomerId: null,
-    status: "local",
+    providerCustomerId: admin.userId,
+    providerProductId: "sync_solo_monthly",
+    seatCount: 1,
+    status: "active",
   });
 });
 

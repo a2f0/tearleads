@@ -52,6 +52,18 @@ test("a purchase event classifies as a grant that activates sync", () => {
   expect(transition.fields.purgeAfter).toBeNull();
 });
 
+test("RevenueCat Web Billing grants fail closed", () => {
+  expect(
+    classifyRevenueCatEvent(
+      makeEvent({ store: "RC_BILLING" }),
+      ACTIVE_GRANT_NOW,
+    ),
+  ).toEqual({
+    kind: "ignore",
+    reason: "RevenueCat Web Billing grants are not supported",
+  });
+});
+
 test("a Stripe grant takes capacity from its immutable subscription binding", () => {
   const transition = classifyRevenueCatEvent(
     makeEvent({

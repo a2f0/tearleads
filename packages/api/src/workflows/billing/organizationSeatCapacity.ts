@@ -19,6 +19,19 @@ export function requiredLicensedSeatCount(
   if (billing.status !== "active") {
     return activeSeatCount;
   }
+  const nativeTier = getSyncBillingTierForNativeProduct(
+    billing.providerProductId,
+  );
+  if (nativeTier) {
+    if (activeSeatCount > nativeTier.seatLimit) {
+      const memberLabel = nativeTier.seatLimit === 1 ? "member" : "members";
+      throw new OrganizationManagerError(
+        `Upgrade the subscription before adding more than ${nativeTier.seatLimit} ${memberLabel}`,
+        409,
+      );
+    }
+    return nativeTier.seatLimit;
+  }
   if (billing.hasStripeSubscription) {
     const requiredTier = getSyncBillingTierForSeatCount(
       Math.max(1, activeSeatCount),
@@ -30,16 +43,6 @@ export function requiredLicensedSeatCount(
       );
     }
     return requiredTier.seatLimit;
-  }
-  if (getSyncBillingTierForNativeProduct(billing.providerProductId)) {
-    if (activeSeatCount > billing.seatCount) {
-      const memberLabel = billing.seatCount === 1 ? "member" : "members";
-      throw new OrganizationManagerError(
-        `Upgrade the subscription before adding more than ${billing.seatCount} ${memberLabel}`,
-        409,
-      );
-    }
-    return billing.seatCount;
   }
   return Math.max(1, activeSeatCount);
 }

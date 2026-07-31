@@ -104,6 +104,14 @@ Mutable attributes are never trusted; unresolved state changes return 503
 unclaimed for retry. Event
 quantities never update Stripe seats.
 
+RevenueCat Web Billing grants are unsupported and are recorded as ignored; web
+enrollment must arrive through the Stripe integration. A valid native grant is
+never discarded after payment if the roster changed between option display and
+the store callback: the purchased tier is activated, the mismatch is logged,
+seat reconciliation is deferred, and later roster growth remains blocked until
+the admin upgrades or reduces the roster. An oversized Stripe grant is claimed,
+ignored, and logged for operator repair instead of returning an unbounded 503.
+
 - The server value comes from `.secrets/root.env` and is rendered into the API
   server's systemd `EnvironmentFile` by the ansible playbook
   ([`api.env.j2`](../../ansible/playbooks/templates/etc/tearleads/api.env.j2)), so
@@ -210,7 +218,10 @@ accounts consume the fixed capacity stored in `organization_billing.seat_count`.
   capacity.
 - **Native growth:** Apple and Google do not expose Stripe-style quantity.
   Adding a member above the purchased product's capacity is rejected until the
-  admin completes the corresponding store product upgrade.
+  admin completes the corresponding store product upgrade. The billing snapshot
+  carries the server-authoritative active-member count, so native clients hide
+  tiers that cannot cover the signed Members projection before opening a store
+  sheet.
 - **Renewal:** the renewed Stripe Price or native product re-establishes the
   tier capacity for the new billing period.
 

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
@@ -305,7 +305,7 @@ test("a Stripe renewal applies while its asynchronous tier update lags the roste
   expect(billing?.currentPeriodEndsAt?.getTime()).toBe(expirationAtMs);
 });
 
-test("an oversized Stripe grant retries without claiming the provider event", async () => {
+test("an oversized Stripe grant is claimed, ignored, and alerted", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   for (let index = 0; index < 10; index += 1) {
@@ -331,6 +331,7 @@ test("an oversized Stripe grant retries without claiming the provider event", as
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
   const eventId = crypto.randomUUID();
 
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
   const outcome = await runRevenueCatWebhookWorkflow(
     db,
     {
@@ -356,13 +357,17 @@ test("an oversized Stripe grant retries without claiming the provider event", as
   );
 
   expect(outcome).toEqual({
-    status: "retry",
+    status: "ignored",
     reason: "Stripe subscription cannot cover more than 10 active members",
   });
   const [claimed] = await db
     .select({ id: revenuecatWebhookEvents.id })
     .from(revenuecatWebhookEvents)
     .where(eq(revenuecatWebhookEvents.eventId, eventId));
-  expect(claimed).toBeUndefined();
+  expect(claimed).toBeDefined();
   expect(await readBillingStatus(organizationId)).toBe("trialing");
+  expect(errorSpy).toHaveBeenCalledWith(
+    `RevenueCat paid grant ${eventId} was not applied: Stripe subscription cannot cover more than 10 active members`,
+  );
+  errorSpy.mockRestore();
 });

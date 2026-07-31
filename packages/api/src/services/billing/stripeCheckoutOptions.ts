@@ -17,21 +17,14 @@ export async function getStripeCheckoutOptions(
   sessionUserId: string,
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<{ options: StripeSyncOption[] }> {
-  if (!isDirectCheckoutFullyConfigured(deps)) {
-    // Preserve the organization-admin and checkout-eligibility gates even when
-    // no provider option can be returned from this deployment.
-    await runRequireCheckoutEligibleWorkflow(
-      runtime.db,
-      organizationId,
-      sessionUserId,
-    );
-    return { options: [] };
-  }
   const { seatQuantity } = await runRequireCheckoutEligibleWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
   );
+  if (!isDirectCheckoutFullyConfigured(deps)) {
+    return { options: [] };
+  }
   const tier = getSyncBillingTierForSeatCount(seatQuantity);
   if (!tier) throw new Error("Checkout returned an unavailable billing tier");
   const option = await getStripeSyncOption(tier.id, deps.stripe ?? {});

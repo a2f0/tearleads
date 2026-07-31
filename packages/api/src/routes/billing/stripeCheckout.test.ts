@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
 import { createRouteApp, routeApp } from "../../routeApp";
 
 /**
@@ -246,6 +247,25 @@ test("options answer an empty list when unconfigured", async () => {
   );
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ options: [] });
+});
+
+test("options reject an organization above the largest tier", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  for (let index = 0; index < 10; index += 1) {
+    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+  }
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/options`,
+    { headers: authHeader(admin) },
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error:
+      "The organization exceeds the maximum subscription tier of 10 members",
+  });
 });
 
 test("options reject a caller outside the organization", async () => {

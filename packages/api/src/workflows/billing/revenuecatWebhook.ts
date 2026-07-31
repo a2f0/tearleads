@@ -5,11 +5,9 @@ import type {
 import {
   type OrganizationBillingStatus,
   organizationBilling,
-  organizations,
   revenuecatWebhookEvents,
   users,
 } from "@tearleads/api-shared/schema";
-import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { and, eq, gt } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
@@ -23,8 +21,8 @@ import type { StripeApiDeps } from "../../billing/stripeApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
-import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import { resolveRevenueCatGrantCapacity } from "./revenuecatGrantCapacity";
 import {
   type ImmutableStripeStoreOrgResolution,
   type LockedBillingIdentity,
@@ -157,21 +155,6 @@ async function resolveIgnoredReason(
       if (buyer?.defaultOrganizationId !== organizationId) {
         return "Native purchases may only fund the buyer's personal organization";
       }
-      const [organization] = await executor
-        .select({ memberGroupId: organizations.memberGroupId })
-        .from(organizations)
-        .where(eq(organizations.id, organizationId))
-        .limit(1);
-      if (!organization) {
-        return "Unknown organization";
-      }
-      const activeUserIds = await listUsersReachableFromCurrentGroup({
-        executor,
-        groupId: organization.memberGroupId,
-      });
-      if (activeUserIds.length > transition.fields.seatCount) {
-        return "Subscription tier does not cover the organization's active members";
-      }
     }
   }
 
@@ -202,37 +185,13 @@ type AppliedRevenueCatTransition = Exclude<
 >;
 
 type PreclaimDisposition =
-  | { kind: "continue"; ignoredReason: string | null }
+  | {
+      kind: "continue";
+      ignoredReason: string | null;
+      skipSeatReconciliation: boolean;
+      warning: string | null;
+    }
   | { kind: "retry"; reason: string };
-
-async function stripeGrantExceedsMaximumRoster(input: {
-  readonly event: RevenueCatWebhookEvent;
-  readonly executor: DatabaseSession;
-  readonly organizationId: string;
-  readonly transition: RevenueCatBillingTransition;
-}): Promise<boolean> {
-  if (
-    input.transition.kind !== "grant" ||
-    input.event.store?.toUpperCase() !== "STRIPE"
-  ) {
-    return false;
-  }
-  const [organization] = await input.executor
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, input.organizationId))
-    .limit(1);
-  if (!organization) {
-    return false;
-  }
-  const activeUserIds = await listUsersReachableFromCurrentGroup({
-    executor: input.executor,
-    groupId: organization.memberGroupId,
-  });
-  return (
-    getSyncBillingTierForSeatCount(Math.max(1, activeUserIds.length)) === null
-  );
-}
 
 async function resolvePreclaimDisposition(input: {
   readonly event: RevenueCatWebhookEvent;
@@ -262,29 +221,30 @@ async function resolvePreclaimDisposition(input: {
       reason: "Stripe binding changed before RevenueCat event application",
     };
   }
-  if (
-    input.organizationId !== null &&
-    (await stripeGrantExceedsMaximumRoster({
-      event: input.event,
-      executor: input.executor,
-      organizationId: input.organizationId,
-      transition: input.transition,
-    }))
-  ) {
-    return {
-      kind: "retry",
-      reason: "Stripe subscription cannot cover more than 10 active members",
-    };
-  }
+  const capacity = input.organizationId
+    ? await resolveRevenueCatGrantCapacity({
+        event: input.event,
+        executor: input.executor,
+        organizationId: input.organizationId,
+        transition: input.transition,
+      })
+    : { kind: "within_capacity" as const };
+  const ignoredReason =
+    capacity.kind === "ignore"
+      ? capacity.reason
+      : await resolveIgnoredReason(
+          input.executor,
+          input.transition,
+          input.organizationId,
+          input.event,
+          billing,
+        );
   return {
-    ignoredReason: await resolveIgnoredReason(
-      input.executor,
-      input.transition,
-      input.organizationId,
-      input.event,
-      billing,
-    ),
+    ignoredReason,
     kind: "continue",
+    skipSeatReconciliation: capacity.kind === "apply_without_reconciliation",
+    warning:
+      capacity.kind === "apply_without_reconciliation" ? capacity.reason : null,
   };
 }
 
@@ -325,13 +285,14 @@ async function applyRevenueCatTransition(input: {
   readonly executor: DatabaseSession;
   readonly now: Date;
   readonly organizationId: string;
+  readonly reconcileSeats: boolean;
   readonly transition: AppliedRevenueCatTransition;
 }): Promise<RevenueCatWebhookOutcome> {
   await input.executor
     .update(organizationBilling)
     .set({ ...input.transition.fields, updatedAt: input.now })
     .where(eq(organizationBilling.organizationId, input.organizationId));
-  if (input.transition.kind === "grant") {
+  if (input.transition.kind === "grant" && input.reconcileSeats) {
     await reconcileOrganizationBillingSeats({
       executor: input.executor,
       now: input.now,
@@ -376,13 +337,20 @@ async function runRevenueCatWebhookTransaction(input: {
   if (input.transition.kind === "ignore" || input.organizationId === null) {
     return { status: "ignored", reason: "Event carried no organization id" };
   }
-  return applyRevenueCatTransition({
+  const outcome = await applyRevenueCatTransition({
     event: input.event,
     executor: input.executor,
     now: input.now,
     organizationId: input.organizationId,
+    reconcileSeats: !disposition.skipSeatReconciliation,
     transition: input.transition,
   });
+  if (disposition.warning) {
+    console.error(
+      `RevenueCat paid grant ${input.event.id} requires attention: ${disposition.warning}`,
+    );
+  }
+  return outcome;
 }
 
 /**
@@ -509,7 +477,7 @@ function logUnappliedPaidGrant(
   if (
     outcome.reason !== "Event product is not a configured sync billing tier" &&
     outcome.reason !==
-      "Subscription tier does not cover the organization's active members"
+      "Stripe subscription cannot cover more than 10 active members"
   ) {
     return;
   }

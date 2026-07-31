@@ -65,6 +65,17 @@ export async function getStripeSyncOption(
     interval !== "month" ||
     intervalCount !== 1
   ) {
+    console.error("Configured Stripe Price does not match its billing tier", {
+      actual: { currency, interval, intervalCount, priceId, unitAmount },
+      expected: {
+        currency: "usd",
+        interval: "month",
+        intervalCount: 1,
+        priceId: syncPriceId,
+        unitAmount: tier.monthlyPriceUsdCents,
+      },
+      tierId,
+    });
     return null;
   }
   return {

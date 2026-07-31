@@ -224,19 +224,17 @@ test("survives a malformed customer info from the native bridge", async () => {
   );
 });
 
-test("survives a malformed package from the native bridge", async () => {
+test("rejects a stale package whose product is not a configured tier", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [{ identifier: "monthly" } as unknown as PurchasesPackage];
 
   expect(await createCapacitorPurchases().listSyncOptions()).toEqual([]);
 
-  const result = await purchaseSync();
-
-  expect(fixture.nativePurchaseCalls).toEqual([
-    { identifier: "monthly", productId: "" },
-  ]);
-  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
-  expect(result.syncEntitlementActive).toBe(true);
+  await expect(purchaseSync()).rejects.toThrow(
+    "Unknown sync subscription product",
+  );
+  expect(fixture.nativePurchaseCalls).toEqual([]);
+  expect(fixture.purchaseCalls).toEqual([]);
 });
 
 test("falls back when the diagnostic iOS bridge cannot validate", async () => {

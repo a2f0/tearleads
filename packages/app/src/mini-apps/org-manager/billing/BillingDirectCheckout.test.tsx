@@ -94,7 +94,7 @@ test("a well-formed but unknown currency uses the same raw fallback", () => {
   expect(formatted).toBe("99 XQZ minor units/month");
 });
 
-test("renders nothing when the platform or option is unavailable", () => {
+test("renders nothing when the platform is unavailable", () => {
   const view = render(
     <BillingDirectCheckout
       checkout={state({ available: false })}
@@ -102,14 +102,21 @@ test("renders nothing when the platform or option is unavailable", () => {
     />,
   );
   expect(view.container.textContent).toBe("");
+});
 
-  view.rerender(
+test("surfaces an option-loading failure", () => {
+  const view = render(
     <BillingDirectCheckout
-      checkout={state({ option: null })}
+      checkout={state({
+        option: null,
+        error: ORG_MANAGER_LABELS.billingCheckoutUnavailable,
+      })}
       disabled={false}
     />,
   );
-  expect(view.container.textContent).toBe("");
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.billingCheckoutUnavailable),
+  ).toBeDefined();
 });
 
 test("idle offers the priced subscription and hides the element host", () => {

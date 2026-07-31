@@ -93,7 +93,6 @@ function useDirectCheckoutWiring(input: {
 }
 
 function BillingPanelSubscriptionControls(input: {
-  readonly activeMemberCount: number | null;
   readonly actions: ReturnType<typeof useBillingActions>;
   readonly billing: ReturnType<typeof useOrganizationBilling>;
   readonly checkoutHostRef: RefObject<HTMLDivElement | null>;
@@ -128,7 +127,7 @@ function BillingPanelSubscriptionControls(input: {
         isOrgAdmin={input.isOrgAdmin}
         loading={billing.loading}
         managementUrl={direct.managementUrl}
-        minimumSeatCount={input.activeMemberCount}
+        minimumSeatCount={billing.billing?.activeMemberCount ?? null}
         nativePurchaseRestricted={
           actions.purchaseAvailable && input.isPersonalOrganization === false
         }
@@ -160,13 +159,11 @@ function BillingPanelSubscriptionControls(input: {
 }
 
 export function BillingPanel({
-  activeMemberCount = 1,
   isOrgAdmin,
   isPersonalOrganization = true,
   organizationId,
   userId,
 }: {
-  activeMemberCount?: number | null;
   isOrgAdmin: boolean;
   isPersonalOrganization?: boolean | null;
   organizationId: string;
@@ -226,7 +223,6 @@ export function BillingPanel({
   return (
     <div>
       <BillingPanelSubscriptionControls
-        activeMemberCount={activeMemberCount}
         actions={actions}
         billing={billing}
         checkoutHostRef={checkoutHostRef}
