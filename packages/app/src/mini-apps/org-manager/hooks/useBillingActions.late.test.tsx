@@ -9,18 +9,11 @@ import { act, cleanup, waitFor } from "@testing-library/react";
 import {
   createPurchases,
   OPTION,
+  purchaseTraceEntries,
   renderBillingActions,
 } from "../../../../test/helpers/billingActionsTestKit";
 
 afterEach(() => cleanup());
-
-function purchaseTraceEntries(
-  entries: ReadonlyArray<{ level: "error" | "info"; message: string }>,
-) {
-  return entries.filter(({ message }) =>
-    message.startsWith("billing purchase "),
-  );
-}
 
 test("checkoutActive clears when the purchase settles, before the refresh", async () => {
   let resolveRefresh: (() => void) | undefined;

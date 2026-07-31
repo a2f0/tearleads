@@ -14,6 +14,7 @@ import {
   type BillingActions,
   useBillingActions,
 } from "../../src/mini-apps/org-manager/hooks/useBillingActions";
+import { DirectCheckoutProvider } from "../../src/providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../src/providers/host/AppHostConfigProvider";
 import { LogProvider, useLog } from "../../src/providers/logging/LogProvider";
 import { PurchasesProvider } from "../../src/providers/purchases/PurchasesProvider";
@@ -28,6 +29,19 @@ export const OPTION: SyncSubscriptionOption = {
   description: "Cloud sync",
   priceLabel: "$4.99",
 };
+
+type BillingTraceEntry = {
+  level: "error" | "info";
+  message: string;
+};
+
+export function purchaseTraceEntries(
+  entries: ReadonlyArray<BillingTraceEntry>,
+): BillingTraceEntry[] {
+  return entries.filter(({ message }) =>
+    message.startsWith("billing purchase "),
+  );
+}
 
 export function createPurchases(
   purchaseResult: SyncPurchaseResult,
@@ -55,7 +69,9 @@ function wrapper(createPurchasesFn: CreatePurchasesFn) {
     return (
       <AppHostConfigProvider value={hostConfig}>
         <PurchasesProvider>
-          <LogProvider>{children}</LogProvider>
+          <DirectCheckoutProvider>
+            <LogProvider>{children}</LogProvider>
+          </DirectCheckoutProvider>
         </PurchasesProvider>
       </AppHostConfigProvider>
     );

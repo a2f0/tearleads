@@ -557,7 +557,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "App Utilities",
     package: "app",
     responsibility:
-      "App-neutral presentation helpers: byte-length and date formatting, and error-message normalization.",
+      "App-neutral presentation helpers: byte-length and date formatting, error-message normalization, and clipboard-safe billing traces.",
     seam: "utils/* direct import",
     paths: [`${app}/utils/`],
   },

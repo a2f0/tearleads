@@ -13,7 +13,8 @@ type BillingPurchaseStage =
   | "cancelled"
   | "identified"
   | "provider-started"
-  | "started";
+  | "started"
+  | "superseded";
 
 const PURCHASE_FAILURE_CODES: ReadonlyArray<readonly [string, string]> = [
   ["0", "unknown"],
@@ -67,12 +68,19 @@ const NATIVE_ERROR_DOMAINS: ReadonlyArray<readonly [string, string]> = [
   ["SKErrorDomain", "sk"],
   ["NSURLErrorDomain", "url"],
 ];
+const NATIVE_ERROR_PATTERNS = NATIVE_ERROR_DOMAINS.map(
+  ([domain, safeName]) =>
+    [
+      safeName,
+      new RegExp(`${domain}[^0-9-]{0,40}Code=(-?\\d{1,10})(?!\\d)`, "u"),
+    ] as const,
+);
 const NATIVE_ERROR_DOMAIN_FRAGMENT = NATIVE_ERROR_DOMAINS.map(
   ([, name]) => name,
 ).join("|");
 
 export const BILLING_PURCHASE_TRACE_FRAGMENT = `(?:${[
-  "billing purchase stage=(?:started|identified|provider-started|aborted|cancelled)",
+  "billing purchase stage=(?:started|identified|provider-started|aborted|cancelled|superseded)",
   "billing purchase stage=(?:succeeded|late-succeeded) entitlement=(?:active|inactive)",
   `billing purchase stage=(?:failed|late-failed) code=(?:${PURCHASE_FAILURE_CODE_FRAGMENT}) native=(?:none|(?:${NATIVE_ERROR_DOMAIN_FRAGMENT}):-?\\d{1,10}) userCancelled=(?:true|false|unknown)`,
 ]
@@ -106,17 +114,22 @@ function readErrorCode(error: unknown): string | undefined {
     : undefined;
 }
 
-function readUnderlyingErrorMessage(error: unknown): string | undefined {
-  if (
-    typeof error !== "object" ||
-    error === null ||
-    !("underlyingErrorMessage" in error)
-  ) {
-    return undefined;
+function readNativeErrorMessages(error: unknown): Array<string | undefined> {
+  if (typeof error !== "object" || error === null) {
+    return [];
   }
-  return typeof error.underlyingErrorMessage === "string"
-    ? error.underlyingErrorMessage
-    : undefined;
+  return [
+    "underlyingErrorMessage" in error &&
+    typeof error.underlyingErrorMessage === "string"
+      ? error.underlyingErrorMessage
+      : undefined,
+    "message" in error && typeof error.message === "string"
+      ? error.message
+      : undefined,
+    "errorMessage" in error && typeof error.errorMessage === "string"
+      ? error.errorMessage
+      : undefined,
+  ];
 }
 
 function readUserCancelled(error: unknown): "false" | "true" | "unknown" {
@@ -132,17 +145,15 @@ function readUserCancelled(error: unknown): "false" | "true" | "unknown" {
 }
 
 function classifyNativeError(error: unknown): string {
-  const message = readUnderlyingErrorMessage(error);
-  if (!message) {
-    return "none";
-  }
-  for (const [domain, safeName] of NATIVE_ERROR_DOMAINS) {
-    const match = new RegExp(
-      `${domain}[^0-9-]{0,40}Code=(-?\\d{1,10})(?!\\d)`,
-      "u",
-    ).exec(message);
-    if (match?.[1]) {
-      return `${safeName}:${match[1]}`;
+  for (const message of readNativeErrorMessages(error)) {
+    if (!message) {
+      continue;
+    }
+    for (const [safeName, pattern] of NATIVE_ERROR_PATTERNS) {
+      const match = pattern.exec(message);
+      if (match?.[1]) {
+        return `${safeName}:${match[1]}`;
+      }
     }
   }
   return "none";

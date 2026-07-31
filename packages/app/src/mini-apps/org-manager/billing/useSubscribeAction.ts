@@ -226,7 +226,12 @@ async function purchaseForOrganization({
     });
     await Promise.race([identify, cancelSignal]);
     trace(formatBillingPurchaseStage("identified"));
-    if (cancelled || !scopeMatches(scopeRef.current, scope)) {
+    if (cancelled) {
+      trace(formatBillingPurchaseStage("cancelled"));
+      return;
+    }
+    if (!scopeMatches(scopeRef.current, scope)) {
+      trace(formatBillingPurchaseStage("superseded"));
       return;
     }
     trace(formatBillingPurchaseStage("provider-started"));

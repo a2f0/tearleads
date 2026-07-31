@@ -13,6 +13,7 @@ test("formats purchase lifecycle stages as clipboard-safe telemetry", () => {
     formatBillingPurchaseStage("identified"),
     formatBillingPurchaseStage("provider-started"),
     formatBillingPurchaseStage("cancelled"),
+    formatBillingPurchaseStage("superseded"),
     formatBillingPurchaseSuccess(true),
     formatBillingPurchaseSuccess(false),
     formatBillingPurchaseSuccess(true, true),
@@ -22,6 +23,21 @@ test("formats purchase lifecycle stages as clipboard-safe telemetry", () => {
   for (const line of lines) {
     expect(BILLING_PURCHASE_TRACE_PATTERN.test(line)).toBe(true);
   }
+});
+
+test("extracts native codes from the iOS Capacitor error shape", () => {
+  const line = formatBillingPurchaseFailure({
+    code: "5",
+    message:
+      "Product unavailable. Error Domain=ASDErrorDomain Code=509 PRIVATE buyer@example.com",
+  });
+
+  expect(line).toBe(
+    "billing purchase stage=failed code=product-unavailable native=asd:509 userCancelled=unknown",
+  );
+  expect(BILLING_PURCHASE_TRACE_PATTERN.test(line)).toBe(true);
+  expect(line).not.toContain("PRIVATE");
+  expect(line).not.toContain("buyer@example.com");
 });
 
 test("maps RevenueCat and Apple native error codes without free text", () => {

@@ -9,18 +9,11 @@ import { act, cleanup, waitFor } from "@testing-library/react";
 import {
   createPurchases,
   OPTION,
+  purchaseTraceEntries,
   renderBillingActions,
 } from "../../../../test/helpers/billingActionsTestKit";
 
 afterEach(() => cleanup());
-
-function purchaseTraceEntries(
-  entries: ReadonlyArray<{ level: "error" | "info"; message: string }>,
-) {
-  return entries.filter(({ message }) =>
-    message.startsWith("billing purchase "),
-  );
-}
 
 test("purchase failures emit an ordered error trace", async () => {
   const purchases: PurchasesCapability = {
@@ -158,6 +151,43 @@ test("a scope switch leaves a native purchase running", async () => {
   });
   await waitFor(() => expect(result.current.busy).toBe(null));
   expect(result.current.activationPending).toBe(true);
+});
+
+test("a scope switch during native identification emits a terminal trace", async () => {
+  let identifyCalls = 0;
+  let resolvePurchaseIdentify: (() => void) | undefined;
+  const identify = mock(() => {
+    identifyCalls += 1;
+    if (identifyCalls === 2) {
+      return new Promise<void>((resolve) => {
+        resolvePurchaseIdentify = resolve;
+      });
+    }
+    return Promise.resolve();
+  });
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: true }),
+    identify,
+    supportsEmbeddedCheckout: false,
+  };
+  const { result, rerender } = renderBillingActions({ purchases });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() => expect(identify).toHaveBeenCalledTimes(2));
+  rerender({
+    billingCanSync: false,
+    organizationId: "org-1",
+    userId: "user-2",
+  });
+
+  await act(async () => resolvePurchaseIdentify?.());
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(purchases.purchaseSync).not.toHaveBeenCalled();
+  expect(purchaseTraceEntries(result.current.logEntries).slice(-2)).toEqual([
+    { level: "info", message: "billing purchase stage=identified" },
+    { level: "info", message: "billing purchase stage=superseded" },
+  ]);
 });
 
 test("a scope switch cancels the in-flight embedded checkout", async () => {
