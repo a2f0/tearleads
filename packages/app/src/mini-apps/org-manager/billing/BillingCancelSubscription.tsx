@@ -1,11 +1,9 @@
 import {
+  MiniAppActions,
+  MiniAppButton,
   MiniAppSection,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
-import {
-  MiniAppRowButton,
-  MiniAppRowText,
-} from "../../../components/mini-app/rows/MiniAppRow";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { CancelSubscriptionState } from "./useCancelSubscription";
 
@@ -46,11 +44,11 @@ export function BillingCancelSubscription({
   if (phase.kind === "idle") {
     return (
       <MiniAppSection>
-        <MiniAppRowButton disabled={disabled} onClick={cancel.ask}>
-          <MiniAppRowText>
+        <MiniAppActions>
+          <MiniAppButton disabled={disabled} onClick={cancel.ask}>
             {ORG_MANAGER_LABELS.billingCancelSubscription}
-          </MiniAppRowText>
-        </MiniAppRowButton>
+          </MiniAppButton>
+        </MiniAppActions>
       </MiniAppSection>
     );
   }
@@ -62,21 +60,19 @@ export function BillingCancelSubscription({
       <MiniAppStatus className="org-manager-hint">
         {ORG_MANAGER_LABELS.billingCancelSubscriptionHint}
       </MiniAppStatus>
-      <MiniAppRowButton
-        disabled={disabled || cancelling}
-        onClick={cancel.confirm}
-      >
-        <MiniAppRowText>
+      <MiniAppActions>
+        <MiniAppButton
+          disabled={disabled || cancelling}
+          onClick={cancel.confirm}
+        >
           {cancelling
             ? ORG_MANAGER_LABELS.billingCancelling
             : ORG_MANAGER_LABELS.billingCancelSubscriptionConfirm}
-        </MiniAppRowText>
-      </MiniAppRowButton>
-      <MiniAppRowButton disabled={cancelling} onClick={cancel.dismiss}>
-        <MiniAppRowText>
+        </MiniAppButton>
+        <MiniAppButton disabled={cancelling} onClick={cancel.dismiss}>
           {ORG_MANAGER_LABELS.billingCancelSubscriptionKeep}
-        </MiniAppRowText>
-      </MiniAppRowButton>
+        </MiniAppButton>
+      </MiniAppActions>
       {cancel.error ? (
         <MiniAppStatus tone="error">{cancel.error}</MiniAppStatus>
       ) : null}

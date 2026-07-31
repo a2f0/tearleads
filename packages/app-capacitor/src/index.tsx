@@ -18,6 +18,7 @@ import { subscribeCapacitorKeyboardVisibility } from "./capacitorKeyboardVisibil
 import { createCapacitorNetworkStatus } from "./capacitorNetworkStatus";
 import { createCapacitorPurchases } from "./capacitorPurchases";
 import { createCapacitorScanner } from "./capacitorScanner";
+import { openCapacitorSubscriptionManagement } from "./capacitorSubscriptionManagement";
 import { syncStatusBarWithTheme } from "./statusBar";
 
 function createCapacitorSQLiteRuntime() {
@@ -99,6 +100,10 @@ const hostConfig = createAppHostConfig({
     : undefined,
   createSQLiteRuntime: createCapacitorSQLiteRuntime,
   navigationMode: Capacitor.isNativePlatform() ? "routed" : undefined,
+  openSubscriptionManagement:
+    Capacitor.getPlatform() === "ios"
+      ? openCapacitorSubscriptionManagement
+      : undefined,
   readNativeBuildNumber: Capacitor.isNativePlatform()
     ? readNativeBuildNumber
     : undefined,

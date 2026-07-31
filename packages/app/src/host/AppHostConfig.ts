@@ -72,6 +72,18 @@ type CreateDirectCheckoutFn = () => DirectCheckoutCapability;
  */
 export type ReadNativeBuildNumberFn = () => Promise<string>;
 
+/**
+ * Opens the platform's subscription-management experience for a provider URL.
+ * Native shells may replace a store URL with first-party UI (for example,
+ * StoreKit's sandbox-aware sheet on iOS); browser shells omit the capability
+ * and let the billing view open the URL directly. The result distinguishes a
+ * dismissed native sheet, after which billing should refresh, from an external
+ * handoff that cannot have changed billing before this promise resolves.
+ */
+export type OpenSubscriptionManagementFn = (
+  managementUrl: string,
+) => Promise<"external-opened" | "native-closed">;
+
 export type PaneRuntimePolicy = "shared" | "isolated";
 
 export interface AppHostFeatureFlags {
@@ -216,6 +228,9 @@ export interface AppHostConfigOptions {
     | WrappingKeyMaterialStorage
     | undefined;
   readonly navigationMode?: AppNavigationMode | undefined;
+  readonly openSubscriptionManagement?:
+    | OpenSubscriptionManagementFn
+    | undefined;
   readonly profile?: AppHostProfile | undefined;
   readonly readNativeBuildNumber?: ReadNativeBuildNumberFn | undefined;
   /**
@@ -314,6 +329,14 @@ export class AppHostConfig {
     readonly createScanner?: CreateScannerFn | undefined,
     /** Native document viewer for formats a WebView cannot render itself. */
     readonly createFileViewer?: CreateFileViewerFn | undefined,
+    /**
+     * Platform-aware subscription management. iOS supplies a StoreKit-backed
+     * implementation for Apple subscriptions so sandbox testers do not get
+     * sent through the production Media & Purchases account surface.
+     */
+    readonly openSubscriptionManagement?:
+      | OpenSubscriptionManagementFn
+      | undefined,
   ) {}
 
   /**
@@ -345,6 +368,7 @@ export class AppHostConfig {
       subscribeKeyboardVisibility: this.subscribeKeyboardVisibility,
       createScanner: this.createScanner,
       createFileViewer: this.createFileViewer,
+      openSubscriptionManagement: this.openSubscriptionManagement,
       ...overrides,
     });
   }
@@ -376,6 +400,7 @@ export function createAppHostConfig(
     options.subscribeKeyboardVisibility,
     options.createScanner,
     options.createFileViewer,
+    options.openSubscriptionManagement,
   );
 }
 
