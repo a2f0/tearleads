@@ -53,6 +53,8 @@ const PURCHASE_FAILURE_CODES: ReadonlyArray<readonly [string, string]> = [
   ["34", "invalid-promotional-offer"],
   ["35", "offline"],
   ["42", "test-store-simulated-purchase"],
+  ["bridge-invalid", "bridge-invalid"],
+  ["native-error", "native-bridge"],
 ];
 
 const PURCHASE_FAILURE_CODE_BY_VALUE = new Map(PURCHASE_FAILURE_CODES);
@@ -62,6 +64,8 @@ const PURCHASE_FAILURE_CODE_FRAGMENT = [
 ].join("|");
 
 const NATIVE_ERROR_DOMAINS: ReadonlyArray<readonly [string, string]> = [
+  // Keep in lockstep with RevenueCatPurchasePlugin.swift; the Capacitor source
+  // contract test enforces the five values crossing that native boundary.
   ["ASDErrorDomain", "asd"],
   ["AMSErrorDomain", "ams"],
   ["StoreKitErrorDomain", "storekit"],
@@ -114,6 +118,30 @@ function readErrorCode(error: unknown): string | undefined {
     : undefined;
 }
 
+function readObjectField(value: unknown, field: string): unknown {
+  if (typeof value !== "object" || value === null || !(field in value)) {
+    return undefined;
+  }
+  return Reflect.get(value, field);
+}
+
+function readDiagnosticField(error: unknown, field: string): unknown {
+  return (
+    readObjectField(error, field) ??
+    readObjectField(readObjectField(error, "data"), field)
+  );
+}
+
+function readBoundedInteger(value: unknown): string | undefined {
+  const text =
+    typeof value === "number" && Number.isSafeInteger(value)
+      ? String(value)
+      : typeof value === "string"
+        ? value
+        : undefined;
+  return text && /^-?\d{1,10}$/u.test(text) ? text : undefined;
+}
+
 function readNativeErrorMessages(error: unknown): Array<string | undefined> {
   if (typeof error !== "object" || error === null) {
     return [];
@@ -133,18 +161,27 @@ function readNativeErrorMessages(error: unknown): Array<string | undefined> {
 }
 
 function readUserCancelled(error: unknown): "false" | "true" | "unknown" {
-  if (
-    typeof error !== "object" ||
-    error === null ||
-    !("userCancelled" in error) ||
-    typeof error.userCancelled !== "boolean"
-  ) {
+  const userCancelled = readDiagnosticField(error, "userCancelled");
+  if (typeof userCancelled !== "boolean") {
     return "unknown";
   }
-  return error.userCancelled ? "true" : "false";
+  return userCancelled ? "true" : "false";
 }
 
 function classifyNativeError(error: unknown): string {
+  const storeError = readDiagnosticField(error, "storeError");
+  const storeErrorDomain = readObjectField(storeError, "domain");
+  const storeErrorCode = readBoundedInteger(
+    readObjectField(storeError, "code"),
+  );
+  if (typeof storeErrorDomain === "string" && storeErrorCode) {
+    const safeDomain = NATIVE_ERROR_DOMAINS.find(
+      ([domain]) => domain === storeErrorDomain,
+    )?.[1];
+    if (safeDomain) {
+      return `${safeDomain}:${storeErrorCode}`;
+    }
+  }
   for (const message of readNativeErrorMessages(error)) {
     if (!message) {
       continue;

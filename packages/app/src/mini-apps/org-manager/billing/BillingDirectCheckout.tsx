@@ -5,13 +5,9 @@ import {
   MiniAppSection,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
-import {
-  MiniAppRowButton,
-  MiniAppRowStack,
-  MiniAppRowText,
-} from "../../../components/mini-app/rows/MiniAppRow";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { BillingPurchaseOption } from "./BillingView";
 import { formatPrice } from "./billingFormatters";
 import type { DirectCheckoutState } from "./useDirectCheckout";
 import "./BillingCheckout.css";
@@ -92,16 +88,13 @@ function HostedCheckoutLink({ disabled }: { readonly disabled: boolean }) {
   const hosted = useHostedCheckout();
   return (
     <>
-      <MiniAppRowButton
-        disabled={disabled || hosted.busy}
-        onClick={hosted.open}
-      >
-        <MiniAppRowText muted>
+      <MiniAppActions>
+        <MiniAppButton disabled={disabled || hosted.busy} onClick={hosted.open}>
           {hosted.busy
             ? ORG_MANAGER_LABELS.billingPayOnStripeStarting
             : ORG_MANAGER_LABELS.billingPayOnStripe}
-        </MiniAppRowText>
-      </MiniAppRowButton>
+        </MiniAppButton>
+      </MiniAppActions>
       {hosted.unavailable ? (
         <MiniAppStatus className="org-manager-hint">
           {ORG_MANAGER_LABELS.billingPayOnStripeUnavailable}
@@ -132,22 +125,18 @@ export function BillingDirectCheckout({
     <MiniAppSection>
       {idle ? (
         <>
-          <MiniAppRowButton disabled={disabled} onClick={checkout.begin}>
-            <MiniAppRowStack>
-              <strong>{option.productName}</strong>
-              <MiniAppRowText muted>
-                {formatPrice(
-                  option.unitAmount,
-                  option.currency,
-                  option.interval,
-                  option.intervalCount,
-                )}
-              </MiniAppRowText>
-            </MiniAppRowStack>
-            <MiniAppRowText>
-              {ORG_MANAGER_LABELS.billingSubscribe}
-            </MiniAppRowText>
-          </MiniAppRowButton>
+          <BillingPurchaseOption
+            actionLabel={ORG_MANAGER_LABELS.billingSubscribe}
+            disabled={disabled}
+            name={option.productName}
+            onSelect={checkout.begin}
+            priceLabel={formatPrice(
+              option.unitAmount,
+              option.currency,
+              option.interval,
+              option.intervalCount,
+            )}
+          />
           {/* The hosted-page escape hatch for buyers who prefer not to type
               their card into our inline form. */}
           <HostedCheckoutLink disabled={disabled} />

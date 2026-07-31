@@ -12,19 +12,25 @@ const fixture: {
   platform: string;
   configureCalls: { apiKey: string; appUserID?: string }[];
   purchaseCalls: { identifier: string }[];
+  nativePurchaseCalls: { identifier: string; productId: string }[];
   attributeCalls: Record<string, string | null>[];
   packages: PurchasesPackage[];
   purchaseRejection: unknown;
+  nativePurchaseRejection: unknown;
   customerInfo: unknown;
+  nativePurchaseResult: { activeEntitlementIds?: unknown } | null;
   onGetOfferings: (() => void) | null;
 } = {
   platform: "ios",
   configureCalls: [],
   purchaseCalls: [],
+  nativePurchaseCalls: [],
   attributeCalls: [],
   packages: [],
   purchaseRejection: null,
+  nativePurchaseRejection: null,
   customerInfo: { entitlements: { active: { sync: {} } } },
+  nativePurchaseResult: null,
   onGetOfferings: null,
 };
 
@@ -52,6 +58,54 @@ mock.module("@capacitor/core", () => ({
     getPlatform: () => fixture.platform,
     isNativePlatform: () => fixture.platform !== "web",
     isPluginAvailable: () => fixture.platform !== "web",
+    registerPlugin: (name: string) => {
+      if (name !== "RevenueCatPurchase") {
+        return { show: () => Promise.resolve() };
+      }
+      return {
+        purchasePackage: ({
+          packageId,
+          productId,
+        }: {
+          packageId: string;
+          productId: string;
+        }) => {
+          fixture.nativePurchaseCalls.push({
+            identifier: packageId,
+            productId,
+          });
+          if (!packageId || !productId) {
+            return Promise.reject({
+              code: "bridge-invalid",
+              message: "RevenueCat purchase failed",
+              data: { userCancelled: false },
+            });
+          }
+          if (fixture.nativePurchaseRejection !== null) {
+            return Promise.reject(fixture.nativePurchaseRejection);
+          }
+          if (fixture.purchaseRejection !== null) {
+            return Promise.reject(fixture.purchaseRejection);
+          }
+          if (fixture.nativePurchaseResult !== null) {
+            return Promise.resolve(fixture.nativePurchaseResult);
+          }
+          const customerInfo = fixture.customerInfo;
+          const activeEntitlements =
+            typeof customerInfo === "object" &&
+            customerInfo !== null &&
+            "entitlements" in customerInfo &&
+            typeof customerInfo.entitlements === "object" &&
+            customerInfo.entitlements !== null &&
+            "active" in customerInfo.entitlements &&
+            typeof customerInfo.entitlements.active === "object" &&
+            customerInfo.entitlements.active !== null
+              ? Object.keys(customerInfo.entitlements.active)
+              : [];
+          return Promise.resolve({ activeEntitlementIds: activeEntitlements });
+        },
+      };
+    },
   },
 }));
 
@@ -93,9 +147,15 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
   },
 }));
 
-// Imported after the module mocks so the source binds to them, not the real
-// native bridge.
 const { createCapacitorPurchases } = await import("./capacitorPurchases");
+
+function purchaseSync(packageId = "monthly", abortSignal?: AbortSignal) {
+  return createCapacitorPurchases().purchaseSync({
+    organizationId: "org-1",
+    packageId,
+    ...(abortSignal ? { abortSignal } : {}),
+  });
+}
 
 const ENV_KEYS = [
   "VITE_REVENUECAT_IOS_API_KEY",
@@ -103,9 +163,6 @@ const ENV_KEYS = [
   "VITE_REVENUECAT_SYNC_ENTITLEMENT",
 ] as const;
 
-// The adapter reads these through `import.meta.env`, which Bun backs with
-// process.env. Set through a helper so the indexed access stays in one place
-// rather than repeating a bracket-quoted key in every test.
 function setEnv(key: (typeof ENV_KEYS)[number], value: string): void {
   process.env[key] = value;
 }
@@ -120,10 +177,13 @@ afterEach(() => {
   fixture.platform = "ios";
   fixture.configureCalls = [];
   fixture.purchaseCalls = [];
+  fixture.nativePurchaseCalls = [];
   fixture.attributeCalls = [];
   fixture.packages = [];
   fixture.purchaseRejection = null;
+  fixture.nativePurchaseRejection = null;
   fixture.customerInfo = { entitlements: { active: { sync: {} } } };
+  fixture.nativePurchaseResult = null;
   fixture.onGetOfferings = null;
   clearEnv();
 });
@@ -204,16 +264,27 @@ test("binds the purchase to the organization before presenting the sheet", async
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
 
-  const result = await createCapacitorPurchases().purchaseSync({
-    organizationId: "org-1",
-    packageId: "monthly",
-  });
+  const result = await purchaseSync();
 
   // The server webhook resolves a non-Stripe store event against this
   // subscriber attribute, so it must be set before the purchase, not after.
   expect(fixture.attributeCalls).toEqual([{ orgId: "org-1" }]);
-  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(fixture.nativePurchaseCalls).toEqual([
+    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+  ]);
+  expect(fixture.purchaseCalls).toEqual([]);
   expect(result.syncEntitlementActive).toBe(true);
+});
+
+test("keeps Android purchases on RevenueCat's official Capacitor bridge", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+
+  await purchaseSync();
+
+  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
 test("reports the entitlement as inactive when the purchase does not grant it", async () => {
@@ -221,12 +292,24 @@ test("reports the entitlement as inactive when the purchase does not grant it", 
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
   fixture.customerInfo = { entitlements: { active: { other: {} } } };
 
-  const result = await createCapacitorPurchases().purchaseSync({
-    organizationId: "org-1",
-    packageId: "monthly",
-  });
+  const result = await purchaseSync();
 
   expect(result.syncEntitlementActive).toBe(false);
+});
+
+test("normalizes malformed entitlement ids from the iOS bridge", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+
+  fixture.nativePurchaseResult = {};
+  const missing = await purchaseSync();
+  expect(missing.syncEntitlementActive).toBe(false);
+
+  fixture.nativePurchaseResult = {
+    activeEntitlementIds: ["sync", 7, null],
+  };
+  const mixed = await purchaseSync();
+  expect(mixed.syncEntitlementActive).toBe(true);
 });
 
 test("honors a sync entitlement id overridden for this build", async () => {
@@ -263,40 +346,71 @@ test("survives a malformed package from the native bridge", async () => {
       priceLabel: "",
     },
   ]);
+
+  const result = await purchaseSync();
+
+  expect(fixture.nativePurchaseCalls).toEqual([
+    { identifier: "monthly", productId: "" },
+  ]);
+  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(result.syncEntitlementActive).toBe(true);
+});
+
+test("falls back when the diagnostic iOS bridge cannot validate", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.nativePurchaseRejection = {
+    code: "bridge-invalid",
+    message: "RevenueCat purchase failed",
+    data: { userCancelled: false },
+  };
+
+  const result = await purchaseSync();
+
+  expect(fixture.nativePurchaseCalls).toEqual([
+    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+  ]);
+  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(result.syncEntitlementActive).toBe(true);
 });
 
 test("rejects a package the current offering does not contain", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
 
-  await expect(
-    createCapacitorPurchases().purchaseSync({
-      organizationId: "org-1",
-      packageId: "annual",
-    }),
-  ).rejects.toThrow("Unknown purchase package: annual");
+  await expect(purchaseSync("annual")).rejects.toThrow(
+    "Unknown purchase package: annual",
+  );
   expect(fixture.purchaseCalls).toEqual([]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
 test("treats a dismissed store sheet as a cancellation, not a failure", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
-  // The bridge serializes PurchasesError to a plain object, so this is
-  // deliberately not an Error instance.
+  // Match the first-party Swift plugin's CAPPluginCall.reject payload rather
+  // than the official bridge's PurchasesError serialization.
   fixture.purchaseRejection = {
     code: "1",
-    message: "Purchase was cancelled.",
+    message: "RevenueCat purchase failed",
+    data: { userCancelled: true },
   };
 
   // Without the normalization the panel shows "Failed to subscribe" every
   // time a buyer backs out of the sheet: useSubscribeAction only treats
   // PurchaseCancelledError as a no-op.
-  await expect(
-    createCapacitorPurchases().purchaseSync({
-      organizationId: "org-1",
-      packageId: "monthly",
-    }),
-  ).rejects.toBeInstanceOf(PurchaseCancelledError);
+  await expect(purchaseSync()).rejects.toBeInstanceOf(PurchaseCancelledError);
+  expect(fixture.purchaseCalls).toEqual([]);
+});
+
+test("normalizes cancellation from the Android RevenueCat bridge", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.purchaseRejection = { code: "1" };
+
+  await expect(purchaseSync()).rejects.toBeInstanceOf(PurchaseCancelledError);
+  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
 });
 
 test("propagates a genuine store failure unchanged", async () => {
@@ -307,12 +421,10 @@ test("propagates a genuine store failure unchanged", async () => {
     message: "There was a problem with the store.",
   };
 
-  const error = await createCapacitorPurchases()
-    .purchaseSync({ organizationId: "org-1", packageId: "monthly" })
-    .then(
-      () => null,
-      (rejection: unknown) => rejection,
-    );
+  const error = await purchaseSync().then(
+    () => null,
+    (rejection: unknown) => rejection,
+  );
 
   // A store problem must stay a failure the panel surfaces; only a dismissal
   // is a no-op.
@@ -321,6 +433,7 @@ test("propagates a genuine store failure unchanged", async () => {
     code: "2",
     message: "There was a problem with the store.",
   });
+  expect(fixture.purchaseCalls).toEqual([]);
 });
 
 test("does not present a sheet for a purchase abandoned before it began", async () => {
@@ -332,13 +445,10 @@ test("does not present a sheet for a purchase abandoned before it began", async 
   // A presented StoreKit / Play sheet cannot be dismissed programmatically,
   // so the abort has to land before it goes up or not at all.
   await expect(
-    createCapacitorPurchases().purchaseSync({
-      organizationId: "org-1",
-      packageId: "monthly",
-      abortSignal: controller.signal,
-    }),
+    purchaseSync("monthly", controller.signal),
   ).rejects.toBeInstanceOf(PurchaseAbortedError);
   expect(fixture.purchaseCalls).toEqual([]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
 test("does not present a sheet when abandoned while offerings loaded", async () => {
@@ -350,32 +460,20 @@ test("does not present a sheet when abandoned while offerings loaded", async () 
   fixture.onGetOfferings = () => controller.abort();
 
   await expect(
-    createCapacitorPurchases().purchaseSync({
-      organizationId: "org-1",
-      packageId: "monthly",
-      abortSignal: controller.signal,
-    }),
+    purchaseSync("monthly", controller.signal),
   ).rejects.toBeInstanceOf(PurchaseAbortedError);
   expect(fixture.purchaseCalls).toEqual([]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
 test("prefers the pre-sheet abort over an unknown package", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [];
   const controller = new AbortController();
-  // Aborted during the fetch so the precedence is decided at the post-fetch
-  // check; a pre-aborted signal would short-circuit before the lookup and the
-  // ordering would go untested.
   fixture.onGetOfferings = () => controller.abort();
 
-  // An abandoned flow's outcome stays a pre-sheet abort so callers can rely on
-  // PurchaseAbortedError meaning "nothing was ever shown".
   await expect(
-    createCapacitorPurchases().purchaseSync({
-      organizationId: "org-1",
-      packageId: "annual",
-      abortSignal: controller.signal,
-    }),
+    purchaseSync("annual", controller.signal),
   ).rejects.toBeInstanceOf(PurchaseAbortedError);
 });
 
