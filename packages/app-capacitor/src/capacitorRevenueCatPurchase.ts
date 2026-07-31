@@ -24,10 +24,10 @@ function getNativeRevenueCatPurchase(): NativeRevenueCatPurchasePlugin {
 }
 
 function fromActiveEntitlementIds(
-  activeEntitlementIds: readonly string[],
+  activeEntitlementIds: string[],
 ): RevenueCatCustomerInfo {
   return {
-    activeEntitlementIds: [...activeEntitlementIds],
+    activeEntitlementIds,
   };
 }
 
@@ -45,6 +45,22 @@ function normalizeActiveEntitlementIds(value: unknown): string[] {
     : [];
 }
 
+function isBridgeValidationError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "bridge-invalid"
+  );
+}
+
+async function purchaseThroughOfficialBridge(
+  aPackage: PurchasesPackage,
+): Promise<RevenueCatCustomerInfo> {
+  const result = await Purchases.purchasePackage({ aPackage });
+  return fromCapacitorCustomerInfo(result?.customerInfo);
+}
+
 /**
  * Purchases through the first-party iOS bridge so RevenueCat's bounded native
  * diagnostics survive a rejection. Android keeps the official Capacitor path;
@@ -54,15 +70,21 @@ export async function purchaseCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
 ): Promise<RevenueCatCustomerInfo> {
   if (Capacitor.getPlatform() !== "ios") {
-    const result = await Purchases.purchasePackage({ aPackage });
-    return fromCapacitorCustomerInfo(result?.customerInfo);
+    return purchaseThroughOfficialBridge(aPackage);
   }
 
-  const result = await getNativeRevenueCatPurchase().purchasePackage({
-    packageId: aPackage?.identifier ?? "",
-    productId: aPackage?.product?.identifier ?? "",
-  });
-  return fromActiveEntitlementIds(
-    normalizeActiveEntitlementIds(result?.activeEntitlementIds),
-  );
+  try {
+    const result = await getNativeRevenueCatPurchase().purchasePackage({
+      packageId: aPackage?.identifier ?? "",
+      productId: aPackage?.product?.identifier ?? "",
+    });
+    return fromActiveEntitlementIds(
+      normalizeActiveEntitlementIds(result?.activeEntitlementIds),
+    );
+  } catch (error) {
+    if (!isBridgeValidationError(error)) {
+      throw error;
+    }
+    return purchaseThroughOfficialBridge(aPackage);
+  }
 }

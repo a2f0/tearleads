@@ -76,6 +76,8 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private static func rejectBridgeValidation(_ call: CAPPluginCall) {
+        // Validation fails before StoreKit is presented. The TypeScript adapter
+        // can therefore retry this package through RevenueCat's official bridge.
         call.reject(
             "RevenueCat purchase failed",
             "bridge-invalid",

@@ -12,17 +12,21 @@ function requiredMatch(source: string, pattern: RegExp, description: string) {
 }
 
 test("iOS project registers the RevenueCat purchase plugin contract", async () => {
-  const [project, bridgeController, purchasePlugin] = await Promise.all([
-    Bun.file(
-      resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
-    ).text(),
-    Bun.file(
-      resolve(packageRoot, "ios/App/App/BridgeViewController.swift"),
-    ).text(),
-    Bun.file(
-      resolve(packageRoot, "ios/App/App/RevenueCatPurchasePlugin.swift"),
-    ).text(),
-  ]);
+  const [project, bridgeController, purchasePlugin, billingPurchaseTrace] =
+    await Promise.all([
+      Bun.file(
+        resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
+      ).text(),
+      Bun.file(
+        resolve(packageRoot, "ios/App/App/BridgeViewController.swift"),
+      ).text(),
+      Bun.file(
+        resolve(packageRoot, "ios/App/App/RevenueCatPurchasePlugin.swift"),
+      ).text(),
+      Bun.file(
+        resolve(packageRoot, "../app/src/utils/billingPurchaseTrace.ts"),
+      ).text(),
+    ]);
 
   expect(project).toMatch(
     /Begin PBXSourcesBuildPhase[\s\S]*RevenueCatPurchasePlugin\.swift in Sources[\s\S]*End PBXSourcesBuildPhase/,
@@ -47,15 +51,24 @@ test("iOS project registers the RevenueCat purchase plugin contract", async () =
   expect(purchasePlugin).toContain(
     '["domain": candidate.domain, "code": candidate.code]',
   );
-  for (const domain of [
-    "AMSErrorDomain",
-    "ASDErrorDomain",
-    "NSURLErrorDomain",
-    "SKErrorDomain",
-    "StoreKitErrorDomain",
-  ]) {
-    expect(purchasePlugin).toContain(`"${domain}"`);
-  }
+  const swiftDomainBlock = requiredMatch(
+    purchasePlugin,
+    /private static func isStoreDiagnosticDomain[\s\S]*?return \[([\s\S]*?)\]\.contains\(domain\)/,
+    "Swift diagnostic domains",
+  );
+  const traceDomainBlock = requiredMatch(
+    billingPurchaseTrace,
+    /const NATIVE_ERROR_DOMAINS[\s\S]*?= \[([\s\S]*?)\];/,
+    "TypeScript diagnostic domains",
+  );
+  const swiftDomains = [...swiftDomainBlock.matchAll(/"([^"]+)"/g)]
+    .map((match) => match[1])
+    .sort();
+  const traceDomains = [...traceDomainBlock.matchAll(/\["([^"]+)",/g)]
+    .map((match) => match[1])
+    .sort();
+
+  expect(swiftDomains).toEqual(traceDomains);
 });
 
 test("iOS RevenueCat project pin matches the resolved SDK version", async () => {
@@ -82,5 +95,11 @@ test("iOS RevenueCat project pin matches the resolved SDK version", async () => 
     "resolved RevenueCat package version",
   );
 
+  expect(
+    packageResolution.match(/"identity" : "purchases-ios-spm"/g) ?? [],
+  ).toHaveLength(1);
+  expect(
+    packageResolution.match(/"identity" : "purchases-hybrid-common"/g) ?? [],
+  ).toHaveLength(1);
   expect(projectVersion).toBe(resolvedVersion);
 });

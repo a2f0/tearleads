@@ -24,6 +24,9 @@ is specific to the native bridge, as opposed to the web one:
   `RevenueCatPurchasePlugin` purchases through RevenueCat's public Swift API and
   returns only active entitlement IDs. On failure it preserves the RevenueCat
   code, cancellation flag, and StoreKit domain/code.
+  If that bridge cannot validate its shared SDK state before presenting
+  StoreKit, the adapter retries the package through RevenueCat's official
+  bridge so diagnostics cannot become a purchase-availability dependency.
   Android and every non-purchase operation continue through RevenueCat's
   official Capacitor plugin. The System Monitor includes those bounded values
   but still excludes receipt, account, and free-form provider text.
@@ -195,18 +198,21 @@ Before testing the real Apple purchase sheet:
    The project also pins `purchases-ios-spm` to the exact version resolved by
    `@revenuecat/purchases-capacitor`; update that pin and regenerate
    `Package.resolved` in lockstep whenever the Capacitor dependency changes.
-4. Create an App Store Connect sandbox tester. For a development-signed build,
-   attempt a purchase once and then sign in under **Settings > Developer >
-   Sandbox Apple Account**; the production Media & Purchases account can remain
-   signed in for this build type.
-5. For TestFlight, use a regular Apple Account to download the beta, then sign
-   out under **Settings > Apple Account > Media & Purchases**. Do not enter the
-   sandbox tester there: sandbox accounts are not iTunes or App Store download
-   accounts. Instead, sign in under **Settings > Developer > Sandbox Apple
-   Account**, and leave Media & Purchases signed out while testing. Signing the
-   regular account back in makes TestFlight purchases use that account rather
-   than the configured sandbox tester. TestFlight purchases still run in the
-   sandbox environment and do not charge either account.
+4. Create an App Store Connect sandbox tester. To use Apple's sandbox controls,
+   enable Developer Mode under **Settings > Privacy & Security > Developer
+   Mode**, restart the device, and use the **Sandbox Apple Account** control
+   that then appears under **Settings > Developer**.
+5. For TestFlight, first use a regular Apple Account to download the beta. For
+   a controlled sandbox test, sign that account out under **Settings > Apple
+   Account > Media & Purchases**, then sign the sandbox tester in under
+   **Settings > Developer > Sandbox Apple Account**. Do not enter a sandbox
+   tester under Media & Purchases: it is not an iTunes or App Store download
+   account. Leave Media & Purchases signed out while using the sandbox tester;
+   signing the regular account back in makes later purchases use that account
+   instead. If sandbox controls are unnecessary, the regular account may stay
+   signed in: TestFlight purchases still run in the sandbox and do not charge
+   it. See Apple's [sandbox testing
+   guide](https://developer.apple.com/documentation/storekit/testing-in-app-purchases-with-sandbox).
 6. After purchasing, tap **Manage subscription**. iOS presents StoreKit's
    in-app subscription-management sheet for the account StoreKit is currently
    using; dismissing it refreshes the billing snapshot.
