@@ -186,8 +186,11 @@ Before testing the real Apple purchase sheet:
    App Store Connect and RevenueCat configuration remain authoritative.
 4. Create an App Store Connect sandbox tester. Run from Xcode on a device, or
    use TestFlight; use the sandbox account when StoreKit prompts.
-5. Repeat the purchase/cancel/restore checks above and confirm the transaction
-   appears with sandbox data enabled in RevenueCat.
+5. After purchasing, tap **Manage subscription**. iOS presents StoreKit's
+   in-app subscription-management sheet for the signed-in sandbox tester;
+   dismissing it refreshes the billing snapshot.
+6. Repeat the cancel/restore checks above and confirm the transaction appears
+   with sandbox data enabled in RevenueCat.
 
 An Xcode StoreKit configuration file is useful for local StoreKit behavior, but
 its product must still exist in RevenueCat and its certificate must be uploaded
@@ -278,8 +281,9 @@ a store purchase. Until that is settled:
   and neither the App Store nor Play Billing can carry the
   server-authoritative Members count the way a Stripe subscription item does.
 - Cancel is provider-managed. The panel's inline cancel is Stripe-only; a store
-  subscription surfaces the RevenueCat management URL instead, which resolves to
-  the platform's own subscriptions page.
+  subscription surfaces **Manage subscription** instead. Apple management URLs
+  open StoreKit's in-app sheet on iOS, while other provider URLs retain the
+  external-page behavior.
 
 The Test Store checklist above is therefore an integration proof, not a product
 decision. Before real store products are offered, decide whether a mobile

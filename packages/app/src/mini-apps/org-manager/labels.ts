@@ -40,6 +40,8 @@ export const ORG_MANAGER_LABELS = {
   billingHistoryTitle: "Billing history",
   billingLocal: "Local only",
   billingManageSubscription: "Manage subscription",
+  billingManageSubscriptionFailed:
+    "Could not open subscription management. Try again.",
   billingNoOptions: "No subscription options are available right now.",
   billingPastDue: "Payment past due",
   billingPayOnStripe: "Prefer Stripe's page? Pay on Stripe instead",

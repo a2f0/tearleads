@@ -1,5 +1,12 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
-import { cleanup, render, renderHook, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import {
   createAppHostConfig,
@@ -106,7 +113,10 @@ function purchases(isAvailable: boolean) {
   } as never;
 }
 
-function wrapperWith(revenueCatAvailable: boolean) {
+function wrapperWith(
+  revenueCatAvailable: boolean,
+  openSubscriptionManagement?: OpenSubscriptionManagementFn,
+) {
   return function Wrapper({ children }: PropsWithChildren) {
     const hostConfig = createAppHostConfig({
       apiBaseUrl: "http://localhost",
@@ -116,6 +126,7 @@ function wrapperWith(revenueCatAvailable: boolean) {
           mount: () => new Promise(() => undefined),
         }) as never,
       createPurchases: () => purchases(revenueCatAvailable),
+      openSubscriptionManagement,
       wsUrl: "ws://localhost",
     });
     return (
@@ -362,7 +373,7 @@ test("subscription management opens the provider URL without a native host", () 
   const { result, onNativeManagementClosed } = renderManagementHook();
   const url = "https://apps.apple.com/account/subscriptions";
 
-  result.current(url);
+  act(() => result.current.open(url));
 
   expect(opened).toHaveBeenCalledWith(url, "_blank", "noopener,noreferrer");
   expect(onNativeManagementClosed).not.toHaveBeenCalled();
@@ -371,11 +382,11 @@ test("subscription management opens the provider URL without a native host", () 
 test("subscription management refreshes after the native sheet closes", async () => {
   const opened = mock(() => null);
   window.open = opened as typeof window.open;
-  const openNative = mock(() => Promise.resolve());
+  const openNative = mock(() => Promise.resolve("native-closed" as const));
   const { result, onNativeManagementClosed } = renderManagementHook(openNative);
   const url = "https://apps.apple.com/account/subscriptions";
 
-  result.current(url);
+  await act(async () => result.current.open(url));
 
   expect(openNative).toHaveBeenCalledWith(url);
   await waitFor(() =>
@@ -384,7 +395,22 @@ test("subscription management refreshes after the native sheet closes", async ()
   expect(opened).not.toHaveBeenCalled();
 });
 
-test("subscription management falls back when the native sheet fails", async () => {
+test("external management does not trigger a billing refresh", async () => {
+  const opened = mock(() => null);
+  window.open = opened as typeof window.open;
+  const openExternal = mock(() => Promise.resolve("external-opened" as const));
+  const { result, onNativeManagementClosed } =
+    renderManagementHook(openExternal);
+  const url = "https://play.google.com/store/account/subscriptions";
+
+  await act(async () => result.current.open(url));
+
+  expect(openExternal).toHaveBeenCalledWith(url);
+  expect(onNativeManagementClosed).not.toHaveBeenCalled();
+  expect(result.current.error).toBeNull();
+});
+
+test("subscription management surfaces a native-sheet failure", async () => {
   const opened = mock(() => null);
   window.open = opened as typeof window.open;
   const nativeError = new Error("StoreKit unavailable");
@@ -396,14 +422,43 @@ test("subscription management falls back when the native sheet fails", async () 
   const { result, onNativeManagementClosed } = renderManagementHook(openNative);
   const url = "https://apps.apple.com/account/subscriptions";
 
-  result.current(url);
+  await act(async () => result.current.open(url));
 
   await waitFor(() =>
-    expect(opened).toHaveBeenCalledWith(url, "_blank", "noopener,noreferrer"),
+    expect(result.current.error).toBe(
+      ORG_MANAGER_LABELS.billingManageSubscriptionFailed,
+    ),
   );
+  expect(opened).not.toHaveBeenCalled();
   expect(consoleError).toHaveBeenCalledWith(
     "Failed to open subscription management:",
     nativeError,
   );
   expect(onNativeManagementClosed).not.toHaveBeenCalled();
+});
+
+test("the billing panel shows a native subscription-management failure", async () => {
+  stubEnvironment(true, {
+    isActive: true,
+    managementUrl: "https://apps.apple.com/account/subscriptions",
+  });
+  const consoleError = spyOn(console, "error").mockImplementation(
+    () => undefined,
+  );
+  spies.push(consoleError);
+  const openNative = mock(() => Promise.reject(new Error("StoreKit failed")));
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    { wrapper: wrapperWith(false, openNative) },
+  );
+
+  fireEvent.click(
+    await view.findByRole("button", {
+      name: ORG_MANAGER_LABELS.billingManageSubscription,
+    }),
+  );
+
+  expect(
+    await view.findByText(ORG_MANAGER_LABELS.billingManageSubscriptionFailed),
+  ).toBeDefined();
 });

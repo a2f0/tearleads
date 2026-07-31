@@ -26,10 +26,11 @@ function showNativeSubscriptionManagement(): Promise<void> {
 function isAppleSubscriptionManagementUrl(value: string): boolean {
   try {
     const url = new URL(value);
+    const pathname = url.pathname.replace(/\/+$/, "");
     return (
       url.protocol === "https:" &&
       url.hostname === "apps.apple.com" &&
-      url.pathname.replace(/\/+$/, "") === "/account/subscriptions"
+      /^\/(?:[a-z]{2}\/)?account\/subscriptions$/iu.test(pathname)
     );
   } catch {
     return false;
@@ -50,9 +51,10 @@ export function createCapacitorSubscriptionManagement(
       isAppleSubscriptionManagementUrl(managementUrl)
     ) {
       await deps.showNative();
-      return;
+      return "native-closed";
     }
     deps.openUrl(managementUrl);
+    return "external-opened";
   };
 }
 

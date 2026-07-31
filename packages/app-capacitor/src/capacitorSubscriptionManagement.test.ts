@@ -21,8 +21,11 @@ function setup(platform: string) {
 test("uses StoreKit for Apple subscription management on iOS", async () => {
   const fixture = setup("ios");
 
-  await fixture.manage("https://apps.apple.com/account/subscriptions");
+  const result = await fixture.manage(
+    "https://apps.apple.com/account/subscriptions",
+  );
 
+  expect(result).toBe("native-closed");
   expect(fixture.nativeCalls).toEqual(["show"]);
   expect(fixture.openedUrls).toEqual([]);
 });
@@ -30,8 +33,23 @@ test("uses StoreKit for Apple subscription management on iOS", async () => {
 test("uses StoreKit when Apple's management URL has a trailing slash", async () => {
   const fixture = setup("ios");
 
-  await fixture.manage("https://apps.apple.com/account/subscriptions/");
+  const result = await fixture.manage(
+    "https://apps.apple.com/account/subscriptions/",
+  );
 
+  expect(result).toBe("native-closed");
+  expect(fixture.nativeCalls).toEqual(["show"]);
+  expect(fixture.openedUrls).toEqual([]);
+});
+
+test("uses StoreKit for Apple's locale-prefixed management URL", async () => {
+  const fixture = setup("ios");
+
+  const result = await fixture.manage(
+    "https://apps.apple.com/us/account/subscriptions",
+  );
+
+  expect(result).toBe("native-closed");
   expect(fixture.nativeCalls).toEqual(["show"]);
   expect(fixture.openedUrls).toEqual([]);
 });
@@ -40,8 +58,9 @@ test("keeps non-Apple provider links manageable from iOS", async () => {
   const fixture = setup("ios");
   const url = "https://play.google.com/store/account/subscriptions";
 
-  await fixture.manage(url);
+  const result = await fixture.manage(url);
 
+  expect(result).toBe("external-opened");
   expect(fixture.nativeCalls).toEqual([]);
   expect(fixture.openedUrls).toEqual([url]);
 });
@@ -50,8 +69,9 @@ test("keeps the provider URL behavior on other platforms", async () => {
   const fixture = setup("android");
   const url = "https://apps.apple.com/account/subscriptions";
 
-  await fixture.manage(url);
+  const result = await fixture.manage(url);
 
+  expect(result).toBe("external-opened");
   expect(fixture.nativeCalls).toEqual([]);
   expect(fixture.openedUrls).toEqual([url]);
 });
@@ -59,8 +79,9 @@ test("keeps the provider URL behavior on other platforms", async () => {
 test("does not send malformed provider URLs to StoreKit", async () => {
   const fixture = setup("ios");
 
-  await fixture.manage("not-a-url");
+  const result = await fixture.manage("not-a-url");
 
+  expect(result).toBe("external-opened");
   expect(fixture.nativeCalls).toEqual([]);
   expect(fixture.openedUrls).toEqual(["not-a-url"]);
 });

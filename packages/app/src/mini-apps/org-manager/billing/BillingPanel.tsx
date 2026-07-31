@@ -122,7 +122,7 @@ export function BillingPanel({
   const handleRefresh = useCallback(() => {
     void refresh();
   }, [refresh]);
-  const handleManageSubscription = useOpenSubscriptionManagement(handleRefresh);
+  const subscriptionManagement = useOpenSubscriptionManagement(handleRefresh);
   // Where the Web Billing checkout embeds so a purchase runs inside the panel
   // (the view keeps the div mounted; the hook reads it at purchase time).
   const checkoutHostRef = useRef<HTMLDivElement | null>(null);
@@ -163,7 +163,7 @@ export function BillingPanel({
   return (
     <div>
       <BillingView
-        actionError={actions.actionError}
+        actionError={subscriptionManagement.error ?? actions.actionError}
         activationPending={actions.activationPending}
         busy={checkoutActive ? "checkout" : actions.busy}
         canSubscribe={actions.canSubscribe}
@@ -174,7 +174,7 @@ export function BillingPanel({
         isOrgAdmin={isOrgAdmin}
         loading={billing.loading}
         managementUrl={managementUrl}
-        onManageSubscription={handleManageSubscription}
+        onManageSubscription={subscriptionManagement.open}
         onCancelCheckout={actions.cancelCheckout}
         onRefresh={handleRefresh}
         onRestore={actions.restore}
