@@ -54,7 +54,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Documents",
     package: "api",
     responsibility:
-      "Document update storage, spans/prune/compaction, commit LSN, audit entries/checkpoints/hash history, sync baseline redirect, and edit attribution.",
+      "Document update storage, version-vector spans, commit LSN, audit entries/checkpoints/hash history, sync baseline redirect, and edit attribution.",
     seam: "routes/documents; services/documents facade",
     paths: [
       `${api}/routes/documents/`,

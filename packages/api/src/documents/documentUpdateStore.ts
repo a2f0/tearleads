@@ -205,7 +205,6 @@ export async function listMissingDocumentUpdates(
       ${updateCreatedAt} as "createdAt"
     from ${documentUpdates} u
     where ${updateDocumentId} = ${uuidValue(input.documentId)}
-      and ${updateEncryptedData} <> ''
       and (
         not exists (
           select 1

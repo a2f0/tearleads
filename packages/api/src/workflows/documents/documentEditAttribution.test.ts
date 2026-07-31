@@ -22,10 +22,9 @@ import {
   computeDocumentEditAttribution,
   runPreparedDocumentEditAttributionDataWorkflow,
 } from "./documentEditAttribution";
-import { runPruneDominatedUpdatesWorkflow } from "./gc/pruneDominatedUpdates";
 
 // `early` ⊂ `late` on the same peer: the baseline's frontier (`late`) provably
-// dominates alice's pre-rotation update (`early`), so the prune gate clears it.
+// dominates alice's pre-rotation update (`early`).
 async function buildVersions() {
   const doc = await createDocument("attribution-it-seed");
   const text = doc.getText("text");
@@ -41,7 +40,7 @@ async function buildVersions() {
 // One signed update + its write header. `sequence` is a generated identity, so
 // insert order fixes server-receive order: alice (called first) precedes the
 // baseline, which is what makes earliest-span-wins credit alice, not the
-// re-asserter. Mirrors the seed shape in pruneDominatedUpdates.test.ts.
+// re-asserter.
 async function insertUpdate(input: {
   documentId: string;
   contentKeyEpoch: number;
@@ -112,8 +111,6 @@ async function insertSpan(input: {
   await db.insert(documentUpdateSpans).values(input);
 }
 
-// The fields that must hold across the prune; `updateSequence` is a generated
-// identity, so it is asserted only via the before/after deep-equality below.
 function attributionShape(
   result: Awaited<ReturnType<typeof computeDocumentEditAttribution>>,
 ) {
@@ -128,13 +125,10 @@ function attributionShape(
   }));
 }
 
-// The full chain the individual unit tests (earliest-span-wins, prune
-// domination) never exercise together: alice edits → bob rotates the content
-// key and uploads a rotate_baseline re-asserting the peer from 0 → the GC prunes
-// alice's now-dominated payload → attribution is recomputed. Blame must be
-// identical before and after the prune, because prune clears only the encrypted
-// payload and leaves the attribution spans + write header intact.
-test("attribution survives a rotate_baseline payload prune", async () => {
+// Exercise earliest-span-wins across a rotation: alice edits, then bob uploads
+// a rotate_baseline re-asserting the peer from zero. The re-assertion must not
+// take authorship credit for operations the server received from alice first.
+test("attributes original uploads ahead of a rotation baseline re-assertion", async () => {
   const { early, late } = await buildVersions();
   const [document] = await db
     .insert(documents)
@@ -218,28 +212,8 @@ test("attribution survives a rotate_baseline payload prune", async () => {
     },
   ];
 
-  const before = await computeDocumentEditAttribution(documentId, db);
-  expect(attributionShape(before)).toEqual(expected);
-
-  // Collapse the frontier: clear the payload of every pre-rotation update the
-  // baseline dominates.
-  const prune = await runPruneDominatedUpdatesWorkflow(db, {
-    documentIds: [documentId],
-  });
-  expect(prune.prunedUpdateCount).toBe(1);
-
-  // alice's payload is gone...
-  const [alice] = await db
-    .select({ encryptedData: documentUpdates.encryptedData })
-    .from(documentUpdates)
-    .where(eq(documentUpdates.id, aliceUpdateId));
-  expect(alice?.encryptedData).toBe("");
-
-  // ...but her span survives, so recomputing yields the same segments: her
-  // [0,3) stays alice/direct rather than being swept into bob's baseline.
-  const after = await computeDocumentEditAttribution(documentId, db);
-  expect(attributionShape(after)).toEqual(expected);
-  expect(after).toEqual(before);
+  const attribution = await computeDocumentEditAttribution(documentId, db);
+  expect(attributionShape(attribution)).toEqual(expected);
 });
 
 test("rejects attribution spans whose write-header identity is missing", async () => {

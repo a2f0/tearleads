@@ -526,11 +526,11 @@ plaintext, so this binds the record against server or storage substitution, not
 against a malicious authorized reader. Readers authenticate the metadata,
 decrypt the record, and reject a plaintext-hash mismatch before importing it
 into Loro. The audit chain thereby retains a keyed identity for an authored
-plaintext even after its ciphertext is pruned, provided the signed header,
+plaintext while retaining its ciphertext, provided the signed header,
 original content-record id and epoch, and corresponding content key remain
-available. A flattened rotation snapshot's commitment is not comparable to its
-constituent per-update commitments, so this does not replace the stronger future
-design of per-update re-encryption with inner author signatures.
+available. A full-history rotation snapshot's commitment is not comparable to
+its constituent per-update commitments, so this does not replace the stronger
+future design of per-update re-encryption with inner author signatures.
 
 The initial suite is
 `aes-256-gcm-hkdf-sha256-record-key`. A content writer supplies a UUIDv4

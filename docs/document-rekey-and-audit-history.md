@@ -114,50 +114,38 @@ canonical bundle and re-emits from local CRDT state if needed.
 
 ### Declared Coverage Is Trusted, Not Verified
 
-Prune and redirect safety rest on the baseline's declared coverage: the server
-clears or stops serving older ciphertext only when a baseline satisfying the
-authenticated v2 checkpoint contract (`isAuthenticatedReplayableBaseline`)
-declares a coverage vector that dominates it. Under E2EE the server cannot open the baseline snapshot, so it
-cannot verify that the ciphertext actually contains the operations the
-coverage vector claims. A malicious authorized writer can therefore declare
-coverage its baseline does not carry and cause pruning of ciphertext the
-baseline cannot reproduce. More strongly, version vectors describe causal
-shape rather than content: a rotation-capable writer can manufacture a
-full-history snapshot with the same peer/counter frontier but fabricated prior
-plaintext, sign it as the new baseline, and let pruning remove the original
-author-signed ciphertext.
+Normal sync can omit older ciphertext when an authenticated v2 baseline
+(`isAuthenticatedReplayableBaseline`) declares coverage that dominates every
+older update. The server retains every original encrypted document update;
+there is no document-payload GC or pruner.
 
-This is an accepted design property (roadmap #1607), with these bounds:
+Under E2EE the server cannot open the baseline snapshot, so it cannot verify
+that its ciphertext carries the operations it claims to cover. A malicious
+authorized writer can redirect readers away from older ciphertext. Because
+version vectors describe causal shape rather than content, a rotation-capable
+writer can also sign a full-history snapshot with the same frontier but
+fabricated prior plaintext.
 
-- the damage requires an authorized writer for the document. A writer added
-  after a rotation can cause data loss without reading older epochs by
-  declaring coverage over updates it cannot decrypt. A writer that can read
-  the old history can additionally substitute fabricated prior content while
-  preserving the visible version-vector shape
+The resulting risk has these bounds:
+
+- the attack requires an authorized writer. One added after rotation can make
+  sync omit older updates it cannot decrypt; one that can read old history can
+  substitute content while preserving the visible version-vector shape
 - the declaration is durable and attributable: checkpoint rows persist the
-  claimed frontier and signed baseline checkpoints commit it to the audit
-  ledger. Existing signed ciphertext hashes attribute the exact encrypted
-  record while that record is retained. Every document update additionally
-  commits a domain-separated, record-key-derived HMAC through its signed
-  metadata hash and the audit chain. A reader holding the original content key
-  and update bytes can confirm that plaintext identity after ciphertext
-  pruning, without giving the server a plaintext-guessing oracle. This
-  per-update commitment is not directly comparable to a flattened snapshot's
-  commitment, so it does not by itself prove that the snapshot faithfully
-  contains every committed update. A current-epoch reader can still compare a
-  baseline's actual frontier to its claim. A post-pruning joiner lacks the
-  original plaintext evidence and cannot make that comparison. The server
-  cannot inspect E2EE plaintext, and cleared payloads are not recoverable
+  frontier and commit it to the audit ledger. Signed ciphertext hashes and a
+  record-key-derived HMAC attribute each retained update, but that per-update
+  commitment is not comparable to a full-history snapshot's commitment. A
+  current-epoch reader can compare a baseline's frontier to its claim. Original
+  ciphertext remains stored, but sync has no way to bypass redirection and
+  recover it
 
-The stronger history-preserving mitigation remains per-update re-encryption on
-rotation with inner author signatures over the plaintext update bytes. That
-would preserve authorship across rekey and reduce a malicious rotator to the
-destruction-only bound. Other candidate mitigations, deliberately not adopted:
+The stronger mitigation remains per-update re-encryption with inner author
+signatures. Other possible hardening measures include:
 
 - restrict `rotate_baseline` authorship by policy, narrowing which principals
-  can trigger pruning
-- never hard-clear payloads that only a non-highest-epoch baseline dominates,
-  keeping ciphertext recoverable at some storage cost
+  can trigger redirection
+- expose an authenticated recovery mode that serves retained update history
+  without baseline redirection
 
 ### There Must Be Only One Canonical Bundle Per Epoch
 
@@ -199,8 +187,10 @@ correct recovery path is:
 3. merge local state with the canonical state
 4. emit a new baseline or rebased updates under the canonical current-epoch DEK
 
-This is similar in spirit to CRDT compaction: compacting history does not break
-mergeability if the client still has the local logical state.
+Local durable-history compaction does not flatten the CRDT. It periodically
+exports a full-history Loro snapshot as a checkpoint and deletes only the local
+tail rows that snapshot covers. The checkpoint still carries the complete
+operation history needed for merging, rotation, and recovery.
 
 ### Revoked Offline Clients
 
@@ -240,21 +230,22 @@ That is separate from tamper-evident document edit history.
 
 Live document state and audit history are separate layers:
 
-- a compact live baseline / snapshot for sync and compaction
+- encrypted document updates and full-history rotation baselines for sync
 - an append-only tamper-evident update ledger for audit
 
-The live baseline stays compact and does not embed the edit history payload.
-The audit layer preserves history separately with:
+The server retains original encrypted document updates. Rotation baselines are
+full-history Loro snapshots, not flattened state-only snapshots. Separately,
+the audit layer records:
 
 - previous-hash-linked update records
 - visible causal metadata such as version vectors and access epoch
 - signed baseline checkpoints that commit to the audit ledger
 
-A baseline checkpoint commits to history through metadata rather than embedding
-edits: the source version vector / frontier used to build it, the last included
-audit entry hash, the previous checkpoint hash, and the current access epoch.
-This keeps live sync state compact, keeps every rotate baseline from growing,
-and still makes the history a baseline claims to cover auditable.
+A baseline checkpoint commits to history through both the encrypted full-history
+snapshot and its visible metadata: the source version vector / frontier used to
+build it, the last included audit entry hash, the previous checkpoint hash, and
+the current access epoch. The metadata makes the history a baseline claims to
+cover auditable without exposing its plaintext to the server.
 
 ## Storage Decomposition
 
@@ -266,11 +257,11 @@ The live-state seams are:
 - access-plane material in signed access manifest heads and key-target tables
 - live blob bytes in `blobs`
 
-Those tables are optimized for active sync and access state. History lives in
-separate history-side persistence rather than reinterpreting live GC tables as
-durable history. The split is:
+Those tables are optimized for active sync and access state. Original document
+ciphertext is retained in `document_updates`, while tamper-evident metadata
+lives in separate history-side persistence. The split is:
 
-- live-state tables, kept live-only
+- retained document ciphertext plus live-state projections
 - a baseline/checkpoint metadata model
 - an attachment/blob history model
 - access-state metadata and hashes snapshotted into audit records
@@ -305,11 +296,11 @@ The live write-path wiring:
 
 ## Audit Storage
 
-### Live-State Boundary
+### Content And Live-State Boundary
 
-The live tables keep their meanings and stay live-only:
+The content and live-state tables keep distinct roles:
 
-- `document_updates` is the live sync store for encrypted Loro updates
+- `document_updates` retains encrypted Loro updates and serves sync
 - `document_update_spans` is the causal-sync index
 - `attachment_bindings` is the live projection of active attachment slots
 - `access_manifest_heads` and key-target tables are the canonical
@@ -317,7 +308,9 @@ The live tables keep their meanings and stay live-only:
 - `blobs` is the live blob-byte store and is pruned when the final active
  binding disappears
 
-These live tables are never turned into a mixed live-and-history store.
+The audit tables do not duplicate ciphertext. They preserve independently
+verifiable hashes and visible metadata for the retained document updates and
+for live-only objects such as blob bindings.
 
 ### History-Side Schema
 
@@ -369,10 +362,8 @@ Required indexes and constraints:
 
 - unique `(live_update_id)`
 
-This keeps the audit ledger durable even if the live sync store adds compaction
-or pruning. `document_updates` remains the live ciphertext store; the audit
-side records immutable hashes and visible metadata, not a second full
-ciphertext copy.
+`document_updates` remains the retained ciphertext store. The audit side records
+immutable hashes and visible metadata, not a second full ciphertext copy.
 
 #### `document_audit_checkpoints`
 
