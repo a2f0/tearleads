@@ -1,192 +1,17 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { expect, test } from "bun:test";
 import type { PurchasesPackage } from "@revenuecat/purchases-capacitor";
 import {
   PurchaseAbortedError,
   PurchaseCancelledError,
 } from "@tearleads/client-sdk";
-
-// Mutable fixture the mocked native bridge reads and records into. Each test
-// arms the platform, the offerings the bridge reports, and the rejection (if
-// any) `purchasePackage` should throw.
-const fixture: {
-  platform: string;
-  configureCalls: { apiKey: string; appUserID?: string }[];
-  purchaseCalls: { identifier: string }[];
-  nativePurchaseCalls: { identifier: string; productId: string }[];
-  attributeCalls: Record<string, string | null>[];
-  packages: PurchasesPackage[];
-  purchaseRejection: unknown;
-  nativePurchaseRejection: unknown;
-  customerInfo: unknown;
-  nativePurchaseResult: { activeEntitlementIds?: unknown } | null;
-  onGetOfferings: (() => void) | null;
-} = {
-  platform: "ios",
-  configureCalls: [],
-  purchaseCalls: [],
-  nativePurchaseCalls: [],
-  attributeCalls: [],
-  packages: [],
-  purchaseRejection: null,
-  nativePurchaseRejection: null,
-  customerInfo: { entitlements: { active: { sync: {} } } },
-  nativePurchaseResult: null,
-  onGetOfferings: null,
-};
-
-// A package shaped like the native bridge returns one. Cast at the boundary:
-// the plugin's PurchasesPackage carries far more than the adapter reads, and
-// the adapter's whole job is to survive a partial payload.
-function nativePackage(identifier: string, productId: string) {
-  return {
-    identifier,
-    product: {
-      identifier: productId,
-      title: "Sync",
-      description: "Organization sync",
-      priceString: "$4.99",
-    },
-  } as unknown as PurchasesPackage;
-}
-
-// `mock.module` is process-global, so this and the sibling adapter tests share
-// one @capacitor/core. Supply the whole surface the siblings stub
-// (capacitorNetworkStatus.test.ts adds isPluginAvailable) rather than relying on
-// which file bun loads first.
-mock.module("@capacitor/core", () => ({
-  Capacitor: {
-    getPlatform: () => fixture.platform,
-    isNativePlatform: () => fixture.platform !== "web",
-    isPluginAvailable: () => fixture.platform !== "web",
-    registerPlugin: (name: string) => {
-      if (name !== "RevenueCatPurchase") {
-        return { show: () => Promise.resolve() };
-      }
-      return {
-        purchasePackage: ({
-          packageId,
-          productId,
-        }: {
-          packageId: string;
-          productId: string;
-        }) => {
-          fixture.nativePurchaseCalls.push({
-            identifier: packageId,
-            productId,
-          });
-          if (!packageId || !productId) {
-            return Promise.reject({
-              code: "bridge-invalid",
-              message: "RevenueCat purchase failed",
-              data: { userCancelled: false },
-            });
-          }
-          if (fixture.nativePurchaseRejection !== null) {
-            return Promise.reject(fixture.nativePurchaseRejection);
-          }
-          if (fixture.purchaseRejection !== null) {
-            return Promise.reject(fixture.purchaseRejection);
-          }
-          if (fixture.nativePurchaseResult !== null) {
-            return Promise.resolve(fixture.nativePurchaseResult);
-          }
-          const customerInfo = fixture.customerInfo;
-          const activeEntitlements =
-            typeof customerInfo === "object" &&
-            customerInfo !== null &&
-            "entitlements" in customerInfo &&
-            typeof customerInfo.entitlements === "object" &&
-            customerInfo.entitlements !== null &&
-            "active" in customerInfo.entitlements &&
-            typeof customerInfo.entitlements.active === "object" &&
-            customerInfo.entitlements.active !== null
-              ? Object.keys(customerInfo.entitlements.active)
-              : [];
-          return Promise.resolve({ activeEntitlementIds: activeEntitlements });
-        },
-      };
-    },
-  },
-}));
-
-mock.module("@revenuecat/purchases-capacitor", () => ({
-  // Mirrors the real enum in @revenuecat/purchases-typescript-internal-esm,
-  // which the plugin re-exports. Only the member the adapter matches on is
-  // needed; the string value is part of RevenueCat's public contract.
-  PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: "1" },
-  Purchases: {
-    configure: (options: { apiKey: string; appUserID?: string }) => {
-      fixture.configureCalls.push(options);
-      return Promise.resolve();
-    },
-    logIn: () => Promise.resolve(),
-    logOut: () => Promise.resolve(),
-    setAttributes: (attributes: Record<string, string | null>) => {
-      fixture.attributeCalls.push(attributes);
-      return Promise.resolve();
-    },
-    getOfferings: () => {
-      // Hook so a test can abort *during* the offerings fetch — the window the
-      // post-fetch abort check exists to cover.
-      fixture.onGetOfferings?.();
-      return Promise.resolve({
-        current: { availablePackages: fixture.packages },
-      });
-    },
-    purchasePackage: ({ aPackage }: { aPackage: PurchasesPackage }) => {
-      fixture.purchaseCalls.push({ identifier: aPackage.identifier });
-      if (fixture.purchaseRejection !== null) {
-        return Promise.reject(fixture.purchaseRejection);
-      }
-      return Promise.resolve({ customerInfo: fixture.customerInfo });
-    },
-    getCustomerInfo: () =>
-      Promise.resolve({ customerInfo: fixture.customerInfo }),
-    restorePurchases: () =>
-      Promise.resolve({ customerInfo: fixture.customerInfo }),
-  },
-}));
-
-const { createCapacitorPurchases } = await import("./capacitorPurchases");
-
-function purchaseSync(packageId = "monthly", abortSignal?: AbortSignal) {
-  return createCapacitorPurchases().purchaseSync({
-    organizationId: "org-1",
-    packageId,
-    ...(abortSignal ? { abortSignal } : {}),
-  });
-}
-
-const ENV_KEYS = [
-  "VITE_REVENUECAT_IOS_API_KEY",
-  "VITE_REVENUECAT_ANDROID_API_KEY",
-  "VITE_REVENUECAT_SYNC_ENTITLEMENT",
-] as const;
-
-function setEnv(key: (typeof ENV_KEYS)[number], value: string): void {
-  process.env[key] = value;
-}
-
-function clearEnv() {
-  for (const key of ENV_KEYS) {
-    delete process.env[key];
-  }
-}
-
-afterEach(() => {
-  fixture.platform = "ios";
-  fixture.configureCalls = [];
-  fixture.purchaseCalls = [];
-  fixture.nativePurchaseCalls = [];
-  fixture.attributeCalls = [];
-  fixture.packages = [];
-  fixture.purchaseRejection = null;
-  fixture.nativePurchaseRejection = null;
-  fixture.customerInfo = { entitlements: { active: { sync: {} } } };
-  fixture.nativePurchaseResult = null;
-  fixture.onGetOfferings = null;
-  clearEnv();
-});
+import {
+  clearEnv,
+  createCapacitorPurchases,
+  fixture,
+  nativePackage,
+  purchaseSync,
+  setEnv,
+} from "../tests/capacitorPurchasesTestKit";
 
 test("degrades to the unavailable stub without a platform key", () => {
   clearEnv();
@@ -253,9 +78,11 @@ test("lists the current offering's packages as sync options", async () => {
     {
       packageId: "monthly",
       productId: "com.tearleads.sync.monthly",
-      title: "Sync",
+      title: "Solo",
       description: "Organization sync",
       priceLabel: "$4.99",
+      tierId: "solo",
+      seatLimit: 1,
     },
   ]);
 });
@@ -284,6 +111,70 @@ test("keeps Android purchases on RevenueCat's official Capacitor bridge", async 
   await purchaseSync();
 
   expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
+});
+
+test("an Android tier upgrade charges the prorated price difference", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.packages = [nativePackage("team_5", "sync_team_5_monthly:monthly")];
+  fixture.customerInfo = {
+    entitlements: {
+      active: {
+        sync: {
+          productIdentifier: "sync_solo_monthly:monthly",
+          store: "PLAY_STORE",
+        },
+      },
+    },
+  };
+
+  await createCapacitorPurchases().purchaseSync({
+    organizationId: "org-1",
+    packageId: "team_5",
+  });
+
+  expect(fixture.purchaseCalls).toEqual([
+    {
+      identifier: "team_5",
+      storeProductChangeInfo: {
+        oldProductIdentifier: "sync_solo_monthly",
+        replacementMode: "CHARGE_PRORATED_PRICE",
+      },
+    },
+  ]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
+});
+
+test("an Android tier downgrade waits for the next renewal", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.packages = [nativePackage("team_5", "sync_team_5_monthly:monthly")];
+  fixture.customerInfo = {
+    entitlements: {
+      active: {
+        sync: {
+          productIdentifier: "sync_team_10_monthly:monthly",
+          store: "PLAY_STORE",
+        },
+      },
+    },
+  };
+
+  await createCapacitorPurchases().purchaseSync({
+    organizationId: "org-1",
+    packageId: "team_5",
+  });
+
+  expect(fixture.purchaseCalls).toEqual([
+    {
+      identifier: "team_5",
+      storeProductChangeInfo: {
+        oldProductIdentifier: "sync_team_10_monthly",
+        replacementMode: "DEFERRED",
+      },
+    },
+  ]);
   expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
@@ -337,15 +228,7 @@ test("survives a malformed package from the native bridge", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [{ identifier: "monthly" } as unknown as PurchasesPackage];
 
-  expect(await createCapacitorPurchases().listSyncOptions()).toEqual([
-    {
-      packageId: "monthly",
-      productId: "",
-      title: "",
-      description: "",
-      priceLabel: "",
-    },
-  ]);
+  expect(await createCapacitorPurchases().listSyncOptions()).toEqual([]);
 
   const result = await purchaseSync();
 

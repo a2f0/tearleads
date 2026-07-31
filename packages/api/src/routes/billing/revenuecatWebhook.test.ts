@@ -1,21 +1,24 @@
 import { beforeAll, expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  organizationBilling,
-  revenuecatWebhookEvents,
-  users,
-} from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { revenuecatWebhookEvents } from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  createOrganizationRequestBody,
+  submitCreateOrganization,
+} from "../../../test/helpers/api";
 import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
-import { registerUser } from "../../../test/helpers/registerUser";
-import { routeApp } from "../../routeApp";
+import {
+  postRevenueCatWebhook as postWebhook,
+  readOrganizationBilling as readBilling,
+  registerAndAuthenticate,
+  THIRTY_DAYS_MS,
+  REVENUECAT_WEBHOOK_SECRET as WEBHOOK_SECRET,
+  revenuecatWebhookBody as webhookBody,
+} from "../../../test/helpers/revenuecatWebhook";
 import { runRevenueCatWebhookWorkflow } from "../../workflows/billing/revenuecatWebhook";
 
-const WEBHOOK_SECRET = "Bearer test-revenuecat-secret";
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const LAPSED_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
 // Held in a variable so member access stays bracketed-by-variable, which both
 // tsc (no dot access on index signatures) and biome (no literal computed keys)
@@ -25,92 +28,6 @@ const AUTH_ENV_KEY = "REVENUECAT_WEBHOOK_AUTH_HEADER";
 beforeAll(() => {
   process.env[AUTH_ENV_KEY] = WEBHOOK_SECRET;
 });
-
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
-
-interface WebhookEventInput {
-  appUserId: string;
-  entitlementIds?: string[];
-  eventId?: string;
-  eventTimestampMs?: number;
-  expirationAtMs?: number | null;
-  originalTransactionId?: string | null;
-  organizationId: string;
-  productId?: string | null;
-  purchasedAtMs?: number | null;
-  transactionId?: string | null;
-  type: string;
-}
-
-function webhookBody(input: WebhookEventInput): string {
-  return JSON.stringify({
-    api_version: "1.0",
-    event: {
-      app_user_id: input.appUserId,
-      entitlement_ids: input.entitlementIds ?? ["sync"],
-      event_timestamp_ms: input.eventTimestampMs ?? Date.now(),
-      expiration_at_ms:
-        input.expirationAtMs === undefined
-          ? Date.now() + THIRTY_DAYS_MS
-          : input.expirationAtMs,
-      id: input.eventId ?? crypto.randomUUID(),
-      original_transaction_id: input.originalTransactionId,
-      product_id: input.productId,
-      purchased_at_ms: input.purchasedAtMs,
-      subscriber_attributes: { orgId: { value: input.organizationId } },
-      transaction_id: input.transactionId,
-      type: input.type,
-    },
-  });
-}
-
-async function postWebhook(
-  body: string,
-  authorization: string | null = WEBHOOK_SECRET,
-): Promise<Response> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(authorization !== null ? { Authorization: authorization } : {}),
-  };
-  return routeApp.request("/billing/revenuecat/webhook", {
-    body,
-    headers,
-    method: "POST",
-  });
-}
-
-async function readBilling(organizationId: string) {
-  const [row] = await db
-    .select({
-      currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
-      currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
-      disabledAt: organizationBilling.disabledAt,
-      entitlementId: organizationBilling.entitlementId,
-      provider: organizationBilling.provider,
-      providerCustomerId: organizationBilling.providerCustomerId,
-      providerProductId: organizationBilling.providerProductId,
-      providerSubscriptionId: organizationBilling.providerSubscriptionId,
-      providerTransactionId: organizationBilling.providerTransactionId,
-      purgeAfter: organizationBilling.purgeAfter,
-      seatCount: organizationBilling.seatCount,
-      status: organizationBilling.status,
-    })
-    .from(organizationBilling)
-    .where(eq(organizationBilling.organizationId, organizationId));
-  invariant(row, "expected billing row");
-  return row;
-}
 
 test("rejects a webhook with a missing or wrong authorization header", async () => {
   const admin = createTestUser();
@@ -184,6 +101,53 @@ test("an admin purchase activates org sync and records the provider", async () =
   expect(billing.seatCount).toBe(1);
   expect(billing.disabledAt).toBeNull();
   expect(billing.purgeAfter).toBeNull();
+});
+
+test("a native team purchase grants the fixed tier capacity", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await setTestOrganizationBillingLocal(organizationId);
+
+  const response = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      organizationId,
+      productId: "sync_team_5_monthly",
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+
+  expect(await response.json()).toEqual({ received: true, outcome: "applied" });
+  expect(await readBilling(organizationId)).toMatchObject({
+    providerProductId: "sync_team_5_monthly",
+    seatCount: 5,
+    status: "active",
+  });
+});
+
+test("a native purchase cannot fund a custom organization", async () => {
+  const admin = createTestUser();
+  const personalOrganizationId = await registerAndAuthenticate(admin);
+  const request = await createOrganizationRequestBody(admin);
+  const created = await submitCreateOrganization(admin, request);
+  expect(created.status).toBe(200);
+  expect(request.organizationId).not.toBe(personalOrganizationId);
+  await setTestOrganizationBillingLocal(request.organizationId);
+
+  const response = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      organizationId: request.organizationId,
+      productId: "sync_team_5_monthly",
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+
+  expect(await response.json()).toEqual({ received: true, outcome: "ignored" });
+  expect(await readBilling(request.organizationId)).toMatchObject({
+    providerCustomerId: null,
+    status: "local",
+  });
 });
 
 test("a duplicate event id is processed only once", async () => {
@@ -441,6 +405,7 @@ test("a Stripe-store grant defers end-to-end when the lookup fails", async () =>
       event_timestamp_ms: Date.now(),
       expiration_at_ms: Date.now() + THIRTY_DAYS_MS,
       id: eventId,
+      product_id: "p",
       store: "STRIPE",
       original_transaction_id: "sub_defer",
       subscriber_attributes: { orgId: { value: organizationId } },
@@ -449,7 +414,7 @@ test("a Stripe-store grant defers end-to-end when the lookup fails", async () =>
     new Date(),
     {
       stripe: {
-        env: { STRIPE_SECRET_KEY: "sk", STRIPE_SYNC_PRICE_ID: "p" },
+        env: { STRIPE_SECRET_KEY: "sk", STRIPE_SYNC_SOLO_PRICE_ID: "p" },
         fetchImpl: failingFetch,
       },
     },

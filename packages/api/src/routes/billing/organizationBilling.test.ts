@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBilling, users } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import { isOrganizationBillingResponse } from "@tearleads/validators/response";
+import {
+  isOrganizationBillingManagementUrlResponse,
+  isOrganizationBillingResponse,
+} from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -107,6 +110,64 @@ test("reading an expired trial reports disabled without writing on the read path
     .where(eq(organizationBilling.organizationId, organizationId));
   invariant(stored, "expected stored billing row");
   expect(stored.status).toBe("trialing");
+});
+
+test("management identifies Stripe and native subscription ownership", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const stripePriceEnvKey = "STRIPE_SYNC_SOLO_PRICE_ID";
+  const previousStripePrice = process.env[stripePriceEnvKey];
+  process.env[stripePriceEnvKey] = "price_solo_test";
+  try {
+    await db
+      .update(organizationBilling)
+      .set({
+        provider: "revenuecat",
+        providerProductId: "price_solo_test",
+        status: "active",
+      })
+      .where(eq(organizationBilling.organizationId, organizationId));
+
+    const stripeResponse = await routeApp.request(
+      `/organizations/${organizationId}/billing/management-url`,
+      { headers: authHeader(admin) },
+    );
+    const stripeManagement = await stripeResponse.json();
+    invariant(
+      isOrganizationBillingManagementUrlResponse(stripeManagement),
+      "expected Stripe management response",
+    );
+    expect(stripeManagement).toEqual({
+      canCancelDirectly: true,
+      managementUrl: null,
+      subscriptionSource: "stripe",
+    });
+
+    await db
+      .update(organizationBilling)
+      .set({ providerProductId: "sync_team_5_monthly" })
+      .where(eq(organizationBilling.organizationId, organizationId));
+    const nativeResponse = await routeApp.request(
+      `/organizations/${organizationId}/billing/management-url`,
+      { headers: authHeader(admin) },
+    );
+    const nativeManagement = await nativeResponse.json();
+    invariant(
+      isOrganizationBillingManagementUrlResponse(nativeManagement),
+      "expected native management response",
+    );
+    expect(nativeManagement).toEqual({
+      canCancelDirectly: false,
+      managementUrl: null,
+      subscriptionSource: "native",
+    });
+  } finally {
+    if (previousStripePrice === undefined) {
+      delete process.env[stripePriceEnvKey];
+    } else {
+      process.env[stripePriceEnvKey] = previousStripePrice;
+    }
+  }
 });
 
 test("a non-member cannot read or change another org's billing", async () => {

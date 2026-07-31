@@ -38,7 +38,7 @@ import { OrganizationView } from "./organization/OrganizationView";
 import { OrgSwitcher } from "./organization/OrgSwitcher";
 import "./OrgManager.css";
 
-function renderRosterProfileEditor(organizationId: string) {
+function renderRosterEdit(organizationId: string) {
   return ({
     canEdit,
     isEditing,
@@ -66,7 +66,7 @@ function OrgManagerDirectoryContent({
   revokeGrant,
 }: {
   model: OrgManagerModel;
-  renderProfileEditor: ReturnType<typeof renderRosterProfileEditor>;
+  renderProfileEditor: ReturnType<typeof renderRosterEdit>;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
   return (
@@ -113,11 +113,9 @@ function OrgManagerContent({
   organizationId: string;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
-  const billing = useOrganizationBilling();
-  const billingMatchesOrganization =
-    billing.billing?.organizationId === organizationId;
+  const b = useOrganizationBilling();
   const renderProfileEditor = useMemo(
-    () => renderRosterProfileEditor(organizationId),
+    () => renderRosterEdit(organizationId),
     [organizationId],
   );
 
@@ -165,17 +163,19 @@ function OrgManagerContent({
     return (
       <DataUsageView
         canSync={
-          billingMatchesOrganization ? (billing.view?.canSync ?? null) : null
+          b.billing?.organizationId === organizationId
+            ? (b.view?.canSync ?? null)
+            : null
         }
         dataUsage={model.dataUsage}
         pending={model.dataUsagePending}
       />
     );
   }
-
   if (model.view === "billing") {
     return (
       <BillingPanel
+        isPersonalOrganization={model.defaultOrganizationId === organizationId}
         isOrgAdmin={model.isOrgAdmin}
         organizationId={organizationId}
         userId={model.userId}

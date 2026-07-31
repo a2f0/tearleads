@@ -373,16 +373,16 @@ class OrganizationsService implements Organizations {
         })
       : Promise.resolve(null);
   }
-
   loadStripeCheckoutOptions() {
     const runtime = this.runtimeService.workflowInput();
-    // Options are org-independent (one sync price), but stay behind auth so
-    // an unauthenticated shell never shows a purchasable list.
-    return authenticatedOrganizationId(runtime)
-      ? loadStripeCheckoutOptions({ apiClient: runtime.apiClient })
+    const organizationId = authenticatedOrganizationId(runtime);
+    return organizationId
+      ? loadStripeCheckoutOptions({
+          apiClient: runtime.apiClient,
+          organizationId,
+        })
       : Promise.resolve(null);
   }
-
   createStripeCheckout() {
     const runtime = this.runtimeService.workflowInput();
     const organizationId = authenticatedOrganizationId(runtime);

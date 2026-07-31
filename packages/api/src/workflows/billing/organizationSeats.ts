@@ -8,13 +8,19 @@ import {
   organizationBillingSeatEvents,
   organizations,
 } from "@tearleads/api-shared/schema";
+import {
+  getSyncBillingTierForNativeProduct,
+  getSyncBillingTierForSeatCount,
+} from "@tearleads/validators/billing";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
   organizationCanSync,
   organizationSeatPeriodKey,
 } from "../../billing/organizationBilling";
+import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
+import { requiredLicensedSeatCount } from "./organizationSeatCapacity";
 import { requestOrganizationStripeSeatSync } from "./stripeSeatState";
 
 type SeatAssignmentInsert =
@@ -35,6 +41,7 @@ interface BillingSeatState {
   readonly trialEndsAt: Date | null;
   readonly currentPeriodStartsAt: Date | null;
   readonly currentPeriodEndsAt: Date | null;
+  readonly providerProductId: string | null;
   readonly seatCount: number;
   readonly seatPeriodKey: string | null;
 }
@@ -42,15 +49,6 @@ interface BillingSeatState {
 interface OpenSeatAssignment {
   readonly id: string;
   readonly userId: string;
-}
-
-function requiredLicensedSeatCount(
-  billing: BillingSeatState,
-  activeSeatCount: number,
-): number {
-  return billing.status === "active"
-    ? Math.max(1, activeSeatCount)
-    : activeSeatCount;
 }
 
 function buildSeatEvent(input: {
@@ -90,6 +88,7 @@ async function loadBillingSeatState(input: {
       trialEndsAt: organizationBilling.trialEndsAt,
       currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
       currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
+      providerProductId: organizationBilling.providerProductId,
       seatCount: organizationBilling.seatCount,
       seatPeriodKey: organizationBilling.seatPeriodKey,
     })
@@ -409,6 +408,10 @@ export async function reconcileOrganizationBillingSeats(input: {
     executor: input.executor,
     groupId: billing.memberGroupId,
   });
+  // Validate fixed native capacity before changing assignments. Stripe-funded
+  // organizations upgrade through the durable provider outbox below; native
+  // organizations must first complete a store product change.
+  requiredLicensedSeatCount(billing, activeUserIds.length);
   const openAssignments = await listOpenSeatAssignments({
     executor: input.executor,
     organizationId: input.organizationId,
@@ -456,14 +459,24 @@ export async function reconcileOrganizationBillingSeats(input: {
     .update(organizationBilling)
     .set({ seatPeriodKey: nextSeatPeriodKey, updatedAt: now })
     .where(eq(organizationBilling.organizationId, input.organizationId));
-  await requestOrganizationStripeSeatSync({
-    desiredPaidCapacity: Math.max(licensedSeatCount, activeUserIds.length),
-    desiredRenewalQuantity: activeUserIds.length,
-    desiredSeatPeriodKey: nextSeatPeriodKey,
-    executor: input.executor,
-    now,
-    organizationId: input.organizationId,
-  });
+  const nativeTier = getSyncBillingTierForNativeProduct(
+    billing.providerProductId,
+  );
+  if (!nativeTier) {
+    const renewalTier = getSyncBillingTierForSeatCount(activeUserIds.length);
+    await requestOrganizationStripeSeatSync({
+      desiredPaidCapacity: Math.max(licensedSeatCount, activeUserIds.length),
+      desiredRenewalQuantity:
+        getSyncBillingTierForStripePrice(billing.providerProductId) &&
+        renewalTier
+          ? renewalTier.seatLimit
+          : activeUserIds.length,
+      desiredSeatPeriodKey: nextSeatPeriodKey,
+      executor: input.executor,
+      now,
+      organizationId: input.organizationId,
+    });
+  }
 
   await insertSeatEvents(input.executor, events);
 }

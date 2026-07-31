@@ -13,7 +13,9 @@ import {
 
 const ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_PRICE_ID: "price_sync",
+  STRIPE_SYNC_SOLO_PRICE_ID: "price_solo",
+  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_sync",
+  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
 };
 
 const SYNC_SUBSCRIPTION_INPUT = {
@@ -71,11 +73,13 @@ test("sync option maps the price with its product, pinned API version", async ()
       },
     },
   ]);
-  const option = await getStripeSyncOption({ env: ENV, fetchImpl });
+  const option = await getStripeSyncOption("team_5", { env: ENV, fetchImpl });
 
   expect(option).toEqual({
+    tierId: "team_5",
+    seatLimit: 5,
     priceId: "price_sync",
-    productName: "Sync",
+    productName: "Team (up to 5)",
     currency: "usd",
     unitAmount: 499,
     interval: "month",
@@ -174,7 +178,7 @@ test("an existing incomplete subscription is resumed, not duplicated", async () 
           userId: "user-1",
           orgId: "org-1",
         },
-        items: { data: [{ price: { id: "price_sync" }, quantity: 2 }] },
+        items: { data: [{ price: { id: "price_sync" }, quantity: 1 }] },
         latest_invoice: { payment_intent: { client_secret: "pi_resume" } },
       },
     },
@@ -374,13 +378,13 @@ test("a cancellation without a resolved date still reports success", async () =>
 test("a failed Stripe request surfaces as StripeApiError with its status", async () => {
   const { fetchImpl } = fakeFetch([{ status: 500, body: {} }]);
   await expect(
-    getStripeSyncOption({ env: ENV, fetchImpl }),
+    getStripeSyncOption("solo", { env: ENV, fetchImpl }),
   ).rejects.toBeInstanceOf(StripeApiError);
 });
 
 test("unconfigured environments read as null, never a network call", async () => {
   const { fetchImpl, requests } = fakeFetch([]);
-  expect(await getStripeSyncOption({ env: {}, fetchImpl })).toBeNull();
+  expect(await getStripeSyncOption("solo", { env: {}, fetchImpl })).toBeNull();
   expect(
     await findOrCreateCustomer(
       { userId: "u", organizationId: "o" },

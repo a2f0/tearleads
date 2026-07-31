@@ -56,6 +56,8 @@ function props(overrides: Partial<BillingViewProps>): BillingViewProps {
 }
 
 const OPTION: SyncSubscriptionOption = {
+  tierId: "solo",
+  seatLimit: 1,
   packageId: "monthly",
   productId: "sync_monthly",
   title: "Sync",
@@ -230,6 +232,24 @@ test("platforms without purchases show the unavailable-purchases hint", () => {
   expect(
     view.getByText(ORG_MANAGER_LABELS.billingPurchaseUnavailable),
   ).toBeDefined();
+});
+
+test("native checkout directs custom organizations to the web", () => {
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({ status: "disabled", isLocal: false }),
+        nativePurchaseRestricted: true,
+        purchaseAvailable: false,
+      })}
+    />,
+  );
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.billingCustomOrganizationWebOnly),
+  ).toBeDefined();
+  expect(
+    view.queryByText(ORG_MANAGER_LABELS.billingPurchaseUnavailable),
+  ).toBeNull();
 });
 
 test("the direct-checkout path shows no subscribe list and no unavailable hint", () => {

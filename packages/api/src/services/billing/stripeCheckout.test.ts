@@ -13,9 +13,9 @@ import {
   createStripeCheckout,
   createStripeCheckoutSession,
   createStripePortalUrl,
-  getStripeCheckoutOptions,
   processStripeWebhook,
 } from "./stripeCheckout";
+import { getStripeCheckoutOptions } from "./stripeCheckoutOptions";
 
 async function registerAndAuthenticate(user: TestUser): Promise<string> {
   await registerUser(user);
@@ -31,7 +31,9 @@ async function registerAndAuthenticate(user: TestUser): Promise<string> {
 const WEBHOOK_SECRET = "whsec_test";
 const STRIPE_ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_PRICE_ID: "price_sync",
+  STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET,
 };
 const REVENUECAT_ENV = {
@@ -127,13 +129,20 @@ test("a paid invoice with no Stripe API config asks for redelivery", async () =>
 });
 
 test("options stay empty until the WHOLE flow is configured", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
   const urls: string[] = [];
   // Stripe fully configured, RevenueCat association not: offering checkout
   // would charge buyers for subscriptions that can never grant entitlements.
-  const result = await getStripeCheckoutOptions({
-    stripe: { env: STRIPE_ENV, fetchImpl: respondingFetch([], urls) },
-    revenueCat: { env: {} },
-  });
+  const result = await getStripeCheckoutOptions(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    {
+      stripe: { env: STRIPE_ENV, fetchImpl: respondingFetch([], urls) },
+      revenueCat: { env: {} },
+    },
+  );
   expect(result).toEqual({ options: [] });
   expect(urls).toHaveLength(0);
 });
@@ -152,7 +161,9 @@ test("the portal ignores a subscription whose metadata names another org", async
   const organizationId = await registerAndAuthenticate(admin);
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
-    STRIPE_SYNC_PRICE_ID: "price_sync",
+    STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+    STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+    STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   };
   // The subscription is resolved by searching Stripe on our `orgId` metadata.
   // A result whose metadata does NOT match must never yield a portal, so a
@@ -189,7 +200,9 @@ test("the portal returns a session for the org's live subscription", async () =>
   const organizationId = await registerAndAuthenticate(admin);
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
-    STRIPE_SYNC_PRICE_ID: "price_sync",
+    STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+    STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+    STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   };
   // 1st call: search resolves the org's live sub + customer. 2nd: the portal
   // session POST, which must target THAT customer.
@@ -238,7 +251,9 @@ test("cancel schedules the period end for the org's live subscription", async ()
   const organizationId = await registerAndAuthenticate(admin);
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
-    STRIPE_SYNC_PRICE_ID: "price_sync",
+    STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+    STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+    STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   };
   // 1st call: search resolves the org's live sub. 2nd: the cancel POST.
   const paths: string[] = [];
@@ -289,7 +304,9 @@ test("cancel resolves the Stripe sub_ even when the billing row holds an si_ id"
     .where(eq(organizationBilling.organizationId, organizationId));
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
-    STRIPE_SYNC_PRICE_ID: "price_sync",
+    STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+    STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+    STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   };
   const fetchImpl = (async (input: RequestInfo | URL) => {
     const path = String(input);
@@ -326,7 +343,9 @@ test("cancel does nothing when the org has only an incomplete subscription", asy
   const organizationId = await registerAndAuthenticate(admin);
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
-    STRIPE_SYNC_PRICE_ID: "price_sync",
+    STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+    STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+    STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   };
   // An abandoned checkout leaves an `incomplete` subscription: nothing is
   // billing, so there is nothing to cancel and no POST must fire.
@@ -461,7 +480,9 @@ test("a Stripe-side live subscription makes checkout a 409", async () => {
 
   const fullEnv = {
     STRIPE_SECRET_KEY: "sk_test",
-    STRIPE_SYNC_PRICE_ID: "price_sync",
+    STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+    STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+    STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
     STRIPE_WEBHOOK_SECRET: "whsec",
     REVENUECAT_V2_SECRET_KEY: "sk_rc",
     REVENUECAT_PROJECT_ID: "proj_1",

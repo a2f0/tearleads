@@ -10,6 +10,7 @@ import {
   resolveStripeStoreOrganizationId,
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
+import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
 
 type StripeResolutionSource = "durable" | "provider";
 
@@ -18,6 +19,8 @@ export type ImmutableStripeStoreOrgResolution =
       kind: "resolved";
       identifiers: readonly string[];
       organizationId: string;
+      priceId: string | null;
+      seatCount: number | null;
       source: StripeResolutionSource;
     }
   | { kind: "none" }
@@ -60,6 +63,7 @@ function bindingMatchesIdentifiers(
 async function resolveDurableStripeStoreOrganizationId(
   db: ApiDatabase,
   event: RevenueCatWebhookEvent,
+  deps: StripeApiDeps,
 ): Promise<ImmutableStripeStoreOrgResolution> {
   if (event.store?.toUpperCase() !== "STRIPE") {
     return { kind: "none" };
@@ -71,6 +75,7 @@ async function resolveDurableStripeStoreOrganizationId(
   const rows = await db
     .select({
       organizationId: organizationBillingStripeSeats.organizationId,
+      priceId: organizationBillingStripeSeats.priceId,
       subscriptionId: organizationBillingStripeSeats.subscriptionId,
       subscriptionItemId: organizationBillingStripeSeats.subscriptionItemId,
     })
@@ -93,10 +98,13 @@ async function resolveDurableStripeStoreOrganizationId(
   ) {
     return { kind: "error" };
   }
+  const tier = getSyncBillingTierForStripePrice(binding.priceId, deps);
   return {
     identifiers,
     kind: "resolved",
     organizationId: binding.organizationId,
+    priceId: binding.priceId,
+    seatCount: tier?.seatLimit ?? null,
     source: "durable",
   };
 }
@@ -110,6 +118,7 @@ export async function resolveImmutableStripeStoreOrganizationId(
   const durableResolution = await resolveDurableStripeStoreOrganizationId(
     db,
     event,
+    deps,
   );
   if (durableResolution.kind !== "none") {
     return durableResolution;
@@ -139,6 +148,8 @@ export async function resolveImmutableStripeStoreOrganizationId(
     identifiers,
     kind: "resolved",
     organizationId: providerResolution.organizationId,
+    priceId: providerResolution.priceId,
+    seatCount: providerResolution.seatCount,
     source: "provider",
   };
 }

@@ -1,5 +1,5 @@
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
-import { useCallback, useRef } from "react";
+import { type RefObject, useCallback, useRef } from "react";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
 import { BillingCancelSubscription } from "./BillingCancelSubscription";
@@ -30,21 +30,12 @@ function useDirectCheckoutWiring(input: {
   readonly organizationId: string;
   readonly userId: string | null;
   readonly view: OrganizationBillingView | null;
-  readonly reloadToken: unknown;
   readonly refresh: () => Promise<void>;
   readonly onPaid: () => void;
+  readonly management: ReturnType<typeof useBillingManagementUrl>;
 }) {
   const { view } = input;
   const cancel = useCancelSubscription({ refresh: input.refresh });
-  // Resolve the provider manage link here too: it is both rendered by the view
-  // and the signal that a subscription is provider-managed rather than ours.
-  // Only for an admin of an org with a provider-managed sub (active or lapsed)
-  // — not a local or free-trial org, which has no provider customer.
-  const managementUrl = useBillingManagementUrl(
-    input.organizationId,
-    input.isOrgAdmin && view !== null && !view.isLocal && !view.isTrialing,
-    input.reloadToken,
-  );
   // Gate on `isActive`, NOT `canSync`. `canSync` folds in trialing, which would
   // hide the checkout for the whole trial; a trialing org has no subscription
   // yet (the trial is a local status, no Stripe sub) and its admin may want to
@@ -84,36 +75,96 @@ function useDirectCheckoutWiring(input: {
     checkout.phase.kind === "collecting" ||
     checkout.phase.kind === "confirming" ||
     checkout.phase.kind === "starting";
-  // Offer inline cancel ONLY for a subscription bought through our own
-  // checkout. The snapshot carries no provider field, so two signals stand in
-  // for one:
-  //   - `isActive`, not `canSync` — a TRIALING org has no subscription to
-  //     cancel, and canSync folds trialing in.
-  //   - no provider manage link — a RevenueCat-managed sub (a store purchase)
-  //     resolves one, rendered above; a Stripe-direct sub
-  //     has no RC customer, so it is absent. This keeps a phone-bought sub,
-  //     opened on web, from showing a Cancel that could only 404.
+  // Offer inline cancel only when the server recognizes the immutable Stripe
+  // Price. `isActive`, not `canSync`, excludes a local free trial; a native
+  // subscription instead exposes its store management URL.
   const showInlineCancel =
-    checkout.available &&
     input.isOrgAdmin &&
     (view?.isActive ?? false) &&
-    managementUrl === null;
+    input.management.canCancelDirectly;
   return {
     cancel,
     checkout,
     checkoutActive,
     checkoutEnabled,
-    managementUrl,
+    managementUrl: input.management.managementUrl,
     showInlineCancel,
   };
 }
 
+function BillingPanelSubscriptionControls(input: {
+  readonly actions: ReturnType<typeof useBillingActions>;
+  readonly billing: ReturnType<typeof useOrganizationBilling>;
+  readonly checkoutHostRef: RefObject<HTMLDivElement | null>;
+  readonly direct: ReturnType<typeof useDirectCheckoutWiring>;
+  readonly isOrgAdmin: boolean;
+  readonly isPersonalOrganization: boolean;
+  readonly nativePurchaseAllowed: boolean;
+  readonly onRefresh: () => void;
+  readonly subscriptionManagement: ReturnType<
+    typeof useOpenSubscriptionManagement
+  >;
+}) {
+  const { actions, billing, direct } = input;
+  const nativePurchaseAvailable =
+    actions.purchaseAvailable &&
+    input.nativePurchaseAllowed &&
+    !direct.checkout.available;
+  const purchaseSectionHidden =
+    (billing.view?.isActive ?? false) && !nativePurchaseAvailable;
+  return (
+    <>
+      <BillingView
+        actionError={input.subscriptionManagement.error ?? actions.actionError}
+        activationPending={actions.activationPending}
+        busy={direct.checkoutActive ? "checkout" : actions.busy}
+        canSubscribe={actions.canSubscribe}
+        checkoutActive={actions.checkoutActive}
+        checkoutHostRef={input.checkoutHostRef}
+        directCheckoutAvailable={direct.checkout.available}
+        embeddedCheckout={actions.embeddedCheckout}
+        error={billing.error}
+        isOrgAdmin={input.isOrgAdmin}
+        loading={billing.loading}
+        managementUrl={direct.managementUrl}
+        nativePurchaseRestricted={
+          actions.purchaseAvailable && !input.isPersonalOrganization
+        }
+        onCancelCheckout={actions.cancelCheckout}
+        onManageSubscription={input.subscriptionManagement.open}
+        onRefresh={input.onRefresh}
+        onRestore={actions.restore}
+        onStartTrial={actions.startTrial}
+        onSubscribe={actions.subscribe}
+        options={actions.options}
+        purchaseAvailable={nativePurchaseAvailable}
+        purchaseSectionHidden={purchaseSectionHidden}
+        view={billing.view}
+      />
+      {direct.checkoutEnabled ? (
+        <BillingDirectCheckout
+          checkout={direct.checkout}
+          disabled={actions.busy !== null || actions.activationPending}
+        />
+      ) : null}
+      {direct.showInlineCancel ? (
+        <BillingCancelSubscription
+          cancel={direct.cancel}
+          disabled={actions.busy !== null}
+        />
+      ) : null}
+    </>
+  );
+}
+
 export function BillingPanel({
   isOrgAdmin,
+  isPersonalOrganization = true,
   organizationId,
   userId,
 }: {
   isOrgAdmin: boolean;
+  isPersonalOrganization?: boolean;
   organizationId: string;
   userId: string | null;
 }) {
@@ -123,11 +174,27 @@ export function BillingPanel({
     void refresh();
   }, [refresh]);
   const subscriptionManagement = useOpenSubscriptionManagement(handleRefresh);
+  // Resolve the owner of an existing subscription before offering provider
+  // actions. Native plans may change tier through the store; an active Stripe
+  // plan must never be duplicated by starting a second native subscription.
+  const management = useBillingManagementUrl(
+    organizationId,
+    isOrgAdmin &&
+      billing.view !== null &&
+      !billing.view.isLocal &&
+      !billing.view.isTrialing,
+    billing.billing,
+  );
+  const nativePurchaseAllowed =
+    isPersonalOrganization &&
+    (!(billing.view?.isActive ?? false) ||
+      management.subscriptionSource === "native");
   // Where the Web Billing checkout embeds so a purchase runs inside the panel
   // (the view keeps the div mounted; the hook reads it at purchase time).
   const checkoutHostRef = useRef<HTMLDivElement | null>(null);
   const actions = useBillingActions({
     isOrgAdmin,
+    nativePurchaseAllowed,
     billingCanSync: billing.view?.canSync ?? false,
     checkoutHostRef,
     organizationId,
@@ -142,79 +209,29 @@ export function BillingPanel({
     isOrgAdmin,
     billing.billing,
   );
-  const {
-    cancel,
-    checkout,
-    checkoutActive,
-    checkoutEnabled,
-    managementUrl,
-    showInlineCancel,
-  } = useDirectCheckoutWiring({
+  const direct = useDirectCheckoutWiring({
     isOrgAdmin,
     organizationId,
     userId,
     view: billing.view,
-    // The billing snapshot is the reload token so a refresh re-resolves links.
-    reloadToken: billing.billing,
     refresh,
     onPaid: actions.markActivationPending,
+    management,
   });
 
   return (
     <div>
-      <BillingView
-        actionError={subscriptionManagement.error ?? actions.actionError}
-        activationPending={actions.activationPending}
-        busy={checkoutActive ? "checkout" : actions.busy}
-        canSubscribe={actions.canSubscribe}
-        checkoutActive={actions.checkoutActive}
+      <BillingPanelSubscriptionControls
+        actions={actions}
+        billing={billing}
         checkoutHostRef={checkoutHostRef}
-        embeddedCheckout={actions.embeddedCheckout}
-        error={billing.error}
+        direct={direct}
         isOrgAdmin={isOrgAdmin}
-        loading={billing.loading}
-        managementUrl={managementUrl}
-        onManageSubscription={subscriptionManagement.open}
-        onCancelCheckout={actions.cancelCheckout}
+        isPersonalOrganization={isPersonalOrganization}
+        nativePurchaseAllowed={nativePurchaseAllowed}
         onRefresh={handleRefresh}
-        onRestore={actions.restore}
-        onStartTrial={actions.startTrial}
-        onSubscribe={actions.subscribe}
-        options={actions.options}
-        // Where our own card checkout can run (web + a Stripe key), it is the
-        // purchase path — rendering RevenueCat's subscribe list too would put
-        // two near-identical "Sync / Subscribe" rows in the panel. Native
-        // shells have no direct checkout, so `available` is false there and
-        // they keep the provider-hosted store sheet.
-        purchaseAvailable={actions.purchaseAvailable && !checkout.available}
-        // Suppress the "purchases unavailable" notice when the direct checkout
-        // IS the purchase path (it renders below). Without this, turning the RC
-        // list off above would surface that notice on every web build with a
-        // Stripe key.
-        directCheckoutAvailable={checkout.available}
-        view={billing.view}
+        subscriptionManagement={subscriptionManagement}
       />
-      {/*
-        Only offer a purchase the org can actually make: an already-ACTIVE org
-        (not merely one that syncs — a trial syncs too) would get a server 409
-        on a second checkout, surfaced as a generic failure. See the gate above.
-      */}
-      {checkoutEnabled ? (
-        <BillingDirectCheckout
-          checkout={checkout}
-          // `activationPending` too: after a payment the org still cannot
-          // sync until the webhook lands, so the Subscribe row would come
-          // back and a second checkout would 409 into a generic failure.
-          disabled={actions.busy !== null || actions.activationPending}
-        />
-      ) : null}
-      {/* Gated in useDirectCheckoutWiring: active, ours (no provider link). */}
-      {showInlineCancel ? (
-        <BillingCancelSubscription
-          cancel={cancel}
-          disabled={actions.busy !== null}
-        />
-      ) : null}
       {isOrgAdmin ? (
         <BillingHistory
           entries={history.entries}

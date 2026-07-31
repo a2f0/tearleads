@@ -1,6 +1,9 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { StripeApiDeps } from "../../billing/stripeApi";
-import { StripeApiError } from "../../billing/stripeHttp";
+import {
+  getSyncBillingTierForStripePrice,
+  StripeApiError,
+} from "../../billing/stripeHttp";
 import {
   getPaidSubscriptionInvoice,
   type StripePaidSubscriptionInvoiceLookup,
@@ -103,6 +106,7 @@ function createStripeInvoiceAuditInput(input: {
   readonly binding: StripeSubscriptionBinding;
   readonly invoice: StripePaidSubscriptionInvoice;
   readonly organizationId: string;
+  readonly stripeDeps: StripeApiDeps;
 }): StripeInvoiceAuditInput | null {
   const totalOnlySnapshot = createTotalOnlyAuditInput(input);
   if (!totalOnlySnapshot || input.invoice.linesHasMore !== false) {
@@ -128,7 +132,9 @@ function createStripeInvoiceAuditInput(input: {
     periodEndsAt: line.periodEndsAt,
     periodStartsAt: line.periodStartsAt,
     priceId: line.priceId,
-    seatCount: line.quantity,
+    seatCount:
+      getSyncBillingTierForStripePrice(line.priceId, input.stripeDeps)
+        ?.seatLimit ?? line.quantity,
     unitAmount: line.unitAmount,
   };
 }

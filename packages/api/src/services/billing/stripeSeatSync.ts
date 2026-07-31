@@ -1,4 +1,6 @@
+import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import type { StripeApiDeps } from "../../billing/stripeApi";
+import { getStripePriceIdForTier } from "../../billing/stripeHttp";
 import {
   normalizeStripeSeatQuantity,
   updateSubscriptionItemQuantity,
@@ -61,9 +63,6 @@ function validateSeatBinding(
     !binding.seatQuantity
   ) {
     throw new Error("Stripe subscription has no valid organization seat item");
-  }
-  if (binding.priceId !== claim.priceId) {
-    throw new Error("Stripe subscription seat price changed unexpectedly");
   }
   return {
     billingPeriodEndsAt: binding.billingPeriodEndsAt,
@@ -219,6 +218,7 @@ async function synchronizeClaim(
         stripe: deps.stripe,
         subscriptionItemId: binding.subscriptionItemId,
       });
+      observedQuantity = operationTarget;
     }
     paidCapacity = operationTarget;
   } else if (operationTarget) {
@@ -232,7 +232,11 @@ async function synchronizeClaim(
     normalizeStripeSeatQuantity(claim.desiredRenewalQuantity),
     paidCapacity,
   );
-  if (observedQuantity !== desiredQuantity || operationId !== null) {
+  const desiredTier = getSyncBillingTierForSeatCount(desiredQuantity);
+  if (!desiredTier) {
+    throw new Error("Stripe seat target has no configured billing tier");
+  }
+  if (observedQuantity !== desiredQuantity) {
     await setQuantity({
       claim,
       idempotencyKey:
@@ -251,7 +255,9 @@ async function synchronizeClaim(
     billingPeriodEndsAt: binding.billingPeriodEndsAt,
     billingPeriodStartsAt: binding.billingPeriodStartsAt,
     observedQuantity,
-    priceId: binding.priceId,
+    priceId:
+      getStripePriceIdForTier(desiredTier.id, deps.stripe ?? {}) ??
+      binding.priceId,
     subscriptionItemId: binding.subscriptionItemId,
   };
 }

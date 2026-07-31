@@ -267,7 +267,48 @@ test("a migrated row initializes its period key without losing paid capacity", a
     .from(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
   expect(stripeSeats).toMatchObject({
-    desiredPaidCapacity: 3,
-    desiredRenewalQuantity: 2,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
   });
+});
+
+test("a native fixed tier blocks membership beyond its capacity", async () => {
+  const { memberGroupId, organizationId } = await createBillableOrganization();
+  const userA = crypto.randomUUID();
+  const userB = crypto.randomUUID();
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerProductId: "sync_solo_monthly",
+      seatCount: 1,
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: userA,
+    stateHash: "native-solo-state",
+    userIds: [userA, userB],
+    version: 1,
+  });
+
+  expect(
+    reconcileOrganizationBillingSeats({
+      executor: db,
+      now: NOW,
+      organizationId,
+      source: {
+        sourceId: "native-solo-state",
+        sourceType: "principal_state",
+      },
+    }),
+  ).rejects.toThrow(
+    "Upgrade the subscription before adding more than 1 members",
+  );
+  expect(await readSeatCount(organizationId)).toBe(1);
+  const stripeRows = await db
+    .select()
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  expect(stripeRows).toHaveLength(0);
 });

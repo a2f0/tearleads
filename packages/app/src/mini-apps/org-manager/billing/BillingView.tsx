@@ -49,6 +49,10 @@ export interface BillingViewProps {
    * unavailable notice even though a purchase path exists.
    */
   readonly directCheckoutAvailable?: boolean;
+  /** Native checkout is present, but custom organizations must subscribe on web. */
+  readonly nativePurchaseRestricted?: boolean;
+  /** Existing subscription is owned elsewhere, so no purchase prompt belongs here. */
+  readonly purchaseSectionHidden?: boolean;
   /** Whether the admin can actually purchase (platform supports it and the buyer is known). */
   readonly canSubscribe: boolean;
   /**
@@ -262,12 +266,17 @@ function BillingPurchaseSection({
 }: Omit<BillingViewProps, "view" | "loading" | "managementUrl"> & {
   readonly checkoutHostRef: Ref<HTMLDivElement>;
 }) {
+  if (props.purchaseSectionHidden) {
+    return null;
+  }
   if (!props.purchaseAvailable) {
     // Direct checkout is the path → render nothing (it mounts below); only a
     // total absence of any purchase path shows the notice.
     return props.directCheckoutAvailable ? null : (
       <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.billingPurchaseUnavailable}
+        {props.nativePurchaseRestricted
+          ? ORG_MANAGER_LABELS.billingCustomOrganizationWebOnly
+          : ORG_MANAGER_LABELS.billingPurchaseUnavailable}
       </MiniAppStatus>
     );
   }

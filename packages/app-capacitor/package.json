@@ -55,6 +55,7 @@
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/encoding": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
+    "@tearleads/validators": "workspace:*",
     "app": "workspace:*",
     "react": "catalog:react",
     "react-dom": "catalog:react"

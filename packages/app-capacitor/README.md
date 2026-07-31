@@ -12,8 +12,8 @@ VITE_REVENUECAT_IOS_API_KEY=test_... ./scripts/runIos.sh
 VITE_REVENUECAT_ANDROID_API_KEY=test_... ./scripts/runAndroid.sh
 ```
 
-The current RevenueCat offering contains the Test Store `sync_monthly` product,
-so this path can exercise package loading, the purchase sheet, entitlement
+The RevenueCat offering contains Solo, Team 5, and Team 10 Test Store products,
+so this path can exercise fixed-tier package loading, the purchase sheet, entitlement
 activation, cancellation, and restore without App Store Connect or Play Console
 setup. The Test Store key must never be used for an App Store, TestFlight, or
 Google Play release.

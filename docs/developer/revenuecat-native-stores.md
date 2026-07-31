@@ -4,14 +4,17 @@ How the App Store and Play Store lane differs from the web lane described in
 [revenuecat-billing.md](./revenuecat-billing.md). Web sells through direct Stripe
 checkout and keeps RevenueCat only for entitlement mirroring; the native shells
 have no direct-checkout capability, so they keep RevenueCat's provider-hosted
-store sheet.
+store sheet. Native purchases can fund only the buyer's personal organization;
+the mobile billing panel directs custom-organization admins to web checkout.
 
 ## The client adapter
 
-The billing panel expresses the split as one gate — `purchaseAvailable &&
-!checkout.available` in `BillingPanel` — rather than a per-platform branch: web
-supplies `createDirectCheckout` and so hides the RevenueCat subscribe list,
-Capacitor supplies only `createPurchases` and so keeps it.
+The billing panel expresses the split through injected capabilities rather than
+a per-platform branch: web supplies `createDirectCheckout` and hides the
+RevenueCat subscribe list; Capacitor supplies only `createPurchases` and keeps
+it for personal organizations. An active native subscription may still show
+the list for tier changes, while an active Stripe subscription never offers a
+second native purchase.
 
 [`capacitorPurchases.ts`](../../packages/app-capacitor/src/capacitorPurchases.ts)
 adapts `@revenuecat/purchases-capacitor` to the shared `RevenueCatBackend`. What
@@ -51,7 +54,9 @@ is specific to the native bridge, as opposed to the web one:
   subscriber attribute immediately before the purchase and the webhook resolves
   against it. Unlike the Web Billing metadata this is **mutable** — a later
   purchase for another org overwrites it — so it cannot attribute a purchase
-  that completes after another has started.
+  that completes after another has started. The server therefore accepts the
+  grant only when the attributed organization is still the buyer's personal
+  organization.
 
 The key is selected by `Capacitor.getPlatform()`, and the Capacitor web preview
 (`cap run` in a browser) always gets the unavailable stub: it has no store
@@ -60,8 +65,8 @@ bridge, regardless of which keys are inlined.
 ## Fastest path: RevenueCat Test Store
 
 Use the Test Store first to prove the app-side flow before waiting on App Store
-Connect or Play Console. The project's current `default` offering already has a
-`$rc_monthly` package whose Test Store product is `sync_monthly`, attached to
+Connect or Play Console. The `default` offering should contain `solo`, `team_5`,
+and `team_10` packages backed by matching Test Store products and attached to
 the `sync` entitlement. `@revenuecat/purchases-capacitor` 13.2.1 is newer than
 RevenueCat's minimum Test Store-compatible Capacitor SDK (11.2.6).
 
@@ -86,7 +91,7 @@ VITE_REVENUECAT_IOS_API_KEY=test_... \
 Then sign in, open Organization Manager → Billing as an organization admin, and
 verify this sequence:
 
-1. The `Sync` monthly option and its price load from the current offering.
+1. Solo ($5), Team up to 5 ($10), and Team up to 10 ($20) load from the current offering.
 2. Subscribe opens the RevenueCat Test Store sheet; cancelling returns without
    a failure message.
 3. Completing the purchase activates the `sync` entitlement for the signed-in
@@ -96,6 +101,9 @@ verify this sequence:
 5. With sandbox events enabled on staging, the webhook updates the organization
    billing snapshot and the activation-pending state clears.
 6. Restore Purchases completes and the entitlement remains active.
+
+Repeat step 1 from a custom organization and verify that no store options are
+loaded and the panel says to subscribe on the web.
 
 This proves the Capacitor bridge, shared billing UI, identity, org attribution,
 webhook, and entitlement mapping. It does not exercise StoreKit or Google Play
@@ -133,6 +141,11 @@ release lanes never delete external records.
 
 One-time store setup is still required; the release lanes are intentionally
 readonly for signing and store records:
+
+Use the staging identifiers `sync_solo_monthly_staging`,
+`sync_team_5_monthly_staging`, and `sync_team_10_monthly_staging`. Keep the same
+`solo`, `team_5`, and `team_10` RevenueCat package identifiers; each package can
+attach the staging product from each staging app.
 
 1. Register `com.tearleads.staging.app` in Apple Developer and create its App
    Store Connect app record with the In-App Purchase capability.
@@ -185,12 +198,16 @@ override in `.secrets/staging.env`.
 
 Before testing the real Apple purchase sheet:
 
-1. In App Store Connect, create the auto-renewable subscription under the app
-   being tested (`com.tearleads.staging.app` for staging) and finish its required
-   localization, price, and review metadata.
+1. In App Store Connect, create one subscription group under the app being
+   tested (`com.tearleads.app` for production or `com.tearleads.staging.app`
+   for staging). Create `sync_solo_monthly`, `sync_team_5_monthly`, and
+   `sync_team_10_monthly` for production, or their `_staging` variants for
+   staging, at $5, $10, and $20 USD per month. Rank Team 10 at level 1, Team 5
+   at level 2, and Solo at level 3 so upgrades take effect immediately and
+   downgrades at renewal. Finish their localization, price, and review metadata.
 2. Connect that Apple app to RevenueCat, including its In-App Purchase key, and
-   import the product. Attach it to `$rc_monthly` in the current `default`
-   offering and to the `sync` entitlement.
+   import the products. Attach them to the `solo`, `team_5`, and `team_10`
+   packages in the current `default` offering and to the `sync` entitlement.
 3. Keep `VITE_REVENUECAT_IOS_API_KEY` set to that Apple app's public `appl_...`
    key. The Xcode project records the In-App Purchase capability and Swift 5;
    StoreKit does not use a code-signing entitlement for in-app purchases, so
@@ -228,10 +245,12 @@ check for the real store integration.
 
 Before testing the real Google Play purchase sheet:
 
-1. In Play Console, create and activate the subscription product and base plan
-   for application ID `com.tearleads.app`.
+1. In Play Console, create and activate `sync_solo_monthly`,
+   `sync_team_5_monthly`, and `sync_team_10_monthly`, each with a `monthly`
+   auto-renewing base plan for application ID `com.tearleads.app`.
 2. Connect that Google app and its service credentials to RevenueCat, import the
-   product, and attach it to `$rc_monthly` plus the `sync` entitlement.
+   products, and attach them to the matching `solo`, `team_5`, and `team_10`
+   packages plus the `sync` entitlement.
 3. Keep `VITE_REVENUECAT_ANDROID_API_KEY` set to that Google app's public
    `goog_...` key. The activity uses `singleTop`, so returning from a banking or
    verification app does not cancel the purchase flow.
@@ -241,6 +260,12 @@ Before testing the real Google Play purchase sheet:
 5. Test on a device signed into only that licensed tester account (or a Play
    Services emulator), then confirm purchase/cancel/restore and RevenueCat's
    sandbox transaction.
+
+The Capacitor adapter passes the currently active Play product when changing
+tier. Upgrades use `CHARGE_PRORATED_PRICE` and take effect immediately;
+downgrades use `DEFERRED` and take effect at renewal. Keep Google real-time
+developer notifications connected to RevenueCat because deferred changes rely
+on the subsequent store lifecycle events.
 
 The Google Billing permission is contributed by the SDK's Play Billing
 dependency during manifest merging.
@@ -297,23 +322,18 @@ Because this is a tier-level policy rendered by ansible
 only reaches a deployed server through the **ansible** deploy step, like the
 webhook secret.
 
-## Not yet decided
+## Product and organization policy
 
-The native lane can observe and mirror entitlements today, but what it *sells*
-is unrecorded — there is no Apple/Google store product and no seat semantics for
-a store purchase. Until that is settled:
-
-- A store subscription carries no quantity. Stripe is the seat-quantity authority
-  for web (see [revenuecat-billing.md](./revenuecat-billing.md#per-seat-behavior)),
-  and neither the App Store nor Play Billing can carry the
-  server-authoritative Members count the way a Stripe subscription item does.
-- Cancel is provider-managed. The panel's inline cancel is Stripe-only; a store
-  subscription surfaces **Manage subscription** instead. Apple management URLs
-  open StoreKit's in-app sheet on iOS, while other provider URLs retain the
-  external-page behavior.
-
-The Test Store checklist above is therefore an integration proof, not a product
-decision. Before real store products are offered, decide whether a mobile
-subscription licenses one organization at a fixed capacity, is single-user
-only, or maps to another server-enforced seat model. Store subscriptions do not
-carry Stripe-style item quantity.
+- Store products encode fixed capacity; they never carry Stripe-style item
+  quantity. The webhook maps the product identifier to capacity 1, 5, or 10.
+- A native grant is applied only to the buyer's personal organization. A grant
+  aimed at a custom organization is recorded as ignored, even when the buyer is
+  its admin.
+- Adding members beyond a native product's capacity returns a conflict until
+  the admin upgrades through the store. Stripe-backed custom organizations
+  change Price automatically when their roster crosses 1/5/10 boundaries.
+- Store cancellation remains provider-managed. On web or native, the panel
+  opens RevenueCat's exact management URL for the subscription. On iOS, the
+  native shell presents StoreKit's management sheet; other provider URLs keep
+  the external-page behavior. Conversely, a Stripe subscription can call the
+  server cancellation endpoint from either web or native.

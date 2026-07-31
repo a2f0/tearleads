@@ -12,7 +12,9 @@ const STRIPE_WEBHOOK_SECRET = "whsec_test";
 
 export const STRIPE_WEBHOOK_ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_PRICE_ID: "price_sync",
+  STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   STRIPE_WEBHOOK_SECRET,
 };
 
@@ -60,6 +62,12 @@ export function stripeSubscriptionBody(
     unitAmount?: number;
   } = {},
 ) {
+  const tierPriceId =
+    quantity <= 1
+      ? "price_sync"
+      : quantity <= 5
+        ? "price_team_5"
+        : "price_team_10";
   return {
     id: subscriptionId,
     status: "active",
@@ -73,7 +81,7 @@ export function stripeSubscriptionBody(
           id: subscriptionItemId,
           quantity,
           price: {
-            id: price.id ?? "price_sync",
+            id: price.id ?? tierPriceId,
             currency: price.currency ?? "usd",
             recurring: {
               interval: price.interval ?? "month",

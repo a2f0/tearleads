@@ -116,7 +116,7 @@ export function formatTotalAmount(
   return formatBillingAmount(totalAmount, currency);
 }
 
-/** Formats a recurring per-seat rate reported in Stripe API minor units. */
+/** Formats a recurring fixed-tier price reported in Stripe API minor units. */
 export function formatPrice(
   unitAmount: number | null,
   currency: string | null,
@@ -128,16 +128,16 @@ export function formatPrice(
     return "";
   }
   if (interval === null) {
-    return `${amount}/seat`;
+    return amount;
   }
   if (
     intervalCount === null ||
     !Number.isSafeInteger(intervalCount) ||
     intervalCount < 1
   ) {
-    return `${amount}/seat (billing cadence unavailable)`;
+    return `${amount} (billing cadence unavailable)`;
   }
   return intervalCount === 1
-    ? `${amount}/seat/${interval}`
-    : `${amount}/seat/every ${intervalCount} ${interval}s`;
+    ? `${amount}/${interval}`
+    : `${amount}/every ${intervalCount} ${interval}s`;
 }

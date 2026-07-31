@@ -31,7 +31,7 @@ test("subscription binding reads the licensed sync item", async () => {
   const binding = await getSubscriptionBinding("sub_1", {
     env: {
       STRIPE_SECRET_KEY: "sk_test_123",
-      STRIPE_SYNC_PRICE_ID: "price_sync",
+      STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
     },
     fetchImpl,
   });
@@ -45,7 +45,7 @@ test("subscription binding reads the licensed sync item", async () => {
     intervalCount: 3,
     organizationId: "org-1",
     priceId: "price_sync",
-    seatQuantity: 2,
+    seatQuantity: 1,
     status: "active",
     subscriptionItemId: "si_1",
     unitAmount: 499,
@@ -101,7 +101,7 @@ test("subscription binding rejects an ambiguous duplicate seat item", async () =
   const binding = await getSubscriptionBinding("sub_1", {
     env: {
       STRIPE_SECRET_KEY: "sk_test_123",
-      STRIPE_SYNC_PRICE_ID: "price_sync",
+      STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
     },
     fetchImpl,
   });
@@ -138,7 +138,7 @@ test("subscription binding rejects a negative unit amount", async () => {
   const binding = await getSubscriptionBinding("sub_1", {
     env: {
       STRIPE_SECRET_KEY: "sk_test_123",
-      STRIPE_SYNC_PRICE_ID: "price_sync",
+      STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
     },
     fetchImpl,
   });

@@ -13,7 +13,9 @@ const PROVIDER_PERIOD_START = new Date(1_783_036_800 * 1000);
 const PROVIDER_PERIOD_END = new Date(1_785_715_200 * 1000);
 const STRIPE_ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_PRICE_ID: "price_sync",
+  STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
 };
 
 interface StripeRequest {
@@ -65,6 +67,12 @@ function stripeFetch(input: {
   readonly subscriptionItemId: string;
 }): typeof fetch {
   const statuses = [...(input.postStatuses ?? [])];
+  const priceId =
+    input.quantity <= 1
+      ? "price_sync"
+      : input.quantity <= 5
+        ? "price_team_5"
+        : "price_team_10";
   return (async (request: RequestInfo | URL, init?: RequestInit) => {
     const url = String(request);
     if ((init?.method ?? "GET") === "GET") {
@@ -79,8 +87,8 @@ function stripeFetch(input: {
             data: [
               {
                 id: input.subscriptionItemId,
-                quantity: input.quantity,
-                price: { id: "price_sync" },
+                quantity: 1,
+                price: { id: priceId },
               },
             ],
           },
@@ -126,48 +134,46 @@ async function runOne(input: {
 
 test("removal lowers renewal quantity without creating a credit", async () => {
   const state = await insertState({
-    appliedPaidCapacity: 2,
-    desiredPaidCapacity: 2,
+    appliedPaidCapacity: 5,
+    desiredPaidCapacity: 5,
     desiredRenewalQuantity: 1,
   });
   const requests: StripeRequest[] = [];
   expect(
     await runOne({
       ...state,
-      providerQuantity: 2,
+      providerQuantity: 5,
       requests,
     }),
   ).toEqual({ attempted: 1, failed: 0, synced: 1 });
   expect(requests.map((request) => request.body)).toEqual([
-    "quantity=1&proration_behavior=none",
+    "price=price_sync&quantity=1&proration_behavior=none",
   ]);
 });
 
 test("a replacement restores already-paid capacity without proration", async () => {
   const state = await insertState({
-    appliedPaidCapacity: 2,
-    desiredPaidCapacity: 2,
-    desiredRenewalQuantity: 2,
+    appliedPaidCapacity: 5,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
   });
   const requests: StripeRequest[] = [];
   await runOne({ ...state, providerQuantity: 1, requests });
   expect(requests.map((request) => request.body)).toEqual([
-    "quantity=2&proration_behavior=none",
+    "price=price_team_5&quantity=1&proration_behavior=none",
   ]);
 });
 
 test("growth restores the paid baseline before prorating only new capacity", async () => {
   const state = await insertState({
-    appliedPaidCapacity: 2,
-    desiredPaidCapacity: 3,
-    desiredRenewalQuantity: 3,
+    appliedPaidCapacity: 1,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
   });
   const requests: StripeRequest[] = [];
   await runOne({ ...state, providerQuantity: 1, requests });
   expect(requests.map((request) => request.body)).toEqual([
-    "quantity=2&proration_behavior=none",
-    "quantity=3&proration_behavior=create_prorations",
-    "quantity=3&proration_behavior=none",
+    "price=price_team_5&quantity=1&proration_behavior=create_prorations",
   ]);
   const [saved] = await db
     .select()
@@ -176,29 +182,29 @@ test("growth restores the paid baseline before prorating only new capacity", asy
       eq(organizationBillingStripeSeats.organizationId, state.organizationId),
     );
   expect(saved).toMatchObject({
-    appliedPaidCapacity: 3,
+    appliedPaidCapacity: 5,
     appliedRevision: 1,
     inFlightOperationId: null,
-    observedQuantity: 3,
+    observedQuantity: 5,
   });
 });
 
 test("a failed capacity update retries with the sticky idempotency key", async () => {
   const state = await insertState({
-    appliedPaidCapacity: 2,
-    desiredPaidCapacity: 3,
-    desiredRenewalQuantity: 3,
+    appliedPaidCapacity: 1,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
   });
   const firstRequests: StripeRequest[] = [];
   expect(
     await runOne({
       ...state,
-      postStatuses: [200, 500],
+      postStatuses: [500],
       providerQuantity: 1,
       requests: firstRequests,
     }),
   ).toEqual({ attempted: 1, failed: 1, synced: 0 });
-  const firstCapacityKey = firstRequests[1]?.idempotencyKey;
+  const firstCapacityKey = firstRequests[0]?.idempotencyKey;
   const [failedState] = await db
     .select()
     .from(organizationBillingStripeSeats)
@@ -211,7 +217,7 @@ test("a failed capacity update retries with the sticky idempotency key", async (
   await runOne({
     ...state,
     now: failedState?.nextAttemptAt ?? NOW,
-    providerQuantity: 2,
+    providerQuantity: 1,
     requests: retryRequests,
   });
   expect(retryRequests[0]?.idempotencyKey).toBe(firstCapacityKey);
@@ -222,56 +228,54 @@ test("a failed capacity update retries with the sticky idempotency key", async (
       eq(organizationBillingStripeSeats.organizationId, state.organizationId),
     );
   expect(syncedState).toMatchObject({
-    appliedPaidCapacity: 3,
+    appliedPaidCapacity: 5,
     attemptCount: 0,
     inFlightOperationId: null,
-    observedQuantity: 3,
+    observedQuantity: 5,
   });
 });
 
 test("a sticky target never lets newer capacity bypass proration", async () => {
   const state = await insertState({
-    appliedPaidCapacity: 2,
-    desiredPaidCapacity: 4,
-    desiredRenewalQuantity: 4,
+    appliedPaidCapacity: 1,
+    desiredPaidCapacity: 10,
+    desiredRenewalQuantity: 10,
   });
   await db
     .update(organizationBillingStripeSeats)
     .set({
-      inFlightOperationId: "seat-operation-3",
-      inFlightTargetCapacity: 3,
+      inFlightOperationId: "seat-operation-5",
+      inFlightTargetCapacity: 5,
     })
     .where(
       eq(organizationBillingStripeSeats.organizationId, state.organizationId),
     );
 
   const firstRequests: StripeRequest[] = [];
-  await runOne({ ...state, providerQuantity: 2, requests: firstRequests });
+  await runOne({ ...state, providerQuantity: 1, requests: firstRequests });
   expect(firstRequests.map((request) => request.body)).toEqual([
-    "quantity=3&proration_behavior=create_prorations",
-    "quantity=3&proration_behavior=none",
+    "price=price_team_5&quantity=1&proration_behavior=create_prorations",
   ]);
 
   const secondRequests: StripeRequest[] = [];
-  await runOne({ ...state, providerQuantity: 3, requests: secondRequests });
+  await runOne({ ...state, providerQuantity: 5, requests: secondRequests });
   expect(secondRequests.map((request) => request.body)).toEqual([
-    "quantity=4&proration_behavior=create_prorations",
-    "quantity=4&proration_behavior=none",
+    "price=price_team_10&quantity=1&proration_behavior=create_prorations",
   ]);
 });
 
 test("past-due subscriptions retry without creating seat prorations", async () => {
   const state = await insertState({
-    appliedPaidCapacity: 2,
-    desiredPaidCapacity: 3,
-    desiredRenewalQuantity: 3,
+    appliedPaidCapacity: 1,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
   });
   const requests: StripeRequest[] = [];
 
   expect(
     await runOne({
       ...state,
-      providerQuantity: 2,
+      providerQuantity: 1,
       requests,
       status: "past_due",
     }),
@@ -292,9 +296,9 @@ test("past-due subscriptions retry without creating seat prorations", async () =
 
 test("a provider period rollover rebinds before any Stripe update", async () => {
   const state = await insertState({
-    appliedPaidCapacity: 2,
-    desiredPaidCapacity: 3,
-    desiredRenewalQuantity: 3,
+    appliedPaidCapacity: 1,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
   });
   await db
     .update(organizationBillingStripeSeats)
@@ -307,7 +311,7 @@ test("a provider period rollover rebinds before any Stripe update", async () => 
     );
   const requests: StripeRequest[] = [];
 
-  expect(await runOne({ ...state, providerQuantity: 2, requests })).toEqual({
+  expect(await runOne({ ...state, providerQuantity: 1, requests })).toEqual({
     attempted: 1,
     failed: 0,
     synced: 0,
@@ -331,20 +335,20 @@ test("a provider period rollover rebinds before any Stripe update", async () => 
   expect(
     await runOne({
       ...state,
-      providerQuantity: 2,
+      providerQuantity: 1,
       requests: retryRequests,
     }),
   ).toEqual({ attempted: 1, failed: 0, synced: 1 });
   expect(retryRequests.map((request) => request.body)).toContain(
-    "quantity=3&proration_behavior=create_prorations",
+    "price=price_team_5&quantity=1&proration_behavior=create_prorations",
   );
 });
 
 test("disabled billing rows cannot be claimed for Stripe updates", async () => {
   const state = await insertState({
-    appliedPaidCapacity: 2,
-    desiredPaidCapacity: 3,
-    desiredRenewalQuantity: 3,
+    appliedPaidCapacity: 1,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
   });
   await db
     .update(organizationBilling)
@@ -352,7 +356,7 @@ test("disabled billing rows cannot be claimed for Stripe updates", async () => {
     .where(eq(organizationBilling.organizationId, state.organizationId));
   const requests: StripeRequest[] = [];
 
-  expect(await runOne({ ...state, providerQuantity: 2, requests })).toEqual({
+  expect(await runOne({ ...state, providerQuantity: 1, requests })).toEqual({
     attempted: 0,
     failed: 0,
     synced: 0,

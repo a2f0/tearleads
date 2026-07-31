@@ -244,6 +244,7 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
 ): Promise<{
   provider: OrganizationBillingProvider | null;
   providerCustomerId: string | null;
+  providerProductId: string | null;
   providerSubscriptionId: string | null;
   providerTransactionId: string | null;
 }> {
@@ -258,6 +259,7 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
       .select({
         provider: organizationBilling.provider,
         providerCustomerId: organizationBilling.providerCustomerId,
+        providerProductId: organizationBilling.providerProductId,
         providerSubscriptionId: organizationBilling.providerSubscriptionId,
         providerTransactionId: organizationBilling.providerTransactionId,
       })
@@ -270,6 +272,7 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
     return {
       provider: row.provider,
       providerCustomerId: row.providerCustomerId,
+      providerProductId: row.providerProductId,
       providerSubscriptionId: row.providerSubscriptionId,
       providerTransactionId: row.providerTransactionId,
     };

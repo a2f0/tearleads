@@ -1,9 +1,12 @@
+import type { OrganizationBillingManagementUrl } from "@tearleads/client-sdk";
 import { useEffect, useRef, useState } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 
 interface ManagementUrlState {
+  readonly canCancelDirectly: boolean;
   readonly organizationId: string | null;
   readonly managementUrl: string | null;
+  readonly subscriptionSource: OrganizationBillingManagementUrl["subscriptionSource"];
 }
 
 /**
@@ -21,19 +24,30 @@ export function useBillingManagementUrl(
   organizationId: string,
   enabled: boolean,
   reloadToken?: unknown,
-): string | null {
+): {
+  readonly canCancelDirectly: boolean;
+  readonly managementUrl: string | null;
+  readonly subscriptionSource: OrganizationBillingManagementUrl["subscriptionSource"];
+} {
   const tearleads = useTearleads();
   const requestIdRef = useRef(0);
   const [state, setState] = useState<ManagementUrlState>({
+    canCancelDirectly: false,
     organizationId: null,
     managementUrl: null,
+    subscriptionSource: null,
   });
 
   useEffect(() => {
     // Drop any in-flight request from a previous org/enabled state.
     const requestId = ++requestIdRef.current;
     if (!enabled) {
-      setState({ organizationId, managementUrl: null });
+      setState({
+        canCancelDirectly: false,
+        organizationId,
+        managementUrl: null,
+        subscriptionSource: null,
+      });
       return;
     }
     void (async () => {
@@ -43,15 +57,22 @@ export function useBillingManagementUrl(
           return;
         }
         setState({
+          canCancelDirectly: result?.canCancelDirectly ?? false,
           organizationId,
           managementUrl: result?.managementUrl ?? null,
+          subscriptionSource: result?.subscriptionSource ?? null,
         });
       } catch (loadError) {
         if (requestIdRef.current !== requestId) {
           return;
         }
         console.error("Failed to load billing management URL:", loadError);
-        setState({ organizationId, managementUrl: null });
+        setState({
+          canCancelDirectly: false,
+          organizationId,
+          managementUrl: null,
+          subscriptionSource: null,
+        });
       }
     })();
     return () => {
@@ -61,5 +82,15 @@ export function useBillingManagementUrl(
 
   // Scope the URL to the requesting org so a stale value never leaks across an
   // org switch before the new fetch resolves.
-  return state.organizationId === organizationId ? state.managementUrl : null;
+  return state.organizationId === organizationId
+    ? {
+        canCancelDirectly: state.canCancelDirectly,
+        managementUrl: state.managementUrl,
+        subscriptionSource: state.subscriptionSource,
+      }
+    : {
+        canCancelDirectly: false,
+        managementUrl: null,
+        subscriptionSource: null,
+      };
 }

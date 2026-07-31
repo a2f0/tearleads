@@ -1,5 +1,11 @@
 import { isPlainObject } from "../isPlainObject";
-import { hasNullableStringProperty } from "../util";
+import {
+  hasBooleanProperty,
+  hasNullableStringProperty,
+  hasStringProperty,
+} from "../util";
+
+export type OrganizationBillingSubscriptionSource = "native" | "stripe";
 
 /**
  * The subscription-management URL for an organization's paid subscription. The
@@ -11,13 +17,27 @@ import { hasNullableStringProperty } from "../util";
  * be completed.
  */
 export interface OrganizationBillingManagementUrlResponse {
+  /** Our API can cancel this Stripe subscription from any app surface. */
+  canCancelDirectly: boolean;
   managementUrl: string | null;
+  /** Purchase system that owns the active subscription, when recognized. */
+  subscriptionSource?: OrganizationBillingSubscriptionSource | null;
 }
 
 export function isOrganizationBillingManagementUrlResponse(
   value: unknown,
 ): value is OrganizationBillingManagementUrlResponse {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+  const { subscriptionSource } = value;
   return (
-    isPlainObject(value) && hasNullableStringProperty(value, "managementUrl")
+    hasBooleanProperty(value, "canCancelDirectly") &&
+    hasNullableStringProperty(value, "managementUrl") &&
+    (!("subscriptionSource" in value) ||
+      subscriptionSource === null ||
+      (hasStringProperty(value, "subscriptionSource") &&
+        (value.subscriptionSource === "native" ||
+          value.subscriptionSource === "stripe")))
   );
 }

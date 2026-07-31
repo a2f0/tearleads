@@ -1,4 +1,5 @@
 import {
+  getSyncBillingTierForStripePrice,
   prop,
   readString,
   resolveDeps,
@@ -42,13 +43,16 @@ function readUnixTimestamp(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function resolveSyncItem(body: unknown, syncPriceId: string | null): unknown {
+function resolveSyncItem(
+  body: unknown,
+  syncPriceIds: readonly string[],
+): unknown {
   const items = prop(prop(body, "items"), "data");
-  if (!syncPriceId || !Array.isArray(items)) {
+  if (syncPriceIds.length === 0 || !Array.isArray(items)) {
     return null;
   }
-  const matches = items.filter(
-    (item) => readString(prop(prop(item, "price"), "id")) === syncPriceId,
+  const matches = items.filter((item) =>
+    syncPriceIds.includes(readString(prop(prop(item, "price"), "id")) ?? ""),
   );
   return matches.length === 1 ? matches[0] : null;
 }
@@ -58,7 +62,7 @@ export async function getSubscriptionBinding(
   subscriptionId: string,
   deps: StripeApiDeps = {},
 ): Promise<StripeSubscriptionBinding | null> {
-  const { fetchImpl, secretKey, syncPriceId } = resolveDeps(deps);
+  const { fetchImpl, secretKey, syncPriceIds } = resolveDeps(deps);
   if (!secretKey) {
     return null;
   }
@@ -74,8 +78,15 @@ export async function getSubscriptionBinding(
   }
   const metadata = prop(body, "metadata");
   const customer = prop(body, "customer");
-  const item = resolveSyncItem(body, syncPriceId);
+  const item = resolveSyncItem(
+    body,
+    Object.values(syncPriceIds).filter((value): value is string =>
+      Boolean(value),
+    ),
+  );
   const price = prop(item, "price");
+  const priceId = readString(prop(price, "id"));
+  const tier = getSyncBillingTierForStripePrice(priceId, deps);
   return {
     billingPeriodEndsAt: readUnixTimestamp(prop(body, "current_period_end")),
     billingPeriodStartsAt: readUnixTimestamp(
@@ -88,8 +99,9 @@ export async function getSubscriptionBinding(
       prop(prop(price, "recurring"), "interval_count"),
     ),
     organizationId: readString(prop(metadata, "orgId")),
-    priceId: readString(prop(price, "id")),
-    seatQuantity: readPositiveInteger(prop(item, "quantity")),
+    priceId,
+    seatQuantity:
+      tier?.seatLimit ?? readPositiveInteger(prop(item, "quantity")),
     status: readString(prop(body, "status")),
     subscriptionItemId: readString(prop(item, "id")),
     unitAmount: readNonnegativeInteger(prop(price, "unit_amount")),

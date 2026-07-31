@@ -1,9 +1,10 @@
 # RevenueCat Billing
 
-Tearleads uses Stripe as the payment, invoice, and seat-quantity authority for
-the web organization **sync** subscription. RevenueCat mirrors that Stripe
-subscription into the cross-platform `sync` entitlement and emits the lifecycle
-events that activate or revoke server sync. It is not the quantity authority.
+Tearleads sells the organization **sync** subscription as the same three fixed
+capacity tiers on every platform. Web checkout uses Stripe; native checkout uses
+the App Store or Play through RevenueCat. RevenueCat mirrors every subscription
+into the cross-platform `sync` entitlement and emits the lifecycle events that
+activate or revoke server sync.
 
 This documents how the integration is wired; the actual keys,
 project/app/offering IDs, and operational state live in the git-ignored
@@ -14,18 +15,34 @@ project/app/offering IDs, and operational state live in the git-ignored
 | Concern | Authority |
 | --- | --- |
 | Which accounts consume seats | The server's signed effective `Members`-group reachability |
-| Initial and renewal quantity, prorations, invoices | Stripe |
+| Tier selection and capacity enforcement | The server, from the effective Members roster |
+| Web tier changes, prorations, and invoices | Stripe Price IDs |
+| Native tier changes and receipts | App Store / Play products through RevenueCat |
 | Web payment UI | Direct Stripe Payment Element or the Stripe-hosted Checkout fallback |
 | Cross-platform `sync` entitlement and grant/revoke events | RevenueCat |
 
-New web purchases must use direct Stripe checkout. A RevenueCat Web Billing or
-Test Store package cannot carry the server-authoritative seat quantity, so
+New web purchases use direct Stripe checkout. A RevenueCat Web Billing package
+does not participate in the product flow, so
 [`createWebPurchases`](../../packages/app-web/src/webPurchases.ts) configures the
 RevenueCat capability with `purchasesEnabled: false`: identification and
 entitlement reads remain available, while package listing returns no options and
 purchase attempts fail closed. Keep RevenueCat's provider-hosted flow for
 native stores ([revenuecat-native-stores.md](./revenuecat-native-stores.md))
-only.
+only. Native purchases are offered only for the buyer's personal organization;
+custom organizations always subscribe on the web.
+
+## Fixed tiers
+
+| Tier | Monthly price | Capacity | Canonical product stem |
+| --- | ---: | ---: | --- |
+| Solo | $5 USD | 1 member | `sync_solo_monthly` |
+| Team (up to 5) | $10 USD | 5 members | `sync_team_5_monthly` |
+| Team (up to 10) | $20 USD | 10 members | `sync_team_10_monthly` |
+
+Stripe represents these as three recurring Prices, each with subscription-item
+quantity `1`. Apple, Google, and RevenueCat Test Store represent them as three
+products. `organization_billing.seat_count` stores the tier capacity (1, 5, or
+10), not the number of currently active members.
 
 ## Entitlement
 
@@ -50,7 +67,7 @@ publishable key.
 | iOS | `VITE_REVENUECAT_IOS_API_KEY` | `.secrets/root.env`, loaded by Fastlane and inlined by Vite. |
 | Android | `VITE_REVENUECAT_ANDROID_API_KEY` | `.secrets/root.env`, same path. |
 
-Local web dev with the per-seat checkout enabled:
+Local web development with fixed-tier checkout enabled:
 
 ```sh
 BUN_PUBLIC_REVENUECAT_WEB_API_KEY=<key> \
@@ -61,11 +78,11 @@ bun run --filter=app-web dev
 ### Web key types
 
 - A **Test Store** key (`test_…`) can simulate RevenueCat purchases upstream,
-  but Tearleads disables that purchase API on web. Test per-seat enrollment
+  but Tearleads disables that purchase API on web. Test fixed-tier enrollment
   through direct checkout with Stripe test-mode keys instead.
 - A **Web Billing** key (`rcb_…`) may still observe entitlements from the
   connected Stripe account, but it does not enable Tearleads web purchases. Do
-  not re-enable the embedded adapter without a server-authoritative quantity
+  not re-enable the embedded adapter without the same server-authoritative tier
   contract.
 
 ## RevenueCat webhook (server)
@@ -99,10 +116,10 @@ quantities never update Stripe seats.
 
 This is the only supported path for a new web subscription. It processes the
 subscription on **our own Stripe account** (the one connected to RevenueCat),
-sends Stripe an authoritative quantity, and leaves RevenueCat responsible only
-for mirroring the resulting entitlement lifecycle:
+selects the smallest fixed Price that covers the authoritative roster, and
+leaves RevenueCat responsible for mirroring the resulting entitlement lifecycle:
 
-- `GET /billing/stripe/options`, `POST
+- `GET /organizations/:id/billing/stripe/options`, `POST
   /organizations/:id/billing/stripe/checkout` (admin-gated; returns the
   PaymentIntent client secret for a Payment Element), `POST
   /organizations/:id/billing/stripe/checkout-session` (hosted fallback), `POST
@@ -113,8 +130,8 @@ for mirroring the resulting entitlement lifecycle:
   counts unique users reachable through the organization's current `Members`
   group in the same server transaction as the admin and duplicate-subscription
   checks. Checkout rejects an empty effective roster and sends the resulting
-  positive integer as the Stripe subscription-item quantity for both inline
-  and hosted checkout.
+  positive count to choose Solo, Team 5, or Team 10. Both inline and hosted
+  checkout send the selected Price with subscription-item quantity `1`.
 - Inline and hosted checkout share one durable, organization-scoped unpaid
   attempt, capturing buyer, mode, and seat quantity before Stripe is called.
   Identical retries reuse its idempotency token; another buyer, mode, or seat
@@ -127,21 +144,23 @@ for mirroring the resulting entitlement lifecycle:
   `subscription_cycle`. It always fetches the subscription from Stripe and
   validates the configured price item instead of trusting the event body.
   - On the first paid invoice, the server persists the exact `sub_…`, `si_…`,
-    price, quantity, customer, organization, and period binding before it
+    price, tier capacity, customer, organization, and period binding before it
     associates the receipt with RevenueCat. Association creates the RevenueCat
     customer (v2; 409 already exists is success), sets its `orgId` attribute
     (v2), then posts the receipt (v1, `fetch_token` = subscription id,
     `X-Platform: stripe`, authenticated with the Stripe app public key).
   - On a paid renewal invoice, the server refreshes the Stripe binding and
-    resets that period's paid-capacity baseline to the quantity Stripe actually
-    renewed. The invoice id makes the baseline update idempotent. No RevenueCat
+    resets that period's paid-capacity baseline to the capacity represented by
+    the renewed Price. The invoice id makes the baseline update idempotent. No RevenueCat
     association call is needed again.
   - Stripe-store RevenueCat events use the durable exact item/subscription
     binding, or exact `sub_…` metadata lookup. They never fall back to the
     mutable RevenueCat customer attribute.
 - Server configuration for offering or creating checkout (all required; the
   options list is empty and creation answers 503 when the set is incomplete):
-  `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SYNC_PRICE_ID`,
+  `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+  `STRIPE_SYNC_SOLO_PRICE_ID`, `STRIPE_SYNC_TEAM_5_PRICE_ID`,
+  `STRIPE_SYNC_TEAM_10_PRICE_ID`,
   `REVENUECAT_STRIPE_PUBLIC_API_KEY` (the RC project's Stripe app public
   key). The customer/attribute half of the association reuses the
   `REVENUECAT_V2_SECRET_KEY` + `REVENUECAT_PROJECT_ID` pair already
@@ -149,56 +168,51 @@ for mirroring the resulting entitlement lifecycle:
   [`revenueCatConfig.ts`](../../packages/api/src/billing/revenueCatConfig.ts))
   — no separate legacy v1 secret key. Shared provider credentials may live in
   `.secrets/root.env`, while each `STRIPE_WEBHOOK_SECRET` must live in the
-  matching `.secrets/<tier>.env`; ansible renders the merged values into the
+  matching `.secrets/<tier>.env`; Ansible renders the merged values into the
   API's EnvironmentFile. End-to-end entitlement activation also requires
   `REVENUECAT_WEBHOOK_AUTH_HEADER` and a matching RevenueCat webhook.
 - Stripe gives every webhook endpoint its own signing secret. Staging and
   production therefore need separate `STRIPE_WEBHOOK_SECRET` values in their
   tier env files; do not leave one shared root value when both endpoints are
-  enabled. The publishable key, secret key, and price id must likewise belong
+  enabled. The publishable key, secret key, and all three price ids must likewise belong
   to the same Stripe mode for that tier.
-- One-time dashboard steps: register the Stripe product id in the RevenueCat
-  catalog and attach it to the `sync` entitlement; configure
-  `STRIPE_SYNC_PRICE_ID` as the recurring **per-seat unit price** whose quantity
-  Stripe will multiply; register the webhook endpoint in Stripe with
-  `invoice.paid` enabled. Both initial and renewal paid invoices are required
-  for correct seat-period accounting.
+- One-time provider steps: create one Stripe product with the three monthly
+  Prices listed above; attach that Stripe product to the `sync` entitlement in
+  RevenueCat; register the webhook endpoint in Stripe with `invoice.paid`
+  enabled. The API maps the exact Stripe Price from its immutable subscription
+  binding because RevenueCat's Stripe event identifies the catalog Product, not
+  the selected Price. Both initial and renewal paid invoices are required for
+  correct seat-period accounting.
 
 The client half is described below. Reporting details live in
 [billing-history.md](./billing-history.md).
 
-## Per-seat behavior
+## Fixed-tier behavior
 
 Seat accounting follows the effective Members roster, not client-supplied
-roster rows and not the RevenueCat subscriber count. The local
-`organization_billing.seat_count` is the paid-capacity high-water mark for one
-billing period; assignments identify which accounts currently consume that
-capacity.
+roster rows and not the RevenueCat subscriber count. Assignments identify which
+accounts consume the fixed capacity stored in `organization_billing.seat_count`.
 
-- **Initial enrollment:** Stripe starts at the exact effective Members count.
-- **Add above paid capacity:** the new account is active immediately. The
-  synchronizer raises the Stripe item with `proration_behavior=create_prorations`,
-  so Stripe creates the remaining-period proration under the subscription's
-  normal invoice schedule.
-- **Remove an account:** its assignment is released immediately and the
-  subscription's renewal quantity is lowered with
-  `proration_behavior=none`. There is no current-period credit; already-paid
-  capacity remains available through the end of the period.
-- **Transfer a seat:** adding a replacement while released capacity remains
-  reuses that capacity with `proration_behavior=none`; it does not purchase a
-  second seat. The account occupying a seat can therefore change during the
-  period.
-- **Renewal:** before renewal, the Stripe item quantity tracks the current
-  effective Members count. A successful renewal establishes that quantity as
-  the new period's paid-capacity baseline, so every current account renews on
-  the same billing date.
+- **Initial web enrollment:** the server chooses the smallest tier covering the
+  current roster. Checkout rejects an empty roster and any roster above 10.
+- **Web growth across a boundary:** moving from 1→2 members switches Solo to
+  Team 5; moving from 5→6 switches Team 5 to Team 10. The worker changes the
+  Stripe Price at quantity `1` with `proration_behavior=create_prorations`.
+- **Web shrinkage:** a lower renewal tier is selected without a current-period
+  credit (`proration_behavior=none`). Already-paid capacity remains available
+  through the period.
+- **Growth within a tier:** no provider change is needed. Released assignments
+  can be reused by replacement members while the organization stays under its
+  capacity.
+- **Native growth:** Apple and Google do not expose Stripe-style quantity.
+  Adding a member above the purchased product's capacity is rejected until the
+  admin completes the corresponding store product upgrade.
+- **Renewal:** the renewed Stripe Price or native product re-establishes the
+  tier capacity for the new billing period.
 
-This implementation requires a positive subscription-item quantity. Checkout
-rejects a zero-member organization, and an existing active subscription is
-kept at a minimum of one licensed, transferable seat if its effective roster
-becomes empty. `organization_billing.seat_count` and the Stripe outbox both
-record that floor; cancel the subscription rather than expecting a
-zero-quantity renewal. Trials can still have zero licensed seats.
+An active Stripe subscription stays on at least Solo if its roster becomes
+empty; cancel it rather than expecting a zero-price renewal. Trials can still
+have zero licensed seats.
 
 Roster writes only enqueue an absolute desired state in
 `organization_billing_stripe_seats`; they do not call Stripe while holding the
@@ -208,9 +222,9 @@ temporarily unavailable.
 ## Stripe seat synchronization worker
 
 [`stripeSeatSync.ts`](../../packages/api/scripts/stripeSeatSync.ts) drains the
-durable seat targets. It validates the subscription metadata, configured price,
-item id, observed quantity, and period directly against Stripe before applying
-an update. Database leases prevent two workers from owning the same row, stable
+durable capacity targets. It validates the subscription metadata, configured
+tier Price, item id, and period directly against Stripe before applying an
+update. Database leases prevent two workers from owning the same row, stable
 idempotency keys make a retried prorated increase safe, failures back off, and a
 daily audit rechecks otherwise-settled subscriptions for drift.
 If Stripe has already advanced to a new billing period, the worker first
@@ -261,14 +275,9 @@ own theme tokens.
   visitor because the web shell imports this module from its entry point.
   `/pure` defers the fetch to the first `loadStripe()` call, i.e. the first
   time someone actually opens the checkout.
-- The subscription is pinned server-side to `card`
-  (`payment_settings[payment_method_types][]`). The Payment Element otherwise
-  offers whatever the Stripe dashboard has enabled, and any redirect-based
-  method (Amazon Pay, Cash App, iDEAL) breaks the client's
-  `redirect: "if_required"` confirm — the buyer would see only a generic
-  failure. Pinning keeps the offered methods matched to the flow we implement,
-  whatever the dashboard says.
-- **Cancelling** is inline, like the checkout — `POST
+- The server pins the subscription to `card`; redirect-based methods are not
+  compatible with the client's `redirect: "if_required"` confirmation flow.
+- **Cancelling a Stripe subscription** is inline — `POST
   /organizations/:id/billing/stripe/cancel` sets `cancel_at_period_end` on the
   subscription, and a confirm row in the panel drives it. No card entry, so no
   iframe and no off-site page: an org that bought here does not get sent to
@@ -276,7 +285,9 @@ own theme tokens.
   the paid period**, so the org keeps the sync it paid for and RevenueCat flips
   the entitlement through the same webhook path a lapsed renewal takes — which
   is why the client refreshes the billing snapshot rather than assuming
-  `canSync` changed.
+  `canSync` changed. The management endpoint identifies the configured Stripe
+  Price and exposes this direct cancellation on every app surface, so a web
+  purchase can also be cancelled from a native shell.
   - **Resolving the `sub_…` to cancel** (and the Billing Portal, if wired):
     both search Stripe by the org's `orgId` metadata (`findLiveOrgSubscription`)
     rather than reading the billing row's `providerSubscriptionId`. That column
@@ -286,6 +297,10 @@ own theme tokens.
     self-heals subscriptions bought before this resolver existed. The `orgId`
     match is re-checked on the result so a pooled customer can never leak
     another org's billing.
+- **Native-store cancellation on web:** the panel opens RevenueCat's exact
+  subscription management URL, which routes to the App Store or Play
+  subscription page. The server never attempts to cancel a store subscription
+  through Stripe.
 - **Default flow**: web always disables the RevenueCat subscribe list and uses
   direct checkout when the publishable key and server option are available.
   Native shells keep their provider-hosted store sheets because they do not set
@@ -296,21 +311,10 @@ own theme tokens.
   portal URLs expire in minutes, so resolving one at panel load would hand the
   admin an expired link. Card update (SetupIntent + Payment Element) and
   invoice history are the inline alternatives when those are wanted.
-- **Styling**: the payment fields are still Stripe-hosted iframes (that is what
-  keeps us in PCI SAQ A), but on our own account Stripe's Appearance API
-  accepts far more than RevenueCat exposes — font family, font size, input
-  padding, and per-theme colors.
-  [`checkoutAppearance.ts`](../../packages/app/src/mini-apps/org-manager/billing/checkoutAppearance.ts)
-  resolves the app's tokens by applying them to a throwaway probe element and
-  reading back the **computed** values: an iframe cannot dereference
-  `var(--color-dark)`, and custom properties compute to their authored token
-  (`1rem`, an unevaluated `color-mix(...)`) rather than a used value. Reading
-  through the live panel means new themes work without touching this code. The
-  Payment Element's BASE theme is also picked by mode — `night` on a dark
-  surface, `stripe` on light (`webDirectCheckout.ts`, from the resolved
-  background's luma) — because its built-in defaults, like the card icon inside
-  the number field, come from that base and our variable overrides only refine
-  on top; a light base on a dark surface left that icon dark-on-dark.
+- **Styling**: Stripe-hosted fields use the Appearance API. The app resolves its
+  computed theme tokens in
+  [`checkoutAppearance.ts`](../../packages/app/src/mini-apps/org-manager/billing/checkoutAppearance.ts),
+  and `webDirectCheckout.ts` selects Stripe's light or dark base theme.
 - **Hosted-page alternative**: a "Pay on Stripe instead" link creates a hosted
   Stripe **Checkout Session** (`POST …/billing/stripe/checkout-session`) and
   opens it in a new tab, falling back to same-tab navigation if the browser

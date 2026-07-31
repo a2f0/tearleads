@@ -43,7 +43,9 @@ interface OrganizationBillingApi {
   readonly startOrganizationTrial: (
     organizationId: string,
   ) => Promise<OrganizationBillingResponse | null>;
-  readonly getStripeCheckoutOptions: () => Promise<StripeCheckoutOptionsResponse | null>;
+  readonly getStripeCheckoutOptions: (
+    organizationId: string,
+  ) => Promise<StripeCheckoutOptionsResponse | null>;
   readonly createStripeCheckout: (
     organizationId: string,
   ) => Promise<StripeCheckoutIntentResponse | null>;
@@ -94,8 +96,9 @@ export async function startOrganizationTrial(input: {
 
 export async function loadStripeCheckoutOptions(input: {
   readonly apiClient: Pick<OrganizationBillingApi, "getStripeCheckoutOptions">;
+  readonly organizationId: string;
 }): Promise<StripeCheckoutOptions | null> {
-  return input.apiClient.getStripeCheckoutOptions();
+  return input.apiClient.getStripeCheckoutOptions(input.organizationId);
 }
 
 export async function createStripeCheckout(input: {

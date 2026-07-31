@@ -3,7 +3,7 @@
  * with RevenueCat, which mirrors the entitlement lifecycle: RevenueCat ingests
  * renewals/cancellations from the connected Stripe account and emits the same
  * webhook events the rest of org sync billing already consumes. Stripe remains
- * authoritative for the web subscription's seat quantity and billing period.
+ * authoritative for the web subscription's fixed tier and billing period.
  *
  * Three calls, in this order:
  *

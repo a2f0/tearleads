@@ -2,10 +2,12 @@ import type {
   OrganizationBillingProvider,
   OrganizationBillingStatus,
 } from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "./organizationBilling";
 import type { StripeApiDeps } from "./stripeApi";
+import { getSyncBillingTierForStripePrice } from "./stripeHttp";
 import { getSubscriptionBinding } from "./stripeSubscriptionBinding";
 
 /**
@@ -52,7 +54,7 @@ export const SANDBOX_IGNORED_REASON =
  * **Stripe-store events are deliberately exempt.** RevenueCat marks Stripe
  * *test-mode* transactions `SANDBOX` too, so gating on the field alone would
  * stop a tier that exercises direct Stripe checkout with test-mode keys from
- * applying its own web billing — the documented way to test per-seat
+ * applying its own web billing — the documented way to test fixed-tier
  * enrollment. What stands in for the guard is Stripe's own attribution: a
  * foreign-mode subscription cannot be resolved through the durable binding or
  * the exact `sub_…` lookup, both of which run against that tier's own Stripe
@@ -105,6 +107,7 @@ interface RevenueCatGrantFields {
   trialEndsAt: null;
   disabledAt: null;
   purgeAfter: null;
+  seatCount: number;
 }
 
 interface RevenueCatRevokeFields {
@@ -184,7 +187,12 @@ export function resolveOrganizationIdFromTransactionMetadata(
  * attribute, which can point at the wrong organization for a multi-org buyer.
  */
 type StripeStoreOrgResolution =
-  | { kind: "resolved"; organizationId: string }
+  | {
+      kind: "resolved";
+      organizationId: string;
+      priceId: string | null;
+      seatCount: number | null;
+    }
   | { kind: "none" }
   | { kind: "error" };
 
@@ -234,7 +242,12 @@ export async function resolveStripeStoreOrganizationId(
       return { kind: "error" };
     }
     return binding.organizationId && isUuidV4String(binding.organizationId)
-      ? { kind: "resolved", organizationId: binding.organizationId }
+      ? {
+          kind: "resolved",
+          organizationId: binding.organizationId,
+          priceId: binding.priceId,
+          seatCount: binding.seatQuantity,
+        }
       : { kind: "error" };
   } catch (error) {
     console.error(
@@ -253,6 +266,68 @@ function timestampMsToDate(value: number | null | undefined): Date | null {
   return value != null ? new Date(value) : null;
 }
 
+interface RevenueCatClassificationOptions {
+  allowSandboxEvents?: boolean;
+  stripe?: StripeApiDeps;
+  stripePriceId?: string;
+  stripeSeatCount?: number;
+}
+
+function classifyRevenueCatGrant(
+  event: RevenueCatWebhookEvent,
+  now: Date,
+  options: RevenueCatClassificationOptions,
+): RevenueCatBillingTransition {
+  const isStripeStore = event.store?.toUpperCase() === STRIPE_STORE;
+  const tier = isStripeStore
+    ? (getSyncBillingTierForStripePrice(event.product_id, options.stripe) ??
+      getSyncBillingTierForNativeProduct(event.product_id))
+    : getSyncBillingTierForNativeProduct(event.product_id);
+  const seatCount = isStripeStore
+    ? (options.stripeSeatCount ?? tier?.seatLimit)
+    : tier?.seatLimit;
+  if (!seatCount) {
+    return {
+      kind: "ignore",
+      reason: "Event product is not a configured sync billing tier",
+    };
+  }
+  if (
+    event.expiration_at_ms != null &&
+    event.expiration_at_ms <= now.getTime()
+  ) {
+    return {
+      kind: "ignore",
+      reason: "Grant event period has already expired",
+    };
+  }
+  return {
+    kind: "grant",
+    fields: {
+      status: "active",
+      provider: REVENUECAT_PROVIDER,
+      providerCustomerId: event.app_user_id,
+      // Stripe may carry the subscription id only in `transaction_id`.
+      providerSubscriptionId:
+        event.original_transaction_id ??
+        (isStripeStore ? (event.transaction_id ?? null) : null),
+      // RevenueCat's Stripe catalog identifier is the Product, so retain the
+      // exact Price resolved from our immutable subscription binding.
+      providerProductId: isStripeStore
+        ? (options.stripePriceId ?? event.product_id ?? null)
+        : (event.product_id ?? null),
+      providerTransactionId: event.transaction_id ?? null,
+      entitlementId: resolveEntitlementId(event),
+      currentPeriodStartsAt: timestampMsToDate(event.purchased_at_ms),
+      currentPeriodEndsAt: timestampMsToDate(event.expiration_at_ms),
+      trialEndsAt: null,
+      disabledAt: null,
+      purgeAfter: null,
+      seatCount,
+    },
+  };
+}
+
 /**
  * Maps a RevenueCat event to its effect on an organization's sync billing,
  * independent of any database state. Grants activate sync and record the
@@ -268,48 +343,14 @@ function timestampMsToDate(value: number | null | undefined): Date | null {
 export function classifyRevenueCatEvent(
   event: RevenueCatWebhookEvent,
   now: Date = new Date(),
-  options: { allowSandboxEvents?: boolean } = {},
+  options: RevenueCatClassificationOptions = {},
 ): RevenueCatBillingTransition {
   if (isGuardedSandboxEvent(event) && options.allowSandboxEvents !== true) {
     return { kind: "ignore", reason: SANDBOX_IGNORED_REASON };
   }
 
   if (GRANT_EVENT_TYPES.has(event.type)) {
-    if (
-      event.expiration_at_ms != null &&
-      event.expiration_at_ms <= now.getTime()
-    ) {
-      return {
-        kind: "ignore",
-        reason: "Grant event period has already expired",
-      };
-    }
-
-    return {
-      kind: "grant",
-      fields: {
-        status: "active",
-        provider: REVENUECAT_PROVIDER,
-        providerCustomerId: event.app_user_id,
-        // Stripe-store events may carry the subscription id only in
-        // `transaction_id`; without the fallback the billing row would store
-        // no subscription id and the Billing Portal could never resolve the
-        // org's subscription. Other stores keep the canonical original id.
-        providerSubscriptionId:
-          event.original_transaction_id ??
-          (event.store?.toUpperCase() === STRIPE_STORE
-            ? (event.transaction_id ?? null)
-            : null),
-        providerProductId: event.product_id ?? null,
-        providerTransactionId: event.transaction_id ?? null,
-        entitlementId: resolveEntitlementId(event),
-        currentPeriodStartsAt: timestampMsToDate(event.purchased_at_ms),
-        currentPeriodEndsAt: timestampMsToDate(event.expiration_at_ms),
-        trialEndsAt: null,
-        disabledAt: null,
-        purgeAfter: null,
-      },
-    };
+    return classifyRevenueCatGrant(event, now, options);
   }
 
   if (REVOKE_EVENT_TYPES.has(event.type)) {

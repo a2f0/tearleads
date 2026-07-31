@@ -20,7 +20,9 @@ import { createRouteApp, routeApp } from "../../routeApp";
 const ISOLATED_ENV_KEYS = [
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
-  "STRIPE_SYNC_PRICE_ID",
+  "STRIPE_SYNC_SOLO_PRICE_ID",
+  "STRIPE_SYNC_TEAM_5_PRICE_ID",
+  "STRIPE_SYNC_TEAM_10_PRICE_ID",
   "REVENUECAT_V2_SECRET_KEY",
   "REVENUECAT_PROJECT_ID",
   "REVENUECAT_STRIPE_PUBLIC_API_KEY",
@@ -236,11 +238,12 @@ test("checkout-session rejects a non-http returnUrl", async () => {
 
 test("options answer an empty list when unconfigured", async () => {
   const user = createTestUser();
-  await registerAndAuthenticate(user);
+  const organizationId = await registerAndAuthenticate(user);
 
-  const response = await routeApp.request("/billing/stripe/options", {
-    headers: authHeader(user),
-  });
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/options`,
+    { headers: authHeader(user) },
+  );
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ options: [] });
 });

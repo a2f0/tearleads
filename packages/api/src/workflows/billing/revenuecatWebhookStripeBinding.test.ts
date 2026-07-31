@@ -125,7 +125,7 @@ test("exact provider lookup cannot override a newer outbox subscription", async 
       stripe: {
         env: {
           STRIPE_SECRET_KEY: "sk_test",
-          STRIPE_SYNC_PRICE_ID: "price_sync",
+          STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
         },
         fetchImpl,
       },

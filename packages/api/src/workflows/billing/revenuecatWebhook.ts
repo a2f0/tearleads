@@ -5,7 +5,9 @@ import type {
 import {
   type OrganizationBillingStatus,
   organizationBilling,
+  organizations,
   revenuecatWebhookEvents,
+  users,
 } from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { and, eq, gt } from "drizzle-orm";
@@ -20,6 +22,7 @@ import type { StripeApiDeps } from "../../billing/stripeApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
+import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import {
   type ImmutableStripeStoreOrgResolution,
@@ -139,6 +142,37 @@ async function resolveIgnoredReason(
 
   if (!billing) {
     return "Unknown organization";
+  }
+
+  if (transition.kind === "grant") {
+    const store = event.store?.toUpperCase() ?? "UNKNOWN";
+    const isNativeStore = store !== "STRIPE" && store !== "RC_BILLING";
+    if (isNativeStore) {
+      const [buyer] = await executor
+        .select({ defaultOrganizationId: users.defaultOrganizationId })
+        .from(users)
+        .where(eq(users.id, event.app_user_id))
+        .limit(1);
+      if (buyer?.defaultOrganizationId !== organizationId) {
+        return "Native purchases may only fund the buyer's personal organization";
+      }
+    }
+
+    const [organization] = await executor
+      .select({ memberGroupId: organizations.memberGroupId })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+    if (!organization) {
+      return "Unknown organization";
+    }
+    const activeUserIds = await listUsersReachableFromCurrentGroup({
+      executor,
+      groupId: organization.memberGroupId,
+    });
+    if (activeUserIds.length > transition.fields.seatCount) {
+      return "Subscription tier does not cover the organization's active members";
+    }
   }
 
   // Reject stale, out-of-order deliveries: if a newer event has already been
@@ -330,15 +364,26 @@ export async function runRevenueCatWebhookWorkflow(
   now: Date = new Date(),
   deps: { stripe?: StripeApiDeps; env?: NodeJS.ProcessEnv } = {},
 ): Promise<RevenueCatWebhookOutcome> {
-  const transition = classifyRevenueCatEvent(event, now, {
+  const isStripeStore = event.store?.toUpperCase() === "STRIPE";
+  const classificationOptions = {
     // A store-sandbox purchase (StoreKit sandbox, TestFlight, Play internal
     // testing) is free to the tester but emits an event otherwise identical to
     // a paid one, so only a tier that opts in applies it.
     allowSandboxEvents: allowsRevenueCatSandboxEvents(deps.env ?? process.env),
-  });
+    ...(deps.stripe ? { stripe: deps.stripe } : {}),
+    // A Stripe grant's actual capacity comes from the immutable subscription
+    // binding below. This placeholder lets classification determine whether
+    // the event type needs that lookup without trusting RevenueCat's product id.
+    ...(isStripeStore ? { stripeSeatCount: 1 } : {}),
+  };
+  const initialTransition = classifyRevenueCatEvent(
+    event,
+    now,
+    classificationOptions,
+  );
   if (
-    transition.kind === "ignore" &&
-    transition.reason === SANDBOX_IGNORED_REASON
+    initialTransition.kind === "ignore" &&
+    initialTransition.reason === SANDBOX_IGNORED_REASON
   ) {
     // Otherwise the only trace of a dropped sandbox event is a database row,
     // which reads exactly like the "webhook that silently does nothing" a
@@ -347,7 +392,7 @@ export async function runRevenueCatWebhookWorkflow(
     // production ignores (an unhandled type, a cancellation without lapse)
     // are ordinary traffic and must not warn.
     console.warn(
-      `RevenueCat event ${event.id} (${event.type}, store=${event.store ?? "unknown"}, environment=${event.environment}) ignored: ${transition.reason}`,
+      `RevenueCat event ${event.id} (${event.type}, store=${event.store ?? "unknown"}, environment=${event.environment}) ignored: ${initialTransition.reason}`,
     );
   }
   // Stripe-store events use the immutable per-subscription org binding — the
@@ -358,7 +403,7 @@ export async function runRevenueCatWebhookWorkflow(
   // Ignorable events never consult Stripe. They cannot change billing, and a
   // Stripe-store audit row is recorded without attributing the mutable orgId.
   const stripeResolution =
-    transition.kind === "ignore"
+    initialTransition.kind === "ignore"
       ? ({ kind: "none" } satisfies ImmutableStripeStoreOrgResolution)
       : await resolveImmutableStripeStoreOrganizationId(
           db,
@@ -371,6 +416,26 @@ export async function runRevenueCatWebhookWorkflow(
       reason: "Stripe subscription lookup failed for a Stripe-store event",
     };
   }
+  if (
+    initialTransition.kind === "grant" &&
+    stripeResolution.kind === "resolved" &&
+    (stripeResolution.priceId === null || stripeResolution.seatCount === null)
+  ) {
+    return {
+      status: "retry",
+      reason: "Stripe subscription tier could not be resolved",
+    };
+  }
+  const transition =
+    stripeResolution.kind === "resolved"
+      ? classifyRevenueCatEvent(event, now, {
+          ...classificationOptions,
+          ...(stripeResolution.priceId
+            ? { stripePriceId: stripeResolution.priceId }
+            : {}),
+          stripeSeatCount: stripeResolution.seatCount ?? 1,
+        })
+      : initialTransition;
   const organizationId =
     stripeResolution.kind === "resolved"
       ? stripeResolution.organizationId

@@ -122,7 +122,7 @@ function InvoiceFacts({
           ? "Licensed seat count unavailable"
           : getOrgManagerSeatsLabel(entry.seatCount)}
       </Detail>
-      <Detail>{rate ? `Rate: ${rate}` : "Per-seat rate unavailable"}</Detail>
+      <Detail>{rate ? `Plan price: ${rate}` : "Plan price unavailable"}</Detail>
     </>
   );
 }
@@ -169,8 +169,8 @@ function AuditFields({
 
 /**
  * Billing facts shared by the friendly activity and raw event views. Totals
- * are rendered only from the provider's explicit `totalAmount`; the per-seat
- * rate is deliberately kept separate and is never multiplied into a charge.
+ * are rendered only from the provider's explicit `totalAmount`; the fixed-plan
+ * price is deliberately kept separate and is never treated as the paid total.
  */
 export function BillingHistoryEntryDetails({
   entry,

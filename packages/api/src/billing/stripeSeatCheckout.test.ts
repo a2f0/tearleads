@@ -3,7 +3,9 @@ import { createCheckoutSession, createSyncSubscription } from "./stripeApi";
 
 const ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_PRICE_ID: "price_sync",
+  STRIPE_SYNC_SOLO_PRICE_ID: "price_solo",
+  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_sync",
+  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
 };
 
 function fakeFetch(responses: unknown[]): {
@@ -18,7 +20,7 @@ function fakeFetch(responses: unknown[]): {
   return { fetchImpl, requests };
 }
 
-test("direct subscription creation sends the requested seat quantity", async () => {
+test("direct subscription creation selects a fixed tier at quantity one", async () => {
   const { fetchImpl, requests } = fakeFetch([
     { data: [] },
     {
@@ -38,12 +40,12 @@ test("direct subscription creation sends the requested seat quantity", async () 
     { env: ENV, fetchImpl },
   );
 
-  expect(await requests[1]?.text()).toContain(
-    `${encodeURIComponent("items[0][quantity]")}=3`,
-  );
+  const body = await requests[1]?.text();
+  expect(body).toContain(`${encodeURIComponent("items[0][quantity]")}=1`);
+  expect(body).toContain(`${encodeURIComponent("items[0][price]")}=price_sync`);
 });
 
-test("hosted Checkout sends the requested seat quantity", async () => {
+test("hosted Checkout selects a fixed tier at quantity one", async () => {
   const { fetchImpl, requests } = fakeFetch([
     { url: "https://checkout.stripe.com/pay/cs_1" },
   ]);
@@ -62,7 +64,7 @@ test("hosted Checkout sends the requested seat quantity", async () => {
   );
 
   expect(await requests[0]?.text()).toContain(
-    `${encodeURIComponent("line_items[0][quantity]")}=4`,
+    `${encodeURIComponent("line_items[0][quantity]")}=1`,
   );
 });
 

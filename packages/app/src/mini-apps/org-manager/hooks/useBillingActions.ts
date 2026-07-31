@@ -401,6 +401,8 @@ interface UseBillingActionsInput {
   /** Checkout embed host, read at purchase time; absent = full-page overlay. */
   checkoutHostRef?: RefObject<HTMLElement | null>;
   isOrgAdmin: boolean;
+  /** Native store purchases may fund only the buyer's personal organization. */
+  nativePurchaseAllowed?: boolean;
   organizationId: string;
   refresh: () => Promise<void>;
   startTrial: () => Promise<boolean>;
@@ -417,13 +419,18 @@ export function useBillingActions({
   billingCanSync,
   checkoutHostRef,
   isOrgAdmin,
+  nativePurchaseAllowed = true,
   organizationId,
   refresh,
   startTrial: startTrialRequest,
   userId,
 }: UseBillingActionsInput): BillingActions {
   const purchases = usePurchases();
-  const canSubscribe = isOrgAdmin && purchases.isAvailable && userId !== null;
+  const canSubscribe =
+    isOrgAdmin &&
+    nativePurchaseAllowed &&
+    purchases.isAvailable &&
+    userId !== null;
   const {
     actionState,
     currentScope,

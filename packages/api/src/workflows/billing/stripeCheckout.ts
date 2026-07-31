@@ -8,6 +8,7 @@ import {
   organizationBilling,
   organizations,
 } from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
@@ -42,6 +43,16 @@ function checkoutInProgress(): OrganizationManagerError {
     "A checkout is already in progress for this organization",
     409,
   );
+}
+
+function requireAvailableTierSeatCount(seatCount: number): number {
+  if (!getSyncBillingTierForSeatCount(seatCount)) {
+    throw new OrganizationManagerError(
+      "The organization exceeds the maximum subscription tier of 10 members",
+      409,
+    );
+  }
+  return seatCount;
 }
 
 function providerExpiresAt(
@@ -106,7 +117,7 @@ async function requireStripeCheckoutSeatQuantity(
       409,
     );
   }
-  return activeUserIds.length;
+  return requireAvailableTierSeatCount(activeUserIds.length);
 }
 
 function resolveActiveStripeCheckoutAttempt(input: {
@@ -275,7 +286,9 @@ export async function runRequireCheckoutEligibleWorkflow(
       );
     }
 
-    return { seatQuantity: activeUserIds.length };
+    return {
+      seatQuantity: requireAvailableTierSeatCount(activeUserIds.length),
+    };
   });
 }
 

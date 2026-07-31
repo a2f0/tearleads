@@ -170,7 +170,7 @@ test("activity reports licensed seats, rate, and the exact provider-paid total",
 
   expect(view.getByText("Invoice paid")).toBeDefined();
   expect(view.getByText("3 licensed seats")).toBeDefined();
-  expect(view.getByText("Rate: $4.99/seat/month")).toBeDefined();
+  expect(view.getByText("Plan price: $4.99/month")).toBeDefined();
   expect(view.getByText("Paid: $8.42")).toBeDefined();
   expect(view.getByText("Invoice reason: Subscription renewal")).toBeDefined();
   expect(view.queryByText(/14\.97/)).toBeNull();
@@ -279,7 +279,7 @@ test("events expose provider details and raw billing identifiers", () => {
   expect(view.getByText("Subscription ID: sub_raw")).toBeDefined();
   expect(view.getByText("Invoice ID: in_raw")).toBeDefined();
   expect(view.getByText("3 licensed seats")).toBeDefined();
-  expect(view.getByText("Rate: $4.99/seat/month")).toBeDefined();
+  expect(view.getByText("Plan price: $4.99/month")).toBeDefined();
   expect(view.getByText("Paid: $8.42")).toBeDefined();
   expect(view.getByText("Invoice reason: Subscription update")).toBeDefined();
 });
@@ -302,7 +302,7 @@ test("invoice activity names unavailable financial facts", () => {
 
   expect(view.getByText("Paid total unavailable")).toBeDefined();
   expect(view.getByText("Licensed seat count unavailable")).toBeDefined();
-  expect(view.getByText("Per-seat rate unavailable")).toBeDefined();
+  expect(view.getByText("Plan price unavailable")).toBeDefined();
 });
 
 test("a proration-only invoice keeps its exact total without inventing seat facts", () => {
@@ -326,7 +326,7 @@ test("a proration-only invoice keeps its exact total without inventing seat fact
 
   expect(view.getByText("Paid: $3.17")).toBeDefined();
   expect(view.getByText("Licensed seat count unavailable")).toBeDefined();
-  expect(view.getByText("Per-seat rate unavailable")).toBeDefined();
+  expect(view.getByText("Plan price unavailable")).toBeDefined();
 });
 
 test("entries with unavailable billing facts omit empty detail rows", () => {
@@ -340,7 +340,7 @@ test("entries with unavailable billing facts omit empty detail rows", () => {
 
   expect(view.getByText("Subscription started")).toBeDefined();
   expect(view.queryByText(/^Paid:/)).toBeNull();
-  expect(view.queryByText(/^Rate:/)).toBeNull();
+  expect(view.queryByText(/^Plan price:/)).toBeNull();
   expect(view.queryByText(/licensed seat/)).toBeNull();
   expect(
     view.getByText("Seat and cost details unavailable for this event"),

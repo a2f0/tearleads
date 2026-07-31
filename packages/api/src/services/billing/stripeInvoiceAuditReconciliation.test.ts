@@ -89,7 +89,7 @@ test("an ambiguous cycle records its total and still reconciles paid seats", asy
     .from(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
   expect(seatState).toMatchObject({
-    appliedPaidCapacity: 3,
+    appliedPaidCapacity: 5,
     lastInvoiceId: invoiceId,
   });
 });
@@ -159,7 +159,7 @@ test("an unresolvable cycle line list falls back to its exact total", async () =
     .from(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
   expect(seatState).toMatchObject({
-    appliedPaidCapacity: 3,
+    appliedPaidCapacity: 5,
     lastInvoiceId: invoiceId,
   });
 });
@@ -216,7 +216,7 @@ test("an initial purchase without an invoice id still fulfills", async () => {
     .from(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
   expect(seatState).toMatchObject({
-    appliedPaidCapacity: 2,
+    appliedPaidCapacity: 5,
     subscriptionItemId,
   });
 });
@@ -389,7 +389,7 @@ test("a compatible audit redelivery completes association after a partial failur
     .from(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
   expect(seatState).toMatchObject({
-    appliedPaidCapacity: 3,
+    appliedPaidCapacity: 5,
     subscriptionItemId: matchedItemId,
   });
 });

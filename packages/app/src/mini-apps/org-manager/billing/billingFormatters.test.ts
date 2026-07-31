@@ -52,7 +52,7 @@ test("formats known currencies when supportedValuesOf is unavailable", () => {
   });
   try {
     expect(formatBillingAmount(499, "eur")).toMatch(/4[.,]99/);
-    expect(formatPrice(499, "eur", "month", 1)).toMatch(/4[.,]99\/seat\/month/);
+    expect(formatPrice(499, "eur", "month", 1)).toMatch(/4[.,]99\/month/);
     expect(formatBillingAmount(499, "xqy")).toBe("499 XQY minor units");
   } finally {
     if (descriptor) {
@@ -77,19 +77,17 @@ test("formats exact and zero provider totals without deriving a charge", () => {
 });
 
 test("formats checkout prices with a truthful raw fallback", () => {
-  expect(formatPrice(499, "usd", "month", 1)).toMatch(/4[.,]99\/seat\/month/);
-  expect(formatPrice(499, "usd", null, null)).toMatch(/4[.,]99\/seat/);
+  expect(formatPrice(499, "usd", "month", 1)).toMatch(/4[.,]99\/month/);
+  expect(formatPrice(499, "usd", null, null)).toMatch(/4[.,]99/);
   expect(formatPrice(null, "usd", "month", 1)).toBe("");
   expect(formatPrice(499, null, "month", 1)).toBe("");
   expect(formatPrice(499, " ", "month", 1)).toBe("");
-  expect(formatPrice(499, "xqz", "month", 1)).toBe(
-    "499 XQZ minor units/seat/month",
-  );
+  expect(formatPrice(499, "xqz", "month", 1)).toBe("499 XQZ minor units/month");
 });
 
 test("formats multi-period prices without claiming a one-month cadence", () => {
   expect(formatPrice(499, "usd", "month", 3)).toMatch(
-    /4[.,]99\/seat\/every 3 months/,
+    /4[.,]99\/every 3 months/,
   );
   expect(formatPrice(499, "usd", "month", null)).toMatch(
     /billing cadence unavailable/,

@@ -291,7 +291,7 @@ export function createWebPurchases(): PurchasesCapability {
     apiKey,
     // RevenueCat remains configured so existing entitlements can be observed,
     // but web purchases must use our direct Stripe checkout: only that path
-    // sends the server-authoritative seat quantity to Stripe.
+    // selects the server-authoritative fixed tier in Stripe.
     purchasesEnabled: false,
     syncEntitlementId:
       readEnvString(process.env.BUN_PUBLIC_REVENUECAT_SYNC_ENTITLEMENT) ??

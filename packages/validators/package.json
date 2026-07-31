@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./billing": "./src/billing.ts",
     "./containerSystemSlot": "./src/containerSystemSlot.ts",
     "./isPlainObject": "./src/isPlainObject.ts",
     "./util": "./src/util/index.ts",

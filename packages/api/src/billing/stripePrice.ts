@@ -1,4 +1,8 @@
 import {
+  getSyncBillingTier,
+  type SyncBillingTierId,
+} from "@tearleads/validators/billing";
+import {
   prop,
   readString,
   resolveDeps,
@@ -8,6 +12,8 @@ import {
 
 /** The configured sync subscription price shaped for client display. */
 export interface StripeSyncOption {
+  readonly tierId: SyncBillingTierId;
+  readonly seatLimit: number;
   readonly priceId: string;
   readonly productName: string;
   readonly currency: string;
@@ -27,9 +33,11 @@ function readPositiveInteger(value: unknown): number | null {
 
 /** Fetches the configured sync price with its product expanded. */
 export async function getStripeSyncOption(
+  tierId: SyncBillingTierId,
   deps: StripeApiDeps = {},
 ): Promise<StripeSyncOption | null> {
-  const { fetchImpl, secretKey, syncPriceId } = resolveDeps(deps);
+  const { fetchImpl, secretKey, syncPriceIds } = resolveDeps(deps);
+  const syncPriceId = syncPriceIds[tierId];
   if (!secretKey || !syncPriceId) {
     return null;
   }
@@ -45,9 +53,12 @@ export async function getStripeSyncOption(
   }
   const recurring = prop(body, "recurring");
   const unitAmount = prop(body, "unit_amount");
+  const tier = getSyncBillingTier(tierId);
   return {
+    tierId,
+    seatLimit: tier.seatLimit,
     priceId: readString(prop(body, "id")) ?? syncPriceId,
-    productName: readString(prop(prop(body, "product"), "name")) ?? "Sync",
+    productName: tier.title,
     currency: readString(prop(body, "currency")) ?? "usd",
     unitAmount: typeof unitAmount === "number" ? unitAmount : null,
     interval: readString(prop(recurring, "interval")),

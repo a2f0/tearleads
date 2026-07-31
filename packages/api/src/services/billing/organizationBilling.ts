@@ -1,3 +1,4 @@
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import type {
   OrganizationBillingHistoryResponse,
   OrganizationBillingManagementUrlResponse,
@@ -8,6 +9,7 @@ import {
   serializeOrganizationBillingHistory,
 } from "../../billing/organizationBilling";
 import { fetchRevenueCatManagementUrl } from "../../billing/revenueCatApi";
+import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
 import {
   runGetOrganizationBillingWorkflow,
   runResolveOrganizationBillingCustomerWorkflow,
@@ -59,6 +61,7 @@ export async function getOrganizationBillingManagementUrl(
   const {
     provider,
     providerCustomerId,
+    providerProductId,
     providerSubscriptionId,
     providerTransactionId,
   } = await runResolveOrganizationBillingCustomerWorkflow(
@@ -66,14 +69,34 @@ export async function getOrganizationBillingManagementUrl(
     organizationId,
     sessionUserId,
   );
+  const canCancelDirectly =
+    getSyncBillingTierForStripePrice(providerProductId) !== null;
+  if (canCancelDirectly) {
+    return {
+      canCancelDirectly: true,
+      managementUrl: null,
+      subscriptionSource: "stripe",
+    };
+  }
+  const subscriptionSource = getSyncBillingTierForNativeProduct(
+    providerProductId,
+  )
+    ? "native"
+    : null;
   if (provider !== "revenuecat" || !providerCustomerId) {
-    return { managementUrl: null };
+    return {
+      canCancelDirectly: false,
+      managementUrl: null,
+      subscriptionSource,
+    };
   }
   return {
+    canCancelDirectly: false,
     managementUrl: await fetchRevenueCatManagementUrl(providerCustomerId, {
       subscriptionId: providerSubscriptionId,
       transactionId: providerTransactionId,
     }),
+    subscriptionSource,
   };
 }
 

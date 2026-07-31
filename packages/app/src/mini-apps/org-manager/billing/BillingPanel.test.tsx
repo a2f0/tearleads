@@ -1,12 +1,5 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  renderHook,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import {
   createAppHostConfig,
@@ -20,7 +13,6 @@ import { PurchasesProvider } from "../../../providers/purchases/PurchasesProvide
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPanel } from "./BillingPanel";
-import { useOpenSubscriptionManagement } from "./useOpenSubscriptionManagement";
 
 /**
  * The container seam: where the in-app card checkout (issue #1654) and the
@@ -30,17 +22,17 @@ import { useOpenSubscriptionManagement } from "./useOpenSubscriptionManagement";
  */
 
 const spies: { mockRestore: () => void }[] = [];
-const originalWindowOpen = window.open;
 
 afterEach(() => {
   cleanup();
-  window.open = originalWindowOpen;
   while (spies.length > 0) {
     spies.pop()?.mockRestore();
   }
 });
 
 const OPTION = {
+  tierId: "solo" as const,
+  seatLimit: 1,
   priceId: "price_1",
   productName: "Sync",
   currency: "usd",
@@ -54,7 +46,9 @@ function stubEnvironment(
   overrides: {
     isActive?: boolean;
     isTrialing?: boolean;
+    canCancelDirectly?: boolean;
     managementUrl?: string | null;
+    subscriptionSource?: "native" | "stripe" | null;
   } = {},
 ) {
   // Default `isActive` to `canSync` for the common active case; tests that
@@ -76,7 +70,19 @@ function stubEnvironment(
       organizations: {
         loadStripeCheckoutOptions: () => Promise.resolve({ options: [OPTION] }),
         loadBillingManagementUrl: () =>
-          Promise.resolve({ managementUrl: overrides.managementUrl ?? null }),
+          Promise.resolve({
+            canCancelDirectly:
+              overrides.canCancelDirectly ??
+              overrides.managementUrl === undefined,
+            managementUrl: overrides.managementUrl ?? null,
+            subscriptionSource:
+              overrides.subscriptionSource ??
+              (overrides.canCancelDirectly === true
+                ? "stripe"
+                : overrides.managementUrl
+                  ? "native"
+                  : null),
+          }),
         loadBillingHistory: () => Promise.resolve(null),
         cancelStripeSubscription: () => Promise.resolve({ cancelAt: null }),
       },
@@ -100,6 +106,8 @@ function purchases(isAvailable: boolean) {
     listSyncOptions: () =>
       Promise.resolve([
         {
+          tierId: "solo",
+          seatLimit: 1,
           packageId: "monthly",
           productId: "sync_monthly",
           title: "Sync",
@@ -115,14 +123,20 @@ function purchases(isAvailable: boolean) {
 
 function wrapperWith(
   revenueCatAvailable: boolean,
-  openSubscriptionManagement?: OpenSubscriptionManagementFn,
+  {
+    directCheckoutAvailable = true,
+    openSubscriptionManagement,
+  }: {
+    directCheckoutAvailable?: boolean;
+    openSubscriptionManagement?: OpenSubscriptionManagementFn;
+  } = {},
 ) {
   return function Wrapper({ children }: PropsWithChildren) {
     const hostConfig = createAppHostConfig({
       apiBaseUrl: "http://localhost",
       createDirectCheckout: () =>
         ({
-          isAvailable: true,
+          isAvailable: directCheckoutAvailable,
           mount: () => new Promise(() => undefined),
         }) as never,
       createPurchases: () => purchases(revenueCatAvailable),
@@ -144,29 +158,6 @@ function wrapperWith(
 /** RevenueCat unavailable: the card checkout stands on its own. */
 const wrapper = wrapperWith(false);
 
-function renderManagementHook(
-  openSubscriptionManagement?: OpenSubscriptionManagementFn,
-) {
-  const onNativeManagementClosed = mock(() => undefined);
-  const hostConfig = createAppHostConfig({
-    apiBaseUrl: "http://localhost",
-    openSubscriptionManagement,
-    wsUrl: "ws://localhost",
-  });
-  function ManagementWrapper({ children }: PropsWithChildren) {
-    return (
-      <AppHostConfigProvider value={hostConfig}>
-        {children}
-      </AppHostConfigProvider>
-    );
-  }
-  const hook = renderHook(
-    () => useOpenSubscriptionManagement(onNativeManagementClosed),
-    { wrapper: ManagementWrapper },
-  );
-  return { ...hook, onNativeManagementClosed };
-}
-
 test("an org that cannot sync is offered the in-app card checkout", async () => {
   stubEnvironment(false);
 
@@ -179,7 +170,7 @@ test("an org that cannot sync is offered the in-app card checkout", async () => 
   // renders even though the RevenueCat capability is unavailable, which is the
   // point: this checkout runs on our own Stripe account.
   await waitFor(() => expect(view.getByText("Sync")).toBeDefined());
-  expect(view.getByText("$4.99/seat/month")).toBeDefined();
+  expect(view.getByText("$4.99/month")).toBeDefined();
   expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined();
 });
 
@@ -264,10 +255,14 @@ test("the card checkout replaces RevenueCat's subscribe list, not adds to it", a
   );
 });
 
-test("cancelling is offered for an active org with no provider-managed link", async () => {
-  // A Stripe-direct subscription: active, and RevenueCat resolves no manage
-  // URL because there is no RC customer.
-  stubEnvironment(true, { isActive: true, managementUrl: null });
+test("direct cancellation is offered for a Stripe subscription", async () => {
+  // The server identifies a Stripe-backed RevenueCat entitlement from its
+  // configured Price ID, so the same API cancellation works on web or native.
+  stubEnvironment(true, {
+    canCancelDirectly: true,
+    isActive: true,
+    managementUrl: null,
+  });
 
   const view = render(
     <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
@@ -281,6 +276,49 @@ test("cancelling is offered for an active org with no provider-managed link", as
   );
   expect(cancelButton.classList.contains("mini-app-button")).toBe(true);
   expect(cancelButton.classList.contains("mini-app-row--button")).toBe(false);
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeNull();
+});
+
+test("an active native subscription can change fixed tier on native", async () => {
+  stubEnvironment(true, {
+    canCancelDirectly: false,
+    isActive: true,
+    managementUrl: "https://rc.example/manage",
+    subscriptionSource: "native",
+  });
+
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    {
+      wrapper: wrapperWith(true, { directCheckoutAvailable: false }),
+    },
+  );
+
+  await waitFor(() =>
+    expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined(),
+  );
+});
+
+test("a web Stripe subscription can be cancelled from a native shell", async () => {
+  stubEnvironment(true, {
+    canCancelDirectly: true,
+    isActive: true,
+    managementUrl: null,
+  });
+
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    {
+      wrapper: wrapperWith(true, { directCheckoutAvailable: false }),
+    },
+  );
+
+  await waitFor(() =>
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.billingCancelSubscription),
+    ).toBeDefined(),
+  );
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeNull();
 });
 
 test("a trialing org can pay before the trial ends", async () => {
@@ -314,12 +352,13 @@ test("a trialing org is offered the checkout but no inline cancel", async () => 
   ).toBeNull();
 });
 
-test("a provider-managed subscription shows Manage, not inline cancel", async () => {
+test("a provider-managed subscription shows Manage, not direct cancel", async () => {
   // Bought through RevenueCat (e.g. a store purchase opened on web): the org
   // is active AND resolves a provider manage link, so cancelling belongs to
   // the store, not to us. Offering inline cancel here would only 404.
   stubEnvironment(true, {
     isActive: true,
+    canCancelDirectly: false,
     managementUrl: "https://rc.example/manage",
   });
 
@@ -367,76 +406,6 @@ test("a non-admin cannot cancel", async () => {
   );
 });
 
-test("subscription management opens the provider URL without a native host", () => {
-  const opened = mock(() => null);
-  window.open = opened as typeof window.open;
-  const { result, onNativeManagementClosed } = renderManagementHook();
-  const url = "https://apps.apple.com/account/subscriptions";
-
-  act(() => result.current.open(url));
-
-  expect(opened).toHaveBeenCalledWith(url, "_blank", "noopener,noreferrer");
-  expect(onNativeManagementClosed).not.toHaveBeenCalled();
-});
-
-test("subscription management refreshes after the native sheet closes", async () => {
-  const opened = mock(() => null);
-  window.open = opened as typeof window.open;
-  const openNative = mock(() => Promise.resolve("native-closed" as const));
-  const { result, onNativeManagementClosed } = renderManagementHook(openNative);
-  const url = "https://apps.apple.com/account/subscriptions";
-
-  await act(async () => result.current.open(url));
-
-  expect(openNative).toHaveBeenCalledWith(url);
-  await waitFor(() =>
-    expect(onNativeManagementClosed).toHaveBeenCalledTimes(1),
-  );
-  expect(opened).not.toHaveBeenCalled();
-});
-
-test("external management does not trigger a billing refresh", async () => {
-  const opened = mock(() => null);
-  window.open = opened as typeof window.open;
-  const openExternal = mock(() => Promise.resolve("external-opened" as const));
-  const { result, onNativeManagementClosed } =
-    renderManagementHook(openExternal);
-  const url = "https://play.google.com/store/account/subscriptions";
-
-  await act(async () => result.current.open(url));
-
-  expect(openExternal).toHaveBeenCalledWith(url);
-  expect(onNativeManagementClosed).not.toHaveBeenCalled();
-  expect(result.current.error).toBeNull();
-});
-
-test("subscription management surfaces a native-sheet failure", async () => {
-  const opened = mock(() => null);
-  window.open = opened as typeof window.open;
-  const nativeError = new Error("StoreKit unavailable");
-  const openNative = mock(() => Promise.reject(nativeError));
-  const consoleError = spyOn(console, "error").mockImplementation(
-    () => undefined,
-  );
-  spies.push(consoleError);
-  const { result, onNativeManagementClosed } = renderManagementHook(openNative);
-  const url = "https://apps.apple.com/account/subscriptions";
-
-  await act(async () => result.current.open(url));
-
-  await waitFor(() =>
-    expect(result.current.error).toBe(
-      ORG_MANAGER_LABELS.billingManageSubscriptionFailed,
-    ),
-  );
-  expect(opened).not.toHaveBeenCalled();
-  expect(consoleError).toHaveBeenCalledWith(
-    "Failed to open subscription management:",
-    nativeError,
-  );
-  expect(onNativeManagementClosed).not.toHaveBeenCalled();
-});
-
 test("the billing panel shows a native subscription-management failure", async () => {
   stubEnvironment(true, {
     isActive: true,
@@ -449,7 +418,11 @@ test("the billing panel shows a native subscription-management failure", async (
   const openNative = mock(() => Promise.reject(new Error("StoreKit failed")));
   const view = render(
     <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
-    { wrapper: wrapperWith(false, openNative) },
+    {
+      wrapper: wrapperWith(false, {
+        openSubscriptionManagement: openNative,
+      }),
+    },
   );
 
   fireEvent.click(

@@ -1,3 +1,4 @@
+import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import { resolveDeps, type StripeApiDeps, stripeRequest } from "./stripeHttp";
 
 type StripeSeatProrationBehavior = "create_prorations" | "none";
@@ -19,40 +20,42 @@ export function normalizeStripeSeatQuantity(seatQuantity: number): number {
   if (!Number.isSafeInteger(seatQuantity) || seatQuantity < 0) {
     throw new RangeError("Stripe seat quantity must be a non-negative integer");
   }
-  return Math.max(1, seatQuantity);
-}
-
-export function serializeStripeSeatQuantity(seatQuantity: number): string {
-  if (!Number.isSafeInteger(seatQuantity) || seatQuantity < 1) {
-    throw new RangeError("Stripe seat quantity must be a positive integer");
+  const tier = getSyncBillingTierForSeatCount(Math.max(1, seatQuantity));
+  if (!tier) {
+    throw new RangeError("Stripe seat target exceeds the available tiers");
   }
-  return String(seatQuantity);
+  return tier.seatLimit;
 }
 
-/** Sets an absolute paid-seat quantity with caller-selected proration. */
+/** Switches the subscription item to the fixed tier covering the seat target. */
 export async function updateSubscriptionItemQuantity(
   input: StripeSeatQuantityUpdate,
   deps: StripeApiDeps = {},
 ): Promise<boolean | null> {
-  const seatQuantity = serializeStripeSeatQuantity(input.seatQuantity);
+  const tier = getSyncBillingTierForSeatCount(input.seatQuantity);
+  if (!tier) {
+    throw new RangeError("Stripe seat target exceeds the available tiers");
+  }
   if (!input.idempotencyKey.trim()) {
     throw new RangeError(
       "Stripe seat update idempotency key must not be empty",
     );
   }
-  const { fetchImpl, secretKey } = resolveDeps(deps);
-  if (!secretKey) {
+  const { fetchImpl, secretKey, syncPriceIds } = resolveDeps(deps);
+  const priceId = syncPriceIds[tier.id];
+  if (!secretKey || !priceId) {
     return null;
   }
   const form = new URLSearchParams();
-  form.set("quantity", seatQuantity);
+  form.set("price", priceId);
+  form.set("quantity", "1");
   form.set("proration_behavior", input.prorationBehavior);
   await stripeRequest({
     fetchImpl,
     secretKey,
     method: "POST",
     path: `/v1/subscription_items/${encodeURIComponent(input.subscriptionItemId)}`,
-    operation: "subscription item quantity update",
+    operation: "subscription item tier update",
     form,
     idempotencyKey: input.idempotencyKey,
   });

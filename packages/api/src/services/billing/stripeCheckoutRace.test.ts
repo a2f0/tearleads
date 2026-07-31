@@ -14,7 +14,9 @@ import {
 
 const STRIPE_ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_PRICE_ID: "price_sync",
+  STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   STRIPE_WEBHOOK_SECRET: "whsec_test",
 };
 const REVENUECAT_ENV = {

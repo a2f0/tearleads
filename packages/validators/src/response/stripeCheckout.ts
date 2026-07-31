@@ -1,3 +1,4 @@
+import { isSyncBillingTierId, type SyncBillingTierId } from "../billing";
 import { isPlainObject } from "../isPlainObject";
 import {
   hasArrayProperty,
@@ -15,6 +16,8 @@ import {
 
 /** One purchasable sync option, shaped for display in the billing panel. */
 export interface StripeSyncOptionResponse {
+  tierId: SyncBillingTierId;
+  seatLimit: number;
   priceId: string;
   productName: string;
   currency: string;
@@ -73,8 +76,12 @@ function isStripeSyncOption(value: unknown): value is StripeSyncOptionResponse {
   if (!isPlainObject(value)) {
     return false;
   }
-  const { intervalCount } = value;
+  const { intervalCount, seatLimit, tierId } = value;
   return (
+    isSyncBillingTierId(tierId) &&
+    typeof seatLimit === "number" &&
+    Number.isSafeInteger(seatLimit) &&
+    seatLimit > 0 &&
     hasNonEmptyStringProperty(value, "priceId") &&
     hasNonEmptyStringProperty(value, "productName") &&
     hasNonEmptyStringProperty(value, "currency") &&

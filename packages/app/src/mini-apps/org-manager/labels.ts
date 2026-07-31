@@ -31,6 +31,8 @@ export const ORG_MANAGER_LABELS = {
   billingCheckoutStarting: "Preparing checkout...",
   billingCheckoutUnavailable:
     "The payment form could not be started. Try again in a moment.",
+  billingCustomOrganizationWebOnly:
+    "Custom organizations subscribe on the web. Open Tearleads in a browser to choose a plan.",
   billingDeleting: "Deleting remote data",
   billingDisabled: "Sync disabled",
   billingHistoryActivityTab: "Activity",

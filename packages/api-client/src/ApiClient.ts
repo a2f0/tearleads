@@ -867,14 +867,10 @@ export class ApiClient {
     );
   }
 
-  /**
-   * Purchasable sync options for the direct Stripe checkout. Answers an empty
-   * list (not an error) when the integration is unconfigured, so the billing
-   * panel can simply fall back to the provider-hosted flow.
-   */
-  getStripeCheckoutOptions() {
+  /** Direct Stripe option for the organization's authoritative roster. */
+  getStripeCheckoutOptions(organizationId: string) {
     return this.request(
-      "/billing/stripe/options",
+      `/organizations/${pathSegment(organizationId)}/billing/stripe/options`,
       isStripeCheckoutOptionsResponse,
       "GET",
     );

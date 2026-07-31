@@ -11,9 +11,7 @@ import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProv
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { useDirectCheckoutFlow } from "./useDirectCheckout";
 
-// spyOn patches the shared module namespace; bun runs every test file in one
-// process, so an unrestored spy would hand OTHER suites a stub Tearleads
-// client (and fail them on a missing store). Restore after each test.
+// Restore shared module spies because Bun runs all test files in one process.
 const spies: { mockRestore: () => void }[] = [];
 
 afterEach(() => {
@@ -22,8 +20,9 @@ afterEach(() => {
   }
   cleanup();
 });
-
 const OPTION = {
+  tierId: "solo" as const,
+  seatLimit: 1,
   priceId: "price_1",
   productName: "Sync",
   currency: "usd",
