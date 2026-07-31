@@ -217,6 +217,15 @@ test("report retains only anchored content-free telemetry", () => {
         message:
           "Documents: remote revalidation scheduled reason=reconnect PRIVATE cardiology scan.pdf",
       }),
+      createLogEntry(15, {
+        level: "error",
+        message:
+          "Billing: billing purchase stage=failed code=store-problem native=asd:509 userCancelled=false",
+      }),
+      createLogEntry(16, {
+        message:
+          "Billing: billing purchase stage=failed code=store-problem native=asd:509 userCancelled=false PRIVATE cardiology scan.pdf",
+      }),
     ],
     status: createStatus(),
   });
@@ -225,6 +234,9 @@ test("report retains only anchored content-free telemetry", () => {
     "ERROR: document priming candidates=4 roots=1 primed=3 unroutable=1",
   );
   expect(report).not.toContain("PRIVATE");
+  expect(report).toContain(
+    "ERROR: billing purchase stage=failed code=store-problem native=asd:509 userCancelled=false",
+  );
   expect(report).toContain(
     "stale root recovery status=reassigned candidates=1",
   );
@@ -246,7 +258,7 @@ test("report retains only anchored content-free telemetry", () => {
   expect(report).toContain("interest baseline containers=12");
   expect(report).toContain("interest declaration acknowledged");
   expect(report).toContain(
-    "_Omitted 3 free-form log entries to protect decrypted customer data._",
+    "_Omitted 4 free-form log entries to protect decrypted customer data._",
   );
 });
 

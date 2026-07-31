@@ -15,6 +15,7 @@ import {
   useBillingActions,
 } from "../../src/mini-apps/org-manager/hooks/useBillingActions";
 import { AppHostConfigProvider } from "../../src/providers/host/AppHostConfigProvider";
+import { LogProvider } from "../../src/providers/logging/LogProvider";
 import { PurchasesProvider } from "../../src/providers/purchases/PurchasesProvider";
 
 /** Disables post-purchase polling by default so tests are unaffected. */
@@ -53,7 +54,9 @@ function wrapper(createPurchasesFn: CreatePurchasesFn) {
   return function BillingActionsWrapper({ children }: PropsWithChildren) {
     return (
       <AppHostConfigProvider value={hostConfig}>
-        <PurchasesProvider>{children}</PurchasesProvider>
+        <PurchasesProvider>
+          <LogProvider>{children}</LogProvider>
+        </PurchasesProvider>
       </AppHostConfigProvider>
     );
   };
