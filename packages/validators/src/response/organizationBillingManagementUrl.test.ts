@@ -29,6 +29,12 @@ test("rejects a missing or non-string management URL", () => {
   expect(
     isOrganizationBillingManagementUrlResponse({
       canCancelDirectly: false,
+      managementUrl: null,
+    }),
+  ).toBe(false);
+  expect(
+    isOrganizationBillingManagementUrlResponse({
+      canCancelDirectly: false,
       managementUrl: 42,
       subscriptionSource: null,
     }),

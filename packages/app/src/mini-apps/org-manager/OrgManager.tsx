@@ -38,7 +38,7 @@ import { OrganizationView } from "./organization/OrganizationView";
 import { OrgSwitcher } from "./organization/OrgSwitcher";
 import "./OrgManager.css";
 
-function renderRosterEdit(organizationId: string) {
+function renderRosterProfileEditor(organizationId: string) {
   return ({
     canEdit,
     isEditing,
@@ -66,7 +66,7 @@ function OrgManagerDirectoryContent({
   revokeGrant,
 }: {
   model: OrgManagerModel;
-  renderProfileEditor: ReturnType<typeof renderRosterEdit>;
+  renderProfileEditor: ReturnType<typeof renderRosterProfileEditor>;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
   return (
@@ -113,9 +113,11 @@ function OrgManagerContent({
   organizationId: string;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
-  const b = useOrganizationBilling();
+  const billing = useOrganizationBilling();
+  const billingMatchesOrganization =
+    billing.billing?.organizationId === organizationId;
   const renderProfileEditor = useMemo(
-    () => renderRosterEdit(organizationId),
+    () => renderRosterProfileEditor(organizationId),
     [organizationId],
   );
 
@@ -163,9 +165,7 @@ function OrgManagerContent({
     return (
       <DataUsageView
         canSync={
-          b.billing?.organizationId === organizationId
-            ? (b.view?.canSync ?? null)
-            : null
+          billingMatchesOrganization ? (billing.view?.canSync ?? null) : null
         }
         dataUsage={model.dataUsage}
         pending={model.dataUsagePending}

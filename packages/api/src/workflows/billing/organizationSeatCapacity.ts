@@ -3,10 +3,10 @@ import {
   getSyncBillingTierForNativeProduct,
   getSyncBillingTierForSeatCount,
 } from "@tearleads/validators/billing";
-import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
 import { OrganizationManagerError } from "../organizations/errors";
 
 interface BillingSeatCapacity {
+  readonly hasStripeSubscription: boolean;
   readonly providerProductId: string | null;
   readonly seatCount: number;
   readonly status: OrganizationBillingStatus;
@@ -19,7 +19,7 @@ export function requiredLicensedSeatCount(
   if (billing.status !== "active") {
     return activeSeatCount;
   }
-  if (getSyncBillingTierForStripePrice(billing.providerProductId)) {
+  if (billing.hasStripeSubscription) {
     const requiredTier = getSyncBillingTierForSeatCount(activeSeatCount);
     if (!requiredTier) {
       throw new OrganizationManagerError(
@@ -31,8 +31,9 @@ export function requiredLicensedSeatCount(
   }
   if (getSyncBillingTierForNativeProduct(billing.providerProductId)) {
     if (activeSeatCount > billing.seatCount) {
+      const memberLabel = billing.seatCount === 1 ? "member" : "members";
       throw new OrganizationManagerError(
-        `Upgrade the subscription before adding more than ${billing.seatCount} members`,
+        `Upgrade the subscription before adding more than ${billing.seatCount} ${memberLabel}`,
         409,
       );
     }

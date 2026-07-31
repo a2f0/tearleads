@@ -5,7 +5,12 @@ import {
   organizationBillingStripeSeats,
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
+import {
+  addEffectiveOrganizationMember,
+  registerAndAuthenticate,
+} from "../../../test/helpers/revenuecatWebhook";
 import {
   type RevenueCatWebhookOutcome,
   runRevenueCatWebhookWorkflow,
@@ -234,4 +239,68 @@ test("an si_-only event with metadata no longer binds an organization", async ()
   expect(claimed).toBeUndefined();
   expect(await readBillingStatus(metadataOrganizationId)).toBe("active");
   expect(await readBillingStatus(mutableOrganizationId)).toBe("active");
+});
+
+test("a Stripe renewal applies while its asynchronous tier update lags the roster", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  for (let index = 0; index < 5; index += 1) {
+    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+  }
+  await db
+    .update(organizationBilling)
+    .set({
+      providerCustomerId: admin.userId,
+      providerProductId: "price_team_5",
+      providerSubscriptionId: "sub_outgrown",
+      seatCount: 5,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({
+      desiredPaidCapacity: 5,
+      desiredRenewalQuantity: 5,
+      priceId: "price_team_5",
+      subscriptionId: "sub_outgrown",
+      subscriptionItemId: "si_outgrown",
+    })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const expirationAtMs = Date.now() + 30 * 24 * 60 * 60 * 1_000;
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    {
+      app_user_id: admin.userId,
+      entitlement_ids: ["sync"],
+      event_timestamp_ms: Date.now(),
+      expiration_at_ms: expirationAtMs,
+      id: crypto.randomUUID(),
+      original_transaction_id: "sub_outgrown",
+      product_id: "prod_sync",
+      store: "STRIPE",
+      type: "RENEWAL",
+    },
+    new Date(),
+    {
+      stripe: {
+        env: {
+          STRIPE_SECRET_KEY: "sk_test",
+          STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+        },
+      },
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    billingStatus: "active",
+    organizationId,
+    status: "applied",
+  });
+  const [billing] = await db
+    .select({ currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(billing?.currentPeriodEndsAt?.getTime()).toBe(expirationAtMs);
 });

@@ -152,14 +152,10 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
       throw new PurchaseAbortedError();
     }
     try {
-      if (Capacitor.getPlatform() !== "android") {
-        return await purchaseCapacitorRevenueCatPackage(aPackage);
-      }
-      const result = await Purchases.purchasePackage({
+      return await purchaseCapacitorRevenueCatPackage(
         aPackage,
-        ...productChangeOptions,
-      });
-      return fromCapacitorCustomerInfo(result?.customerInfo);
+        productChangeOptions,
+      );
     } catch (error) {
       // Backing out of the store sheet is a normal exit, not a failure.
       // Without this the panel surfaces "Failed to subscribe" and logs an

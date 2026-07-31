@@ -44,7 +44,7 @@ import { useOrgManagerRoute } from "./useOrgManagerRoute";
 import { useOrgManagerRouteMessages } from "./useOrgManagerRouteMessages";
 import { useOrgSwitcher } from "./useOrgSwitcher";
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Coordinates model hooks.
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Preserves async refresh and mutation ordering.
 export function useOrgManagerModel() {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
@@ -317,7 +317,7 @@ export function useOrgManagerModel() {
     setUserDetail,
     view,
   });
-  // Clear abandoned scope state before the new scope's refreshes begin.
+  // Register scope reset first so it clears abandoned state before refreshes.
   useOrgManagerScopeReset({
     closeContextMenu: contextMenuState.closeContextMenu,
     resetDirectoryState,

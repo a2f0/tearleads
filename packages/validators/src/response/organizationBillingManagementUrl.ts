@@ -21,7 +21,7 @@ export interface OrganizationBillingManagementUrlResponse {
   canCancelDirectly: boolean;
   managementUrl: string | null;
   /** Purchase system that owns the active subscription, when recognized. */
-  subscriptionSource?: OrganizationBillingSubscriptionSource | null;
+  subscriptionSource: OrganizationBillingSubscriptionSource | null;
 }
 
 export function isOrganizationBillingManagementUrlResponse(
@@ -34,8 +34,7 @@ export function isOrganizationBillingManagementUrlResponse(
   return (
     hasBooleanProperty(value, "canCancelDirectly") &&
     hasNullableStringProperty(value, "managementUrl") &&
-    (!("subscriptionSource" in value) ||
-      subscriptionSource === null ||
+    (subscriptionSource === null ||
       (hasStringProperty(value, "subscriptionSource") &&
         (value.subscriptionSource === "native" ||
           value.subscriptionSource === "stripe")))

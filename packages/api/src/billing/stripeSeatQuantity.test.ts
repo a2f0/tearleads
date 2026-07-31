@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { getSyncBillingTierForStripePrice } from "./stripeHttp";
 import {
   normalizeStripeSeatQuantity,
   updateSubscriptionItemQuantity,
@@ -15,7 +16,25 @@ test("live Stripe seat state has an explicit one-seat floor", () => {
   expect(normalizeStripeSeatQuantity(0)).toBe(1);
   expect(normalizeStripeSeatQuantity(1)).toBe(1);
   expect(normalizeStripeSeatQuantity(4)).toBe(5);
+  expect(normalizeStripeSeatQuantity(10)).toBe(10);
+  expect(normalizeStripeSeatQuantity(11)).toBe(10);
   expect(() => normalizeStripeSeatQuantity(-1)).toThrow(RangeError);
+});
+
+test("configured Stripe prices map exactly to their fixed tiers", () => {
+  expect(getSyncBillingTierForStripePrice("price_solo", { env: ENV })?.id).toBe(
+    "solo",
+  );
+  expect(
+    getSyncBillingTierForStripePrice("price_team_5", { env: ENV })?.id,
+  ).toBe("team_5");
+  expect(
+    getSyncBillingTierForStripePrice("price_team_10", { env: ENV })?.id,
+  ).toBe("team_10");
+  expect(
+    getSyncBillingTierForStripePrice("price_team_5_extra", { env: ENV }),
+  ).toBeNull();
+  expect(getSyncBillingTierForStripePrice(null, { env: ENV })).toBeNull();
 });
 
 test("sets absolute quantities with explicit proration and caller idempotency", async () => {

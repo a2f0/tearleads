@@ -1,7 +1,13 @@
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling, users } from "@tearleads/api-shared/schema";
+import {
+  organizationBilling,
+  organizations,
+  principalMembershipProjection,
+  principalStates,
+  users,
+} from "@tearleads/api-shared/schema";
 import type { TestUser } from "@tearleads/bob-and-alice";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";
 import { authenticate } from "./authenticate";
@@ -33,6 +39,37 @@ export async function registerAndAuthenticate(user: TestUser): Promise<string> {
     .where(eq(users.id, user.userId));
   invariant(row, "expected registered user row");
   return row.organizationId;
+}
+
+export async function addEffectiveOrganizationMember(
+  organizationId: string,
+  userId: string,
+): Promise<void> {
+  const [organization] = await db
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId));
+  invariant(organization, "expected organization row");
+  const [state] = await db
+    .select({ stateHash: principalStates.stateHash })
+    .from(principalStates)
+    .where(
+      and(
+        eq(principalStates.principalType, "group"),
+        eq(principalStates.principalId, organization.memberGroupId),
+      ),
+    )
+    .orderBy(desc(principalStates.version))
+    .limit(1);
+  invariant(state, "expected current Members-group state");
+  await db.insert(principalMembershipProjection).values({
+    memberPrincipalId: userId,
+    memberPrincipalType: "user",
+    principalId: organization.memberGroupId,
+    principalType: "group",
+    role: "member",
+    stateHash: state.stateHash,
+  });
 }
 
 export function revenuecatWebhookBody(input: WebhookEventInput): string {

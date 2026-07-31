@@ -62,14 +62,21 @@ export function getSyncBillingTierForNativeProduct(
     normalized === "sync_monthly" ||
     normalized === "sync_monthly_staging" ||
     normalized === "com.tearleads.sync.monthly" ||
-    normalized.startsWith("sync_solo_monthly")
+    normalized === "sync_solo_monthly" ||
+    normalized === "sync_solo_monthly_staging"
   ) {
     return getSyncBillingTier("solo");
   }
-  if (normalized.startsWith("sync_team_5_monthly")) {
+  if (
+    normalized === "sync_team_5_monthly" ||
+    normalized === "sync_team_5_monthly_staging"
+  ) {
     return getSyncBillingTier("team_5");
   }
-  if (normalized.startsWith("sync_team_10_monthly")) {
+  if (
+    normalized === "sync_team_10_monthly" ||
+    normalized === "sync_team_10_monthly_staging"
+  ) {
     return getSyncBillingTier("team_10");
   }
   return null;

@@ -292,7 +292,7 @@ test("a native fixed tier blocks membership beyond its capacity", async () => {
     version: 1,
   });
 
-  expect(
+  await expect(
     reconcileOrganizationBillingSeats({
       executor: db,
       now: NOW,
@@ -303,7 +303,7 @@ test("a native fixed tier blocks membership beyond its capacity", async () => {
       },
     }),
   ).rejects.toThrow(
-    "Upgrade the subscription before adding more than 1 members",
+    "Upgrade the subscription before adding more than 1 member",
   );
   expect(await readSeatCount(organizationId)).toBe(1);
   const stripeRows = await db

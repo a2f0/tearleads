@@ -231,7 +231,7 @@
     },
     "packages/app/src/mini-apps/org-manager/OrgManager.tsx": {
       "lines": 501,
-      "bytes": 15834
+      "bytes": 15913
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
       "lines": 521,

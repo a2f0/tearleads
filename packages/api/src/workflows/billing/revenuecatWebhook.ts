@@ -156,22 +156,21 @@ async function resolveIgnoredReason(
       if (buyer?.defaultOrganizationId !== organizationId) {
         return "Native purchases may only fund the buyer's personal organization";
       }
-    }
-
-    const [organization] = await executor
-      .select({ memberGroupId: organizations.memberGroupId })
-      .from(organizations)
-      .where(eq(organizations.id, organizationId))
-      .limit(1);
-    if (!organization) {
-      return "Unknown organization";
-    }
-    const activeUserIds = await listUsersReachableFromCurrentGroup({
-      executor,
-      groupId: organization.memberGroupId,
-    });
-    if (activeUserIds.length > transition.fields.seatCount) {
-      return "Subscription tier does not cover the organization's active members";
+      const [organization] = await executor
+        .select({ memberGroupId: organizations.memberGroupId })
+        .from(organizations)
+        .where(eq(organizations.id, organizationId))
+        .limit(1);
+      if (!organization) {
+        return "Unknown organization";
+      }
+      const activeUserIds = await listUsersReachableFromCurrentGroup({
+        executor,
+        groupId: organization.memberGroupId,
+      });
+      if (activeUserIds.length > transition.fields.seatCount) {
+        return "Subscription tier does not cover the organization's active members";
+      }
     }
   }
 

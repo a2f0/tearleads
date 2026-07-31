@@ -6,6 +6,7 @@ import {
   organizationBilling,
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
+  organizationBillingStripeSeats,
   organizations,
 } from "@tearleads/api-shared/schema";
 import {
@@ -17,7 +18,6 @@ import {
   organizationCanSync,
   organizationSeatPeriodKey,
 } from "../../billing/organizationBilling";
-import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import { requiredLicensedSeatCount } from "./organizationSeatCapacity";
@@ -35,6 +35,7 @@ interface BillingSeatSource {
 }
 
 interface BillingSeatState {
+  readonly hasStripeSubscription: boolean;
   readonly organizationId: string;
   readonly memberGroupId: string;
   readonly status: OrganizationBillingStatus;
@@ -82,6 +83,7 @@ async function loadBillingSeatState(input: {
 }): Promise<BillingSeatState | null> {
   const query = input.executor
     .select({
+      hasStripeSubscription: organizationBillingStripeSeats.subscriptionId,
       organizationId: organizationBilling.organizationId,
       memberGroupId: organizations.memberGroupId,
       status: organizationBilling.status,
@@ -97,13 +99,22 @@ async function loadBillingSeatState(input: {
       organizations,
       eq(organizations.id, organizationBilling.organizationId),
     )
+    .leftJoin(
+      organizationBillingStripeSeats,
+      eq(
+        organizationBillingStripeSeats.organizationId,
+        organizationBilling.organizationId,
+      ),
+    )
     .where(eq(organizationBilling.organizationId, input.organizationId))
     .limit(1);
 
   const [row] = isSqliteApiDatabase()
     ? await query
     : await query.for("update", { of: organizationBilling });
-  return row ?? null;
+  return row
+    ? { ...row, hasStripeSubscription: row.hasStripeSubscription !== null }
+    : null;
 }
 
 async function listOpenSeatAssignments(input: {
@@ -467,8 +478,7 @@ export async function reconcileOrganizationBillingSeats(input: {
     await requestOrganizationStripeSeatSync({
       desiredPaidCapacity: Math.max(licensedSeatCount, activeUserIds.length),
       desiredRenewalQuantity:
-        getSyncBillingTierForStripePrice(billing.providerProductId) &&
-        renewalTier
+        billing.hasStripeSubscription && renewalTier
           ? renewalTier.seatLimit
           : activeUserIds.length,
       desiredSeatPeriodKey: nextSeatPeriodKey,

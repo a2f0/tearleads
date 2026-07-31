@@ -10,6 +10,7 @@ import {
 } from "../../../test/helpers/api";
 import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
 import {
+  addEffectiveOrganizationMember,
   postRevenueCatWebhook as postWebhook,
   readOrganizationBilling as readBilling,
   registerAndAuthenticate,
@@ -122,6 +123,28 @@ test("a native team purchase grants the fixed tier capacity", async () => {
     providerProductId: "sync_team_5_monthly",
     seatCount: 5,
     status: "active",
+  });
+});
+
+test("a native tier cannot activate below the personal roster size", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await setTestOrganizationBillingLocal(organizationId);
+  await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+
+  const response = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      organizationId,
+      productId: "sync_solo_monthly",
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+
+  expect(await response.json()).toEqual({ received: true, outcome: "ignored" });
+  expect(await readBilling(organizationId)).toMatchObject({
+    providerCustomerId: null,
+    status: "local",
   });
 });
 

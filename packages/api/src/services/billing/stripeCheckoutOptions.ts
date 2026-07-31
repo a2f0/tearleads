@@ -4,7 +4,6 @@ import {
   type StripeSyncOption,
 } from "../../billing/stripeApi";
 import { runRequireCheckoutEligibleWorkflow } from "../../workflows/billing/stripeCheckout";
-import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   isDirectCheckoutFullyConfigured,
@@ -32,12 +31,7 @@ export async function getStripeCheckoutOptions(
     sessionUserId,
   );
   const tier = getSyncBillingTierForSeatCount(seatQuantity);
-  if (!tier) {
-    throw new OrganizationManagerError(
-      "The organization exceeds the maximum subscription tier of 10 members",
-      409,
-    );
-  }
+  if (!tier) throw new Error("Checkout returned an unavailable billing tier");
   const option = await getStripeSyncOption(tier.id, deps.stripe ?? {});
   return { options: option ? [option] : [] };
 }

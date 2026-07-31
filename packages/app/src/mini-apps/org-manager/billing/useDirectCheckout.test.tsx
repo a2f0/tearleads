@@ -11,7 +11,9 @@ import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProv
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { useDirectCheckoutFlow } from "./useDirectCheckout";
 
-// Restore shared module spies because Bun runs all test files in one process.
+// spyOn patches the shared module namespace; bun runs every test file in one
+// process, so an unrestored spy would hand OTHER suites a stub Tearleads
+// client (and fail them on a missing store). Restore after each test.
 const spies: { mockRestore: () => void }[] = [];
 
 afterEach(() => {
@@ -163,8 +165,7 @@ test("a successful payment tears down and hands off to activation", async () => 
 
   await act(async () => result.current.confirm());
 
-  // Back to idle — the shared billing view owns the activation-pending
-  // display, so the checkout does not park in a state with no exit.
+  // Back to idle; the shared billing view owns activation-pending display.
   await waitFor(() => expect(result.current.phase.kind).toBe("idle"));
   expect(unmount).toHaveBeenCalledTimes(1);
   // The entitlement arrives via the webhook, so the panel must re-read billing

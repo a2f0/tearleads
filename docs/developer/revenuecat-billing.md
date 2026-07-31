@@ -222,9 +222,10 @@ temporarily unavailable.
 ## Stripe seat synchronization worker
 
 [`stripeSeatSync.ts`](../../packages/api/scripts/stripeSeatSync.ts) drains the
-durable capacity targets. It validates the subscription metadata, configured
-tier Price, item id, and period directly against Stripe before applying an
-update. Database leases prevent two workers from owning the same row, stable
+durable capacity targets. It validates subscription metadata, a recognized tier
+Price, item id, and period against Stripe. The stored Price may lag a provider
+update whose database completion is retrying. Database leases prevent two
+workers from owning the same row, stable
 idempotency keys make a retried prorated increase safe, failures back off, and a
 daily audit rechecks otherwise-settled subscriptions for drift.
 If Stripe has already advanced to a new billing period, the worker first
@@ -233,6 +234,10 @@ high-water can never be applied after renewal. Only locally `active` billing
 rows are claimed, and capacity growth is prorated only while Stripe reports the
 subscription `active` or `trialing`; a `past_due` subscription backs off without
 creating another charge.
+
+This rollout is greenfield and assumes no live legacy per-seat Stripe
+subscriptions or billing rows. Before enabling a legacy deployment, rebind each
+Stripe item and stored `providerProductId` to a configured tier Price.
 
 The API build emits `packages/api/dist/tearleads-stripe-seat-sync`; the deploy
 scripts copy it to `/opt/tearleads/bin/tearleads-stripe-seat-sync`. Ansible

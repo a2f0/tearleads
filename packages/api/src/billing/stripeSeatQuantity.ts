@@ -20,10 +20,9 @@ export function normalizeStripeSeatQuantity(seatQuantity: number): number {
   if (!Number.isSafeInteger(seatQuantity) || seatQuantity < 0) {
     throw new RangeError("Stripe seat quantity must be a non-negative integer");
   }
-  const tier = getSyncBillingTierForSeatCount(Math.max(1, seatQuantity));
-  if (!tier) {
-    throw new RangeError("Stripe seat target exceeds the available tiers");
-  }
+  const boundedSeatQuantity = Math.min(10, Math.max(1, seatQuantity));
+  const tier = getSyncBillingTierForSeatCount(boundedSeatQuantity);
+  if (!tier) throw new Error("Fixed billing tiers are not configured");
   return tier.seatLimit;
 }
 
