@@ -25,7 +25,6 @@ import {
   canWriteContainerNode,
 } from "../containerRules";
 import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
-import { getDocumentByLocalId } from "../documentSummaries";
 import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
 import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
 import type { OpenInlineDocument } from "../hooks/useInlineDocumentAction";
@@ -38,6 +37,7 @@ import { ExplorerContainerInfoPanel } from "./container/ExplorerContainerInfoPan
 import { ExplorerDocumentDetail } from "./document/ExplorerDocumentDetail";
 import { ExplorerDocumentInfoPanel } from "./document/ExplorerDocumentInfoPanel";
 import { ExplorerNewStructuredDocumentPanel } from "./document/ExplorerNewStructuredDocumentPanel";
+import { getDocumentInfoRouteFallbackSummary } from "./documentInfoRouteSummary";
 import { ExplorerSectionsPanel } from "./ExplorerSectionsPanel";
 
 function ExplorerEmptyDetail(params: {
@@ -333,11 +333,11 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
   }
 
   if (route.view === "document-info") {
-    const fallbackDocumentSummary =
-      selectedDocument?.id === route.localId
-        ? selectedDocument
-        : (getDocumentByLocalId(params.documentSummaries, route.localId) ??
-          null);
+    const fallbackDocumentSummary = getDocumentInfoRouteFallbackSummary({
+      documentSummaries: params.documentSummaries,
+      localId: route.localId,
+      selectedDocument,
+    });
 
     return (
       <ExplorerDocumentInfoPanel

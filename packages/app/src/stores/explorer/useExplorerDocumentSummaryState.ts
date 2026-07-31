@@ -17,6 +17,7 @@ import {
   mergeDocumentSummaryLists,
   mergeSingleDocumentSummaryList,
 } from "./documentSummaryUtils";
+import { isExplorerOrphanedDocumentsId } from "./orphanedDocuments";
 
 // Subscription deltas for the active container arrive once per persisted write —
 // i.e. once per keystroke while a note is being edited, each re-deriving the
@@ -24,6 +25,12 @@ import {
 // (and one merge) on a trailing timer so the sidebar/item-table windows re-query
 // SQLite at most a few times a second instead of on every keystroke.
 const TRACKED_SUMMARY_FLUSH_MS = 200;
+
+export type ExplorerRouteDocumentSummaryResult =
+  | { status: "deferred" }
+  | { status: "pending" }
+  | { status: "rejected" }
+  | { documentSummary: DocumentSummary; status: "loaded" };
 
 // Owns the debounced document subscription: it buffers incoming deltas and, on a
 // trailing timer, applies them as one revision bump + merge. Kept apart so the
@@ -98,10 +105,112 @@ function useTrackedDocumentSummarySubscription(params: {
   }, [containerId, domainScope, mergeTrackedDocumentSummary, tearleads]);
 }
 
+function useExplorerDocumentSummaryLoaders(params: {
+  currentOrganizationId: string | null;
+  dbStatus: RuntimeSnapshot["infra"]["dbStatus"];
+  documentQueries: ContainerDocumentQueries;
+  mergeDocumentSummary: (summary: DocumentSummary) => void;
+}) {
+  const {
+    currentOrganizationId,
+    dbStatus,
+    documentQueries,
+    mergeDocumentSummary,
+  } = params;
+  const loadDocumentSummary = useCallback(
+    async (localId: string): Promise<DocumentSummary | null> => {
+      if (dbStatus !== "ready") {
+        return null;
+      }
+
+      const documentSummary =
+        await documentQueries.loadDocumentSummary(localId);
+      if (documentSummary) {
+        mergeDocumentSummary(documentSummary);
+      }
+
+      return documentSummary;
+    },
+    [dbStatus, documentQueries, mergeDocumentSummary],
+  );
+  const loadOrphanedDocumentSummary = useCallback(
+    async (localId: string): Promise<DocumentSummary | null> => {
+      if (dbStatus !== "ready") {
+        return null;
+      }
+
+      const documentSummary = await documentQueries.loadOrphanedDocumentSummary(
+        { currentOrganizationId, localId },
+      );
+      if (documentSummary) {
+        mergeDocumentSummary(documentSummary);
+      }
+
+      return documentSummary;
+    },
+    [currentOrganizationId, dbStatus, documentQueries, mergeDocumentSummary],
+  );
+  const loadRouteDocumentSummary = useCallback(
+    async (
+      localId: string,
+      routeContainerId: string,
+    ): Promise<ExplorerRouteDocumentSummaryResult> => {
+      if (dbStatus !== "ready") {
+        return { status: "deferred" };
+      }
+
+      if (!isExplorerOrphanedDocumentsId(routeContainerId)) {
+        const documentSummary =
+          await documentQueries.loadDocumentSummary(localId);
+        // A null-container document is only selectable through the scoped
+        // recovery collection. Do not let a forged ordinary-container route
+        // bypass its organization and surviving-link predicate.
+        if (!documentSummary) {
+          return { status: "pending" };
+        }
+        if (documentSummary.containerId === null) {
+          return { status: "rejected" };
+        }
+
+        mergeDocumentSummary(documentSummary);
+        return { documentSummary, status: "loaded" };
+      }
+
+      const documentSummary = await loadOrphanedDocumentSummary(localId);
+      if (!documentSummary) {
+        // Distinguish a valid deep link whose local projection has not arrived
+        // yet from a present row rejected by organization/link scoping. The
+        // former must remain an optimistic pending selection so discovery can
+        // resolve it without another route change.
+        const unscopedDocumentSummary =
+          await documentQueries.loadDocumentSummary(localId);
+        return {
+          status: unscopedDocumentSummary ? "rejected" : "pending",
+        };
+      }
+
+      return { documentSummary, status: "loaded" };
+    },
+    [
+      dbStatus,
+      documentQueries,
+      loadOrphanedDocumentSummary,
+      mergeDocumentSummary,
+    ],
+  );
+
+  return {
+    loadDocumentSummary,
+    loadOrphanedDocumentSummary,
+    loadRouteDocumentSummary,
+  };
+}
+
 export function useExplorerDocumentSummaryState(
   dbStatus: RuntimeSnapshot["infra"]["dbStatus"],
   domainScope: RuntimeSnapshot["state"]["domainScope"],
   containerId: RuntimeSnapshot["state"]["containerId"],
+  currentOrganizationId: string | null,
   documentQueries: ContainerDocumentQueries,
 ) {
   const tearleads = useTearleads();
@@ -159,22 +268,16 @@ export function useExplorerDocumentSummaryState(
     [],
   );
 
-  const loadDocumentSummary = useCallback(
-    async (localId: string): Promise<DocumentSummary | null> => {
-      if (dbStatus !== "ready") {
-        return null;
-      }
-
-      const documentSummary =
-        await documentQueries.loadDocumentSummary(localId);
-      if (documentSummary) {
-        mergeDocumentSummary(documentSummary);
-      }
-
-      return documentSummary;
-    },
-    [dbStatus, documentQueries, mergeDocumentSummary],
-  );
+  const {
+    loadDocumentSummary,
+    loadOrphanedDocumentSummary,
+    loadRouteDocumentSummary,
+  } = useExplorerDocumentSummaryLoaders({
+    currentOrganizationId,
+    dbStatus,
+    documentQueries,
+    mergeDocumentSummary,
+  });
 
   useTrackedDocumentSummarySubscription({
     containerId,
@@ -189,6 +292,8 @@ export function useExplorerDocumentSummaryState(
     documentListRevision,
     documentSummaries,
     loadDocumentSummary,
+    loadOrphanedDocumentSummary,
+    loadRouteDocumentSummary,
     mergeDocumentSummaries,
     mergeDocumentSummary,
   };

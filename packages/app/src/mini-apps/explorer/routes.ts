@@ -1,4 +1,5 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
+import { isExplorerOrphanedDocumentsId } from "../../stores/explorer/orphanedDocuments";
 
 export type ExplorerRoute =
   | { view: "selection" }
@@ -221,6 +222,12 @@ export function isExplorerRouteAvailable(
 
   if (route.view === "uploads") {
     return true;
+  }
+
+  if (isExplorerOrphanedDocumentsId(route.containerId)) {
+    return (
+      route.view === "document-selection" || route.view === "document-info"
+    );
   }
 
   return nodes.some((node) => node.id === route.containerId);

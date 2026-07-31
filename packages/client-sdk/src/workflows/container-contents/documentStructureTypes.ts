@@ -32,10 +32,10 @@ export interface DocumentStructuralMutationLocalStore<TRuntime> {
 }
 
 export interface DocumentStructuralMutationHost<TRuntime> {
-  documentWorkflowRuntime: (containerId: string) => TRuntime;
+  documentWorkflowRuntime: (containerId: string | null) => TRuntime;
   mergeDocumentSummary: MergeDocumentSummary;
   openDocumentStore: (input: {
-    containerId: string;
+    containerId: string | null;
     documentId: string | null;
     localId: string;
   }) => DocumentStructuralMutationLocalStore<TRuntime>;

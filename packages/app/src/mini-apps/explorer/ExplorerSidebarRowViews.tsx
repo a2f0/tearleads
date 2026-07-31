@@ -12,6 +12,10 @@ import { getDocumentTypeIcon } from "../../document-types/registry";
 import { useTouchRowHeight } from "../../navigation/useTouchRowHeight";
 import { getViewerRelativeContactDocumentLabel } from "../../stores/contacts/contactLabels";
 import {
+  explorerDocumentRouteContainerId,
+  isExplorerOrphanedDocumentsId,
+} from "../../stores/explorer/orphanedDocuments";
+import {
   type ExplorerSidebarDocumentWindowState,
   type ExplorerSidebarVirtualRow,
   getLoadedExplorerSidebarDocumentRow,
@@ -67,6 +71,7 @@ function ExplorerTreeDocumentRow(
   },
 ) {
   const { row } = props;
+  const sourceContainerId = row.containerId;
   const title = getViewerRelativeContactDocumentLabel({
     currentSigningFingerprint: props.currentSigningFingerprint,
     currentSelfContactLocalId: props.currentSelfContactLocalId,
@@ -91,13 +96,23 @@ function ExplorerTreeDocumentRow(
       <MiniAppRowButton
         data-document-local-id={row.localId}
         className="explorer-sidebar-item explorer-sidebar-item--note"
-        onClick={() => props.onSelectDocument(row.localId, row.containerId)}
-        onContextMenu={(event) =>
-          props.onDocumentContextMenu(event, row.localId, row.containerId)
+        onClick={() =>
+          props.onSelectDocument(
+            row.localId,
+            explorerDocumentRouteContainerId(sourceContainerId),
+          )
         }
+        onContextMenu={(event) => {
+          if (sourceContainerId === null) {
+            event.preventDefault();
+            return;
+          }
+          props.onDocumentContextMenu(event, row.localId, sourceContainerId);
+        }}
         selected={
           props.selectedId === row.localId &&
-          props.activeContainerId === row.containerId
+          props.activeContainerId ===
+            explorerDocumentRouteContainerId(sourceContainerId)
         }
       >
         {contactAvatar ? (
@@ -209,7 +224,13 @@ function ExplorerTreeContainerRow(
       <MiniAppRowButton
         className="explorer-sidebar-item"
         onClick={() => onSelectContainer(entry.node.id)}
-        onContextMenu={(event) => onContextMenu(event, entry.node.id)}
+        onContextMenu={(event) => {
+          if (isExplorerOrphanedDocumentsId(entry.node.id)) {
+            event.preventDefault();
+            return;
+          }
+          onContextMenu(event, entry.node.id);
+        }}
         selected={isSelected}
       >
         <FolderGlyph

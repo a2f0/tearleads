@@ -4,6 +4,7 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import { useCallback, useMemo, useRef } from "react";
+import { isExplorerDocumentContainerSelection } from "../../../stores/explorer/orphanedDocuments";
 import type { ExplorerContainerRulesContext } from "../containerRules";
 import {
   createExplorerTargetLookups,
@@ -15,6 +16,7 @@ import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
 
 function useSelectedDocumentTargetOptions(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
   selectedDocument: DocumentSummary | undefined;
@@ -22,6 +24,7 @@ function useSelectedDocumentTargetOptions(params: {
 }) {
   const {
     documentSummaries,
+    linkedContainerIdsByDocumentId,
     nodes,
     rulesContext,
     selectedDocument,
@@ -40,9 +43,17 @@ function useSelectedDocumentTargetOptions(params: {
             selectedDocument.id,
             targetLookups,
             rulesContext,
+            linkedContainerIdsByDocumentId,
           )
         : [],
-    [documentSummaries, nodes, rulesContext, selectedDocument, targetLookups],
+    [
+      documentSummaries,
+      linkedContainerIdsByDocumentId,
+      nodes,
+      rulesContext,
+      selectedDocument,
+      targetLookups,
+    ],
   );
   const selectedDocumentLinkTargetOptions = useMemo(
     () =>
@@ -78,6 +89,9 @@ export function useSelectedDocumentStructuralState(params: {
   expandNode: (nodeId: string) => void;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  loadOrphanedDocumentSummary: (
+    localId: string,
+  ) => Promise<DocumentSummary | null>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
   onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
@@ -94,6 +108,7 @@ export function useSelectedDocumentStructuralState(params: {
     expandNode,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
+    loadOrphanedDocumentSummary,
     mergeDocumentSummary,
     nodes,
     onDocumentLinksChanged,
@@ -115,7 +130,9 @@ export function useSelectedDocumentStructuralState(params: {
     appData,
     documentSummaries,
     expandNode,
+    linkedContainerIdsByDocumentId,
     loadDocumentSummary,
+    loadOrphanedDocumentSummary,
     mergeDocumentSummary,
     nodes,
     onDocumentLinksChanged,
@@ -127,6 +144,7 @@ export function useSelectedDocumentStructuralState(params: {
     selectedDocumentMoveTargetOptions,
   } = useSelectedDocumentTargetOptions({
     documentSummaries,
+    linkedContainerIdsByDocumentId,
     nodes,
     rulesContext,
     selectedDocument,
@@ -197,7 +215,12 @@ export function useSelectDocumentProjection(params: {
           setSelectedId(containerId, options);
           return;
         }
-        if (existingDocument.containerId === containerId) {
+        if (
+          isExplorerDocumentContainerSelection(
+            containerId,
+            existingDocument.containerId,
+          )
+        ) {
           return;
         }
 

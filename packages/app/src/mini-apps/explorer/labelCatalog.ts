@@ -1,3 +1,5 @@
+import { EXPLORER_ITEM_LABELS } from "./itemLabelCatalog";
+
 export const EXPLORER_LABELS = {
   blobBrowserAction: "Blob Browser",
   blobBrowserBackAction: "Back",
@@ -253,14 +255,7 @@ export const EXPLORER_LABELS = {
   fileImportCancelAction: "Cancel upload",
   fileImportGenericFailure: "Failed to import files.",
   fileImportStoreNotReady: "Document store was not ready.",
-  folderType: "Folder",
-  itemActionsButtonPrefix: "Actions for",
-  itemActionsColumn: "Actions",
-  itemNameColumn: "Name",
-  itemSortMenuLabel: "Sort items",
-  itemSortReverseAction: "Reverse order",
-  itemSyncColumn: "Sync",
-  itemTableEmpty: "No items.",
+  ...EXPLORER_ITEM_LABELS,
   uploadAction: "Upload",
   uploadsAction: "Uploads",
   uploadsCancelledStatus: "Cancelled",

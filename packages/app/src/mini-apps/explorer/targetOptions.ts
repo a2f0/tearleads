@@ -1,4 +1,5 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import { isExplorerOrphanedDocumentsId } from "../../stores/explorer/orphanedDocuments";
 import {
   canCreateChildContainerByRules,
   canLinkDocumentIntoContainerByRules,
@@ -119,6 +120,7 @@ export function getMoveTargetOptions(
     nodes.filter((candidateNode) => {
       if (
         candidateNode.id === movingNode.id ||
+        isExplorerOrphanedDocumentsId(candidateNode.id) ||
         candidateNode.organizationId !== movingNode.organizationId
       ) {
         return false;
@@ -157,6 +159,7 @@ export function getDocumentMoveTargetOptions(
   documentLocalId: string,
   lookups?: ExplorerTargetLookups,
   rulesContext?: ExplorerContainerRulesContext,
+  linkedContainerIdsByDocumentId?: ReadonlyMap<string, ReadonlyArray<string>>,
 ): ReadonlyArray<MoveTargetOption> {
   const documentSummariesById = getDocumentSummariesById(
     documentSummaries,
@@ -164,10 +167,17 @@ export function getDocumentMoveTargetOptions(
   );
   const nodesById = getNodesById(nodes, lookups);
   const movingDocument = documentSummariesById.get(documentLocalId);
-  if (
-    !movingDocument?.containerId ||
-    !canWriteDocumentSummary(movingDocument)
-  ) {
+  if (!movingDocument || !canWriteDocumentSummary(movingDocument)) {
+    return [];
+  }
+
+  // A remote null-container row is movable only after its link query proves
+  // there are no surviving links. Unknown link state fails closed.
+  const hasConfirmedNoRemoteLinks =
+    movingDocument.documentId === null ||
+    linkedContainerIdsByDocumentId?.get(movingDocument.documentId)?.length ===
+      0;
+  if (movingDocument.containerId === null && !hasConfirmedNoRemoteLinks) {
     return [];
   }
 
@@ -179,16 +189,24 @@ export function getDocumentMoveTargetOptions(
     return [];
   }
 
-  const currentContainer = nodesById.get(movingDocument.containerId);
-  if (!currentContainer) {
+  const currentContainer = movingDocument.containerId
+    ? nodesById.get(movingDocument.containerId)
+    : null;
+  if (movingDocument.containerId !== null && !currentContainer) {
     return [];
   }
+  const sourceOrganizationId =
+    currentContainer?.organizationId ??
+    rulesContext?.currentOrganizationId ??
+    // Empty organization ids are the canonical pre-auth local-only scope.
+    "";
 
   return getSortedTargetOptions(
     nodes.filter(
       (candidateNode) =>
-        candidateNode.id !== currentContainer.id &&
-        candidateNode.organizationId === currentContainer.organizationId &&
+        candidateNode.id !== currentContainer?.id &&
+        !isExplorerOrphanedDocumentsId(candidateNode.id) &&
+        candidateNode.organizationId === sourceOrganizationId &&
         (rulesContext === undefined ||
           canMoveDocumentToContainerByRules(
             rulesContext,
@@ -238,6 +256,7 @@ export function getDocumentLinkTargetOptions(
     nodes.filter(
       (candidateNode) =>
         candidateNode.organizationId === currentContainer.organizationId &&
+        !isExplorerOrphanedDocumentsId(candidateNode.id) &&
         !linkedContainerIdSet.has(candidateNode.id) &&
         // Link targets use the inbound-link gate, not the move gate, so a
         // move-only system folder such as Trash is excluded: you can move a

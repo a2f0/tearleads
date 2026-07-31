@@ -34,6 +34,9 @@ import {
   getContainerContentsDocumentRowsBaseSql,
   getContainerDocumentSidebarWindowLimit,
   getContainerItemWindowLimit,
+  getOrphanedDocumentExistsSql,
+  getOrphanedDocumentItemsBaseSql,
+  getOrphanedDocumentRowsBaseSql,
   listContainerContentsSqlIdBatches,
 } from "./documentQueries/sql";
 import type {
@@ -47,6 +50,10 @@ import type {
   ContainerItemSort,
   ContainerItemWindow as ContainerItemWindowContract,
 } from "./documentQueries/types";
+import {
+  getOrphanedDocumentQueryBind,
+  getOrphanedDocumentWhereSql,
+} from "./orphanedDocumentSql";
 import {
   listPendingWrites,
   type PendingWriteQueueItem,
@@ -69,7 +76,8 @@ export type ContainerDocumentSidebarWindow =
 export type ContainerItemWindow = ContainerItemWindowContract;
 
 interface ListContainerItemWindowInput {
-  containerId: string;
+  /** Null selects the virtual orphaned-documents recovery collection. */
+  containerId: string | null;
   currentOrganizationId?: string | null | undefined;
   limit: number;
   offset: number;
@@ -82,8 +90,13 @@ export interface ContainerDocumentQueries {
   applyContainerDocumentTombstones(
     tombstones: ReadonlyArray<ContainerDocumentTombstone>,
   ): Promise<ReadonlyArray<DocumentSummary>>;
+  hasOrphanedDocuments(input: {
+    currentOrganizationId: string | null;
+  }): Promise<boolean>;
   listContainerDocumentSidebarWindow(input: {
-    containerId: string;
+    /** Null selects the virtual orphaned-documents recovery collection. */
+    containerId: string | null;
+    currentOrganizationId?: string | null | undefined;
     limit: number;
     offset: number;
   }): Promise<ContainerDocumentSidebarWindow>;
@@ -94,6 +107,10 @@ export interface ContainerDocumentQueries {
     localId: string,
   ): Promise<ContainerDocumentObjectSyncState | null>;
   loadDocumentSummary(localId: string): Promise<DocumentSummary | null>;
+  loadOrphanedDocumentSummary(input: {
+    currentOrganizationId: string | null;
+    localId: string;
+  }): Promise<DocumentSummary | null>;
   loadContainerDocumentWatermark(
     containerId: string,
   ): Promise<SyncWatermark | null>;
@@ -210,19 +227,24 @@ async function listContainerItemWindow(
   const visibleForeignSystemContainerNames = currentOrganizationId
     ? Array.from(new Set(input.visibleForeignSystemContainerNames ?? []))
     : [];
-  const bind = [
-    input.containerId,
-    ...visibleSystemSlots,
-    ...(visibleForeignSystemContainerNames.length > 0
-      ? [currentOrganizationId, ...visibleForeignSystemContainerNames]
-      : []),
-    input.containerId,
-    input.containerId,
-  ];
-  const baseSql = getContainerContentsContainerItemsBaseSql(
-    visibleSystemSlots.length,
-    visibleForeignSystemContainerNames.length,
-  );
+  const orphaned = input.containerId === null;
+  const bind = orphaned
+    ? getOrphanedDocumentQueryBind(input.currentOrganizationId)
+    : [
+        input.containerId,
+        ...visibleSystemSlots,
+        ...(visibleForeignSystemContainerNames.length > 0
+          ? [currentOrganizationId, ...visibleForeignSystemContainerNames]
+          : []),
+        input.containerId,
+        input.containerId,
+      ];
+  const baseSql = orphaned
+    ? getOrphanedDocumentItemsBaseSql()
+    : getContainerContentsContainerItemsBaseSql(
+        visibleSystemSlots.length,
+        visibleForeignSystemContainerNames.length,
+      );
   const countRows = await execSql(
     `SELECT COUNT(*) AS total_count FROM (${baseSql})`,
     bind,
@@ -246,10 +268,23 @@ async function listContainerItemWindow(
   };
 }
 
+async function hasOrphanedDocuments(
+  execSql: ExecSql,
+  currentOrganizationId: string | null,
+): Promise<boolean> {
+  await sqlDocumentsPersistence.ensureSchema(execSql);
+  const rows = await execSql(
+    getOrphanedDocumentExistsSql(),
+    getOrphanedDocumentQueryBind(currentOrganizationId),
+  );
+  return rows.length > 0;
+}
+
 async function listContainerDocumentSidebarWindow(
   execSql: ExecSql,
   input: {
-    containerId: string;
+    containerId: string | null;
+    currentOrganizationId?: string | null | undefined;
     limit: number;
     offset: number;
   },
@@ -258,8 +293,13 @@ async function listContainerDocumentSidebarWindow(
 
   const limit = getContainerDocumentSidebarWindowLimit(input.limit);
   const offset = clampContainerItemWindowValue(input.offset);
-  const bind = [input.containerId, input.containerId];
-  const baseSql = getContainerContentsDocumentRowsBaseSql();
+  const orphaned = input.containerId === null;
+  const bind = orphaned
+    ? getOrphanedDocumentQueryBind(input.currentOrganizationId)
+    : [input.containerId, input.containerId];
+  const baseSql = orphaned
+    ? getOrphanedDocumentRowsBaseSql()
+    : getContainerContentsDocumentRowsBaseSql();
   const countRows = await execSql(
     `SELECT COUNT(*) AS total_count FROM (${baseSql})`,
     bind,
@@ -283,9 +323,10 @@ async function listContainerDocumentSidebarWindow(
   };
 }
 
-async function loadContainerContentsDocumentSummary(
+async function queryContainerContentsDocumentSummary(
   execSql: ExecSql,
   localId: string,
+  scope: { bind: ReadonlyArray<string | null>; whereSql: string },
 ): Promise<DocumentSummary | null> {
   await sqlDocumentsPersistence.ensureSchema(execSql);
 
@@ -305,12 +346,37 @@ async function loadContainerContentsDocumentSummary(
         ON stored.app_kind = 'documents'
         AND stored.local_id = d.local_id
       WHERE d.local_id = ?
+      ${scope.whereSql}
       LIMIT 1
     `,
-    [localId],
+    [localId, ...scope.bind],
   );
 
   return mapContainerContentsDocumentSummaryRow(rows[0] ?? {});
+}
+
+function loadContainerContentsDocumentSummary(
+  execSql: ExecSql,
+  localId: string,
+): Promise<DocumentSummary | null> {
+  return queryContainerContentsDocumentSummary(execSql, localId, {
+    bind: [],
+    whereSql: "",
+  });
+}
+
+function loadContainerContentsOrphanedDocumentSummary(
+  execSql: ExecSql,
+  localId: string,
+  currentOrganizationId: string | null,
+): Promise<DocumentSummary | null> {
+  return queryContainerContentsDocumentSummary(execSql, localId, {
+    bind: getOrphanedDocumentQueryBind(currentOrganizationId),
+    whereSql: `AND ${getOrphanedDocumentWhereSql({
+      documentIdSql: "d.document_id",
+      projectionAlias: "d",
+    })}`,
+  });
 }
 
 async function loadContainerContentsDocumentSyncState(
@@ -591,6 +657,9 @@ function createContainerDocumentQueries(
     applyContainerDocumentTombstones(tombstones) {
       return applyStoredContainerDocumentTombstones(execSql, tombstones);
     },
+    hasOrphanedDocuments({ currentOrganizationId }) {
+      return hasOrphanedDocuments(execSql, currentOrganizationId);
+    },
     listContainerDocumentSidebarWindow(input) {
       return listContainerDocumentSidebarWindow(execSql, input);
     },
@@ -602,6 +671,13 @@ function createContainerDocumentQueries(
     },
     loadDocumentSummary(localId) {
       return loadContainerContentsDocumentSummary(execSql, localId);
+    },
+    loadOrphanedDocumentSummary({ currentOrganizationId, localId }) {
+      return loadContainerContentsOrphanedDocumentSummary(
+        execSql,
+        localId,
+        currentOrganizationId,
+      );
     },
     loadContainerDocumentWatermark(containerId) {
       return loadContainerContentsContainerDocumentWatermark(

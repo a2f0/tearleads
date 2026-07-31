@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import { useMiniAppDetailBackAction } from "../../components/window/useMiniAppDetailBackAction";
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import { chromeOwnsRouteBackedDetailBack } from "../../navigation/routeBackedDetailBack";
+import { isExplorerOrphanedDocumentsId } from "../../stores/explorer/orphanedDocuments";
 import { NewContactIcon } from "../shared/newContactIcon";
 import { useExplorerHubToolbarActions } from "./ExplorerHubToolbarActions";
 import { getExplorerContainerToolbarVisibility } from "./explorerContainerToolbarVisibility";
@@ -44,6 +45,7 @@ export function useExplorerRoutedChromeActions({
   const showContainerToolbar =
     route.view === "selection" &&
     activeContainerId !== null &&
+    !isExplorerOrphanedDocumentsId(activeContainerId) &&
     selectedDocument === undefined;
   const showContactsContainerToolbar =
     showContainerToolbar && model.isActiveContactsContainer;

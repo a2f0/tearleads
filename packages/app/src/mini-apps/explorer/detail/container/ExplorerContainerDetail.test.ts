@@ -154,6 +154,8 @@ function renderContainerItemTable(
       currentSelfContactLocalId: null,
       currentUserId: null,
       dragActive: false,
+      dragDisabled: false,
+      emptyLabel: EXPLORER_LABELS.itemTableEmpty,
       error: null,
       frameRef: () => undefined,
       handleDragEnter: () => undefined,

@@ -1,11 +1,16 @@
 import { expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import {
+  createExplorerOrphanedDocumentsNode,
+  EXPLORER_ORPHANED_DOCUMENTS_ID,
+} from "../../stores/explorer/orphanedDocuments";
 import { deriveBuiltInSystemContainers } from "../../stores/systemContainers";
 import { createExplorerContainerRulesContext } from "./containerRules";
 import {
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
+  getMoveTargetOptions,
 } from "./targetOptions";
 
 const CONTACTS_SLOT = "contacts-slot";
@@ -74,6 +79,46 @@ test("a document in trash can be moved out to another container", () => {
   expect(optionIds).not.toContain(CONTACTS_CONTAINER_ID);
   expect(optionIds).toContain("user-container");
   expect(optionIds).toContain("root-container");
+});
+
+test("a linked null-container document cannot be moved from recovery", () => {
+  const linkedDocument = documentSummary({
+    id: "linked-document",
+    containerId: null,
+  });
+  const options = getDocumentMoveTargetOptions(
+    nodes,
+    [linkedDocument],
+    linkedDocument.id,
+    undefined,
+    rulesContext,
+    new Map([["document-1", ["foreign-container"]]]),
+  );
+
+  expect(options).toEqual([]);
+});
+
+test("an unlinked null-container document can be moved from recovery", () => {
+  const orphanedDocument = documentSummary({
+    id: "orphaned-document",
+    containerId: null,
+  });
+  const options = getDocumentMoveTargetOptions(
+    nodes,
+    [orphanedDocument],
+    orphanedDocument.id,
+    undefined,
+    createExplorerContainerRulesContext({
+      contactsContainerId: CONTACTS_CONTAINER_ID,
+      contactsSystemSlot: CONTACTS_SLOT,
+      currentOrganizationId: "org-1",
+      currentSigningFingerprint: null,
+      trashSystemSlot: TRASH_SLOT,
+    }),
+    new Map([["document-1", []]]),
+  );
+
+  expect(options.map(({ id }) => id)).toContain("user-container");
 });
 
 test("a document in trash cannot be linked to another container", () => {
@@ -359,4 +404,31 @@ test("a document in a plain container can be moved out", () => {
   const optionIds = options.map((option) => option.id);
   expect(optionIds).toContain(TRASH_CONTAINER_ID);
   expect(optionIds).not.toContain("user-container");
+});
+
+test("recovery is never a container, document move, or link target", () => {
+  const nodesWithRecovery = [
+    ...nodes,
+    createExplorerOrphanedDocumentsNode("org-1", "Orphaned Documents"),
+  ];
+  const userDocument = documentSummary({ id: "user-doc" });
+  const containerTargetIds = getMoveTargetOptions(
+    nodesWithRecovery,
+    "user-container",
+  ).map((option) => option.id);
+  const documentMoveTargetIds = getDocumentMoveTargetOptions(
+    nodesWithRecovery,
+    [userDocument],
+    userDocument.id,
+  ).map((option) => option.id);
+  const documentLinkTargetIds = getDocumentLinkTargetOptions(
+    nodesWithRecovery,
+    [userDocument],
+    userDocument.id,
+    ["user-container"],
+  ).map((option) => option.id);
+
+  expect(containerTargetIds).not.toContain(EXPLORER_ORPHANED_DOCUMENTS_ID);
+  expect(documentMoveTargetIds).not.toContain(EXPLORER_ORPHANED_DOCUMENTS_ID);
+  expect(documentLinkTargetIds).not.toContain(EXPLORER_ORPHANED_DOCUMENTS_ID);
 });

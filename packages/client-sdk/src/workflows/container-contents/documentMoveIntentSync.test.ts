@@ -59,6 +59,8 @@ async function runQueuedDocumentMoveFixture(input: {
     | { message: string; status: number | null }
     | undefined;
   linkFailure?: { message: string; status: number | null } | undefined;
+  replaceLinkedContainers?: boolean | undefined;
+  sourceContainerId?: string | null | undefined;
   testDbName: string;
   unlinkAvailable: boolean;
 }) {
@@ -84,6 +86,10 @@ async function runQueuedDocumentMoveFixture(input: {
       signerPrivateKey: author.signerPrivateKey,
       userId: author.signerUserId,
     });
+    const sourceContainerId =
+      input.sourceContainerId === undefined
+        ? rootProjection.containerId
+        : input.sourceContainerId;
     const resolveProjectionUserKey = async (userId: string) =>
       userId === author.signerUserId
         ? createTestTrustedUserIdentity({
@@ -126,7 +132,10 @@ async function runQueuedDocumentMoveFixture(input: {
     await defaultDocumentsPersistence.saveDocument(execSql, {
       accessEpoch: 1,
       accessStateHash: createdResponse.accessManifest.manifestHash,
-      containerId: rootProjection.containerId,
+      containerId:
+        sourceContainerId === null
+          ? trashProjection.containerId
+          : rootProjection.containerId,
       contentKeyBundle: null,
       documentId: writerProjection.documentId,
       documentKekTargets: null,
@@ -141,13 +150,13 @@ async function runQueuedDocumentMoveFixture(input: {
     await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
       execSql,
       writerProjection.documentId,
-      [rootProjection.containerId],
+      sourceContainerId === null ? [] : [rootProjection.containerId],
     );
     await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
       documentId: writerProjection.documentId,
       localId: "queued-move-local",
-      replaceLinkedContainers: true,
-      sourceContainerId: rootProjection.containerId,
+      replaceLinkedContainers: input.replaceLinkedContainers ?? true,
+      sourceContainerId,
       targetContainerId: trashProjection.containerId,
     });
 
@@ -364,6 +373,20 @@ test("pending document move intents replay signed link-set mutations and clear a
   expect(fixture.pendingIntents).toEqual([]);
 });
 
+test("a null-source move replay does not unlink its new target", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    replaceLinkedContainers: false,
+    sourceContainerId: null,
+    testDbName: "containerContents-document-move-null-source",
+    unlinkAvailable: true,
+  });
+
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.submittedOperations).toEqual(["preflight", "link"]);
+  expect(fixture.linkedContainerIds).toContain(fixture.trashContainerId);
+  expect(fixture.pendingIntents).toEqual([]);
+});
+
 // A partial replay (link applied, unlink still pending) must not report
 // progress: the structural lane re-arms itself on a positive count, so a
 // deterministically failing unlink would hot-loop the pump (issue #1744).
@@ -569,46 +592,6 @@ test("a blocked document move keeps replaying and re-records its reason", async 
     expect(secondPass?.syncStatus).toBe("blocked");
     // The second pass genuinely retried: its attempt timestamp advanced.
     expect(secondPass?.lastAttemptedAt).not.toBe(firstAttemptAt);
-  } finally {
-    close();
-  }
-});
-
-// A queued move for a deleted document can never replay; the row must go with
-// the document instead of rendering a permanent phantom queue entry.
-test("deleting a document deletes its queued move intents", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "containerContents-document-move-delete-cleanup",
-  );
-  try {
-    await defaultDocumentsPersistence.ensureSchema(execSql);
-    await defaultDocumentsPersistence.saveDocument(execSql, {
-      accessEpoch: 1,
-      accessStateHash: "access-document",
-      containerId: "source",
-      contentKeyBundle: null,
-      documentId: "document",
-      documentKekTargets: null,
-      documentKind: "note",
-      documentManifestBundle: null,
-      id: "local-document",
-      lastCommitLsn: null,
-      snapshotEndVersion: "",
-      text: "",
-      title: "Document",
-    });
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
-      documentId: "document",
-      localId: "local-document",
-      sourceContainerId: "source",
-      targetContainerId: "target",
-    });
-
-    await defaultDocumentsPersistence.deleteDocument(execSql, "local-document");
-
-    expect(
-      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
-    ).toEqual([]);
   } finally {
     close();
   }

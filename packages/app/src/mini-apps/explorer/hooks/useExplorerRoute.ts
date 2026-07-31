@@ -1,6 +1,9 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
+import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
+import { isExplorerOrphanedDocumentsId } from "../../../stores/explorer/orphanedDocuments";
+import type { ExplorerRouteDocumentSummaryResult } from "../../../stores/explorer/useExplorerDocumentSummaryState";
 import type { MiniAppId } from "../../types";
 import {
   DEFAULT_EXPLORER_ROUTE,
@@ -91,7 +94,10 @@ function useExplorerRouteBinding() {
 
 function useExplorerRouteSelectionEffect(params: {
   appRouteIsRouted: boolean;
-  loadDocumentSummary: (localId: string) => Promise<unknown>;
+  loadDocumentSummary: (
+    localId: string,
+    routeContainerId: string,
+  ) => Promise<ExplorerRouteDocumentSummaryResult>;
   parsedAppRoute: ExplorerRouteSnapshot | null;
   selectDocument: (id: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
@@ -111,27 +117,60 @@ function useExplorerRouteSelectionEffect(params: {
   const selectedId = parsedAppRoute?.selectedId;
   useEffect(() => {
     if (!appRouteIsRouted) {
-      return;
+      return undefined;
     }
 
     if (documentSelectionContainerId && documentSelectionLocalId) {
-      selectDocument(documentSelectionLocalId, documentSelectionContainerId);
-      // selectDocument only marks the document selected (pending). When the
-      // route is restored into a freshly mounted Explorer — e.g. crossing the
-      // windowed/routed breakpoint or a workspace round trip remounts the
-      // pane — the new view starts with no loaded summaries, so load the
-      // document too. Otherwise the pending selection never resolves and the
-      // detail pane is stranded on "Select a container." loadDocumentSummary
-      // no-ops until the database is ready and merges on success.
-      void loadDocumentSummary(documentSelectionLocalId);
-      return;
+      let active = true;
+      void loadDocumentSummary(
+        documentSelectionLocalId,
+        documentSelectionContainerId,
+      )
+        .then((result) => {
+          if (!active || result.status === "deferred") {
+            return;
+          }
+          if (result.status === "pending") {
+            selectDocument(
+              documentSelectionLocalId,
+              documentSelectionContainerId,
+            );
+            return;
+          }
+          // A null-container document is valid only through the organization-
+          // scoped recovery collection. A crafted ordinary-container deep link
+          // must not select a cached orphan and expose its Move action.
+          if (
+            result.status === "loaded" &&
+            (isExplorerOrphanedDocumentsId(documentSelectionContainerId) ||
+              result.documentSummary.containerId !== null)
+          ) {
+            selectDocument(
+              documentSelectionLocalId,
+              documentSelectionContainerId,
+            );
+          } else {
+            setSelectedId(null);
+          }
+        })
+        .catch((error: unknown) => {
+          if (!active || isIgnorableDatabaseWorkerError(error)) {
+            return;
+          }
+          console.error("Explorer: failed to restore document route:", error);
+          setSelectedId(null);
+        });
+      return () => {
+        active = false;
+      };
     }
 
     if (selectedId === undefined) {
-      return;
+      return undefined;
     }
 
     setSelectedId(selectedId);
+    return undefined;
   }, [
     appRouteIsRouted,
     documentSelectionContainerId,
@@ -375,7 +414,10 @@ function useExplorerRouteActions(params: {
 }
 
 export function useExplorerRoute(params: {
-  loadDocumentSummary: (localId: string) => Promise<unknown>;
+  loadDocumentSummary: (
+    localId: string,
+    routeContainerId: string,
+  ) => Promise<ExplorerRouteDocumentSummaryResult>;
   nodes: ReadonlyArray<ContainerNode>;
   selectDocument: (id: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;

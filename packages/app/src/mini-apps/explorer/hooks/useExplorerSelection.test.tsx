@@ -2,6 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import {
+  createExplorerOrphanedDocumentsNode,
+  EXPLORER_ORPHANED_DOCUMENTS_ID,
+} from "../../../stores/explorer/orphanedDocuments";
 import { useExplorerSelection } from "./useExplorerSelection";
 
 afterEach(() => {
@@ -107,5 +111,57 @@ test("unknown non-document selection still falls back to the first container", a
 
   await waitFor(() => {
     expect(view.result.current.selectedId).toBe("root-container");
+  });
+});
+
+test("an orphan selection stays in the recovery collection and follows a later move", async () => {
+  const orphanNodes = [
+    ...nodes,
+    createExplorerOrphanedDocumentsNode("org-1", "Orphaned Documents"),
+  ];
+  const initialProps: { documents: ReadonlyArray<DocumentSummary> } = {
+    documents: [],
+  };
+  const view = renderHook(
+    ({ documents }: { documents: ReadonlyArray<DocumentSummary> }) =>
+      useExplorerSelection(orphanNodes, documents),
+    { initialProps },
+  );
+
+  act(() => {
+    view.result.current.selectDocument(
+      "document-1",
+      EXPLORER_ORPHANED_DOCUMENTS_ID,
+    );
+  });
+  view.rerender({
+    documents: [createDocumentSummary({ containerId: null })],
+  });
+
+  await waitFor(() => {
+    expect(view.result.current.selectedDocument?.containerId).toBeNull();
+    expect(view.result.current.activeContainerId).toBe(
+      EXPLORER_ORPHANED_DOCUMENTS_ID,
+    );
+  });
+
+  view.rerender({ documents: [createDocumentSummary()] });
+  await waitFor(() => {
+    expect(view.result.current.activeContainerId).toBe("root-container");
+  });
+});
+
+test("a cached orphan does not activate a hidden recovery collection", async () => {
+  const orphan = createDocumentSummary({ containerId: null });
+  const view = renderHook(() => useExplorerSelection(nodes, [orphan]));
+
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("root-container");
+  });
+  act(() => view.result.current.setSelectedId(orphan.id));
+
+  await waitFor(() => {
+    expect(view.result.current.selectedDocument?.id).toBe(orphan.id);
+    expect(view.result.current.activeContainerId).toBeNull();
   });
 });

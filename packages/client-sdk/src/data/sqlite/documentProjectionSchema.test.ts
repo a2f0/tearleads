@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { ensureDocumentProjectionTables } from "./documentPersistence";
 
-test("document_projection gets container and document indexes", async () => {
+test("document_projection gets container, orphan, and document indexes", async () => {
   const { close, execSql } = await createTestExecSql(
     "document-projection-indexes",
   );
@@ -14,6 +14,7 @@ test("document_projection gets container and document indexes", async () => {
     );
     const names = rows.map((row) => Reflect.get(row, "name"));
     expect(names).toContain("document_projection_container_idx");
+    expect(names).toContain("document_projection_orphan_organization_idx");
     expect(names).toContain("document_projection_document_idx");
   } finally {
     close();

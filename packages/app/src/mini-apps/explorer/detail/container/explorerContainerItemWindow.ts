@@ -11,6 +11,7 @@ import {
   useMiniAppCompactTableLayout,
 } from "../../../../components/mini-app/MiniAppTable";
 import { useTouchRowHeight } from "../../../../navigation/useTouchRowHeight";
+import { explorerDocumentQueryContainerId } from "../../../../stores/explorer/orphanedDocuments";
 import { SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES } from "../../../../stores/systemContainers";
 
 /**
@@ -196,7 +197,7 @@ export function useExplorerContainerItemWindow(
 
     void documentQueries
       .listContainerItemWindow({
-        containerId,
+        containerId: explorerDocumentQueryContainerId(containerId),
         currentOrganizationId: params.currentOrganizationId,
         limit,
         offset,

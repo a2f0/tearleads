@@ -379,6 +379,9 @@ test("right-clicking a detail-pane row opens its menu without navigating", () =>
         containerId: row.id,
       });
     } else {
+      if (row.containerId === null) {
+        throw new Error("Expected the fixture document to have a container.");
+      }
       expect(openedTargets[0]).toEqual({
         kind: "document",
         containerId: row.containerId,
@@ -388,4 +391,21 @@ test("right-clicking a detail-pane row opens its menu without navigating", () =>
 
     cleanup();
   }
+});
+
+test("an orphan recovery row has no source-container context menu", () => {
+  const navigations: Array<string | null> = [];
+  const openedTargets: Array<ExplorerContextMenuState["id"]> = [];
+  const view = render(
+    <ItemContextMenuHarness
+      navigations={navigations}
+      openedTargets={openedTargets}
+      row={{ ...documentRow, containerId: null }}
+    />,
+  );
+
+  fireEvent.click(view.getByRole("button", { name: "open" }));
+
+  expect(navigations).toEqual([]);
+  expect(openedTargets).toEqual([]);
 });

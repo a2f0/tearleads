@@ -2,6 +2,10 @@ import { expect, test } from "bun:test";
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
+  createExplorerOrphanedDocumentsNode,
+  EXPLORER_ORPHANED_DOCUMENTS_ID,
+} from "../../stores/explorer/orphanedDocuments";
+import {
   formatExplorerRouteSegments,
   isExplorerRouteAvailable,
   parseExplorerRouteSegments,
@@ -40,6 +44,31 @@ test("explorer document-info route is unavailable when its container is gone", (
         view: "document-info",
       },
       nodes,
+    ),
+  ).toBe(false);
+});
+
+test("recovery document route remains available while its virtual node loads", () => {
+  expect(
+    isExplorerRouteAvailable(
+      {
+        containerId: EXPLORER_ORPHANED_DOCUMENTS_ID,
+        localId: "local-document-1",
+        view: "document-selection",
+      },
+      [],
+    ),
+  ).toBe(true);
+});
+
+test("recovery collection never exposes container-info", () => {
+  expect(
+    isExplorerRouteAvailable(
+      {
+        containerId: EXPLORER_ORPHANED_DOCUMENTS_ID,
+        view: "container-info",
+      },
+      [createExplorerOrphanedDocumentsNode("org-1", "Orphaned Documents")],
     ),
   ).toBe(false);
 });

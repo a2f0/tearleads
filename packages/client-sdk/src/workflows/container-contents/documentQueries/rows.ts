@@ -104,7 +104,7 @@ function readContainerDocumentObjectSyncState(
 }
 
 export function mapContainerItemRow(
-  containerId: string,
+  containerId: string | null,
   row: Record<string, unknown>,
 ): ContainerItemRow {
   const itemKind = readContainerContentsContainerItemString(row, "item_kind");
@@ -180,7 +180,10 @@ export function mapContainerDocumentSidebarRow(
   row: Record<string, unknown>,
 ): ContainerDocumentSidebarRow {
   return {
-    containerId: readContainerContentsContainerItemString(row, "container_id"),
+    containerId: readContainerContentsContainerItemNullableString(
+      row,
+      "container_id",
+    ),
     documentId: readContainerContentsContainerItemNullableString(
       row,
       "document_id",

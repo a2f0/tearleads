@@ -9,6 +9,7 @@ import {
   useWindowTitleBarAction,
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
+import { EXPLORER_ORPHANED_DOCUMENTS_ID } from "../../stores/explorer/orphanedDocuments";
 import { EXPLORER_LABELS } from "./labels";
 
 afterEach(() => cleanup());
@@ -57,6 +58,48 @@ test("system container toolbar hides forbidden actions instead of disabling them
     ).toBeTruthy();
   });
 
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.createChildFolderAction,
+    }),
+  ).toBeNull();
+  expect(
+    view.queryByRole("button", { name: EXPLORER_LABELS.uploadAction }),
+  ).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.newStructuredDocumentAction,
+    }),
+  ).toBeNull();
+});
+
+test("recovery collection does not register container toolbar actions", async () => {
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          isActiveContactsContainer: false,
+          selection: {
+            ...baseModel.selection,
+            activeContainerId: EXPLORER_ORPHANED_DOCUMENTS_ID,
+            selectedDocument: undefined,
+          },
+        })}
+      />
+    </WindowMenuProvider>,
+  );
+
+  await waitFor(() =>
+    expect(view.getByRole("toolbar").getAttribute("aria-label")).toBe(
+      "Toolbar",
+    ),
+  );
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentInfoGetInfoAction,
+    }),
+  ).toBeNull();
   expect(
     view.queryByRole("button", {
       name: EXPLORER_LABELS.createChildFolderAction,

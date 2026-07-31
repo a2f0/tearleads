@@ -19,7 +19,7 @@ function uniqueSortedStrings(values: ReadonlyArray<string>): string[] {
 }
 
 async function resolveOptimisticDocumentMoveLinks(input: {
-  currentContainerId: string;
+  currentContainerId: string | null;
   documentId: string;
   replaceLinkedContainers?: boolean | undefined;
   runtime: DocumentStructuralMutationRuntime;
@@ -36,7 +36,9 @@ async function resolveOptimisticDocumentMoveLinks(input: {
   const linkedContainerIds =
     currentLinkedContainerIds.length > 0
       ? currentLinkedContainerIds
-      : [input.currentContainerId];
+      : input.currentContainerId
+        ? [input.currentContainerId]
+        : [];
 
   return uniqueSortedStrings([
     ...linkedContainerIds.filter(
@@ -64,7 +66,7 @@ export async function moveRemoteDocumentLinkLocally<TRuntime>(params: {
   currentDocumentStore: DocumentStructuralMutationLocalStore<TRuntime>;
   expandNode: (nodeId: string) => void;
   host: DocumentStructuralMutationHost<TRuntime>;
-  note: DocumentSummary & { documentId: string; containerId: string };
+  note: DocumentSummary & { documentId: string };
   replaceLinkedContainers?: boolean | undefined;
   runtime: DocumentStructuralMutationRuntime;
   scheduleSync?: (() => void) | undefined;

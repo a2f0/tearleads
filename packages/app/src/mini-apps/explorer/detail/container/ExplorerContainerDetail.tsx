@@ -19,6 +19,7 @@ import {
 } from "../../../../components/mini-app/MiniAppTable";
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
+import { isExplorerOrphanedDocumentsId } from "../../../../stores/explorer/orphanedDocuments";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { ExplorerContainerIcon } from "../../ExplorerContainerIcon";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
@@ -36,6 +37,12 @@ import "./ExplorerContainerDetail.css";
 
 export { getNextExplorerItemSort } from "./explorerContainerItemWindow";
 
+function getExplorerContainerEmptyLabel(recoveryCollection: boolean): string {
+  return recoveryCollection
+    ? EXPLORER_LABELS.orphanedDocumentsEmpty
+    : EXPLORER_LABELS.itemTableEmpty;
+}
+
 function ExplorerContainerDetailHeader(params: {
   online: boolean;
   onContainerContextMenu: (
@@ -43,9 +50,11 @@ function ExplorerContainerDetailHeader(params: {
     containerId: string,
   ) => void;
   selectedNode: ContainerNode;
+  recoveryCollection: boolean;
   showHeaderSyncIndicator: boolean;
 }) {
-  const { online, selectedNode, showHeaderSyncIndicator } = params;
+  const { online, recoveryCollection, selectedNode, showHeaderSyncIndicator } =
+    params;
   // The folder you are inside is the one thing on this pane with no row of its
   // own — the list below shows its children — so its overflow menu belongs on
   // the header that names it. It opens the same container menu the sidebar row
@@ -67,26 +76,32 @@ function ExplorerContainerDetailHeader(params: {
         />
         <MiniAppHeaderCopy>
           <strong>{selectedNode.name}</strong>
-          <span>{EXPLORER_LABELS.folderType}</span>
+          <span>
+            {recoveryCollection
+              ? EXPLORER_LABELS.orphanedDocumentsType
+              : EXPLORER_LABELS.folderType}
+          </span>
         </MiniAppHeaderCopy>
       </div>
       {/* Group the trailing controls: the header spreads its children apart, so
           a bare third child would strand the sync badge in the middle. */}
-      <MiniAppActions>
-        {showHeaderSyncIndicator ? (
-          <ExplorerSyncStateBadge
-            online={online}
-            syncState={selectedNode.syncState}
+      {recoveryCollection ? null : (
+        <MiniAppActions>
+          {showHeaderSyncIndicator ? (
+            <ExplorerSyncStateBadge
+              online={online}
+              syncState={selectedNode.syncState}
+            />
+          ) : null}
+          <MiniAppRowActionsButton
+            aria-label={actionsLabel}
+            onClick={(event) => {
+              params.onContainerContextMenu(event, selectedNode.id);
+            }}
+            title={actionsLabel}
           />
-        ) : null}
-        <MiniAppRowActionsButton
-          aria-label={actionsLabel}
-          onClick={(event) => {
-            params.onContainerContextMenu(event, selectedNode.id);
-          }}
-          title={actionsLabel}
-        />
-      </MiniAppActions>
+        </MiniAppActions>
+      )}
     </MiniAppHeader>
   );
 }
@@ -218,6 +233,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
     selectedNode,
     setSelectedId,
   } = params;
+  const recoveryCollection = isExplorerOrphanedDocumentsId(selectedNode.id);
   const {
     compact,
     frameRef,
@@ -242,6 +258,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
       <ExplorerContainerDetailHeader
         online={online}
         onContainerContextMenu={onContainerContextMenu}
+        recoveryCollection={recoveryCollection}
         selectedNode={selectedNode}
         showHeaderSyncIndicator={params.showHeaderSyncIndicator}
       />
@@ -259,6 +276,8 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         currentSelfContactLocalId={currentSelfContactLocalId}
         currentUserId={currentUserId}
         dragActive={fileDropTarget.dragActive}
+        dragDisabled={recoveryCollection}
+        emptyLabel={getExplorerContainerEmptyLabel(recoveryCollection)}
         error={itemWindow.error}
         frameRef={frameRef}
         handleDragEnter={fileDropTarget.handleDragEnter}
@@ -269,7 +288,9 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         isImporting={fileDropTarget.isImporting}
         isLoading={itemWindow.isLoading}
         online={online}
-        onBlankContextMenu={onContainerContextMenu}
+        onBlankContextMenu={
+          recoveryCollection ? undefined : onContainerContextMenu
+        }
         onItemContextMenu={onItemContextMenu}
         onSort={handleSort}
         rowHeight={rowHeight}

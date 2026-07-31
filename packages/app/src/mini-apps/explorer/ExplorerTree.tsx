@@ -15,6 +15,7 @@ import {
 } from "../../components/mini-app/MiniAppLayout";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import type { AvatarUrlByContactId } from "../../document-types/contact/useContactAvatarUrls";
+import { isExplorerOrphanedDocumentsId } from "../../stores/explorer/orphanedDocuments";
 import { ExplorerDatabaseErrorStatus } from "./ExplorerDatabaseErrorStatus";
 import type { ExplorerSidebarVirtualRow } from "./ExplorerSidebarRows";
 import {
@@ -134,6 +135,7 @@ interface ExplorerSidebarPanelParams {
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
+  currentOrganizationId: string | null;
   // Surfaces a failed SQLite boot (with Retry) in the sidebar tree's gate.
   databaseError: boolean;
   onRetryDatabase: () => void;
@@ -162,6 +164,24 @@ interface ExplorerSidebarPanelParams {
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
 }
 
+export function getExplorerSidebarBlankContextMenuContainerId(
+  treeEntries: ReadonlyArray<ExplorerTreeEntry>,
+  primaryOrganizationId: string | null,
+): string | null {
+  const ownedRoot = treeEntries.find(
+    (entry) =>
+      !isExplorerOrphanedDocumentsId(entry.node.id) &&
+      (primaryOrganizationId === null ||
+        entry.node.organizationId === primaryOrganizationId),
+  );
+  return (
+    ownedRoot?.node.id ??
+    treeEntries.find((entry) => !isExplorerOrphanedDocumentsId(entry.node.id))
+      ?.node.id ??
+    null
+  );
+}
+
 function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
   const { documentWindowsByContainerId, requestDocumentWindow } =
     useExplorerSidebarDocumentWindows(props);
@@ -177,14 +197,14 @@ function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
     primaryOrganizationId: props.primaryOrganizationId,
     treeEntries: props.treeEntries,
   });
-  const blankContextMenuContainerId = useMemo(() => {
-    const ownedRoot = props.treeEntries.find(
-      (entry) =>
-        props.primaryOrganizationId === null ||
-        entry.node.organizationId === props.primaryOrganizationId,
-    );
-    return ownedRoot?.node.id ?? props.treeEntries[0]?.node.id ?? null;
-  }, [props.primaryOrganizationId, props.treeEntries]);
+  const blankContextMenuContainerId = useMemo(
+    () =>
+      getExplorerSidebarBlankContextMenuContainerId(
+        props.treeEntries,
+        props.primaryOrganizationId,
+      ),
+    [props.primaryOrganizationId, props.treeEntries],
+  );
   const retryDocumentWindow = useExplorerSidebarDocumentWindowLoader({
     documentWindowsByContainerId,
     ready: props.ready,
@@ -232,6 +252,7 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.currentSigningFingerprint,
       params.currentSelfContactLocalId,
       params.currentUserId,
+      params.currentOrganizationId,
       params.databaseError,
       params.documentLinkProjectionVersion,
       params.documentLinkProjectionVersionByContainerId,

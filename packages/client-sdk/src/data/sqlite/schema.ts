@@ -432,6 +432,8 @@ export const documentMoveIntents = sqliteTable(
  * - `localId` is the primary key for document projection lookups.
  * - `(containerId) where containerId is not null` serves container-scoped
  *   window/count scans without walking the whole table.
+ * - `(organizationId) where containerId is null` serves the orphan-recovery
+ *   existence and window scans.
  * - `(documentId) where documentId is not null` serves the linked-placement
  *   join from `documentContainerProjection` and server-id lookups.
  */
@@ -451,6 +453,9 @@ export const documentProjection = sqliteTable(
     index("document_projection_container_idx")
       .on(table.containerId)
       .where(sql`${table.containerId} IS NOT NULL`),
+    index("document_projection_orphan_organization_idx")
+      .on(table.organizationId)
+      .where(sql`${table.containerId} IS NULL`),
     index("document_projection_document_idx")
       .on(table.documentId)
       .where(sql`${table.documentId} IS NOT NULL`),

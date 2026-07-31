@@ -120,6 +120,7 @@ test("client sqlite schema creates tables and indexes", async () => {
       "document_pending_updates_scope_created_idx",
       "document_projection_container_idx",
       "document_projection_document_idx",
+      "document_projection_orphan_organization_idx",
       "documents_app_document_idx",
       "dormant_container_metadata_organization_idx",
     ]);

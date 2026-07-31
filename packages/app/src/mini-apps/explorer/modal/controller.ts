@@ -319,6 +319,7 @@ export function useExplorerModalController(
         modalState.modalState.documentLocalId,
         modalState.targetLookups,
         params.rulesContext,
+        params.linkedContainerIdsByDocumentId,
       );
     }
 

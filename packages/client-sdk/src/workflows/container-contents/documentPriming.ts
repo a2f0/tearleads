@@ -1,4 +1,3 @@
-import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../data/documentSummary";
 import {
   documentContainerProjectionTables,
   documentMoveIntentTables,
@@ -14,6 +13,10 @@ import type {
   ContainerDocumentQueriesRuntime,
 } from "./documentQueries/types";
 import { requestDocumentRuntimeTargetSync } from "./documentRuntimeTargetSync";
+import {
+  getOrphanedDocumentQueryBind,
+  getOrphanedDocumentWhereSql,
+} from "./orphanedDocumentSql";
 
 interface PrimeRequiredDocumentCandidate {
   readonly localId: string;
@@ -163,23 +166,10 @@ const ORPHANED_PRIME_TARGET_SQL = `
   INNER JOIN document_projection projection
     ON projection.local_id = stored.local_id
   WHERE stored.app_kind = 'documents'
-    AND projection.container_id IS NULL
-    AND (
-      projection.organization_id = ?
-      OR projection.organization_id IS NULL
-      OR projection.organization_id = ''
-    )
-    AND projection.document_kind NOT IN (${HIDDEN_DOCUMENT_SUMMARY_KINDS.map(
-      () => "?",
-    ).join(", ")})
-    AND (
-      stored.document_id IS NULL
-      OR NOT EXISTS (
-        SELECT 1
-        FROM document_container_projection link
-        WHERE link.document_id = stored.document_id
-      )
-    )
+    AND ${getOrphanedDocumentWhereSql({
+      documentIdSql: "stored.document_id",
+      projectionAlias: "projection",
+    })}
   ORDER BY stored.local_id ASC
 `;
 
@@ -197,10 +187,10 @@ async function listOrphanedDocumentPrimeTargets(
     ...documentProjectionTables,
     ...documentContainerProjectionTables,
   ]);
-  const rows = await runtime.infra.execSql(ORPHANED_PRIME_TARGET_SQL, [
-    organizationId,
-    ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
-  ]);
+  const rows = await runtime.infra.execSql(
+    ORPHANED_PRIME_TARGET_SQL,
+    getOrphanedDocumentQueryBind(organizationId),
+  );
   return rows.flatMap((row) => {
     const localId = Reflect.get(row, "local_id");
     if (typeof localId !== "string") {

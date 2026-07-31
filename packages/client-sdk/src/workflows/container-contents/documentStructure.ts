@@ -55,7 +55,7 @@ async function openDocumentStoreForStructuralMutation<TRuntime>({
   requireDocumentId,
   runtime,
 }: DocumentStructuralMutationInput<TRuntime>) {
-  if (!note.containerId || (requireDocumentId && !note.documentId)) {
+  if (requireDocumentId && !note.documentId) {
     return null;
   }
 
@@ -94,7 +94,7 @@ export async function moveLocalDocumentLink<TRuntime>(params: {
   targetContainerId: string;
 }): Promise<DocumentSummary | null> {
   const { expandNode, host, note, runtime, targetContainerId } = params;
-  if (!note.containerId || note.containerId === targetContainerId) {
+  if (note.containerId === targetContainerId) {
     return null;
   }
 
@@ -148,7 +148,7 @@ export async function moveDocumentLink<TRuntime>(params: {
     setLinkedContainerIdsForDocument,
     targetContainerId,
   } = params;
-  if (!note.containerId || note.containerId === targetContainerId) {
+  if (note.containerId === targetContainerId) {
     return { linksChanged: false, note: null };
   }
   if (!note.documentId) {
@@ -182,7 +182,6 @@ export async function moveDocumentLink<TRuntime>(params: {
     note: {
       ...note,
       documentId: note.documentId,
-      containerId: note.containerId,
     },
     replaceLinkedContainers,
     runtime,

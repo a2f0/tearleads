@@ -52,9 +52,16 @@ function useContextMenuTargetDocumentOptions(params: {
             targetDocument.id,
             undefined,
             rulesContext,
+            linkedContainerIdsByDocumentId,
           )
         : [],
-    [documentSummaries, nodes, rulesContext, targetDocument],
+    [
+      documentSummaries,
+      linkedContainerIdsByDocumentId,
+      nodes,
+      rulesContext,
+      targetDocument,
+    ],
   );
   const linkTargetOptions = useMemo(
     () =>

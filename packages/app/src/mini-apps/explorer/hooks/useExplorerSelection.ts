@@ -1,5 +1,10 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  EXPLORER_ORPHANED_DOCUMENTS_ID,
+  explorerDocumentRouteContainerId,
+  isExplorerDocumentContainerSelection,
+} from "../../../stores/explorer/orphanedDocuments";
 import { getDocumentByLocalId } from "../documentSummaries";
 
 interface PendingSelectedDocument {
@@ -11,6 +16,19 @@ function getDefaultSelectedNode(
   nodes: ReadonlyArray<ContainerNode>,
 ): ContainerNode | undefined {
   return nodes.find((node) => node.parentId === null) ?? nodes[0];
+}
+
+function getSelectedDocumentActiveContainerId(
+  document: DocumentSummary,
+  nodes: ReadonlyArray<ContainerNode>,
+): string | undefined {
+  if (document.containerId !== null) {
+    return explorerDocumentRouteContainerId(document.containerId);
+  }
+
+  return nodes.some((node) => node.id === EXPLORER_ORPHANED_DOCUMENTS_ID)
+    ? EXPLORER_ORPHANED_DOCUMENTS_ID
+    : undefined;
 }
 
 function useExplorerSelectedId(
@@ -48,7 +66,12 @@ function useExplorerSelectedId(
       pendingSelectedDocument?.id === selectedId;
     if (
       selectedMatchesPendingDocument &&
-      selectedDocument?.containerId === pendingSelectedDocument?.containerId
+      selectedDocument !== undefined &&
+      pendingSelectedDocument !== null &&
+      isExplorerDocumentContainerSelection(
+        pendingSelectedDocument.containerId,
+        selectedDocument.containerId,
+      )
     ) {
       setPendingSelectedDocument(null);
     }
@@ -155,7 +178,9 @@ export function useExplorerSelection(
   return {
     activeContainerId:
       selectedPendingDocument?.containerId ??
-      selectedDocument?.containerId ??
+      (selectedDocument
+        ? getSelectedDocumentActiveContainerId(selectedDocument, nodes)
+        : undefined) ??
       selectedNode?.id ??
       null,
     collapsedIds,

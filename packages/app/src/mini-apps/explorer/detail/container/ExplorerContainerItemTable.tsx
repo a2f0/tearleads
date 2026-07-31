@@ -164,6 +164,7 @@ function ExplorerContainerItemTableBody(params: {
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
+  emptyLabel: string;
   error: string | null;
   isLoading: boolean;
   online: boolean;
@@ -186,6 +187,7 @@ function ExplorerContainerItemTableBody(params: {
     currentSigningFingerprint,
     currentSelfContactLocalId,
     currentUserId,
+    emptyLabel,
     error,
     isLoading,
     online,
@@ -236,7 +238,7 @@ function ExplorerContainerItemTableBody(params: {
         </MiniAppTableEmptyRow>
       ) : totalCount === 0 ? (
         <MiniAppTableEmptyRow colSpan={columns.length}>
-          {EXPLORER_LABELS.itemTableEmpty}
+          {emptyLabel}
         </MiniAppTableEmptyRow>
       ) : null}
       {bottomPadding > 0 ? (
@@ -260,6 +262,8 @@ interface ItemTableProps {
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   dragActive: boolean;
+  dragDisabled: boolean;
+  emptyLabel: string;
   error: string | null;
   frameRef: (frame: HTMLDivElement | null) => void;
   handleDragEnter: (event: DragEvent<HTMLElement>) => void;
@@ -270,10 +274,9 @@ interface ItemTableProps {
   isImporting: boolean;
   isLoading: boolean;
   online: boolean;
-  onBlankContextMenu: (
-    event: MouseEvent<HTMLElement>,
-    containerId: string,
-  ) => void;
+  onBlankContextMenu:
+    | ((event: MouseEvent<HTMLElement>, containerId: string) => void)
+    | undefined;
   onItemContextMenu: (
     event: MouseEvent<HTMLElement>,
     row: ContainerItemRow,
@@ -360,6 +363,20 @@ function getExplorerItemTableFrameClassName(params: {
   );
 }
 
+function createExplorerItemTableBlankContextMenuHandler(
+  onBlankContextMenu: ItemTableProps["onBlankContextMenu"],
+  selectedNodeId: string,
+) {
+  return (event: MouseEvent<HTMLDivElement>) => {
+    if (!isExplorerItemTableBlankContextTarget(event.target)) {
+      return;
+    }
+
+    event.preventDefault();
+    onBlankContextMenu?.(event, selectedNodeId);
+  };
+}
+
 export function ExplorerContainerItemTable(params: ItemTableProps) {
   const {
     compact,
@@ -369,6 +386,8 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     currentSelfContactLocalId,
     currentUserId,
     dragActive,
+    dragDisabled,
+    emptyLabel,
     error,
     frameRef,
     handleDragEnter,
@@ -390,7 +409,6 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     setSelectedId,
     sort,
     toggleColumn,
-    totalCount,
   } = params;
   const { columnIds, columns } = useExplorerContainerItemTableColumns({
     compact,
@@ -399,20 +417,18 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     sort,
     toggleColumn,
   });
-
   return (
     <MiniAppTableFrame
       aria-busy={isImporting}
       className={getExplorerItemTableFrameClassName({ compact, dragActive })}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDragOver={handleDragOver}
-      onContextMenu={(event) => {
-        if (isExplorerItemTableBlankContextTarget(event.target)) {
-          onBlankContextMenu(event, selectedNode.id);
-        }
-      }}
-      onDrop={handleDrop}
+      onDragEnter={dragDisabled ? undefined : handleDragEnter}
+      onDragLeave={dragDisabled ? undefined : handleDragLeave}
+      onDragOver={dragDisabled ? undefined : handleDragOver}
+      onContextMenu={createExplorerItemTableBlankContextMenuHandler(
+        onBlankContextMenu,
+        selectedNode.id,
+      )}
+      onDrop={dragDisabled ? undefined : handleDrop}
       ref={frameRef}
       style={getMiniAppVirtualFrameStyle(rowHeight)}
     >
@@ -429,6 +445,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
           currentSelfContactLocalId={currentSelfContactLocalId}
           currentUserId={currentUserId}
           error={error}
+          emptyLabel={emptyLabel}
           isLoading={isLoading}
           online={online}
           onItemContextMenu={onItemContextMenu}
@@ -437,7 +454,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
           rowOffset={rowOffset}
           selectDocumentProjection={selectDocumentProjection}
           setSelectedId={setSelectedId}
-          totalCount={totalCount}
+          totalCount={params.totalCount}
         />
       </MiniAppTable>
     </MiniAppTableFrame>
