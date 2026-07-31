@@ -25,7 +25,7 @@ const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
 // The native bridge is effectively untyped at runtime; guard against a
 // malformed/partial CustomerInfo or package (including nullish results) so a bad
 // payload can't crash the app.
-function toRevenueCatCustomerInfoFromNative(
+function fromCapacitorCustomerInfo(
   info: CustomerInfo | undefined,
 ): RevenueCatCustomerInfo {
   return toRevenueCatCustomerInfo(
@@ -132,11 +132,11 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
   },
   async getCustomerInfo() {
     const result = await Purchases.getCustomerInfo();
-    return toRevenueCatCustomerInfoFromNative(result?.customerInfo);
+    return fromCapacitorCustomerInfo(result?.customerInfo);
   },
   async restorePurchases() {
     const result = await Purchases.restorePurchases();
-    return toRevenueCatCustomerInfoFromNative(result?.customerInfo);
+    return fromCapacitorCustomerInfo(result?.customerInfo);
   },
 };
 

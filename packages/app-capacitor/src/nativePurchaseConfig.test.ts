@@ -235,7 +235,34 @@ test("iOS compiles and registers the RevenueCat purchase plugin", async () => {
   expect(purchasePlugin).toContain(
     "nativeError.domain == ErrorCode.errorDomain",
   );
-  expect(purchasePlugin).not.toContain("[weak self]");
+  expect(purchasePlugin).toContain("Self.reject(call, error: error)");
+});
+
+test("iOS RevenueCat project pin matches the resolved SDK version", async () => {
+  const [project, packageResolution] = await Promise.all([
+    Bun.file(
+      resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
+    ).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+      ),
+    ).text(),
+  ]);
+
+  const projectVersion = requiredMatch(
+    project,
+    /repositoryURL = "https:\/\/github\.com\/RevenueCat\/purchases-ios-spm";[\s\S]*?kind = exactVersion;[\s\S]*?version = ([^;]+);/,
+    "RevenueCat Xcode package version",
+  );
+  const resolvedVersion = requiredMatch(
+    packageResolution,
+    /"identity" : "purchases-ios-spm"[\s\S]*?"version" : "([^"]+)"/,
+    "resolved RevenueCat package version",
+  );
+
+  expect(projectVersion).toBe(resolvedVersion);
 });
 
 test("Android staging inherits the production release signing variant", async () => {

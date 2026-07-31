@@ -88,6 +88,25 @@ test("extracts safe diagnostics preserved by the native bridge", () => {
   expect(BILLING_PURCHASE_TRACE_PATTERN.test(line)).toBe(true);
 });
 
+test("new native diagnostic fields reject private or unbounded values", () => {
+  for (const backendErrorCode of ["not-a-number", "12345678901"]) {
+    const line = formatBillingPurchaseFailure({
+      code: "2",
+      data: {
+        backendErrorCode,
+        storeError: { code: 1, domain: "PRIVATE cardiology" },
+      },
+    });
+
+    expect(line).toBe(
+      "billing purchase stage=failed code=store-problem backend=none native=none userCancelled=unknown",
+    );
+    expect(BILLING_PURCHASE_TRACE_PATTERN.test(line)).toBe(true);
+    expect(line).not.toContain("PRIVATE");
+    expect(line).not.toContain("cardiology");
+  }
+});
+
 test("native error classification requires a bounded Code field", () => {
   const nearbyNumber = formatBillingPurchaseFailure({
     code: "2",

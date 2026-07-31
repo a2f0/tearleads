@@ -88,6 +88,8 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
     ) -> [String: Any] {
         var data: [String: Any] = ["userCancelled": userCancelled]
 
+        // These private diagnostic keys were verified against RevenueCat 5.80.0.
+        // Missing or renamed keys fail closed by omitting the diagnostic value.
         if let backendErrorCode = error.userInfo["rc_backend_error_code"] as? Int {
             data["backendErrorCode"] = backendErrorCode
         }
@@ -99,6 +101,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private static func storeError(from error: NSError) -> [String: Any]? {
+        // `rc_root_error` is a private RevenueCat 5.80.0 diagnostic key.
         if let rootError = error.userInfo["rc_root_error"] as? [String: Any],
            let domain = rootError["domain"] as? String,
            let code = rootError["code"] as? Int,
