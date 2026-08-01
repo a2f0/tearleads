@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'native_release_target'
+require_relative '../lib/native_release_target'
 
 def google_play_upload_track(options)
   lane_option(options, :google_track, 'GOOGLE_PLAY_TRACK', 'internal')

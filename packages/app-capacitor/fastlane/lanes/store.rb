@@ -2,9 +2,9 @@
 
 require 'json'
 require 'shellwords'
-require_relative 'capacitor_release_config'
-require_relative 'native_release_target'
-require_relative 'revenuecat_release_key'
+require_relative '../lib/capacitor_release_config'
+require_relative '../lib/native_release_target'
+require_relative '../lib/revenuecat_release_key'
 
 GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH = File.join(NATIVE_SECRETS_DIR, 'google-play-service-account.json')
 GOOGLE_PLAY_DEFAULT_TRACKS = %w[production beta alpha internal].freeze
@@ -35,28 +35,6 @@ end
 # Shared by the iOS and Android release lanes.
 def generate_capacitor_image_assets!(script_path)
   sh("sh #{Shellwords.escape(script_path)}")
-end
-
-def lane_option(options, key, env_name, default_value = nil)
-  value = options[key]
-  value = ENV.fetch(env_name, nil) if value.nil? || value.to_s.empty?
-  return default_value if value.nil? || value.to_s.empty?
-
-  value
-end
-
-def lane_boolean_option(options, key, env_name, default_value)
-  value = lane_option(options, key, env_name, default_value)
-  return value if [true, false].include?(value)
-
-  case value.to_s.strip.downcase
-  when '1', 'true', 'yes', 'y'
-    true
-  when '0', 'false', 'no', 'n'
-    false
-  else
-    UI.user_error!("Invalid boolean for #{key}: #{value}. Expected true or false.")
-  end
 end
 
 def google_play_json_key_path

@@ -5,11 +5,11 @@ const repositoryRoot = resolve(import.meta.dir, "../../..");
 const guardPath = resolve(repositoryRoot, "scripts/releaseGuards.sh");
 const fastlaneGuardPath = resolve(
   repositoryRoot,
-  "packages/app-capacitor/fastlane/revenuecat_release_key.rb",
+  "packages/app-capacitor/fastlane/lib/revenuecat_release_key.rb",
 );
 const capacitorReleaseConfigPath = resolve(
   repositoryRoot,
-  "packages/app-capacitor/fastlane/capacitor_release_config.rb",
+  "packages/app-capacitor/fastlane/lib/capacitor_release_config.rb",
 );
 
 async function runStoreKeyGuard(key: string, expectedPrefix: string) {
@@ -333,14 +333,11 @@ describe("RevenueCat store-release safety", () => {
     const androidFastfile = await Bun.file(
       resolve(
         repositoryRoot,
-        "packages/app-capacitor/fastlane/Fastfile.android.rb",
+        "packages/app-capacitor/fastlane/lanes/android.rb",
       ),
     ).text();
     const iosFastfile = await Bun.file(
-      resolve(
-        repositoryRoot,
-        "packages/app-capacitor/fastlane/Fastfile.ios.rb",
-      ),
+      resolve(repositoryRoot, "packages/app-capacitor/fastlane/lanes/ios.rb"),
     ).text();
     const androidLoadIndex = androidFastfile.indexOf(
       "    load_android_release_secrets_env",

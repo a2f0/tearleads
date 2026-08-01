@@ -46,7 +46,7 @@ Build or upload staging releases with:
 The staging wrappers default to `https://api.tearleads.de`; production wrappers
 continue to default to `https://api.tearleads.com`. All wrappers delegate to
 `scripts/nativeRelease.sh`, while
-`fastlane/native_release_target.rb` owns the app identifier, Gradle variant,
+`fastlane/lib/native_release_target.rb` owns the app identifier, Gradle variant,
 Xcode scheme, and Xcode configuration mapping.
 
 Both iOS schemes are committed and shared so Fastlane can archive either tier

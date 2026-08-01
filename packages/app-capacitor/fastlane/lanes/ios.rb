@@ -1,11 +1,7 @@
 # frozen_string_literal: true
 
-require 'date'
-require 'json'
-require 'open3'
 require 'shellwords'
-require 'time'
-require_relative 'native_release_target'
+require_relative '../lib/native_release_target'
 
 IOS_PACKAGE_DIR = File.expand_path('..', __dir__)
 IOS_DIR = File.expand_path('../ios', __dir__)
@@ -19,58 +15,8 @@ IOS_IPA_NAME = NATIVE_RELEASE_TARGET.fetch(:ios_ipa_name)
 IOS_ARCHIVE_PATH = File.join(IOS_APP_DIR, native_release_ios_archive_relative_path)
 IOS_CAPACITOR_CONFIG_PATH = File.join(IOS_APP_DIR, 'App/capacitor.config.json')
 IOS_BUILD_IMAGES_SCRIPT = File.join(IOS_PACKAGE_DIR, 'scripts/buildIosImages.sh')
-IOS_MERGED_GITHUB_PRS_COMMAND = [
-  'gh',
-  'pr',
-  'list',
-  '--state',
-  'merged',
-  '--json',
-  'number,mergedAt,title',
-  '--limit',
-  '100'
-].freeze
-IOS_RELEASE_PR_PATTERN = /\(#(?<number>\d+)\)/
-
 def load_ios_release_secrets_env
   load_native_release_secrets_env
-end
-
-def positive_ios_integer(value, description)
-  number = Integer(value.to_s, 10)
-  UI.user_error!("#{description} must be positive.") unless number.positive?
-
-  number
-rescue ArgumentError, TypeError
-  UI.user_error!("#{description} must be a positive integer: #{value}")
-end
-
-def ios_command_available?(command)
-  system('which', command, out: File::NULL, err: File::NULL)
-end
-
-def ios_command_output(*command)
-  output, status = Open3.capture2e(*command)
-
-  [output, status.success?]
-rescue Errno::ENOENT => e
-  [e.message, false]
-end
-
-def ios_pr_merged_at(pull_request)
-  Time.parse(pull_request.fetch('mergedAt'))
-end
-
-def ios_pr_merged_on_date?(pull_request, date)
-  ios_pr_merged_at(pull_request).localtime.to_date == date
-end
-
-def ios_release_date(options)
-  raw_date = lane_option(options, :merged_date, 'IOS_RELEASE_MERGED_DATE', Date.today.iso8601)
-
-  Date.iso8601(raw_date.to_s)
-rescue Date::Error
-  UI.user_error!("IOS_RELEASE_MERGED_DATE must be YYYY-MM-DD: #{raw_date}")
 end
 
 def explicit_ios_release_build_number(options)
@@ -78,123 +24,11 @@ def explicit_ios_release_build_number(options)
   value ||= lane_option(options, :apple_build_number, 'APPLE_BUILD_NUMBER')
   return nil if value.nil?
 
-  positive_ios_integer(value, 'iOS release build number')
+  positive_release_integer(value, 'iOS release build number')
 end
 
 def next_testflight_build_number_requested?(options)
   lane_boolean_option(options, :next_testflight, 'IOS_RELEASE_NEXT_TESTFLIGHT', false)
-end
-
-def configured_ios_release_pr_number(options)
-  value = lane_option(options, :merged_pr_number, 'IOS_RELEASE_MERGED_PR_NUMBER')
-  value ||= lane_option(options, :pr_number, 'IOS_RELEASE_PR_NUMBER')
-  return nil if value.nil?
-
-  positive_ios_integer(value, 'iOS release merged PR number')
-end
-
-def merged_ios_github_prs_output
-  output, ok = ios_command_output(*IOS_MERGED_GITHUB_PRS_COMMAND)
-
-  unless ok
-    UI.important("Could not query merged GitHub PRs with gh: #{output.strip}")
-    return nil
-  end
-
-  output
-end
-
-def merged_ios_github_prs
-  output = merged_ios_github_prs_output
-  return nil if output.nil?
-
-  pull_requests = JSON.parse(output)
-  return pull_requests if pull_requests.is_a?(Array)
-
-  UI.important('Could not parse merged GitHub PRs from gh: expected an array.')
-  nil
-rescue JSON::ParserError => e
-  UI.important("Could not parse merged GitHub PRs from gh: #{e.message}")
-  nil
-end
-
-def ios_github_prs_merged_on_date(pull_requests, date)
-  pull_requests.select { |pull_request| ios_pr_merged_on_date?(pull_request, date) }
-end
-
-def latest_ios_release_pr(pull_requests)
-  pull_requests.max_by { |pull_request| ios_pr_merged_at(pull_request) }
-end
-
-def latest_ios_release_pr_from_github(date)
-  return nil unless ios_command_available?('gh')
-
-  pull_requests = merged_ios_github_prs
-  return nil if pull_requests.nil?
-
-  latest_pr = latest_ios_release_pr(ios_github_prs_merged_on_date(pull_requests, date))
-  return nil if latest_pr.nil?
-
-  UI.message("Using PR ##{latest_pr.fetch('number')} merged at #{latest_pr.fetch('mergedAt')}.")
-  positive_ios_integer(latest_pr.fetch('number'), 'GitHub merged PR number')
-rescue StandardError => e
-  UI.important("Could not parse merged GitHub PRs from gh: #{e.message}")
-  nil
-end
-
-def ios_git_pr_log_command_for_date(date)
-  [
-    'git',
-    'log',
-    "--since=#{date.iso8601} 00:00",
-    "--until=#{(date + 1).iso8601} 00:00",
-    '--format=%ct%x00%s'
-  ]
-end
-
-def ios_git_pr_log_lines_for_date(date)
-  output, ok = ios_command_output(*ios_git_pr_log_command_for_date(date))
-
-  unless ok
-    UI.important("Could not query local git history for merged PRs: #{output.strip}")
-    return nil
-  end
-
-  output.lines
-end
-
-def ios_git_pr_log_entry(line)
-  timestamp, subject = line.chomp.split("\0", 2)
-  match = subject&.match(IOS_RELEASE_PR_PATTERN)
-  return nil if match.nil?
-
-  [timestamp.to_i, match[:number].to_i]
-end
-
-def latest_ios_release_pr_from_git(date)
-  lines = ios_git_pr_log_lines_for_date(date)
-  return nil if lines.nil?
-
-  latest_entry = lines.filter_map { |line| ios_git_pr_log_entry(line) }.max_by(&:first)
-  latest_entry&.last
-end
-
-def discovered_ios_release_pr_number(date)
-  latest_ios_release_pr_from_github(date) || latest_ios_release_pr_from_git(date)
-end
-
-def ios_release_pr_number(options)
-  configured_pr_number = configured_ios_release_pr_number(options)
-  return configured_pr_number unless configured_pr_number.nil?
-
-  date = ios_release_date(options)
-  discovered_pr_number = discovered_ios_release_pr_number(date)
-  return discovered_pr_number unless discovered_pr_number.nil?
-
-  UI.user_error!(
-    "Could not find a PR merged on #{date}. " \
-    'Set IOS_RELEASE_PR_NUMBER or pass merged_pr_number:<number>.'
-  )
 end
 
 def explicit_ios_release_version(options)
@@ -276,7 +110,7 @@ def ios_release_build_hash(build_number, testflight_build_number, merged_pr_numb
 end
 
 def automatic_ios_release_build_hash(options, version)
-  merged_pr_number = ios_release_pr_number(options)
+  merged_pr_number = merged_release_pr_number(options, 'IOS')
   testflight_build_number = latest_testflight_build_number_for_ios_release(options, version)
   testflight_next_build_number = testflight_build_number.nil? ? nil : testflight_build_number + 1
   build_number = [merged_pr_number, testflight_next_build_number].compact.max
