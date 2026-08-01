@@ -59,7 +59,11 @@ case "$PLATFORM" in
         exit 1
       fi
     else
-      UDID="$(xcrun simctl list devices booted | grep -oE '[0-9A-F-]{36}' | head -1)"
+      # The booted list spans every platform; only reuse iOS simulators —
+      # a booted watchOS/tvOS device cannot run the app.
+      UDID="$(xcrun simctl list devices booted | awk '
+        /^-- /{ios = ($0 ~ /^-- iOS /)}
+        ios && match($0, /[0-9A-F-]{36}/) {print substr($0, RSTART, RLENGTH); exit}')"
       [ -n "$UDID" ] || UDID="$(resolve_sim_udid "iPhone 16")"
       if [ -z "$UDID" ]; then
         echo "No booted simulator and no available 'iPhone 16'; set MAESTRO_IOS_SIMULATOR" >&2
