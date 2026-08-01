@@ -5,6 +5,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { isNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
+import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
 
 const NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON =
   "Native entitlement is active while a retained Stripe subscription may still bill";
@@ -34,7 +35,7 @@ export async function resolveNativeStripeConflictReason(input: {
       eq(organizationBillingStripeSeats.organizationId, input.organizationId),
     )
     .limit(1);
-  return binding?.subscriptionId || binding?.subscriptionItemId
+  return hasStripeBindingIdentity(binding)
     ? NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON
     : null;
 }

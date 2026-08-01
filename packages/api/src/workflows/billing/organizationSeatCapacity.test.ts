@@ -53,3 +53,10 @@ test("a Stripe binding wins over a promotional native-looking product", () => {
 test("an unbound active row still records canonical tier capacity", () => {
   expect(requiredLicensedSeatCount(billing({}), 2)).toBe(5);
 });
+
+test("a promotional product grows through canonical roster tiers", () => {
+  const promotional = billing({
+    productId: "promotional:sync_team_5_monthly",
+  });
+  expect(requiredLicensedSeatCount(promotional, 6, 5)).toBe(10);
+});

@@ -253,7 +253,6 @@ test("the card checkout replaces RevenueCat's subscribe list, not adds to it", a
   // Regression guard for the two-row state: both flows offer a "Sync /
   // Subscribe" row, and rendering both put two near-identical buttons in the
   // panel — clicking the top one gave the old unstyled hosted form.
-  //
   // RevenueCat is AVAILABLE here on purpose: with it unavailable its list
   // would not render anyway and this test would pass without proving the gate.
   stubEnvironment(false);
@@ -271,8 +270,6 @@ test("the card checkout replaces RevenueCat's subscribe list, not adds to it", a
 });
 
 test("direct cancellation is offered for a Stripe subscription", async () => {
-  // The server identifies a Stripe-backed RevenueCat entitlement from its
-  // configured Price ID, so the same API cancellation works on web or native.
   stubEnvironment(true, {
     canCancelDirectly: true,
     isActive: true,
@@ -294,9 +291,9 @@ test("direct cancellation is offered for a Stripe subscription", async () => {
   expect(view.queryByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeNull();
 });
 
-test("an active native subscription can change fixed tier on native", async () => {
+test("native takeover keeps tier changes and Stripe cancellation", async () => {
   stubEnvironment(true, {
-    canCancelDirectly: false,
+    canCancelDirectly: true,
     isActive: true,
     managementUrl: "https://rc.example/manage",
     subscriptionSource: "native",
@@ -317,6 +314,9 @@ test("an active native subscription can change fixed tier on native", async () =
   await waitFor(() =>
     expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined(),
   );
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.billingCancelSubscription),
+  ).toBeDefined();
 });
 
 test("an unresolved personal organization does not flash the custom-org notice", async () => {

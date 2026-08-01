@@ -21,6 +21,10 @@ import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import {
+  hasActiveStripeBinding,
+  hasStripeBindingIdentity,
+} from "./stripeBindingPolicy";
 
 const BILLING_ROW_COLUMNS = {
   organizationId: organizationBilling.organizationId,
@@ -279,6 +283,7 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
   providerProductId: string | null;
   providerSubscriptionId: string | null;
   providerTransactionId: string | null;
+  hasActiveStripeSubscription: boolean;
   hasStripeSubscription: boolean;
   status: OrganizationBillingStatus;
 }> {
@@ -321,10 +326,15 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
       providerProductId: row.providerProductId,
       providerSubscriptionId: row.providerSubscriptionId,
       providerTransactionId: row.providerTransactionId,
-      hasStripeSubscription:
-        row.stripePriceId !== null &&
-        (row.stripeSubscriptionId !== null ||
-          row.stripeSubscriptionItemId !== null),
+      hasActiveStripeSubscription: hasActiveStripeBinding({
+        priceId: row.stripePriceId,
+        subscriptionId: row.stripeSubscriptionId,
+        subscriptionItemId: row.stripeSubscriptionItemId,
+      }),
+      hasStripeSubscription: hasStripeBindingIdentity({
+        subscriptionId: row.stripeSubscriptionId,
+        subscriptionItemId: row.stripeSubscriptionItemId,
+      }),
       status: row.status,
     };
   });

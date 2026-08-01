@@ -227,8 +227,8 @@ accounts consume the fixed capacity stored in `organization_billing.seat_count`.
   tier capacity for the new billing period.
 
 An active Stripe subscription stays on at least Solo if its roster becomes
-empty; cancel it rather than expecting a zero-price renewal. Trials can still
-have zero licensed seats.
+empty; cancel it rather than expecting a zero-price renewal. Trials retain the
+Solo licensed-seat floor and round non-empty rosters to the canonical tiers.
 
 Roster writes only enqueue an absolute desired state in
 `organization_billing_stripe_seats`; they do not call Stripe while holding the

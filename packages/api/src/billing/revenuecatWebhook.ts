@@ -34,6 +34,7 @@ const SANDBOX_ENVIRONMENT = "SANDBOX";
 
 /** RevenueCat's `store` value for a purchase processed by Stripe. */
 const STRIPE_STORE = "STRIPE";
+const PROMOTIONAL_STORE = "PROMOTIONAL";
 
 /**
  * Ignore reason for an event dropped by the sandbox gate. Exported so callers
@@ -315,6 +316,7 @@ function classifyRevenueCatGrant(
     };
   }
   const isStripeStore = event.store?.toUpperCase() === STRIPE_STORE;
+  const isPromotionalStore = event.store?.toUpperCase() === PROMOTIONAL_STORE;
   const grantedProductId = resolveGrantedProductId(
     event,
     options.boundNativeProductId,
@@ -363,7 +365,9 @@ function classifyRevenueCatGrant(
       // exact Price resolved from our immutable subscription binding.
       providerProductId: isStripeStore
         ? (options.stripePriceId ?? event.product_id ?? null)
-        : grantedProductId,
+        : isPromotionalStore && grantedProductId
+          ? `promotional:${grantedProductId}`
+          : grantedProductId,
       providerTransactionId: event.transaction_id ?? null,
       entitlementId: resolveEntitlementId(event),
       currentPeriodStartsAt: timestampMsToDate(event.purchased_at_ms),

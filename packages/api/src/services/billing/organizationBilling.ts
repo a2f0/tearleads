@@ -66,6 +66,7 @@ export async function getOrganizationBillingManagementUrl(
   } = {},
 ): Promise<OrganizationBillingManagementUrlResponse> {
   const {
+    hasActiveStripeSubscription,
     hasStripeSubscription,
     provider,
     providerCustomerId,
@@ -85,12 +86,33 @@ export async function getOrganizationBillingManagementUrl(
   const nativeTier = hasProviderSubscription
     ? getSyncBillingTierForNativeProduct(providerProductId)
     : null;
-  // A retained Stripe binding wins over a promotional/native-looking product:
-  // the org may still be billed by Stripe and must keep its direct cancel path.
-  const hasLiveStripeIdentity = hasStripeSubscription || stripeTier !== null;
-  const canCancelDirectly =
-    hasLiveStripeIdentity &&
-    (status === "active" || status === "past_due" || status === "trialing");
+  const statusCanBill =
+    status === "active" || status === "past_due" || status === "trialing";
+  const hasNativeSubscription =
+    nativeTier !== null && !hasActiveStripeSubscription;
+  if (hasNativeSubscription) {
+    return {
+      // A native takeover may retain a quarantined Stripe identity until its
+      // final event. Expose both providers' management paths while it can bill.
+      canCancelDirectly: hasStripeSubscription && statusCanBill,
+      managementUrl: providerCustomerId
+        ? await fetchRevenueCatManagementUrl(
+            providerCustomerId,
+            {
+              subscriptionId: providerSubscriptionId,
+              transactionId: providerTransactionId,
+            },
+            deps.revenueCat,
+          )
+        : null,
+      subscriptionSource: "native",
+    };
+  }
+  // An active Stripe binding wins over a legacy promotional/native-looking
+  // product id because Stripe remains the billing authority.
+  const hasLiveStripeIdentity =
+    hasActiveStripeSubscription || stripeTier !== null;
+  const canCancelDirectly = hasLiveStripeIdentity && statusCanBill;
   if (canCancelDirectly) {
     return {
       canCancelDirectly: true,
@@ -105,25 +127,10 @@ export async function getOrganizationBillingManagementUrl(
       subscriptionSource: null,
     };
   }
-  const subscriptionSource = nativeTier ? "native" : null;
-  if (subscriptionSource !== "native" || !providerCustomerId) {
-    return {
-      canCancelDirectly: false,
-      managementUrl: null,
-      subscriptionSource,
-    };
-  }
   return {
     canCancelDirectly: false,
-    managementUrl: await fetchRevenueCatManagementUrl(
-      providerCustomerId,
-      {
-        subscriptionId: providerSubscriptionId,
-        transactionId: providerTransactionId,
-      },
-      deps.revenueCat,
-    ),
-    subscriptionSource,
+    managementUrl: null,
+    subscriptionSource: null,
   };
 }
 

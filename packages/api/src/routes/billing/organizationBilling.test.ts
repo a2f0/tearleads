@@ -222,7 +222,7 @@ test("management identifies Stripe and native subscription ownership", async () 
     { revenueCat },
   );
   expect(nativeManagement).toEqual({
-    canCancelDirectly: false,
+    canCancelDirectly: true,
     managementUrl: "https://apps.apple.com/account/subscriptions",
     subscriptionSource: "native",
   });

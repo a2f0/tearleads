@@ -214,7 +214,7 @@ test("a promotional grant can fund an admin's custom organization", async () => 
   expect(await response.json()).toEqual({ received: true, outcome: "applied" });
   expect(await readBilling(request.organizationId)).toMatchObject({
     providerCustomerId: admin.userId,
-    providerProductId: "sync_team_5_monthly",
+    providerProductId: "promotional:sync_team_5_monthly",
     seatCount: 5,
     status: "active",
   });

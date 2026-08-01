@@ -18,6 +18,7 @@ import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import { requiredLicensedSeatCount } from "./organizationSeatCapacity";
 import { reconcileOrganizationStripeSeatState } from "./organizationStripeSeatReconciliation";
+import { hasActiveStripeBinding } from "./stripeBindingPolicy";
 
 type SeatAssignmentInsert =
   typeof organizationBillingSeatAssignments.$inferInsert;
@@ -116,10 +117,11 @@ async function loadBillingSeatState(input: {
   return row
     ? {
         ...row,
-        hasStripeSubscription:
-          row.stripePriceId !== null &&
-          (row.stripeSubscriptionId !== null ||
-            row.stripeSubscriptionItemId !== null),
+        hasStripeSubscription: hasActiveStripeBinding({
+          priceId: row.stripePriceId,
+          subscriptionId: row.stripeSubscriptionId,
+          subscriptionItemId: row.stripeSubscriptionItemId,
+        }),
       }
     : null;
 }

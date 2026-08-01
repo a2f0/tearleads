@@ -68,6 +68,8 @@ export function getLargestSyncBillingTier(): SyncBillingTier {
 /**
  * Product identifiers used in App Store, Play, and RevenueCat Test Store.
  * Staging suffixes and Play base-plan suffixes do not change the tier.
+ * The older Solo aliases remain only while existing Test Store fixtures and
+ * installed sandbox receipts are migrated to `sync_solo_monthly`.
  */
 export function getSyncBillingTierForNativeProduct(
   productId: string | null | undefined,
