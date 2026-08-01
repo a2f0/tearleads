@@ -338,6 +338,21 @@ test("options reject a caller outside the organization", async () => {
   expect([403, 404]).toContain(response.status);
 });
 
+test("options reject a non-admin organization member", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const member = createTestUser();
+  await registerAndAuthenticate(member);
+  await addEffectiveOrganizationMember(organizationId, member.userId);
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/options`,
+    { headers: authHeader(member) },
+  );
+
+  expect(response.status).toBe(403);
+});
+
 test("the portal validates its return url", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);

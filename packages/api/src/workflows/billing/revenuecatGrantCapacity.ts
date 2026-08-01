@@ -1,18 +1,59 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { organizations } from "@tearleads/api-shared/schema";
-import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
+import {
+  getSyncBillingTierForNativeProduct,
+  getSyncBillingTierForSeatCount,
+} from "@tearleads/validators/billing";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
-import type { RevenueCatBillingTransition } from "../../billing/revenuecatWebhook";
+import {
+  BOUND_REVENUECAT_TIER_REQUIRED_REASON,
+  classifyRevenueCatEvent,
+  type RevenueCatBillingTransition,
+  UNCONFIGURED_SYNC_BILLING_TIER_REASON,
+} from "../../billing/revenuecatWebhook";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
+import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
 
 type RevenueCatGrantCapacityDisposition =
   | { readonly kind: "within_capacity" }
   | { readonly kind: "ignore"; readonly reason: string }
   | { readonly kind: "apply_without_reconciliation"; readonly reason: string };
 
-export const STRIPE_GRANT_EXCEEDS_CAPACITY_REASON =
+const STRIPE_GRANT_EXCEEDS_CAPACITY_REASON =
   "Stripe subscription cannot cover more than 10 active members";
+
+/** Resolves a product-less lifecycle grant only from its locked customer tier. */
+export function resolveBoundRevenueCatGrantTransition(input: {
+  readonly billing: LockedBillingIdentity | undefined;
+  readonly event: RevenueCatWebhookEvent;
+  readonly now: Date;
+  readonly transition: RevenueCatBillingTransition;
+}): RevenueCatBillingTransition {
+  if (
+    input.transition.kind !== "ignore" ||
+    input.transition.reason !== BOUND_REVENUECAT_TIER_REQUIRED_REASON
+  ) {
+    return input.transition;
+  }
+  const productId =
+    input.billing?.provider === "revenuecat" &&
+    input.billing.providerCustomerId === input.event.app_user_id
+      ? input.billing.providerProductId
+      : null;
+  const tier = getSyncBillingTierForNativeProduct(productId);
+  if (!tier || input.billing?.seatCount !== tier.seatLimit || !productId) {
+    return { kind: "ignore", reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON };
+  }
+  return classifyRevenueCatEvent(input.event, input.now, {
+    allowSandboxEvents: true,
+    boundNativeProductId: productId,
+    boundNativeSeatCount: tier.seatLimit,
+    ...(input.billing.providerSubscriptionId
+      ? { boundProviderSubscriptionId: input.billing.providerSubscriptionId }
+      : {}),
+  });
+}
 
 /**
  * Compares a paid grant with the authoritative signed Members projection.

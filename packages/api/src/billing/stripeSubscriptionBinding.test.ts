@@ -26,7 +26,7 @@ test("subscription binding reads the licensed sync item", async () => {
           ],
         },
       }),
-    )) as typeof fetch;
+    )) as unknown as typeof fetch;
 
   const binding = await getSubscriptionBinding("sub_1", {
     env: {
@@ -118,6 +118,35 @@ test("subscription binding never guesses a seat item without a configured price"
     subscriptionItemId: null,
     unitAmount: null,
   });
+});
+
+test("subscription binding alerts when a configured Price was rotated", async () => {
+  const fetchImpl = (async () =>
+    new Response(
+      JSON.stringify({
+        metadata: { orgId: "org-1" },
+        items: {
+          data: [{ id: "si_1", price: { id: "price_rotated" }, quantity: 1 }],
+        },
+      }),
+    )) as unknown as typeof fetch;
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+
+  try {
+    const binding = await getSubscriptionBinding("sub_rotated", {
+      env: {
+        STRIPE_SECRET_KEY: "sk_test_123",
+        STRIPE_SYNC_SOLO_PRICE_ID: "price_solo",
+      },
+      fetchImpl,
+    });
+    expect(binding?.seatQuantity).toBeNull();
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Stripe subscription sub_rotated has no item matching the configured fixed-tier Prices; observed: price_rotated",
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
 });
 
 test("subscription binding rejects an ambiguous duplicate seat item", async () => {

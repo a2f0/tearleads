@@ -12,11 +12,12 @@ import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { and, eq, gt } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
+  BOUND_REVENUECAT_TIER_REQUIRED_REASON,
   classifyRevenueCatEvent,
+  isRevenueCatGrantEventType,
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
   SANDBOX_IGNORED_REASON,
-  UNCONFIGURED_SYNC_BILLING_TIER_REASON,
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
@@ -26,13 +27,10 @@ import {
   resolveRevenueCatBuyerIgnoredReason,
 } from "./revenuecatBuyerPolicy";
 import {
+  resolveBoundRevenueCatGrantTransition,
   resolveRevenueCatGrantCapacity,
-  STRIPE_GRANT_EXCEEDS_CAPACITY_REASON,
 } from "./revenuecatGrantCapacity";
-import {
-  NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON,
-  resolveNativeStripeConflictReason,
-} from "./revenuecatProviderConflict";
+import { resolveNativeStripeConflictReason } from "./revenuecatProviderConflict";
 import {
   type ImmutableStripeStoreOrgResolution,
   type LockedBillingIdentity,
@@ -75,8 +73,11 @@ async function lockBillingIdentity(
 ): Promise<LockedBillingIdentity | undefined> {
   const lockQuery = executor
     .select({
+      provider: organizationBilling.provider,
       providerCustomerId: organizationBilling.providerCustomerId,
+      providerProductId: organizationBilling.providerProductId,
       providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      seatCount: organizationBilling.seatCount,
       status: organizationBilling.status,
     })
     .from(organizationBilling)
@@ -166,6 +167,7 @@ type PreclaimDisposition =
       kind: "continue";
       ignoredReason: string | null;
       skipSeatReconciliation: boolean;
+      transition: RevenueCatBillingTransition;
       warning: string | null;
     }
   | { kind: "retry"; reason: string };
@@ -173,16 +175,23 @@ type PreclaimDisposition =
 async function resolvePreclaimDisposition(input: {
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
+  readonly now: Date;
   readonly organizationId: string | null;
   readonly stripeResolution: ImmutableStripeStoreOrgResolution;
   readonly transition: RevenueCatBillingTransition;
 }): Promise<PreclaimDisposition> {
-  // Binding writers take this same lock before updating the outbox. Validate
-  // the pre-transaction candidate only after it is held.
   const billing =
-    input.transition.kind !== "ignore" && input.organizationId !== null
+    (input.transition.kind !== "ignore" ||
+      input.transition.reason === BOUND_REVENUECAT_TIER_REQUIRED_REASON) &&
+    input.organizationId !== null
       ? await lockBillingIdentity(input.executor, input.organizationId)
       : undefined;
+  const transition = resolveBoundRevenueCatGrantTransition({
+    billing,
+    event: input.event,
+    now: input.now,
+    transition: input.transition,
+  });
   if (
     input.stripeResolution.kind === "resolved" &&
     billing &&
@@ -199,7 +208,7 @@ async function resolvePreclaimDisposition(input: {
     };
   }
   const nativeStripeConflict =
-    input.transition.kind === "grant" && input.organizationId && billing
+    transition.kind === "grant" && input.organizationId && billing
       ? await resolveNativeStripeConflictReason({
           executor: input.executor,
           organizationId: input.organizationId,
@@ -212,7 +221,7 @@ async function resolvePreclaimDisposition(input: {
         event: input.event,
         executor: input.executor,
         organizationId: input.organizationId,
-        transition: input.transition,
+        transition,
       })
     : { kind: "within_capacity" as const };
   const ignoredReason = nativeStripeConflict
@@ -221,7 +230,7 @@ async function resolvePreclaimDisposition(input: {
       ? capacity.reason
       : await resolveIgnoredReason(
           input.executor,
-          input.transition,
+          transition,
           input.organizationId,
           input.event,
           billing,
@@ -230,6 +239,7 @@ async function resolvePreclaimDisposition(input: {
     ignoredReason,
     kind: "continue",
     skipSeatReconciliation: capacity.kind === "apply_without_reconciliation",
+    transition,
     warning:
       capacity.kind === "apply_without_reconciliation" ? capacity.reason : null,
   };
@@ -335,7 +345,10 @@ async function runRevenueCatWebhookTransaction(input: {
   if (disposition.ignoredReason) {
     return { status: "ignored", reason: disposition.ignoredReason };
   }
-  if (input.transition.kind === "ignore" || input.organizationId === null) {
+  if (
+    disposition.transition.kind === "ignore" ||
+    input.organizationId === null
+  ) {
     return { status: "ignored", reason: "Event carried no organization id" };
   }
   const outcome = await applyRevenueCatTransition({
@@ -344,7 +357,7 @@ async function runRevenueCatWebhookTransaction(input: {
     now: input.now,
     organizationId: input.organizationId,
     reconcileSeats: !disposition.skipSeatReconciliation,
-    transition: input.transition,
+    transition: disposition.transition,
   });
   if (disposition.warning) {
     console.error(
@@ -382,9 +395,7 @@ export async function runRevenueCatWebhookWorkflow(
     // testing) is free to the tester but emits an event otherwise identical to
     // a paid one, so only a tier that opts in applies it.
     allowSandboxEvents: allowsRevenueCatSandboxEvents(deps.env ?? process.env),
-    // A Stripe grant's actual capacity comes from the immutable subscription
-    // binding below. This placeholder lets classification determine whether
-    // the event type needs that lookup without trusting RevenueCat's product id.
+    // Placeholder only; the immutable Stripe binding below supplies capacity.
     ...(isStripeStore ? { stripeSeatCount: 1 } : {}),
   };
   const initialTransition = classifyRevenueCatEvent(
@@ -467,25 +478,22 @@ export async function runRevenueCatWebhookWorkflow(
       transition,
     }),
   );
-  logUnappliedPaidGrant(event.id, outcome);
+  logUnappliedPaidGrant(event, outcome);
   return outcome;
 }
 
 function logUnappliedPaidGrant(
-  eventId: string,
+  event: RevenueCatWebhookEvent,
   outcome: RevenueCatWebhookOutcome,
 ): void {
-  if (outcome.status !== "ignored") {
-    return;
-  }
   if (
-    outcome.reason !== UNCONFIGURED_SYNC_BILLING_TIER_REASON &&
-    outcome.reason !== STRIPE_GRANT_EXCEEDS_CAPACITY_REASON &&
-    outcome.reason !== NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON
+    outcome.status !== "ignored" ||
+    !isRevenueCatGrantEventType(event.type) ||
+    outcome.reason === SANDBOX_IGNORED_REASON
   ) {
     return;
   }
   console.error(
-    `RevenueCat paid grant ${eventId} was not applied: ${outcome.reason}`,
+    `RevenueCat paid grant ${event.id} was not applied: ${outcome.reason}`,
   );
 }

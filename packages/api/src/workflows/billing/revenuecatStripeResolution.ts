@@ -3,6 +3,7 @@ import type {
   DatabaseSession,
 } from "@tearleads/api-shared/postgres";
 import {
+  type OrganizationBillingProvider,
   type OrganizationBillingStatus,
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
@@ -30,8 +31,11 @@ export type ImmutableStripeStoreOrgResolution =
   | { kind: "error" };
 
 export interface LockedBillingIdentity {
+  readonly provider: OrganizationBillingProvider | null;
   readonly providerCustomerId: string | null;
+  readonly providerProductId: string | null;
   readonly providerSubscriptionId: string | null;
+  readonly seatCount: number;
   readonly status: OrganizationBillingStatus;
 }
 

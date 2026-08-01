@@ -87,6 +87,21 @@ const GRANT_EVENT_TYPES: ReadonlySet<string> = new Set([
   "TEMPORARY_ENTITLEMENT_GRANT",
 ]);
 
+const BOUND_TIER_REUSE_EVENT_TYPES: ReadonlySet<string> = new Set([
+  "RENEWAL",
+  "UNCANCELLATION",
+  "NON_RENEWING_PURCHASE",
+  "SUBSCRIPTION_EXTENDED",
+  "TEMPORARY_ENTITLEMENT_GRANT",
+]);
+
+export const BOUND_REVENUECAT_TIER_REQUIRED_REASON =
+  "Lifecycle grant requires the organization's bound RevenueCat tier";
+
+export function isRevenueCatGrantEventType(type: string): boolean {
+  return GRANT_EVENT_TYPES.has(type);
+}
+
 /**
  * Event types that assert the entitlement was lost. `CANCELLATION` is
  * intentionally NOT here: it only turns off auto-renew, and the entitlement
@@ -270,14 +285,20 @@ function timestampMsToDate(value: number | null | undefined): Date | null {
 }
 
 /** Product whose capacity a grant asserts after this event is applied. */
-function resolveGrantedProductId(event: RevenueCatWebhookEvent): string | null {
+function resolveGrantedProductId(
+  event: RevenueCatWebhookEvent,
+  boundNativeProductId?: string,
+): string | null {
   return event.type === "PRODUCT_CHANGE"
     ? (event.new_product_id ?? null)
-    : (event.product_id ?? null);
+    : (event.product_id ?? boundNativeProductId ?? null);
 }
 
 interface RevenueCatClassificationOptions {
   allowSandboxEvents?: boolean;
+  boundNativeProductId?: string;
+  boundNativeSeatCount?: number;
+  boundProviderSubscriptionId?: string;
   stripePriceId?: string;
   stripeSeatCount?: number;
 }
@@ -294,12 +315,24 @@ function classifyRevenueCatGrant(
     };
   }
   const isStripeStore = event.store?.toUpperCase() === STRIPE_STORE;
-  const grantedProductId = resolveGrantedProductId(event);
+  const grantedProductId = resolveGrantedProductId(
+    event,
+    options.boundNativeProductId,
+  );
   const tier = isStripeStore
     ? null
     : getSyncBillingTierForNativeProduct(grantedProductId);
-  const seatCount = isStripeStore ? options.stripeSeatCount : tier?.seatLimit;
+  const seatCount = isStripeStore
+    ? options.stripeSeatCount
+    : (options.boundNativeSeatCount ?? tier?.seatLimit);
   if (!seatCount) {
+    if (
+      !isStripeStore &&
+      !grantedProductId &&
+      BOUND_TIER_REUSE_EVENT_TYPES.has(event.type)
+    ) {
+      return { kind: "ignore", reason: BOUND_REVENUECAT_TIER_REQUIRED_REASON };
+    }
     return {
       kind: "ignore",
       reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON,
@@ -323,7 +356,9 @@ function classifyRevenueCatGrant(
       // Stripe may carry the subscription id only in `transaction_id`.
       providerSubscriptionId:
         event.original_transaction_id ??
-        (isStripeStore ? (event.transaction_id ?? null) : null),
+        (isStripeStore
+          ? (event.transaction_id ?? null)
+          : (options.boundProviderSubscriptionId ?? null)),
       // RevenueCat's Stripe catalog identifier is the Product, so retain the
       // exact Price resolved from our immutable subscription binding.
       providerProductId: isStripeStore
@@ -362,7 +397,7 @@ export function classifyRevenueCatEvent(
     return { kind: "ignore", reason: SANDBOX_IGNORED_REASON };
   }
 
-  if (GRANT_EVENT_TYPES.has(event.type)) {
+  if (isRevenueCatGrantEventType(event.type)) {
     return classifyRevenueCatGrant(event, now, options);
   }
 

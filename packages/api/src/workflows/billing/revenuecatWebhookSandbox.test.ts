@@ -69,6 +69,7 @@ async function readBillingStatus(organizationId: string) {
     .select({
       providerCustomerId: organizationBilling.providerCustomerId,
       providerProductId: organizationBilling.providerProductId,
+      providerSubscriptionId: organizationBilling.providerSubscriptionId,
       seatCount: organizationBilling.seatCount,
       status: organizationBilling.status,
     })
@@ -165,29 +166,39 @@ test("a sandbox store purchase activates sync on a tier that opts in", async () 
 
 test("Test Store purchases obey the native personal-organization policy", async () => {
   const { organizationId, user } = await registerOrganizationAdmin();
+  const eventId = crypto.randomUUID();
   const replacement = await registerOrganizationAdmin();
   await db
     .update(users)
     .set({ defaultOrganizationId: replacement.organizationId })
     .where(eq(users.id, user.userId));
 
-  const outcome = await runRevenueCatWebhookWorkflow(
-    db,
-    appStorePurchase({
-      appUserId: user.userId,
-      environment: "SANDBOX",
-      eventId: crypto.randomUUID(),
-      organizationId,
-      store: "TEST_STORE",
-    }),
-    new Date(),
-    { env: { REVENUECAT_ALLOW_SANDBOX_EVENTS: "true" } },
-  );
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    const outcome = await runRevenueCatWebhookWorkflow(
+      db,
+      appStorePurchase({
+        appUserId: user.userId,
+        environment: "SANDBOX",
+        eventId,
+        organizationId,
+        store: "TEST_STORE",
+      }),
+      new Date(),
+      { env: { REVENUECAT_ALLOW_SANDBOX_EVENTS: "true" } },
+    );
 
-  expect(outcome).toEqual({
-    status: "ignored",
-    reason: "Native purchases may only fund the buyer's personal organization",
-  });
+    expect(outcome).toEqual({
+      status: "ignored",
+      reason:
+        "Native purchases may only fund the buyer's personal organization",
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      `RevenueCat paid grant ${eventId} was not applied: Native purchases may only fund the buyer's personal organization`,
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
 });
 
 test("an unknown paid native product is ignored with an operator alert", async () => {
@@ -298,6 +309,41 @@ test("a native product change applies the destination tier capacity", async () =
     providerProductId: "sync_team_5_monthly",
     seatCount: 5,
   });
+});
+
+test("bound lifecycle grants reuse the immutable native tier", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const initial = appStorePurchase({
+    appUserId: user.userId,
+    environment: "PRODUCTION",
+    eventId: crypto.randomUUID(),
+    organizationId,
+  });
+  await runRevenueCatWebhookWorkflow(db, initial);
+
+  const types = [
+    "UNCANCELLATION",
+    "NON_RENEWING_PURCHASE",
+    "SUBSCRIPTION_EXTENDED",
+    "TEMPORARY_ENTITLEMENT_GRANT",
+  ];
+  const lifecycleEvent = { ...initial };
+  delete lifecycleEvent.original_transaction_id;
+  delete lifecycleEvent.product_id;
+  for (const [index, type] of types.entries()) {
+    const outcome = await runRevenueCatWebhookWorkflow(db, {
+      ...lifecycleEvent,
+      event_timestamp_ms: initial.event_timestamp_ms + index + 1,
+      id: crypto.randomUUID(),
+      type,
+    });
+    expect(outcome).toMatchObject({ organizationId, status: "applied" });
+    expect(await readBillingStatus(organizationId)).toMatchObject({
+      providerProductId: "com.tearleads.sync.monthly",
+      providerSubscriptionId: "2000000000000001",
+      seatCount: 1,
+    });
+  }
 });
 
 test("unknown and missing stores require the personal-organization policy", async () => {

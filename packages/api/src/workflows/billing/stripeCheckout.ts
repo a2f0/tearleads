@@ -11,6 +11,7 @@ import {
 import {
   BILLING_ERROR_CODES,
   getSyncBillingTierForSeatCount,
+  type SyncBillingTierId,
 } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
@@ -48,15 +49,16 @@ function checkoutInProgress(): OrganizationManagerError {
   );
 }
 
-function requireAvailableTierSeatCount(seatCount: number): number {
-  if (!getSyncBillingTierForSeatCount(seatCount)) {
+function requireAvailableTier(seatCount: number) {
+  const tier = getSyncBillingTierForSeatCount(seatCount);
+  if (!tier) {
     throw new OrganizationManagerError(
       "The organization exceeds the maximum subscription tier of 10 members",
       409,
       BILLING_ERROR_CODES.rosterOverCapacity,
     );
   }
-  return seatCount;
+  return tier;
 }
 
 function providerExpiresAt(
@@ -122,7 +124,8 @@ async function requireStripeCheckoutSeatQuantity(
       BILLING_ERROR_CODES.checkoutNoActiveMembers,
     );
   }
-  return requireAvailableTierSeatCount(activeUserIds.length);
+  requireAvailableTier(activeUserIds.length);
+  return activeUserIds.length;
 }
 
 function resolveActiveStripeCheckoutAttempt(input: {
@@ -245,7 +248,7 @@ export async function runRequireCheckoutEligibleWorkflow(
   db: ApiDatabase,
   organizationId: string,
   sessionUserId: string,
-): Promise<{ seatQuantity: number }> {
+): Promise<{ seatQuantity: number; tierId: SyncBillingTierId }> {
   return db.transaction(async (tx) => {
     await requireDirectOrganizationAccess({
       executor: tx,
@@ -292,9 +295,8 @@ export async function runRequireCheckoutEligibleWorkflow(
       );
     }
 
-    return {
-      seatQuantity: requireAvailableTierSeatCount(activeUserIds.length),
-    };
+    const tier = requireAvailableTier(activeUserIds.length);
+    return { seatQuantity: activeUserIds.length, tierId: tier.id };
   });
 }
 

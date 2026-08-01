@@ -78,12 +78,28 @@ export async function getSubscriptionBinding(
   }
   const metadata = prop(body, "metadata");
   const customer = prop(body, "customer");
-  const item = resolveSyncItem(
-    body,
-    Object.values(syncPriceIds).filter((value): value is string =>
-      Boolean(value),
-    ),
+  const configuredPriceIds = Object.values(syncPriceIds).filter(
+    (value): value is string => Boolean(value),
   );
+  const item = resolveSyncItem(body, configuredPriceIds);
+  if (!item && configuredPriceIds.length > 0) {
+    const items = prop(prop(body, "items"), "data");
+    const observedPriceIds = Array.isArray(items)
+      ? items
+          .map((candidate) => readString(prop(prop(candidate, "price"), "id")))
+          .filter((value): value is string => value !== null)
+      : [];
+    const matchCount = observedPriceIds.filter((priceId) =>
+      configuredPriceIds.includes(priceId),
+    ).length;
+    const problem =
+      matchCount === 0
+        ? "has no item matching the configured fixed-tier Prices"
+        : "has multiple items matching the configured fixed-tier Prices";
+    console.error(
+      `Stripe subscription ${subscriptionId} ${problem}; observed: ${observedPriceIds.join(", ") || "none"}`,
+    );
+  }
   const price = prop(item, "price");
   const priceId = readString(prop(price, "id"));
   const tier = getSyncBillingTierForStripePrice(priceId, deps);

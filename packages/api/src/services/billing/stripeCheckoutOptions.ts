@@ -1,13 +1,8 @@
 import {
-  BILLING_ERROR_CODES,
-  getSyncBillingTierForSeatCount,
-} from "@tearleads/validators/billing";
-import {
   getStripeSyncOption,
   type StripeSyncOption,
 } from "../../billing/stripeApi";
 import { runRequireCheckoutEligibleWorkflow } from "../../workflows/billing/stripeCheckout";
-import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   isDirectCheckoutFullyConfigured,
@@ -21,7 +16,7 @@ export async function getStripeCheckoutOptions(
   sessionUserId: string,
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<{ options: StripeSyncOption[] }> {
-  const { seatQuantity } = await runRequireCheckoutEligibleWorkflow(
+  const { tierId } = await runRequireCheckoutEligibleWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
@@ -29,14 +24,6 @@ export async function getStripeCheckoutOptions(
   if (!isDirectCheckoutFullyConfigured(deps)) {
     return { options: [] };
   }
-  const tier = getSyncBillingTierForSeatCount(seatQuantity);
-  if (!tier) {
-    throw new OrganizationManagerError(
-      "The organization exceeds the maximum subscription tier of 10 members",
-      409,
-      BILLING_ERROR_CODES.rosterOverCapacity,
-    );
-  }
-  const option = await getStripeSyncOption(tier.id, deps.stripe ?? {});
+  const option = await getStripeSyncOption(tierId, deps.stripe ?? {});
   return { options: option ? [option] : [] };
 }
