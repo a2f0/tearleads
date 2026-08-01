@@ -5,6 +5,7 @@ import {
   accessManifests,
   containerDocumentSyncTombstones,
   containerKeyEpochs,
+  containerKeyWraps,
   containers,
   documentAuditCheckpoints,
   documentAuditEntries,
@@ -22,11 +23,13 @@ import type {
   DocumentLinkAccessEventBody,
   DocumentLinkSetManifestState,
   KeyingCanonicalJson,
+  VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
+  computeContainerKekPredecessorBridgeHash,
   computeDocumentContentKeyTargetHash,
   deriveDocumentLinkSetManifest,
 } from "@tearleads/crypto";
@@ -40,6 +43,7 @@ import type {
 } from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
+  DOCUMENT_PROJECTION_ERROR_CODES,
   type DocumentLinkSetMutationResponse,
   type DocumentWriterProjectionResponse,
   isContainerMutationResponse,
@@ -52,7 +56,10 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
-import { createTestContainerKekMaterial } from "../../test/helpers/containerKekMaterial";
+import {
+  createTestContainerKekMaterial,
+  createTestContainerKekPredecessorBridge,
+} from "../../test/helpers/containerKekMaterial";
 import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
@@ -95,19 +102,24 @@ async function loadPrincipalPoliciesForContainerPaths(
 }
 
 async function createChildContainer(input: {
-  readonly parent: StoredRootFixture;
+  readonly parent: {
+    readonly bundle: AccessManifestBundleWire | VerifiedContainerAccessManifest;
+    readonly kekState: VerifiedContainerKekState;
+  };
   readonly signer: TestUser;
 }): Promise<ContainerMutationResponse> {
+  const parentBundle = input.parent
+    .bundle as unknown as AccessManifestBundleWire;
   const containerId = crypto.randomUUID();
   const { containerKeyEpochId } = await createTestContainerKekMaterial({
     containerId,
     keyEpoch: 1,
   });
-  const parentManifest = asVerifiedContainerManifest(input.parent.bundle);
+  const parentManifest = asVerifiedContainerManifest(parentBundle);
   const body: ContainerAccessEventBody = {
     eventType: "container.create",
     parentContainerId: parentManifest.state.containerId,
-    parentManifestHash: input.parent.bundle.manifestHash,
+    parentManifestHash: parentBundle.manifestHash,
     metadataDocumentId: crypto.randomUUID(),
     containerKeyEpochId,
     directGrants: [],
@@ -115,7 +127,7 @@ async function createChildContainer(input: {
   };
   const event = await createSignedAccessEvent({
     body,
-    dependencyManifestHashes: [input.parent.bundle.manifestHash],
+    dependencyManifestHashes: [parentBundle.manifestHash],
     objectId: containerId,
     objectKind: "container",
     organizationId: parentManifest.state.organizationId,
@@ -131,7 +143,7 @@ async function createChildContainer(input: {
       previousManifestHash: null,
       eventHash: event.eventHash,
       parentContainerId: parentManifest.state.containerId,
-      parentManifestHash: input.parent.bundle.manifestHash,
+      parentManifestHash: parentBundle.manifestHash,
       metadataDocumentId: body.metadataDocumentId,
       containerKeyEpochId,
       directGrants: [],
@@ -151,19 +163,20 @@ async function createChildContainer(input: {
     wrapManifestHash: bundle.manifestHash,
   });
   const principalPolicies = await loadPrincipalPoliciesForContainerPath([
-    input.parent.bundle,
+    parentBundle,
   ]);
   const request: ContainerMutationRequest = {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    parentContainerPath: [input.parent.bundle],
+    parentContainerPath: [parentBundle],
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: null,
     wraps: [wrap as unknown as Record<string, unknown>],
     parentKekState: input.parent.kekState as unknown as Record<string, unknown>,
     userRecipientKeys: [],
@@ -205,11 +218,18 @@ async function buildContainerMoveRequest(input: {
     containerId: previous.state.containerId,
     keyEpoch: nextKeyEpoch,
   });
+  const predecessorBridge = await createTestContainerKekPredecessorBridge({
+    containerId: previous.state.containerId,
+    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
   const body: ContainerAccessEventBody = {
     eventType: "container.move",
     parentContainerId: destinationParent.state.containerId,
     parentManifestHash: input.destinationParent.manifestHash,
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
   };
   const event = await createSignedAccessEvent({
     body,
@@ -249,7 +269,6 @@ async function buildContainerMoveRequest(input: {
     parentKekState: input.destinationParentKekState,
     wrapManifestHash: bundle.manifestHash,
   });
-
   return {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
@@ -263,6 +282,7 @@ async function buildContainerMoveRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: [wrap as unknown as Record<string, unknown>],
     parentKekState: input.destinationParentKekState as unknown as Record<
       string,
@@ -753,6 +773,87 @@ test("GET /containers/:containerId/writer-projection includes historical parent 
     movedChildCreateBundle.manifestHash,
   );
   expect(movedChildHistoryHashes).toContain(parentABundle.manifestHash);
+});
+
+test("container projections and mutations preserve current KEKs across damaged history", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const firstRekey = await buildRootContainerRekeyMutation({
+    previous: root,
+    signer: owner,
+  });
+  const firstResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/rekey`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(firstRekey.request),
+    },
+  );
+  expect(firstResponse.status).toBe(200);
+  const child = await createChildContainer({
+    parent: firstRekey.container,
+    signer: owner,
+  });
+
+  await db
+    .update(containerKeyEpochs)
+    .set({ wrappedPredecessorKey: "not-base64" })
+    .where(eq(containerKeyEpochs.id, firstRekey.kekState.containerKeyEpochId));
+
+  const rootProjectionResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/writer-projection`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(rootProjectionResponse.status).toBe(200);
+  const rootProjection = await rootProjectionResponse.json();
+  expect(isContainerWriterProjectionResponse(rootProjection)).toBe(true);
+  expect(rootProjection.containerKeks[0]).toMatchObject({
+    containerKeyEpochId: firstRekey.kekState.containerKeyEpochId,
+    predecessorKeks: [],
+  });
+
+  const childProjectionResponse = await routeApp.request(
+    `/containers/${child.containerId}/writer-projection`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(childProjectionResponse.status).toBe(200);
+  const childProjection = await childProjectionResponse.json();
+  expect(isContainerWriterProjectionResponse(childProjection)).toBe(true);
+  expect(childProjection.containerKeks).toHaveLength(2);
+  expect(childProjection.containerKeks[0]?.predecessorKeks).toEqual([]);
+  expect(childProjection.containerKeks[1]?.containerKeyEpochId).toBe(
+    child.containerKek.containerKeyEpochId,
+  );
+
+  const secondRekey = await buildRootContainerRekeyMutation({
+    previous: firstRekey.container,
+    signer: owner,
+  });
+  const secondResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/rekey`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(secondRekey.request),
+    },
+  );
+  expect(secondResponse.status).toBe(200);
+  const secondMutation = await secondResponse.json();
+  expect(isContainerMutationResponse(secondMutation)).toBe(true);
+  expect(
+    (
+      secondMutation as ContainerMutationResponse
+    ).containerKek.predecessorKeks.map((epoch) => epoch.containerKeyEpochId),
+  ).toEqual([firstRekey.kekState.containerKeyEpochId]);
 });
 
 test("GET /containers/:containerId/writer-projection rejects users without write access", async () => {
@@ -1868,6 +1969,82 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
       ],
     ]),
   );
+
+  const destinationParent = await createChildContainer({
+    parent: root,
+    signer: owner,
+  });
+  const movedChild = await moveContainer({
+    destinationParent: accessManifestFromContainerResponse(destinationParent),
+    destinationParentKekState: kekStateFromContainerResponse(destinationParent),
+    destinationParentPath: [
+      root.bundle,
+      accessManifestFromContainerResponse(destinationParent),
+    ],
+    previous: accessManifestFromContainerResponse(child),
+    previousContainerPath: [
+      root.bundle,
+      accessManifestFromContainerResponse(child),
+    ],
+    previousKekState: kekStateFromContainerResponse(child),
+    signer: owner,
+  });
+  const movedChildKekId =
+    kekStateFromContainerResponse(movedChild).containerKeyEpochId;
+  const [storedMovedChildEpoch] = await db
+    .select({
+      wrappedPredecessorKey: containerKeyEpochs.wrappedPredecessorKey,
+    })
+    .from(containerKeyEpochs)
+    .where(eq(containerKeyEpochs.id, movedChildKekId));
+  if (!storedMovedChildEpoch?.wrappedPredecessorKey) {
+    throw new Error("Expected moved child predecessor bridge");
+  }
+  await db
+    .update(containerKeyEpochs)
+    .set({ wrappedPredecessorKey: "not-base64" })
+    .where(eq(containerKeyEpochs.id, movedChildKekId));
+
+  const healthyPathResponse = await routeApp.request(
+    `/documents/${createdDocument.id}/writer-projection`,
+    {
+      headers: { Authorization: `Bearer ${owner.token}` },
+    },
+  );
+  expect(healthyPathResponse.status).toBe(200);
+  const healthyPathProjection = (await healthyPathResponse.json()) as
+    | DocumentWriterProjectionResponse
+    | undefined;
+  expect(
+    healthyPathProjection?.authorizingContainerPaths
+      .map((path) => path.containerId)
+      .sort(),
+  ).toEqual([root.kekState.containerId, child.containerId].sort());
+
+  await db
+    .update(containerKeyEpochs)
+    .set({
+      wrappedPredecessorKey: storedMovedChildEpoch.wrappedPredecessorKey,
+    })
+    .where(eq(containerKeyEpochs.id, movedChildKekId));
+
+  await db
+    .update(containerKeyWraps)
+    .set({ recipientKeyFingerprint: "corrupt-fingerprint" })
+    .where(eq(containerKeyWraps.containerKeyEpochId, movedChildKekId));
+
+  const noHealthyPathResponse = await routeApp.request(
+    `/documents/${createdDocument.id}/writer-projection`,
+    {
+      headers: { Authorization: `Bearer ${owner.token}` },
+    },
+  );
+  expect(noHealthyPathResponse.status).toBe(409);
+  await expect(noHealthyPathResponse.json()).resolves.toEqual({
+    code: DOCUMENT_PROJECTION_ERROR_CODES.containerConflict,
+    error:
+      "container key wrap.recipientKeyFingerprint must be a 64-character lowercase hex hash",
+  });
 });
 
 test("POST /documents/:documentId/link rejects stale previous manifests", async () => {

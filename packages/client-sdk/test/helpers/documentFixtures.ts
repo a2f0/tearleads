@@ -75,7 +75,7 @@ export async function createUserContainerWrap(input: {
   };
 }
 
-export async function createContainerWrap(input: {
+async function createContainerWrap(input: {
   childContainerKeyEpochId: string;
   childKek: Uint8Array;
   parentContainerId: string;
@@ -183,6 +183,7 @@ function buildWrappedProjection(input: {
         keyTargetHash: rootKeyTargetHash,
         parentContainerKeyEpochId: null,
         containerManifestHistory: [],
+        predecessorKeks: [],
         recipientTargets: [{}],
         wraps: [rootWrap],
       },
@@ -204,6 +205,7 @@ function buildWrappedProjection(input: {
         keyTargetHash: childKeyTargetHash,
         parentContainerKeyEpochId: rootContainerKeyEpochId,
         containerManifestHistory: [],
+        predecessorKeks: [],
         recipientTargets: [{}],
         wraps: [childWrap],
       },
@@ -357,6 +359,7 @@ export async function createSiblingProjection(input: {
           keyTargetHash: siblingKeyTargetHash,
           parentContainerKeyEpochId: rootKek.containerKeyEpochId,
           containerManifestHistory: [],
+          predecessorKeks: [],
           recipientTargets: [{}],
           wraps: [siblingWrap],
         },

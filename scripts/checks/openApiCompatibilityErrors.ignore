@@ -1,0 +1,3 @@
+# #1925 is a greenfield flag-day key-history contract with no compatibility shim.
+# Remove this entry in the next PR after main contains the required field.
+POST /documents/{documentId}/sync added the new required request property `containerRekeys/items/predecessorBridge`

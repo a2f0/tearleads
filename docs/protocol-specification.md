@@ -244,6 +244,8 @@ Each signed mutation request carries:
 - optional previous, parent, destination-parent, and history manifest bundles
 - referenced principal policy bundles
 - a container key epoch
+- a required nullable predecessor bridge (`null` for creates and same-epoch
+  mutations; populated for every KEK rotation)
 - KEK wraps for derived recipient targets
 - optional parent KEK state and direct user recipient keys
 
@@ -253,6 +255,13 @@ and verifies the container KEK state. Container KEK wraps target direct users,
 managed principals, or the parent container KEK. A child container can inherit
 access through parent KEK edges without rewriting every descendant object when
 an ancestor grant changes.
+
+For a rotation, the API also verifies that the bridge connects the stored
+current epoch to exactly the proposed next epoch. Writer projections are gated
+by current access and return the complete authenticated predecessor chain.
+Consequently current document access includes retained history; projections do
+not return superseded recipient envelopes or filter old epochs by requester
+membership era.
 
 Document and blob writes may carry signed `container.rekey` requests inline in
 `containerRekeys[]`. The API applies those rekeys inside the same transaction

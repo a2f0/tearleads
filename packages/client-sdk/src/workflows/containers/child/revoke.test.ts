@@ -3,6 +3,7 @@ import {
   type ContainerKeyWrap,
   type ContainerRevokeAccessEventBody,
   type ContainerUserRecipientKey,
+  computeContainerKekPredecessorBridgeHash,
   generateKemSeedAndKeyPair,
   type KeyingCanonicalJson,
   toFingerprint,
@@ -13,6 +14,7 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import {
   createAuthor,
   createMutationResponseFromRequest,
@@ -40,6 +42,7 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
     userId: parent.userId,
   });
   const submittedRequests: ContainerMutationRequest[] = [];
+  const mutationResponses: ContainerMutationResponse[] = [];
   const database = await createTestExecSql("remote-container-revoke");
 
   const revoked = await revokeRemoteContainer({
@@ -47,7 +50,12 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
       getContainerWriterProjection: async () => parent.projection,
       revokeContainer: async (_containerId, request) => {
         submittedRequests.push(request);
-        return createMutationResponseFromRequest(request);
+        const response = await createMutationResponseFromRequest(
+          request,
+          parent.projection.containerKeks.at(-1),
+        );
+        mutationResponses.push(response);
+        return response;
       },
     },
     author,
@@ -87,13 +95,25 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
   expect(body).toEqual({
     eventType: "container.revoke",
     containerKeyEpochId: revoked.plan.containerKeyEpochId,
+    predecessorBridgeHash: body.predecessorBridgeHash,
     subjectId: revokedUserId,
     subjectType: "user",
   });
+  expect(body.predecessorBridgeHash).toBe(
+    await computeContainerKekPredecessorBridgeHash(
+      submittedRequest.predecessorBridge,
+    ),
+  );
   expect(revoked.plan.keyEpoch.keyEpoch).toBe(2);
   expect(revoked.plan.keyEpoch.id).not.toBe(
     parent.parentKekState.containerKeyEpochId,
   );
+  const mutationResponse = mutationResponses[0];
+  expect(
+    mutationResponse?.containerKek.predecessorKeks.map(
+      (predecessor) => predecessor.containerKeyEpochId,
+    ),
+  ).toEqual([parent.parentKekState.containerKeyEpochId]);
   expect(
     revoked.plan.state.directGrants.map((grant) => grant.subjectId),
   ).toEqual([parent.userId]);

@@ -47,6 +47,7 @@ test("hidden future history cannot bypass a persisted projection head", async ()
     }),
     eventId: "parent-container-revoke-event-2",
     organizationId: parent.projection.organizationId,
+    predecessorBridgeHash: "0".repeat(64),
     previousManifest: epoch1 as unknown as VerifiedContainerAccessManifest,
     subjectId: secondUserId,
     subjectType: "user",

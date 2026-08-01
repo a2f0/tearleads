@@ -1,22 +1,19 @@
-import {
-  type ContainerKeyWrap,
-  computeContainerKekMaterialId,
-  decryptWithDek,
-  isContainerKekMaterialId,
-  type VerifiedContainerAccessManifest,
-} from "@tearleads/crypto";
+import { type ContainerKeyWrap, decryptWithDek } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
-import type {
-  ContainerWriterProjectionResponse,
-  HistoricalContainerKekResponse,
-} from "@tearleads/validators/response";
-import {
-  type PrincipalPolicyCache,
-  verifyContainerWriterProjection,
-} from "../../keyingProjectionVerification";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import {
+  assertUnwrappedContainerKekMatchesMaterialId,
+  projectedUnreachablePredecessorEpochIds,
+  projectionKekLabel,
+  unwrapPredecessorContainerKeksAtIndex,
+} from "./containerKekPathHistory";
+import {
+  type UnwrapContainerKekPathInput,
+  verifyContainerKekPathProjection,
+} from "./containerKekPathVerification";
 import {
   normalizeContainerKeyWrap,
   readManifestContainerId,
@@ -24,15 +21,7 @@ import {
   readRecordNumber,
   readRecordString,
 } from "./readers";
-import type {
-  ProjectionVerificationOptions,
-  UnwrappedContainerKek,
-} from "./types";
-import { resolveProjectionVerifier } from "./types";
-
-function projectionKekLabel(index: number): string {
-  return `Container writer projection KEK[${index}]`;
-}
+import type { UnwrappedContainerKek } from "./types";
 
 function assertProjectionKekMatchesPath(
   projection: ContainerWriterProjectionResponse,
@@ -97,6 +86,7 @@ async function unwrapContainerKekFromPrincipalWraps(input: {
 }
 
 async function unwrapContainerKekFromParentWrap(input: {
+  label: string;
   parentContainerKeyEpochId: string | null;
   parentKeksByEpochId: ReadonlyMap<string, UnwrappedContainerKek>;
   wraps: readonly ContainerKeyWrap[];
@@ -123,38 +113,18 @@ async function unwrapContainerKekFromParentWrap(input: {
     return null;
   }
 
-  return decryptWithDek(
-    {
-      iv: base64ToBytes(parentWrap.kemCipherText),
-      ciphertext: base64ToBytes(parentWrap.wrappedKey),
-    },
-    parentKek.keyMaterial,
-  );
-}
-
-async function assertUnwrappedContainerKekMatchesMaterialId(input: {
-  index: number;
-  keyMaterial: Uint8Array;
-  kek: Pick<
-    ContainerWriterProjectionResponse["containerKeks"][number],
-    "containerId" | "containerKeyEpoch" | "containerKeyEpochId"
-  >;
-}): Promise<void> {
-  if (!isContainerKekMaterialId(input.kek.containerKeyEpochId)) {
-    throw new Error(
-      `${projectionKekLabel(input.index)} KEK epoch id does not commit to key material`,
+  try {
+    return await decryptWithDek(
+      {
+        iv: base64ToBytes(parentWrap.kemCipherText),
+        ciphertext: base64ToBytes(parentWrap.wrappedKey),
+      },
+      parentKek.keyMaterial,
     );
-  }
-
-  const expectedId = await computeContainerKekMaterialId({
-    containerId: input.kek.containerId,
-    keyEpoch: input.kek.containerKeyEpoch,
-    keyMaterial: input.keyMaterial,
-  });
-  if (expectedId !== input.kek.containerKeyEpochId) {
-    throw new Error(
-      `${projectionKekLabel(input.index)} KEK material does not match committed epoch id`,
-    );
+  } catch (error) {
+    throw new Error(`${input.label} parent wrap could not be unwrapped`, {
+      cause: error,
+    });
   }
 }
 
@@ -166,21 +136,21 @@ async function seedKnownContainerKeks(input: {
 
   for (const [containerKeyEpochId, keyMaterial] of input.knownContainerKeks ??
     new Map<string, Uint8Array>()) {
-    const index = input.projection.containerKeks.findIndex(
-      (candidate) => candidate.containerKeyEpochId === containerKeyEpochId,
+    const projected = findProjectedContainerKek(
+      input.projection,
+      containerKeyEpochId,
     );
-    const kek = input.projection.containerKeks[index];
-    if (!kek) {
+    if (!projected) {
       continue;
     }
     await assertUnwrappedContainerKekMatchesMaterialId({
-      index,
-      kek,
+      label: projected.label,
+      kek: projected.kek,
       keyMaterial,
     });
     keksByEpochId.set(containerKeyEpochId, {
-      containerId: kek.containerId,
-      keyEpochHash: kek.keyEpochHash,
+      containerId: projected.kek.containerId,
+      keyEpochHash: projected.kek.keyEpochHash,
       keyMaterial,
     });
   }
@@ -188,228 +158,254 @@ async function seedKnownContainerKeks(input: {
   return keksByEpochId;
 }
 
-export async function unwrapContainerKekPath(
-  input: {
-    execSql?: ExecSql | undefined;
-    knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
-    principalPolicyCache?: PrincipalPolicyCache | undefined;
-    projection: ContainerWriterProjectionResponse;
-    secretKey: Uint8Array;
-    verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
-  } & ProjectionVerificationOptions,
-): Promise<ReadonlyMap<string, Uint8Array>> {
-  if (input.projection.path.length !== input.projection.containerKeks.length) {
-    throw new Error(
-      "Container writer projection path and KEKs are inconsistent",
+function findProjectedContainerKek(
+  projection: ContainerWriterProjectionResponse,
+  containerKeyEpochId: string,
+) {
+  for (const [index, current] of projection.containerKeks.entries()) {
+    if (current.containerKeyEpochId === containerKeyEpochId) {
+      return { kek: current, label: projectionKekLabel(index) };
+    }
+    const predecessor = current.predecessorKeks.find(
+      (candidate) => candidate.containerKeyEpochId === containerKeyEpochId,
     );
+    if (predecessor) {
+      return {
+        kek: predecessor,
+        label: `${projectionKekLabel(index)} predecessor ${containerKeyEpochId}`,
+      };
+    }
   }
-  const resolveProjectionUserKey = resolveProjectionVerifier(
-    input,
-    "Container KEK unwrap",
-  );
-  if (
-    input.trustedLocalProjection !== true &&
-    resolveProjectionUserKey !== null
-  ) {
-    // Reuse the caller's verification caches so manifests/policies already
-    // verified by the projection-consistency pass are not re-verified here.
-    await verifyContainerWriterProjection({
+  return null;
+}
+
+function successorKeyMaterial(
+  keksByEpochId: ReadonlyMap<string, UnwrappedContainerKek>,
+  kek: Pick<
+    ContainerWriterProjectionResponse["containerKeks"][number],
+    "containerKeyEpochId"
+  >,
+  unwrapped: Uint8Array | null,
+): Uint8Array | null {
+  return keksByEpochId.get(kek.containerKeyEpochId)?.keyMaterial ?? unwrapped;
+}
+
+async function unwrapContainerKekAtIndex(input: {
+  readonly execSql?: ExecSql | undefined;
+  readonly index: number;
+  readonly keksByEpochId: Map<string, UnwrappedContainerKek>;
+  readonly projection: ContainerWriterProjectionResponse;
+  readonly secretKey: Uint8Array;
+  readonly verifyBridgeCommitment: boolean;
+}): Promise<{
+  readonly containerId: string;
+  readonly error: Error;
+  readonly unreachableEpochIds: readonly string[];
+} | null> {
+  assertProjectionKekMatchesPath(input.projection, input.index);
+  const kek = input.projection.containerKeks[input.index];
+  const currentManifest = input.projection.path[input.index];
+  if (!kek || !currentManifest) {
+    throw new Error(`${projectionKekLabel(input.index)} is missing`);
+  }
+
+  const wraps: ContainerKeyWrap[] = [];
+  for (const rawWrap of kek.wraps) {
+    const wrap = normalizeContainerKeyWrap(rawWrap);
+    if (wrap.containerKeyEpochId === kek.containerKeyEpochId) {
+      wraps.push(wrap);
+    }
+  }
+  if (wraps.length !== kek.wraps.length) {
+    throw new Error(`${projectionKekLabel(input.index)} contains a stale wrap`);
+  }
+
+  const unwrapped =
+    (await unwrapContainerKekFromPrincipalWraps({
       execSql: input.execSql,
-      principalPolicyCache: input.principalPolicyCache,
-      projection: input.projection,
-      resolveUserKey: resolveProjectionUserKey,
-      verifiedByHash: input.verifiedByHash,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      secretKey: input.secretKey,
+      wraps,
+    })) ??
+    (await unwrapContainerKekFromParentWrap({
+      label: projectionKekLabel(input.index),
+      parentContainerKeyEpochId: kek.parentContainerKeyEpochId,
+      parentKeksByEpochId: input.keksByEpochId,
+      wraps,
+    }));
+
+  if (unwrapped) {
+    await assertUnwrappedContainerKekMatchesMaterialId({
+      label: projectionKekLabel(input.index),
+      kek,
+      keyMaterial: unwrapped,
+    });
+    input.keksByEpochId.set(kek.containerKeyEpochId, {
+      containerId: kek.containerId,
+      keyEpochHash: kek.keyEpochHash,
+      keyMaterial: unwrapped,
     });
   }
+
+  try {
+    // Derive predecessors immediately so descendants pinned to an older parent
+    // epoch can still unwrap during the same path walk.
+    await unwrapPredecessorContainerKeksAtIndex({
+      currentManifest,
+      index: input.index,
+      kek,
+      keksByEpochId: input.keksByEpochId,
+      successorKeyMaterial: successorKeyMaterial(
+        input.keksByEpochId,
+        kek,
+        unwrapped,
+      ),
+      verifyBridgeCommitment: input.verifyBridgeCommitment,
+    });
+    return null;
+  } catch (error) {
+    // Historical bridge damage must not discard an independently verified
+    // current KEK. Keep any predecessors derived before the failure; if the
+    // target still cannot be reached, the caller surfaces this integrity error.
+    return {
+      containerId: kek.containerId,
+      error:
+        error instanceof Error
+          ? error
+          : new Error("Container predecessor KEK recovery failed", {
+              cause: error,
+            }),
+      unreachableEpochIds: projectedUnreachablePredecessorEpochIds({
+        kek,
+        keksByEpochId: input.keksByEpochId,
+      }),
+    };
+  }
+}
+
+interface UnwrappedContainerKekPathResult {
+  readonly keksByEpochId: ReadonlyMap<string, Uint8Array>;
+  readonly predecessorFailuresByEpochId: ReadonlyMap<string, Error>;
+  readonly unattributedPredecessorFailuresByContainerId: ReadonlyMap<
+    string,
+    Error
+  >;
+}
+
+function recordPredecessorFailure(
+  failuresByEpochId: Map<string, Error>,
+  unattributedFailuresByContainerId: Map<string, Error>,
+  failure: NonNullable<Awaited<ReturnType<typeof unwrapContainerKekAtIndex>>>,
+): void {
+  if (failure.unreachableEpochIds.length === 0) {
+    if (!unattributedFailuresByContainerId.has(failure.containerId)) {
+      unattributedFailuresByContainerId.set(failure.containerId, failure.error);
+    }
+    return;
+  }
+  for (const containerKeyEpochId of failure.unreachableEpochIds) {
+    if (!failuresByEpochId.has(containerKeyEpochId)) {
+      failuresByEpochId.set(containerKeyEpochId, failure.error);
+    }
+  }
+}
+
+function assertTargetKekUnwrapped(input: {
+  readonly keyMaterialByEpochId: ReadonlyMap<string, Uint8Array>;
+  readonly predecessorFailuresByEpochId: ReadonlyMap<string, Error>;
+  readonly projection: ContainerWriterProjectionResponse;
+  readonly unattributedPredecessorFailuresByContainerId: ReadonlyMap<
+    string,
+    Error
+  >;
+}): void {
+  const targetKek = input.projection.containerKeks.at(-1);
+  if (
+    !targetKek ||
+    input.keyMaterialByEpochId.has(targetKek.containerKeyEpochId)
+  ) {
+    return;
+  }
+  for (
+    let index = input.projection.containerKeks.length - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const pathKek = input.projection.containerKeks[index];
+    if (!pathKek) {
+      continue;
+    }
+    const predecessorFailure =
+      input.predecessorFailuresByEpochId.get(pathKek.containerKeyEpochId) ??
+      (pathKek.parentContainerKeyEpochId
+        ? input.predecessorFailuresByEpochId.get(
+            pathKek.parentContainerKeyEpochId,
+          )
+        : undefined) ??
+      input.unattributedPredecessorFailuresByContainerId.get(
+        pathKek.containerId,
+      );
+    if (predecessorFailure) {
+      throw predecessorFailure;
+    }
+  }
+  throw new Error(
+    `${projectionKekLabel(input.projection.containerKeks.length - 1)} could not be unwrapped`,
+  );
+}
+
+export async function unwrapContainerKekPathWithHistoryFailures(
+  input: UnwrapContainerKekPathInput,
+): Promise<UnwrappedContainerKekPathResult> {
+  await verifyContainerKekPathProjection(input);
 
   const keksByEpochId = await seedKnownContainerKeks({
     knownContainerKeks: input.knownContainerKeks,
     projection: input.projection,
   });
+  const predecessorFailuresByEpochId = new Map<string, Error>();
+  const unattributedPredecessorFailuresByContainerId = new Map<string, Error>();
 
   for (
     let index = 0;
     index < input.projection.containerKeks.length;
     index += 1
   ) {
-    assertProjectionKekMatchesPath(input.projection, index);
-    const kek = input.projection.containerKeks[index];
-    if (!kek) {
-      throw new Error(`${projectionKekLabel(index)} is missing`);
-    }
-
-    const wraps: ContainerKeyWrap[] = [];
-    for (const rawWrap of kek.wraps) {
-      const wrap = normalizeContainerKeyWrap(rawWrap);
-      if (wrap.containerKeyEpochId === kek.containerKeyEpochId) {
-        wraps.push(wrap);
-      }
-    }
-    if (wraps.length !== kek.wraps.length) {
-      throw new Error(`${projectionKekLabel(index)} contains a stale wrap`);
-    }
-
-    const unwrapped =
-      (await unwrapContainerKekFromPrincipalWraps({
-        execSql: input.execSql,
-        secretKey: input.secretKey,
-        wraps,
-      })) ??
-      (await unwrapContainerKekFromParentWrap({
-        parentContainerKeyEpochId: kek.parentContainerKeyEpochId,
-        parentKeksByEpochId: keksByEpochId,
-        wraps,
-      }));
-
-    if (unwrapped) {
-      await assertUnwrappedContainerKekMatchesMaterialId({
-        index,
-        kek,
-        keyMaterial: unwrapped,
-      });
-      keksByEpochId.set(kek.containerKeyEpochId, {
-        containerId: kek.containerId,
-        keyEpochHash: kek.keyEpochHash,
-        keyMaterial: unwrapped,
-      });
-    }
-
-    // Unwrap this container's superseded epochs BEFORE moving to its
-    // descendants: after an ancestor rotation, a descendant not yet rekeyed
-    // still wraps its CURRENT epoch to the ancestor's superseded epoch, so
-    // that material must already be in the map when the descendant is
-    // attempted. Runs even when the current epoch could not be unwrapped —
-    // the superseded epochs carry their own audience wraps.
-    await unwrapHistoricalContainerKeksAtIndex({
+    const currentFailure = await unwrapContainerKekAtIndex({
       execSql: input.execSql,
       index,
-      kek,
       keksByEpochId,
+      projection: input.projection,
       secretKey: input.secretKey,
+      verifyBridgeCommitment: input.trustedLocalProjection !== true,
     });
+    if (currentFailure) {
+      recordPredecessorFailure(
+        predecessorFailuresByEpochId,
+        unattributedPredecessorFailuresByContainerId,
+        currentFailure,
+      );
+    }
   }
 
   const keyMaterialByEpochId = new Map<string, Uint8Array>();
   for (const [containerKeyEpochId, kek] of keksByEpochId) {
     keyMaterialByEpochId.set(containerKeyEpochId, kek.keyMaterial);
   }
-  const targetKek = input.projection.containerKeks.at(-1);
-  if (targetKek && !keyMaterialByEpochId.has(targetKek.containerKeyEpochId)) {
-    throw new Error(
-      `${projectionKekLabel(input.projection.containerKeks.length - 1)} could not be unwrapped`,
-    );
-  }
-  return keyMaterialByEpochId;
-}
-
-/**
- * Unwraps the superseded key epochs the projection serves alongside each path
- * container, so a member who spans a KEK rotation can still decrypt
- * pre-rotation content (stale content-key bundles, old-epoch updates).
- *
- * Fail-soft per epoch: a member who was not in an epoch's audience simply
- * cannot unwrap it and the epoch is skipped. Integrity does not rest on the
- * wraps themselves — every successful unwrap is re-verified against the
- * epoch id's key-material commitment, so a server cannot substitute key
- * material for an epoch that verified artifacts reference. Each container's
- * superseded epochs are unwrapped inside the path walk, right after its
- * current epoch, because a descendant not yet rekeyed after an ancestor
- * rotation wraps its CURRENT epoch to the ancestor's superseded epoch — the
- * material must be in the map before the descendant is attempted.
- *
- * WHO may receive a historical wrap is deliberately not re-verified here:
- * the server never holds KEK material, so any wrap passing the commitment
- * check was created by a legitimate epoch-key holder and decrypts only with
- * a recipient key this client already possesses — a client-side audience
- * check could refuse to use a capability the client holds, but cannot
- * create a cryptographic boundary. Audience enforcement therefore lives in
- * the server's era-pinned filter (see the API's loadHistoricalContainerKeks),
- * and these keys are only ever used to DECRYPT pre-rotation artifacts whose
- * authenticity rests on signed write headers; heals always wrap fresh keys
- * to the verified current targets.
- */
-function historicalContainerKekWraps(
-  historical: HistoricalContainerKekResponse,
-  index: number,
-): ContainerKeyWrap[] {
-  const wraps: ContainerKeyWrap[] = [];
-  for (const rawWrap of historical.wraps) {
-    const wrap = normalizeContainerKeyWrap(rawWrap);
-    if (wrap.containerKeyEpochId === historical.containerKeyEpochId) {
-      wraps.push(wrap);
-    }
-  }
-  if (wraps.length !== historical.wraps.length) {
-    throw new Error(
-      `${projectionKekLabel(index)} historical epoch contains a stale wrap`,
-    );
-  }
-  return wraps;
-}
-
-async function unwrapOneHistoricalContainerKek(input: {
-  execSql?: ExecSql | undefined;
-  historical: HistoricalContainerKekResponse;
-  index: number;
-  keksByEpochId: Map<string, UnwrappedContainerKek>;
-  secretKey: Uint8Array;
-}): Promise<void> {
-  const wraps = historicalContainerKekWraps(input.historical, input.index);
-
-  let unwrapped: Uint8Array | null = null;
-  try {
-    unwrapped =
-      (await unwrapContainerKekFromPrincipalWraps({
-        execSql: input.execSql,
-        secretKey: input.secretKey,
-        wraps,
-      })) ??
-      (await unwrapContainerKekFromParentWrap({
-        parentContainerKeyEpochId: input.historical.parentContainerKeyEpochId,
-        parentKeksByEpochId: input.keksByEpochId,
-        wraps,
-      }));
-  } catch {
-    unwrapped = null;
-  }
-  if (!unwrapped) {
-    return;
-  }
-  await assertUnwrappedContainerKekMatchesMaterialId({
-    index: input.index,
-    kek: input.historical,
-    keyMaterial: unwrapped,
+  assertTargetKekUnwrapped({
+    keyMaterialByEpochId,
+    predecessorFailuresByEpochId,
+    projection: input.projection,
+    unattributedPredecessorFailuresByContainerId,
   });
-  input.keksByEpochId.set(input.historical.containerKeyEpochId, {
-    containerId: input.historical.containerId,
-    keyEpochHash: input.historical.keyEpochHash,
-    keyMaterial: unwrapped,
-  });
+  return {
+    keksByEpochId: keyMaterialByEpochId,
+    predecessorFailuresByEpochId,
+    unattributedPredecessorFailuresByContainerId,
+  };
 }
 
-async function unwrapHistoricalContainerKeksAtIndex(input: {
-  execSql?: ExecSql | undefined;
-  index: number;
-  kek: ContainerWriterProjectionResponse["containerKeks"][number];
-  keksByEpochId: Map<string, UnwrappedContainerKek>;
-  secretKey: Uint8Array;
-}): Promise<void> {
-  for (const historical of input.kek.historicalKeks ?? []) {
-    if (input.keksByEpochId.has(historical.containerKeyEpochId)) {
-      continue;
-    }
-    if (historical.containerId !== input.kek.containerId) {
-      throw new Error(
-        `${projectionKekLabel(input.index)} historical epoch container is inconsistent`,
-      );
-    }
-    await unwrapOneHistoricalContainerKek({
-      execSql: input.execSql,
-      historical,
-      index: input.index,
-      keksByEpochId: input.keksByEpochId,
-      secretKey: input.secretKey,
-    });
-  }
+export async function unwrapContainerKekPath(
+  input: UnwrapContainerKekPathInput,
+): Promise<ReadonlyMap<string, Uint8Array>> {
+  return (await unwrapContainerKekPathWithHistoryFailures(input)).keksByEpochId;
 }

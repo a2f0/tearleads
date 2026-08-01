@@ -48,6 +48,7 @@ test("document dependency evidence cannot hide a newer container head", async ()
     }),
     eventId: "document-dependency-container-revoke",
     organizationId: parent.projection.organizationId,
+    predecessorBridgeHash: "0".repeat(64),
     previousManifest:
       firstManifest as unknown as VerifiedContainerAccessManifest,
     subjectId: revokedUserId,

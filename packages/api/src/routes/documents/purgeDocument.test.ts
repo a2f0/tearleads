@@ -416,6 +416,7 @@ async function createChildContainer(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: null,
     wraps: [wrap as unknown as Record<string, unknown>],
     parentKekState: input.parent.kekState as unknown as Record<string, unknown>,
     userRecipientKeys: [],

@@ -15,7 +15,10 @@ import type {
 import type { PrincipalPolicyCache } from "../../keyingProjectionVerification";
 import { throwKeyingVerificationErrorWithContext } from "../../keyingProjectionVerification/error";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import { unwrapContainerKekPath } from "./containerKekPath";
+import {
+  unwrapContainerKekPath,
+  unwrapContainerKekPathWithHistoryFailures,
+} from "./containerKekPath";
 import {
   deriveDocumentCreateTargets,
   describeProjectionTargetKek,
@@ -90,13 +93,40 @@ export async function unwrapDocumentContentKeyTarget(input: {
     throw new Error("Document content-key target is missing an IV");
   }
 
-  return decryptWithDek(
-    {
-      iv: base64ToBytes(iv),
-      ciphertext: base64ToBytes(input.envelope.wrappedKey),
-    },
-    input.containerKek,
-  );
+  try {
+    return await decryptWithDek(
+      {
+        iv: base64ToBytes(iv),
+        ciphertext: base64ToBytes(input.envelope.wrappedKey),
+      },
+      input.containerKek,
+    );
+  } catch (error) {
+    throw new Error(
+      `Document content-key target for container ${input.envelope.containerId} at epoch ${input.envelope.containerKeyEpochId} could not be unwrapped`,
+      { cause: error },
+    );
+  }
+}
+
+interface CollectedContainerKeks {
+  readonly keksByEpochId: ReadonlyMap<string, Uint8Array>;
+  readonly predecessorFailuresByEpochId: ReadonlyMap<string, Error>;
+  readonly unattributedPredecessorFailuresByContainerId: ReadonlyMap<
+    string,
+    Error
+  >;
+}
+
+export class DocumentHistoryUnavailableError extends Error {
+  constructor(readonly historyCause: unknown) {
+    super(
+      historyCause instanceof Error
+        ? historyCause.message
+        : "Document history key is unavailable",
+    );
+    this.name = "DocumentHistoryUnavailableError";
+  }
 }
 
 export async function collectContainerKeksForDocumentSync(
@@ -107,14 +137,19 @@ export async function collectContainerKeksForDocumentSync(
     verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
-): Promise<ReadonlyMap<string, Uint8Array>> {
+): Promise<CollectedContainerKeks> {
   const keksByEpochId = new Map<string, Uint8Array>();
+  const predecessorFailuresByEpochId = new Map<string, Error>();
+  const unattributedPredecessorFailuresByContainerId = new Map<string, Error>();
 
   for (const projection of input.writerProjection.authorizingContainerPaths) {
-    let projectionKeks: ReadonlyMap<string, Uint8Array>;
+    let projectionKeks: Awaited<
+      ReturnType<typeof unwrapContainerKekPathWithHistoryFailures>
+    >;
     try {
-      projectionKeks = await unwrapContainerKekPath({
+      projectionKeks = await unwrapContainerKekPathWithHistoryFailures({
         execSql: input.execSql,
+        knownContainerKeks: keksByEpochId,
         principalPolicyCache: input.principalPolicyCache,
         projection,
         secretKey: input.secretKey,
@@ -127,7 +162,26 @@ export async function collectContainerKeksForDocumentSync(
         `Document authorizing container KEK path could not be unwrapped for ${describeProjectionTargetKek(projection)}`,
       );
     }
-    for (const [containerKeyEpochId, keyMaterial] of projectionKeks) {
+    for (const [
+      containerKeyEpochId,
+      failure,
+    ] of projectionKeks.predecessorFailuresByEpochId) {
+      if (!predecessorFailuresByEpochId.has(containerKeyEpochId)) {
+        predecessorFailuresByEpochId.set(containerKeyEpochId, failure);
+      }
+    }
+    for (const [
+      containerId,
+      failure,
+    ] of projectionKeks.unattributedPredecessorFailuresByContainerId) {
+      if (!unattributedPredecessorFailuresByContainerId.has(containerId)) {
+        unattributedPredecessorFailuresByContainerId.set(containerId, failure);
+      }
+    }
+    for (const [
+      containerKeyEpochId,
+      keyMaterial,
+    ] of projectionKeks.keksByEpochId) {
       const existing = keksByEpochId.get(containerKeyEpochId);
       if (existing) {
         assertEqualBytes(
@@ -141,20 +195,33 @@ export async function collectContainerKeksForDocumentSync(
     }
   }
 
-  return keksByEpochId;
+  return {
+    keksByEpochId,
+    predecessorFailuresByEpochId,
+    unattributedPredecessorFailuresByContainerId,
+  };
 }
 
 export async function unwrapDocumentContentKeyFromBundle(
   bundle: DocumentContentKeyBundleResponse,
   containerKeksByEpochId: ReadonlyMap<string, Uint8Array>,
+  predecessorFailuresByEpochId: ReadonlyMap<string, Error> = new Map(),
+  unattributedPredecessorFailuresByContainerId: ReadonlyMap<
+    string,
+    Error
+  > = new Map(),
 ): Promise<Uint8Array> {
   let contentKey: Uint8Array | null = null;
+  let predecessorFailure: unknown;
 
   for (const envelope of bundle.targets) {
     const containerKek = containerKeksByEpochId.get(
       envelope.containerKeyEpochId,
     );
     if (!containerKek) {
+      predecessorFailure ??=
+        predecessorFailuresByEpochId.get(envelope.containerKeyEpochId) ??
+        unattributedPredecessorFailuresByContainerId.get(envelope.containerId);
       continue;
     }
     const unwrapped = await unwrapDocumentContentKeyTarget({
@@ -173,6 +240,9 @@ export async function unwrapDocumentContentKeyFromBundle(
   }
 
   if (!contentKey) {
+    if (predecessorFailure !== undefined) {
+      throw new DocumentHistoryUnavailableError(predecessorFailure);
+    }
     throw new Error("Document content key could not be unwrapped");
   }
   if (contentKey.byteLength !== 32) {
@@ -191,21 +261,23 @@ export async function unwrapDocumentContentKeyFromWriterProjection(
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<Uint8Array> {
-  const keksByEpochId = await collectContainerKeksForDocumentSync(input);
+  const collectedKeks = await collectContainerKeksForDocumentSync(input);
 
   return unwrapDocumentContentKeyFromBundle(
     input.writerProjection.contentKeyBundle,
-    keksByEpochId,
+    collectedKeks.keksByEpochId,
+    collectedKeks.predecessorFailuresByEpochId,
+    collectedKeks.unattributedPredecessorFailuresByContainerId,
   );
 }
 
 /**
  * Builds the healing bundle for a stale content-key bundle: wraps a FRESH
  * content key to the projection's CURRENT KEK targets at the next
- * content-key epoch. The stale bundle wraps to a rotated-away container KEK
- * epoch that projections no longer serve wraps for, so the old content key
- * is unrecoverable by design — recovery re-encrypts the local document under
- * the fresh key via a rotation-baseline snapshot instead.
+ * content-key epoch. A current reader can recover the stale bundle through
+ * the container predecessor chain; the fresh key is still required so a
+ * holder revoked by the container rotation cannot decrypt future updates.
+ * Recovery re-encrypts a full-history snapshot under that fresh key.
  *
  * Like every content-key rotation (unlink included), this requires the KEK
  * of EVERY linked-container target: all envelopes in a bundle must wrap the

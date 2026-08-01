@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   bigint as pgBigint,
   boolean as pgBoolean,
+  check as pgCheck,
   index as pgIndex,
   integer as pgInteger,
   jsonb as pgJsonb,
@@ -12,6 +13,7 @@ import {
   pgTable as postgresTable,
 } from "drizzle-orm/pg-core";
 import {
+  check as sqliteCheck,
   index as sqliteIndex,
   integer as sqliteInteger,
   numeric as sqliteNumeric,
@@ -43,6 +45,7 @@ type PgUuidBuilder = ReturnType<typeof pgUuidColumn>;
 
 const sqliteTableAny = unsafeCoerce<typeof postgresTable>(sqliteTable);
 const sqliteIndexAny = unsafeCoerce<typeof pgIndex>(sqliteIndex);
+const sqliteCheckAny = unsafeCoerce<typeof pgCheck>(sqliteCheck);
 const sqliteUniqueIndexAny =
   unsafeCoerce<typeof pgUniqueIndex>(sqliteUniqueIndex);
 const sqliteTextAny = unsafeCoerce<typeof pgText>(sqliteText);
@@ -140,6 +143,7 @@ export const pgTable: typeof postgresTable = isSqlite
   ? sqliteTableAny
   : postgresTable;
 export const index: typeof pgIndex = isSqlite ? sqliteIndexAny : pgIndex;
+export const check: typeof pgCheck = isSqlite ? sqliteCheckAny : pgCheck;
 export const uniqueIndex: typeof pgUniqueIndex = isSqlite
   ? sqliteUniqueIndexAny
   : pgUniqueIndex;

@@ -1,6 +1,7 @@
 import {
   type ContainerKeyEpoch,
   computeContainerKekMaterialId,
+  createContainerKekPredecessorBridge,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
@@ -49,4 +50,23 @@ export async function createTestContainerKekId(
     keyEpoch,
   });
   return material.containerKeyEpochId;
+}
+
+export async function createTestContainerKekPredecessorBridge(input: {
+  readonly containerId: string;
+  readonly predecessorContainerKey?: Uint8Array | undefined;
+  readonly predecessorContainerKeyEpochId: string;
+  readonly successorContainerKey?: Uint8Array | undefined;
+  readonly successorContainerKeyEpochId: string;
+}) {
+  return createContainerKekPredecessorBridge({
+    containerId: input.containerId,
+    predecessorContainerKey:
+      input.predecessorContainerKey ??
+      crypto.getRandomValues(new Uint8Array(32)),
+    predecessorContainerKeyEpochId: input.predecessorContainerKeyEpochId,
+    successorContainerKey:
+      input.successorContainerKey ?? crypto.getRandomValues(new Uint8Array(32)),
+    successorContainerKeyEpochId: input.successorContainerKeyEpochId,
+  });
 }

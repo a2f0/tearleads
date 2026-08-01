@@ -737,6 +737,24 @@ function readContainerKeyWraps(
   );
 }
 
+function assertInitialRootKek(
+  request: OrganizationProvisioningRequest["initialRootContainer"],
+  keyEpoch: ContainerKeyEpoch,
+): void {
+  if (keyEpoch.keyEpoch !== 1) {
+    throw new OrganizationProvisioningError(
+      "Initial root container KEK must start at epoch 1",
+      400,
+    );
+  }
+  if (request.predecessorBridge !== null) {
+    throw new OrganizationProvisioningError(
+      "Initial root container KEK cannot have a predecessor bridge",
+      400,
+    );
+  }
+}
+
 async function storeInitialRootContainer(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
@@ -747,6 +765,11 @@ async function storeInitialRootContainer(
   metadataDocumentId: string;
 }> {
   const request = input.initialRootContainer;
+  const keyEpoch = readContainerKeyEpoch(
+    request.keyEpoch,
+    "Initial root container key epoch",
+  );
+  assertInitialRootKek(request, keyEpoch);
   const metadataDocumentId = readInitialRootContainerMetadataDocumentId(input);
   const principalPolicies = principalPoliciesFromRequest(request);
   await assertPrincipalPoliciesCurrent(tx, principalPolicies);
@@ -803,10 +826,7 @@ async function storeInitialRootContainer(
   const kekState = requireRootVerification(
     await verifyContainerKekState({
       containerManifest: manifest,
-      keyEpoch: readContainerKeyEpoch(
-        request.keyEpoch,
-        "Initial root container key epoch",
-      ),
+      keyEpoch,
       userRecipientKeys: readContainerUserRecipientKeys(
         request.userRecipientKeys,
         "Initial root container user recipient keys",
@@ -824,7 +844,7 @@ async function storeInitialRootContainer(
     tx,
   );
   await storeVerifiedContainerKekStateInTransaction(
-    { verifiedState: kekState },
+    { predecessorBridge: null, verifiedState: kekState },
     tx,
   );
   return {

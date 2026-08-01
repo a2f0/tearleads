@@ -246,15 +246,24 @@ CREATE TABLE `container_key_epochs` (
 	`key_epoch` integer NOT NULL,
 	`access_manifest_hash` text NOT NULL,
 	`parent_container_key_epoch_id` text,
+	`predecessor_container_key_epoch_id` text,
+	`predecessor_bridge_iv` text,
+	`wrapped_predecessor_key` text,
 	`created_by_event_hash` text NOT NULL,
 	`created_by_manifest_hash` text NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
+	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
+	CONSTRAINT "container_key_epochs_predecessor_bridge_complete" CHECK((
+        ("container_key_epochs"."predecessor_container_key_epoch_id" is null and "container_key_epochs"."predecessor_bridge_iv" is null and "container_key_epochs"."wrapped_predecessor_key" is null)
+        or
+        ("container_key_epochs"."predecessor_container_key_epoch_id" is not null and "container_key_epochs"."predecessor_bridge_iv" is not null and "container_key_epochs"."wrapped_predecessor_key" is not null)
+      ))
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `container_key_epochs_container_epoch_idx` ON `container_key_epochs` (`container_id`,`key_epoch`);--> statement-breakpoint
 CREATE INDEX `container_key_epochs_container_idx` ON `container_key_epochs` (`container_id`);--> statement-breakpoint
 CREATE INDEX `container_key_epochs_access_manifest_idx` ON `container_key_epochs` (`access_manifest_hash`);--> statement-breakpoint
 CREATE INDEX `container_key_epochs_parent_idx` ON `container_key_epochs` (`parent_container_key_epoch_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `container_key_epochs_predecessor_idx` ON `container_key_epochs` (`predecessor_container_key_epoch_id`);--> statement-breakpoint
 CREATE TABLE `container_key_wraps` (
 	`id` text PRIMARY KEY NOT NULL,
 	`container_key_epoch_id` text NOT NULL,

@@ -39,6 +39,7 @@ import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
+  computeContainerKekPredecessorBridgeHash,
   computeDocumentContentKeyTargetHash,
   computePrincipalStateHash,
   deriveContainerAccessManifest,
@@ -65,7 +66,10 @@ import {
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
+import {
+  createTestContainerKekId,
+  createTestContainerKekPredecessorBridge,
+} from "../../../test/helpers/containerKekMaterial";
 import {
   createContainerKeyEpoch,
   createContainerKeyWrap,
@@ -609,6 +613,7 @@ async function buildCreateRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
     userRecipientKeys: [],
@@ -804,6 +809,7 @@ async function buildGrantRequest(input: {
       string,
       unknown
     >,
+    predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
     userRecipientKeys: [
@@ -919,6 +925,7 @@ async function buildGroupGrantRequest(input: {
       string,
       unknown
     >,
+    predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<
       string,
@@ -951,6 +958,11 @@ async function buildRevokeRequest(input: {
     previous.state.containerId,
     input.previousKekState.containerKeyEpoch + 1,
   );
+  const predecessorBridge = await createTestContainerKekPredecessorBridge({
+    containerId: previous.state.containerId,
+    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
   const revokedGrant = input.revokedGrant ?? {
     subjectType: "user" as const,
     subjectId: input.revokedUser?.userId,
@@ -961,6 +973,8 @@ async function buildRevokeRequest(input: {
   const body: ContainerAccessEventBody = {
     eventType: "container.revoke",
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
     subjectType: revokedGrant.subjectType,
     subjectId: revokedGrant.subjectId,
   };
@@ -1027,6 +1041,7 @@ async function buildRevokeRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
     userRecipientKeys: [],
@@ -1048,9 +1063,16 @@ async function buildRekeyRequest(input: {
     previous.state.containerId,
     input.previousKekState.containerKeyEpoch + 1,
   );
+  const predecessorBridge = await createTestContainerKekPredecessorBridge({
+    containerId: previous.state.containerId,
+    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
   };
   const event = await createSignedContainerEvent({
     body,
@@ -1103,6 +1125,7 @@ async function buildRekeyRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
     userRecipientKeys: [],
@@ -1130,11 +1153,18 @@ async function buildMoveRequest(input: {
     previous.state.containerId,
     input.previousKekState.containerKeyEpoch + 1,
   );
+  const predecessorBridge = await createTestContainerKekPredecessorBridge({
+    containerId: previous.state.containerId,
+    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
   const body: ContainerAccessEventBody = {
     eventType: "container.move",
     parentContainerId: destinationParent.state.containerId,
     parentManifestHash: input.destinationParent.manifestHash,
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
   };
   const event = await createSignedContainerEvent({
     body,
@@ -1192,6 +1222,7 @@ async function buildMoveRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.destinationParentKekState as unknown as Record<
       string,
@@ -1451,6 +1482,38 @@ test("POST /containers materializes the signed metadata document binding", async
   expect(binding).toEqual({
     containerId: created.containerId,
     documentId: metadataDocumentId,
+  });
+});
+
+test("POST /containers rejects a predecessor bridge on its initial KEK epoch", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const containerId = crypto.randomUUID();
+  const request = await buildCreateRequest({
+    containerId,
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const initialKeyEpochId = String(Reflect.get(request.keyEpoch, "id"));
+  request.predecessorBridge = (await createTestContainerKekPredecessorBridge({
+    containerId,
+    predecessorContainerKeyEpochId: initialKeyEpochId,
+    successorContainerKeyEpochId: await createTestContainerKekId(
+      containerId,
+      2,
+    ),
+  })) as unknown as Record<string, unknown>;
+
+  const response = await postMutation({
+    path: "/containers",
+    request,
+    token: owner.token,
+  });
+  expect(response.status).toBe(409);
+  await expect(response.json()).resolves.toEqual({
+    error: "Initial container KEK epoch cannot have a predecessor bridge",
   });
 });
 
@@ -3203,6 +3266,11 @@ test("POST /containers/:containerId/rekey materializes a writer KEK rotation", a
   expect(rekeyed.containerKek.containerKeyEpochId).not.toBe(
     childKek.containerKeyEpochId,
   );
+  expect(
+    rekeyed.containerKek.predecessorKeks.map(
+      (predecessor) => predecessor.containerKeyEpochId,
+    ),
+  ).toEqual([childKek.containerKeyEpochId]);
   expect(rekeyed.containerKek.recipientTargets).toEqual([
     {
       recipientKind: "container",

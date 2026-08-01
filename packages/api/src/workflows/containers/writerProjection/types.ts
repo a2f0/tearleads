@@ -5,7 +5,10 @@ import type {
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import type {
+  AccessManifestBundleWireResponse,
+  PredecessorContainerKekResponse,
+} from "@tearleads/validators/response";
 
 type ContainerWriterProjectionStatus = 403 | 404 | 409;
 
@@ -42,6 +45,24 @@ export type ContainerAccessProjectionResult =
       readonly status: "rejected";
     };
 
+export type ContainerKekHistoryDegradationReason =
+  | "inconsistent_bridge"
+  | "malformed_bridge"
+  | "missing_bridge"
+  | "missing_or_nonconsecutive_predecessor";
+
+export interface ContainerKekHistoryObservation {
+  readonly containerId: string;
+  readonly currentContainerKeyEpochId: string;
+  readonly degradationReason: ContainerKekHistoryDegradationReason | null;
+  readonly predecessorCount: number;
+  readonly storedEpochCount: number;
+}
+
+export type ContainerKekHistoryObserver = (
+  observation: ContainerKekHistoryObservation,
+) => void;
+
 export interface ContainerWriterProjectionContext {
   readonly containerKekStateByCacheKey: Map<
     string,
@@ -56,6 +77,11 @@ export interface ContainerWriterProjectionContext {
   readonly manifestBundleByHash: Map<
     string,
     Promise<AccessManifestBundleWireResponse>
+  >;
+  readonly observeContainerKekHistory: ContainerKekHistoryObserver;
+  readonly predecessorContainerKeksByEpochId: Map<
+    string,
+    Promise<PredecessorContainerKekResponse[]>
   >;
 }
 

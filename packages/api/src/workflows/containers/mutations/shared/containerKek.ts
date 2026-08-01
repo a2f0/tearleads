@@ -1,6 +1,7 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
 import type {
+  ContainerKekPredecessorBridge,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
@@ -9,7 +10,9 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
+  computeContainerKekPredecessorBridgeHash,
   computeContainerKeyEpochHash,
+  normalizeContainerAccessEventBody,
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
@@ -17,6 +20,7 @@ import { inArray } from "drizzle-orm";
 import { getCurrentContainerKeyEpoch } from "../../../../access/read/containerKekStore";
 import { ContainerMutationError } from "../errors";
 import {
+  readContainerKekPredecessorBridge,
   readContainerKeyEpoch,
   readContainerKeyWraps,
   readVerifiedContainerKekState,
@@ -29,6 +33,107 @@ interface VerifyContainerKekFromRequestArtifacts {
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}
+
+export interface VerifiedContainerKekMutationState {
+  readonly predecessorBridge: ContainerKekPredecessorBridge | null;
+  readonly verifiedState: VerifiedContainerKekState;
+}
+
+function requestedPredecessorBridge(
+  request: ContainerMutationRequest,
+): ContainerKekPredecessorBridge | null {
+  return request.predecessorBridge === null
+    ? null
+    : readContainerKekPredecessorBridge(
+        request.predecessorBridge,
+        "predecessorBridge",
+      );
+}
+
+async function verifyPredecessorBridge(input: {
+  readonly executor: DatabaseTransaction;
+  readonly keyEpoch: ContainerKeyEpoch;
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly request: ContainerMutationRequest;
+}): Promise<ContainerKekPredecessorBridge | null> {
+  const { executor, keyEpoch, manifest, request } = input;
+  const bridge = requestedPredecessorBridge(request);
+  const currentEpoch = await getCurrentContainerKeyEpoch(
+    manifest.state.containerId,
+    executor,
+  );
+
+  if (!currentEpoch) {
+    if (
+      manifest.event.event.eventType !== "container.create" ||
+      keyEpoch.keyEpoch !== 1
+    ) {
+      throw new ContainerMutationError(
+        "Initial container KEK epoch is invalid",
+        409,
+      );
+    }
+    if (bridge !== null) {
+      throw new ContainerMutationError(
+        "Initial container KEK epoch cannot have a predecessor bridge",
+        409,
+      );
+    }
+    return null;
+  }
+
+  if (keyEpoch.id === currentEpoch.id) {
+    if (keyEpoch.keyEpoch !== currentEpoch.keyEpoch) {
+      throw new ContainerMutationError("Container KEK epoch is stale", 409);
+    }
+    if (bridge !== null) {
+      throw new ContainerMutationError(
+        "An unchanged container KEK cannot replace its predecessor bridge",
+        409,
+      );
+    }
+    return currentEpoch.predecessorBridge;
+  }
+
+  if (keyEpoch.keyEpoch <= currentEpoch.keyEpoch) {
+    throw new ContainerMutationError("Container KEK epoch is stale", 409);
+  }
+
+  if (keyEpoch.keyEpoch > currentEpoch.keyEpoch + 1) {
+    throw new ContainerMutationError(
+      "Container KEK rotation must advance by exactly one epoch",
+      409,
+    );
+  }
+
+  if (
+    bridge === null ||
+    bridge.containerId !== manifest.state.containerId ||
+    bridge.predecessorContainerKeyEpochId !== currentEpoch.id ||
+    bridge.successorContainerKeyEpochId !== keyEpoch.id
+  ) {
+    throw new ContainerMutationError(
+      "Container KEK rotation requires its immediate predecessor bridge",
+      409,
+    );
+  }
+
+  const eventBody = normalizeContainerAccessEventBody(manifest.event.body);
+  if (
+    (eventBody.eventType !== "container.move" &&
+      eventBody.eventType !== "container.rekey" &&
+      eventBody.eventType !== "container.revoke") ||
+    eventBody.predecessorBridgeHash !==
+      (await computeContainerKekPredecessorBridgeHash(bridge))
+  ) {
+    throw new ContainerMutationError(
+      "Container KEK predecessor bridge does not match its signed event",
+      409,
+    );
+  }
+
+  return bridge;
 }
 
 async function assertUserRecipientKeysCurrent(
@@ -113,7 +218,7 @@ export async function verifyContainerKekFromRequest(
   request: ContainerMutationRequest,
   manifest: VerifiedContainerAccessManifest,
   artifacts: VerifyContainerKekFromRequestArtifacts,
-): Promise<VerifiedContainerKekState> {
+): Promise<VerifiedContainerKekMutationState> {
   const userRecipientKeys = userRecipientKeysFromRequest(request);
   const parentKekState =
     request.parentKekState === undefined || request.parentKekState === null
@@ -131,6 +236,12 @@ export async function verifyContainerKekFromRequest(
     request.wraps,
     "wraps",
   );
+  const predecessorBridge = await verifyPredecessorBridge({
+    executor,
+    keyEpoch,
+    manifest,
+    request,
+  });
   const result = await verifyContainerKekState({
     containerManifest: manifest,
     keyEpoch,
@@ -147,5 +258,5 @@ export async function verifyContainerKekFromRequest(
     throw result.error;
   }
 
-  return result.value;
+  return { predecessorBridge, verifiedState: result.value };
 }

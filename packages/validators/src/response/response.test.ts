@@ -846,6 +846,7 @@ function createContainerKekResponse(overrides = {}) {
     keyTargetHash: "key-target-hash",
     containerManifestHistory: [],
     parentContainerKeyEpochId: null,
+    predecessorKeks: [],
     recipientTargets: [{ recipientKind: "user" }],
     wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
     ...overrides,

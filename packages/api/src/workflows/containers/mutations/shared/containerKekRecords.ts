@@ -1,11 +1,15 @@
 import type {
+  ContainerKekPredecessorBridge,
   ContainerKekRecipientTarget,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
-import { makeVerifiedContainerKekState } from "@tearleads/crypto";
+import {
+  makeVerifiedContainerKekState,
+  normalizeContainerKekPredecessorBridge,
+} from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   readProjectionNullableString,
@@ -55,6 +59,17 @@ export function userRecipientKeysFromRequest(
   return (request.userRecipientKeys ?? []).map((key, index) =>
     readContainerUserRecipientKey(key, `userRecipientKeys[${index}]`),
   );
+}
+
+export function readContainerKekPredecessorBridge(
+  value: unknown,
+  label: string,
+): ContainerKekPredecessorBridge {
+  try {
+    return normalizeContainerKekPredecessorBridge(value);
+  } catch {
+    throw mutationShapeError(`${label} is invalid`);
+  }
 }
 
 export function readContainerKeyEpoch(

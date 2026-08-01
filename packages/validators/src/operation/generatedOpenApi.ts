@@ -104,6 +104,9 @@ export interface operations {
                         parentKekState?: {
                             [key: string]: unknown;
                         } | null;
+                        predecessorBridge: {
+                            [key: string]: unknown;
+                        } | null;
                         previousContainerPath?: ({
                             event: {
                                 [key: string]: unknown;

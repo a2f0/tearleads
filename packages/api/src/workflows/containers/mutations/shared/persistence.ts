@@ -8,7 +8,6 @@ import {
 import type {
   ContainerDirectGrant,
   VerifiedContainerAccessManifest,
-  VerifiedContainerKekState,
 } from "@tearleads/crypto";
 import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
@@ -44,6 +43,7 @@ import {
   containerAccessStateRecord,
   referencedPrincipalHeadRecord,
 } from "./accessManifestRecords";
+import type { VerifiedContainerKekMutationState } from "./containerKek";
 import {
   containerKekRecipientTargetRecord,
   containerKeyEpochRecord,
@@ -53,7 +53,7 @@ import {
   directGrantKey,
   pruneAccessGrantTombstones,
 } from "./grantTombstonePruning";
-import { loadMutationContainerKekHistory } from "./mutationKekHistory";
+import { loadMutationKekResponseHistory } from "./mutationKekResponseHistory";
 
 async function loadContainerRow(
   executor: DatabaseTransaction,
@@ -507,8 +507,11 @@ function containerKekResponseRecord(
     ReturnType<typeof storeVerifiedContainerKekStateInTransaction>
   >,
   containerManifestHistory: Awaited<
-    ReturnType<typeof loadMutationContainerKekHistory>
-  >,
+    ReturnType<typeof loadMutationKekResponseHistory>
+  >["containerManifestHistory"],
+  predecessorKeks: Awaited<
+    ReturnType<typeof loadMutationKekResponseHistory>
+  >["predecessorKeks"],
 ): ContainerMutationResponse["containerKek"] {
   return {
     containerId: storedKekState.containerId,
@@ -519,6 +522,7 @@ function containerKekResponseRecord(
     keyEpochHash: storedKekState.keyEpochHash,
     keyTargetHash: storedKekState.keyTargetHash,
     parentContainerKeyEpochId: storedKekState.parentContainerKeyEpochId,
+    predecessorKeks,
     recipientTargets: storedKekState.recipientTargets.map(
       containerKekRecipientTargetRecord,
     ),
@@ -530,11 +534,12 @@ function containerKekResponseRecord(
 export async function persistVerifiedMutation(
   context: ContainerMutationContext,
   manifest: VerifiedContainerAccessManifest,
-  kekState: VerifiedContainerKekState,
+  verifiedKekMutation: VerifiedContainerKekMutationState,
   previousManifest: VerifiedContainerAccessManifest | null,
   previousContainerPath?: readonly VerifiedContainerAccessManifest[],
 ): Promise<ContainerMutationResponse> {
   const { executor } = context;
+  const { predecessorBridge, verifiedState: kekState } = verifiedKekMutation;
   const updatedAt = new Date();
 
   const container = await persistContainerStructure(
@@ -579,16 +584,13 @@ export async function persistVerifiedMutation(
 
   const storedKekState = await runConflictBoundary(() =>
     storeVerifiedContainerKekStateInTransaction(
-      { verifiedState: kekState },
+      { predecessorBridge, verifiedState: kekState },
       executor,
     ),
   );
 
-  const containerManifestHistory = await loadMutationContainerKekHistory(
-    executor,
-    manifest,
-    kekState,
-  );
+  const { containerManifestHistory, predecessorKeks } =
+    await loadMutationKekResponseHistory(context, manifest, kekState);
   await appendOrganizationReadModelChangeInTransaction(executor, {
     organizationId: manifest.state.organizationId,
     lane: "grants",
@@ -620,6 +622,7 @@ export async function persistVerifiedMutation(
     containerKek: containerKekResponseRecord(
       storedKekState,
       containerManifestHistory,
+      predecessorKeks,
     ),
     referencedPrincipalHeads: manifest.manifest.referencedPrincipalHeads.map(
       referencedPrincipalHeadRecord,

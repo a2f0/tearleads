@@ -1392,9 +1392,8 @@ test("buildMaterializedDocumentSyncPlan heals a stale bundle with a fresh key an
   expect(request.contentKeyBundle?.targets[0]?.wrappedKey).not.toBe(
     fixture.staleBundle.targets[0]?.wrappedKey,
   );
-  // The heal is anchored by a rotation baseline so post-rotation readers can
-  // reconstruct the document without the rotated-away KEK epochs; the queued
-  // update rides along under the fresh key.
+  // The covering baseline optimizes current-epoch redirects; predecessor KEKs
+  // remain the no-baseline path. The queued update uses the fresh key.
   expect(request.outgoingUpdates).toHaveLength(2);
   expect(request.outgoingUpdates[0]?.checkpointKind).toBe("rotate_baseline");
   expect(request.outgoingUpdates[1]?.id).toBe(pendingUpdate.id);
@@ -1405,7 +1404,7 @@ test("buildMaterializedDocumentSyncPlan heals a stale bundle with a fresh key an
   }
 });
 
-test("buildMaterializedDocumentSyncPlan keeps the stale pair for read-only passes without unwrapping", async () => {
+test("a read-only stale bundle degrades when its target predates the current path", async () => {
   const fixture = await createStaleBundleSyncFixture();
 
   const materialized = await buildMaterializedDocumentSyncPlan({

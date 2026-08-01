@@ -315,6 +315,7 @@ test("container rekey projection follows every runtime guard field", () => {
     "expectedManifestHash",
     "keyEpoch",
     "manifest",
+    "predecessorBridge",
     "principalPolicies",
     "wraps",
   ];

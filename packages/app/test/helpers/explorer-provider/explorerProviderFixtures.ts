@@ -283,7 +283,11 @@ export async function createExplorerContainerMutationResponse(
   request: ContainerMutationRequest,
   previousProjection?: ContainerWriterProjectionResponse | undefined,
 ): Promise<ContainerMutationResponse> {
-  const response = await createContainerMutationResponseFromRequest(request);
+  const previousKek = previousProjection?.containerKeks.at(-1);
+  const response = await createContainerMutationResponseFromRequest(
+    request,
+    previousKek,
+  );
   const previousManifest =
     request.previousManifest &&
     typeof request.previousManifest === "object" &&
@@ -293,7 +297,6 @@ export async function createExplorerContainerMutationResponse(
   const previousManifestResponse = previousManifest
     ? requireAccessManifestBundleWireResponse(previousManifest)
     : null;
-  const previousKek = previousProjection?.containerKeks.at(-1);
   const historyByHash = new Map<string, AccessManifestBundleWireResponse>();
   for (const bundle of [
     ...(previousManifestResponse ? [previousManifestResponse] : []),

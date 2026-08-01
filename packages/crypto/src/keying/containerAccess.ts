@@ -523,7 +523,13 @@ function normalizeContainerRevokeAccessEventBody(
 ): ContainerRevokeAccessEventBody {
   const record = assertExactKeys(
     value,
-    ["containerKeyEpochId", "eventType", "subjectId", "subjectType"],
+    [
+      "containerKeyEpochId",
+      "eventType",
+      "predecessorBridgeHash",
+      "subjectId",
+      "subjectType",
+    ],
     "container.revoke event body",
   );
 
@@ -532,6 +538,11 @@ function normalizeContainerRevokeAccessEventBody(
     ...normalizeContainerAccessKeyState({
       containerKeyEpochId: record.containerKeyEpochId,
     }),
+    predecessorBridgeHash: readHashString(
+      record,
+      "predecessorBridgeHash",
+      "container.revoke event body",
+    ),
     subjectId: readString(record, "subjectId", "container.revoke event body"),
     subjectType: normalizeContainerGrantSubjectType(
       record.subjectType,
@@ -545,7 +556,7 @@ function normalizeContainerRekeyAccessEventBody(
 ): ContainerRekeyAccessEventBody {
   const record = assertExactKeys(
     value,
-    ["containerKeyEpochId", "eventType"],
+    ["containerKeyEpochId", "eventType", "predecessorBridgeHash"],
     "container.rekey event body",
   );
 
@@ -554,6 +565,11 @@ function normalizeContainerRekeyAccessEventBody(
     containerKeyEpochId: readString(
       record,
       "containerKeyEpochId",
+      "container.rekey event body",
+    ),
+    predecessorBridgeHash: readHashString(
+      record,
+      "predecessorBridgeHash",
       "container.rekey event body",
     ),
   };
@@ -569,6 +585,7 @@ function normalizeContainerMoveAccessEventBody(
       "eventType",
       "parentContainerId",
       "parentManifestHash",
+      "predecessorBridgeHash",
     ],
     "container.move event body",
   );
@@ -582,6 +599,11 @@ function normalizeContainerMoveAccessEventBody(
     ...normalizeContainerAccessKeyState({
       containerKeyEpochId: record.containerKeyEpochId,
     }),
+    predecessorBridgeHash: readHashString(
+      record,
+      "predecessorBridgeHash",
+      "container.move event body",
+    ),
   };
 }
 
