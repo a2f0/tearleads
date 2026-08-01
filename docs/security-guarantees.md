@@ -209,7 +209,17 @@ that KEK or later epochs—but current-key compromise exposes retained historica
 content for that container. Current members also learn retained-history
 metadata—including chain length, epoch ids and numbers, access-manifest hashes,
 and parent epoch references—even though bridge encryption still protects the
-old plaintext keys.
+old plaintext keys. A descendant path may carry this ciphertext metadata for
+ancestor epochs even when that descendant-only member cannot unwrap the
+ancestor KEKs.
+
+The server validates a signed bridge's shape and commitment but cannot validate
+its plaintext without a KEK. A malicious authorized writer can therefore sign
+undecryptable bridge ciphertext and deny access to predecessor history. This is
+an explicit availability limitation, not a confidentiality bypass; supported
+clients generate fresh successor keys and round-trip the bridge before sending
+a mutation. Superseded recipient wraps remain stored but are not part of the
+current projection recovery path.
 
 All container KEK epochs use a
 `tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the

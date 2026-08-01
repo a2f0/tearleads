@@ -18,6 +18,13 @@ import {
 
 const TEXT_ENCODER = new TextEncoder();
 
+function sameKeyMaterial(left: Uint8Array, right: Uint8Array): boolean {
+  return (
+    left.byteLength === right.byteLength &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
 function bridgeAdditionalData(input: {
   containerId: string;
   predecessorContainerKeyEpochId: string;
@@ -184,9 +191,6 @@ export async function createContainerKekPredecessorBridge(input: {
   successorContainerKey: Uint8Array;
   successorContainerKeyEpochId: string;
 }): Promise<ContainerKekPredecessorBridge> {
-  // Move rotations may deliberately wrap the same 32-byte KEK under itself;
-  // AES-GCM supports that key-dependent message in this suite. Revisit this
-  // seam explicitly before substituting a different wrapping primitive.
   if (
     input.predecessorContainerKey.byteLength !== 32 ||
     input.successorContainerKey.byteLength !== 32
@@ -194,6 +198,14 @@ export async function createContainerKekPredecessorBridge(input: {
     throwVerification(
       "invalid_shape",
       "container KEK predecessor bridge keys must be 32 bytes",
+    );
+  }
+  if (
+    sameKeyMaterial(input.predecessorContainerKey, input.successorContainerKey)
+  ) {
+    throwVerification(
+      "key_epoch_reuse",
+      "container KEK predecessor bridge must use distinct key material",
     );
   }
   const metadata = {
@@ -209,6 +221,17 @@ export async function createContainerKekPredecessorBridge(input: {
     input.successorContainerKey,
     bridgeAdditionalData(metadata),
   );
+  const roundTripped = await decryptWithDek(
+    encrypted,
+    input.successorContainerKey,
+    bridgeAdditionalData(metadata),
+  );
+  if (!sameKeyMaterial(roundTripped, input.predecessorContainerKey)) {
+    throwVerification(
+      "hash_mismatch",
+      "container KEK predecessor bridge failed local round-trip verification",
+    );
+  }
   return {
     ...metadata,
     iv: bytesToBase64(encrypted.iv),

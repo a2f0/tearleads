@@ -113,15 +113,19 @@ test("predecessor projection stops before a missing epoch", async () => {
   ).resolves.toEqual([]);
 });
 
-test("predecessor projection omits a chain that does not reach epoch one", async () => {
+test("predecessor projection returns the maximal prefix before a missing bridge", async () => {
   const containerId = crypto.randomUUID();
-  const successor = await epochFixture(containerId, 2);
-  await insertEpoch(successor, null);
+  const second = await epochFixture(containerId, 2);
+  const third = await epochFixture(containerId, 3);
+  await insertEpoch(second, null);
+  await insertEpoch(third, await bridge(second, third));
 
   await expect(
     loadPredecessorContainerKeks({
-      containerKeyEpochId: successor.id,
+      containerKeyEpochId: third.id,
       context: createContainerWriterProjectionContext(db),
     }),
-  ).resolves.toEqual([]);
+  ).resolves.toEqual([
+    expect.objectContaining({ containerKeyEpochId: second.id }),
+  ]);
 });

@@ -2,13 +2,11 @@ import type {
   AccessEvent,
   AccessManifest,
   ContainerAccessManifestState,
-  ContainerDirectGrant,
   ContainerKekPredecessorBridge,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerRevokeAccessEventBody,
   ContainerUserRecipientKey,
-  ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
@@ -40,9 +38,6 @@ import {
   getTargetContainerContext,
   readContainerState,
   uniqueSortedManifestHashes,
-  wrapContainerKeyToManagedPrincipal,
-  wrapContainerKeyToParent,
-  wrapContainerKeyToRootUser,
 } from "../../../data/containers/shared/projection";
 import type {
   ContainerMutationAuthor,
@@ -67,6 +62,7 @@ import {
   type ContainerRevokeSubject,
   deriveContainerRevokeManifest,
 } from "./revokeManifest";
+import { buildContainerRotationWraps } from "./rotationWraps";
 
 function buildContainerRevokeRequest(input: {
   body: ContainerRevokeAccessEventBody;
@@ -113,121 +109,6 @@ function buildContainerRevokeRequest(input: {
     userRecipientKeys: readCanonicalRecords(
       input.userRecipientKeys,
       "Container revoke user recipient keys",
-    ),
-  };
-}
-
-function findPrincipalPolicy(input: {
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
-  reference: ReferencedPrincipalHead;
-}): VerifiedPrincipalPolicy {
-  const policy = input.principalPolicies.find(
-    (candidate) =>
-      candidate.principalType === input.reference.principalType &&
-      candidate.principalId === input.reference.principalId &&
-      candidate.version === input.reference.version &&
-      candidate.keyEpoch === input.reference.keyEpoch &&
-      candidate.stateHash === input.reference.stateHash,
-  );
-  if (!policy) {
-    throw new Error("Container revoke principal policy is missing");
-  }
-
-  return policy;
-}
-
-function referenceForManagedGrant(input: {
-  grant: ContainerDirectGrant;
-  state: ContainerAccessManifestState;
-}): ReferencedPrincipalHead {
-  const reference = input.state.referencedPrincipalHeads.find(
-    (candidate) =>
-      candidate.principalType === input.grant.subjectType &&
-      candidate.principalId === input.grant.subjectId,
-  );
-  if (!reference) {
-    throw new Error("Container revoke referenced principal head is missing");
-  }
-
-  return reference;
-}
-
-async function buildRevocationWraps(input: {
-  containerKey: Uint8Array;
-  containerKeyEpochId: string;
-  manifestHash: string;
-  parentKek: ContainerKekResponse | null;
-  parentKekMaterial: Uint8Array | null;
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
-  resolveUserKey: ProjectionUserKeyResolver;
-  state: ContainerAccessManifestState;
-}): Promise<{
-  readonly userRecipientKeys: ContainerUserRecipientKey[];
-  readonly wraps: ContainerKeyWrap[];
-}> {
-  const userRecipientKeys: ContainerUserRecipientKey[] = [];
-  const wraps: ContainerKeyWrap[] = [];
-
-  if (input.parentKek) {
-    if (!input.parentKekMaterial) {
-      throw new Error("Container revoke parent KEK could not be unwrapped");
-    }
-
-    wraps.push(
-      await wrapContainerKeyToParent({
-        containerKey: input.containerKey,
-        containerKeyEpochId: input.containerKeyEpochId,
-        manifestHash: input.manifestHash,
-        parentKek: input.parentKek,
-        parentKekMaterial: input.parentKekMaterial,
-      }),
-    );
-  }
-
-  for (const grant of input.state.directGrants) {
-    if (grant.subjectType === "user") {
-      const userKey = await input.resolveUserKey(grant.subjectId);
-      if (!userKey) {
-        throw new Error(
-          `Container revoke recipient key is missing for direct user grant ${grant.subjectId}`,
-        );
-      }
-
-      const recipient = await wrapContainerKeyToRootUser({
-        containerKey: input.containerKey,
-        containerKeyEpochId: input.containerKeyEpochId,
-        manifestHash: input.manifestHash,
-        recipientEncapsulationPublicKey: userKey.encapsulationPublicKey,
-        userId: grant.subjectId,
-      });
-      userRecipientKeys.push(recipient.userRecipientKey);
-      wraps.push(recipient.wrap);
-      continue;
-    }
-
-    const reference = referenceForManagedGrant({ grant, state: input.state });
-    const policy = findPrincipalPolicy({
-      principalPolicies: input.principalPolicies,
-      reference,
-    });
-    const recipient = await wrapContainerKeyToManagedPrincipal({
-      containerKey: input.containerKey,
-      containerKeyEpochId: input.containerKeyEpochId,
-      manifestHash: input.manifestHash,
-      principalEncapsulationPublicKey: policy.state.encapsulationPublicKey,
-      principalHead: reference,
-    });
-    wraps.push(recipient.wrap);
-  }
-
-  return {
-    userRecipientKeys: userRecipientKeys.sort((left, right) =>
-      left.userId.localeCompare(right.userId),
-    ),
-    wraps: wraps.sort((left, right) =>
-      `${left.recipientKind}:${left.recipientId}`.localeCompare(
-        `${right.recipientKind}:${right.recipientId}`,
-      ),
     ),
   };
 }
@@ -400,10 +281,11 @@ export async function buildMaterializedContainerRevokePlan(input: {
     resolveUserKey: resolveProjectionUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
-  const { userRecipientKeys, wraps } = await buildRevocationWraps({
+  const { userRecipientKeys, wraps } = await buildContainerRotationWraps({
     containerKey,
     containerKeyEpochId,
     manifestHash,
+    operationLabel: "Container revoke",
     parentKek,
     parentKekMaterial,
     principalPolicies,

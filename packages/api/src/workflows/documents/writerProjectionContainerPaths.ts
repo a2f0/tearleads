@@ -20,29 +20,22 @@ export async function resolveAuthorizingContainerPathCandidates(input: {
   const results = await gatherWithExecutor(
     input.executor,
     input.containerIds,
-    async (
-      containerId,
-    ): Promise<
-      | { readonly projection: ContainerWriterProjectionResponse }
-      | { readonly error: ContainerWriterProjectionError }
-    > => {
+    async (containerId): Promise<ContainerWriterProjectionResponse | null> => {
       try {
         // Document sync also uses this projection for read-only pulls. Mutations
         // still verify write access before accepting document updates.
-        return {
-          projection: await resolveContainerReaderProjection({
-            containerId,
-            context: input.context,
-            executor: input.executor,
-            userId: input.userId,
-          }),
-        };
+        return await resolveContainerReaderProjection({
+          containerId,
+          context: input.context,
+          executor: input.executor,
+          userId: input.userId,
+        });
       } catch (error) {
         if (
           error instanceof ContainerWriterProjectionError &&
           error.status === 403
         ) {
-          return { error };
+          return null;
         }
         throw error;
       }
@@ -50,8 +43,8 @@ export async function resolveAuthorizingContainerPathCandidates(input: {
   );
 
   return {
-    paths: results.flatMap((result) =>
-      "projection" in result ? [result.projection] : [],
+    paths: results.flatMap((projection) =>
+      projection === null ? [] : [projection],
     ),
   };
 }

@@ -338,7 +338,7 @@ The tradeoff is explicit: compromising an ancestor KEK compromises the subtree
 that inherits from it. That matches inherited access semantics, but it must be
 treated as the blast-radius boundary.
 
-### Container Key Epoch Row
+### Container Key Epoch Database Row
 
 ```ts
 type ContainerKeyEpoch = {
@@ -443,11 +443,13 @@ ids, access-manifest hashes, and parent epoch references. The design accepts
 that metadata disclosure as part of history-inclusive access; only the old
 plaintext KEKs and content remain encrypted by the bridge chain.
 
-The complete predecessor chain is deliberately unbounded and projection size,
-server verification, and client bridge decryption therefore grow linearly with
-the number of rotations. A server or client must not cap or truncate that chain:
-doing so would make retained ciphertext undecryptable. Any future scalability
-optimization must preserve authenticated recovery of every retained epoch.
+The complete predecessor chain is deliberately unbounded and projection size
+and cold client bridge decryption therefore grow linearly with the number of
+rotations. A document operation reuses already verified predecessor keys across
+overlapping authorizing paths, but a server or client must not cap or truncate
+the chain: doing so would make retained ciphertext undecryptable. Any future
+scalability optimization must preserve authenticated recovery of every retained
+epoch.
 
 An incomplete or corrupt predecessor chain is a hard integrity failure for the
 affected historical epochs. The client reports that failure when an operation
@@ -467,14 +469,20 @@ verified current KEK remains usable for ordinary reads and later rotations or
 moves; those mutations extend the healthy prefix but do not reconstruct the
 older damaged link.
 
-A container move creates a new epoch identity because the parent binding
-changes, but it currently retains the same KEK material. The mandatory bridge
-therefore encrypts that material under itself across two distinct committed
-epoch ids. This keeps traversal uniform without claiming that a move rotates
-the underlying secret. This is an intentional key-dependent-message use of
-AES-256-GCM (`E_K(K)`); it must not be copied to a replacement cipher suite
-unless that suite explicitly supports this construction. A future suite that
-does not must generate fresh successor material for moves.
+The server cannot prove that ciphertext in a signed bridge actually decrypts
+to the predecessor committed by its id. An authorized writer that deliberately
+signs well-formed but undecryptable bridge ciphertext can therefore deny access
+to older history. The supported clients round-trip bridges while constructing
+mutations, but this is not an availability guarantee against a malicious
+writer. Superseded recipient wraps remain stored and may support a future
+explicit recovery path, but current projections do not serve them. Database
+backup only repairs later storage damage; it cannot repair deliberately invalid
+ciphertext that was originally accepted.
+
+A container move creates fresh successor KEK material as well as a new epoch
+identity because the parent binding changes. Its mandatory bridge encrypts the
+old KEK under that fresh successor, so moves use the same traversal rule as
+rekeys and revocations without an AES-GCM key-dependent self-wrap.
 
 ## Document Content Keys
 

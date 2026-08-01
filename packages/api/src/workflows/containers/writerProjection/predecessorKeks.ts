@@ -95,10 +95,6 @@ async function loadPredecessorContainerKeksUncached(input: {
     successor = predecessor;
   }
 
-  if (successor.keyEpoch !== 1) {
-    return predecessors;
-  }
-
   return predecessors;
 }
 

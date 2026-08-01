@@ -137,6 +137,7 @@ export async function collectContainerKeksForDocumentSync(
     try {
       projectionKeks = await unwrapContainerKekPathWithHistoryFailures({
         execSql: input.execSql,
+        knownContainerKeks: keksByEpochId,
         principalPolicyCache: input.principalPolicyCache,
         projection,
         secretKey: input.secretKey,

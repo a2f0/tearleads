@@ -747,11 +747,6 @@ function assertInitialRootKek(
       400,
     );
   }
-  if (!Object.hasOwn(request, "predecessorBridge")) {
-    throw provisioningShapeError(
-      "Initial root container KEK predecessor bridge is invalid",
-    );
-  }
   if (request.predecessorBridge !== null) {
     throw new OrganizationProvisioningError(
       "Initial root container KEK cannot have a predecessor bridge",

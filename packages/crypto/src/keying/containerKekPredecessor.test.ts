@@ -54,23 +54,22 @@ test("a successor container KEK unwraps its authenticated predecessor", async ()
   ).rejects.toThrow();
 });
 
-test("a move bridge round-trips the same KEK across distinct epoch ids", async () => {
+test("a predecessor bridge rejects key-dependent self-wrapping", async () => {
   const containerId = crypto.randomUUID();
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
-  const bridge = await createContainerKekPredecessorBridge({
-    containerId,
-    predecessorContainerKey: containerKey,
-    predecessorContainerKeyEpochId: await epochId(containerId, 1, containerKey),
-    successorContainerKey: containerKey,
-    successorContainerKeyEpochId: await epochId(containerId, 2, containerKey),
-  });
-
   await expect(
-    unwrapContainerKekPredecessorBridge({
-      bridge,
+    createContainerKekPredecessorBridge({
+      containerId,
+      predecessorContainerKey: containerKey,
+      predecessorContainerKeyEpochId: await epochId(
+        containerId,
+        1,
+        containerKey,
+      ),
       successorContainerKey: containerKey,
+      successorContainerKeyEpochId: await epochId(containerId, 2, containerKey),
     }),
-  ).resolves.toEqual(containerKey);
+  ).rejects.toThrow("must use distinct key material");
 });
 
 test("predecessor bridge metadata is authenticated", async () => {

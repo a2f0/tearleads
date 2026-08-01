@@ -350,7 +350,19 @@ test("unwrapContainerKekPath verifies move-back-to-root projections with histori
     throw new Error("Expected moved-back container KEK id");
   }
 
+  expect(movedUnderParentA.containerKey).not.toEqual(movedChild.containerKey);
+  expect(movedBackToRoot.containerKey).not.toEqual(
+    movedUnderParentA.containerKey,
+  );
   expect(Array.from(unwrappedKeks.get(movedBackKekId) ?? [])).toEqual(
+    Array.from(movedBackToRoot.containerKey),
+  );
+  const originalKekId =
+    movedChild.projection.containerKeks.at(-1)?.containerKeyEpochId;
+  if (!originalKekId) {
+    throw new Error("Expected original moved container KEK id");
+  }
+  expect(Array.from(unwrappedKeks.get(originalKekId) ?? [])).toEqual(
     Array.from(movedChild.containerKey),
   );
 });

@@ -1,0 +1,228 @@
+import {
+  computeContainerKekMaterialId,
+  computeContainerKekPredecessorBridgeHash,
+  computeContainerKeyEpochHash,
+  isContainerKekMaterialId,
+  normalizeContainerAccessEventBody,
+  normalizeContainerKekPredecessorBridge,
+  unwrapContainerKekPredecessorBridge,
+} from "@tearleads/crypto";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  readCanonicalJson,
+  readCanonicalRecord,
+} from "../../keyingCanonicalJson";
+import { readContainerKeyEpoch } from "../../keyingProjectionVerification/readers";
+import type { UnwrappedContainerKek } from "./types";
+
+export function projectionKekLabel(index: number): string {
+  return `Container writer projection KEK[${index}]`;
+}
+
+export async function assertUnwrappedContainerKekMatchesMaterialId(input: {
+  label: string;
+  keyMaterial: Uint8Array;
+  kek: Pick<
+    ContainerWriterProjectionResponse["containerKeks"][number],
+    "containerId" | "containerKeyEpoch" | "containerKeyEpochId"
+  >;
+}): Promise<void> {
+  if (!isContainerKekMaterialId(input.kek.containerKeyEpochId)) {
+    throw new Error(
+      `${input.label} KEK epoch id does not commit to key material`,
+    );
+  }
+  const expectedId = await computeContainerKekMaterialId({
+    containerId: input.kek.containerId,
+    keyEpoch: input.kek.containerKeyEpoch,
+    keyMaterial: input.keyMaterial,
+  });
+  if (expectedId !== input.kek.containerKeyEpochId) {
+    throw new Error(
+      `${input.label} KEK material does not match committed epoch id`,
+    );
+  }
+}
+
+function cachedPredecessorKey(input: {
+  cached: UnwrappedContainerKek | undefined;
+  index: number;
+  predecessor: ContainerWriterProjectionResponse["containerKeks"][number]["predecessorKeks"][number];
+}): Uint8Array | null {
+  if (!input.cached) {
+    return null;
+  }
+  if (
+    input.cached.containerId !== input.predecessor.containerId ||
+    input.cached.keyEpochHash !== input.predecessor.keyEpochHash
+  ) {
+    throw new Error(
+      `${projectionKekLabel(input.index)} cached predecessor is inconsistent`,
+    );
+  }
+  return input.cached.keyMaterial;
+}
+
+async function assertPredecessorEpoch(input: {
+  index: number;
+  kek: ContainerWriterProjectionResponse["containerKeks"][number];
+  predecessor: ContainerWriterProjectionResponse["containerKeks"][number]["predecessorKeks"][number];
+  successorEpoch: number;
+  verifiedManifestHashes: ReadonlySet<string>;
+}): Promise<void> {
+  if (
+    input.predecessor.containerId !== input.kek.containerId ||
+    input.predecessor.containerKeyEpoch !== input.successorEpoch - 1 ||
+    !input.verifiedManifestHashes.has(input.predecessor.accessManifestHash)
+  ) {
+    throw new Error(
+      `${projectionKekLabel(input.index)} predecessor epoch is inconsistent`,
+    );
+  }
+  const keyEpoch = readContainerKeyEpoch(
+    input.predecessor.keyEpoch,
+    `${projectionKekLabel(input.index)} predecessor key epoch`,
+  );
+  if (
+    keyEpoch.id !== input.predecessor.containerKeyEpochId ||
+    keyEpoch.containerId !== input.predecessor.containerId ||
+    keyEpoch.keyEpoch !== input.predecessor.containerKeyEpoch ||
+    keyEpoch.accessManifestHash !== input.predecessor.accessManifestHash ||
+    keyEpoch.parentContainerKeyEpochId !==
+      input.predecessor.parentContainerKeyEpochId ||
+    (await computeContainerKeyEpochHash(keyEpoch)) !==
+      input.predecessor.keyEpochHash
+  ) {
+    throw new Error(
+      `${projectionKekLabel(input.index)} predecessor key epoch is invalid`,
+    );
+  }
+}
+
+export async function unwrapPredecessorContainerKeksAtIndex(input: {
+  currentManifest: ContainerWriterProjectionResponse["path"][number];
+  index: number;
+  kek: ContainerWriterProjectionResponse["containerKeks"][number];
+  keksByEpochId: Map<string, UnwrappedContainerKek>;
+  successorKeyMaterial: Uint8Array | null;
+  verifyBridgeCommitment: boolean;
+}): Promise<void> {
+  if (!input.successorKeyMaterial) {
+    return;
+  }
+  if (input.kek.predecessorKeks.length !== input.kek.containerKeyEpoch - 1) {
+    throw new Error(
+      `${projectionKekLabel(input.index)} predecessor chain is incomplete`,
+    );
+  }
+
+  let successorEpochId = input.kek.containerKeyEpochId;
+  let successorEpoch = input.kek.containerKeyEpoch;
+  let successorManifestHash = readContainerKeyEpoch(
+    input.kek.keyEpoch,
+    `${projectionKekLabel(input.index)} key epoch`,
+  ).accessManifestHash;
+  let successorKeyMaterial = input.successorKeyMaterial;
+  const verifiedManifestHashes = new Set([
+    input.kek.accessManifestHash,
+    ...input.kek.containerManifestHistory.map((bundle) => bundle.manifestHash),
+  ]);
+  for (const predecessor of input.kek.predecessorKeks) {
+    await assertPredecessorEpoch({
+      index: input.index,
+      kek: input.kek,
+      predecessor,
+      successorEpoch,
+      verifiedManifestHashes,
+    });
+
+    const bridge = normalizeContainerKekPredecessorBridge(predecessor.bridge);
+    if (
+      bridge.containerId !== input.kek.containerId ||
+      bridge.successorContainerKeyEpochId !== successorEpochId ||
+      bridge.predecessorContainerKeyEpochId !== predecessor.containerKeyEpochId
+    ) {
+      throw new Error(
+        `${projectionKekLabel(input.index)} predecessor bridge is inconsistent`,
+      );
+    }
+    if (input.verifyBridgeCommitment) {
+      await assertPredecessorBridgeCommitment({
+        bridge,
+        currentManifest: input.currentManifest,
+        index: input.index,
+        kek: input.kek,
+        successorManifestHash,
+      });
+    }
+
+    const cachedKey = cachedPredecessorKey({
+      cached: input.keksByEpochId.get(predecessor.containerKeyEpochId),
+      index: input.index,
+      predecessor,
+    });
+    const predecessorKeyMaterial =
+      cachedKey ??
+      (await unwrapContainerKekPredecessorBridge({
+        bridge,
+        successorContainerKey: successorKeyMaterial,
+      }));
+    if (!cachedKey) {
+      await assertUnwrappedContainerKekMatchesMaterialId({
+        label: `${projectionKekLabel(input.index)} predecessor ${predecessor.containerKeyEpochId}`,
+        kek: predecessor,
+        keyMaterial: predecessorKeyMaterial,
+      });
+      input.keksByEpochId.set(predecessor.containerKeyEpochId, {
+        containerId: predecessor.containerId,
+        keyEpochHash: predecessor.keyEpochHash,
+        keyMaterial: predecessorKeyMaterial,
+      });
+    }
+    successorEpochId = predecessor.containerKeyEpochId;
+    successorEpoch = predecessor.containerKeyEpoch;
+    successorManifestHash = predecessor.accessManifestHash;
+    successorKeyMaterial = predecessorKeyMaterial;
+  }
+}
+
+async function assertPredecessorBridgeCommitment(input: {
+  bridge: ReturnType<typeof normalizeContainerKekPredecessorBridge>;
+  currentManifest: ContainerWriterProjectionResponse["path"][number];
+  index: number;
+  kek: ContainerWriterProjectionResponse["containerKeks"][number];
+  successorManifestHash: string;
+}): Promise<void> {
+  const successorManifest =
+    input.successorManifestHash === input.currentManifest.manifestHash
+      ? input.currentManifest
+      : input.kek.containerManifestHistory.find(
+          (bundle) => bundle.manifestHash === input.successorManifestHash,
+        );
+  if (!successorManifest) {
+    throw new Error(
+      `${projectionKekLabel(input.index)} predecessor bridge signer is missing`,
+    );
+  }
+  const eventBundle = readCanonicalRecord(
+    successorManifest.event,
+    `${projectionKekLabel(input.index)} predecessor bridge event`,
+  );
+  const eventBody = normalizeContainerAccessEventBody(
+    readCanonicalJson(
+      Reflect.get(eventBundle, "body"),
+      `${projectionKekLabel(input.index)} predecessor bridge event body`,
+    ),
+  );
+  if (
+    (eventBody.eventType !== "container.move" &&
+      eventBody.eventType !== "container.rekey" &&
+      eventBody.eventType !== "container.revoke") ||
+    eventBody.predecessorBridgeHash !==
+      (await computeContainerKekPredecessorBridgeHash(input.bridge))
+  ) {
+    throw new Error(
+      `${projectionKekLabel(input.index)} predecessor bridge does not match its signed event`,
+    );
+  }
+}
