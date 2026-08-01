@@ -243,6 +243,7 @@ async function unwrapDocumentSyncResponseContentKeys(
         bundle,
         collectedKeks.keksByEpochId,
         collectedKeks.predecessorFailuresByEpochId,
+        collectedKeks.unattributedPredecessorFailuresByContainerId,
       ),
     );
   }
@@ -494,6 +495,7 @@ async function resolveSyncPlanContentMaterial(
         input.writerProjection.contentKeyBundle,
         collectedKeks.keksByEpochId,
         collectedKeks.predecessorFailuresByEpochId,
+        collectedKeks.unattributedPredecessorFailuresByContainerId,
       );
     } catch (error) {
       if (error instanceof DocumentHistoryUnavailableError) {
@@ -522,6 +524,7 @@ async function resolveSyncPlanContentMaterial(
       input.writerProjection.contentKeyBundle,
       collectedKeks.keksByEpochId,
       collectedKeks.predecessorFailuresByEpochId,
+      collectedKeks.unattributedPredecessorFailuresByContainerId,
     ),
     contentKeyBundle: input.writerProjection.contentKeyBundle,
     documentKekTargets: input.writerProjection.documentKekTargets,

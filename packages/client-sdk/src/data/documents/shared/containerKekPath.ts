@@ -198,6 +198,7 @@ async function unwrapContainerKekAtIndex(input: {
   readonly secretKey: Uint8Array;
   readonly verifyBridgeCommitment: boolean;
 }): Promise<{
+  readonly containerId: string;
   readonly error: Error;
   readonly unreachableEpochIds: readonly string[];
 } | null> {
@@ -266,6 +267,7 @@ async function unwrapContainerKekAtIndex(input: {
     // current KEK. Keep any predecessors derived before the failure; if the
     // target still cannot be reached, the caller surfaces this integrity error.
     return {
+      containerId: kek.containerId,
       error:
         error instanceof Error
           ? error
@@ -283,12 +285,23 @@ async function unwrapContainerKekAtIndex(input: {
 interface UnwrappedContainerKekPathResult {
   readonly keksByEpochId: ReadonlyMap<string, Uint8Array>;
   readonly predecessorFailuresByEpochId: ReadonlyMap<string, Error>;
+  readonly unattributedPredecessorFailuresByContainerId: ReadonlyMap<
+    string,
+    Error
+  >;
 }
 
 function recordPredecessorFailure(
   failuresByEpochId: Map<string, Error>,
+  unattributedFailuresByContainerId: Map<string, Error>,
   failure: NonNullable<Awaited<ReturnType<typeof unwrapContainerKekAtIndex>>>,
 ): void {
+  if (failure.unreachableEpochIds.length === 0) {
+    if (!unattributedFailuresByContainerId.has(failure.containerId)) {
+      unattributedFailuresByContainerId.set(failure.containerId, failure.error);
+    }
+    return;
+  }
   for (const containerKeyEpochId of failure.unreachableEpochIds) {
     if (!failuresByEpochId.has(containerKeyEpochId)) {
       failuresByEpochId.set(containerKeyEpochId, failure.error);
@@ -300,6 +313,10 @@ function assertTargetKekUnwrapped(input: {
   readonly keyMaterialByEpochId: ReadonlyMap<string, Uint8Array>;
   readonly predecessorFailuresByEpochId: ReadonlyMap<string, Error>;
   readonly projection: ContainerWriterProjectionResponse;
+  readonly unattributedPredecessorFailuresByContainerId: ReadonlyMap<
+    string,
+    Error
+  >;
 }): void {
   const targetKek = input.projection.containerKeks.at(-1);
   if (
@@ -323,7 +340,10 @@ function assertTargetKekUnwrapped(input: {
         ? input.predecessorFailuresByEpochId.get(
             pathKek.parentContainerKeyEpochId,
           )
-        : undefined);
+        : undefined) ??
+      input.unattributedPredecessorFailuresByContainerId.get(
+        pathKek.containerId,
+      );
     if (predecessorFailure) {
       throw predecessorFailure;
     }
@@ -343,6 +363,7 @@ export async function unwrapContainerKekPathWithHistoryFailures(
     projection: input.projection,
   });
   const predecessorFailuresByEpochId = new Map<string, Error>();
+  const unattributedPredecessorFailuresByContainerId = new Map<string, Error>();
 
   for (
     let index = 0;
@@ -358,7 +379,11 @@ export async function unwrapContainerKekPathWithHistoryFailures(
       verifyBridgeCommitment: input.trustedLocalProjection !== true,
     });
     if (currentFailure) {
-      recordPredecessorFailure(predecessorFailuresByEpochId, currentFailure);
+      recordPredecessorFailure(
+        predecessorFailuresByEpochId,
+        unattributedPredecessorFailuresByContainerId,
+        currentFailure,
+      );
     }
   }
 
@@ -370,10 +395,12 @@ export async function unwrapContainerKekPathWithHistoryFailures(
     keyMaterialByEpochId,
     predecessorFailuresByEpochId,
     projection: input.projection,
+    unattributedPredecessorFailuresByContainerId,
   });
   return {
     keksByEpochId: keyMaterialByEpochId,
     predecessorFailuresByEpochId,
+    unattributedPredecessorFailuresByContainerId,
   };
 }
 

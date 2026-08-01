@@ -9,7 +9,9 @@ import { unwrapContainerKekPath } from "../../data/documents/shared/containerKek
 import { readContainerKeyEpoch } from "../../data/keyingProjectionVerification/readers";
 import { buildMaterializedDocumentSyncPlan } from "./sync";
 
-test("damaged predecessor history fails a stale read that needs the missing epoch", async () => {
+async function expectDamagedPredecessorReadToFail(
+  includeHistoricalManifest: boolean,
+): Promise<void> {
   const fixture = await createMaterializedSyncFixture();
   const projection = structuredClone(
     fixture.writerProjection.authorizingContainerPaths[0],
@@ -46,15 +48,17 @@ test("damaged predecessor history fails a stale read that needs the missing epoc
       ...currentKek,
       containerKeyEpoch,
       containerKeyEpochId,
-      containerManifestHistory: [
-        {
-          ...currentManifest,
-          state: {
-            ...currentManifest.state,
-            containerKeyEpochId: currentKek.containerKeyEpochId,
-          },
-        },
-      ],
+      containerManifestHistory: includeHistoricalManifest
+        ? [
+            {
+              ...currentManifest,
+              state: {
+                ...currentManifest.state,
+                containerKeyEpochId: currentKek.containerKeyEpochId,
+              },
+            },
+          ]
+        : [],
       keyEpoch: keyEpoch as unknown as Record<string, unknown>,
       keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
       predecessorKeks: [],
@@ -95,4 +99,12 @@ test("damaged predecessor history fails a stale read that needs the missing epoc
       },
     }),
   ).rejects.toThrow("predecessor chain is incomplete");
+}
+
+test("damaged predecessor history fails a stale read that needs the missing epoch", async () => {
+  await expectDamagedPredecessorReadToFail(true);
+});
+
+test("fully truncated predecessor metadata preserves the history-integrity error", async () => {
+  await expectDamagedPredecessorReadToFail(false);
 });
