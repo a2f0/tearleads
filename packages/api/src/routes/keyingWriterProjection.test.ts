@@ -5,6 +5,7 @@ import {
   accessManifests,
   containerDocumentSyncTombstones,
   containerKeyEpochs,
+  containerKeyWraps,
   containers,
   documentAuditCheckpoints,
   documentAuditEntries,
@@ -41,6 +42,7 @@ import type {
 } from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
+  DOCUMENT_PROJECTION_ERROR_CODES,
   type DocumentLinkSetMutationResponse,
   type DocumentWriterProjectionResponse,
   isContainerMutationResponse,
@@ -1925,6 +1927,29 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
       (path) => path.containerId,
     ),
   ).toEqual([root.kekState.containerId]);
+
+  await db
+    .update(containerKeyWraps)
+    .set({ recipientKeyFingerprint: "corrupt-fingerprint" })
+    .where(
+      eq(
+        containerKeyWraps.containerKeyEpochId,
+        root.kekState.containerKeyEpochId,
+      ),
+    );
+
+  const noHealthyPathResponse = await routeApp.request(
+    `/documents/${createdDocument.id}/writer-projection`,
+    {
+      headers: { Authorization: `Bearer ${owner.token}` },
+    },
+  );
+  expect(noHealthyPathResponse.status).toBe(409);
+  await expect(noHealthyPathResponse.json()).resolves.toEqual({
+    code: DOCUMENT_PROJECTION_ERROR_CODES.containerConflict,
+    error:
+      "container key wrap.recipientKeyFingerprint must be a 64-character lowercase hex hash",
+  });
 });
 
 test("POST /documents/:documentId/link rejects stale previous manifests", async () => {

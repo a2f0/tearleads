@@ -215,3 +215,45 @@ test("unwrapContainerKekPath rejects incomplete or inconsistent predecessor chai
     }),
   ).rejects.toThrow("KEK material does not match committed epoch id");
 });
+
+test("unwrapContainerKekPath retains a verified current KEK when history is corrupt", async () => {
+  const { fixture, predecessor, successor, successorKey } =
+    await rotateRootKekFixture();
+  const currentManifest = fixture.projection.path[0];
+  if (!currentManifest) {
+    throw new Error("Expected a root container manifest fixture");
+  }
+  const corruptBridge = await createContainerKekPredecessorBridge({
+    containerId: predecessor.containerId,
+    predecessorContainerKey: crypto.getRandomValues(new Uint8Array(32)),
+    predecessorContainerKeyEpochId: predecessor.containerKeyEpochId,
+    successorContainerKey: successorKey,
+    successorContainerKeyEpochId: successor.containerKeyEpochId,
+  });
+
+  const unwrapped = await unwrapContainerKekPath({
+    projection: {
+      ...fixture.projection,
+      containerId: successor.containerId,
+      containerKeks: [
+        {
+          ...successor,
+          predecessorKeks: [
+            {
+              ...predecessor,
+              bridge: corruptBridge as unknown as Record<string, unknown>,
+            },
+          ],
+        },
+      ],
+      path: [currentManifest],
+    },
+    secretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+  });
+
+  expect(
+    Array.from(unwrapped.get(successor.containerKeyEpochId) ?? []),
+  ).toEqual(Array.from(successorKey));
+  expect(unwrapped.has(predecessor.containerKeyEpochId)).toBe(false);
+});

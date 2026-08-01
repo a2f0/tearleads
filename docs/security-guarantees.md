@@ -194,6 +194,9 @@ under a parent or successor KEK. Rotations use the
 immediate predecessor. Current clients must verify that chain through epoch 1.
 Each rotation event signs the canonical predecessor-bridge hash; AES-GCM also
 binds the container and predecessor/successor epoch ids during decryption.
+Failure to decrypt a historical bridge makes that history unavailable but does
+not invalidate an independently verified current KEK; current-epoch reads can
+continue while operations that require the damaged epoch fail explicitly.
 This deliberately changes compromise amplification: possession of the current
 container KEK also reveals every retained predecessor KEK through the bridge
 chain. That is the cost of history-inclusive current access. It does not weaken

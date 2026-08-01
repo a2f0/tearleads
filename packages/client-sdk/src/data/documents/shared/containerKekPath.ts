@@ -206,6 +206,81 @@ function successorKeyMaterial(
   return keksByEpochId.get(kek.containerKeyEpochId)?.keyMaterial ?? unwrapped;
 }
 
+async function unwrapContainerKekAtIndex(input: {
+  readonly execSql?: ExecSql | undefined;
+  readonly index: number;
+  readonly keksByEpochId: Map<string, UnwrappedContainerKek>;
+  readonly projection: ContainerWriterProjectionResponse;
+  readonly secretKey: Uint8Array;
+  readonly verifyBridgeCommitment: boolean;
+}): Promise<{ readonly error: unknown } | null> {
+  assertProjectionKekMatchesPath(input.projection, input.index);
+  const kek = input.projection.containerKeks[input.index];
+  const currentManifest = input.projection.path[input.index];
+  if (!kek || !currentManifest) {
+    throw new Error(`${projectionKekLabel(input.index)} is missing`);
+  }
+
+  const wraps: ContainerKeyWrap[] = [];
+  for (const rawWrap of kek.wraps) {
+    const wrap = normalizeContainerKeyWrap(rawWrap);
+    if (wrap.containerKeyEpochId === kek.containerKeyEpochId) {
+      wraps.push(wrap);
+    }
+  }
+  if (wraps.length !== kek.wraps.length) {
+    throw new Error(`${projectionKekLabel(input.index)} contains a stale wrap`);
+  }
+
+  const unwrapped =
+    (await unwrapContainerKekFromPrincipalWraps({
+      execSql: input.execSql,
+      secretKey: input.secretKey,
+      wraps,
+    })) ??
+    (await unwrapContainerKekFromParentWrap({
+      parentContainerKeyEpochId: kek.parentContainerKeyEpochId,
+      parentKeksByEpochId: input.keksByEpochId,
+      wraps,
+    }));
+
+  if (unwrapped) {
+    await assertUnwrappedContainerKekMatchesMaterialId({
+      label: projectionKekLabel(input.index),
+      kek,
+      keyMaterial: unwrapped,
+    });
+    input.keksByEpochId.set(kek.containerKeyEpochId, {
+      containerId: kek.containerId,
+      keyEpochHash: kek.keyEpochHash,
+      keyMaterial: unwrapped,
+    });
+  }
+
+  try {
+    // Derive predecessors immediately so descendants pinned to an older parent
+    // epoch can still unwrap during the same path walk.
+    await unwrapPredecessorContainerKeksAtIndex({
+      currentManifest,
+      index: input.index,
+      kek,
+      keksByEpochId: input.keksByEpochId,
+      successorKeyMaterial: successorKeyMaterial(
+        input.keksByEpochId,
+        kek,
+        unwrapped,
+      ),
+      verifyBridgeCommitment: input.verifyBridgeCommitment,
+    });
+    return null;
+  } catch (error) {
+    // Historical bridge damage must not discard an independently verified
+    // current KEK. Keep any predecessors derived before the failure; if the
+    // target still cannot be reached, the caller surfaces this integrity error.
+    return { error };
+  }
+}
+
 export async function unwrapContainerKekPath(
   input: {
     execSql?: ExecSql | undefined;
@@ -245,65 +320,22 @@ export async function unwrapContainerKekPath(
     knownContainerKeks: input.knownContainerKeks,
     projection: input.projection,
   });
+  let predecessorFailure: { readonly error: unknown } | null = null;
 
   for (
     let index = 0;
     index < input.projection.containerKeks.length;
     index += 1
   ) {
-    assertProjectionKekMatchesPath(input.projection, index);
-    const kek = input.projection.containerKeks[index];
-    const currentManifest = input.projection.path[index];
-    if (!kek || !currentManifest) {
-      throw new Error(`${projectionKekLabel(index)} is missing`);
-    }
-
-    const wraps: ContainerKeyWrap[] = [];
-    for (const rawWrap of kek.wraps) {
-      const wrap = normalizeContainerKeyWrap(rawWrap);
-      if (wrap.containerKeyEpochId === kek.containerKeyEpochId) {
-        wraps.push(wrap);
-      }
-    }
-    if (wraps.length !== kek.wraps.length) {
-      throw new Error(`${projectionKekLabel(index)} contains a stale wrap`);
-    }
-
-    const unwrapped =
-      (await unwrapContainerKekFromPrincipalWraps({
-        execSql: input.execSql,
-        secretKey: input.secretKey,
-        wraps,
-      })) ??
-      (await unwrapContainerKekFromParentWrap({
-        parentContainerKeyEpochId: kek.parentContainerKeyEpochId,
-        parentKeksByEpochId: keksByEpochId,
-        wraps,
-      }));
-
-    if (unwrapped) {
-      await assertUnwrappedContainerKekMatchesMaterialId({
-        label: projectionKekLabel(index),
-        kek,
-        keyMaterial: unwrapped,
-      });
-      keksByEpochId.set(kek.containerKeyEpochId, {
-        containerId: kek.containerId,
-        keyEpochHash: kek.keyEpochHash,
-        keyMaterial: unwrapped,
-      });
-    }
-
-    // Predecessors are derived immediately after their current path KEK so a
-    // descendant still wrapped to an older parent epoch can be unwrapped.
-    await unwrapPredecessorContainerKeksAtIndex({
-      currentManifest,
+    const currentFailure = await unwrapContainerKekAtIndex({
+      execSql: input.execSql,
       index,
-      kek,
       keksByEpochId,
-      successorKeyMaterial: successorKeyMaterial(keksByEpochId, kek, unwrapped),
+      projection: input.projection,
+      secretKey: input.secretKey,
       verifyBridgeCommitment: input.trustedLocalProjection !== true,
     });
+    predecessorFailure ??= currentFailure;
   }
 
   const keyMaterialByEpochId = new Map<string, Uint8Array>();
@@ -312,6 +344,9 @@ export async function unwrapContainerKekPath(
   }
   const targetKek = input.projection.containerKeks.at(-1);
   if (targetKek && !keyMaterialByEpochId.has(targetKek.containerKeyEpochId)) {
+    if (predecessorFailure) {
+      throw predecessorFailure.error;
+    }
     throw new Error(
       `${projectionKekLabel(input.projection.containerKeks.length - 1)} could not be unwrapped`,
     );
@@ -331,8 +366,8 @@ async function unwrapPredecessorContainerKeksAtIndex(input: {
     return;
   }
   // The projection may include updates encrypted under any epoch in document
-  // history. Returning only the current key would make those updates silently
-  // unreadable, so an authenticated-but-incomplete history is a hard failure.
+  // history. Validate and derive the complete chain when it is healthy; the
+  // caller retains the verified current KEK if historical recovery fails.
   if (input.kek.predecessorKeks.length !== input.kek.containerKeyEpoch - 1) {
     throw new Error(
       `${projectionKekLabel(input.index)} predecessor chain is incomplete`,

@@ -53,5 +53,8 @@ export type CurrentAccessManifestHead = Awaited<
 export interface ContainerMutationContext {
   readonly executor: DatabaseTransaction;
   readonly manifestHeadByContainerId: Map<string, CurrentAccessManifestHead>;
+  // Shared only with hash/id-addressed projection loaders during this write
+  // transaction. Current-by-container lookups can become stale after a mutation
+  // and must never consume this context's cache.
   readonly writerProjectionContext: ContainerWriterProjectionContext;
 }

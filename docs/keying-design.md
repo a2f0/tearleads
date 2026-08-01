@@ -449,13 +449,14 @@ the number of rotations. A server or client must not cap or truncate that chain:
 doing so would make retained ciphertext undecryptable. Any future scalability
 optimization must preserve authenticated recovery of every retained epoch.
 
-An incomplete or corrupt predecessor chain is a hard integrity failure, not a
-state a client can repair or safely read around. The API never serves a
-truncated history: operators must restore the missing immutable epoch row or
-bridge ciphertext from database backup and then retry the projection. Because
-the server never has plaintext KEKs, it cannot synthesize replacement bridge
-ciphertext, and there is intentionally no admin-assisted key reconstruction
-endpoint.
+An incomplete or corrupt predecessor chain is a hard integrity failure for the
+affected historical epochs. The client reports that failure when an operation
+needs one of those epochs, but it retains an independently verified current KEK
+so corrupt history cannot also brick current-epoch reads. The API never serves
+a deliberately truncated history: operators must restore missing immutable
+epoch rows or bridge ciphertext from database backup. Because the server never
+has plaintext KEKs, it cannot synthesize replacement bridge ciphertext, and
+there is intentionally no admin-assisted key reconstruction endpoint.
 
 A container move creates a new epoch identity because the parent binding
 changes, but it currently retains the same KEK material. The mandatory bridge
