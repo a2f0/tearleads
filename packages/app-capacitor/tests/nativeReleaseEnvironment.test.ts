@@ -8,7 +8,7 @@ const repositoryRoot = resolve(import.meta.dir, "../../..");
 const packageRoot = resolve(repositoryRoot, "packages/app-capacitor");
 const nativeReleaseTargetPath = resolve(
   packageRoot,
-  "fastlane/native_release_target.rb",
+  "fastlane/lib/native_release_target.rb",
 );
 const snapshotScriptPath = resolve(
   packageRoot,
@@ -144,7 +144,7 @@ async function readNativeReleaseEnvironmentResult(
   );
   const copiedTargetPath = join(
     temporaryRoot,
-    "packages/app-capacitor/fastlane/native_release_target.rb",
+    "packages/app-capacitor/fastlane/lib/native_release_target.rb",
   );
   const secretsDirectory = join(temporaryRoot, ".secrets");
   await mkdir(resolve(copiedTargetPath, ".."), { recursive: true });

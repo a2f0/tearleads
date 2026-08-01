@@ -11,12 +11,5 @@ AllCops:
 
 Metrics/BlockLength:
   Exclude:
-    - fastlane/Fastfile.android.rb
-    - fastlane/Fastfile.ios.rb
-    - fastlane/Fastfile.store.rb
-
-Naming/FileName:
-  Exclude:
-    - fastlane/Fastfile.android.rb
-    - fastlane/Fastfile.ios.rb
-    - fastlane/Fastfile.store.rb
+    - fastlane/lanes/android.rb
+    - fastlane/lanes/ios.rb

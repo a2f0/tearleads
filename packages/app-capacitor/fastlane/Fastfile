@@ -2,8 +2,10 @@
 
 default_platform(:android)
 
-import 'Fastfile.store.rb'
-import 'Fastfile.android.rb'
-import 'Fastfile.ios.rb'
-import 'google_play_upload.rb'
-import 'testflight_upload.rb'
+import 'helpers/lane_options.rb'
+import 'helpers/merged_release_pr.rb'
+import 'lanes/store.rb'
+import 'lanes/android.rb'
+import 'lanes/ios.rb'
+import 'lanes/google_play_upload.rb'
+import 'lanes/testflight_upload.rb'

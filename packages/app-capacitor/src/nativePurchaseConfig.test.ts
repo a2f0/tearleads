@@ -355,7 +355,9 @@ test("iOS staging release settings stay aligned with production", async () => {
 
 test("Fastlane selects store identities from one shared release target", async () => {
   const [releaseTarget, packageManifestValue] = await Promise.all([
-    Bun.file(resolve(packageRoot, "fastlane/native_release_target.rb")).text(),
+    Bun.file(
+      resolve(packageRoot, "fastlane/lib/native_release_target.rb"),
+    ).text(),
     readJson(resolve(packageRoot, "package.json")),
   ]);
   const scripts = packageScripts(packageManifestValue);
@@ -413,7 +415,7 @@ test("native staging store identifiers stay aligned", async () => {
         resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
       ).text(),
       Bun.file(
-        resolve(packageRoot, "fastlane/native_release_target.rb"),
+        resolve(packageRoot, "fastlane/lib/native_release_target.rb"),
       ).text(),
     ],
   );

@@ -83,3 +83,82 @@ test("Fastlane Appfile rejects an unknown release tier", async () => {
     "Unknown NATIVE_RELEASE_TIER",
   );
 });
+
+const fastlanePathConstantNames = [
+  "ANDROID_DIR",
+  "ANDROID_BUILD_IMAGES_SCRIPT",
+  "IOS_PACKAGE_DIR",
+  "IOS_DIR",
+  "IOS_BUILD_IMAGES_SCRIPT",
+  "NATIVE_SECRETS_DIR",
+] as const;
+
+type FastlanePathConstantName = (typeof fastlanePathConstantNames)[number];
+
+const fastlanePathConstantsScript = [
+  'require "json"',
+  'require "fastlane"',
+  "Fastlane.load_actions",
+  'Fastlane::FastFile.new("fastlane/Fastfile")',
+  "names = %w[ANDROID_DIR ANDROID_BUILD_IMAGES_SCRIPT IOS_PACKAGE_DIR IOS_DIR IOS_BUILD_IMAGES_SCRIPT]",
+  "constants = names.to_h { |name| [name, Fastlane::FastFile.const_get(name)] }",
+  'puts JSON.generate(constants.merge("NATIVE_SECRETS_DIR" => NATIVE_SECRETS_DIR))',
+].join("; ");
+
+function parseFastlanePathConstants(stdout: string) {
+  const lastLine = stdout.trim().split("\n").at(-1);
+  if (lastLine === undefined) {
+    throw new Error("Fastlane path constants output is empty");
+  }
+  const value: unknown = JSON.parse(lastLine);
+  if (!isRecord(value)) {
+    throw new Error("Fastlane path constants must be an object");
+  }
+  const constants = {} as Record<FastlanePathConstantName, string>;
+  for (const name of fastlanePathConstantNames) {
+    const entry = recordValue(value, name);
+    if (typeof entry !== "string") {
+      throw new Error(`Fastlane path constant ${name} must be a string`);
+    }
+    constants[name] = entry;
+  }
+  return constants;
+}
+
+test("Fastlane lane files resolve paths outside their directory", async () => {
+  await requireRubyBundle();
+  const child = Bun.spawn(
+    ["bundle", "exec", "ruby", "-e", fastlanePathConstantsScript],
+    {
+      cwd: packageRoot,
+      env: {
+        ...process.env,
+        FASTLANE_OPT_OUT_USAGE: "1",
+        FASTLANE_SKIP_UPDATE_CHECK: "1",
+        NATIVE_RELEASE_TIER: "production",
+      },
+      stderr: "pipe",
+      stdout: "pipe",
+    },
+  );
+  const [exitCode, stderr, stdout] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+    new Response(child.stdout).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`Fastlane path constants failed to load: ${stderr}`);
+  }
+
+  expect(parseFastlanePathConstants(stdout)).toEqual({
+    ANDROID_DIR: resolve(packageRoot, "android"),
+    ANDROID_BUILD_IMAGES_SCRIPT: resolve(
+      packageRoot,
+      "scripts/buildAndroidImages.sh",
+    ),
+    IOS_PACKAGE_DIR: packageRoot,
+    IOS_DIR: resolve(packageRoot, "ios"),
+    IOS_BUILD_IMAGES_SCRIPT: resolve(packageRoot, "scripts/buildIosImages.sh"),
+    NATIVE_SECRETS_DIR: resolve(packageRoot, "../../.secrets"),
+  });
+});

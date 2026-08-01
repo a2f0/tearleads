@@ -36,7 +36,7 @@ NATIVE_RELEASE_TARGET = NATIVE_RELEASE_TARGETS.fetch(NATIVE_RELEASE_TIER) do
 end
 NATIVE_APP_IDENTIFIER = NATIVE_RELEASE_TARGET.fetch(:app_identifier)
 NATIVE_CAPACITOR_SYNC_SCRIPT = NATIVE_RELEASE_TARGET.fetch(:capacitor_sync_script)
-NATIVE_REPO_ROOT = File.expand_path('../../..', __dir__)
+NATIVE_REPO_ROOT = File.expand_path('../../../..', __dir__)
 NATIVE_SECRETS_DIR = File.join(NATIVE_REPO_ROOT, '.secrets')
 NATIVE_ROOT_ENV_PATH = File.join(NATIVE_SECRETS_DIR, 'root.env')
 NATIVE_STAGING_ENV_PATH = File.join(NATIVE_SECRETS_DIR, 'staging.env')

@@ -1,15 +1,11 @@
 # frozen_string_literal: true
 
-require 'date'
-require 'json'
-require 'open3'
 require 'shellwords'
-require 'time'
-require_relative 'native_release_target'
+require_relative '../lib/native_release_target'
 
-ANDROID_DIR = File.expand_path('../android', __dir__)
+ANDROID_DIR = File.expand_path('../../android', __dir__)
 ANDROID_ASSETS_DIR = File.join(ANDROID_DIR, 'app/src/main/assets')
-ANDROID_BUILD_IMAGES_SCRIPT = File.expand_path('../scripts/buildAndroidImages.sh', __dir__)
+ANDROID_BUILD_IMAGES_SCRIPT = File.expand_path('../../scripts/buildAndroidImages.sh', __dir__)
 ANDROID_BUILD_VARIANT = NATIVE_RELEASE_TARGET.fetch(:android_build_variant)
 ANDROID_BUILD_VARIANT_TASK = native_release_android_build_variant_task
 ANDROID_RELEASE_KEYSTORE_PATH = File.join(NATIVE_SECRETS_DIR, 'tearleads-release.keystore')
@@ -32,19 +28,7 @@ RELEASE_PLAY_ASSET_PATHS = [
   RELEASE_MAPPING_PATH,
   RELEASE_NATIVE_DEBUG_SYMBOLS_PATH
 ].freeze
-MERGED_GITHUB_PRS_COMMAND = [
-  'gh',
-  'pr',
-  'list',
-  '--state',
-  'merged',
-  '--json',
-  'number,mergedAt,title',
-  '--limit',
-  '100'
-].freeze
 ANDROID_RELEASE_VERSION_CODE_PROPERTY = 'tearleadsVersionCode'
-ANDROID_RELEASE_PR_PATTERN = /\(#(?<number>\d+)\)/
 
 def connected_android_device_serials
   adb_output = `adb devices`
@@ -128,165 +112,16 @@ def load_android_release_secrets_env
   load_native_release_secrets_env
 end
 
-def positive_android_integer(value, description)
-  number = Integer(value.to_s, 10)
-  UI.user_error!("#{description} must be positive.") unless number.positive?
-
-  number
-rescue ArgumentError, TypeError
-  UI.user_error!("#{description} must be a positive integer: #{value}")
-end
-
-def android_command_available?(command)
-  system('which', command, out: File::NULL, err: File::NULL)
-end
-
-def android_command_output(*command)
-  output, status = Open3.capture2e(*command)
-
-  [output, status.success?]
-rescue Errno::ENOENT => e
-  [e.message, false]
-end
-
-def android_pr_merged_at(pull_request)
-  Time.parse(pull_request.fetch('mergedAt'))
-end
-
-def android_pr_merged_on_date?(pull_request, date)
-  android_pr_merged_at(pull_request).localtime.to_date == date
-end
-
-def android_release_date(options)
-  raw_date = lane_option(options, :merged_date, 'ANDROID_RELEASE_MERGED_DATE', Date.today.iso8601)
-
-  Date.iso8601(raw_date.to_s)
-rescue Date::Error
-  UI.user_error!("ANDROID_RELEASE_MERGED_DATE must be YYYY-MM-DD: #{raw_date}")
-end
-
 def explicit_android_release_build_number(options)
   value = lane_option(options, :build_number, 'ANDROID_BUILD_NUMBER')
   value ||= lane_option(options, :version_code, 'ANDROID_VERSION_CODE')
   return nil if value.nil?
 
-  positive_android_integer(value, 'Android release build number')
+  positive_release_integer(value, 'Android release build number')
 end
 
 def next_google_play_build_number_requested?(options)
   lane_boolean_option(options, :next_google_play, 'ANDROID_RELEASE_NEXT_GOOGLE_PLAY', false)
-end
-
-def configured_android_release_pr_number(options)
-  value = lane_option(options, :merged_pr_number, 'ANDROID_RELEASE_MERGED_PR_NUMBER')
-  value ||= lane_option(options, :pr_number, 'ANDROID_RELEASE_PR_NUMBER')
-  return nil if value.nil?
-
-  positive_android_integer(value, 'Android release merged PR number')
-end
-
-def merged_github_prs_output
-  output, ok = android_command_output(*MERGED_GITHUB_PRS_COMMAND)
-
-  unless ok
-    UI.important("Could not query merged GitHub PRs with gh: #{output.strip}")
-    return nil
-  end
-
-  output
-end
-
-def merged_github_prs
-  output = merged_github_prs_output
-  return nil if output.nil?
-
-  pull_requests = JSON.parse(output)
-  return pull_requests if pull_requests.is_a?(Array)
-
-  UI.important('Could not parse merged GitHub PRs from gh: expected an array.')
-  nil
-rescue JSON::ParserError => e
-  UI.important("Could not parse merged GitHub PRs from gh: #{e.message}")
-  nil
-end
-
-def github_prs_merged_on_date(pull_requests, date)
-  pull_requests.select { |pull_request| android_pr_merged_on_date?(pull_request, date) }
-end
-
-def latest_android_release_pr(pull_requests)
-  pull_requests.max_by { |pull_request| android_pr_merged_at(pull_request) }
-end
-
-def latest_android_release_pr_from_github(date)
-  return nil unless android_command_available?('gh')
-
-  pull_requests = merged_github_prs
-  return nil if pull_requests.nil?
-
-  latest_pr = latest_android_release_pr(github_prs_merged_on_date(pull_requests, date))
-  return nil if latest_pr.nil?
-
-  UI.message("Using PR ##{latest_pr.fetch('number')} merged at #{latest_pr.fetch('mergedAt')}.")
-  positive_android_integer(latest_pr.fetch('number'), 'GitHub merged PR number')
-rescue StandardError => e
-  UI.important("Could not parse merged GitHub PRs from gh: #{e.message}")
-  nil
-end
-
-def git_pr_log_command_for_date(date)
-  [
-    'git',
-    'log',
-    "--since=#{date.iso8601} 00:00",
-    "--until=#{(date + 1).iso8601} 00:00",
-    '--format=%ct%x00%s'
-  ]
-end
-
-def git_pr_log_lines_for_date(date)
-  output, ok = android_command_output(*git_pr_log_command_for_date(date))
-
-  unless ok
-    UI.important("Could not query local git history for merged PRs: #{output.strip}")
-    return nil
-  end
-
-  output.lines
-end
-
-def git_pr_log_entry(line)
-  timestamp, subject = line.chomp.split("\0", 2)
-  match = subject&.match(ANDROID_RELEASE_PR_PATTERN)
-  return nil if match.nil?
-
-  [timestamp.to_i, match[:number].to_i]
-end
-
-def latest_android_release_pr_from_git(date)
-  lines = git_pr_log_lines_for_date(date)
-  return nil if lines.nil?
-
-  latest_entry = lines.filter_map { |line| git_pr_log_entry(line) }.max_by(&:first)
-  latest_entry&.last
-end
-
-def discovered_android_release_pr_number(date)
-  latest_android_release_pr_from_github(date) || latest_android_release_pr_from_git(date)
-end
-
-def android_release_pr_number(options)
-  configured_pr_number = configured_android_release_pr_number(options)
-  return configured_pr_number unless configured_pr_number.nil?
-
-  date = android_release_date(options)
-  discovered_pr_number = discovered_android_release_pr_number(date)
-  return discovered_pr_number unless discovered_pr_number.nil?
-
-  UI.user_error!(
-    "Could not find a PR merged on #{date}. " \
-    'Set ANDROID_RELEASE_PR_NUMBER or pass merged_pr_number:<number>.'
-  )
 end
 
 def google_play_version_guard_skipped?(options)
@@ -336,7 +171,7 @@ def android_release_build_hash(build_number, google_play_build_number, merged_pr
 end
 
 def automatic_android_release_build_hash(options)
-  merged_pr_number = android_release_pr_number(options)
+  merged_pr_number = merged_release_pr_number(options, 'ANDROID')
   google_play_build_number = latest_google_play_build_number_for_android_release(options)
   google_play_next_build_number = google_play_build_number.nil? ? nil : google_play_build_number + 1
   build_number = [merged_pr_number, google_play_next_build_number].compact.max

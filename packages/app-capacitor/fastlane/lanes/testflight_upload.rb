@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'native_release_target'
+require_relative '../lib/native_release_target'
 
 def testflight_changelog(options)
   lane_option(options, :changelog, 'TESTFLIGHT_CHANGELOG')
