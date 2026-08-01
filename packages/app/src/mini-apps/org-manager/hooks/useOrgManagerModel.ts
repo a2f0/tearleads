@@ -459,6 +459,7 @@ export function useOrgManagerModel() {
     createGroup,
     dataUsage: activeDataUsage,
     deleteGroup,
+    defaultOrganizationId: appData.auth.defaultOrganizationId,
     disableRosterUser,
     directory: activeDirectory,
     error,

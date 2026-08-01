@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
@@ -41,6 +41,7 @@ function appStorePurchase(input: {
   readonly environment?: string;
   readonly eventId: string;
   readonly organizationId: string;
+  readonly store?: string;
 }): RevenueCatWebhookEvent {
   const now = Date.now();
   return {
@@ -52,7 +53,7 @@ function appStorePurchase(input: {
     original_transaction_id: "2000000000000001",
     product_id: "com.tearleads.sync.monthly",
     purchased_at_ms: now,
-    store: "APP_STORE",
+    store: input.store ?? "APP_STORE",
     // A native store purchase carries no transaction metadata, so the org is
     // bound through the subscriber attribute the client sets before buying.
     subscriber_attributes: { orgId: { value: input.organizationId } },
@@ -67,6 +68,9 @@ async function readBillingStatus(organizationId: string) {
   const [billing] = await db
     .select({
       providerCustomerId: organizationBilling.providerCustomerId,
+      providerProductId: organizationBilling.providerProductId,
+      providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      seatCount: organizationBilling.seatCount,
       status: organizationBilling.status,
     })
     .from(organizationBilling)
@@ -160,6 +164,79 @@ test("a sandbox store purchase activates sync on a tier that opts in", async () 
   });
 });
 
+test("a Stripe-bound customer cannot fund a custom org through Test Store", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const eventId = crypto.randomUUID();
+  const replacement = await registerOrganizationAdmin();
+  await db
+    .update(users)
+    .set({ defaultOrganizationId: replacement.organizationId })
+    .where(eq(users.id, user.userId));
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerCustomerId: user.userId,
+      providerProductId: "price_lapsed_stripe",
+      status: "disabled",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    const outcome = await runRevenueCatWebhookWorkflow(
+      db,
+      appStorePurchase({
+        appUserId: user.userId,
+        environment: "SANDBOX",
+        eventId,
+        organizationId,
+        store: "TEST_STORE",
+      }),
+      new Date(),
+      { env: { REVENUECAT_ALLOW_SANDBOX_EVENTS: "true" } },
+    );
+
+    expect(outcome).toEqual({
+      status: "ignored",
+      reason:
+        "Native purchases may only fund the buyer's personal organization",
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      `RevenueCat paid grant ${eventId} was not applied: Native purchases may only fund the buyer's personal organization`,
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
+});
+
+test("an unknown paid native product is retried with an operator alert", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const eventId = crypto.randomUUID();
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    const outcome = await runRevenueCatWebhookWorkflow(db, {
+      ...appStorePurchase({
+        appUserId: user.userId,
+        environment: "PRODUCTION",
+        eventId,
+        organizationId,
+      }),
+      product_id: "sync_unmapped_monthly",
+    });
+
+    expect(outcome).toEqual({
+      status: "retry",
+      reason: "Event product is not a configured sync billing tier",
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      `RevenueCat paid grant ${eventId} was not applied: Event product is not a configured sync billing tier`,
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
+});
+
 test("a production store purchase still activates sync", async () => {
   const { organizationId, user } = await registerOrganizationAdmin();
 
@@ -180,6 +257,154 @@ test("a production store purchase still activates sync", async () => {
     organizationId,
     status: "applied",
   });
+});
+
+test("a bound native renewal survives a buyer default-organization change", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const initial = appStorePurchase({
+    appUserId: user.userId,
+    environment: "PRODUCTION",
+    eventId: crypto.randomUUID(),
+    organizationId,
+  });
+  expect(await runRevenueCatWebhookWorkflow(db, initial)).toMatchObject({
+    organizationId,
+    status: "applied",
+  });
+  const replacement = await registerOrganizationAdmin();
+  await db
+    .update(users)
+    .set({ defaultOrganizationId: replacement.organizationId })
+    .where(eq(users.id, user.userId));
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    ...initial,
+    event_timestamp_ms: initial.event_timestamp_ms + 1,
+    expiration_at_ms: (initial.expiration_at_ms ?? 0) + THIRTY_DAYS_MS,
+    id: crypto.randomUUID(),
+    type: "RENEWAL",
+  });
+
+  expect(outcome).toMatchObject({ organizationId, status: "applied" });
+  expect(await readBillingStatus(organizationId)).toMatchObject({
+    providerCustomerId: user.userId,
+    status: "active",
+  });
+});
+
+test("a native product change applies the destination tier capacity", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const initial = appStorePurchase({
+    appUserId: user.userId,
+    environment: "PRODUCTION",
+    eventId: crypto.randomUUID(),
+    organizationId,
+  });
+  expect(await runRevenueCatWebhookWorkflow(db, initial)).toMatchObject({
+    organizationId,
+    status: "applied",
+  });
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    ...initial,
+    event_timestamp_ms: initial.event_timestamp_ms + 1,
+    id: crypto.randomUUID(),
+    new_product_id: "sync_team_5_monthly",
+    type: "PRODUCT_CHANGE",
+  });
+
+  expect(outcome).toMatchObject({ organizationId, status: "applied" });
+  expect(await readBillingStatus(organizationId)).toMatchObject({
+    providerProductId: "sync_team_5_monthly",
+    seatCount: 5,
+  });
+});
+
+test("bound lifecycle grants reuse the immutable native tier", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const initial = appStorePurchase({
+    appUserId: user.userId,
+    environment: "PRODUCTION",
+    eventId: crypto.randomUUID(),
+    organizationId,
+  });
+  await runRevenueCatWebhookWorkflow(db, initial);
+
+  const types = [
+    "UNCANCELLATION",
+    "NON_RENEWING_PURCHASE",
+    "SUBSCRIPTION_EXTENDED",
+    "TEMPORARY_ENTITLEMENT_GRANT",
+  ];
+  const lifecycleEvent = { ...initial };
+  delete lifecycleEvent.original_transaction_id;
+  delete lifecycleEvent.product_id;
+  for (const [index, type] of types.entries()) {
+    const outcome = await runRevenueCatWebhookWorkflow(db, {
+      ...lifecycleEvent,
+      event_timestamp_ms: initial.event_timestamp_ms + index + 1,
+      id: crypto.randomUUID(),
+      type,
+    });
+    expect(outcome).toMatchObject({ organizationId, status: "applied" });
+    expect(await readBillingStatus(organizationId)).toMatchObject({
+      providerProductId: "com.tearleads.sync.monthly",
+      providerSubscriptionId: "2000000000000001",
+      seatCount: 1,
+    });
+  }
+});
+
+test("unknown and missing stores require the personal-organization policy", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const replacement = await registerOrganizationAdmin();
+  await db
+    .update(users)
+    .set({ defaultOrganizationId: replacement.organizationId })
+    .where(eq(users.id, user.userId));
+
+  for (const store of ["UNKNOWN_STORE", undefined]) {
+    const event = appStorePurchase({
+      appUserId: user.userId,
+      environment: "PRODUCTION",
+      eventId: crypto.randomUUID(),
+      organizationId,
+      ...(store ? { store } : {}),
+    });
+    if (store === undefined) {
+      delete event.store;
+    }
+    const outcome = await runRevenueCatWebhookWorkflow(db, event);
+
+    expect(outcome).toEqual({
+      status: "ignored",
+      reason:
+        "Native purchases may only fund the buyer's personal organization",
+    });
+  }
+});
+
+test("an anonymous native buyer id is claimed without reaching the UUID query", async () => {
+  const { organizationId } = await registerOrganizationAdmin();
+  const eventId = crypto.randomUUID();
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    appStorePurchase({
+      appUserId: "$RCAnonymousID:anonymous-buyer",
+      environment: "PRODUCTION",
+      eventId,
+      organizationId,
+    }),
+    new Date(),
+    { env: {} },
+  );
+
+  expect(outcome).toEqual({
+    status: "ignored",
+    reason: "Native purchase buyer is not a Tearleads user",
+  });
+  expect(await readEventOutcome(eventId)).toBe("ignored");
 });
 
 test("a store purchase with no environment is treated as production", async () => {

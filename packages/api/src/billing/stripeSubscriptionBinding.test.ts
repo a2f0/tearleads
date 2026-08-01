@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { getSubscriptionBinding } from "./stripeSubscriptionBinding";
 
 test("subscription binding reads the licensed sync item", async () => {
@@ -15,7 +15,7 @@ test("subscription binding reads the licensed sync item", async () => {
           data: [
             {
               id: "si_1",
-              quantity: 2,
+              quantity: 1,
               price: {
                 id: "price_sync",
                 currency: "usd",
@@ -26,12 +26,12 @@ test("subscription binding reads the licensed sync item", async () => {
           ],
         },
       }),
-    )) as typeof fetch;
+    )) as unknown as typeof fetch;
 
   const binding = await getSubscriptionBinding("sub_1", {
     env: {
       STRIPE_SECRET_KEY: "sk_test_123",
-      STRIPE_SYNC_PRICE_ID: "price_sync",
+      STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
     },
     fetchImpl,
   });
@@ -45,12 +45,49 @@ test("subscription binding reads the licensed sync item", async () => {
     intervalCount: 3,
     organizationId: "org-1",
     priceId: "price_sync",
-    seatQuantity: 2,
+    seatQuantity: 1,
     status: "active",
     subscriptionItemId: "si_1",
     unitAmount: 499,
     userId: "user-1",
   });
+});
+
+test("subscription binding alerts on a legacy non-unit quantity", async () => {
+  const fetchImpl = (async (_input: RequestInfo | URL, _init?: RequestInit) =>
+    new Response(
+      JSON.stringify({
+        id: "sub_legacy",
+        metadata: { orgId: "org-1" },
+        items: {
+          data: [
+            {
+              id: "si_legacy",
+              quantity: 7,
+              price: { id: "price_team_10" },
+            },
+          ],
+        },
+      }),
+    )) as typeof fetch;
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+
+  try {
+    const binding = await getSubscriptionBinding("sub_legacy", {
+      env: {
+        STRIPE_SECRET_KEY: "sk_test_123",
+        STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
+      },
+      fetchImpl,
+    });
+
+    expect(binding?.seatQuantity).toBe(10);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Stripe subscription sub_legacy uses legacy quantity 7; fixed-tier subscriptions require quantity 1",
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
 });
 
 test("subscription binding never guesses a seat item without a configured price", async () => {
@@ -83,6 +120,35 @@ test("subscription binding never guesses a seat item without a configured price"
   });
 });
 
+test("subscription binding alerts when a configured Price was rotated", async () => {
+  const fetchImpl = (async () =>
+    new Response(
+      JSON.stringify({
+        metadata: { orgId: "org-1" },
+        items: {
+          data: [{ id: "si_1", price: { id: "price_rotated" }, quantity: 1 }],
+        },
+      }),
+    )) as unknown as typeof fetch;
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+
+  try {
+    const binding = await getSubscriptionBinding("sub_rotated", {
+      env: {
+        STRIPE_SECRET_KEY: "sk_test_123",
+        STRIPE_SYNC_SOLO_PRICE_ID: "price_solo",
+      },
+      fetchImpl,
+    });
+    expect(binding?.seatQuantity).toBeNull();
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Stripe subscription sub_rotated has no item matching the configured fixed-tier Prices; observed: price_rotated",
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
+});
+
 test("subscription binding rejects an ambiguous duplicate seat item", async () => {
   const fetchImpl = (async (_input: RequestInfo | URL, _init?: RequestInit) =>
     new Response(
@@ -101,7 +167,7 @@ test("subscription binding rejects an ambiguous duplicate seat item", async () =
   const binding = await getSubscriptionBinding("sub_1", {
     env: {
       STRIPE_SECRET_KEY: "sk_test_123",
-      STRIPE_SYNC_PRICE_ID: "price_sync",
+      STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
     },
     fetchImpl,
   });
@@ -138,7 +204,7 @@ test("subscription binding rejects a negative unit amount", async () => {
   const binding = await getSubscriptionBinding("sub_1", {
     env: {
       STRIPE_SECRET_KEY: "sk_test_123",
-      STRIPE_SYNC_PRICE_ID: "price_sync",
+      STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
     },
     fetchImpl,
   });

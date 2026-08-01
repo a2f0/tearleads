@@ -81,6 +81,23 @@ test("accepts the store field as string, null, or absent", () => {
   expect(isRevenueCatWebhookRequest(webhook({ store: 42 }))).toBe(false);
 });
 
+test("accepts a nullable new product id for product changes", () => {
+  expect(
+    isRevenueCatWebhookRequest(
+      webhook({
+        new_product_id: "sync_team_5_monthly",
+        type: "PRODUCT_CHANGE",
+      }),
+    ),
+  ).toBe(true);
+  expect(isRevenueCatWebhookRequest(webhook({ new_product_id: null }))).toBe(
+    true,
+  );
+  expect(isRevenueCatWebhookRequest(webhook({ new_product_id: 5 }))).toBe(
+    false,
+  );
+});
+
 test("accepts the environment field as string, null, or absent", () => {
   expect(isRevenueCatWebhookRequest(webhook({ environment: "SANDBOX" }))).toBe(
     true,

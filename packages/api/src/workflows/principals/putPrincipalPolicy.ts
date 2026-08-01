@@ -17,6 +17,7 @@ import {
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats";
+import { OrganizationManagerError } from "../organizations/errors";
 import { wasOrganizationGroupDeleted } from "../organizations/groupTombstone";
 import { isCurrentOrganizationAdminAuthority } from "../organizations/principalPolicyExternalAuthority";
 import { listUsersReachableFromCurrentPrincipal } from "../organizations/principalReachability";
@@ -59,6 +60,7 @@ interface RosterSyncResult {
   readonly changedRosterUserIds: string[];
   readonly memberGroupId: string;
   readonly organizationId: string;
+  readonly previousActiveSeatCount: number;
 }
 
 function policyTargetChanged(): PrincipalPolicyError {
@@ -174,7 +176,7 @@ async function syncRosterForStoredPrincipalState(input: {
     return null;
   }
 
-  const changedRosterUserIds =
+  const { changedUserIds: changedRosterUserIds, previousActiveSeatCount } =
     await syncOrganizationRosterFromMemberReachability({
       disabledByUserId: input.request.state.signerUserId,
       executor: input.tx,
@@ -192,7 +194,11 @@ async function syncRosterForStoredPrincipalState(input: {
       tx: input.tx,
     });
   }
-  return { ...rosterSyncTarget, changedRosterUserIds };
+  return {
+    ...rosterSyncTarget,
+    changedRosterUserIds,
+    previousActiveSeatCount,
+  };
 }
 
 async function appendPolicyReadModelChanges(input: {
@@ -390,13 +396,8 @@ async function applyPrincipalPolicyTransitionEffects(input: {
     previousState: input.previousState,
     updatedAt: new Date(),
   });
-  // The mirror image: users this transition can now reach may hold stale
-  // access_revoked tombstones from an earlier loss; prune the ones their
-  // regained access has invalidated so their next lane pull relists the
-  // containers (the container timestamp does not advance on a policy-only
-  // restore, so the stale row would otherwise win forever). Scoped to the
-  // containers this principal's grants can actually restore — an ungranted
-  // group prunes nothing.
+  // Prune stale access_revoked tombstones for newly reachable users. Scope the
+  // repair to granted subtrees; an ungranted group prunes nothing.
   const previousReachable = new Set(input.previousReachableUserIds);
   const addedUserIds = input.currentReachableUserIds.filter(
     (userId) => !previousReachable.has(userId),
@@ -422,6 +423,7 @@ async function applyPrincipalPolicyTransitionEffects(input: {
     await reconcileOrganizationBillingSeats({
       executor: input.tx,
       organizationId: rosterSyncTarget.organizationId,
+      previousActiveSeatCount: rosterSyncTarget.previousActiveSeatCount,
       source: {
         sourceId: input.nextState.stateHash,
         sourcePrincipalId: input.policy.expectedPrincipalId,
@@ -518,6 +520,9 @@ export async function runPutPrincipalPolicyWorkflow(
       };
     });
   } catch (error) {
+    if (error instanceof OrganizationManagerError) {
+      throw new PrincipalPolicyError(error.message, error.status, error.code);
+    }
     const principalPolicyError = toPrincipalPolicyError(error);
     if (principalPolicyError) {
       throw principalPolicyError;

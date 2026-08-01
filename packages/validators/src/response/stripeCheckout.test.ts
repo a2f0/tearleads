@@ -7,6 +7,8 @@ import {
 } from "./stripeCheckout";
 
 const OPTION = {
+  tierId: "team_5",
+  seatLimit: 5,
   priceId: "price_1",
   productName: "Sync",
   currency: "usd",

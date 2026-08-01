@@ -8,6 +8,11 @@ import {
   organizationBilling,
   organizations,
 } from "@tearleads/api-shared/schema";
+import {
+  BILLING_ERROR_CODES,
+  getSyncBillingTierForSeatCount,
+  type SyncBillingTierId,
+} from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
@@ -42,6 +47,18 @@ function checkoutInProgress(): OrganizationManagerError {
     "A checkout is already in progress for this organization",
     409,
   );
+}
+
+function requireAvailableTier(seatCount: number) {
+  const tier = getSyncBillingTierForSeatCount(seatCount);
+  if (!tier) {
+    throw new OrganizationManagerError(
+      "The organization exceeds the maximum subscription tier of 10 members",
+      409,
+      BILLING_ERROR_CODES.rosterOverCapacity,
+    );
+  }
+  return tier;
 }
 
 function providerExpiresAt(
@@ -104,8 +121,10 @@ async function requireStripeCheckoutSeatQuantity(
     throw new OrganizationManagerError(
       "The organization has no active members",
       409,
+      BILLING_ERROR_CODES.checkoutNoActiveMembers,
     );
   }
+  requireAvailableTier(activeUserIds.length);
   return activeUserIds.length;
 }
 
@@ -229,7 +248,7 @@ export async function runRequireCheckoutEligibleWorkflow(
   db: ApiDatabase,
   organizationId: string,
   sessionUserId: string,
-): Promise<{ seatQuantity: number }> {
+): Promise<{ seatQuantity: number; tierId: SyncBillingTierId }> {
   return db.transaction(async (tx) => {
     await requireDirectOrganizationAccess({
       executor: tx,
@@ -272,10 +291,12 @@ export async function runRequireCheckoutEligibleWorkflow(
       throw new OrganizationManagerError(
         "The organization has no active members",
         409,
+        BILLING_ERROR_CODES.checkoutNoActiveMembers,
       );
     }
 
-    return { seatQuantity: activeUserIds.length };
+    const tier = requireAvailableTier(activeUserIds.length);
+    return { seatQuantity: activeUserIds.length, tierId: tier.id };
   });
 }
 

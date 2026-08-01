@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBilling, users } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
 import { createRouteApp, routeApp } from "../../routeApp";
 
 /**
@@ -20,7 +21,9 @@ import { createRouteApp, routeApp } from "../../routeApp";
 const ISOLATED_ENV_KEYS = [
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
-  "STRIPE_SYNC_PRICE_ID",
+  "STRIPE_SYNC_SOLO_PRICE_ID",
+  "STRIPE_SYNC_TEAM_5_PRICE_ID",
+  "STRIPE_SYNC_TEAM_10_PRICE_ID",
   "REVENUECAT_V2_SECRET_KEY",
   "REVENUECAT_PROJECT_ID",
   "REVENUECAT_STRIPE_PUBLIC_API_KEY",
@@ -236,13 +239,134 @@ test("checkout-session rejects a non-http returnUrl", async () => {
 
 test("options answer an empty list when unconfigured", async () => {
   const user = createTestUser();
-  await registerAndAuthenticate(user);
+  const organizationId = await registerAndAuthenticate(user);
 
-  const response = await routeApp.request("/billing/stripe/options", {
-    headers: authHeader(user),
-  });
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/options`,
+    { headers: authHeader(user) },
+  );
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ options: [] });
+});
+
+test("options map a Stripe API failure to 502", async () => {
+  const user = createTestUser();
+  const organizationId = await registerAndAuthenticate(user);
+  Object.assign(process.env, {
+    REVENUECAT_PROJECT_ID: "proj_test",
+    REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_test",
+    REVENUECAT_V2_SECRET_KEY: "sk_rc_test",
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_SOLO_PRICE_ID: "price_solo",
+    STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
+    STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+    STRIPE_WEBHOOK_SECRET: "whsec_test",
+  });
+  const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+    (async () =>
+      new Response("provider failed", {
+        status: 500,
+      })) as unknown as typeof fetch,
+  );
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+
+  try {
+    const response = await routeApp.request(
+      `/organizations/${organizationId}/billing/stripe/options`,
+      { headers: authHeader(user) },
+    );
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      error: "Payment provider request failed",
+    });
+  } finally {
+    fetchSpy.mockRestore();
+    errorSpy.mockRestore();
+    for (const key of ISOLATED_ENV_KEYS) {
+      delete process.env[key];
+    }
+  }
+});
+
+test("unconfigured options skip active-state eligibility", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await db
+    .update(organizationBilling)
+    .set({ status: "active" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/options`,
+    { headers: authHeader(admin) },
+  );
+
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ options: [] });
+});
+
+test("options reject an organization above the largest tier", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  for (let index = 0; index < 10; index += 1) {
+    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+  }
+  Object.assign(process.env, {
+    REVENUECAT_PROJECT_ID: "proj_test",
+    REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_test",
+    REVENUECAT_V2_SECRET_KEY: "sk_rc_test",
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_SOLO_PRICE_ID: "price_solo",
+    STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
+    STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+    STRIPE_WEBHOOK_SECRET: "whsec_test",
+  });
+  try {
+    const response = await routeApp.request(
+      `/organizations/${organizationId}/billing/stripe/options`,
+      { headers: authHeader(admin) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: "billing_roster_over_capacity",
+      error:
+        "The organization exceeds the maximum subscription tier of 10 members",
+    });
+  } finally {
+    for (const key of ISOLATED_ENV_KEYS) {
+      delete process.env[key];
+    }
+  }
+});
+
+test("options reject a caller outside the organization", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const outsider = createTestUser();
+  await registerAndAuthenticate(outsider);
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/options`,
+    { headers: authHeader(outsider) },
+  );
+
+  expect([403, 404]).toContain(response.status);
+});
+
+test("options reject a non-admin organization member", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const member = createTestUser();
+  await registerAndAuthenticate(member);
+  await addEffectiveOrganizationMember(organizationId, member.userId);
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/options`,
+    { headers: authHeader(member) },
+  );
+
+  expect(response.status).toBe(403);
 });
 
 test("the portal validates its return url", async () => {

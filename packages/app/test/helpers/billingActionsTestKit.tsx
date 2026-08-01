@@ -23,6 +23,8 @@ import { PurchasesProvider } from "../../src/providers/purchases/PurchasesProvid
 const NO_POLL: readonly number[] = [];
 
 export const OPTION: SyncSubscriptionOption = {
+  tierId: "solo",
+  seatLimit: 1,
   packageId: "monthly",
   productId: "sync_monthly",
   title: "Sync",
@@ -83,6 +85,7 @@ export function renderBillingActions(input: {
   billingCanSync?: boolean;
   checkoutHostRef?: RefObject<HTMLElement | null>;
   purchases: PurchasesCapability;
+  nativePurchaseAllowed?: boolean;
   refresh?: () => Promise<void>;
   startTrial?: () => Promise<boolean>;
 }) {
@@ -108,6 +111,7 @@ export function renderBillingActions(input: {
           ? { checkoutHostRef: input.checkoutHostRef }
           : {}),
         isOrgAdmin: isOrgAdmin ?? true,
+        nativePurchaseAllowed: input.nativePurchaseAllowed ?? true,
         organizationId,
         refresh: input.refresh ?? (() => Promise.resolve()),
         startTrial: input.startTrial ?? (() => Promise.resolve(true)),

@@ -1,4 +1,6 @@
+import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import type { StripeApiDeps } from "../../billing/stripeApi";
+import { getStripePriceIdForTier } from "../../billing/stripeHttp";
 import {
   normalizeStripeSeatQuantity,
   updateSubscriptionItemQuantity,
@@ -48,6 +50,7 @@ interface ValidSeatBinding {
 }
 
 class StripeSeatPeriodRebound extends Error {}
+class StripeSeatBindingInvalid extends Error {}
 
 function validateSeatBinding(
   claim: StripeSeatSyncClaim,
@@ -60,10 +63,11 @@ function validateSeatBinding(
     !binding.priceId ||
     !binding.seatQuantity
   ) {
-    throw new Error("Stripe subscription has no valid organization seat item");
-  }
-  if (binding.priceId !== claim.priceId) {
-    throw new Error("Stripe subscription seat price changed unexpectedly");
+    // getSubscriptionBinding exposes seatQuantity only when the item's Price
+    // maps to a configured fixed tier, so this also rejects rotated Prices.
+    throw new StripeSeatBindingInvalid(
+      "Stripe subscription has no valid organization seat item",
+    );
   }
   return {
     billingPeriodEndsAt: binding.billingPeriodEndsAt,
@@ -183,12 +187,17 @@ async function synchronizeClaim(
   }
 
   const samePeriod = claim.desiredSeatPeriodKey === claim.appliedSeatPeriodKey;
-  let paidCapacity = samePeriod
-    ? Math.max(claim.appliedPaidCapacity, binding.seatQuantity)
-    : binding.seatQuantity;
+  let paidCapacity = normalizeStripeSeatQuantity(
+    samePeriod
+      ? Math.max(claim.appliedPaidCapacity, binding.seatQuantity)
+      : binding.seatQuantity,
+  );
   let observedQuantity = binding.seatQuantity;
   const operationId = claim.inFlightOperationId;
-  const operationTarget = claim.inFlightTargetCapacity;
+  const operationTarget =
+    claim.inFlightTargetCapacity === null
+      ? null
+      : normalizeStripeSeatQuantity(claim.inFlightTargetCapacity);
   requireProrationEligibleStatus(
     binding.status,
     operationId,
@@ -219,6 +228,7 @@ async function synchronizeClaim(
         stripe: deps.stripe,
         subscriptionItemId: binding.subscriptionItemId,
       });
+      observedQuantity = operationTarget;
     }
     paidCapacity = operationTarget;
   } else if (operationTarget) {
@@ -232,7 +242,14 @@ async function synchronizeClaim(
     normalizeStripeSeatQuantity(claim.desiredRenewalQuantity),
     paidCapacity,
   );
-  if (observedQuantity !== desiredQuantity || operationId !== null) {
+  const desiredTier = getSyncBillingTierForSeatCount(desiredQuantity);
+  if (!desiredTier) {
+    throw new Error("Stripe seat target has no configured billing tier");
+  }
+  // When the prorated capacity write already landed exactly on the renewal
+  // tier, omit a redundant no-proration confirm write; completion compares the
+  // observed and expected quantities from this returned snapshot.
+  if (observedQuantity !== desiredQuantity) {
     await setQuantity({
       claim,
       idempotencyKey:
@@ -251,7 +268,9 @@ async function synchronizeClaim(
     billingPeriodEndsAt: binding.billingPeriodEndsAt,
     billingPeriodStartsAt: binding.billingPeriodStartsAt,
     observedQuantity,
-    priceId: binding.priceId,
+    priceId:
+      getStripePriceIdForTier(desiredTier.id, deps.stripe ?? {}) ??
+      binding.priceId,
     subscriptionItemId: binding.subscriptionItemId,
   };
 }
@@ -286,6 +305,11 @@ export async function runStripeSeatSynchronization(
     } catch (error) {
       if (error instanceof StripeSeatPeriodRebound) {
         continue;
+      }
+      if (error instanceof StripeSeatBindingInvalid) {
+        console.error(
+          `Stripe seat sync for organization ${claim.organizationId} requires attention: ${error.message}`,
+        );
       }
       failed += 1;
       await failOrganizationStripeSeatSync({

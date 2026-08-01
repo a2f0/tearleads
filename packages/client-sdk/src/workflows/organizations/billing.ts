@@ -1,4 +1,8 @@
 import type {
+  RequestResult,
+  RequestResultOptions,
+} from "@tearleads/api-client";
+import type {
   OrganizationBillingHistoryResponse,
   OrganizationBillingManagementUrlResponse,
   OrganizationBillingResponse,
@@ -43,7 +47,10 @@ interface OrganizationBillingApi {
   readonly startOrganizationTrial: (
     organizationId: string,
   ) => Promise<OrganizationBillingResponse | null>;
-  readonly getStripeCheckoutOptions: () => Promise<StripeCheckoutOptionsResponse | null>;
+  readonly getStripeCheckoutOptions: (
+    organizationId: string,
+    options?: RequestResultOptions,
+  ) => Promise<RequestResult<StripeCheckoutOptionsResponse>>;
   readonly createStripeCheckout: (
     organizationId: string,
   ) => Promise<StripeCheckoutIntentResponse | null>;
@@ -94,8 +101,19 @@ export async function startOrganizationTrial(input: {
 
 export async function loadStripeCheckoutOptions(input: {
   readonly apiClient: Pick<OrganizationBillingApi, "getStripeCheckoutOptions">;
+  readonly organizationId: string;
 }): Promise<StripeCheckoutOptions | null> {
-  return input.apiClient.getStripeCheckoutOptions();
+  const result = await input.apiClient.getStripeCheckoutOptions(
+    input.organizationId,
+    { reportErrors: false },
+  );
+  if (!result.ok) {
+    result.report();
+    throw Object.assign(new Error(result.message), {
+      ...(result.code === undefined ? {} : { code: result.code }),
+    });
+  }
+  return result.data;
 }
 
 export async function createStripeCheckout(input: {

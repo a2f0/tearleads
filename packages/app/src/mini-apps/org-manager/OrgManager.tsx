@@ -172,10 +172,14 @@ function OrgManagerContent({
       />
     );
   }
-
   if (model.view === "billing") {
     return (
       <BillingPanel
+        isPersonalOrganization={
+          model.defaultOrganizationId === null
+            ? null
+            : model.defaultOrganizationId === organizationId
+        }
         isOrgAdmin={model.isOrgAdmin}
         organizationId={organizationId}
         userId={model.userId}

@@ -113,8 +113,15 @@ export function BillingDirectCheckout({
   readonly disabled: boolean;
 }) {
   const { option, phase } = checkout;
-  if (!checkout.available || !option) {
+  if (!checkout.available) {
     return null;
+  }
+  if (!option) {
+    return checkout.error ? (
+      <MiniAppSection>
+        <MiniAppStatus tone="error">{checkout.error}</MiniAppStatus>
+      </MiniAppSection>
+    ) : null;
   }
   const collecting = phase.kind === "collecting";
   const confirming = phase.kind === "confirming";

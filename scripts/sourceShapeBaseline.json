@@ -122,8 +122,8 @@
       "bytes": 30916
     },
     "packages/api/src/billing/stripeApi.test.ts": {
-      "lines": 563,
-      "bytes": 18887
+      "lines": 584,
+      "bytes": 18780
     },
     "packages/api/src/billing/stripeApi.ts": {
       "lines": 607,
@@ -162,8 +162,8 @@
       "bytes": 16002
     },
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
-      "lines": 568,
-      "bytes": 18809
+      "lines": 572,
+      "bytes": 18769
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
       "lines": 1340,
@@ -234,12 +234,12 @@
       "bytes": 17315
     },
     "packages/app/src/mini-apps/org-manager/OrgManager.tsx": {
-      "lines": 501,
-      "bytes": 15834
+      "lines": 509,
+      "bytes": 16145
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
-      "lines": 521,
-      "bytes": 16706
+      "lines": 522,
+      "bytes": 16769
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerRefreshers.ts": {
       "lines": 508,

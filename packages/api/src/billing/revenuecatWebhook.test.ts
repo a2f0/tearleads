@@ -52,6 +52,66 @@ test("a purchase event classifies as a grant that activates sync", () => {
   expect(transition.fields.purgeAfter).toBeNull();
 });
 
+test("RevenueCat Web Billing grants fail closed", () => {
+  expect(
+    classifyRevenueCatEvent(
+      makeEvent({ store: "RC_BILLING" }),
+      ACTIVE_GRANT_NOW,
+    ),
+  ).toEqual({
+    kind: "ignore",
+    reason: "RevenueCat Web Billing grants are not supported",
+  });
+});
+
+test("a Stripe grant takes capacity from its immutable subscription binding", () => {
+  const transition = classifyRevenueCatEvent(
+    makeEvent({
+      product_id: "prod_revenuecat_catalog_id",
+      store: "STRIPE",
+    }),
+    ACTIVE_GRANT_NOW,
+    { stripePriceId: "price_team_5", stripeSeatCount: 5 },
+  );
+
+  expect(transition.kind).toBe("grant");
+  if (transition.kind === "grant") {
+    expect(transition.fields.providerProductId).toBe("price_team_5");
+    expect(transition.fields.seatCount).toBe(5);
+  }
+});
+
+test("a native product change grants the newly purchased tier", () => {
+  const transition = classifyRevenueCatEvent(
+    makeEvent({
+      new_product_id: "sync_team_5_monthly",
+      product_id: "sync_monthly",
+      store: "APP_STORE",
+      type: "PRODUCT_CHANGE",
+    }),
+    ACTIVE_GRANT_NOW,
+  );
+
+  expect(transition.kind).toBe("grant");
+  if (transition.kind === "grant") {
+    expect(transition.fields.providerProductId).toBe("sync_team_5_monthly");
+    expect(transition.fields.seatCount).toBe(5);
+  }
+});
+
+test("a native product change without a configured destination fails closed", () => {
+  expect(
+    classifyRevenueCatEvent(
+      makeEvent({
+        new_product_id: null,
+        store: "APP_STORE",
+        type: "PRODUCT_CHANGE",
+      }),
+      ACTIVE_GRANT_NOW,
+    ).kind,
+  ).toBe("ignore");
+});
+
 test("a grant without an expiration has a null period end", () => {
   const transition = classifyRevenueCatEvent(
     makeEvent({ expiration_at_ms: null }),
@@ -177,13 +237,16 @@ test("Stripe-store events resolve their org from the subscription binding", asyn
   const OTHER_ORG_ID = "22222222-2222-4222-8222-222222222222";
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
-    STRIPE_SYNC_PRICE_ID: "price_sync",
+    STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
   };
   const fetchImpl = (async (_input: RequestInfo | URL, _init?: RequestInit) =>
     new Response(
       JSON.stringify({
         id: "sub_1",
         status: "active",
+        items: {
+          data: [{ id: "si_1", price: { id: "price_sync" }, quantity: 1 }],
+        },
         metadata: { userId: "user-1", orgId: ORG_ID },
       }),
     )) as typeof fetch;
@@ -198,7 +261,12 @@ test("Stripe-store events resolve their org from the subscription binding", asyn
     }),
     { env: stripeEnv, fetchImpl },
   );
-  expect(resolved).toEqual({ kind: "resolved", organizationId: ORG_ID });
+  expect(resolved).toEqual({
+    kind: "resolved",
+    organizationId: ORG_ID,
+    priceId: "price_sync",
+    seatCount: 1,
+  });
 
   // Non-Stripe stores fall through to ordinary resolution. A Stripe event
   // without an immutable identifier fails closed.
@@ -232,7 +300,7 @@ test("failed and unconfigured Stripe lookups both defer", async () => {
     await resolveStripeStoreOrganizationId(
       makeEvent({ store: "STRIPE", original_transaction_id: "sub_1" }),
       {
-        env: { STRIPE_SECRET_KEY: "sk", STRIPE_SYNC_PRICE_ID: "p" },
+        env: { STRIPE_SECRET_KEY: "sk", STRIPE_SYNC_SOLO_PRICE_ID: "p" },
         fetchImpl: failingFetch,
       },
     ),
@@ -261,7 +329,7 @@ test("an si_ identifier is verified by an accompanying exact subscription", asyn
   const deps = {
     env: {
       STRIPE_SECRET_KEY: "sk_test",
-      STRIPE_SYNC_PRICE_ID: "price_sync",
+      STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
     },
     fetchImpl,
   };
@@ -275,7 +343,12 @@ test("an si_ identifier is verified by an accompanying exact subscription", asyn
       }),
       deps,
     ),
-  ).toEqual({ kind: "resolved", organizationId: ORG_ID });
+  ).toEqual({
+    kind: "resolved",
+    organizationId: ORG_ID,
+    priceId: "price_sync",
+    seatCount: 1,
+  });
   expect(
     await resolveStripeStoreOrganizationId(
       makeEvent({
@@ -296,6 +369,7 @@ test("Stripe-store grants fall back to transaction_id for the subscription", () 
       transaction_id: "sub_only",
     }),
     ACTIVE_GRANT_NOW,
+    { stripeSeatCount: 1 },
   );
   // Without the fallback the billing row would store no subscription id and
   // the Billing Portal could never resolve this org's subscription.
@@ -327,7 +401,7 @@ test("a missing Stripe subscription fails closed", async () => {
     await resolveStripeStoreOrganizationId(
       makeEvent({ store: "STRIPE", original_transaction_id: "sub_legacy" }),
       {
-        env: { STRIPE_SECRET_KEY: "sk", STRIPE_SYNC_PRICE_ID: "p" },
+        env: { STRIPE_SECRET_KEY: "sk", STRIPE_SYNC_SOLO_PRICE_ID: "p" },
         fetchImpl: notFoundFetch,
       },
     ),
@@ -393,15 +467,16 @@ test("an event with no environment is treated as production", () => {
   );
 });
 
-test("a Stripe test-mode event is exempt from the sandbox gate", () => {
+test("a resolved Stripe test-mode event is exempt from the sandbox gate", () => {
   // RevenueCat marks Stripe test-mode transactions SANDBOX too. Gating them
   // would stop a tier that exercises direct Stripe checkout with test-mode keys
-  // from applying its own web billing — the documented way to test per-seat
+  // from applying its own web billing — the documented way to test fixed-tier
   // enrollment. Stripe attribution is protected instead by the exact
   // subscription binding, which cannot resolve across Stripe modes.
   const transition = classifyRevenueCatEvent(
     makeEvent({ store: "STRIPE", environment: "SANDBOX" }),
     ACTIVE_GRANT_NOW,
+    { stripeSeatCount: 1 },
   );
   expect(transition.kind).toBe("grant");
 });

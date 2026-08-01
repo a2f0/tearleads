@@ -51,7 +51,12 @@ function stripeBinding(input: {
     billingPeriodStartsAt: input.startsAt,
     customerId: "cus_seats",
     organizationId: input.organizationId,
-    priceId: "price_sync",
+    priceId:
+      input.quantity <= 1
+        ? "price_solo"
+        : input.quantity <= 5
+          ? "price_team_5"
+          : "price_team_10",
     seatQuantity: input.quantity,
     subscriptionId: `sub_${subscriptionName}`,
     subscriptionItemId: `si_${subscriptionName}`,
@@ -71,20 +76,20 @@ test("initial paid binding does not inherit a removed trial seat", async () => {
   const trialKey = trialPeriodKey();
   await db.insert(organizationBilling).values({
     organizationId,
-    seatCount: 3,
+    seatCount: 5,
     seatPeriodKey: trialKey,
     status: "trialing",
     trialEndsAt: TRIAL_END,
   });
   await db.insert(organizationBillingStripeSeats).values({
-    appliedPaidCapacity: 3,
+    appliedPaidCapacity: 5,
     appliedSeatPeriodKey: trialKey,
-    desiredPaidCapacity: 3,
-    desiredRenewalQuantity: 2,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 1,
     desiredRevision: 1,
     desiredSeatPeriodKey: trialKey,
     inFlightOperationId: "trial-operation",
-    inFlightTargetCapacity: 3,
+    inFlightTargetCapacity: 5,
     leaseExpiresAt: new Date(NOW.getTime() + 60_000),
     leaseId: "trial-lease",
     nextAttemptAt: NOW,
@@ -96,47 +101,47 @@ test("initial paid binding does not inherit a removed trial seat", async () => {
     stripeBinding({
       endsAt: OLD_END,
       organizationId,
-      quantity: 2,
+      quantity: 1,
       startsAt: OLD_START,
     }),
     NOW,
   );
 
   expect(await readStripeSeats(organizationId)).toMatchObject({
-    appliedPaidCapacity: 2,
+    appliedPaidCapacity: 1,
     appliedSeatPeriodKey: paidPeriodKey(OLD_START, OLD_END),
-    desiredPaidCapacity: 2,
-    desiredRenewalQuantity: 2,
+    desiredPaidCapacity: 1,
+    desiredRenewalQuantity: 1,
     desiredSeatPeriodKey: paidPeriodKey(OLD_START, OLD_END),
     inFlightOperationId: null,
     leaseId: null,
   });
 });
 
-test("renewal replaces the old-period high-water with renewed quantity", async () => {
+test("renewal replaces the old-period high-water with renewed capacity", async () => {
   const organizationId = crypto.randomUUID();
   const oldKey = paidPeriodKey(OLD_START, OLD_END);
   await db.insert(organizationBilling).values({
     currentPeriodEndsAt: OLD_END,
     currentPeriodStartsAt: OLD_START,
     organizationId,
-    seatCount: 3,
+    seatCount: 5,
     seatPeriodKey: oldKey,
     status: "active",
   });
   const binding = stripeBinding({
     endsAt: NEW_END,
     organizationId,
-    quantity: 2,
+    quantity: 1,
     startsAt: NEW_START,
   });
   await db.insert(organizationBillingStripeSeats).values({
-    appliedPaidCapacity: 3,
+    appliedPaidCapacity: 5,
     appliedSeatPeriodKey: oldKey,
     billingPeriodEndsAt: OLD_END,
     billingPeriodStartsAt: OLD_START,
-    desiredPaidCapacity: 3,
-    desiredRenewalQuantity: 2,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 1,
     desiredRevision: 1,
     desiredSeatPeriodKey: oldKey,
     nextAttemptAt: NOW,
@@ -153,10 +158,10 @@ test("renewal replaces the old-period high-water with renewed quantity", async (
   );
 
   expect(await readStripeSeats(organizationId)).toMatchObject({
-    appliedPaidCapacity: 2,
+    appliedPaidCapacity: 1,
     appliedSeatPeriodKey: paidPeriodKey(NEW_START, NEW_END),
-    desiredPaidCapacity: 2,
-    desiredRenewalQuantity: 2,
+    desiredPaidCapacity: 1,
+    desiredRenewalQuantity: 1,
     desiredSeatPeriodKey: paidPeriodKey(NEW_START, NEW_END),
     lastInvoiceId: "in_new_period",
   });
@@ -169,27 +174,27 @@ test("a same-period invoice cannot erase paid capacity", async () => {
     currentPeriodEndsAt: NEW_END,
     currentPeriodStartsAt: NEW_START,
     organizationId,
-    seatCount: 3,
+    seatCount: 5,
     seatPeriodKey: periodKey,
     status: "active",
   });
   const binding = stripeBinding({
     endsAt: NEW_END,
     organizationId,
-    quantity: 2,
+    quantity: 1,
     startsAt: NEW_START,
   });
   await db.insert(organizationBillingStripeSeats).values({
-    appliedPaidCapacity: 3,
+    appliedPaidCapacity: 5,
     appliedSeatPeriodKey: periodKey,
     billingPeriodEndsAt: NEW_END,
     billingPeriodStartsAt: NEW_START,
-    desiredPaidCapacity: 3,
-    desiredRenewalQuantity: 2,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 1,
     desiredRevision: 1,
     desiredSeatPeriodKey: periodKey,
     nextAttemptAt: NOW,
-    observedQuantity: 2,
+    observedQuantity: 1,
     organizationId,
     priceId: binding.priceId,
     subscriptionId: binding.subscriptionId,
@@ -203,8 +208,8 @@ test("a same-period invoice cannot erase paid capacity", async () => {
   );
 
   expect(await readStripeSeats(organizationId)).toMatchObject({
-    appliedPaidCapacity: 3,
-    desiredPaidCapacity: 3,
+    appliedPaidCapacity: 5,
+    desiredPaidCapacity: 5,
     lastInvoiceId: "in_delayed_same_period",
   });
 });
@@ -354,12 +359,12 @@ test("provider item identity tie-breaks an equal-period replacement", async () =
 
   // Seed the predecessor as if it predated the provider-identity update.
   await db.insert(organizationBillingStripeSeats).values({
-    appliedPaidCapacity: 2,
+    appliedPaidCapacity: 5,
     appliedSeatPeriodKey: paidPeriodKey(OLD_START, OLD_END),
     billingPeriodEndsAt: OLD_END,
     billingPeriodStartsAt: OLD_START,
-    desiredPaidCapacity: 2,
-    desiredRenewalQuantity: 2,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
     desiredRevision: 1,
     desiredSeatPeriodKey: paidPeriodKey(OLD_START, OLD_END),
     nextAttemptAt: NOW,
@@ -385,22 +390,22 @@ test("a delayed local period cannot roll provider seat state backward", async ()
   const organizationId = crypto.randomUUID();
   const providerKey = paidPeriodKey(OLD_START, OLD_END);
   await db.insert(organizationBillingStripeSeats).values({
-    appliedPaidCapacity: 2,
+    appliedPaidCapacity: 5,
     appliedSeatPeriodKey: providerKey,
-    desiredPaidCapacity: 2,
-    desiredRenewalQuantity: 2,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
     desiredRevision: 1,
     desiredSeatPeriodKey: providerKey,
     nextAttemptAt: NOW,
     organizationId,
-    priceId: "price_sync",
+    priceId: "price_team_5",
     subscriptionId: `sub_${organizationId}`,
     subscriptionItemId: `si_${organizationId}`,
   });
 
   await requestOrganizationStripeSeatSync({
-    desiredPaidCapacity: 3,
-    desiredRenewalQuantity: 2,
+    desiredPaidCapacity: 1,
+    desiredRenewalQuantity: 5,
     desiredSeatPeriodKey: trialPeriodKey(),
     executor: db,
     now: NOW,
@@ -408,8 +413,8 @@ test("a delayed local period cannot roll provider seat state backward", async ()
   });
 
   expect(await readStripeSeats(organizationId)).toMatchObject({
-    desiredPaidCapacity: 2,
-    desiredRenewalQuantity: 2,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
     desiredSeatPeriodKey: providerKey,
   });
 });

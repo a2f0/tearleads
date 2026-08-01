@@ -3,30 +3,46 @@ import type {
   DatabaseSession,
 } from "@tearleads/api-shared/postgres";
 import {
-  type OrganizationBillingStatus,
-  organizationBilling,
+  organizationBillingStripeSeats,
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
-import { and, eq, gt } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
+  BOUND_REVENUECAT_TIER_REQUIRED_REASON,
   classifyRevenueCatEvent,
+  isRevenueCatGrantEventType,
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
   SANDBOX_IGNORED_REASON,
+  UNCONFIGURED_SYNC_BILLING_TIER_REASON,
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
-import { requireDirectOrganizationAccess } from "../organizations/access";
-import { OrganizationManagerError } from "../organizations/errors";
-import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import {
+  resolveBoundRevenueCatGrantTransition,
+  resolveRevenueCatGrantCapacity,
+} from "./revenuecatGrantCapacity";
+import { resolveNativeStripeConflictReason } from "./revenuecatProviderConflict";
 import {
   type ImmutableStripeStoreOrgResolution,
   type LockedBillingIdentity,
   resolveImmutableStripeStoreOrganizationId,
   validateLockedStripeStoreOrganizationId,
 } from "./revenuecatStripeResolution";
+import { applyRevenueCatTransition } from "./revenuecatWebhookApplication";
+import { logUnappliedRevenueCatGrant } from "./revenuecatWebhookLogging";
+import {
+  isStripeEventSupersededByNative,
+  lockRevenueCatBillingIdentity,
+  resolveLockedStripeTierFallback,
+  resolveRevenueCatIgnoredReason,
+  SUPERSEDED_STRIPE_EVENT_REASON,
+  UNRESOLVED_STRIPE_TIER_REASON,
+} from "./revenuecatWebhookPolicy";
+import type { RevenueCatWebhookOutcome } from "./revenuecatWebhookTypes";
+
+export type { RevenueCatWebhookOutcome } from "./revenuecatWebhookTypes";
 
 /**
  * Disposition of a processed RevenueCat webhook event:
@@ -35,180 +51,196 @@ import {
  *   no/unknown org, or a non-admin buyer).
  * - `duplicate`: the event id was already processed; nothing was re-applied.
  */
-export type RevenueCatWebhookOutcome =
-  | {
-      status: "applied";
-      organizationId: string;
-      billingStatus: OrganizationBillingStatus;
-    }
-  | { status: "ignored"; reason: string }
-  | { status: "duplicate" }
-  /**
-   * The event could not be safely attributed right now (e.g. a Stripe-store
-   * event whose immutable subscription lookup failed). Nothing was recorded
-   * or claimed; the route answers non-2xx so RevenueCat redelivers.
-   */
-  | { status: "retry"; reason: string };
-
-async function isOrganizationAdmin(
-  executor: DatabaseSession,
-  organizationId: string,
-  userId: string,
-): Promise<boolean> {
-  try {
-    await requireDirectOrganizationAccess({
-      executor,
-      organizationId,
-      requireAdmin: true,
-      userId,
-    });
-    return true;
-  } catch (error) {
-    if (error instanceof OrganizationManagerError) {
-      return false;
-    }
-    throw error;
-  }
-}
-
-/**
- * Loads the org's billing row and, on Postgres, takes a `FOR UPDATE` row lock on
- * it. The lock serializes concurrent webhook transactions for the SAME org:
- * without it, two events racing could both pass {@link hasNewerAppliedEvent} and
- * commit out of order (last write wins regardless of event time). SQLite writes
- * are already serialized, so the lock is Postgres-only.
- */
-async function lockBillingIdentity(
-  executor: DatabaseSession,
-  organizationId: string,
-): Promise<LockedBillingIdentity | undefined> {
-  const lockQuery = executor
-    .select({
-      providerCustomerId: organizationBilling.providerCustomerId,
-      providerSubscriptionId: organizationBilling.providerSubscriptionId,
-    })
-    .from(organizationBilling)
-    .where(eq(organizationBilling.organizationId, organizationId))
-    .limit(1);
-  const [row] = isSqliteApiDatabase()
-    ? await lockQuery
-    : await lockQuery.for("update");
-  return row;
-}
-
-async function hasNewerAppliedEvent(
-  executor: DatabaseSession,
-  organizationId: string,
-  event: RevenueCatWebhookEvent,
-): Promise<boolean> {
-  const [newer] = await executor
-    .select({ id: revenuecatWebhookEvents.id })
-    .from(revenuecatWebhookEvents)
-    .where(
-      and(
-        eq(revenuecatWebhookEvents.organizationId, organizationId),
-        eq(revenuecatWebhookEvents.outcome, "applied"),
-        gt(
-          revenuecatWebhookEvents.eventTimestamp,
-          new Date(event.event_timestamp_ms),
-        ),
-      ),
-    )
-    .limit(1);
-  return newer !== undefined;
-}
-
-/**
- * Read-only reason the event should NOT be applied, or null when it should.
- * Runs before the idempotency claim so the recorded outcome is accurate and no
- * write happens for events we ultimately ignore.
- */
-async function resolveIgnoredReason(
-  executor: DatabaseSession,
-  transition: RevenueCatBillingTransition,
-  organizationId: string | null,
-  event: RevenueCatWebhookEvent,
-  billing: LockedBillingIdentity | undefined,
-): Promise<string | null> {
-  if (transition.kind === "ignore") {
-    return transition.reason;
-  }
-  if (organizationId === null) {
-    return "Event carried no organization id";
-  }
-
-  if (!billing) {
-    return "Unknown organization";
-  }
-
-  // Reject stale, out-of-order deliveries: if a newer event has already been
-  // *applied* to this org, do not let this older event overwrite it (e.g. a
-  // retried EXPIRATION arriving after the RENEWAL that superseded it). Only
-  // applied events count, so an ignored/test event can never block a real one.
-  if (await hasNewerAppliedEvent(executor, organizationId, event)) {
-    return "A newer billing event has already been applied";
-  }
-
-  // Binding a new RevenueCat customer to an org requires the buyer to be an
-  // admin; renewals for an already-bound customer skip the re-check.
-  if (
-    transition.kind === "grant" &&
-    billing.providerCustomerId !== event.app_user_id &&
-    !(await isOrganizationAdmin(executor, organizationId, event.app_user_id))
-  ) {
-    return "Buyer is not an organization admin";
-  }
-
-  return null;
-}
-
-type AppliedRevenueCatTransition = Exclude<
-  RevenueCatBillingTransition,
-  { kind: "ignore" }
->;
-
 type PreclaimDisposition =
-  | { kind: "continue"; ignoredReason: string | null }
+  | {
+      kind: "continue";
+      deleteStripeBinding: boolean;
+      ignoredReason: string | null;
+      preserveStripeBinding: boolean;
+      skipSeatReconciliation: boolean;
+      transition: RevenueCatBillingTransition;
+      warning: string | null;
+    }
   | { kind: "retry"; reason: string };
 
-async function resolvePreclaimDisposition(input: {
+interface RevenueCatPreclaimInput {
+  readonly allowSandboxEvents: boolean;
+  readonly event: RevenueCatWebhookEvent;
+  readonly executor: DatabaseSession;
+  readonly now: Date;
+  readonly organizationId: string | null;
+  readonly stripeResolution: ImmutableStripeStoreOrgResolution;
+  readonly stripeTierUnresolved: boolean;
+  readonly transition: RevenueCatBillingTransition;
+}
+
+async function resolveGrantApplicationDisposition(input: {
+  readonly billing: LockedBillingIdentity | undefined;
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
   readonly organizationId: string | null;
-  readonly stripeResolution: ImmutableStripeStoreOrgResolution;
+  readonly skipSeatReconciliation: boolean;
   readonly transition: RevenueCatBillingTransition;
+  readonly warning: string | null;
 }): Promise<PreclaimDisposition> {
-  // Binding writers take this same lock before updating the outbox. Validate
-  // the pre-transaction candidate only after it is held.
+  const nativeStripeConflict =
+    input.transition.kind === "grant" && input.organizationId && input.billing
+      ? await resolveNativeStripeConflictReason({
+          executor: input.executor,
+          organizationId: input.organizationId,
+          status: input.billing.status,
+          store: input.event.store,
+        })
+      : null;
+  const capacity =
+    input.organizationId && nativeStripeConflict === null
+      ? await resolveRevenueCatGrantCapacity({
+          event: input.event,
+          executor: input.executor,
+          organizationId: input.organizationId,
+          transition: input.transition,
+        })
+      : { kind: "within_capacity" as const };
+  const capacityWarning =
+    capacity.kind === "apply_without_reconciliation" ? capacity.reason : null;
+  return {
+    deleteStripeBinding: false,
+    ignoredReason: null,
+    kind: "continue",
+    preserveStripeBinding: nativeStripeConflict !== null,
+    skipSeatReconciliation:
+      input.skipSeatReconciliation ||
+      nativeStripeConflict !== null ||
+      capacity.kind === "apply_without_reconciliation",
+    transition: input.transition,
+    warning:
+      [input.warning, nativeStripeConflict, capacityWarning]
+        .filter((reason): reason is string => reason !== null)
+        .join("; ") || null,
+  };
+}
+
+function unresolvedStripeTierRetry(
+  event: RevenueCatWebhookEvent,
+): PreclaimDisposition {
+  console.error(
+    `RevenueCat paid grant ${event.id} was not applied: ${UNRESOLVED_STRIPE_TIER_REASON}`,
+  );
+  return { kind: "retry", reason: UNRESOLVED_STRIPE_TIER_REASON };
+}
+
+function unconfiguredGrantRetry(
+  event: RevenueCatWebhookEvent,
+  transition: RevenueCatBillingTransition,
+): PreclaimDisposition | null {
+  const shouldRetry =
+    transition.kind === "ignore" &&
+    transition.reason === UNCONFIGURED_SYNC_BILLING_TIER_REASON &&
+    isRevenueCatGrantEventType(event.type);
+  if (!shouldRetry) return null;
+  console.error(
+    `RevenueCat paid grant ${event.id} was not applied: ${UNCONFIGURED_SYNC_BILLING_TIER_REASON}`,
+  );
+  return { kind: "retry", reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON };
+}
+
+async function stripeBindingChanged(
+  input: RevenueCatPreclaimInput,
+  billing: LockedBillingIdentity | undefined,
+): Promise<boolean> {
+  return input.stripeResolution.kind === "resolved" && billing
+    ? !(await validateLockedStripeStoreOrganizationId({
+        billing,
+        event: input.event,
+        executor: input.executor,
+        resolution: input.stripeResolution,
+      }))
+    : false;
+}
+
+async function resolvePreclaimDisposition(
+  input: RevenueCatPreclaimInput,
+): Promise<PreclaimDisposition> {
   const billing =
-    input.transition.kind !== "ignore" && input.organizationId !== null
-      ? await lockBillingIdentity(input.executor, input.organizationId)
+    (input.transition.kind !== "ignore" ||
+      input.transition.reason === BOUND_REVENUECAT_TIER_REQUIRED_REASON) &&
+    input.organizationId !== null
+      ? await lockRevenueCatBillingIdentity(
+          input.executor,
+          input.organizationId,
+        )
       : undefined;
-  if (
-    input.stripeResolution.kind === "resolved" &&
-    billing &&
-    !(await validateLockedStripeStoreOrganizationId({
-      billing,
-      event: input.event,
-      executor: input.executor,
-      resolution: input.stripeResolution,
-    }))
-  ) {
+  let transition = resolveBoundRevenueCatGrantTransition({
+    allowSandboxEvents: input.allowSandboxEvents,
+    billing,
+    event: input.event,
+    now: input.now,
+    transition: input.transition,
+  });
+  const grantRetry = unconfiguredGrantRetry(input.event, transition);
+  if (grantRetry) return grantRetry;
+  if (await stripeBindingChanged(input, billing)) {
     return {
       kind: "retry",
       reason: "Stripe binding changed before RevenueCat event application",
     };
   }
-  return {
-    ignoredReason: await resolveIgnoredReason(
-      input.executor,
-      input.transition,
-      input.organizationId,
-      input.event,
+  if (isStripeEventSupersededByNative(billing, input.stripeResolution)) {
+    return {
+      deleteStripeBinding: transition.kind === "revoke",
+      ignoredReason: SUPERSEDED_STRIPE_EVENT_REASON,
+      kind: "continue",
+      preserveStripeBinding: false,
+      skipSeatReconciliation: true,
+      transition,
+      warning: null,
+    };
+  }
+  let warning: string | null = null;
+  if (
+    input.stripeTierUnresolved &&
+    input.stripeResolution.kind === "resolved"
+  ) {
+    const fallback = resolveLockedStripeTierFallback({
+      allowSandboxEvents: input.allowSandboxEvents,
       billing,
-    ),
-    kind: "continue",
-  };
+      event: input.event,
+      now: input.now,
+      resolution: input.stripeResolution,
+    });
+    if (!fallback || fallback.kind !== "grant") {
+      return unresolvedStripeTierRetry(input.event);
+    }
+    transition = fallback;
+    warning = `${UNRESOLVED_STRIPE_TIER_REASON}; preserving the locked billing tier`;
+  }
+  const ignoredReason = await resolveRevenueCatIgnoredReason({
+    billing,
+    event: input.event,
+    executor: input.executor,
+    organizationId: input.organizationId,
+    transition,
+  });
+  if (ignoredReason) {
+    return {
+      deleteStripeBinding: false,
+      ignoredReason,
+      kind: "continue",
+      preserveStripeBinding: false,
+      skipSeatReconciliation: true,
+      transition,
+      warning: null,
+    };
+  }
+  return resolveGrantApplicationDisposition({
+    billing,
+    event: input.event,
+    executor: input.executor,
+    organizationId: input.organizationId,
+    skipSeatReconciliation: warning !== null,
+    transition,
+    warning,
+  });
 }
 
 async function claimRevenueCatEvent(input: {
@@ -243,41 +275,14 @@ async function claimRevenueCatEvent(input: {
   return claimed !== undefined;
 }
 
-async function applyRevenueCatTransition(input: {
-  readonly event: RevenueCatWebhookEvent;
-  readonly executor: DatabaseSession;
-  readonly now: Date;
-  readonly organizationId: string;
-  readonly transition: AppliedRevenueCatTransition;
-}): Promise<RevenueCatWebhookOutcome> {
-  await input.executor
-    .update(organizationBilling)
-    .set({ ...input.transition.fields, updatedAt: input.now })
-    .where(eq(organizationBilling.organizationId, input.organizationId));
-  if (input.transition.kind === "grant") {
-    await reconcileOrganizationBillingSeats({
-      executor: input.executor,
-      now: input.now,
-      organizationId: input.organizationId,
-      source: {
-        sourceId: input.event.id,
-        sourceType: "provider_event",
-      },
-    });
-  }
-  return {
-    status: "applied",
-    organizationId: input.organizationId,
-    billingStatus: input.transition.fields.status,
-  };
-}
-
 async function runRevenueCatWebhookTransaction(input: {
+  readonly allowSandboxEvents: boolean;
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
   readonly now: Date;
   readonly organizationId: string | null;
   readonly stripeResolution: ImmutableStripeStoreOrgResolution;
+  readonly stripeTierUnresolved: boolean;
   readonly transition: RevenueCatBillingTransition;
 }): Promise<RevenueCatWebhookOutcome> {
   const disposition = await resolvePreclaimDisposition(input);
@@ -293,19 +298,37 @@ async function runRevenueCatWebhookTransaction(input: {
   if (!claimed) {
     return { status: "duplicate" };
   }
+  if (disposition.deleteStripeBinding && input.organizationId !== null) {
+    await input.executor
+      .delete(organizationBillingStripeSeats)
+      .where(
+        eq(organizationBillingStripeSeats.organizationId, input.organizationId),
+      );
+  }
   if (disposition.ignoredReason) {
     return { status: "ignored", reason: disposition.ignoredReason };
   }
-  if (input.transition.kind === "ignore" || input.organizationId === null) {
+  if (
+    disposition.transition.kind === "ignore" ||
+    input.organizationId === null
+  ) {
     return { status: "ignored", reason: "Event carried no organization id" };
   }
-  return applyRevenueCatTransition({
+  const outcome = await applyRevenueCatTransition({
     event: input.event,
     executor: input.executor,
     now: input.now,
     organizationId: input.organizationId,
-    transition: input.transition,
+    preserveStripeBinding: disposition.preserveStripeBinding,
+    reconcileSeats: !disposition.skipSeatReconciliation,
+    transition: disposition.transition,
   });
+  if (disposition.warning) {
+    console.error(
+      `RevenueCat paid grant ${input.event.id} requires attention: ${disposition.warning}`,
+    );
+  }
+  return outcome;
 }
 
 /**
@@ -330,15 +353,22 @@ export async function runRevenueCatWebhookWorkflow(
   now: Date = new Date(),
   deps: { stripe?: StripeApiDeps; env?: NodeJS.ProcessEnv } = {},
 ): Promise<RevenueCatWebhookOutcome> {
-  const transition = classifyRevenueCatEvent(event, now, {
+  const isStripeStore = event.store?.toUpperCase() === "STRIPE";
+  const classificationOptions = {
     // A store-sandbox purchase (StoreKit sandbox, TestFlight, Play internal
     // testing) is free to the tester but emits an event otherwise identical to
     // a paid one, so only a tier that opts in applies it.
     allowSandboxEvents: allowsRevenueCatSandboxEvents(deps.env ?? process.env),
-  });
+    ...(isStripeStore ? { stripeSeatCount: 1 } : {}),
+  };
+  const initialTransition = classifyRevenueCatEvent(
+    event,
+    now,
+    classificationOptions,
+  );
   if (
-    transition.kind === "ignore" &&
-    transition.reason === SANDBOX_IGNORED_REASON
+    initialTransition.kind === "ignore" &&
+    initialTransition.reason === SANDBOX_IGNORED_REASON
   ) {
     // Otherwise the only trace of a dropped sandbox event is a database row,
     // which reads exactly like the "webhook that silently does nothing" a
@@ -347,7 +377,7 @@ export async function runRevenueCatWebhookWorkflow(
     // production ignores (an unhandled type, a cancellation without lapse)
     // are ordinary traffic and must not warn.
     console.warn(
-      `RevenueCat event ${event.id} (${event.type}, store=${event.store ?? "unknown"}, environment=${event.environment}) ignored: ${transition.reason}`,
+      `RevenueCat event ${event.id} (${event.type}, store=${event.store ?? "unknown"}, environment=${event.environment}) ignored: ${initialTransition.reason}`,
     );
   }
   // Stripe-store events use the immutable per-subscription org binding — the
@@ -355,10 +385,9 @@ export async function runRevenueCatWebhookWorkflow(
   // another org. A FAILED lookup on an event that would change billing must
   // defer (never fall back to the attribute, never claim the event id) so a
   // redelivery can attribute it correctly.
-  // Ignorable events never consult Stripe. They cannot change billing, and a
-  // Stripe-store audit row is recorded without attributing the mutable orgId.
+  // Ignorable events do not consult Stripe or trust its mutable orgId.
   const stripeResolution =
-    transition.kind === "ignore"
+    initialTransition.kind === "ignore"
       ? ({ kind: "none" } satisfies ImmutableStripeStoreOrgResolution)
       : await resolveImmutableStripeStoreOrganizationId(
           db,
@@ -371,6 +400,20 @@ export async function runRevenueCatWebhookWorkflow(
       reason: "Stripe subscription lookup failed for a Stripe-store event",
     };
   }
+  const stripeTierUnresolved =
+    initialTransition.kind === "grant" &&
+    stripeResolution.kind === "resolved" &&
+    (stripeResolution.priceId === null || stripeResolution.seatCount === null);
+  const transition =
+    stripeResolution.kind === "resolved"
+      ? classifyRevenueCatEvent(event, now, {
+          ...classificationOptions,
+          ...(stripeResolution.priceId
+            ? { stripePriceId: stripeResolution.priceId }
+            : {}),
+          stripeSeatCount: stripeResolution.seatCount ?? 1,
+        })
+      : initialTransition;
   const organizationId =
     stripeResolution.kind === "resolved"
       ? stripeResolution.organizationId
@@ -378,14 +421,18 @@ export async function runRevenueCatWebhookWorkflow(
         ? null
         : resolveOrganizationIdFromEvent(event);
 
-  return db.transaction((tx) =>
+  const outcome = await db.transaction((tx) =>
     runRevenueCatWebhookTransaction({
+      allowSandboxEvents: classificationOptions.allowSandboxEvents,
       event,
       executor: tx,
       now,
       organizationId,
       stripeResolution,
+      stripeTierUnresolved,
       transition,
     }),
   );
+  logUnappliedRevenueCatGrant(event, outcome);
+  return outcome;
 }

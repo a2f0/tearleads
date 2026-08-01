@@ -866,17 +866,17 @@ export class ApiClient {
       "GET",
     );
   }
-
-  /**
-   * Purchasable sync options for the direct Stripe checkout. Answers an empty
-   * list (not an error) when the integration is unconfigured, so the billing
-   * panel can simply fall back to the provider-hosted flow.
-   */
-  getStripeCheckoutOptions() {
-    return this.request(
-      "/billing/stripe/options",
+  /** Empty options means unconfigured; 403/409 remain errors. */
+  getStripeCheckoutOptions(
+    organizationId: string,
+    options: RequestResultOptions = {},
+  ) {
+    return this.makeRequestResult(
+      `/organizations/${pathSegment(organizationId)}/billing/stripe/options`,
       isStripeCheckoutOptionsResponse,
       "GET",
+      undefined,
+      options,
     );
   }
 

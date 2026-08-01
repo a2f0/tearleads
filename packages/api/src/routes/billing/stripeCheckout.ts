@@ -8,9 +8,9 @@ import {
   createStripeCheckout,
   createStripeCheckoutSession,
   createStripePortalUrl,
-  getStripeCheckoutOptions,
   processStripeWebhook,
 } from "../../services/billing/stripeCheckout";
+import { getStripeCheckoutOptions } from "../../services/billing/stripeCheckoutOptions";
 import {
   type OrganizationsRouterDeps,
   parseOrganizationId,
@@ -121,17 +121,20 @@ export function createStripeCheckoutRoute({
   // environment only when constructed without them (e.g. a bare test app).
   const allowedOrigins = corsOrigins ?? readApiCorsOrigins();
 
-  route.get("/billing/stripe/options", requireAuth, async (c) => {
-    try {
-      return c.json(await getStripeCheckoutOptions());
-    } catch (error) {
-      if (error instanceof StripeApiError) {
-        console.error("Stripe options lookup failed:", error.message);
-        return c.json({ error: "Payment provider request failed" }, 502);
-      }
-      throw error;
-    }
-  });
+  route.get(
+    "/organizations/:organizationId/billing/stripe/options",
+    requireAuth,
+    (c) =>
+      respondForOrganization(c, async (organizationId, sessionUserId) =>
+        c.json(
+          await getStripeCheckoutOptions(
+            runtime,
+            organizationId,
+            sessionUserId,
+          ),
+        ),
+      ),
+  );
 
   route.post(
     "/organizations/:organizationId/billing/stripe/checkout",

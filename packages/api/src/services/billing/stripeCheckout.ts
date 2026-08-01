@@ -1,9 +1,5 @@
 import { isUuidV4String } from "@tearleads/validators/util";
-import {
-  associateStripeSubscription,
-  isRevenueCatAssociationConfigured,
-  type RevenueCatAssociationDeps,
-} from "../../billing/revenueCatStripeAssociation";
+import { associateStripeSubscription } from "../../billing/revenueCatStripeAssociation";
 import {
   cancelSubscriptionAtPeriodEnd,
   createCheckoutSession,
@@ -11,13 +7,10 @@ import {
   createSyncSubscription,
   findLiveOrgSubscription,
   findOrCreateCustomer,
-  getStripeSyncOption,
   hasOpenOrgSubscription,
   isStripeCheckoutConfigured,
-  type StripeApiDeps,
   StripeApiError,
   type StripeCheckoutIntent,
-  type StripeSyncOption,
 } from "../../billing/stripeApi";
 import { getSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
 import {
@@ -38,45 +31,15 @@ import {
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import {
+  isDirectCheckoutFullyConfigured,
+  type StripeCheckoutServiceDeps,
+} from "./stripeCheckoutConfiguration";
+import {
   reconcilesSeatPeriod,
   resolveAndRecordStripeInvoiceAudit,
 } from "./stripeInvoiceAudit";
 
 /** Direct Stripe checkout services; user-facing calls enforce org-admin access. */
-
-interface StripeCheckoutServiceDeps {
-  readonly stripe?: StripeApiDeps;
-  readonly revenueCat?: RevenueCatAssociationDeps;
-}
-
-/**
- * Checkout may only be offered when the WHOLE Stripe-to-RevenueCat flow is
- * configured. With only the Stripe half present a buyer could be charged for
- * a subscription the webhook can never associate — no entitlement would ever
- * be granted — so a partial configuration reads as "not configured".
- */
-function isDirectCheckoutFullyConfigured(
-  deps: StripeCheckoutServiceDeps,
-): boolean {
-  const stripeEnv = deps.stripe?.env ?? process.env;
-  const revenueCatEnv = deps.revenueCat?.env ?? process.env;
-  return (
-    isStripeCheckoutConfigured(deps.stripe ?? {}) &&
-    readStripeWebhookSecret(stripeEnv) !== null &&
-    isRevenueCatAssociationConfigured(revenueCatEnv)
-  );
-}
-
-/** Options are empty (not an error) when the integration is unconfigured. */
-export async function getStripeCheckoutOptions(
-  deps: StripeCheckoutServiceDeps = {},
-): Promise<{ options: StripeSyncOption[] }> {
-  if (!isDirectCheckoutFullyConfigured(deps)) {
-    return { options: [] };
-  }
-  const option = await getStripeSyncOption(deps.stripe ?? {});
-  return { options: option ? [option] : [] };
-}
 
 /**
  * Creates the incomplete subscription for the org and returns what the

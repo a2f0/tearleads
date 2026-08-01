@@ -1,4 +1,8 @@
 import {
+  getSyncBillingTier,
+  type SyncBillingTierId,
+} from "@tearleads/validators/billing";
+import {
   prop,
   readString,
   resolveDeps,
@@ -8,6 +12,8 @@ import {
 
 /** The configured sync subscription price shaped for client display. */
 export interface StripeSyncOption {
+  readonly tierId: SyncBillingTierId;
+  readonly seatLimit: number;
   readonly priceId: string;
   readonly productName: string;
   readonly currency: string;
@@ -25,32 +31,61 @@ function readPositiveInteger(value: unknown): number | null {
     : null;
 }
 
-/** Fetches the configured sync price with its product expanded. */
+/** Fetches and validates the configured monthly USD Price for one tier. */
 export async function getStripeSyncOption(
+  tierId: SyncBillingTierId,
   deps: StripeApiDeps = {},
 ): Promise<StripeSyncOption | null> {
-  const { fetchImpl, secretKey, syncPriceId } = resolveDeps(deps);
+  const { fetchImpl, secretKey, syncPriceIds } = resolveDeps(deps);
+  const syncPriceId = syncPriceIds[tierId];
   if (!secretKey || !syncPriceId) {
     return null;
   }
+  const tier = getSyncBillingTier(tierId);
   const body = await stripeRequest({
     fetchImpl,
     secretKey,
     method: "GET",
-    path: `/v1/prices/${encodeURIComponent(syncPriceId)}?expand[]=product`,
+    path: `/v1/prices/${encodeURIComponent(syncPriceId)}`,
     operation: "price lookup",
   });
   if (typeof body !== "object" || body === null) {
     return null;
   }
   const recurring = prop(body, "recurring");
-  const unitAmount = prop(body, "unit_amount");
+  const unitAmount = readPositiveInteger(prop(body, "unit_amount"));
+  const priceId = readString(prop(body, "id"));
+  const currency = readString(prop(body, "currency"));
+  const interval = readString(prop(recurring, "interval"));
+  const intervalCount = readPositiveInteger(prop(recurring, "interval_count"));
+  if (
+    priceId !== syncPriceId ||
+    currency !== "usd" ||
+    unitAmount !== tier.monthlyPriceUsdCents ||
+    interval !== "month" ||
+    intervalCount !== 1
+  ) {
+    console.error("Configured Stripe Price does not match its billing tier", {
+      actual: { currency, interval, intervalCount, priceId, unitAmount },
+      expected: {
+        currency: "usd",
+        interval: "month",
+        intervalCount: 1,
+        priceId: syncPriceId,
+        unitAmount: tier.monthlyPriceUsdCents,
+      },
+      tierId,
+    });
+    return null;
+  }
   return {
-    priceId: readString(prop(body, "id")) ?? syncPriceId,
-    productName: readString(prop(prop(body, "product"), "name")) ?? "Sync",
-    currency: readString(prop(body, "currency")) ?? "usd",
-    unitAmount: typeof unitAmount === "number" ? unitAmount : null,
-    interval: readString(prop(recurring, "interval")),
-    intervalCount: readPositiveInteger(prop(recurring, "interval_count")),
+    tierId,
+    seatLimit: tier.seatLimit,
+    priceId,
+    productName: tier.title,
+    currency,
+    unitAmount,
+    interval,
+    intervalCount,
   };
 }

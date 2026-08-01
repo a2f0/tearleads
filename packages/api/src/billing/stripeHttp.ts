@@ -5,10 +5,20 @@
  * domain calls live in stripeApi.ts.
  */
 
+import {
+  SYNC_BILLING_TIERS,
+  type SyncBillingTier,
+  type SyncBillingTierId,
+} from "@tearleads/validators/billing";
+
 /** Environment variable holding the Stripe secret key (`sk_test_…`/`sk_live_…`). */
 const STRIPE_SECRET_KEY_ENV = "STRIPE_SECRET_KEY";
-/** Environment variable holding the sync subscription's Stripe price id. */
-const STRIPE_SYNC_PRICE_ID_ENV = "STRIPE_SYNC_PRICE_ID";
+
+const STRIPE_PRICE_ENV_BY_TIER = {
+  solo: "STRIPE_SYNC_SOLO_PRICE_ID",
+  team_5: "STRIPE_SYNC_TEAM_5_PRICE_ID",
+  team_10: "STRIPE_SYNC_TEAM_10_PRICE_ID",
+} as const satisfies Record<SyncBillingTierId, string>;
 
 const STRIPE_API_ORIGIN = "https://api.stripe.com";
 /**
@@ -42,20 +52,51 @@ function readEnv(env: NodeJS.ProcessEnv, key: string): string | null {
 export function resolveDeps(deps: StripeApiDeps): {
   fetchImpl: typeof fetch;
   secretKey: string | null;
-  syncPriceId: string | null;
+  syncPriceIds: Readonly<Record<SyncBillingTierId, string | null>>;
 } {
   const env = deps.env ?? process.env;
   return {
     fetchImpl: deps.fetchImpl ?? fetch,
     secretKey: readEnv(env, STRIPE_SECRET_KEY_ENV),
-    syncPriceId: readEnv(env, STRIPE_SYNC_PRICE_ID_ENV),
+    syncPriceIds: {
+      solo: readEnv(env, STRIPE_PRICE_ENV_BY_TIER.solo),
+      team_5: readEnv(env, STRIPE_PRICE_ENV_BY_TIER.team_5),
+      team_10: readEnv(env, STRIPE_PRICE_ENV_BY_TIER.team_10),
+    },
   };
 }
 
-/** True when both the secret key and the sync price are configured. */
+export function getStripePriceIdForTier(
+  tierId: SyncBillingTierId,
+  deps: StripeApiDeps = {},
+): string | null {
+  return resolveDeps(deps).syncPriceIds[tierId];
+}
+
+export function getSyncBillingTierForStripePrice(
+  priceId: string | null | undefined,
+  deps: StripeApiDeps = {},
+): SyncBillingTier | null {
+  if (!priceId) {
+    return null;
+  }
+  const { syncPriceIds } = resolveDeps(deps);
+  return (
+    SYNC_BILLING_TIERS.find((tier) => syncPriceIds[tier.id] === priceId) ?? null
+  );
+}
+
+/** True when the secret and all three fixed-tier prices are configured. */
 export function isStripeCheckoutConfigured(deps: StripeApiDeps = {}): boolean {
-  const { secretKey, syncPriceId } = resolveDeps(deps);
-  return secretKey !== null && syncPriceId !== null;
+  const { secretKey, syncPriceIds } = resolveDeps(deps);
+  const configuredPriceIds = Object.values(syncPriceIds).filter(
+    (priceId): priceId is string => priceId !== null,
+  );
+  return (
+    secretKey !== null &&
+    configuredPriceIds.length === SYNC_BILLING_TIERS.length &&
+    new Set(configuredPriceIds).size === SYNC_BILLING_TIERS.length
+  );
 }
 
 export async function stripeRequest(input: {

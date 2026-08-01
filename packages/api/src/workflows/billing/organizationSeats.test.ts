@@ -164,7 +164,7 @@ test("seat accounting reuses released seats and only increases concurrent capaci
     organizationId,
     source: { sourceId: "state-3", sourceType: "principal_state" },
   });
-  expect(await readSeatCount(organizationId)).toBe(2);
+  expect(await readSeatCount(organizationId)).toBe(5);
   expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
     [userB, userC].sort(),
   );
@@ -235,6 +235,57 @@ test("an empty roster resets capacity when the explicit billing period changes",
   });
 });
 
+test("an active Stripe org with an empty roster retains the Solo floor", async () => {
+  const { memberGroupId, organizationId } = await createBillableOrganization();
+  // Keep this row outside the seat-worker fixture's earlier claim window when
+  // Bun runs billing test files concurrently against the shared test database.
+  const reconcileNow = new Date(NOW.getTime() + 24 * 60 * 60 * 1000);
+  const userId = crypto.randomUUID();
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: "price_solo",
+    subscriptionId: "sub_solo_floor",
+    subscriptionItemId: "si_solo_floor",
+  });
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: userId,
+    stateHash: "stripe-floor-state-1",
+    userIds: [userId],
+    version: 1,
+  });
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: reconcileNow,
+    organizationId,
+    source: { sourceId: "stripe-floor-state-1", sourceType: "principal_state" },
+  });
+
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: userId,
+    stateHash: "stripe-floor-state-2",
+    userIds: [],
+    version: 2,
+  });
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: reconcileNow,
+    organizationId,
+    source: { sourceId: "stripe-floor-state-2", sourceType: "principal_state" },
+  });
+
+  expect(await readSeatCount(organizationId)).toBe(1);
+  const [stripeSeats] = await db
+    .select()
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  expect(stripeSeats).toMatchObject({
+    desiredPaidCapacity: 1,
+    desiredRenewalQuantity: 1,
+  });
+});
+
 test("a migrated row initializes its period key without losing paid capacity", async () => {
   const { memberGroupId, organizationId } = await createBillableOrganization();
   const userA = crypto.randomUUID();
@@ -258,7 +309,7 @@ test("a migrated row initializes its period key without losing paid capacity", a
     source: { sourceId: "migrated-state-1", sourceType: "principal_state" },
   });
 
-  expect(await readSeatCount(organizationId)).toBe(3);
+  expect(await readSeatCount(organizationId)).toBe(5);
   expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
     [userA, userB].sort(),
   );
@@ -267,7 +318,70 @@ test("a migrated row initializes its period key without losing paid capacity", a
     .from(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
   expect(stripeSeats).toMatchObject({
-    desiredPaidCapacity: 3,
-    desiredRenewalQuantity: 2,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
   });
+});
+
+test("an over-capacity native roster can stay level and shrink", async () => {
+  const { memberGroupId, organizationId } = await createBillableOrganization();
+  const userA = crypto.randomUUID();
+  const userB = crypto.randomUUID();
+  const userC = crypto.randomUUID();
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerProductId: "sync_solo_monthly",
+      seatCount: 1,
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: null,
+    subscriptionId: `sub_quarantined_${organizationId}`,
+    subscriptionItemId: `si_quarantined_${organizationId}`,
+  });
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: userA,
+    stateHash: "native-over-capacity-state-1",
+    userIds: [userA, userB, userC],
+    version: 1,
+  });
+
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    previousActiveSeatCount: 3,
+    source: {
+      sourceId: "native-over-capacity-state-1",
+      sourceType: "principal_state",
+    },
+  });
+  expect(await readOpenAssignmentUserIds(organizationId)).toHaveLength(3);
+
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: userA,
+    stateHash: "native-over-capacity-state-2",
+    userIds: [userA, userB],
+    version: 2,
+  });
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    previousActiveSeatCount: 3,
+    source: {
+      sourceId: "native-over-capacity-state-2",
+      sourceType: "principal_state",
+    },
+  });
+
+  expect(await readSeatCount(organizationId)).toBe(1);
+  expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
+    [userA, userB].sort(),
+  );
 });

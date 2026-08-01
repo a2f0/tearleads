@@ -4,7 +4,10 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import {
   type OrganizationBillingProvider,
+  type OrganizationBillingStatus,
   organizationBilling,
+  organizationBillingStripeSeats,
+  organizations,
 } from "@tearleads/api-shared/schema";
 import { and, eq } from "drizzle-orm";
 import {
@@ -16,7 +19,12 @@ import {
 } from "../../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
+import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import {
+  hasActiveStripeBinding,
+  hasStripeBindingIdentity,
+} from "./stripeBindingPolicy";
 
 const BILLING_ROW_COLUMNS = {
   organizationId: organizationBilling.organizationId,
@@ -217,15 +225,43 @@ export async function runGetOrganizationBillingWorkflow(
   organizationId: string,
   sessionUserId: string,
   now: Date = new Date(),
-): Promise<OrganizationBilling> {
+): Promise<{
+  readonly activeMemberCount: number;
+  readonly billing: OrganizationBilling;
+}> {
   return db.transaction(async (tx) => {
     await requireDirectOrganizationAccess({
       executor: tx,
       organizationId,
       userId: sessionUserId,
     });
-    return resolveOrganizationBilling(tx, organizationId, now);
+    const billing = await resolveOrganizationBilling(tx, organizationId, now);
+    const activeMemberCount = await countActiveOrganizationMembers(
+      tx,
+      organizationId,
+    );
+    return { activeMemberCount, billing };
   });
+}
+
+async function countActiveOrganizationMembers(
+  executor: DatabaseSession,
+  organizationId: string,
+): Promise<number> {
+  const [organization] = await executor
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  if (!organization) {
+    throw new OrganizationManagerError("Organization not found", 404);
+  }
+  return (
+    await listUsersReachableFromCurrentGroup({
+      executor,
+      groupId: organization.memberGroupId,
+    })
+  ).length;
 }
 
 /**
@@ -244,8 +280,12 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
 ): Promise<{
   provider: OrganizationBillingProvider | null;
   providerCustomerId: string | null;
+  providerProductId: string | null;
   providerSubscriptionId: string | null;
   providerTransactionId: string | null;
+  hasActiveStripeSubscription: boolean;
+  hasStripeSubscription: boolean;
+  status: OrganizationBillingStatus;
 }> {
   return db.transaction(async (tx) => {
     await requireDirectOrganizationAccess({
@@ -258,10 +298,23 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
       .select({
         provider: organizationBilling.provider,
         providerCustomerId: organizationBilling.providerCustomerId,
+        providerProductId: organizationBilling.providerProductId,
         providerSubscriptionId: organizationBilling.providerSubscriptionId,
         providerTransactionId: organizationBilling.providerTransactionId,
+        stripePriceId: organizationBillingStripeSeats.priceId,
+        stripeSubscriptionId: organizationBillingStripeSeats.subscriptionId,
+        stripeSubscriptionItemId:
+          organizationBillingStripeSeats.subscriptionItemId,
+        status: organizationBilling.status,
       })
       .from(organizationBilling)
+      .leftJoin(
+        organizationBillingStripeSeats,
+        eq(
+          organizationBillingStripeSeats.organizationId,
+          organizationBilling.organizationId,
+        ),
+      )
       .where(eq(organizationBilling.organizationId, organizationId))
       .limit(1);
     if (!row) {
@@ -270,8 +323,19 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
     return {
       provider: row.provider,
       providerCustomerId: row.providerCustomerId,
+      providerProductId: row.providerProductId,
       providerSubscriptionId: row.providerSubscriptionId,
       providerTransactionId: row.providerTransactionId,
+      hasActiveStripeSubscription: hasActiveStripeBinding({
+        priceId: row.stripePriceId,
+        subscriptionId: row.stripeSubscriptionId,
+        subscriptionItemId: row.stripeSubscriptionItemId,
+      }),
+      hasStripeSubscription: hasStripeBindingIdentity({
+        subscriptionId: row.stripeSubscriptionId,
+        subscriptionItemId: row.stripeSubscriptionItemId,
+      }),
+      status: row.status,
     };
   });
 }
@@ -281,13 +345,21 @@ export async function runStartOrganizationTrialWorkflow(
   organizationId: string,
   sessionUserId: string,
   now: Date = new Date(),
-): Promise<OrganizationBilling> {
-  return db.transaction((tx) =>
-    startOrganizationTrialInTransaction({
+): Promise<{
+  readonly activeMemberCount: number;
+  readonly billing: OrganizationBilling;
+}> {
+  return db.transaction(async (tx) => {
+    const billing = await startOrganizationTrialInTransaction({
       executor: tx,
       now,
       organizationId,
       sessionUserId,
-    }),
-  );
+    });
+    const activeMemberCount = await countActiveOrganizationMembers(
+      tx,
+      organizationId,
+    );
+    return { activeMemberCount, billing };
+  });
 }

@@ -1,11 +1,16 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingStripeSeats,
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
+import {
+  addEffectiveOrganizationMember,
+  registerAndAuthenticate,
+} from "../../../test/helpers/revenuecatWebhook";
 import {
   type RevenueCatWebhookOutcome,
   runRevenueCatWebhookWorkflow,
@@ -125,7 +130,7 @@ test("exact provider lookup cannot override a newer outbox subscription", async 
       stripe: {
         env: {
           STRIPE_SECRET_KEY: "sk_test",
-          STRIPE_SYNC_PRICE_ID: "price_sync",
+          STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
         },
         fetchImpl,
       },
@@ -197,6 +202,51 @@ test("an exact durable binding is authoritative over stale metadata", async () =
   expect(await readBillingStatus(metadataOrganizationId)).toBe("active");
 });
 
+test("a promotional grant preserves a live Stripe seat binding", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const eventNow = new Date("2099-01-01T00:00:00.000Z");
+  await db
+    .delete(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  await db.insert(organizationBillingStripeSeats).values({
+    nextAttemptAt: eventNow,
+    organizationId,
+    priceId: "price_team_5",
+    subscriptionId: "sub_still_live",
+    subscriptionItemId: "si_still_live",
+  });
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    {
+      app_user_id: admin.userId,
+      entitlement_ids: ["sync"],
+      event_timestamp_ms: eventNow.getTime(),
+      expiration_at_ms: eventNow.getTime() + 30 * 24 * 60 * 60 * 1_000,
+      id: crypto.randomUUID(),
+      product_id: "sync_team_5_monthly",
+      store: "PROMOTIONAL",
+      subscriber_attributes: { orgId: { value: organizationId } },
+      type: "INITIAL_PURCHASE",
+    },
+    eventNow,
+  );
+
+  expect(outcome).toMatchObject({ organizationId, status: "applied" });
+  const [binding] = await db
+    .select({
+      subscriptionId: organizationBillingStripeSeats.subscriptionId,
+      subscriptionItemId: organizationBillingStripeSeats.subscriptionItemId,
+    })
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  expect(binding).toEqual({
+    subscriptionId: "sub_still_live",
+    subscriptionItemId: "si_still_live",
+  });
+});
+
 test("an si_-only event with metadata no longer binds an organization", async () => {
   const appUserId = crypto.randomUUID();
   const metadataOrganizationId = await createActiveBilling({
@@ -234,4 +284,174 @@ test("an si_-only event with metadata no longer binds an organization", async ()
   expect(claimed).toBeUndefined();
   expect(await readBillingStatus(metadataOrganizationId)).toBe("active");
   expect(await readBillingStatus(mutableOrganizationId)).toBe("active");
+});
+
+test("a Stripe renewal applies while its asynchronous tier update lags the roster", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  for (let index = 0; index < 5; index += 1) {
+    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+  }
+  await db
+    .update(organizationBilling)
+    .set({
+      providerCustomerId: admin.userId,
+      providerProductId: "price_team_5",
+      providerSubscriptionId: "sub_outgrown",
+      seatCount: 5,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({
+      desiredPaidCapacity: 5,
+      desiredRenewalQuantity: 5,
+      priceId: "price_team_5",
+      subscriptionId: "sub_outgrown",
+      subscriptionItemId: "si_outgrown",
+    })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const expirationAtMs = Date.now() + 30 * 24 * 60 * 60 * 1_000;
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    {
+      app_user_id: admin.userId,
+      entitlement_ids: ["sync"],
+      event_timestamp_ms: Date.now(),
+      expiration_at_ms: expirationAtMs,
+      id: crypto.randomUUID(),
+      original_transaction_id: "sub_outgrown",
+      product_id: "prod_sync",
+      store: "STRIPE",
+      type: "RENEWAL",
+    },
+    new Date(),
+    {
+      stripe: {
+        env: {
+          STRIPE_SECRET_KEY: "sk_test",
+          STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+        },
+      },
+    },
+  );
+
+  expect(outcome).toMatchObject({
+    billingStatus: "active",
+    organizationId,
+    status: "applied",
+  });
+  const [billing] = await db
+    .select({ currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(billing?.currentPeriodEndsAt?.getTime()).toBe(expirationAtMs);
+});
+
+test("a new unknown Stripe price retries with an operator alert", async () => {
+  const organizationId = await createActiveBilling();
+  const eventId = crypto.randomUUID();
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: "price_unknown",
+    subscriptionId: "sub_unknown_price",
+    subscriptionItemId: "si_unknown_price",
+  });
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    app_user_id: crypto.randomUUID(),
+    entitlement_ids: ["sync"],
+    event_timestamp_ms: Date.now(),
+    expiration_at_ms: Date.now() + 30 * 24 * 60 * 60 * 1_000,
+    id: eventId,
+    original_transaction_id: "sub_unknown_price",
+    product_id: "prod_sync",
+    store: "STRIPE",
+    type: "RENEWAL",
+  });
+
+  expect(outcome).toEqual({
+    status: "retry",
+    reason: "Stripe subscription tier could not be resolved",
+  });
+  expect(errorSpy).toHaveBeenCalledWith(
+    `RevenueCat paid grant ${eventId} was not applied: Stripe subscription tier could not be resolved`,
+  );
+  const [claimed] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, eventId));
+  expect(claimed).toBeUndefined();
+  errorSpy.mockRestore();
+});
+
+test("an oversized Stripe grant renews without reconciling seats", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  for (let index = 0; index < 10; index += 1) {
+    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+  }
+  await db
+    .update(organizationBilling)
+    .set({
+      providerCustomerId: admin.userId,
+      providerProductId: "price_team_10",
+      providerSubscriptionId: "sub_oversized",
+      seatCount: 10,
+      status: "trialing",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({
+      priceId: "price_team_10",
+      subscriptionId: "sub_oversized",
+      subscriptionItemId: "si_oversized",
+    })
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const eventId = crypto.randomUUID();
+
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    {
+      app_user_id: admin.userId,
+      entitlement_ids: ["sync"],
+      event_timestamp_ms: Date.now(),
+      expiration_at_ms: Date.now() + 30 * 24 * 60 * 60 * 1_000,
+      id: eventId,
+      original_transaction_id: "sub_oversized",
+      product_id: "prod_sync",
+      store: "STRIPE",
+      type: "INITIAL_PURCHASE",
+    },
+    new Date(),
+    {
+      stripe: {
+        env: {
+          STRIPE_SECRET_KEY: "sk_test",
+          STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
+        },
+      },
+    },
+  );
+
+  expect(outcome).toEqual({
+    status: "applied",
+    organizationId,
+    billingStatus: "active",
+  });
+  const [claimed] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, eventId));
+  expect(claimed).toBeDefined();
+  expect(await readBillingStatus(organizationId)).toBe("active");
+  expect(errorSpy).toHaveBeenCalledWith(
+    `RevenueCat paid grant ${eventId} requires attention: Stripe subscription cannot cover more than 10 active members`,
+  );
+  errorSpy.mockRestore();
 });

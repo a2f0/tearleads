@@ -84,7 +84,9 @@
     revenuecat_allow_sandbox_events: "{{ lookup('env', 'REVENUECAT_ALLOW_SANDBOX_EVENTS') | default('', true) }}"
     stripe_secret_key: "{{ lookup('env', 'STRIPE_SECRET_KEY') | default('', true) }}"
     stripe_webhook_secret: "{{ lookup('env', 'STRIPE_WEBHOOK_SECRET') | default('', true) }}"
-    stripe_sync_price_id: "{{ lookup('env', 'STRIPE_SYNC_PRICE_ID') | default('', true) }}"
+    stripe_sync_solo_price_id: "{{ lookup('env', 'STRIPE_SYNC_SOLO_PRICE_ID') | default('', true) }}"
+    stripe_sync_team_5_price_id: "{{ lookup('env', 'STRIPE_SYNC_TEAM_5_PRICE_ID') | default('', true) }}"
+    stripe_sync_team_10_price_id: "{{ lookup('env', 'STRIPE_SYNC_TEAM_10_PRICE_ID') | default('', true) }}"
     revenuecat_stripe_public_api_key: "{{ lookup('env', 'REVENUECAT_STRIPE_PUBLIC_API_KEY') | default('', true) }}"
     garage_s3_region: "{{ blob_s3_region }}"
     garage_default_access_key: "{{ blob_s3_access_key_id }}"
@@ -99,7 +101,6 @@
     code_assist_github_app_id: "{{ lookup('env', 'CODE_ASSIST_GITHUB_APP_ID') | default('', true) }}"
     code_assist_github_webhook_secret: "{{ lookup('env', 'CODE_ASSIST_GITHUB_WEBHOOK_SECRET') | default('', true) }}"
     code_assist_github_private_key_src: "{{ lookup('env', 'CODE_ASSIST_GITHUB_PRIVATE_KEY_SRC') | default('', true) }}"
-
   tasks:
     - name: Apply shared Linux security baseline
       ansible.builtin.import_tasks: tasks/linuxSecurityBaseline.yml

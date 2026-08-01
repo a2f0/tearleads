@@ -1,6 +1,10 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import { SYNC_BILLING_TIERS } from "@tearleads/validators/billing";
 import type { StripeApiDeps } from "../../billing/stripeApi";
-import { StripeApiError } from "../../billing/stripeHttp";
+import {
+  getSyncBillingTierForStripePrice,
+  StripeApiError,
+} from "../../billing/stripeHttp";
 import {
   getPaidSubscriptionInvoice,
   type StripePaidSubscriptionInvoiceLookup,
@@ -103,6 +107,7 @@ function createStripeInvoiceAuditInput(input: {
   readonly binding: StripeSubscriptionBinding;
   readonly invoice: StripePaidSubscriptionInvoice;
   readonly organizationId: string;
+  readonly stripeDeps: StripeApiDeps;
 }): StripeInvoiceAuditInput | null {
   const totalOnlySnapshot = createTotalOnlyAuditInput(input);
   if (!totalOnlySnapshot || input.invoice.linesHasMore !== false) {
@@ -121,6 +126,24 @@ function createStripeInvoiceAuditInput(input: {
   ) {
     return totalOnlySnapshot;
   }
+  const hasCompleteTierEconomics =
+    line.quantity === 1 &&
+    line.currency === "usd" &&
+    line.interval === "month" &&
+    line.intervalCount === 1 &&
+    line.unitAmount !== null;
+  const configuredTier = getSyncBillingTierForStripePrice(
+    line.priceId,
+    input.stripeDeps,
+  );
+  // Greenfield fixed tiers are quantity-one Prices whose unit amount identifies
+  // capacity; legacy per-seat lines are outside this contract.
+  const economicsTier = hasCompleteTierEconomics
+    ? (SYNC_BILLING_TIERS.find(
+        (tier) => line.unitAmount === tier.monthlyPriceUsdCents,
+      ) ?? null)
+    : null;
+  const resolvedTier = economicsTier ?? configuredTier;
   return {
     ...totalOnlySnapshot,
     interval: line.interval,
@@ -128,7 +151,7 @@ function createStripeInvoiceAuditInput(input: {
     periodEndsAt: line.periodEndsAt,
     periodStartsAt: line.periodStartsAt,
     priceId: line.priceId,
-    seatCount: line.quantity,
+    seatCount: resolvedTier?.seatLimit ?? line.quantity,
     unitAmount: line.unitAmount,
   };
 }

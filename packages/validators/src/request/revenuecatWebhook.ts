@@ -32,7 +32,9 @@ export interface RevenueCatSubscriberAttribute {
  * - `purchased_at_ms`: Start of the current subscription period, when
  *   applicable.
  * - `expiration_at_ms`: End of the current entitlement period, when applicable.
- * - `product_id`: Product/package id the provider reported.
+ * - `product_id`: Product/package id the provider reported. On
+ *   `PRODUCT_CHANGE`, RevenueCat reports the old product here and the newly
+ *   purchased tier in `new_product_id`.
  * - `transaction_id` / `original_transaction_id`: Provider transaction ids used
  *   for audit and correlation.
  * - `entitlement_ids`: Entitlement(s) the event concerns.
@@ -61,6 +63,7 @@ export interface RevenueCatWebhookEvent {
   purchased_at_ms?: number | null;
   expiration_at_ms?: number | null;
   product_id?: string | null;
+  new_product_id?: string | null;
   transaction_id?: string | null;
   original_transaction_id?: string | null;
   entitlement_ids?: string[];
@@ -181,6 +184,7 @@ function isRevenueCatWebhookEvent(
     isAbsentOrNullableTimestampMs(value, "purchased_at_ms") &&
     isAbsentOrNullableTimestampMs(value, "expiration_at_ms") &&
     isAbsentOrNullableString(value, "product_id") &&
+    isAbsentOrNullableString(value, "new_product_id") &&
     isAbsentOrNullableString(value, "transaction_id") &&
     isAbsentOrNullableString(value, "original_transaction_id") &&
     isAbsentOrStringArray(value, "entitlement_ids") &&

@@ -22,10 +22,12 @@ export type OrganizationBillingProvider = "revenuecat";
  * `local` organization is free and on-device only. `trialEndsAt` is set while
  * trialing, `currentPeriodStartsAt`/`currentPeriodEndsAt` while a paid
  * subscription is active, and `seatCount` tracks licensed seats in that paid
- * period.
+ * period. `activeMemberCount` is the server-authoritative signed Members-group
+ * count used to choose the smallest tier that can cover the organization.
  */
 export interface OrganizationBillingResponse {
   organizationId: string;
+  activeMemberCount: number;
   status: OrganizationBillingStatus;
   trialEndsAt: string | null;
   provider: OrganizationBillingProvider | null;
@@ -66,6 +68,8 @@ export function isOrganizationBillingResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "organizationId") &&
+    hasNumberProperty(value, "activeMemberCount") &&
+    isSeatCount(value.activeMemberCount) &&
     hasStringProperty(value, "status") &&
     isOrganizationBillingStatus(value.status) &&
     hasNullableStringProperty(value, "trialEndsAt") &&

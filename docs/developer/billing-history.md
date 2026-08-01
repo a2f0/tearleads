@@ -5,17 +5,20 @@ durable record categories: RevenueCat lifecycle events, the internal
 licensed-seat ledger, and append-only Stripe paid-invoice snapshots.
 
 Stripe invoice totals preserve the provider's exact `amount_paid` in currency
-minor units. Seat quantity, per-seat rate, recurring interval and interval
-count, price, and billing period come from the matching non-proration invoice
-line—not mutable current subscription state—so delayed webhooks cannot rewrite
-older charges. Creation and cycle invoices use a pinned-API lookup when the
+minor units. Tier capacity, plan price, recurring interval and interval count,
+Price ID, and billing period come from the matching non-proration invoice
+line—not mutable current subscription state. Capacity is resolved from the
+line's immutable monthly USD Price economics against the canonical tier
+registry (falling back to a currently configured Price ID only when older line
+payloads omit economics), so Price rotation does not collapse historical fixed
+tiers to item quantity `1`. Creation and cycle invoices use a pinned-API lookup when the
 signed webhook's line details are incomplete or could be enriched; only those
 reasons advance seat-period state. Paid subscription update and threshold
 invoices are audited too, but they never make fulfillment retry solely for
 missing reporting details.
 
-If an invoice has no unambiguous recurring seat line (for example, a
-proration-only update), its exact total is still recorded while seat and rate
+If an invoice has no unambiguous recurring plan line (for example, a
+proration-only update), its exact total is still recorded while capacity and price
 fields stay `null`. The same total-only fallback applies when Stripe's complete
 line list cannot be resolved, so reporting detail never strands a paid seat
 period. An initial purchase without an invoice id still fulfills from its

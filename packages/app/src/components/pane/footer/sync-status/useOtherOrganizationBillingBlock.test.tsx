@@ -15,6 +15,7 @@ function billing(
 ): OrganizationBilling {
   return {
     organizationId,
+    activeMemberCount: 1,
     status,
     trialEndsAt: null,
     provider: null,

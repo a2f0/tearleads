@@ -11,6 +11,11 @@
  * in-app-purchase provider.
  */
 
+import {
+  getSyncBillingTierForNativeProduct,
+  type SyncBillingTierId,
+} from "@tearleads/validators/billing";
+
 /** A purchasable sync subscription option, shaped for display in billing UI. */
 export interface SyncSubscriptionOption {
   /** Provider package identifier, passed back to {@link PurchasesCapability.purchaseSync}. */
@@ -19,6 +24,8 @@ export interface SyncSubscriptionOption {
   readonly productId: string;
   readonly title: string;
   readonly description: string;
+  readonly tierId: SyncBillingTierId;
+  readonly seatLimit: number;
   /** Localized, display-ready price (e.g. "$4.99"). */
   readonly priceLabel: string;
 }
@@ -231,13 +238,24 @@ export function createRevenueCatPurchases(
       }
       await ensureConfigured();
       const packages = await backend.getCurrentPackages();
-      return packages.map((entry) => ({
-        packageId: entry.identifier,
-        productId: entry.productIdentifier,
-        title: entry.title,
-        description: entry.description,
-        priceLabel: entry.priceString,
-      }));
+      return packages.flatMap((entry) => {
+        const tier = getSyncBillingTierForNativeProduct(
+          entry.productIdentifier,
+        );
+        return tier
+          ? [
+              {
+                packageId: entry.identifier,
+                productId: entry.productIdentifier,
+                title: tier.title,
+                description: entry.description,
+                priceLabel: entry.priceString,
+                tierId: tier.id,
+                seatLimit: tier.seatLimit,
+              },
+            ]
+          : [];
+      });
     },
     async purchaseSync(input) {
       if (!purchasesEnabled) {

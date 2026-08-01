@@ -31,6 +31,8 @@ function stubTearleads(
 }
 
 const OPTION = {
+  tierId: "solo" as const,
+  seatLimit: 1,
   priceId: "price_1",
   productName: "Sync",
   currency: "usd",
@@ -62,7 +64,7 @@ function state(overrides: Partial<DirectCheckoutState>): DirectCheckoutState {
 test("formats a two-decimal currency from its minor unit", () => {
   const formatted = formatPrice(99, "usd", "month", 1);
   expect(formatted).toContain("0.99");
-  expect(formatted).toContain("/seat/month");
+  expect(formatted).toContain("/month");
 });
 
 test("formats a ZERO-decimal currency without dividing by 100", () => {
@@ -72,8 +74,8 @@ test("formats a ZERO-decimal currency without dividing by 100", () => {
   expect(formatted).not.toContain("5.00");
 });
 
-test("keeps the per-seat unit for a non-recurring price and handles no amount", () => {
-  expect(formatPrice(99, "usd", null, null)).toContain("/seat");
+test("formats a non-recurring price and handles no amount", () => {
+  expect(formatPrice(99, "usd", null, null)).not.toContain("/");
   expect(formatPrice(null, "usd", "month", 1)).toBe("");
 });
 
@@ -81,7 +83,7 @@ test("a malformed currency code preserves the raw provider amount", () => {
   // Raw minor units are truthful even when no display exponent can be
   // verified; never invent a decimal conversion.
   const formatted = formatPrice(99, "notacurrency", "month", 1);
-  expect(formatted).toBe("99 NOTACURRENCY minor units/seat/month");
+  expect(formatted).toBe("99 NOTACURRENCY minor units/month");
 });
 
 test("a well-formed but unknown currency uses the same raw fallback", () => {
@@ -89,10 +91,10 @@ test("a well-formed but unknown currency uses the same raw fallback", () => {
   // code, it formats with 2 fraction digits. If that code were a zero-decimal
   // currency, the buyer would be shown 1/100 of the real price.
   const formatted = formatPrice(99, "xqz", "month", 1);
-  expect(formatted).toBe("99 XQZ minor units/seat/month");
+  expect(formatted).toBe("99 XQZ minor units/month");
 });
 
-test("renders nothing when the platform or option is unavailable", () => {
+test("renders nothing when the platform is unavailable", () => {
   const view = render(
     <BillingDirectCheckout
       checkout={state({ available: false })}
@@ -100,14 +102,21 @@ test("renders nothing when the platform or option is unavailable", () => {
     />,
   );
   expect(view.container.textContent).toBe("");
+});
 
-  view.rerender(
+test("surfaces an option-loading failure", () => {
+  const view = render(
     <BillingDirectCheckout
-      checkout={state({ option: null })}
+      checkout={state({
+        option: null,
+        error: ORG_MANAGER_LABELS.billingCheckoutUnavailable,
+      })}
       disabled={false}
     />,
   );
-  expect(view.container.textContent).toBe("");
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.billingCheckoutUnavailable),
+  ).toBeDefined();
 });
 
 test("idle offers the priced subscription and hides the element host", () => {

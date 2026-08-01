@@ -6,6 +6,7 @@ import {
 
 const BILLING_RESPONSE = {
   organizationId: "org-1",
+  activeMemberCount: 2,
   status: "active",
   trialEndsAt: null,
   provider: "revenuecat",
@@ -30,6 +31,18 @@ test("isOrganizationBillingResponse requires a non-negative integer seat count",
   expect(
     isOrganizationBillingResponse({ ...BILLING_RESPONSE, seatCount: -1 }),
   ).toBe(false);
+});
+
+test("isOrganizationBillingResponse requires an active member count", () => {
+  expect(
+    isOrganizationBillingResponse({
+      ...BILLING_RESPONSE,
+      activeMemberCount: -1,
+    }),
+  ).toBe(false);
+  const { activeMemberCount: _activeMemberCount, ...missing } =
+    BILLING_RESPONSE;
+  expect(isOrganizationBillingResponse(missing)).toBe(false);
 });
 
 test("isPaymentRequiredErrorResponse accepts a 402 body with error and org id", () => {

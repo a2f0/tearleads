@@ -10,6 +10,7 @@ import {
   getOrgManagerTrialEndsLabel,
   ORG_MANAGER_LABELS,
 } from "../labels";
+import { allowsNativePurchase } from "./BillingPanel";
 import { BillingView, type BillingViewProps } from "./BillingView";
 
 afterEach(() => cleanup());
@@ -40,7 +41,9 @@ function props(overrides: Partial<BillingViewProps>): BillingViewProps {
     error: null,
     isOrgAdmin: true,
     purchaseAvailable: false,
+    restoreAvailable: false,
     canSubscribe: false,
+    minimumSeatCount: 1,
     options: [],
     managementUrl: null,
     busy: null,
@@ -56,11 +59,23 @@ function props(overrides: Partial<BillingViewProps>): BillingViewProps {
 }
 
 const OPTION: SyncSubscriptionOption = {
+  tierId: "solo",
+  seatLimit: 1,
   packageId: "monthly",
   productId: "sync_monthly",
   title: "Sync",
   description: "Cloud sync",
   priceLabel: "$4.99",
+};
+
+const TEAM_OPTION: SyncSubscriptionOption = {
+  ...OPTION,
+  tierId: "team_5",
+  seatLimit: 5,
+  packageId: "team_5",
+  productId: "sync_team_5_monthly",
+  title: "Team (up to 5)",
+  priceLabel: "$9.99",
 };
 
 test("shows a loading hint before billing resolves", () => {
@@ -199,6 +214,40 @@ test("subscribe options invoke onSubscribe with the chosen package", () => {
   expect(chosen).toEqual(["monthly"]);
 });
 
+test("native purchase options exclude tiers below the active roster", () => {
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({ status: "trialing", isLocal: false }),
+        purchaseAvailable: true,
+        canSubscribe: true,
+        minimumSeatCount: 2,
+        options: [OPTION, TEAM_OPTION],
+      })}
+    />,
+  );
+
+  expect(view.queryByText(OPTION.title)).toBeNull();
+  expect(view.getByText(TEAM_OPTION.title)).toBeDefined();
+});
+
+test("native options wait for the authoritative roster count", () => {
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({ status: "trialing", isLocal: false }),
+        purchaseAvailable: true,
+        canSubscribe: true,
+        minimumSeatCount: null,
+        options: [OPTION],
+      })}
+    />,
+  );
+
+  expect(view.getByText(ORG_MANAGER_LABELS.loadingBilling)).toBeDefined();
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingNoOptions)).toBeNull();
+});
+
 test("subscription actions use the standard button styling", () => {
   const view = render(
     <BillingView
@@ -230,6 +279,24 @@ test("platforms without purchases show the unavailable-purchases hint", () => {
   expect(
     view.getByText(ORG_MANAGER_LABELS.billingPurchaseUnavailable),
   ).toBeDefined();
+});
+
+test("native checkout directs custom organizations to the web", () => {
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({ status: "disabled", isLocal: false }),
+        nativePurchaseRestricted: true,
+        purchaseAvailable: false,
+      })}
+    />,
+  );
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.billingCustomOrganizationWebOnly),
+  ).toBeDefined();
+  expect(
+    view.queryByText(ORG_MANAGER_LABELS.billingPurchaseUnavailable),
+  ).toBeNull();
 });
 
 test("the direct-checkout path shows no subscribe list and no unavailable hint", () => {
@@ -415,4 +482,16 @@ test("native purchases get no checkout host and no detach cancellation", () => {
 
   view.rerender(<BillingView {...props({ ...shared, isOrgAdmin: false })} />);
   expect(cancelled).toBe(0);
+});
+
+test("past-due Stripe billing cannot be replaced by a native purchase", () => {
+  const shared = { isPersonalOrganization: true } as const;
+  expect(
+    allowsNativePurchase({
+      ...shared,
+      isActive: false,
+      status: "past_due",
+      subscriptionSource: "stripe",
+    }),
+  ).toBe(false);
 });

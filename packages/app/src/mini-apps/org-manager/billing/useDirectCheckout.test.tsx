@@ -15,15 +15,15 @@ import { useDirectCheckoutFlow } from "./useDirectCheckout";
 // process, so an unrestored spy would hand OTHER suites a stub Tearleads
 // client (and fail them on a missing store). Restore after each test.
 const spies: { mockRestore: () => void }[] = [];
-
 afterEach(() => {
   for (const spy of spies.splice(0)) {
     spy.mockRestore();
   }
   cleanup();
 });
-
 const OPTION = {
+  tierId: "solo" as const,
+  seatLimit: 1,
   priceId: "price_1",
   productName: "Sync",
   currency: "usd",

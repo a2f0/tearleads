@@ -139,6 +139,30 @@ test("changed seat terms cannot replace an active attempt snapshot", async () =>
   ).rejects.toMatchObject({ status: 409 });
 });
 
+test("checkout rejects an effective roster above the largest tier", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAdmin(admin);
+  for (let index = 0; index < 10; index += 1) {
+    await addEffectiveMember(organizationId, crypto.randomUUID());
+  }
+
+  await expect(
+    runAcquireStripeCheckoutAttemptWorkflow(
+      db,
+      organizationId,
+      admin.userId,
+      "inline",
+      START,
+      () => "oversized-roster-token",
+    ),
+  ).rejects.toMatchObject({
+    code: "billing_roster_over_capacity",
+    message:
+      "The organization exceeds the maximum subscription tier of 10 members",
+    status: 409,
+  });
+});
+
 test("hosted retries stop before Stripe's minimum expiry and later rotate", async () => {
   const admin = createTestUser();
   const organizationId = await registerAdmin(admin);

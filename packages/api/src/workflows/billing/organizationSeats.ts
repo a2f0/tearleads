@@ -6,6 +6,7 @@ import {
   organizationBilling,
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
+  organizationBillingStripeSeats,
   organizations,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
@@ -15,7 +16,9 @@ import {
 } from "../../billing/organizationBilling";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
-import { requestOrganizationStripeSeatSync } from "./stripeSeatState";
+import { requiredLicensedSeatCount } from "./organizationSeatCapacity";
+import { reconcileOrganizationStripeSeatState } from "./organizationStripeSeatReconciliation";
+import { hasActiveStripeBinding } from "./stripeBindingPolicy";
 
 type SeatAssignmentInsert =
   typeof organizationBillingSeatAssignments.$inferInsert;
@@ -29,12 +32,14 @@ interface BillingSeatSource {
 }
 
 interface BillingSeatState {
+  readonly hasStripeSubscription: boolean;
   readonly organizationId: string;
   readonly memberGroupId: string;
   readonly status: OrganizationBillingStatus;
   readonly trialEndsAt: Date | null;
   readonly currentPeriodStartsAt: Date | null;
   readonly currentPeriodEndsAt: Date | null;
+  readonly providerProductId: string | null;
   readonly seatCount: number;
   readonly seatPeriodKey: string | null;
 }
@@ -42,15 +47,6 @@ interface BillingSeatState {
 interface OpenSeatAssignment {
   readonly id: string;
   readonly userId: string;
-}
-
-function requiredLicensedSeatCount(
-  billing: BillingSeatState,
-  activeSeatCount: number,
-): number {
-  return billing.status === "active"
-    ? Math.max(1, activeSeatCount)
-    : activeSeatCount;
 }
 
 function buildSeatEvent(input: {
@@ -84,12 +80,17 @@ async function loadBillingSeatState(input: {
 }): Promise<BillingSeatState | null> {
   const query = input.executor
     .select({
+      stripeSubscriptionId: organizationBillingStripeSeats.subscriptionId,
+      stripeSubscriptionItemId:
+        organizationBillingStripeSeats.subscriptionItemId,
+      stripePriceId: organizationBillingStripeSeats.priceId,
       organizationId: organizationBilling.organizationId,
       memberGroupId: organizations.memberGroupId,
       status: organizationBilling.status,
       trialEndsAt: organizationBilling.trialEndsAt,
       currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
       currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
+      providerProductId: organizationBilling.providerProductId,
       seatCount: organizationBilling.seatCount,
       seatPeriodKey: organizationBilling.seatPeriodKey,
     })
@@ -98,13 +99,31 @@ async function loadBillingSeatState(input: {
       organizations,
       eq(organizations.id, organizationBilling.organizationId),
     )
+    .leftJoin(
+      // The schema's unique organization-id index makes this a zero-or-one
+      // join, so locking only the billing row cannot duplicate seat state.
+      organizationBillingStripeSeats,
+      eq(
+        organizationBillingStripeSeats.organizationId,
+        organizationBilling.organizationId,
+      ),
+    )
     .where(eq(organizationBilling.organizationId, input.organizationId))
     .limit(1);
 
   const [row] = isSqliteApiDatabase()
     ? await query
     : await query.for("update", { of: organizationBilling });
-  return row ?? null;
+  return row
+    ? {
+        ...row,
+        hasStripeSubscription: hasActiveStripeBinding({
+          priceId: row.stripePriceId,
+          subscriptionId: row.stripeSubscriptionId,
+          subscriptionItemId: row.stripeSubscriptionItemId,
+        }),
+      }
+    : null;
 }
 
 async function listOpenSeatAssignments(input: {
@@ -266,6 +285,7 @@ async function rotateOpenAssignmentsToBillingPeriod(input: {
   readonly openAssignments: readonly OpenSeatAssignment[];
   readonly source: BillingSeatSource;
   readonly periodChanged: boolean;
+  readonly requiredSeatCount: number;
 }): Promise<{
   readonly currentAssignments: readonly OpenSeatAssignment[];
   readonly licensedSeatCount: number;
@@ -288,10 +308,7 @@ async function rotateOpenAssignmentsToBillingPeriod(input: {
     source: input.source,
   });
 
-  const licensedSeatCount = requiredLicensedSeatCount(
-    input.billing,
-    input.activeUserIds.length,
-  );
+  const licensedSeatCount = input.requiredSeatCount;
   await updateLicensedSeatCount({
     activeSeatCount: input.activeUserIds.length,
     billing: input.billing,
@@ -355,20 +372,17 @@ async function reconcileLicensedCapacity(input: {
   readonly licensedSeatCount: number;
   readonly now: Date;
   readonly openAssignments: readonly OpenSeatAssignment[];
+  readonly requiredSeatCount: number;
   readonly source: BillingSeatSource;
 }): Promise<void> {
-  const requiredSeatCount = requiredLicensedSeatCount(
-    input.billing,
-    input.activeUserIds.length,
-  );
   const shouldInitialize =
     input.billing.seatCount === 0 &&
     input.openAssignments.length === 0 &&
-    requiredSeatCount > 0;
+    input.requiredSeatCount > 0;
   const eventType = shouldInitialize
     ? "licensed_seat_count_initialized"
     : "licensed_seat_count_increased";
-  if (!shouldInitialize && requiredSeatCount <= input.licensedSeatCount) {
+  if (!shouldInitialize && input.requiredSeatCount <= input.licensedSeatCount) {
     return;
   }
 
@@ -378,7 +392,7 @@ async function reconcileLicensedCapacity(input: {
     eventType,
     events: input.events,
     executor: input.executor,
-    nextSeatCount: requiredSeatCount,
+    nextSeatCount: input.requiredSeatCount,
     now: input.now,
     source: input.source,
   });
@@ -394,6 +408,8 @@ export async function reconcileOrganizationBillingSeats(input: {
   readonly executor: DatabaseSession;
   readonly now?: Date;
   readonly organizationId: string;
+  /** Active roster size immediately before the mutation being reconciled. */
+  readonly previousActiveSeatCount?: number;
   readonly source: BillingSeatSource;
 }): Promise<void> {
   const now = input.now ?? new Date();
@@ -409,6 +425,14 @@ export async function reconcileOrganizationBillingSeats(input: {
     executor: input.executor,
     groupId: billing.memberGroupId,
   });
+  // Validate fixed native capacity before changing assignments. Stripe-funded
+  // organizations upgrade through the durable provider outbox below; native
+  // organizations must first complete a store product change.
+  const requiredSeatCount = requiredLicensedSeatCount(
+    billing,
+    activeUserIds.length,
+    input.previousActiveSeatCount,
+  );
   const openAssignments = await listOpenSeatAssignments({
     executor: input.executor,
     organizationId: input.organizationId,
@@ -428,6 +452,7 @@ export async function reconcileOrganizationBillingSeats(input: {
       periodChanged:
         billing.seatPeriodKey !== null &&
         billing.seatPeriodKey !== nextSeatPeriodKey,
+      requiredSeatCount,
       source: input.source,
     });
 
@@ -449,6 +474,7 @@ export async function reconcileOrganizationBillingSeats(input: {
     licensedSeatCount,
     now,
     openAssignments,
+    requiredSeatCount,
     source: input.source,
   });
 
@@ -456,13 +482,15 @@ export async function reconcileOrganizationBillingSeats(input: {
     .update(organizationBilling)
     .set({ seatPeriodKey: nextSeatPeriodKey, updatedAt: now })
     .where(eq(organizationBilling.organizationId, input.organizationId));
-  await requestOrganizationStripeSeatSync({
-    desiredPaidCapacity: Math.max(licensedSeatCount, activeUserIds.length),
-    desiredRenewalQuantity: activeUserIds.length,
-    desiredSeatPeriodKey: nextSeatPeriodKey,
+  await reconcileOrganizationStripeSeatState({
+    activeSeatCount: activeUserIds.length,
     executor: input.executor,
+    hasStripeSubscription: billing.hasStripeSubscription,
+    licensedSeatCount,
     now,
     organizationId: input.organizationId,
+    providerProductId: billing.providerProductId,
+    seatPeriodKey: nextSeatPeriodKey,
   });
 
   await insertSeatEvents(input.executor, events);

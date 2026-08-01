@@ -491,9 +491,9 @@ Org sync billing exposes two provider-neutral capabilities:
 
 Both ship an "unavailable" stub (`createUnavailablePurchases`,
 `createUnavailableDirectCheckout`). `isAvailable` controls purchase UI; web's
-RevenueCat capability reports false while retaining entitlement reads. New web
-subscriptions use direct checkout because its server path supplies the
-authoritative Members-seat quantity. See
+RevenueCat capability reports false while retaining entitlement reads. Web
+subscriptions use direct checkout and a tier. Native purchases are
+limited to the buyer's personal organization. See
 [revenuecat-billing.md](./revenuecat-billing.md).
 
 ## Package Contract

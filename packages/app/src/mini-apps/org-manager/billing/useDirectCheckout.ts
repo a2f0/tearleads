@@ -6,6 +6,7 @@ import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDirectCheckout as useDirectCheckoutCapability } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { checkoutOptionErrorMessage } from "../billingCheckoutErrors";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { readCheckoutAppearance } from "./checkoutAppearance";
 
@@ -87,13 +88,19 @@ function useCheckoutOption(
   /** The panel is offering the checkout; false for an org that already syncs. */
   enabled: boolean,
   tearleads: ReturnType<typeof useTearleads>,
-): StripeSyncOptionResponse | null {
-  const [option, setOption] = useState<StripeSyncOptionResponse | null>(null);
+): {
+  readonly error: string | null;
+  readonly option: StripeSyncOptionResponse | null;
+} {
+  const [state, setState] = useState<{
+    readonly error: string | null;
+    readonly option: StripeSyncOptionResponse | null;
+  }>({ error: null, option: null });
   useEffect(() => {
     // `enabled` too: an admin of an already-syncing org would otherwise fire
     // this request on every billing-panel mount for an option they cannot buy.
     if (!available || !canSubscribe || !enabled) {
-      setOption(null);
+      setState({ error: null, option: null });
       return;
     }
     let cancelled = false;
@@ -102,14 +109,23 @@ function useCheckoutOption(
         const result =
           await tearleads.organizations.loadStripeCheckoutOptions();
         if (!cancelled) {
-          setOption(result?.options[0] ?? null);
+          const option = result?.options[0] ?? null;
+          setState({
+            // An empty list means the server integration is intentionally not
+            // configured. A rejected request is an actionable load failure.
+            error: null,
+            option,
+          });
         }
       } catch (loadError) {
         // A misconfigured integration is otherwise invisible here — the panel
         // just renders nothing.
         console.warn("Failed to load Stripe checkout options:", loadError);
         if (!cancelled) {
-          setOption(null);
+          setState({
+            error: checkoutOptionErrorMessage(loadError),
+            option: null,
+          });
         }
       }
     })();
@@ -117,7 +133,7 @@ function useCheckoutOption(
       cancelled = true;
     };
   }, [available, canSubscribe, enabled, tearleads]);
-  return option;
+  return state;
 }
 
 /** Refs the begin/confirm actions share with the flow hook. */
@@ -321,7 +337,7 @@ export function useDirectCheckoutFlow(input: {
   const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const available = capability.isAvailable;
-  const option = useCheckoutOption(
+  const checkoutOption = useCheckoutOption(
     available,
     input.canSubscribe,
     input.enabled,
@@ -392,9 +408,9 @@ export function useDirectCheckoutFlow(input: {
 
   return {
     available,
-    option,
+    option: checkoutOption.option,
     phase,
-    error,
+    error: error ?? checkoutOption.error,
     hostRef,
     begin,
     confirm,

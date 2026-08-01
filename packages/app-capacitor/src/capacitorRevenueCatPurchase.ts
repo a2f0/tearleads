@@ -6,6 +6,11 @@ import {
 } from "@revenuecat/purchases-capacitor";
 import type { RevenueCatCustomerInfo } from "@tearleads/client-sdk";
 
+type OfficialPurchaseOptions = Omit<
+  Parameters<typeof Purchases.purchasePackage>[0],
+  "aPackage"
+>;
+
 interface NativeRevenueCatPurchasePlugin {
   purchasePackage(options: {
     packageId: string;
@@ -56,8 +61,9 @@ function isBridgeValidationError(error: unknown): boolean {
 
 async function purchaseThroughOfficialBridge(
   aPackage: PurchasesPackage,
+  options: OfficialPurchaseOptions,
 ): Promise<RevenueCatCustomerInfo> {
-  const result = await Purchases.purchasePackage({ aPackage });
+  const result = await Purchases.purchasePackage({ aPackage, ...options });
   return fromCapacitorCustomerInfo(result?.customerInfo);
 }
 
@@ -68,9 +74,10 @@ async function purchaseThroughOfficialBridge(
  */
 export async function purchaseCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
+  options: OfficialPurchaseOptions = {},
 ): Promise<RevenueCatCustomerInfo> {
   if (Capacitor.getPlatform() !== "ios") {
-    return purchaseThroughOfficialBridge(aPackage);
+    return purchaseThroughOfficialBridge(aPackage, options);
   }
 
   try {
@@ -85,6 +92,6 @@ export async function purchaseCapacitorRevenueCatPackage(
     if (!isBridgeValidationError(error)) {
       throw error;
     }
-    return purchaseThroughOfficialBridge(aPackage);
+    return purchaseThroughOfficialBridge(aPackage, options);
   }
 }

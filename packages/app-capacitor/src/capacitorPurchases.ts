@@ -3,6 +3,7 @@ import {
   PURCHASES_ERROR_CODE,
   Purchases,
   type PurchasesPackage,
+  STORE_REPLACEMENT_MODE,
 } from "@revenuecat/purchases-capacitor";
 import {
   createRevenueCatPurchases,
@@ -13,6 +14,7 @@ import {
   type RevenueCatBackend,
   type RevenueCatPackage,
 } from "@tearleads/client-sdk";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import {
   fromCapacitorCustomerInfo,
   purchaseCapacitorRevenueCatPackage,
@@ -33,6 +35,45 @@ function toRevenueCatPackage(entry: PurchasesPackage): RevenueCatPackage {
 async function currentPackages(): Promise<PurchasesPackage[]> {
   const offerings = await Purchases.getOfferings();
   return offerings?.current?.availablePackages ?? [];
+}
+
+function googleProductId(productIdentifier: string): string {
+  const [productId] = productIdentifier.split(":", 1);
+  return productId || productIdentifier;
+}
+
+async function androidProductChangeOptions(targetProductId: string) {
+  if (Capacitor.getPlatform() !== "android") {
+    return {};
+  }
+  const result = await Purchases.getCustomerInfo();
+  const entitlementId =
+    readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
+    DEFAULT_SYNC_ENTITLEMENT_ID;
+  const activeEntitlement =
+    result?.customerInfo?.entitlements?.active?.[entitlementId];
+  const currentProductId = activeEntitlement?.productIdentifier;
+  if (
+    activeEntitlement?.store !== "PLAY_STORE" ||
+    !currentProductId ||
+    googleProductId(currentProductId) === googleProductId(targetProductId)
+  ) {
+    return {};
+  }
+  const currentTier = getSyncBillingTierForNativeProduct(currentProductId);
+  const targetTier = getSyncBillingTierForNativeProduct(targetProductId);
+  if (!currentTier || !targetTier) {
+    return {};
+  }
+  return {
+    storeProductChangeInfo: {
+      oldProductIdentifier: googleProductId(currentProductId),
+      replacementMode:
+        targetTier.seatLimit > currentTier.seatLimit
+          ? STORE_REPLACEMENT_MODE.CHARGE_PRORATED_PRICE
+          : STORE_REPLACEMENT_MODE.DEFERRED,
+    },
+  };
 }
 
 /**
@@ -104,8 +145,22 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
     if (!aPackage) {
       throw new Error(`Unknown purchase package: ${packageId}`);
     }
+    const productIdentifier = aPackage.product?.identifier ?? "";
+    if (!getSyncBillingTierForNativeProduct(productIdentifier)) {
+      throw new Error(
+        `Unknown sync subscription product: ${productIdentifier}`,
+      );
+    }
+    const productChangeOptions =
+      await androidProductChangeOptions(productIdentifier);
+    if (abortSignal?.aborted) {
+      throw new PurchaseAbortedError();
+    }
     try {
-      return await purchaseCapacitorRevenueCatPackage(aPackage);
+      return await purchaseCapacitorRevenueCatPackage(
+        aPackage,
+        productChangeOptions,
+      );
     } catch (error) {
       // Backing out of the store sheet is a normal exit, not a failure.
       // Without this the panel surfaces "Failed to subscribe" and logs an

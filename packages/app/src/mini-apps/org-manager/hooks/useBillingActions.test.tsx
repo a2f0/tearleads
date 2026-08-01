@@ -38,6 +38,20 @@ test("identifies the buyer before loading subscription options", async () => {
   expect(purchases.identify).toHaveBeenCalledWith({ userId: "user-1" });
 });
 
+test("does not identify or offer native purchases for a custom organization", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const { result } = renderBillingActions({
+    nativePurchaseAllowed: false,
+    purchases,
+  });
+
+  expect(result.current.canSubscribe).toBe(false);
+  expect(result.current.options).toEqual([]);
+  expect(purchases.identify).not.toHaveBeenCalled();
+  act(() => result.current.subscribe(OPTION));
+  expect(purchases.purchaseSync).not.toHaveBeenCalled();
+});
+
 test("does not mark activation pending when purchase returns no sync entitlement", async () => {
   const purchases = createPurchases({ syncEntitlementActive: false });
   const refresh = mock(() => Promise.resolve());

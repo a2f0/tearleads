@@ -24,6 +24,7 @@ function billing(
 ): OrganizationBilling {
   return {
     organizationId: "org-1",
+    activeMemberCount: 1,
     status: "trialing",
     trialEndsAt: new Date(Date.now() + 3 * DAY_MS).toISOString(),
     provider: null,

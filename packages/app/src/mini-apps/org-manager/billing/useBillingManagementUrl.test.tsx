@@ -1,12 +1,22 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import type { PropsWithChildren } from "react";
+import {
+  createAppHostConfig,
+  type OpenSubscriptionManagementFn,
+} from "../../../host/AppHostConfig";
+import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
+import { ORG_MANAGER_LABELS } from "../labels";
 import { useBillingManagementUrl } from "./useBillingManagementUrl";
+import { useOpenSubscriptionManagement } from "./useOpenSubscriptionManagement";
 
 const spies: { mockRestore: () => void }[] = [];
+const originalWindowOpen = window.open;
 
 afterEach(() => {
   cleanup();
+  window.open = originalWindowOpen;
   while (spies.length > 0) {
     spies.pop()?.mockRestore();
   }
@@ -20,25 +30,90 @@ function stubOrganizations(organizations: Record<string, unknown>) {
   );
 }
 
+function renderOpenManagementHook(
+  openSubscriptionManagement?: OpenSubscriptionManagementFn,
+) {
+  const onNativeManagementClosed = mock(() => undefined);
+  const hostConfig = createAppHostConfig({
+    apiBaseUrl: "http://localhost",
+    openSubscriptionManagement,
+    wsUrl: "ws://localhost",
+  });
+  function ManagementWrapper({ children }: PropsWithChildren) {
+    return (
+      <AppHostConfigProvider value={hostConfig}>
+        {children}
+      </AppHostConfigProvider>
+    );
+  }
+  const hook = renderHook(
+    () => useOpenSubscriptionManagement(onNativeManagementClosed),
+    { wrapper: ManagementWrapper },
+  );
+  return { ...hook, onNativeManagementClosed };
+}
+
 test("a managed subscription resolves to its provider URL", async () => {
   stubOrganizations({
     loadBillingManagementUrl: () =>
-      Promise.resolve({ managementUrl: "https://rc.example/manage" }),
+      Promise.resolve({
+        canCancelDirectly: false,
+        managementUrl: "https://rc.example/manage",
+        subscriptionSource: "native",
+      }),
   });
 
   const { result } = renderHook(() => useBillingManagementUrl("org-1", true));
 
-  await waitFor(() => expect(result.current).toBe("https://rc.example/manage"));
+  await waitFor(() =>
+    expect(result.current).toEqual({
+      canCancelDirectly: false,
+      managementUrl: "https://rc.example/manage",
+      subscriptionSource: "native",
+    }),
+  );
 });
 
 test("no managed subscription hides the link rather than erroring", async () => {
   stubOrganizations({
-    loadBillingManagementUrl: () => Promise.resolve({ managementUrl: null }),
+    loadBillingManagementUrl: () =>
+      Promise.resolve({
+        canCancelDirectly: false,
+        managementUrl: null,
+        subscriptionSource: null,
+      }),
   });
 
   const { result } = renderHook(() => useBillingManagementUrl("org-1", true));
 
-  await waitFor(() => expect(result.current).toBeNull());
+  await waitFor(() =>
+    expect(result.current).toEqual({
+      canCancelDirectly: false,
+      managementUrl: null,
+      subscriptionSource: null,
+    }),
+  );
+});
+
+test("a Stripe subscription exposes direct cancellation without a URL", async () => {
+  stubOrganizations({
+    loadBillingManagementUrl: () =>
+      Promise.resolve({
+        canCancelDirectly: true,
+        managementUrl: null,
+        subscriptionSource: "stripe",
+      }),
+  });
+
+  const { result } = renderHook(() => useBillingManagementUrl("org-1", true));
+
+  await waitFor(() =>
+    expect(result.current).toEqual({
+      canCancelDirectly: true,
+      managementUrl: null,
+      subscriptionSource: "stripe",
+    }),
+  );
 });
 
 test("a failed lookup degrades to no link", async () => {
@@ -49,18 +124,32 @@ test("a failed lookup degrades to no link", async () => {
 
   const { result } = renderHook(() => useBillingManagementUrl("org-1", true));
 
-  await waitFor(() => expect(result.current).toBeNull());
+  await waitFor(() =>
+    expect(result.current).toEqual({
+      canCancelDirectly: false,
+      managementUrl: null,
+      subscriptionSource: null,
+    }),
+  );
 });
 
 test("a disabled hook never asks", async () => {
   const loadBillingManagementUrl = mock(() =>
-    Promise.resolve({ managementUrl: "https://rc.example/manage" }),
+    Promise.resolve({
+      canCancelDirectly: false,
+      managementUrl: "https://rc.example/manage",
+      subscriptionSource: "native",
+    }),
   );
   stubOrganizations({ loadBillingManagementUrl });
 
   const { result } = renderHook(() => useBillingManagementUrl("org-1", false));
 
-  expect(result.current).toBeNull();
+  expect(result.current).toEqual({
+    canCancelDirectly: false,
+    managementUrl: null,
+    subscriptionSource: null,
+  });
   expect(loadBillingManagementUrl).not.toHaveBeenCalled();
 });
 
@@ -69,15 +158,101 @@ test("a URL fetched for a previous org never leaks across a switch", async () =>
   // before its own fetch resolves.
   stubOrganizations({
     loadBillingManagementUrl: () =>
-      Promise.resolve({ managementUrl: "https://rc.example/org-1" }),
+      Promise.resolve({
+        canCancelDirectly: false,
+        managementUrl: "https://rc.example/org-1",
+        subscriptionSource: "native",
+      }),
   });
 
   const { result, rerender } = renderHook(
     ({ organizationId }) => useBillingManagementUrl(organizationId, true),
     { initialProps: { organizationId: "org-1" } },
   );
-  await waitFor(() => expect(result.current).toBe("https://rc.example/org-1"));
+  await waitFor(() =>
+    expect(result.current).toEqual({
+      canCancelDirectly: false,
+      managementUrl: "https://rc.example/org-1",
+      subscriptionSource: "native",
+    }),
+  );
 
   rerender({ organizationId: "org-2" });
-  expect(result.current).toBeNull();
+  expect(result.current).toEqual({
+    canCancelDirectly: false,
+    managementUrl: null,
+    subscriptionSource: null,
+  });
+});
+
+test("management opens the provider URL without a native host", () => {
+  const opened = mock(() => null);
+  window.open = opened as typeof window.open;
+  const { result, onNativeManagementClosed } = renderOpenManagementHook();
+  const url = "https://apps.apple.com/account/subscriptions";
+
+  act(() => result.current.open(url));
+
+  expect(opened).toHaveBeenCalledWith(url, "_blank", "noopener,noreferrer");
+  expect(onNativeManagementClosed).not.toHaveBeenCalled();
+});
+
+test("management refreshes after the native sheet closes", async () => {
+  const opened = mock(() => null);
+  window.open = opened as typeof window.open;
+  const openNative = mock(() => Promise.resolve("native-closed" as const));
+  const { result, onNativeManagementClosed } =
+    renderOpenManagementHook(openNative);
+  const url = "https://apps.apple.com/account/subscriptions";
+
+  await act(async () => result.current.open(url));
+
+  expect(openNative).toHaveBeenCalledWith(url);
+  await waitFor(() =>
+    expect(onNativeManagementClosed).toHaveBeenCalledTimes(1),
+  );
+  expect(opened).not.toHaveBeenCalled();
+});
+
+test("external management does not trigger a billing refresh", async () => {
+  const opened = mock(() => null);
+  window.open = opened as typeof window.open;
+  const openExternal = mock(() => Promise.resolve("external-opened" as const));
+  const { result, onNativeManagementClosed } =
+    renderOpenManagementHook(openExternal);
+  const url = "https://play.google.com/store/account/subscriptions";
+
+  await act(async () => result.current.open(url));
+
+  expect(openExternal).toHaveBeenCalledWith(url);
+  expect(onNativeManagementClosed).not.toHaveBeenCalled();
+  expect(result.current.error).toBeNull();
+});
+
+test("management surfaces a native-sheet failure", async () => {
+  const opened = mock(() => null);
+  window.open = opened as typeof window.open;
+  const nativeError = new Error("StoreKit unavailable");
+  const openNative = mock(() => Promise.reject(nativeError));
+  const consoleError = spyOn(console, "error").mockImplementation(
+    () => undefined,
+  );
+  spies.push(consoleError);
+  const { result, onNativeManagementClosed } =
+    renderOpenManagementHook(openNative);
+  const url = "https://apps.apple.com/account/subscriptions";
+
+  await act(async () => result.current.open(url));
+
+  await waitFor(() =>
+    expect(result.current.error).toBe(
+      ORG_MANAGER_LABELS.billingManageSubscriptionFailed,
+    ),
+  );
+  expect(opened).not.toHaveBeenCalled();
+  expect(consoleError).toHaveBeenCalledWith(
+    "Failed to open subscription management:",
+    nativeError,
+  );
+  expect(onNativeManagementClosed).not.toHaveBeenCalled();
 });

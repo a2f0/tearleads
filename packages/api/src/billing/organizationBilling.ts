@@ -94,9 +94,11 @@ export function organizationCanSync(
 
 export function serializeOrganizationBilling(
   billing: OrganizationBilling,
+  activeMemberCount: number,
 ): OrganizationBillingResponse {
   return {
     organizationId: billing.organizationId,
+    activeMemberCount,
     status: billing.status,
     trialEndsAt: billing.trialEndsAt?.toISOString() ?? null,
     provider: billing.provider,

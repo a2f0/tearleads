@@ -13,7 +13,9 @@ import {
 
 const ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_PRICE_ID: "price_sync",
+  STRIPE_SYNC_SOLO_PRICE_ID: "price_solo",
+  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_sync",
+  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
 };
 
 const SYNC_SUBSCRIPTION_INPUT = {
@@ -22,6 +24,13 @@ const SYNC_SUBSCRIPTION_INPUT = {
   userId: "user-1",
   organizationId: "org-1",
   seatQuantity: 2,
+};
+
+const VALID_TEAM_5_PRICE = {
+  currency: "usd",
+  id: "price_sync",
+  recurring: { interval: "month", interval_count: 1 },
+  unit_amount: 1_000,
 };
 
 interface RecordedRequest {
@@ -57,6 +66,11 @@ test("configuration requires both the secret key and the price id", () => {
     isStripeCheckoutConfigured({ env: { STRIPE_SECRET_KEY: "sk_test_123" } }),
   ).toBe(false);
   expect(isStripeCheckoutConfigured({ env: {} })).toBe(false);
+  expect(
+    isStripeCheckoutConfigured({
+      env: { ...ENV, STRIPE_SYNC_TEAM_5_PRICE_ID: "price_solo" },
+    }),
+  ).toBe(false);
 });
 
 test("sync option maps the price with its product, pinned API version", async () => {
@@ -65,21 +79,23 @@ test("sync option maps the price with its product, pinned API version", async ()
       body: {
         id: "price_sync",
         currency: "usd",
-        unit_amount: 499,
-        recurring: { interval: "month", interval_count: 3 },
+        unit_amount: 1_000,
+        recurring: { interval: "month", interval_count: 1 },
         product: { name: "Sync" },
       },
     },
   ]);
-  const option = await getStripeSyncOption({ env: ENV, fetchImpl });
+  const option = await getStripeSyncOption("team_5", { env: ENV, fetchImpl });
 
   expect(option).toEqual({
+    tierId: "team_5",
+    seatLimit: 5,
     priceId: "price_sync",
-    productName: "Sync",
+    productName: "Team (up to 5)",
     currency: "usd",
-    unitAmount: 499,
+    unitAmount: 1_000,
     interval: "month",
-    intervalCount: 3,
+    intervalCount: 1,
   });
   expect(requests[0]?.url).toContain("/v1/prices/price_sync");
   expect(requests[0]?.headers.get("Stripe-Version")).not.toBeNull();
@@ -125,6 +141,7 @@ test("customer lookup creates one with userId metadata when none exists", async 
 
 test("subscription create binds org metadata and returns the client secret", async () => {
   const { fetchImpl, requests } = fakeFetch([
+    { body: VALID_TEAM_5_PRICE },
     // No existing subscription for the org, then the create.
     { body: { data: [] } },
     {
@@ -143,27 +160,22 @@ test("subscription create binds org metadata and returns the client secret", asy
     kind: "ready",
     intent: { subscriptionId: "sub_1", clientSecret: "pi_secret" },
   });
-  expect(requests[0]?.url).toContain("/v1/subscriptions/search");
-  const body = requests[1]?.body ?? "";
+  expect(requests[1]?.url).toContain("/v1/subscriptions/search");
+  const body = requests[2]?.body ?? "";
   expect(body).toContain(`${encodeURIComponent("metadata[orgId]")}=org-1`);
   expect(body).toContain(`${encodeURIComponent("metadata[userId]")}=user-1`);
   expect(body).toContain("payment_behavior=default_incomplete");
-  // Pinned to card: the Payment Element offers exactly the methods the
-  // subscription allows, and any redirect-based method the dashboard happens
-  // to enable would break the client's `redirect: "if_required"` confirm.
   expect(body).toContain(
     `${encodeURIComponent("payment_settings[payment_method_types][]")}=card`,
   );
-  // Org-scoped: a retried checkout returns the SAME subscription, and two
-  // admins racing produce conflicting bodies under one key, which Stripe
-  // rejects — the org can never gain two parallel subscriptions.
-  expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
+  expect(requests[2]?.headers.get("Idempotency-Key")).toBe(
     "sync-sub:org-1:attempt-1",
   );
 });
 
 test("an existing incomplete subscription is resumed, not duplicated", async () => {
   const { fetchImpl, requests } = fakeFetch([
+    { body: VALID_TEAM_5_PRICE },
     { body: { data: [{ id: "sub_pending", status: "incomplete" }] } },
     {
       body: {
@@ -174,7 +186,7 @@ test("an existing incomplete subscription is resumed, not duplicated", async () 
           userId: "user-1",
           orgId: "org-1",
         },
-        items: { data: [{ price: { id: "price_sync" }, quantity: 2 }] },
+        items: { data: [{ price: { id: "price_sync" }, quantity: 1 }] },
         latest_invoice: { payment_intent: { client_secret: "pi_resume" } },
       },
     },
@@ -189,8 +201,8 @@ test("an existing incomplete subscription is resumed, not duplicated", async () 
     intent: { subscriptionId: "sub_pending", clientSecret: "pi_resume" },
   });
   // Search, then resume — never a create.
-  expect(requests).toHaveLength(2);
-  expect(requests[1]?.method).toBe("GET");
+  expect(requests).toHaveLength(3);
+  expect(requests[2]?.method).toBe("GET");
 });
 
 test("a stale pending checkout is a conflict, never cancelled", async () => {
@@ -201,6 +213,7 @@ test("a stale pending checkout is a conflict, never cancelled", async () => {
   // subscription that became paid moments before the cancel. The conflict
   // self-resolves when the attempt is paid or expires.
   const { fetchImpl, requests } = fakeFetch([
+    { body: VALID_TEAM_5_PRICE },
     { body: { data: [{ id: "sub_stale", status: "incomplete" }] } },
     {
       body: {
@@ -219,11 +232,12 @@ test("a stale pending checkout is a conflict, never cancelled", async () => {
 
   expect(outcome).toEqual({ kind: "conflict" });
   // Search and inspect only — no cancel, no create.
-  expect(requests).toHaveLength(2);
+  expect(requests).toHaveLength(3);
 });
 
 test("a live subscription for the org refuses a second checkout", async () => {
   const { fetchImpl, requests } = fakeFetch([
+    { body: VALID_TEAM_5_PRICE },
     { body: { data: [{ id: "sub_live", status: "active" }] } },
   ]);
   const outcome = await createSyncSubscription(SYNC_SUBSCRIPTION_INPUT, {
@@ -232,7 +246,7 @@ test("a live subscription for the org refuses a second checkout", async () => {
   });
 
   expect(outcome).toEqual({ kind: "conflict" });
-  expect(requests).toHaveLength(1);
+  expect(requests).toHaveLength(2);
 });
 
 test("customer creation is idempotency-keyed per user", async () => {
@@ -254,6 +268,7 @@ test("a candidate that expired since the search is recreated, not resumed", asyn
   // shows the attempt expired — its old client secret is unusable, so a
   // fresh subscription is created under a rotated key.
   const { fetchImpl, requests } = fakeFetch([
+    { body: VALID_TEAM_5_PRICE },
     { body: { data: [{ id: "sub_gone", status: "incomplete" }] } },
     {
       body: {
@@ -278,13 +293,14 @@ test("a candidate that expired since the search is recreated, not resumed", asyn
     kind: "ready",
     intent: { subscriptionId: "sub_next", clientSecret: "pi_next" },
   });
-  expect(requests[2]?.headers.get("Idempotency-Key")).toBe(
+  expect(requests[3]?.headers.get("Idempotency-Key")).toBe(
     "sync-sub:org-1:attempt-1",
   );
 });
 
 test("a candidate that became active since the search is a conflict", async () => {
   const { fetchImpl } = fakeFetch([
+    { body: VALID_TEAM_5_PRICE },
     { body: { data: [{ id: "sub_won", status: "incomplete" }] } },
     { body: { id: "sub_won", status: "active" } },
   ]);
@@ -297,6 +313,7 @@ test("a candidate that became active since the search is a conflict", async () =
 
 test("a durable checkout attempt supplies the rotated idempotency key", async () => {
   const { fetchImpl, requests } = fakeFetch([
+    { body: VALID_TEAM_5_PRICE },
     // Expired attempts from older durable tokens do not affect the new token.
     {
       body: {
@@ -325,7 +342,7 @@ test("a durable checkout attempt supplies the rotated idempotency key", async ()
     kind: "ready",
     intent: { subscriptionId: "sub_2", clientSecret: "pi_2" },
   });
-  expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
+  expect(requests[2]?.headers.get("Idempotency-Key")).toBe(
     "sync-sub:org-1:attempt-1",
   );
 });
@@ -374,13 +391,13 @@ test("a cancellation without a resolved date still reports success", async () =>
 test("a failed Stripe request surfaces as StripeApiError with its status", async () => {
   const { fetchImpl } = fakeFetch([{ status: 500, body: {} }]);
   await expect(
-    getStripeSyncOption({ env: ENV, fetchImpl }),
+    getStripeSyncOption("solo", { env: ENV, fetchImpl }),
   ).rejects.toBeInstanceOf(StripeApiError);
 });
 
 test("unconfigured environments read as null, never a network call", async () => {
   const { fetchImpl, requests } = fakeFetch([]);
-  expect(await getStripeSyncOption({ env: {}, fetchImpl })).toBeNull();
+  expect(await getStripeSyncOption("solo", { env: {}, fetchImpl })).toBeNull();
   expect(
     await findOrCreateCustomer(
       { userId: "u", organizationId: "o" },
@@ -471,6 +488,7 @@ test("findLiveOrgSubscription is null without a secret key", async () => {
 
 test("createCheckoutSession stamps org metadata onto the subscription", async () => {
   const { fetchImpl, requests } = fakeFetch([
+    { body: VALID_TEAM_5_PRICE },
     { body: { url: "https://checkout.stripe.com/pay/cs_1" } },
   ]);
 
@@ -488,10 +506,10 @@ test("createCheckoutSession stamps org metadata onto the subscription", async ()
   );
 
   expect(url).toBe("https://checkout.stripe.com/pay/cs_1");
-  const body = requests[0]?.body ?? "";
-  expect(requests[0]?.url).toContain("/v1/checkout/sessions");
+  const body = requests[1]?.body ?? "";
+  expect(requests[1]?.url).toContain("/v1/checkout/sessions");
   // Purely org-scoped: an org's attempts collapse onto one session.
-  expect(requests[0]?.headers.get("Idempotency-Key")).toBe(
+  expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
     "checkout-session:org-1:attempt-hosted-1",
   );
   // The return URL is canonicalized (query dropped) so the stable success_url
@@ -534,6 +552,14 @@ test("createCheckoutSession is null without price/secret config", async () => {
 
 test("createCheckoutSession passes an unparseable return url through unchanged", async () => {
   const { fetchImpl, requests } = fakeFetch([
+    {
+      body: {
+        currency: "usd",
+        id: "price_solo",
+        recurring: { interval: "month", interval_count: 1 },
+        unit_amount: 500,
+      },
+    },
     { body: { url: "https://checkout.stripe.com/pay/cs_2" } },
   ]);
 
@@ -554,5 +580,5 @@ test("createCheckoutSession passes an unparseable return url through unchanged",
   // than throwing (the value is origin-validated upstream anyway).
   // URLSearchParams encodes the space as "+"; the point is the raw value
   // passed through rather than the canonicalizer throwing.
-  expect(requests[0]?.body ?? "").toContain("success_url=not+a+url");
+  expect(requests[1]?.body ?? "").toContain("success_url=not+a+url");
 });

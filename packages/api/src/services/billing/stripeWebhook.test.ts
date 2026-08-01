@@ -66,8 +66,8 @@ test("a paid first invoice is associated with RevenueCat", async () => {
     .from(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, ORG_ID));
   expect(stripeSeats).toMatchObject({
-    appliedPaidCapacity: 2,
-    desiredRenewalQuantity: 2,
+    appliedPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
     subscriptionId: "sub_1",
     subscriptionItemId: "si_1",
   });

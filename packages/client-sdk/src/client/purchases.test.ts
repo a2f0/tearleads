@@ -138,9 +138,11 @@ test("listSyncOptions maps provider packages to display options", async () => {
     {
       packageId: "monthly",
       productId: "sync_monthly",
-      title: "Sync",
+      title: "Solo",
       description: "Cloud sync",
       priceLabel: "$4.99",
+      tierId: "solo",
+      seatLimit: 1,
     },
   ]);
 });

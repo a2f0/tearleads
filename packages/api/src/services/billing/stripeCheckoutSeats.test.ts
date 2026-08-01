@@ -20,7 +20,9 @@ import {
 
 const STRIPE_ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_PRICE_ID: "price_sync",
+  STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   STRIPE_WEBHOOK_SECRET: "whsec_test",
 };
 const REVENUECAT_ENV = {
@@ -100,7 +102,7 @@ async function removeAllEffectiveMembers(
     );
 }
 
-test("inline checkout bills the current effective Members-group quantity", async () => {
+test("inline checkout selects the current membership tier at quantity one", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const member = createTestUser();
@@ -117,6 +119,14 @@ test("inline checkout bills the current effective Members-group quantity", async
   let subscriptionBody: string | null = null;
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = new URL(String(input)).pathname;
+    if (path.endsWith("/prices/price_team_5")) {
+      return Response.json({
+        currency: "usd",
+        id: "price_team_5",
+        recurring: { interval: "month", interval_count: 1 },
+        unit_amount: 1_000,
+      });
+    }
     if (path.endsWith("/customers/search")) {
       return Response.json({ data: [] });
     }
@@ -154,11 +164,14 @@ test("inline checkout bills the current effective Members-group quantity", async
   });
   invariant(subscriptionBody, "expected Stripe subscription create body");
   expect(new URLSearchParams(subscriptionBody).get("items[0][quantity]")).toBe(
-    "2",
+    "1",
+  );
+  expect(new URLSearchParams(subscriptionBody).get("items[0][price]")).toBe(
+    "price_team_5",
   );
 });
 
-test("hosted checkout bills the current effective Members-group quantity", async () => {
+test("hosted checkout selects the current membership tier at quantity one", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const member = createTestUser();
@@ -168,6 +181,14 @@ test("hosted checkout bills the current effective Members-group quantity", async
   let checkoutBody: string | null = null;
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = new URL(String(input)).pathname;
+    if (path.endsWith("/prices/price_team_5")) {
+      return Response.json({
+        currency: "usd",
+        id: "price_team_5",
+        recurring: { interval: "month", interval_count: 1 },
+        unit_amount: 1_000,
+      });
+    }
     if (path.endsWith("/subscriptions/search")) {
       return Response.json({ data: [] });
     }
@@ -198,7 +219,10 @@ test("hosted checkout bills the current effective Members-group quantity", async
   expect(url).toBe("https://checkout.stripe.com/pay/cs_org");
   invariant(checkoutBody, "expected Stripe Checkout create body");
   expect(new URLSearchParams(checkoutBody).get("line_items[0][quantity]")).toBe(
-    "2",
+    "1",
+  );
+  expect(new URLSearchParams(checkoutBody).get("line_items[0][price]")).toBe(
+    "price_team_5",
   );
 });
 
@@ -223,6 +247,7 @@ test("checkout rejects a malformed organization with no effective members", asyn
       },
     ),
   ).rejects.toMatchObject({
+    code: "billing_checkout_no_active_members",
     message: "The organization has no active members",
     status: 409,
   });

@@ -22,6 +22,7 @@ const BINDING: StripeSubscriptionBinding = {
 function invoiceBody(input: {
   readonly hasMore: boolean;
   readonly price: Record<string, unknown>;
+  readonly quantity?: number;
 }) {
   return {
     id: "in_1",
@@ -39,7 +40,7 @@ function invoiceBody(input: {
           period: { start: 1_783_036_800, end: 1_785_715_200 },
           price: input.price,
           proration: false,
-          quantity: 3,
+          quantity: input.quantity ?? 3,
           subscription: "sub_1",
           subscription_item: "si_1",
         },
@@ -134,6 +135,86 @@ test("missing historical cadence and rate stay stable across binding changes", a
     unitAmount: null,
   });
   expect(replay).toEqual(first);
+});
+
+test("a rotated fixed Price keeps capacity from its historical economics", async () => {
+  const audit = await resolveStripeInvoiceAuditInput({
+    binding: { ...BINDING, priceId: "price_rotated_team_5", seatQuantity: 1 },
+    invoice: parseInvoice(
+      invoiceBody({
+        hasMore: false,
+        quantity: 1,
+        price: {
+          currency: "usd",
+          id: "price_rotated_team_5",
+          recurring: { interval: "month", interval_count: 1 },
+          unit_amount: 1_000,
+        },
+      }),
+    ),
+    organizationId: "org-1",
+    stripeDeps: {},
+  });
+
+  expect(audit).toMatchObject({
+    priceId: "price_rotated_team_5",
+    seatCount: 5,
+    unitAmount: 1_000,
+  });
+});
+
+test("historical invoice economics override a remapped configured Price", async () => {
+  const audit = await resolveStripeInvoiceAuditInput({
+    binding: { ...BINDING, priceId: "price_remapped", seatQuantity: 1 },
+    invoice: parseInvoice(
+      invoiceBody({
+        hasMore: false,
+        quantity: 1,
+        price: {
+          currency: "usd",
+          id: "price_remapped",
+          recurring: { interval: "month", interval_count: 1 },
+          unit_amount: 1_000,
+        },
+      }),
+    ),
+    organizationId: "org-1",
+    stripeDeps: {
+      env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_remapped" },
+    },
+  });
+
+  expect(audit).toMatchObject({
+    priceId: "price_remapped",
+    seatCount: 5,
+    unitAmount: 1_000,
+  });
+});
+
+test("legacy quantity does not masquerade as fixed-tier economics", async () => {
+  const audit = await resolveStripeInvoiceAuditInput({
+    binding: { ...BINDING, priceId: "price_legacy", seatQuantity: 3 },
+    invoice: parseInvoice(
+      invoiceBody({
+        hasMore: false,
+        price: {
+          currency: "usd",
+          id: "price_legacy",
+          recurring: { interval: "month", interval_count: 1 },
+          unit_amount: 1_000,
+        },
+        quantity: 3,
+      }),
+    ),
+    organizationId: "org-1",
+    stripeDeps: {},
+  });
+
+  expect(audit).toMatchObject({
+    priceId: "price_legacy",
+    seatCount: 3,
+    unitAmount: 1_000,
+  });
 });
 
 test("a complete invoice with invalid line attribution keeps its exact total", async () => {

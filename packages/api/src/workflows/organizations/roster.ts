@@ -162,12 +162,19 @@ export async function syncOrganizationRosterFromMemberReachability(input: {
   readonly executor: DatabaseSession;
   readonly memberGroupId: string;
   readonly organizationId: string;
-}): Promise<string[]> {
+}): Promise<{
+  readonly changedUserIds: string[];
+  readonly previousActiveSeatCount: number;
+}> {
   const reachableUserIds = await listUsersReachableFromCurrentGroup({
     executor: input.executor,
     groupId: input.memberGroupId,
   });
   const activeUserIds = [...reachableUserIds].sort();
+  const previousActiveEntries = await listActiveOrganizationRosterEntries({
+    executor: input.executor,
+    organizationId: input.organizationId,
+  });
 
   const activatedUserIds = await upsertActiveOrganizationRosterEntries({
     executor: input.executor,
@@ -176,12 +183,7 @@ export async function syncOrganizationRosterFromMemberReachability(input: {
   });
 
   const activeUserIdSet = new Set(activeUserIds);
-  const disabledUserIds = (
-    await listActiveOrganizationRosterEntries({
-      executor: input.executor,
-      organizationId: input.organizationId,
-    })
-  )
+  const disabledUserIds = previousActiveEntries
     .filter((entry) => !activeUserIdSet.has(entry.userId))
     .map((entry) => entry.userId);
 
@@ -202,7 +204,10 @@ export async function syncOrganizationRosterFromMemberReachability(input: {
     input.organizationId,
     changedUserIds,
   );
-  return changedUserIds;
+  return {
+    changedUserIds,
+    previousActiveSeatCount: previousActiveEntries.length,
+  };
 }
 
 export async function isOrganizationProfileDocument(input: {

@@ -236,6 +236,7 @@ const server = setupServer(
     ({ params }) => {
       return HttpResponse.json<OrganizationBillingResponse>({
         organizationId: params.organizationId,
+        activeMemberCount: 1,
         status: "trialing",
         trialEndsAt: "2099-01-01T00:00:00.000Z",
         provider: null,

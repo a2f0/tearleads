@@ -6,6 +6,7 @@ import {
   isManagedRecipientPrincipalType,
   PrincipalMemberEnvelopeValidationError,
 } from "@tearleads/crypto";
+import type { BillingErrorCode } from "@tearleads/validators/billing";
 import type { PrincipalMemberEnvelopeRequest } from "@tearleads/validators/request";
 import type {
   CurrentPrincipalMemberEnvelopesResponse,
@@ -18,6 +19,7 @@ export class PrincipalPolicyError extends Error {
   constructor(
     message: string,
     readonly status: 400 | 403 | 404 | 409,
+    readonly code?: BillingErrorCode,
   ) {
     super(message);
   }

@@ -21,6 +21,7 @@ function billing(
   overrides: Partial<OrganizationBillingResponse>,
 ): OrganizationBilling {
   return {
+    activeMemberCount: 1,
     organizationId: "org-1",
     status: "local",
     trialEndsAt: null,
@@ -190,13 +191,21 @@ test("loadOrganizationBillingManagementUrl passes through the org id", async () 
     apiClient: {
       getOrganizationBillingManagementUrl: async (organizationId) => {
         calls.push(organizationId);
-        return { managementUrl: "https://manage.example/x" };
+        return {
+          canCancelDirectly: false,
+          managementUrl: "https://manage.example/x",
+          subscriptionSource: "native" as const,
+        };
       },
     },
     organizationId: "org-9",
   });
   expect(calls).toEqual(["org-9"]);
-  expect(result).toEqual({ managementUrl: "https://manage.example/x" });
+  expect(result).toEqual({
+    canCancelDirectly: false,
+    managementUrl: "https://manage.example/x",
+    subscriptionSource: "native",
+  });
 });
 
 test("startOrganizationTrial posts for the given org", async () => {

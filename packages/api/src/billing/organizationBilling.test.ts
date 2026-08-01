@@ -97,19 +97,23 @@ describe("organization billing lifecycle", () => {
   test("serializes dates to ISO strings and preserves nulls", () => {
     const trialEndsAt = new Date("2026-01-08T00:00:00.000Z");
     expect(
-      serializeOrganizationBilling({
-        organizationId: "org-1",
-        status: "trialing",
-        trialEndsAt,
-        provider: null,
-        currentPeriodStartsAt: null,
-        currentPeriodEndsAt: null,
-        seatCount: 1,
-        disabledAt: null,
-        purgeAfter: null,
-      }),
+      serializeOrganizationBilling(
+        {
+          organizationId: "org-1",
+          status: "trialing",
+          trialEndsAt,
+          provider: null,
+          currentPeriodStartsAt: null,
+          currentPeriodEndsAt: null,
+          seatCount: 1,
+          disabledAt: null,
+          purgeAfter: null,
+        },
+        1,
+      ),
     ).toEqual({
       organizationId: "org-1",
+      activeMemberCount: 1,
       status: "trialing",
       trialEndsAt: trialEndsAt.toISOString(),
       provider: null,

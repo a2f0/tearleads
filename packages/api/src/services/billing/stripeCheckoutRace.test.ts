@@ -14,7 +14,9 @@ import {
 
 const STRIPE_ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
-  STRIPE_SYNC_PRICE_ID: "price_sync",
+  STRIPE_SYNC_SOLO_PRICE_ID: "price_sync",
+  STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+  STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   STRIPE_WEBHOOK_SECRET: "whsec_test",
 };
 const REVENUECAT_ENV = {
@@ -38,6 +40,14 @@ function checkoutFetch(recordedCreates: Request[]): typeof fetch {
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
     const path = new URL(request.url).pathname;
+    if (path.endsWith("/prices/price_sync")) {
+      return Response.json({
+        currency: "usd",
+        id: "price_sync",
+        recurring: { interval: "month", interval_count: 1 },
+        unit_amount: 500,
+      });
+    }
     if (path.endsWith("/subscriptions/search")) {
       return Response.json({ data: [] });
     }

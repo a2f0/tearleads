@@ -4,6 +4,7 @@
  * entitlement through receipt association. HTTP plumbing is in stripeHttp.ts.
  */
 
+import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
 import {
   escapeSearchValue,
   prop,
@@ -13,14 +14,15 @@ import {
   StripeApiError,
   stripeRequest,
 } from "./stripeHttp";
-import { serializeStripeSeatQuantity } from "./stripeSeatQuantity";
+import { getStripeSyncOption } from "./stripePrice";
 
 export {
   isStripeCheckoutConfigured,
   type StripeApiDeps,
   StripeApiError,
 } from "./stripeHttp";
-export { getStripeSyncOption, type StripeSyncOption } from "./stripePrice";
+export type { StripeSyncOption } from "./stripePrice";
+export { getStripeSyncOption };
 
 export interface StripeCheckoutIntent {
   readonly subscriptionId: string;
@@ -126,7 +128,6 @@ async function resumePendingSubscription(input: {
   subscriptionId: string;
   userId: string;
   syncPriceId: string;
-  seatQuantity: number;
   fetchImpl: typeof fetch;
   secretKey: string;
 }): Promise<
@@ -164,7 +165,7 @@ async function resumePendingSubscription(input: {
     pendingAttemptId === input.checkoutAttemptId &&
     pendingUserId === input.userId &&
     pendingPriceId === input.syncPriceId &&
-    pendingQuantity === input.seatQuantity
+    pendingQuantity === 1
   ) {
     const intent = parseCheckoutIntent(pending);
     // A matching pending checkout whose intent cannot be read is in an
@@ -290,9 +291,17 @@ export async function createSyncSubscription(
   input: StripeSubscriptionCheckoutInput,
   deps: StripeApiDeps = {},
 ): Promise<StripeCheckoutOutcome | null> {
-  const seatQuantity = serializeStripeSeatQuantity(input.seatQuantity);
-  const { fetchImpl, secretKey, syncPriceId } = resolveDeps(deps);
-  if (!secretKey || !syncPriceId) {
+  const tier = getSyncBillingTierForSeatCount(input.seatQuantity);
+  if (!tier) {
+    throw new RangeError("Stripe checkout seat count has no available tier");
+  }
+  const option = await getStripeSyncOption(tier.id, deps);
+  if (!option) {
+    return null;
+  }
+  const syncPriceId = option.priceId;
+  const { fetchImpl, secretKey } = resolveDeps(deps);
+  if (!secretKey) {
     return null;
   }
 
@@ -313,7 +322,6 @@ export async function createSyncSubscription(
       subscriptionId: candidate.subscriptionId,
       userId: input.userId,
       syncPriceId,
-      seatQuantity: input.seatQuantity,
       fetchImpl,
       secretKey,
     });
@@ -331,7 +339,7 @@ export async function createSyncSubscription(
   const form = new URLSearchParams();
   form.set("customer", input.customerId);
   form.set("items[0][price]", syncPriceId);
-  form.set("items[0][quantity]", seatQuantity);
+  form.set("items[0][quantity]", "1");
   form.set("payment_behavior", "default_incomplete");
   form.set("payment_settings[save_default_payment_method]", "on_subscription");
   // Pin the subscription to cards. Without this the Payment Element offers
@@ -343,6 +351,7 @@ export async function createSyncSubscription(
   form.append("payment_settings[payment_method_types][]", "card");
   form.set("metadata[userId]", input.userId);
   form.set("metadata[orgId]", input.organizationId);
+  form.set("metadata[billingTier]", tier.id);
   form.set("metadata[checkoutAttemptId]", input.checkoutAttemptId);
   form.append("expand[]", "latest_invoice.payment_intent");
   const body = await stripeRequest({
@@ -527,9 +536,17 @@ export async function createCheckoutSession(
   },
   deps: StripeApiDeps = {},
 ): Promise<string | null> {
-  const seatQuantity = serializeStripeSeatQuantity(input.seatQuantity);
-  const { fetchImpl, secretKey, syncPriceId } = resolveDeps(deps);
-  if (!secretKey || !syncPriceId) {
+  const tier = getSyncBillingTierForSeatCount(input.seatQuantity);
+  if (!tier) {
+    throw new RangeError("Stripe checkout seat count has no available tier");
+  }
+  const option = await getStripeSyncOption(tier.id, deps);
+  if (!option) {
+    return null;
+  }
+  const syncPriceId = option.priceId;
+  const { fetchImpl, secretKey } = resolveDeps(deps);
+  if (!secretKey) {
     return null;
   }
   const expiresAt = Math.floor(input.expiresAt.getTime() / 1_000);
@@ -540,13 +557,14 @@ export async function createCheckoutSession(
   const form = new URLSearchParams();
   form.set("mode", "subscription");
   form.set("line_items[0][price]", syncPriceId);
-  form.set("line_items[0][quantity]", seatQuantity);
+  form.set("line_items[0][quantity]", "1");
   form.set("customer", input.customerId);
   form.set("expires_at", String(expiresAt));
   form.set("success_url", canonicalReturnUrl);
   form.set("cancel_url", canonicalReturnUrl);
   form.set("subscription_data[metadata][userId]", input.userId);
   form.set("subscription_data[metadata][orgId]", input.organizationId);
+  form.set("subscription_data[metadata][billingTier]", tier.id);
   form.set(
     "subscription_data[metadata][checkoutAttemptId]",
     input.checkoutAttemptId,

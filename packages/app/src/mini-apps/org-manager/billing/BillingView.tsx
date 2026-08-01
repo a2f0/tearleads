@@ -2,6 +2,7 @@ import type {
   OrganizationBillingView,
   SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
+import { getLargestSyncBillingTier } from "@tearleads/validators/billing";
 import { type Ref, useCallback } from "react";
 import {
   MiniAppActions,
@@ -49,6 +50,12 @@ export interface BillingViewProps {
    * unavailable notice even though a purchase path exists.
    */
   readonly directCheckoutAvailable?: boolean;
+  /** Native checkout is present, but custom organizations must subscribe on web. */
+  readonly nativePurchaseRestricted?: boolean;
+  /** Existing subscription is owned elsewhere, so no purchase prompt belongs here. */
+  readonly purchaseSectionHidden?: boolean;
+  /** Whether this shell can restore provider purchases independently of buying. */
+  readonly restoreAvailable: boolean;
   /** Whether the admin can actually purchase (platform supports it and the buyer is known). */
   readonly canSubscribe: boolean;
   /**
@@ -72,6 +79,8 @@ export interface BillingViewProps {
    */
   readonly checkoutHostRef?: Ref<HTMLDivElement>;
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
+  /** Minimum capacity the current effective roster requires; null while unknown. */
+  readonly minimumSeatCount: number | null;
   /** Provider manage/cancel page for the active subscription, or null if none. */
   readonly managementUrl: string | null;
   /** Platform override for opening the provider's subscription management. */
@@ -204,22 +213,35 @@ export function BillingPurchaseOption({
 function BillingSubscribeList({
   busy,
   canSubscribe,
+  minimumSeatCount,
   onSubscribe,
   options,
 }: Pick<
   BillingViewProps,
-  "busy" | "canSubscribe" | "onSubscribe" | "options"
+  "busy" | "canSubscribe" | "minimumSeatCount" | "onSubscribe" | "options"
 >) {
-  if (options.length === 0) {
+  if (minimumSeatCount === null) {
     return (
       <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.billingNoOptions}
+        {ORG_MANAGER_LABELS.loadingBilling}
       </MiniAppStatus>
+    );
+  }
+  const eligibleOptions = options.filter(
+    (option) => option.seatLimit >= minimumSeatCount,
+  );
+  if (eligibleOptions.length === 0) {
+    const message =
+      minimumSeatCount > getLargestSyncBillingTier().seatLimit
+        ? ORG_MANAGER_LABELS.billingCheckoutOverCapacity
+        : ORG_MANAGER_LABELS.billingNoOptions;
+    return (
+      <MiniAppStatus className="org-manager-hint">{message}</MiniAppStatus>
     );
   }
   return (
     <>
-      {options.map((option) => (
+      {eligibleOptions.map((option) => (
         <BillingPurchaseOption
           actionLabel={
             busy === `subscribe:${option.packageId}`
@@ -262,12 +284,17 @@ function BillingPurchaseSection({
 }: Omit<BillingViewProps, "view" | "loading" | "managementUrl"> & {
   readonly checkoutHostRef: Ref<HTMLDivElement>;
 }) {
+  if (props.purchaseSectionHidden) {
+    return null;
+  }
   if (!props.purchaseAvailable) {
     // Direct checkout is the path → render nothing (it mounts below); only a
     // total absence of any purchase path shows the notice.
     return props.directCheckoutAvailable ? null : (
       <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.billingPurchaseUnavailable}
+        {props.nativePurchaseRestricted
+          ? ORG_MANAGER_LABELS.billingCustomOrganizationWebOnly
+          : ORG_MANAGER_LABELS.billingPurchaseUnavailable}
       </MiniAppStatus>
     );
   }
@@ -276,6 +303,7 @@ function BillingPurchaseSection({
       <BillingSubscribeList
         busy={props.busy}
         canSubscribe={props.canSubscribe}
+        minimumSeatCount={props.minimumSeatCount}
         onSubscribe={props.onSubscribe}
         options={props.options}
       />
@@ -286,18 +314,13 @@ function BillingPurchaseSection({
       {props.embeddedCheckout ? (
         <div className="org-manager-billing-checkout" ref={checkoutHostRef} />
       ) : null}
-      <MiniAppActions>
-        {props.embeddedCheckout && props.checkoutActive ? (
+      {props.embeddedCheckout && props.checkoutActive ? (
+        <MiniAppActions>
           <MiniAppButton onClick={props.onCancelCheckout}>
             {ORG_MANAGER_LABELS.billingCancelCheckout}
           </MiniAppButton>
-        ) : null}
-        <MiniAppButton disabled={props.busy !== null} onClick={props.onRestore}>
-          {props.busy === "restore"
-            ? ORG_MANAGER_LABELS.billingRestoring
-            : ORG_MANAGER_LABELS.billingRestore}
-        </MiniAppButton>
-      </MiniAppActions>
+        </MiniAppActions>
+      ) : null}
     </>
   );
 }
@@ -331,6 +354,16 @@ function BillingAdminActions({
       <BillingPurchaseSection {...props} checkoutHostRef={checkoutHostRef} />
 
       <MiniAppActions>
+        {props.restoreAvailable ? (
+          <MiniAppButton
+            disabled={props.busy !== null}
+            onClick={props.onRestore}
+          >
+            {props.busy === "restore"
+              ? ORG_MANAGER_LABELS.billingRestoring
+              : ORG_MANAGER_LABELS.billingRestore}
+          </MiniAppButton>
+        ) : null}
         {managementUrl ? (
           <BillingManageButton
             onManageSubscription={props.onManageSubscription}

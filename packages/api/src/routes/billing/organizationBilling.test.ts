@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling, users } from "@tearleads/api-shared/schema";
+import {
+  organizationBilling,
+  organizationBillingStripeSeats,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { isOrganizationBillingResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
@@ -11,7 +15,10 @@ import {
   setTestOrganizationBillingLocal,
 } from "../../../test/helpers/organizationBilling";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
 import { routeApp } from "../../routeApp";
+import { getOrganizationBillingManagementUrl } from "../../services/billing/organizationBilling";
+import { getDefaultApiServiceRuntime } from "../../services/runtime";
 
 async function registerAndAuthenticate(user: TestUser): Promise<string> {
   await registerUser(user);
@@ -48,6 +55,7 @@ test("an org admin reads local billing and starts a trial", async () => {
     "expected billing response",
   );
   expect(billing.status).toBe("local");
+  expect(billing.activeMemberCount).toBe(1);
   expect(billing.trialEndsAt).toBeNull();
 
   const trialResponse = await routeApp.request(
@@ -76,6 +84,27 @@ test("an org admin reads local billing and starts a trial", async () => {
     "expected billing response",
   );
   expect(stillTrialing.status).toBe("trialing");
+});
+
+test("a free trial cannot start above the largest fixed tier", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await setTestOrganizationBillingLocal(organizationId);
+  for (let index = 0; index < 10; index += 1) {
+    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+  }
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/trial`,
+    { headers: authHeader(admin), method: "POST" },
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    code: "billing_roster_over_capacity",
+    error:
+      "The organization exceeds the maximum subscription tier of 10 members",
+  });
 });
 
 test("reading an expired trial reports disabled without writing on the read path", async () => {
@@ -107,6 +136,152 @@ test("reading an expired trial reports disabled without writing on the read path
     .where(eq(organizationBilling.organizationId, organizationId));
   invariant(stored, "expected stored billing row");
   expect(stored.status).toBe("trialing");
+});
+
+test("management identifies Stripe and native subscription ownership", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerProductId: "price_solo_test",
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const stripeManagement = await getOrganizationBillingManagementUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    { stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } } },
+  );
+  expect(stripeManagement).toEqual({
+    canCancelDirectly: true,
+    managementUrl: null,
+    subscriptionSource: "stripe",
+  });
+
+  await db
+    .update(organizationBilling)
+    .set({ status: "past_due" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(
+    await getOrganizationBillingManagementUrl(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+      { stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } } },
+    ),
+  ).toEqual({
+    canCancelDirectly: true,
+    managementUrl: null,
+    subscriptionSource: "stripe",
+  });
+
+  await db
+    .update(organizationBilling)
+    .set({
+      providerCustomerId: admin.userId,
+      providerProductId: "sync_team_5_monthly",
+      providerSubscriptionId: "native-sub-1",
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .delete(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: null,
+    subscriptionId: "sub_quarantined_native_takeover",
+    subscriptionItemId: "si_quarantined_native_takeover",
+  });
+  const revenueCat = {
+    env: {
+      REVENUECAT_PROJECT_ID: "proj_test",
+      REVENUECAT_V2_SECRET_KEY: "sk_test",
+    },
+    fetchImpl: (async () =>
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              gives_access: true,
+              management_url: "https://apps.apple.com/account/subscriptions",
+              store_subscription_identifier: "native-sub-1",
+            },
+          ],
+        }),
+      )) as unknown as typeof fetch,
+  };
+  const nativeManagement = await getOrganizationBillingManagementUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    { revenueCat },
+  );
+  expect(nativeManagement).toEqual({
+    canCancelDirectly: true,
+    managementUrl: "https://apps.apple.com/account/subscriptions",
+    subscriptionSource: "native",
+  });
+
+  await db
+    .update(organizationBilling)
+    .set({ status: "disabled" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  const lapsedNativeManagement = await getOrganizationBillingManagementUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    { revenueCat },
+  );
+  expect(lapsedNativeManagement).toEqual({
+    canCancelDirectly: false,
+    managementUrl: "https://apps.apple.com/account/subscriptions",
+    subscriptionSource: "native",
+  });
+
+  await db
+    .update(organizationBilling)
+    .set({ providerProductId: "price_solo_test", status: "disabled" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  const staleStripeManagement = await getOrganizationBillingManagementUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    { stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } } },
+  );
+  expect(staleStripeManagement).toEqual({
+    canCancelDirectly: false,
+    managementUrl: null,
+    subscriptionSource: null,
+  });
+
+  await db
+    .update(organizationBilling)
+    .set({ providerProductId: "price_rotated", status: "active" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .delete(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: "price_rotated",
+    subscriptionId: null,
+    subscriptionItemId: "si_rotated",
+  });
+  const rotatedStripeManagement = await getOrganizationBillingManagementUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+  );
+  expect(rotatedStripeManagement).toEqual({
+    canCancelDirectly: true,
+    managementUrl: null,
+    subscriptionSource: "stripe",
+  });
 });
 
 test("a non-member cannot read or change another org's billing", async () => {
