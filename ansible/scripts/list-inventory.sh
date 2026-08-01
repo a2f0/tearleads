@@ -27,15 +27,19 @@ tier_environment() {
 
 # Emit "<hostname> <username>" for a tier, or nothing when it is unresolvable.
 # Runs in a subshell per tier so one tier's secrets never leak into the next.
+#
+# The caller reads this through a command substitution in an `if`, which
+# disables errexit for the whole function — so every step needs its own
+# `|| return 1` rather than relying on `set -e` to stop the tier.
 tier_host_fields() {
   local tier="$1"
   local stack_dir="$REPO_ROOT/terraform/stacks/$tier/server"
   local backend_config hostname username
 
-  load_secrets_env "$tier" >/dev/null
+  load_secrets_env "$tier" >/dev/null || return 1
   validate_aws_env || return 1
 
-  backend_config="$(get_backend_config)"
+  backend_config="$(get_backend_config)" || return 1
   terraform -chdir="$stack_dir" init -backend-config="$backend_config" -input=false >/dev/null || return 1
 
   hostname="$(terraform -chdir="$stack_dir" output -raw ssh_hostname 2>/dev/null || true)"
