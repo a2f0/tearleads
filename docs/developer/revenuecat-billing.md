@@ -104,6 +104,13 @@ Mutable attributes are never trusted; unresolved state changes return 503
 unclaimed for retry. Event
 quantities never update Stripe seats.
 
+Paid grant events with an unknown product stem also return 503 without claiming
+the event id. This lets a corrected catalog mapping recover through RevenueCat
+redelivery instead of permanently recording a charged purchase as ignored.
+Promotional grants must cite one of the same tier stems. The server stores them
+as `promotional:<stem>` so they remain non-native, then derives their capacity
+from the canonical active-roster tiers rather than imposing a store-purchase cap.
+
 RevenueCat Web Billing grants are unsupported and are recorded as ignored; web
 enrollment must arrive through the Stripe integration. A valid native grant is
 never discarded after payment if the roster changed between option display and

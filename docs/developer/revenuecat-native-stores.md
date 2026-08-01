@@ -329,6 +329,8 @@ webhook secret.
 
 - Store products encode fixed capacity; they never carry Stripe-style item
   quantity. The webhook maps the product identifier to capacity 1, 5, or 10.
+- Promotional grants use tier stems plus a `promotional:` prefix;
+  capacity follows canonical roster tiers, not native limits.
 - A native grant is applied only to the buyer's personal organization. A grant
   aimed at a custom organization is recorded as ignored, even when the buyer is
   its admin.

@@ -12,6 +12,18 @@ const NON_NATIVE_REVENUECAT_STORES = new Set([
   "RC_BILLING",
   "STRIPE",
 ]);
+const RECOGNIZED_NATIVE_REVENUECAT_STORES = new Set([
+  "APP_STORE",
+  "PLAY_STORE",
+  "TEST_STORE",
+]);
+
+/** Whether a provider value is safe to use as authority for native writes. */
+export function isRecognizedNativeRevenueCatStore(
+  store: string | null | undefined,
+): boolean {
+  return RECOGNIZED_NATIVE_REVENUECAT_STORES.has(store?.toUpperCase() ?? "");
+}
 
 /**
  * Whether a RevenueCat grant requires the restrictive personal-org policy.

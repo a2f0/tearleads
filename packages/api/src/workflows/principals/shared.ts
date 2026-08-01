@@ -14,7 +14,6 @@ import type {
   PrincipalStatePayloadResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { OrganizationManagerError } from "../organizations/errors";
 
 export class PrincipalPolicyError extends Error {
   constructor(
@@ -161,9 +160,6 @@ function toPrincipalMemberEnvelopeError(
 export function toPrincipalPolicyError(
   error: unknown,
 ): PrincipalPolicyError | null {
-  if (error instanceof OrganizationManagerError) {
-    return new PrincipalPolicyError(error.message, error.status, error.code);
-  }
   return toPrincipalStateError(error) ?? toPrincipalMemberEnvelopeError(error);
 }
 

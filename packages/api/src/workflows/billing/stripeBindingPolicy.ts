@@ -18,5 +18,5 @@ export function hasStripeBindingIdentity(
 export function hasActiveStripeBinding(
   binding: ActiveStripeBinding | undefined,
 ): boolean {
-  return binding?.priceId !== null && hasStripeBindingIdentity(binding);
+  return binding?.priceId != null && hasStripeBindingIdentity(binding);
 }

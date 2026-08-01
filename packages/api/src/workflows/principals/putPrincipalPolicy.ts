@@ -17,6 +17,7 @@ import {
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats";
+import { OrganizationManagerError } from "../organizations/errors";
 import { wasOrganizationGroupDeleted } from "../organizations/groupTombstone";
 import { isCurrentOrganizationAdminAuthority } from "../organizations/principalPolicyExternalAuthority";
 import { listUsersReachableFromCurrentPrincipal } from "../organizations/principalReachability";
@@ -519,6 +520,9 @@ export async function runPutPrincipalPolicyWorkflow(
       };
     });
   } catch (error) {
+    if (error instanceof OrganizationManagerError) {
+      throw new PrincipalPolicyError(error.message, error.status, error.code);
+    }
     const principalPolicyError = toPrincipalPolicyError(error);
     if (principalPolicyError) {
       throw principalPolicyError;

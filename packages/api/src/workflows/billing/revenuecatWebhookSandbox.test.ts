@@ -210,7 +210,7 @@ test("a Stripe-bound customer cannot fund a custom org through Test Store", asyn
   }
 });
 
-test("an unknown paid native product is ignored with an operator alert", async () => {
+test("an unknown paid native product is retried with an operator alert", async () => {
   const { organizationId, user } = await registerOrganizationAdmin();
   const eventId = crypto.randomUUID();
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
@@ -226,7 +226,7 @@ test("an unknown paid native product is ignored with an operator alert", async (
     });
 
     expect(outcome).toEqual({
-      status: "ignored",
+      status: "retry",
       reason: "Event product is not a configured sync billing tier",
     });
     expect(errorSpy).toHaveBeenCalledWith(

@@ -184,7 +184,7 @@ test("a product-less lifecycle grant cannot invent an unbound tier", async () =>
     });
 
     expect(outcome).toEqual({
-      status: "ignored",
+      status: "retry",
       reason: "Event product is not a configured sync billing tier",
     });
     expect(errorSpy).toHaveBeenCalledWith(

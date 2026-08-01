@@ -51,10 +51,10 @@ export async function getOrganizationBillingHistory(
 }
 
 /**
- * Resolves the organization's subscription-management URL from RevenueCat using
- * its stored customer id (so any admin, not just the buyer, can reach it).
- * Returns a null URL when the org has no RevenueCat-managed subscription; the
- * provider lookup runs outside any DB transaction and fails soft to null.
+ * Resolves who manages an organization's subscription and exposes every safe
+ * management path. RevenueCat lookup uses the stored customer id so any admin,
+ * not just the buyer, can reach it; provider calls run outside the DB
+ * transaction and fail soft to a null URL.
  */
 export async function getOrganizationBillingManagementUrl(
   runtime: ApiServiceRuntime,
@@ -120,11 +120,18 @@ export async function getOrganizationBillingManagementUrl(
       subscriptionSource: "stripe",
     };
   }
-  if (hasLiveStripeIdentity) {
+  if (!hasLiveStripeIdentity && hasProviderSubscription && providerCustomerId) {
     return {
-      canCancelDirectly: false,
-      managementUrl: null,
-      subscriptionSource: null,
+      canCancelDirectly: hasStripeSubscription && statusCanBill,
+      managementUrl: await fetchRevenueCatManagementUrl(
+        providerCustomerId,
+        {
+          subscriptionId: providerSubscriptionId,
+          transactionId: providerTransactionId,
+        },
+        deps.revenueCat,
+      ),
+      subscriptionSource: "native",
     };
   }
   return {
