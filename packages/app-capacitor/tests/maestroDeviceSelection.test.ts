@@ -12,6 +12,7 @@ const bootedUdid = "DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD";
 const oldIphone16Udid = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
 const iphone16ProUdid = "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB";
 const newIphone16Udid = "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC";
+const watchUdid = "EEEEEEEE-EEEE-EEEE-EEEE-EEEEEEEEEEEE";
 
 const availableDevices = [
   "-- iOS 18.0 --",
@@ -29,7 +30,14 @@ function environmentValue(name: string) {
 
 beforeAll(async () => {
   shimDirectory = await mkdtemp(resolve(tmpdir(), "tearleads-maestro-shims-"));
-  const loggingStubs = ["maestro", "bun", "bunx", "xcodebuild"];
+  const loggingStubs = [
+    "maestro",
+    "bun",
+    "bunx",
+    "xcodebuild",
+    "gradle",
+    "java",
+  ];
   for (const stub of loggingStubs) {
     const stubPath = resolve(shimDirectory, stub);
     await Bun.write(
@@ -59,7 +67,7 @@ beforeAll(async () => {
     adbStub,
     [
       "#!/bin/sh",
-      'printf \'adb:%s\\n\' "$*" >> "$MAESTRO_TEST_LOG"',
+      'printf \'adb[%s]:%s\\n\' "$ANDROID_SERIAL" "$*" >> "$MAESTRO_TEST_LOG"',
       'if [ "$1" = "devices" ]; then',
       "  printf 'List of devices attached\\n%s\\n' \"$SHIM_ADB_DEVICES\"",
       "fi",
@@ -91,6 +99,7 @@ async function runScript(options: {
     SHIM_SIMCTL_AVAILABLE: availableDevices,
     SHIM_ADB_DEVICES: options.adbDevices ?? "",
     MAESTRO_IOS_SIMULATOR: options.iosSimulator,
+    JAVA_HOME: undefined,
   };
   const child = Bun.spawn(["sh", runMaestroTestsScript, options.platform], {
     env,
@@ -113,7 +122,7 @@ function maestroLines(log: string) {
 test("an explicit iOS selector wins over a booted simulator", async () => {
   const { exitCode, stderr, log } = await runScript({
     platform: "ios",
-    booted: `    iPhone 16 (${bootedUdid}) (Booted)`,
+    booted: `-- iOS 18.5 --\n    iPhone 16 (${bootedUdid}) (Booted)`,
     iosSimulator: "iPhone 16 Pro",
   });
   expect(exitCode, stderr).toBe(0);
@@ -128,7 +137,7 @@ test("an explicit iOS selector wins over a booted simulator", async () => {
 test("without a selector a booted simulator is reused", async () => {
   const { exitCode, stderr, log } = await runScript({
     platform: "ios",
-    booted: `    iPhone 16 (${bootedUdid}) (Booted)`,
+    booted: `-- iOS 18.5 --\n    iPhone 16 (${bootedUdid}) (Booted)`,
   });
   expect(exitCode, stderr).toBe(0);
   expect(maestroLines(log)).toEqual([
@@ -150,12 +159,25 @@ test("with nothing booted the newest iPhone 16 runtime is used", async () => {
 test("an unknown iOS selector fails before running flows", async () => {
   const { exitCode, stderr, log } = await runScript({
     platform: "ios",
-    booted: `    iPhone 16 (${bootedUdid}) (Booted)`,
+    booted: `-- iOS 18.5 --\n    iPhone 16 (${bootedUdid}) (Booted)`,
     iosSimulator: "Ghost Phone",
   });
   expect(exitCode).toBe(1);
   expect(stderr).toContain("No available simulator named 'Ghost Phone'");
   expect(maestroLines(log)).toEqual([]);
+});
+
+test("a booted non-iOS simulator is never selected", async () => {
+  const { exitCode, stderr, log } = await runScript({
+    platform: "ios",
+    booted: `-- watchOS 11.5 --\n    Apple Watch Series 10 (${watchUdid}) (Booted)`,
+  });
+  expect(exitCode, stderr).toBe(0);
+  expect(log).not.toContain(watchUdid);
+  expect(maestroLines(log)).toEqual([
+    `maestro:--platform ios --device ${newIphone16Udid} test maestro/first-identity-offline.yaml`,
+    `maestro:--platform ios --device ${newIphone16Udid} test maestro/offline-second-identity.yaml`,
+  ]);
 });
 
 test("android refuses to run against a physical device", async () => {
@@ -166,5 +188,20 @@ test("android refuses to run against a physical device", async () => {
   expect(exitCode).toBe(1);
   expect(stderr).toContain("physical devices are refused");
   expect(maestroLines(log)).toEqual([]);
-  expect(log).not.toContain("adb:install");
+  expect(log).not.toContain(":install");
+});
+
+test("android pins the emulator serial for adb and maestro", async () => {
+  const { exitCode, stderr, log } = await runScript({
+    platform: "android",
+    adbDevices: "R5CN300XYZA\tdevice\nemulator-5554\tdevice",
+  });
+  expect(exitCode, stderr).toBe(0);
+  expect(log).toContain(
+    "adb[emulator-5554]:install -r android/app/build/outputs/apk/debug/app-debug.apk",
+  );
+  expect(maestroLines(log)).toEqual([
+    "maestro:--platform android --device emulator-5554 test maestro/first-identity-offline.yaml",
+    "maestro:--platform android --device emulator-5554 test maestro/offline-second-identity.yaml",
+  ]);
 });
