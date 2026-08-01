@@ -21,7 +21,10 @@ import {
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
-import { resolveRevenueCatBuyerIgnoredReason } from "./revenuecatBuyerPolicy";
+import {
+  isNativeRevenueCatStore,
+  resolveRevenueCatBuyerIgnoredReason,
+} from "./revenuecatBuyerPolicy";
 import {
   resolveRevenueCatGrantCapacity,
   STRIPE_GRANT_EXCEEDS_CAPACITY_REASON,
@@ -263,11 +266,12 @@ async function applyRevenueCatTransition(input: {
     .where(eq(organizationBilling.organizationId, input.organizationId));
   if (
     input.transition.kind === "grant" &&
-    input.event.store?.toUpperCase() !== "STRIPE"
+    isNativeRevenueCatStore(input.event.store)
   ) {
-    // A native or promotional grant supersedes any cancelled Stripe binding.
+    // A device-store grant supersedes any cancelled Stripe binding.
     // Removing the outbox row prevents the seat worker from retrying that old
-    // subscription while the new RevenueCat entitlement is active.
+    // subscription while the native RevenueCat entitlement is active. Promo
+    // grants intentionally retain a live Stripe binding and its seat worker.
     await input.executor
       .delete(organizationBillingStripeSeats)
       .where(

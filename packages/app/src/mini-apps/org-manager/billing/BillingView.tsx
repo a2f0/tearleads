@@ -53,6 +53,8 @@ export interface BillingViewProps {
   readonly nativePurchaseRestricted?: boolean;
   /** Existing subscription is owned elsewhere, so no purchase prompt belongs here. */
   readonly purchaseSectionHidden?: boolean;
+  /** Whether this shell can restore provider purchases independently of buying. */
+  readonly restoreAvailable?: boolean;
   /** Whether the admin can actually purchase (platform supports it and the buyer is known). */
   readonly canSubscribe: boolean;
   /**
@@ -309,18 +311,13 @@ function BillingPurchaseSection({
       {props.embeddedCheckout ? (
         <div className="org-manager-billing-checkout" ref={checkoutHostRef} />
       ) : null}
-      <MiniAppActions>
-        {props.embeddedCheckout && props.checkoutActive ? (
+      {props.embeddedCheckout && props.checkoutActive ? (
+        <MiniAppActions>
           <MiniAppButton onClick={props.onCancelCheckout}>
             {ORG_MANAGER_LABELS.billingCancelCheckout}
           </MiniAppButton>
-        ) : null}
-        <MiniAppButton disabled={props.busy !== null} onClick={props.onRestore}>
-          {props.busy === "restore"
-            ? ORG_MANAGER_LABELS.billingRestoring
-            : ORG_MANAGER_LABELS.billingRestore}
-        </MiniAppButton>
-      </MiniAppActions>
+        </MiniAppActions>
+      ) : null}
     </>
   );
 }
@@ -354,6 +351,16 @@ function BillingAdminActions({
       <BillingPurchaseSection {...props} checkoutHostRef={checkoutHostRef} />
 
       <MiniAppActions>
+        {props.restoreAvailable ? (
+          <MiniAppButton
+            disabled={props.busy !== null}
+            onClick={props.onRestore}
+          >
+            {props.busy === "restore"
+              ? ORG_MANAGER_LABELS.billingRestoring
+              : ORG_MANAGER_LABELS.billingRestore}
+          </MiniAppButton>
+        ) : null}
         {managementUrl ? (
           <BillingManageButton
             onManageSubscription={props.onManageSubscription}

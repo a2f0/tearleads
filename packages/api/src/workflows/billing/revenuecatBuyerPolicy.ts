@@ -11,7 +11,15 @@ const NATIVE_REVENUECAT_STORES = new Set([
   "APP_STORE",
   "MAC_APP_STORE",
   "PLAY_STORE",
+  "TEST_STORE",
 ]);
+
+/** Whether RevenueCat reports a device-store purchase subject to personal-org policy. */
+export function isNativeRevenueCatStore(
+  store: string | null | undefined,
+): boolean {
+  return NATIVE_REVENUECAT_STORES.has(store?.toUpperCase() ?? "UNKNOWN_STORE");
+}
 
 async function isOrganizationAdmin(
   executor: DatabaseSession,
@@ -41,8 +49,7 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
 }): Promise<string | null> {
-  const store = input.event.store?.toUpperCase() ?? "UNKNOWN_STORE";
-  if (NATIVE_REVENUECAT_STORES.has(store)) {
+  if (isNativeRevenueCatStore(input.event.store)) {
     if (!isUuidV4String(input.event.app_user_id)) {
       return "Native purchase buyer is not a Tearleads user";
     }

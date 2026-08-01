@@ -182,12 +182,17 @@ async function synchronizeClaim(
   }
 
   const samePeriod = claim.desiredSeatPeriodKey === claim.appliedSeatPeriodKey;
-  let paidCapacity = samePeriod
-    ? Math.max(claim.appliedPaidCapacity, binding.seatQuantity)
-    : binding.seatQuantity;
+  let paidCapacity = normalizeStripeSeatQuantity(
+    samePeriod
+      ? Math.max(claim.appliedPaidCapacity, binding.seatQuantity)
+      : binding.seatQuantity,
+  );
   let observedQuantity = binding.seatQuantity;
   const operationId = claim.inFlightOperationId;
-  const operationTarget = claim.inFlightTargetCapacity;
+  const operationTarget =
+    claim.inFlightTargetCapacity === null
+      ? null
+      : normalizeStripeSeatQuantity(claim.inFlightTargetCapacity);
   requireProrationEligibleStatus(
     binding.status,
     operationId,

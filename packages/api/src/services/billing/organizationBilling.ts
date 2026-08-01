@@ -92,11 +92,7 @@ export async function getOrganizationBillingManagementUrl(
       subscriptionSource: "stripe",
     };
   }
-  const subscriptionSource = canCancelDirectly
-    ? "stripe"
-    : nativeTier
-      ? "native"
-      : null;
+  const subscriptionSource = nativeTier ? "native" : null;
   if (subscriptionSource !== "native" || !providerCustomerId) {
     return {
       canCancelDirectly: false,

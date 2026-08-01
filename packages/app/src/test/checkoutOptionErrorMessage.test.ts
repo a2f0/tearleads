@@ -1,13 +1,14 @@
 import { expect, test } from "bun:test";
+import { BILLING_ERROR_CODES } from "@tearleads/validators/billing";
 import { checkoutOptionErrorMessage } from "../mini-apps/org-manager/billing/useDirectCheckout";
 import { ORG_MANAGER_LABELS } from "../mini-apps/org-manager/labels";
 
 test("an oversized roster gets actionable checkout guidance", () => {
   expect(
     checkoutOptionErrorMessage(
-      new Error(
-        "409 Conflict: The organization exceeds the maximum subscription tier of 10 members",
-      ),
+      Object.assign(new Error("checkout failed"), {
+        code: BILLING_ERROR_CODES.rosterOverCapacity,
+      }),
     ),
   ).toBe(ORG_MANAGER_LABELS.billingCheckoutOverCapacity);
 });
@@ -15,7 +16,9 @@ test("an oversized roster gets actionable checkout guidance", () => {
 test("an empty roster gets actionable checkout guidance", () => {
   expect(
     checkoutOptionErrorMessage(
-      new Error("409 Conflict: The organization has no active members"),
+      Object.assign(new Error("checkout failed"), {
+        code: BILLING_ERROR_CODES.checkoutNoActiveMembers,
+      }),
     ),
   ).toBe(ORG_MANAGER_LABELS.billingCheckoutNoMembers);
 });

@@ -202,6 +202,51 @@ test("an exact durable binding is authoritative over stale metadata", async () =
   expect(await readBillingStatus(metadataOrganizationId)).toBe("active");
 });
 
+test("a promotional grant preserves a live Stripe seat binding", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const eventNow = new Date("2099-01-01T00:00:00.000Z");
+  await db
+    .delete(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  await db.insert(organizationBillingStripeSeats).values({
+    nextAttemptAt: eventNow,
+    organizationId,
+    priceId: "price_team_5",
+    subscriptionId: "sub_still_live",
+    subscriptionItemId: "si_still_live",
+  });
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    {
+      app_user_id: admin.userId,
+      entitlement_ids: ["sync"],
+      event_timestamp_ms: eventNow.getTime(),
+      expiration_at_ms: eventNow.getTime() + 30 * 24 * 60 * 60 * 1_000,
+      id: crypto.randomUUID(),
+      product_id: "sync_team_5_monthly",
+      store: "PROMOTIONAL",
+      subscriber_attributes: { orgId: { value: organizationId } },
+      type: "INITIAL_PURCHASE",
+    },
+    eventNow,
+  );
+
+  expect(outcome).toMatchObject({ organizationId, status: "applied" });
+  const [binding] = await db
+    .select({
+      subscriptionId: organizationBillingStripeSeats.subscriptionId,
+      subscriptionItemId: organizationBillingStripeSeats.subscriptionItemId,
+    })
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  expect(binding).toEqual({
+    subscriptionId: "sub_still_live",
+    subscriptionItemId: "si_still_live",
+  });
+});
+
 test("an si_-only event with metadata no longer binds an organization", async () => {
   const appUserId = crypto.randomUUID();
   const metadataOrganizationId = await createActiveBilling({

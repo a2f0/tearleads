@@ -8,7 +8,10 @@ import {
   organizationBilling,
   organizations,
 } from "@tearleads/api-shared/schema";
-import { getSyncBillingTierForSeatCount } from "@tearleads/validators/billing";
+import {
+  BILLING_ERROR_CODES,
+  getSyncBillingTierForSeatCount,
+} from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
@@ -50,6 +53,7 @@ function requireAvailableTierSeatCount(seatCount: number): number {
     throw new OrganizationManagerError(
       "The organization exceeds the maximum subscription tier of 10 members",
       409,
+      BILLING_ERROR_CODES.rosterOverCapacity,
     );
   }
   return seatCount;
@@ -115,6 +119,7 @@ async function requireStripeCheckoutSeatQuantity(
     throw new OrganizationManagerError(
       "The organization has no active members",
       409,
+      BILLING_ERROR_CODES.checkoutNoActiveMembers,
     );
   }
   return requireAvailableTierSeatCount(activeUserIds.length);
@@ -283,6 +288,7 @@ export async function runRequireCheckoutEligibleWorkflow(
       throw new OrganizationManagerError(
         "The organization has no active members",
         409,
+        BILLING_ERROR_CODES.checkoutNoActiveMembers,
       );
     }
 

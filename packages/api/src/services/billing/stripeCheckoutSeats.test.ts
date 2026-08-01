@@ -247,6 +247,7 @@ test("checkout rejects a malformed organization with no effective members", asyn
       },
     ),
   ).rejects.toMatchObject({
+    code: "billing_checkout_no_active_members",
     message: "The organization has no active members",
     status: 409,
   });

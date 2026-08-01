@@ -108,7 +108,9 @@ export async function loadStripeCheckoutOptions(input: {
     { reportErrors: false },
   );
   if (!result.ok) {
-    throw new Error(result.message);
+    throw Object.assign(new Error(result.message), {
+      ...(result.code === undefined ? {} : { code: result.code }),
+    });
   }
   return result.data;
 }

@@ -4,6 +4,7 @@ export class OrganizationManagerError extends Error {
   constructor(
     message: string,
     readonly status: OrganizationManagerErrorStatus,
+    readonly code?: string,
   ) {
     super(message);
   }

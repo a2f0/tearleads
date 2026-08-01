@@ -156,6 +156,7 @@ test("checkout rejects an effective roster above the largest tier", async () => 
       () => "oversized-roster-token",
     ),
   ).rejects.toMatchObject({
+    code: "billing_roster_over_capacity",
     message:
       "The organization exceeds the maximum subscription tier of 10 members",
     status: 409,

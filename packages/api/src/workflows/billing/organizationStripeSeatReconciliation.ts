@@ -1,10 +1,8 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { organizationBillingStripeSeats } from "@tearleads/api-shared/schema";
 import {
   getSyncBillingTierForNativeProduct,
   getSyncBillingTierForSeatCount,
 } from "@tearleads/validators/billing";
-import { eq } from "drizzle-orm";
 import { requestOrganizationStripeSeatSync } from "./stripeSeatState";
 
 /** Reconciles the provider-specific seat outbox after local seat accounting. */
@@ -18,12 +16,10 @@ export async function reconcileOrganizationStripeSeatState(input: {
   readonly providerProductId: string | null;
   readonly seatPeriodKey: string;
 }): Promise<void> {
-  if (getSyncBillingTierForNativeProduct(input.providerProductId)) {
-    await input.executor
-      .delete(organizationBillingStripeSeats)
-      .where(
-        eq(organizationBillingStripeSeats.organizationId, input.organizationId),
-      );
+  if (
+    !input.hasStripeSubscription &&
+    getSyncBillingTierForNativeProduct(input.providerProductId)
+  ) {
     return;
   }
   const renewalTier = getSyncBillingTierForSeatCount(input.activeSeatCount);

@@ -69,6 +69,9 @@ Connect or Play Console. The `default` offering should contain `solo`, `team_5`,
 and `team_10` packages backed by matching Test Store products and attached to
 the `sync` entitlement. `@revenuecat/purchases-capacitor` 13.2.1 is newer than
 RevenueCat's minimum Test Store-compatible Capacitor SDK (11.2.6).
+RevenueCat reports these webhook events with `store: "TEST_STORE"` and
+`environment: "SANDBOX"`; the server treats them as native purchases, including
+the personal-organization restriction, and staging must opt into sandbox events.
 
 Pass the public Test Store key as a one-build override. The run scripts preserve
 an already-exported value, so the platform keys in `.secrets/root.env` remain

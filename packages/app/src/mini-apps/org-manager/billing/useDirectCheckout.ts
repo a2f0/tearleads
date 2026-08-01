@@ -2,6 +2,7 @@ import type {
   DirectCheckoutCapability,
   DirectCheckoutSession,
 } from "@tearleads/client-sdk";
+import { BILLING_ERROR_CODES } from "@tearleads/validators/billing";
 import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDirectCheckout as useDirectCheckoutCapability } from "../../../providers/direct-checkout/DirectCheckoutProvider";
@@ -137,19 +138,17 @@ function useCheckoutOption(
 
 /** Maps the server's stable roster-policy failures to actionable copy. */
 export function checkoutOptionErrorMessage(error: unknown): string {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "object" &&
-          error !== null &&
-          "message" in error &&
-          typeof error.message === "string"
-        ? error.message
-        : String(error);
-  if (message.includes("exceeds the maximum subscription tier")) {
+  const code =
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
+      ? error.code
+      : null;
+  if (code === BILLING_ERROR_CODES.rosterOverCapacity) {
     return ORG_MANAGER_LABELS.billingCheckoutOverCapacity;
   }
-  if (message.includes("has no active members")) {
+  if (code === BILLING_ERROR_CODES.checkoutNoActiveMembers) {
     return ORG_MANAGER_LABELS.billingCheckoutNoMembers;
   }
   return ORG_MANAGER_LABELS.billingCheckoutUnavailable;

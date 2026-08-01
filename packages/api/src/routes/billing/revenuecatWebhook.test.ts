@@ -82,6 +82,7 @@ test("an admin purchase activates org sync and records the provider", async () =
       organizationId,
       productId: "sync_monthly",
       purchasedAtMs,
+      store: "APP_STORE",
       transactionId: "transaction-1",
       type: "INITIAL_PURCHASE",
     }),
@@ -114,6 +115,7 @@ test("a native team purchase grants the fixed tier capacity", async () => {
       appUserId: admin.userId,
       organizationId,
       productId: "sync_team_5_monthly",
+      store: "APP_STORE",
       type: "INITIAL_PURCHASE",
     }),
   );
@@ -137,8 +139,8 @@ test("a paid native tier activates but freezes an oversized roster", async () =>
   await db.insert(organizationBillingStripeSeats).values({
     organizationId,
     priceId: "price_cancelled",
-    subscriptionId: "sub_cancelled",
-    subscriptionItemId: "si_cancelled",
+    subscriptionId: `sub_cancelled_${organizationId}`,
+    subscriptionItemId: `si_cancelled_${organizationId}`,
   });
 
   const response = await postWebhook(
@@ -146,6 +148,7 @@ test("a paid native tier activates but freezes an oversized roster", async () =>
       appUserId: admin.userId,
       organizationId,
       productId: "sync_solo_monthly",
+      store: "APP_STORE",
       type: "INITIAL_PURCHASE",
     }),
   );
@@ -283,8 +286,7 @@ test("a renewal after an expiration re-activates sync and clears the purge windo
   invariant(disabled.disabledAt, "expected disabledAt after expiration");
   invariant(disabled.purgeAfter, "expected purgeAfter after expiration");
 
-  // Re-activation: a renewal must flip back to active and clear the lapse
-  // fields so the org can sync again with no pending purge.
+  // A renewal must reactivate sync and clear the pending-purge fields.
   const expirationAtMs = Date.now() + THIRTY_DAYS_MS;
   const response = await postWebhook(
     webhookBody({
@@ -368,8 +370,7 @@ test("a stale out-of-order event does not overwrite newer applied billing", asyn
   );
   expect(await purchase.json()).toEqual({ received: true, outcome: "applied" });
 
-  // An EXPIRATION emitted BEFORE the purchase (retried late) must not disable
-  // the freshly-activated org.
+  // A late pre-purchase EXPIRATION must not disable the fresh purchase.
   const staleExpiration = await postWebhook(
     webhookBody({
       appUserId: admin.userId,
@@ -486,8 +487,7 @@ test("a Stripe-store grant defers end-to-end when the lookup fails", async () =>
     },
   );
 
-  // The immutable binding could not be read: the event must be deferred —
-  // never resolved via the mutable attribute, never claimed.
+  // An unreadable binding must defer without mutable attribution or claiming.
   expect(outcome).toEqual({
     status: "retry",
     reason: "Stripe subscription lookup failed for a Stripe-store event",

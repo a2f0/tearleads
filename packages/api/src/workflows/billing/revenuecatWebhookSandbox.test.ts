@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
@@ -41,6 +41,7 @@ function appStorePurchase(input: {
   readonly environment?: string;
   readonly eventId: string;
   readonly organizationId: string;
+  readonly store?: string;
 }): RevenueCatWebhookEvent {
   const now = Date.now();
   return {
@@ -52,7 +53,7 @@ function appStorePurchase(input: {
     original_transaction_id: "2000000000000001",
     product_id: "com.tearleads.sync.monthly",
     purchased_at_ms: now,
-    store: "APP_STORE",
+    store: input.store ?? "APP_STORE",
     // A native store purchase carries no transaction metadata, so the org is
     // bound through the subscriber attribute the client sets before buying.
     subscriber_attributes: { orgId: { value: input.organizationId } },
@@ -158,6 +159,60 @@ test("a sandbox store purchase activates sync on a tier that opts in", async () 
     providerCustomerId: user.userId,
     status: "active",
   });
+});
+
+test("Test Store purchases obey the native personal-organization policy", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const replacement = await registerOrganizationAdmin();
+  await db
+    .update(users)
+    .set({ defaultOrganizationId: replacement.organizationId })
+    .where(eq(users.id, user.userId));
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    appStorePurchase({
+      appUserId: user.userId,
+      environment: "SANDBOX",
+      eventId: crypto.randomUUID(),
+      organizationId,
+      store: "TEST_STORE",
+    }),
+    new Date(),
+    { env: { REVENUECAT_ALLOW_SANDBOX_EVENTS: "true" } },
+  );
+
+  expect(outcome).toEqual({
+    status: "ignored",
+    reason: "Native purchases may only fund the buyer's personal organization",
+  });
+});
+
+test("an unknown paid native product is ignored with an operator alert", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const eventId = crypto.randomUUID();
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    const outcome = await runRevenueCatWebhookWorkflow(db, {
+      ...appStorePurchase({
+        appUserId: user.userId,
+        environment: "PRODUCTION",
+        eventId,
+        organizationId,
+      }),
+      product_id: "sync_unmapped_monthly",
+    });
+
+    expect(outcome).toEqual({
+      status: "ignored",
+      reason: "Event product is not a configured sync billing tier",
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      `RevenueCat paid grant ${eventId} was not applied: Event product is not a configured sync billing tier`,
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
 });
 
 test("a production store purchase still activates sync", async () => {

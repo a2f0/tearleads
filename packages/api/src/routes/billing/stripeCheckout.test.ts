@@ -279,6 +279,7 @@ test("options reject an organization above the largest tier", async () => {
 
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
+    code: "billing_roster_over_capacity",
     error:
       "The organization exceeds the maximum subscription tier of 10 members",
   });

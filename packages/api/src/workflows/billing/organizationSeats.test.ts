@@ -323,48 +323,6 @@ test("a migrated row initializes its period key without losing paid capacity", a
   });
 });
 
-test("a native fixed tier clears a stale Stripe seat-sync row", async () => {
-  const { memberGroupId, organizationId } = await createBillableOrganization();
-  const userA = crypto.randomUUID();
-  await db
-    .update(organizationBilling)
-    .set({
-      provider: "revenuecat",
-      providerProductId: "sync_solo_monthly",
-      seatCount: 1,
-    })
-    .where(eq(organizationBilling.organizationId, organizationId));
-  await db.insert(organizationBillingStripeSeats).values({
-    organizationId,
-    priceId: "price_cancelled",
-    subscriptionId: "sub_cancelled",
-    subscriptionItemId: "si_cancelled",
-  });
-  await insertMemberGroupState({
-    groupId: memberGroupId,
-    signerUserId: userA,
-    stateHash: "native-solo-state",
-    userIds: [userA],
-    version: 1,
-  });
-
-  await reconcileOrganizationBillingSeats({
-    executor: db,
-    now: NOW,
-    organizationId,
-    source: {
-      sourceId: "native-solo-state",
-      sourceType: "principal_state",
-    },
-  });
-  expect(await readSeatCount(organizationId)).toBe(1);
-  const stripeRows = await db
-    .select()
-    .from(organizationBillingStripeSeats)
-    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
-  expect(stripeRows).toHaveLength(0);
-});
-
 test("an over-capacity native roster can stay level and shrink", async () => {
   const { memberGroupId, organizationId } = await createBillableOrganization();
   const userA = crypto.randomUUID();

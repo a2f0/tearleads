@@ -101,6 +101,7 @@ function BillingPanelSubscriptionControls(input: {
   readonly isPersonalOrganization: boolean | null;
   readonly nativePurchaseAllowed: boolean;
   readonly onRefresh: () => void;
+  readonly organizationId: string;
   readonly subscriptionManagement: ReturnType<
     typeof useOpenSubscriptionManagement
   >;
@@ -127,7 +128,11 @@ function BillingPanelSubscriptionControls(input: {
         isOrgAdmin={input.isOrgAdmin}
         loading={billing.loading}
         managementUrl={direct.managementUrl}
-        minimumSeatCount={billing.billing?.activeMemberCount ?? null}
+        minimumSeatCount={
+          billing.billing?.organizationId === input.organizationId
+            ? billing.billing.activeMemberCount
+            : null
+        }
         nativePurchaseRestricted={
           actions.purchaseAvailable && input.isPersonalOrganization === false
         }
@@ -140,6 +145,7 @@ function BillingPanelSubscriptionControls(input: {
         options={actions.options}
         purchaseAvailable={nativePurchaseAvailable}
         purchaseSectionHidden={purchaseSectionHidden}
+        restoreAvailable={actions.purchaseAvailable}
         view={billing.view}
       />
       {direct.checkoutEnabled ? (
@@ -231,6 +237,7 @@ export function BillingPanel({
         isPersonalOrganization={isPersonalOrganization}
         nativePurchaseAllowed={nativePurchaseAllowed}
         onRefresh={handleRefresh}
+        organizationId={organizationId}
         subscriptionManagement={subscriptionManagement}
       />
       {isOrgAdmin ? (

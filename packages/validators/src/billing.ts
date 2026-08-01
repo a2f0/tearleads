@@ -1,3 +1,8 @@
+export const BILLING_ERROR_CODES = {
+  checkoutNoActiveMembers: "billing_checkout_no_active_members",
+  rosterOverCapacity: "billing_roster_over_capacity",
+} as const;
+
 /** Canonical fixed-cap subscription tiers shared by every billing provider. */
 export const SYNC_BILLING_TIERS = [
   {

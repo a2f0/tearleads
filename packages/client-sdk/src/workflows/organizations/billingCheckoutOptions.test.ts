@@ -20,6 +20,7 @@ test("checkout option failures retain the server's actionable reason", async () 
     loadStripeCheckoutOptions({
       apiClient: {
         getStripeCheckoutOptions: async () => ({
+          code: "billing_roster_over_capacity",
           kind: "http" as const,
           message:
             "409 Conflict: The organization exceeds the maximum subscription tier of 10 members",
@@ -33,5 +34,9 @@ test("checkout option failures retain the server's actionable reason", async () 
       },
       organizationId: "org-1",
     }),
-  ).rejects.toThrow("exceeds the maximum subscription tier");
+  ).rejects.toMatchObject({
+    code: "billing_roster_over_capacity",
+    message:
+      "409 Conflict: The organization exceeds the maximum subscription tier of 10 members",
+  });
 });

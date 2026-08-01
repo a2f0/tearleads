@@ -51,7 +51,7 @@ function stubEnvironment(
   const isTrialing = overrides.isTrialing ?? false;
   spies.push(
     spyOn(BillingProvider, "useOrganizationBilling").mockReturnValue({
-      billing: { activeMemberCount: 1 },
+      billing: { activeMemberCount: 1, organizationId: "org-1" },
       error: null,
       loading: false,
       refresh: () => Promise.resolve(),
