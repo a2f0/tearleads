@@ -1,5 +1,5 @@
 import type { OrganizationBillingManagementUrl } from "@tearleads/client-sdk";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 
 interface ManagementUrlState {
@@ -82,15 +82,19 @@ export function useBillingManagementUrl(
 
   // Scope the URL to the requesting org so a stale value never leaks across an
   // org switch before the new fetch resolves.
-  return state.organizationId === organizationId
-    ? {
-        canCancelDirectly: state.canCancelDirectly,
-        managementUrl: state.managementUrl,
-        subscriptionSource: state.subscriptionSource,
-      }
-    : {
-        canCancelDirectly: false,
-        managementUrl: null,
-        subscriptionSource: null,
-      };
+  return useMemo(
+    () =>
+      state.organizationId === organizationId
+        ? {
+            canCancelDirectly: state.canCancelDirectly,
+            managementUrl: state.managementUrl,
+            subscriptionSource: state.subscriptionSource,
+          }
+        : {
+            canCancelDirectly: false,
+            managementUrl: null,
+            subscriptionSource: null,
+          },
+    [organizationId, state],
+  );
 }

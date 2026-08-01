@@ -188,6 +188,15 @@ test("management identifies Stripe and native subscription ownership", async () 
       status: "active",
     })
     .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .delete(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: null,
+    subscriptionId: "sub_quarantined_native_takeover",
+    subscriptionItemId: "si_quarantined_native_takeover",
+  });
   const revenueCat = {
     env: {
       REVENUECAT_PROJECT_ID: "proj_test",

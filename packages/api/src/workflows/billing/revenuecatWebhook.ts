@@ -289,8 +289,8 @@ async function applyRevenueCatTransition(input: {
     isNativeRevenueCatStore(input.event.store)
   ) {
     if (input.preserveStripeBinding) {
-      // Keep identity for direct cancellation and final-event attribution. A
-      // null Price quarantines seat sync; the native product controls capacity.
+      // Keep identity for final-event attribution. A null Price quarantines
+      // seat sync and management; the native product controls both instead.
       await input.executor
         .update(organizationBillingStripeSeats)
         .set({

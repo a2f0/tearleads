@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
@@ -61,6 +61,7 @@ async function insertState(input: {
 function stripeFetch(input: {
   readonly organizationId: string;
   readonly postStatuses?: readonly number[];
+  readonly priceId?: string;
   readonly quantity: number;
   readonly requests: StripeRequest[];
   readonly status?: string;
@@ -68,11 +69,12 @@ function stripeFetch(input: {
 }): typeof fetch {
   const statuses = [...(input.postStatuses ?? [])];
   const priceId =
-    input.quantity <= 1
+    input.priceId ??
+    (input.quantity <= 1
       ? "price_sync"
       : input.quantity <= 5
         ? "price_team_5"
-        : "price_team_10";
+        : "price_team_10");
   return (async (request: RequestInfo | URL, init?: RequestInit) => {
     const url = String(request);
     if ((init?.method ?? "GET") === "GET") {
@@ -107,6 +109,7 @@ function stripeFetch(input: {
 async function runOne(input: {
   readonly organizationId: string;
   readonly postStatuses?: readonly number[];
+  readonly providerPriceId?: string;
   readonly providerQuantity: number;
   readonly requests: StripeRequest[];
   readonly status?: string;
@@ -122,6 +125,7 @@ async function runOne(input: {
         fetchImpl: stripeFetch({
           organizationId: input.organizationId,
           ...(input.postStatuses ? { postStatuses: input.postStatuses } : {}),
+          ...(input.providerPriceId ? { priceId: input.providerPriceId } : {}),
           quantity: input.providerQuantity,
           requests: input.requests,
           ...(input.status ? { status: input.status } : {}),
@@ -292,6 +296,31 @@ test("past-due subscriptions retry without creating seat prorations", async () =
     lastError:
       "Stripe subscription status past_due cannot accept seat prorations",
   });
+});
+
+test("a rotated provider Price alerts while the worker backs off", async () => {
+  const state = await insertState({
+    appliedPaidCapacity: 1,
+    desiredPaidCapacity: 5,
+    desiredRenewalQuantity: 5,
+  });
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+
+  try {
+    expect(
+      await runOne({
+        ...state,
+        providerPriceId: "price_rotated",
+        providerQuantity: 1,
+        requests: [],
+      }),
+    ).toEqual({ attempted: 1, failed: 1, synced: 0 });
+    expect(errorSpy).toHaveBeenCalledWith(
+      `Stripe seat sync for organization ${state.organizationId} requires attention: Stripe subscription has no valid organization seat item`,
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
 });
 
 test("legacy paid capacity above ten settles onto the largest tier", async () => {

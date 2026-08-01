@@ -50,6 +50,7 @@ interface ValidSeatBinding {
 }
 
 class StripeSeatPeriodRebound extends Error {}
+class StripeSeatBindingInvalid extends Error {}
 
 function validateSeatBinding(
   claim: StripeSeatSyncClaim,
@@ -64,7 +65,9 @@ function validateSeatBinding(
   ) {
     // getSubscriptionBinding exposes seatQuantity only when the item's Price
     // maps to a configured fixed tier, so this also rejects rotated Prices.
-    throw new Error("Stripe subscription has no valid organization seat item");
+    throw new StripeSeatBindingInvalid(
+      "Stripe subscription has no valid organization seat item",
+    );
   }
   return {
     billingPeriodEndsAt: binding.billingPeriodEndsAt,
@@ -302,6 +305,11 @@ export async function runStripeSeatSynchronization(
     } catch (error) {
       if (error instanceof StripeSeatPeriodRebound) {
         continue;
+      }
+      if (error instanceof StripeSeatBindingInvalid) {
+        console.error(
+          `Stripe seat sync for organization ${claim.organizationId} requires attention: ${error.message}`,
+        );
       }
       failed += 1;
       await failOrganizationStripeSeatSync({

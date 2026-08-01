@@ -79,8 +79,8 @@ async function loadBillingSeatState(input: {
 }): Promise<BillingSeatState | null> {
   const query = input.executor
     .select({
-      hasStripeSubscription: organizationBillingStripeSeats.subscriptionId,
-      hasStripeSubscriptionItem:
+      stripeSubscriptionId: organizationBillingStripeSeats.subscriptionId,
+      stripeSubscriptionItemId:
         organizationBillingStripeSeats.subscriptionItemId,
       stripePriceId: organizationBillingStripeSeats.priceId,
       organizationId: organizationBilling.organizationId,
@@ -118,8 +118,8 @@ async function loadBillingSeatState(input: {
         ...row,
         hasStripeSubscription:
           row.stripePriceId !== null &&
-          (row.hasStripeSubscription !== null ||
-            row.hasStripeSubscriptionItem !== null),
+          (row.stripeSubscriptionId !== null ||
+            row.stripeSubscriptionItemId !== null),
       }
     : null;
 }
