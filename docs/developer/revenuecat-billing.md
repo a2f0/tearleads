@@ -10,6 +10,10 @@ This documents how the integration is wired; the actual keys,
 project/app/offering IDs, and operational state live in the git-ignored
 `.secrets/revenuecat.md`, not here.
 
+Provider MCP registration, CLI fallbacks, the declarative provisioning order,
+and the current external-account handoff live in
+[payment-provider-mcp.md](./payment-provider-mcp.md).
+
 ## Provider responsibilities
 
 | Concern | Authority |
