@@ -61,18 +61,20 @@ starts. Never put the token value in `~/.codex/config.toml` or commit it.
 codex mcp remove revenuecat
 codex mcp add revenuecat \
   --url https://mcp.revenuecat.ai/mcp \
-  --bearer-token-env-var REVENUECAT_V2_SECRET_KEY
+  --bearer-token-env-var TEARLEADS_REVENUECAT_MCP_TOKEN
 
 codex mcp remove stripe
 codex mcp add stripe \
   --url https://mcp.stripe.com \
-  --bearer-token-env-var STRIPE_SECRET_KEY
+  --bearer-token-env-var TEARLEADS_STRIPE_MCP_RESTRICTED_KEY
 ```
 
 The environment variable must be present in the process that launches Codex.
 Prefer separate read-only audit credentials and write-enabled provisioning
-credentials. RevenueCat documents the exact API v2 permissions required by
-each operation.
+credentials. These must be dedicated MCP credentials, not aliases for deployed
+API credentials such as `REVENUECAT_V2_SECRET_KEY` or `STRIPE_SECRET_KEY`.
+RevenueCat documents the exact API v2 permissions required by each operation;
+Stripe restricted keys should enable only the resources the agent will manage.
 
 Official references:
 
@@ -85,10 +87,10 @@ Official references:
 The MCPs cover Stripe and RevenueCat well. Apple and Google currently need API
 or CLI tooling.
 
-| Provider | Preferred automation | Repository credential source | Notes |
+| Provider | Preferred automation | Existing API/CLI credential source | Notes |
 | --- | --- | --- | --- |
-| Stripe | Stripe MCP; Stripe CLI | `.secrets/root.env` plus the tier env | `brew install stripe-cli`; use test mode until live credentials are explicitly selected. |
-| RevenueCat | RevenueCat MCP; API v2 | `REVENUECAT_V2_SECRET_KEY` and `REVENUECAT_PROJECT_ID` | There is no separate RevenueCat CLI requirement. |
+| Stripe | Stripe MCP; Stripe CLI | `.secrets/root.env` plus the tier env | Prefer OAuth for MCP. `brew install stripe-cli`; use test mode until live credentials are explicitly selected. |
+| RevenueCat | RevenueCat MCP; API v2 | `REVENUECAT_V2_SECRET_KEY` and `REVENUECAT_PROJECT_ID` | Prefer OAuth for MCP. There is no separate RevenueCat CLI requirement. |
 | Apple | App Store Connect API; `asc` CLI | `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and `.secrets/AuthKey_<id>.p8` | `brew install asc`; `asc` is community maintained, while the underlying API is Apple-supported. |
 | Google | Android Publisher API | `.secrets/google-play-service-account.json` | `gcloud` manages Cloud/API bootstrap but not the Play subscription catalog. The pinned Fastlane Google client can read and write Android Publisher resources when its Play permissions allow it. |
 
@@ -164,41 +166,17 @@ Each Apple app needs one subscription group, three one-month products at levels
 and review submission. Each Google app needs three subscriptions with an active
 `monthly` auto-renewing base plan and the matching localized price.
 
-## Account-state snapshot (2026-08-01)
+## Account-specific handoff
 
-This snapshot is a handoff aid, not a substitute for a fresh read-only audit.
+Volatile provider state, resource identifiers, local authentication status, and
+pending account-owner actions live in the git-ignored
+`.secrets/revenuecat.md`, as described in
+[revenuecat-billing.md](./revenuecat-billing.md). An agent working in an
+authorized checkout must read that handoff, perform a fresh read-only provider
+audit, and update it after provisioning. Do not copy its account snapshot into
+tracked documentation.
 
-- Stripe test mode is complete: the $5/$10/$20 monthly Prices are active on one
-  Product and the staging `invoice.paid` webhook is enabled. Live-mode Prices,
-  publishable/secret keys, and the production Stripe webhook are not configured.
-- RevenueCat has the complete fixed-tier product/package/entitlement graph and
-  both Tearleads API webhooks. Both Apple apps have their App Store Connect and
-  In-App Purchase keys configured. Test Store products still need dashboard
-  prices because their initial price is not writable through API v2.
-- The user-scoped Codex Stripe and RevenueCat MCP registrations are
-  OAuth-authenticated. A newly started Codex session can use them without
-  injecting provider secrets.
-- App Store Connect has the production and staging subscription groups, all six
-  fixed-tier products, levels 3/2/1, English metadata, exact $5/$10/$20 US base
-  prices with Apple-equalized prices, and availability in all 175 territories.
-  Products remain `MISSING_METADATA` until review screenshots and any review
-  version metadata are supplied. Apple may take up to an hour to propagate new
-  catalog metadata to sandbox and RevenueCat.
-- Google Play production has no fixed-tier subscriptions. Staging has only the
-  former `sync_monthly_staging` $4.99 product. The service account can read and
-  write monetization resources for the apps; an Android Publisher regional-price
-  conversion succeeded across 173 regions.
-
-## Remaining account-owner steps
-
-1. Supply Apple subscription review screenshots, accept any pending paid-app
-   agreements, and finish tax/banking and sandbox tester setup. These require
-   account-owner or visual review decisions.
-2. Set the three RevenueCat Test Store prices to $5/$10/$20 in its dashboard.
-3. Before production launch, provide/select Stripe live-mode credentials. Then
-   create the live Product/Prices and production webhook, attach the live Stripe
-   Product to `sync`, and put mode-consistent live keys, Price IDs, and webhook
-   secret in the production deployment.
-
-An agent can now create and activate the six Google products through the Android
-Publisher API without manual catalog entry.
+MCP registration and OAuth authorization are user-scoped. Check the current
+machine with `codex mcp list` and `codex mcp get <name>`; never infer local
+authentication from this repository. If the ignored handoff is unavailable,
+reconstruct provider state through read-only APIs before making changes.
