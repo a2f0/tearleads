@@ -6,10 +6,4 @@ tags:
   - screenshots
   - subscriptions
 ---
-- assertVisible: "Sync billing"
-- assertVisible: "Solo"
-- assertVisible: "\\$5\\.00"
-- assertVisible: "Team \\(up to 5\\)"
-- assertVisible: "\\$10\\.00"
-- assertVisible: "Team \\(up to 10\\)"
-- assertVisible: "\\$20\\.00"
+- runFlow: subscription-review-catalog-assertions.yaml

@@ -87,8 +87,4 @@ tags:
 # The dedicated simulator uses the default US storefront. These assertions are
 # intentionally strict so a price or storefront change cannot create stale
 # review evidence unnoticed.
-- assertVisible: "\\$5\\.00"
-- assertVisible: "Team \\(up to 5\\)"
-- assertVisible: "\\$10\\.00"
-- assertVisible: "Team \\(up to 10\\)"
-- assertVisible: "\\$20\\.00"
+- runFlow: subscription-review-catalog-assertions.yaml

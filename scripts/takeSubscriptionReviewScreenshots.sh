@@ -74,8 +74,18 @@ runtime_identifier="$(
 if [ -z "$DEVICE_UDID" ]; then
   DEVICE_UDID="$(
     xcrun simctl list devices available -j |
-      jq -r --arg name "$DEVICE_NAME" --arg runtime "$runtime_identifier" \
-        '[.devices[$runtime][]? | select(.name == $name and .isAvailable == true)] | first | .udid // empty'
+      jq -r \
+        --arg name "$DEVICE_NAME" \
+        --arg runtime "$runtime_identifier" \
+        --arg type "$DEVICE_TYPE_IDENTIFIER" \
+        '[
+          .devices[$runtime][]? |
+          select(
+            .name == $name and
+            .deviceTypeIdentifier == $type and
+            .isAvailable == true
+          )
+        ] | first | .udid // empty'
   )"
   if [ -z "$DEVICE_UDID" ]; then
     DEVICE_UDID="$(

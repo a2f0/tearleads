@@ -54,7 +54,7 @@ beforeAll(async () => {
   shimDirectory = await mkdtemp(
     resolve(tmpdir(), "tearleads-subscription-review-shims-"),
   );
-  for (const command of ["bun", "bunx", "maestro", "open", "xcodebuild"]) {
+  for (const command of ["bun", "bunx", "open", "xcodebuild"]) {
     const path = resolve(shimDirectory, command);
     await Bun.write(
       path,
@@ -65,6 +65,21 @@ beforeAll(async () => {
     );
     await chmod(path, 0o755);
   }
+
+  const maestroPath = resolve(shimDirectory, "maestro");
+  await Bun.write(
+    maestroPath,
+    [
+      "#!/bin/sh",
+      'printf \'maestro:%s\\n\' "$*" >> "$SUBSCRIPTION_REVIEW_TEST_LOG"',
+      "invocation=0",
+      '[ ! -f "$SHIM_MAESTRO_COUNT_FILE" ] || invocation="$(cat "$SHIM_MAESTRO_COUNT_FILE")"',
+      "invocation=$((invocation + 1))",
+      'printf \'%s\\n\' "$invocation" > "$SHIM_MAESTRO_COUNT_FILE"',
+      '[ -z "$SHIM_MAESTRO_FAIL_CALL" ] || [ "$invocation" != "$SHIM_MAESTRO_FAIL_CALL" ] || exit 1',
+    ].join("\n"),
+  );
+  await chmod(maestroPath, 0o755);
 
   const xcrunPath = resolve(shimDirectory, "xcrun");
   await Bun.write(
@@ -106,6 +121,7 @@ async function runScript(options: {
   apiBaseUrl?: string;
   apiKey?: null | string;
   initialDevices?: Array<Record<string, unknown>>;
+  maestroFailCall?: number;
   selectedUdid?: string;
   sipsOutput?: string;
 }) {
@@ -125,6 +141,8 @@ async function runScript(options: {
     SHIM_CREATED_FILE: createdFile,
     SHIM_CREATED_UDID: dedicatedUdid,
     SHIM_INITIAL_DEVICES_JSON: devicesJson(options.initialDevices ?? []),
+    SHIM_MAESTRO_COUNT_FILE: resolve(testDirectory, "maestro-count"),
+    SHIM_MAESTRO_FAIL_CALL: options.maestroFailCall?.toString(),
     SHIM_RUNTIMES_JSON: runtimesJson,
     SHIM_SIPS_OUTPUT:
       options.sipsOutput ?? "pixelWidth: 1179\npixelHeight: 2556\nhasAlpha: no",
@@ -189,6 +207,23 @@ test("reuses the existing dedicated simulator", async () => {
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.log).not.toContain("xcrun:simctl create");
   expect(result.log).toContain(`xcrun:simctl install ${dedicatedUdid}`);
+});
+
+test("ignores a stale same-name simulator of the wrong model", async () => {
+  const result = await runScript({
+    initialDevices: [
+      {
+        ...dedicatedDevice,
+        deviceTypeIdentifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-15",
+        udid: unrelatedUdid,
+      },
+    ],
+  });
+
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.log).toContain(
+    `xcrun:simctl create ${dedicatedDeviceName} ${deviceTypeIdentifier} ${runtimeIdentifier}`,
+  );
 });
 
 test("rejects a RevenueCat Test Store key before simulator mutation", async () => {
@@ -263,4 +298,14 @@ test("rejects a screenshot with an alpha channel", async () => {
   expect(result.stderr).toContain(
     "has an alpha channel; App Store review screenshots cannot",
   );
+});
+
+test("does not copy review assets when post-capture verification fails", async () => {
+  const result = await runScript({
+    initialDevices: [dedicatedDevice],
+    maestroFailCall: 2,
+  });
+
+  expect(result.exitCode).toBe(1);
+  expect(result.screenshots).toEqual([true, false, false]);
 });
