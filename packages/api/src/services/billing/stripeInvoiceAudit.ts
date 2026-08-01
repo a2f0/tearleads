@@ -134,6 +134,7 @@ function createStripeInvoiceAuditInput(input: {
   const economicsTier = hasCompleteTierEconomics
     ? (SYNC_BILLING_TIERS.find(
         (tier) =>
+          line.quantity === 1 &&
           line.currency === "usd" &&
           line.interval === "month" &&
           line.intervalCount === 1 &&

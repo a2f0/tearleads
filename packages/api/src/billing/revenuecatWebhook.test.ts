@@ -81,6 +81,37 @@ test("a Stripe grant takes capacity from its immutable subscription binding", ()
   }
 });
 
+test("a native product change grants the newly purchased tier", () => {
+  const transition = classifyRevenueCatEvent(
+    makeEvent({
+      new_product_id: "sync_team_5_monthly",
+      product_id: "sync_monthly",
+      store: "APP_STORE",
+      type: "PRODUCT_CHANGE",
+    }),
+    ACTIVE_GRANT_NOW,
+  );
+
+  expect(transition.kind).toBe("grant");
+  if (transition.kind === "grant") {
+    expect(transition.fields.providerProductId).toBe("sync_team_5_monthly");
+    expect(transition.fields.seatCount).toBe(5);
+  }
+});
+
+test("a native product change without a configured destination fails closed", () => {
+  expect(
+    classifyRevenueCatEvent(
+      makeEvent({
+        new_product_id: null,
+        store: "APP_STORE",
+        type: "PRODUCT_CHANGE",
+      }),
+      ACTIVE_GRANT_NOW,
+    ).kind,
+  ).toBe("ignore");
+});
+
 test("a grant without an expiration has a null period end", () => {
   const transition = classifyRevenueCatEvent(
     makeEvent({ expiration_at_ms: null }),

@@ -6,19 +6,23 @@ import { eq } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 
-const NATIVE_REVENUECAT_STORES = new Set([
-  "AMAZON",
-  "APP_STORE",
-  "MAC_APP_STORE",
-  "PLAY_STORE",
-  "TEST_STORE",
+const NON_NATIVE_REVENUECAT_STORES = new Set([
+  "PROMOTIONAL",
+  "RC_BILLING",
+  "STRIPE",
 ]);
 
-/** Whether RevenueCat reports a device-store purchase subject to personal-org policy. */
+/**
+ * Whether a RevenueCat grant requires the restrictive personal-org policy.
+ * Unknown and missing store values fail closed as native: only the explicitly
+ * supported non-native lanes may bypass device-store restrictions.
+ */
 export function isNativeRevenueCatStore(
   store: string | null | undefined,
 ): boolean {
-  return NATIVE_REVENUECAT_STORES.has(store?.toUpperCase() ?? "UNKNOWN_STORE");
+  return !NON_NATIVE_REVENUECAT_STORES.has(
+    store?.toUpperCase() ?? "UNKNOWN_STORE",
+  );
 }
 
 async function isOrganizationAdmin(

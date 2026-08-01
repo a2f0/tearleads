@@ -269,6 +269,13 @@ function timestampMsToDate(value: number | null | undefined): Date | null {
   return value != null ? new Date(value) : null;
 }
 
+/** Product whose capacity a grant asserts after this event is applied. */
+function resolveGrantedProductId(event: RevenueCatWebhookEvent): string | null {
+  return event.type === "PRODUCT_CHANGE"
+    ? (event.new_product_id ?? null)
+    : (event.product_id ?? null);
+}
+
 interface RevenueCatClassificationOptions {
   allowSandboxEvents?: boolean;
   stripePriceId?: string;
@@ -287,9 +294,10 @@ function classifyRevenueCatGrant(
     };
   }
   const isStripeStore = event.store?.toUpperCase() === STRIPE_STORE;
+  const grantedProductId = resolveGrantedProductId(event);
   const tier = isStripeStore
     ? null
-    : getSyncBillingTierForNativeProduct(event.product_id);
+    : getSyncBillingTierForNativeProduct(grantedProductId);
   const seatCount = isStripeStore ? options.stripeSeatCount : tier?.seatLimit;
   if (!seatCount) {
     return {
@@ -320,7 +328,7 @@ function classifyRevenueCatGrant(
       // exact Price resolved from our immutable subscription binding.
       providerProductId: isStripeStore
         ? (options.stripePriceId ?? event.product_id ?? null)
-        : (event.product_id ?? null),
+        : grantedProductId,
       providerTransactionId: event.transaction_id ?? null,
       entitlementId: resolveEntitlementId(event),
       currentPeriodStartsAt: timestampMsToDate(event.purchased_at_ms),

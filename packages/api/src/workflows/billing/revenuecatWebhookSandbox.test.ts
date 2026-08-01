@@ -68,6 +68,8 @@ async function readBillingStatus(organizationId: string) {
   const [billing] = await db
     .select({
       providerCustomerId: organizationBilling.providerCustomerId,
+      providerProductId: organizationBilling.providerProductId,
+      seatCount: organizationBilling.seatCount,
       status: organizationBilling.status,
     })
     .from(organizationBilling)
@@ -268,6 +270,63 @@ test("a bound native renewal survives a buyer default-organization change", asyn
     providerCustomerId: user.userId,
     status: "active",
   });
+});
+
+test("a native product change applies the destination tier capacity", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const initial = appStorePurchase({
+    appUserId: user.userId,
+    environment: "PRODUCTION",
+    eventId: crypto.randomUUID(),
+    organizationId,
+  });
+  expect(await runRevenueCatWebhookWorkflow(db, initial)).toMatchObject({
+    organizationId,
+    status: "applied",
+  });
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    ...initial,
+    event_timestamp_ms: initial.event_timestamp_ms + 1,
+    id: crypto.randomUUID(),
+    new_product_id: "sync_team_5_monthly",
+    type: "PRODUCT_CHANGE",
+  });
+
+  expect(outcome).toMatchObject({ organizationId, status: "applied" });
+  expect(await readBillingStatus(organizationId)).toMatchObject({
+    providerProductId: "sync_team_5_monthly",
+    seatCount: 5,
+  });
+});
+
+test("unknown and missing stores require the personal-organization policy", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const replacement = await registerOrganizationAdmin();
+  await db
+    .update(users)
+    .set({ defaultOrganizationId: replacement.organizationId })
+    .where(eq(users.id, user.userId));
+
+  for (const store of ["UNKNOWN_STORE", undefined]) {
+    const event = appStorePurchase({
+      appUserId: user.userId,
+      environment: "PRODUCTION",
+      eventId: crypto.randomUUID(),
+      organizationId,
+      ...(store ? { store } : {}),
+    });
+    if (store === undefined) {
+      delete event.store;
+    }
+    const outcome = await runRevenueCatWebhookWorkflow(db, event);
+
+    expect(outcome).toEqual({
+      status: "ignored",
+      reason:
+        "Native purchases may only fund the buyer's personal organization",
+    });
+  }
 });
 
 test("an anonymous native buyer id is claimed without reaching the UUID query", async () => {
