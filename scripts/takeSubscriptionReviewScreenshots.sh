@@ -4,13 +4,15 @@ set -eu
 # Build the real Capacitor iOS shell, drive its native subscription surface with
 # Maestro, and write App Store review PNGs below the gitignored .screenshots/.
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
+REPO_ROOT="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd -P)"
 CAPACITOR_DIR="$REPO_ROOT/packages/app-capacitor"
 FLOW="$CAPACITOR_DIR/maestro/review/subscription-review-screenshots.yaml"
 OUTPUT_DIR="${SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR:-$REPO_ROOT/.screenshots/app-store-review}"
 MAESTRO_OUTPUT_DIR="$OUTPUT_DIR/maestro"
 BUILD_DIR="${TMPDIR:-/tmp}/tearleads-subscription-review-derived-data"
-DEVICE_NAME="iPhone 16"
+DEVICE_NAME="Tearleads Subscription Review"
+DEVICE_TYPE_IDENTIFIER="com.apple.CoreSimulator.SimDeviceType.iPhone-16"
 DEVICE_RUNTIME_VERSION="${IOS_SCREENSHOT_RUNTIME_VERSION:-18.0}"
 
 command -v maestro >/dev/null 2>&1 || {
@@ -30,42 +32,67 @@ command -v sips >/dev/null 2>&1 || {
   exit 1
 }
 
-DEVICE_UDID="${IOS_SCREENSHOT_DEVICE_UDID:-}"
-if [ -z "$DEVICE_UDID" ]; then
-  runtime_suffix="iOS-$(printf '%s' "$DEVICE_RUNTIME_VERSION" | tr '.' '-')"
-  DEVICE_UDID="$(
-    xcrun simctl list devices available -j |
-      jq -r --arg name "$DEVICE_NAME" --arg runtime "$runtime_suffix" \
-        '[
-          .devices | to_entries[] |
-          select(.key | endswith($runtime)) |
-          .value[] |
-          select(.name == $name and .isAvailable == true)
-        ] | first | .udid // empty'
-  )"
-fi
-[ -n "$DEVICE_UDID" ] || {
-  echo "No available $DEVICE_NAME simulator running iOS $DEVICE_RUNTIME_VERSION." >&2
-  exit 1
-}
-selected_device_name="$(
-  xcrun simctl list devices available -j |
-    jq -r --arg udid "$DEVICE_UDID" \
-      '[.devices[][] | select(.udid == $udid and .isAvailable == true)] | first | .name // empty'
-)"
-[ "$selected_device_name" = "$DEVICE_NAME" ] || {
-  echo "Review screenshots require an available $DEVICE_NAME simulator;" \
-    "got '${selected_device_name:-unknown}'." >&2
-  exit 1
-}
-
 # Store releases load this public SDK key through Fastlane. The review capture
 # uses the same selectively loaded value without sourcing unrelated secrets.
 # shellcheck source=scripts/exportRevenueCatKeys.sh
 . "$REPO_ROOT/scripts/exportRevenueCatKeys.sh"
+# shellcheck source=scripts/releaseGuards.sh
+. "$REPO_ROOT/scripts/releaseGuards.sh"
 export_revenuecat_keys "$REPO_ROOT/.secrets/root.env"
 [ -n "${VITE_REVENUECAT_IOS_API_KEY:-}" ] || {
   echo "VITE_REVENUECAT_IOS_API_KEY is required for native billing screenshots." >&2
+  exit 1
+}
+reject_invalid_revenuecat_store_key \
+  VITE_REVENUECAT_IOS_API_KEY \
+  "$VITE_REVENUECAT_IOS_API_KEY" \
+  appl_
+
+DEVICE_UDID="${IOS_SCREENSHOT_DEVICE_UDID:-}"
+runtime_identifier="$(
+  xcrun simctl list runtimes available -j |
+    jq -r --arg version "$DEVICE_RUNTIME_VERSION" --arg type "$DEVICE_TYPE_IDENTIFIER" \
+      '[
+        .runtimes[] |
+        select(.version == $version and .isAvailable == true) |
+        select(any(.supportedDeviceTypes[]?; .identifier == $type))
+      ] | first | .identifier // empty'
+)"
+[ -n "$runtime_identifier" ] || {
+  echo "No iOS $DEVICE_RUNTIME_VERSION runtime supporting iPhone 16 is installed." >&2
+  exit 1
+}
+if [ -z "$DEVICE_UDID" ]; then
+  DEVICE_UDID="$(
+    xcrun simctl list devices available -j |
+      jq -r --arg name "$DEVICE_NAME" --arg runtime "$runtime_identifier" \
+        '[.devices[$runtime][]? | select(.name == $name and .isAvailable == true)] | first | .udid // empty'
+  )"
+  if [ -z "$DEVICE_UDID" ]; then
+    DEVICE_UDID="$(
+      xcrun simctl create \
+        "$DEVICE_NAME" \
+        "$DEVICE_TYPE_IDENTIFIER" \
+        "$runtime_identifier"
+    )"
+  fi
+fi
+[ -n "$DEVICE_UDID" ] || {
+  echo "Could not create the dedicated subscription review simulator." >&2
+  exit 1
+}
+selected_device="$(
+  xcrun simctl list devices available -j |
+    jq -r --arg udid "$DEVICE_UDID" --arg runtime "$runtime_identifier" \
+      '[
+        .devices[$runtime][]? |
+        select(.udid == $udid and .isAvailable == true) |
+        [.name, .deviceTypeIdentifier] | @tsv
+      ] | first // empty'
+)"
+[ "$selected_device" = "$(printf '%s\t%s' "$DEVICE_NAME" "$DEVICE_TYPE_IDENTIFIER")" ] || {
+  echo "IOS_SCREENSHOT_DEVICE_UDID must identify the dedicated iPhone 16" \
+    "'$DEVICE_NAME' on iOS $DEVICE_RUNTIME_VERSION." >&2
   exit 1
 }
 

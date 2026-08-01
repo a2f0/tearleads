@@ -42,7 +42,9 @@ tags:
       # Registration can create the server identity even when its inline
       # challenge fails. Wait for that attempt to settle, then recover through
       # the normal login challenge instead of racing both requests.
-      - tapOn: "Login"
+      - tapOn:
+          text: "Login"
+          optional: true
       - extendedWaitUntil:
           visible: "Authenticated"
           timeout: 60000

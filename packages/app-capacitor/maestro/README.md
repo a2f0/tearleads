@@ -85,13 +85,14 @@ review-ready screen once for each subscription record. Maestro verifies every
 product title and price first; the runner uses `simctl` for the final files
 because its framebuffer capture preserves Apple's exact accepted dimensions.
 
-The flow deliberately preserves app state. Its first run creates one production
-screenshot identity; later runs log in or reuse that identity instead of
-creating another. Set `IOS_SCREENSHOT_DEVICE_UDID` to target a specific iPhone
-16 simulator. Set `IOS_SCREENSHOT_RUNTIME_VERSION` to override the tested iOS
-18.0 runtime. Set `SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR` to change the output
-directory. Override `VITE_API_BASE_URL` only when a different API environment
-is intentional.
+The runner creates and reuses a dedicated `Tearleads Subscription Review`
+iPhone 16 simulator so it never authenticates an unrelated simulator identity
+against production. Its first run creates one production screenshot identity;
+later runs reuse it. Set `IOS_SCREENSHOT_RUNTIME_VERSION` to override the tested
+iOS 18.0 runtime, or `IOS_SCREENSHOT_DEVICE_UDID` to select an existing dedicated
+simulator with that exact name, model, and runtime. Set
+`SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR` to change the output directory. Override
+`VITE_API_BASE_URL` only when a different API environment is intentional.
 
 These are native review screenshots, not App Store product-page marketing
 screenshots. Do not substitute the resized-browser output from
