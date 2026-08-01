@@ -31,6 +31,12 @@ tier_environment() {
 # The caller reads this through a command substitution in an `if`, which
 # disables errexit for the whole function — so every step needs its own
 # `|| return 1` rather than relying on `set -e` to stop the tier.
+#
+# That suppression is dynamic: it reaches inside load_secrets_env too (even
+# through an explicit `set -e` subshell), so a failed root.env/<tier>.env source
+# there does not abort and cannot surface in its exit status. Its ERROR still
+# reaches stderr, and validate_aws_env below is the postcondition that actually
+# catches it — an unloaded root.env means no AWS creds, which fails the tier.
 tier_host_fields() {
   local tier="$1"
   local stack_dir="$REPO_ROOT/terraform/stacks/$tier/server"
