@@ -10,20 +10,9 @@ import {
 import { cachedProjectionValue } from "./context";
 import { containerKeyEpochRecord, stripContainerKeyEpoch } from "./records";
 import {
-  CONTAINER_WRITER_PROJECTION_ERROR_CODES,
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
 } from "./types";
-
-function predecessorHistoryError(
-  message: string,
-): ContainerWriterProjectionError {
-  return new ContainerWriterProjectionError(
-    message,
-    409,
-    CONTAINER_WRITER_PROJECTION_ERROR_CODES.predecessorHistoryUnavailable,
-  );
-}
 
 function bridgeRecord(
   bridge: ReturnType<typeof normalizeContainerKekPredecessorBridge>,
@@ -72,18 +61,14 @@ async function loadPredecessorContainerKeksUncached(input: {
         successor.predecessorBridge,
       );
     } catch {
-      throw predecessorHistoryError(
-        "Container KEK predecessor bridge is invalid",
-      );
+      return predecessors;
     }
     if (
       bridge.containerId !== currentEpoch.containerId ||
       bridge.successorContainerKeyEpochId !== successor.id ||
       visitedEpochIds.has(bridge.predecessorContainerKeyEpochId)
     ) {
-      throw predecessorHistoryError(
-        "Container KEK predecessor chain is inconsistent",
-      );
+      return predecessors;
     }
 
     const predecessor = epochsById.get(bridge.predecessorContainerKeyEpochId);
@@ -92,9 +77,7 @@ async function loadPredecessorContainerKeksUncached(input: {
       predecessor.containerId !== currentEpoch.containerId ||
       predecessor.keyEpoch !== successor.keyEpoch - 1
     ) {
-      throw predecessorHistoryError(
-        "Container KEK predecessor chain is incomplete",
-      );
+      return predecessors;
     }
 
     const keyEpoch = stripContainerKeyEpoch(predecessor);
@@ -113,9 +96,7 @@ async function loadPredecessorContainerKeksUncached(input: {
   }
 
   if (successor.keyEpoch !== 1) {
-    throw predecessorHistoryError(
-      "Container KEK predecessor chain does not reach its initial epoch",
-    );
+    return predecessors;
   }
 
   return predecessors;

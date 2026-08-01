@@ -197,6 +197,10 @@ binds the container and predecessor/successor epoch ids during decryption.
 Failure to decrypt a historical bridge makes that history unavailable but does
 not invalidate an independently verified current KEK; current-epoch reads can
 continue while operations that require the damaged epoch fail explicitly.
+The API preserves that liveness for direct container projections, descendant
+paths, and mutation responses by returning the verified current KEK plus the
+maximal authenticated predecessor prefix; the client detects any missing suffix
+from the signed current epoch number.
 This deliberately changes compromise amplification: possession of the current
 container KEK also reveals every retained predecessor KEK through the bridge
 chain. That is the cost of history-inclusive current access. It does not weaken

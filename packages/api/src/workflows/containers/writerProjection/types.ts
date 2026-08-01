@@ -12,18 +12,10 @@ import type {
 
 type ContainerWriterProjectionStatus = 403 | 404 | 409;
 
-export const CONTAINER_WRITER_PROJECTION_ERROR_CODES = {
-  predecessorHistoryUnavailable: "predecessor_history_unavailable",
-} as const;
-
-type ContainerWriterProjectionErrorCode =
-  (typeof CONTAINER_WRITER_PROJECTION_ERROR_CODES)[keyof typeof CONTAINER_WRITER_PROJECTION_ERROR_CODES];
-
 export class ContainerWriterProjectionError extends Error {
   constructor(
     message: string,
     readonly status: ContainerWriterProjectionStatus,
-    readonly code: ContainerWriterProjectionErrorCode | null = null,
   ) {
     super(message);
     this.name = "ContainerWriterProjectionError";

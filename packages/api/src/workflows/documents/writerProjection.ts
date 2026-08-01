@@ -577,12 +577,6 @@ async function resolveAuthorizingContainerPaths(input: {
 }) {
   const candidates = await resolveAuthorizingContainerPathCandidates(input);
   if (candidates.paths.length === 0) {
-    // A corrupt linked path must not take down an independently healthy path.
-    // When none remain, preserve the integrity failure instead of disguising
-    // corrupt key history as an authorization denial.
-    if (candidates.integrityError) {
-      throw candidates.integrityError;
-    }
     throw new DocumentWriterProjectionError("Forbidden", 403);
   }
 

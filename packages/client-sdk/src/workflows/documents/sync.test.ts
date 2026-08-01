@@ -1405,7 +1405,7 @@ test("buildMaterializedDocumentSyncPlan heals a stale bundle with a fresh key an
   }
 });
 
-test("buildMaterializedDocumentSyncPlan keeps the stale pair for read-only passes without unwrapping", async () => {
+test("a read-only stale bundle degrades when its old target is no longer reachable", async () => {
   const fixture = await createStaleBundleSyncFixture();
 
   const materialized = await buildMaterializedDocumentSyncPlan({

@@ -299,16 +299,16 @@ test("document unwrap reports corrupt history when its content key needs that ep
     ],
     path: [currentManifest],
   };
-  const containerKeks = await collectContainerKeksForDocumentSync({
+  const collectedKeks = await collectContainerKeksForDocumentSync({
     writerProjection: {
       authorizingContainerPaths: [rootProjection],
     } as unknown as DocumentWriterProjectionResponse,
     secretKey: fixture.secretKey,
     trustedLocalProjection: true,
   });
-  expect(containerKeks.get(successor.containerKeyEpochId)).toEqual(
-    successorKey,
-  );
+  expect(
+    collectedKeks.keksByEpochId.get(successor.containerKeyEpochId),
+  ).toEqual(successorKey);
 
   const contentKey = crypto.getRandomValues(new Uint8Array(32));
   const wrapped = await encryptWithDek(contentKey, fixture.rootContainerKek);
@@ -333,6 +333,10 @@ test("document unwrap reports corrupt history when its content key needs that ep
   } satisfies DocumentContentKeyBundleResponse;
 
   await expect(
-    unwrapDocumentContentKeyFromBundle(bundle, containerKeks),
+    unwrapDocumentContentKeyFromBundle(
+      bundle,
+      collectedKeks.keksByEpochId,
+      collectedKeks.predecessorFailuresByContainerId,
+    ),
   ).rejects.toThrow("KEK material does not match committed epoch id");
 });

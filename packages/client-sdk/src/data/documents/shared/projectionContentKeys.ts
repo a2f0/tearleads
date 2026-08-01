@@ -102,8 +102,20 @@ export async function unwrapDocumentContentKeyTarget(input: {
   );
 }
 
-class DocumentContainerKekMap extends Map<string, Uint8Array> {
-  readonly predecessorFailuresByContainerId = new Map<string, unknown>();
+interface CollectedContainerKeks {
+  readonly keksByEpochId: ReadonlyMap<string, Uint8Array>;
+  readonly predecessorFailuresByContainerId: ReadonlyMap<string, unknown>;
+}
+
+export class DocumentHistoryUnavailableError extends Error {
+  constructor(readonly historyCause: unknown) {
+    super(
+      historyCause instanceof Error
+        ? historyCause.message
+        : "Document history key is unavailable",
+    );
+    this.name = "DocumentHistoryUnavailableError";
+  }
 }
 
 export async function collectContainerKeksForDocumentSync(
@@ -114,8 +126,9 @@ export async function collectContainerKeksForDocumentSync(
     verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
-): Promise<ReadonlyMap<string, Uint8Array>> {
-  const keksByEpochId = new DocumentContainerKekMap();
+): Promise<CollectedContainerKeks> {
+  const keksByEpochId = new Map<string, Uint8Array>();
+  const predecessorFailuresByContainerId = new Map<string, unknown>();
 
   for (const projection of input.writerProjection.authorizingContainerPaths) {
     let projectionKeks: Awaited<
@@ -140,11 +153,8 @@ export async function collectContainerKeksForDocumentSync(
       containerId,
       failure,
     ] of projectionKeks.predecessorFailuresByContainerId) {
-      if (!keksByEpochId.predecessorFailuresByContainerId.has(containerId)) {
-        keksByEpochId.predecessorFailuresByContainerId.set(
-          containerId,
-          failure,
-        );
+      if (!predecessorFailuresByContainerId.has(containerId)) {
+        predecessorFailuresByContainerId.set(containerId, failure);
       }
     }
     for (const [
@@ -164,12 +174,13 @@ export async function collectContainerKeksForDocumentSync(
     }
   }
 
-  return keksByEpochId;
+  return { keksByEpochId, predecessorFailuresByContainerId };
 }
 
 export async function unwrapDocumentContentKeyFromBundle(
   bundle: DocumentContentKeyBundleResponse,
   containerKeksByEpochId: ReadonlyMap<string, Uint8Array>,
+  predecessorFailuresByContainerId: ReadonlyMap<string, unknown> = new Map(),
 ): Promise<Uint8Array> {
   let contentKey: Uint8Array | null = null;
   let predecessorFailure: unknown;
@@ -179,12 +190,9 @@ export async function unwrapDocumentContentKeyFromBundle(
       envelope.containerKeyEpochId,
     );
     if (!containerKek) {
-      predecessorFailure ??=
-        containerKeksByEpochId instanceof DocumentContainerKekMap
-          ? containerKeksByEpochId.predecessorFailuresByContainerId.get(
-              envelope.containerId,
-            )
-          : undefined;
+      predecessorFailure ??= predecessorFailuresByContainerId.get(
+        envelope.containerId,
+      );
       continue;
     }
     const unwrapped = await unwrapDocumentContentKeyTarget({
@@ -204,7 +212,7 @@ export async function unwrapDocumentContentKeyFromBundle(
 
   if (!contentKey) {
     if (predecessorFailure !== undefined) {
-      throw predecessorFailure;
+      throw new DocumentHistoryUnavailableError(predecessorFailure);
     }
     throw new Error("Document content key could not be unwrapped");
   }
@@ -224,11 +232,12 @@ export async function unwrapDocumentContentKeyFromWriterProjection(
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<Uint8Array> {
-  const keksByEpochId = await collectContainerKeksForDocumentSync(input);
+  const collectedKeks = await collectContainerKeksForDocumentSync(input);
 
   return unwrapDocumentContentKeyFromBundle(
     input.writerProjection.contentKeyBundle,
-    keksByEpochId,
+    collectedKeks.keksByEpochId,
+    collectedKeks.predecessorFailuresByContainerId,
   );
 }
 

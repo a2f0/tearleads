@@ -43,6 +43,7 @@ import {
   authorizingContainerPathRefs,
   buildRotatedDocumentContentKeyBundle,
   collectContainerKeksForDocumentSync,
+  DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
 } from "../../data/documents/shared/projection";
 import {
@@ -226,7 +227,7 @@ async function unwrapDocumentSyncResponseContentKeys(
     return contentKeysByEpoch;
   }
 
-  const containerKeksByEpochId = await collectContainerKeksForDocumentSync({
+  const collectedKeks = await collectContainerKeksForDocumentSync({
     execSql: input.execSql,
     secretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
@@ -239,7 +240,11 @@ async function unwrapDocumentSyncResponseContentKeys(
     }
     contentKeysByEpoch.set(
       bundle.contentKeyEpoch,
-      await unwrapDocumentContentKeyFromBundle(bundle, containerKeksByEpochId),
+      await unwrapDocumentContentKeyFromBundle(
+        bundle,
+        collectedKeks.keksByEpochId,
+        collectedKeks.predecessorFailuresByContainerId,
+      ),
     );
   }
 
@@ -457,7 +462,9 @@ async function resolveCheckpointRegenerationMaterial(
 
 async function resolveSyncPlanContentMaterial(
   input: Parameters<typeof buildMaterializedDocumentSyncPlan>[0],
-  containerKeksByEpochId: ReadonlyMap<string, Uint8Array>,
+  collectedKeks: Awaited<
+    ReturnType<typeof collectContainerKeksForDocumentSync>
+  >,
 ): Promise<ResolvedSyncPlanContentMaterial> {
   const pendingUpdates = input.pendingUpdates ?? [];
   const staleContentKeyBundle =
@@ -471,7 +478,7 @@ async function resolveSyncPlanContentMaterial(
     });
     return resolveStaleHealMaterial(
       input,
-      containerKeksByEpochId,
+      collectedKeks.keksByEpochId,
       pendingUpdates,
     );
   }
@@ -484,10 +491,22 @@ async function resolveSyncPlanContentMaterial(
     // Current access includes every predecessor KEK. If damaged history makes
     // this old bundle unreachable, preserve the bridge-integrity failure: this
     // read actually needs that historical epoch and cannot safely continue.
-    const staleContentKey = await unwrapDocumentContentKeyFromBundle(
-      input.writerProjection.contentKeyBundle,
-      containerKeksByEpochId,
-    );
+    let staleContentKey: Uint8Array;
+    try {
+      staleContentKey = await unwrapDocumentContentKeyFromBundle(
+        input.writerProjection.contentKeyBundle,
+        collectedKeks.keksByEpochId,
+        collectedKeks.predecessorFailuresByContainerId,
+      );
+    } catch (error) {
+      if (error instanceof DocumentHistoryUnavailableError) {
+        throw error;
+      }
+      // A stale bundle can predate the requester's current authorizing links.
+      // Keep the read-only pass alive; served updates that need this absent key
+      // remain undecryptable until a spanning member heals the bundle.
+      staleContentKey = new Uint8Array();
+    }
     return {
       contentKey: staleContentKey,
       contentKeyBundle: input.writerProjection.contentKeyBundle,
@@ -504,7 +523,8 @@ async function resolveSyncPlanContentMaterial(
   const normalMaterial: ResolvedSyncPlanContentMaterial = {
     contentKey: await unwrapDocumentContentKeyFromBundle(
       input.writerProjection.contentKeyBundle,
-      containerKeksByEpochId,
+      collectedKeks.keksByEpochId,
+      collectedKeks.predecessorFailuresByContainerId,
     ),
     contentKeyBundle: input.writerProjection.contentKeyBundle,
     documentKekTargets: input.writerProjection.documentKekTargets,
@@ -565,7 +585,7 @@ export async function buildMaterializedDocumentSyncPlan(
     verifiedByHash,
     ...projectionVerificationOptions(input),
   });
-  const containerKeksByEpochId = await collectContainerKeksForDocumentSync({
+  const collectedKeks = await collectContainerKeksForDocumentSync({
     execSql: input.execSql,
     principalPolicyCache,
     secretKey: input.targetSecretKey,
@@ -580,10 +600,7 @@ export async function buildMaterializedDocumentSyncPlan(
   });
   let material: ResolvedSyncPlanContentMaterial;
   try {
-    material = await resolveSyncPlanContentMaterial(
-      input,
-      containerKeksByEpochId,
-    );
+    material = await resolveSyncPlanContentMaterial(input, collectedKeks);
   } catch (error) {
     // Only a stale-bundle HEAL (write-bearing) or a checkpoint regeneration
     // counts as a blocked recovery; an ordinary pass or a stale READ failing

@@ -66,7 +66,7 @@ async function insertEpoch(
   });
 }
 
-test("predecessor projection rejects a malformed stored bridge", async () => {
+test("predecessor projection stops before a malformed stored bridge", async () => {
   const containerId = crypto.randomUUID();
   const predecessor = await epochFixture(containerId, 1);
   const successor = await epochFixture(containerId, 2);
@@ -79,10 +79,10 @@ test("predecessor projection rejects a malformed stored bridge", async () => {
       containerKeyEpochId: successor.id,
       context: createContainerWriterProjectionContext(db),
     }),
-  ).rejects.toThrow("predecessor bridge is invalid");
+  ).resolves.toEqual([]);
 });
 
-test("predecessor projection rejects a cycle", async () => {
+test("predecessor projection returns the prefix before a cycle", async () => {
   const containerId = crypto.randomUUID();
   const second = await epochFixture(containerId, 2);
   const third = await epochFixture(containerId, 3);
@@ -94,10 +94,12 @@ test("predecessor projection rejects a cycle", async () => {
       containerKeyEpochId: third.id,
       context: createContainerWriterProjectionContext(db),
     }),
-  ).rejects.toThrow("predecessor chain is inconsistent");
+  ).resolves.toEqual([
+    expect.objectContaining({ containerKeyEpochId: second.id }),
+  ]);
 });
 
-test("predecessor projection rejects a missing epoch", async () => {
+test("predecessor projection stops before a missing epoch", async () => {
   const containerId = crypto.randomUUID();
   const predecessor = await epochFixture(containerId, 1);
   const successor = await epochFixture(containerId, 2);
@@ -108,10 +110,10 @@ test("predecessor projection rejects a missing epoch", async () => {
       containerKeyEpochId: successor.id,
       context: createContainerWriterProjectionContext(db),
     }),
-  ).rejects.toThrow("predecessor chain is incomplete");
+  ).resolves.toEqual([]);
 });
 
-test("predecessor projection requires the chain to reach epoch one", async () => {
+test("predecessor projection omits a chain that does not reach epoch one", async () => {
   const containerId = crypto.randomUUID();
   const successor = await epochFixture(containerId, 2);
   await insertEpoch(successor, null);
@@ -121,5 +123,5 @@ test("predecessor projection requires the chain to reach epoch one", async () =>
       containerKeyEpochId: successor.id,
       context: createContainerWriterProjectionContext(db),
     }),
-  ).rejects.toThrow("does not reach its initial epoch");
+  ).resolves.toEqual([]);
 });

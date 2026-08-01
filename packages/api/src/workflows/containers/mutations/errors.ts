@@ -62,20 +62,19 @@ const PREDECESSOR_SUCCESSOR_CONSTRAINT = "container_key_epochs_predecessor_idx";
 const SQLITE_PREDECESSOR_SUCCESSOR_CONSTRAINT =
   "UNIQUE constraint failed: container_key_epochs.predecessor_container_key_epoch_id";
 
-function hasConstraint(error: unknown, constraint: string): boolean {
+function hasPredecessorSuccessorConstraint(error: unknown): boolean {
   let current = error;
   for (let depth = 0; depth < 4 && current !== null; depth += 1) {
     if (typeof current !== "object") {
       return false;
     }
-    if (Reflect.get(current, "constraint") === constraint) {
+    if (
+      Reflect.get(current, "constraint") === PREDECESSOR_SUCCESSOR_CONSTRAINT
+    ) {
       return true;
     }
     const message = Reflect.get(current, "message");
-    if (
-      constraint === PREDECESSOR_SUCCESSOR_CONSTRAINT &&
-      message === SQLITE_PREDECESSOR_SUCCESSOR_CONSTRAINT
-    ) {
+    if (message === SQLITE_PREDECESSOR_SUCCESSOR_CONSTRAINT) {
       return true;
     }
     current = Reflect.get(current, "cause");
@@ -96,7 +95,7 @@ export async function runConflictBoundary<T>(
       throw error;
     }
 
-    if (hasConstraint(error, PREDECESSOR_SUCCESSOR_CONSTRAINT)) {
+    if (hasPredecessorSuccessorConstraint(error)) {
       throw new ContainerMutationError(
         "Container KEK predecessor already has a successor",
         409,

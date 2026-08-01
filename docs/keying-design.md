@@ -452,11 +452,20 @@ optimization must preserve authenticated recovery of every retained epoch.
 An incomplete or corrupt predecessor chain is a hard integrity failure for the
 affected historical epochs. The client reports that failure when an operation
 needs one of those epochs, but it retains an independently verified current KEK
-so corrupt history cannot also brick current-epoch reads. The API never serves
-a deliberately truncated history: operators must restore missing immutable
-epoch rows or bridge ciphertext from database backup. Because the server never
-has plaintext KEKs, it cannot synthesize replacement bridge ciphertext, and
-there is intentionally no admin-assisted key reconstruction endpoint.
+so corrupt history cannot also brick current-epoch reads. When storage damage
+prevents the API from completing a chain, it serves the verified current KEK
+and the maximal authenticated predecessor prefix. The declared epoch number
+lets the client detect that this is damaged history, not a legitimately short
+chain. This integrity-degradation behavior is not permission to cap healthy
+history.
+
+Operators must restore missing immutable epoch rows or bridge ciphertext from
+database backup to recover the affected historical epochs. Because the server
+never has plaintext KEKs, it cannot synthesize replacement bridge ciphertext,
+and there is intentionally no admin-assisted key reconstruction endpoint. The
+verified current KEK remains usable for ordinary reads and later rotations or
+moves; those mutations extend the healthy prefix but do not reconstruct the
+older damaged link.
 
 A container move creates a new epoch identity because the parent binding
 changes, but it currently retains the same KEK material. The mandatory bridge

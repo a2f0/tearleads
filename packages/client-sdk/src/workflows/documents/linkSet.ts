@@ -363,12 +363,14 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
         ]
       : await wrapDocumentContentKeyForTargets({
           contentKey,
-          keksByEpochId: await collectContainerKeksForDocumentSync({
-            execSql: input.execSql,
-            secretKey: input.targetSecretKey,
-            writerProjection: input.writerProjection,
-            ...verificationOptions,
-          }),
+          keksByEpochId: (
+            await collectContainerKeksForDocumentSync({
+              execSql: input.execSql,
+              secretKey: input.targetSecretKey,
+              writerProjection: input.writerProjection,
+              ...verificationOptions,
+            })
+          ).keksByEpochId,
           targets: targetState.targets,
         });
 

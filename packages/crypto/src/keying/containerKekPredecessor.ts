@@ -150,10 +150,10 @@ export function normalizeContainerKekPredecessorBridge(
     bridge.wrappedKey,
     "container KEK predecessor bridge.wrappedKey",
   );
-  if (wrappedKey.byteLength <= 16) {
+  if (wrappedKey.byteLength !== 48) {
     throwVerification(
       "invalid_shape",
-      "container KEK predecessor bridge ciphertext is too short",
+      "container KEK predecessor bridge ciphertext must be 48 bytes",
     );
   }
   return bridge;

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { computeContainerKekMaterialId } from "./containerKekMaterial";
 import {
   computeContainerKekPredecessorBridgeHash,
@@ -53,6 +54,25 @@ test("a successor container KEK unwraps its authenticated predecessor", async ()
   ).rejects.toThrow();
 });
 
+test("a move bridge round-trips the same KEK across distinct epoch ids", async () => {
+  const containerId = crypto.randomUUID();
+  const containerKey = crypto.getRandomValues(new Uint8Array(32));
+  const bridge = await createContainerKekPredecessorBridge({
+    containerId,
+    predecessorContainerKey: containerKey,
+    predecessorContainerKeyEpochId: await epochId(containerId, 1, containerKey),
+    successorContainerKey: containerKey,
+    successorContainerKeyEpochId: await epochId(containerId, 2, containerKey),
+  });
+
+  await expect(
+    unwrapContainerKekPredecessorBridge({
+      bridge,
+      successorContainerKey: containerKey,
+    }),
+  ).resolves.toEqual(containerKey);
+});
+
 test("predecessor bridge metadata is authenticated", async () => {
   const containerId = crypto.randomUUID();
   const predecessorContainerKey = crypto.getRandomValues(new Uint8Array(32));
@@ -85,6 +105,12 @@ test("predecessor bridge metadata is authenticated", async () => {
       wrappedKey: "not-base64",
     }),
   ).toThrow();
+  expect(() =>
+    normalizeContainerKekPredecessorBridge({
+      ...bridge,
+      wrappedKey: bytesToBase64(new Uint8Array(17)),
+    }),
+  ).toThrow("ciphertext must be 48 bytes");
   await expect(
     createContainerKekPredecessorBridge({
       containerId,
