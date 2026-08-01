@@ -133,7 +133,7 @@ echo "Building the Capacitor app for $DEVICE_NAME ($DEVICE_UDID)..."
 )
 
 xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
-open -a Simulator --args -CurrentDeviceUDID "$DEVICE_UDID"
+open -a Simulator --args -CurrentDeviceUDID "$DEVICE_UDID" || true
 xcrun simctl bootstatus "$DEVICE_UDID" -b
 
 xcrun simctl terminate "$DEVICE_UDID" com.tearleads.app 2>/dev/null || true

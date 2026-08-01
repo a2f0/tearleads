@@ -93,10 +93,7 @@ beforeAll(async () => {
   const sipsPath = resolve(shimDirectory, "sips");
   await Bun.write(
     sipsPath,
-    [
-      "#!/bin/sh",
-      "printf 'pixelWidth: 1179\\npixelHeight: 2556\\nhasAlpha: no\\n'",
-    ].join("\n"),
+    ["#!/bin/sh", "printf '%s\\n' \"$SHIM_SIPS_OUTPUT\""].join("\n"),
   );
   await chmod(sipsPath, 0o755);
 });
@@ -107,9 +104,10 @@ afterAll(async () => {
 
 async function runScript(options: {
   apiBaseUrl?: string;
-  apiKey?: string;
+  apiKey?: null | string;
   initialDevices?: Array<Record<string, unknown>>;
   selectedUdid?: string;
+  sipsOutput?: string;
 }) {
   const testDirectory = await mkdtemp(
     resolve(tmpdir(), "tearleads-subscription-review-test-"),
@@ -128,6 +126,8 @@ async function runScript(options: {
     SHIM_CREATED_UDID: dedicatedUdid,
     SHIM_INITIAL_DEVICES_JSON: devicesJson(options.initialDevices ?? []),
     SHIM_RUNTIMES_JSON: runtimesJson,
+    SHIM_SIPS_OUTPUT:
+      options.sipsOutput ?? "pixelWidth: 1179\npixelHeight: 2556\nhasAlpha: no",
     SUBSCRIPTION_REVIEW_TEST_LOG: logPath,
     SUBSCRIPTION_SCREENSHOT_REVENUECAT_ENV_FILE: resolve(
       testDirectory,
@@ -138,26 +138,32 @@ async function runScript(options: {
     VITE_API_BASE_URL: options.apiBaseUrl ?? "https://api.tearleads.com",
     VITE_REVENUECAT_IOS_API_KEY: options.apiKey ?? "appl_production",
   };
-  const child = Bun.spawn(["sh", screenshotScript], {
-    cwd: testDirectory,
-    env,
-    stderr: "pipe",
-    stdout: "ignore",
-  });
-  const [exitCode, stderr] = await Promise.all([
-    child.exited,
-    new Response(child.stderr).text(),
-  ]);
-  const log = await Bun.file(logPath).text();
-  const screenshots = await Promise.all(
-    [
-      "subscription-solo.png",
-      "subscription-team-5.png",
-      "subscription-team-10.png",
-    ].map((name) => Bun.file(resolve(outputDirectory, name)).exists()),
-  );
-  await rm(testDirectory, { force: true, recursive: true });
-  return { exitCode, log, outputDirectory, screenshots, stderr };
+  if (options.apiKey === null) {
+    Reflect.deleteProperty(env, "VITE_REVENUECAT_IOS_API_KEY");
+  }
+  try {
+    const child = Bun.spawn(["sh", screenshotScript], {
+      cwd: testDirectory,
+      env,
+      stderr: "pipe",
+      stdout: "ignore",
+    });
+    const [exitCode, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stderr).text(),
+    ]);
+    const log = await Bun.file(logPath).text();
+    const screenshots = await Promise.all(
+      [
+        "subscription-solo.png",
+        "subscription-team-5.png",
+        "subscription-team-10.png",
+      ].map((name) => Bun.file(resolve(outputDirectory, name)).exists()),
+    );
+    return { exitCode, log, outputDirectory, screenshots, stderr };
+  } finally {
+    await rm(testDirectory, { force: true, recursive: true });
+  }
 }
 
 test("creates and targets a dedicated iPhone 16 simulator", async () => {
@@ -196,6 +202,17 @@ test("rejects a RevenueCat Test Store key before simulator mutation", async () =
   expect(result.log).not.toContain("bun:");
 });
 
+test("rejects a missing RevenueCat key before simulator mutation", async () => {
+  const result = await runScript({ apiKey: null });
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain(
+    "VITE_REVENUECAT_IOS_API_KEY is required for native billing screenshots",
+  );
+  expect(result.log).not.toContain("xcrun:");
+  expect(result.log).not.toContain("bun:");
+});
+
 test("rejects a dev API URL before simulator mutation", async () => {
   const result = await runScript({ apiBaseUrl: "http://localhost:3001" });
 
@@ -224,4 +241,26 @@ test("rejects an unrelated simulator override", async () => {
     "The selected simulator must be the dedicated iPhone 16",
   );
   expect(result.log).not.toContain("bun:");
+});
+
+test("rejects a screenshot with the wrong dimensions", async () => {
+  const result = await runScript({
+    initialDevices: [dedicatedDevice],
+    sipsOutput: "pixelWidth: 1179\npixelHeight: 2400\nhasAlpha: no",
+  });
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("is 1179x2400; expected iPhone 16 portrait");
+});
+
+test("rejects a screenshot with an alpha channel", async () => {
+  const result = await runScript({
+    initialDevices: [dedicatedDevice],
+    sipsOutput: "pixelWidth: 1179\npixelHeight: 2556\nhasAlpha: yes",
+  });
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain(
+    "has an alpha channel; App Store review screenshots cannot",
+  );
 });
