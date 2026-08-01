@@ -23,7 +23,7 @@ before shipping a change to native database or identity lifecycle behavior.
   construct a new one on a WebView; the app now reuses one dedicated worker
   across switches — see `AppHostConfig.reuseDatabaseWorker`).
 - `subscription-review-screenshots.yaml` — registers or logs in a persistent
-  simulator identity against the staging API, opens the real native Billing
+  simulator identity against the production API, opens the real native Billing
   surface, verifies the three RevenueCat/StoreKit tiers and prices, and captures
   one App Store review screenshot per tier.
 
@@ -59,8 +59,9 @@ Run the repository wrapper from any directory:
 ```
 
 It builds and installs the production-id Capacitor shell on an available
-`iPhone 16` simulator, points account registration at the staging API, runs the
-dedicated Maestro flow, and writes these gitignored 1179x2556, non-alpha PNGs:
+`iPhone 16` simulator, points account registration at the production API, runs
+the dedicated Maestro flow, and writes these gitignored 1179x2556, non-alpha
+PNGs:
 
 ```text
 .screenshots/app-store-review/subscription-solo.png
@@ -73,11 +74,13 @@ review-ready screen once for each subscription record. Maestro verifies every
 product title and price first; the runner uses `simctl` for the final files
 because its framebuffer capture preserves Apple's exact accepted dimensions.
 
-The flow deliberately preserves app state. Its first run creates one screenshot
-identity; later runs log in or reuse that identity instead of creating another.
-Set `IOS_SCREENSHOT_DEVICE_UDID` to target a specific iPhone 16 simulator, or
+The flow deliberately preserves app state. Its first run creates one production
+screenshot identity; later runs log in or reuse that identity instead of
+creating another. Set `IOS_SCREENSHOT_DEVICE_UDID` to target a specific iPhone
+16 simulator, or `IOS_SCREENSHOT_DEVICE_NAME` to choose a different model. Set
+`IOS_SCREENSHOT_RUNTIME_VERSION` to override the tested iOS 18.0 runtime. Set
 `SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR` to change the output directory. Override
-`VITE_API_BASE_URL` only when a different non-production API is intentional.
+`VITE_API_BASE_URL` only when a different API environment is intentional.
 
 These are native review screenshots, not App Store product-page marketing
 screenshots. Do not substitute the resized-browser output from

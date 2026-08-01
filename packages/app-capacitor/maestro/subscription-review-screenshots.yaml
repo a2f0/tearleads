@@ -13,6 +13,9 @@ tags:
 - extendedWaitUntil:
     visible: "Contacts"
     timeout: 40000
+- extendedWaitUntil:
+    visible: "Menu"
+    timeout: 40000
 
 # A fresh dedicated simulator has a local identity but no API account. Register
 # it once; later captures reuse the persisted authenticated identity so repeated
@@ -29,6 +32,9 @@ tags:
       visible: "Register"
     commands:
       - tapOn: "Register"
+      - extendedWaitUntil:
+          visible: "Authenticated|Could not register key\\."
+          timeout: 60000
 - runFlow:
     when:
       visible: "Login"
@@ -51,12 +57,16 @@ tags:
 - extendedWaitUntil:
     visible: "Sync billing"
     timeout: 60000
+- runFlow:
+    when:
+      visible: "No subscription options are available right now\\."
+    commands:
+      - tapOn: "Refresh"
 - extendedWaitUntil:
     visible: "Solo"
     timeout: 60000
-- assertVisible: "$5.00"
+- assertVisible: "\\$5\\.00"
 - assertVisible: "Team \\(up to 5\\)"
-- assertVisible: "$10.00"
+- assertVisible: "\\$10\\.00"
 - assertVisible: "Team \\(up to 10\\)"
-- assertVisible: "$20.00"
-- takeScreenshot: subscription-catalog-maestro
+- assertVisible: "\\$20\\.00"

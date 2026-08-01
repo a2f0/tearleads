@@ -10,6 +10,7 @@ FLOW="$CAPACITOR_DIR/maestro/subscription-review-screenshots.yaml"
 OUTPUT_DIR="${SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR:-$REPO_ROOT/.screenshots/app-store-review}"
 BUILD_DIR="$CAPACITOR_DIR/build/subscription-review"
 DEVICE_NAME="${IOS_SCREENSHOT_DEVICE_NAME:-iPhone 16}"
+DEVICE_RUNTIME_VERSION="${IOS_SCREENSHOT_RUNTIME_VERSION:-18.0}"
 
 command -v maestro >/dev/null 2>&1 || {
   echo "Maestro is required: https://maestro.mobile.dev" >&2
@@ -30,14 +31,20 @@ command -v sips >/dev/null 2>&1 || {
 
 DEVICE_UDID="${IOS_SCREENSHOT_DEVICE_UDID:-}"
 if [ -z "$DEVICE_UDID" ]; then
+  runtime_suffix="iOS-$(printf '%s' "$DEVICE_RUNTIME_VERSION" | tr '.' '-')"
   DEVICE_UDID="$(
     xcrun simctl list devices available -j |
-      jq -r --arg name "$DEVICE_NAME" \
-        '[.devices[][] | select(.name == $name and .isAvailable == true)] | last | .udid // empty'
+      jq -r --arg name "$DEVICE_NAME" --arg runtime "$runtime_suffix" \
+        '[
+          .devices | to_entries[] |
+          select(.key | endswith($runtime)) |
+          .value[] |
+          select(.name == $name and .isAvailable == true)
+        ] | first | .udid // empty'
   )"
 fi
 [ -n "$DEVICE_UDID" ] || {
-  echo "No available iOS simulator named '$DEVICE_NAME'." >&2
+  echo "No available $DEVICE_NAME simulator running iOS $DEVICE_RUNTIME_VERSION." >&2
   exit 1
 }
 
@@ -51,10 +58,10 @@ export_revenuecat_keys "$REPO_ROOT/.secrets/root.env"
   exit 1
 }
 
-# The staging API keeps the persistent screenshot identity and organization out
-# of production. The production app id and iOS RevenueCat key still exercise the
-# exact native catalog displayed by the shipping app.
-export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.de}"
+# Match the shipping app end to end: production API, production app id, and the
+# production iOS RevenueCat key. The simulator identity persists across runs so
+# repeated captures reuse the same production reviewer account.
+export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
 
 mkdir -p "$OUTPUT_DIR"
 for screenshot in \
@@ -112,9 +119,9 @@ for screenshot in \
   subscription-team-5.png \
   subscription-team-10.png; do
   path="$OUTPUT_DIR/$screenshot"
-  # Maestro verifies and positions the real native catalog, but its iOS PNG is
-  # one pixel narrower than the simulator framebuffer. simctl produces Apple's
-  # exact 1179x2556 size; the black mask also removes the rejected alpha channel.
+  # Maestro verifies and positions the real native catalog. simctl produces
+  # Apple's exact 1179x2556 size; the black mask also removes the rejected alpha
+  # channel.
   xcrun simctl io "$DEVICE_UDID" screenshot \
     --type=png \
     --mask=black \
