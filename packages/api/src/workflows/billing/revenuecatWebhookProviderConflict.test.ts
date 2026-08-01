@@ -11,7 +11,9 @@ import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
 const STRIPE_CONFLICT_REASON =
-  "A live Stripe subscription must lapse before a native purchase can be applied";
+  "Native entitlement is active while a retained Stripe subscription may still bill";
+const SUPERSEDED_STRIPE_EVENT_REASON =
+  "Stripe event does not own the current native entitlement";
 
 for (const conflict of [
   { name: "active", status: "active", subscriptionId: "sub_live" },
@@ -19,7 +21,7 @@ for (const conflict of [
   { name: "trialing", status: "trialing", subscriptionId: "sub_trialing" },
   { name: "item-only", status: "active", subscriptionId: null },
 ] as const) {
-  test(`a native grant retries for a ${conflict.name} Stripe binding`, async () => {
+  test(`a paid native grant takes ownership from a ${conflict.name} Stripe binding`, async () => {
     const admin = createTestUser();
     const organizationId = await registerAndAuthenticate(admin);
     const subscriptionItemId = `si_${conflict.name.replace("-", "_")}`;
@@ -61,11 +63,12 @@ for (const conflict of [
     const outcome = await runRevenueCatWebhookWorkflow(db, event);
 
     expect(outcome).toEqual({
-      status: "retry",
-      reason: STRIPE_CONFLICT_REASON,
+      status: "applied",
+      organizationId,
+      billingStatus: "active",
     });
     expect(errorSpy).toHaveBeenCalledWith(
-      `RevenueCat paid grant ${eventId} deferred: ${STRIPE_CONFLICT_REASON}`,
+      `RevenueCat paid grant ${eventId} requires attention: ${STRIPE_CONFLICT_REASON}`,
     );
     errorSpy.mockRestore();
     const [billing] = await db
@@ -76,24 +79,87 @@ for (const conflict of [
       .from(organizationBilling)
       .where(eq(organizationBilling.organizationId, organizationId));
     expect(billing).toEqual({
-      providerProductId: "price_team_5",
-      status: conflict.status,
+      providerProductId: "sync_team_10_monthly",
+      status: "active",
+    });
+    const [retainedBinding] = await db
+      .select({
+        priceId: organizationBillingStripeSeats.priceId,
+        subscriptionId: organizationBillingStripeSeats.subscriptionId,
+        subscriptionItemId: organizationBillingStripeSeats.subscriptionItemId,
+      })
+      .from(organizationBillingStripeSeats)
+      .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+    expect(retainedBinding).toEqual({
+      priceId: null,
+      subscriptionId: conflict.subscriptionId,
+      subscriptionItemId,
     });
 
     if (conflict.name === "active") {
-      await db
-        .update(organizationBilling)
-        .set({ status: "disabled" })
-        .where(eq(organizationBilling.organizationId, organizationId));
-      await db
-        .delete(organizationBillingStripeSeats)
+      const renewalId = crypto.randomUUID();
+      const renewalErrorSpy = spyOn(console, "error").mockImplementation(
+        () => undefined,
+      );
+      expect(
+        await runRevenueCatWebhookWorkflow(db, {
+          app_user_id: admin.userId,
+          entitlement_ids: ["sync"],
+          event_timestamp_ms: event.event_timestamp_ms + 1,
+          expiration_at_ms:
+            event.event_timestamp_ms + 31 * 24 * 60 * 60 * 1_000,
+          id: renewalId,
+          original_transaction_id: "sub_live",
+          product_id: "prod_sync",
+          store: "STRIPE",
+          type: "RENEWAL",
+        }),
+      ).toEqual({
+        status: "ignored",
+        reason: SUPERSEDED_STRIPE_EVENT_REASON,
+      });
+      expect(renewalErrorSpy).toHaveBeenCalledWith(
+        `RevenueCat paid grant ${renewalId} was not applied: ${SUPERSEDED_STRIPE_EVENT_REASON}`,
+      );
+      renewalErrorSpy.mockRestore();
+      const [bindingAfterRenewal] = await db
+        .select({ id: organizationBillingStripeSeats.id })
+        .from(organizationBillingStripeSeats)
         .where(
           eq(organizationBillingStripeSeats.organizationId, organizationId),
         );
-      expect(await runRevenueCatWebhookWorkflow(db, event)).toEqual({
-        status: "applied",
-        organizationId,
-        billingStatus: "active",
+      expect(bindingAfterRenewal).toBeDefined();
+
+      expect(
+        await runRevenueCatWebhookWorkflow(db, {
+          app_user_id: admin.userId,
+          event_timestamp_ms: event.event_timestamp_ms + 2,
+          id: crypto.randomUUID(),
+          original_transaction_id: "sub_live",
+          store: "STRIPE",
+          type: "EXPIRATION",
+        }),
+      ).toEqual({
+        status: "ignored",
+        reason: SUPERSEDED_STRIPE_EVENT_REASON,
+      });
+      const [afterExpiration] = await db
+        .select({ id: organizationBillingStripeSeats.id })
+        .from(organizationBillingStripeSeats)
+        .where(
+          eq(organizationBillingStripeSeats.organizationId, organizationId),
+        );
+      expect(afterExpiration).toBeUndefined();
+      const [nativeBilling] = await db
+        .select({
+          providerProductId: organizationBilling.providerProductId,
+          status: organizationBilling.status,
+        })
+        .from(organizationBilling)
+        .where(eq(organizationBilling.organizationId, organizationId));
+      expect(nativeBilling).toEqual({
+        providerProductId: "sync_team_10_monthly",
+        status: "active",
       });
     }
   });

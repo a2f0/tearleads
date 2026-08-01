@@ -350,7 +350,7 @@ test("a Stripe renewal applies while its asynchronous tier update lags the roste
   expect(billing?.currentPeriodEndsAt?.getTime()).toBe(expirationAtMs);
 });
 
-test("an unknown Stripe price retries with an operator alert", async () => {
+test("a new unknown Stripe price retries with an operator alert", async () => {
   const organizationId = await createActiveBilling();
   const eventId = crypto.randomUUID();
   await db.insert(organizationBillingStripeSeats).values({
