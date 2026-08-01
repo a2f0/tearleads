@@ -27,19 +27,28 @@ before shipping a change to native database or identity lifecycle behavior.
 
 Maestro must be installed (`curl -fsSL https://get.maestro.mobile.dev | bash`).
 
+## Scripted
+
+`scripts/runMaestroTests.sh [ios|android]` (default `ios`) runs the steps below
+end to end: build, sync, native compile, simulator/emulator install, then every
+flow in this directory.
+
 ## iOS (simulator)
 
 ```sh
-# Build + install the debug app on a booted simulator
+# Build + install the debug app on a booted simulator. Keep DerivedData
+# outside the repo: its SPM checkouts hang ls-lint in the pre-commit hook.
 cd packages/app-capacitor
 bun run build                                   # web assets
 CAPACITOR_BUILD_CONFIGURATION=Debug bunx cap sync ios
 xcodebuild -project ios/App/App.xcodeproj -scheme App \
   -configuration Debug -sdk iphonesimulator \
-  -derivedDataPath build -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath "$TMPDIR/tearleads-maestro-derived-data" \
+  -destination 'generic/platform=iOS Simulator' \
   CODE_SIGNING_ALLOWED=NO build
 xcrun simctl boot 'iPhone 16' || true
-xcrun simctl install booted build/Build/Products/Debug-iphonesimulator/App.app
+xcrun simctl install booted \
+  "$TMPDIR/tearleads-maestro-derived-data/Build/Products/Debug-iphonesimulator/App.app"
 
 # Run the flows
 maestro --platform ios test maestro/offline-second-identity.yaml
