@@ -1,0 +1,15 @@
+# Re-assert the captured App Store review surface immediately after simctl takes
+# the framebuffer image. This catches a system alert or backgrounded app that
+# dimensions and alpha-channel validation cannot detect.
+appId: com.tearleads.app
+tags:
+  - screenshots
+  - subscriptions
+---
+- assertVisible: "Sync billing"
+- assertVisible: "Solo"
+- assertVisible: "\\$5\\.00"
+- assertVisible: "Team \\(up to 5\\)"
+- assertVisible: "\\$10\\.00"
+- assertVisible: "Team \\(up to 10\\)"
+- assertVisible: "\\$20\\.00"

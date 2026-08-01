@@ -7,6 +7,14 @@ const screenshotScript = resolve(
   import.meta.dir,
   "../../../scripts/takeSubscriptionReviewScreenshots.sh",
 );
+const reviewFlow = resolve(
+  import.meta.dir,
+  "../maestro/review/subscription-review-screenshots.yaml",
+);
+const verificationFlow = resolve(
+  import.meta.dir,
+  "../maestro/review/subscription-review-catalog-visible.yaml",
+);
 const runtimeIdentifier = "com.apple.CoreSimulator.SimRuntime.iOS-18-0";
 const deviceTypeIdentifier = "com.apple.CoreSimulator.SimDeviceType.iPhone-16";
 const dedicatedDeviceName = "Tearleads Subscription Review";
@@ -98,6 +106,7 @@ afterAll(async () => {
 });
 
 async function runScript(options: {
+  apiBaseUrl?: string;
   apiKey?: string;
   initialDevices?: Array<Record<string, unknown>>;
   selectedUdid?: string;
@@ -120,8 +129,13 @@ async function runScript(options: {
     SHIM_INITIAL_DEVICES_JSON: devicesJson(options.initialDevices ?? []),
     SHIM_RUNTIMES_JSON: runtimesJson,
     SUBSCRIPTION_REVIEW_TEST_LOG: logPath,
+    SUBSCRIPTION_SCREENSHOT_REVENUECAT_ENV_FILE: resolve(
+      testDirectory,
+      "missing.env",
+    ),
     SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR: outputDirectory,
     TMPDIR: testDirectory,
+    VITE_API_BASE_URL: options.apiBaseUrl ?? "https://api.tearleads.com",
     VITE_REVENUECAT_IOS_API_KEY: options.apiKey ?? "appl_production",
   };
   const child = Bun.spawn(["sh", screenshotScript], {
@@ -143,7 +157,7 @@ async function runScript(options: {
     ].map((name) => Bun.file(resolve(outputDirectory, name)).exists()),
   );
   await rm(testDirectory, { force: true, recursive: true });
-  return { exitCode, log, screenshots, stderr };
+  return { exitCode, log, outputDirectory, screenshots, stderr };
 }
 
 test("creates and targets a dedicated iPhone 16 simulator", async () => {
@@ -154,12 +168,12 @@ test("creates and targets a dedicated iPhone 16 simulator", async () => {
     `xcrun:simctl create ${dedicatedDeviceName} ${deviceTypeIdentifier} ${runtimeIdentifier}`,
   );
   expect(result.log).toContain(`xcrun:simctl boot ${dedicatedUdid}`);
-  expect(result.log).toContain(
-    `maestro:--platform ios --device ${dedicatedUdid} test `,
-  );
-  expect(result.log).toContain(
-    "/maestro/review/subscription-review-screenshots.yaml",
-  );
+  expect(
+    result.log.split("\n").filter((line) => line.startsWith("maestro:")),
+  ).toEqual([
+    `maestro:--platform ios --device ${dedicatedUdid} test --test-output-dir ${resolve(result.outputDirectory, "maestro")} ${reviewFlow}`,
+    `maestro:--platform ios --device ${dedicatedUdid} test --test-output-dir ${resolve(result.outputDirectory, "maestro")} ${verificationFlow}`,
+  ]);
   expect(result.screenshots).toEqual([true, true, true]);
 });
 
@@ -182,6 +196,17 @@ test("rejects a RevenueCat Test Store key before simulator mutation", async () =
   expect(result.log).not.toContain("bun:");
 });
 
+test("rejects a dev API URL before simulator mutation", async () => {
+  const result = await runScript({ apiBaseUrl: "http://localhost:3001" });
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain(
+    "VITE_API_BASE_URL=http://localhost:3001 points at a dev-only host",
+  );
+  expect(result.log).not.toContain("xcrun:");
+  expect(result.log).not.toContain("bun:");
+});
+
 test("rejects an unrelated simulator override", async () => {
   const result = await runScript({
     initialDevices: [
@@ -196,7 +221,7 @@ test("rejects an unrelated simulator override", async () => {
 
   expect(result.exitCode).toBe(1);
   expect(result.stderr).toContain(
-    "IOS_SCREENSHOT_DEVICE_UDID must identify the dedicated iPhone 16",
+    "The selected simulator must be the dedicated iPhone 16",
   );
   expect(result.log).not.toContain("bun:");
 });

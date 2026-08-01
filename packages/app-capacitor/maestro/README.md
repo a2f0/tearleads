@@ -92,7 +92,9 @@ later runs reuse it. Set `IOS_SCREENSHOT_RUNTIME_VERSION` to override the tested
 iOS 18.0 runtime, or `IOS_SCREENSHOT_DEVICE_UDID` to select an existing dedicated
 simulator with that exact name, model, and runtime. Set
 `SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR` to change the output directory. Override
-`VITE_API_BASE_URL` only when a different API environment is intentional.
+`VITE_API_BASE_URL` only when a different public API environment is intentional;
+dev-only URLs are rejected before simulator state changes. Tests can point
+`SUBSCRIPTION_SCREENSHOT_REVENUECAT_ENV_FILE` at an isolated dotenv fixture.
 
 These are native review screenshots, not App Store product-page marketing
 screenshots. Do not substitute the resized-browser output from

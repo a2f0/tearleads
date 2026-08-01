@@ -8,9 +8,11 @@ SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
 REPO_ROOT="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd -P)"
 CAPACITOR_DIR="$REPO_ROOT/packages/app-capacitor"
 FLOW="$CAPACITOR_DIR/maestro/review/subscription-review-screenshots.yaml"
+VERIFY_FLOW="$CAPACITOR_DIR/maestro/review/subscription-review-catalog-visible.yaml"
 OUTPUT_DIR="${SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR:-$REPO_ROOT/.screenshots/app-store-review}"
 MAESTRO_OUTPUT_DIR="$OUTPUT_DIR/maestro"
 BUILD_DIR="${TMPDIR:-/tmp}/tearleads-subscription-review-derived-data"
+REVENUECAT_ENV_FILE="${SUBSCRIPTION_SCREENSHOT_REVENUECAT_ENV_FILE:-$REPO_ROOT/.secrets/root.env}"
 DEVICE_NAME="Tearleads Subscription Review"
 DEVICE_TYPE_IDENTIFIER="com.apple.CoreSimulator.SimDeviceType.iPhone-16"
 DEVICE_RUNTIME_VERSION="${IOS_SCREENSHOT_RUNTIME_VERSION:-18.0}"
@@ -38,7 +40,7 @@ command -v sips >/dev/null 2>&1 || {
 . "$REPO_ROOT/scripts/exportRevenueCatKeys.sh"
 # shellcheck source=scripts/releaseGuards.sh
 . "$REPO_ROOT/scripts/releaseGuards.sh"
-export_revenuecat_keys "$REPO_ROOT/.secrets/root.env"
+export_revenuecat_keys "$REVENUECAT_ENV_FILE"
 [ -n "${VITE_REVENUECAT_IOS_API_KEY:-}" ] || {
   echo "VITE_REVENUECAT_IOS_API_KEY is required for native billing screenshots." >&2
   exit 1
@@ -47,6 +49,13 @@ reject_invalid_revenuecat_store_key \
   VITE_REVENUECAT_IOS_API_KEY \
   "$VITE_REVENUECAT_IOS_API_KEY" \
   appl_
+
+# Match the shipping app end to end: production API, production app id, and the
+# production iOS RevenueCat key. Reject stale dev-shell overrides before any
+# simulator is created or authenticated.
+export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
+reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
+echo "Using subscription review API: $VITE_API_BASE_URL"
 
 DEVICE_UDID="${IOS_SCREENSHOT_DEVICE_UDID:-}"
 runtime_identifier="$(
@@ -91,15 +100,10 @@ selected_device="$(
       ] | first // empty'
 )"
 [ "$selected_device" = "$(printf '%s\t%s' "$DEVICE_NAME" "$DEVICE_TYPE_IDENTIFIER")" ] || {
-  echo "IOS_SCREENSHOT_DEVICE_UDID must identify the dedicated iPhone 16" \
+  echo "The selected simulator must be the dedicated iPhone 16" \
     "'$DEVICE_NAME' on iOS $DEVICE_RUNTIME_VERSION." >&2
   exit 1
 }
-
-# Match the shipping app end to end: production API, production app id, and the
-# production iOS RevenueCat key. The simulator identity persists across runs so
-# repeated captures reuse the same production reviewer account.
-export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
 
 mkdir -p "$OUTPUT_DIR" "$MAESTRO_OUTPUT_DIR"
 for screenshot in \
@@ -160,6 +164,14 @@ xcrun simctl io "$DEVICE_UDID" screenshot \
   --type=png \
   --mask=black \
   "$solo_path" >/dev/null
+
+# Confirm the app is still presenting the verified catalog after the native
+# framebuffer capture. A system alert or backgrounded app fails the run instead
+# of silently leaving a wrong-but-correctly-sized review image behind.
+maestro --platform ios --device "$DEVICE_UDID" test \
+  --test-output-dir "$MAESTRO_OUTPUT_DIR" \
+  "$VERIFY_FLOW"
+
 cp "$solo_path" "$OUTPUT_DIR/subscription-team-5.png"
 cp "$solo_path" "$OUTPUT_DIR/subscription-team-10.png"
 
