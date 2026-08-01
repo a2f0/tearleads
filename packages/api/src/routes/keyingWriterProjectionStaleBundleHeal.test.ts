@@ -22,13 +22,12 @@ import {
   shareAndRevokeRoot,
 } from "../../test/helpers/staleBundleHealKit";
 
-// The epoch-advance invariants of the stale-bundle heal: rotated-away epochs
-// become undecryptable for every reader, so a sync that advances the
-// content-key epoch must be anchored by a NEWLY WRITTEN rotation baseline that
-// dominates the whole committed frontier. Otherwise uncovered old-epoch
-// updates would be served forever and poison every reader's all-or-nothing
-// decrypt. See keyingWriterProjectionStaleBundle.test.ts for the projection
-// and read-tolerance halves of the protocol.
+// The epoch-advance invariants of the stale-bundle heal: a sync that installs a
+// current-epoch redirect must anchor it with a NEWLY WRITTEN rotation baseline
+// that dominates the whole committed frontier. Current readers can still
+// decrypt retained old epochs through predecessor KEKs, but an under-covering
+// baseline must never become the redirect head. See
+// keyingWriterProjectionStaleBundle.test.ts for projection and read tolerance.
 test("a heal that advances the content-key epoch must carry a newly written baseline covering the committed frontier", async () => {
   const owner = createTestUser();
   await registerUser(owner);

@@ -200,11 +200,10 @@ async function unwrapDocumentSyncResponseContentKeys(
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<ReadonlyMap<number, Uint8Array>> {
-  // A stale read-only pass carries no usable content key (the stale bundle
-  // wraps to a rotated-away container KEK epoch). Seeding its epoch with the
-  // empty placeholder would mark the epoch "resolved" and feed garbage into
-  // decryption; leave it unseeded so any served update at that epoch goes
-  // through the bundle unwrap below and fails with an honest error instead.
+  // A stale read-only pass can carry an empty placeholder when none of its
+  // authorizing paths reaches the bundle target. Do not mark that epoch as
+  // resolved: every served update must instead unwrap its bundle through the
+  // verified predecessor KEK chain or fail with an honest error.
   const contentKeysByEpoch = new Map<number, Uint8Array>(
     input.currentContentKey.byteLength > 0
       ? [[input.currentContentKeyEpoch, input.currentContentKey]]
@@ -255,7 +254,8 @@ async function unwrapDocumentSyncResponseContentKeys(
  * Builds the rotation baseline that anchors a stale-bundle heal: a full
  * history snapshot of the local document, re-encrypted under the fresh
  * content key so every current member (including post-rotation newcomers)
- * can read the document without the rotated-away container KEK epochs.
+ * has an efficient current-epoch redirect. Predecessor KEKs remain the
+ * correctness path when no covering baseline exists.
  */
 async function buildStaleRecoveryBaselinePendingUpdate(
   buildRotationSnapshot: (() => Promise<Uint8Array | null>) | undefined,
@@ -294,12 +294,11 @@ async function buildStaleRecoveryBaselinePendingUpdate(
 
 /**
  * Resolves the content material a sync plan encrypts and carries. A stale
- * bundle wraps to a rotated-away container KEK epoch that no projection can
- * unwrap anymore, so it splits by intent: a write-bearing pass heals the
- * document by rotating to a FRESH content key at the next epoch (wrapped to
- * the current targets) anchored by a rotation-baseline snapshot, while a
- * read-only pass keeps the stale bundle/targets pair — without unwrapping —
- * so the server can settle the pull against the stored state it actually has.
+ * bundle names predecessor KEK targets while the document's current targets
+ * name successor epochs, so it splits by intent: a write-bearing pass heals
+ * the document with a FRESH content key at the next epoch, anchored by a
+ * covering rotation baseline, while a read-only pass keeps the stale pair and
+ * unwraps it through predecessor KEKs so the server can settle a complete pull.
  */
 /**
  * The manifest bundle a stale read-only plan must pair with: the one the
@@ -378,12 +377,10 @@ async function resolveStaleHealMaterial(
   //
   // A heal whose OWN baseline does not cover the committed frontier is
   // rejected by that same gate and surfaces as a terminal queue failure.
-  // There is deliberately no pull-first fallback: the uncovered updates are
-  // encrypted under content keys wrapped to the rotated-away container KEK
-  // epoch, which no post-rotation projection can unwrap, so pulling cannot
-  // extend this device's history. Only a device already holding the full
-  // history (typically the author of the uncovered updates) can heal
-  // without orphaning them.
+  // This write-bearing pass does not pull first. A device missing committed
+  // history can independently rematerialize it through predecessor KEKs on a
+  // read-only pass, then retry with a covering snapshot. The coverage proof
+  // prevents a partial local view from becoming the redirect baseline.
   const ordinaryPendingUpdates = pendingUpdates.filter(
     (update) => update.sourceVersionVector == null,
   );

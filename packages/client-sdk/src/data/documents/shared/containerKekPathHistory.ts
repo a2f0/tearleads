@@ -63,6 +63,24 @@ function cachedPredecessorKey(input: {
   return input.cached.keyMaterial;
 }
 
+async function unwrapPredecessorBridge(input: {
+  bridge: ReturnType<typeof normalizeContainerKekPredecessorBridge>;
+  index: number;
+  successorKeyMaterial: Uint8Array;
+}): Promise<Uint8Array> {
+  try {
+    return await unwrapContainerKekPredecessorBridge({
+      bridge: input.bridge,
+      successorContainerKey: input.successorKeyMaterial,
+    });
+  } catch (error) {
+    throw new Error(
+      `${projectionKekLabel(input.index)} predecessor bridge could not be unwrapped`,
+      { cause: error },
+    );
+  }
+}
+
 async function assertPredecessorEpoch(input: {
   index: number;
   kek: ContainerWriterProjectionResponse["containerKeks"][number];
@@ -163,9 +181,10 @@ export async function unwrapPredecessorContainerKeksAtIndex(input: {
     });
     const predecessorKeyMaterial =
       cachedKey ??
-      (await unwrapContainerKekPredecessorBridge({
+      (await unwrapPredecessorBridge({
         bridge,
-        successorContainerKey: successorKeyMaterial,
+        index: input.index,
+        successorKeyMaterial,
       }));
     if (!cachedKey) {
       await assertUnwrappedContainerKekMatchesMaterialId({

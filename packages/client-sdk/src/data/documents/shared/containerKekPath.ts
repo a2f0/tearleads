@@ -85,6 +85,7 @@ async function unwrapContainerKekFromPrincipalWraps(input: {
 }
 
 async function unwrapContainerKekFromParentWrap(input: {
+  label: string;
   parentContainerKeyEpochId: string | null;
   parentKeksByEpochId: ReadonlyMap<string, UnwrappedContainerKek>;
   wraps: readonly ContainerKeyWrap[];
@@ -111,13 +112,19 @@ async function unwrapContainerKekFromParentWrap(input: {
     return null;
   }
 
-  return decryptWithDek(
-    {
-      iv: base64ToBytes(parentWrap.kemCipherText),
-      ciphertext: base64ToBytes(parentWrap.wrappedKey),
-    },
-    parentKek.keyMaterial,
-  );
+  try {
+    return await decryptWithDek(
+      {
+        iv: base64ToBytes(parentWrap.kemCipherText),
+        ciphertext: base64ToBytes(parentWrap.wrappedKey),
+      },
+      parentKek.keyMaterial,
+    );
+  } catch (error) {
+    throw new Error(`${input.label} parent wrap could not be unwrapped`, {
+      cause: error,
+    });
+  }
 }
 
 async function seedKnownContainerKeks(input: {
@@ -215,6 +222,7 @@ async function unwrapContainerKekAtIndex(input: {
       wraps,
     })) ??
     (await unwrapContainerKekFromParentWrap({
+      label: projectionKekLabel(input.index),
       parentContainerKeyEpochId: kek.parentContainerKeyEpochId,
       parentKeksByEpochId: input.keksByEpochId,
       wraps,

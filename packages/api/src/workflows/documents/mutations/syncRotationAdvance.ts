@@ -87,12 +87,10 @@ function assertNewBaselineSound(input: {
  * covering baseline. Idempotent retries of already-committed baseline ids are
  * exempt — they insert nothing.
  *
- * A device that is behind must not rotate, and cannot make itself eligible by
- * pulling first: the uncovered updates are encrypted under keys wrapped to
- * rotated-away container KEK epochs, which no post-rotation projection serves
- * wraps for. The device holding the full history (typically the author of the
- * uncovered updates) is the one that can heal; rejecting the rest preserves
- * that data instead of silently orphaning it under a non-covering baseline.
+ * A device that is behind must not rotate yet. It can first rematerialize the
+ * missing updates through the container predecessor-KEK chain and then retry
+ * with a covering baseline; no other device is required. Rejecting a partial
+ * baseline preserves the missing data instead of making it the redirect head.
  */
 export async function assertSyncRotationBaselinesSound(input: {
   readonly documentId: string;

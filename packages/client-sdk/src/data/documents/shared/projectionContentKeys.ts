@@ -93,13 +93,20 @@ export async function unwrapDocumentContentKeyTarget(input: {
     throw new Error("Document content-key target is missing an IV");
   }
 
-  return decryptWithDek(
-    {
-      iv: base64ToBytes(iv),
-      ciphertext: base64ToBytes(input.envelope.wrappedKey),
-    },
-    input.containerKek,
-  );
+  try {
+    return await decryptWithDek(
+      {
+        iv: base64ToBytes(iv),
+        ciphertext: base64ToBytes(input.envelope.wrappedKey),
+      },
+      input.containerKek,
+    );
+  } catch (error) {
+    throw new Error(
+      `Document content-key target for container ${input.envelope.containerId} at epoch ${input.envelope.containerKeyEpochId} could not be unwrapped`,
+      { cause: error },
+    );
+  }
 }
 
 interface CollectedContainerKeks {
@@ -245,10 +252,10 @@ export async function unwrapDocumentContentKeyFromWriterProjection(
 /**
  * Builds the healing bundle for a stale content-key bundle: wraps a FRESH
  * content key to the projection's CURRENT KEK targets at the next
- * content-key epoch. The stale bundle wraps to a rotated-away container KEK
- * epoch that projections no longer serve wraps for, so the old content key
- * is unrecoverable by design — recovery re-encrypts the local document under
- * the fresh key via a rotation-baseline snapshot instead.
+ * content-key epoch. A current reader can recover the stale bundle through
+ * the container predecessor chain; the fresh key is still required so a
+ * holder revoked by the container rotation cannot decrypt future updates.
+ * Recovery re-encrypts a full-history snapshot under that fresh key.
  *
  * Like every content-key rotation (unlink included), this requires the KEK
  * of EVERY linked-container target: all envelopes in a bundle must wrap the
