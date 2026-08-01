@@ -23,6 +23,14 @@ run_flows() {
   done
 }
 
+# Device lines look like "iPhone 16 (<UDID>) (Shutdown)"; matching on
+# "$1 (" keeps "iPhone 16" from also matching "iPhone 16 Pro".
+# tail -1 picks the newest runtime when several carry the same device.
+resolve_sim_udid() {
+  xcrun simctl list devices available | grep -F "$1 (" \
+    | grep -oE '[0-9A-F-]{36}' | tail -1
+}
+
 # The Maestro flows provision identities fully offline (no backend running),
 # but Vite inlines VITE_* at build time and src/index.tsx throws on boot when
 # VITE_API_BASE_URL is missing, leaving a blank WebView. Default to the local
@@ -43,16 +51,18 @@ case "$PLATFORM" in
       -destination 'generic/platform=iOS Simulator' \
       CODE_SIGNING_ALLOWED=NO -quiet build
 
-    UDID="$(xcrun simctl list devices booted | grep -oE '[0-9A-F-]{36}' | head -1)"
-    if [ -z "$UDID" ]; then
-      SIM_NAME="${MAESTRO_IOS_SIMULATOR:-iPhone 16}"
-      # Device lines look like "iPhone 16 (<UDID>) (Shutdown)"; matching on
-      # "$SIM_NAME (" keeps "iPhone 16" from also matching "iPhone 16 Pro".
-      # tail -1 picks the newest runtime when several carry the same device.
-      UDID="$(xcrun simctl list devices available | grep -F "$SIM_NAME (" \
-        | grep -oE '[0-9A-F-]{36}' | tail -1)"
+    if [ -n "${MAESTRO_IOS_SIMULATOR:-}" ]; then
+      # An explicit selector wins even when another simulator is booted.
+      UDID="$(resolve_sim_udid "$MAESTRO_IOS_SIMULATOR")"
       if [ -z "$UDID" ]; then
-        echo "No available simulator named '$SIM_NAME'; set MAESTRO_IOS_SIMULATOR" >&2
+        echo "No available simulator named '$MAESTRO_IOS_SIMULATOR'" >&2
+        exit 1
+      fi
+    else
+      UDID="$(xcrun simctl list devices booted | grep -oE '[0-9A-F-]{36}' | head -1)"
+      [ -n "$UDID" ] || UDID="$(resolve_sim_udid "iPhone 16")"
+      if [ -z "$UDID" ]; then
+        echo "No booted simulator and no available 'iPhone 16'; set MAESTRO_IOS_SIMULATOR" >&2
         exit 1
       fi
     fi
@@ -63,10 +73,15 @@ case "$PLATFORM" in
     ;;
   android)
     export VITE_API_BASE_URL="${VITE_API_BASE_URL:-http://10.0.2.2:3001}"
-    if ! adb get-state >/dev/null 2>&1; then
-      echo "No Android device/emulator connected; boot one, then re-run" >&2
+    # The flows launch with clearState: true, which wipes the app's local
+    # data — never target a physical device. Run against a running emulator
+    # only, and pin every adb and maestro call to its serial.
+    ANDROID_SERIAL="$(adb devices | awk '$2 == "device" && $1 ~ /^emulator-/ { print $1; exit }')"
+    if [ -z "$ANDROID_SERIAL" ]; then
+      echo "No running Android emulator (physical devices are refused: the flows clear app state); boot one, then re-run" >&2
       exit 1
     fi
+    export ANDROID_SERIAL
     # The Gradle wrapper jar is binary, so it is gitignored rather than
     # committed; regenerate it from the mise-pinned Gradle when missing.
     if [ ! -f android/gradle/wrapper/gradle-wrapper.jar ]; then
@@ -77,7 +92,7 @@ case "$PLATFORM" in
       bunx cap sync android
     (cd android && ./gradlew assembleDebug)
     adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-    run_flows --platform android
+    run_flows --platform android --device "$ANDROID_SERIAL"
     ;;
   *)
     echo "Usage: $0 [ios|android]" >&2
