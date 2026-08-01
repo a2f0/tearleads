@@ -1,13 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-
-import { assertNoClaudeBranding } from "./assertNoClaudeBranding";
 import {
   findOpenPrNumber,
   resolveRepoContext,
   run,
   spawnExitCode,
-} from "./prContext";
+} from "../git/prContext";
+import { assertNoClaudeBranding } from "./assertNoClaudeBranding";
 import { singleLineSubject } from "./subjectLine";
 import { validateCommitSubject } from "./validateCommitSubject";
 

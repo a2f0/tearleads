@@ -24,10 +24,10 @@
  */
 import { execFileSync } from "node:child_process";
 
-import { openPr } from "./openPr";
-import { solicitClaudeCodeReview } from "./solicitClaudeCodeReview";
-import { solicitCodexReview } from "./solicitCodexReview";
-import { squashMerge } from "./squashMerge";
+import { openPr } from "./pr/openPr";
+import { squashMerge } from "./pr/squashMerge";
+import { solicitClaudeCodeReview } from "./review/solicitClaudeCodeReview";
+import { solicitCodexReview } from "./review/solicitCodexReview";
 
 const USAGE =
   "Usage: agent-tool <solicitClaudeCodeReview|solicitCodexReview|openPr|squashMerge> [args]\n";

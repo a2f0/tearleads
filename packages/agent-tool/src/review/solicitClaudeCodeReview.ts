@@ -6,7 +6,7 @@ import {
   resolveReviewContext,
   run,
   spawnExitCode,
-} from "./prContext";
+} from "../git/prContext";
 import {
   DEFAULT_CLAUDE_EFFORT,
   type ReviewEffort,
