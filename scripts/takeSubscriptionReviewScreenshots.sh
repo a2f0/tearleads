@@ -6,10 +6,11 @@ set -eu
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 CAPACITOR_DIR="$REPO_ROOT/packages/app-capacitor"
-FLOW="$CAPACITOR_DIR/maestro/subscription-review-screenshots.yaml"
+FLOW="$CAPACITOR_DIR/maestro/review/subscription-review-screenshots.yaml"
 OUTPUT_DIR="${SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR:-$REPO_ROOT/.screenshots/app-store-review}"
-BUILD_DIR="$CAPACITOR_DIR/build/subscription-review"
-DEVICE_NAME="${IOS_SCREENSHOT_DEVICE_NAME:-iPhone 16}"
+MAESTRO_OUTPUT_DIR="$OUTPUT_DIR/maestro"
+BUILD_DIR="${TMPDIR:-/tmp}/tearleads-subscription-review-derived-data"
+DEVICE_NAME="iPhone 16"
 DEVICE_RUNTIME_VERSION="${IOS_SCREENSHOT_RUNTIME_VERSION:-18.0}"
 
 command -v maestro >/dev/null 2>&1 || {
@@ -47,6 +48,16 @@ fi
   echo "No available $DEVICE_NAME simulator running iOS $DEVICE_RUNTIME_VERSION." >&2
   exit 1
 }
+selected_device_name="$(
+  xcrun simctl list devices available -j |
+    jq -r --arg udid "$DEVICE_UDID" \
+      '[.devices[][] | select(.udid == $udid and .isAvailable == true)] | first | .name // empty'
+)"
+[ "$selected_device_name" = "$DEVICE_NAME" ] || {
+  echo "Review screenshots require an available $DEVICE_NAME simulator;" \
+    "got '${selected_device_name:-unknown}'." >&2
+  exit 1
+}
 
 # Store releases load this public SDK key through Fastlane. The review capture
 # uses the same selectively loaded value without sourcing unrelated secrets.
@@ -63,7 +74,7 @@ export_revenuecat_keys "$REPO_ROOT/.secrets/root.env"
 # repeated captures reuse the same production reviewer account.
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
 
-mkdir -p "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR" "$MAESTRO_OUTPUT_DIR"
 for screenshot in \
   subscription-solo.png \
   subscription-team-5.png \
@@ -100,32 +111,36 @@ xcrun simctl install \
   "$BUILD_DIR/Build/Products/Debug-iphonesimulator/App.app"
 
 maestro --platform ios --device "$DEVICE_UDID" test \
-  --test-output-dir "$OUTPUT_DIR" \
+  --test-output-dir "$MAESTRO_OUTPUT_DIR" \
   "$FLOW"
 
+trap 'xcrun simctl status_bar "$DEVICE_UDID" clear >/dev/null 2>&1 || true' EXIT
 xcrun simctl status_bar "$DEVICE_UDID" override \
   --time 9:41 \
   --batteryState charged \
   --batteryLevel 100 \
   --wifiBars 3 \
   --cellularBars 4
-trap 'xcrun simctl status_bar "$DEVICE_UDID" clear >/dev/null 2>&1 || true' EXIT
 # SpringBoard applies the override asynchronously; wait for a complete, stable
 # status bar before taking review evidence.
 sleep 2
+
+solo_path="$OUTPUT_DIR/subscription-solo.png"
+# Maestro verifies and positions the real native catalog. simctl produces
+# Apple's exact 1179x2556 size; the black mask also removes the rejected alpha
+# channel. All three App Store records use this same catalog evidence.
+xcrun simctl io "$DEVICE_UDID" screenshot \
+  --type=png \
+  --mask=black \
+  "$solo_path" >/dev/null
+cp "$solo_path" "$OUTPUT_DIR/subscription-team-5.png"
+cp "$solo_path" "$OUTPUT_DIR/subscription-team-10.png"
 
 for screenshot in \
   subscription-solo.png \
   subscription-team-5.png \
   subscription-team-10.png; do
   path="$OUTPUT_DIR/$screenshot"
-  # Maestro verifies and positions the real native catalog. simctl produces
-  # Apple's exact 1179x2556 size; the black mask also removes the rejected alpha
-  # channel.
-  xcrun simctl io "$DEVICE_UDID" screenshot \
-    --type=png \
-    --mask=black \
-    "$path" >/dev/null
   [ -s "$path" ] || {
     echo "simctl did not create $path." >&2
     exit 1

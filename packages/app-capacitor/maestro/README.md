@@ -22,10 +22,12 @@ before shipping a change to native database or identity lifecycle behavior.
   second identity tore down the first identity's SQLite worker and could not
   construct a new one on a WebView; the app now reuses one dedicated worker
   across switches — see `AppHostConfig.reuseDatabaseWorker`).
-- `subscription-review-screenshots.yaml` — registers or logs in a persistent
-  simulator identity against the production API, opens the real native Billing
-  surface, verifies the three RevenueCat/StoreKit tiers and prices, and captures
-  one App Store review screenshot per tier.
+- `review/subscription-review-screenshots.yaml` — registers or logs in a
+  persistent simulator identity against the production API, opens the real
+  native Billing surface, verifies the three RevenueCat/StoreKit tiers and
+  prices, and captures one App Store review screenshot per tier. Its `review/`
+  location keeps this credentialed production flow out of the general offline
+  Maestro runner.
 
 ## Prerequisites
 
@@ -86,10 +88,10 @@ because its framebuffer capture preserves Apple's exact accepted dimensions.
 The flow deliberately preserves app state. Its first run creates one production
 screenshot identity; later runs log in or reuse that identity instead of
 creating another. Set `IOS_SCREENSHOT_DEVICE_UDID` to target a specific iPhone
-16 simulator, or `IOS_SCREENSHOT_DEVICE_NAME` to choose a different model. Set
-`IOS_SCREENSHOT_RUNTIME_VERSION` to override the tested iOS 18.0 runtime. Set
-`SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR` to change the output directory. Override
-`VITE_API_BASE_URL` only when a different API environment is intentional.
+16 simulator. Set `IOS_SCREENSHOT_RUNTIME_VERSION` to override the tested iOS
+18.0 runtime. Set `SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR` to change the output
+directory. Override `VITE_API_BASE_URL` only when a different API environment
+is intentional.
 
 These are native review screenshots, not App Store product-page marketing
 screenshots. Do not substitute the resized-browser output from

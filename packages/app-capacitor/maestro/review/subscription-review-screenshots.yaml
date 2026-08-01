@@ -37,9 +37,23 @@ tags:
           timeout: 60000
 - runFlow:
     when:
+      visible: "Could not register key\\."
+    commands:
+      # Registration can create the server identity even when its inline
+      # challenge fails. Wait for that attempt to settle, then recover through
+      # the normal login challenge instead of racing both requests.
+      - tapOn: "Login"
+      - extendedWaitUntil:
+          visible: "Authenticated"
+          timeout: 60000
+- runFlow:
+    when:
       visible: "Login"
     commands:
       - tapOn: "Login"
+      - extendedWaitUntil:
+          visible: "Authenticated"
+          timeout: 60000
 - extendedWaitUntil:
     visible: "Authenticated"
     timeout: 60000
