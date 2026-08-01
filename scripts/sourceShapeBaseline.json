@@ -271,7 +271,7 @@
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 1041,
-      "bytes": 36123
+      "bytes": 36303
     },
     "packages/client-sdk/src/data/documents/editAttribution.test.ts": {
       "lines": 580,

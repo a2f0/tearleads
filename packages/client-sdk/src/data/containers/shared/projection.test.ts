@@ -553,14 +553,20 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
       "wrappedKey",
       bytesToBase64(crypto.getRandomValues(new Uint8Array(48))),
     );
-    await expect(
-      unwrapContainerKekPath({
-        execSql,
-        projection: substitutedProjection,
-        resolveProjectionUserKey,
-        secretKey: parent.secretKey,
-      }),
-    ).rejects.toThrow("predecessor bridge does not match its signed event");
+    const ownerKeksWithCorruptHistory = await unwrapContainerKekPath({
+      execSql,
+      projection: substitutedProjection,
+      resolveProjectionUserKey,
+      secretKey: parent.secretKey,
+    });
+    expect(ownerKeksWithCorruptHistory.get(rotatedContainerKeyEpochId)).toEqual(
+      rotatedContainerKek,
+    );
+    expect(
+      ownerKeksWithCorruptHistory.has(
+        parent.parentKekState.containerKeyEpochId,
+      ),
+    ).toBe(false);
 
     await expect(
       unwrapContainerKekPath({
