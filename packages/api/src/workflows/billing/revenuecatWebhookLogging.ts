@@ -3,10 +3,12 @@ import {
   isRevenueCatGrantEventType,
   SANDBOX_IGNORED_REASON,
 } from "../../billing/revenuecatWebhook";
+import { DEFERRED_NATIVE_DOWNGRADE_REASON } from "./revenuecatGrantCapacity";
 
 const ROUTINE_GRANT_IGNORE_REASONS = new Set([
   "A newer billing event has already been applied",
   "Grant event period has already expired",
+  DEFERRED_NATIVE_DOWNGRADE_REASON,
   SANDBOX_IGNORED_REASON,
 ]);
 

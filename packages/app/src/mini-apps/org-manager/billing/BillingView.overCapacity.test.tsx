@@ -45,6 +45,7 @@ const PROPS: BillingViewProps = {
   error: null,
   isOrgAdmin: true,
   purchaseAvailable: true,
+  restoreAvailable: false,
   canSubscribe: true,
   minimumSeatCount: 11,
   options: OPTIONS,

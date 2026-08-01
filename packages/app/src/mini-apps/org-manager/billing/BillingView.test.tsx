@@ -41,6 +41,7 @@ function props(overrides: Partial<BillingViewProps>): BillingViewProps {
     error: null,
     isOrgAdmin: true,
     purchaseAvailable: false,
+    restoreAvailable: false,
     canSubscribe: false,
     minimumSeatCount: 1,
     options: [],

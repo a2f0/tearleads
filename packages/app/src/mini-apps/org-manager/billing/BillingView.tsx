@@ -2,6 +2,7 @@ import type {
   OrganizationBillingView,
   SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
+import { getLargestSyncBillingTier } from "@tearleads/validators/billing";
 import { type Ref, useCallback } from "react";
 import {
   MiniAppActions,
@@ -54,7 +55,7 @@ export interface BillingViewProps {
   /** Existing subscription is owned elsewhere, so no purchase prompt belongs here. */
   readonly purchaseSectionHidden?: boolean;
   /** Whether this shell can restore provider purchases independently of buying. */
-  readonly restoreAvailable?: boolean;
+  readonly restoreAvailable: boolean;
   /** Whether the admin can actually purchase (platform supports it and the buyer is known). */
   readonly canSubscribe: boolean;
   /**
@@ -231,7 +232,7 @@ function BillingSubscribeList({
   );
   if (eligibleOptions.length === 0) {
     const message =
-      minimumSeatCount > 10
+      minimumSeatCount > getLargestSyncBillingTier().seatLimit
         ? ORG_MANAGER_LABELS.billingCheckoutOverCapacity
         : ORG_MANAGER_LABELS.billingNoOptions;
     return (

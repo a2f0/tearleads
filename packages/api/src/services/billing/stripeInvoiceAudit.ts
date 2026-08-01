@@ -136,6 +136,8 @@ function createStripeInvoiceAuditInput(input: {
     line.priceId,
     input.stripeDeps,
   );
+  // Greenfield fixed tiers are quantity-one Prices whose unit amount identifies
+  // capacity; legacy per-seat lines are outside this contract.
   const economicsTier = hasCompleteTierEconomics
     ? (SYNC_BILLING_TIERS.find(
         (tier) => line.unitAmount === tier.monthlyPriceUsdCents,

@@ -23,6 +23,58 @@ const STRIPE_GRANT_EXCEEDS_CAPACITY_REASON =
   "Stripe subscription cannot cover more than 10 active members";
 export const DEFERRED_NATIVE_DOWNGRADE_REASON =
   "Native subscription downgrade is deferred until renewal";
+const PROMOTIONAL_PRODUCT_PREFIX = "promotional:";
+
+function resolveBoundNativeProduct(productId: string): {
+  readonly isPromotional: boolean;
+  readonly productId: string;
+} {
+  const isPromotional = productId.startsWith(PROMOTIONAL_PRODUCT_PREFIX);
+  return {
+    isPromotional,
+    productId: isPromotional
+      ? productId.slice(PROMOTIONAL_PRODUCT_PREFIX.length)
+      : productId,
+  };
+}
+
+function classifyBoundLifecycleGrant(input: {
+  readonly allowSandboxEvents: boolean;
+  readonly billing: LockedBillingIdentity | undefined;
+  readonly event: RevenueCatWebhookEvent;
+  readonly now: Date;
+}): RevenueCatBillingTransition {
+  const storedProductId =
+    input.billing?.provider === "revenuecat" &&
+    input.billing.providerCustomerId === input.event.app_user_id
+      ? input.billing.providerProductId
+      : null;
+  if (!storedProductId || !input.billing) {
+    return { kind: "ignore", reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON };
+  }
+  const { isPromotional, productId } =
+    resolveBoundNativeProduct(storedProductId);
+  const tier = getSyncBillingTierForNativeProduct(productId);
+  if (!tier || (!isPromotional && input.billing.seatCount !== tier.seatLimit)) {
+    return { kind: "ignore", reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON };
+  }
+  const classified = classifyRevenueCatEvent(input.event, input.now, {
+    allowSandboxEvents: input.allowSandboxEvents,
+    boundNativeProductId: productId,
+    boundNativeSeatCount: isPromotional
+      ? input.billing.seatCount
+      : tier.seatLimit,
+    ...(input.billing.providerSubscriptionId
+      ? { boundProviderSubscriptionId: input.billing.providerSubscriptionId }
+      : {}),
+  });
+  return isPromotional && classified.kind === "grant"
+    ? {
+        ...classified,
+        fields: { ...classified.fields, providerProductId: storedProductId },
+      }
+    : classified;
+}
 
 /** Resolves a product-less lifecycle grant only from its locked customer tier. */
 export function resolveBoundRevenueCatGrantTransition(input: {
@@ -37,22 +89,11 @@ export function resolveBoundRevenueCatGrantTransition(input: {
     transition.kind === "ignore" &&
     transition.reason === BOUND_REVENUECAT_TIER_REQUIRED_REASON
   ) {
-    const productId =
-      input.billing?.provider === "revenuecat" &&
-      input.billing.providerCustomerId === input.event.app_user_id
-        ? input.billing.providerProductId
-        : null;
-    const tier = getSyncBillingTierForNativeProduct(productId);
-    if (!tier || input.billing?.seatCount !== tier.seatLimit || !productId) {
-      return { kind: "ignore", reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON };
-    }
-    transition = classifyRevenueCatEvent(input.event, input.now, {
+    transition = classifyBoundLifecycleGrant({
       allowSandboxEvents: input.allowSandboxEvents,
-      boundNativeProductId: productId,
-      boundNativeSeatCount: tier.seatLimit,
-      ...(input.billing.providerSubscriptionId
-        ? { boundProviderSubscriptionId: input.billing.providerSubscriptionId }
-        : {}),
+      billing: input.billing,
+      event: input.event,
+      now: input.now,
     });
   }
   if (input.event.type !== "PRODUCT_CHANGE" || transition.kind !== "grant") {
