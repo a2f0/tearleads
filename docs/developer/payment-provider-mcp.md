@@ -82,6 +82,24 @@ Official references:
 - [RevenueCat MCP setup](https://www.revenuecat.com/docs/tools/mcp/setup)
 - [RevenueCat API v2](https://www.revenuecat.com/docs/api-v2)
 
+### Verified MCP capability boundaries
+
+- Stripe MCP can audit account readiness and reconcile live or test Products,
+  Prices, and webhook endpoints. It does not expose the account's secret or
+  publishable API keys, and it cannot accept Terms of Service or choose legal,
+  identity, contact, or payout information. Before live provisioning, verify
+  `charges_enabled`, `payouts_enabled`, `details_submitted`, and the account
+  requirements; after creating a webhook, store its returned signing secret in
+  the matching tier environment without printing it.
+- RevenueCat MCP can configure Test Store prices with
+  `create_product_prices`; amounts are currency micros (`5000000` = USD $5).
+  Read the prices back with `list_prices`, then verify the product remains
+  attached to both its fixed-tier package and the `sync` entitlement.
+- RevenueCat may omit production `strp_…` and `rcb_…` public keys while the
+  connected Stripe account is not activated for live charges. Re-list the app
+  public API keys after Stripe activation instead of copying sandbox keys into
+  production.
+
 ## CLI and API fallbacks
 
 The MCPs cover Stripe and RevenueCat well. Apple and Google currently need API
