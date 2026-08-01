@@ -1,0 +1,90 @@
+# Capture the native iOS subscription choices used as App Store review evidence.
+#
+# This flow intentionally runs against the real Capacitor shell. The browser
+# screenshot harness follows the web-only Stripe path and therefore is not valid
+# evidence of the RevenueCat/App Store purchase surface.
+appId: com.tearleads.app
+tags:
+  - screenshots
+  - subscriptions
+---
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "Contacts"
+    timeout: 40000
+- extendedWaitUntil:
+    visible: "Menu"
+    timeout: 40000
+
+# A fresh dedicated simulator has a local identity but no API account. Register
+# it once; later captures reuse the persisted authenticated identity so repeated
+# runs do not create a new reviewer account every time.
+- tapOn: "Menu"
+- scrollUntilVisible:
+    element:
+      text: "Identity Manager"
+    direction: DOWN
+- tapOn: "Identity Manager"
+- tapOn: "General"
+- runFlow:
+    when:
+      visible: "Register"
+    commands:
+      - tapOn: "Register"
+      - extendedWaitUntil:
+          visible: "Authenticated|Could not register key\\."
+          timeout: 60000
+- runFlow:
+    when:
+      visible: "Could not register key\\."
+    commands:
+      # Registration can create the server identity even when its inline
+      # challenge fails. Wait for that attempt to settle, then recover through
+      # the normal login challenge instead of racing both requests.
+      - extendedWaitUntil:
+          visible: "Authenticated|Login"
+          timeout: 60000
+      - tapOn:
+          text: "Login"
+          optional: true
+      - extendedWaitUntil:
+          visible: "Authenticated"
+          timeout: 60000
+- runFlow:
+    when:
+      visible: "Login"
+    commands:
+      - tapOn: "Login"
+      - extendedWaitUntil:
+          visible: "Authenticated"
+          timeout: 60000
+- extendedWaitUntil:
+    visible: "Authenticated"
+    timeout: 60000
+
+# Open the personal organization's native billing view. Product titles and
+# localized prices come through RevenueCat/StoreKit rather than screenshot-only
+# fixtures, so these assertions also guard against an empty or mismatched catalog.
+- tapOn: "Menu"
+- scrollUntilVisible:
+    element:
+      text: "Org Manager"
+    direction: DOWN
+- tapOn: "Org Manager"
+- tapOn: "Billing"
+- extendedWaitUntil:
+    visible: "Sync billing"
+    timeout: 60000
+- runFlow:
+    when:
+      visible: "No subscription options are available right now\\."
+    commands:
+      - tapOn: "Refresh"
+- extendedWaitUntil:
+    visible: "Solo"
+    timeout: 60000
+# The dedicated simulator uses the default US storefront. These assertions are
+# intentionally strict so a price or storefront change cannot create stale
+# review evidence unnoticed.
+- runFlow: subscription-review-catalog-assertions.yaml

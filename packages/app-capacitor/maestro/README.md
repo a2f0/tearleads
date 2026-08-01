@@ -22,6 +22,12 @@ before shipping a change to native database or identity lifecycle behavior.
   second identity tore down the first identity's SQLite worker and could not
   construct a new one on a WebView; the app now reuses one dedicated worker
   across switches — see `AppHostConfig.reuseDatabaseWorker`).
+- `review/subscription-review-screenshots.yaml` — registers or logs in a
+  persistent simulator identity against the production API, opens the real
+  native Billing surface, verifies the three RevenueCat/StoreKit tiers and
+  prices, and captures one App Store review screenshot per tier. Its `review/`
+  location keeps this credentialed production flow out of the general offline
+  Maestro runner.
 
 ## Prerequisites
 
@@ -54,6 +60,46 @@ xcrun simctl install booted \
 maestro --platform ios test maestro/offline-second-identity.yaml
 maestro --platform ios test maestro/first-identity-offline.yaml
 ```
+
+### App Store subscription review screenshots
+
+Run the repository wrapper from any directory:
+
+```sh
+./scripts/takeSubscriptionReviewScreenshots.sh
+```
+
+It builds and installs the production-id Capacitor shell on an available
+`iPhone 16` simulator, points account registration at the production API, runs
+the dedicated Maestro flow, and writes these gitignored 1179x2556, non-alpha
+PNGs:
+
+```text
+.screenshots/app-store-review/subscription-solo.png
+.screenshots/app-store-review/subscription-team-5.png
+.screenshots/app-store-review/subscription-team-10.png
+```
+
+The three products share one catalog screen, so the runner captures that
+review-ready screen once for each subscription record. Maestro verifies every
+product title and price first; the runner uses `simctl` for the final files
+because its framebuffer capture preserves Apple's exact accepted dimensions.
+
+The runner creates and reuses a dedicated `Tearleads Subscription Review`
+iPhone 16 simulator so it never authenticates an unrelated simulator identity
+against production. Its first run creates one production screenshot identity;
+later runs reuse it. Set `IOS_SCREENSHOT_RUNTIME_VERSION` to override the tested
+iOS 18.0 runtime, or `IOS_SCREENSHOT_DEVICE_UDID` to select an existing dedicated
+simulator with that exact name, model, and runtime. Set
+`SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR` to change the output directory. Override
+`VITE_API_BASE_URL` only when a different public API environment is intentional;
+dev-only URLs are rejected before simulator state changes. Tests can point
+`SUBSCRIPTION_SCREENSHOT_REVENUECAT_ENV_FILE` at an isolated dotenv fixture.
+
+These are native review screenshots, not App Store product-page marketing
+screenshots. Do not substitute the resized-browser output from
+`scripts/takeScreenshots.sh`: the web shell follows the Stripe purchase path,
+while App Review needs evidence of the native App Store subscription surface.
 
 ## Android (emulator)
 

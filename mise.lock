@@ -12,6 +12,35 @@ url = "https://github.com/WebAssembly/binaryen/releases/download/version_128/bin
 checksum = "sha256:0ef730ecedf2dac894812185fc78f5940ab980cdde79427e49fa87331d24422f"
 url = "https://github.com/WebAssembly/binaryen/releases/download/version_128/binaryen-version_128-arm64-macos.tar.gz"
 
+[[tools."aqua:jqlang/jq"]]
+version = "1.8.1"
+backend = "aqua:jqlang/jq"
+
+[tools."aqua:jqlang/jq"."platforms.linux-x64"]
+checksum = "sha256:020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d"
+url = "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-amd64"
+provenance = "github-attestations"
+
+[tools."aqua:jqlang/jq"."platforms.linux-x64-baseline"]
+checksum = "sha256:020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d"
+url = "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-amd64"
+provenance = "github-attestations"
+
+[tools."aqua:jqlang/jq"."platforms.linux-x64-musl"]
+checksum = "sha256:020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d"
+url = "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-amd64"
+provenance = "github-attestations"
+
+[tools."aqua:jqlang/jq"."platforms.linux-x64-musl-baseline"]
+checksum = "sha256:020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d"
+url = "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-amd64"
+provenance = "github-attestations"
+
+[tools."aqua:jqlang/jq"."platforms.macos-arm64"]
+checksum = "sha256:a9fe3ea2f86dfc72f6728417521ec9067b343277152b114f4e98d8cb0e263603"
+url = "https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-macos-arm64"
+provenance = "github-attestations"
+
 [[tools."aqua:rustwasm/wasm-pack"]]
 version = "0.14.0"
 backend = "aqua:rustwasm/wasm-pack"
