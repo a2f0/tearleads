@@ -223,6 +223,9 @@ async function resolvePreclaimDisposition(input: {
     // Do not claim a paid native grant while Stripe may still bill. RevenueCat
     // can redeliver the same event after the Stripe subscription lapses, at
     // which point the native entitlement applies without charging twice.
+    console.error(
+      `RevenueCat paid grant ${input.event.id} deferred: ${nativeStripeConflict}`,
+    );
     return { kind: "retry", reason: nativeStripeConflict };
   }
   const capacity = input.organizationId
@@ -233,16 +236,13 @@ async function resolvePreclaimDisposition(input: {
         transition,
       })
     : { kind: "within_capacity" as const };
-  const ignoredReason =
-    capacity.kind === "ignore"
-      ? capacity.reason
-      : await resolveIgnoredReason(
-          input.executor,
-          transition,
-          input.organizationId,
-          input.event,
-          billing,
-        );
+  const ignoredReason = await resolveIgnoredReason(
+    input.executor,
+    transition,
+    input.organizationId,
+    input.event,
+    billing,
+  );
   return {
     ignoredReason,
     kind: "continue",

@@ -55,14 +55,19 @@ for (const conflict of [
       type: "INITIAL_PURCHASE",
     };
 
-    const outcome = await runRevenueCatWebhookWorkflow(db, {
-      ...event,
-    });
+    const errorSpy = spyOn(console, "error").mockImplementation(
+      () => undefined,
+    );
+    const outcome = await runRevenueCatWebhookWorkflow(db, event);
 
     expect(outcome).toEqual({
       status: "retry",
       reason: STRIPE_CONFLICT_REASON,
     });
+    expect(errorSpy).toHaveBeenCalledWith(
+      `RevenueCat paid grant ${eventId} deferred: ${STRIPE_CONFLICT_REASON}`,
+    );
+    errorSpy.mockRestore();
     const [billing] = await db
       .select({
         providerProductId: organizationBilling.providerProductId,

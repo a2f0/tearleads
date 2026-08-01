@@ -260,7 +260,7 @@ test("management identifies Stripe and native subscription ownership", async () 
   await db.insert(organizationBillingStripeSeats).values({
     organizationId,
     priceId: "price_rotated",
-    subscriptionId: "sub_rotated",
+    subscriptionId: null,
     subscriptionItemId: "si_rotated",
   });
   const rotatedStripeManagement = await getOrganizationBillingManagementUrl(

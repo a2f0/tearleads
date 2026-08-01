@@ -297,6 +297,8 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
         providerSubscriptionId: organizationBilling.providerSubscriptionId,
         providerTransactionId: organizationBilling.providerTransactionId,
         stripeSubscriptionId: organizationBillingStripeSeats.subscriptionId,
+        stripeSubscriptionItemId:
+          organizationBillingStripeSeats.subscriptionItemId,
         status: organizationBilling.status,
       })
       .from(organizationBilling)
@@ -318,7 +320,9 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
       providerProductId: row.providerProductId,
       providerSubscriptionId: row.providerSubscriptionId,
       providerTransactionId: row.providerTransactionId,
-      hasStripeSubscription: row.stripeSubscriptionId !== null,
+      hasStripeSubscription:
+        row.stripeSubscriptionId !== null ||
+        row.stripeSubscriptionItemId !== null,
       status: row.status,
     };
   });

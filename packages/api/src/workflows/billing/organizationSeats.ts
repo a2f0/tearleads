@@ -80,6 +80,8 @@ async function loadBillingSeatState(input: {
   const query = input.executor
     .select({
       hasStripeSubscription: organizationBillingStripeSeats.subscriptionId,
+      hasStripeSubscriptionItem:
+        organizationBillingStripeSeats.subscriptionItemId,
       organizationId: organizationBilling.organizationId,
       memberGroupId: organizations.memberGroupId,
       status: organizationBilling.status,
@@ -111,7 +113,12 @@ async function loadBillingSeatState(input: {
     ? await query
     : await query.for("update", { of: organizationBilling });
   return row
-    ? { ...row, hasStripeSubscription: row.hasStripeSubscription !== null }
+    ? {
+        ...row,
+        hasStripeSubscription:
+          row.hasStripeSubscription !== null ||
+          row.hasStripeSubscriptionItem !== null,
+      }
     : null;
 }
 

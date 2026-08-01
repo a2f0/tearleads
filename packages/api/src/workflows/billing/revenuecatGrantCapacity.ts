@@ -17,7 +17,6 @@ import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
 
 type RevenueCatGrantCapacityDisposition =
   | { readonly kind: "within_capacity" }
-  | { readonly kind: "ignore"; readonly reason: string }
   | { readonly kind: "apply_without_reconciliation"; readonly reason: string };
 
 const STRIPE_GRANT_EXCEEDS_CAPACITY_REASON =
