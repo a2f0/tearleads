@@ -3,9 +3,9 @@
 require 'shellwords'
 require_relative '../lib/native_release_target'
 
-ANDROID_DIR = File.expand_path('../android', __dir__)
+ANDROID_DIR = File.expand_path('../../android', __dir__)
 ANDROID_ASSETS_DIR = File.join(ANDROID_DIR, 'app/src/main/assets')
-ANDROID_BUILD_IMAGES_SCRIPT = File.expand_path('../scripts/buildAndroidImages.sh', __dir__)
+ANDROID_BUILD_IMAGES_SCRIPT = File.expand_path('../../scripts/buildAndroidImages.sh', __dir__)
 ANDROID_BUILD_VARIANT = NATIVE_RELEASE_TARGET.fetch(:android_build_variant)
 ANDROID_BUILD_VARIANT_TASK = native_release_android_build_variant_task
 ANDROID_RELEASE_KEYSTORE_PATH = File.join(NATIVE_SECRETS_DIR, 'tearleads-release.keystore')

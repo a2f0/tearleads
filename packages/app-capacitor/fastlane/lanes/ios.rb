@@ -3,8 +3,8 @@
 require 'shellwords'
 require_relative '../lib/native_release_target'
 
-IOS_PACKAGE_DIR = File.expand_path('..', __dir__)
-IOS_DIR = File.expand_path('../ios', __dir__)
+IOS_PACKAGE_DIR = File.expand_path('../..', __dir__)
+IOS_DIR = File.expand_path('../../ios', __dir__)
 IOS_APP_DIR = File.join(IOS_DIR, 'App')
 IOS_PROJECT_PATH = File.join(IOS_APP_DIR, 'App.xcodeproj')
 IOS_TARGET = 'App'
