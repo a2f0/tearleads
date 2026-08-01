@@ -40,11 +40,20 @@ async function movePlanKek(input: {
   destinationParentProjection: ContainerWriterProjectionResponse;
   manifestHistory: readonly ProjectionBundle[];
   plan: RemoteMovePlan;
+  sourceProjection: ContainerWriterProjectionResponse;
 }): Promise<ProjectionKek> {
   const destinationParentKek =
     input.destinationParentProjection.containerKeks.at(-1);
   if (!destinationParentKek) {
     throw new Error("Expected destination parent KEK");
+  }
+  const predecessorKek = input.sourceProjection.containerKeks.at(-1);
+  if (!predecessorKek) {
+    throw new Error("Expected source container KEK");
+  }
+  const predecessorBridge = input.plan.request.predecessorBridge;
+  if (!predecessorBridge) {
+    throw new Error("Expected move predecessor bridge");
   }
   const recipientTargets: ContainerKekRecipientTarget[] = [
     {
@@ -65,6 +74,19 @@ async function movePlanKek(input: {
       await computeContainerKekRecipientTargetHash(recipientTargets),
     parentContainerKeyEpochId: input.plan.keyEpoch.parentContainerKeyEpochId,
     containerManifestHistory: [...input.manifestHistory],
+    predecessorKeks: [
+      {
+        accessManifestHash: predecessorKek.accessManifestHash,
+        bridge: predecessorBridge,
+        containerId: predecessorKek.containerId,
+        containerKeyEpoch: predecessorKek.containerKeyEpoch,
+        containerKeyEpochId: predecessorKek.containerKeyEpochId,
+        keyEpoch: predecessorKek.keyEpoch,
+        keyEpochHash: predecessorKek.keyEpochHash,
+        parentContainerKeyEpochId: predecessorKek.parentContainerKeyEpochId,
+      },
+      ...predecessorKek.predecessorKeks,
+    ],
     recipientTargets: recipientTargets as unknown as Record<string, unknown>[],
     wraps: input.plan.wraps as unknown as Record<string, unknown>[],
   };
@@ -116,7 +138,10 @@ export async function moveContainerProjection(input: {
           : null;
       },
       moveContainer: async (_containerId, request) =>
-        createMutationResponseFromRequest(request),
+        createMutationResponseFromRequest(
+          request,
+          input.sourceProjection.containerKeks.at(-1),
+        ),
     },
     author: input.parent.author,
     containerId: input.containerId,
@@ -143,6 +168,7 @@ export async function moveContainerProjection(input: {
         destinationParentProjection: input.destinationParentProjection,
         manifestHistory: input.manifestHistory,
         plan: moved.plan,
+        sourceProjection: input.sourceProjection,
       }),
     ],
   };

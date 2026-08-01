@@ -1,5 +1,5 @@
 {
-  "id": "9ff76218-ed10-49cb-a4a7-ff9cef4db7d3",
+  "id": "f272525d-8996-4952-a767-ed929e85d399",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2149,6 +2149,24 @@
           "primaryKey": false,
           "notNull": false
         },
+        "predecessor_container_key_epoch_id": {
+          "name": "predecessor_container_key_epoch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "predecessor_bridge_iv": {
+          "name": "predecessor_bridge_iv",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "wrapped_predecessor_key": {
+          "name": "wrapped_predecessor_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_by_event_hash": {
           "name": "created_by_event_hash",
           "type": "text",
@@ -2235,13 +2253,33 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "container_key_epochs_predecessor_idx": {
+          "name": "container_key_epochs_predecessor_idx",
+          "columns": [
+            {
+              "expression": "predecessor_container_key_epoch_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "container_key_epochs_predecessor_bridge_complete": {
+          "name": "container_key_epochs_predecessor_bridge_complete",
+          "value": "(\n        (\"container_key_epochs\".\"predecessor_container_key_epoch_id\" is null and \"container_key_epochs\".\"predecessor_bridge_iv\" is null and \"container_key_epochs\".\"wrapped_predecessor_key\" is null)\n        or\n        (\"container_key_epochs\".\"predecessor_container_key_epoch_id\" is not null and \"container_key_epochs\".\"predecessor_bridge_iv\" is not null and \"container_key_epochs\".\"wrapped_predecessor_key\" is not null)\n      )"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.container_key_wraps": {

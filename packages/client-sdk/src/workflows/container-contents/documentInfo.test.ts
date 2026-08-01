@@ -30,6 +30,7 @@ function createDocumentWriterProjection(): DocumentWriterProjectionResponse {
             keyTargetHash: "container-key-target-hash",
             parentContainerKeyEpochId: null,
             containerManifestHistory: [],
+            predecessorKeks: [],
             recipientTargets: [{}],
             wraps: [{}],
           },

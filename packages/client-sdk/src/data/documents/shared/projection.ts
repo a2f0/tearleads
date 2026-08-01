@@ -28,6 +28,7 @@ export { unwrapContainerKekPath } from "./containerKekPath";
 export {
   buildRotatedDocumentContentKeyBundle,
   collectContainerKeksForDocumentSync,
+  DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
   unwrapDocumentContentKeyFromWriterProjection,
   unwrapDocumentContentKeyTarget,

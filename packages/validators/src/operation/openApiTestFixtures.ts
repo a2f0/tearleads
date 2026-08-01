@@ -22,6 +22,7 @@ export function createContainerMutation() {
     futureContainerMutationField: true,
     keyEpoch: { epoch: 1 },
     manifest: { containerId: "container-1" },
+    predecessorBridge: null,
     principalPolicies: [],
     wraps: [],
   };

@@ -11,6 +11,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
+  createContainerKekPredecessorBridge,
   derivePrincipalRecipientKeyEpochId,
   verifyContainerKekState,
 } from "@tearleads/crypto";
@@ -195,7 +196,7 @@ test("container KEK store persists additive wraps and resolves verified state", 
   }
 
   await storeVerifiedContainerKekState(
-    { verifiedState: verifiedState.value },
+    { predecessorBridge: null, verifiedState: verifiedState.value },
     db,
   );
 
@@ -306,11 +307,11 @@ test("container KEK store replaces stale same-epoch principal wraps", async () =
   }
 
   await storeVerifiedContainerKekState(
-    { verifiedState: initialState.value },
+    { predecessorBridge: null, verifiedState: initialState.value },
     db,
   );
   await storeVerifiedContainerKekState(
-    { verifiedState: currentState.value },
+    { predecessorBridge: null, verifiedState: currentState.value },
     db,
   );
 
@@ -397,7 +398,7 @@ test("container KEK resolver rejects tampered stored wrap fingerprints", async (
   }
 
   await storeVerifiedContainerKekState(
-    { verifiedState: verifiedState.value },
+    { predecessorBridge: null, verifiedState: verifiedState.value },
     db,
   );
   await db
@@ -416,15 +417,15 @@ test("container KEK resolver rejects tampered stored wrap fingerprints", async (
   ).rejects.toMatchObject({ code: "hash_mismatch" });
 });
 
-test("container KEK store advances current epoch after revoke rekey", async () => {
+test("container KEK store advances a revoke rekey and rejects predecessor forks", async () => {
   const containerId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
-  const { containerKeyEpochId: oldKeyEpochId } =
+  const { containerKeyEpochId: oldKeyEpochId, plaintextKek: oldKey } =
     await createTestContainerKekMaterial({
       containerId,
       keyEpoch: 1,
     });
-  const { containerKeyEpochId: newKeyEpochId } =
+  const { containerKeyEpochId: newKeyEpochId, plaintextKek: newKey } =
     await createTestContainerKekMaterial({
       containerId,
       keyEpoch: 2,
@@ -517,21 +518,105 @@ test("container KEK store advances current epoch after revoke rekey", async () =
       }),
     ],
   });
+  const { containerKeyEpochId: forkKeyEpochId, plaintextKek: forkKey } =
+    await createTestContainerKekMaterial({
+      containerId,
+      keyEpoch: 2,
+    });
+  const forkManifest = await createContainerManifestFixture({
+    containerId,
+    containerKeyEpochId: forkKeyEpochId,
+    organizationId,
+    epoch: 2,
+    previousManifestHash: previousManifest.manifestHash,
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: adminUserId,
+        accessLevel: "admin",
+      },
+    ],
+    salt: "revoke-fork",
+  });
+  const forkEpoch = await createContainerKeyEpochFixture({
+    manifest: forkManifest,
+    keyEpoch: 2,
+  });
+  const forkState = await verifyContainerKekState({
+    containerManifest: forkManifest,
+    keyEpoch: forkEpoch,
+    userRecipientKeys: [adminKey],
+    wraps: [
+      await createContainerKeyWrap({
+        containerKeyEpochId: forkKeyEpochId,
+        recipientId: adminUserId,
+        recipientKeyEpochId: adminKey.recipientKeyEpochId,
+        recipientKeyFingerprint: adminKey.recipientKeyFingerprint,
+        wrapManifestHash: forkManifest.manifestHash,
+      }),
+    ],
+  });
 
   expect(oldState.ok).toBe(true);
   expect(newState.ok).toBe(true);
-  if (!oldState.ok || !newState.ok) {
+  expect(forkState.ok).toBe(true);
+  if (!oldState.ok || !newState.ok || !forkState.ok) {
     throw new Error("Expected fixture states to verify");
   }
+  const predecessorBridge = await createContainerKekPredecessorBridge({
+    containerId,
+    predecessorContainerKey: oldKey,
+    predecessorContainerKeyEpochId: oldKeyEpochId,
+    successorContainerKey: newKey,
+    successorContainerKeyEpochId: newKeyEpochId,
+  });
+  const forkPredecessorBridge = await createContainerKekPredecessorBridge({
+    containerId,
+    predecessorContainerKey: oldKey,
+    predecessorContainerKeyEpochId: oldKeyEpochId,
+    successorContainerKey: forkKey,
+    successorContainerKeyEpochId: forkKeyEpochId,
+  });
 
-  await storeVerifiedContainerKekState({ verifiedState: oldState.value }, db);
-  await storeVerifiedContainerKekState({ verifiedState: newState.value }, db);
+  await storeVerifiedContainerKekState(
+    { predecessorBridge: null, verifiedState: oldState.value },
+    db,
+  );
+  await storeVerifiedContainerKekState(
+    { predecessorBridge, verifiedState: newState.value },
+    db,
+  );
+  await expect(
+    storeVerifiedContainerKekState(
+      {
+        predecessorBridge: forkPredecessorBridge,
+        verifiedState: forkState.value,
+      },
+      db,
+    ),
+  ).rejects.toThrow();
+  await expect(
+    storeVerifiedContainerKekState(
+      {
+        predecessorBridge: {
+          ...predecessorBridge,
+          wrappedKey: `${predecessorBridge.wrappedKey}tampered`,
+        },
+        verifiedState: newState.value,
+      },
+      db,
+    ),
+  ).rejects.toThrow("Container key epoch conflict");
 
   await expect(
     getCurrentContainerKeyEpoch(containerId, db),
   ).resolves.toMatchObject({
     id: newKeyEpochId,
     keyEpoch: 2,
+    predecessorBridge: {
+      predecessorContainerKeyEpochId: oldKeyEpochId,
+      successorContainerKeyEpochId: newKeyEpochId,
+    },
   });
   await expect(
     verifyContainerKekState({

@@ -43,6 +43,7 @@ import {
   authorizingContainerPathRefs,
   buildRotatedDocumentContentKeyBundle,
   collectContainerKeksForDocumentSync,
+  DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
 } from "../../data/documents/shared/projection";
 import {
@@ -199,11 +200,10 @@ async function unwrapDocumentSyncResponseContentKeys(
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<ReadonlyMap<number, Uint8Array>> {
-  // A stale read-only pass carries no usable content key (the stale bundle
-  // wraps to a rotated-away container KEK epoch). Seeding its epoch with the
-  // empty placeholder would mark the epoch "resolved" and feed garbage into
-  // decryption; leave it unseeded so any served update at that epoch goes
-  // through the bundle unwrap below and fails with an honest error instead.
+  // A stale read-only pass can carry an empty placeholder when none of its
+  // authorizing paths reaches the bundle target. Do not mark that epoch as
+  // resolved: every served update must instead unwrap its bundle through the
+  // verified predecessor KEK chain or fail with an honest error.
   const contentKeysByEpoch = new Map<number, Uint8Array>(
     input.currentContentKey.byteLength > 0
       ? [[input.currentContentKeyEpoch, input.currentContentKey]]
@@ -226,7 +226,7 @@ async function unwrapDocumentSyncResponseContentKeys(
     return contentKeysByEpoch;
   }
 
-  const containerKeksByEpochId = await collectContainerKeksForDocumentSync({
+  const collectedKeks = await collectContainerKeksForDocumentSync({
     execSql: input.execSql,
     secretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
@@ -239,7 +239,12 @@ async function unwrapDocumentSyncResponseContentKeys(
     }
     contentKeysByEpoch.set(
       bundle.contentKeyEpoch,
-      await unwrapDocumentContentKeyFromBundle(bundle, containerKeksByEpochId),
+      await unwrapDocumentContentKeyFromBundle(
+        bundle,
+        collectedKeks.keksByEpochId,
+        collectedKeks.predecessorFailuresByEpochId,
+        collectedKeks.unattributedPredecessorFailuresByContainerId,
+      ),
     );
   }
 
@@ -250,7 +255,8 @@ async function unwrapDocumentSyncResponseContentKeys(
  * Builds the rotation baseline that anchors a stale-bundle heal: a full
  * history snapshot of the local document, re-encrypted under the fresh
  * content key so every current member (including post-rotation newcomers)
- * can read the document without the rotated-away container KEK epochs.
+ * has an efficient current-epoch redirect. Predecessor KEKs remain the
+ * correctness path when no covering baseline exists.
  */
 async function buildStaleRecoveryBaselinePendingUpdate(
   buildRotationSnapshot: (() => Promise<Uint8Array | null>) | undefined,
@@ -289,12 +295,11 @@ async function buildStaleRecoveryBaselinePendingUpdate(
 
 /**
  * Resolves the content material a sync plan encrypts and carries. A stale
- * bundle wraps to a rotated-away container KEK epoch that no projection can
- * unwrap anymore, so it splits by intent: a write-bearing pass heals the
- * document by rotating to a FRESH content key at the next epoch (wrapped to
- * the current targets) anchored by a rotation-baseline snapshot, while a
- * read-only pass keeps the stale bundle/targets pair — without unwrapping —
- * so the server can settle the pull against the stored state it actually has.
+ * bundle names predecessor KEK targets while the document's current targets
+ * name successor epochs, so it splits by intent: a write-bearing pass heals
+ * the document with a FRESH content key at the next epoch, anchored by a
+ * covering rotation baseline, while a read-only pass keeps the stale pair and
+ * unwraps it through predecessor KEKs so the server can settle a complete pull.
  */
 /**
  * The manifest bundle a stale read-only plan must pair with: the one the
@@ -373,12 +378,10 @@ async function resolveStaleHealMaterial(
   //
   // A heal whose OWN baseline does not cover the committed frontier is
   // rejected by that same gate and surfaces as a terminal queue failure.
-  // There is deliberately no pull-first fallback: the uncovered updates are
-  // encrypted under content keys wrapped to the rotated-away container KEK
-  // epoch, which no post-rotation projection can unwrap, so pulling cannot
-  // extend this device's history. Only a device already holding the full
-  // history (typically the author of the uncovered updates) can heal
-  // without orphaning them.
+  // This write-bearing pass does not pull first. A device missing committed
+  // history can independently rematerialize it through predecessor KEKs on a
+  // read-only pass, then retry with a covering snapshot. The coverage proof
+  // prevents a partial local view from becoming the redirect baseline.
   const ordinaryPendingUpdates = pendingUpdates.filter(
     (update) => update.sourceVersionVector == null,
   );
@@ -457,7 +460,9 @@ async function resolveCheckpointRegenerationMaterial(
 
 async function resolveSyncPlanContentMaterial(
   input: Parameters<typeof buildMaterializedDocumentSyncPlan>[0],
-  containerKeksByEpochId: ReadonlyMap<string, Uint8Array>,
+  collectedKeks: Awaited<
+    ReturnType<typeof collectContainerKeksForDocumentSync>
+  >,
 ): Promise<ResolvedSyncPlanContentMaterial> {
   const pendingUpdates = input.pendingUpdates ?? [];
   const staleContentKeyBundle =
@@ -471,7 +476,7 @@ async function resolveSyncPlanContentMaterial(
     });
     return resolveStaleHealMaterial(
       input,
-      containerKeksByEpochId,
+      collectedKeks.keksByEpochId,
       pendingUpdates,
     );
   }
@@ -481,18 +486,24 @@ async function resolveSyncPlanContentMaterial(
       documentId: input.writerProjection.documentId,
       epoch: input.writerProjection.contentKeyBundle.contentKeyEpoch,
     });
-    // A member who spans the rotation can unwrap the stale bundle through the
-    // projection's historical KEK epochs, making pre-rotation updates
-    // readable again. Members who do not span it fall back to the empty
-    // placeholder: served updates at unreachable epochs then fail decryption
-    // with an honest error instead of garbage.
-    let staleContentKey: Uint8Array = new Uint8Array();
+    // Current access includes every predecessor KEK. If damaged history makes
+    // this old bundle unreachable, preserve the bridge-integrity failure: this
+    // read actually needs that historical epoch and cannot safely continue.
+    let staleContentKey: Uint8Array;
     try {
       staleContentKey = await unwrapDocumentContentKeyFromBundle(
         input.writerProjection.contentKeyBundle,
-        containerKeksByEpochId,
+        collectedKeks.keksByEpochId,
+        collectedKeks.predecessorFailuresByEpochId,
+        collectedKeks.unattributedPredecessorFailuresByContainerId,
       );
-    } catch {
+    } catch (error) {
+      if (error instanceof DocumentHistoryUnavailableError) {
+        throw error;
+      }
+      // A stale bundle can predate the requester's current authorizing links.
+      // Keep the read-only pass alive; served updates that need this absent key
+      // remain undecryptable until a spanning member heals the bundle.
       staleContentKey = new Uint8Array();
     }
     return {
@@ -511,7 +522,9 @@ async function resolveSyncPlanContentMaterial(
   const normalMaterial: ResolvedSyncPlanContentMaterial = {
     contentKey: await unwrapDocumentContentKeyFromBundle(
       input.writerProjection.contentKeyBundle,
-      containerKeksByEpochId,
+      collectedKeks.keksByEpochId,
+      collectedKeks.predecessorFailuresByEpochId,
+      collectedKeks.unattributedPredecessorFailuresByContainerId,
     ),
     contentKeyBundle: input.writerProjection.contentKeyBundle,
     documentKekTargets: input.writerProjection.documentKekTargets,
@@ -572,7 +585,7 @@ export async function buildMaterializedDocumentSyncPlan(
     verifiedByHash,
     ...projectionVerificationOptions(input),
   });
-  const containerKeksByEpochId = await collectContainerKeksForDocumentSync({
+  const collectedKeks = await collectContainerKeksForDocumentSync({
     execSql: input.execSql,
     principalPolicyCache,
     secretKey: input.targetSecretKey,
@@ -587,10 +600,7 @@ export async function buildMaterializedDocumentSyncPlan(
   });
   let material: ResolvedSyncPlanContentMaterial;
   try {
-    material = await resolveSyncPlanContentMaterial(
-      input,
-      containerKeksByEpochId,
-    );
+    material = await resolveSyncPlanContentMaterial(input, collectedKeks);
   } catch (error) {
     // Only a stale-bundle HEAL (write-bearing) or a checkpoint regeneration
     // counts as a blocked recovery; an ordinary pass or a stale READ failing

@@ -20,23 +20,16 @@ import {
 } from "./principal";
 import { isSyncWatermark, type SyncWatermark } from "./syncWatermark";
 
-/**
- * A superseded container key epoch served so a member who was in its audience
- * can still unwrap it — e.g. to decrypt document content-key bundles and
- * updates written before a revoke rotated the container KEK. Wraps are
- * filtered server-side to recipients the requesting user can actually use
- * (the user directly, principals they currently derive access through, or
- * parent containers on the path), and the containerKeyEpochId commits to the
- * key material, so clients re-verify every unwrap against it.
- */
-export interface HistoricalContainerKekResponse {
+/** A superseded KEK reached by decrypting its successor's mandatory bridge. */
+export interface PredecessorContainerKekResponse {
   accessManifestHash: string;
+  bridge: Record<string, unknown>;
   containerId: string;
   containerKeyEpoch: number;
   containerKeyEpochId: string;
+  keyEpoch: Record<string, unknown>;
   keyEpochHash: string;
   parentContainerKeyEpochId: string | null;
-  wraps: Record<string, unknown>[];
 }
 
 export interface ContainerKekResponse {
@@ -44,8 +37,8 @@ export interface ContainerKekResponse {
   accessManifestHash: string;
   containerKeyEpochId: string;
   containerKeyEpoch: number;
-  /** Present only on projections; superseded epochs oldest-first. */
-  historicalKeks?: HistoricalContainerKekResponse[];
+  /** Immediate predecessor first, followed by the verified bridge chain. */
+  predecessorKeks: PredecessorContainerKekResponse[];
   keyEpoch: Record<string, unknown>;
   keyEpochHash: string;
   keyTargetHash: string;
@@ -55,13 +48,19 @@ export interface ContainerKekResponse {
   wraps: Record<string, unknown>[];
 }
 
-function isHistoricalContainerKekResponse(
+function isPredecessorContainerKekResponse(
   value: unknown,
-): value is HistoricalContainerKekResponse {
-  const wraps = isPlainObject(value) ? Reflect.get(value, "wraps") : undefined;
+): value is PredecessorContainerKekResponse {
+  const bridge = isPlainObject(value)
+    ? Reflect.get(value, "bridge")
+    : undefined;
+  const keyEpoch = isPlainObject(value)
+    ? Reflect.get(value, "keyEpoch")
+    : undefined;
 
   return (
     isPlainObject(value) &&
+    isPlainObject(bridge) &&
     hasStringProperty(value, "accessManifestHash") &&
     value.accessManifestHash.length > 0 &&
     hasStringProperty(value, "containerId") &&
@@ -71,10 +70,10 @@ function isHistoricalContainerKekResponse(
     value.containerKeyEpoch > 0 &&
     hasStringProperty(value, "containerKeyEpochId") &&
     value.containerKeyEpochId.length > 0 &&
+    isPlainObject(keyEpoch) &&
     hasStringProperty(value, "keyEpochHash") &&
     value.keyEpochHash.length > 0 &&
-    hasNullableStringProperty(value, "parentContainerKeyEpochId") &&
-    isRecordArray(wraps)
+    hasNullableStringProperty(value, "parentContainerKeyEpochId")
   );
 }
 
@@ -216,15 +215,14 @@ function isContainerKekResponse(value: unknown): value is ContainerKekResponse {
     ? Reflect.get(value, "recipientTargets")
     : undefined;
   const wraps = isPlainObject(value) ? Reflect.get(value, "wraps") : undefined;
-  const historicalKeks = isPlainObject(value)
-    ? Reflect.get(value, "historicalKeks")
+  const predecessorKeks = isPlainObject(value)
+    ? Reflect.get(value, "predecessorKeks")
     : undefined;
 
   return (
     isPlainObject(value) &&
-    (historicalKeks === undefined ||
-      (Array.isArray(historicalKeks) &&
-        historicalKeks.every(isHistoricalContainerKekResponse))) &&
+    Array.isArray(predecessorKeks) &&
+    predecessorKeks.every(isPredecessorContainerKekResponse) &&
     hasStringProperty(value, "containerId") &&
     hasStringProperty(value, "accessManifestHash") &&
     value.accessManifestHash.length > 0 &&

@@ -582,7 +582,7 @@ test("storeDocumentContentKeyBundle refreshes same-epoch container manifest targ
   expect(stored.targets).toEqual(refreshedEnvelopes);
 });
 
-test("storeDocumentContentKeyBundle carries a content key across container move targets", async () => {
+test("storeDocumentContentKeyBundle requires a new content key epoch after container move", async () => {
   const setup = await setupDocumentTargets(1);
   const initialTargets = await resolveCurrentDocumentKekTargets(
     setup.documentId,
@@ -625,20 +625,6 @@ test("storeDocumentContentKeyBundle carries a content key across container move 
     setup.documentId,
     db,
   );
-  const movedEnvelopes = movedTargets.targets.map((target) => {
-    const existing = initialEnvelopes.find(
-      (envelope) => envelope.containerId === target.containerId,
-    );
-    if (!existing) {
-      throw new Error("Expected existing target envelope");
-    }
-    return {
-      ...target,
-      wrappedKey: existing.wrappedKey,
-      wrappingMetadata: existing.wrappingMetadata,
-    };
-  });
-
   await expect(
     getLatestCurrentDocumentContentKeyBundle(
       {
@@ -647,37 +633,48 @@ test("storeDocumentContentKeyBundle carries a content key across container move 
       },
       db,
     ),
-  ).resolves.toMatchObject({
-    linkSetManifestHash: movedTargets.linkSetManifestHash,
-    targetHash: movedTargets.documentKeyTargetHash,
-    targets: movedEnvelopes,
-  });
-
-  const refreshedBundle =
-    await requireAndRefreshCurrentDocumentContentKeyBundle({
-      documentId: setup.documentId,
-      contentKeyEpoch: 1,
-      expectedLinkSetManifestHash: movedTargets.linkSetManifestHash,
-      expectedTargetHash: movedTargets.documentKeyTargetHash,
-      executor: db,
-    });
-
-  expect(refreshedBundle.contentKeyEpoch).toBe(1);
-  expect(refreshedBundle.targets).toEqual(movedEnvelopes);
-
-  const stored = await storeDocumentContentKeyBundle(
-    {
-      documentId: setup.documentId,
-      contentKeyEpoch: 1,
-      linkSetManifestHash: movedTargets.linkSetManifestHash,
-      targetHash: movedTargets.documentKeyTargetHash,
-      targets: movedEnvelopes,
-    },
-    db,
+  ).rejects.toMatchObject(
+    new DocumentContentKeyBundleError(
+      "Document content-key bundle is stale",
+      409,
+      DOCUMENT_SYNC_ERROR_CODES.stateStale,
+    ),
   );
 
-  expect(stored.contentKeyEpoch).toBe(1);
-  expect(stored.targets).toEqual(movedEnvelopes);
+  await expect(
+    storeDocumentContentKeyBundle(
+      {
+        documentId: setup.documentId,
+        contentKeyEpoch: 1,
+        linkSetManifestHash: movedTargets.linkSetManifestHash,
+        targetHash: movedTargets.documentKeyTargetHash,
+        targets: targetEnvelopes(movedTargets, "moved"),
+      },
+      db,
+    ),
+  ).rejects.toMatchObject(
+    new DocumentContentKeyBundleError(
+      "Document content key epoch must rotate after target key material changes",
+      409,
+    ),
+  );
+
+  const rotatedEnvelopes = targetEnvelopes(movedTargets, "rotated");
+  await expect(
+    storeDocumentContentKeyBundle(
+      {
+        documentId: setup.documentId,
+        contentKeyEpoch: 2,
+        linkSetManifestHash: movedTargets.linkSetManifestHash,
+        targetHash: movedTargets.documentKeyTargetHash,
+        targets: rotatedEnvelopes,
+      },
+      db,
+    ),
+  ).resolves.toMatchObject({
+    contentKeyEpoch: 2,
+    targets: rotatedEnvelopes,
+  });
 });
 
 test("storeDocumentContentKeyBundle requires a new content key epoch after container rekey", async () => {
@@ -748,7 +745,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after conta
     ),
   ).rejects.toMatchObject(
     new DocumentContentKeyBundleError(
-      "Document content key epoch must rotate after target shrink",
+      "Document content key epoch must rotate after target key material changes",
       409,
     ),
   );
@@ -815,7 +812,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after targe
     ),
   ).rejects.toMatchObject(
     new DocumentContentKeyBundleError(
-      "Document content key epoch must rotate after target shrink",
+      "Document content key epoch must rotate after target key material changes",
       409,
     ),
   );

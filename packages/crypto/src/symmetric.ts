@@ -46,6 +46,7 @@ async function importSymmetricKey(
 export async function encryptWithDek(
   plaintext: Uint8Array,
   dek: Uint8Array,
+  additionalData?: Uint8Array,
 ): Promise<SymmetricCiphertext> {
   const iv = createAesGcmIv();
   const key = await importSymmetricKey(dek, "encrypt");
@@ -54,7 +55,13 @@ export async function encryptWithDek(
     iv,
     ciphertext: new Uint8Array(
       await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv },
+        {
+          name: "AES-GCM",
+          iv,
+          ...(additionalData === undefined
+            ? {}
+            : { additionalData: additionalData.slice() }),
+        },
         key,
         plaintext.slice(),
       ),
@@ -65,13 +72,20 @@ export async function encryptWithDek(
 export async function decryptWithDek(
   encrypted: SymmetricCiphertext,
   dek: Uint8Array,
+  additionalData?: Uint8Array,
 ): Promise<Uint8Array> {
   assertAesGcmCiphertext(encrypted);
   const key = await importSymmetricKey(dek, "decrypt");
 
   return new Uint8Array(
     await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: encrypted.iv.slice() },
+      {
+        name: "AES-GCM",
+        iv: encrypted.iv.slice(),
+        ...(additionalData === undefined
+          ? {}
+          : { additionalData: additionalData.slice() }),
+      },
       key,
       encrypted.ciphertext.slice(),
     ),

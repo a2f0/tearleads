@@ -267,28 +267,26 @@ export function JsonFileDocument(params: {
   return (
     <StructuredDocument
       fields={
-        <>
-          <JsonFileFields
-            contentInputId={contentInputId}
-            disabled={!ready || !canWrite}
-            fields={fields}
-            fileNameInputId={fileNameInputId}
-            isEditing={isEditing && canWrite}
-            onToggleEditing={toggleEditing}
-            onChangeFields={(patch) => {
-              if (canWrite) {
-                void setStructuredFields(JSON_FILE_DOCUMENT_KIND, patch);
-              }
-            }}
-            onChangeText={(value) => {
-              if (canWrite) {
-                void setText(value);
-              }
-            }}
-            ready={ready}
-            text={text}
-          />
-        </>
+        <JsonFileFields
+          contentInputId={contentInputId}
+          disabled={!ready || !canWrite}
+          fields={fields}
+          fileNameInputId={fileNameInputId}
+          isEditing={isEditing && canWrite}
+          onToggleEditing={toggleEditing}
+          onChangeFields={(patch) => {
+            if (canWrite) {
+              void setStructuredFields(JSON_FILE_DOCUMENT_KIND, patch);
+            }
+          }}
+          onChangeText={(value) => {
+            if (canWrite) {
+              void setText(value);
+            }
+          }}
+          ready={ready}
+          text={text}
+        />
       }
     />
   );

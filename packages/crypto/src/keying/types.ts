@@ -37,6 +37,7 @@ export type KeyingHashDomain =
   | "tearleads.keying.container-access-structural"
   | "tearleads.keying.container-key-epoch"
   | "tearleads.keying.container-kek-material-id"
+  | "tearleads.keying.container-kek-predecessor-bridge"
   | "tearleads.keying.container-kek-recipient-targets"
   | "tearleads.keying.document-content-key-targets"
   | "tearleads.keying.document-link-set-grants"
@@ -78,6 +79,8 @@ export const CONTAINER_KEK_USER_WRAP_SUITE =
   "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm" as const;
 export const CONTAINER_KEK_PARENT_WRAP_SUITE =
   "tearleads.container-kek-wrap.aes-256-gcm-parent-kek" as const;
+export const CONTAINER_KEK_PREDECESSOR_WRAP_SUITE =
+  "tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek" as const;
 export const CONTAINER_KEK_MATERIAL_ID_PREFIX =
   "tearleads.container-kek.v1.sha256:" as const;
 
@@ -175,6 +178,7 @@ export interface ContainerGrantAccessEventBody extends ContainerAccessKeyState {
 export interface ContainerRevokeAccessEventBody
   extends ContainerAccessKeyState {
   eventType: "container.revoke";
+  predecessorBridgeHash: string;
   subjectId: string;
   subjectType: ContainerGrantSubjectType;
 }
@@ -182,12 +186,14 @@ export interface ContainerRevokeAccessEventBody
 export interface ContainerRekeyAccessEventBody {
   eventType: "container.rekey";
   containerKeyEpochId: string;
+  predecessorBridgeHash: string;
 }
 
 export interface ContainerMoveAccessEventBody
   extends ContainerAccessStructural,
     ContainerAccessKeyState {
   eventType: "container.move";
+  predecessorBridgeHash: string;
 }
 
 export type ContainerAccessEventBody =
@@ -276,6 +282,16 @@ export interface ContainerKeyWrap {
   kemCipherText: string;
   wrappedKey: string;
   wrapManifestHash: string;
+}
+
+export interface ContainerKekPredecessorBridge {
+  version: 1;
+  wrappingSuite: typeof CONTAINER_KEK_PREDECESSOR_WRAP_SUITE;
+  containerId: string;
+  predecessorContainerKeyEpochId: string;
+  successorContainerKeyEpochId: string;
+  iv: string;
+  wrappedKey: string;
 }
 
 export interface ContainerUserRecipientKey {

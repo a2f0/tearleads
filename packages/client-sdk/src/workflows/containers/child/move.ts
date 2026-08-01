@@ -2,13 +2,16 @@ import type {
   AccessEvent,
   AccessManifest,
   ContainerAccessManifestState,
+  ContainerKekPredecessorBridge,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerMoveAccessEventBody,
+  ContainerUserRecipientKey,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
+  computeContainerKekPredecessorBridgeHash,
   deriveContainerAccessManifest,
 } from "@tearleads/crypto";
 import type {
@@ -22,20 +25,15 @@ import type {
 } from "@tearleads/validators/response";
 import {
   buildContainerCreateKeyEpoch,
-  resolveContainerKekEpochId,
   signContainerMutationEvent,
 } from "../../../data/containers/shared/events";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
-import {
-  principalPolicyRequestRecord,
-  uniquePrincipalPolicies,
-} from "../../../data/containers/shared/principalPolicies";
+import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
   getTargetContainerContext,
   readContainerState,
   uniqueSortedManifestHashes,
-  wrapContainerKeyToParent,
 } from "../../../data/containers/shared/projection";
 import type {
   BuildMaterializedContainerMovePlanInput,
@@ -51,12 +49,13 @@ import {
   readCanonicalRecords,
 } from "../../../data/keyingCanonicalJson";
 import {
-  collectContainerWriterProjectionPrincipalPolicies,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { buildContainerMoveRotation } from "./moveRotation";
+import { buildContainerMoveWraps } from "./moveWraps";
 
 async function deriveContainerMoveManifest(input: {
   containerKeyEpochId: string;
@@ -94,7 +93,9 @@ function buildContainerMoveRequest(input: {
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
+  predecessorBridge: ContainerKekPredecessorBridge;
   principalPolicies: readonly VerifiedPrincipalPolicy[];
+  userRecipientKeys: readonly ContainerUserRecipientKey[];
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
   return {
@@ -116,12 +117,19 @@ function buildContainerMoveRequest(input: {
       "Container move principal policies",
     ),
     keyEpoch: readCanonicalRecord(input.keyEpoch, "Container move key epoch"),
+    predecessorBridge: readCanonicalRecord(
+      input.predecessorBridge,
+      "Container move predecessor bridge",
+    ),
     wraps: readCanonicalRecords(input.wraps, "Container move wraps"),
     parentKekState: readCanonicalRecord(
       input.destinationParentKek,
       "Container move destination parent KEK state",
     ),
-    userRecipientKeys: [],
+    userRecipientKeys: readCanonicalRecords(
+      input.userRecipientKeys,
+      "Container move user recipient keys",
+    ),
   };
 }
 
@@ -184,6 +192,21 @@ function assertContainerMoveOrganizations(input: {
   }
 }
 
+function readContainerMoveStates(input: {
+  authorOrganizationId: string;
+  destinationParent: ReturnType<typeof getTargetContainerContext>;
+  source: ReturnType<typeof getTargetContainerContext>;
+}) {
+  const previousState = readContainerState(input.source.manifest);
+  const destinationState = readContainerState(input.destinationParent.manifest);
+  assertContainerMoveOrganizations({
+    authorOrganizationId: input.authorOrganizationId,
+    destinationState,
+    previousState,
+  });
+  return { destinationState, previousState };
+}
+
 function containerMoveDependencyManifestHashes(input: {
   destinationParentProjection: ContainerWriterProjectionResponse;
   previousProjection: ContainerWriterProjectionResponse;
@@ -192,50 +215,6 @@ function containerMoveDependencyManifestHashes(input: {
     ...uniqueSortedManifestHashes(input.previousProjection.path),
     ...uniqueSortedManifestHashes(input.destinationParentProjection.path),
   ];
-}
-
-async function collectContainerMovePrincipalPolicies(input: {
-  destinationParentProjection: ContainerWriterProjectionResponse;
-  execSql: ExecSql;
-  previousProjection: ContainerWriterProjectionResponse;
-  resolveUserKey: ProjectionUserKeyResolver;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<VerifiedPrincipalPolicy[]> {
-  const [sourcePolicies, destinationParentPolicies] = await Promise.all([
-    collectContainerWriterProjectionPrincipalPolicies({
-      execSql: input.execSql,
-      projection: input.previousProjection,
-      resolveUserKey: input.resolveUserKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    }),
-    collectContainerWriterProjectionPrincipalPolicies({
-      execSql: input.execSql,
-      projection: input.destinationParentProjection,
-      resolveUserKey: input.resolveUserKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    }),
-  ]);
-
-  return uniquePrincipalPolicies([
-    ...sourcePolicies,
-    ...destinationParentPolicies,
-  ]);
-}
-
-async function collectContainerMoveProjectionPrincipalPolicies(input: {
-  destinationParentProjection: ContainerWriterProjectionResponse;
-  execSql: ExecSql;
-  previousProjection: ContainerWriterProjectionResponse;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<VerifiedPrincipalPolicy[]> {
-  return collectContainerMovePrincipalPolicies({
-    destinationParentProjection: input.destinationParentProjection,
-    execSql: input.execSql,
-    previousProjection: input.previousProjection,
-    resolveUserKey: input.resolveProjectionUserKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  });
 }
 
 function buildContainerMovePlanResult(input: {
@@ -252,8 +231,10 @@ function buildContainerMovePlanResult(input: {
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
+  predecessorBridge: ContainerKekPredecessorBridge;
   principalPolicies: readonly VerifiedPrincipalPolicy[];
   state: ContainerAccessManifestState;
+  userRecipientKeys: ContainerUserRecipientKey[];
   wraps: ContainerKeyWrap[];
 }): MaterializedContainerMovePlan {
   const plan: ContainerMovePlan = {
@@ -276,7 +257,9 @@ function buildContainerMovePlanResult(input: {
       manifestHash: input.manifestHash,
       previousManifest: input.previousManifest,
       previousProjection: input.previousProjection,
+      predecessorBridge: input.predecessorBridge,
       principalPolicies: input.principalPolicies,
+      userRecipientKeys: input.userRecipientKeys,
       wraps: input.wraps,
     }),
     state: input.state,
@@ -286,52 +269,108 @@ function buildContainerMovePlanResult(input: {
   return { containerKey: input.containerKey, plan };
 }
 
-async function buildMaterializedContainerMovePlan(
-  input: BuildMaterializedContainerMovePlanInput & {
+async function buildContainerMoveEventBody(input: {
+  containerKeyEpochId: string;
+  parentContainerId: string;
+  parentManifestHash: string;
+  predecessorBridge: ContainerKekPredecessorBridge;
+}): Promise<ContainerMoveAccessEventBody> {
+  return {
+    eventType: "container.move",
+    parentContainerId: input.parentContainerId,
+    parentManifestHash: input.parentManifestHash,
+    containerKeyEpochId: input.containerKeyEpochId,
+    predecessorBridgeHash: await computeContainerKekPredecessorBridgeHash(
+      input.predecessorBridge,
+    ),
+  };
+}
+
+type MaterializedContainerMoveInput =
+  BuildMaterializedContainerMovePlanInput & {
     resolveProjectionUserKey: ProjectionUserKeyResolver;
     warmReferencedPrincipalPolicies?:
       | ReferencedPrincipalPolicyWarmer
       | undefined;
-  },
-): Promise<MaterializedContainerMovePlan> {
-  const { containerKey, destinationParent, destinationParentKey, source } =
-    await unwrapMoveContainerKeys({
-      destinationParentProjection: input.destinationParentProjection,
-      execSql: input.execSql,
-      previousProjection: input.previousProjection,
-      resolveProjectionUserKey: input.resolveProjectionUserKey,
-      targetSecretKey: input.targetSecretKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
-  const previousState = readContainerState(source.manifest);
-  const destinationState = readContainerState(destinationParent.manifest);
-  assertContainerMoveOrganizations({
-    authorOrganizationId: input.author.organizationId,
-    destinationState,
-    previousState,
-  });
+  };
 
-  const nextContainerKeyEpoch = source.kek.containerKeyEpoch + 1;
-  const containerKeyEpochId = await resolveContainerKekEpochId({
-    containerId: previousState.containerId,
-    keyEpoch: nextContainerKeyEpoch,
-    keyMaterial: containerKey,
-    override: input.containerKeyEpochId,
+function signContainerMoveEvent(input: {
+  body: ContainerMoveAccessEventBody;
+  containerId: string;
+  planInput: MaterializedContainerMoveInput;
+  source: ReturnType<typeof getTargetContainerContext>;
+}) {
+  return signContainerMutationEvent({
+    author: input.planInput.author,
+    body: input.body,
+    containerId: input.containerId,
+    dependencyManifestHashes: containerMoveDependencyManifestHashes(
+      input.planInput,
+    ),
+    eventId: input.planInput.eventId ?? crypto.randomUUID(),
+    previousManifestHash: input.source.manifest.manifestHash,
+    signedAt: input.planInput.signedAt ?? new Date().toISOString(),
   });
-  const body: ContainerMoveAccessEventBody = {
-    eventType: "container.move",
+}
+
+function buildMoveKeyEpoch(input: {
+  containerKeyEpochId: string;
+  destinationParent: ReturnType<typeof getTargetContainerContext>;
+  eventHash: string;
+  manifestHash: string;
+  source: ReturnType<typeof getTargetContainerContext>;
+}) {
+  const keyEpoch = buildContainerCreateKeyEpoch({
+    containerId: readContainerState(input.source.manifest).containerId,
+    containerKeyEpochId: input.containerKeyEpochId,
+    eventHash: input.eventHash,
+    manifestHash: input.manifestHash,
+    parentContainerKeyEpochId: input.destinationParent.kek.containerKeyEpochId,
+  });
+  keyEpoch.keyEpoch = input.source.kek.containerKeyEpoch + 1;
+  return keyEpoch;
+}
+
+async function buildMaterializedContainerMovePlan(
+  input: MaterializedContainerMoveInput,
+): Promise<MaterializedContainerMovePlan> {
+  const {
+    containerKey: predecessorContainerKey,
+    destinationParent,
+    destinationParentKey,
+    source,
+  } = await unwrapMoveContainerKeys({
+    destinationParentProjection: input.destinationParentProjection,
+    execSql: input.execSql,
+    previousProjection: input.previousProjection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    targetSecretKey: input.targetSecretKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
+  const { destinationState, previousState } = readContainerMoveStates({
+    authorOrganizationId: input.author.organizationId,
+    destinationParent,
+    source,
+  });
+  const { containerKey, containerKeyEpochId, predecessorBridge } =
+    await buildContainerMoveRotation({
+      containerId: previousState.containerId,
+      keyEpoch: source.kek.containerKeyEpoch + 1,
+      override: input.containerKeyEpochId,
+      predecessorKeyMaterial: predecessorContainerKey,
+      currentKek: source.kek,
+    });
+  const body = await buildContainerMoveEventBody({
+    containerKeyEpochId,
     parentContainerId: destinationState.containerId,
     parentManifestHash: destinationParent.manifest.manifestHash,
-    containerKeyEpochId,
-  };
-  const { event, eventHash } = await signContainerMutationEvent({
-    author: input.author,
+    predecessorBridge,
+  });
+  const { event, eventHash } = await signContainerMoveEvent({
     body,
     containerId: previousState.containerId,
-    dependencyManifestHashes: containerMoveDependencyManifestHashes(input),
-    eventId: input.eventId ?? crypto.randomUUID(),
-    previousManifestHash: source.manifest.manifestHash,
-    signedAt: input.signedAt ?? new Date().toISOString(),
+    planInput: input,
+    source,
   });
   const { manifest, manifestHash, state } = await deriveContainerMoveManifest({
     containerKeyEpochId,
@@ -339,25 +378,27 @@ async function buildMaterializedContainerMovePlan(
     eventHash,
     previousManifest: source.manifest,
   });
-  const keyEpoch = buildContainerCreateKeyEpoch({
-    containerId: previousState.containerId,
+  const keyEpoch = buildMoveKeyEpoch({
     containerKeyEpochId,
+    destinationParent,
     eventHash,
     manifestHash,
-    parentContainerKeyEpochId: destinationParent.kek.containerKeyEpochId,
+    source,
   });
-  keyEpoch.keyEpoch = nextContainerKeyEpoch;
-  const wraps = [
-    await wrapContainerKeyToParent({
+  const { principalPolicies, userRecipientKeys, wraps } =
+    await buildContainerMoveWraps({
       containerKey,
       containerKeyEpochId,
+      destinationParentKek: destinationParent.kek,
+      destinationParentKey,
+      destinationParentProjection: input.destinationParentProjection,
+      execSql: input.execSql,
       manifestHash,
-      parentKek: destinationParent.kek,
-      parentKekMaterial: destinationParentKey,
-    }),
-  ];
-  const principalPolicies =
-    await collectContainerMoveProjectionPrincipalPolicies(input);
+      previousProjection: input.previousProjection,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
+      state,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    });
 
   return buildContainerMovePlanResult({
     body,
@@ -373,8 +414,10 @@ async function buildMaterializedContainerMovePlan(
     manifestHash,
     previousManifest: asContainerManifestBundle(source.manifest),
     previousProjection: input.previousProjection,
+    predecessorBridge,
     principalPolicies,
     state,
+    userRecipientKeys,
     wraps,
   });
 }

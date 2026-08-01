@@ -13,6 +13,7 @@ import type {
 import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
+  computeContainerKekPredecessorBridgeHash,
   deriveContainerAccessManifest,
   signAccessEvent,
   verifyContainerKekState,
@@ -25,11 +26,13 @@ import type {
 import {
   createRootContainerKeyEpoch,
   createTestContainerKekMaterial,
+  createTestContainerKekPredecessorBridge,
 } from "./containerKekMaterial";
 
 interface ContainerRekeyFixture {
   readonly bundle: AccessManifestBundleWire | VerifiedContainerAccessManifest;
   readonly kekState: VerifiedContainerKekState;
+  readonly plaintextKek?: Uint8Array | undefined;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
 }
 
@@ -38,9 +41,11 @@ interface BuiltContainerRekeyMutation {
   readonly container: {
     readonly bundle: VerifiedContainerAccessManifest;
     readonly kekState: VerifiedContainerKekState;
+    readonly plaintextKek: Uint8Array;
     readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   };
   readonly kekState: VerifiedContainerKekState;
+  readonly plaintextKek: Uint8Array;
   readonly request: ContainerMutationRequest;
 }
 
@@ -156,13 +161,25 @@ export async function buildRootContainerRekeyMutation(input: {
   const previous = asVerifiedContainerManifest(input.previous.bundle);
   const previousBundle = containerManifestBundle(previous);
   const nextKeyEpoch = input.previous.kekState.containerKeyEpoch + 1;
-  const { containerKeyEpochId } = await createTestContainerKekMaterial({
+  const { containerKeyEpochId, plaintextKek } =
+    await createTestContainerKekMaterial({
+      containerId: previous.state.containerId,
+      keyEpoch: nextKeyEpoch,
+    });
+  const predecessorBridge = await createTestContainerKekPredecessorBridge({
     containerId: previous.state.containerId,
-    keyEpoch: nextKeyEpoch,
+    ...(input.previous.plaintextKek
+      ? { predecessorContainerKey: input.previous.plaintextKek }
+      : {}),
+    predecessorContainerKeyEpochId: input.previous.kekState.containerKeyEpochId,
+    successorContainerKey: plaintextKek,
+    successorContainerKeyEpochId: containerKeyEpochId,
   });
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId,
+    predecessorBridgeHash:
+      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
   };
   const event = await createSignedContainerRekeyEvent({
     body,
@@ -216,9 +233,11 @@ export async function buildRootContainerRekeyMutation(input: {
     container: {
       bundle: verifiedBundle,
       kekState: verifiedKekState.value,
+      plaintextKek,
       principalPolicies,
     },
     kekState: verifiedKekState.value,
+    plaintextKek,
     request: {
       event: event.event as unknown as Record<string, unknown>,
       body: body as unknown,
@@ -227,6 +246,10 @@ export async function buildRootContainerRekeyMutation(input: {
       previousManifest: previousBundle,
       previousContainerPath: [previousBundle],
       keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+      predecessorBridge: predecessorBridge as unknown as Record<
+        string,
+        unknown
+      >,
       principalPolicies: principalPolicies as unknown as Record<
         string,
         unknown

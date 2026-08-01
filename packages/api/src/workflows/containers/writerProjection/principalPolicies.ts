@@ -36,7 +36,7 @@ function verifiedPrincipalPolicyReferenceCacheKey(
   ].join(":");
 }
 
-export function verifiedPrincipalPolicyStateReferenceCacheKey(
+function verifiedPrincipalPolicyStateReferenceCacheKey(
   state: VerifiedPrincipalPolicy["state"],
 ): string {
   return [
