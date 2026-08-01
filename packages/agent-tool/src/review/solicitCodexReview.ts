@@ -9,7 +9,7 @@ import {
   resolveReviewContext,
   run,
   spawnExitCode,
-} from "./prContext";
+} from "../git/prContext";
 import {
   DEFAULT_CODEX_EFFORT,
   type ReviewEffort,

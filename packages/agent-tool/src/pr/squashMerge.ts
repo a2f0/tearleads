@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-import { prState, resolvePr, spawnExitCode } from "./prContext";
+import { prState, resolvePr, spawnExitCode } from "../git/prContext";
 import { appendPrNumberSuffix, stripPrNumberSuffix } from "./prNumberSuffix";
 import { singleLineSubject } from "./subjectLine";
 import { validateCommitSubject } from "./validateCommitSubject";

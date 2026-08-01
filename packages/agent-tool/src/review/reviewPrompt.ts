@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import type { PrContext } from "./prContext";
+import type { PrContext } from "../git/prContext";
 import { REVIEW_VERDICTS } from "./reviewOutput";
 
 const REVIEW_INSTRUCTION_FILES = ["REVIEW.md", "AGENTS.md"];
