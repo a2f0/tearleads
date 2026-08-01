@@ -87,6 +87,12 @@ export async function getSubscriptionBinding(
   const price = prop(item, "price");
   const priceId = readString(prop(price, "id"));
   const tier = getSyncBillingTierForStripePrice(priceId, deps);
+  const itemQuantity = readPositiveInteger(prop(item, "quantity"));
+  if (tier && itemQuantity !== null && itemQuantity !== 1) {
+    console.error(
+      `Stripe subscription ${subscriptionId} uses legacy quantity ${itemQuantity}; fixed-tier subscriptions require quantity 1`,
+    );
+  }
   return {
     billingPeriodEndsAt: readUnixTimestamp(prop(body, "current_period_end")),
     billingPeriodStartsAt: readUnixTimestamp(
@@ -100,8 +106,7 @@ export async function getSubscriptionBinding(
     ),
     organizationId: readString(prop(metadata, "orgId")),
     priceId,
-    seatQuantity:
-      tier?.seatLimit ?? readPositiveInteger(prop(item, "quantity")),
+    seatQuantity: tier?.seatLimit ?? null,
     status: readString(prop(body, "status")),
     subscriptionItemId: readString(prop(item, "id")),
     unitAmount: readNonnegativeInteger(prop(price, "unit_amount")),

@@ -237,6 +237,39 @@ test("a production store purchase still activates sync", async () => {
   });
 });
 
+test("a bound native renewal survives a buyer default-organization change", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const initial = appStorePurchase({
+    appUserId: user.userId,
+    environment: "PRODUCTION",
+    eventId: crypto.randomUUID(),
+    organizationId,
+  });
+  expect(await runRevenueCatWebhookWorkflow(db, initial)).toMatchObject({
+    organizationId,
+    status: "applied",
+  });
+  const replacement = await registerOrganizationAdmin();
+  await db
+    .update(users)
+    .set({ defaultOrganizationId: replacement.organizationId })
+    .where(eq(users.id, user.userId));
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    ...initial,
+    event_timestamp_ms: initial.event_timestamp_ms + 1,
+    expiration_at_ms: (initial.expiration_at_ms ?? 0) + THIRTY_DAYS_MS,
+    id: crypto.randomUUID(),
+    type: "RENEWAL",
+  });
+
+  expect(outcome).toMatchObject({ organizationId, status: "applied" });
+  expect(await readBillingStatus(organizationId)).toMatchObject({
+    providerCustomerId: user.userId,
+    status: "active",
+  });
+});
+
 test("an anonymous native buyer id is claimed without reaching the UUID query", async () => {
   const { organizationId } = await registerOrganizationAdmin();
   const eventId = crypto.randomUUID();

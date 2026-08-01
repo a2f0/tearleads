@@ -2,11 +2,11 @@ import type {
   DirectCheckoutCapability,
   DirectCheckoutSession,
 } from "@tearleads/client-sdk";
-import { BILLING_ERROR_CODES } from "@tearleads/validators/billing";
 import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDirectCheckout as useDirectCheckoutCapability } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { checkoutOptionErrorMessage } from "../billingCheckoutErrors";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { readCheckoutAppearance } from "./checkoutAppearance";
 
@@ -134,24 +134,6 @@ function useCheckoutOption(
     };
   }, [available, canSubscribe, enabled, tearleads]);
   return state;
-}
-
-/** Maps the server's stable roster-policy failures to actionable copy. */
-export function checkoutOptionErrorMessage(error: unknown): string {
-  const code =
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    typeof error.code === "string"
-      ? error.code
-      : null;
-  if (code === BILLING_ERROR_CODES.rosterOverCapacity) {
-    return ORG_MANAGER_LABELS.billingCheckoutOverCapacity;
-  }
-  if (code === BILLING_ERROR_CODES.checkoutNoActiveMembers) {
-    return ORG_MANAGER_LABELS.billingCheckoutNoMembers;
-  }
-  return ORG_MANAGER_LABELS.billingCheckoutUnavailable;
 }
 
 /** Refs the begin/confirm actions share with the flow hook. */

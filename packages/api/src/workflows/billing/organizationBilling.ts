@@ -6,6 +6,7 @@ import {
   type OrganizationBillingProvider,
   type OrganizationBillingStatus,
   organizationBilling,
+  organizationBillingStripeSeats,
   organizations,
 } from "@tearleads/api-shared/schema";
 import { and, eq } from "drizzle-orm";
@@ -278,6 +279,7 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
   providerProductId: string | null;
   providerSubscriptionId: string | null;
   providerTransactionId: string | null;
+  hasStripeSubscription: boolean;
   status: OrganizationBillingStatus;
 }> {
   return db.transaction(async (tx) => {
@@ -294,9 +296,17 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
         providerProductId: organizationBilling.providerProductId,
         providerSubscriptionId: organizationBilling.providerSubscriptionId,
         providerTransactionId: organizationBilling.providerTransactionId,
+        stripeSubscriptionId: organizationBillingStripeSeats.subscriptionId,
         status: organizationBilling.status,
       })
       .from(organizationBilling)
+      .leftJoin(
+        organizationBillingStripeSeats,
+        eq(
+          organizationBillingStripeSeats.organizationId,
+          organizationBilling.organizationId,
+        ),
+      )
       .where(eq(organizationBilling.organizationId, organizationId))
       .limit(1);
     if (!row) {
@@ -308,6 +318,7 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
       providerProductId: row.providerProductId,
       providerSubscriptionId: row.providerSubscriptionId,
       providerTransactionId: row.providerTransactionId,
+      hasStripeSubscription: row.stripeSubscriptionId !== null,
       status: row.status,
     };
   });

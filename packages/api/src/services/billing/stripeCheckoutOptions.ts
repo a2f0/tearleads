@@ -26,7 +26,9 @@ export async function getStripeCheckoutOptions(
     return { options: [] };
   }
   const tier = getSyncBillingTierForSeatCount(seatQuantity);
-  if (!tier) throw new Error("Checkout returned an unavailable billing tier");
+  if (!tier) {
+    throw new Error("Checkout returned an unavailable billing tier");
+  }
   const option = await getStripeSyncOption(tier.id, deps.stripe ?? {});
   return { options: option ? [option] : [] };
 }

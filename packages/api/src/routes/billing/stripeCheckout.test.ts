@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBilling, users } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
@@ -247,6 +247,45 @@ test("options answer an empty list when unconfigured", async () => {
   );
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ options: [] });
+});
+
+test("options map a Stripe API failure to 502", async () => {
+  const user = createTestUser();
+  const organizationId = await registerAndAuthenticate(user);
+  Object.assign(process.env, {
+    REVENUECAT_PROJECT_ID: "proj_test",
+    REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_test",
+    REVENUECAT_V2_SECRET_KEY: "sk_rc_test",
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_SOLO_PRICE_ID: "price_solo",
+    STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
+    STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+    STRIPE_WEBHOOK_SECRET: "whsec_test",
+  });
+  const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+    (async () =>
+      new Response("provider failed", {
+        status: 500,
+      })) as unknown as typeof fetch,
+  );
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+
+  try {
+    const response = await routeApp.request(
+      `/organizations/${organizationId}/billing/stripe/options`,
+      { headers: authHeader(user) },
+    );
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      error: "Payment provider request failed",
+    });
+  } finally {
+    fetchSpy.mockRestore();
+    errorSpy.mockRestore();
+    for (const key of ISOLATED_ENV_KEYS) {
+      delete process.env[key];
+    }
+  }
 });
 
 test("options reject an already-active organization before configuration", async () => {

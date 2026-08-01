@@ -145,7 +145,7 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
     if (!aPackage) {
       throw new Error(`Unknown purchase package: ${packageId}`);
     }
-    const productIdentifier = aPackage?.product?.identifier ?? "";
+    const productIdentifier = aPackage.product?.identifier ?? "";
     if (!getSyncBillingTierForNativeProduct(productIdentifier)) {
       throw new Error(
         `Unknown sync subscription product: ${productIdentifier}`,

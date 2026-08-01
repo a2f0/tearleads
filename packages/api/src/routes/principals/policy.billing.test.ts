@@ -100,6 +100,7 @@ test("a native tier capacity conflict is returned as a policy 409", async () => 
 
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
+    code: "billing_native_tier_upgrade_required",
     error: "Upgrade the subscription before adding more than 1 member",
   });
   const [rosterEntry] = await db

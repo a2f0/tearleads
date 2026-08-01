@@ -30,6 +30,10 @@ import {
   STRIPE_GRANT_EXCEEDS_CAPACITY_REASON,
 } from "./revenuecatGrantCapacity";
 import {
+  NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON,
+  resolveNativeStripeConflictReason,
+} from "./revenuecatProviderConflict";
+import {
   type ImmutableStripeStoreOrgResolution,
   type LockedBillingIdentity,
   resolveImmutableStripeStoreOrganizationId,
@@ -73,6 +77,7 @@ async function lockBillingIdentity(
     .select({
       providerCustomerId: organizationBilling.providerCustomerId,
       providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      status: organizationBilling.status,
     })
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId))
@@ -193,6 +198,15 @@ async function resolvePreclaimDisposition(input: {
       reason: "Stripe binding changed before RevenueCat event application",
     };
   }
+  const nativeStripeConflict =
+    input.transition.kind === "grant" && input.organizationId && billing
+      ? await resolveNativeStripeConflictReason({
+          executor: input.executor,
+          organizationId: input.organizationId,
+          status: billing.status,
+          store: input.event.store,
+        })
+      : null;
   const capacity = input.organizationId
     ? await resolveRevenueCatGrantCapacity({
         event: input.event,
@@ -201,8 +215,9 @@ async function resolvePreclaimDisposition(input: {
         transition: input.transition,
       })
     : { kind: "within_capacity" as const };
-  const ignoredReason =
-    capacity.kind === "ignore"
+  const ignoredReason = nativeStripeConflict
+    ? nativeStripeConflict
+    : capacity.kind === "ignore"
       ? capacity.reason
       : await resolveIgnoredReason(
           input.executor,
@@ -465,7 +480,8 @@ function logUnappliedPaidGrant(
   }
   if (
     outcome.reason !== UNCONFIGURED_SYNC_BILLING_TIER_REASON &&
-    outcome.reason !== STRIPE_GRANT_EXCEEDS_CAPACITY_REASON
+    outcome.reason !== STRIPE_GRANT_EXCEEDS_CAPACITY_REASON &&
+    outcome.reason !== NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON
   ) {
     return;
   }

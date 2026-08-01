@@ -215,10 +215,6 @@ test("the direct checkout does not surface the 'purchases unavailable' notice", 
 });
 
 test("an active org is not offered a second subscription", async () => {
-  // `isActive` (not a trial): a second checkout would create a second Stripe
-  // subscription — a server 409 shown as a generic failure — so the panel must
-  // not render the checkout at all. The same gate also tears a live element
-  // down when the payment lands and the org becomes active.
   stubEnvironment(true, { isActive: true });
 
   const view = render(
@@ -307,7 +303,12 @@ test("an active native subscription can change fixed tier on native", async () =
   });
 
   const view = render(
-    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    <BillingPanel
+      isOrgAdmin
+      isPersonalOrganization
+      organizationId="org-1"
+      userId="user-1"
+    />,
     {
       wrapper: wrapperWith(true, { directCheckoutAvailable: false }),
     },

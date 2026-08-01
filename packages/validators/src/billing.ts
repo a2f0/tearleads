@@ -1,5 +1,6 @@
 export const BILLING_ERROR_CODES = {
   checkoutNoActiveMembers: "billing_checkout_no_active_members",
+  nativeTierUpgradeRequired: "billing_native_tier_upgrade_required",
   rosterOverCapacity: "billing_roster_over_capacity",
 } as const;
 

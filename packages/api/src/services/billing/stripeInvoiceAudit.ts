@@ -140,9 +140,9 @@ function createStripeInvoiceAuditInput(input: {
           line.unitAmount === tier.monthlyPriceUsdCents,
       ) ?? null)
     : null;
-  const resolvedTier = hasCompleteTierEconomics
-    ? economicsTier
-    : getSyncBillingTierForStripePrice(line.priceId, input.stripeDeps);
+  const resolvedTier =
+    economicsTier ??
+    getSyncBillingTierForStripePrice(line.priceId, input.stripeDeps);
   return {
     ...totalOnlySnapshot,
     interval: line.interval,

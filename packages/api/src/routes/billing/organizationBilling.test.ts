@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling, users } from "@tearleads/api-shared/schema";
+import {
+  organizationBilling,
+  organizationBillingStripeSeats,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { isOrganizationBillingResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
@@ -11,6 +15,7 @@ import {
   setTestOrganizationBillingLocal,
 } from "../../../test/helpers/organizationBilling";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
 import { routeApp } from "../../routeApp";
 import { getOrganizationBillingManagementUrl } from "../../services/billing/organizationBilling";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
@@ -79,6 +84,27 @@ test("an org admin reads local billing and starts a trial", async () => {
     "expected billing response",
   );
   expect(stillTrialing.status).toBe("trialing");
+});
+
+test("a free trial cannot start above the largest fixed tier", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await setTestOrganizationBillingLocal(organizationId);
+  for (let index = 0; index < 10; index += 1) {
+    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+  }
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/trial`,
+    { headers: authHeader(admin), method: "POST" },
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    code: "billing_roster_over_capacity",
+    error:
+      "The organization exceeds the maximum subscription tier of 10 members",
+  });
 });
 
 test("reading an expired trial reports disabled without writing on the read path", async () => {
@@ -204,6 +230,30 @@ test("management identifies Stripe and native subscription ownership", async () 
     canCancelDirectly: false,
     managementUrl: null,
     subscriptionSource: null,
+  });
+
+  await db
+    .update(organizationBilling)
+    .set({ providerProductId: "price_rotated", status: "active" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .delete(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: "price_rotated",
+    subscriptionId: "sub_rotated",
+    subscriptionItemId: "si_rotated",
+  });
+  const rotatedStripeManagement = await getOrganizationBillingManagementUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+  );
+  expect(rotatedStripeManagement).toEqual({
+    canCancelDirectly: true,
+    managementUrl: null,
+    subscriptionSource: "stripe",
   });
 });
 

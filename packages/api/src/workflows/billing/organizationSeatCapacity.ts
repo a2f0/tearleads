@@ -1,5 +1,6 @@
 import type { OrganizationBillingStatus } from "@tearleads/api-shared/schema";
 import {
+  BILLING_ERROR_CODES,
   getLargestSyncBillingTier,
   getSyncBillingTierForNativeProduct,
   getSyncBillingTierForSeatCount,
@@ -7,9 +8,7 @@ import {
 import { OrganizationManagerError } from "../organizations/errors";
 
 interface BillingSeatCapacity {
-  readonly hasStripeSubscription: boolean;
   readonly providerProductId: string | null;
-  readonly seatCount: number;
   readonly status: OrganizationBillingStatus;
 }
 
@@ -28,6 +27,7 @@ function canonicalTierSeatCount(
     throw new OrganizationManagerError(
       "The organization exceeds the maximum subscription tier of 10 members",
       409,
+      BILLING_ERROR_CODES.rosterOverCapacity,
     );
   }
   return getLargestSyncBillingTier().seatLimit;
@@ -57,6 +57,7 @@ export function requiredLicensedSeatCount(
       throw new OrganizationManagerError(
         `Upgrade the subscription before adding more than ${nativeTier.seatLimit} ${memberLabel}`,
         409,
+        BILLING_ERROR_CODES.nativeTierUpgradeRequired,
       );
     }
     return nativeTier.seatLimit;

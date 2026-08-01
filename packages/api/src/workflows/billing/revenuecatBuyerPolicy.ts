@@ -49,6 +49,12 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
 }): Promise<string | null> {
+  // Once a paid subscription is bound, lifecycle events remain attributable
+  // to that immutable RevenueCat customer even if the buyer later changes
+  // their default organization or leaves the organization entirely.
+  if (input.currentProviderCustomerId === input.event.app_user_id) {
+    return null;
+  }
   if (isNativeRevenueCatStore(input.event.store)) {
     if (!isUuidV4String(input.event.app_user_id)) {
       return "Native purchase buyer is not a Tearleads user";
@@ -61,9 +67,6 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
     if (buyer?.defaultOrganizationId !== input.organizationId) {
       return "Native purchases may only fund the buyer's personal organization";
     }
-  }
-  if (input.currentProviderCustomerId === input.event.app_user_id) {
-    return null;
   }
   if (
     !isUuidV4String(input.event.app_user_id) ||

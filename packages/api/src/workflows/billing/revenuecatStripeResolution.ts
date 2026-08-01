@@ -2,7 +2,10 @@ import type {
   ApiDatabase,
   DatabaseSession,
 } from "@tearleads/api-shared/postgres";
-import { organizationBillingStripeSeats } from "@tearleads/api-shared/schema";
+import {
+  type OrganizationBillingStatus,
+  organizationBillingStripeSeats,
+} from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq, inArray, or } from "drizzle-orm";
 import {
@@ -29,6 +32,7 @@ export type ImmutableStripeStoreOrgResolution =
 export interface LockedBillingIdentity {
   readonly providerCustomerId: string | null;
   readonly providerSubscriptionId: string | null;
+  readonly status: OrganizationBillingStatus;
 }
 
 interface StripeSeatBindingIdentity {

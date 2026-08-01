@@ -76,7 +76,11 @@ function getPrincipalRouteParams(input: {
 
 function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
   if (error instanceof PrincipalPolicyError) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    const body = {
+      error: error.message,
+      ...(error.code === undefined ? {} : { code: error.code }),
+    };
+    return new Response(JSON.stringify(body), {
       headers: { "Content-Type": "application/json" },
       status: error.status,
     });

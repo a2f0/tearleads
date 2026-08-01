@@ -19,6 +19,7 @@ export class PrincipalPolicyError extends Error {
   constructor(
     message: string,
     readonly status: 400 | 403 | 404 | 409,
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -160,7 +161,7 @@ export function toPrincipalPolicyError(
   error: unknown,
 ): PrincipalPolicyError | null {
   if (error instanceof OrganizationManagerError) {
-    return new PrincipalPolicyError(error.message, error.status);
+    return new PrincipalPolicyError(error.message, error.status, error.code);
   }
   return toPrincipalStateError(error) ?? toPrincipalMemberEnvelopeError(error);
 }

@@ -166,7 +166,7 @@ function BillingPanelSubscriptionControls(input: {
 
 export function BillingPanel({
   isOrgAdmin,
-  isPersonalOrganization = true,
+  isPersonalOrganization = null,
   organizationId,
   userId,
 }: {

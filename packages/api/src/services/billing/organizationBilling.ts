@@ -66,6 +66,7 @@ export async function getOrganizationBillingManagementUrl(
   } = {},
 ): Promise<OrganizationBillingManagementUrlResponse> {
   const {
+    hasStripeSubscription,
     provider,
     providerCustomerId,
     providerProductId,
@@ -84,7 +85,8 @@ export async function getOrganizationBillingManagementUrl(
   const nativeTier = hasProviderSubscription
     ? getSyncBillingTierForNativeProduct(providerProductId)
     : null;
-  const canCancelDirectly = status === "active" && stripeTier !== null;
+  const canCancelDirectly =
+    status === "active" && (stripeTier !== null || hasStripeSubscription);
   if (canCancelDirectly) {
     return {
       canCancelDirectly: true,
