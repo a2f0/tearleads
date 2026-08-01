@@ -13,6 +13,7 @@ import {
   readCanonicalRecord,
 } from "../../keyingCanonicalJson";
 import { readContainerKeyEpoch } from "../../keyingProjectionVerification/readers";
+import { readManifestContainerId, readRecordNullableString } from "./readers";
 import type { UnwrappedContainerKek } from "./types";
 
 export function projectionKekLabel(index: number): string {
@@ -117,6 +118,14 @@ async function assertPredecessorEpoch(input: {
   }
 }
 
+function sameContainerManifestHistory(
+  kek: ContainerWriterProjectionResponse["containerKeks"][number],
+) {
+  return kek.containerManifestHistory.filter(
+    (bundle) => readManifestContainerId(bundle) === kek.containerId,
+  );
+}
+
 export async function unwrapPredecessorContainerKeksAtIndex(input: {
   currentManifest: ContainerWriterProjectionResponse["path"][number];
   index: number;
@@ -128,11 +137,6 @@ export async function unwrapPredecessorContainerKeksAtIndex(input: {
   if (!input.successorKeyMaterial) {
     return;
   }
-  if (input.kek.predecessorKeks.length !== input.kek.containerKeyEpoch - 1) {
-    throw new Error(
-      `${projectionKekLabel(input.index)} predecessor chain is incomplete`,
-    );
-  }
 
   let successorEpochId = input.kek.containerKeyEpochId;
   let successorEpoch = input.kek.containerKeyEpoch;
@@ -143,7 +147,9 @@ export async function unwrapPredecessorContainerKeksAtIndex(input: {
   let successorKeyMaterial = input.successorKeyMaterial;
   const verifiedManifestHashes = new Set([
     input.kek.accessManifestHash,
-    ...input.kek.containerManifestHistory.map((bundle) => bundle.manifestHash),
+    ...sameContainerManifestHistory(input.kek).map(
+      (bundle) => bundle.manifestHash,
+    ),
   ]);
   for (const predecessor of input.kek.predecessorKeks) {
     await assertPredecessorEpoch({
@@ -203,6 +209,40 @@ export async function unwrapPredecessorContainerKeksAtIndex(input: {
     successorManifestHash = predecessor.accessManifestHash;
     successorKeyMaterial = predecessorKeyMaterial;
   }
+  if (successorEpoch !== 1) {
+    throw new Error(
+      `${projectionKekLabel(input.index)} predecessor chain is incomplete`,
+    );
+  }
+}
+
+export function projectedUnreachablePredecessorEpochIds(input: {
+  kek: ContainerWriterProjectionResponse["containerKeks"][number];
+  keksByEpochId: ReadonlyMap<string, UnwrappedContainerKek>;
+}): string[] {
+  const projectedEpochIds = new Set(
+    input.kek.predecessorKeks.map(
+      (predecessor) => predecessor.containerKeyEpochId,
+    ),
+  );
+  for (const bundle of sameContainerManifestHistory(input.kek)) {
+    const state = readCanonicalRecord(
+      bundle.state,
+      "Container writer projection historical manifest state",
+    );
+    const containerKeyEpochId = readRecordNullableString(
+      state,
+      "containerKeyEpochId",
+      "Container writer projection historical manifest state",
+    );
+    if (containerKeyEpochId !== null) {
+      projectedEpochIds.add(containerKeyEpochId);
+    }
+  }
+  projectedEpochIds.delete(input.kek.containerKeyEpochId);
+  return [...projectedEpochIds].filter(
+    (containerKeyEpochId) => !input.keksByEpochId.has(containerKeyEpochId),
+  );
 }
 
 async function assertPredecessorBridgeCommitment(input: {
@@ -215,7 +255,7 @@ async function assertPredecessorBridgeCommitment(input: {
   const successorManifest =
     input.successorManifestHash === input.currentManifest.manifestHash
       ? input.currentManifest
-      : input.kek.containerManifestHistory.find(
+      : sameContainerManifestHistory(input.kek).find(
           (bundle) => bundle.manifestHash === input.successorManifestHash,
         );
   if (!successorManifest) {

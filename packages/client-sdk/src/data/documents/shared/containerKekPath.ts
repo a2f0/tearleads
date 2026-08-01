@@ -6,6 +6,7 @@ import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCr
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
   assertUnwrappedContainerKekMatchesMaterialId,
+  projectedUnreachablePredecessorEpochIds,
   projectionKekLabel,
   unwrapPredecessorContainerKeksAtIndex,
 } from "./containerKekPathHistory";
@@ -196,7 +197,10 @@ async function unwrapContainerKekAtIndex(input: {
   readonly projection: ContainerWriterProjectionResponse;
   readonly secretKey: Uint8Array;
   readonly verifyBridgeCommitment: boolean;
-}): Promise<{ readonly containerId: string; readonly error: unknown } | null> {
+}): Promise<{
+  readonly error: Error;
+  readonly unreachableEpochIds: readonly string[];
+} | null> {
   assertProjectionKekMatchesPath(input.projection, input.index);
   const kek = input.projection.containerKeks[input.index];
   const currentManifest = input.projection.path[input.index];
@@ -261,13 +265,72 @@ async function unwrapContainerKekAtIndex(input: {
     // Historical bridge damage must not discard an independently verified
     // current KEK. Keep any predecessors derived before the failure; if the
     // target still cannot be reached, the caller surfaces this integrity error.
-    return { containerId: kek.containerId, error };
+    return {
+      error:
+        error instanceof Error
+          ? error
+          : new Error("Container predecessor KEK recovery failed", {
+              cause: error,
+            }),
+      unreachableEpochIds: projectedUnreachablePredecessorEpochIds({
+        kek,
+        keksByEpochId: input.keksByEpochId,
+      }),
+    };
   }
 }
 
 interface UnwrappedContainerKekPathResult {
   readonly keksByEpochId: ReadonlyMap<string, Uint8Array>;
-  readonly predecessorFailuresByContainerId: ReadonlyMap<string, unknown>;
+  readonly predecessorFailuresByEpochId: ReadonlyMap<string, Error>;
+}
+
+function recordPredecessorFailure(
+  failuresByEpochId: Map<string, Error>,
+  failure: NonNullable<Awaited<ReturnType<typeof unwrapContainerKekAtIndex>>>,
+): void {
+  for (const containerKeyEpochId of failure.unreachableEpochIds) {
+    if (!failuresByEpochId.has(containerKeyEpochId)) {
+      failuresByEpochId.set(containerKeyEpochId, failure.error);
+    }
+  }
+}
+
+function assertTargetKekUnwrapped(input: {
+  readonly keyMaterialByEpochId: ReadonlyMap<string, Uint8Array>;
+  readonly predecessorFailuresByEpochId: ReadonlyMap<string, Error>;
+  readonly projection: ContainerWriterProjectionResponse;
+}): void {
+  const targetKek = input.projection.containerKeks.at(-1);
+  if (
+    !targetKek ||
+    input.keyMaterialByEpochId.has(targetKek.containerKeyEpochId)
+  ) {
+    return;
+  }
+  for (
+    let index = input.projection.containerKeks.length - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const pathKek = input.projection.containerKeks[index];
+    if (!pathKek) {
+      continue;
+    }
+    const predecessorFailure =
+      input.predecessorFailuresByEpochId.get(pathKek.containerKeyEpochId) ??
+      (pathKek.parentContainerKeyEpochId
+        ? input.predecessorFailuresByEpochId.get(
+            pathKek.parentContainerKeyEpochId,
+          )
+        : undefined);
+    if (predecessorFailure) {
+      throw predecessorFailure;
+    }
+  }
+  throw new Error(
+    `${projectionKekLabel(input.projection.containerKeks.length - 1)} could not be unwrapped`,
+  );
 }
 
 export async function unwrapContainerKekPathWithHistoryFailures(
@@ -279,7 +342,7 @@ export async function unwrapContainerKekPathWithHistoryFailures(
     knownContainerKeks: input.knownContainerKeks,
     projection: input.projection,
   });
-  const predecessorFailuresByContainerId = new Map<string, unknown>();
+  const predecessorFailuresByEpochId = new Map<string, Error>();
 
   for (
     let index = 0;
@@ -295,10 +358,7 @@ export async function unwrapContainerKekPathWithHistoryFailures(
       verifyBridgeCommitment: input.trustedLocalProjection !== true,
     });
     if (currentFailure) {
-      predecessorFailuresByContainerId.set(
-        currentFailure.containerId,
-        currentFailure.error,
-      );
+      recordPredecessorFailure(predecessorFailuresByEpochId, currentFailure);
     }
   }
 
@@ -306,28 +366,14 @@ export async function unwrapContainerKekPathWithHistoryFailures(
   for (const [containerKeyEpochId, kek] of keksByEpochId) {
     keyMaterialByEpochId.set(containerKeyEpochId, kek.keyMaterial);
   }
-  const targetKek = input.projection.containerKeks.at(-1);
-  if (targetKek && !keyMaterialByEpochId.has(targetKek.containerKeyEpochId)) {
-    for (
-      let index = input.projection.containerKeks.length - 1;
-      index >= 0;
-      index -= 1
-    ) {
-      const pathKek = input.projection.containerKeks[index];
-      const predecessorFailure = pathKek
-        ? predecessorFailuresByContainerId.get(pathKek.containerId)
-        : undefined;
-      if (predecessorFailure !== undefined) {
-        throw predecessorFailure;
-      }
-    }
-    throw new Error(
-      `${projectionKekLabel(input.projection.containerKeks.length - 1)} could not be unwrapped`,
-    );
-  }
+  assertTargetKekUnwrapped({
+    keyMaterialByEpochId,
+    predecessorFailuresByEpochId,
+    projection: input.projection,
+  });
   return {
     keksByEpochId: keyMaterialByEpochId,
-    predecessorFailuresByContainerId,
+    predecessorFailuresByEpochId,
   };
 }
 

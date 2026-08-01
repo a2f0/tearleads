@@ -111,7 +111,7 @@ export async function unwrapDocumentContentKeyTarget(input: {
 
 interface CollectedContainerKeks {
   readonly keksByEpochId: ReadonlyMap<string, Uint8Array>;
-  readonly predecessorFailuresByContainerId: ReadonlyMap<string, unknown>;
+  readonly predecessorFailuresByEpochId: ReadonlyMap<string, Error>;
 }
 
 export class DocumentHistoryUnavailableError extends Error {
@@ -135,7 +135,7 @@ export async function collectContainerKeksForDocumentSync(
   } & ProjectionVerificationOptions,
 ): Promise<CollectedContainerKeks> {
   const keksByEpochId = new Map<string, Uint8Array>();
-  const predecessorFailuresByContainerId = new Map<string, unknown>();
+  const predecessorFailuresByEpochId = new Map<string, Error>();
 
   for (const projection of input.writerProjection.authorizingContainerPaths) {
     let projectionKeks: Awaited<
@@ -158,11 +158,11 @@ export async function collectContainerKeksForDocumentSync(
       );
     }
     for (const [
-      containerId,
+      containerKeyEpochId,
       failure,
-    ] of projectionKeks.predecessorFailuresByContainerId) {
-      if (!predecessorFailuresByContainerId.has(containerId)) {
-        predecessorFailuresByContainerId.set(containerId, failure);
+    ] of projectionKeks.predecessorFailuresByEpochId) {
+      if (!predecessorFailuresByEpochId.has(containerKeyEpochId)) {
+        predecessorFailuresByEpochId.set(containerKeyEpochId, failure);
       }
     }
     for (const [
@@ -182,13 +182,13 @@ export async function collectContainerKeksForDocumentSync(
     }
   }
 
-  return { keksByEpochId, predecessorFailuresByContainerId };
+  return { keksByEpochId, predecessorFailuresByEpochId };
 }
 
 export async function unwrapDocumentContentKeyFromBundle(
   bundle: DocumentContentKeyBundleResponse,
   containerKeksByEpochId: ReadonlyMap<string, Uint8Array>,
-  predecessorFailuresByContainerId: ReadonlyMap<string, unknown> = new Map(),
+  predecessorFailuresByEpochId: ReadonlyMap<string, Error> = new Map(),
 ): Promise<Uint8Array> {
   let contentKey: Uint8Array | null = null;
   let predecessorFailure: unknown;
@@ -198,8 +198,8 @@ export async function unwrapDocumentContentKeyFromBundle(
       envelope.containerKeyEpochId,
     );
     if (!containerKek) {
-      predecessorFailure ??= predecessorFailuresByContainerId.get(
-        envelope.containerId,
+      predecessorFailure ??= predecessorFailuresByEpochId.get(
+        envelope.containerKeyEpochId,
       );
       continue;
     }
@@ -245,7 +245,7 @@ export async function unwrapDocumentContentKeyFromWriterProjection(
   return unwrapDocumentContentKeyFromBundle(
     input.writerProjection.contentKeyBundle,
     collectedKeks.keksByEpochId,
-    collectedKeks.predecessorFailuresByContainerId,
+    collectedKeks.predecessorFailuresByEpochId,
   );
 }
 

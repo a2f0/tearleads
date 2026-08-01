@@ -242,7 +242,7 @@ async function unwrapDocumentSyncResponseContentKeys(
       await unwrapDocumentContentKeyFromBundle(
         bundle,
         collectedKeks.keksByEpochId,
-        collectedKeks.predecessorFailuresByContainerId,
+        collectedKeks.predecessorFailuresByEpochId,
       ),
     );
   }
@@ -493,7 +493,7 @@ async function resolveSyncPlanContentMaterial(
       staleContentKey = await unwrapDocumentContentKeyFromBundle(
         input.writerProjection.contentKeyBundle,
         collectedKeks.keksByEpochId,
-        collectedKeks.predecessorFailuresByContainerId,
+        collectedKeks.predecessorFailuresByEpochId,
       );
     } catch (error) {
       if (error instanceof DocumentHistoryUnavailableError) {
@@ -521,7 +521,7 @@ async function resolveSyncPlanContentMaterial(
     contentKey: await unwrapDocumentContentKeyFromBundle(
       input.writerProjection.contentKeyBundle,
       collectedKeks.keksByEpochId,
-      collectedKeks.predecessorFailuresByContainerId,
+      collectedKeks.predecessorFailuresByEpochId,
     ),
     contentKeyBundle: input.writerProjection.contentKeyBundle,
     documentKekTargets: input.writerProjection.documentKekTargets,

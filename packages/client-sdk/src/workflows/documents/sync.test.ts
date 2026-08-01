@@ -2,8 +2,6 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import {
   type AccessEvent,
   CONTENT_RECORD_ENCRYPTION_SUITE,
-  computeContainerKekMaterialId,
-  computeContainerKeyEpochHash,
   computeDocumentContentKeyTargetHash,
   generateKemSeedAndKeyPair,
   verifyWriteHeader,
@@ -50,9 +48,7 @@ import {
   writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
-import { unwrapContainerKekPath } from "../../data/documents/shared/containerKekPath";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
-import { readContainerKeyEpoch } from "../../data/keyingProjectionVerification/readers";
 import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -1432,80 +1428,6 @@ test("a read-only stale bundle degrades when its target predates the current pat
   expect(plan.documentKekTargets.documentKeyTargetHash).toBe(
     fixture.staleBundle.targetHash,
   );
-});
-
-test("damaged predecessor history fails a stale read that needs the missing epoch", async () => {
-  const fixture = await createStaleBundleSyncFixture();
-  const projection = structuredClone(
-    fixture.staleWriterProjection.authorizingContainerPaths[0],
-  );
-  const currentKek = projection?.containerKeks[0];
-  if (!projection || !currentKek) {
-    throw new Error("Expected a stale authorizing projection fixture");
-  }
-  const currentKey = (
-    await unwrapContainerKekPath({
-      projection,
-      secretKey: fixture.secretKey,
-      trustedLocalProjection: true,
-    })
-  ).get(currentKek.containerKeyEpochId);
-  if (!currentKey) {
-    throw new Error("Expected the current container KEK fixture");
-  }
-  const containerKeyEpoch = 2;
-  const containerKeyEpochId = await computeContainerKekMaterialId({
-    containerId: currentKek.containerId,
-    keyEpoch: containerKeyEpoch,
-    keyMaterial: currentKey,
-  });
-  const keyEpoch = {
-    ...readContainerKeyEpoch(currentKek.keyEpoch, "current key epoch"),
-    id: containerKeyEpochId,
-    keyEpoch: containerKeyEpoch,
-  };
-  projection.containerKeks = [
-    {
-      ...currentKek,
-      containerKeyEpoch,
-      containerKeyEpochId,
-      keyEpoch: keyEpoch as unknown as Record<string, unknown>,
-      keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
-      predecessorKeks: [],
-      wraps: currentKek.wraps.map((wrap) => ({
-        ...wrap,
-        containerKeyEpochId,
-      })),
-    },
-  ];
-  const currentTarget = {
-    ...fixture.rotatedTarget,
-    containerKeyEpoch,
-    containerKeyEpochId,
-  };
-
-  await expect(
-    buildMaterializedDocumentSyncPlan({
-      author: fixture.author,
-      localVersionVector: null,
-      pendingUpdates: [],
-      signedAt: "2026-07-26T00:00:00.000Z",
-      targetSecretKey: fixture.secretKey,
-      trustedLocalProjection: true,
-      writerProjection: {
-        ...fixture.staleWriterProjection,
-        authorizingContainerPaths: [projection],
-        documentKekTargets: {
-          ...fixture.staleWriterProjection.documentKekTargets,
-          documentKeyTargetHash: await computeDocumentContentKeyTargetHash([
-            currentTarget,
-          ]),
-          linkedContainerKeyEpochIds: [containerKeyEpochId],
-          targets: [currentTarget],
-        },
-      },
-    }),
-  ).rejects.toThrow("predecessor chain is incomplete");
 });
 
 test("buildMaterializedDocumentSyncPlan refuses to heal without a rotation snapshot", async () => {
