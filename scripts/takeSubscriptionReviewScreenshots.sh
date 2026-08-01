@@ -11,6 +11,7 @@ FLOW="$CAPACITOR_DIR/maestro/review/subscription-review-screenshots.yaml"
 VERIFY_FLOW="$CAPACITOR_DIR/maestro/review/subscription-review-catalog-visible.yaml"
 OUTPUT_DIR="${SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR:-$REPO_ROOT/.screenshots/app-store-review}"
 MAESTRO_OUTPUT_DIR="$OUTPUT_DIR/maestro"
+CAPTURE_PATH="$OUTPUT_DIR/.subscription-review-capture.png"
 BUILD_DIR="${TMPDIR:-/tmp}/tearleads-subscription-review-derived-data"
 REVENUECAT_ENV_FILE="${SUBSCRIPTION_SCREENSHOT_REVENUECAT_ENV_FILE:-$REPO_ROOT/.secrets/root.env}"
 DEVICE_NAME="Tearleads Subscription Review"
@@ -116,6 +117,7 @@ selected_device="$(
 }
 
 mkdir -p "$OUTPUT_DIR" "$MAESTRO_OUTPUT_DIR"
+rm -f "$CAPTURE_PATH"
 for screenshot in \
   subscription-solo.png \
   subscription-team-5.png \
@@ -155,7 +157,13 @@ maestro --platform ios --device "$DEVICE_UDID" test \
   --test-output-dir "$MAESTRO_OUTPUT_DIR" \
   "$FLOW"
 
-trap 'xcrun simctl status_bar "$DEVICE_UDID" clear >/dev/null 2>&1 || true' EXIT
+cleanup_capture() {
+  rm -f "$CAPTURE_PATH"
+  xcrun simctl status_bar "$DEVICE_UDID" clear >/dev/null 2>&1 || true
+}
+trap cleanup_capture EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 xcrun simctl status_bar "$DEVICE_UDID" override \
   --time 9:41 \
   --batteryState charged \
@@ -166,14 +174,13 @@ xcrun simctl status_bar "$DEVICE_UDID" override \
 # status bar before taking review evidence.
 sleep 2
 
-solo_path="$OUTPUT_DIR/subscription-solo.png"
 # Maestro verifies and positions the real native catalog. simctl produces
 # Apple's exact 1179x2556 size; the black mask also removes the rejected alpha
 # channel. All three App Store records use this same catalog evidence.
 xcrun simctl io "$DEVICE_UDID" screenshot \
   --type=png \
   --mask=black \
-  "$solo_path" >/dev/null
+  "$CAPTURE_PATH" >/dev/null
 
 # Confirm the app is still presenting the verified catalog after the native
 # framebuffer capture. A system alert or backgrounded app fails the run instead
@@ -182,33 +189,32 @@ maestro --platform ios --device "$DEVICE_UDID" test \
   --test-output-dir "$MAESTRO_OUTPUT_DIR" \
   "$VERIFY_FLOW"
 
-cp "$solo_path" "$OUTPUT_DIR/subscription-team-5.png"
-cp "$solo_path" "$OUTPUT_DIR/subscription-team-10.png"
+[ -s "$CAPTURE_PATH" ] || {
+  echo "simctl did not create $CAPTURE_PATH." >&2
+  exit 1
+}
+dimensions="$(
+  sips -g pixelWidth -g pixelHeight "$CAPTURE_PATH" 2>/dev/null |
+    awk '/pixelWidth:/ { width=$2 } /pixelHeight:/ { height=$2 } END { print width "x" height }'
+)"
+[ "$dimensions" = "1179x2556" ] || {
+  echo "$CAPTURE_PATH is $dimensions; expected iPhone 16 portrait 1179x2556." >&2
+  exit 1
+}
+has_alpha="$(
+  sips -g hasAlpha "$CAPTURE_PATH" 2>/dev/null |
+    awk '/hasAlpha:/ { print $2 }'
+)"
+[ "$has_alpha" = "no" ] || {
+  echo "$CAPTURE_PATH has an alpha channel; App Store review screenshots cannot." >&2
+  exit 1
+}
 
 for screenshot in \
   subscription-solo.png \
   subscription-team-5.png \
   subscription-team-10.png; do
   path="$OUTPUT_DIR/$screenshot"
-  [ -s "$path" ] || {
-    echo "simctl did not create $path." >&2
-    exit 1
-  }
-  dimensions="$(
-    sips -g pixelWidth -g pixelHeight "$path" 2>/dev/null |
-      awk '/pixelWidth:/ { width=$2 } /pixelHeight:/ { height=$2 } END { print width "x" height }'
-  )"
-  [ "$dimensions" = "1179x2556" ] || {
-    echo "$path is $dimensions; expected iPhone 16 portrait 1179x2556." >&2
-    exit 1
-  }
-  has_alpha="$(
-    sips -g hasAlpha "$path" 2>/dev/null |
-      awk '/hasAlpha:/ { print $2 }'
-  )"
-  [ "$has_alpha" = "no" ] || {
-    echo "$path has an alpha channel; App Store review screenshots cannot." >&2
-    exit 1
-  }
+  cp "$CAPTURE_PATH" "$path"
   echo "Captured $path ($dimensions)."
 done

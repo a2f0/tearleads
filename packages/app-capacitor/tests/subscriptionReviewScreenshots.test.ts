@@ -209,6 +209,17 @@ test("reuses the existing dedicated simulator", async () => {
   expect(result.log).toContain(`xcrun:simctl install ${dedicatedUdid}`);
 });
 
+test("accepts an explicit dedicated simulator override", async () => {
+  const result = await runScript({
+    initialDevices: [dedicatedDevice],
+    selectedUdid: dedicatedUdid,
+  });
+
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.log).not.toContain("xcrun:simctl create");
+  expect(result.log).toContain(`xcrun:simctl install ${dedicatedUdid}`);
+});
+
 test("ignores a stale same-name simulator of the wrong model", async () => {
   const result = await runScript({
     initialDevices: [
@@ -307,5 +318,5 @@ test("does not copy review assets when post-capture verification fails", async (
   });
 
   expect(result.exitCode).toBe(1);
-  expect(result.screenshots).toEqual([true, false, false]);
+  expect(result.screenshots).toEqual([false, false, false]);
 });
