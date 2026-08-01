@@ -110,8 +110,8 @@
       "bytes": 19204
     },
     "packages/api/src/access/write/containerKekStore.test.ts": {
-      "lines": 591,
-      "bytes": 18310
+      "lines": 632,
+      "bytes": 19360
     },
     "packages/api/src/access/write/documentContentKeyStore.test.ts": {
       "lines": 1057,
@@ -146,8 +146,8 @@
       "bytes": 43277
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2323,
-      "bytes": 75494
+      "lines": 2331,
+      "bytes": 75983
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1169,

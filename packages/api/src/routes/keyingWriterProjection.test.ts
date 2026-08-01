@@ -1902,15 +1902,21 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
     previousKekState: kekStateFromContainerResponse(child),
     signer: owner,
   });
+  const movedChildKekId =
+    kekStateFromContainerResponse(movedChild).containerKeyEpochId;
+  const [storedMovedChildEpoch] = await db
+    .select({
+      wrappedPredecessorKey: containerKeyEpochs.wrappedPredecessorKey,
+    })
+    .from(containerKeyEpochs)
+    .where(eq(containerKeyEpochs.id, movedChildKekId));
+  if (!storedMovedChildEpoch?.wrappedPredecessorKey) {
+    throw new Error("Expected moved child predecessor bridge");
+  }
   await db
     .update(containerKeyEpochs)
     .set({ wrappedPredecessorKey: "not-base64" })
-    .where(
-      eq(
-        containerKeyEpochs.id,
-        kekStateFromContainerResponse(movedChild).containerKeyEpochId,
-      ),
-    );
+    .where(eq(containerKeyEpochs.id, movedChildKekId));
 
   const healthyPathResponse = await routeApp.request(
     `/documents/${createdDocument.id}/writer-projection`,
@@ -1929,14 +1935,16 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
   ).toEqual([root.kekState.containerId]);
 
   await db
+    .update(containerKeyEpochs)
+    .set({
+      wrappedPredecessorKey: storedMovedChildEpoch.wrappedPredecessorKey,
+    })
+    .where(eq(containerKeyEpochs.id, movedChildKekId));
+
+  await db
     .update(containerKeyWraps)
     .set({ recipientKeyFingerprint: "corrupt-fingerprint" })
-    .where(
-      eq(
-        containerKeyWraps.containerKeyEpochId,
-        root.kekState.containerKeyEpochId,
-      ),
-    );
+    .where(eq(containerKeyWraps.containerKeyEpochId, movedChildKekId));
 
   const noHealthyPathResponse = await routeApp.request(
     `/documents/${createdDocument.id}/writer-projection`,

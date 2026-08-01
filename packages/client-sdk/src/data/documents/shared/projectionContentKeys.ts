@@ -15,7 +15,10 @@ import type {
 import type { PrincipalPolicyCache } from "../../keyingProjectionVerification";
 import { throwKeyingVerificationErrorWithContext } from "../../keyingProjectionVerification/error";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import { unwrapContainerKekPath } from "./containerKekPath";
+import {
+  unwrapContainerKekPath,
+  unwrapContainerKekPathWithHistoryFailures,
+} from "./containerKekPath";
 import {
   deriveDocumentCreateTargets,
   describeProjectionTargetKek,
@@ -99,6 +102,10 @@ export async function unwrapDocumentContentKeyTarget(input: {
   );
 }
 
+class DocumentContainerKekMap extends Map<string, Uint8Array> {
+  readonly predecessorFailuresByContainerId = new Map<string, unknown>();
+}
+
 export async function collectContainerKeksForDocumentSync(
   input: {
     execSql?: ExecSql | undefined;
@@ -108,12 +115,14 @@ export async function collectContainerKeksForDocumentSync(
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<ReadonlyMap<string, Uint8Array>> {
-  const keksByEpochId = new Map<string, Uint8Array>();
+  const keksByEpochId = new DocumentContainerKekMap();
 
   for (const projection of input.writerProjection.authorizingContainerPaths) {
-    let projectionKeks: ReadonlyMap<string, Uint8Array>;
+    let projectionKeks: Awaited<
+      ReturnType<typeof unwrapContainerKekPathWithHistoryFailures>
+    >;
     try {
-      projectionKeks = await unwrapContainerKekPath({
+      projectionKeks = await unwrapContainerKekPathWithHistoryFailures({
         execSql: input.execSql,
         principalPolicyCache: input.principalPolicyCache,
         projection,
@@ -127,7 +136,21 @@ export async function collectContainerKeksForDocumentSync(
         `Document authorizing container KEK path could not be unwrapped for ${describeProjectionTargetKek(projection)}`,
       );
     }
-    for (const [containerKeyEpochId, keyMaterial] of projectionKeks) {
+    for (const [
+      containerId,
+      failure,
+    ] of projectionKeks.predecessorFailuresByContainerId) {
+      if (!keksByEpochId.predecessorFailuresByContainerId.has(containerId)) {
+        keksByEpochId.predecessorFailuresByContainerId.set(
+          containerId,
+          failure,
+        );
+      }
+    }
+    for (const [
+      containerKeyEpochId,
+      keyMaterial,
+    ] of projectionKeks.keksByEpochId) {
       const existing = keksByEpochId.get(containerKeyEpochId);
       if (existing) {
         assertEqualBytes(
@@ -149,12 +172,19 @@ export async function unwrapDocumentContentKeyFromBundle(
   containerKeksByEpochId: ReadonlyMap<string, Uint8Array>,
 ): Promise<Uint8Array> {
   let contentKey: Uint8Array | null = null;
+  let predecessorFailure: unknown;
 
   for (const envelope of bundle.targets) {
     const containerKek = containerKeksByEpochId.get(
       envelope.containerKeyEpochId,
     );
     if (!containerKek) {
+      predecessorFailure ??=
+        containerKeksByEpochId instanceof DocumentContainerKekMap
+          ? containerKeksByEpochId.predecessorFailuresByContainerId.get(
+              envelope.containerId,
+            )
+          : undefined;
       continue;
     }
     const unwrapped = await unwrapDocumentContentKeyTarget({
@@ -173,6 +203,9 @@ export async function unwrapDocumentContentKeyFromBundle(
   }
 
   if (!contentKey) {
+    if (predecessorFailure !== undefined) {
+      throw predecessorFailure;
+    }
     throw new Error("Document content key could not be unwrapped");
   }
   if (contentKey.byteLength !== 32) {

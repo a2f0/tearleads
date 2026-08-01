@@ -2,6 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
+  CONTAINER_WRITER_PROJECTION_ERROR_CODES,
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
   resolveContainerReaderProjection,
@@ -41,7 +42,9 @@ export async function resolveAuthorizingContainerPathCandidates(input: {
       } catch (error) {
         if (
           error instanceof ContainerWriterProjectionError &&
-          (error.status === 403 || error.status === 409)
+          (error.status === 403 ||
+            error.code ===
+              CONTAINER_WRITER_PROJECTION_ERROR_CODES.predecessorHistoryUnavailable)
         ) {
           return { error };
         }
@@ -54,7 +57,11 @@ export async function resolveAuthorizingContainerPathCandidates(input: {
     integrityError:
       results
         .flatMap((result) => ("error" in result ? [result.error] : []))
-        .find((error) => error.status === 409) ?? null,
+        .find(
+          (error) =>
+            error.code ===
+            CONTAINER_WRITER_PROJECTION_ERROR_CODES.predecessorHistoryUnavailable,
+        ) ?? null,
     paths: results.flatMap((result) =>
       "projection" in result ? [result.projection] : [],
     ),

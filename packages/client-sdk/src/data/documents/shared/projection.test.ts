@@ -3,8 +3,15 @@ import {
   computeContainerKekMaterialId,
   computeContainerKeyEpochHash,
   createContainerKekPredecessorBridge,
+  DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+  encryptWithDek,
 } from "@tearleads/crypto";
-import type { PredecessorContainerKekResponse } from "@tearleads/validators/response";
+import { bytesToBase64 } from "@tearleads/encoding";
+import type {
+  DocumentContentKeyBundleResponse,
+  DocumentWriterProjectionResponse,
+  PredecessorContainerKekResponse,
+} from "@tearleads/validators/response";
 import {
   createProjection,
   createUserContainerWrap,
@@ -13,7 +20,11 @@ import {
   getOnlyTarget,
 } from "../../../../test/helpers/documentFixtures";
 import { readContainerKeyEpoch } from "../../keyingProjectionVerification/readers";
-import { unwrapContainerKekPath } from "./projection";
+import {
+  collectContainerKeksForDocumentSync,
+  unwrapContainerKekPath,
+  unwrapDocumentContentKeyFromBundle,
+} from "./projection";
 
 test("deriveDocumentCreateTargets uses the leaf projection manifest and KEK", async () => {
   const projection = await createProjection();
@@ -256,4 +267,72 @@ test("unwrapContainerKekPath retains a verified current KEK when history is corr
     Array.from(unwrapped.get(successor.containerKeyEpochId) ?? []),
   ).toEqual(Array.from(successorKey));
   expect(unwrapped.has(predecessor.containerKeyEpochId)).toBe(false);
+});
+
+test("document unwrap reports corrupt history when its content key needs that epoch", async () => {
+  const { fixture, predecessor, successor, successorKey } =
+    await rotateRootKekFixture();
+  const currentManifest = fixture.projection.path[0];
+  if (!currentManifest) {
+    throw new Error("Expected a root container manifest fixture");
+  }
+  const corruptBridge = await createContainerKekPredecessorBridge({
+    containerId: predecessor.containerId,
+    predecessorContainerKey: crypto.getRandomValues(new Uint8Array(32)),
+    predecessorContainerKeyEpochId: predecessor.containerKeyEpochId,
+    successorContainerKey: successorKey,
+    successorContainerKeyEpochId: successor.containerKeyEpochId,
+  });
+  const rootProjection = {
+    ...fixture.projection,
+    containerId: successor.containerId,
+    containerKeks: [
+      {
+        ...successor,
+        predecessorKeks: [
+          {
+            ...predecessor,
+            bridge: corruptBridge as unknown as Record<string, unknown>,
+          },
+        ],
+      },
+    ],
+    path: [currentManifest],
+  };
+  const containerKeks = await collectContainerKeksForDocumentSync({
+    writerProjection: {
+      authorizingContainerPaths: [rootProjection],
+    } as unknown as DocumentWriterProjectionResponse,
+    secretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+  });
+  expect(containerKeks.get(successor.containerKeyEpochId)).toEqual(
+    successorKey,
+  );
+
+  const contentKey = crypto.getRandomValues(new Uint8Array(32));
+  const wrapped = await encryptWithDek(contentKey, fixture.rootContainerKek);
+  const bundle = {
+    contentKeyEpoch: 1,
+    documentId: crypto.randomUUID(),
+    linkSetManifestHash: await fixtureHash("history-link-set"),
+    targetHash: await fixtureHash("history-targets"),
+    targets: [
+      {
+        containerId: predecessor.containerId,
+        containerKeyEpoch: predecessor.containerKeyEpoch,
+        containerKeyEpochId: predecessor.containerKeyEpochId,
+        containerManifestHash: predecessor.accessManifestHash,
+        wrappedKey: bytesToBase64(wrapped.ciphertext),
+        wrappingMetadata: {
+          suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+          iv: bytesToBase64(wrapped.iv),
+        },
+      },
+    ],
+  } satisfies DocumentContentKeyBundleResponse;
+
+  await expect(
+    unwrapDocumentContentKeyFromBundle(bundle, containerKeks),
+  ).rejects.toThrow("KEK material does not match committed epoch id");
 });

@@ -481,20 +481,13 @@ async function resolveSyncPlanContentMaterial(
       documentId: input.writerProjection.documentId,
       epoch: input.writerProjection.contentKeyBundle.contentKeyEpoch,
     });
-    // A member who spans the rotation can unwrap the stale bundle through the
-    // projection's historical KEK epochs, making pre-rotation updates
-    // readable again. Members who do not span it fall back to the empty
-    // placeholder: served updates at unreachable epochs then fail decryption
-    // with an honest error instead of garbage.
-    let staleContentKey: Uint8Array = new Uint8Array();
-    try {
-      staleContentKey = await unwrapDocumentContentKeyFromBundle(
-        input.writerProjection.contentKeyBundle,
-        containerKeksByEpochId,
-      );
-    } catch {
-      staleContentKey = new Uint8Array();
-    }
+    // Current access includes every predecessor KEK. If damaged history makes
+    // this old bundle unreachable, preserve the bridge-integrity failure: this
+    // read actually needs that historical epoch and cannot safely continue.
+    const staleContentKey = await unwrapDocumentContentKeyFromBundle(
+      input.writerProjection.contentKeyBundle,
+      containerKeksByEpochId,
+    );
     return {
       contentKey: staleContentKey,
       contentKeyBundle: input.writerProjection.contentKeyBundle,

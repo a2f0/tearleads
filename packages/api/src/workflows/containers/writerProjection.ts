@@ -24,6 +24,7 @@ import {
 } from "./writerProjection/principalPolicies";
 import { containerKekResponse } from "./writerProjection/records";
 import {
+  CONTAINER_WRITER_PROJECTION_ERROR_CODES,
   type ContainerAccessPath,
   type ContainerAccessProjection,
   type ContainerAccessProjectionResult,
@@ -38,6 +39,7 @@ export type {
   ContainerWriterProjectionContext,
 };
 export {
+  CONTAINER_WRITER_PROJECTION_ERROR_CODES,
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
 };

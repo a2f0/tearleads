@@ -59,6 +59,8 @@ export function toMutationError(error: unknown): ContainerMutationError | null {
 }
 
 const PREDECESSOR_SUCCESSOR_CONSTRAINT = "container_key_epochs_predecessor_idx";
+const SQLITE_PREDECESSOR_SUCCESSOR_CONSTRAINT =
+  "UNIQUE constraint failed: container_key_epochs.predecessor_container_key_epoch_id";
 
 function hasConstraint(error: unknown, constraint: string): boolean {
   let current = error;
@@ -70,7 +72,10 @@ function hasConstraint(error: unknown, constraint: string): boolean {
       return true;
     }
     const message = Reflect.get(current, "message");
-    if (typeof message === "string" && message.includes(constraint)) {
+    if (
+      constraint === PREDECESSOR_SUCCESSOR_CONSTRAINT &&
+      message === SQLITE_PREDECESSOR_SUCCESSOR_CONSTRAINT
+    ) {
       return true;
     }
     current = Reflect.get(current, "cause");

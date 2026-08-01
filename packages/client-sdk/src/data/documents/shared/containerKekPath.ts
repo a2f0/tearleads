@@ -8,7 +8,6 @@ import {
   normalizeContainerAccessEventBody,
   normalizeContainerKekPredecessorBridge,
   unwrapContainerKekPredecessorBridge,
-  type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
@@ -17,13 +16,13 @@ import {
   readCanonicalJson,
   readCanonicalRecord,
 } from "../../keyingCanonicalJson";
-import {
-  type PrincipalPolicyCache,
-  verifyContainerWriterProjection,
-} from "../../keyingProjectionVerification";
 import { readContainerKeyEpoch } from "../../keyingProjectionVerification/readers";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import {
+  type UnwrapContainerKekPathInput,
+  verifyContainerKekPathProjection,
+} from "./containerKekPathVerification";
 import {
   normalizeContainerKeyWrap,
   readManifestContainerId,
@@ -31,11 +30,7 @@ import {
   readRecordNumber,
   readRecordString,
 } from "./readers";
-import type {
-  ProjectionVerificationOptions,
-  UnwrappedContainerKek,
-} from "./types";
-import { resolveProjectionVerifier } from "./types";
+import type { UnwrappedContainerKek } from "./types";
 
 function projectionKekLabel(index: number): string {
   return `Container writer projection KEK[${index}]`;
@@ -213,7 +208,7 @@ async function unwrapContainerKekAtIndex(input: {
   readonly projection: ContainerWriterProjectionResponse;
   readonly secretKey: Uint8Array;
   readonly verifyBridgeCommitment: boolean;
-}): Promise<{ readonly error: unknown } | null> {
+}): Promise<{ readonly containerId: string; readonly error: unknown } | null> {
   assertProjectionKekMatchesPath(input.projection, input.index);
   const kek = input.projection.containerKeks[input.index];
   const currentManifest = input.projection.path[input.index];
@@ -277,50 +272,25 @@ async function unwrapContainerKekAtIndex(input: {
     // Historical bridge damage must not discard an independently verified
     // current KEK. Keep any predecessors derived before the failure; if the
     // target still cannot be reached, the caller surfaces this integrity error.
-    return { error };
+    return { containerId: kek.containerId, error };
   }
 }
 
-export async function unwrapContainerKekPath(
-  input: {
-    execSql?: ExecSql | undefined;
-    knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
-    principalPolicyCache?: PrincipalPolicyCache | undefined;
-    projection: ContainerWriterProjectionResponse;
-    secretKey: Uint8Array;
-    verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
-  } & ProjectionVerificationOptions,
-): Promise<ReadonlyMap<string, Uint8Array>> {
-  if (input.projection.path.length !== input.projection.containerKeks.length) {
-    throw new Error(
-      "Container writer projection path and KEKs are inconsistent",
-    );
-  }
-  const resolveProjectionUserKey = resolveProjectionVerifier(
-    input,
-    "Container KEK unwrap",
-  );
-  if (
-    input.trustedLocalProjection !== true &&
-    resolveProjectionUserKey !== null
-  ) {
-    // Reuse the caller's verification caches so manifests/policies already
-    // verified by the projection-consistency pass are not re-verified here.
-    await verifyContainerWriterProjection({
-      execSql: input.execSql,
-      principalPolicyCache: input.principalPolicyCache,
-      projection: input.projection,
-      resolveUserKey: resolveProjectionUserKey,
-      verifiedByHash: input.verifiedByHash,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
-  }
+interface UnwrappedContainerKekPathResult {
+  readonly keksByEpochId: ReadonlyMap<string, Uint8Array>;
+  readonly predecessorFailuresByContainerId: ReadonlyMap<string, unknown>;
+}
+
+export async function unwrapContainerKekPathWithHistoryFailures(
+  input: UnwrapContainerKekPathInput,
+): Promise<UnwrappedContainerKekPathResult> {
+  await verifyContainerKekPathProjection(input);
 
   const keksByEpochId = await seedKnownContainerKeks({
     knownContainerKeks: input.knownContainerKeks,
     projection: input.projection,
   });
-  let predecessorFailure: { readonly error: unknown } | null = null;
+  const predecessorFailuresByContainerId = new Map<string, unknown>();
 
   for (
     let index = 0;
@@ -335,7 +305,12 @@ export async function unwrapContainerKekPath(
       secretKey: input.secretKey,
       verifyBridgeCommitment: input.trustedLocalProjection !== true,
     });
-    predecessorFailure ??= currentFailure;
+    if (currentFailure) {
+      predecessorFailuresByContainerId.set(
+        currentFailure.containerId,
+        currentFailure.error,
+      );
+    }
   }
 
   const keyMaterialByEpochId = new Map<string, Uint8Array>();
@@ -344,14 +319,33 @@ export async function unwrapContainerKekPath(
   }
   const targetKek = input.projection.containerKeks.at(-1);
   if (targetKek && !keyMaterialByEpochId.has(targetKek.containerKeyEpochId)) {
-    if (predecessorFailure) {
-      throw predecessorFailure.error;
+    for (
+      let index = input.projection.containerKeks.length - 1;
+      index >= 0;
+      index -= 1
+    ) {
+      const pathKek = input.projection.containerKeks[index];
+      const predecessorFailure = pathKek
+        ? predecessorFailuresByContainerId.get(pathKek.containerId)
+        : undefined;
+      if (predecessorFailure !== undefined) {
+        throw predecessorFailure;
+      }
     }
     throw new Error(
       `${projectionKekLabel(input.projection.containerKeks.length - 1)} could not be unwrapped`,
     );
   }
-  return keyMaterialByEpochId;
+  return {
+    keksByEpochId: keyMaterialByEpochId,
+    predecessorFailuresByContainerId,
+  };
+}
+
+export async function unwrapContainerKekPath(
+  input: UnwrapContainerKekPathInput,
+): Promise<ReadonlyMap<string, Uint8Array>> {
+  return (await unwrapContainerKekPathWithHistoryFailures(input)).keksByEpochId;
 }
 
 async function unwrapPredecessorContainerKeksAtIndex(input: {

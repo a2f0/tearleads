@@ -10,9 +10,20 @@ import {
 import { cachedProjectionValue } from "./context";
 import { containerKeyEpochRecord, stripContainerKeyEpoch } from "./records";
 import {
+  CONTAINER_WRITER_PROJECTION_ERROR_CODES,
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
 } from "./types";
+
+function predecessorHistoryError(
+  message: string,
+): ContainerWriterProjectionError {
+  return new ContainerWriterProjectionError(
+    message,
+    409,
+    CONTAINER_WRITER_PROJECTION_ERROR_CODES.predecessorHistoryUnavailable,
+  );
+}
 
 function bridgeRecord(
   bridge: ReturnType<typeof normalizeContainerKekPredecessorBridge>,
@@ -61,9 +72,8 @@ async function loadPredecessorContainerKeksUncached(input: {
         successor.predecessorBridge,
       );
     } catch {
-      throw new ContainerWriterProjectionError(
+      throw predecessorHistoryError(
         "Container KEK predecessor bridge is invalid",
-        409,
       );
     }
     if (
@@ -71,9 +81,8 @@ async function loadPredecessorContainerKeksUncached(input: {
       bridge.successorContainerKeyEpochId !== successor.id ||
       visitedEpochIds.has(bridge.predecessorContainerKeyEpochId)
     ) {
-      throw new ContainerWriterProjectionError(
+      throw predecessorHistoryError(
         "Container KEK predecessor chain is inconsistent",
-        409,
       );
     }
 
@@ -83,9 +92,8 @@ async function loadPredecessorContainerKeksUncached(input: {
       predecessor.containerId !== currentEpoch.containerId ||
       predecessor.keyEpoch !== successor.keyEpoch - 1
     ) {
-      throw new ContainerWriterProjectionError(
+      throw predecessorHistoryError(
         "Container KEK predecessor chain is incomplete",
-        409,
       );
     }
 
@@ -105,9 +113,8 @@ async function loadPredecessorContainerKeksUncached(input: {
   }
 
   if (successor.keyEpoch !== 1) {
-    throw new ContainerWriterProjectionError(
+    throw predecessorHistoryError(
       "Container KEK predecessor chain does not reach its initial epoch",
-      409,
     );
   }
 

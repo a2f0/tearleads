@@ -184,6 +184,9 @@ export async function createContainerKekPredecessorBridge(input: {
   successorContainerKey: Uint8Array;
   successorContainerKeyEpochId: string;
 }): Promise<ContainerKekPredecessorBridge> {
+  // Move rotations may deliberately wrap the same 32-byte KEK under itself;
+  // AES-GCM supports that key-dependent message in this suite. Revisit this
+  // seam explicitly before substituting a different wrapping primitive.
   if (
     input.predecessorContainerKey.byteLength !== 32 ||
     input.successorContainerKey.byteLength !== 32
