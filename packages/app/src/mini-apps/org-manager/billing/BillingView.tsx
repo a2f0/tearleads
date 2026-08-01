@@ -230,10 +230,12 @@ function BillingSubscribeList({
     (option) => option.seatLimit >= minimumSeatCount,
   );
   if (eligibleOptions.length === 0) {
+    const message =
+      minimumSeatCount > 10
+        ? ORG_MANAGER_LABELS.billingCheckoutOverCapacity
+        : ORG_MANAGER_LABELS.billingNoOptions;
     return (
-      <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.billingNoOptions}
-      </MiniAppStatus>
+      <MiniAppStatus className="org-manager-hint">{message}</MiniAppStatus>
     );
   }
   return (

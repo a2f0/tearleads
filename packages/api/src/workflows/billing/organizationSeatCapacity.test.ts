@@ -42,7 +42,7 @@ test("a Stripe subscription selects and clamps canonical tiers", () => {
   expect(requiredLicensedSeatCount(stripe, 11, 12)).toBe(10);
 });
 
-test("a retained Stripe binding wins over a promotional native product", () => {
+test("a Stripe binding wins over a promotional native-looking product", () => {
   const promotional = billing({
     hasStripeSubscription: true,
     productId: "sync_solo_monthly",

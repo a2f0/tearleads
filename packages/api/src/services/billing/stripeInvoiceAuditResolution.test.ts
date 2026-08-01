@@ -163,6 +163,34 @@ test("a rotated fixed Price keeps capacity from its historical economics", async
   });
 });
 
+test("historical invoice economics override a remapped configured Price", async () => {
+  const audit = await resolveStripeInvoiceAuditInput({
+    binding: { ...BINDING, priceId: "price_remapped", seatQuantity: 1 },
+    invoice: parseInvoice(
+      invoiceBody({
+        hasMore: false,
+        quantity: 1,
+        price: {
+          currency: "usd",
+          id: "price_remapped",
+          recurring: { interval: "month", interval_count: 1 },
+          unit_amount: 1_000,
+        },
+      }),
+    ),
+    organizationId: "org-1",
+    stripeDeps: {
+      env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_remapped" },
+    },
+  });
+
+  expect(audit).toMatchObject({
+    priceId: "price_remapped",
+    seatCount: 5,
+    unitAmount: 1_000,
+  });
+});
+
 test("legacy quantity does not masquerade as fixed-tier economics", async () => {
   const audit = await resolveStripeInvoiceAuditInput({
     binding: { ...BINDING, priceId: "price_legacy", seatQuantity: 3 },

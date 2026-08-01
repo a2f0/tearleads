@@ -110,7 +110,8 @@ never discarded after payment if the roster changed between option display and
 the store callback: the purchased tier is activated, the mismatch is logged,
 seat reconciliation is deferred, and later roster growth remains blocked until
 the admin upgrades or reduces the roster. An oversized Stripe grant is claimed,
-ignored, and logged for operator repair instead of returning an unbounded 503.
+applied without seat reconciliation, and logged for operator repair instead of
+returning an unbounded 503.
 
 - The server value comes from `.secrets/root.env` and is rendered into the API
   server's systemd `EnvironmentFile` by the ansible playbook

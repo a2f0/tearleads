@@ -1,10 +1,12 @@
+import type { BillingErrorCode } from "@tearleads/validators/billing";
+
 type OrganizationManagerErrorStatus = 400 | 403 | 404 | 409;
 
 export class OrganizationManagerError extends Error {
   constructor(
     message: string,
     readonly status: OrganizationManagerErrorStatus,
-    readonly code?: string,
+    readonly code?: BillingErrorCode,
   ) {
     super(message);
   }

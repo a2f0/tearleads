@@ -4,6 +4,9 @@ export const BILLING_ERROR_CODES = {
   rosterOverCapacity: "billing_roster_over_capacity",
 } as const;
 
+export type BillingErrorCode =
+  (typeof BILLING_ERROR_CODES)[keyof typeof BILLING_ERROR_CODES];
+
 /** Canonical fixed-cap subscription tiers shared by every billing provider. */
 export const SYNC_BILLING_TIERS = [
   {

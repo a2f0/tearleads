@@ -82,6 +82,7 @@ async function loadBillingSeatState(input: {
       hasStripeSubscription: organizationBillingStripeSeats.subscriptionId,
       hasStripeSubscriptionItem:
         organizationBillingStripeSeats.subscriptionItemId,
+      stripePriceId: organizationBillingStripeSeats.priceId,
       organizationId: organizationBilling.organizationId,
       memberGroupId: organizations.memberGroupId,
       status: organizationBilling.status,
@@ -116,8 +117,9 @@ async function loadBillingSeatState(input: {
     ? {
         ...row,
         hasStripeSubscription:
-          row.hasStripeSubscription !== null ||
-          row.hasStripeSubscriptionItem !== null,
+          row.stripePriceId !== null &&
+          (row.hasStripeSubscription !== null ||
+            row.hasStripeSubscriptionItem !== null),
       }
     : null;
 }

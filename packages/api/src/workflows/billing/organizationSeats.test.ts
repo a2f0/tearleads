@@ -336,6 +336,12 @@ test("an over-capacity native roster can stay level and shrink", async () => {
       seatCount: 1,
     })
     .where(eq(organizationBilling.organizationId, organizationId));
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: null,
+    subscriptionId: `sub_quarantined_${organizationId}`,
+    subscriptionItemId: `si_quarantined_${organizationId}`,
+  });
   await insertMemberGroupState({
     groupId: memberGroupId,
     signerUserId: userA,
