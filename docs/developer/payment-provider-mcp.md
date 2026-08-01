@@ -98,7 +98,12 @@ Official references:
 - RevenueCat may omit production `strp_…` and `rcb_…` public keys while the
   connected Stripe account is not activated for live charges. Re-list the app
   public API keys after Stripe activation instead of copying sandbox keys into
-  production.
+  production. If they remain absent, re-saving the app's Stripe account ID
+  through API v2 is not a substitute for reconnecting: the RevenueCat project
+  owner must complete the live Stripe OAuth connection in the dashboard and
+  select it on each production web config. The MCP and public API do not expose
+  that owner-only flow; follow RevenueCat's
+  [Stripe connection guide](https://www.revenuecat.com/docs/web/connect-stripe-account).
 
 ## CLI and API fallbacks
 
