@@ -72,7 +72,7 @@ export function getSyncBillingTierForNativeProduct(
   if (!productId) {
     return null;
   }
-  const normalized = productId.toLowerCase().split(":", 1)[0] ?? "";
+  const normalized = productId.split(":", 1)[0] ?? "";
   if (
     normalized === "sync_monthly" ||
     normalized === "sync_monthly_staging" ||

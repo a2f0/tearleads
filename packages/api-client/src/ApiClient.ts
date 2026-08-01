@@ -866,7 +866,7 @@ export class ApiClient {
       "GET",
     );
   }
-
+  /** Empty options means unconfigured; 403/409 remain errors. */
   getStripeCheckoutOptions(
     organizationId: string,
     options: RequestResultOptions = {},

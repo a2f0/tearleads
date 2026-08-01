@@ -288,7 +288,7 @@ test("options map a Stripe API failure to 502", async () => {
   }
 });
 
-test("options reject an already-active organization before configuration", async () => {
+test("unconfigured options skip active-state eligibility", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   await db
@@ -301,7 +301,8 @@ test("options reject an already-active organization before configuration", async
     { headers: authHeader(admin) },
   );
 
-  expect(response.status).toBe(409);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ options: [] });
 });
 
 test("options reject an organization above the largest tier", async () => {
@@ -310,18 +311,33 @@ test("options reject an organization above the largest tier", async () => {
   for (let index = 0; index < 10; index += 1) {
     await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
   }
-
-  const response = await routeApp.request(
-    `/organizations/${organizationId}/billing/stripe/options`,
-    { headers: authHeader(admin) },
-  );
-
-  expect(response.status).toBe(409);
-  expect(await response.json()).toEqual({
-    code: "billing_roster_over_capacity",
-    error:
-      "The organization exceeds the maximum subscription tier of 10 members",
+  Object.assign(process.env, {
+    REVENUECAT_PROJECT_ID: "proj_test",
+    REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_test",
+    REVENUECAT_V2_SECRET_KEY: "sk_rc_test",
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_SOLO_PRICE_ID: "price_solo",
+    STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
+    STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
+    STRIPE_WEBHOOK_SECRET: "whsec_test",
   });
+  try {
+    const response = await routeApp.request(
+      `/organizations/${organizationId}/billing/stripe/options`,
+      { headers: authHeader(admin) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: "billing_roster_over_capacity",
+      error:
+        "The organization exceeds the maximum subscription tier of 10 members",
+    });
+  } finally {
+    for (const key of ISOLATED_ENV_KEYS) {
+      delete process.env[key];
+    }
+  }
 });
 
 test("options reject a caller outside the organization", async () => {

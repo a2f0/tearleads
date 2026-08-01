@@ -85,13 +85,24 @@ export async function getOrganizationBillingManagementUrl(
   const nativeTier = hasProviderSubscription
     ? getSyncBillingTierForNativeProduct(providerProductId)
     : null;
+  // A retained Stripe binding wins over a promotional/native-looking product:
+  // the org may still be billed by Stripe and must keep its direct cancel path.
+  const hasLiveStripeIdentity = hasStripeSubscription || stripeTier !== null;
   const canCancelDirectly =
-    status === "active" && (stripeTier !== null || hasStripeSubscription);
+    hasLiveStripeIdentity &&
+    (status === "active" || status === "past_due" || status === "trialing");
   if (canCancelDirectly) {
     return {
       canCancelDirectly: true,
       managementUrl: null,
       subscriptionSource: "stripe",
+    };
+  }
+  if (hasLiveStripeIdentity) {
+    return {
+      canCancelDirectly: false,
+      managementUrl: null,
+      subscriptionSource: null,
     };
   }
   const subscriptionSource = nativeTier ? "native" : null;

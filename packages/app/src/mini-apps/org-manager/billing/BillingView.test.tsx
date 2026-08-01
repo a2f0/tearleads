@@ -10,6 +10,7 @@ import {
   getOrgManagerTrialEndsLabel,
   ORG_MANAGER_LABELS,
 } from "../labels";
+import { allowsNativePurchase } from "./BillingPanel";
 import { BillingView, type BillingViewProps } from "./BillingView";
 
 afterEach(() => cleanup());
@@ -480,4 +481,16 @@ test("native purchases get no checkout host and no detach cancellation", () => {
 
   view.rerender(<BillingView {...props({ ...shared, isOrgAdmin: false })} />);
   expect(cancelled).toBe(0);
+});
+
+test("past-due Stripe billing cannot be replaced by a native purchase", () => {
+  const shared = { isPersonalOrganization: true } as const;
+  expect(
+    allowsNativePurchase({
+      ...shared,
+      isActive: false,
+      status: "past_due",
+      subscriptionSource: "stripe",
+    }),
+  ).toBe(false);
 });

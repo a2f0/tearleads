@@ -127,18 +127,17 @@ function createStripeInvoiceAuditInput(input: {
     return totalOnlySnapshot;
   }
   const hasCompleteTierEconomics =
+    line.quantity === 1 &&
+    line.currency === "usd" &&
+    line.interval === "month" &&
+    line.intervalCount === 1 &&
     line.currency !== null &&
     line.interval !== null &&
     line.intervalCount !== null &&
     line.unitAmount !== null;
   const economicsTier = hasCompleteTierEconomics
     ? (SYNC_BILLING_TIERS.find(
-        (tier) =>
-          line.quantity === 1 &&
-          line.currency === "usd" &&
-          line.interval === "month" &&
-          line.intervalCount === 1 &&
-          line.unitAmount === tier.monthlyPriceUsdCents,
+        (tier) => line.unitAmount === tier.monthlyPriceUsdCents,
       ) ?? null)
     : null;
   const resolvedTier =

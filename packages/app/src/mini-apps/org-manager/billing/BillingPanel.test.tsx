@@ -69,7 +69,7 @@ function stubEnvironment(
           Promise.resolve({
             canCancelDirectly:
               overrides.canCancelDirectly ??
-              overrides.managementUrl === undefined,
+              (isActive && overrides.managementUrl === undefined),
             managementUrl: overrides.managementUrl ?? null,
             subscriptionSource:
               overrides.subscriptionSource ??

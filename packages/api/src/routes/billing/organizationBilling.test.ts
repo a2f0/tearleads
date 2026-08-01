@@ -164,10 +164,28 @@ test("management identifies Stripe and native subscription ownership", async () 
 
   await db
     .update(organizationBilling)
+    .set({ status: "past_due" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(
+    await getOrganizationBillingManagementUrl(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+      { stripe: { env: { STRIPE_SYNC_SOLO_PRICE_ID: "price_solo_test" } } },
+    ),
+  ).toEqual({
+    canCancelDirectly: true,
+    managementUrl: null,
+    subscriptionSource: "stripe",
+  });
+
+  await db
+    .update(organizationBilling)
     .set({
       providerCustomerId: admin.userId,
       providerProductId: "sync_team_5_monthly",
       providerSubscriptionId: "native-sub-1",
+      status: "active",
     })
     .where(eq(organizationBilling.organizationId, organizationId));
   const revenueCat = {

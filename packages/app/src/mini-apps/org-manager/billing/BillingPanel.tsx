@@ -12,6 +12,20 @@ import { useCancelSubscription } from "./useCancelSubscription";
 import { useDirectCheckoutFlow } from "./useDirectCheckout";
 import { useOpenSubscriptionManagement } from "./useOpenSubscriptionManagement";
 
+export function allowsNativePurchase(input: {
+  readonly isActive: boolean;
+  readonly isPersonalOrganization: boolean | null;
+  readonly status: OrganizationBillingView["status"];
+  readonly subscriptionSource: "native" | "stripe" | null;
+}): boolean {
+  return (
+    input.isPersonalOrganization === true &&
+    input.status !== "past_due" &&
+    input.subscriptionSource !== "stripe" &&
+    (!input.isActive || input.subscriptionSource === "native")
+  );
+}
+
 /**
  * Container for the org-manager billing view: wires the billing snapshot
  * ({@link useOrganizationBilling}), the purchase orchestration
@@ -39,8 +53,9 @@ function useDirectCheckoutWiring(input: {
   // Gate on `isActive`, NOT `canSync`. `canSync` folds in trialing, which would
   // hide the checkout for the whole trial; a trialing org has no subscription
   // yet (the trial is a local status, no Stripe sub) and its admin may want to
-  // commit before the trial ends. So this offers the checkout in every state
-  // where a paid subscription can start (local, trialing, lapsed).
+  // commit before the trial ends. So this offers the checkout in states where
+  // a paid subscription can start (local, trialing, fully lapsed). `past_due`
+  // is excluded because the existing Stripe subscription may still bill.
   //
   // This is close to, but not exactly, the server's checkout gate: the server
   // refuses only a raw stored `status === "active"`, while `isActive` here also
@@ -54,7 +69,11 @@ function useDirectCheckoutWiring(input: {
   // lands, the org becomes active) the hook tears the element down rather than
   // having its host yanked out from under a live session.
   const checkoutEnabled = Boolean(
-    input.isOrgAdmin && view !== null && !view.isActive,
+    input.isOrgAdmin &&
+      view !== null &&
+      !view.isActive &&
+      view.status !== "past_due" &&
+      input.management.subscriptionSource !== "stripe",
   );
   const checkout = useDirectCheckoutFlow({
     // Deliberately NOT `actions.canSubscribe`: that folds in
@@ -76,12 +95,11 @@ function useDirectCheckoutWiring(input: {
     checkout.phase.kind === "confirming" ||
     checkout.phase.kind === "starting";
   // Offer inline cancel only when the server recognizes the immutable Stripe
-  // Price. `isActive`, not `canSync`, excludes a local free trial; a native
-  // subscription instead exposes its store management URL.
+  // Price or live binding. This intentionally includes past-due Stripe plans:
+  // they can still bill and are exactly the state where an admin needs a
+  // direct cancellation path. Native subscriptions use their store URL.
   const showInlineCancel =
-    input.isOrgAdmin &&
-    (view?.isActive ?? false) &&
-    input.management.canCancelDirectly;
+    input.isOrgAdmin && input.management.canCancelDirectly;
   return {
     cancel,
     checkout,
@@ -193,9 +211,13 @@ export function BillingPanel({
     billing.billing,
   );
   const nativePurchaseAllowed =
-    isPersonalOrganization === true &&
-    (!(billing.view?.isActive ?? false) ||
-      management.subscriptionSource === "native");
+    billing.view !== null &&
+    allowsNativePurchase({
+      isActive: billing.view.isActive,
+      isPersonalOrganization,
+      status: billing.view.status,
+      subscriptionSource: management.subscriptionSource,
+    });
   // Where the Web Billing checkout embeds so a purchase runs inside the panel
   // (the view keeps the div mounted; the hook reads it at purchase time).
   const checkoutHostRef = useRef<HTMLDivElement | null>(null);

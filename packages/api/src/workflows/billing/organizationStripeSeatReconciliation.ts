@@ -28,10 +28,7 @@ export async function reconcileOrganizationStripeSeatState(input: {
       input.licensedSeatCount,
       input.activeSeatCount,
     ),
-    desiredRenewalQuantity:
-      input.hasStripeSubscription && renewalTier
-        ? renewalTier.seatLimit
-        : input.activeSeatCount,
+    desiredRenewalQuantity: renewalTier?.seatLimit ?? input.activeSeatCount,
     desiredSeatPeriodKey: input.seatPeriodKey,
     executor: input.executor,
     now: input.now,

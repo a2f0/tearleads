@@ -44,7 +44,7 @@ test("native product ids map exact production, staging, and Play base plans", ()
     ["sync_monthly", "solo"],
     ["sync_monthly_staging", "solo"],
     ["com.tearleads.sync.monthly", "solo"],
-    ["SYNC_SOLO_MONTHLY", "solo"],
+    ["sync_solo_monthly", "solo"],
     ["sync_solo_monthly_staging", "solo"],
     ["sync_team_5_monthly:monthly", "team_5"],
     ["sync_team_5_monthly_staging:monthly", "team_5"],
@@ -63,6 +63,7 @@ test("native product matching rejects unknown suffixes and malformed ids", () =>
     "sync_team_5_monthly_anything",
     "sync_team_10_monthly_staging_extra",
     "sync_team_10_monthly_extra:monthly",
+    "SYNC_SOLO_MONTHLY",
     "",
   ]) {
     expect(getSyncBillingTierForNativeProduct(productId)).toBeNull();

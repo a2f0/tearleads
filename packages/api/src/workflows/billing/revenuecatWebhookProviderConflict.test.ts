@@ -5,36 +5,44 @@ import {
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
-test("a native grant cannot replace a live Stripe subscription", async () => {
-  const admin = createTestUser();
-  const organizationId = await registerAndAuthenticate(admin);
-  await db
-    .update(organizationBilling)
-    .set({
-      providerCustomerId: admin.userId,
-      providerProductId: "price_team_5",
-      providerSubscriptionId: "si_live_native_race",
-      status: "active",
-    })
-    .where(eq(organizationBilling.organizationId, organizationId));
-  await db
-    .delete(organizationBillingStripeSeats)
-    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
-  await db.insert(organizationBillingStripeSeats).values({
-    organizationId,
-    priceId: "price_team_5",
-    subscriptionId: "sub_live_native_race",
-    subscriptionItemId: "si_live_native_race",
-  });
-  const eventId = crypto.randomUUID();
-  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+const STRIPE_CONFLICT_REASON =
+  "A live Stripe subscription must lapse before a native purchase can be applied";
 
-  try {
-    const outcome = await runRevenueCatWebhookWorkflow(db, {
+for (const conflict of [
+  { name: "active", status: "active", subscriptionId: "sub_live" },
+  { name: "past-due", status: "past_due", subscriptionId: "sub_past_due" },
+  { name: "trialing", status: "trialing", subscriptionId: "sub_trialing" },
+  { name: "item-only", status: "active", subscriptionId: null },
+] as const) {
+  test(`a native grant retries for a ${conflict.name} Stripe binding`, async () => {
+    const admin = createTestUser();
+    const organizationId = await registerAndAuthenticate(admin);
+    const subscriptionItemId = `si_${conflict.name.replace("-", "_")}`;
+    await db
+      .update(organizationBilling)
+      .set({
+        providerCustomerId: admin.userId,
+        providerProductId: "price_team_5",
+        providerSubscriptionId: subscriptionItemId,
+        status: conflict.status,
+      })
+      .where(eq(organizationBilling.organizationId, organizationId));
+    await db
+      .delete(organizationBillingStripeSeats)
+      .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+    await db.insert(organizationBillingStripeSeats).values({
+      organizationId,
+      priceId: "price_team_5",
+      subscriptionId: conflict.subscriptionId,
+      subscriptionItemId,
+    });
+    const eventId = crypto.randomUUID();
+    const event: RevenueCatWebhookEvent = {
       app_user_id: admin.userId,
       entitlement_ids: ["sync"],
       event_timestamp_ms: Date.now(),
@@ -45,37 +53,46 @@ test("a native grant cannot replace a live Stripe subscription", async () => {
       store: "APP_STORE",
       subscriber_attributes: { orgId: { value: organizationId } },
       type: "INITIAL_PURCHASE",
+    };
+
+    const outcome = await runRevenueCatWebhookWorkflow(db, {
+      ...event,
     });
 
     expect(outcome).toEqual({
-      status: "ignored",
-      reason:
-        "A live Stripe subscription must lapse before a native purchase can be applied",
+      status: "retry",
+      reason: STRIPE_CONFLICT_REASON,
     });
-    expect(errorSpy).toHaveBeenCalledWith(
-      `RevenueCat paid grant ${eventId} was not applied: A live Stripe subscription must lapse before a native purchase can be applied`,
-    );
-  } finally {
-    errorSpy.mockRestore();
-  }
+    const [billing] = await db
+      .select({
+        providerProductId: organizationBilling.providerProductId,
+        status: organizationBilling.status,
+      })
+      .from(organizationBilling)
+      .where(eq(organizationBilling.organizationId, organizationId));
+    expect(billing).toEqual({
+      providerProductId: "price_team_5",
+      status: conflict.status,
+    });
 
-  const [billing] = await db
-    .select({
-      providerProductId: organizationBilling.providerProductId,
-      status: organizationBilling.status,
-    })
-    .from(organizationBilling)
-    .where(eq(organizationBilling.organizationId, organizationId));
-  expect(billing).toEqual({
-    providerProductId: "price_team_5",
-    status: "active",
+    if (conflict.name === "active") {
+      await db
+        .update(organizationBilling)
+        .set({ status: "disabled" })
+        .where(eq(organizationBilling.organizationId, organizationId));
+      await db
+        .delete(organizationBillingStripeSeats)
+        .where(
+          eq(organizationBillingStripeSeats.organizationId, organizationId),
+        );
+      expect(await runRevenueCatWebhookWorkflow(db, event)).toEqual({
+        status: "applied",
+        organizationId,
+        billingStatus: "active",
+      });
+    }
   });
-  const [binding] = await db
-    .select({ subscriptionId: organizationBillingStripeSeats.subscriptionId })
-    .from(organizationBillingStripeSeats)
-    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
-  expect(binding?.subscriptionId).toBe("sub_live_native_race");
-});
+}
 
 test("a product-less lifecycle grant cannot invent an unbound tier", async () => {
   const admin = createTestUser();

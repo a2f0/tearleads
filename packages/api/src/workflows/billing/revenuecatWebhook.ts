@@ -14,7 +14,6 @@ import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
   BOUND_REVENUECAT_TIER_REQUIRED_REASON,
   classifyRevenueCatEvent,
-  isRevenueCatGrantEventType,
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
   SANDBOX_IGNORED_REASON,
@@ -37,6 +36,7 @@ import {
   resolveImmutableStripeStoreOrganizationId,
   validateLockedStripeStoreOrganizationId,
 } from "./revenuecatStripeResolution";
+import { logUnappliedRevenueCatGrant } from "./revenuecatWebhookLogging";
 
 /**
  * Disposition of a processed RevenueCat webhook event:
@@ -216,6 +216,12 @@ async function resolvePreclaimDisposition(input: {
           store: input.event.store,
         })
       : null;
+  if (nativeStripeConflict) {
+    // Do not claim a paid native grant while Stripe may still bill. RevenueCat
+    // can redeliver the same event after the Stripe subscription lapses, at
+    // which point the native entitlement applies without charging twice.
+    return { kind: "retry", reason: nativeStripeConflict };
+  }
   const capacity = input.organizationId
     ? await resolveRevenueCatGrantCapacity({
         event: input.event,
@@ -224,9 +230,8 @@ async function resolvePreclaimDisposition(input: {
         transition,
       })
     : { kind: "within_capacity" as const };
-  const ignoredReason = nativeStripeConflict
-    ? nativeStripeConflict
-    : capacity.kind === "ignore"
+  const ignoredReason =
+    capacity.kind === "ignore"
       ? capacity.reason
       : await resolveIgnoredReason(
           input.executor,
@@ -478,22 +483,6 @@ export async function runRevenueCatWebhookWorkflow(
       transition,
     }),
   );
-  logUnappliedPaidGrant(event, outcome);
+  logUnappliedRevenueCatGrant(event, outcome);
   return outcome;
-}
-
-function logUnappliedPaidGrant(
-  event: RevenueCatWebhookEvent,
-  outcome: RevenueCatWebhookOutcome,
-): void {
-  if (
-    outcome.status !== "ignored" ||
-    !isRevenueCatGrantEventType(event.type) ||
-    outcome.reason === SANDBOX_IGNORED_REASON
-  ) {
-    return;
-  }
-  console.error(
-    `RevenueCat paid grant ${event.id} was not applied: ${outcome.reason}`,
-  );
 }

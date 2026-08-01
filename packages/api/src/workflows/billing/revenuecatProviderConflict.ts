@@ -9,7 +9,7 @@ import { isNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 const NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON =
   "A live Stripe subscription must lapse before a native purchase can be applied";
 
-/** Refuses a device-store grant while an existing Stripe sub may still bill. */
+/** Defers a device-store grant while an existing Stripe sub may still bill. */
 export async function resolveNativeStripeConflictReason(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;

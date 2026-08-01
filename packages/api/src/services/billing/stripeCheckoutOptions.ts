@@ -2,7 +2,10 @@ import {
   getStripeSyncOption,
   type StripeSyncOption,
 } from "../../billing/stripeApi";
-import { runRequireCheckoutEligibleWorkflow } from "../../workflows/billing/stripeCheckout";
+import {
+  runRequireCheckoutEligibleWorkflow,
+  runResolveOrgSubscriptionForAdminWorkflow,
+} from "../../workflows/billing/stripeCheckout";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   isDirectCheckoutFullyConfigured,
@@ -16,7 +19,9 @@ export async function getStripeCheckoutOptions(
   sessionUserId: string,
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<{ options: StripeSyncOption[] }> {
-  const { tierId } = await runRequireCheckoutEligibleWorkflow(
+  // Preserve the admin boundary even when checkout is disabled, but avoid the
+  // signed-roster traversal until there is a provider flow to offer.
+  await runResolveOrgSubscriptionForAdminWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
@@ -24,6 +29,11 @@ export async function getStripeCheckoutOptions(
   if (!isDirectCheckoutFullyConfigured(deps)) {
     return { options: [] };
   }
+  const { tierId } = await runRequireCheckoutEligibleWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+  );
   const option = await getStripeSyncOption(tierId, deps.stripe ?? {});
   return { options: option ? [option] : [] };
 }
