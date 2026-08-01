@@ -27,6 +27,7 @@ import {
   type ContainerAccessPath,
   type ContainerAccessProjection,
   type ContainerAccessProjectionResult,
+  type ContainerKekHistoryObservation,
   type ContainerKekProjection,
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
@@ -35,6 +36,7 @@ import {
 export type {
   ContainerAccessProjection,
   ContainerAccessProjectionResult,
+  ContainerKekHistoryObservation,
   ContainerWriterProjectionContext,
 };
 export {

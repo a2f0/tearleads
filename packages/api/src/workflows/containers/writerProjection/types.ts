@@ -45,6 +45,24 @@ export type ContainerAccessProjectionResult =
       readonly status: "rejected";
     };
 
+export type ContainerKekHistoryDegradationReason =
+  | "inconsistent_bridge"
+  | "malformed_bridge"
+  | "missing_bridge"
+  | "missing_or_nonconsecutive_predecessor";
+
+export interface ContainerKekHistoryObservation {
+  readonly containerId: string;
+  readonly currentContainerKeyEpochId: string;
+  readonly degradationReason: ContainerKekHistoryDegradationReason | null;
+  readonly predecessorCount: number;
+  readonly storedEpochCount: number;
+}
+
+export type ContainerKekHistoryObserver = (
+  observation: ContainerKekHistoryObservation,
+) => void;
+
 export interface ContainerWriterProjectionContext {
   readonly containerKekStateByCacheKey: Map<
     string,
@@ -60,6 +78,7 @@ export interface ContainerWriterProjectionContext {
     string,
     Promise<AccessManifestBundleWireResponse>
   >;
+  readonly observeContainerKekHistory: ContainerKekHistoryObserver;
   readonly predecessorContainerKeksByEpochId: Map<
     string,
     Promise<PredecessorContainerKekResponse[]>

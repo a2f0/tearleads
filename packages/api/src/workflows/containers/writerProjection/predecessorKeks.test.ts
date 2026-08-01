@@ -6,7 +6,10 @@ import {
   computeContainerKekMaterialId,
   createContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
-import { createContainerWriterProjectionContext } from "../writerProjection";
+import {
+  type ContainerKekHistoryObservation,
+  createContainerWriterProjectionContext,
+} from "../writerProjection";
 import { loadPredecessorContainerKeks } from "./predecessorKeks";
 
 interface EpochFixture {
@@ -73,13 +76,52 @@ test("predecessor projection stops before a malformed stored bridge", async () =
   const predecessorBridge = await bridge(predecessor, successor);
   await insertEpoch(predecessor, null);
   await insertEpoch(successor, { ...predecessorBridge, iv: "not-base64" });
+  const observations: ContainerKekHistoryObservation[] = [];
 
   await expect(
     loadPredecessorContainerKeks({
       containerKeyEpochId: successor.id,
-      context: createContainerWriterProjectionContext(db),
+      context: createContainerWriterProjectionContext(db, {
+        observeContainerKekHistory: (observation) =>
+          observations.push(observation),
+      }),
     }),
   ).resolves.toEqual([]);
+  expect(observations).toEqual([
+    expect.objectContaining({
+      degradationReason: "malformed_bridge",
+      predecessorCount: 0,
+      storedEpochCount: 2,
+    }),
+  ]);
+});
+
+test("predecessor projection observes healthy chain length", async () => {
+  const containerId = crypto.randomUUID();
+  const predecessor = await epochFixture(containerId, 1);
+  const successor = await epochFixture(containerId, 2);
+  await insertEpoch(predecessor, null);
+  await insertEpoch(successor, await bridge(predecessor, successor));
+  const observations: ContainerKekHistoryObservation[] = [];
+
+  await expect(
+    loadPredecessorContainerKeks({
+      containerKeyEpochId: successor.id,
+      context: createContainerWriterProjectionContext(db, {
+        observeContainerKekHistory: (observation) =>
+          observations.push(observation),
+      }),
+    }),
+  ).resolves.toEqual([
+    expect.objectContaining({ containerKeyEpochId: predecessor.id }),
+  ]);
+  expect(observations).toEqual([
+    expect.objectContaining({
+      degradationReason: null,
+      predecessorCount: 1,
+      storedEpochCount: 2,
+    }),
+  ]);
 });
 
 test("predecessor projection returns the prefix before a cycle", async () => {
@@ -119,13 +161,24 @@ test("predecessor projection returns the maximal prefix before a missing bridge"
   const third = await epochFixture(containerId, 3);
   await insertEpoch(second, null);
   await insertEpoch(third, await bridge(second, third));
+  const observations: ContainerKekHistoryObservation[] = [];
 
   await expect(
     loadPredecessorContainerKeks({
       containerKeyEpochId: third.id,
-      context: createContainerWriterProjectionContext(db),
+      context: createContainerWriterProjectionContext(db, {
+        observeContainerKekHistory: (observation) =>
+          observations.push(observation),
+      }),
     }),
   ).resolves.toEqual([
     expect.objectContaining({ containerKeyEpochId: second.id }),
+  ]);
+  expect(observations).toEqual([
+    expect.objectContaining({
+      degradationReason: "missing_bridge",
+      predecessorCount: 1,
+      storedEpochCount: 2,
+    }),
   ]);
 });

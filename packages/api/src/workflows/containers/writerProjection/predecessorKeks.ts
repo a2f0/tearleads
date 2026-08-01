@@ -10,6 +10,7 @@ import {
 import { cachedProjectionValue } from "./context";
 import { containerKeyEpochRecord, stripContainerKeyEpoch } from "./records";
 import {
+  type ContainerKekHistoryDegradationReason,
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
 } from "./types";
@@ -26,6 +27,28 @@ function bridgeRecord(
     iv: bridge.iv,
     wrappedKey: bridge.wrappedKey,
   };
+}
+
+function finishPredecessorLoad(input: {
+  readonly containerId: string;
+  readonly context: ContainerWriterProjectionContext;
+  readonly currentContainerKeyEpochId: string;
+  readonly degradationReason: ContainerKekHistoryDegradationReason | null;
+  readonly predecessors: PredecessorContainerKekResponse[];
+  readonly storedEpochCount: number;
+}): PredecessorContainerKekResponse[] {
+  try {
+    input.context.observeContainerKekHistory({
+      containerId: input.containerId,
+      currentContainerKeyEpochId: input.currentContainerKeyEpochId,
+      degradationReason: input.degradationReason,
+      predecessorCount: input.predecessors.length,
+      storedEpochCount: input.storedEpochCount,
+    });
+  } catch (error) {
+    console.error("Failed to observe container KEK predecessor history", error);
+  }
+  return input.predecessors;
 }
 
 /**
@@ -61,14 +84,28 @@ async function loadPredecessorContainerKeksUncached(input: {
         successor.predecessorBridge,
       );
     } catch {
-      return predecessors;
+      return finishPredecessorLoad({
+        containerId: currentEpoch.containerId,
+        context: input.context,
+        currentContainerKeyEpochId: currentEpoch.id,
+        degradationReason: "malformed_bridge",
+        predecessors,
+        storedEpochCount: epochs.length,
+      });
     }
     if (
       bridge.containerId !== currentEpoch.containerId ||
       bridge.successorContainerKeyEpochId !== successor.id ||
       visitedEpochIds.has(bridge.predecessorContainerKeyEpochId)
     ) {
-      return predecessors;
+      return finishPredecessorLoad({
+        containerId: currentEpoch.containerId,
+        context: input.context,
+        currentContainerKeyEpochId: currentEpoch.id,
+        degradationReason: "inconsistent_bridge",
+        predecessors,
+        storedEpochCount: epochs.length,
+      });
     }
 
     const predecessor = epochsById.get(bridge.predecessorContainerKeyEpochId);
@@ -77,7 +114,14 @@ async function loadPredecessorContainerKeksUncached(input: {
       predecessor.containerId !== currentEpoch.containerId ||
       predecessor.keyEpoch !== successor.keyEpoch - 1
     ) {
-      return predecessors;
+      return finishPredecessorLoad({
+        containerId: currentEpoch.containerId,
+        context: input.context,
+        currentContainerKeyEpochId: currentEpoch.id,
+        degradationReason: "missing_or_nonconsecutive_predecessor",
+        predecessors,
+        storedEpochCount: epochs.length,
+      });
     }
 
     const keyEpoch = stripContainerKeyEpoch(predecessor);
@@ -95,7 +139,14 @@ async function loadPredecessorContainerKeksUncached(input: {
     successor = predecessor;
   }
 
-  return predecessors;
+  return finishPredecessorLoad({
+    containerId: currentEpoch.containerId,
+    context: input.context,
+    currentContainerKeyEpochId: currentEpoch.id,
+    degradationReason: successor.keyEpoch === 1 ? null : "missing_bridge",
+    predecessors,
+    storedEpochCount: epochs.length,
+  });
 }
 
 export function loadPredecessorContainerKeks(input: {
