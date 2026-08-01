@@ -22,6 +22,10 @@ before shipping a change to native database or identity lifecycle behavior.
   second identity tore down the first identity's SQLite worker and could not
   construct a new one on a WebView; the app now reuses one dedicated worker
   across switches — see `AppHostConfig.reuseDatabaseWorker`).
+- `subscription-review-screenshots.yaml` — registers or logs in a persistent
+  simulator identity against the staging API, opens the real native Billing
+  surface, verifies the three RevenueCat/StoreKit tiers and prices, and captures
+  one App Store review screenshot per tier.
 
 ## Prerequisites
 
@@ -45,6 +49,40 @@ xcrun simctl install booted build/Build/Products/Debug-iphonesimulator/App.app
 maestro --platform ios test maestro/offline-second-identity.yaml
 maestro --platform ios test maestro/first-identity-offline.yaml
 ```
+
+### App Store subscription review screenshots
+
+Run the repository wrapper from any directory:
+
+```sh
+./scripts/takeSubscriptionReviewScreenshots.sh
+```
+
+It builds and installs the production-id Capacitor shell on an available
+`iPhone 16` simulator, points account registration at the staging API, runs the
+dedicated Maestro flow, and writes these gitignored 1179x2556, non-alpha PNGs:
+
+```text
+.screenshots/app-store-review/subscription-solo.png
+.screenshots/app-store-review/subscription-team-5.png
+.screenshots/app-store-review/subscription-team-10.png
+```
+
+The three products share one catalog screen, so the runner captures that
+review-ready screen once for each subscription record. Maestro verifies every
+product title and price first; the runner uses `simctl` for the final files
+because its framebuffer capture preserves Apple's exact accepted dimensions.
+
+The flow deliberately preserves app state. Its first run creates one screenshot
+identity; later runs log in or reuse that identity instead of creating another.
+Set `IOS_SCREENSHOT_DEVICE_UDID` to target a specific iPhone 16 simulator, or
+`SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR` to change the output directory. Override
+`VITE_API_BASE_URL` only when a different non-production API is intentional.
+
+These are native review screenshots, not App Store product-page marketing
+screenshots. Do not substitute the resized-browser output from
+`scripts/takeScreenshots.sh`: the web shell follows the Stripe purchase path,
+while App Review needs evidence of the native App Store subscription surface.
 
 ## Android (emulator)
 
