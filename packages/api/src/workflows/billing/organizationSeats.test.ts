@@ -164,7 +164,7 @@ test("seat accounting reuses released seats and only increases concurrent capaci
     organizationId,
     source: { sourceId: "state-3", sourceType: "principal_state" },
   });
-  expect(await readSeatCount(organizationId)).toBe(2);
+  expect(await readSeatCount(organizationId)).toBe(5);
   expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
     [userB, userC].sort(),
   );
@@ -309,7 +309,7 @@ test("a migrated row initializes its period key without losing paid capacity", a
     source: { sourceId: "migrated-state-1", sourceType: "principal_state" },
   });
 
-  expect(await readSeatCount(organizationId)).toBe(3);
+  expect(await readSeatCount(organizationId)).toBe(5);
   expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
     [userA, userB].sort(),
   );
@@ -323,10 +323,9 @@ test("a migrated row initializes its period key without losing paid capacity", a
   });
 });
 
-test("a native fixed tier wins over a stale Stripe seat-sync row", async () => {
+test("a native fixed tier clears a stale Stripe seat-sync row", async () => {
   const { memberGroupId, organizationId } = await createBillableOrganization();
   const userA = crypto.randomUUID();
-  const userB = crypto.randomUUID();
   await db
     .update(organizationBilling)
     .set({
@@ -345,33 +344,25 @@ test("a native fixed tier wins over a stale Stripe seat-sync row", async () => {
     groupId: memberGroupId,
     signerUserId: userA,
     stateHash: "native-solo-state",
-    userIds: [userA, userB],
+    userIds: [userA],
     version: 1,
   });
 
-  await expect(
-    reconcileOrganizationBillingSeats({
-      executor: db,
-      now: NOW,
-      organizationId,
-      source: {
-        sourceId: "native-solo-state",
-        sourceType: "principal_state",
-      },
-    }),
-  ).rejects.toThrow(
-    "Upgrade the subscription before adding more than 1 member",
-  );
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    source: {
+      sourceId: "native-solo-state",
+      sourceType: "principal_state",
+    },
+  });
   expect(await readSeatCount(organizationId)).toBe(1);
   const stripeRows = await db
     .select()
     .from(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
-  expect(stripeRows).toHaveLength(1);
-  expect(stripeRows[0]).toMatchObject({
-    priceId: "price_cancelled",
-    subscriptionId: "sub_cancelled",
-  });
+  expect(stripeRows).toHaveLength(0);
 });
 
 test("an over-capacity native roster can stay level and shrink", async () => {

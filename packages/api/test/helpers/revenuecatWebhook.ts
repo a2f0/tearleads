@@ -26,6 +26,7 @@ interface WebhookEventInput {
   organizationId: string;
   productId?: string | null;
   purchasedAtMs?: number | null;
+  store?: string;
   transactionId?: string | null;
   type: string;
 }
@@ -87,6 +88,7 @@ export function revenuecatWebhookBody(input: WebhookEventInput): string {
       original_transaction_id: input.originalTransactionId,
       product_id: input.productId ?? "sync_monthly",
       purchased_at_ms: input.purchasedAtMs,
+      store: input.store,
       subscriber_attributes: { orgId: { value: input.organizationId } },
       transaction_id: input.transactionId,
       type: input.type,

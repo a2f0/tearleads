@@ -233,7 +233,7 @@ test("a partial webhook is completed from the pinned invoice lookup", async () =
   const [row] = await findInvoiceRows(invoiceId);
   expect(row).toMatchObject({
     providerEventId: `evt_${invoiceId}_partial`,
-    seatCount: 5,
+    seatCount: 3,
     totalAmount: 1_201,
     occurredAt: new Date(paidAt * 1000),
   });
@@ -279,7 +279,7 @@ test("subscription updates are audited without resetting the seat period", async
   expect(rows).toHaveLength(1);
   expect(rows[0]).toMatchObject({
     billingReason: "subscription_update",
-    seatCount: 5,
+    seatCount: 4,
     totalAmount: 615,
   });
 });

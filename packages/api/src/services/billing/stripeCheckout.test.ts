@@ -42,6 +42,12 @@ const REVENUECAT_ENV = {
   REVENUECAT_PROJECT_ID: "proj_1",
   REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_pub",
 };
+const STRIPE_SOLO_PRICE = {
+  currency: "usd",
+  id: "price_sync",
+  recurring: { interval: "month", interval_count: 1 },
+  unit_amount: 500,
+};
 
 function respondingFetch(
   responses: Array<{ status?: number; body: unknown }>,
@@ -133,8 +139,6 @@ test("options stay empty until the WHOLE flow is configured", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const urls: string[] = [];
-  // Stripe fully configured, RevenueCat association not: offering checkout
-  // would charge buyers for subscriptions that can never grant entitlements.
   const result = await getStripeCheckoutOptions(
     getDefaultApiServiceRuntime(),
     organizationId,
@@ -242,8 +246,6 @@ test("the portal returns a session for the org's live subscription", async () =>
     STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
     STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   };
-  // 1st call: search resolves the org's live sub + customer. 2nd: the portal
-  // session POST, which must target THAT customer.
   const paths: string[] = [];
   const bodies: string[] = [];
   const portalFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -277,7 +279,6 @@ test("the portal returns a session for the org's live subscription", async () =>
     { stripe: { env: stripeEnv, fetchImpl: portalFetch } },
   );
   expect(url).toBe("https://billing.stripe.com/p/session");
-  // The portal was opened for the customer the search resolved, not the caller.
   expect(paths.some((path) => path.includes("/billing_portal/sessions"))).toBe(
     true,
   );
@@ -293,7 +294,6 @@ test("cancel schedules the period end for the org's live subscription", async ()
     STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
     STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   };
-  // 1st call: search resolves the org's live sub. 2nd: the cancel POST.
   const paths: string[] = [];
   const cancelFetch = (async (input: RequestInfo | URL) => {
     const path = String(input);
@@ -324,7 +324,6 @@ test("cancel schedules the period end for the org's live subscription", async ()
     { stripe: { env: stripeEnv, fetchImpl: cancelFetch } },
   );
   expect(result).toEqual({ cancelAt: 1893456000 });
-  // The cancel POST targeted the sub_ id found by the search.
   expect(paths.some((path) => path.endsWith("/subscriptions/sub_org"))).toBe(
     true,
   );
@@ -385,8 +384,7 @@ test("cancel does nothing when the org has only an incomplete subscription", asy
     STRIPE_SYNC_TEAM_5_PRICE_ID: "price_team_5",
     STRIPE_SYNC_TEAM_10_PRICE_ID: "price_team_10",
   };
-  // An abandoned checkout leaves an `incomplete` subscription: nothing is
-  // billing, so there is nothing to cancel and no POST must fire.
+  // An incomplete subscription has nothing to cancel.
   const paths: string[] = [];
   const incompleteFetch = (async (input: RequestInfo | URL) => {
     paths.push(String(input));
@@ -434,6 +432,7 @@ test("the hosted checkout session returns the Stripe page URL", async () => {
             { body: { data: [] } }, // Stripe-side duplicate guard: none
             { body: { data: [] } }, // no existing customer
             { body: { id: "cus_new" } }, // customer create
+            { body: STRIPE_SOLO_PRICE },
             { body: { url: "https://checkout.stripe.com/pay/cs_1" } },
           ],
           urls,
@@ -528,6 +527,7 @@ test("a Stripe-side live subscription makes checkout a 409", async () => {
   };
   const responses = [
     { data: [{ id: "cus_1" }] },
+    STRIPE_SOLO_PRICE,
     { data: [{ id: "sub_live", status: "active" }] },
   ];
   const conflictFetch = (async (_input: RequestInfo | URL) =>

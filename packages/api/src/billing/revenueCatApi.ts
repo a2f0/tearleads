@@ -15,7 +15,7 @@ const REQUEST_TIMEOUT_MS = 5000;
 /** Bound pagination — a sync customer has one or two subscriptions, never many. */
 const MAX_SUBSCRIPTION_PAGES = 10;
 
-interface RevenueCatApiDeps {
+export interface RevenueCatApiDeps {
   readonly env?: NodeJS.ProcessEnv;
   readonly fetchImpl?: typeof fetch;
 }

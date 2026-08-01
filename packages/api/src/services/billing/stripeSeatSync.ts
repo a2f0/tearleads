@@ -236,6 +236,9 @@ async function synchronizeClaim(
   if (!desiredTier) {
     throw new Error("Stripe seat target has no configured billing tier");
   }
+  // When the prorated capacity write already landed exactly on the renewal
+  // tier, omit a redundant no-proration confirm write; completion compares the
+  // observed and expected quantities from this returned snapshot.
   if (observedQuantity !== desiredQuantity) {
     await setQuantity({
       claim,

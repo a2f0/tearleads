@@ -867,12 +867,16 @@ export class ApiClient {
     );
   }
 
-  /** Direct Stripe option for the organization's authoritative roster. */
-  getStripeCheckoutOptions(organizationId: string) {
-    return this.request(
+  getStripeCheckoutOptions(
+    organizationId: string,
+    options: RequestResultOptions = {},
+  ) {
+    return this.makeRequestResult(
       `/organizations/${pathSegment(organizationId)}/billing/stripe/options`,
       isStripeCheckoutOptionsResponse,
       "GET",
+      undefined,
+      options,
     );
   }
 

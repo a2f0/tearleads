@@ -290,9 +290,7 @@ function classifyRevenueCatGrant(
   const tier = isStripeStore
     ? null
     : getSyncBillingTierForNativeProduct(event.product_id);
-  const seatCount = isStripeStore
-    ? (options.stripeSeatCount ?? tier?.seatLimit)
-    : tier?.seatLimit;
+  const seatCount = isStripeStore ? options.stripeSeatCount : tier?.seatLimit;
   if (!seatCount) {
     return {
       kind: "ignore",

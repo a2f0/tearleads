@@ -51,3 +51,4 @@ package's `build` task, so generated artifacts are refreshed before tests run.
 - [Client SDK](./docs/developer/client-sdk.md)
 - [RevenueCat Billing](./docs/developer/revenuecat-billing.md)
 - [RevenueCat Native Stores](./docs/developer/revenuecat-native-stores.md)
+- [Stripe Checkout Client](./docs/developer/stripe-checkout-client.md)

@@ -13,13 +13,36 @@ interface BillingSeatCapacity {
   readonly status: OrganizationBillingStatus;
 }
 
+function canonicalTierSeatCount(
+  activeSeatCount: number,
+  previousActiveSeatCount?: number,
+): number {
+  const tier = getSyncBillingTierForSeatCount(Math.max(1, activeSeatCount));
+  if (tier) {
+    return tier.seatLimit;
+  }
+  if (
+    previousActiveSeatCount === undefined ||
+    activeSeatCount > previousActiveSeatCount
+  ) {
+    throw new OrganizationManagerError(
+      "The organization exceeds the maximum subscription tier of 10 members",
+      409,
+    );
+  }
+  return getLargestSyncBillingTier().seatLimit;
+}
+
 export function requiredLicensedSeatCount(
   billing: BillingSeatCapacity,
   activeSeatCount: number,
   previousActiveSeatCount?: number,
 ): number {
-  if (billing.status !== "active") {
+  if (billing.status !== "active" && billing.status !== "trialing") {
     return activeSeatCount;
+  }
+  if (billing.status === "trialing") {
+    return canonicalTierSeatCount(activeSeatCount, previousActiveSeatCount);
   }
   const nativeTier = getSyncBillingTierForNativeProduct(
     billing.providerProductId,
@@ -38,23 +61,5 @@ export function requiredLicensedSeatCount(
     }
     return nativeTier.seatLimit;
   }
-  if (billing.hasStripeSubscription) {
-    const requiredTier = getSyncBillingTierForSeatCount(
-      Math.max(1, activeSeatCount),
-    );
-    if (!requiredTier) {
-      if (
-        previousActiveSeatCount === undefined ||
-        activeSeatCount > previousActiveSeatCount
-      ) {
-        throw new OrganizationManagerError(
-          "The organization exceeds the maximum subscription tier of 10 members",
-          409,
-        );
-      }
-      return getLargestSyncBillingTier().seatLimit;
-    }
-    return requiredTier.seatLimit;
-  }
-  return Math.max(1, activeSeatCount);
+  return canonicalTierSeatCount(activeSeatCount, previousActiveSeatCount);
 }

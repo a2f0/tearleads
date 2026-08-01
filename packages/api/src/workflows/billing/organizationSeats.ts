@@ -9,10 +9,6 @@ import {
   organizationBillingStripeSeats,
   organizations,
 } from "@tearleads/api-shared/schema";
-import {
-  getSyncBillingTierForNativeProduct,
-  getSyncBillingTierForSeatCount,
-} from "@tearleads/validators/billing";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
   organizationCanSync,
@@ -21,7 +17,7 @@ import {
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import { requiredLicensedSeatCount } from "./organizationSeatCapacity";
-import { requestOrganizationStripeSeatSync } from "./stripeSeatState";
+import { reconcileOrganizationStripeSeatState } from "./organizationStripeSeatReconciliation";
 
 type SeatAssignmentInsert =
   typeof organizationBillingSeatAssignments.$inferInsert;
@@ -475,23 +471,16 @@ export async function reconcileOrganizationBillingSeats(input: {
     .update(organizationBilling)
     .set({ seatPeriodKey: nextSeatPeriodKey, updatedAt: now })
     .where(eq(organizationBilling.organizationId, input.organizationId));
-  const nativeTier = getSyncBillingTierForNativeProduct(
-    billing.providerProductId,
-  );
-  if (!nativeTier) {
-    const renewalTier = getSyncBillingTierForSeatCount(activeUserIds.length);
-    await requestOrganizationStripeSeatSync({
-      desiredPaidCapacity: Math.max(licensedSeatCount, activeUserIds.length),
-      desiredRenewalQuantity:
-        billing.hasStripeSubscription && renewalTier
-          ? renewalTier.seatLimit
-          : activeUserIds.length,
-      desiredSeatPeriodKey: nextSeatPeriodKey,
-      executor: input.executor,
-      now,
-      organizationId: input.organizationId,
-    });
-  }
+  await reconcileOrganizationStripeSeatState({
+    activeSeatCount: activeUserIds.length,
+    executor: input.executor,
+    hasStripeSubscription: billing.hasStripeSubscription,
+    licensedSeatCount,
+    now,
+    organizationId: input.organizationId,
+    providerProductId: billing.providerProductId,
+    seatPeriodKey: nextSeatPeriodKey,
+  });
 
   await insertSeatEvents(input.executor, events);
 }

@@ -136,6 +136,31 @@ test("missing historical cadence and rate stay stable across binding changes", a
   expect(replay).toEqual(first);
 });
 
+test("a rotated fixed Price keeps capacity from its historical economics", async () => {
+  const audit = await resolveStripeInvoiceAuditInput({
+    binding: { ...BINDING, priceId: "price_rotated_team_5", seatQuantity: 1 },
+    invoice: parseInvoice(
+      invoiceBody({
+        hasMore: false,
+        price: {
+          currency: "usd",
+          id: "price_rotated_team_5",
+          recurring: { interval: "month", interval_count: 1 },
+          unit_amount: 1_000,
+        },
+      }),
+    ),
+    organizationId: "org-1",
+    stripeDeps: {},
+  });
+
+  expect(audit).toMatchObject({
+    priceId: "price_rotated_team_5",
+    seatCount: 5,
+    unitAmount: 1_000,
+  });
+});
+
 test("a complete invoice with invalid line attribution keeps its exact total", async () => {
   const body = invoiceBody({
     hasMore: false,

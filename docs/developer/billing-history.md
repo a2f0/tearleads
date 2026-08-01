@@ -8,8 +8,10 @@ Stripe invoice totals preserve the provider's exact `amount_paid` in currency
 minor units. Tier capacity, plan price, recurring interval and interval count,
 Price ID, and billing period come from the matching non-proration invoice
 line—not mutable current subscription state. Capacity is resolved from the
-historical configured Price ID, so delayed webhooks cannot rewrite older
-charges. Creation and cycle invoices use a pinned-API lookup when the
+line's immutable monthly USD Price economics against the canonical tier
+registry (falling back to a currently configured Price ID only when older line
+payloads omit economics), so Price rotation does not collapse historical fixed
+tiers to item quantity `1`. Creation and cycle invoices use a pinned-API lookup when the
 signed webhook's line details are incomplete or could be enriched; only those
 reasons advance seat-period state. Paid subscription update and threshold
 invoices are audited too, but they never make fulfillment retry solely for

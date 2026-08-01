@@ -125,23 +125,15 @@ export function createStripeCheckoutRoute({
     "/organizations/:organizationId/billing/stripe/options",
     requireAuth,
     (c) =>
-      respondForOrganization(c, async (organizationId, sessionUserId) => {
-        try {
-          return c.json(
-            await getStripeCheckoutOptions(
-              runtime,
-              organizationId,
-              sessionUserId,
-            ),
-          );
-        } catch (error) {
-          if (error instanceof StripeApiError) {
-            console.error("Stripe options lookup failed:", error.message);
-            return c.json({ error: "Payment provider request failed" }, 502);
-          }
-          throw error;
-        }
-      }),
+      respondForOrganization(c, async (organizationId, sessionUserId) =>
+        c.json(
+          await getStripeCheckoutOptions(
+            runtime,
+            organizationId,
+            sessionUserId,
+          ),
+        ),
+      ),
   );
 
   route.post(

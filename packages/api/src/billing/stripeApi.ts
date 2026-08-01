@@ -14,13 +14,15 @@ import {
   StripeApiError,
   stripeRequest,
 } from "./stripeHttp";
+import { getStripeSyncOption } from "./stripePrice";
 
 export {
   isStripeCheckoutConfigured,
   type StripeApiDeps,
   StripeApiError,
 } from "./stripeHttp";
-export { getStripeSyncOption, type StripeSyncOption } from "./stripePrice";
+export type { StripeSyncOption } from "./stripePrice";
+export { getStripeSyncOption };
 
 export interface StripeCheckoutIntent {
   readonly subscriptionId: string;
@@ -293,9 +295,13 @@ export async function createSyncSubscription(
   if (!tier) {
     throw new RangeError("Stripe checkout seat count has no available tier");
   }
-  const { fetchImpl, secretKey, syncPriceIds } = resolveDeps(deps);
-  const syncPriceId = syncPriceIds[tier.id];
-  if (!secretKey || !syncPriceId) {
+  const option = await getStripeSyncOption(tier.id, deps);
+  if (!option) {
+    return null;
+  }
+  const syncPriceId = option.priceId;
+  const { fetchImpl, secretKey } = resolveDeps(deps);
+  if (!secretKey) {
     return null;
   }
 
@@ -534,9 +540,13 @@ export async function createCheckoutSession(
   if (!tier) {
     throw new RangeError("Stripe checkout seat count has no available tier");
   }
-  const { fetchImpl, secretKey, syncPriceIds } = resolveDeps(deps);
-  const syncPriceId = syncPriceIds[tier.id];
-  if (!secretKey || !syncPriceId) {
+  const option = await getStripeSyncOption(tier.id, deps);
+  if (!option) {
+    return null;
+  }
+  const syncPriceId = option.priceId;
+  const { fetchImpl, secretKey } = resolveDeps(deps);
+  if (!secretKey) {
     return null;
   }
   const expiresAt = Math.floor(input.expiresAt.getTime() / 1_000);

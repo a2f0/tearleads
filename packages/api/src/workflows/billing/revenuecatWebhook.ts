@@ -5,11 +5,10 @@ import type {
 import {
   type OrganizationBillingStatus,
   organizationBilling,
+  organizationBillingStripeSeats,
   revenuecatWebhookEvents,
-  users,
 } from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
-import { isUuidV4String } from "@tearleads/validators/util";
 import { and, eq, gt } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
@@ -21,9 +20,8 @@ import {
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
-import { requireDirectOrganizationAccess } from "../organizations/access";
-import { OrganizationManagerError } from "../organizations/errors";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import { resolveRevenueCatBuyerIgnoredReason } from "./revenuecatBuyerPolicy";
 import {
   resolveRevenueCatGrantCapacity,
   STRIPE_GRANT_EXCEEDS_CAPACITY_REASON,
@@ -56,27 +54,6 @@ export type RevenueCatWebhookOutcome =
    * or claimed; the route answers non-2xx so RevenueCat redelivers.
    */
   | { status: "retry"; reason: string };
-
-async function isOrganizationAdmin(
-  executor: DatabaseSession,
-  organizationId: string,
-  userId: string,
-): Promise<boolean> {
-  try {
-    await requireDirectOrganizationAccess({
-      executor,
-      organizationId,
-      requireAdmin: true,
-      userId,
-    });
-    return true;
-  } catch (error) {
-    if (error instanceof OrganizationManagerError) {
-      return false;
-    }
-    throw error;
-  }
-}
 
 /**
  * Loads the org's billing row and, on Postgres, takes a `FOR UPDATE` row lock on
@@ -149,20 +126,14 @@ async function resolveIgnoredReason(
   }
 
   if (transition.kind === "grant") {
-    const store = event.store?.toUpperCase() ?? "UNKNOWN";
-    const isNativeStore = store !== "STRIPE" && store !== "RC_BILLING";
-    if (isNativeStore) {
-      if (!isUuidV4String(event.app_user_id)) {
-        return "Native purchase buyer is not a Tearleads user";
-      }
-      const [buyer] = await executor
-        .select({ defaultOrganizationId: users.defaultOrganizationId })
-        .from(users)
-        .where(eq(users.id, event.app_user_id))
-        .limit(1);
-      if (buyer?.defaultOrganizationId !== organizationId) {
-        return "Native purchases may only fund the buyer's personal organization";
-      }
+    const buyerIgnoredReason = await resolveRevenueCatBuyerIgnoredReason({
+      currentProviderCustomerId: billing.providerCustomerId,
+      event,
+      executor,
+      organizationId,
+    });
+    if (buyerIgnoredReason) {
+      return buyerIgnoredReason;
     }
   }
 
@@ -172,16 +143,6 @@ async function resolveIgnoredReason(
   // applied events count, so an ignored/test event can never block a real one.
   if (await hasNewerAppliedEvent(executor, organizationId, event)) {
     return "A newer billing event has already been applied";
-  }
-
-  // Binding a new RevenueCat customer to an org requires the buyer to be an
-  // admin; renewals for an already-bound customer skip the re-check.
-  if (
-    transition.kind === "grant" &&
-    billing.providerCustomerId !== event.app_user_id &&
-    !(await isOrganizationAdmin(executor, organizationId, event.app_user_id))
-  ) {
-    return "Buyer is not an organization admin";
   }
 
   return null;
@@ -300,6 +261,19 @@ async function applyRevenueCatTransition(input: {
     .update(organizationBilling)
     .set({ ...input.transition.fields, updatedAt: input.now })
     .where(eq(organizationBilling.organizationId, input.organizationId));
+  if (
+    input.transition.kind === "grant" &&
+    input.event.store?.toUpperCase() !== "STRIPE"
+  ) {
+    // A native or promotional grant supersedes any cancelled Stripe binding.
+    // Removing the outbox row prevents the seat worker from retrying that old
+    // subscription while the new RevenueCat entitlement is active.
+    await input.executor
+      .delete(organizationBillingStripeSeats)
+      .where(
+        eq(organizationBillingStripeSeats.organizationId, input.organizationId),
+      );
+  }
   if (input.transition.kind === "grant" && input.reconcileSeats) {
     await reconcileOrganizationBillingSeats({
       executor: input.executor,

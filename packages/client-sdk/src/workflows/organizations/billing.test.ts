@@ -21,6 +21,7 @@ function billing(
   overrides: Partial<OrganizationBillingResponse>,
 ): OrganizationBilling {
   return {
+    activeMemberCount: 1,
     organizationId: "org-1",
     status: "local",
     trialEndsAt: null,

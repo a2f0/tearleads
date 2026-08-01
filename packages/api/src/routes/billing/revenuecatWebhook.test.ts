@@ -1,6 +1,9 @@
 import { beforeAll, expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { revenuecatWebhookEvents } from "@tearleads/api-shared/schema";
+import {
+  organizationBillingStripeSeats,
+  revenuecatWebhookEvents,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
@@ -21,9 +24,6 @@ import {
 import { runRevenueCatWebhookWorkflow } from "../../workflows/billing/revenuecatWebhook";
 
 const LAPSED_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
-// Held in a variable so member access stays bracketed-by-variable, which both
-// tsc (no dot access on index signatures) and biome (no literal computed keys)
-// accept.
 const AUTH_ENV_KEY = "REVENUECAT_WEBHOOK_AUTH_HEADER";
 
 beforeAll(() => {
@@ -131,6 +131,15 @@ test("a paid native tier activates but freezes an oversized roster", async () =>
   const organizationId = await registerAndAuthenticate(admin);
   await setTestOrganizationBillingLocal(organizationId);
   await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+  await db
+    .delete(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: "price_cancelled",
+    subscriptionId: "sub_cancelled",
+    subscriptionItemId: "si_cancelled",
+  });
 
   const response = await postWebhook(
     webhookBody({
@@ -148,6 +157,11 @@ test("a paid native tier activates but freezes an oversized roster", async () =>
     seatCount: 1,
     status: "active",
   });
+  const staleStripeRows = await db
+    .select({ id: organizationBillingStripeSeats.id })
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  expect(staleStripeRows).toHaveLength(0);
 });
 
 test("a native purchase cannot fund a custom organization", async () => {
@@ -164,6 +178,7 @@ test("a native purchase cannot fund a custom organization", async () => {
       appUserId: admin.userId,
       organizationId: request.organizationId,
       productId: "sync_team_5_monthly",
+      store: "APP_STORE",
       type: "INITIAL_PURCHASE",
     }),
   );
@@ -172,6 +187,33 @@ test("a native purchase cannot fund a custom organization", async () => {
   expect(await readBilling(request.organizationId)).toMatchObject({
     providerCustomerId: null,
     status: "local",
+  });
+});
+
+test("a promotional grant can fund an admin's custom organization", async () => {
+  const admin = createTestUser();
+  await registerAndAuthenticate(admin);
+  const request = await createOrganizationRequestBody(admin);
+  const created = await submitCreateOrganization(admin, request);
+  expect(created.status).toBe(200);
+  await setTestOrganizationBillingLocal(request.organizationId);
+
+  const response = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      organizationId: request.organizationId,
+      productId: "sync_team_5_monthly",
+      store: "PROMOTIONAL",
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+
+  expect(await response.json()).toEqual({ received: true, outcome: "applied" });
+  expect(await readBilling(request.organizationId)).toMatchObject({
+    providerCustomerId: admin.userId,
+    providerProductId: "sync_team_5_monthly",
+    seatCount: 5,
+    status: "active",
   });
 });
 
@@ -229,7 +271,6 @@ test("a renewal after an expiration re-activates sync and clears the purge windo
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
 
-  // Lapse: an expiration disables sync and opens the purge grace window.
   await postWebhook(
     webhookBody({
       appUserId: admin.userId,

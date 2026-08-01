@@ -119,6 +119,14 @@ test("inline checkout selects the current membership tier at quantity one", asyn
   let subscriptionBody: string | null = null;
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = new URL(String(input)).pathname;
+    if (path.endsWith("/prices/price_team_5")) {
+      return Response.json({
+        currency: "usd",
+        id: "price_team_5",
+        recurring: { interval: "month", interval_count: 1 },
+        unit_amount: 1_000,
+      });
+    }
     if (path.endsWith("/customers/search")) {
       return Response.json({ data: [] });
     }
@@ -173,6 +181,14 @@ test("hosted checkout selects the current membership tier at quantity one", asyn
   let checkoutBody: string | null = null;
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = new URL(String(input)).pathname;
+    if (path.endsWith("/prices/price_team_5")) {
+      return Response.json({
+        currency: "usd",
+        id: "price_team_5",
+        recurring: { interval: "month", interval_count: 1 },
+        unit_amount: 1_000,
+      });
+    }
     if (path.endsWith("/subscriptions/search")) {
       return Response.json({ data: [] });
     }

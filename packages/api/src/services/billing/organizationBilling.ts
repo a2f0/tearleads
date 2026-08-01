@@ -8,7 +8,10 @@ import {
   serializeOrganizationBilling,
   serializeOrganizationBillingHistory,
 } from "../../billing/organizationBilling";
-import { fetchRevenueCatManagementUrl } from "../../billing/revenueCatApi";
+import {
+  fetchRevenueCatManagementUrl,
+  type RevenueCatApiDeps,
+} from "../../billing/revenueCatApi";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
 import {
@@ -57,7 +60,10 @@ export async function getOrganizationBillingManagementUrl(
   runtime: ApiServiceRuntime,
   organizationId: string,
   sessionUserId: string,
-  deps: { readonly stripe?: StripeApiDeps } = {},
+  deps: {
+    readonly revenueCat?: RevenueCatApiDeps;
+    readonly stripe?: StripeApiDeps;
+  } = {},
 ): Promise<OrganizationBillingManagementUrlResponse> {
   const {
     provider,
@@ -71,11 +77,14 @@ export async function getOrganizationBillingManagementUrl(
     organizationId,
     sessionUserId,
   );
-  const hasActiveProviderSubscription =
-    status === "active" && provider === "revenuecat";
-  const canCancelDirectly =
-    hasActiveProviderSubscription &&
-    getSyncBillingTierForStripePrice(providerProductId, deps.stripe) !== null;
+  const hasProviderSubscription = provider === "revenuecat";
+  const stripeTier = hasProviderSubscription
+    ? getSyncBillingTierForStripePrice(providerProductId, deps.stripe)
+    : null;
+  const nativeTier = hasProviderSubscription
+    ? getSyncBillingTierForNativeProduct(providerProductId)
+    : null;
+  const canCancelDirectly = status === "active" && stripeTier !== null;
   if (canCancelDirectly) {
     return {
       canCancelDirectly: true,
@@ -83,12 +92,12 @@ export async function getOrganizationBillingManagementUrl(
       subscriptionSource: "stripe",
     };
   }
-  const subscriptionSource =
-    hasActiveProviderSubscription &&
-    getSyncBillingTierForNativeProduct(providerProductId)
+  const subscriptionSource = canCancelDirectly
+    ? "stripe"
+    : nativeTier
       ? "native"
       : null;
-  if (!hasActiveProviderSubscription || !providerCustomerId) {
+  if (subscriptionSource !== "native" || !providerCustomerId) {
     return {
       canCancelDirectly: false,
       managementUrl: null,
@@ -97,10 +106,14 @@ export async function getOrganizationBillingManagementUrl(
   }
   return {
     canCancelDirectly: false,
-    managementUrl: await fetchRevenueCatManagementUrl(providerCustomerId, {
-      subscriptionId: providerSubscriptionId,
-      transactionId: providerTransactionId,
-    }),
+    managementUrl: await fetchRevenueCatManagementUrl(
+      providerCustomerId,
+      {
+        subscriptionId: providerSubscriptionId,
+        transactionId: providerTransactionId,
+      },
+      deps.revenueCat,
+    ),
     subscriptionSource,
   };
 }

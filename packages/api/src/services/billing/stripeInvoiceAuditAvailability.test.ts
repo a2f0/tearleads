@@ -202,7 +202,7 @@ test("a recoverable non-seat invoice is completed from the pinned lookup", async
     .where(eq(organizationBillingInvoiceEvents.invoiceId, fixture.invoiceId));
   expect(row).toMatchObject({
     providerEventId: `evt_${fixture.invoiceId}_partial`,
-    seatCount: 5,
+    seatCount: 2,
     totalAmount: 842,
     unitAmount: 499,
   });

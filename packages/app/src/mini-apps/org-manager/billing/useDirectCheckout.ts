@@ -122,7 +122,7 @@ function useCheckoutOption(
         console.warn("Failed to load Stripe checkout options:", loadError);
         if (!cancelled) {
           setState({
-            error: ORG_MANAGER_LABELS.billingCheckoutUnavailable,
+            error: checkoutOptionErrorMessage(loadError),
             option: null,
           });
         }
@@ -133,6 +133,26 @@ function useCheckoutOption(
     };
   }, [available, canSubscribe, enabled, tearleads]);
   return state;
+}
+
+/** Maps the server's stable roster-policy failures to actionable copy. */
+export function checkoutOptionErrorMessage(error: unknown): string {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" &&
+          error !== null &&
+          "message" in error &&
+          typeof error.message === "string"
+        ? error.message
+        : String(error);
+  if (message.includes("exceeds the maximum subscription tier")) {
+    return ORG_MANAGER_LABELS.billingCheckoutOverCapacity;
+  }
+  if (message.includes("has no active members")) {
+    return ORG_MANAGER_LABELS.billingCheckoutNoMembers;
+  }
+  return ORG_MANAGER_LABELS.billingCheckoutUnavailable;
 }
 
 /** Refs the begin/confirm actions share with the flow hook. */

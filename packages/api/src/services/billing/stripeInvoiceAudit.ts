@@ -1,4 +1,5 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import { SYNC_BILLING_TIERS } from "@tearleads/validators/billing";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import {
   getSyncBillingTierForStripePrice,
@@ -125,6 +126,23 @@ function createStripeInvoiceAuditInput(input: {
   ) {
     return totalOnlySnapshot;
   }
+  const hasCompleteTierEconomics =
+    line.currency !== null &&
+    line.interval !== null &&
+    line.intervalCount !== null &&
+    line.unitAmount !== null;
+  const economicsTier = hasCompleteTierEconomics
+    ? (SYNC_BILLING_TIERS.find(
+        (tier) =>
+          line.currency === "usd" &&
+          line.interval === "month" &&
+          line.intervalCount === 1 &&
+          line.unitAmount === tier.monthlyPriceUsdCents,
+      ) ?? null)
+    : null;
+  const resolvedTier = hasCompleteTierEconomics
+    ? economicsTier
+    : getSyncBillingTierForStripePrice(line.priceId, input.stripeDeps);
   return {
     ...totalOnlySnapshot,
     interval: line.interval,
@@ -132,9 +150,7 @@ function createStripeInvoiceAuditInput(input: {
     periodEndsAt: line.periodEndsAt,
     periodStartsAt: line.periodStartsAt,
     priceId: line.priceId,
-    seatCount:
-      getSyncBillingTierForStripePrice(line.priceId, input.stripeDeps)
-        ?.seatLimit ?? line.quantity,
+    seatCount: resolvedTier?.seatLimit ?? line.quantity,
     unitAmount: line.unitAmount,
   };
 }

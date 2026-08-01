@@ -138,16 +138,55 @@ test("management identifies Stripe and native subscription ownership", async () 
 
   await db
     .update(organizationBilling)
-    .set({ providerProductId: "sync_team_5_monthly" })
+    .set({
+      providerCustomerId: admin.userId,
+      providerProductId: "sync_team_5_monthly",
+      providerSubscriptionId: "native-sub-1",
+    })
     .where(eq(organizationBilling.organizationId, organizationId));
+  const revenueCat = {
+    env: {
+      REVENUECAT_PROJECT_ID: "proj_test",
+      REVENUECAT_V2_SECRET_KEY: "sk_test",
+    },
+    fetchImpl: (async () =>
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              gives_access: true,
+              management_url: "https://apps.apple.com/account/subscriptions",
+              store_subscription_identifier: "native-sub-1",
+            },
+          ],
+        }),
+      )) as unknown as typeof fetch,
+  };
   const nativeManagement = await getOrganizationBillingManagementUrl(
     getDefaultApiServiceRuntime(),
     organizationId,
     admin.userId,
+    { revenueCat },
   );
   expect(nativeManagement).toEqual({
     canCancelDirectly: false,
-    managementUrl: null,
+    managementUrl: "https://apps.apple.com/account/subscriptions",
+    subscriptionSource: "native",
+  });
+
+  await db
+    .update(organizationBilling)
+    .set({ status: "disabled" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  const lapsedNativeManagement = await getOrganizationBillingManagementUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    { revenueCat },
+  );
+  expect(lapsedNativeManagement).toEqual({
+    canCancelDirectly: false,
+    managementUrl: "https://apps.apple.com/account/subscriptions",
     subscriptionSource: "native",
   });
 
