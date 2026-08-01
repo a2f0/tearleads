@@ -164,7 +164,7 @@ test("a sandbox store purchase activates sync on a tier that opts in", async () 
   });
 });
 
-test("Test Store purchases obey the native personal-organization policy", async () => {
+test("a Stripe-bound customer cannot fund a custom org through Test Store", async () => {
   const { organizationId, user } = await registerOrganizationAdmin();
   const eventId = crypto.randomUUID();
   const replacement = await registerOrganizationAdmin();
@@ -172,6 +172,15 @@ test("Test Store purchases obey the native personal-organization policy", async 
     .update(users)
     .set({ defaultOrganizationId: replacement.organizationId })
     .where(eq(users.id, user.userId));
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerCustomerId: user.userId,
+      providerProductId: "price_lapsed_stripe",
+      status: "disabled",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
 
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
   try {

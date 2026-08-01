@@ -25,6 +25,7 @@ const STRIPE_GRANT_EXCEEDS_CAPACITY_REASON =
 
 /** Resolves a product-less lifecycle grant only from its locked customer tier. */
 export function resolveBoundRevenueCatGrantTransition(input: {
+  readonly allowSandboxEvents: boolean;
   readonly billing: LockedBillingIdentity | undefined;
   readonly event: RevenueCatWebhookEvent;
   readonly now: Date;
@@ -46,7 +47,7 @@ export function resolveBoundRevenueCatGrantTransition(input: {
     return { kind: "ignore", reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON };
   }
   return classifyRevenueCatEvent(input.event, input.now, {
-    allowSandboxEvents: true,
+    allowSandboxEvents: input.allowSandboxEvents,
     boundNativeProductId: productId,
     boundNativeSeatCount: tier.seatLimit,
     ...(input.billing.providerSubscriptionId
@@ -87,7 +88,7 @@ export async function resolveRevenueCatGrantCapacity(input: {
     return getSyncBillingTierForSeatCount(Math.max(1, activeUserIds.length))
       ? { kind: "within_capacity" }
       : {
-          kind: "ignore",
+          kind: "apply_without_reconciliation",
           reason: STRIPE_GRANT_EXCEEDS_CAPACITY_REASON,
         };
   }

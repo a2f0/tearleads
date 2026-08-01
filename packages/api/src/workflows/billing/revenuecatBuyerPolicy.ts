@@ -1,5 +1,6 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
@@ -49,17 +50,25 @@ async function isOrganizationAdmin(
 /** Returns the buyer-policy reason a paid grant must be ignored, if any. */
 export async function resolveRevenueCatBuyerIgnoredReason(input: {
   readonly currentProviderCustomerId: string | null;
+  readonly currentProviderProductId: string | null;
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
   readonly organizationId: string;
 }): Promise<string | null> {
-  // Once a paid subscription is bound, lifecycle events remain attributable
-  // to that immutable RevenueCat customer even if the buyer later changes
-  // their default organization or leaves the organization entirely.
-  if (input.currentProviderCustomerId === input.event.app_user_id) {
-    return null;
-  }
-  if (isNativeRevenueCatStore(input.event.store)) {
+  const sameProviderCustomer =
+    input.currentProviderCustomerId === input.event.app_user_id;
+  const isNativeStore = isNativeRevenueCatStore(input.event.store);
+  if (isNativeStore) {
+    // A lifecycle event may continue an already-policy-checked native binding
+    // after the buyer changes default context. A Stripe-associated customer is
+    // not proof of native eligibility, and INITIAL_PURCHASE always rechecks.
+    if (
+      sameProviderCustomer &&
+      input.event.type !== "INITIAL_PURCHASE" &&
+      getSyncBillingTierForNativeProduct(input.currentProviderProductId)
+    ) {
+      return null;
+    }
     if (!isUuidV4String(input.event.app_user_id)) {
       return "Native purchase buyer is not a Tearleads user";
     }
@@ -71,6 +80,9 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
     if (buyer?.defaultOrganizationId !== input.organizationId) {
       return "Native purchases may only fund the buyer's personal organization";
     }
+  }
+  if (sameProviderCustomer) {
+    return null;
   }
   if (
     !isUuidV4String(input.event.app_user_id) ||

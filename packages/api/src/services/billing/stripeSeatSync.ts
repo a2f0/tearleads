@@ -62,6 +62,8 @@ function validateSeatBinding(
     !binding.priceId ||
     !binding.seatQuantity
   ) {
+    // getSubscriptionBinding exposes seatQuantity only when the item's Price
+    // maps to a configured fixed tier, so this also rejects rotated Prices.
     throw new Error("Stripe subscription has no valid organization seat item");
   }
   return {

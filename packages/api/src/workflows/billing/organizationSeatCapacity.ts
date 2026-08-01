@@ -8,6 +8,7 @@ import {
 import { OrganizationManagerError } from "../organizations/errors";
 
 interface BillingSeatCapacity {
+  readonly hasStripeSubscription: boolean;
   readonly providerProductId: string | null;
   readonly status: OrganizationBillingStatus;
 }
@@ -44,9 +45,9 @@ export function requiredLicensedSeatCount(
   if (billing.status === "trialing") {
     return canonicalTierSeatCount(activeSeatCount, previousActiveSeatCount);
   }
-  const nativeTier = getSyncBillingTierForNativeProduct(
-    billing.providerProductId,
-  );
+  const nativeTier = billing.hasStripeSubscription
+    ? null
+    : getSyncBillingTierForNativeProduct(billing.providerProductId);
   if (nativeTier) {
     if (
       activeSeatCount > nativeTier.seatLimit &&

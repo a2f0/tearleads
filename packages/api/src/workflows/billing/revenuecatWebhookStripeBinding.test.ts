@@ -388,7 +388,7 @@ test("an unknown Stripe price retries with an operator alert", async () => {
   errorSpy.mockRestore();
 });
 
-test("an oversized Stripe grant is claimed, ignored, and alerted", async () => {
+test("an oversized Stripe grant renews without reconciling seats", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   for (let index = 0; index < 10; index += 1) {
@@ -440,17 +440,18 @@ test("an oversized Stripe grant is claimed, ignored, and alerted", async () => {
   );
 
   expect(outcome).toEqual({
-    status: "ignored",
-    reason: "Stripe subscription cannot cover more than 10 active members",
+    status: "applied",
+    organizationId,
+    billingStatus: "active",
   });
   const [claimed] = await db
     .select({ id: revenuecatWebhookEvents.id })
     .from(revenuecatWebhookEvents)
     .where(eq(revenuecatWebhookEvents.eventId, eventId));
   expect(claimed).toBeDefined();
-  expect(await readBillingStatus(organizationId)).toBe("trialing");
+  expect(await readBillingStatus(organizationId)).toBe("active");
   expect(errorSpy).toHaveBeenCalledWith(
-    `RevenueCat paid grant ${eventId} was not applied: Stripe subscription cannot cover more than 10 active members`,
+    `RevenueCat paid grant ${eventId} requires attention: Stripe subscription cannot cover more than 10 active members`,
   );
   errorSpy.mockRestore();
 });

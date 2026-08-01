@@ -137,6 +137,7 @@ async function resolveIgnoredReason(
   if (transition.kind === "grant") {
     const buyerIgnoredReason = await resolveRevenueCatBuyerIgnoredReason({
       currentProviderCustomerId: billing.providerCustomerId,
+      currentProviderProductId: billing.providerProductId,
       event,
       executor,
       organizationId,
@@ -173,6 +174,7 @@ type PreclaimDisposition =
   | { kind: "retry"; reason: string };
 
 async function resolvePreclaimDisposition(input: {
+  readonly allowSandboxEvents: boolean;
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
   readonly now: Date;
@@ -187,6 +189,7 @@ async function resolvePreclaimDisposition(input: {
       ? await lockBillingIdentity(input.executor, input.organizationId)
       : undefined;
   const transition = resolveBoundRevenueCatGrantTransition({
+    allowSandboxEvents: input.allowSandboxEvents,
     billing,
     event: input.event,
     now: input.now,
@@ -327,6 +330,7 @@ async function applyRevenueCatTransition(input: {
 }
 
 async function runRevenueCatWebhookTransaction(input: {
+  readonly allowSandboxEvents: boolean;
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
   readonly now: Date;
@@ -475,6 +479,7 @@ export async function runRevenueCatWebhookWorkflow(
 
   const outcome = await db.transaction((tx) =>
     runRevenueCatWebhookTransaction({
+      allowSandboxEvents: classificationOptions.allowSandboxEvents,
       event,
       executor: tx,
       now,

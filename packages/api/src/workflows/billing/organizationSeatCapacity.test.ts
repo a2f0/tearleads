@@ -42,6 +42,14 @@ test("a Stripe subscription selects and clamps canonical tiers", () => {
   expect(requiredLicensedSeatCount(stripe, 11, 12)).toBe(10);
 });
 
+test("a retained Stripe binding wins over a promotional native product", () => {
+  const promotional = billing({
+    hasStripeSubscription: true,
+    productId: "sync_solo_monthly",
+  });
+  expect(requiredLicensedSeatCount(promotional, 2, 1)).toBe(5);
+});
+
 test("an unbound active row still records canonical tier capacity", () => {
   expect(requiredLicensedSeatCount(billing({}), 2)).toBe(5);
 });
