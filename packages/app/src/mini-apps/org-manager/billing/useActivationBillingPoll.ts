@@ -41,7 +41,12 @@ export function useActivationBillingPoll(
         return;
       }
       if (attempt >= delaysMs.length) {
-        onExhausted();
+        // Let React commit state produced by the final refresh first. A
+        // successful final attempt rerenders and cancels this timer before it
+        // can report a false timeout.
+        timer = setTimeout(() => {
+          if (!cancelled) onExhausted();
+        }, 0);
         return;
       }
       const delayMs = delaysMs[attempt] ?? 0;

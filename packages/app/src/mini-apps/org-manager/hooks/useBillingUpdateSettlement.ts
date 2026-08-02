@@ -27,9 +27,11 @@ export function useBillingUpdateSettlement(input: {
   } = input;
   const target = actionState.activationTargetSeatCount;
   const scheduledChange = target !== null && target === billingPendingSeatCount;
+  const awaitingLateSettlement =
+    actionState.actionError === ORG_MANAGER_LABELS.billingActivationUnconfirmed;
   const settled =
     actionStateMatches &&
-    actionState.activationPending &&
+    (actionState.activationPending || awaitingLateSettlement) &&
     billingIsActive &&
     (target === null || target === billingSeatCount || scheduledChange);
   const expire = useCallback(() => {
@@ -37,13 +39,16 @@ export function useBillingUpdateSettlement(input: {
       ...current,
       actionError: ORG_MANAGER_LABELS.billingActivationUnconfirmed,
       activationPending: false,
-      activationTargetSeatCount: null,
     }));
   }, [currentScope, updateActionState]);
   useEffect(() => {
     if (!settled) return;
     updateActionState(currentScope, (current) => ({
       ...current,
+      actionError:
+        current.actionError === ORG_MANAGER_LABELS.billingActivationUnconfirmed
+          ? null
+          : current.actionError,
       activationPending: false,
       activationTargetSeatCount: null,
     }));

@@ -293,6 +293,64 @@ test("polls billing after a successful purchase until the tier is reflected", as
   expect(refresh.mock.calls.length).toBe(callsAfterActive);
 });
 
+test("the final poll refresh settles before timeout is reported", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  let applyFinalSnapshot: (() => void) | null = null;
+  let refreshCount = 0;
+  const refresh = mock(() => {
+    refreshCount += 1;
+    if (refreshCount === 2) {
+      applyFinalSnapshot?.();
+      applyFinalSnapshot = null;
+    }
+    return Promise.resolve();
+  });
+  const rendered = renderBillingActions({
+    activationPollDelaysMs: [0],
+    purchases,
+    refresh,
+  });
+  applyFinalSnapshot = () =>
+    rendered.rerender({
+      billingIsActive: true,
+      billingSeatCount: OPTION.seatLimit,
+      organizationId: "org-1",
+      userId: "user-1",
+    });
+
+  await act(async () => {
+    rendered.result.current.subscribe(OPTION);
+  });
+  await waitFor(() =>
+    expect(rendered.result.current.activationPending).toBe(false),
+  );
+  expect(rendered.result.current.actionError).toBeNull();
+});
+
+test("a late billing update clears the exhausted-poll error", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const rendered = renderBillingActions({
+    activationPollDelaysMs: [0],
+    purchases,
+  });
+  await act(async () => {
+    rendered.result.current.subscribe(OPTION);
+  });
+  await waitFor(() =>
+    expect(rendered.result.current.actionError).toBe(
+      ORG_MANAGER_LABELS.billingActivationUnconfirmed,
+    ),
+  );
+
+  rendered.rerender({
+    billingIsActive: true,
+    billingSeatCount: OPTION.seatLimit,
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+  await waitFor(() => expect(rendered.result.current.actionError).toBeNull());
+});
+
 test("a scheduled downgrade also settles the post-purchase poll", async () => {
   const purchases = createPurchases({ syncEntitlementActive: true });
   const { result, rerender } = renderBillingActions({

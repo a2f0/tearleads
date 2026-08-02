@@ -351,7 +351,9 @@ test("an Apple upgrade is not blocked by its newer schedule marker", async () =>
       reason: APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
       status: "ignored",
     });
-    expect(errorSpy).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      `RevenueCat paid product change ${missingDestination.id} was not applied: ${APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON}`,
+    );
   } finally {
     errorSpy.mockRestore();
   }
