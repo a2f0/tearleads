@@ -2,17 +2,13 @@ import type {
   AccessEvent,
   AccessManifest,
   ContainerAccessManifestState,
+  ContainerKekKeyring,
   ContainerKekPredecessorBridge,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerMoveAccessEventBody,
   ContainerUserRecipientKey,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import {
-  computeAccessManifestHash,
-  computeContainerKekPredecessorBridgeHash,
-  deriveContainerAccessManifest,
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
@@ -23,10 +19,6 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import {
-  buildContainerCreateKeyEpoch,
-  signContainerMutationEvent,
-} from "../../../data/containers/shared/events";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
 import {
@@ -54,34 +46,11 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { buildContainerMoveRotation } from "./moveRotation";
+import {
+  buildMoveRotationWithBody,
+  deriveMoveManifestArtifacts,
+} from "./moveArtifacts";
 import { buildContainerMoveWraps } from "./moveWraps";
-
-async function deriveContainerMoveManifest(input: {
-  containerKeyEpochId: string;
-  destinationParent: ContainerWriterProjectionResponse["path"][number];
-  eventHash: string;
-  previousManifest: ContainerWriterProjectionResponse["path"][number];
-}): Promise<Pick<ContainerMovePlan, "manifest" | "manifestHash" | "state">> {
-  const previousState = readContainerState(input.previousManifest);
-  const destinationState = readContainerState(input.destinationParent);
-  const state: ContainerAccessManifestState = {
-    ...previousState,
-    epoch: previousState.epoch + 1,
-    previousManifestHash: input.previousManifest.manifestHash,
-    eventHash: input.eventHash,
-    parentContainerId: destinationState.containerId,
-    parentManifestHash: input.destinationParent.manifestHash,
-    containerKeyEpochId: input.containerKeyEpochId,
-  };
-  const manifest = await deriveContainerAccessManifest(state);
-
-  return {
-    manifest,
-    manifestHash: await computeAccessManifestHash(manifest),
-    state,
-  };
-}
 
 function buildContainerMoveRequest(input: {
   body: ContainerMoveAccessEventBody;
@@ -89,6 +58,7 @@ function buildContainerMoveRequest(input: {
   destinationParentProjection: ContainerWriterProjectionResponse;
   event: AccessEvent;
   keyEpoch: ContainerKeyEpoch;
+  keyring: ContainerKekKeyring;
   manifest: AccessManifest;
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;
@@ -121,6 +91,7 @@ function buildContainerMoveRequest(input: {
       input.predecessorBridge,
       "Container move predecessor bridge",
     ),
+    keyring: readCanonicalRecord(input.keyring, "Container move keyring"),
     wraps: readCanonicalRecords(input.wraps, "Container move wraps"),
     parentKekState: readCanonicalRecord(
       input.destinationParentKek,
@@ -227,6 +198,7 @@ function buildContainerMovePlanResult(input: {
   event: AccessEvent;
   eventHash: string;
   keyEpoch: ContainerKeyEpoch;
+  keyring: ContainerKekKeyring;
   manifest: AccessManifest;
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;
@@ -253,6 +225,7 @@ function buildContainerMovePlanResult(input: {
       destinationParentProjection: input.destinationParentProjection,
       event: input.event,
       keyEpoch: input.keyEpoch,
+      keyring: input.keyring,
       manifest: input.manifest,
       manifestHash: input.manifestHash,
       previousManifest: input.previousManifest,
@@ -269,23 +242,6 @@ function buildContainerMovePlanResult(input: {
   return { containerKey: input.containerKey, plan };
 }
 
-async function buildContainerMoveEventBody(input: {
-  containerKeyEpochId: string;
-  parentContainerId: string;
-  parentManifestHash: string;
-  predecessorBridge: ContainerKekPredecessorBridge;
-}): Promise<ContainerMoveAccessEventBody> {
-  return {
-    eventType: "container.move",
-    parentContainerId: input.parentContainerId,
-    parentManifestHash: input.parentManifestHash,
-    containerKeyEpochId: input.containerKeyEpochId,
-    predecessorBridgeHash: await computeContainerKekPredecessorBridgeHash(
-      input.predecessorBridge,
-    ),
-  };
-}
-
 type MaterializedContainerMoveInput =
   BuildMaterializedContainerMovePlanInput & {
     resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -293,43 +249,6 @@ type MaterializedContainerMoveInput =
       | ReferencedPrincipalPolicyWarmer
       | undefined;
   };
-
-function signContainerMoveEvent(input: {
-  body: ContainerMoveAccessEventBody;
-  containerId: string;
-  planInput: MaterializedContainerMoveInput;
-  source: ReturnType<typeof getTargetContainerContext>;
-}) {
-  return signContainerMutationEvent({
-    author: input.planInput.author,
-    body: input.body,
-    containerId: input.containerId,
-    dependencyManifestHashes: containerMoveDependencyManifestHashes(
-      input.planInput,
-    ),
-    eventId: input.planInput.eventId ?? crypto.randomUUID(),
-    previousManifestHash: input.source.manifest.manifestHash,
-    signedAt: input.planInput.signedAt ?? new Date().toISOString(),
-  });
-}
-
-function buildMoveKeyEpoch(input: {
-  containerKeyEpochId: string;
-  destinationParent: ReturnType<typeof getTargetContainerContext>;
-  eventHash: string;
-  manifestHash: string;
-  source: ReturnType<typeof getTargetContainerContext>;
-}) {
-  const keyEpoch = buildContainerCreateKeyEpoch({
-    containerId: readContainerState(input.source.manifest).containerId,
-    containerKeyEpochId: input.containerKeyEpochId,
-    eventHash: input.eventHash,
-    manifestHash: input.manifestHash,
-    parentContainerKeyEpochId: input.destinationParent.kek.containerKeyEpochId,
-  });
-  keyEpoch.keyEpoch = input.source.kek.containerKeyEpoch + 1;
-  return keyEpoch;
-}
 
 async function buildMaterializedContainerMovePlan(
   input: MaterializedContainerMoveInput,
@@ -352,39 +271,34 @@ async function buildMaterializedContainerMovePlan(
     destinationParent,
     source,
   });
-  const { containerKey, containerKeyEpochId, predecessorBridge } =
-    await buildContainerMoveRotation({
-      containerId: previousState.containerId,
-      keyEpoch: source.kek.containerKeyEpoch + 1,
-      override: input.containerKeyEpochId,
-      predecessorKeyMaterial: predecessorContainerKey,
-      currentKek: source.kek,
-    });
-  const body = await buildContainerMoveEventBody({
-    containerKeyEpochId,
-    parentContainerId: destinationState.containerId,
-    parentManifestHash: destinationParent.manifest.manifestHash,
-    predecessorBridge,
-  });
-  const { event, eventHash } = await signContainerMoveEvent({
+  const {
     body,
-    containerId: previousState.containerId,
-    planInput: input,
-    source,
-  });
-  const { manifest, manifestHash, state } = await deriveContainerMoveManifest({
+    containerKey,
     containerKeyEpochId,
-    destinationParent: destinationParent.manifest,
-    eventHash,
-    previousManifest: source.manifest,
-  });
-  const keyEpoch = buildMoveKeyEpoch({
-    containerKeyEpochId,
+    keyring,
+    predecessorBridge,
+  } = await buildMoveRotationWithBody({
     destinationParent,
-    eventHash,
-    manifestHash,
+    destinationState,
+    override: input.containerKeyEpochId,
+    predecessorContainerKey,
+    previousState,
     source,
   });
+  const { event, eventHash, keyEpoch, manifest, manifestHash, state } =
+    await deriveMoveManifestArtifacts({
+      body,
+      containerKeyEpochId,
+      destinationParent,
+      previousState,
+      signing: {
+        author: input.author,
+        dependencyManifestHashes: containerMoveDependencyManifestHashes(input),
+        eventId: input.eventId,
+        signedAt: input.signedAt,
+      },
+      source,
+    });
   const { principalPolicies, userRecipientKeys, wraps } =
     await buildContainerMoveWraps({
       containerKey,
@@ -410,6 +324,7 @@ async function buildMaterializedContainerMovePlan(
     event,
     eventHash,
     keyEpoch,
+    keyring,
     manifest,
     manifestHash,
     previousManifest: asContainerManifestBundle(source.manifest),

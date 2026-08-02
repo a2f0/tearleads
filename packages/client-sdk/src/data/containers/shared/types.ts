@@ -9,6 +9,7 @@ import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerMoveAccessEventBody,
+  ContainerRekeyAccessEventBody,
   ContainerRevokeAccessEventBody,
   ContainerUserRecipientKey,
   ReferencedPrincipalHead,
@@ -184,6 +185,8 @@ export interface CreateRemoteContainerResult {
 
 export interface ContainerSharePlan {
   body: ContainerGrantAccessEventBody;
+  /** The unchanged epoch's stored keyring, echoed back by the server. */
+  previousKeyring?: Record<string, unknown> | null | undefined;
   containerId: string;
   event: AccessEvent;
   eventHash: string;
@@ -223,6 +226,37 @@ export interface ContainerRevokePlan {
 export interface MaterializedContainerRevokePlan {
   containerKey: Uint8Array;
   plan: ContainerRevokePlan;
+}
+
+export interface ContainerRekeyPlan {
+  body: ContainerRekeyAccessEventBody;
+  containerId: string;
+  containerKeyEpochId: string;
+  event: AccessEvent;
+  eventHash: string;
+  keyEpoch: ContainerKeyEpoch;
+  manifest: AccessManifest;
+  manifestHash: string;
+  previousManifest: AccessManifestBundleWire;
+  request: ContainerMutationRequest;
+  state: ContainerAccessManifestState;
+  userRecipientKeys: ContainerUserRecipientKey[];
+  wraps: ContainerKeyWrap[];
+}
+
+export interface MaterializedContainerRekeyPlan {
+  containerKey: Uint8Array;
+  plan: ContainerRekeyPlan;
+}
+
+export interface ContainerRekeyApi {
+  getContainerWriterProjection(
+    containerId: string,
+  ): Promise<ContainerWriterProjectionResponse | null>;
+  rekeyContainer(
+    containerId: string,
+    input: ContainerMutationRequest,
+  ): Promise<ContainerMutationResponse | null>;
 }
 
 export interface ContainerMovePlan {

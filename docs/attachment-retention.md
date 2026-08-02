@@ -54,10 +54,17 @@ Useful historical attachment retention needs a separate design for:
 - retention period and deletion policy
 - signed or hash-linked manifests
 - tombstones for removed attachments
-- how historical blob bytes are encrypted after access shrink
 - whether retained-but-revoked users can keep reading old attachment versions
 - how historical attachment records relate to document update history and
  baseline checkpoints
+
+The container KEK keyring partly answers how historical blob bytes are keyed
+after access shrink, and the consequence is container-wide: retained blob
+ciphertext whose content key is wrapped under a recoverable old container KEK
+is decryptable to every current member through the sealed keyring — access
+shrink rotates keys forward, it does not re-encrypt or orphan history.
+Pruned blob bytes remain unavailable for the opposite reason: the bytes no
+longer exist, regardless of key reachability.
 
 Those choices are larger than blob reachability GC and should not be introduced
 implicitly by keeping detached binding rows indefinitely.

@@ -1,6 +1,7 @@
 import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
+  ContainerKekKeyringEntry,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
@@ -13,6 +14,7 @@ import type {
 import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
+  computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
   deriveContainerAccessManifest,
   signAccessEvent,
@@ -25,6 +27,7 @@ import type {
 } from "@tearleads/validators/request";
 import {
   createRootContainerKeyEpoch,
+  createTestContainerKekKeyring,
   createTestContainerKekMaterial,
   createTestContainerKekPredecessorBridge,
 } from "./containerKekMaterial";
@@ -32,6 +35,7 @@ import {
 interface ContainerRekeyFixture {
   readonly bundle: AccessManifestBundleWire | VerifiedContainerAccessManifest;
   readonly kekState: VerifiedContainerKekState;
+  readonly keyringEntries?: readonly ContainerKekKeyringEntry[];
   readonly plaintextKek?: Uint8Array | undefined;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
 }
@@ -41,10 +45,12 @@ interface BuiltContainerRekeyMutation {
   readonly container: {
     readonly bundle: VerifiedContainerAccessManifest;
     readonly kekState: VerifiedContainerKekState;
+    readonly keyringEntries: readonly ContainerKekKeyringEntry[];
     readonly plaintextKek: Uint8Array;
     readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   };
   readonly kekState: VerifiedContainerKekState;
+  readonly keyringEntries: readonly ContainerKekKeyringEntry[];
   readonly plaintextKek: Uint8Array;
   readonly request: ContainerMutationRequest;
 }
@@ -166,18 +172,35 @@ export async function buildRootContainerRekeyMutation(input: {
       containerId: previous.state.containerId,
       keyEpoch: nextKeyEpoch,
     });
+  const retiringKey =
+    input.previous.plaintextKek ?? crypto.getRandomValues(new Uint8Array(32));
   const predecessorBridge = await createTestContainerKekPredecessorBridge({
     containerId: previous.state.containerId,
-    ...(input.previous.plaintextKek
-      ? { predecessorContainerKey: input.previous.plaintextKek }
-      : {}),
+    predecessorContainerKey: retiringKey,
     predecessorContainerKeyEpochId: input.previous.kekState.containerKeyEpochId,
     successorContainerKey: plaintextKek,
     successorContainerKeyEpochId: containerKeyEpochId,
   });
+  const keyring = await createTestContainerKekKeyring({
+    containerId: previous.state.containerId,
+    keyEpoch: nextKeyEpoch,
+    predecessorEntries: input.previous.keyringEntries ?? [],
+    retiringContainerKey: retiringKey,
+    retiringContainerKeyEpochId: input.previous.kekState.containerKeyEpochId,
+    successorContainerKey: plaintextKek,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
+  const keyringEntries: ContainerKekKeyringEntry[] = [
+    ...(input.previous.keyringEntries ?? []),
+    {
+      containerKeyEpochId: input.previous.kekState.containerKeyEpochId,
+      keyMaterial: retiringKey,
+    },
+  ];
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId,
+    keyringHash: await computeContainerKekKeyringHash(keyring),
     predecessorBridgeHash:
       await computeContainerKekPredecessorBridgeHash(predecessorBridge),
   };
@@ -233,10 +256,12 @@ export async function buildRootContainerRekeyMutation(input: {
     container: {
       bundle: verifiedBundle,
       kekState: verifiedKekState.value,
+      keyringEntries,
       plaintextKek,
       principalPolicies,
     },
     kekState: verifiedKekState.value,
+    keyringEntries,
     plaintextKek,
     request: {
       event: event.event as unknown as Record<string, unknown>,
@@ -246,6 +271,7 @@ export async function buildRootContainerRekeyMutation(input: {
       previousManifest: previousBundle,
       previousContainerPath: [previousBundle],
       keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+      keyring: keyring as unknown as Record<string, unknown>,
       predecessorBridge: predecessorBridge as unknown as Record<
         string,
         unknown

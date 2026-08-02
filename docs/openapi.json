@@ -62,7 +62,6 @@
                     }
                   },
                   "containerRekeys": {
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -148,6 +147,18 @@
                           "type": "object",
                           "properties": {},
                           "additionalProperties": {}
+                        },
+                        "keyring": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "manifest": {
                           "type": "object",
@@ -314,13 +325,16 @@
                         "event",
                         "expectedManifestHash",
                         "keyEpoch",
+                        "keyring",
                         "manifest",
                         "predecessorBridge",
                         "principalPolicies",
                         "wraps"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 16,
+                    "type": "array"
                   },
                   "contentKeyBundle": {
                     "type": "object",

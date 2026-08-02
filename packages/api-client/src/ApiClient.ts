@@ -35,6 +35,7 @@ import {
   isCompleteMultipartBlobStageResponse,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
+  isContainerKekLogResponse,
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,
   isCreateOrganizationGroupResponse,
@@ -1032,6 +1033,35 @@ export class ApiClient {
           isContainerWriterProjectionResponse,
           "GET",
         ),
+    );
+  }
+
+  /**
+   * The append-only rotation log for one container — the rebuild/repair
+   * read path. Never cached: it is fetched exactly when the served keyring
+   * failed verification and the ground truth is needed. A historical keyring
+   * is O(its epoch) bytes, so at most one ships per request, named by
+   * `keyringForEpoch`.
+   */
+  getContainerKekLog(
+    containerId: string,
+    options: {
+      readonly afterKeyEpoch?: number;
+      readonly keyringForEpoch?: number;
+    } = {},
+  ) {
+    const query = new URLSearchParams();
+    if (options.keyringForEpoch !== undefined) {
+      query.set("keyringForEpoch", String(options.keyringForEpoch));
+    }
+    if (options.afterKeyEpoch !== undefined) {
+      query.set("afterKeyEpoch", String(options.afterKeyEpoch));
+    }
+    const suffix = query.size > 0 ? `?${query.toString()}` : "";
+    return this.request(
+      `/containers/${pathSegment(containerId)}/kek-log${suffix}`,
+      isContainerKekLogResponse,
+      "GET",
     );
   }
 

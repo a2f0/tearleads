@@ -37,6 +37,7 @@ export type KeyingHashDomain =
   | "tearleads.keying.container-access-structural"
   | "tearleads.keying.container-key-epoch"
   | "tearleads.keying.container-kek-material-id"
+  | "tearleads.keying.container-kek-keyring"
   | "tearleads.keying.container-kek-predecessor-bridge"
   | "tearleads.keying.container-kek-recipient-targets"
   | "tearleads.keying.document-content-key-targets"
@@ -83,6 +84,14 @@ export const CONTAINER_KEK_PREDECESSOR_WRAP_SUITE =
   "tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek" as const;
 export const CONTAINER_KEK_MATERIAL_ID_PREFIX =
   "tearleads.container-kek.v1.sha256:" as const;
+export const CONTAINER_KEK_KEYRING_SEAL_SUITE =
+  "tearleads.container-kek-keyring.aes-256-gcm-current-kek" as const;
+// Write-time sanity cap on lifetime rotations. Sized to be unreachable by
+// legitimate use; it exists to stop runaway rotation loops and to give the
+// keyring length equation a hard ceiling, not to budget rotations. Defined
+// with the wire arithmetic in @tearleads/validators so every layer shares
+// one equation.
+export { MAX_CONTAINER_KEY_EPOCH } from "@tearleads/validators/util";
 
 export interface UnsignedAccessEvent {
   version: 1;
@@ -178,6 +187,7 @@ export interface ContainerGrantAccessEventBody extends ContainerAccessKeyState {
 export interface ContainerRevokeAccessEventBody
   extends ContainerAccessKeyState {
   eventType: "container.revoke";
+  keyringHash: string;
   predecessorBridgeHash: string;
   subjectId: string;
   subjectType: ContainerGrantSubjectType;
@@ -186,6 +196,7 @@ export interface ContainerRevokeAccessEventBody
 export interface ContainerRekeyAccessEventBody {
   eventType: "container.rekey";
   containerKeyEpochId: string;
+  keyringHash: string;
   predecessorBridgeHash: string;
 }
 
@@ -193,6 +204,7 @@ export interface ContainerMoveAccessEventBody
   extends ContainerAccessStructural,
     ContainerAccessKeyState {
   eventType: "container.move";
+  keyringHash: string;
   predecessorBridgeHash: string;
 }
 
@@ -292,6 +304,26 @@ export interface ContainerKekPredecessorBridge {
   successorContainerKeyEpochId: string;
   iv: string;
   wrappedKey: string;
+}
+
+/**
+ * The container's complete predecessor key history, AEAD-sealed under the
+ * epoch named by `containerKeyEpochId`. The snapshot read path: one member
+ * unwrap plus one open yields every retained historical KEK. The bridge log
+ * remains the append-only ground truth the keyring is rebuilt from.
+ */
+export interface ContainerKekKeyring {
+  version: 1;
+  sealingSuite: typeof CONTAINER_KEK_KEYRING_SEAL_SUITE;
+  containerId: string;
+  containerKeyEpochId: string;
+  iv: string;
+  sealed: string;
+}
+
+export interface ContainerKekKeyringEntry {
+  containerKeyEpochId: string;
+  keyMaterial: Uint8Array;
 }
 
 export interface ContainerUserRecipientKey {

@@ -1,4 +1,5 @@
 import type {
+  ContainerKekKeyring,
   ContainerKekPredecessorBridge,
   ContainerKekRecipientTarget,
   ContainerKeyEpoch,
@@ -8,6 +9,7 @@ import type {
 } from "@tearleads/crypto";
 import {
   makeVerifiedContainerKekState,
+  normalizeContainerKekKeyring,
   normalizeContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
@@ -67,6 +69,17 @@ export function readContainerKekPredecessorBridge(
 ): ContainerKekPredecessorBridge {
   try {
     return normalizeContainerKekPredecessorBridge(value);
+  } catch {
+    throw mutationShapeError(`${label} is invalid`);
+  }
+}
+
+export function readContainerKekKeyring(
+  value: unknown,
+  label: string,
+): ContainerKekKeyring {
+  try {
+    return normalizeContainerKekKeyring(value);
   } catch {
     throw mutationShapeError(`${label} is invalid`);
   }

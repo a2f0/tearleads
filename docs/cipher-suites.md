@@ -61,7 +61,8 @@ ML-KEM-wrapped out to users and principals.
 | Document & blob content records (per-record HKDF key) | `aes-256-gcm-hkdf-sha256-record-key` — `packages/client-sdk/src/data/documents/shared/crypto.ts`, `.../blob/shared/chunkedBlobCrypto.ts` |
 | Wrap content key to container KEK | `tearleads.{document,blob}.content-key-wrap.aes-256-gcm-container-kek` — `.../shared/projectionContentKeys.ts`, `.../blob/shared/projection.ts` |
 | Wrap container KEK to parent KEK | `tearleads.container-kek-wrap.aes-256-gcm-parent-kek` — `.../containers/shared/projection.ts` |
-| Wrap predecessor container KEK to successor KEK | `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` — `packages/crypto/src/keying/containerKekPredecessor.ts` |
+| Wrap predecessor container KEK to successor KEK | `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` — `packages/crypto/src/keying/containerKekPredecessor.ts`; suite and version are persisted per bridge row so a future suite rotation is representable |
+| Seal container KEK history keyring under current KEK | `tearleads.container-kek-keyring.aes-256-gcm-current-kek` — `packages/crypto/src/keying/containerKekKeyring.ts`; fixed-width plaintext (8-byte header + 64 bytes per predecessor epoch) makes the sealed length an equality in the epoch number |
 | DEK wrapping under a KEM shared secret | `packages/crypto/src/encapsulation/wrapDek.ts` |
 | Local keyring root-key wrapping (`account-root` envelope) | `packages/client-sdk/src/client/localKeyring/aesGcmWrapping.ts` |
 | Local identity package at rest | `packages/app/src/providers/identity/localIdentityPackageCrypto.ts` |

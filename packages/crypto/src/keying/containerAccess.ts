@@ -526,6 +526,7 @@ function normalizeContainerRevokeAccessEventBody(
     [
       "containerKeyEpochId",
       "eventType",
+      "keyringHash",
       "predecessorBridgeHash",
       "subjectId",
       "subjectType",
@@ -538,6 +539,11 @@ function normalizeContainerRevokeAccessEventBody(
     ...normalizeContainerAccessKeyState({
       containerKeyEpochId: record.containerKeyEpochId,
     }),
+    keyringHash: readHashString(
+      record,
+      "keyringHash",
+      "container.revoke event body",
+    ),
     predecessorBridgeHash: readHashString(
       record,
       "predecessorBridgeHash",
@@ -556,7 +562,12 @@ function normalizeContainerRekeyAccessEventBody(
 ): ContainerRekeyAccessEventBody {
   const record = assertExactKeys(
     value,
-    ["containerKeyEpochId", "eventType", "predecessorBridgeHash"],
+    [
+      "containerKeyEpochId",
+      "eventType",
+      "keyringHash",
+      "predecessorBridgeHash",
+    ],
     "container.rekey event body",
   );
 
@@ -565,6 +576,11 @@ function normalizeContainerRekeyAccessEventBody(
     containerKeyEpochId: readString(
       record,
       "containerKeyEpochId",
+      "container.rekey event body",
+    ),
+    keyringHash: readHashString(
+      record,
+      "keyringHash",
       "container.rekey event body",
     ),
     predecessorBridgeHash: readHashString(
@@ -583,6 +599,7 @@ function normalizeContainerMoveAccessEventBody(
     [
       "containerKeyEpochId",
       "eventType",
+      "keyringHash",
       "parentContainerId",
       "parentManifestHash",
       "predecessorBridgeHash",
@@ -599,6 +616,11 @@ function normalizeContainerMoveAccessEventBody(
     ...normalizeContainerAccessKeyState({
       containerKeyEpochId: record.containerKeyEpochId,
     }),
+    keyringHash: readHashString(
+      record,
+      "keyringHash",
+      "container.move event body",
+    ),
     predecessorBridgeHash: readHashString(
       record,
       "predecessorBridgeHash",

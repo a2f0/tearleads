@@ -53,7 +53,7 @@ import {
   directGrantKey,
   pruneAccessGrantTombstones,
 } from "./grantTombstonePruning";
-import { loadMutationKekResponseHistory } from "./mutationKekResponseHistory";
+import { loadMutationContainerKekHistory } from "./mutationKekHistory";
 
 async function loadContainerRow(
   executor: DatabaseTransaction,
@@ -507,11 +507,9 @@ function containerKekResponseRecord(
     ReturnType<typeof storeVerifiedContainerKekStateInTransaction>
   >,
   containerManifestHistory: Awaited<
-    ReturnType<typeof loadMutationKekResponseHistory>
-  >["containerManifestHistory"],
-  predecessorKeks: Awaited<
-    ReturnType<typeof loadMutationKekResponseHistory>
-  >["predecessorKeks"],
+    ReturnType<typeof loadMutationContainerKekHistory>
+  >,
+  keyring: VerifiedContainerKekMutationState["keyring"],
 ): ContainerMutationResponse["containerKek"] {
   return {
     containerId: storedKekState.containerId,
@@ -522,13 +520,45 @@ function containerKekResponseRecord(
     keyEpochHash: storedKekState.keyEpochHash,
     keyTargetHash: storedKekState.keyTargetHash,
     parentContainerKeyEpochId: storedKekState.parentContainerKeyEpochId,
-    predecessorKeks,
+    keyring: keyring ? { ...keyring } : null,
     recipientTargets: storedKekState.recipientTargets.map(
       containerKekRecipientTargetRecord,
     ),
     wraps: storedKekState.wraps.map(containerKeyWrapRecord),
     containerManifestHistory,
   };
+}
+
+async function persistMutationTombstones(input: {
+  container: StoredContainerRow;
+  executor: DatabaseTransaction;
+  manifest: VerifiedContainerAccessManifest;
+  previousContainerPath: readonly VerifiedContainerAccessManifest[] | undefined;
+  previousManifest: VerifiedContainerAccessManifest | null;
+  updatedAt: Date;
+}): Promise<void> {
+  const { container, executor, manifest, previousManifest, updatedAt } = input;
+  await persistAccessRevocationTombstones({
+    container,
+    executor,
+    manifest,
+    previousManifest,
+    updatedAt,
+  });
+  await pruneAccessGrantTombstones({
+    executor,
+    manifest,
+    previousManifest,
+  });
+  if (input.previousContainerPath) {
+    await persistMoveAccessLossTombstones({
+      executor,
+      manifest,
+      previousContainerPath: input.previousContainerPath,
+      previousManifest,
+      updatedAt,
+    });
+  }
 }
 
 export async function persistVerifiedMutation(
@@ -539,7 +569,11 @@ export async function persistVerifiedMutation(
   previousContainerPath?: readonly VerifiedContainerAccessManifest[],
 ): Promise<ContainerMutationResponse> {
   const { executor } = context;
-  const { predecessorBridge, verifiedState: kekState } = verifiedKekMutation;
+  const {
+    keyring,
+    predecessorBridge,
+    verifiedState: kekState,
+  } = verifiedKekMutation;
   const updatedAt = new Date();
 
   const container = await persistContainerStructure(
@@ -560,37 +594,27 @@ export async function persistVerifiedMutation(
     manifest.state.containerId,
     manifestHead,
   );
-  await persistAccessRevocationTombstones({
+  await persistMutationTombstones({
     container,
     executor,
     manifest,
+    previousContainerPath,
     previousManifest,
     updatedAt,
   });
-  await pruneAccessGrantTombstones({
-    executor,
-    manifest,
-    previousManifest,
-  });
-  if (previousContainerPath) {
-    await persistMoveAccessLossTombstones({
-      executor,
-      manifest,
-      previousContainerPath,
-      previousManifest,
-      updatedAt,
-    });
-  }
 
   const storedKekState = await runConflictBoundary(() =>
     storeVerifiedContainerKekStateInTransaction(
-      { predecessorBridge, verifiedState: kekState },
+      { keyring, predecessorBridge, verifiedState: kekState },
       executor,
     ),
   );
 
-  const { containerManifestHistory, predecessorKeks } =
-    await loadMutationKekResponseHistory(context, manifest, kekState);
+  const containerManifestHistory = await loadMutationContainerKekHistory(
+    context.writerProjectionContext,
+    manifest,
+    kekState,
+  );
   await appendOrganizationReadModelChangeInTransaction(executor, {
     organizationId: manifest.state.organizationId,
     lane: "grants",
@@ -622,7 +646,7 @@ export async function persistVerifiedMutation(
     containerKek: containerKekResponseRecord(
       storedKekState,
       containerManifestHistory,
-      predecessorKeks,
+      keyring,
     ),
     referencedPrincipalHeads: manifest.manifest.referencedPrincipalHeads.map(
       referencedPrincipalHeadRecord,

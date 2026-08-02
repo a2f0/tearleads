@@ -321,10 +321,12 @@ by `profile_document_id`, not in server-visible roster columns.
 
 Subtractive access changes create new container KEK epochs for future writes.
 They do not claim retroactive secrecy for ciphertext and keys already
-distributed before the shrink. Each new epoch includes an authenticated bridge
-to its immediate predecessor. A user with current access can therefore decrypt
-the retained document history by starting from the current recipient wrap;
-adding that user does not require old user/principal envelopes or a rebaseline.
+distributed before the shrink. Each new epoch includes a write-once
+authenticated bridge to its immediate predecessor and a keyring holding every
+predecessor KEK sealed under the new key. A user with current access therefore
+decrypts the retained document history from the current recipient wrap in one
+keyring open; adding that user does not require old user/principal envelopes
+or a rebaseline.
 
 For the broader hierarchy direction, see:
 

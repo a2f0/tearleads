@@ -2,6 +2,7 @@ import type {
   AccessEvent,
   AccessManifest,
   ContainerAccessManifestState,
+  ContainerKekKeyring,
   ContainerKekPredecessorBridge,
   ContainerKeyEpoch,
   ContainerKeyWrap,
@@ -10,6 +11,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
+  computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
   createContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
@@ -58,6 +60,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { sealRotationKeyring } from "./moveRotation";
 import {
   type ContainerRevokeSubject,
   deriveContainerRevokeManifest,
@@ -68,6 +71,7 @@ function buildContainerRevokeRequest(input: {
   body: ContainerRevokeAccessEventBody;
   event: AccessEvent;
   keyEpoch: ContainerKeyEpoch;
+  keyring: ContainerKekKeyring;
   manifest: AccessManifest;
   manifestHash: string;
   parentKek: ContainerKekResponse | null;
@@ -98,6 +102,7 @@ function buildContainerRevokeRequest(input: {
       input.predecessorBridge,
       "Container revoke predecessor bridge",
     ),
+    keyring: readCanonicalRecord(input.keyring, "Container revoke keyring"),
     wraps: readCanonicalRecords(input.wraps, "Container revoke wraps"),
     parentKekState:
       input.parentKek === null
@@ -113,7 +118,36 @@ function buildContainerRevokeRequest(input: {
   };
 }
 
-async function collectContainerRevokePrincipalPolicies(input: {
+async function buildContainerRevokeRotation(input: {
+  containerKey: Uint8Array;
+  containerKeyEpochId: string;
+  nextContainerKeyEpoch: number;
+  predecessorContainerKey: Uint8Array;
+  previousContainerId: string;
+  targetKek: ContainerKekResponse;
+}): Promise<{
+  keyring: ContainerKekKeyring;
+  predecessorBridge: ContainerKekPredecessorBridge;
+}> {
+  const predecessorBridge = await createContainerKekPredecessorBridge({
+    containerId: input.previousContainerId,
+    predecessorContainerKey: input.predecessorContainerKey,
+    predecessorContainerKeyEpochId: input.targetKek.containerKeyEpochId,
+    successorContainerKey: input.containerKey,
+    successorContainerKeyEpochId: input.containerKeyEpochId,
+  });
+  const keyring = await sealRotationKeyring({
+    containerId: input.previousContainerId,
+    currentKek: input.targetKek,
+    currentKeyMaterial: input.predecessorContainerKey,
+    keyEpoch: input.nextContainerKeyEpoch,
+    successorContainerKey: input.containerKey,
+    successorContainerKeyEpochId: input.containerKeyEpochId,
+  });
+  return { keyring, predecessorBridge };
+}
+
+export async function collectContainerRevokePrincipalPolicies(input: {
   execSql: ExecSql;
   previousProjection: ContainerWriterProjectionResponse;
   resolveUserKey: ProjectionUserKeyResolver;
@@ -137,6 +171,7 @@ function buildContainerRevokePlanResult(input: {
   event: AccessEvent;
   eventHash: string;
   keyEpoch: ContainerKeyEpoch;
+  keyring: ContainerKekKeyring;
   manifest: AccessManifest;
   manifestHash: string;
   parentKek: ContainerKekResponse | null;
@@ -162,6 +197,7 @@ function buildContainerRevokePlanResult(input: {
       body: input.body,
       event: input.event,
       keyEpoch: input.keyEpoch,
+      keyring: input.keyring,
       manifest: input.manifest,
       manifestHash: input.manifestHash,
       parentKek: input.parentKek,
@@ -233,16 +269,18 @@ export async function buildMaterializedContainerRevokePlan(input: {
     keyMaterial: containerKey,
     override: input.containerKeyEpochId,
   });
-  const predecessorBridge = await createContainerKekPredecessorBridge({
-    containerId: previousState.containerId,
+  const { keyring, predecessorBridge } = await buildContainerRevokeRotation({
+    containerKey,
+    containerKeyEpochId,
+    nextContainerKeyEpoch,
     predecessorContainerKey,
-    predecessorContainerKeyEpochId: target.kek.containerKeyEpochId,
-    successorContainerKey: containerKey,
-    successorContainerKeyEpochId: containerKeyEpochId,
+    previousContainerId: previousState.containerId,
+    targetKek: target.kek,
   });
   const body: ContainerRevokeAccessEventBody = {
     eventType: "container.revoke",
     containerKeyEpochId,
+    keyringHash: await computeContainerKekKeyringHash(keyring),
     predecessorBridgeHash:
       await computeContainerKekPredecessorBridgeHash(predecessorBridge),
     subjectId: input.revokedSubject.subjectId,
@@ -301,6 +339,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
     event,
     eventHash,
     keyEpoch,
+    keyring,
     manifest,
     manifestHash,
     parentKek,

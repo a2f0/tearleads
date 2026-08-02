@@ -16,12 +16,16 @@ import {
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { createTestContainerKekMaterial } from "../../../test/helpers/containerKekMaterial";
+import {
+  createTestContainerKekKeyring,
+  createTestContainerKekMaterial,
+} from "../../../test/helpers/containerKekMaterial";
 import {
   createContainerKekStoreManifestFixture as createContainerManifestFixture,
   containerKekStoreFixtureHash as fixtureHash,
 } from "../../../test/helpers/containerKekStoreFixtures";
 import {
+  getContainerKeyEpochKeyring,
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
   resolveStoredContainerKekState,
@@ -196,7 +200,11 @@ test("container KEK store persists additive wraps and resolves verified state", 
   }
 
   await storeVerifiedContainerKekState(
-    { predecessorBridge: null, verifiedState: verifiedState.value },
+    {
+      keyring: null,
+      predecessorBridge: null,
+      verifiedState: verifiedState.value,
+    },
     db,
   );
 
@@ -307,11 +315,19 @@ test("container KEK store replaces stale same-epoch principal wraps", async () =
   }
 
   await storeVerifiedContainerKekState(
-    { predecessorBridge: null, verifiedState: initialState.value },
+    {
+      keyring: null,
+      predecessorBridge: null,
+      verifiedState: initialState.value,
+    },
     db,
   );
   await storeVerifiedContainerKekState(
-    { predecessorBridge: null, verifiedState: currentState.value },
+    {
+      keyring: null,
+      predecessorBridge: null,
+      verifiedState: currentState.value,
+    },
     db,
   );
 
@@ -398,7 +414,11 @@ test("container KEK resolver rejects tampered stored wrap fingerprints", async (
   }
 
   await storeVerifiedContainerKekState(
-    { predecessorBridge: null, verifiedState: verifiedState.value },
+    {
+      keyring: null,
+      predecessorBridge: null,
+      verifiedState: verifiedState.value,
+    },
     db,
   );
   await db
@@ -417,7 +437,7 @@ test("container KEK resolver rejects tampered stored wrap fingerprints", async (
   ).rejects.toMatchObject({ code: "hash_mismatch" });
 });
 
-test("container KEK store advances a revoke rekey and rejects predecessor forks", async () => {
+test("container KEK store advances a revoke rekey with its sealed keyring", async () => {
   const containerId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
   const { containerKeyEpochId: oldKeyEpochId, plaintextKek: oldKey } =
@@ -518,49 +538,9 @@ test("container KEK store advances a revoke rekey and rejects predecessor forks"
       }),
     ],
   });
-  const { containerKeyEpochId: forkKeyEpochId, plaintextKek: forkKey } =
-    await createTestContainerKekMaterial({
-      containerId,
-      keyEpoch: 2,
-    });
-  const forkManifest = await createContainerManifestFixture({
-    containerId,
-    containerKeyEpochId: forkKeyEpochId,
-    organizationId,
-    epoch: 2,
-    previousManifestHash: previousManifest.manifestHash,
-    directGrants: [
-      {
-        subjectType: "user",
-        subjectId: adminUserId,
-        accessLevel: "admin",
-      },
-    ],
-    salt: "revoke-fork",
-  });
-  const forkEpoch = await createContainerKeyEpochFixture({
-    manifest: forkManifest,
-    keyEpoch: 2,
-  });
-  const forkState = await verifyContainerKekState({
-    containerManifest: forkManifest,
-    keyEpoch: forkEpoch,
-    userRecipientKeys: [adminKey],
-    wraps: [
-      await createContainerKeyWrap({
-        containerKeyEpochId: forkKeyEpochId,
-        recipientId: adminUserId,
-        recipientKeyEpochId: adminKey.recipientKeyEpochId,
-        recipientKeyFingerprint: adminKey.recipientKeyFingerprint,
-        wrapManifestHash: forkManifest.manifestHash,
-      }),
-    ],
-  });
-
   expect(oldState.ok).toBe(true);
   expect(newState.ok).toBe(true);
-  expect(forkState.ok).toBe(true);
-  if (!oldState.ok || !newState.ok || !forkState.ok) {
+  if (!oldState.ok || !newState.ok) {
     throw new Error("Expected fixture states to verify");
   }
   const predecessorBridge = await createContainerKekPredecessorBridge({
@@ -570,54 +550,38 @@ test("container KEK store advances a revoke rekey and rejects predecessor forks"
     successorContainerKey: newKey,
     successorContainerKeyEpochId: newKeyEpochId,
   });
-  const forkPredecessorBridge = await createContainerKekPredecessorBridge({
+  const keyring = await createTestContainerKekKeyring({
     containerId,
-    predecessorContainerKey: oldKey,
-    predecessorContainerKeyEpochId: oldKeyEpochId,
-    successorContainerKey: forkKey,
-    successorContainerKeyEpochId: forkKeyEpochId,
+    keyEpoch: 2,
+    retiringContainerKey: oldKey,
+    retiringContainerKeyEpochId: oldKeyEpochId,
+    successorContainerKey: newKey,
+    successorContainerKeyEpochId: newKeyEpochId,
   });
 
   await storeVerifiedContainerKekState(
-    { predecessorBridge: null, verifiedState: oldState.value },
+    { keyring: null, predecessorBridge: null, verifiedState: oldState.value },
     db,
   );
   await storeVerifiedContainerKekState(
-    { predecessorBridge, verifiedState: newState.value },
+    { keyring, predecessorBridge, verifiedState: newState.value },
     db,
   );
-  await expect(
-    storeVerifiedContainerKekState(
-      {
-        predecessorBridge: forkPredecessorBridge,
-        verifiedState: forkState.value,
-      },
-      db,
-    ),
-  ).rejects.toThrow();
-  await expect(
-    storeVerifiedContainerKekState(
-      {
-        predecessorBridge: {
-          ...predecessorBridge,
-          wrappedKey: `${predecessorBridge.wrappedKey}tampered`,
-        },
-        verifiedState: newState.value,
-      },
-      db,
-    ),
-  ).rejects.toThrow("Container key epoch conflict");
-
   await expect(
     getCurrentContainerKeyEpoch(containerId, db),
   ).resolves.toMatchObject({
     id: newKeyEpochId,
     keyEpoch: 2,
+    // Lookups omit the keyring blob; keyringDelivery reads it on demand.
+    keyring: null,
     predecessorBridge: {
       predecessorContainerKeyEpochId: oldKeyEpochId,
       successorContainerKeyEpochId: newKeyEpochId,
     },
   });
+  await expect(getContainerKeyEpochKeyring(newKeyEpochId, db)).resolves.toEqual(
+    keyring,
+  );
   await expect(
     verifyContainerKekState({
       containerManifest: currentManifest,

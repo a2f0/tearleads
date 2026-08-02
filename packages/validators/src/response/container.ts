@@ -3,11 +3,14 @@ import { isNullableContainerSystemSlot } from "../containerSystemSlot";
 import { isPlainObject } from "../isPlainObject";
 import {
   type AccessManifestBundleWireResponse,
+  CONTAINER_KEK_LOG_PAGE_LIMIT,
+  CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
   hasArrayProperty,
   hasNullableStringProperty,
   hasNumberProperty,
   hasStringProperty,
   isAccessManifestBundleWireResponse,
+  isContainerKekKeyringWireRecord,
   isRecordArray,
 } from "../util";
 import {
@@ -20,16 +23,18 @@ import {
 } from "./principal";
 import { isSyncWatermark, type SyncWatermark } from "./syncWatermark";
 
-/** A superseded KEK reached by decrypting its successor's mandatory bridge. */
-export interface PredecessorContainerKekResponse {
-  accessManifestHash: string;
-  bridge: Record<string, unknown>;
+/**
+ * The container's sealed predecessor key history. Opening it under the
+ * current KEK yields every retained historical KEK in one decrypt; the
+ * bridge log behind it is served only by the rebuild read path.
+ */
+export interface ContainerKekKeyringWireResponse {
+  version: number;
+  sealingSuite: string;
   containerId: string;
-  containerKeyEpoch: number;
   containerKeyEpochId: string;
-  keyEpoch: Record<string, unknown>;
-  keyEpochHash: string;
-  parentContainerKeyEpochId: string | null;
+  iv: string;
+  sealed: string;
 }
 
 export interface ContainerKekResponse {
@@ -37,8 +42,8 @@ export interface ContainerKekResponse {
   accessManifestHash: string;
   containerKeyEpochId: string;
   containerKeyEpoch: number;
-  /** Immediate predecessor first, followed by the verified bridge chain. */
-  predecessorKeks: PredecessorContainerKekResponse[];
+  /** Null exactly when `containerKeyEpoch` is 1. */
+  keyring: ContainerKekKeyringWireResponse | null;
   keyEpoch: Record<string, unknown>;
   keyEpochHash: string;
   keyTargetHash: string;
@@ -48,32 +53,96 @@ export interface ContainerKekResponse {
   wraps: Record<string, unknown>[];
 }
 
-function isPredecessorContainerKekResponse(
+function isContainerKekKeyringWireResponse(
   value: unknown,
-): value is PredecessorContainerKekResponse {
+): value is ContainerKekKeyringWireResponse {
+  return isContainerKekKeyringWireRecord(value);
+}
+
+/**
+ * The append-only rotation log for one container: every epoch with its
+ * write-once bridge and sealed keyring. This is the rebuild/repair read
+ * path — hot reads use the projection keyring instead.
+ */
+export interface ContainerKekLogEpochResponse {
+  accessManifestHash: string;
+  bridge: Record<string, unknown> | null;
+  containerKeyEpoch: number;
+  containerKeyEpochId: string;
+  keyring: ContainerKekKeyringWireResponse | null;
+  parentContainerKeyEpochId: string | null;
+  /**
+   * The epoch's retained recipient envelopes — the identity-key recovery
+   * backstop when a bridge below the current epoch is severed. Cross-epoch
+   * wraps are never deleted, so a member present at this epoch can recover
+   * its KEK from their own wrap independent of every later rotation.
+   */
+  wraps: Record<string, unknown>[];
+}
+
+export interface ContainerKekLogResponse {
+  containerId: string;
+  epochs: ContainerKekLogEpochResponse[];
+  /** True when epochs above this page's last remain unserved. */
+  hasMore: boolean;
+}
+
+function isContainerKekLogEpochResponse(
+  value: unknown,
+): value is ContainerKekLogEpochResponse {
   const bridge = isPlainObject(value)
     ? Reflect.get(value, "bridge")
     : undefined;
-  const keyEpoch = isPlainObject(value)
-    ? Reflect.get(value, "keyEpoch")
+  const keyring = isPlainObject(value)
+    ? Reflect.get(value, "keyring")
     : undefined;
 
   return (
     isPlainObject(value) &&
-    isPlainObject(bridge) &&
     hasStringProperty(value, "accessManifestHash") &&
     value.accessManifestHash.length > 0 &&
-    hasStringProperty(value, "containerId") &&
-    value.containerId.length > 0 &&
+    Reflect.has(value, "bridge") &&
+    (bridge === null || isPlainObject(bridge)) &&
     hasNumberProperty(value, "containerKeyEpoch") &&
     Number.isInteger(value.containerKeyEpoch) &&
     value.containerKeyEpoch > 0 &&
     hasStringProperty(value, "containerKeyEpochId") &&
     value.containerKeyEpochId.length > 0 &&
-    isPlainObject(keyEpoch) &&
-    hasStringProperty(value, "keyEpochHash") &&
-    value.keyEpochHash.length > 0 &&
-    hasNullableStringProperty(value, "parentContainerKeyEpochId")
+    Reflect.has(value, "keyring") &&
+    (keyring === null || isContainerKekKeyringWireResponse(keyring)) &&
+    hasNullableStringProperty(value, "parentContainerKeyEpochId") &&
+    isRecordArray(Reflect.get(value, "wraps"))
+  );
+}
+
+export function isContainerKekLogResponse(
+  value: unknown,
+): value is ContainerKekLogResponse {
+  const epochs = isPlainObject(value)
+    ? Reflect.get(value, "epochs")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "containerId") &&
+    value.containerId.length > 0 &&
+    typeof Reflect.get(value, "hasMore") === "boolean" &&
+    Array.isArray(epochs) &&
+    epochs.length <= CONTAINER_KEK_LOG_PAGE_LIMIT &&
+    epochs.every(isContainerKekLogEpochResponse) &&
+    // The same bounds the server applies, re-checked on the way in. A guard
+    // that accepted an unbounded page would let a hostile or buggy server
+    // hand back arbitrarily many envelopes and multi-megabyte keyrings, and
+    // the recovery walk would do the work before anything noticed.
+    epochs.every(
+      (epoch: ContainerKekLogEpochResponse) =>
+        epoch.wraps.length <= CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
+    ) &&
+    // At most one keyring per page: they are O(their epoch) bytes, so the
+    // endpoint serves exactly the one asked for.
+    epochs.filter(
+      (epoch: ContainerKekLogEpochResponse) => epoch.keyring !== null,
+    ).length <= 1
   );
 }
 
@@ -215,14 +284,21 @@ function isContainerKekResponse(value: unknown): value is ContainerKekResponse {
     ? Reflect.get(value, "recipientTargets")
     : undefined;
   const wraps = isPlainObject(value) ? Reflect.get(value, "wraps") : undefined;
-  const predecessorKeks = isPlainObject(value)
-    ? Reflect.get(value, "predecessorKeks")
+  const keyring = isPlainObject(value)
+    ? Reflect.get(value, "keyring")
     : undefined;
 
   return (
     isPlainObject(value) &&
-    Array.isArray(predecessorKeks) &&
-    predecessorKeks.every(isPredecessorContainerKekResponse) &&
+    Reflect.has(value, "keyring") &&
+    (keyring === null || isContainerKekKeyringWireResponse(keyring)) &&
+    // Null EXACTLY at epoch 1: that epoch has no history to seal, and every
+    // later one does. Accepting either shape at any epoch would let a
+    // history-bearing epoch answer with no keyring and read as "nothing to
+    // recover" rather than as the missing snapshot it is.
+    (keyring === null) ===
+      (hasNumberProperty(value, "containerKeyEpoch") &&
+        value.containerKeyEpoch === 1) &&
     hasStringProperty(value, "containerId") &&
     hasStringProperty(value, "accessManifestHash") &&
     value.accessManifestHash.length > 0 &&

@@ -2155,6 +2155,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "predecessor_bridge_version": {
+          "name": "predecessor_bridge_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "predecessor_bridge_suite": {
+          "name": "predecessor_bridge_suite",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "predecessor_bridge_iv": {
           "name": "predecessor_bridge_iv",
           "type": "text",
@@ -2163,6 +2175,18 @@
         },
         "wrapped_predecessor_key": {
           "name": "wrapped_predecessor_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "keyring_iv": {
+          "name": "keyring_iv",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sealed_keyring": {
+          "name": "sealed_keyring",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -2275,9 +2299,9 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "container_key_epochs_predecessor_bridge_complete": {
-          "name": "container_key_epochs_predecessor_bridge_complete",
-          "value": "(\n        (\"container_key_epochs\".\"predecessor_container_key_epoch_id\" is null and \"container_key_epochs\".\"predecessor_bridge_iv\" is null and \"container_key_epochs\".\"wrapped_predecessor_key\" is null)\n        or\n        (\"container_key_epochs\".\"predecessor_container_key_epoch_id\" is not null and \"container_key_epochs\".\"predecessor_bridge_iv\" is not null and \"container_key_epochs\".\"wrapped_predecessor_key\" is not null)\n      )"
+        "container_key_epochs_rotation_artifacts_complete": {
+          "name": "container_key_epochs_rotation_artifacts_complete",
+          "value": "(\n        (\"container_key_epochs\".\"predecessor_container_key_epoch_id\" is null and \"container_key_epochs\".\"predecessor_bridge_version\" is null and \"container_key_epochs\".\"predecessor_bridge_suite\" is null and \"container_key_epochs\".\"predecessor_bridge_iv\" is null and \"container_key_epochs\".\"wrapped_predecessor_key\" is null and \"container_key_epochs\".\"keyring_iv\" is null and \"container_key_epochs\".\"sealed_keyring\" is null)\n        or\n        (\"container_key_epochs\".\"predecessor_container_key_epoch_id\" is not null and \"container_key_epochs\".\"predecessor_bridge_version\" is not null and \"container_key_epochs\".\"predecessor_bridge_suite\" is not null and \"container_key_epochs\".\"predecessor_bridge_iv\" is not null and \"container_key_epochs\".\"wrapped_predecessor_key\" is not null and \"container_key_epochs\".\"keyring_iv\" is not null and \"container_key_epochs\".\"sealed_keyring\" is not null)\n      )"
         }
       },
       "isRLSEnabled": false

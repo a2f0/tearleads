@@ -25,11 +25,9 @@ import type {
   KeyingCanonicalJson,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
-  computeContainerKekPredecessorBridgeHash,
   computeDocumentContentKeyTargetHash,
   deriveDocumentLinkSetManifest,
 } from "@tearleads/crypto";
@@ -56,10 +54,7 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
-import {
-  createTestContainerKekMaterial,
-  createTestContainerKekPredecessorBridge,
-} from "../../test/helpers/containerKekMaterial";
+import { createTestContainerKekMaterial } from "../../test/helpers/containerKekMaterial";
 import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
@@ -74,7 +69,6 @@ import {
   asVerifiedContainerManifest,
   bootstrapRoot,
   buildRootGrantRequest,
-  buildRootRevokeRequest,
   createContainerKeyEpoch,
   createContainerKeyWrap,
   createContainerManifestBundle,
@@ -84,22 +78,13 @@ import {
   kekStateFromContainerResponse,
   loadPrincipalPoliciesForContainerPath,
   type StoredRootFixture,
-  uniquePrincipalPolicies,
 } from "../../test/helpers/keyingWriterProjectionKit";
+import { moveContainer } from "../../test/helpers/keyingWriterProjectionMove";
+import { buildRootRevokeRequest } from "../../test/helpers/keyingWriterProjectionRevoke";
 import { registerUser } from "../../test/helpers/registerUser";
 import { getCurrentContainerKeyEpoch } from "../access/read/containerKekStore";
 import { verifyDocumentAuditHistory } from "../documents/verifyDocumentAuditHistory";
 import { routeApp } from "../routeApp";
-
-async function loadPrincipalPoliciesForContainerPaths(
-  paths: readonly (readonly AccessManifestBundleWire[])[],
-): Promise<VerifiedPrincipalPolicy[]> {
-  const principalPolicySets = await Promise.all(
-    paths.map((path) => loadPrincipalPoliciesForContainerPath(path)),
-  );
-
-  return uniquePrincipalPolicies(principalPolicySets.flat());
-}
 
 async function createChildContainer(input: {
   readonly parent: {
@@ -176,6 +161,7 @@ async function createChildContainer(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    keyring: null,
     predecessorBridge: null,
     wraps: [wrap as unknown as Record<string, unknown>],
     parentKekState: input.parent.kekState as unknown as Record<string, unknown>,
@@ -194,130 +180,6 @@ async function createChildContainer(input: {
   const created = await response.json();
   expect(isContainerMutationResponse(created)).toBe(true);
   return created as ContainerMutationResponse;
-}
-
-async function buildContainerMoveRequest(input: {
-  readonly destinationParent: AccessManifestBundleWire;
-  readonly destinationParentKekState: VerifiedContainerKekState;
-  readonly destinationParentPath: readonly AccessManifestBundleWire[];
-  readonly previous: AccessManifestBundleWire;
-  readonly previousContainerPath: readonly AccessManifestBundleWire[];
-  readonly previousKekState: VerifiedContainerKekState;
-  readonly signer: TestUser;
-}): Promise<ContainerMutationRequest> {
-  const previous = asVerifiedContainerManifest(input.previous);
-  const destinationParent = asVerifiedContainerManifest(
-    input.destinationParent,
-  );
-  const principalPolicies = await loadPrincipalPoliciesForContainerPaths([
-    input.previousContainerPath,
-    input.destinationParentPath,
-  ]);
-  const nextKeyEpoch = input.previousKekState.containerKeyEpoch + 1;
-  const { containerKeyEpochId } = await createTestContainerKekMaterial({
-    containerId: previous.state.containerId,
-    keyEpoch: nextKeyEpoch,
-  });
-  const predecessorBridge = await createTestContainerKekPredecessorBridge({
-    containerId: previous.state.containerId,
-    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
-    successorContainerKeyEpochId: containerKeyEpochId,
-  });
-  const body: ContainerAccessEventBody = {
-    eventType: "container.move",
-    parentContainerId: destinationParent.state.containerId,
-    parentManifestHash: input.destinationParent.manifestHash,
-    containerKeyEpochId,
-    predecessorBridgeHash:
-      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
-  };
-  const event = await createSignedAccessEvent({
-    body,
-    dependencyManifestHashes: [
-      ...new Set(
-        [...input.previousContainerPath, ...input.destinationParentPath].map(
-          (manifest) => manifest.manifestHash,
-        ),
-      ),
-    ],
-    objectId: previous.state.containerId,
-    objectKind: "container",
-    organizationId: previous.state.organizationId,
-    previousManifestHash: input.previous.manifestHash,
-    signer: input.signer,
-  });
-  const bundle = await createContainerManifestBundle(
-    {
-      ...previous.state,
-      epoch: previous.state.epoch + 1,
-      previousManifestHash: input.previous.manifestHash,
-      eventHash: event.eventHash,
-      parentContainerId: destinationParent.state.containerId,
-      parentManifestHash: input.destinationParent.manifestHash,
-      containerKeyEpochId,
-    },
-    event,
-  );
-  const keyEpoch = createContainerKeyEpoch({
-    containerKeyEpochId,
-    keyEpoch: nextKeyEpoch,
-    manifest: bundle,
-    parentKekState: input.destinationParentKekState,
-  });
-  const wrap = createContainerKeyWrap({
-    containerKeyEpochId,
-    parentKekState: input.destinationParentKekState,
-    wrapManifestHash: bundle.manifestHash,
-  });
-  return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown,
-    expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [...input.previousContainerPath],
-    destinationParentContainerPath: [...input.destinationParentPath],
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
-    keyEpoch: keyEpoch as unknown as Record<string, unknown>,
-    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
-    wraps: [wrap as unknown as Record<string, unknown>],
-    parentKekState: input.destinationParentKekState as unknown as Record<
-      string,
-      unknown
-    >,
-    userRecipientKeys: [],
-  };
-}
-
-async function moveContainer(input: {
-  readonly destinationParent: AccessManifestBundleWire;
-  readonly destinationParentKekState: VerifiedContainerKekState;
-  readonly destinationParentPath: readonly AccessManifestBundleWire[];
-  readonly previous: AccessManifestBundleWire;
-  readonly previousContainerPath: readonly AccessManifestBundleWire[];
-  readonly previousKekState: VerifiedContainerKekState;
-  readonly signer: TestUser;
-}): Promise<ContainerMutationResponse> {
-  const previous = asVerifiedContainerManifest(input.previous);
-  const response = await routeApp.request(
-    `/containers/${previous.state.containerId}/move`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${input.signer.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(await buildContainerMoveRequest(input)),
-    },
-  );
-
-  expect(response.status).toBe(200);
-  const moved = await response.json();
-  expect(isContainerMutationResponse(moved)).toBe(true);
-  return moved as ContainerMutationResponse;
 }
 
 async function countDocumentAuditRows(documentId: string, updateId: string) {
@@ -815,7 +677,7 @@ test("container projections and mutations preserve current KEKs across damaged h
   expect(isContainerWriterProjectionResponse(rootProjection)).toBe(true);
   expect(rootProjection.containerKeks[0]).toMatchObject({
     containerKeyEpochId: firstRekey.kekState.containerKeyEpochId,
-    predecessorKeks: [],
+    keyring: firstRekey.request.keyring,
   });
 
   const childProjectionResponse = await routeApp.request(
@@ -826,7 +688,10 @@ test("container projections and mutations preserve current KEKs across damaged h
   const childProjection = await childProjectionResponse.json();
   expect(isContainerWriterProjectionResponse(childProjection)).toBe(true);
   expect(childProjection.containerKeks).toHaveLength(2);
-  expect(childProjection.containerKeks[0]?.predecessorKeks).toEqual([]);
+  expect(childProjection.containerKeks[0]?.keyring).toEqual(
+    firstRekey.request
+      .keyring as unknown as ContainerMutationResponse["containerKek"]["keyring"],
+  );
   expect(childProjection.containerKeks[1]?.containerKeyEpochId).toBe(
     child.containerKek.containerKeyEpochId,
   );
@@ -850,10 +715,11 @@ test("container projections and mutations preserve current KEKs across damaged h
   const secondMutation = await secondResponse.json();
   expect(isContainerMutationResponse(secondMutation)).toBe(true);
   expect(
-    (
-      secondMutation as ContainerMutationResponse
-    ).containerKek.predecessorKeks.map((epoch) => epoch.containerKeyEpochId),
-  ).toEqual([firstRekey.kekState.containerKeyEpochId]);
+    (secondMutation as ContainerMutationResponse).containerKek.keyring,
+  ).toEqual(
+    secondRekey.request
+      .keyring as ContainerMutationResponse["containerKek"]["keyring"],
+  );
 });
 
 test("GET /containers/:containerId/writer-projection rejects users without write access", async () => {

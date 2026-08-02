@@ -8,7 +8,7 @@ import {
   assertUnwrappedContainerKekMatchesMaterialId,
   projectedUnreachablePredecessorEpochIds,
   projectionKekLabel,
-  unwrapPredecessorContainerKeksAtIndex,
+  unwrapKeyringContainerKeksAtIndex,
 } from "./containerKekPathHistory";
 import {
   type UnwrapContainerKekPathInput,
@@ -102,12 +102,24 @@ async function unwrapContainerKekFromParentWrap(input: {
     return null;
   }
 
+  // The epoch-record fingerprint is a SELECTOR for picking the right envelope
+  // among several, not the security boundary — the AEAD tag below is what
+  // authenticates the parent key. Keyring-recovered historical KEKs carry no
+  // epoch record (only the material and the epoch id that commits to it), so
+  // for those the epoch id alone selects and decryption authenticates.
+  //
+  // Without this, an ancestor rotation would strand every descendant still
+  // pinned to the predecessor epoch: opening the descendant requires the
+  // parent's historical KEK, and that is exactly the key a lazy rekey needs in
+  // order to materialize a post-rotation epoch. A cold client would have no
+  // way back in.
   const parentWrap = input.wraps.find(
     (wrap) =>
       wrap.recipientKind === "container" &&
       wrap.recipientId === parentKek.containerId &&
       wrap.recipientKeyEpochId === input.parentContainerKeyEpochId &&
-      wrap.recipientKeyFingerprint === parentKek.keyEpochHash,
+      (parentKek.keyEpochHash === null ||
+        wrap.recipientKeyFingerprint === parentKek.keyEpochHash),
   );
   if (!parentWrap) {
     return null;
@@ -128,6 +140,16 @@ async function unwrapContainerKekFromParentWrap(input: {
   }
 }
 
+/**
+ * Admits caller-supplied keys that the projection also names.
+ *
+ * The projection match is deliberate: a seeded key is trusted only once its
+ * epoch is one this projection actually carries, which is what makes the
+ * material-id check below meaningful. Production seeds this with the epoch it
+ * just minted (see `registerIdentity`), never with recovered history — history
+ * arrives through the sealed keyring on each path instead, and is shared across
+ * authorizing paths through the common `keksByEpochId` map.
+ */
 async function seedKnownContainerKeks(input: {
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   projection: ContainerWriterProjectionResponse;
@@ -165,15 +187,6 @@ function findProjectedContainerKek(
   for (const [index, current] of projection.containerKeks.entries()) {
     if (current.containerKeyEpochId === containerKeyEpochId) {
       return { kek: current, label: projectionKekLabel(index) };
-    }
-    const predecessor = current.predecessorKeks.find(
-      (candidate) => candidate.containerKeyEpochId === containerKeyEpochId,
-    );
-    if (predecessor) {
-      return {
-        kek: predecessor,
-        label: `${projectionKekLabel(index)} predecessor ${containerKeyEpochId}`,
-      };
     }
   }
   return null;
@@ -247,9 +260,9 @@ async function unwrapContainerKekAtIndex(input: {
   }
 
   try {
-    // Derive predecessors immediately so descendants pinned to an older parent
+    // Open the keyring immediately so descendants pinned to an older parent
     // epoch can still unwrap during the same path walk.
-    await unwrapPredecessorContainerKeksAtIndex({
+    await unwrapKeyringContainerKeksAtIndex({
       currentManifest,
       index: input.index,
       kek,
@@ -259,13 +272,14 @@ async function unwrapContainerKekAtIndex(input: {
         kek,
         unwrapped,
       ),
-      verifyBridgeCommitment: input.verifyBridgeCommitment,
+      verifyKeyringCommitment: input.verifyBridgeCommitment,
     });
     return null;
   } catch (error) {
-    // Historical bridge damage must not discard an independently verified
-    // current KEK. Keep any predecessors derived before the failure; if the
-    // target still cannot be reached, the caller surfaces this integrity error.
+    // Historical keyring damage must not discard an independently verified
+    // current KEK. If the target still cannot be reached, the caller
+    // surfaces this integrity error; the bridge log remains the recovery
+    // path for the orphaned epochs.
     return {
       containerId: kek.containerId,
       error:

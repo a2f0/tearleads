@@ -17,7 +17,7 @@ import {
 } from "./writerProjection/accessPaths";
 import { createContainerWriterProjectionContext } from "./writerProjection/context";
 import { loadContainerKekState } from "./writerProjection/kek";
-import { loadPredecessorContainerKeks } from "./writerProjection/predecessorKeks";
+import { loadContainerKekKeyring } from "./writerProjection/keyringDelivery";
 import {
   loadPrincipalPoliciesForAccessPaths,
   verifiedPrincipalPolicyReferenceCacheKeys,
@@ -27,7 +27,6 @@ import {
   type ContainerAccessPath,
   type ContainerAccessProjection,
   type ContainerAccessProjectionResult,
-  type ContainerKekHistoryObservation,
   type ContainerKekProjection,
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
@@ -36,7 +35,6 @@ import {
 export type {
   ContainerAccessProjection,
   ContainerAccessProjectionResult,
-  ContainerKekHistoryObservation,
   ContainerWriterProjectionContext,
 };
 export {
@@ -72,19 +70,26 @@ async function resolveContainerProjectionWithAccess(input: {
     throw new ContainerWriterProjectionError("Container not found", 404);
   }
 
-  // Current access is history-inclusive. Each path KEK therefore carries its
-  // complete authenticated successor-to-predecessor chain.
+  // Current access is history-inclusive. Each path KEK carries the sealed
+  // keyring for its epoch; opening it under the current KEK yields every
+  // retained historical KEK without a chain walk. Descendants are verified
+  // against their parent's CURRENT epoch (lazy rekey must materialize a
+  // post-change descendant epoch before writes), so no historical parent
+  // epoch RECORD is ever part of a served path — but the historical parent
+  // KEY still is, via the keyring, and a descendant pinned to a pre-rotation
+  // parent epoch is opened with it. That is what keeps a lazy rekey
+  // performable instead of stranding the subtree.
   const containerKeks: ContainerWriterProjectionResponse["containerKeks"] = [];
   for (const index of access.verifiedPath.keys()) {
     const kekState = containerKekStates[index];
     if (!kekState) {
       throw new ContainerWriterProjectionError("Container KEK missing", 409);
     }
-    const predecessorKeks = await loadPredecessorContainerKeks({
+    const keyring = await loadContainerKekKeyring({
       containerKeyEpochId: kekState.state.containerKeyEpochId,
       context,
     });
-    containerKeks.push(containerKekResponse(kekState, predecessorKeks));
+    containerKeks.push(containerKekResponse(kekState, keyring));
   }
 
   return {

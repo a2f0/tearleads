@@ -3,9 +3,11 @@ import {
   type AccessManifestBundleWire,
   hasStringProperty,
   isAccessManifestBundleWire,
+  isContainerKekKeyringWireRecord,
   isOptionalAccessManifestBundleWireArray,
   isOptionalRecordArray,
   isRecordArray,
+  MAX_INLINE_CONTAINER_REKEYS,
 } from "../util";
 
 export interface ContainerMutationRequest {
@@ -20,6 +22,7 @@ export interface ContainerMutationRequest {
   principalPolicies: Record<string, unknown>[];
   keyEpoch: Record<string, unknown>;
   predecessorBridge: Record<string, unknown> | null;
+  keyring: Record<string, unknown> | null;
   wraps: Record<string, unknown>[];
   containerManifestHistory?: AccessManifestBundleWire[];
   parentKekState?: Record<string, unknown> | null;
@@ -61,6 +64,9 @@ export function isContainerMutationRequest(
   const predecessorBridge = isPlainObject(value)
     ? Reflect.get(value, "predecessorBridge")
     : undefined;
+  const keyring = isPlainObject(value)
+    ? Reflect.get(value, "keyring")
+    : undefined;
   const wraps = isPlainObject(value) ? Reflect.get(value, "wraps") : undefined;
   const containerManifestHistory = isPlainObject(value)
     ? Reflect.get(value, "containerManifestHistory")
@@ -90,6 +96,8 @@ export function isContainerMutationRequest(
     isPlainObject(keyEpoch) &&
     Reflect.has(value, "predecessorBridge") &&
     (predecessorBridge === null || isPlainObject(predecessorBridge)) &&
+    Reflect.has(value, "keyring") &&
+    (keyring === null || isContainerKekKeyringWireRecord(keyring)) &&
     isRecordArray(wraps) &&
     isOptionalAccessManifestBundleWireArray(containerManifestHistory) &&
     isOptionalParentKekState(parentKekState) &&
@@ -102,6 +110,10 @@ export function isOptionalContainerMutationRequestArray(
 ): value is ContainerMutationRequest[] | undefined {
   return (
     value === undefined ||
-    (Array.isArray(value) && value.every(isContainerMutationRequest))
+    // Each rotation carries a keyring sized by its epoch, so the batch is
+    // bounded: an unbounded array is an unbounded request body.
+    (Array.isArray(value) &&
+      value.length <= MAX_INLINE_CONTAINER_REKEYS &&
+      value.every(isContainerMutationRequest))
   );
 }

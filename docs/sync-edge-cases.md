@@ -20,6 +20,7 @@ structural-first). Its blast-radius rules:
 | Database torn down mid-run | Recorded as a successful no-op; the lane re-runs when the database is ready. |
 | A 403/404/409 on one document's submit | Not a lane failure at all: classified in-pass, recorded as a durable `document_sync_failures` row, surfaced as the write queue's `error` status. Other documents keep syncing. |
 | Offline / signed out / no keypair | Each lane's run body returns early as a successful no-op; recovery is edge-triggered when the prerequisite returns. |
+| A document's only readable material predates the current KEK epoch (no covering baseline) | Not a failure: the projection's sealed keyring recovers every retained historical container KEK in one open, the old update epochs decrypt through it, and the document rematerializes cold. A keyring that fails verification parks only reads needing those epochs (`DocumentHistoryUnavailableError`); current-epoch reads continue and the bridge log (`GET /containers/:id/kek-log`) is the rebuild path. |
 | The whole engine | Stops only on teardown (app close, identity switch). There is no global failure state. |
 
 Retry is event-driven, not timed: a parked failure waits for a keystroke, a

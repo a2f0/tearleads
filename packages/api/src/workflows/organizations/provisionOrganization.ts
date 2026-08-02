@@ -753,6 +753,12 @@ function assertInitialRootKek(
       400,
     );
   }
+  if (request.keyring !== null) {
+    throw new OrganizationProvisioningError(
+      "Initial root container KEK cannot have a keyring",
+      400,
+    );
+  }
 }
 
 async function storeInitialRootContainer(
@@ -844,7 +850,7 @@ async function storeInitialRootContainer(
     tx,
   );
   await storeVerifiedContainerKekStateInTransaction(
-    { predecessorBridge: null, verifiedState: kekState },
+    { keyring: null, predecessorBridge: null, verifiedState: kekState },
     tx,
   );
   return {

@@ -128,9 +128,11 @@ fabricated prior plaintext.
 
 The resulting risk has these bounds:
 
-- the attack requires an authorized writer. One added after rotation can make
-  sync omit older updates it cannot decrypt; one that can read old history can
-  substitute content while preserving the visible version-vector shape
+- the attack requires an authorized writer. Current access is
+  history-inclusive: a writer added after rotation recovers every retained
+  container KEK through the sealed keyring, so any authorized writer can read
+  old history and could substitute content while preserving the visible
+  version-vector shape
 - the declaration is durable and attributable: checkpoint rows persist the
   frontier and commit it to the audit ledger. Signed ciphertext hashes and a
   record-key-derived HMAC attribute each retained update, but that per-update
@@ -211,9 +213,13 @@ There is a meaningful distinction between two clients:
 - a fresh client that has access now but has never downloaded the older epochs
 
 Winning-baseline generation relies on the retained-client case. Fresh-client
-bootstrap — fetching prior readable epoch bundles, replaying older encrypted
-updates, and rematerializing current state without a local copy — is outside the
-live sync and audit boundary described here.
+bootstrap is the supported recovery path: a pristine client unwraps the
+current container KEK from its recipient wrap, opens the sealed keyring for
+every retained historical KEK, fetches prior readable epoch bundles, unwraps
+their content keys through those historical KEKs, and rematerializes current
+state with no local copy and no other client online. Reading never depends on
+that client subsequently writing a baseline, though a full-history baseline it
+later writes serves ordinary sync optimization.
 
 ## Tamper-Evident Document History
 

@@ -55,6 +55,7 @@ function createContainerMutationRequest(
     principalPolicies: [],
     keyEpoch: { id: "container-key-epoch-id" },
     predecessorBridge: null,
+    keyring: null,
     wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
     ...overrides,
   };
