@@ -26,7 +26,7 @@ export const ORG_MANAGER_LABELS = {
     "Sync stays active until the end of the period you've paid for.",
   billingCancelSubscriptionKeep: "Keep subscription",
   billingCancelling: "Cancelling…",
-  billingChangingPlan: "Changing plan...",
+  billingChangingPlan: "Changing plan…",
   billingCheckoutNoMembers:
     "Add an active organization member before choosing a subscription.",
   billingCheckoutOverCapacity:
@@ -56,7 +56,9 @@ export const ORG_MANAGER_LABELS = {
   billingPlanChangeTiming:
     "Upgrades take effect immediately with a store-managed mid-cycle adjustment. Downgrades start at the next renewal; use Manage subscription to change a scheduled downgrade.",
   billingPlanScheduled: "Scheduled",
-  billingPlanUpdating: "Updating...",
+  billingPlanScheduledCapacityConflict:
+    "The scheduled plan cannot cover the current roster. Use Manage subscription to change it.",
+  billingPlanUpdating: "Updating…",
   billingPayOnStripe: "Prefer Stripe's page? Pay on Stripe instead",
   billingPayOnStripeStarting: "Opening Stripe...",
   billingPayOnStripeUnavailable:

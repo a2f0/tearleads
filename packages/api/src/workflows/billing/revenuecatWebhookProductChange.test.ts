@@ -9,6 +9,7 @@ import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook
 import {
   classifyRevenueCatEvent,
   NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
+  PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
 } from "../../billing/revenuecatWebhook";
 import { runGetOrganizationBillingWorkflow } from "./organizationBilling";
 import {
@@ -123,6 +124,20 @@ test("a native downgrade keeps paid capacity until its renewal", async () => {
   expect(
     await runRevenueCatWebhookWorkflow(db, {
       ...initial,
+      event_timestamp_ms: now + 3,
+      expiration_at_ms: now + 2 * PERIOD_MS,
+      id: crypto.randomUUID(),
+      type: "RENEWAL",
+    }),
+  ).toMatchObject({ organizationId, status: "applied" });
+  expect(
+    (await runGetOrganizationBillingWorkflow(db, organizationId, admin.userId))
+      .pendingSeatCount,
+  ).toBe(1);
+
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      ...initial,
       event_timestamp_ms: now + PERIOD_MS,
       expiration_at_ms: now + 2 * PERIOD_MS,
       id: crypto.randomUUID(),
@@ -180,21 +195,40 @@ test("a Stripe product change is acknowledged as provider-managed", async () => 
     store: "STRIPE",
   };
 
-  expect(await runRevenueCatWebhookWorkflow(db, change)).toEqual({
-    reason: NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
-    status: "ignored",
-  });
-  expect(await runRevenueCatWebhookWorkflow(db, change)).toEqual({
-    status: "duplicate",
-  });
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    expect(await runRevenueCatWebhookWorkflow(db, change)).toEqual({
+      reason: NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
+      status: "ignored",
+    });
+    expect(await runRevenueCatWebhookWorkflow(db, change)).toEqual({
+      status: "duplicate",
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      `RevenueCat paid product change ${change.id} was not applied: ${NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON}`,
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
 });
 
-test("a product change rejects a different native subscription", () => {
+test("a product change accepts a replacement Play purchase token", () => {
   expect(
     resolveProductChange({
       event: {
         ...PRODUCT_CHANGE,
-        original_transaction_id: "different-subscription",
+        original_transaction_id: "replacement-purchase-token",
+      },
+    }),
+  ).toEqual({ kind: "schedule", fields: { status: "active" } });
+});
+
+test("a product change rejects a mismatched source tier", () => {
+  expect(
+    resolveProductChange({
+      event: {
+        ...PRODUCT_CHANGE,
+        product_id: "sync_team_10_monthly",
       },
     }),
   ).toEqual({
@@ -262,7 +296,7 @@ test("an unknown product change retries without consuming its event id", async (
   }
 });
 
-test("a Play upgrade changes capacity only on its effective purchase event", async () => {
+test("a Play upgrade settles from its effective purchase event", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const now = Date.now();
@@ -289,10 +323,14 @@ test("a Play upgrade changes capacity only on its effective purchase event", asy
       ...initial,
       event_timestamp_ms: now + 2,
       id: crypto.randomUUID(),
-      new_product_id: "sync_team_5_monthly",
+      new_product_id: null,
+      original_transaction_id: "replacement_play_token",
       type: "PRODUCT_CHANGE",
     }),
-  ).toMatchObject({ organizationId, status: "applied" });
+  ).toEqual({
+    reason: PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
+    status: "ignored",
+  });
   expect(await readTier(organizationId)).toEqual({
     providerProductId: "sync_solo_monthly",
     seatCount: 1,
@@ -300,7 +338,7 @@ test("a Play upgrade changes capacity only on its effective purchase event", asy
   expect(
     (await runGetOrganizationBillingWorkflow(db, organizationId, admin.userId))
       .pendingSeatCount,
-  ).toBe(5);
+  ).toBeNull();
 
   expect(
     await runRevenueCatWebhookWorkflow(db, {
@@ -309,6 +347,7 @@ test("a Play upgrade changes capacity only on its effective purchase event", asy
       // later timestamp than its informational PRODUCT_CHANGE.
       event_timestamp_ms: now + 1,
       id: crypto.randomUUID(),
+      original_transaction_id: "replacement_play_token",
       product_id: "sync_team_5_monthly",
     }),
   ).toMatchObject({ organizationId, status: "applied" });
@@ -320,6 +359,49 @@ test("a Play upgrade changes capacity only on its effective purchase event", asy
     (await runGetOrganizationBillingWorkflow(db, organizationId, admin.userId))
       .pendingSeatCount,
   ).toBeNull();
+});
+
+test("an Apple upgrade is not blocked by its newer schedule marker", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const now = Date.now();
+  const initial: RevenueCatWebhookEvent = {
+    app_user_id: admin.userId,
+    event_timestamp_ms: now,
+    expiration_at_ms: now + PERIOD_MS,
+    id: crypto.randomUUID(),
+    original_transaction_id: "apple_upgrade",
+    product_id: "sync_solo_monthly",
+    purchased_at_ms: now,
+    store: "APP_STORE",
+    subscriber_attributes: { orgId: { value: organizationId } },
+    type: "INITIAL_PURCHASE",
+  };
+  expect(await runRevenueCatWebhookWorkflow(db, initial)).toMatchObject({
+    status: "applied",
+  });
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      ...initial,
+      event_timestamp_ms: now + 2,
+      id: crypto.randomUUID(),
+      new_product_id: "sync_team_5_monthly",
+      type: "PRODUCT_CHANGE",
+    }),
+  ).toMatchObject({ status: "applied" });
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      ...initial,
+      event_timestamp_ms: now + 1,
+      id: crypto.randomUUID(),
+      product_id: "sync_team_5_monthly",
+      type: "RENEWAL",
+    }),
+  ).toMatchObject({ organizationId, status: "applied" });
+  expect(await readTier(organizationId)).toEqual({
+    providerProductId: "sync_team_5_monthly",
+    seatCount: 5,
+  });
 });
 
 test("expiration and a new purchase clear an old scheduled change", async () => {

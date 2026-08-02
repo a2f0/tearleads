@@ -106,6 +106,10 @@ export const BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON =
 export const NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON =
   "Non-native product changes are managed by their billing provider";
 
+/** Immediate Play changes omit a destination and are settled by INITIAL_PURCHASE. */
+export const PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON =
+  "Google Play product change has no deferred destination";
+
 export function isRevenueCatGrantEventType(type: string): boolean {
   return GRANT_EVENT_TYPES.has(type);
 }

@@ -11,11 +11,15 @@ import {
   BOUND_REVENUECAT_TIER_REQUIRED_REASON,
   classifyRevenueCatEvent,
   NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
+  PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
   type RevenueCatBillingTransition,
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
 } from "../../billing/revenuecatWebhook";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
-import { isRecognizedNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
+import {
+  isNativeRevenueCatStore,
+  isRecognizedNativeRevenueCatStore,
+} from "./revenuecatBuyerPolicy";
 import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
 
 type RevenueCatGrantCapacityDisposition =
@@ -83,7 +87,7 @@ function classifyBoundProductChange(input: {
   readonly billing: LockedBillingIdentity | undefined;
   readonly event: RevenueCatWebhookEvent;
 }): RevenueCatBillingTransition {
-  if (!isRecognizedNativeRevenueCatStore(input.event.store)) {
+  if (!isNativeRevenueCatStore(input.event.store)) {
     return {
       kind: "ignore",
       reason: NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
@@ -95,23 +99,34 @@ function classifyBoundProductChange(input: {
       ? input.billing.providerProductId
       : null,
   );
-  const destinationTier = getSyncBillingTierForNativeProduct(
-    input.event.new_product_id,
-  );
-  if (!destinationTier) {
-    return { kind: "ignore", reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON };
-  }
+  const sourceTier = getSyncBillingTierForNativeProduct(input.event.product_id);
   if (
     !input.billing ||
     !currentTier ||
+    !sourceTier ||
+    sourceTier.id !== currentTier.id ||
     input.billing.seatCount !== currentTier.seatLimit ||
-    input.billing.providerSubscriptionId === null ||
-    input.event.original_transaction_id !== input.billing.providerSubscriptionId
+    !isRecognizedNativeRevenueCatStore(input.event.store)
   ) {
     return {
       kind: "ignore",
       reason: PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON,
     };
+  }
+  if (
+    input.event.store?.toUpperCase() === "PLAY_STORE" &&
+    !input.event.new_product_id
+  ) {
+    return {
+      kind: "ignore",
+      reason: PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
+    };
+  }
+  const destinationTier = getSyncBillingTierForNativeProduct(
+    input.event.new_product_id,
+  );
+  if (!destinationTier) {
+    return { kind: "ignore", reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON };
   }
   return { kind: "schedule", fields: { status: input.billing.status } };
 }

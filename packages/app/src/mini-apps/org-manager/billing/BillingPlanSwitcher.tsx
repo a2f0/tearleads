@@ -122,6 +122,8 @@ export function BillingPlanSwitcher({
   const eligibleOptions = options.filter(
     (option) => option.seatLimit >= minimumSeatCount,
   );
+  const pendingTierCannotCoverRoster =
+    pendingSeatCount !== null && pendingSeatCount < minimumSeatCount;
   if (eligibleOptions.length === 0) {
     const message =
       minimumSeatCount > getLargestSyncBillingTier().seatLimit
@@ -135,7 +137,9 @@ export function BillingPlanSwitcher({
     <>
       {currentSeatCount === null ? null : (
         <MiniAppStatus className="org-manager-hint">
-          {ORG_MANAGER_LABELS.billingPlanChangeTiming}
+          {pendingTierCannotCoverRoster
+            ? ORG_MANAGER_LABELS.billingPlanScheduledCapacityConflict
+            : ORG_MANAGER_LABELS.billingPlanChangeTiming}
         </MiniAppStatus>
       )}
       {eligibleOptions.map((option) => {

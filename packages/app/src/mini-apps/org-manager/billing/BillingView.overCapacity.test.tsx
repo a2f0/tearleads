@@ -166,3 +166,21 @@ test("an immediate upgrade waits for its effective event", () => {
     ).disabled,
   ).toBe(true);
 });
+
+test("a scheduled tier below the roster stays visible as a conflict", () => {
+  const view = render(
+    <BillingView {...activePlanProps(5, 1)} minimumSeatCount={5} />,
+  );
+
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.billingPlanScheduledCapacityConflict),
+  ).toBeDefined();
+  for (const name of [
+    ORG_MANAGER_LABELS.billingCurrentPlan,
+    ORG_MANAGER_LABELS.billingUpgradePlan,
+  ]) {
+    expect(
+      (view.getByRole("button", { name }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  }
+});

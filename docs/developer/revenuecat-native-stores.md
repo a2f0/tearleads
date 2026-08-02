@@ -279,12 +279,12 @@ downgrades use `DEFERRED` and take effect at renewal. Keep Google real-time
 developer notifications connected to RevenueCat because deferred changes rely
 on the subsequent store lifecycle events.
 
-RevenueCat's `PRODUCT_CHANGE` webhook is informational for both stores. The API
-records its destination as a pending tier but does not change paid capacity.
-RevenueCat then reports the effective product through `INITIAL_PURCHASE` on
-Google Play or `RENEWAL` on Apple; only that event changes the current tier.
-The client polls for either the pending destination or the effective tier after
-the store sheet completes, including when the organization was already active.
+RevenueCat's `PRODUCT_CHANGE` webhook is informational for both native stores.
+The API records a validated destination as pending but does not change paid
+capacity. Immediate Play changes omit that destination; their accompanying
+`INITIAL_PURCHASE` applies the new tier. Apple changes and deferred Play changes
+become effective through `RENEWAL`; only effective events change capacity. The
+client polls after the store sheet until the change is scheduled or effective.
 
 The Google Billing permission is contributed by the SDK's Play Billing
 dependency during manifest merging.
