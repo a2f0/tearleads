@@ -248,7 +248,7 @@ async function fetchCustomerSubscriptions(
       // list incomplete, so the no-id fallback must not treat it as the full set.
       if (response.status !== 404) {
         console.error(
-          `RevenueCat management URL lookup failed with status ${response.status}`,
+          `RevenueCat customer subscription lookup failed with status ${response.status}`,
         );
       }
       return {

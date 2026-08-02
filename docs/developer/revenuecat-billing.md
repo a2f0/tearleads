@@ -44,8 +44,8 @@ user-confirmed recovery flow instead:
 
 1. The dialog tells the user to recover the original identity first if they
    need its encrypted data.
-2. RevenueCat restore/sync runs under the new Tearleads user id after stamping
-   that user's personal organization as `orgId`.
+2. RevenueCat restore/sync runs under the new Tearleads user id without changing
+   the customer-level `orgId` attribution.
 3. `POST /organizations/:id/billing/native/:store/claim` verifies the current
    App User ID's active subscription through RevenueCat v2. The client never
    supplies the product, receipt id, billing period, or seat capacity.
@@ -53,6 +53,8 @@ user-confirmed recovery flow instead:
    organization, activates the destination at the verified product's fixed
    capacity, and reconciles its seats. A target with a different native
    subscription or any Stripe identity is rejected.
+5. Only after the server accepts the claim does the client stamp the destination
+   personal organization as `orgId` for later native lifecycle events.
 
 RevenueCat `TRANSFER` webhooks use the same verified claim workflow. Transfer
 events do not include `app_user_id`; the server resolves the registered

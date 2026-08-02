@@ -137,8 +137,11 @@ test("restores and claims a native subscription only after confirmation", async 
 
   act(() => result.current.confirmSubscriptionMove());
   await waitFor(() => expect(result.current.busy).toBeNull());
-  expect(purchases.restore).toHaveBeenCalledWith({ organizationId: "org-1" });
+  expect(purchases.restore).toHaveBeenCalledWith();
   expect(claimNativeSubscription).toHaveBeenCalledWith("test_store");
+  expect(purchases.bindOrganization).toHaveBeenCalledWith({
+    organizationId: "org-1",
+  });
   expect(refresh).toHaveBeenCalled();
 });
 

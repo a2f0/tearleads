@@ -189,10 +189,15 @@ export async function claimNativeOrganizationSubscription(
     store,
     deps,
   );
-  if (resolved.kind === "not_found" || resolved.kind === "customer_not_found") {
+  if (resolved.kind === "not_found") {
     throw new OrganizationManagerError(
       "No active subscription was found for this store account",
       404,
+    );
+  }
+  if (resolved.kind === "customer_not_found") {
+    throw new OrganizationBillingProviderUnavailableError(
+      "The restored subscription has not propagated to RevenueCat",
     );
   }
   if (resolved.kind === "ambiguous") {
