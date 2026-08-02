@@ -3,6 +3,7 @@ import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import {
   classifyRevenueCatEvent,
   NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
+  UNKNOWN_REVENUECAT_PRODUCT_CHANGE_STORE_REASON,
 } from "../../billing/revenuecatWebhook";
 import {
   PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON,
@@ -31,13 +32,13 @@ const BOUND_SOLO_BILLING: LockedBillingIdentity = {
 };
 
 function resolveProductChange(input: {
-  billing?: LockedBillingIdentity;
+  billing?: LockedBillingIdentity | undefined;
   event?: RevenueCatWebhookEvent;
 }) {
   const event = input.event ?? PRODUCT_CHANGE;
   return resolveBoundRevenueCatTransition({
     allowSandboxEvents: true,
-    billing: input.billing ?? BOUND_SOLO_BILLING,
+    billing: "billing" in input ? input.billing : BOUND_SOLO_BILLING,
     event,
     now: new Date(1),
     transition: classifyRevenueCatEvent(event, new Date(1), {
@@ -66,12 +67,28 @@ test("a product change rejects a mismatched bound seat capacity", () => {
   });
 });
 
+test("a product change rejects a missing billing binding", () => {
+  expect(resolveProductChange({ billing: undefined })).toEqual({
+    kind: "ignore",
+    reason: PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON,
+  });
+});
+
 test("a product change rejects a non-native store", () => {
   expect(
     resolveProductChange({ event: { ...PRODUCT_CHANGE, store: "STRIPE" } }),
   ).toEqual({
     kind: "ignore",
     reason: NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
+  });
+});
+
+test("a product change rejects an unknown store explicitly", () => {
+  expect(
+    resolveProductChange({ event: { ...PRODUCT_CHANGE, store: "UNKNOWN" } }),
+  ).toEqual({
+    kind: "ignore",
+    reason: UNKNOWN_REVENUECAT_PRODUCT_CHANGE_STORE_REASON,
   });
 });
 

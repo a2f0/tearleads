@@ -271,19 +271,25 @@ test("a Play upgrade settles from its effective purchase event", async () => {
     status: "applied",
   });
 
-  expect(
-    await runRevenueCatWebhookWorkflow(db, {
-      ...initial,
-      event_timestamp_ms: now + 2,
-      id: crypto.randomUUID(),
-      new_product_id: null,
-      original_transaction_id: "replacement_play_token",
-      type: "PRODUCT_CHANGE",
-    }),
-  ).toEqual({
-    reason: PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
-    status: "ignored",
-  });
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    expect(
+      await runRevenueCatWebhookWorkflow(db, {
+        ...initial,
+        event_timestamp_ms: now + 2,
+        id: crypto.randomUUID(),
+        new_product_id: null,
+        original_transaction_id: "replacement_play_token",
+        type: "PRODUCT_CHANGE",
+      }),
+    ).toEqual({
+      reason: PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
+      status: "ignored",
+    });
+    expect(errorSpy).not.toHaveBeenCalled();
+  } finally {
+    errorSpy.mockRestore();
+  }
   expect(await readTier(organizationId)).toEqual({
     providerProductId: "sync_solo_monthly",
     seatCount: 1,

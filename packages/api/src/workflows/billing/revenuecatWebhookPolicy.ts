@@ -65,6 +65,8 @@ async function hasNewerAppliedEvent(
       and(
         eq(revenuecatWebhookEvents.organizationId, organizationId),
         eq(revenuecatWebhookEvents.outcome, "applied"),
+        // PRODUCT_CHANGE is informational and may be timestamped after the
+        // effective store event, so it cannot make lifecycle events stale.
         ne(revenuecatWebhookEvents.eventType, "PRODUCT_CHANGE"),
         gt(
           revenuecatWebhookEvents.eventTimestamp,

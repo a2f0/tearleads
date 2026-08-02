@@ -129,6 +129,21 @@ test("an active native subscription renders a plan switcher", () => {
   expect(chosen).toEqual(["team_5"]);
 });
 
+test("a non-tier capacity does not masquerade as a current plan", () => {
+  const view = render(<BillingView {...activePlanProps(3, null)} />);
+
+  expect(
+    view.queryByRole("button", {
+      name: ORG_MANAGER_LABELS.billingCurrentPlan,
+    }),
+  ).toBeNull();
+  expect(
+    view.getAllByRole("button", {
+      name: ORG_MANAGER_LABELS.billingUpgradePlan,
+    }),
+  ).toHaveLength(2);
+});
+
 test("a deferred downgrade stays scheduled while the paid tier is current", () => {
   const view = render(<BillingView {...activePlanProps(5, 1)} />);
 

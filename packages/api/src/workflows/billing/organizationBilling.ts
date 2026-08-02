@@ -11,7 +11,7 @@ import {
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
-import { and, desc, eq, gt, inArray } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray } from "drizzle-orm";
 import {
   createTrialBillingFields,
   LAPSED_BILLING_PURGE_GRACE_MS,
@@ -263,6 +263,7 @@ const PENDING_CHANGE_RESOLUTION_EVENT_TYPES = [
   "INITIAL_PURCHASE",
   "EXPIRATION",
   "SUBSCRIPTION_PAUSED",
+  "TRANSFER",
 ] as const;
 
 /**
@@ -295,6 +296,12 @@ async function resolvePendingNativeSeatCount(
         eq(revenuecatWebhookEvents.eventType, "PRODUCT_CHANGE"),
         eq(revenuecatWebhookEvents.outcome, "applied"),
         eq(revenuecatWebhookEvents.appUserId, billing.providerCustomerId),
+        billing.currentPeriodStartsAt
+          ? gte(
+              revenuecatWebhookEvents.eventTimestamp,
+              billing.currentPeriodStartsAt,
+            )
+          : undefined,
       ),
     )
     .orderBy(

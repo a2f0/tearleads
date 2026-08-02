@@ -14,6 +14,7 @@ import {
   PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
   type RevenueCatBillingTransition,
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
+  UNKNOWN_REVENUECAT_PRODUCT_CHANGE_STORE_REASON,
 } from "../../billing/revenuecatWebhook";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import {
@@ -93,6 +94,12 @@ function classifyBoundProductChange(input: {
       reason: NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
     };
   }
+  if (!isRecognizedNativeRevenueCatStore(input.event.store)) {
+    return {
+      kind: "ignore",
+      reason: UNKNOWN_REVENUECAT_PRODUCT_CHANGE_STORE_REASON,
+    };
+  }
   const currentTier = getSyncBillingTierForNativeProduct(
     input.billing?.provider === "revenuecat" &&
       input.billing.providerCustomerId === input.event.app_user_id
@@ -104,8 +111,7 @@ function classifyBoundProductChange(input: {
     !input.billing ||
     !currentTier ||
     !sourceTier ||
-    input.billing.seatCount !== currentTier.seatLimit ||
-    !isRecognizedNativeRevenueCatStore(input.event.store)
+    input.billing.seatCount !== currentTier.seatLimit
   ) {
     return {
       kind: "ignore",

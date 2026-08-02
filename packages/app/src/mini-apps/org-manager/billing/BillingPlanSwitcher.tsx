@@ -29,6 +29,11 @@ type PlanAction = {
   readonly label: string;
 };
 
+function resolveExactTierId(seatCount: number | null): string | undefined {
+  const tier = getSyncBillingTierForSeatCount(seatCount ?? 0);
+  return tier?.seatLimit === seatCount ? tier.id : undefined;
+}
+
 export function BillingPurchaseOption({
   actionLabel,
   disabled,
@@ -62,12 +67,8 @@ function resolvePlanAction(input: {
   readonly pendingSeatCount: number | null;
 }): PlanAction {
   const { busy, currentSeatCount, option, pendingSeatCount } = input;
-  const currentTierId = getSyncBillingTierForSeatCount(
-    currentSeatCount ?? 0,
-  )?.id;
-  const pendingTierId = getSyncBillingTierForSeatCount(
-    pendingSeatCount ?? 0,
-  )?.id;
+  const currentTierId = resolveExactTierId(currentSeatCount);
+  const pendingTierId = resolveExactTierId(pendingSeatCount);
   if (busy === `subscribe:${option.packageId}`) {
     return {
       disabled: true,
