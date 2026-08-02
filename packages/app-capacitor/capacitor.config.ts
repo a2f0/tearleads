@@ -16,7 +16,7 @@ const appId = isStagingRelease
 
 const config: CapacitorConfig = {
   appId,
-  appName: isStagingRelease ? "Tearleads Staging" : "Tearleads",
+  appName: isStagingRelease ? "TL Staging" : "Tearleads",
   webDir: "dist",
   server: {
     androidScheme: "https",
