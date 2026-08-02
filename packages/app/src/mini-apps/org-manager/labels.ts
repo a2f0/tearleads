@@ -11,7 +11,7 @@ export const ORG_MANAGER_LABELS = {
   back: "Back",
   billing: "Billing",
   billingActivationPending:
-    "Activation can take a moment after purchase — refresh to check.",
+    "Billing updates can take a moment after purchase — refresh to check.",
   billingActive: "Active subscription",
   billingAdminOnly: "Only an organization admin can manage billing.",
   billingCancelCheckout: "Cancel checkout",
@@ -41,6 +41,7 @@ export const ORG_MANAGER_LABELS = {
   billingCurrentPlan: "Current plan",
   billingDeleting: "Deleting remote data",
   billingDisabled: "Sync disabled",
+  billingDowngradePlan: "Downgrade",
   billingHistoryActivityTab: "Activity",
   billingHistoryEmpty: "No billing events yet.",
   billingHistoryEventsTab: "Events",
@@ -53,7 +54,7 @@ export const ORG_MANAGER_LABELS = {
   billingNoOptions: "No subscription options are available right now.",
   billingPastDue: "Payment past due",
   billingPlanChangeTiming:
-    "Upgrades take effect immediately with a store-managed mid-cycle adjustment. Downgrades start at the next renewal.",
+    "Upgrades take effect immediately with a store-managed mid-cycle adjustment. Downgrades start at the next renewal; use Manage subscription to change a scheduled downgrade.",
   billingPlanScheduled: "Scheduled",
   billingPlanUpdating: "Updating...",
   billingPayOnStripe: "Prefer Stripe's page? Pay on Stripe instead",
@@ -72,7 +73,6 @@ export const ORG_MANAGER_LABELS = {
   billingStartingTrial: "Starting trial...",
   billingSubscribe: "Subscribe",
   billingSubscribing: "Processing purchase...",
-  billingDowngradePlan: "Downgrade",
   billingSyncOff:
     "This organization is local-only. Subscribe to sync it across devices.",
   billingSyncOn: "Sync is on for this organization.",

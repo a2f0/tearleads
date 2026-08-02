@@ -98,6 +98,9 @@ function classifyBoundProductChange(input: {
     !input.billing ||
     !currentTier ||
     input.billing.seatCount !== currentTier.seatLimit ||
+    input.billing.providerSubscriptionId === null ||
+    input.event.original_transaction_id !==
+      input.billing.providerSubscriptionId ||
     !isRecognizedNativeRevenueCatStore(input.event.store)
   ) {
     return {

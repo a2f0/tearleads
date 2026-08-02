@@ -1,5 +1,8 @@
 import type { SyncSubscriptionOption } from "@tearleads/client-sdk";
-import { getLargestSyncBillingTier } from "@tearleads/validators/billing";
+import {
+  getLargestSyncBillingTier,
+  getSyncBillingTierForSeatCount,
+} from "@tearleads/validators/billing";
 import {
   MiniAppButton,
   MiniAppStatus,
@@ -59,6 +62,12 @@ function resolvePlanAction(input: {
   readonly pendingSeatCount: number | null;
 }): PlanAction {
   const { busy, currentSeatCount, option, pendingSeatCount } = input;
+  const currentTierId = getSyncBillingTierForSeatCount(
+    currentSeatCount ?? 0,
+  )?.id;
+  const pendingTierId = getSyncBillingTierForSeatCount(
+    pendingSeatCount ?? 0,
+  )?.id;
   if (busy === `subscribe:${option.packageId}`) {
     return {
       disabled: true,
@@ -68,16 +77,18 @@ function resolvePlanAction(input: {
           : ORG_MANAGER_LABELS.billingChangingPlan,
     };
   }
-  if (option.seatLimit === pendingSeatCount) {
+  if (option.tierId === pendingTierId) {
     return {
       disabled: true,
       label:
-        currentSeatCount !== null && pendingSeatCount < currentSeatCount
+        currentSeatCount !== null &&
+        pendingSeatCount !== null &&
+        pendingSeatCount < currentSeatCount
           ? ORG_MANAGER_LABELS.billingPlanScheduled
           : ORG_MANAGER_LABELS.billingPlanUpdating,
     };
   }
-  if (option.seatLimit === currentSeatCount) {
+  if (option.tierId === currentTierId) {
     return { disabled: true, label: ORG_MANAGER_LABELS.billingCurrentPlan };
   }
   if (currentSeatCount === null) {

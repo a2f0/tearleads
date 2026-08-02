@@ -14,6 +14,7 @@ import {
 } from "./revenuecatGrantCapacity";
 import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
+import { logUnappliedRevenueCatGrant } from "./revenuecatWebhookLogging";
 
 const PERIOD_MS = 30 * 24 * 60 * 60 * 1_000;
 const PRODUCT_CHANGE: RevenueCatWebhookEvent = {
@@ -21,6 +22,7 @@ const PRODUCT_CHANGE: RevenueCatWebhookEvent = {
   event_timestamp_ms: 1,
   id: "product-change",
   new_product_id: "sync_team_5_monthly",
+  original_transaction_id: "native-subscription",
   product_id: "sync_solo_monthly",
   store: "PLAY_STORE",
   type: "PRODUCT_CHANGE",
@@ -164,6 +166,35 @@ test("a product change rejects a non-native store", () => {
   });
 });
 
+test("a product change rejects a different native subscription", () => {
+  expect(
+    resolveProductChange({
+      event: {
+        ...PRODUCT_CHANGE,
+        original_transaction_id: "different-subscription",
+      },
+    }),
+  ).toEqual({
+    kind: "ignore",
+    reason: PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON,
+  });
+});
+
+test("a rejected product change alerts the operator", () => {
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    logUnappliedRevenueCatGrant(PRODUCT_CHANGE, {
+      status: "ignored",
+      reason: PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON,
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      `RevenueCat paid product change ${PRODUCT_CHANGE.id} was not applied: ${PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON}`,
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
+});
+
 test("an unknown product change retries without consuming its event id", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
@@ -233,7 +264,7 @@ test("a Play upgrade changes capacity only on its effective purchase event", asy
   expect(
     await runRevenueCatWebhookWorkflow(db, {
       ...initial,
-      event_timestamp_ms: now + 1,
+      event_timestamp_ms: now + 2,
       id: crypto.randomUUID(),
       new_product_id: "sync_team_5_monthly",
       type: "PRODUCT_CHANGE",
@@ -251,7 +282,64 @@ test("a Play upgrade changes capacity only on its effective purchase event", asy
   expect(
     await runRevenueCatWebhookWorkflow(db, {
       ...initial,
+      // RevenueCat does not guarantee that this effective purchase has a
+      // later timestamp than its informational PRODUCT_CHANGE.
+      event_timestamp_ms: now + 1,
+      id: crypto.randomUUID(),
+      product_id: "sync_team_5_monthly",
+    }),
+  ).toMatchObject({ organizationId, status: "applied" });
+  expect(await readTier(organizationId)).toEqual({
+    providerProductId: "sync_team_5_monthly",
+    seatCount: 5,
+  });
+  expect(
+    (await runGetOrganizationBillingWorkflow(db, organizationId, admin.userId))
+      .pendingSeatCount,
+  ).toBeNull();
+});
+
+test("expiration and a new purchase clear an old scheduled change", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const now = Date.now();
+  const initial: RevenueCatWebhookEvent = {
+    app_user_id: admin.userId,
+    event_timestamp_ms: now,
+    expiration_at_ms: now + PERIOD_MS,
+    id: crypto.randomUUID(),
+    original_transaction_id: "expired_subscription",
+    product_id: "sync_team_10_monthly",
+    purchased_at_ms: now,
+    store: "PLAY_STORE",
+    subscriber_attributes: { orgId: { value: organizationId } },
+    type: "INITIAL_PURCHASE",
+  };
+  expect(await runRevenueCatWebhookWorkflow(db, initial)).toMatchObject({
+    status: "applied",
+  });
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      ...initial,
+      event_timestamp_ms: now + 1,
+      id: crypto.randomUUID(),
+      new_product_id: "sync_solo_monthly",
+      type: "PRODUCT_CHANGE",
+    }),
+  ).toMatchObject({ status: "applied" });
+
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      ...initial,
       event_timestamp_ms: now + 2,
+      id: crypto.randomUUID(),
+      type: "EXPIRATION",
+    }),
+  ).toMatchObject({ status: "applied" });
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      ...initial,
+      event_timestamp_ms: now + 3,
       id: crypto.randomUUID(),
       product_id: "sync_team_5_monthly",
     }),

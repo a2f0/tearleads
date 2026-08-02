@@ -10,7 +10,7 @@ const ROUTINE_GRANT_IGNORE_REASONS = new Set([
   SANDBOX_IGNORED_REASON,
 ]);
 
-/** Alerts on rejected paid grants while leaving routine redeliveries quiet. */
+/** Alerts on rejected paid events while leaving routine redeliveries quiet. */
 export function logUnappliedRevenueCatGrant(
   event: RevenueCatWebhookEvent,
   outcome: { readonly status: string; readonly reason?: string },
@@ -18,12 +18,15 @@ export function logUnappliedRevenueCatGrant(
   if (
     outcome.status !== "ignored" ||
     typeof outcome.reason !== "string" ||
-    !isRevenueCatGrantEventType(event.type) ||
+    (!isRevenueCatGrantEventType(event.type) &&
+      event.type !== "PRODUCT_CHANGE") ||
     ROUTINE_GRANT_IGNORE_REASONS.has(outcome.reason)
   ) {
     return;
   }
+  const paidEventKind =
+    event.type === "PRODUCT_CHANGE" ? "product change" : "grant";
   console.error(
-    `RevenueCat paid grant ${event.id} was not applied: ${outcome.reason}`,
+    `RevenueCat paid ${paidEventKind} ${event.id} was not applied: ${outcome.reason}`,
   );
 }

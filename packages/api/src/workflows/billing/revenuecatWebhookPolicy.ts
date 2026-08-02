@@ -8,7 +8,7 @@ import {
   getSyncBillingTierForSeatCount,
 } from "@tearleads/validators/billing";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, ne } from "drizzle-orm";
 import {
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
@@ -65,6 +65,7 @@ async function hasNewerAppliedEvent(
       and(
         eq(revenuecatWebhookEvents.organizationId, organizationId),
         eq(revenuecatWebhookEvents.outcome, "applied"),
+        ne(revenuecatWebhookEvents.eventType, "PRODUCT_CHANGE"),
         gt(
           revenuecatWebhookEvents.eventTimestamp,
           new Date(event.event_timestamp_ms),
