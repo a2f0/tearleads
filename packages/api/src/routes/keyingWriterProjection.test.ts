@@ -69,7 +69,6 @@ import {
   asVerifiedContainerManifest,
   bootstrapRoot,
   buildRootGrantRequest,
-  buildRootRevokeRequest,
   createContainerKeyEpoch,
   createContainerKeyWrap,
   createContainerManifestBundle,
@@ -81,6 +80,7 @@ import {
   type StoredRootFixture,
 } from "../../test/helpers/keyingWriterProjectionKit";
 import { moveContainer } from "../../test/helpers/keyingWriterProjectionMove";
+import { buildRootRevokeRequest } from "../../test/helpers/keyingWriterProjectionRevoke";
 import { registerUser } from "../../test/helpers/registerUser";
 import { getCurrentContainerKeyEpoch } from "../access/read/containerKekStore";
 import { verifyDocumentAuditHistory } from "../documents/verifyDocumentAuditHistory";
@@ -714,10 +714,12 @@ test("container projections and mutations preserve current KEKs across damaged h
   expect(secondResponse.status).toBe(200);
   const secondMutation = await secondResponse.json();
   expect(isContainerMutationResponse(secondMutation)).toBe(true);
-  expect((secondMutation as ContainerMutationResponse).containerKek.keyring)
-    .toEqual(
-      secondRekey.request.keyring as ContainerMutationResponse["containerKek"]["keyring"],
-    );
+  expect(
+    (secondMutation as ContainerMutationResponse).containerKek.keyring,
+  ).toEqual(
+    secondRekey.request
+      .keyring as ContainerMutationResponse["containerKek"]["keyring"],
+  );
 });
 
 test("GET /containers/:containerId/writer-projection rejects users without write access", async () => {

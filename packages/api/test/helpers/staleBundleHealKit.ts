@@ -8,10 +8,10 @@ import { authenticate } from "./authenticate";
 import {
   accessManifestFromContainerResponse,
   buildRootGrantRequest,
-  buildRootRevokeRequest,
   kekStateFromContainerResponse,
   type StoredRootFixture,
 } from "./keyingWriterProjectionKit";
+import { buildRootRevokeRequest } from "./keyingWriterProjectionRevoke";
 import { registerUser } from "./registerUser";
 
 /**

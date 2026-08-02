@@ -199,7 +199,11 @@ test("container KEK store persists additive wraps and resolves verified state", 
   }
 
   await storeVerifiedContainerKekState(
-    { keyring: null, predecessorBridge: null, verifiedState: verifiedState.value },
+    {
+      keyring: null,
+      predecessorBridge: null,
+      verifiedState: verifiedState.value,
+    },
     db,
   );
 
@@ -310,11 +314,19 @@ test("container KEK store replaces stale same-epoch principal wraps", async () =
   }
 
   await storeVerifiedContainerKekState(
-    { keyring: null, predecessorBridge: null, verifiedState: initialState.value },
+    {
+      keyring: null,
+      predecessorBridge: null,
+      verifiedState: initialState.value,
+    },
     db,
   );
   await storeVerifiedContainerKekState(
-    { keyring: null, predecessorBridge: null, verifiedState: currentState.value },
+    {
+      keyring: null,
+      predecessorBridge: null,
+      verifiedState: currentState.value,
+    },
     db,
   );
 
@@ -401,7 +413,11 @@ test("container KEK resolver rejects tampered stored wrap fingerprints", async (
   }
 
   await storeVerifiedContainerKekState(
-    { keyring: null, predecessorBridge: null, verifiedState: verifiedState.value },
+    {
+      keyring: null,
+      predecessorBridge: null,
+      verifiedState: verifiedState.value,
+    },
     db,
   );
   await db
