@@ -16,7 +16,9 @@
       "./documentStore",
       "./types"
     ],
-    "packages/crypto/src/keying.ts": ["./keying/index"],
+    "packages/crypto/src/keying.ts": [
+      "./keying/index"
+    ],
     "packages/crypto/src/keying/index.ts": [
       "./accessEvent",
       "./canonical",
@@ -29,8 +31,13 @@
       "./types",
       "./writeHeader"
     ],
-    "packages/loro/src/index.ts": ["./server", "./shared"],
-    "packages/api-shared/src/schema.ts": ["./schema/index"]
+    "packages/loro/src/index.ts": [
+      "./server",
+      "./shared"
+    ],
+    "packages/api-shared/src/schema.ts": [
+      "./schema/index"
+    ]
   },
   "fileSizes": {
     "dependency-cruiser.config.ts": {
@@ -46,28 +53,28 @@
       "bytes": 21124
     },
     "docs/glossary.md": {
-      "lines": 506,
-      "bytes": 18158
+      "lines": 532,
+      "bytes": 19220
     },
     "docs/keying-design.md": {
-      "lines": 965,
-      "bytes": 43068
+      "lines": 1002,
+      "bytes": 45334
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 538,
       "bytes": 22521
     },
     "docs/openapi.json": {
-      "lines": 900,
-      "bytes": 35066
+      "lines": 913,
+      "bytes": 35549
     },
     "docs/protocol-specification.md": {
-      "lines": 520,
-      "bytes": 22784
+      "lines": 531,
+      "bytes": 23653
     },
     "docs/security-guarantees.md": {
-      "lines": 440,
-      "bytes": 21885
+      "lines": 453,
+      "bytes": 22736
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
@@ -78,8 +85,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1748,
-      "bytes": 56063
+      "lines": 1762,
+      "bytes": 56489
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -170,8 +177,8 @@
       "bytes": 40645
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
-      "lines": 631,
-      "bytes": 18481
+      "lines": 636,
+      "bytes": 18628
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 725,
@@ -274,8 +281,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 547,
-      "bytes": 17423
+      "lines": 552,
+      "bytes": 17656
     },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
       "lines": 1166,
@@ -334,8 +341,8 @@
       "bytes": 30465
     },
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
-      "lines": 616,
-      "bytes": 18604
+      "lines": 617,
+      "bytes": 18635
     },
     "packages/client-sdk/src/workflows/container-contents/documentMoveIntentSync.test.ts": {
       "lines": 725,
@@ -398,12 +405,12 @@
       "bytes": 40297
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
-      "lines": 739,
-      "bytes": 23033
+      "lines": 745,
+      "bytes": 23225
     },
     "packages/crypto/src/keying/containerAccess.ts": {
-      "lines": 1301,
-      "bytes": 37603
+      "lines": 1318,
+      "bytes": 37993
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 650,
@@ -434,8 +441,8 @@
       "bytes": 30430
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1072,
-      "bytes": 32751
+      "lines": 1104,
+      "bytes": 33981
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,
@@ -453,7 +460,9 @@
   "categories": {
     "configuration": {
       "description": "Monorepo configuration files that depend on holistic, interlocking rule sets.",
-      "files": ["dependency-cruiser.config.ts"]
+      "files": [
+        "dependency-cruiser.config.ts"
+      ]
     },
     "documentation": {
       "description": "Long-form design and reference documents that lose coherence when split.",
