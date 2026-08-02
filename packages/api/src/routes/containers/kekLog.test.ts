@@ -99,15 +99,32 @@ test("GET /containers/:containerId/kek-log serves the full rotation log ascendin
     predecessorContainerKeyEpochId: root.kekState.containerKeyEpochId,
     successorContainerKeyEpochId: firstRekey.kekState.containerKeyEpochId,
   });
-  expect(second?.keyring).toEqual(
+  // Keyrings are served one per request, for the page's first epoch, so the
+  // epoch-2 keyring comes from a cursor positioned at it.
+  const atEpoch2 = (await (
+    await getKekLog(
+      root.kekState.containerId,
+      owner.token,
+      "?include=keyrings&afterKeyEpoch=1",
+    )
+  ).json()) as ContainerKekLogResponse;
+  expect(atEpoch2.epochs[0]?.keyring).toEqual(
     firstRekey.request
       .keyring as ContainerKekLogResponse["epochs"][number]["keyring"],
   );
+  expect(atEpoch2.epochs.slice(1).every((e) => e.keyring === null)).toBe(true);
   expect(third?.bridge).toMatchObject({
     predecessorContainerKeyEpochId: firstRekey.kekState.containerKeyEpochId,
     successorContainerKeyEpochId: secondRekey.kekState.containerKeyEpochId,
   });
-  expect(third?.keyring).toEqual(
+  const atEpoch3 = (await (
+    await getKekLog(
+      root.kekState.containerId,
+      owner.token,
+      "?include=keyrings&afterKeyEpoch=2",
+    )
+  ).json()) as ContainerKekLogResponse;
+  expect(atEpoch3.epochs[0]?.keyring).toEqual(
     secondRekey.request
       .keyring as ContainerKekLogResponse["epochs"][number]["keyring"],
   );
@@ -135,6 +152,9 @@ test("GET /containers/:containerId/kek-log serves the full rotation log ascendin
   ).toBe(true);
   // Bounded by construction: this container fits one page.
   expect(log.hasMore).toBe(false);
+  // At most one keyring per request, for the page's first epoch — a page of
+  // multi-megabyte keyrings would be quadratic in rotation count.
+  expect(log.epochs.filter((epoch) => epoch.keyring !== null).length).toBe(0);
 }, 15_000);
 
 test("the kek-log bridges rebuild every predecessor key from the current KEK", async () => {
@@ -259,4 +279,31 @@ test("the kek-log pages from a cursor and reports more", async () => {
   expect(malformedPage.epochs.map((epoch) => epoch.containerKeyEpoch)).toEqual([
     1, 2, 3,
   ]);
+}, 15_000);
+
+test("the kek-log discloses no other member's envelopes", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const { root } = await rotateRootTwice(owner);
+
+  const log = (await (
+    await getKekLog(root.kekState.containerId, owner.token)
+  ).json()) as ContainerKekLogResponse;
+
+  // Every served envelope is one this requester could use as an anchor:
+  // their own direct wrap, or a principal wrap whose id current readers
+  // already see in the signed manifests on their access path. Another
+  // member's user envelope is never disclosed.
+  for (const epoch of log.epochs) {
+    for (const wrap of epoch.wraps) {
+      const kind = wrap["recipientKind"];
+      expect(
+        kind === "user" || kind === "group" || kind === "organization",
+      ).toBe(true);
+      if (kind === "user") {
+        expect(wrap["recipientId"]).toBe(owner.userId);
+      }
+    }
+  }
 }, 15_000);

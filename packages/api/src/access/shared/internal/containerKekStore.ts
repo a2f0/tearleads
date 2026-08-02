@@ -356,6 +356,8 @@ export async function listContainerKeyEpochPage(
       createdByManifestHash: containerKeyEpochs.createdByManifestHash,
       id: containerKeyEpochs.id,
       keyEpoch: containerKeyEpochs.keyEpoch,
+      // Only the page's first epoch can carry a keyring, so at most one
+      // multi-megabyte blob is read per request.
       keyringIv: input.includeKeyrings
         ? containerKeyEpochs.keyringIv
         : sql<null>`null`,

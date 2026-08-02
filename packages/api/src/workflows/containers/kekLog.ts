@@ -20,11 +20,23 @@ import { ContainerWriterProjectionError } from "./writerProjection/types";
  *
  * Bounded in SQL, not after the fact: a page is at most
  * `CONTAINER_KEK_LOG_PAGE_LIMIT` epochs selected with `LIMIT`, walked from
- * `afterKeyEpoch`, with all of a page's wraps loaded in one query. Each
- * retained keyring is O(its epoch) bytes, so the sealed-keyring column is not
- * even selected unless `includeKeyrings` is set — an unbounded container can
- * never materialize its whole history in one response. `keyring: null`
- * therefore means "not requested, or epoch 1" rather than "absent".
+ * `afterKeyEpoch`, with all of a page's wraps loaded in one query.
+ *
+ * A retained keyring is O(its epoch) bytes — megabytes near the epoch cap —
+ * so `includeKeyrings` serves **at most one**, for the page's first epoch,
+ * and the column is not selected at all otherwise. The ladder fallback wants
+ * exactly one historical keyring at a time, so recovery walks it with the
+ * `afterKeyEpoch` cursor rather than pulling the whole ladder. That keeps the
+ * worst-case response one keyring plus one page of bridges and wraps, instead
+ * of the quadratic total. `keyring: null` therefore means "not requested,
+ * not this page's first epoch, or epoch 1" rather than "absent".
+ *
+ * Wraps are filtered to what the requester could actually use as a recovery
+ * anchor: their own direct envelopes, plus principal-addressed ones (whose
+ * principal ids current readers already see in the signed manifests on their
+ * access path). Other members' identities are never disclosed, preserving the
+ * "superseded recipient envelopes are not served" guarantee for everyone but
+ * the requester themselves.
  */
 export async function runContainerKekLogWorkflow(
   db: ApiDatabase,
@@ -68,23 +80,31 @@ export async function runContainerKekLogWorkflow(
     return {
       containerId: input.containerId,
       hasMore,
-      epochs: page.map((epoch) => ({
+      epochs: page.map((epoch, pageIndex) => ({
         accessManifestHash: epoch.accessManifestHash,
         bridge: epoch.predecessorBridge ? { ...epoch.predecessorBridge } : null,
         containerKeyEpoch: epoch.keyEpoch,
         containerKeyEpochId: epoch.id,
-        keyring: epoch.keyring ? { ...epoch.keyring } : null,
+        keyring: pageIndex === 0 && epoch.keyring ? { ...epoch.keyring } : null,
         parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
-        wraps: (wrapsByEpochId.get(epoch.id) ?? []).map((wrap) => ({
-          containerKeyEpochId: wrap.containerKeyEpochId,
-          recipientKind: wrap.recipientKind,
-          recipientId: wrap.recipientId,
-          recipientKeyEpochId: wrap.recipientKeyEpochId,
-          recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-          kemCipherText: wrap.kemCipherText,
-          wrappedKey: wrap.wrappedKey,
-          wrapManifestHash: wrap.wrapManifestHash,
-        })),
+        wraps: (wrapsByEpochId.get(epoch.id) ?? [])
+          .filter(
+            (wrap) =>
+              (wrap.recipientKind === "user" &&
+                wrap.recipientId === input.userId) ||
+              wrap.recipientKind === "group" ||
+              wrap.recipientKind === "organization",
+          )
+          .map((wrap) => ({
+            containerKeyEpochId: wrap.containerKeyEpochId,
+            recipientKind: wrap.recipientKind,
+            recipientId: wrap.recipientId,
+            recipientKeyEpochId: wrap.recipientKeyEpochId,
+            recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+            kemCipherText: wrap.kemCipherText,
+            wrappedKey: wrap.wrappedKey,
+            wrapManifestHash: wrap.wrapManifestHash,
+          })),
       })),
     };
   });

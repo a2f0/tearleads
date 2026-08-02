@@ -465,9 +465,16 @@ epoch ids, access-manifest hashes, and parent epoch references. The design
 accepts that metadata disclosure as part of history-inclusive access; only the
 old plaintext KEKs and content remain sealed.
 
-History delivery is O(1) in rotation count on the hot path: one sealed blob
-whose length is fixed by the epoch number, opened with one decrypt, with
-per-entry verification that is independent and parallelizable. Historical
+History delivery is **one round trip and one decrypt** regardless of rotation
+count — that is the property the chain lacked, where reaching epoch 1 meant a
+serial walk through every intermediate unwrap. The work itself is not free and
+is not O(1): the sealed blob is 64 bytes per retained epoch, so transfer, AEAD
+processing, and per-entry material-id verification all grow linearly with
+epoch count. What changes is the shape — one bulk decrypt plus independent,
+parallelizable entry checks, rather than a dependent chain of round-trip-order
+unwraps where each step gates the next. At the epoch cap the sealed keyring is
+about 4 MB, which is why the kek-log serves at most one historical keyring per
+request. Historical
 epoch *records* ride the projection only when a descendant path entry pins an
 older parent epoch, because a child's parent wrap binds to the parent epoch's
 record hash; content-key envelopes address epochs by id alone and need no
