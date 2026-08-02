@@ -4,6 +4,7 @@ import {
   containerKeyWraps,
 } from "@tearleads/api-shared/schema";
 import type { ContainerKekKeyring } from "@tearleads/crypto";
+import { CONTAINER_KEK_LOG_WRAP_LIMIT } from "@tearleads/validators/util";
 import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import type {
   StoredContainerKeyEpoch,
@@ -158,6 +159,11 @@ export async function listContainerKeyWrapsByEpochId(
       asc(containerKeyWraps.recipientKind),
       asc(containerKeyWraps.recipientId),
       asc(containerKeyWraps.recipientKeyEpochId),
+    )
+    // A page's epochs can each carry many recipients; without this a wide
+    // container could return a response measured in hundreds of megabytes.
+    .limit(
+      recipientScope ? CONTAINER_KEK_LOG_WRAP_LIMIT : Number.MAX_SAFE_INTEGER,
     );
 
   for (const row of rows) {

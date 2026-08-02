@@ -103,6 +103,14 @@ async function unwrapContainerKekFromParentWrap(input: {
   }
 
   if (parentKek.keyEpochHash === null) {
+    // Keyring-recovered historical KEKs carry no epoch record hash, so they
+    // can never satisfy a parent wrap. That is consistent by construction:
+    // `assertContainerKeyEpochParentBinding` requires a child to pin its
+    // parent's CURRENT epoch, so a projection pinning a pre-rotation parent
+    // is rejected during verification and never reaches this walk. A
+    // descendant left behind by an ancestor rotation is recovered by lazy
+    // rekey — materializing a post-rotation epoch — not by reading the
+    // parent's history.
     return null;
   }
   const parentWrap = input.wraps.find(

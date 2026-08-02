@@ -71,3 +71,10 @@ export const CONTAINER_KEK_LOG_PAGE_LIMIT = 256;
  * batch is an unbounded request body.
  */
 export const MAX_INLINE_CONTAINER_REKEYS = 16;
+
+/**
+ * Maximum recipient envelopes one kek-log page may serve. Recovery needs the
+ * requester's own anchors, not every envelope on every epoch, so the response
+ * stays bounded no matter how many recipients a container has accumulated.
+ */
+export const CONTAINER_KEK_LOG_WRAP_LIMIT = 512;

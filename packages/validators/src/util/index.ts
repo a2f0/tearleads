@@ -10,6 +10,7 @@ export {
 } from "./accessManifestBundle";
 export {
   CONTAINER_KEK_LOG_PAGE_LIMIT,
+  CONTAINER_KEK_LOG_WRAP_LIMIT,
   isContainerKekKeyringWireRecord,
   MAX_CONTAINER_KEY_EPOCH,
   MAX_INLINE_CONTAINER_REKEYS,
