@@ -7,6 +7,22 @@ export const BILLING_ERROR_CODES = {
 export type BillingErrorCode =
   (typeof BILLING_ERROR_CODES)[keyof typeof BILLING_ERROR_CODES];
 
+/** Native subscription stores supported by the RevenueCat ownership flow. */
+export const NATIVE_SUBSCRIPTION_STORES = [
+  "app_store",
+  "play_store",
+  "test_store",
+] as const;
+
+export type NativeSubscriptionStore =
+  (typeof NATIVE_SUBSCRIPTION_STORES)[number];
+
+export function isNativeSubscriptionStore(
+  value: unknown,
+): value is NativeSubscriptionStore {
+  return NATIVE_SUBSCRIPTION_STORES.some((store) => store === value);
+}
+
 /** Canonical fixed-cap subscription tiers shared by every billing provider. */
 export const SYNC_BILLING_TIERS = [
   {

@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { PurchasesPackage } from "@revenuecat/purchases-capacitor";
 import {
   PurchaseAbortedError,
+  PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
 } from "@tearleads/client-sdk";
 import {
@@ -47,6 +48,19 @@ test("configures the key belonging to the running platform", async () => {
   expect(fixture.configureCalls).toEqual([
     { apiKey: "android-key", appUserID: "user-1" },
   ]);
+});
+
+test("maps RevenueCat public keys and platforms to the claim store", () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "test_project_key");
+  fixture.platform = "ios";
+  expect(createCapacitorPurchases().nativeStore).toBe("test_store");
+
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "appl_project_key");
+  expect(createCapacitorPurchases().nativeStore).toBe("app_store");
+
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "goog_project_key");
+  fixture.platform = "android";
+  expect(createCapacitorPurchases().nativeStore).toBe("play_store");
 });
 
 test("configures onto the known buyer rather than an anonymous customer", async () => {
@@ -295,6 +309,30 @@ test("normalizes cancellation from the Android RevenueCat bridge", async () => {
 
   await expect(purchaseSync()).rejects.toBeInstanceOf(PurchaseCancelledError);
   expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+});
+
+test("normalizes an already-owned Android product into subscription recovery", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.packages = [nativePackage("monthly", "sync_solo_monthly:monthly")];
+  fixture.purchaseRejection = { code: "6" };
+
+  await expect(purchaseSync()).rejects.toBeInstanceOf(
+    PurchaseAlreadyOwnedError,
+  );
+});
+
+test("normalizes iOS receipt-ownership conflicts into subscription recovery", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  fixture.platform = "ios";
+  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+
+  for (const code of ["6", "7", "13"]) {
+    fixture.purchaseRejection = { code };
+    await expect(purchaseSync()).rejects.toBeInstanceOf(
+      PurchaseAlreadyOwnedError,
+    );
+  }
 });
 
 test("propagates a genuine store failure unchanged", async () => {

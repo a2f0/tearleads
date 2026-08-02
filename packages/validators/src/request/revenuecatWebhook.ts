@@ -9,6 +9,9 @@ import {
 
 const MAX_VALID_DATE_MS = 8_640_000_000_000_000;
 const EVENT_TIMESTAMP_MS_KEY = "event_timestamp_ms";
+const EVENT_TYPE_KEY = "type";
+const TRANSFERRED_FROM_KEY = "transferred_from";
+const TRANSFERRED_TO_KEY = "transferred_to";
 
 /**
  * A single RevenueCat subscriber attribute as delivered on a webhook event. Only
@@ -74,12 +77,49 @@ export interface RevenueCatWebhookEvent {
 }
 
 /**
+ * RevenueCat's receipt-transfer event. Unlike lifecycle events it has no
+ * `app_user_id`; it reports the complete source and destination App User ID
+ * sets instead. The server resolves the destination's personal organization,
+ * verifies its active subscription through RevenueCat v2, and moves the local
+ * billing binding atomically.
+ */
+export interface RevenueCatTransferWebhookEvent {
+  id: string;
+  type: "TRANSFER";
+  event_timestamp_ms: number;
+  transferred_from: string[];
+  transferred_to: string[];
+  store?: string | null;
+  environment?: string | null;
+}
+
+export type RevenueCatIncomingWebhookEvent =
+  | RevenueCatWebhookEvent
+  | RevenueCatTransferWebhookEvent;
+
+/**
  * The webhook request envelope RevenueCat POSTs to
  * `/billing/revenuecat/webhook`.
  */
 export interface RevenueCatWebhookRequest {
   api_version?: string;
-  event: RevenueCatWebhookEvent;
+  event: RevenueCatIncomingWebhookEvent;
+}
+
+export function isRevenueCatTransferWebhookEvent(
+  value: unknown,
+): value is RevenueCatTransferWebhookEvent {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "id") &&
+    value[EVENT_TYPE_KEY] === "TRANSFER" &&
+    isRevenueCatTimestampMs(value[EVENT_TIMESTAMP_MS_KEY]) &&
+    isStringArray(value[TRANSFERRED_FROM_KEY]) &&
+    isStringArray(value[TRANSFERRED_TO_KEY]) &&
+    value[TRANSFERRED_TO_KEY].length > 0 &&
+    isAbsentOrNullableString(value, "store") &&
+    isAbsentOrNullableString(value, "environment")
+  );
 }
 
 function isSubscriberAttributeMap(
@@ -179,6 +219,7 @@ function isRevenueCatWebhookEvent(
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "type") &&
+    value[EVENT_TYPE_KEY] !== "TRANSFER" &&
     hasStringProperty(value, "app_user_id") &&
     isRevenueCatTimestampMs(value[EVENT_TIMESTAMP_MS_KEY]) &&
     isAbsentOrNullableTimestampMs(value, "purchased_at_ms") &&
@@ -202,6 +243,7 @@ export function isRevenueCatWebhookRequest(
     isPlainObject(value) &&
     hasOptionalStringProperty(value, "api_version") &&
     hasObjectProperty(value, "event") &&
-    isRevenueCatWebhookEvent(value.event)
+    (isRevenueCatWebhookEvent(value.event) ||
+      isRevenueCatTransferWebhookEvent(value.event))
   );
 }

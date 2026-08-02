@@ -1,11 +1,15 @@
+import { isNativeSubscriptionStore } from "@tearleads/validators/billing";
 import { type Context, Hono } from "hono";
+import type { RevenueCatApiDeps } from "../../billing/revenueCatApi";
 import type { SessionEnv } from "../../middleware/session";
 import {
+  claimNativeOrganizationSubscription,
   getOrganizationBilling,
   getOrganizationBillingHistory,
   getOrganizationBillingManagementUrl,
   startOrganizationTrial,
 } from "../../services/billing/organizationBilling";
+import { OrganizationBillingProviderUnavailableError } from "../../services/billing/organizationBillingErrors";
 import {
   type OrganizationsRouterDeps,
   parseOrganizationId,
@@ -29,6 +33,9 @@ async function respondForOrganization<T extends object>(
   try {
     return c.json(await handle(organizationId, c.get("session").userId));
   } catch (error) {
+    if (error instanceof OrganizationBillingProviderUnavailableError) {
+      return c.json({ error: error.message }, error.status);
+    }
     const response = toOrganizationManagerErrorResponse(error);
     if (response) {
       return response;
@@ -37,10 +44,15 @@ async function respondForOrganization<T extends object>(
   }
 }
 
+interface OrganizationBillingRouteDeps extends OrganizationsRouterDeps {
+  readonly revenueCat?: RevenueCatApiDeps;
+}
+
 export function createOrganizationBillingRoute({
   requireAuth,
+  revenueCat,
   runtime,
-}: OrganizationsRouterDeps) {
+}: OrganizationBillingRouteDeps) {
   const route = new Hono<SessionEnv>();
 
   route.get("/organizations/:organizationId/billing", requireAuth, (c) =>
@@ -75,6 +87,26 @@ export function createOrganizationBillingRoute({
     respondForOrganization(c, (organizationId, sessionUserId) =>
       startOrganizationTrial(runtime, organizationId, sessionUserId),
     ),
+  );
+
+  route.post(
+    "/organizations/:organizationId/billing/native/:store/claim",
+    requireAuth,
+    (c) => {
+      const store = c.req.param("store");
+      if (!isNativeSubscriptionStore(store)) {
+        return c.json({ error: "Invalid native subscription store" }, 400);
+      }
+      return respondForOrganization(c, (organizationId, sessionUserId) =>
+        claimNativeOrganizationSubscription(
+          runtime,
+          organizationId,
+          sessionUserId,
+          store,
+          revenueCat,
+        ),
+      );
+    },
   );
 
   return route;

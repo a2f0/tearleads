@@ -3,11 +3,13 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingStripeSeats,
+  revenuecatWebhookEvents,
   users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { isOrganizationBillingResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { createMiddleware } from "hono/factory";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -16,9 +18,11 @@ import {
 } from "../../../test/helpers/organizationBilling";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
+import type { SessionEnv } from "../../middleware/session";
 import { routeApp } from "../../routeApp";
 import { getOrganizationBillingManagementUrl } from "../../services/billing/organizationBilling";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
+import { createOrganizationBillingRoute } from "./organizationBilling";
 
 async function registerAndAuthenticate(user: TestUser): Promise<string> {
   await registerUser(user);
@@ -35,6 +39,53 @@ async function registerAndAuthenticate(user: TestUser): Promise<string> {
 
 function authHeader(user: TestUser): { Authorization: string } {
   return { Authorization: `Bearer ${user.token}` };
+}
+
+function nativeClaimRoute(
+  userId: string,
+  revenueCat: {
+    readonly env: NodeJS.ProcessEnv;
+    readonly fetchImpl?: typeof fetch;
+  },
+) {
+  return createOrganizationBillingRoute({
+    requireAuth: createMiddleware<SessionEnv>(async (c, next) => {
+      c.set("session", {
+        createdAt: Date.now(),
+        fingerprint: "test-fingerprint",
+        id: "test-session",
+        ipAddresses: [],
+        lastActiveAt: Date.now(),
+        lastActiveIp: null,
+        userId,
+      });
+      return next();
+    }),
+    revenueCat,
+    runtime: getDefaultApiServiceRuntime(),
+  });
+}
+
+function activeNativeSubscriptionFetch() {
+  return (async (input: RequestInfo | URL) => {
+    if (String(input).includes("/products/")) {
+      return Response.json({ store_identifier: "sync_solo_monthly:monthly" });
+    }
+    return Response.json({
+      items: [
+        {
+          current_period_ends_at: "2030-02-01T00:00:00Z",
+          current_period_starts_at: "2030-01-01T00:00:00Z",
+          environment: "production",
+          gives_access: true,
+          product_id: "prod_solo",
+          status: "active",
+          store: "play_store",
+          store_subscription_identifier: "GPA.route-claim",
+        },
+      ],
+    });
+  }) as typeof fetch;
 }
 
 test("an org admin reads local billing and starts a trial", async () => {
@@ -301,4 +352,134 @@ test("a non-member cannot read or change another org's billing", async () => {
     { headers: authHeader(intruder), method: "POST" },
   );
   expect(trialResponse.status).toBe(403);
+
+  const claimResponse = await routeApp.request(
+    `/organizations/${organizationId}/billing/native/play_store/claim`,
+    { headers: authHeader(intruder), method: "POST" },
+  );
+  expect(claimResponse.status).toBe(403);
+
+  const invalidStoreResponse = await routeApp.request(
+    `/organizations/${organizationId}/billing/native/stripe/claim`,
+    { headers: authHeader(owner), method: "POST" },
+  );
+  expect(invalidStoreResponse.status).toBe(400);
+});
+
+test("native claim moves verified billing and records both sides of the transfer", async () => {
+  const previous = createTestUser();
+  const previousOrganizationId = await registerAndAuthenticate(previous);
+  const destination = createTestUser();
+  const destinationOrganizationId = await registerAndAuthenticate(destination);
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerCustomerId: previous.userId,
+      providerProductId: "sync_solo_monthly:monthly",
+      providerSubscriptionId: "GPA.route-claim",
+      seatCount: 1,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, previousOrganizationId));
+  const app = nativeClaimRoute(destination.userId, {
+    env: {
+      REVENUECAT_PROJECT_ID: "proj_1",
+      REVENUECAT_V2_SECRET_KEY: "sk_test",
+    },
+    fetchImpl: activeNativeSubscriptionFetch(),
+  });
+
+  const response = await app.request(
+    `/organizations/${destinationOrganizationId}/billing/native/play_store/claim`,
+    { method: "POST" },
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    organizationId: destinationOrganizationId,
+    status: "active",
+  });
+  const repeatedResponse = await app.request(
+    `/organizations/${destinationOrganizationId}/billing/native/play_store/claim`,
+    { method: "POST" },
+  );
+  expect(repeatedResponse.status).toBe(200);
+  const audits = await db
+    .select({
+      organizationId: revenuecatWebhookEvents.organizationId,
+      sourceOrganizationId: revenuecatWebhookEvents.sourceOrganizationId,
+    })
+    .from(revenuecatWebhookEvents)
+    .where(
+      and(
+        eq(revenuecatWebhookEvents.eventType, "TRANSFER"),
+        eq(revenuecatWebhookEvents.organizationId, destinationOrganizationId),
+      ),
+    );
+  expect(audits).toEqual([
+    {
+      organizationId: destinationOrganizationId,
+      sourceOrganizationId: previousOrganizationId,
+    },
+  ]);
+});
+
+test("native claim maps provider outages to 503 and gates Test Store in production", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const unavailable = nativeClaimRoute(admin.userId, {
+    env: {} as NodeJS.ProcessEnv,
+  });
+  expect(
+    (
+      await unavailable.request(
+        `/organizations/${organizationId}/billing/native/play_store/claim`,
+        { method: "POST" },
+      )
+    ).status,
+  ).toBe(503);
+
+  const production = nativeClaimRoute(admin.userId, {
+    env: {
+      REVENUECAT_PROJECT_ID: "proj_1",
+      REVENUECAT_V2_SECRET_KEY: "sk_test",
+    },
+    fetchImpl: (async (_input: RequestInfo | URL): Promise<Response> => {
+      throw new Error("production Test Store must not call RevenueCat");
+    }) as typeof fetch,
+  });
+  expect(
+    (
+      await production.request(
+        `/organizations/${organizationId}/billing/native/test_store/claim`,
+        { method: "POST" },
+      )
+    ).status,
+  ).toBe(404);
+});
+
+test("native claim maps ambiguous receipts to 409", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const claimUrl = `/organizations/${organizationId}/billing/native/play_store/claim`;
+  const active = (subscriptionId: string) => ({
+    environment: "production",
+    gives_access: true,
+    product_id: "prod_1",
+    store: "play_store",
+    store_subscription_identifier: subscriptionId,
+  });
+  const ambiguous = nativeClaimRoute(admin.userId, {
+    env: {
+      REVENUECAT_PROJECT_ID: "proj_1",
+      REVENUECAT_V2_SECRET_KEY: "sk_test",
+    },
+    fetchImpl: (async (_input: RequestInfo | URL) =>
+      Response.json({
+        items: [active("GPA.ambiguous-1"), active("GPA.ambiguous-2")],
+      })) as typeof fetch,
+  });
+  expect((await ambiguous.request(claimUrl, { method: "POST" })).status).toBe(
+    409,
+  );
 });

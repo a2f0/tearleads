@@ -108,3 +108,41 @@ test("accepts the environment field as string, null, or absent", () => {
   expect(isRevenueCatWebhookRequest(webhook({ environment: null }))).toBe(true);
   expect(isRevenueCatWebhookRequest(webhook({ environment: 1 }))).toBe(false);
 });
+
+test("accepts RevenueCat transfer events without an app user id", () => {
+  const transfer = {
+    api_version: "1.0",
+    event: {
+      environment: "SANDBOX",
+      event_timestamp_ms: 1_000,
+      id: "transfer-1",
+      store: "PLAY_STORE",
+      transferred_from: ["old-user"],
+      transferred_to: ["new-user"],
+      type: "TRANSFER",
+    },
+  };
+  expect(isRevenueCatWebhookRequest(transfer)).toBe(true);
+  expect(
+    isRevenueCatWebhookRequest({
+      event: { ...transfer.event, transferred_from: [] },
+    }),
+  ).toBe(true);
+  expect(
+    isRevenueCatWebhookRequest({
+      ...transfer,
+      event: { ...transfer.event, transferred_to: [] },
+    }),
+  ).toBe(false);
+  expect(
+    isRevenueCatWebhookRequest({
+      ...transfer,
+      event: { ...transfer.event, transferred_from: "old-user" },
+    }),
+  ).toBe(false);
+  expect(
+    isRevenueCatWebhookRequest(
+      webhook({ transferred_to: 5, type: "TRANSFER" }),
+    ),
+  ).toBe(false);
+});

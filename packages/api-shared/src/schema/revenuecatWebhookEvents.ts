@@ -21,6 +21,8 @@ import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "./columns";
  *   correlate the applied billing row back to RevenueCat/store history.
  * - `organizationId`: Organization the event was applied to, resolved from the
  *   `orgId` subscriber attribute. Null when the event carried no resolvable org.
+ * - `sourceOrganizationId`: Previous owner for a `TRANSFER` event. This lets
+ *   both personal organizations retain an explicit move in billing history.
  * - `outcome`: How the handler dispositioned the event (`applied`/`ignored`).
  * - `eventTimestamp`: Provider-reported event time. Used to reject stale,
  *   out-of-order deliveries: a transition is not applied when a newer event has
@@ -40,6 +42,7 @@ export const revenuecatWebhookEvents = pgTable(
     transactionId: text("transaction_id"),
     originalTransactionId: text("original_transaction_id"),
     organizationId: uuid("organization_id"),
+    sourceOrganizationId: uuid("source_organization_id"),
     outcome: text("outcome").notNull(),
     eventTimestamp: timestamp("event_timestamp").notNull(),
     purchasedAt: timestamp("purchased_at"),
@@ -49,5 +52,8 @@ export const revenuecatWebhookEvents = pgTable(
   (table) => [
     uniqueIndex("revenuecat_webhook_events_event_id_idx").on(table.eventId),
     index("revenuecat_webhook_events_org_idx").on(table.organizationId),
+    index("revenuecat_webhook_events_source_org_idx").on(
+      table.sourceOrganizationId,
+    ),
   ],
 );

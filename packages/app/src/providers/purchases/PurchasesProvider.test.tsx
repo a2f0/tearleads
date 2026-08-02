@@ -9,12 +9,14 @@ import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { PurchasesProvider, usePurchases } from "./PurchasesProvider";
 
 const availableCapability: PurchasesCapability = {
+  bindOrganization: () => Promise.resolve(),
   isAvailable: true,
+  nativeStore: "test_store",
   identify: () => Promise.resolve(),
   reset: () => Promise.resolve(),
   listSyncOptions: () => Promise.resolve([]),
   purchaseSync: () => Promise.resolve({ syncEntitlementActive: false }),
-  restore: () => Promise.resolve(),
+  restore: () => Promise.resolve({ syncEntitlementActive: true }),
   hasActiveSyncEntitlement: () => Promise.resolve(false),
 };
 

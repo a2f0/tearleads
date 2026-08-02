@@ -3,6 +3,7 @@ import type {
   PurchasesCapability,
   SyncPurchaseResult,
 } from "@tearleads/client-sdk";
+import { PurchaseAlreadyOwnedError } from "@tearleads/client-sdk";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import {
   createPurchases,
@@ -16,7 +17,9 @@ afterEach(() => cleanup());
 test("identifies the buyer before loading subscription options", async () => {
   const calls: string[] = [];
   const purchases: PurchasesCapability = {
+    bindOrganization: mock(() => Promise.resolve()),
     isAvailable: true,
+    nativeStore: "test_store",
     identify: mock(() => {
       calls.push("identify");
       return Promise.resolve();
@@ -27,7 +30,7 @@ test("identifies the buyer before loading subscription options", async () => {
       return Promise.resolve([OPTION]);
     }),
     purchaseSync: mock(() => Promise.resolve({ syncEntitlementActive: true })),
-    restore: mock(() => Promise.resolve()),
+    restore: mock(() => Promise.resolve({ syncEntitlementActive: true })),
     hasActiveSyncEntitlement: mock(() => Promise.resolve(false)),
   };
 
@@ -97,7 +100,7 @@ test("ignores an old organization's action callbacks after a switch", async () =
   await waitFor(() => expect(result.current.options).toEqual([OPTION]));
   const oldStartTrial = result.current.startTrial;
   const oldSubscribe = result.current.subscribe;
-  const oldRestore = result.current.restore;
+  const oldRestore = result.current.confirmSubscriptionMove;
 
   rerender({
     billingCanSync: false,
@@ -116,6 +119,42 @@ test("ignores an old organization's action callbacks after a switch", async () =
   expect(result.current.busy).toBe(null);
   expect(result.current.actionError).toBe(null);
   expect(result.current.activationPending).toBe(false);
+});
+
+test("restores and claims a native subscription only after confirmation", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const claimNativeSubscription = mock(() => Promise.resolve(true));
+  const refresh = mock(() => Promise.resolve());
+  const { result } = renderBillingActions({
+    claimNativeSubscription,
+    purchases,
+    refresh,
+  });
+
+  act(() => result.current.requestSubscriptionMove());
+  expect(result.current.subscriptionMoveOpen).toBe(true);
+  expect(purchases.restore).not.toHaveBeenCalled();
+
+  act(() => result.current.confirmSubscriptionMove());
+  await waitFor(() => expect(result.current.busy).toBeNull());
+  expect(purchases.restore).toHaveBeenCalledWith();
+  expect(claimNativeSubscription).toHaveBeenCalledWith("test_store");
+  expect(purchases.bindOrganization).toHaveBeenCalledWith({
+    organizationId: "org-1",
+  });
+  expect(refresh).toHaveBeenCalled();
+});
+
+test("an already-owned purchase offers the same explicit move flow", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  purchases.purchaseSync = mock(() =>
+    Promise.reject(new PurchaseAlreadyOwnedError()),
+  );
+  const { result } = renderBillingActions({ purchases });
+
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() => expect(result.current.subscriptionMoveOpen).toBe(true));
+  expect(result.current.actionError).toBeNull();
 });
 
 test("a same-org user switch invalidates in-flight purchase identification", async () => {

@@ -1,7 +1,23 @@
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
-import { type RefObject, useCallback, useRef } from "react";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import {
+  type FormEvent,
+  type RefObject,
+  useCallback,
+  useId,
+  useRef,
+} from "react";
+import {
+  MiniAppActions,
+  MiniAppButton,
+  MiniAppModalBackdrop,
+  MiniAppModalForm,
+  MiniAppModalPanel,
+} from "../../../components/mini-app/MiniAppLayout";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
+import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingCancelSubscription } from "./BillingCancelSubscription";
 import { BillingDirectCheckout } from "./BillingDirectCheckout";
 import { BillingHistory } from "./BillingHistory";
@@ -23,6 +39,55 @@ export function allowsNativePurchase(input: {
     input.status !== "past_due" &&
     input.subscriptionSource !== "stripe" &&
     (!input.isActive || input.subscriptionSource === "native")
+  );
+}
+
+function BillingSubscriptionMoveDialog({
+  busy,
+  open,
+  onCancel,
+  onConfirm,
+}: {
+  readonly busy: boolean;
+  readonly open: boolean;
+  readonly onCancel: () => void;
+  readonly onConfirm: () => void;
+}) {
+  const titleId = useId();
+  const messageId = useId();
+  if (!open) return null;
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!busy) onConfirm();
+  };
+  return (
+    <MiniAppModalBackdrop role="presentation">
+      <MiniAppModalPanel
+        aria-describedby={messageId}
+        aria-labelledby={titleId}
+        aria-modal="true"
+        role="dialog"
+      >
+        <MiniAppModalForm onSubmit={submit}>
+          <h2 id={titleId}>
+            {ORG_MANAGER_LABELS.billingSubscriptionMoveTitle}
+          </h2>
+          <p id={messageId}>
+            {ORG_MANAGER_LABELS.billingSubscriptionMoveMessage}
+          </p>
+          <MiniAppActions>
+            <MiniAppButton disabled={busy} onClick={onCancel} type="button">
+              {ORG_MANAGER_LABELS.cancel}
+            </MiniAppButton>
+            <MiniAppButton disabled={busy} type="submit">
+              {busy
+                ? ORG_MANAGER_LABELS.billingRestoring
+                : ORG_MANAGER_LABELS.billingSubscriptionMoveConfirm}
+            </MiniAppButton>
+          </MiniAppActions>
+        </MiniAppModalForm>
+      </MiniAppModalPanel>
+    </MiniAppModalBackdrop>
   );
 }
 
@@ -157,14 +222,24 @@ function BillingPanelSubscriptionControls(input: {
         onCancelCheckout={actions.cancelCheckout}
         onManageSubscription={input.subscriptionManagement.open}
         onRefresh={input.onRefresh}
-        onRestore={actions.restore}
+        onRestore={actions.requestSubscriptionMove}
         onStartTrial={actions.startTrial}
         onSubscribe={actions.subscribe}
         options={actions.options}
         purchaseAvailable={nativePurchaseAvailable}
         purchaseSectionHidden={purchaseSectionHidden}
-        restoreAvailable={actions.purchaseAvailable}
+        restoreAvailable={
+          input.isOrgAdmin &&
+          actions.purchaseAvailable &&
+          input.isPersonalOrganization === true
+        }
         view={billing.view}
+      />
+      <BillingSubscriptionMoveDialog
+        busy={actions.busy === "restore"}
+        onCancel={actions.dismissSubscriptionMove}
+        onConfirm={actions.confirmSubscriptionMove}
+        open={actions.subscriptionMoveOpen}
       />
       {direct.checkoutEnabled ? (
         <BillingDirectCheckout
@@ -193,6 +268,7 @@ export function BillingPanel({
   organizationId: string;
   userId: string | null;
 }) {
+  const tearleads = useTearleads();
   const billing = useOrganizationBilling();
   const { refresh } = billing;
   const handleRefresh = useCallback(() => {
@@ -221,10 +297,21 @@ export function BillingPanel({
   // Where the Web Billing checkout embeds so a purchase runs inside the panel
   // (the view keeps the div mounted; the hook reads it at purchase time).
   const checkoutHostRef = useRef<HTMLDivElement | null>(null);
+  const claimNativeSubscription = useCallback(
+    async (store: NativeSubscriptionStore) =>
+      (
+        await tearleads.organizations.claimNativeSubscription(
+          organizationId,
+          store,
+        )
+      )?.organizationId === organizationId,
+    [organizationId, tearleads],
+  );
   const actions = useBillingActions({
     isOrgAdmin,
     nativePurchaseAllowed,
     billingCanSync: billing.view?.canSync ?? false,
+    claimNativeSubscription,
     checkoutHostRef,
     organizationId,
     refresh,

@@ -75,7 +75,11 @@ function createFakeBackend(options?: {
   };
 }
 
-const CONFIG = { apiKey: "key", syncEntitlementId: "sync" };
+const CONFIG = {
+  apiKey: "key",
+  nativeStore: "test_store" as const,
+  syncEntitlementId: "sync",
+};
 
 test("configures the backend lazily and only once", async () => {
   const backend = createFakeBackend();
@@ -279,6 +283,24 @@ test("hasActiveSyncEntitlement reflects the current customer entitlements", asyn
   expect(await withoutSync.hasActiveSyncEntitlement()).toBe(false);
 });
 
+test("restore leaves org attribution unchanged until the server accepts it", async () => {
+  const backend = createFakeBackend({ entitlementsNow: ["sync"] });
+  const purchases = createRevenueCatPurchases(backend, CONFIG);
+
+  const result = await purchases.restore();
+
+  expect(result).toEqual({ syncEntitlementActive: true });
+  expect(backend.attributes).toEqual({});
+  expect(backend.calls).not.toContain("setAttributes");
+
+  await purchases.bindOrganization({ organizationId: "org-new" });
+  expect(backend.attributes).toEqual({ orgId: "org-new" });
+  expect(backend.calls.indexOf("setAttributes")).toBeGreaterThan(
+    backend.calls.indexOf("restorePurchases"),
+  );
+  expect(purchases.nativeStore).toBe("test_store");
+});
+
 test("observation-only RevenueCat disables purchases but preserves entitlement reads", async () => {
   const backend = createFakeBackend({ entitlementsNow: ["sync"] });
   const purchases = createRevenueCatPurchases(backend, {
@@ -293,6 +315,12 @@ test("observation-only RevenueCat disables purchases but preserves entitlement r
   await expect(
     purchases.purchaseSync({ organizationId: "org-1", packageId: "monthly" }),
   ).rejects.toBeInstanceOf(PurchasesUnavailableError);
+  await expect(purchases.restore()).rejects.toBeInstanceOf(
+    PurchasesUnavailableError,
+  );
+  await expect(
+    purchases.bindOrganization({ organizationId: "org-1" }),
+  ).rejects.toBeInstanceOf(PurchasesUnavailableError);
   expect(await purchases.hasActiveSyncEntitlement()).toBe(true);
   expect(backend.calls).not.toContain("getCurrentPackages");
   expect(backend.calls).not.toContain("setAttributes");
@@ -304,6 +332,7 @@ test("the unavailable stub degrades reads and rejects purchases", async () => {
   expect(purchases.isAvailable).toBe(false);
   expect(await purchases.listSyncOptions()).toEqual([]);
   expect(await purchases.hasActiveSyncEntitlement()).toBe(false);
+  expect(purchases.nativeStore).toBeNull();
   await purchases.identify({ userId: "user-1" }); // no throw
   expect(
     purchases.purchaseSync({ organizationId: "org-1", packageId: "p" }),

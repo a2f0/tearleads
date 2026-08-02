@@ -99,6 +99,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "ORGANIZATION_PROFILE_DOCUMENT_KIND",
   "ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME",
   "PurchaseAbortedError",
+  "PurchaseAlreadyOwnedError",
   "PurchaseCancelledError",
   "PurchasesUnavailableError",
   "ROSTER_PROFILE_DOCUMENT_KIND",

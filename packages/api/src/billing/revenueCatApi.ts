@@ -1,11 +1,8 @@
-/**
- * Minimal outbound RevenueCat REST API v2 client. The only thing the server
- * fetches from RevenueCat today is a customer's subscription-management URL, so
- * the org billing panel can offer any admin a manage/cancel link resolved from
- * the org's stored customer id (rather than the buyer's device-local SDK state).
- */
+/** Minimal outbound RevenueCat REST API v2 client. */
 
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import {
+  allowsRevenueCatSandboxEvents,
   REVENUECAT_API_ORIGIN,
   readRevenueCatV2Credentials,
 } from "./revenueCatConfig";
@@ -31,13 +28,45 @@ interface OrganizationSubscriptionRef {
 }
 
 interface ResolvedSubscription {
+  readonly currentPeriodEndsAt: Date | null;
+  readonly currentPeriodStartsAt: Date | null;
+  readonly environment: string | null;
   readonly givesAccess: boolean;
   readonly managementUrl: string | null;
+  readonly productResourceId: string | null;
+  readonly store: string | null;
   readonly storeIdentifier: string | null;
+}
+
+export interface ActiveNativeSubscription {
+  readonly currentPeriodEndsAt: Date | null;
+  readonly currentPeriodStartsAt: Date | null;
+  readonly productId: string;
+  readonly store: NativeSubscriptionStore;
+  readonly subscriptionId: string;
+}
+
+type ActiveNativeSubscriptionResult =
+  | { readonly kind: "found"; readonly subscription: ActiveNativeSubscription }
+  | { readonly kind: "customer_not_found" }
+  | { readonly kind: "not_found" }
+  | { readonly kind: "ambiguous" }
+  | { readonly kind: "unavailable" };
+
+interface CustomerSubscriptionsResult {
+  readonly complete: boolean;
+  readonly customerMissing: boolean;
+  readonly subscriptions: ResolvedSubscription[];
 }
 
 function readNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function readDate(value: unknown): Date | null {
+  if (typeof value !== "string") return null;
+  const milliseconds = Date.parse(value);
+  return Number.isNaN(milliseconds) ? null : new Date(milliseconds);
 }
 
 /**
@@ -47,19 +76,76 @@ function readNonEmptyString(value: unknown): string | null {
  */
 function readSubscription(item: unknown): ResolvedSubscription {
   if (typeof item !== "object" || item === null) {
-    return { givesAccess: false, managementUrl: null, storeIdentifier: null };
+    return {
+      currentPeriodEndsAt: null,
+      currentPeriodStartsAt: null,
+      environment: null,
+      givesAccess: false,
+      managementUrl: null,
+      productResourceId: null,
+      store: null,
+      storeIdentifier: null,
+    };
   }
   return {
+    currentPeriodEndsAt: readDate(
+      "current_period_ends_at" in item ? item.current_period_ends_at : null,
+    ),
+    currentPeriodStartsAt: readDate(
+      "current_period_starts_at" in item ? item.current_period_starts_at : null,
+    ),
+    environment: readNonEmptyString(
+      "environment" in item ? item.environment : null,
+    ),
     givesAccess: "gives_access" in item && item.gives_access === true,
     managementUrl: readNonEmptyString(
       "management_url" in item ? item.management_url : null,
     ),
+    productResourceId: readNonEmptyString(
+      "product_id" in item ? item.product_id : null,
+    ),
+    store: readNonEmptyString("store" in item ? item.store : null),
     storeIdentifier: readNonEmptyString(
       "store_subscription_identifier" in item
         ? item.store_subscription_identifier
         : null,
     ),
   };
+}
+
+function subscriptionMatchesStore(
+  subscription: ResolvedSubscription,
+  store: NativeSubscriptionStore,
+): boolean {
+  return subscription.store?.toLowerCase() === store;
+}
+
+function isActiveSubscription(subscription: ResolvedSubscription): boolean {
+  return subscription.givesAccess;
+}
+
+async function fetchProductStoreIdentifier(input: {
+  readonly fetchImpl: typeof fetch;
+  readonly productResourceId: string;
+  readonly projectId: string;
+  readonly secretKey: string;
+}): Promise<string | null> {
+  const response = await input.fetchImpl(
+    `${REVENUECAT_API_ORIGIN}/v2/projects/${encodeURIComponent(input.projectId)}` +
+      `/products/${encodeURIComponent(input.productResourceId)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${input.secretKey}`,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    },
+  );
+  if (!response.ok) return null;
+  const body: unknown = await response.json();
+  return typeof body === "object" && body !== null && "store_identifier" in body
+    ? readNonEmptyString(body.store_identifier)
+    : null;
 }
 
 /** Extracts the subscriptions and the next-page path from one list response. */
@@ -140,7 +226,7 @@ async function fetchCustomerSubscriptions(
   projectId: string,
   secretKey: string,
   fetchImpl: typeof fetch,
-): Promise<{ subscriptions: ResolvedSubscription[]; complete: boolean }> {
+): Promise<CustomerSubscriptionsResult> {
   const headers = {
     Authorization: `Bearer ${secretKey}`,
     Accept: "application/json",
@@ -162,23 +248,24 @@ async function fetchCustomerSubscriptions(
       // list incomplete, so the no-id fallback must not treat it as the full set.
       if (response.status !== 404) {
         console.error(
-          `RevenueCat management URL lookup failed with status ${response.status}`,
+          `RevenueCat customer subscription lookup failed with status ${response.status}`,
         );
       }
       return {
         subscriptions,
         complete: response.status === 404 && page === 0,
+        customerMissing: response.status === 404 && page === 0,
       };
     }
     const parsed = parseSubscriptionPage(await response.json());
     subscriptions.push(...parsed.subscriptions);
     if (!parsed.nextPage) {
-      return { subscriptions, complete: true };
+      return { subscriptions, complete: true, customerMissing: false };
     }
     path = parsed.nextPage;
   }
   // Reached the page cap with pages still remaining: an incomplete list.
-  return { subscriptions, complete: false };
+  return { subscriptions, complete: false, customerMissing: false };
 }
 
 /**
@@ -213,5 +300,68 @@ export async function fetchRevenueCatManagementUrl(
   } catch (error) {
     console.error("RevenueCat management URL lookup errored:", error);
     return null;
+  }
+}
+
+/**
+ * Resolves the one active subscription owned by a RevenueCat App User ID on a
+ * particular native store. Product and period data are read from RevenueCat;
+ * callers never trust client-supplied billing identifiers or capacity.
+ */
+export async function fetchActiveRevenueCatNativeSubscription(
+  appUserId: string,
+  store: NativeSubscriptionStore,
+  deps: RevenueCatApiDeps = {},
+): Promise<ActiveNativeSubscriptionResult> {
+  const env = deps.env ?? process.env;
+  if (store === "test_store" && !allowsRevenueCatSandboxEvents(env)) {
+    return { kind: "not_found" };
+  }
+  const credentials = readRevenueCatV2Credentials(env);
+  if (!credentials) return { kind: "unavailable" };
+  const fetchImpl = deps.fetchImpl ?? fetch;
+
+  try {
+    const result = await fetchCustomerSubscriptions(
+      appUserId,
+      credentials.projectId,
+      credentials.secretKey,
+      fetchImpl,
+    );
+    if (result.customerMissing) return { kind: "customer_not_found" };
+    if (!result.complete) return { kind: "unavailable" };
+    const allowSandbox = allowsRevenueCatSandboxEvents(env);
+    const subscriptions = result.subscriptions.filter(
+      (subscription) =>
+        isActiveSubscription(subscription) &&
+        subscriptionMatchesStore(subscription, store) &&
+        (subscription.environment?.toLowerCase() !== "sandbox" || allowSandbox),
+    );
+    if (subscriptions.length === 0) return { kind: "not_found" };
+    if (subscriptions.length > 1) return { kind: "ambiguous" };
+    const subscription = subscriptions[0];
+    if (!subscription?.productResourceId || !subscription.storeIdentifier) {
+      return { kind: "unavailable" };
+    }
+    const productId = await fetchProductStoreIdentifier({
+      fetchImpl,
+      productResourceId: subscription.productResourceId,
+      projectId: credentials.projectId,
+      secretKey: credentials.secretKey,
+    });
+    if (!productId) return { kind: "unavailable" };
+    return {
+      kind: "found",
+      subscription: {
+        currentPeriodEndsAt: subscription.currentPeriodEndsAt,
+        currentPeriodStartsAt: subscription.currentPeriodStartsAt,
+        productId,
+        store,
+        subscriptionId: subscription.storeIdentifier,
+      },
+    };
+  } catch (error) {
+    console.error("RevenueCat active subscription lookup errored:", error);
+    return { kind: "unavailable" };
   }
 }

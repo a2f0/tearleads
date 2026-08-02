@@ -10,6 +10,7 @@
 
 type BillingPurchaseStage =
   | "aborted"
+  | "already-owned"
   | "cancelled"
   | "identified"
   | "provider-started"
@@ -84,7 +85,7 @@ const NATIVE_ERROR_DOMAIN_FRAGMENT = NATIVE_ERROR_DOMAINS.map(
 ).join("|");
 
 export const BILLING_PURCHASE_TRACE_FRAGMENT = `(?:${[
-  "billing purchase stage=(?:started|identified|provider-started|aborted|cancelled|superseded)",
+  "billing purchase stage=(?:started|identified|provider-started|aborted|already-owned|cancelled|superseded)",
   "billing purchase stage=(?:succeeded|late-succeeded) entitlement=(?:active|inactive)",
   `billing purchase stage=(?:failed|late-failed) code=(?:${PURCHASE_FAILURE_CODE_FRAGMENT}) native=(?:none|(?:${NATIVE_ERROR_DOMAIN_FRAGMENT}):-?\\d{1,10}) userCancelled=(?:true|false|unknown)`,
 ]

@@ -2,6 +2,7 @@ import type {
   PurchasesCapability,
   SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import {
   type Dispatch,
   type RefObject,
@@ -26,8 +27,10 @@ import {
   ACTIVATION_POLL_DELAYS_MS,
   useActivationBillingPoll,
 } from "../billing/useActivationBillingPoll";
-import { useSubscribeAction } from "../billing/useSubscribeAction";
-import { ORG_MANAGER_LABELS } from "../labels";
+import {
+  useNativeSubscriptionMove,
+  useSubscribeAction,
+} from "../billing/useSubscribeAction";
 
 export interface BillingActions {
   readonly purchaseAvailable: boolean;
@@ -40,6 +43,7 @@ export interface BillingActions {
   readonly busy: BillingBusyAction | null;
   readonly actionError: string | null;
   readonly activationPending: boolean;
+  readonly subscriptionMoveOpen: boolean;
   readonly startTrial: () => void;
   readonly subscribe: (option: SyncSubscriptionOption) => void;
   /** Dismiss the in-flight embedded checkout, if any; a no-op otherwise. */
@@ -51,7 +55,9 @@ export interface BillingActions {
    * usually still read the pre-purchase status.
    */
   readonly markActivationPending: () => void;
-  readonly restore: () => void;
+  readonly requestSubscriptionMove: () => void;
+  readonly dismissSubscriptionMove: () => void;
+  readonly confirmSubscriptionMove: () => void;
 }
 
 interface BillingOptionsState extends BillingActionScope {
@@ -153,41 +159,6 @@ function useStartTrialAction(
   }, [currentScope, scopeRef, startTrialRequest, updateActionState]);
 }
 
-function useRestoreAction(
-  currentScope: BillingActionScope,
-  purchases: PurchasesCapability,
-  refresh: () => Promise<void>,
-  scopeRef: BillingScopeRef,
-  updateActionState: UpdateActionState,
-): () => void {
-  return useCallback(() => {
-    const scope = currentScope;
-    if (!scopeMatches(scopeRef.current, scope)) {
-      return;
-    }
-    updateActionState(scope, (current) => ({
-      ...current,
-      busy: "restore",
-      actionError: null,
-    }));
-    void (async () => {
-      try {
-        await purchases.restore();
-        if (scopeMatches(scopeRef.current, scope)) {
-          await refresh();
-        }
-      } catch {
-        updateActionState(scope, (current) => ({
-          ...current,
-          actionError: ORG_MANAGER_LABELS.failedRestorePurchases,
-        }));
-      } finally {
-        updateActionState(scope, (current) => ({ ...current, busy: null }));
-      }
-    })();
-  }, [currentScope, purchases, refresh, scopeRef, updateActionState]);
-}
-
 /**
  * Owns the cancel action for the purchase currently in flight. Also ties the
  * embedded checkout to its host's lifetime: when the buyer scope changes,
@@ -238,6 +209,7 @@ function usePurchaseActions(input: {
   startTrialRequest: () => Promise<boolean>;
   updateActionState: UpdateActionState;
   userId: string | null;
+  onAlreadyOwned: () => void;
 }) {
   const startTrial = useStartTrialAction(
     input.currentScope,
@@ -261,14 +233,8 @@ function usePurchaseActions(input: {
     scopeRef: input.scopeRef,
     updateActionState: input.updateActionState,
     userId: input.userId,
+    onAlreadyOwned: input.onAlreadyOwned,
   });
-  const restore = useRestoreAction(
-    input.currentScope,
-    input.purchases,
-    input.refresh,
-    input.scopeRef,
-    input.updateActionState,
-  );
   const markActivationPending = useMarkActivationPending(
     input.currentScope,
     input.refresh,
@@ -277,7 +243,6 @@ function usePurchaseActions(input: {
   return {
     cancelCheckout,
     markActivationPending,
-    restore,
     startTrial,
     subscribe,
   };
@@ -398,6 +363,7 @@ interface UseBillingActionsInput {
   /** Backoff schedule for post-purchase billing re-reads; injectable for tests. */
   activationPollDelaysMs?: readonly number[];
   billingCanSync: boolean;
+  claimNativeSubscription: (store: NativeSubscriptionStore) => Promise<boolean>;
   /** Checkout embed host, read at purchase time; absent = full-page overlay. */
   checkoutHostRef?: RefObject<HTMLElement | null>;
   isOrgAdmin: boolean;
@@ -417,6 +383,7 @@ interface UseBillingActionsInput {
 export function useBillingActions({
   activationPollDelaysMs = ACTIVATION_POLL_DELAYS_MS,
   billingCanSync,
+  claimNativeSubscription,
   checkoutHostRef,
   isOrgAdmin,
   nativePurchaseAllowed = true,
@@ -439,6 +406,15 @@ export function useBillingActions({
     setOptionsState,
     updateActionState,
   } = useBillingActionState(billingCanSync, organizationId, userId);
+  const subscriptionMove = useNativeSubscriptionMove({
+    claimNativeSubscription,
+    currentScope,
+    purchases,
+    refresh,
+    scopeRef,
+    updateActionState,
+    userId,
+  });
   useBillingOptions(
     canSubscribe,
     currentScope,
@@ -458,6 +434,7 @@ export function useBillingActions({
     startTrialRequest,
     updateActionState,
     userId,
+    onAlreadyOwned: subscriptionMove.request,
   });
 
   const { scopeMatchesInputs, actionStateMatches } = resolveScopeMatches({
@@ -487,10 +464,13 @@ export function useBillingActions({
     busy: actionStateMatches ? actionState.busy : null,
     actionError: actionStateMatches ? actionState.actionError : null,
     activationPending: actionStateMatches && actionState.activationPending,
+    subscriptionMoveOpen: subscriptionMove.open,
     startTrial: actions.startTrial,
     subscribe: actions.subscribe,
     cancelCheckout: actions.cancelCheckout,
     markActivationPending: actions.markActivationPending,
-    restore: actions.restore,
+    requestSubscriptionMove: subscriptionMove.request,
+    dismissSubscriptionMove: subscriptionMove.dismiss,
+    confirmSubscriptionMove: subscriptionMove.confirm,
   };
 }

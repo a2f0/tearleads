@@ -1,10 +1,12 @@
 import {
   PurchaseAbortedError,
+  PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
   type PurchasesCapability,
   type SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
-import { type RefObject, useCallback } from "react";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import { type RefObject, useCallback, useState } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import {
   formatBillingPurchaseFailure,
@@ -26,6 +28,102 @@ import {
  * the flow as a cancellation.
  */
 type CancelPurchaseRef = RefObject<(() => void) | null>;
+
+interface UseNativeSubscriptionMoveInput {
+  readonly claimNativeSubscription: (
+    store: NativeSubscriptionStore,
+  ) => Promise<boolean>;
+  readonly currentScope: BillingActionScope;
+  readonly purchases: PurchasesCapability;
+  readonly refresh: () => Promise<void>;
+  readonly scopeRef: BillingScopeRef;
+  readonly updateActionState: UpdateActionState;
+  readonly userId: string | null;
+}
+
+function nativeSubscriptionClaimErrorLabel(error: unknown): string {
+  if (typeof error !== "object" || error === null || !("status" in error)) {
+    return ORG_MANAGER_LABELS.failedRestorePurchases;
+  }
+  if (error.status === 404) return ORG_MANAGER_LABELS.nativeClaimNotFound;
+  if (error.status === 409) return ORG_MANAGER_LABELS.nativeClaimConflict;
+  if (error.status === 503) return ORG_MANAGER_LABELS.nativeClaimPending;
+  return ORG_MANAGER_LABELS.failedRestorePurchases;
+}
+
+/** Owns confirmation and the verified native restore/claim sequence. */
+export function useNativeSubscriptionMove(
+  input: UseNativeSubscriptionMoveInput,
+) {
+  const {
+    claimNativeSubscription,
+    currentScope,
+    purchases,
+    refresh,
+    scopeRef,
+    updateActionState,
+    userId,
+  } = input;
+  const { logError } = useLog();
+  const [openScope, setOpenScope] = useState<BillingActionScope | null>(null);
+  const open = openScope !== null && scopeMatches(openScope, currentScope);
+  const request = useCallback(() => setOpenScope(currentScope), [currentScope]);
+  const dismiss = useCallback(() => setOpenScope(null), []);
+
+  const confirm = useCallback(() => {
+    const scope = currentScope;
+    if (!scopeMatches(scopeRef.current, scope)) return;
+    updateActionState(scope, (current) => ({
+      ...current,
+      actionError: null,
+      busy: "restore",
+    }));
+    void (async () => {
+      try {
+        if (!userId || !purchases.nativeStore) {
+          throw new Error("Native subscription restore is unavailable");
+        }
+        await purchases.identify({ userId });
+        const restored = await purchases.restore();
+        if (!restored.syncEntitlementActive) {
+          throw new Error("The restored receipt has no sync entitlement");
+        }
+        const claimed = await claimNativeSubscription(purchases.nativeStore);
+        if (!claimed) {
+          throw new Error("The server did not accept the native subscription");
+        }
+        await purchases.bindOrganization({
+          organizationId: scope.organizationId,
+        });
+        if (scopeMatches(scopeRef.current, scope)) await refresh();
+      } catch (error) {
+        logError(formatBillingPurchaseFailure(error, false));
+        updateActionState(scope, (current) => ({
+          ...current,
+          actionError: nativeSubscriptionClaimErrorLabel(error),
+        }));
+      } finally {
+        if (scopeMatches(scopeRef.current, scope)) dismiss();
+        updateActionState(scope, (current) => ({
+          ...current,
+          busy: null,
+        }));
+      }
+    })();
+  }, [
+    claimNativeSubscription,
+    currentScope,
+    dismiss,
+    logError,
+    purchases,
+    refresh,
+    scopeRef,
+    updateActionState,
+    userId,
+  ]);
+
+  return { confirm, dismiss, open, request };
+}
 
 function createAttemptHost(
   checkoutHost: HTMLElement | undefined,
@@ -96,6 +194,7 @@ export function useSubscribeAction({
   scopeRef,
   updateActionState,
   userId,
+  onAlreadyOwned,
 }: {
   canSubscribe: boolean;
   cancelPurchaseRef: CancelPurchaseRef;
@@ -106,6 +205,7 @@ export function useSubscribeAction({
   scopeRef: BillingScopeRef;
   updateActionState: UpdateActionState;
   userId: string | null;
+  onAlreadyOwned: () => void;
 }): (option: SyncSubscriptionOption) => void {
   const { log, logError } = useLog();
   return useCallback(
@@ -132,6 +232,7 @@ export function useSubscribeAction({
         traceError: logError,
         updateActionState,
         userId,
+        onAlreadyOwned,
       });
     },
     [
@@ -146,8 +247,30 @@ export function useSubscribeAction({
       scopeRef,
       updateActionState,
       userId,
+      onAlreadyOwned,
     ],
   );
+}
+
+function handleExpectedPurchaseError(input: {
+  readonly error: unknown;
+  readonly onAlreadyOwned: () => void;
+  readonly trace: (line: string) => void;
+}): boolean {
+  if (input.error instanceof PurchaseAbortedError) {
+    input.trace(formatBillingPurchaseStage("aborted"));
+    return true;
+  }
+  if (input.error instanceof PurchaseCancelledError) {
+    input.trace(formatBillingPurchaseStage("cancelled"));
+    return true;
+  }
+  if (input.error instanceof PurchaseAlreadyOwnedError) {
+    input.trace(formatBillingPurchaseStage("already-owned"));
+    input.onAlreadyOwned();
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -178,6 +301,7 @@ async function purchaseForOrganization({
   traceError,
   updateActionState,
   userId,
+  onAlreadyOwned,
 }: {
   cancelPurchaseRef: CancelPurchaseRef;
   checkoutHost: HTMLElement | undefined;
@@ -190,6 +314,7 @@ async function purchaseForOrganization({
   traceError: (line: string) => void;
   updateActionState: UpdateActionState;
   userId: string;
+  onAlreadyOwned: () => void;
 }): Promise<void> {
   trace(formatBillingPurchaseStage("started"));
   let cancelled = false;
@@ -278,17 +403,7 @@ async function purchaseForOrganization({
     }));
     await refresh();
   } catch (error) {
-    // Dismissing the checkout is a normal exit, not a failure — the attempt
-    // host is removed (finally) and the busy state cleared without surfacing
-    // an error.
-    if (error instanceof PurchaseAbortedError) {
-      trace(formatBillingPurchaseStage("aborted"));
-      return;
-    }
-    if (error instanceof PurchaseCancelledError) {
-      trace(formatBillingPurchaseStage("cancelled"));
-      return;
-    }
+    if (handleExpectedPurchaseError({ error, onAlreadyOwned, trace })) return;
     // Previously swallowed silently, which made a rejected purchase
     // indistinguishable from a no-op. Log the real PurchasesError (e.g. a
     // ConfigurationError from a key/offering mismatch) so it is diagnosable,

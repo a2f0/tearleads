@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { fetchRevenueCatManagementUrl } from "./revenueCatApi";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+import {
+  fetchActiveRevenueCatNativeSubscription,
+  fetchRevenueCatManagementUrl,
+} from "./revenueCatApi";
+import { classifyRevenueCatEvent } from "./revenuecatWebhook";
 
 const ENV = {
   REVENUECAT_V2_SECRET_KEY: "sk_test",
@@ -290,4 +295,149 @@ test("returns null (never throws) when the request errors", async () => {
       fetchImpl,
     }),
   ).toBeNull();
+});
+
+test("resolves one verified native subscription and its store product", async () => {
+  const { fetchImpl, calls } = fakeFetch([
+    {
+      body: {
+        items: [
+          sub({
+            current_period_ends_at: "2030-02-01T00:00:00Z",
+            current_period_starts_at: "2030-01-01T00:00:00Z",
+            environment: "production",
+            product_id: "prod_1",
+            store: "play_store",
+            store_subscription_identifier: "GPA.1-2-3-4",
+          }),
+        ],
+      },
+    },
+    { body: { store_identifier: "sync_team_5_monthly:monthly" } },
+  ]);
+
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "play_store", {
+      env: ENV,
+      fetchImpl,
+    }),
+  ).toEqual({
+    kind: "found",
+    subscription: {
+      currentPeriodEndsAt: new Date("2030-02-01T00:00:00Z"),
+      currentPeriodStartsAt: new Date("2030-01-01T00:00:00Z"),
+      productId: "sync_team_5_monthly:monthly",
+      store: "play_store",
+      subscriptionId: "GPA.1-2-3-4",
+    },
+  });
+  expect(calls[1]?.url).toBe(
+    "https://api.revenuecat.com/v2/projects/proj_1/products/prod_1",
+  );
+});
+
+test("native verification and lifecycle events use the same store identifier", async () => {
+  const cases = [
+    ["app_store", "APP_STORE", "2000000123456789"],
+    ["play_store", "PLAY_STORE", "GPA.1234-5678-9012-34567"],
+  ] as const;
+  for (const [store, webhookStore, subscriptionId] of cases) {
+    const { fetchImpl } = fakeFetch([
+      {
+        body: {
+          items: [
+            sub({
+              environment: "production",
+              product_id: "prod_solo",
+              store,
+              store_subscription_identifier: subscriptionId,
+            }),
+          ],
+        },
+      },
+      { body: { store_identifier: "sync_solo_monthly:monthly" } },
+    ]);
+    const resolved = await fetchActiveRevenueCatNativeSubscription(
+      "user-1",
+      store,
+      { env: ENV, fetchImpl },
+    );
+    expect(resolved.kind).toBe("found");
+    if (resolved.kind !== "found") throw new Error("expected subscription");
+    const now = Date.now();
+    const event: RevenueCatWebhookEvent = {
+      app_user_id: "user-1",
+      entitlement_ids: ["sync"],
+      event_timestamp_ms: now,
+      expiration_at_ms: now + 60_000,
+      id: crypto.randomUUID(),
+      original_transaction_id: subscriptionId,
+      product_id: "sync_solo_monthly:monthly",
+      purchased_at_ms: now,
+      store: webhookStore,
+      type: "INITIAL_PURCHASE",
+    };
+    const transition = classifyRevenueCatEvent(event, new Date(now));
+    expect(transition.kind).toBe("grant");
+    if (transition.kind === "grant") {
+      expect(transition.fields.providerSubscriptionId).toBe(
+        resolved.subscription.subscriptionId,
+      );
+    }
+  }
+});
+
+test("native verification rejects missing, ambiguous, and disallowed sandbox receipts", async () => {
+  const active = (identifier: string) =>
+    sub({
+      environment: "production",
+      product_id: `prod_${identifier}`,
+      store: "app_store",
+      store_subscription_identifier: identifier,
+    });
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "play_store", {
+      env: ENV,
+      fetchImpl: fakeFetch([{ body: { items: [active("a")] } }]).fetchImpl,
+    }),
+  ).toEqual({ kind: "not_found" });
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "app_store", {
+      env: ENV,
+      fetchImpl: fakeFetch([{ body: { items: [active("a"), active("b")] } }])
+        .fetchImpl,
+    }),
+  ).toEqual({ kind: "ambiguous" });
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "app_store", {
+      env: ENV,
+      fetchImpl: fakeFetch([
+        {
+          body: {
+            items: [{ ...active("a"), environment: "sandbox" }],
+          },
+        },
+      ]).fetchImpl,
+    }),
+  ).toEqual({ kind: "not_found" });
+});
+
+test("native verification distinguishes a missing customer from no active receipt", async () => {
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "play_store", {
+      env: ENV,
+      fetchImpl: fakeFetch([{ body: {}, status: 404 }]).fetchImpl,
+    }),
+  ).toEqual({ kind: "customer_not_found" });
+});
+
+test("native verification rejects Test Store outside a sandbox-enabled tier", async () => {
+  const { fetchImpl, calls } = fakeFetch([{ body: { items: [] } }]);
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "test_store", {
+      env: ENV,
+      fetchImpl,
+    }),
+  ).toEqual({ kind: "not_found" });
+  expect(calls).toHaveLength(0);
 });

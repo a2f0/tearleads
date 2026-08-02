@@ -62,6 +62,7 @@ function stubEnvironment(
   spies.push(
     spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
       organizations: {
+        claimNativeSubscription: () => Promise.resolve(null),
         loadStripeCheckoutOptions:
           overrides.loadStripeCheckoutOptions ??
           (() => Promise.resolve({ options: [OPTION] })),
@@ -94,6 +95,7 @@ function stubEnvironment(
 function purchases(isAvailable: boolean) {
   return {
     isAvailable,
+    nativeStore: isAvailable ? "test_store" : null,
     supportsEmbeddedCheckout: isAvailable,
     identify: () => Promise.resolve(),
     reset: () => Promise.resolve(),
@@ -112,7 +114,7 @@ function purchases(isAvailable: boolean) {
         },
       ]),
     purchaseSync: () => new Promise(() => undefined),
-    restore: () => Promise.resolve(),
+    restore: () => Promise.resolve({ syncEntitlementActive: true }),
     hasActiveSyncEntitlement: () => Promise.resolve(false),
   } as never;
 }
@@ -316,6 +318,10 @@ test("native takeover keeps tier changes and Stripe cancellation", async () => {
   );
   expect(
     view.getByText(ORG_MANAGER_LABELS.billingCancelSubscription),
+  ).toBeDefined();
+  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingRestore));
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.billingSubscriptionMoveMessage),
   ).toBeDefined();
 });
 
