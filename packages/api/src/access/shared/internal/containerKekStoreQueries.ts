@@ -149,6 +149,22 @@ async function selectQuotaLimitedWrapIds(
   });
 }
 
+/**
+ * Splits the principals into statement-sized groups. At least one group is
+ * always returned — a requester with no principals still needs their direct
+ * user and parent-container envelopes, which every group carries.
+ */
+function chunkPrincipals<T>(principals: readonly T[], size: number): T[][] {
+  if (principals.length === 0) {
+    return [[]];
+  }
+  const chunks: T[][] = [];
+  for (let start = 0; start < principals.length; start += size) {
+    chunks.push([...principals.slice(start, start + size)]);
+  }
+  return chunks;
+}
+
 export async function listContainerKeyWrapsByEpochId(
   containerKeyEpochIds: readonly string[],
   executor: DatabaseSession,
@@ -175,52 +191,63 @@ export async function listContainerKeyWrapsByEpochId(
     return wrapsByEpochId;
   }
 
-  const scopeFilter = recipientScope
-    ? or(
-        recipientScope.parentContainerIds.length > 0
+  // A requester's principal set has no intrinsic ceiling, and one filter
+  // clause per principal would grow the statement — and its bind parameters —
+  // without limit. So the principals are CHUNKED rather than truncated: each
+  // chunk is its own bounded statement and their results are unioned, which
+  // keeps every statement small while still covering every principal. Dropping
+  // the tail instead would be indistinguishable from an unaddressed epoch and
+  // would surface as a false `no-addressed-envelope` recovery failure on a
+  // container that is in fact perfectly recoverable.
+  const scopeFilters: SQL[] = [];
+  if (recipientScope) {
+    const scope = recipientScope;
+    for (const chunk of chunkPrincipals(
+      scope.authorizedPrincipals,
+      CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,
+    )) {
+      const filter = or(
+        scope.parentContainerIds.length > 0
           ? and(
               eq(containerKeyWraps.recipientKind, "container"),
               inArray(containerKeyWraps.recipientId, [
-                ...recipientScope.parentContainerIds,
+                ...scope.parentContainerIds,
               ]),
             )
           : undefined,
         and(
           eq(containerKeyWraps.recipientKind, "user"),
-          eq(containerKeyWraps.recipientId, recipientScope.userId),
+          eq(containerKeyWraps.recipientId, scope.userId),
         ),
         // (kind, id) identity: a group and an organization may share an id,
         // and only the exact principal that authorizes this requester counts.
-        //
-        // Bounded because a requester's principal set has no intrinsic ceiling:
-        // one clause per principal would grow the statement — and its bind
-        // parameters — without limit, and the per-recipient quota below bounds
-        // only what each partition returns, not how many partitions exist. The
-        // direct-user and parent-container clauses sit outside this cap, so
-        // the anchors that need no principal-policy state are never the ones
-        // dropped.
-        ...recipientScope.authorizedPrincipals
-          .slice(0, CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT)
-          .map((principal) =>
-            and(
-              eq(containerKeyWraps.recipientKind, principal.principalType),
-              eq(containerKeyWraps.recipientId, principal.principalId),
-            ),
+        ...chunk.map((principal) =>
+          and(
+            eq(containerKeyWraps.recipientKind, principal.principalType),
+            eq(containerKeyWraps.recipientId, principal.principalId),
           ),
-      )
-    : undefined;
+        ),
+      );
+      if (filter) {
+        scopeFilters.push(filter);
+      }
+    }
+  }
 
-  // A page's epochs can each carry many recipients, so a recovery read must be
-  // bounded or a wide container could answer with hundreds of megabytes. The
-  // scope filter already narrows to recipients this requester is authorized
-  // through, and the quota below is per (epoch, recipient), so the bound never
-  // costs a reachable anchor: a dropped anchor is indistinguishable from an
-  // unaddressed epoch and would surface as a false `no-addressed-envelope`
-  // recovery failure.
-  const scopedIds = scopeFilter
-    ? await selectQuotaLimitedWrapIds(uniqueIds, scopeFilter, executor)
+  const scopedIds = recipientScope
+    ? [
+        ...new Set(
+          (
+            await Promise.all(
+              scopeFilters.map((scopeFilter) =>
+                selectQuotaLimitedWrapIds(uniqueIds, scopeFilter, executor),
+              ),
+            )
+          ).flat(),
+        ),
+      ]
     : null;
-  if (scopedIds?.length === 0) {
+  if (scopedIds && scopedIds.length === 0) {
     return wrapsByEpochId;
   }
 
