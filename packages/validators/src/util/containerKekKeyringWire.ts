@@ -99,3 +99,15 @@ export const CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT = 8;
  * principal-policy state, so the bound never costs the most recoverable one.
  */
 export const CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT = 64;
+
+/**
+ * Hard ceiling on recipient envelopes one kek-log request may return, across
+ * every epoch and recipient in it. The per-recipient quota bounds each
+ * partition and the principal chunking bounds each statement, but a requester
+ * with a very wide principal set could still union those bounded pieces into
+ * an unbounded response. This is the outermost bound, sized far above any
+ * legitimate recovery — which needs one usable anchor per epoch, not every
+ * envelope — so reaching it means the request was pathological rather than
+ * merely large.
+ */
+export const CONTAINER_KEK_LOG_WRAP_RESPONSE_LIMIT = 4096;

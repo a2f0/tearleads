@@ -6,6 +6,7 @@ import {
 import type { ContainerKekKeyring } from "@tearleads/crypto";
 import {
   CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,
+  CONTAINER_KEK_LOG_WRAP_RESPONSE_LIMIT,
   CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT,
 } from "@tearleads/validators/util";
 import type { SQL } from "drizzle-orm";
@@ -165,6 +166,94 @@ function chunkPrincipals<T>(principals: readonly T[], size: number): T[][] {
   return chunks;
 }
 
+interface ContainerKekRecipientScope {
+  readonly authorizedPrincipals: readonly {
+    readonly principalId: string;
+    readonly principalType: "group" | "organization";
+  }[];
+  readonly parentContainerIds: readonly string[];
+  readonly userId: string;
+}
+
+/**
+ * One chunk's SQL predicate: the requester's direct user envelope, their
+ * parent-container envelopes, and this chunk of authorizing principals.
+ *
+ * The user and parent clauses repeat in EVERY chunk rather than being split
+ * across them, because those are the anchors openable without any
+ * principal-policy state — they must be reachable whichever chunk the
+ * response ceiling stops on.
+ */
+function buildWrapScopeFilter(
+  scope: ContainerKekRecipientScope,
+  principalChunk: readonly ContainerKekRecipientScope["authorizedPrincipals"][number][],
+): SQL | undefined {
+  return or(
+    scope.parentContainerIds.length > 0
+      ? and(
+          eq(containerKeyWraps.recipientKind, "container"),
+          inArray(containerKeyWraps.recipientId, [...scope.parentContainerIds]),
+        )
+      : undefined,
+    and(
+      eq(containerKeyWraps.recipientKind, "user"),
+      eq(containerKeyWraps.recipientId, scope.userId),
+    ),
+    // (kind, id) identity: a group and an organization may share an id, and
+    // only the exact principal that authorizes this requester counts.
+    ...principalChunk.map((principal) =>
+      and(
+        eq(containerKeyWraps.recipientKind, principal.principalType),
+        eq(containerKeyWraps.recipientId, principal.principalId),
+      ),
+    ),
+  );
+}
+
+/**
+ * Every wrap id in scope for this requester, gathered chunk by chunk.
+ *
+ * A requester's principal set has no intrinsic ceiling, and one filter clause
+ * per principal would grow a single statement — and its bind parameters —
+ * without limit. So principals are CHUNKED rather than truncated: dropping the
+ * tail would be indistinguishable from an unaddressed epoch and would surface
+ * as a false `no-addressed-envelope` failure on a container that is in fact
+ * recoverable.
+ *
+ * Chunks run ONE AT A TIME against a response-wide ceiling. Fanning them out
+ * would let one authenticated request open as many statements as the requester
+ * has principals, and unioning without a ceiling would rebuild the unbounded
+ * `IN` list the per-recipient quota exists to prevent. Sequential accumulation
+ * with an early exit bounds statements, bind parameters, and bytes together.
+ */
+async function collectScopedWrapIds(
+  containerKeyEpochIds: readonly string[],
+  scope: ContainerKekRecipientScope,
+  executor: DatabaseSession,
+): Promise<string[]> {
+  const collected = new Set<string>();
+  for (const chunk of chunkPrincipals(
+    scope.authorizedPrincipals,
+    CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,
+  )) {
+    const scopeFilter = buildWrapScopeFilter(scope, chunk);
+    if (!scopeFilter) {
+      continue;
+    }
+    for (const id of await selectQuotaLimitedWrapIds(
+      containerKeyEpochIds,
+      scopeFilter,
+      executor,
+    )) {
+      collected.add(id);
+    }
+    if (collected.size >= CONTAINER_KEK_LOG_WRAP_RESPONSE_LIMIT) {
+      break;
+    }
+  }
+  return [...collected].slice(0, CONTAINER_KEK_LOG_WRAP_RESPONSE_LIMIT);
+}
+
 export async function listContainerKeyWrapsByEpochId(
   containerKeyEpochIds: readonly string[],
   executor: DatabaseSession,
@@ -172,16 +261,7 @@ export async function listContainerKeyWrapsByEpochId(
    * Recipient scope, applied in SQL. Recovery reads pass it so a page never
    * materializes every member's envelopes only to filter them in memory.
    */
-  recipientScope?:
-    | {
-        readonly authorizedPrincipals: readonly {
-          readonly principalId: string;
-          readonly principalType: "group" | "organization";
-        }[];
-        readonly parentContainerIds: readonly string[];
-        readonly userId: string;
-      }
-    | undefined,
+  recipientScope?: ContainerKekRecipientScope | undefined,
 ): Promise<Map<string, StoredContainerKeyWrap[]>> {
   const uniqueIds = [...new Set(containerKeyEpochIds)];
   const wrapsByEpochId = new Map<string, StoredContainerKeyWrap[]>(
@@ -191,61 +271,8 @@ export async function listContainerKeyWrapsByEpochId(
     return wrapsByEpochId;
   }
 
-  // A requester's principal set has no intrinsic ceiling, and one filter
-  // clause per principal would grow the statement — and its bind parameters —
-  // without limit. So the principals are CHUNKED rather than truncated: each
-  // chunk is its own bounded statement and their results are unioned, which
-  // keeps every statement small while still covering every principal. Dropping
-  // the tail instead would be indistinguishable from an unaddressed epoch and
-  // would surface as a false `no-addressed-envelope` recovery failure on a
-  // container that is in fact perfectly recoverable.
-  const scopeFilters: SQL[] = [];
-  if (recipientScope) {
-    const scope = recipientScope;
-    for (const chunk of chunkPrincipals(
-      scope.authorizedPrincipals,
-      CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,
-    )) {
-      const filter = or(
-        scope.parentContainerIds.length > 0
-          ? and(
-              eq(containerKeyWraps.recipientKind, "container"),
-              inArray(containerKeyWraps.recipientId, [
-                ...scope.parentContainerIds,
-              ]),
-            )
-          : undefined,
-        and(
-          eq(containerKeyWraps.recipientKind, "user"),
-          eq(containerKeyWraps.recipientId, scope.userId),
-        ),
-        // (kind, id) identity: a group and an organization may share an id,
-        // and only the exact principal that authorizes this requester counts.
-        ...chunk.map((principal) =>
-          and(
-            eq(containerKeyWraps.recipientKind, principal.principalType),
-            eq(containerKeyWraps.recipientId, principal.principalId),
-          ),
-        ),
-      );
-      if (filter) {
-        scopeFilters.push(filter);
-      }
-    }
-  }
-
   const scopedIds = recipientScope
-    ? [
-        ...new Set(
-          (
-            await Promise.all(
-              scopeFilters.map((scopeFilter) =>
-                selectQuotaLimitedWrapIds(uniqueIds, scopeFilter, executor),
-              ),
-            )
-          ).flat(),
-        ),
-      ]
+    ? await collectScopedWrapIds(uniqueIds, recipientScope, executor)
     : null;
   if (scopedIds && scopedIds.length === 0) {
     return wrapsByEpochId;
