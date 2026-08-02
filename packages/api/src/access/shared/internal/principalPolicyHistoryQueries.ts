@@ -124,7 +124,7 @@ export async function listPrincipalMemberEnvelopesForStates(
     return byStateHash;
   }
 
-  const rows = await executor
+  const ranked = executor
     .select({
       kemCipherText: principalMemberEnvelopes.kemCipherText,
       memberKeyFingerprint: principalMemberEnvelopes.memberKeyFingerprint,
@@ -151,12 +151,27 @@ export async function listPrincipalMemberEnvelopesForStates(
         inArray(principalMemberEnvelopes.stateHash, [...input.stateHashes]),
         recipientScope,
       ),
+    )
+    .as("ranked");
+
+  // The cap is applied IN SQL. Filtering after the fetch would still
+  // materialize every matching row into the application first, which is the
+  // cost the cap exists to avoid.
+  const rows = await executor
+    .select({
+      kemCipherText: ranked.kemCipherText,
+      memberKeyFingerprint: ranked.memberKeyFingerprint,
+      memberPrincipalId: ranked.memberPrincipalId,
+      memberPrincipalType: ranked.memberPrincipalType,
+      stateHash: ranked.stateHash,
+      wrappedKey: ranked.wrappedKey,
+    })
+    .from(ranked)
+    .where(
+      sql`${ranked.stateRank} <= ${PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT}`,
     );
 
   for (const row of rows) {
-    if (row.stateRank > PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT) {
-      continue;
-    }
     byStateHash.get(row.stateHash)?.push({
       kemCipherText: row.kemCipherText,
       memberKeyFingerprint: row.memberKeyFingerprint,

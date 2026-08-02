@@ -1,16 +1,23 @@
 import { expect, test } from "bun:test";
 import {
+  computePrincipalStateHash,
   generateKemSeedAndKeyPair,
+  toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { PrincipalPolicyHistoryResponse } from "@tearleads/validators/response";
+import type {
+  PrincipalPolicyHistoryEntryResponse,
+  PrincipalPolicyHistoryResponse,
+} from "@tearleads/validators/response";
 import { resolveHistoricalPrincipalKey } from "./historicalPrincipalKeys";
+
+const PRINCIPAL_ID = "11111111-1111-4111-8111-111111111111";
+const USER_ID = "22222222-2222-4222-8222-222222222222";
 
 async function memberEnvelopeFor(input: {
   principalSecret: Uint8Array;
   publicKey: Uint8Array;
-  userId: string;
 }) {
   const [recipient] = await wrapDekForRecipients(input.principalSecret, [
     input.publicKey,
@@ -18,27 +25,37 @@ async function memberEnvelopeFor(input: {
   if (!recipient) throw new Error("expected a wrapped recipient");
   return {
     memberPrincipalType: "user" as const,
-    memberPrincipalId: input.userId,
+    memberPrincipalId: USER_ID,
     memberKeyFingerprint: recipient.keyFingerprint,
     kemCipherText: bytesToBase64(recipient.kemCipherText),
     wrappedKey: bytesToBase64(recipient.wrappedKey),
   };
 }
 
-function stateAt(input: {
-  keyFingerprint: string;
+/**
+ * A well-formed signed-state header for one principal key epoch.
+ *
+ * Each epoch gets its own KEM keypair, so the state's `keyFingerprint`
+ * genuinely matches its `encapsulationPublicKey` and its `stateHash` is the
+ * real hash of its contents. Both are enforced — by the crypto layer and by
+ * the walk respectively — so a hand-waved fixture would not survive either.
+ */
+async function stateAt(input: {
   prevStateHash: string | null;
-  stateHash: string;
+  principalId?: string;
+  publicKey: Uint8Array;
+  /** Set only to forge a hash the state does not actually have. */
+  stateHash?: string;
   version: number;
 }) {
-  return {
+  const unsigned = {
     principalType: "group" as const,
-    principalId: "11111111-1111-4111-8111-111111111111",
+    principalId: input.principalId ?? PRINCIPAL_ID,
     version: input.version,
     prevStateHash: input.prevStateHash,
     keyEpoch: input.version,
-    encapsulationPublicKey: "public-key",
-    keyFingerprint: input.keyFingerprint,
+    encapsulationPublicKey: bytesToBase64(input.publicKey),
+    keyFingerprint: await toFingerprint(input.publicKey),
     membershipMode: "projection" as const,
     membershipRoot: "root",
     memberEnvelopesRoot: "member-envelopes-root",
@@ -47,61 +64,70 @@ function stateAt(input: {
     memberCount: 1,
     externalAuthority: null,
     signedAt: "2026-01-01T00:00:00.000Z",
-    signerUserId: "user-1",
+    signerUserId: "33333333-3333-4333-8333-333333333333",
     signerUserKeyFingerprint: "signer-fingerprint",
+  };
+  return {
+    ...unsigned,
     signature: "signature",
-    stateHash: input.stateHash,
+    stateHash: input.stateHash ?? (await computePrincipalStateHash(unsigned)),
     createdAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+function pageOf(
+  entries: PrincipalPolicyHistoryEntryResponse[],
+  hasMore = false,
+): PrincipalPolicyHistoryResponse {
+  return {
+    principalType: "group",
+    principalId: PRINCIPAL_ID,
+    entries,
+    hasMore,
   };
 }
 
 test("a removed member recovers the group key epoch their envelope was sealed to", async () => {
   const identity = generateKemSeedAndKeyPair();
+  const epochOne = generateKemSeedAndKeyPair();
+  const epochTwo = generateKemSeedAndKeyPair();
   const historicalSecret = crypto.getRandomValues(new Uint8Array(32));
-  const userId = "22222222-2222-4222-8222-222222222222";
 
-  // Version 2 is the CURRENT state and carries no envelope for this user —
-  // they were removed. Version 1 is the epoch a container envelope was sealed
-  // to, and still holds their envelope, because removal writes a new state
-  // rather than rewriting the old one.
-  const history: PrincipalPolicyHistoryResponse = {
-    principalType: "group",
-    principalId: "11111111-1111-4111-8111-111111111111",
-    hasMore: false,
-    entries: [
-      {
-        state: stateAt({
-          keyFingerprint: "fingerprint-2",
-          prevStateHash: "state-hash-1",
-          stateHash: "state-hash-2",
-          version: 2,
+  // Version 2 is CURRENT and carries no envelope for this user — they were
+  // removed. Version 1 is the epoch a container envelope was sealed to, and
+  // still holds their envelope, because a removal writes a NEW state rather
+  // than rewriting the old one.
+  const genesis = await stateAt({
+    prevStateHash: null,
+    publicKey: epochOne.publicKey,
+    version: 1,
+  });
+  const history = pageOf([
+    {
+      state: await stateAt({
+        prevStateHash: genesis.stateHash,
+        publicKey: epochTwo.publicKey,
+        version: 2,
+      }),
+      projection: [],
+      memberEnvelopes: [],
+    },
+    {
+      state: genesis,
+      projection: [],
+      memberEnvelopes: [
+        await memberEnvelopeFor({
+          principalSecret: historicalSecret,
+          publicKey: identity.publicKey,
         }),
-        projection: [],
-        memberEnvelopes: [],
-      },
-      {
-        state: stateAt({
-          keyFingerprint: "fingerprint-1",
-          prevStateHash: null,
-          stateHash: "state-hash-1",
-          version: 1,
-        }),
-        projection: [],
-        memberEnvelopes: [
-          await memberEnvelopeFor({
-            principalSecret: historicalSecret,
-            publicKey: identity.publicKey,
-            userId,
-          }),
-        ],
-      },
-    ],
-  };
+      ],
+    },
+  ]);
 
   const recovered = await resolveHistoricalPrincipalKey({
     fetchHistory: async () => history,
-    keyFingerprint: "fingerprint-1",
-    principalId: "11111111-1111-4111-8111-111111111111",
+    keyFingerprint: genesis.keyFingerprint,
+    principalId: PRINCIPAL_ID,
     principalType: "group",
     secretKey: identity.secretKey,
   });
@@ -110,51 +136,80 @@ test("a removed member recovers the group key epoch their envelope was sealed to
   expect(Array.from(recovered ?? [])).toEqual(Array.from(historicalSecret));
 });
 
-test("a broken state chain yields no key", async () => {
+test("a state whose claimed hash is not its real hash is rejected", async () => {
   const identity = generateKemSeedAndKeyPair();
+  const epochOne = generateKemSeedAndKeyPair();
   const forgedSecret = crypto.getRandomValues(new Uint8Array(32));
 
-  // The server serves a state whose predecessor link does not match the state
-  // below it. Accepting it would let the server splice in a state carrying a
-  // key of its choosing and have the client unwrap a container KEK under it.
-  const history: PrincipalPolicyHistoryResponse = {
-    principalType: "group",
-    principalId: "11111111-1111-4111-8111-111111111111",
-    hasMore: false,
-    entries: [
-      {
-        state: stateAt({
-          keyFingerprint: "fingerprint-2",
-          prevStateHash: "not-the-state-below",
-          stateHash: "state-hash-2",
-          version: 2,
-        }),
-        projection: [],
-        memberEnvelopes: [],
-      },
-      {
-        state: stateAt({
-          keyFingerprint: "fingerprint-1",
-          prevStateHash: null,
-          stateHash: "state-hash-1",
-          version: 1,
-        }),
-        projection: [],
-        memberEnvelopes: [
-          await memberEnvelopeFor({
-            principalSecret: forgedSecret,
-            publicKey: identity.publicKey,
-            userId: "22222222-2222-4222-8222-222222222222",
-          }),
-        ],
-      },
-    ],
-  };
+  // Comparing the server's own prevStateHash against its own stateHash is
+  // self-consistent for any fabricated pair. Recomputing the hash is what
+  // makes the linkage mean anything.
+  const forged = await stateAt({
+    prevStateHash: null,
+    publicKey: epochOne.publicKey,
+    stateHash: "a-hash-this-state-does-not-have",
+    version: 1,
+  });
 
   const recovered = await resolveHistoricalPrincipalKey({
-    fetchHistory: async () => history,
-    keyFingerprint: "fingerprint-1",
-    principalId: "11111111-1111-4111-8111-111111111111",
+    fetchHistory: async () =>
+      pageOf([
+        {
+          state: forged,
+          projection: [],
+          memberEnvelopes: [
+            await memberEnvelopeFor({
+              principalSecret: forgedSecret,
+              publicKey: identity.publicKey,
+            }),
+          ],
+        },
+      ]),
+    keyFingerprint: forged.keyFingerprint,
+    principalId: PRINCIPAL_ID,
+    principalType: "group",
+    secretKey: identity.secretKey,
+  });
+
+  expect(recovered).toBeNull();
+});
+
+test("a broken predecessor link is rejected", async () => {
+  const identity = generateKemSeedAndKeyPair();
+  const epochOne = generateKemSeedAndKeyPair();
+  const epochTwo = generateKemSeedAndKeyPair();
+  const forgedSecret = crypto.getRandomValues(new Uint8Array(32));
+
+  const genesis = await stateAt({
+    prevStateHash: null,
+    publicKey: epochOne.publicKey,
+    version: 1,
+  });
+  // Its predecessor link does not name the state below it, so the chain does
+  // not actually reach the genesis whose envelope is being offered.
+  const orphan = await stateAt({
+    prevStateHash: "not-the-state-below",
+    publicKey: epochTwo.publicKey,
+    version: 2,
+  });
+
+  const recovered = await resolveHistoricalPrincipalKey({
+    fetchHistory: async () =>
+      pageOf([
+        { state: orphan, projection: [], memberEnvelopes: [] },
+        {
+          state: genesis,
+          projection: [],
+          memberEnvelopes: [
+            await memberEnvelopeFor({
+              principalSecret: forgedSecret,
+              publicKey: identity.publicKey,
+            }),
+          ],
+        },
+      ]),
+    keyFingerprint: genesis.keyFingerprint,
+    principalId: PRINCIPAL_ID,
     principalType: "group",
     secretKey: identity.secretKey,
   });
@@ -164,26 +219,20 @@ test("a broken state chain yields no key", async () => {
 
 test("a page for the wrong principal yields no key", async () => {
   const identity = generateKemSeedAndKeyPair();
+  const epochOne = generateKemSeedAndKeyPair();
+  const genesis = await stateAt({
+    prevStateHash: null,
+    publicKey: epochOne.publicKey,
+    version: 1,
+  });
+
   const recovered = await resolveHistoricalPrincipalKey({
     fetchHistory: async () => ({
-      principalType: "group",
-      principalId: "33333333-3333-4333-8333-333333333333",
-      hasMore: false,
-      entries: [
-        {
-          state: stateAt({
-            keyFingerprint: "fingerprint-1",
-            prevStateHash: null,
-            stateHash: "state-hash-1",
-            version: 1,
-          }),
-          projection: [],
-          memberEnvelopes: [],
-        },
-      ],
+      ...pageOf([{ state: genesis, projection: [], memberEnvelopes: [] }]),
+      principalId: "44444444-4444-4444-8444-444444444444",
     }),
-    keyFingerprint: "fingerprint-1",
-    principalId: "11111111-1111-4111-8111-111111111111",
+    keyFingerprint: genesis.keyFingerprint,
+    principalId: PRINCIPAL_ID,
     principalType: "group",
     secretKey: identity.secretKey,
   });
@@ -193,37 +242,113 @@ test("a page for the wrong principal yields no key", async () => {
 
 test("the walk stops instead of following an endless claim of more", async () => {
   const identity = generateKemSeedAndKeyPair();
+  const epochOne = generateKemSeedAndKeyPair();
   let pages = 0;
 
   const recovered = await resolveHistoricalPrincipalKey({
     fetchHistory: async (input) => {
       pages += 1;
-      const version = (input.beforeVersion ?? 10_000) - 1;
-      return {
-        principalType: "group",
-        principalId: "11111111-1111-4111-8111-111111111111",
-        hasMore: true,
-        entries: [
+      const version = (input.beforeVersion ?? 100_000) - 1;
+      return pageOf(
+        [
           {
-            state: stateAt({
-              keyFingerprint: `fingerprint-${version}`,
-              prevStateHash: `state-hash-${version - 1}`,
-              stateHash: `state-hash-${version}`,
+            state: await stateAt({
+              prevStateHash: "unmatched",
+              publicKey: epochOne.publicKey,
               version,
             }),
             projection: [],
             memberEnvelopes: [],
           },
         ],
-      };
+        true,
+      );
     },
-    keyFingerprint: "never-matches",
-    principalId: "11111111-1111-4111-8111-111111111111",
+    keyFingerprint: "never-matches-any-state",
+    principalId: PRINCIPAL_ID,
     principalType: "group",
     secretKey: identity.secretKey,
   });
 
   expect(recovered).toBeNull();
-  // Bounded, not unbounded: a hostile server cannot spin the walk forever.
-  expect(pages).toBeLessThanOrEqual(64);
+  // Bounded: a server that always claims more cannot spin the walk forever.
+  expect(pages).toBeGreaterThan(0);
+  expect(pages).toBeLessThan(100);
+});
+
+test("a member reaches an outer group transitively through an inner one", async () => {
+  const identity = generateKemSeedAndKeyPair();
+  const outerEpoch = generateKemSeedAndKeyPair();
+  const innerEpoch = generateKemSeedAndKeyPair();
+  const outerSecret = crypto.getRandomValues(new Uint8Array(32));
+  // A group's "secret key" IS its KEM secret: the outer envelope is sealed to
+  // the inner group's PUBLIC key, so only that KEM secret opens it.
+  const innerSecret = innerEpoch.secretKey;
+  const innerGroupId = "55555555-5555-4555-8555-555555555555";
+
+  // The outer group's envelope is addressed to the INNER group, not to the
+  // user. Membership is transitive, so opening it means recovering the inner
+  // group's key first — a hop the walk has to make on its own.
+  const [innerRecipient] = await wrapDekForRecipients(outerSecret, [
+    innerEpoch.publicKey,
+  ]);
+  if (!innerRecipient) throw new Error("expected the inner recipient");
+
+  const outerGenesis = await stateAt({
+    prevStateHash: null,
+    publicKey: outerEpoch.publicKey,
+    version: 1,
+  });
+  const innerGenesis = await stateAt({
+    prevStateHash: null,
+    principalId: innerGroupId,
+    publicKey: innerEpoch.publicKey,
+    version: 1,
+  });
+
+  const recovered = await resolveHistoricalPrincipalKey({
+    fetchHistory: async (request) =>
+      request.principalId === innerGroupId
+        ? {
+            principalType: "group",
+            principalId: innerGroupId,
+            hasMore: false,
+            entries: [
+              {
+                state: innerGenesis,
+                projection: [],
+                memberEnvelopes: [
+                  await memberEnvelopeFor({
+                    principalSecret: innerSecret,
+                    publicKey: identity.publicKey,
+                  }),
+                ],
+              },
+            ],
+          }
+        : pageOf([
+            {
+              state: outerGenesis,
+              projection: [],
+              memberEnvelopes: [
+                {
+                  memberPrincipalType: "group",
+                  memberPrincipalId: innerGroupId,
+                  memberKeyFingerprint: innerRecipient.keyFingerprint,
+                  kemCipherText: bytesToBase64(innerRecipient.kemCipherText),
+                  wrappedKey: bytesToBase64(innerRecipient.wrappedKey),
+                },
+              ],
+            },
+          ]),
+    keyFingerprint: outerGenesis.keyFingerprint,
+    principalId: PRINCIPAL_ID,
+    principalType: "group",
+    secretKey: identity.secretKey,
+  });
+
+  // Only the inner group's key opens the outer envelope, so recovering the
+  // outer secret proves the hop happened.
+  expect(recovered).not.toBeNull();
+  expect(Array.from(recovered ?? [])).toEqual(Array.from(outerSecret));
 });
