@@ -1,3 +1,4 @@
+export { listPrincipalStateHistoryPage } from "../shared/internal/principalPolicyHistoryQueries";
 export type {
   PrincipalStateReference,
   StoredPrincipalProjectionMember,
@@ -14,5 +15,6 @@ export {
   listPrincipalProjectionMembersForStates,
   listPrincipalStateHistory,
   listProjectionMembersForState,
+  principalStateProjectionKey,
   principalStateReferenceKey,
 } from "../shared/internal/principalStateStore";

@@ -66,12 +66,12 @@
       "bytes": 35585
     },
     "docs/protocol-specification.md": {
-      "lines": 529,
-      "bytes": 23571
+      "lines": 559,
+      "bytes": 25379
     },
     "docs/security-guarantees.md": {
-      "lines": 475,
-      "bytes": 24120
+      "lines": 478,
+      "bytes": 24355
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
@@ -82,8 +82,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1793,
-      "bytes": 57510
+      "lines": 1811,
+      "bytes": 58123
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,

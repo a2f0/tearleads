@@ -272,6 +272,36 @@ by requester membership era. `GET /containers/:containerId/kek-log` serves
 the append-only rotation log — every epoch with its write-once bridge and
 sealed keyring — as the rebuild/repair read path for any current reader.
 
+`GET /principals/:principalType/:principalId/policy-history` is the companion
+read path for principal-addressed envelopes. A container envelope sealed to a
+group names the group key epoch it was addressed to; opening it needs the
+group's secret key at that epoch, which current policy alone cannot supply
+after a key rotation or a membership removal. The route serves the principal's
+signed state chain, newest first, paged by a `beforeVersion` cursor and bounded
+by `PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT` (64) states per page.
+
+The chain is served contiguously — never filtered — because each state names
+its predecessor by `prevStateHash`, and a client can only establish that a
+state belongs to this principal's history by checking it against its
+neighbours. Filtering states out of the middle would leave a client trusting
+whatever the server chose to send. The chain is also not new disclosure: the
+current-policy bundle already ships all of `previousStates`, with projections,
+to any authenticated caller.
+
+What the route does scope is key material. Each entry's `memberEnvelopes`
+carry only envelopes addressed to the requester or to a principal that
+authorizes them, capped per state by
+`PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT` (16) and ranked so the
+requester's own direct envelope — the one that opens from identity keys alone
+— is never the entry a cap drops. One member's envelope is not another's to
+read.
+
+Clients verify each page chains (`prevStateHash` linking every entry to the one
+below, and across page boundaries) before using any envelope on it, so a server
+cannot splice a fabricated state carrying a key of its choosing into the
+history. A recovered principal key is then checked against the container epoch's
+material-id commitment before it can enter a keyring.
+
 Document and blob writes may carry signed `container.rekey` requests inline in
 `containerRekeys[]`. The API applies those rekeys inside the same transaction
 before resolving document/blob targets. If the enclosing write fails, the rekey
