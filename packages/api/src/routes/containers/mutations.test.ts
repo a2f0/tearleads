@@ -20,7 +20,6 @@ import type {
   AccessEvent,
   ContainerAccessEventBody,
   ContainerAccessManifestState,
-  ContainerGrantSubjectType,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
@@ -39,7 +38,6 @@ import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
-  computeContainerKekPredecessorBridgeHash,
   computeDocumentContentKeyTargetHash,
   computePrincipalStateHash,
   deriveContainerAccessManifest,
@@ -1227,7 +1225,7 @@ test("POST /containers rejects a predecessor bridge on its initial KEK epoch", a
   });
   expect(response.status).toBe(409);
   await expect(response.json()).resolves.toEqual({
-    error: "Initial container KEK epoch cannot have a predecessor bridge",
+    error: "Initial container KEK epoch cannot have rotation artifacts",
   });
 });
 
@@ -2980,11 +2978,10 @@ test("POST /containers/:containerId/rekey materializes a writer KEK rotation", a
   expect(rekeyed.containerKek.containerKeyEpochId).not.toBe(
     childKek.containerKeyEpochId,
   );
-  expect(
-    rekeyed.containerKek.predecessorKeks.map(
-      (predecessor) => predecessor.containerKeyEpochId,
-    ),
-  ).toEqual([childKek.containerKeyEpochId]);
+  expect(rekeyed.containerKek.keyring).toEqual(
+    request.keyring as ContainerMutationResponse["containerKek"]["keyring"],
+  );
+  expect(rekeyed.containerKek.historicalKeyEpochs).toEqual([]);
   expect(rekeyed.containerKek.recipientTargets).toEqual([
     {
       recipientKind: "container",

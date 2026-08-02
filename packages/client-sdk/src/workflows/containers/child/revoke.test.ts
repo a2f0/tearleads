@@ -3,9 +3,12 @@ import {
   type ContainerKeyWrap,
   type ContainerRevokeAccessEventBody,
   type ContainerUserRecipientKey,
+  computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
   generateKemSeedAndKeyPair,
   type KeyingCanonicalJson,
+  normalizeContainerKekKeyring,
+  openContainerKekKeyring,
   toFingerprint,
   type VerifiedContainerAccessManifest,
   verifyContainerAccessManifest,
@@ -95,6 +98,7 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
   expect(body).toEqual({
     eventType: "container.revoke",
     containerKeyEpochId: revoked.plan.containerKeyEpochId,
+    keyringHash: body.keyringHash,
     predecessorBridgeHash: body.predecessorBridgeHash,
     subjectId: revokedUserId,
     subjectType: "user",
@@ -104,15 +108,31 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
       submittedRequest.predecessorBridge,
     ),
   );
+  if (!submittedRequest.keyring) {
+    throw new Error("Expected submitted rotation keyring");
+  }
+  expect(body.keyringHash).toBe(
+    await computeContainerKekKeyringHash(submittedRequest.keyring),
+  );
   expect(revoked.plan.keyEpoch.keyEpoch).toBe(2);
   expect(revoked.plan.keyEpoch.id).not.toBe(
     parent.parentKekState.containerKeyEpochId,
   );
   const mutationResponse = mutationResponses[0];
+  const responseKeyring = mutationResponse?.containerKek.keyring;
+  if (!responseKeyring) {
+    throw new Error("Expected rotated container KEK keyring in the response");
+  }
+  expect(responseKeyring).toEqual(
+    submittedRequest.keyring as typeof responseKeyring,
+  );
+  const keyringEntries = await openContainerKekKeyring({
+    keyEpoch: revoked.plan.keyEpoch.keyEpoch,
+    keyring: normalizeContainerKekKeyring(responseKeyring),
+    successorContainerKey: revoked.containerKey,
+  });
   expect(
-    mutationResponse?.containerKek.predecessorKeks.map(
-      (predecessor) => predecessor.containerKeyEpochId,
-    ),
+    keyringEntries.map((entry) => entry.containerKeyEpochId),
   ).toEqual([parent.parentKekState.containerKeyEpochId]);
   expect(
     revoked.plan.state.directGrants.map((grant) => grant.subjectId),

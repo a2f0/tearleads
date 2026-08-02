@@ -53,7 +53,7 @@ import {
   directGrantKey,
   pruneAccessGrantTombstones,
 } from "./grantTombstonePruning";
-import { loadMutationKekResponseHistory } from "./mutationKekResponseHistory";
+import { loadMutationContainerKekHistory } from "./mutationKekHistory";
 
 async function loadContainerRow(
   executor: DatabaseTransaction,
@@ -507,7 +507,7 @@ function containerKekResponseRecord(
     ReturnType<typeof storeVerifiedContainerKekStateInTransaction>
   >,
   containerManifestHistory: Awaited<
-    ReturnType<typeof loadMutationKekResponseHistory>
+    ReturnType<typeof loadMutationContainerKekHistory>
   >,
   keyring: VerifiedContainerKekMutationState["keyring"],
 ): ContainerMutationResponse["containerKek"] {
@@ -591,8 +591,8 @@ export async function persistVerifiedMutation(
     ),
   );
 
-  const containerManifestHistory = await loadMutationKekResponseHistory(
-    context,
+  const containerManifestHistory = await loadMutationContainerKekHistory(
+    context.writerProjectionContext,
     manifest,
     kekState,
   );
