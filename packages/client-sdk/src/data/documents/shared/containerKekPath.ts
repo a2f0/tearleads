@@ -140,6 +140,16 @@ async function unwrapContainerKekFromParentWrap(input: {
   }
 }
 
+/**
+ * Admits caller-supplied keys that the projection also names.
+ *
+ * The projection match is deliberate: a seeded key is trusted only once its
+ * epoch is one this projection actually carries, which is what makes the
+ * material-id check below meaningful. Production seeds this with the epoch it
+ * just minted (see `registerIdentity`), never with recovered history — history
+ * arrives through the sealed keyring on each path instead, and is shared across
+ * authorizing paths through the common `keksByEpochId` map.
+ */
 async function seedKnownContainerKeks(input: {
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   projection: ContainerWriterProjectionResponse;
