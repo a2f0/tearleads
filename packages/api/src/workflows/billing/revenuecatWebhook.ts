@@ -131,17 +131,19 @@ function unresolvedStripeTierRetry(
   return { kind: "retry", reason: UNRESOLVED_STRIPE_TIER_REASON };
 }
 
-function unconfiguredGrantRetry(
+function unconfiguredPaidEventRetry(
   event: RevenueCatWebhookEvent,
   transition: RevenueCatBillingTransition,
 ): PreclaimDisposition | null {
   const shouldRetry =
     transition.kind === "ignore" &&
     transition.reason === UNCONFIGURED_SYNC_BILLING_TIER_REASON &&
-    isRevenueCatGrantEventType(event.type);
+    (isRevenueCatGrantEventType(event.type) || event.type === "PRODUCT_CHANGE");
   if (!shouldRetry) return null;
+  const paidEventKind =
+    event.type === "PRODUCT_CHANGE" ? "product change" : "grant";
   console.error(
-    `RevenueCat paid grant ${event.id} was not applied: ${UNCONFIGURED_SYNC_BILLING_TIER_REASON}`,
+    `RevenueCat paid ${paidEventKind} ${event.id} was not applied: ${UNCONFIGURED_SYNC_BILLING_TIER_REASON}`,
   );
   return { kind: "retry", reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON };
 }
@@ -181,8 +183,8 @@ async function resolvePreclaimDisposition(
     now: input.now,
     transition: input.transition,
   });
-  const grantRetry = unconfiguredGrantRetry(input.event, transition);
-  if (grantRetry) return grantRetry;
+  const paidEventRetry = unconfiguredPaidEventRetry(input.event, transition);
+  if (paidEventRetry) return paidEventRetry;
   if (await stripeBindingChanged(input, billing)) {
     return {
       kind: "retry",

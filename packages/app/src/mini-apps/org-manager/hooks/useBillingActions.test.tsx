@@ -315,3 +315,41 @@ test("a scheduled downgrade also settles the post-purchase poll", async () => {
   });
   await waitFor(() => expect(result.current.activationPending).toBe(false));
 });
+
+test("an immediate upgrade keeps polling until its capacity is effective", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const teamOption = {
+    ...OPTION,
+    packageId: "team-5-monthly",
+    productId: "sync_team_5_monthly",
+    seatLimit: 5,
+    tierId: "team_5" as const,
+  };
+  const { result, rerender } = renderBillingActions({
+    billingIsActive: true,
+    billingSeatCount: OPTION.seatLimit,
+    purchases,
+  });
+
+  await act(async () => {
+    result.current.subscribe(teamOption);
+  });
+  await waitFor(() => expect(result.current.activationPending).toBe(true));
+
+  rerender({
+    billingIsActive: true,
+    billingPendingSeatCount: teamOption.seatLimit,
+    billingSeatCount: OPTION.seatLimit,
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+  expect(result.current.activationPending).toBe(true);
+
+  rerender({
+    billingIsActive: true,
+    billingSeatCount: teamOption.seatLimit,
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+  await waitFor(() => expect(result.current.activationPending).toBe(false));
+});

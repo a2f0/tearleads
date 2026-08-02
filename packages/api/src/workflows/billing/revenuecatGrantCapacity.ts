@@ -24,6 +24,8 @@ type RevenueCatGrantCapacityDisposition =
 const STRIPE_GRANT_EXCEEDS_CAPACITY_REASON =
   "Stripe subscription cannot cover more than 10 active members";
 const PROMOTIONAL_PRODUCT_PREFIX = "promotional:";
+export const PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON =
+  "Product change does not match a bound native subscription";
 
 function resolveBoundNativeProduct(productId: string): {
   readonly isPromotional: boolean;
@@ -100,7 +102,7 @@ function classifyBoundProductChange(input: {
   ) {
     return {
       kind: "ignore",
-      reason: "Product change does not match a bound native subscription",
+      reason: PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON,
     };
   }
   return { kind: "schedule", fields: { status: input.billing.status } };

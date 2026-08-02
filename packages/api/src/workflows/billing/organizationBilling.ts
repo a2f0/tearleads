@@ -36,14 +36,19 @@ const BILLING_ROW_COLUMNS = {
   currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
   currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
   seatCount: organizationBilling.seatCount,
+  providerProductId: organizationBilling.providerProductId,
   disabledAt: organizationBilling.disabledAt,
   purgeAfter: organizationBilling.purgeAfter,
+};
+
+type OrganizationBillingRow = OrganizationBilling & {
+  readonly providerProductId: string | null;
 };
 
 async function loadOrganizationBilling(
   executor: DatabaseSession,
   organizationId: string,
-): Promise<OrganizationBilling> {
+): Promise<OrganizationBillingRow> {
   const [row] = await executor
     .select(BILLING_ROW_COLUMNS)
     .from(organizationBilling)
@@ -78,7 +83,7 @@ async function resolveOrganizationBilling(
   executor: DatabaseSession,
   organizationId: string,
   now: Date = new Date(),
-): Promise<OrganizationBilling> {
+): Promise<OrganizationBillingRow> {
   const billing = await loadOrganizationBilling(executor, organizationId);
   const disabledAt =
     billing.status === "trialing" &&
@@ -259,19 +264,21 @@ const EFFECTIVE_NATIVE_PRODUCT_EVENT_TYPES = [
   "SUBSCRIPTION_EXTENDED",
 ] as const;
 
-/** Latest accepted PRODUCT_CHANGE that a later effective store event has not consumed. */
+/**
+ * Latest accepted PRODUCT_CHANGE that its destination's effective event has
+ * not consumed. This is a greenfield contract: every stored PRODUCT_CHANGE
+ * row uses its destination product id; legacy audit-row semantics are not
+ * supported.
+ */
 async function resolvePendingNativeSeatCount(
   executor: DatabaseSession,
   organizationId: string,
-  billing: OrganizationBilling,
+  billing: OrganizationBillingRow,
 ): Promise<number | null> {
   if (billing.status !== "active") return null;
-  const [provider] = await executor
-    .select({ productId: organizationBilling.providerProductId })
-    .from(organizationBilling)
-    .where(eq(organizationBilling.organizationId, organizationId))
-    .limit(1);
-  const currentTier = getSyncBillingTierForNativeProduct(provider?.productId);
+  const currentTier = getSyncBillingTierForNativeProduct(
+    billing.providerProductId,
+  );
   if (!currentTier || currentTier.seatLimit !== billing.seatCount) return null;
 
   const [change] = await executor
@@ -296,7 +303,10 @@ async function resolvePendingNativeSeatCount(
   if (!change || !pendingTier || pendingTier.id === currentTier.id) return null;
 
   const [effective] = await executor
-    .select({ occurredAt: revenuecatWebhookEvents.eventTimestamp })
+    .select({
+      occurredAt: revenuecatWebhookEvents.eventTimestamp,
+      productId: revenuecatWebhookEvents.productId,
+    })
     .from(revenuecatWebhookEvents)
     .where(
       and(
@@ -313,8 +323,12 @@ async function resolvePendingNativeSeatCount(
       desc(revenuecatWebhookEvents.id),
     )
     .limit(1);
-  if (!effective || effective.occurredAt >= change.occurredAt) return null;
-  return pendingTier.seatLimit;
+  if (!effective) return pendingTier.seatLimit;
+  const effectiveTier = getSyncBillingTierForNativeProduct(effective.productId);
+  const destinationIsEffective =
+    effective.occurredAt >= change.occurredAt &&
+    effectiveTier?.id === pendingTier.id;
+  return destinationIsEffective ? null : pendingTier.seatLimit;
 }
 
 async function countActiveOrganizationMembers(

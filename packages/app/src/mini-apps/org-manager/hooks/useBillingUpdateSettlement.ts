@@ -5,7 +5,7 @@ import type {
   UpdateActionState,
 } from "../billing/billingActionScope";
 
-/** Clears post-purchase polling once the target tier is pending or effective. */
+/** Clears polling once an upgrade is effective or a downgrade is scheduled. */
 export function useBillingUpdateSettlement(input: {
   readonly actionState: BillingActionState;
   readonly actionStateMatches: boolean;
@@ -25,13 +25,16 @@ export function useBillingUpdateSettlement(input: {
     updateActionState,
   } = input;
   const target = actionState.activationTargetSeatCount;
+  const scheduledDowngrade =
+    target !== null &&
+    billingSeatCount !== null &&
+    target < billingSeatCount &&
+    target === billingPendingSeatCount;
   const settled =
     actionStateMatches &&
     actionState.activationPending &&
     billingIsActive &&
-    (target === null ||
-      target === billingSeatCount ||
-      target === billingPendingSeatCount);
+    (target === null || target === billingSeatCount || scheduledDowngrade);
   useEffect(() => {
     if (!settled) return;
     updateActionState(currentScope, (current) => ({

@@ -16,7 +16,8 @@ import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "./columns";
  * - `eventType`: RevenueCat event type (e.g. `INITIAL_PURCHASE`, `EXPIRATION`).
  * - `appUserId`: RevenueCat App User ID on the event. Our client sets this to the
  *   buyer's global user id.
- * - `productId`: Provider product reported by RevenueCat, when present.
+ * - `productId`: Provider product reported by RevenueCat, when present; for a
+ *   `PRODUCT_CHANGE`, this stores RevenueCat's destination `new_product_id`.
  * - `transactionId` / `originalTransactionId`: Provider transaction ids used to
  *   correlate the applied billing row back to RevenueCat/store history.
  * - `organizationId`: Organization the event was applied to, resolved from the
