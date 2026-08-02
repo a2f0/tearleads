@@ -1,6 +1,7 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
+import { billingFixture } from "../../../../test/helpers/organizationBillingTestFixtures";
 import {
   createAppHostConfig,
   type OpenSubscriptionManagementFn,
@@ -45,19 +46,19 @@ function stubEnvironment(
     loadStripeCheckoutOptions?: () => Promise<unknown>;
   } = {},
 ) {
-  // Default `isActive` to `canSync` for the common active case; tests that
-  // exercise the trialing / provider-managed distinctions pass it explicitly.
+  // Most syncing fixtures represent active billing unless marked trialing.
   const isActive = overrides.isActive ?? canSync;
   const isTrialing = overrides.isTrialing ?? false;
+  const { billing, view } = billingFixture(canSync, isActive, isTrialing);
   spies.push(
     spyOn(BillingProvider, "useOrganizationBilling").mockReturnValue({
-      billing: { activeMemberCount: 1, organizationId: "org-1" },
+      billing,
       error: null,
       loading: false,
       refresh: () => Promise.resolve(),
       startTrial: () => Promise.resolve(true),
-      view: { canSync, isActive, isLocal: false, isTrialing },
-    } as never),
+      view,
+    }),
   );
   spies.push(
     spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
