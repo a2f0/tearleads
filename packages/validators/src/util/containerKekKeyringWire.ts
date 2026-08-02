@@ -73,14 +73,16 @@ export const CONTAINER_KEK_LOG_PAGE_LIMIT = 256;
 export const MAX_INLINE_CONTAINER_REKEYS = 16;
 
 /**
- * Maximum recipient envelopes one kek-log epoch may serve, applied PER EPOCH
- * rather than across the page. Recovery needs the requester's own anchors, not
- * every envelope on every epoch, so the response stays bounded no matter how
- * many recipients a container has accumulated — while a wide epoch can never
- * consume another epoch's share and leave it looking unaddressed.
+ * Maximum envelopes one kek-log epoch may serve FOR A SINGLE RECIPIENT. The
+ * quota is per (epoch, recipient) rather than per epoch or per page, so no
+ * epoch and no recipient can consume a share belonging to another: a starved
+ * recipient is indistinguishable from an unaddressed one and would surface as
+ * a false `no-addressed-envelope` recovery failure.
  *
- * One requester's envelopes for a single epoch number at most (self + the
- * principals authorizing them + the parent containers on their path), so this
- * bounds bytes with room to spare rather than truncating reachable anchors.
+ * A kek-log read only ever selects recipients the requester is authorized
+ * through, so the served size scales with their own authorization breadth
+ * rather than with the container's total membership. What this constant bounds
+ * is the remaining dimension — how many of one recipient's rotated key epochs
+ * are retained — where only the newest is normally needed.
  */
-export const CONTAINER_KEK_LOG_WRAPS_PER_EPOCH_LIMIT = 64;
+export const CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT = 8;

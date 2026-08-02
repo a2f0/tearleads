@@ -4,7 +4,7 @@ import {
   containerKeyWraps,
 } from "@tearleads/api-shared/schema";
 import type { ContainerKekKeyring } from "@tearleads/crypto";
-import { CONTAINER_KEK_LOG_WRAPS_PER_EPOCH_LIMIT } from "@tearleads/validators/util";
+import { CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT } from "@tearleads/validators/util";
 import type { SQL } from "drizzle-orm";
 import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import type {
@@ -90,10 +90,10 @@ export async function listContainerKeyEpochPage(
 
 /**
  * The ids of the scoped wraps, at most
- * `CONTAINER_KEK_LOG_WRAPS_PER_EPOCH_LIMIT` per epoch, chosen in SQL by a per-epoch window so the quota is spent evenly
- * rather than consumed by whichever epoch sorts first. Returning ids keeps the
- * typed row mapping on the regular Drizzle select; only two scalar columns
- * cross the raw-SQL boundary.
+ * `CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT` per (epoch, recipient), chosen in
+ * SQL by a windowed rank so no epoch and no recipient can consume another's
+ * share. Returning ids keeps the typed row mapping on the regular Drizzle
+ * select; only two scalar columns cross the raw-SQL boundary.
  */
 async function selectQuotaLimitedWrapIds(
   containerKeyEpochIds: readonly string[],
@@ -105,18 +105,24 @@ async function selectQuotaLimitedWrapIds(
       select
         ${containerKeyWraps.id} as id,
         row_number() over (
-          partition by ${containerKeyWraps.containerKeyEpochId}
-          order by
-            -- The requester's OWN envelope ranks first, always. Ordering by
-            -- kind alone sorts 'user' last of the four, so a wide epoch would
-            -- spend the quota on group/organization/container wraps and drop
-            -- the one envelope that needs no principal-policy state to open —
-            -- reporting a recoverable epoch as unreachable.
-            case when ${containerKeyWraps.recipientKind} = 'user' then 0 else 1 end,
+          -- Partition per RECIPIENT, not merely per epoch. Every recipient the
+          -- scope filter admits is one this requester is authorized through,
+          -- so each gets its own quota and none can be crowded out by another.
+          -- The response therefore scales with the requester's own
+          -- authorization breadth rather than with the container's total
+          -- membership, and no reachable anchor is ever dropped — which a
+          -- single per-epoch quota could not promise once a requester holds
+          -- more principals than the quota.
+          partition by
+            ${containerKeyWraps.containerKeyEpochId},
             ${containerKeyWraps.recipientKind},
-            ${containerKeyWraps.recipientId},
+            ${containerKeyWraps.recipientId}
+          -- The requester's OWN envelope first: it needs no principal-policy
+          -- state to open, so it is the anchor most likely to be usable.
+          order by
+            case when ${containerKeyWraps.recipientKind} = 'user' then 0 else 1 end,
             ${containerKeyWraps.recipientKeyEpochId}
-        ) as epoch_rank
+        ) as recipient_rank
       from ${containerKeyWraps}
       where ${containerKeyWraps.containerKeyEpochId} in (${sql.join(
         containerKeyEpochIds.map((id) => sql`${id}`),
@@ -124,7 +130,7 @@ async function selectQuotaLimitedWrapIds(
       )})
         and ${scopeFilter}
     ) ranked
-    where ranked.epoch_rank <= ${CONTAINER_KEK_LOG_WRAPS_PER_EPOCH_LIMIT}
+    where ranked.recipient_rank <= ${CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT}
   `);
 
   const rows: unknown = Array.isArray(result) ? result : result.rows;
@@ -193,13 +199,11 @@ export async function listContainerKeyWrapsByEpochId(
 
   // A page's epochs can each carry many recipients, so a recovery read must be
   // bounded or a wide container could answer with hundreds of megabytes. The
-  // quota is per epoch, never a single limit across the page: one wide epoch
-  // must not starve the others, because a starved epoch is indistinguishable
-  // from a genuinely unaddressed one and would surface as a false
-  // `no-addressed-envelope` recovery failure. A requester's own envelopes for
-  // one epoch number at most (self + authorized principals + parent
-  // containers), so the quota bounds bytes without ever dropping a reachable
-  // anchor.
+  // scope filter already narrows to recipients this requester is authorized
+  // through, and the quota below is per (epoch, recipient), so the bound never
+  // costs a reachable anchor: a dropped anchor is indistinguishable from an
+  // unaddressed epoch and would surface as a false `no-addressed-envelope`
+  // recovery failure.
   const scopedIds = scopeFilter
     ? await selectQuotaLimitedWrapIds(uniqueIds, scopeFilter, executor)
     : null;
