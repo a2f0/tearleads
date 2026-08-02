@@ -1,6 +1,7 @@
 export {
   getContainerKeyEpochById,
   getCurrentContainerKeyEpoch,
+  listContainerKeyEpochPage,
   listContainerKeyEpochs,
   listContainerKeyWraps,
   listContainerKeyWrapsByEpochId,

@@ -2,7 +2,8 @@ import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { ContainerKekLogResponse } from "@tearleads/validators/response";
 import { CONTAINER_KEK_LOG_PAGE_LIMIT } from "@tearleads/validators/util";
 import {
-  listContainerKeyEpochs,
+  getCurrentContainerKeyEpoch,
+  listContainerKeyEpochPage,
   listContainerKeyWrapsByEpochId,
 } from "../../access/read/containerKekStore";
 import { resolveContainerAccessProjection } from "./writerProjection";
@@ -17,12 +18,13 @@ import { ContainerWriterProjectionError } from "./writerProjection/types";
  * present at an epoch recovers its KEK from their own envelope regardless of
  * what later rotators wrote.
  *
- * Bounded by construction. A page is at most `CONTAINER_KEK_LOG_PAGE_LIMIT`
- * epochs, walked from `afterKeyEpoch`, with all of a page's wraps loaded in
- * one query. Each retained keyring is O(its epoch) bytes, so serving them all
- * would be O(epochs²); they ship only when `includeKeyrings` is set, and only
- * for the requested page. `keyring: null` therefore means "not requested, or
- * epoch 1" rather than "absent".
+ * Bounded in SQL, not after the fact: a page is at most
+ * `CONTAINER_KEK_LOG_PAGE_LIMIT` epochs selected with `LIMIT`, walked from
+ * `afterKeyEpoch`, with all of a page's wraps loaded in one query. Each
+ * retained keyring is O(its epoch) bytes, so the sealed-keyring column is not
+ * even selected unless `includeKeyrings` is set — an unbounded container can
+ * never materialize its whole history in one response. `keyring: null`
+ * therefore means "not requested, or epoch 1" rather than "absent".
  */
 export async function runContainerKekLogWorkflow(
   db: ApiDatabase,
@@ -43,15 +45,21 @@ export async function runContainerKekLogWorkflow(
       userId: input.userId,
     });
 
-    const allEpochs = await listContainerKeyEpochs(input.containerId, tx);
-    if (allEpochs.length === 0) {
+    // One indexed lookup proves the container has key history at all; the
+    // page query below never loads more than a page.
+    if (!(await getCurrentContainerKeyEpoch(input.containerId, tx))) {
       throw new ContainerWriterProjectionError("Container not found", 404);
     }
 
-    const remaining = allEpochs.filter(
-      (epoch) => epoch.keyEpoch > input.afterKeyEpoch,
+    const { epochs: page, hasMore } = await listContainerKeyEpochPage(
+      {
+        afterKeyEpoch: input.afterKeyEpoch,
+        containerId: input.containerId,
+        includeKeyrings: input.includeKeyrings,
+        limit: CONTAINER_KEK_LOG_PAGE_LIMIT,
+      },
+      tx,
     );
-    const page = remaining.slice(0, CONTAINER_KEK_LOG_PAGE_LIMIT);
     const wrapsByEpochId = await listContainerKeyWrapsByEpochId(
       page.map((epoch) => epoch.id),
       tx,
@@ -59,14 +67,13 @@ export async function runContainerKekLogWorkflow(
 
     return {
       containerId: input.containerId,
-      hasMore: remaining.length > page.length,
+      hasMore,
       epochs: page.map((epoch) => ({
         accessManifestHash: epoch.accessManifestHash,
         bridge: epoch.predecessorBridge ? { ...epoch.predecessorBridge } : null,
         containerKeyEpoch: epoch.keyEpoch,
         containerKeyEpochId: epoch.id,
-        keyring:
-          input.includeKeyrings && epoch.keyring ? { ...epoch.keyring } : null,
+        keyring: epoch.keyring ? { ...epoch.keyring } : null,
         parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
         wraps: (wrapsByEpochId.get(epoch.id) ?? []).map((wrap) => ({
           containerKeyEpochId: wrap.containerKeyEpochId,

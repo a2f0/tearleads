@@ -17,16 +17,34 @@ import { normalizeContainerKeyWrap } from "./readers";
  * epoch. Distinct from corruption: the log is intact, the caller simply is
  * not an anchor for this epoch.
  */
+export type HistoricalWrapUnavailableReason =
+  /** No envelope at this epoch is addressed to the requester at all. */
+  | "no-addressed-envelope"
+  /** A direct user envelope exists for the requester but did not open. */
+  | "corrupt-envelope"
+  /** Only principal-addressed envelopes, whose key epoch is unreachable. */
+  | "principal-key-unreachable";
+
+const HISTORICAL_WRAP_UNAVAILABLE_MESSAGES: Record<
+  HistoricalWrapUnavailableReason,
+  (epoch: number) => string
+> = {
+  "no-addressed-envelope": (epoch) =>
+    `Container KEK log has no envelope addressed to this requester at epoch ${epoch}`,
+  "corrupt-envelope": (epoch) =>
+    `Container KEK log envelope for this requester at epoch ${epoch} could not be opened`,
+  "principal-key-unreachable": (epoch) =>
+    `Container KEK log envelope at epoch ${epoch} is addressed to a principal key epoch this client cannot resolve`,
+};
+
 export class HistoricalWrapUnavailableError extends Error {
   constructor(
     readonly containerKeyEpoch: number,
-    readonly reason: "no-addressed-envelope" | "principal-key-unreachable",
+    readonly reason: HistoricalWrapUnavailableReason,
     cause?: unknown,
   ) {
     super(
-      reason === "no-addressed-envelope"
-        ? `Container KEK log has no envelope addressed to this requester at epoch ${containerKeyEpoch}`
-        : `Container KEK log envelope at epoch ${containerKeyEpoch} is addressed to a principal key epoch this client cannot resolve`,
+      HISTORICAL_WRAP_UNAVAILABLE_MESSAGES[reason](containerKeyEpoch),
       cause === undefined ? undefined : { cause },
     );
     this.name = "HistoricalWrapUnavailableError";
@@ -58,37 +76,78 @@ export async function recoverKeyringEntryFromWraps(input: {
   >;
   execSql?: ExecSql | undefined;
   secretKey: Uint8Array;
+  /**
+   * The requester's user id. Direct user envelopes are matched against it, so
+   * another member's envelope is never mistaken for an anchor — attempting it
+   * would only produce a misleading failure.
+   */
+  userId: string;
 }): Promise<ContainerKekKeyringEntry> {
-  const envelopes = input.epoch.wraps
+  const epochWraps = input.epoch.wraps
     .map((wrap) => normalizeContainerKeyWrap(wrap))
     .filter(
-      (wrap) =>
-        wrap.containerKeyEpochId === input.epoch.containerKeyEpochId &&
-        wrap.recipientKind !== "container",
-    )
-    .map((wrap) => ({
-      keyFingerprint: wrap.recipientKeyFingerprint,
-      kemCipherText: wrap.kemCipherText,
-      wrappedKey: wrap.wrappedKey,
-    }));
-  if (envelopes.length === 0) {
+      (wrap) => wrap.containerKeyEpochId === input.epoch.containerKeyEpochId,
+    );
+  // Only envelopes this requester could plausibly open: their own direct user
+  // envelope, or principal envelopes whose secret key their policies may
+  // resolve. A container (parent) wrap is not an identity anchor.
+  const directWraps = epochWraps.filter(
+    (wrap) =>
+      wrap.recipientKind === "user" && wrap.recipientId === input.userId,
+  );
+  const principalWraps = epochWraps.filter(
+    (wrap) =>
+      wrap.recipientKind === "group" || wrap.recipientKind === "organization",
+  );
+  if (directWraps.length === 0 && principalWraps.length === 0) {
     throw new HistoricalWrapUnavailableError(
       input.epoch.containerKeyEpoch,
       "no-addressed-envelope",
     );
   }
-  let keyMaterial: Uint8Array;
-  try {
-    keyMaterial = await unwrapKeyEnvelopesWithPrincipalPolicies({
-      envelopes,
-      execSql: input.execSql,
-      secretKey: input.secretKey,
-    });
-  } catch (error) {
+
+  const toEnvelope = (wrap: (typeof epochWraps)[number]) => ({
+    keyFingerprint: wrap.recipientKeyFingerprint,
+    kemCipherText: wrap.kemCipherText,
+    wrappedKey: wrap.wrappedKey,
+  });
+  let keyMaterial: Uint8Array | null = null;
+  let directFailure: unknown;
+  // A direct envelope is decryptable from identity keys alone, so its failure
+  // means corruption — not an unreachable principal key.
+  if (directWraps.length > 0) {
+    try {
+      keyMaterial = await unwrapKeyEnvelopesWithPrincipalPolicies({
+        envelopes: directWraps.map(toEnvelope),
+        execSql: input.execSql,
+        secretKey: input.secretKey,
+      });
+    } catch (error) {
+      directFailure = error;
+    }
+  }
+  if (keyMaterial === null && principalWraps.length > 0) {
+    try {
+      keyMaterial = await unwrapKeyEnvelopesWithPrincipalPolicies({
+        envelopes: principalWraps.map(toEnvelope),
+        execSql: input.execSql,
+        secretKey: input.secretKey,
+      });
+    } catch (error) {
+      throw new HistoricalWrapUnavailableError(
+        input.epoch.containerKeyEpoch,
+        directFailure === undefined
+          ? "principal-key-unreachable"
+          : "corrupt-envelope",
+        directFailure ?? error,
+      );
+    }
+  }
+  if (keyMaterial === null) {
     throw new HistoricalWrapUnavailableError(
       input.epoch.containerKeyEpoch,
-      "principal-key-unreachable",
-      error,
+      "corrupt-envelope",
+      directFailure,
     );
   }
   const expectedId = await computeContainerKekMaterialId({

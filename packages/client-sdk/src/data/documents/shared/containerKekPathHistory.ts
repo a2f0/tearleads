@@ -212,15 +212,53 @@ async function openVerifiedKeyringEntries(input: {
       }
     }),
   );
+
+  // Every epoch id the signed manifest history names must be present in the
+  // keyring. A forged entry can be self-consistent, but it cannot also make
+  // the real epoch id — which a signed state already named — disappear.
+  const entryEpochIds = new Set(
+    entries.map((entry) => entry.containerKeyEpochId),
+  );
+  for (const historicalEpochId of manifestHistoryEpochIds(kek)) {
+    if (!entryEpochIds.has(historicalEpochId)) {
+      throw new Error(
+        `${projectionKekLabel(input.index)} keyring omits an epoch its manifest history commits to`,
+      );
+    }
+  }
   return entries;
 }
 
 /**
+ * Epoch ids named by verified historical manifest states for this container.
+ * Those states are signed, so an id they name is an epoch the container
+ * provably had — and a keyring that omits it in favor of a forged id for the
+ * same position is detectable even when no epoch RECORD was shipped.
+ */
+function manifestHistoryEpochIds(kek: ProjectionKek): Set<string> {
+  const epochIds = new Set<string>();
+  for (const bundle of sameContainerManifestHistory(kek)) {
+    const state = readCanonicalRecord(
+      bundle.state,
+      "Container writer projection historical manifest state",
+    );
+    const containerKeyEpochId = Reflect.get(state, "containerKeyEpochId");
+    if (
+      typeof containerKeyEpochId === "string" &&
+      containerKeyEpochId !== kek.containerKeyEpochId
+    ) {
+      epochIds.add(containerKeyEpochId);
+    }
+  }
+  return epochIds;
+}
+
+/**
  * Epoch ids the projection's signed material commits to, keyed by epoch
- * number: the current epoch's own record, the historical epoch records a
- * descendant pin makes the server ship, and the `containerKeyEpochId` each
- * verified historical manifest state carries. These are the only epoch ids
- * a keyring may claim for those positions.
+ * number: the current epoch's own record plus the historical epoch records a
+ * descendant pin makes the server ship. Manifest-history ids are checked
+ * separately, by set membership, because a manifest state names an epoch id
+ * without naming its epoch number.
  */
 function committedHistoricalEpochIds(
   kek: ProjectionKek,
