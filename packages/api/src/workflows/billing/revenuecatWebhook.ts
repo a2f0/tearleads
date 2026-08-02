@@ -10,6 +10,7 @@ import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
+  BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,
   BOUND_REVENUECAT_TIER_REQUIRED_REASON,
   classifyRevenueCatEvent,
   isRevenueCatGrantEventType,
@@ -20,7 +21,7 @@ import {
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import {
-  resolveBoundRevenueCatGrantTransition,
+  resolveBoundRevenueCatTransition,
   resolveRevenueCatGrantCapacity,
 } from "./revenuecatGrantCapacity";
 import { resolveNativeStripeConflictReason } from "./revenuecatProviderConflict";
@@ -164,14 +165,16 @@ async function resolvePreclaimDisposition(
 ): Promise<PreclaimDisposition> {
   const billing =
     (input.transition.kind !== "ignore" ||
-      input.transition.reason === BOUND_REVENUECAT_TIER_REQUIRED_REASON) &&
+      input.transition.reason === BOUND_REVENUECAT_TIER_REQUIRED_REASON ||
+      input.transition.reason ===
+        BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON) &&
     input.organizationId !== null
       ? await lockRevenueCatBillingIdentity(
           input.executor,
           input.organizationId,
         )
       : undefined;
-  let transition = resolveBoundRevenueCatGrantTransition({
+  let transition = resolveBoundRevenueCatTransition({
     allowSandboxEvents: input.allowSandboxEvents,
     billing,
     event: input.event,
@@ -256,7 +259,10 @@ async function claimRevenueCatEvent(input: {
       eventId: input.event.id,
       eventType: input.event.type,
       appUserId: input.event.app_user_id,
-      productId: input.event.product_id ?? null,
+      productId:
+        input.event.type === "PRODUCT_CHANGE"
+          ? (input.event.new_product_id ?? null)
+          : (input.event.product_id ?? null),
       transactionId: input.event.transaction_id ?? null,
       originalTransactionId: input.event.original_transaction_id ?? null,
       organizationId: input.organizationId,

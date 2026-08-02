@@ -23,10 +23,12 @@ import { BillingDirectCheckout } from "./BillingDirectCheckout";
 import { BillingHistory } from "./BillingHistory";
 import { BillingView } from "./BillingView";
 import { useBillingHistory } from "./useBillingHistory";
-import { useBillingManagementUrl } from "./useBillingManagementUrl";
+import {
+  useBillingManagementUrl,
+  useOpenSubscriptionManagement,
+} from "./useBillingManagementUrl";
 import { useCancelSubscription } from "./useCancelSubscription";
 import { useDirectCheckoutFlow } from "./useDirectCheckout";
-import { useOpenSubscriptionManagement } from "./useOpenSubscriptionManagement";
 
 export function allowsNativePurchase(input: {
   readonly isActive: boolean;
@@ -40,6 +42,14 @@ export function allowsNativePurchase(input: {
     input.subscriptionSource !== "stripe" &&
     (!input.isActive || input.subscriptionSource === "native")
   );
+}
+
+function billingActionSnapshot(view: OrganizationBillingView | null) {
+  return {
+    billingIsActive: view?.isActive ?? false,
+    billingPendingSeatCount: view?.pendingSeatCount ?? null,
+    billingSeatCount: view?.seatCount ?? null,
+  };
 }
 
 function BillingSubscriptionMoveDialog({
@@ -308,9 +318,9 @@ export function BillingPanel({
     [organizationId, tearleads],
   );
   const actions = useBillingActions({
+    ...billingActionSnapshot(billing.view),
     isOrgAdmin,
     nativePurchaseAllowed,
-    billingCanSync: billing.view?.canSync ?? false,
     claimNativeSubscription,
     checkoutHostRef,
     organizationId,

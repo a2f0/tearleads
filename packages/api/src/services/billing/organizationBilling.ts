@@ -44,7 +44,11 @@ export async function getOrganizationBilling(
     organizationId,
     sessionUserId,
   );
-  return serializeOrganizationBilling(result.billing, result.activeMemberCount);
+  return serializeOrganizationBilling(
+    result.billing,
+    result.activeMemberCount,
+    result.pendingSeatCount,
+  );
 }
 
 export async function getOrganizationBillingHistory(

@@ -187,6 +187,8 @@ export interface OrganizationBillingView {
   readonly currentPeriodStartsAtMs: number | null;
   readonly currentPeriodEndsAtMs: number | null;
   readonly seatCount: number;
+  /** Native destination tier announced by the store but not effective yet. */
+  readonly pendingSeatCount: number | null;
   /** Sync is expected but currently off (lapsed/disabled/past_due) — prompt to fix. */
   readonly needsAttention: boolean;
 }
@@ -239,6 +241,7 @@ export function resolveOrganizationBillingView(
     currentPeriodStartsAtMs,
     currentPeriodEndsAtMs,
     seatCount: billing.seatCount,
+    pendingSeatCount: billing.pendingSeatCount,
     needsAttention: !isLocal && !canSync,
   };
 }

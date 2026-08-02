@@ -313,9 +313,7 @@ test("native takeover keeps tier changes and Stripe cancellation", async () => {
     },
   );
 
-  await waitFor(() =>
-    expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined(),
-  );
+  await waitFor(() => view.getByText(ORG_MANAGER_LABELS.billingDowngradePlan));
   expect(
     view.getByText(ORG_MANAGER_LABELS.billingCancelSubscription),
   ).toBeDefined();

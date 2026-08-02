@@ -30,6 +30,7 @@ function billing(
     currentPeriodStartsAt: null,
     currentPeriodEndsAt: null,
     seatCount: 0,
+    pendingSeatCount: null,
     disabledAt: null,
     purgeAfter: null,
     ...overrides,
@@ -46,6 +47,20 @@ test("local orgs cannot sync and need no attention", () => {
   expect(view.needsAttention).toBe(false);
   expect(view.trialDaysRemaining).toBeNull();
   expect(view.seatCount).toBe(0);
+  expect(view.pendingSeatCount).toBeNull();
+});
+
+test("projects a pending native plan change", () => {
+  const view = resolveOrganizationBillingView(
+    billing({
+      status: "active",
+      currentPeriodEndsAt: iso(DAY_MS),
+      seatCount: 5,
+      pendingSeatCount: 1,
+    }),
+    NOW_MS,
+  );
+  expect(view.pendingSeatCount).toBe(1);
 });
 
 test("an active, unexpired trial can sync and reports days remaining", () => {

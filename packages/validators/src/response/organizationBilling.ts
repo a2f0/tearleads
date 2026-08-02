@@ -34,6 +34,8 @@ export interface OrganizationBillingResponse {
   currentPeriodStartsAt: string | null;
   currentPeriodEndsAt: string | null;
   seatCount: number;
+  /** Destination native tier while the store has scheduled but not effected a change. */
+  pendingSeatCount: number | null;
   disabledAt: string | null;
   purgeAfter: string | null;
 }
@@ -62,6 +64,11 @@ function isSeatCount(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
+function isPendingSeatCount(value: Record<string, unknown>): boolean {
+  const candidate = Reflect.get(value, "pendingSeatCount");
+  return candidate === null || (isSeatCount(candidate) && candidate > 0);
+}
+
 export function isOrganizationBillingResponse(
   value: unknown,
 ): value is OrganizationBillingResponse {
@@ -80,6 +87,7 @@ export function isOrganizationBillingResponse(
     hasNullableStringProperty(value, "currentPeriodEndsAt") &&
     hasNumberProperty(value, "seatCount") &&
     isSeatCount(value.seatCount) &&
+    isPendingSeatCount(value) &&
     hasNullableStringProperty(value, "disabledAt") &&
     hasNullableStringProperty(value, "purgeAfter")
   );

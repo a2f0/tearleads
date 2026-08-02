@@ -84,7 +84,9 @@ function wrapper(createPurchasesFn: CreatePurchasesFn) {
 
 export function renderBillingActions(input: {
   activationPollDelaysMs?: readonly number[];
-  billingCanSync?: boolean;
+  billingIsActive?: boolean;
+  billingPendingSeatCount?: number | null;
+  billingSeatCount?: number | null;
   checkoutHostRef?: RefObject<HTMLElement | null>;
   purchases: PurchasesCapability;
   nativePurchaseAllowed?: boolean;
@@ -100,16 +102,27 @@ export function renderBillingActions(input: {
       }>;
     },
     {
-      billingCanSync: boolean;
+      billingIsActive: boolean;
+      billingPendingSeatCount?: number | null;
+      billingSeatCount?: number | null;
       isOrgAdmin?: boolean;
       organizationId: string;
       userId: string;
     }
   >(
-    ({ billingCanSync, isOrgAdmin, organizationId, userId }) => {
+    ({
+      billingIsActive,
+      billingPendingSeatCount,
+      billingSeatCount,
+      isOrgAdmin,
+      organizationId,
+      userId,
+    }) => {
       const actions = useBillingActions({
         activationPollDelaysMs: input.activationPollDelaysMs ?? NO_POLL,
-        billingCanSync,
+        billingIsActive,
+        billingPendingSeatCount: billingPendingSeatCount ?? null,
+        billingSeatCount: billingSeatCount ?? null,
         claimNativeSubscription:
           input.claimNativeSubscription ?? (() => Promise.resolve(true)),
         ...(input.checkoutHostRef
@@ -130,7 +143,9 @@ export function renderBillingActions(input: {
     },
     {
       initialProps: {
-        billingCanSync: input.billingCanSync ?? false,
+        billingIsActive: input.billingIsActive ?? false,
+        billingPendingSeatCount: input.billingPendingSeatCount ?? null,
+        billingSeatCount: input.billingSeatCount ?? null,
         organizationId: "org-1",
         userId: "user-1",
       },

@@ -195,6 +195,35 @@ test("an Android tier downgrade waits for the next renewal", async () => {
   expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
+test("an iOS tier change lets the subscription group determine timing", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  fixture.platform = "ios";
+  fixture.packages = [nativePackage("team_5", "sync_team_5_monthly")];
+  fixture.customerInfo = {
+    entitlements: {
+      active: {
+        sync: {
+          productIdentifier: "sync_solo_monthly",
+          store: "APP_STORE",
+        },
+      },
+    },
+  };
+
+  await createCapacitorPurchases().purchaseSync({
+    organizationId: "org-1",
+    packageId: "team_5",
+  });
+
+  // StoreKit derives upgrade/downgrade behavior from the products' shared
+  // subscription group and service levels; unlike Play it accepts no old
+  // product or replacement mode in this purchase call.
+  expect(fixture.nativePurchaseCalls).toEqual([
+    { identifier: "team_5", productId: "sync_team_5_monthly" },
+  ]);
+  expect(fixture.purchaseCalls).toEqual([]);
+});
+
 test("reports the entitlement as inactive when the purchase does not grant it", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];

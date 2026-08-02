@@ -141,7 +141,10 @@ export async function resolveRevenueCatIgnoredReason(input: {
   if (!input.billing) {
     return "Unknown organization";
   }
-  if (input.transition.kind === "grant") {
+  if (
+    input.transition.kind === "grant" ||
+    input.transition.kind === "schedule"
+  ) {
     const buyerIgnoredReason = await resolveRevenueCatBuyerIgnoredReason({
       currentProviderCustomerId: input.billing.providerCustomerId,
       currentProviderProductId: input.billing.providerProductId,

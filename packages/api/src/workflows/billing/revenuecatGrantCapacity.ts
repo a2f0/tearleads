@@ -7,12 +7,14 @@ import {
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import {
+  BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,
   BOUND_REVENUECAT_TIER_REQUIRED_REASON,
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
 } from "../../billing/revenuecatWebhook";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
+import { isRecognizedNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
 
 type RevenueCatGrantCapacityDisposition =
@@ -21,8 +23,6 @@ type RevenueCatGrantCapacityDisposition =
 
 const STRIPE_GRANT_EXCEEDS_CAPACITY_REASON =
   "Stripe subscription cannot cover more than 10 active members";
-export const DEFERRED_NATIVE_DOWNGRADE_REASON =
-  "Native subscription downgrade is deferred until renewal";
 const PROMOTIONAL_PRODUCT_PREFIX = "promotional:";
 
 function resolveBoundNativeProduct(productId: string): {
@@ -76,8 +76,38 @@ function classifyBoundLifecycleGrant(input: {
     : classified;
 }
 
-/** Resolves a product-less lifecycle grant only from its locked customer tier. */
-export function resolveBoundRevenueCatGrantTransition(input: {
+function classifyBoundProductChange(input: {
+  readonly billing: LockedBillingIdentity | undefined;
+  readonly event: RevenueCatWebhookEvent;
+}): RevenueCatBillingTransition {
+  const currentTier = getSyncBillingTierForNativeProduct(
+    input.billing?.provider === "revenuecat" &&
+      input.billing.providerCustomerId === input.event.app_user_id
+      ? input.billing.providerProductId
+      : null,
+  );
+  const destinationTier = getSyncBillingTierForNativeProduct(
+    input.event.new_product_id,
+  );
+  if (!destinationTier) {
+    return { kind: "ignore", reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON };
+  }
+  if (
+    !input.billing ||
+    !currentTier ||
+    input.billing.seatCount !== currentTier.seatLimit ||
+    !isRecognizedNativeRevenueCatStore(input.event.store)
+  ) {
+    return {
+      kind: "ignore",
+      reason: "Product change does not match a bound native subscription",
+    };
+  }
+  return { kind: "schedule", fields: { status: input.billing.status } };
+}
+
+/** Resolves transitions that require the organization's locked provider state. */
+export function resolveBoundRevenueCatTransition(input: {
   readonly allowSandboxEvents: boolean;
   readonly billing: LockedBillingIdentity | undefined;
   readonly event: RevenueCatWebhookEvent;
@@ -85,6 +115,12 @@ export function resolveBoundRevenueCatGrantTransition(input: {
   readonly transition: RevenueCatBillingTransition;
 }): RevenueCatBillingTransition {
   let transition = input.transition;
+  if (
+    transition.kind === "ignore" &&
+    transition.reason === BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON
+  ) {
+    return classifyBoundProductChange(input);
+  }
   if (
     transition.kind === "ignore" &&
     transition.reason === BOUND_REVENUECAT_TIER_REQUIRED_REASON
@@ -96,23 +132,7 @@ export function resolveBoundRevenueCatGrantTransition(input: {
       now: input.now,
     });
   }
-  if (input.event.type !== "PRODUCT_CHANGE" || transition.kind !== "grant") {
-    return transition;
-  }
-  const currentTier = getSyncBillingTierForNativeProduct(
-    input.billing?.provider === "revenuecat" &&
-      input.billing.providerCustomerId === input.event.app_user_id
-      ? input.billing.providerProductId
-      : null,
-  );
-  const destinationTier = getSyncBillingTierForNativeProduct(
-    transition.fields.providerProductId,
-  );
-  return currentTier &&
-    destinationTier &&
-    destinationTier.seatLimit < currentTier.seatLimit
-    ? { kind: "ignore", reason: DEFERRED_NATIVE_DOWNGRADE_REASON }
-    : transition;
+  return transition;
 }
 
 /**

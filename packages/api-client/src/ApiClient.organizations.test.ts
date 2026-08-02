@@ -68,6 +68,7 @@ function organizationBillingResponse(): OrganizationBillingResponse {
     provider: "revenuecat",
     purgeAfter: null,
     seatCount: 1,
+    pendingSeatCount: null,
     status: "active",
     trialEndsAt: null,
   };

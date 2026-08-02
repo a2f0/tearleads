@@ -71,7 +71,7 @@ test("does not mark activation pending when purchase returns no sync entitlement
   expect(refresh).not.toHaveBeenCalled();
 });
 
-test("clears activation pending once refreshed billing can sync", async () => {
+test("clears purchase pending once the paid tier becomes effective", async () => {
   const purchases = createPurchases({ syncEntitlementActive: true });
   const { result, rerender } = renderBillingActions({ purchases });
 
@@ -82,7 +82,8 @@ test("clears activation pending once refreshed billing can sync", async () => {
   await waitFor(() => expect(result.current.activationPending).toBe(true));
 
   rerender({
-    billingCanSync: true,
+    billingIsActive: true,
+    billingSeatCount: OPTION.seatLimit,
     organizationId: "org-1",
     userId: "user-1",
   });
@@ -103,7 +104,7 @@ test("ignores an old organization's action callbacks after a switch", async () =
   const oldRestore = result.current.confirmSubscriptionMove;
 
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     organizationId: "org-2",
     userId: "user-1",
   });
@@ -179,7 +180,7 @@ test("a same-org user switch invalidates in-flight purchase identification", asy
   expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`);
 
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     organizationId: "org-1",
     userId: "user-2",
   });
@@ -220,7 +221,7 @@ test("an old purchase completion cannot commit into or clear the new org", async
   // (see client-sdk purchaseSync), so a late completion of org-1's purchase
   // cannot be attributed to org-2.
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     organizationId: "org-2",
     userId: "user-1",
   });
@@ -258,7 +259,7 @@ test("an old purchase completion cannot commit into or clear the new org", async
   expect(refresh).toHaveBeenCalledTimes(1);
 });
 
-test("polls billing after a successful purchase until the org can sync", async () => {
+test("polls billing after a successful purchase until the tier is reflected", async () => {
   const purchases = createPurchases({ syncEntitlementActive: true });
   const refresh = mock(() => Promise.resolve());
   const { result, rerender } = renderBillingActions({
@@ -272,14 +273,15 @@ test("polls billing after a successful purchase until the org can sync", async (
   });
 
   // The immediate post-purchase read plus the backoff poll keep re-reading
-  // billing while the org is not yet syncable (the webhook has not landed).
+  // billing while the provider webhook has not landed.
   await waitFor(() => expect(result.current.activationPending).toBe(true));
   await waitFor(() => expect(refresh.mock.calls.length).toBeGreaterThan(1));
 
-  // Once billing reports the org can sync, the pending flag clears and polling
-  // stops — the refresh count no longer grows.
+  // Once billing reports the purchased tier, the pending flag clears and
+  // polling stops — the refresh count no longer grows.
   rerender({
-    billingCanSync: true,
+    billingIsActive: true,
+    billingSeatCount: OPTION.seatLimit,
     organizationId: "org-1",
     userId: "user-1",
   });
@@ -289,4 +291,27 @@ test("polls billing after a successful purchase until the org can sync", async (
     await new Promise((resolve) => setTimeout(resolve, 40));
   });
   expect(refresh.mock.calls.length).toBe(callsAfterActive);
+});
+
+test("a scheduled downgrade also settles the post-purchase poll", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const { result, rerender } = renderBillingActions({
+    billingIsActive: true,
+    billingSeatCount: 5,
+    purchases,
+  });
+
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+  await waitFor(() => expect(result.current.activationPending).toBe(true));
+
+  rerender({
+    billingIsActive: true,
+    billingPendingSeatCount: OPTION.seatLimit,
+    billingSeatCount: 5,
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+  await waitFor(() => expect(result.current.activationPending).toBe(false));
 });

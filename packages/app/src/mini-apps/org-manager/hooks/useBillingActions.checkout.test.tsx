@@ -130,7 +130,7 @@ test("a scope switch leaves a native purchase running", async () => {
   await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(1));
 
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     organizationId: "org-1",
     userId: "user-2",
   });
@@ -176,7 +176,7 @@ test("a scope switch during native identification emits a terminal trace", async
   act(() => result.current.subscribe(OPTION));
   await waitFor(() => expect(identify).toHaveBeenCalledTimes(2));
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     organizationId: "org-1",
     userId: "user-2",
   });
@@ -210,7 +210,7 @@ test("a scope switch cancels the in-flight embedded checkout", async () => {
   );
 
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     organizationId: "org-1",
     userId: "user-2",
   });
@@ -241,7 +241,7 @@ test("losing purchase eligibility cancels the in-flight embedded checkout", asyn
   // the checkout host inside them) unmount, so the purchase must be
   // cancelled rather than left attached to a detached element.
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     isOrgAdmin: false,
     organizationId: "org-1",
     userId: "user-1",

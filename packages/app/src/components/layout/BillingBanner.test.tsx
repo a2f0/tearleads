@@ -26,6 +26,7 @@ function view(
     currentPeriodStartsAtMs: null,
     currentPeriodEndsAtMs: null,
     seatCount: 0,
+    pendingSeatCount: null,
     needsAttention: false,
     ...overrides,
   };

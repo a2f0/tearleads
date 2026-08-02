@@ -8,8 +8,10 @@ import {
   organizationBilling,
   organizationBillingStripeSeats,
   organizations,
+  revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
-import { and, eq } from "drizzle-orm";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   createTrialBillingFields,
   LAPSED_BILLING_PURGE_GRACE_MS,
@@ -228,6 +230,7 @@ export async function runGetOrganizationBillingWorkflow(
 ): Promise<{
   readonly activeMemberCount: number;
   readonly billing: OrganizationBilling;
+  readonly pendingSeatCount: number | null;
 }> {
   return db.transaction(async (tx) => {
     await requireDirectOrganizationAccess({
@@ -240,8 +243,78 @@ export async function runGetOrganizationBillingWorkflow(
       tx,
       organizationId,
     );
-    return { activeMemberCount, billing };
+    const pendingSeatCount = await resolvePendingNativeSeatCount(
+      tx,
+      organizationId,
+      billing,
+    );
+    return { activeMemberCount, billing, pendingSeatCount };
   });
+}
+
+const EFFECTIVE_NATIVE_PRODUCT_EVENT_TYPES = [
+  "INITIAL_PURCHASE",
+  "RENEWAL",
+  "UNCANCELLATION",
+  "SUBSCRIPTION_EXTENDED",
+] as const;
+
+/** Latest accepted PRODUCT_CHANGE that a later effective store event has not consumed. */
+async function resolvePendingNativeSeatCount(
+  executor: DatabaseSession,
+  organizationId: string,
+  billing: OrganizationBilling,
+): Promise<number | null> {
+  if (billing.status !== "active") return null;
+  const [provider] = await executor
+    .select({ productId: organizationBilling.providerProductId })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId))
+    .limit(1);
+  const currentTier = getSyncBillingTierForNativeProduct(provider?.productId);
+  if (!currentTier || currentTier.seatLimit !== billing.seatCount) return null;
+
+  const [change] = await executor
+    .select({
+      occurredAt: revenuecatWebhookEvents.eventTimestamp,
+      productId: revenuecatWebhookEvents.productId,
+    })
+    .from(revenuecatWebhookEvents)
+    .where(
+      and(
+        eq(revenuecatWebhookEvents.organizationId, organizationId),
+        eq(revenuecatWebhookEvents.eventType, "PRODUCT_CHANGE"),
+        eq(revenuecatWebhookEvents.outcome, "applied"),
+      ),
+    )
+    .orderBy(
+      desc(revenuecatWebhookEvents.eventTimestamp),
+      desc(revenuecatWebhookEvents.id),
+    )
+    .limit(1);
+  const pendingTier = getSyncBillingTierForNativeProduct(change?.productId);
+  if (!change || !pendingTier || pendingTier.id === currentTier.id) return null;
+
+  const [effective] = await executor
+    .select({ occurredAt: revenuecatWebhookEvents.eventTimestamp })
+    .from(revenuecatWebhookEvents)
+    .where(
+      and(
+        eq(revenuecatWebhookEvents.organizationId, organizationId),
+        eq(revenuecatWebhookEvents.outcome, "applied"),
+        inArray(
+          revenuecatWebhookEvents.eventType,
+          EFFECTIVE_NATIVE_PRODUCT_EVENT_TYPES,
+        ),
+      ),
+    )
+    .orderBy(
+      desc(revenuecatWebhookEvents.eventTimestamp),
+      desc(revenuecatWebhookEvents.id),
+    )
+    .limit(1);
+  if (!effective || effective.occurredAt >= change.occurredAt) return null;
+  return pendingTier.seatLimit;
 }
 
 async function countActiveOrganizationMembers(

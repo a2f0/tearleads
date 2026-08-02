@@ -41,6 +41,10 @@
       "lines": 523,
       "bytes": 24130
     },
+    "docs/developer/revenuecat-native-stores.md": {
+      "lines": 364,
+      "bytes": 20964
+    },
     "docs/document-rekey-and-audit-history.md": {
       "lines": 540,
       "bytes": 21124
@@ -462,6 +466,7 @@
     "documentation": {
       "description": "Long-form design and reference documents that lose coherence when split.",
       "files": [
+        "docs/developer/revenuecat-native-stores.md",
         "docs/document-rekey-and-audit-history.md",
         "docs/glossary.md",
         "docs/keying-design.md",

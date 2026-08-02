@@ -148,7 +148,7 @@ test("a stale flow's inactive settlement leaves the newer flow running", async (
   // Scope switch abandons the first purchase; a second one starts for the new
   // buyer (same org) while the first provider promise is still pending.
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     organizationId: "org-1",
     userId: "user-2",
   });

@@ -1,6 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import type { SyncSubscriptionOption } from "@tearleads/client-sdk";
-import { cleanup, render } from "@testing-library/react";
+import type {
+  OrganizationBillingView,
+  SyncSubscriptionOption,
+} from "@tearleads/client-sdk";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingView, type BillingViewProps } from "./BillingView";
 
@@ -27,20 +30,23 @@ const OPTIONS: SyncSubscriptionOption[] = [
   },
 ];
 
+const BASE_VIEW: OrganizationBillingView = {
+  status: "trialing",
+  canSync: true,
+  isLocal: false,
+  isTrialing: true,
+  isActive: false,
+  trialDaysRemaining: 3,
+  trialEndsAtMs: Date.UTC(2026, 7, 3),
+  currentPeriodStartsAtMs: null,
+  currentPeriodEndsAtMs: null,
+  seatCount: 10,
+  pendingSeatCount: null,
+  needsAttention: false,
+};
+
 const PROPS: BillingViewProps = {
-  view: {
-    status: "trialing",
-    canSync: true,
-    isLocal: false,
-    isTrialing: true,
-    isActive: false,
-    trialDaysRemaining: 3,
-    trialEndsAtMs: Date.UTC(2026, 7, 3),
-    currentPeriodStartsAtMs: null,
-    currentPeriodEndsAtMs: null,
-    seatCount: 10,
-    needsAttention: false,
-  },
+  view: BASE_VIEW,
   loading: false,
   error: null,
   isOrgAdmin: true,
@@ -67,4 +73,78 @@ test("native options explain when the roster exceeds every tier", () => {
     view.getByText(ORG_MANAGER_LABELS.billingCheckoutOverCapacity),
   ).toBeDefined();
   expect(view.queryByText(ORG_MANAGER_LABELS.billingNoOptions)).toBeNull();
+});
+
+function activePlanProps(
+  seatCount: number,
+  pendingSeatCount: number | null,
+): BillingViewProps {
+  return {
+    ...PROPS,
+    minimumSeatCount: 1,
+    view: {
+      ...BASE_VIEW,
+      status: "active",
+      isActive: true,
+      isTrialing: false,
+      trialDaysRemaining: null,
+      trialEndsAtMs: null,
+      seatCount,
+      pendingSeatCount,
+    },
+  };
+}
+
+test("an active native subscription renders a plan switcher", () => {
+  const chosen: string[] = [];
+  const view = render(
+    <BillingView
+      {...activePlanProps(1, null)}
+      onSubscribe={(option) => chosen.push(option.packageId)}
+    />,
+  );
+
+  expect(
+    (
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.billingCurrentPlan,
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeNull();
+  fireEvent.click(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.billingUpgradePlan }),
+  );
+  expect(chosen).toEqual(["team_5"]);
+});
+
+test("a deferred downgrade stays scheduled while the paid tier is current", () => {
+  const view = render(<BillingView {...activePlanProps(5, 1)} />);
+
+  expect(
+    (
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.billingPlanScheduled,
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  expect(
+    (
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.billingCurrentPlan,
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+});
+
+test("an immediate upgrade waits for its effective event", () => {
+  const view = render(<BillingView {...activePlanProps(1, 5)} />);
+
+  expect(
+    (
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.billingPlanUpdating,
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
 });
