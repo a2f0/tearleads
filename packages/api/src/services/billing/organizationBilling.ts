@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   getSyncBillingTierForNativeProduct,
   type NativeSubscriptionStore,
@@ -7,6 +8,7 @@ import type {
   OrganizationBillingManagementUrlResponse,
   OrganizationBillingResponse,
 } from "@tearleads/validators/response";
+import { isProviderSubscriptionOwnershipConflict } from "../../billing/databaseErrors";
 import {
   serializeOrganizationBilling,
   serializeOrganizationBillingHistory,
@@ -207,13 +209,27 @@ export async function claimNativeOrganizationSubscription(
       "RevenueCat could not verify the subscription",
     );
   }
-  await runClaimNativeSubscriptionWorkflow({
-    appUserId: sessionUserId,
-    db: runtime.db,
-    organizationId,
-    requireSessionAccess: true,
-    sourceId: `native-claim:${store}:${resolved.subscription.subscriptionId}`,
-    subscription: resolved.subscription,
-  });
+  const now = new Date();
+  const sourceId = `native-claim:${randomUUID()}`;
+  try {
+    await runClaimNativeSubscriptionWorkflow({
+      appUserId: sessionUserId,
+      auditEvent: { eventId: sourceId, eventTimestamp: now },
+      db: runtime.db,
+      now,
+      organizationId,
+      requireSessionAccess: true,
+      sourceId,
+      subscription: resolved.subscription,
+    });
+  } catch (error) {
+    if (isProviderSubscriptionOwnershipConflict(error)) {
+      throw new OrganizationManagerError(
+        "The native subscription was moved by another request; refresh and try again",
+        409,
+      );
+    }
+    throw error;
+  }
   return getOrganizationBilling(runtime, organizationId, sessionUserId);
 }

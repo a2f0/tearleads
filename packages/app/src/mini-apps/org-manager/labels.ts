@@ -60,7 +60,7 @@ export const ORG_MANAGER_LABELS = {
   billingRestoring: "Restoring...",
   billingSubscriptionMoveTitle: "Move this subscription?",
   billingSubscriptionMoveMessage:
-    "This checks the Apple or Google account on this device and moves its Tearleads subscription to this personal organization. The previous personal organization will stop syncing. Its encrypted data and identity keys are not moved. If you need that data, cancel and recover the original identity in Identity Manager first.",
+    "This checks the Apple or Google account on this device and moves its Tearleads subscription to this personal organization. The previous personal organization will stop syncing, and its remote sync data becomes eligible for permanent deletion after 30 days. Its encrypted data and identity keys are not moved. If you need that data, cancel and recover the original identity in Identity Manager first.",
   billingSubscriptionMoveConfirm: "Move subscription",
   billingStartTrial: "Start free trial",
   billingStartingTrial: "Starting trial...",

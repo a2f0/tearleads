@@ -45,56 +45,71 @@ interface UseNativeSubscriptionMoveInput {
 export function useNativeSubscriptionMove(
   input: UseNativeSubscriptionMoveInput,
 ) {
+  const {
+    claimNativeSubscription,
+    currentScope,
+    purchases,
+    refresh,
+    scopeRef,
+    updateActionState,
+    userId,
+  } = input;
+  const { logError } = useLog();
   const [openScope, setOpenScope] = useState<BillingActionScope | null>(null);
-  const open =
-    openScope !== null && scopeMatches(openScope, input.currentScope);
-  const request = useCallback(
-    () => setOpenScope(input.currentScope),
-    [input.currentScope],
-  );
+  const open = openScope !== null && scopeMatches(openScope, currentScope);
+  const request = useCallback(() => setOpenScope(currentScope), [currentScope]);
   const dismiss = useCallback(() => setOpenScope(null), []);
 
   const confirm = useCallback(() => {
-    const scope = input.currentScope;
-    if (!scopeMatches(input.scopeRef.current, scope)) return;
+    const scope = currentScope;
+    if (!scopeMatches(scopeRef.current, scope)) return;
     dismiss();
-    input.updateActionState(scope, (current) => ({
+    updateActionState(scope, (current) => ({
       ...current,
       actionError: null,
       busy: "restore",
     }));
     void (async () => {
       try {
-        if (!input.userId || !input.purchases.nativeStore) {
+        if (!userId || !purchases.nativeStore) {
           throw new Error("Native subscription restore is unavailable");
         }
-        await input.purchases.identify({ userId: input.userId });
-        const restored = await input.purchases.restore({
+        await purchases.identify({ userId });
+        const restored = await purchases.restore({
           organizationId: scope.organizationId,
         });
         if (!restored.syncEntitlementActive) {
           throw new Error("The restored receipt has no sync entitlement");
         }
-        const claimed = await input.claimNativeSubscription(
-          input.purchases.nativeStore,
-        );
+        const claimed = await claimNativeSubscription(purchases.nativeStore);
         if (!claimed) {
           throw new Error("The server did not accept the native subscription");
         }
-        if (scopeMatches(input.scopeRef.current, scope)) await input.refresh();
-      } catch {
-        input.updateActionState(scope, (current) => ({
+        if (scopeMatches(scopeRef.current, scope)) await refresh();
+      } catch (error) {
+        logError(formatBillingPurchaseFailure(error, false));
+        updateActionState(scope, (current) => ({
           ...current,
           actionError: ORG_MANAGER_LABELS.failedRestorePurchases,
         }));
       } finally {
-        input.updateActionState(scope, (current) => ({
+        updateActionState(scope, (current) => ({
           ...current,
           busy: null,
         }));
       }
     })();
-  }, [dismiss, input]);
+  }, [
+    claimNativeSubscription,
+    currentScope,
+    dismiss,
+    logError,
+    purchases,
+    refresh,
+    scopeRef,
+    updateActionState,
+    userId,
+  ]);
 
   return { confirm, dismiss, open, request };
 }

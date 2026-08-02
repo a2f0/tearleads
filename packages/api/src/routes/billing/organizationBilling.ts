@@ -1,5 +1,6 @@
 import { isNativeSubscriptionStore } from "@tearleads/validators/billing";
 import { type Context, Hono } from "hono";
+import type { RevenueCatApiDeps } from "../../billing/revenueCatApi";
 import type { SessionEnv } from "../../middleware/session";
 import {
   claimNativeOrganizationSubscription,
@@ -43,10 +44,15 @@ async function respondForOrganization<T extends object>(
   }
 }
 
+interface OrganizationBillingRouteDeps extends OrganizationsRouterDeps {
+  readonly revenueCat?: RevenueCatApiDeps;
+}
+
 export function createOrganizationBillingRoute({
   requireAuth,
+  revenueCat,
   runtime,
-}: OrganizationsRouterDeps) {
+}: OrganizationBillingRouteDeps) {
   const route = new Hono<SessionEnv>();
 
   route.get("/organizations/:organizationId/billing", requireAuth, (c) =>
@@ -97,6 +103,7 @@ export function createOrganizationBillingRoute({
           organizationId,
           sessionUserId,
           store,
+          revenueCat,
         ),
       );
     },

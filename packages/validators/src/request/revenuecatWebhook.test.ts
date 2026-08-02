@@ -135,4 +135,9 @@ test("accepts RevenueCat transfer events without an app user id", () => {
       event: { ...transfer.event, transferred_from: "old-user" },
     }),
   ).toBe(false);
+  expect(
+    isRevenueCatWebhookRequest(
+      webhook({ transferred_to: 5, type: "TRANSFER" }),
+    ),
+  ).toBe(false);
 });

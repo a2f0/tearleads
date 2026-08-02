@@ -306,6 +306,9 @@ export async function fetchActiveRevenueCatNativeSubscription(
   deps: RevenueCatApiDeps = {},
 ): Promise<ActiveNativeSubscriptionResult> {
   const env = deps.env ?? process.env;
+  if (store === "test_store" && !allowsRevenueCatSandboxEvents(env)) {
+    return { kind: "not_found" };
+  }
   const credentials = readRevenueCatV2Credentials(env);
   if (!credentials) return { kind: "unavailable" };
   const fetchImpl = deps.fetchImpl ?? fetch;

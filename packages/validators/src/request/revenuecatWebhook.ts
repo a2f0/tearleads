@@ -106,7 +106,7 @@ export interface RevenueCatWebhookRequest {
   event: RevenueCatIncomingWebhookEvent;
 }
 
-function isRevenueCatTransferWebhookEvent(
+export function isRevenueCatTransferWebhookEvent(
   value: unknown,
 ): value is RevenueCatTransferWebhookEvent {
   return (
@@ -220,6 +220,7 @@ function isRevenueCatWebhookEvent(
     isPlainObject(value) &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "type") &&
+    value[EVENT_TYPE_KEY] !== "TRANSFER" &&
     hasStringProperty(value, "app_user_id") &&
     isRevenueCatTimestampMs(value[EVENT_TIMESTAMP_MS_KEY]) &&
     isAbsentOrNullableTimestampMs(value, "purchased_at_ms") &&

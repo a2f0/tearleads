@@ -83,6 +83,7 @@ export {
   type RegistrationRequest,
 } from "./registration";
 export {
+  isRevenueCatTransferWebhookEvent,
   isRevenueCatWebhookRequest,
   type RevenueCatIncomingWebhookEvent,
   type RevenueCatSubscriberAttribute,

@@ -8,6 +8,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
+import { isProviderSubscriptionOwnershipConflict } from "../../billing/databaseErrors";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
   BOUND_REVENUECAT_TIER_REQUIRED_REASON,
@@ -421,18 +422,29 @@ export async function runRevenueCatWebhookWorkflow(
         ? null
         : resolveOrganizationIdFromEvent(event);
 
-  const outcome = await db.transaction((tx) =>
-    runRevenueCatWebhookTransaction({
-      allowSandboxEvents: classificationOptions.allowSandboxEvents,
-      event,
-      executor: tx,
-      now,
-      organizationId,
-      stripeResolution,
-      stripeTierUnresolved,
-      transition,
-    }),
-  );
+  let outcome: RevenueCatWebhookOutcome;
+  try {
+    outcome = await db.transaction((tx) =>
+      runRevenueCatWebhookTransaction({
+        allowSandboxEvents: classificationOptions.allowSandboxEvents,
+        event,
+        executor: tx,
+        now,
+        organizationId,
+        stripeResolution,
+        stripeTierUnresolved,
+        transition,
+      }),
+    );
+  } catch (error) {
+    if (isProviderSubscriptionOwnershipConflict(error)) {
+      return {
+        status: "retry",
+        reason: "Native subscription ownership changed concurrently",
+      };
+    }
+    throw error;
+  }
   logUnappliedRevenueCatGrant(event, outcome);
   return outcome;
 }

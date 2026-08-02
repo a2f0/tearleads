@@ -489,11 +489,11 @@ Org sync billing exposes two provider-neutral capabilities:
 | `PurchasesCapability` | App Store or Play; web uses it only to observe RevenueCat entitlements | `AppHostConfig.createPurchases` |
 | `DirectCheckoutCapability` | The app around Stripe's mounted element | `AppHostConfig.createDirectCheckout` |
 
-Both capabilities have unavailable stubs and use `isAvailable` to gate buying.
-Web uses direct checkout; its RevenueCat adapter only reads entitlements. Native
-purchases are personal-org only. `PurchaseAlreadyOwnedError` opens an explicit
-restore/move flow; the server verifies RevenueCat before rebinding billing. See
-[revenuecat-billing.md](./revenuecat-billing.md).
+Unavailable stubs use `isAvailable`. Web reads RevenueCat entitlements and uses
+direct checkout. Native purchases are for personal organizations. On
+`PurchaseAlreadyOwnedError`, hosts restore them, then call
+`tearleads.organizations.claimNativeSubscription(organizationId, store)`. The
+server verifies RevenueCat before moving billing. See the [billing guide](./revenuecat-billing.md).
 
 ## Package Contract
 

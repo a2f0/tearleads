@@ -45,6 +45,11 @@ import {
   createOrganizationRootReshareCoordinator,
   type OrganizationRootReshareCoordinator,
 } from "./organizationRootReshareCoordinator";
+import {
+  authenticatedOrganizationId,
+  runForAuthenticatedOrganization,
+  runForOrganization,
+} from "./organizationWorkflowRuntime";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -131,6 +136,7 @@ export interface Organizations {
   ) => ReturnType<typeof createStripeCheckoutSession>;
   cancelStripeSubscription: () => ReturnType<typeof cancelStripeSubscription>;
   claimNativeSubscription: (
+    organizationId: string,
     store: NativeSubscriptionStore,
   ) => ReturnType<typeof claimNativeOrganizationSubscription>;
   loadDataUsage: () => ReturnType<
@@ -213,28 +219,6 @@ function requireEncapsulationKeyPair(
   }
 
   return runtime.crypto.encapsulationKeyPair;
-}
-
-function authenticatedOrganizationId(
-  runtime: InternalWorkflowRuntimeInput,
-): string | null {
-  return runtime.auth.organizationId && runtime.auth.isAuthenticated
-    ? runtime.auth.organizationId
-    : null;
-}
-
-function runForAuthenticatedOrganization<T>(
-  runtimeService: InternalRuntime,
-  workflow: (input: {
-    readonly apiClient: InternalWorkflowRuntimeInput["apiClient"];
-    readonly organizationId: string;
-  }) => Promise<T>,
-): Promise<T | null> {
-  const runtime = runtimeService.workflowInput();
-  const organizationId = authenticatedOrganizationId(runtime);
-  return organizationId
-    ? workflow({ apiClient: runtime.apiClient, organizationId })
-    : Promise.resolve(null);
 }
 
 export function createOrganizations(
@@ -412,8 +396,11 @@ class OrganizationsService implements Organizations {
     );
   }
 
-  claimNativeSubscription(store: NativeSubscriptionStore) {
-    return runForAuthenticatedOrganization(this.runtimeService, (input) =>
+  claimNativeSubscription(
+    organizationId: string,
+    store: NativeSubscriptionStore,
+  ) {
+    return runForOrganization(this.runtimeService, organizationId, (input) =>
       claimNativeOrganizationSubscription({ ...input, store }),
     );
   }

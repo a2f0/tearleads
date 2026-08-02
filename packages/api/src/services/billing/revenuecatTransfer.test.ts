@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling, users } from "@tearleads/api-shared/schema";
+import {
+  organizationBilling,
+  organizationBillingStripeSeats,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
@@ -156,4 +160,104 @@ test("a transfer without its optional store resolves the sole native subscriptio
     organizationId: destination.organizationId,
     status: "applied",
   });
+});
+
+test("permanent transfer claim rejections are acknowledged without redelivery", async () => {
+  const destination = await registerPersonalOrganization();
+  await db
+    .update(organizationBillingStripeSeats)
+    .set({ subscriptionId: `sub_${crypto.randomUUID()}` })
+    .where(
+      eq(
+        organizationBillingStripeSeats.organizationId,
+        destination.organizationId,
+      ),
+    );
+
+  expect(
+    await processRevenueCatWebhook(
+      getDefaultApiServiceRuntime(),
+      {
+        environment: "SANDBOX",
+        event_timestamp_ms: Date.now(),
+        id: crypto.randomUUID(),
+        store: "PLAY_STORE",
+        transferred_from: [crypto.randomUUID()],
+        transferred_to: [destination.user.userId],
+        type: "TRANSFER",
+      },
+      { env: ENV, fetchImpl: providerFetch() },
+    ),
+  ).toEqual({
+    reason:
+      "Cancel the organization's web subscription before moving a native subscription",
+    status: "ignored",
+  });
+});
+
+test("a missing transferred receipt is permanent but provider ambiguity retries", async () => {
+  const destination = await registerPersonalOrganization();
+  const event = {
+    environment: "SANDBOX",
+    event_timestamp_ms: Date.now(),
+    id: crypto.randomUUID(),
+    transferred_from: [crypto.randomUUID()],
+    transferred_to: [destination.user.userId],
+    type: "TRANSFER" as const,
+  };
+  expect(
+    await processRevenueCatWebhook(getDefaultApiServiceRuntime(), event, {
+      env: ENV,
+      fetchImpl: (async (_input: RequestInfo | URL) =>
+        Response.json({ items: [] })) as typeof fetch,
+    }),
+  ).toEqual({
+    reason: "Transferred subscription is not active",
+    status: "ignored",
+  });
+
+  const secondDestination = await registerPersonalOrganization();
+  expect(
+    await processRevenueCatWebhook(
+      getDefaultApiServiceRuntime(),
+      {
+        ...event,
+        id: crypto.randomUUID(),
+        transferred_to: [
+          destination.user.userId,
+          secondDestination.user.userId,
+        ],
+      },
+      { env: ENV, fetchImpl: providerFetch() },
+    ),
+  ).toEqual({
+    reason: "Transfer has more than one registered destination",
+    status: "retry",
+  });
+});
+
+test("production ignores Test Store transfers even without a sandbox marker", async () => {
+  const destination = await registerPersonalOrganization();
+  expect(
+    await processRevenueCatWebhook(
+      getDefaultApiServiceRuntime(),
+      {
+        event_timestamp_ms: Date.now(),
+        id: crypto.randomUUID(),
+        store: "TEST_STORE",
+        transferred_from: [crypto.randomUUID()],
+        transferred_to: [destination.user.userId],
+        type: "TRANSFER",
+      },
+      {
+        env: {
+          REVENUECAT_PROJECT_ID: "proj_1",
+          REVENUECAT_V2_SECRET_KEY: "sk_test",
+        },
+        fetchImpl: (async (_input: RequestInfo | URL): Promise<Response> => {
+          throw new Error("production Test Store must not reach RevenueCat");
+        }) as typeof fetch,
+      },
+    ),
+  ).toEqual({ reason: "Test Store transfer ignored", status: "ignored" });
 });

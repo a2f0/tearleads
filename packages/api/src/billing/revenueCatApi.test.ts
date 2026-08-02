@@ -368,3 +368,14 @@ test("native verification rejects missing, ambiguous, and disallowed sandbox rec
     }),
   ).toEqual({ kind: "not_found" });
 });
+
+test("native verification rejects Test Store outside a sandbox-enabled tier", async () => {
+  const { fetchImpl, calls } = fakeFetch([{ body: { items: [] } }]);
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "test_store", {
+      env: ENV,
+      fetchImpl,
+    }),
+  ).toEqual({ kind: "not_found" });
+  expect(calls).toHaveLength(0);
+});

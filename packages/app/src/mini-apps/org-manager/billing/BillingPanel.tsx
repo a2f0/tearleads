@@ -297,8 +297,13 @@ export function BillingPanel({
   const checkoutHostRef = useRef<HTMLDivElement | null>(null);
   const claimNativeSubscription = useCallback(
     async (store: NativeSubscriptionStore) =>
-      (await tearleads.organizations.claimNativeSubscription(store)) !== null,
-    [tearleads],
+      (
+        await tearleads.organizations.claimNativeSubscription(
+          organizationId,
+          store,
+        )
+      )?.organizationId === organizationId,
+    [organizationId, tearleads],
   );
   const actions = useBillingActions({
     isOrgAdmin,

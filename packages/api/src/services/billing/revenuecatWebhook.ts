@@ -6,7 +6,9 @@ import type {
   RevenueCatIncomingWebhookEvent,
   RevenueCatTransferWebhookEvent,
 } from "@tearleads/validators/request";
+import { isRevenueCatTransferWebhookEvent } from "@tearleads/validators/request";
 import { isUuidV4String } from "@tearleads/validators/util";
+import { isProviderSubscriptionOwnershipConflict } from "../../billing/databaseErrors";
 import {
   fetchActiveRevenueCatNativeSubscription,
   type RevenueCatApiDeps,
@@ -20,6 +22,7 @@ import {
   type RevenueCatWebhookOutcome,
   runRevenueCatWebhookWorkflow,
 } from "../../workflows/billing/revenuecatWebhook";
+import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 
 /**
@@ -32,7 +35,7 @@ export async function processRevenueCatWebhook(
   event: RevenueCatIncomingWebhookEvent,
   deps: RevenueCatApiDeps = {},
 ): Promise<RevenueCatWebhookOutcome> {
-  if ("transferred_to" in event) {
+  if (isRevenueCatTransferWebhookEvent(event)) {
     return processRevenueCatTransfer(runtime, event, deps);
   }
   return runRevenueCatWebhookWorkflow(runtime.db, event, new Date(), {
@@ -117,6 +120,12 @@ async function processRevenueCatTransfer(
     return { status: "ignored", reason: "Sandbox RevenueCat event ignored" };
   }
   const store = nativeStoreFromTransfer(event);
+  if (
+    store === "test_store" &&
+    !allowsRevenueCatSandboxEvents(deps.env ?? process.env)
+  ) {
+    return { status: "ignored", reason: "Test Store transfer ignored" };
+  }
   if (event.store !== undefined && event.store !== null && !store) {
     return { status: "ignored", reason: "Transfer store is not supported" };
   }
@@ -141,24 +150,44 @@ async function processRevenueCatTransfer(
     deps,
     store,
   });
+  if (resolved.kind === "not_found") {
+    return {
+      status: "ignored",
+      reason: "Transferred subscription is not active",
+    };
+  }
   if (resolved.kind !== "found") {
     return {
       status: "retry",
       reason: `Transferred subscription verification is ${resolved.kind}`,
     };
   }
-  const claimed = await runClaimNativeSubscriptionWorkflow({
-    appUserId: destination.appUserId,
-    auditEvent: {
-      eventId: event.id,
-      eventTimestamp: new Date(event.event_timestamp_ms),
-    },
-    db: runtime.db,
-    organizationId: destination.organizationId,
-    requireSessionAccess: false,
-    sourceId: event.id,
-    subscription: resolved.subscription,
-  });
+  let claimed: Awaited<ReturnType<typeof runClaimNativeSubscriptionWorkflow>>;
+  try {
+    claimed = await runClaimNativeSubscriptionWorkflow({
+      appUserId: destination.appUserId,
+      auditEvent: {
+        eventId: event.id,
+        eventTimestamp: new Date(event.event_timestamp_ms),
+      },
+      db: runtime.db,
+      organizationId: destination.organizationId,
+      requireSessionAccess: false,
+      sourceId: event.id,
+      subscription: resolved.subscription,
+    });
+  } catch (error) {
+    if (isProviderSubscriptionOwnershipConflict(error)) {
+      return {
+        status: "retry",
+        reason: "Native subscription ownership changed concurrently",
+      };
+    }
+    if (error instanceof OrganizationManagerError) {
+      return { status: "ignored", reason: error.message };
+    }
+    throw error;
+  }
   return claimed.duplicate
     ? { status: "duplicate" }
     : {

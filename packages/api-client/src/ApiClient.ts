@@ -911,7 +911,11 @@ export class ApiClient {
     );
   }
 
-  /** Cancels a live Stripe subscription at period end. */
+  /**
+   * Cancels a live Stripe subscription at period end. Like every convenience
+   * request here, null covers both an expected non-2xx and a transient failure;
+   * callers should preserve a retry path rather than treating null as success.
+   */
   cancelStripeSubscription(organizationId: string) {
     return this.request(
       `/organizations/${pathSegment(organizationId)}/billing/stripe/cancel`,

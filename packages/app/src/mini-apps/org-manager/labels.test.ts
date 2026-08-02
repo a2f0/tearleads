@@ -62,6 +62,9 @@ test("billing status and trial labels format correctly", () => {
   expect(ORG_MANAGER_LABELS.billingManageSubscription).toBe(
     "Manage subscription",
   );
+  expect(ORG_MANAGER_LABELS.billingSubscriptionMoveMessage).toContain(
+    "eligible for permanent deletion after 30 days",
+  );
 });
 
 test("billing history labels cover invoice and licensed-seat events", () => {

@@ -176,3 +176,40 @@ test("rejects custom organizations and Stripe-bound destinations", async () => {
     "Cancel the organization's web subscription before moving a native subscription",
   );
 });
+
+test("concurrent claims cannot leave one subscription bound to two organizations", async () => {
+  const first = await registerPersonalOrganization();
+  const second = await registerPersonalOrganization();
+  const claims = await Promise.allSettled([
+    runClaimNativeSubscriptionWorkflow({
+      appUserId: first.user.userId,
+      db,
+      organizationId: first.organizationId,
+      requireSessionAccess: false,
+      sourceId: crypto.randomUUID(),
+      subscription: subscription(),
+    }),
+    runClaimNativeSubscriptionWorkflow({
+      appUserId: second.user.userId,
+      db,
+      organizationId: second.organizationId,
+      requireSessionAccess: false,
+      sourceId: crypto.randomUUID(),
+      subscription: subscription(),
+    }),
+  ]);
+
+  expect(
+    claims.filter((claim) => claim.status === "fulfilled").length,
+  ).toBeGreaterThanOrEqual(1);
+  const owners = await db
+    .select({ organizationId: organizationBilling.organizationId })
+    .from(organizationBilling)
+    .where(
+      eq(
+        organizationBilling.providerSubscriptionId,
+        subscription().subscriptionId,
+      ),
+    );
+  expect(owners).toHaveLength(1);
+});
