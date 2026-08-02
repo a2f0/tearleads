@@ -32,6 +32,7 @@ import {
 } from "./revenuecatStripeResolution";
 import { applyRevenueCatTransition } from "./revenuecatWebhookApplication";
 import { logUnappliedRevenueCatGrant } from "./revenuecatWebhookLogging";
+import { resolveLifecycleOwnershipConflict } from "./revenuecatWebhookOwnership";
 import {
   isStripeEventSupersededByNative,
   lockRevenueCatBillingIdentity,
@@ -421,18 +422,31 @@ export async function runRevenueCatWebhookWorkflow(
         ? null
         : resolveOrganizationIdFromEvent(event);
 
-  const outcome = await db.transaction((tx) =>
-    runRevenueCatWebhookTransaction({
-      allowSandboxEvents: classificationOptions.allowSandboxEvents,
+  let outcome: RevenueCatWebhookOutcome;
+  try {
+    outcome = await db.transaction((tx) =>
+      runRevenueCatWebhookTransaction({
+        allowSandboxEvents: classificationOptions.allowSandboxEvents,
+        event,
+        executor: tx,
+        now,
+        organizationId,
+        stripeResolution,
+        stripeTierUnresolved,
+        transition,
+      }),
+    );
+  } catch (error) {
+    const ownershipOutcome = await resolveLifecycleOwnershipConflict({
+      db,
+      error,
       event,
-      executor: tx,
-      now,
       organizationId,
-      stripeResolution,
-      stripeTierUnresolved,
       transition,
-    }),
-  );
+    });
+    if (ownershipOutcome) return ownershipOutcome;
+    throw error;
+  }
   logUnappliedRevenueCatGrant(event, outcome);
   return outcome;
 }

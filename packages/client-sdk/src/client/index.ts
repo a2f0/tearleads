@@ -201,6 +201,7 @@ export {
   createRevenueCatPurchases,
   createUnavailablePurchases,
   PurchaseAbortedError,
+  PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
   type PurchasesCapability,
   PurchasesUnavailableError,

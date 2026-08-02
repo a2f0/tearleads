@@ -1,4 +1,5 @@
 import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type {
   BlobAttachmentBindRequest,
@@ -866,6 +867,20 @@ export class ApiClient {
       "GET",
     );
   }
+
+  claimNativeOrganizationSubscription(
+    organizationId: string,
+    store: NativeSubscriptionStore,
+  ) {
+    return this.makeRequestResult(
+      `/organizations/${pathSegment(organizationId)}/billing/native/${pathSegment(store)}/claim`,
+      isOrganizationBillingResponse,
+      "POST",
+      undefined,
+      { reportErrors: false },
+    );
+  }
+
   /** Empty options means unconfigured; 403/409 remain errors. */
   getStripeCheckoutOptions(
     organizationId: string,

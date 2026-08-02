@@ -186,6 +186,7 @@ export {
   Network,
   normalizeLocalKeyringScope,
   PurchaseAbortedError,
+  PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
   type PurchasesCapability,
   PurchasesUnavailableError,

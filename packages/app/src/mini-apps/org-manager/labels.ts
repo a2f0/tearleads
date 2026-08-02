@@ -58,6 +58,10 @@ export const ORG_MANAGER_LABELS = {
   billingPurged: "Remote data purged",
   billingRestore: "Restore purchases",
   billingRestoring: "Restoring...",
+  billingSubscriptionMoveTitle: "Move this subscription?",
+  billingSubscriptionMoveMessage:
+    "This checks the Apple or Google account on this device and moves its Tearleads subscription to this personal organization. The previous personal organization will stop syncing, and its remote sync data becomes eligible for permanent deletion after 30 days. Its encrypted data and identity keys are not moved. If you need that data, cancel and recover the original identity in Identity Manager first.",
+  billingSubscriptionMoveConfirm: "Move subscription",
   billingStartTrial: "Start free trial",
   billingStartingTrial: "Starting trial...",
   billingSubscribe: "Subscribe",
@@ -96,6 +100,12 @@ export const ORG_MANAGER_LABELS = {
   failedLoadDataUsage: "Failed to load organization data usage.",
   failedLoadBillingHistory: "Failed to load billing history.",
   failedRestorePurchases: "Failed to restore purchases.",
+  nativeClaimConflict:
+    "This subscription cannot be moved here. Cancel any existing web subscription and try again.",
+  nativeClaimNotFound:
+    "No active native subscription was found for this store account.",
+  nativeClaimPending:
+    "The purchase was restored, but verification is still pending. Try Restore again shortly.",
   failedSubscribe: "Purchase failed.",
   failedLoadGrants: "Failed to load organization grants.",
   failedLoadGroupContainers: "Failed to load group container links.",
@@ -277,6 +287,8 @@ const ORG_MANAGER_BILLING_EVENT_LABELS: Readonly<Record<string, string>> = {
   SUBSCRIPTION_EXTENDED: "Extended",
   SUBSCRIPTION_PAUSED: "Paused",
   TEMPORARY_ENTITLEMENT_GRANT: "Access granted",
+  TRANSFER_IN: "Subscription moved here",
+  TRANSFER_OUT: "Subscription moved away",
   UNCANCELLATION: "Resumed",
   licensed_seat_count_increased: "Licensed seats increased",
   licensed_seat_count_initialized: "Licensed seats initialized",

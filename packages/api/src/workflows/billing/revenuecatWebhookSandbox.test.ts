@@ -50,7 +50,7 @@ function appStorePurchase(input: {
     event_timestamp_ms: now,
     expiration_at_ms: now + THIRTY_DAYS_MS,
     id: input.eventId,
-    original_transaction_id: "2000000000000001",
+    original_transaction_id: input.eventId,
     product_id: "com.tearleads.sync.monthly",
     purchased_at_ms: now,
     store: input.store ?? "APP_STORE",
@@ -349,7 +349,7 @@ test("bound lifecycle grants reuse the immutable native tier", async () => {
     expect(outcome).toMatchObject({ organizationId, status: "applied" });
     expect(await readBillingStatus(organizationId)).toMatchObject({
       providerProductId: "com.tearleads.sync.monthly",
-      providerSubscriptionId: "2000000000000001",
+      providerSubscriptionId: initial.original_transaction_id,
       seatCount: 1,
     });
   }

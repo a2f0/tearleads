@@ -13,6 +13,7 @@
 
 import {
   getSyncBillingTierForNativeProduct,
+  type NativeSubscriptionStore,
   type SyncBillingTierId,
 } from "@tearleads/validators/billing";
 
@@ -44,6 +45,8 @@ export interface SyncPurchaseResult {
 export interface PurchasesCapability {
   /** False when purchasing is not supported on this platform (the stub). */
   readonly isAvailable: boolean;
+  /** Native receipt store this capability can restore, or null off-device. */
+  readonly nativeStore: NativeSubscriptionStore | null;
   /**
    * True when {@link purchaseSync}'s `checkoutHost` embeds a checkout this
    * platform can actually cancel from the app's own UI (Web Billing). Absent
@@ -74,8 +77,10 @@ export interface PurchasesCapability {
     checkoutHost?: HTMLElement;
     abortSignal?: AbortSignal;
   }): Promise<SyncPurchaseResult>;
-  /** Restore prior purchases (e.g. on a new device). */
-  restore(): Promise<void>;
+  /** Restore prior purchases from the signed-in native store account. */
+  restore(): Promise<SyncPurchaseResult>;
+  /** Publish a server-accepted personal-org binding for later lifecycle events. */
+  bindOrganization(input: { organizationId: string }): Promise<void>;
   /** Whether the identified buyer currently holds the sync entitlement. */
   hasActiveSyncEntitlement(): Promise<boolean>;
 }
@@ -96,6 +101,14 @@ export class PurchaseCancelledError extends Error {
   constructor(message = "The purchase was cancelled") {
     super(message);
     this.name = "PurchaseCancelledError";
+  }
+}
+
+/** The store account already owns this subscription; offer restore/move. */
+export class PurchaseAlreadyOwnedError extends Error {
+  constructor(message = "This store account already owns the subscription") {
+    super(message);
+    this.name = "PurchaseAlreadyOwnedError";
   }
 }
 
@@ -162,6 +175,8 @@ export interface RevenueCatPurchasesConfig {
   readonly apiKey: string;
   /** Entitlement id that grants sync (e.g. "sync"). */
   readonly syncEntitlementId: string;
+  /** Store represented by this SDK key; null for Web Billing. */
+  readonly nativeStore: NativeSubscriptionStore | null;
   /**
    * Whether this platform may start RevenueCat purchases. Defaults to true.
    * Set false when RevenueCat is retained only for entitlement observation.
@@ -182,6 +197,55 @@ export interface RevenueCatPurchasesConfig {
 }
 
 const DEFAULT_ORGANIZATION_ATTRIBUTE_KEY = "orgId";
+
+function holdsSyncEntitlement(
+  info: RevenueCatCustomerInfo,
+  entitlementId: string,
+): boolean {
+  return (
+    Array.isArray(info?.activeEntitlementIds) &&
+    info.activeEntitlementIds.includes(entitlementId)
+  );
+}
+
+async function restoreRevenueCatPurchases(input: {
+  readonly backend: RevenueCatBackend;
+  readonly entitlementId: string;
+}): Promise<SyncPurchaseResult> {
+  return {
+    syncEntitlementActive: holdsSyncEntitlement(
+      await input.backend.restorePurchases(),
+      input.entitlementId,
+    ),
+  };
+}
+
+function toSyncSubscriptionOptions(
+  entry: RevenueCatPackage,
+): SyncSubscriptionOption[] {
+  const tier = getSyncBillingTierForNativeProduct(entry.productIdentifier);
+  return tier
+    ? [
+        {
+          packageId: entry.identifier,
+          productId: entry.productIdentifier,
+          title: tier.title,
+          description: entry.description,
+          priceLabel: entry.priceString,
+          tierId: tier.id,
+          seatLimit: tier.seatLimit,
+        },
+      ]
+    : [];
+}
+
+function requirePurchasesEnabled(enabled: boolean): void {
+  if (!enabled) {
+    throw new PurchasesUnavailableError(
+      "RevenueCat purchases are disabled on this platform",
+    );
+  }
+}
 
 /**
  * Adapts a {@link RevenueCatBackend} into a {@link PurchasesCapability}. The
@@ -216,12 +280,9 @@ export function createRevenueCatPurchases(
   // the typed contract (native bridges can hand back partial objects). Optional
   // chaining alone is insufficient: a non-array truthy `activeEntitlementIds`
   // would make `.includes` a TypeError, so gate on an actual array.
-  const holdsSyncEntitlement = (info: RevenueCatCustomerInfo): boolean =>
-    Array.isArray(info?.activeEntitlementIds) &&
-    info.activeEntitlementIds.includes(config.syncEntitlementId);
-
   return {
     isAvailable: purchasesEnabled,
+    nativeStore: config.nativeStore,
     supportsEmbeddedCheckout:
       purchasesEnabled && (config.supportsEmbeddedCheckout ?? false),
     async identify(input) {
@@ -238,31 +299,10 @@ export function createRevenueCatPurchases(
       }
       await ensureConfigured();
       const packages = await backend.getCurrentPackages();
-      return packages.flatMap((entry) => {
-        const tier = getSyncBillingTierForNativeProduct(
-          entry.productIdentifier,
-        );
-        return tier
-          ? [
-              {
-                packageId: entry.identifier,
-                productId: entry.productIdentifier,
-                title: tier.title,
-                description: entry.description,
-                priceLabel: entry.priceString,
-                tierId: tier.id,
-                seatLimit: tier.seatLimit,
-              },
-            ]
-          : [];
-      });
+      return packages.flatMap(toSyncSubscriptionOptions);
     },
     async purchaseSync(input) {
-      if (!purchasesEnabled) {
-        throw new PurchasesUnavailableError(
-          "RevenueCat purchases are disabled on this platform",
-        );
-      }
+      requirePurchasesEnabled(purchasesEnabled);
       try {
         await ensureConfigured();
         // Bind the purchase to the org BEFORE buying so the resulting
@@ -294,15 +334,34 @@ export function createRevenueCatPurchases(
         ...(input.checkoutHost ? { htmlTarget: input.checkoutHost } : {}),
         ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
       });
-      return { syncEntitlementActive: holdsSyncEntitlement(info) };
+      return {
+        syncEntitlementActive: holdsSyncEntitlement(
+          info,
+          config.syncEntitlementId,
+        ),
+      };
     },
     async restore() {
+      requirePurchasesEnabled(purchasesEnabled);
       await ensureConfigured();
-      await backend.restorePurchases();
+      return restoreRevenueCatPurchases({
+        backend,
+        entitlementId: config.syncEntitlementId,
+      });
+    },
+    async bindOrganization(input) {
+      requirePurchasesEnabled(purchasesEnabled);
+      await ensureConfigured();
+      await backend.setAttributes({
+        [organizationAttributeKey]: input.organizationId,
+      });
     },
     async hasActiveSyncEntitlement() {
       await ensureConfigured();
-      return holdsSyncEntitlement(await backend.getCustomerInfo());
+      return holdsSyncEntitlement(
+        await backend.getCustomerInfo(),
+        config.syncEntitlementId,
+      );
     },
   };
 }
@@ -316,6 +375,7 @@ export function createRevenueCatPurchases(
 export function createUnavailablePurchases(): PurchasesCapability {
   return {
     isAvailable: false,
+    nativeStore: null,
     supportsEmbeddedCheckout: false,
     identify() {
       return Promise.resolve();
@@ -330,7 +390,10 @@ export function createUnavailablePurchases(): PurchasesCapability {
       return Promise.reject(new PurchasesUnavailableError());
     },
     restore() {
-      return Promise.resolve();
+      return Promise.resolve({ syncEntitlementActive: false });
+    },
+    bindOrganization() {
+      return Promise.reject(new PurchasesUnavailableError());
     },
     hasActiveSyncEntitlement() {
       return Promise.resolve(false);

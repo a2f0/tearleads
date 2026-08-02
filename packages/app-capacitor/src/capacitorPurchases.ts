@@ -9,6 +9,7 @@ import {
   createRevenueCatPurchases,
   createUnavailablePurchases,
   PurchaseAbortedError,
+  PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
   type PurchasesCapability,
   type RevenueCatBackend,
@@ -97,6 +98,17 @@ function isUserCancelledPurchase(error: unknown): boolean {
   );
 }
 
+function isAlreadyOwnedPurchase(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return false;
+  }
+  return (
+    error.code === PURCHASES_ERROR_CODE.PRODUCT_ALREADY_PURCHASED_ERROR ||
+    error.code === PURCHASES_ERROR_CODE.RECEIPT_ALREADY_IN_USE_ERROR ||
+    error.code === PURCHASES_ERROR_CODE.RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR
+  );
+}
+
 /**
  * Adapts the native `@revenuecat/purchases-capacitor` plugin to the client-sdk
  * {@link RevenueCatBackend}. Only the normalized surface the sdk consumes is
@@ -169,6 +181,9 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
       if (isUserCancelledPurchase(error)) {
         throw new PurchaseCancelledError();
       }
+      if (isAlreadyOwnedPurchase(error)) {
+        throw new PurchaseAlreadyOwnedError();
+      }
       throw error;
     }
   },
@@ -211,6 +226,11 @@ export function createCapacitorPurchases(): PurchasesCapability {
   }
   return createRevenueCatPurchases(capacitorRevenueCatBackend, {
     apiKey,
+    nativeStore: apiKey.startsWith("test_")
+      ? "test_store"
+      : Capacitor.getPlatform() === "ios"
+        ? "app_store"
+        : "play_store",
     syncEntitlementId:
       readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
       DEFAULT_SYNC_ENTITLEMENT_ID,

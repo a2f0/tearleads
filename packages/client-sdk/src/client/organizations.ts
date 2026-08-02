@@ -1,8 +1,10 @@
 import type { ContainerGrantSubjectType } from "@tearleads/crypto";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
 import {
   addOrganizationGroupUser,
   cancelStripeSubscription,
+  claimNativeOrganizationSubscription,
   createOrganizationGroup,
   createStripeCheckout,
   createStripeCheckoutSession,
@@ -43,6 +45,11 @@ import {
   createOrganizationRootReshareCoordinator,
   type OrganizationRootReshareCoordinator,
 } from "./organizationRootReshareCoordinator";
+import {
+  authenticatedOrganizationId,
+  runForAuthenticatedOrganization,
+  runForOrganization,
+} from "./organizationWorkflowRuntime";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -128,6 +135,10 @@ export interface Organizations {
     returnUrl: string,
   ) => ReturnType<typeof createStripeCheckoutSession>;
   cancelStripeSubscription: () => ReturnType<typeof cancelStripeSubscription>;
+  claimNativeSubscription: (
+    organizationId: string,
+    store: NativeSubscriptionStore,
+  ) => ReturnType<typeof claimNativeOrganizationSubscription>;
   loadDataUsage: () => ReturnType<
     OrganizationDataUsageCoordinator["reconcile"]
   >;
@@ -208,14 +219,6 @@ function requireEncapsulationKeyPair(
   }
 
   return runtime.crypto.encapsulationKeyPair;
-}
-
-function authenticatedOrganizationId(
-  runtime: InternalWorkflowRuntimeInput,
-): string | null {
-  return runtime.auth.organizationId && runtime.auth.isAuthenticated
-    ? runtime.auth.organizationId
-    : null;
 }
 
 export function createOrganizations(
@@ -328,70 +331,48 @@ class OrganizationsService implements Organizations {
   }
 
   loadBilling() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? loadOrganizationBilling({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      loadOrganizationBilling,
+    );
   }
 
   loadBillingForOrganization(organizationId: string) {
-    const runtime = this.runtimeService.workflowInput();
     // Gated on an authenticated session rather than on the target being the
     // active org — the point of this read is the orgs the active-org billing
     // snapshot cannot cover. The server still enforces membership, so an org
     // the caller cannot reach resolves to `null`.
-    return authenticatedOrganizationId(runtime) && organizationId.length > 0
-      ? loadOrganizationBilling({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForOrganization(
+      this.runtimeService,
+      organizationId,
+      loadOrganizationBilling,
+    );
   }
 
   loadBillingHistory() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? loadOrganizationBillingHistory({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      loadOrganizationBillingHistory,
+    );
   }
 
   loadBillingManagementUrl() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? loadOrganizationBillingManagementUrl({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      loadOrganizationBillingManagementUrl,
+    );
   }
   loadStripeCheckoutOptions() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? loadStripeCheckoutOptions({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      loadStripeCheckoutOptions,
+    );
   }
   createStripeCheckout() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? createStripeCheckout({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      createStripeCheckout,
+    );
   }
 
   createStripeCheckoutSession(returnUrl: string) {
@@ -407,14 +388,19 @@ class OrganizationsService implements Organizations {
   }
 
   cancelStripeSubscription() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? cancelStripeSubscription({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      cancelStripeSubscription,
+    );
+  }
+
+  claimNativeSubscription(
+    organizationId: string,
+    store: NativeSubscriptionStore,
+  ) {
+    return runForOrganization(this.runtimeService, organizationId, (input) =>
+      claimNativeOrganizationSubscription({ ...input, store }),
+    );
   }
 
   loadDataUsage() {
@@ -577,10 +563,9 @@ class OrganizationsService implements Organizations {
   }
 
   startTrial() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? startOrganizationTrial({ apiClient: runtime.apiClient, organizationId })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      startOrganizationTrial,
+    );
   }
 }
