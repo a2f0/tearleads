@@ -339,11 +339,13 @@ export {
   saveContainerSyncWatermark,
   syncedContainerDocumentObjectSyncState,
 } from "./workflows/container-contents";
+export { rebuildKeyringEntriesFromLog } from "./data/documents/shared/keyringRebuild";
 export type { ContainerMutationAuthor } from "./workflows/containers";
 export {
   buildRootContainerCreatePlan,
   createRemoteContainer,
   moveRemoteContainer,
+  rekeyRemoteContainer,
   revokeRemoteContainer,
   rootContainerWriterProjectionFromCreatePlan,
   shareRemoteContainer,

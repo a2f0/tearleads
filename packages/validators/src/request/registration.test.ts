@@ -132,6 +132,7 @@ test("isRegistrationRequest", () => {
       parentContainerPath: [],
       keyEpoch: { id: "container-key-epoch-id" },
       predecessorBridge: null,
+      keyring: null,
       principalPolicies: [],
       wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
       userRecipientKeys: [{ userId }],

@@ -185,6 +185,7 @@ export async function createContainerRevokeManifestFixture(input: {
   containerId: string;
   containerKeyEpochId: string;
   eventId: string;
+  keyringHash: string;
   organizationId: string;
   predecessorBridgeHash: string;
   previousManifest: VerifiedContainerAccessManifest;
@@ -195,6 +196,7 @@ export async function createContainerRevokeManifestFixture(input: {
   const body: ContainerRevokeAccessEventBody = {
     eventType: "container.revoke",
     containerKeyEpochId: input.containerKeyEpochId,
+    keyringHash: input.keyringHash,
     predecessorBridgeHash: input.predecessorBridgeHash,
     subjectId: input.subjectId,
     subjectType: input.subjectType,
@@ -387,7 +389,8 @@ export async function createParentProjection(input?: {
     keyTargetHash:
       await computeContainerKekRecipientTargetHash(recipientTargets),
     containerManifestHistory: [],
-    predecessorKeks: [],
+    keyring: null,
+    historicalKeyEpochs: [],
     parentContainerKeyEpochId: null,
     recipientTargets,
     wraps,

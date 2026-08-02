@@ -17,7 +17,10 @@ import {
 } from "./writerProjection/accessPaths";
 import { createContainerWriterProjectionContext } from "./writerProjection/context";
 import { loadContainerKekState } from "./writerProjection/kek";
-import { loadPredecessorContainerKeks } from "./writerProjection/predecessorKeks";
+import {
+  loadContainerKekKeyring,
+  loadHistoricalContainerKeyEpoch,
+} from "./writerProjection/keyringDelivery";
 import {
   loadPrincipalPoliciesForAccessPaths,
   verifiedPrincipalPolicyReferenceCacheKeys,
@@ -27,7 +30,6 @@ import {
   type ContainerAccessPath,
   type ContainerAccessProjection,
   type ContainerAccessProjectionResult,
-  type ContainerKekHistoryObservation,
   type ContainerKekProjection,
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
@@ -36,7 +38,6 @@ import {
 export type {
   ContainerAccessProjection,
   ContainerAccessProjectionResult,
-  ContainerKekHistoryObservation,
   ContainerWriterProjectionContext,
 };
 export {
@@ -72,19 +73,39 @@ async function resolveContainerProjectionWithAccess(input: {
     throw new ContainerWriterProjectionError("Container not found", 404);
   }
 
-  // Current access is history-inclusive. Each path KEK therefore carries its
-  // complete authenticated successor-to-predecessor chain.
+  // Current access is history-inclusive. Each path KEK carries the sealed
+  // keyring for its epoch; opening it under the current KEK yields every
+  // retained historical KEK without a chain walk. Historical epoch records
+  // ship only when the child path entry pins an older parent epoch, because
+  // its parent wrap binds to that epoch's record hash.
   const containerKeks: ContainerWriterProjectionResponse["containerKeks"] = [];
   for (const index of access.verifiedPath.keys()) {
     const kekState = containerKekStates[index];
     if (!kekState) {
       throw new ContainerWriterProjectionError("Container KEK missing", 409);
     }
-    const predecessorKeks = await loadPredecessorContainerKeks({
+    const keyring = await loadContainerKekKeyring({
       containerKeyEpochId: kekState.state.containerKeyEpochId,
       context,
     });
-    containerKeks.push(containerKekResponse(kekState, predecessorKeks));
+    const historicalKeyEpochs = [];
+    const pinnedParentEpochId =
+      containerKekStates[index + 1]?.state.parentContainerKeyEpochId;
+    if (
+      pinnedParentEpochId &&
+      pinnedParentEpochId !== kekState.state.containerKeyEpochId
+    ) {
+      historicalKeyEpochs.push(
+        await loadHistoricalContainerKeyEpoch({
+          containerKeyEpochId: pinnedParentEpochId,
+          context,
+          expectedContainerId: kekState.state.containerId,
+        }),
+      );
+    }
+    containerKeks.push(
+      containerKekResponse(kekState, keyring, historicalKeyEpochs),
+    );
   }
 
   return {

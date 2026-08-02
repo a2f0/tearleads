@@ -195,15 +195,19 @@ CREATE TABLE "container_key_epochs" (
 	"access_manifest_hash" text NOT NULL,
 	"parent_container_key_epoch_id" text,
 	"predecessor_container_key_epoch_id" text,
+	"predecessor_bridge_version" integer,
+	"predecessor_bridge_suite" text,
 	"predecessor_bridge_iv" text,
 	"wrapped_predecessor_key" text,
+	"keyring_iv" text,
+	"sealed_keyring" text,
 	"created_by_event_hash" text NOT NULL,
 	"created_by_manifest_hash" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "container_key_epochs_predecessor_bridge_complete" CHECK ((
-        ("container_key_epochs"."predecessor_container_key_epoch_id" is null and "container_key_epochs"."predecessor_bridge_iv" is null and "container_key_epochs"."wrapped_predecessor_key" is null)
+	CONSTRAINT "container_key_epochs_rotation_artifacts_complete" CHECK ((
+        ("container_key_epochs"."predecessor_container_key_epoch_id" is null and "container_key_epochs"."predecessor_bridge_version" is null and "container_key_epochs"."predecessor_bridge_suite" is null and "container_key_epochs"."predecessor_bridge_iv" is null and "container_key_epochs"."wrapped_predecessor_key" is null and "container_key_epochs"."keyring_iv" is null and "container_key_epochs"."sealed_keyring" is null)
         or
-        ("container_key_epochs"."predecessor_container_key_epoch_id" is not null and "container_key_epochs"."predecessor_bridge_iv" is not null and "container_key_epochs"."wrapped_predecessor_key" is not null)
+        ("container_key_epochs"."predecessor_container_key_epoch_id" is not null and "container_key_epochs"."predecessor_bridge_version" is not null and "container_key_epochs"."predecessor_bridge_suite" is not null and "container_key_epochs"."predecessor_bridge_iv" is not null and "container_key_epochs"."wrapped_predecessor_key" is not null and "container_key_epochs"."keyring_iv" is not null and "container_key_epochs"."sealed_keyring" is not null)
       ))
 );
 --> statement-breakpoint

@@ -290,7 +290,8 @@ export async function createContainerWriterProjectionFixture(
         keyTargetHash,
         parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
         containerManifestHistory: [],
-        predecessorKeks: [],
+        keyring: null,
+        historicalKeyEpochs: [],
         recipientTargets: recipientTargets as unknown as Record<
           string,
           unknown

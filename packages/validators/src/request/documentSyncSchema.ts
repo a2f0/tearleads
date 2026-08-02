@@ -130,6 +130,7 @@ const ContainerMutationRequestViewSchema = loosePlainObject({
   event: plainObjectSchema,
   expectedManifestHash: nonEmptyStringSchema,
   keyEpoch: plainObjectSchema,
+  keyring: plainObjectSchema.nullable(),
   manifest: plainObjectSchema,
   parentContainerPath: z.array(AccessManifestBundleWireViewSchema).optional(),
   parentKekState: plainObjectSchema.nullable().optional(),

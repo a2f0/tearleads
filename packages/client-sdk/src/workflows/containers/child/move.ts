@@ -2,6 +2,7 @@ import type {
   AccessEvent,
   AccessManifest,
   ContainerAccessManifestState,
+  ContainerKekKeyring,
   ContainerKekPredecessorBridge,
   ContainerKeyEpoch,
   ContainerKeyWrap,
@@ -11,6 +12,7 @@ import type {
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
+  computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
   deriveContainerAccessManifest,
 } from "@tearleads/crypto";
@@ -54,7 +56,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { buildContainerMoveRotation } from "./moveRotation";
+import { buildContainerRotationArtifacts } from "./moveRotation";
 import { buildContainerMoveWraps } from "./moveWraps";
 
 async function deriveContainerMoveManifest(input: {
@@ -89,6 +91,7 @@ function buildContainerMoveRequest(input: {
   destinationParentProjection: ContainerWriterProjectionResponse;
   event: AccessEvent;
   keyEpoch: ContainerKeyEpoch;
+  keyring: ContainerKekKeyring;
   manifest: AccessManifest;
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;
@@ -121,6 +124,7 @@ function buildContainerMoveRequest(input: {
       input.predecessorBridge,
       "Container move predecessor bridge",
     ),
+    keyring: readCanonicalRecord(input.keyring, "Container move keyring"),
     wraps: readCanonicalRecords(input.wraps, "Container move wraps"),
     parentKekState: readCanonicalRecord(
       input.destinationParentKek,
@@ -227,6 +231,7 @@ function buildContainerMovePlanResult(input: {
   event: AccessEvent;
   eventHash: string;
   keyEpoch: ContainerKeyEpoch;
+  keyring: ContainerKekKeyring;
   manifest: AccessManifest;
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;
@@ -253,6 +258,7 @@ function buildContainerMovePlanResult(input: {
       destinationParentProjection: input.destinationParentProjection,
       event: input.event,
       keyEpoch: input.keyEpoch,
+      keyring: input.keyring,
       manifest: input.manifest,
       manifestHash: input.manifestHash,
       previousManifest: input.previousManifest,
@@ -271,6 +277,7 @@ function buildContainerMovePlanResult(input: {
 
 async function buildContainerMoveEventBody(input: {
   containerKeyEpochId: string;
+  keyring: ContainerKekKeyring;
   parentContainerId: string;
   parentManifestHash: string;
   predecessorBridge: ContainerKekPredecessorBridge;
@@ -280,6 +287,7 @@ async function buildContainerMoveEventBody(input: {
     parentContainerId: input.parentContainerId,
     parentManifestHash: input.parentManifestHash,
     containerKeyEpochId: input.containerKeyEpochId,
+    keyringHash: await computeContainerKekKeyringHash(input.keyring),
     predecessorBridgeHash: await computeContainerKekPredecessorBridgeHash(
       input.predecessorBridge,
     ),
@@ -352,16 +360,17 @@ async function buildMaterializedContainerMovePlan(
     destinationParent,
     source,
   });
-  const { containerKey, containerKeyEpochId, predecessorBridge } =
-    await buildContainerMoveRotation({
+  const { containerKey, containerKeyEpochId, keyring, predecessorBridge } =
+    await buildContainerRotationArtifacts({
       containerId: previousState.containerId,
+      currentKek: source.kek,
+      currentKeyMaterial: predecessorContainerKey,
       keyEpoch: source.kek.containerKeyEpoch + 1,
       override: input.containerKeyEpochId,
-      predecessorKeyMaterial: predecessorContainerKey,
-      currentKek: source.kek,
     });
   const body = await buildContainerMoveEventBody({
     containerKeyEpochId,
+    keyring,
     parentContainerId: destinationState.containerId,
     parentManifestHash: destinationParent.manifest.manifestHash,
     predecessorBridge,
@@ -410,6 +419,7 @@ async function buildMaterializedContainerMovePlan(
     event,
     eventHash,
     keyEpoch,
+    keyring,
     manifest,
     manifestHash,
     previousManifest: asContainerManifestBundle(source.manifest),

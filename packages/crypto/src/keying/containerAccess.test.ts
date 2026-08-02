@@ -20,6 +20,7 @@ import {
 } from "./testFixtures";
 
 const PREDECESSOR_BRIDGE_HASH = "0".repeat(64);
+const KEYRING_HASH = "1".repeat(64);
 
 test("verifyContainerAccessManifest accepts a signed child create under a writable parent", async () => {
   const adminUserId = "admin-user";
@@ -234,6 +235,7 @@ test("verifyContainerAccessManifest accepts writer rekeys without grant changes"
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId: "container-key-epoch-2",
+    keyringHash: KEYRING_HASH,
     predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
   };
   const event = await createVerifiedContainerAccessEvent({
@@ -291,6 +293,7 @@ test("verifyContainerAccessManifest rejects rekeys that change grants", async ()
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId: "container-key-epoch-2",
+    keyringHash: KEYRING_HASH,
     predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
   };
   const event = await createVerifiedContainerAccessEvent({
@@ -347,6 +350,7 @@ test("verifyContainerAccessManifest rejects rekeys that reuse the current KEK ep
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId: previous.state.containerKeyEpochId ?? "",
+    keyringHash: KEYRING_HASH,
     predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
   };
   const event = await createVerifiedContainerAccessEvent({
@@ -478,6 +482,7 @@ test("verifyContainerAccessManifest rejects moving a container under its descend
     parentContainerId: grandchild.state.containerId,
     parentManifestHash: grandchild.manifestHash,
     containerKeyEpochId: "child-key-epoch-2",
+    keyringHash: KEYRING_HASH,
     predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
   };
   const event = await createVerifiedContainerAccessEvent({
@@ -713,6 +718,7 @@ test("verifyContainerAccessManifest requires revokes to advance the KEK epoch", 
   const body: ContainerAccessEventBody = {
     eventType: "container.revoke",
     containerKeyEpochId: previous.state.containerKeyEpochId,
+    keyringHash: KEYRING_HASH,
     predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
     subjectType: "user",
     subjectId: "revoked-user",

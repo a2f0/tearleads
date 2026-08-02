@@ -34,6 +34,7 @@ import {
   isCompleteMultipartBlobStageResponse,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
+  isContainerKekLogResponse,
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,
   isCreateOrganizationGroupResponse,
@@ -1017,6 +1018,19 @@ export class ApiClient {
           isContainerWriterProjectionResponse,
           "GET",
         ),
+    );
+  }
+
+  /**
+   * The append-only rotation log for one container — the rebuild/repair
+   * read path. Never cached: it is fetched exactly when the served keyring
+   * failed verification and the ground truth is needed.
+   */
+  getContainerKekLog(containerId: string) {
+    return this.request(
+      `/containers/${pathSegment(containerId)}/kek-log`,
+      isContainerKekLogResponse,
+      "GET",
     );
   }
 

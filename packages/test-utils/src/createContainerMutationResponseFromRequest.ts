@@ -158,7 +158,7 @@ export async function createContainerMutationResponseFromRequest(
       return bundle;
     },
   );
-  const predecessorKeks = predecessorKeksFromRequest({
+  const keyring = keyringFromRequest({
     currentKeyEpoch: keyEpoch,
     previousKek,
     request,
@@ -195,7 +195,8 @@ export async function createContainerMutationResponseFromRequest(
         await computeContainerKekRecipientTargetHash(recipientTargets),
       parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
       containerManifestHistory,
-      predecessorKeks,
+      keyring,
+      historicalKeyEpochs: [],
       recipientTargets: recipientTargets as unknown as Record<
         string,
         unknown
@@ -206,14 +207,16 @@ export async function createContainerMutationResponseFromRequest(
   };
 }
 
-function predecessorKeksFromRequest(input: {
+function keyringFromRequest(input: {
   readonly currentKeyEpoch: ContainerKeyEpoch;
   readonly previousKek?: ProjectionKek | undefined;
   readonly request: ContainerMutationRequest;
-}): ProjectionKek["predecessorKeks"] {
-  const bridge = input.request.predecessorBridge;
-  if (bridge === null) {
-    return input.previousKek?.predecessorKeks ?? [];
+}): ProjectionKek["keyring"] {
+  const keyring = input.request.keyring;
+  if (keyring === null) {
+    // An unchanged epoch keeps its stored keyring, exactly as the server
+    // returns the stored artifact for non-rotating mutations.
+    return input.previousKek?.keyring ?? null;
   }
   if (!input.previousKek) {
     throw new Error(
@@ -221,27 +224,12 @@ function predecessorKeksFromRequest(input: {
     );
   }
   if (
-    Reflect.get(bridge, "predecessorContainerKeyEpochId") !==
-      input.previousKek.containerKeyEpochId ||
-    Reflect.get(bridge, "successorContainerKeyEpochId") !==
-      input.currentKeyEpoch.id
+    Reflect.get(keyring, "containerKeyEpochId") !== input.currentKeyEpoch.id
   ) {
     throw new Error(
-      "Container mutation response fixture predecessor bridge is inconsistent",
+      "Container mutation response fixture keyring is inconsistent",
     );
   }
 
-  return [
-    {
-      accessManifestHash: input.previousKek.accessManifestHash,
-      bridge,
-      containerId: input.previousKek.containerId,
-      containerKeyEpoch: input.previousKek.containerKeyEpoch,
-      containerKeyEpochId: input.previousKek.containerKeyEpochId,
-      keyEpoch: input.previousKek.keyEpoch,
-      keyEpochHash: input.previousKek.keyEpochHash,
-      parentContainerKeyEpochId: input.previousKek.parentContainerKeyEpochId,
-    },
-    ...input.previousKek.predecessorKeks,
-  ];
+  return keyring as unknown as ProjectionKek["keyring"];
 }

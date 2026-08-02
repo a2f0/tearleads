@@ -542,6 +542,11 @@ export type PersistedDocumentSyncState = PersistedDocumentCreateState;
 
 export interface UnwrappedContainerKek {
   containerId: string;
-  keyEpochHash: string;
+  /**
+   * Null for keyring-recovered historical keys whose epoch record was not
+   * shipped: they decrypt content-key envelopes by epoch id, but cannot
+   * satisfy a parent wrap, which binds to the epoch record hash.
+   */
+  keyEpochHash: string | null;
   keyMaterial: Uint8Array;
 }

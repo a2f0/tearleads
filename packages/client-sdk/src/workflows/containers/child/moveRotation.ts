@@ -1,17 +1,65 @@
-import type { ContainerKekPredecessorBridge } from "@tearleads/crypto";
-import { createContainerKekPredecessorBridge } from "@tearleads/crypto";
+import type {
+  ContainerKekKeyring,
+  ContainerKekPredecessorBridge,
+} from "@tearleads/crypto";
+import {
+  createContainerKekPredecessorBridge,
+  normalizeContainerKekKeyring,
+  openContainerKekKeyring,
+  sealContainerKekKeyring,
+} from "@tearleads/crypto";
 import type { ContainerKekResponse } from "@tearleads/validators/response";
 import { resolveContainerKekEpochId } from "../../../data/containers/shared/events";
 
-export async function buildContainerMoveRotation(input: {
+/**
+ * Re-seals the container's key history for a rotation: the previous
+ * keyring's entries plus the retiring key, under the new epoch's key. One
+ * decrypt and one seal regardless of container age.
+ */
+export async function sealRotationKeyring(input: {
   containerId: string;
   currentKek: ContainerKekResponse;
+  currentKeyMaterial: Uint8Array;
+  keyEpoch: number;
+  successorContainerKey: Uint8Array;
+  successorContainerKeyEpochId: string;
+}): Promise<ContainerKekKeyring> {
+  const previousEntries = input.currentKek.keyring
+    ? await openContainerKekKeyring({
+        keyEpoch: input.currentKek.containerKeyEpoch,
+        keyring: normalizeContainerKekKeyring(input.currentKek.keyring),
+        successorContainerKey: input.currentKeyMaterial,
+      })
+    : [];
+  return sealContainerKekKeyring({
+    containerId: input.containerId,
+    entries: [
+      ...previousEntries,
+      {
+        containerKeyEpochId: input.currentKek.containerKeyEpochId,
+        keyMaterial: input.currentKeyMaterial,
+      },
+    ],
+    keyEpoch: input.keyEpoch,
+    successorContainerKey: input.successorContainerKey,
+    successorContainerKeyEpochId: input.successorContainerKeyEpochId,
+  });
+}
+
+/**
+ * Mints one container KEK rotation: fresh entropy for the new epoch, the
+ * write-once bridge to the retiring epoch, and the re-sealed keyring.
+ */
+export async function buildContainerRotationArtifacts(input: {
+  containerId: string;
+  currentKek: ContainerKekResponse;
+  currentKeyMaterial: Uint8Array;
   keyEpoch: number;
   override?: string | undefined;
-  predecessorKeyMaterial: Uint8Array;
 }): Promise<{
   containerKey: Uint8Array;
   containerKeyEpochId: string;
+  keyring: ContainerKekKeyring;
   predecessorBridge: ContainerKekPredecessorBridge;
 }> {
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
@@ -23,10 +71,18 @@ export async function buildContainerMoveRotation(input: {
   });
   const predecessorBridge = await createContainerKekPredecessorBridge({
     containerId: input.containerId,
-    predecessorContainerKey: input.predecessorKeyMaterial,
+    predecessorContainerKey: input.currentKeyMaterial,
     predecessorContainerKeyEpochId: input.currentKek.containerKeyEpochId,
     successorContainerKey: containerKey,
     successorContainerKeyEpochId: containerKeyEpochId,
   });
-  return { containerKey, containerKeyEpochId, predecessorBridge };
+  const keyring = await sealRotationKeyring({
+    containerId: input.containerId,
+    currentKek: input.currentKek,
+    currentKeyMaterial: input.currentKeyMaterial,
+    keyEpoch: input.keyEpoch,
+    successorContainerKey: containerKey,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
+  return { containerKey, containerKeyEpochId, keyring, predecessorBridge };
 }

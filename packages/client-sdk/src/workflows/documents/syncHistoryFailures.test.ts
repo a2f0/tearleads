@@ -61,7 +61,8 @@ async function expectDamagedPredecessorReadToFail(
         : [],
       keyEpoch: keyEpoch as unknown as Record<string, unknown>,
       keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
-      predecessorKeks: [],
+      keyring: null,
+      historicalKeyEpochs: [],
       wraps: currentKek.wraps.map((wrap) => ({
         ...wrap,
         containerKeyEpochId,

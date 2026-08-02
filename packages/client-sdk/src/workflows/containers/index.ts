@@ -6,6 +6,7 @@ export {
   createRemoteContainer,
 } from "./child/create";
 export { moveRemoteContainer } from "./child/move";
+export { rekeyRemoteContainer } from "./child/rekey";
 export {
   buildMaterializedContainerRevokePlan,
   revokeRemoteContainer,

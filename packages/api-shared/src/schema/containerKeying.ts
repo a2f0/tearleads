@@ -54,12 +54,21 @@ export const containerKeyEpochs = pgTable(
     keyEpoch: integer("key_epoch").notNull(),
     accessManifestHash: text("access_manifest_hash").notNull(),
     parentContainerKeyEpochId: text("parent_container_key_epoch_id"),
-    // A successor epoch authenticates and encrypts its immediate predecessor.
-    // Following this chain from the current KEK makes document history
-    // decryptable without retaining access to superseded recipient envelopes.
+    // The append-only bridge log: a successor epoch authenticates and
+    // encrypts its immediate predecessor, written once at rotation and never
+    // rewritten. This is the ground truth the sealed keyring snapshot is
+    // rebuilt from; hot reads never walk it. Suite and version are persisted
+    // per row so a future suite rotation is representable.
     predecessorContainerKeyEpochId: text("predecessor_container_key_epoch_id"),
+    predecessorBridgeVersion: integer("predecessor_bridge_version"),
+    predecessorBridgeSuite: text("predecessor_bridge_suite"),
     predecessorBridgeIv: text("predecessor_bridge_iv"),
     wrappedPredecessorKey: text("wrapped_predecessor_key"),
+    // The snapshot: the container's complete predecessor key history sealed
+    // under this epoch's KEK. Immutable per epoch; historical rows retain
+    // their keyrings as the fallback ladder during rebuild.
+    keyringIv: text("keyring_iv"),
+    sealedKeyring: text("sealed_keyring"),
     createdByEventHash: text("created_by_event_hash").notNull(),
     createdByManifestHash: text("created_by_manifest_hash").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -80,11 +89,11 @@ export const containerKeyEpochs = pgTable(
       table.predecessorContainerKeyEpochId,
     ),
     check(
-      "container_key_epochs_predecessor_bridge_complete",
+      "container_key_epochs_rotation_artifacts_complete",
       sql`(
-        (${table.predecessorContainerKeyEpochId} is null and ${table.predecessorBridgeIv} is null and ${table.wrappedPredecessorKey} is null)
+        (${table.predecessorContainerKeyEpochId} is null and ${table.predecessorBridgeVersion} is null and ${table.predecessorBridgeSuite} is null and ${table.predecessorBridgeIv} is null and ${table.wrappedPredecessorKey} is null and ${table.keyringIv} is null and ${table.sealedKeyring} is null)
         or
-        (${table.predecessorContainerKeyEpochId} is not null and ${table.predecessorBridgeIv} is not null and ${table.wrappedPredecessorKey} is not null)
+        (${table.predecessorContainerKeyEpochId} is not null and ${table.predecessorBridgeVersion} is not null and ${table.predecessorBridgeSuite} is not null and ${table.predecessorBridgeIv} is not null and ${table.wrappedPredecessorKey} is not null and ${table.keyringIv} is not null and ${table.sealedKeyring} is not null)
       )`,
     ),
   ],

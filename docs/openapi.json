@@ -149,6 +149,18 @@
                           "properties": {},
                           "additionalProperties": {}
                         },
+                        "keyring": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "manifest": {
                           "type": "object",
                           "properties": {},
@@ -314,6 +326,7 @@
                         "event",
                         "expectedManifestHash",
                         "keyEpoch",
+                        "keyring",
                         "manifest",
                         "predecessorBridge",
                         "principalPolicies",

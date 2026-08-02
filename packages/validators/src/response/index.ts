@@ -45,17 +45,21 @@ export {
 } from "./blob";
 export {
   type ContainerDeleteResponse,
+  type ContainerKekKeyringWireResponse,
+  type ContainerKekLogEpochResponse,
+  type ContainerKekLogResponse,
   type ContainerKekResponse,
   type ContainerMutationResponse,
   type ContainerSummary,
   type ContainerSyncTombstone,
   type ContainerWriterProjectionResponse,
+  type HistoricalContainerKeyEpochResponse,
   isContainerDeleteResponse,
+  isContainerKekLogResponse,
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,
   isListContainersResponse,
   type ListContainersResponse,
-  type PredecessorContainerKekResponse,
 } from "./container";
 export {
   type ContainerCreateWithMetadataDocumentResponse,

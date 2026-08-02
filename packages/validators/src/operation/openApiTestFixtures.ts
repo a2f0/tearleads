@@ -21,6 +21,7 @@ export function createContainerMutation() {
     expectedManifestHash: "manifest-hash",
     futureContainerMutationField: true,
     keyEpoch: { epoch: 1 },
+    keyring: null,
     manifest: { containerId: "container-1" },
     predecessorBridge: null,
     principalPolicies: [],

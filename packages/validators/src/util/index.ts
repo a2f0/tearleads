@@ -9,6 +9,15 @@ export {
   isOptionalAccessManifestBundleWireArray,
 } from "./accessManifestBundle";
 export {
+  isContainerKekKeyringWireRecord,
+  MAX_CONTAINER_KEY_EPOCH,
+  MAX_SEALED_CONTAINER_KEK_KEYRING_BASE64_LENGTH,
+  SEALED_CONTAINER_KEK_KEYRING_AEAD_OVERHEAD_BYTES,
+  SEALED_CONTAINER_KEK_KEYRING_ENTRY_BYTES,
+  SEALED_CONTAINER_KEK_KEYRING_HEADER_BYTES,
+  sealedContainerKekKeyringBytes,
+} from "./containerKekKeyringWire";
+export {
   isSerializedKeyEnvelope,
   isSerializedKeyEnvelopeArray,
   type SerializedKeyEnvelope,

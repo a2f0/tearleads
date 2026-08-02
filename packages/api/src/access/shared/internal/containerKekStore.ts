@@ -8,6 +8,7 @@ import {
   containerKeyWraps,
 } from "@tearleads/api-shared/schema";
 import type {
+  ContainerKekKeyring,
   ContainerKekPredecessorBridge,
   ContainerKeyEpoch,
   ContainerKeyWrap,
@@ -17,6 +18,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
+  CONTAINER_KEK_KEYRING_SEAL_SUITE,
   CONTAINER_KEK_PREDECESSOR_WRAP_SUITE,
   verifyContainerKekState,
 } from "@tearleads/crypto";
@@ -25,6 +27,7 @@ import { selectOneOrThrow } from "./selectOneOrThrow";
 
 interface StoredContainerKeyEpoch extends ContainerKeyEpoch {
   readonly createdAt: Date;
+  readonly keyring: ContainerKekKeyring | null;
   readonly predecessorBridge: ContainerKekPredecessorBridge | null;
 }
 
@@ -34,6 +37,7 @@ interface StoredContainerKeyWrap extends ContainerKeyWrap {
 }
 
 interface StoreVerifiedContainerKekStateInput {
+  readonly keyring: ContainerKekKeyring | null;
   readonly predecessorBridge: ContainerKekPredecessorBridge | null;
   readonly verifiedState: VerifiedContainerKekState;
 }
@@ -50,10 +54,14 @@ function predecessorBridgeFromRow(
   row: typeof containerKeyEpochs.$inferSelect,
 ): ContainerKekPredecessorBridge | null {
   const predecessorId = row.predecessorContainerKeyEpochId;
+  const bridgeVersion = row.predecessorBridgeVersion;
+  const bridgeSuite = row.predecessorBridgeSuite;
   const bridgeIv = row.predecessorBridgeIv;
   const wrappedPredecessorKey = row.wrappedPredecessorKey;
   if (
     predecessorId === null &&
+    bridgeVersion === null &&
+    bridgeSuite === null &&
     bridgeIv === null &&
     wrappedPredecessorKey === null
   ) {
@@ -61,10 +69,18 @@ function predecessorBridgeFromRow(
   }
   if (
     predecessorId === null ||
+    bridgeVersion === null ||
+    bridgeSuite === null ||
     bridgeIv === null ||
     wrappedPredecessorKey === null
   ) {
     throw new Error("Container key predecessor bridge is incomplete");
+  }
+  if (
+    bridgeVersion !== 1 ||
+    bridgeSuite !== CONTAINER_KEK_PREDECESSOR_WRAP_SUITE
+  ) {
+    throw new Error("Container key predecessor bridge suite is unsupported");
   }
 
   return {
@@ -75,6 +91,28 @@ function predecessorBridgeFromRow(
     successorContainerKeyEpochId: row.id,
     iv: bridgeIv,
     wrappedKey: wrappedPredecessorKey,
+  };
+}
+
+function keyringFromRow(
+  row: typeof containerKeyEpochs.$inferSelect,
+): ContainerKekKeyring | null {
+  const keyringIv = row.keyringIv;
+  const sealedKeyring = row.sealedKeyring;
+  if (keyringIv === null && sealedKeyring === null) {
+    return null;
+  }
+  if (keyringIv === null || sealedKeyring === null) {
+    throw new Error("Container KEK keyring is incomplete");
+  }
+
+  return {
+    version: 1,
+    sealingSuite: CONTAINER_KEK_KEYRING_SEAL_SUITE,
+    containerId: row.containerId,
+    containerKeyEpochId: row.id,
+    iv: keyringIv,
+    sealed: sealedKeyring,
   };
 }
 
@@ -90,6 +128,7 @@ function toStoredContainerKeyEpoch(
     createdByEventHash: row.createdByEventHash,
     createdByManifestHash: row.createdByManifestHash,
     createdAt: row.createdAt,
+    keyring: keyringFromRow(row),
     predecessorBridge: predecessorBridgeFromRow(row),
   };
 }
@@ -110,6 +149,23 @@ function predecessorBridgesEqual(
     left.successorContainerKeyEpochId === right.successorContainerKeyEpochId &&
     left.iv === right.iv &&
     left.wrappedKey === right.wrappedKey
+  );
+}
+
+function keyringsEqual(
+  left: ContainerKekKeyring | null,
+  right: ContainerKekKeyring | null,
+): boolean {
+  if (left === null || right === null) {
+    return left === right;
+  }
+  return (
+    left.version === right.version &&
+    left.sealingSuite === right.sealingSuite &&
+    left.containerId === right.containerId &&
+    left.containerKeyEpochId === right.containerKeyEpochId &&
+    left.iv === right.iv &&
+    left.sealed === right.sealed
   );
 }
 
@@ -189,6 +245,7 @@ function containerKeyWrapConflictKey(
 async function ensureStoredContainerKeyEpochMatches(
   keyEpoch: ContainerKeyEpoch,
   predecessorBridge: ContainerKekPredecessorBridge | null,
+  keyring: ContainerKekKeyring | null,
   executor: DatabaseSession,
 ): Promise<void> {
   const storedEpoch = await getContainerKeyEpochById(keyEpoch.id, executor);
@@ -205,7 +262,8 @@ async function ensureStoredContainerKeyEpochMatches(
       keyEpoch.parentContainerKeyEpochId ||
     storedEpoch.createdByEventHash !== keyEpoch.createdByEventHash ||
     storedEpoch.createdByManifestHash !== keyEpoch.createdByManifestHash ||
-    !predecessorBridgesEqual(storedEpoch.predecessorBridge, predecessorBridge)
+    !predecessorBridgesEqual(storedEpoch.predecessorBridge, predecessorBridge) ||
+    !keyringsEqual(storedEpoch.keyring, keyring)
   ) {
     throw new Error("Container key epoch conflict");
   }
@@ -237,8 +295,14 @@ async function ensureStoredContainerKeyWrapMatches(
 async function insertContainerKeyEpoch(
   keyEpoch: ContainerKeyEpoch,
   predecessorBridge: ContainerKekPredecessorBridge | null,
+  keyring: ContainerKekKeyring | null,
   executor: DatabaseSession,
 ): Promise<void> {
+  if ((predecessorBridge === null) !== (keyring === null)) {
+    throw new Error(
+      "Container key epoch rotation artifacts must be stored together",
+    );
+  }
   const [insertedEpoch] = await executor
     .insert(containerKeyEpochs)
     .values({
@@ -249,8 +313,12 @@ async function insertContainerKeyEpoch(
       parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
       predecessorContainerKeyEpochId:
         predecessorBridge?.predecessorContainerKeyEpochId ?? null,
+      predecessorBridgeVersion: predecessorBridge?.version ?? null,
+      predecessorBridgeSuite: predecessorBridge?.wrappingSuite ?? null,
       predecessorBridgeIv: predecessorBridge?.iv ?? null,
       wrappedPredecessorKey: predecessorBridge?.wrappedKey ?? null,
+      keyringIv: keyring?.iv ?? null,
+      sealedKeyring: keyring?.sealed ?? null,
       createdByEventHash: keyEpoch.createdByEventHash,
       createdByManifestHash: keyEpoch.createdByManifestHash,
     })
@@ -261,6 +329,7 @@ async function insertContainerKeyEpoch(
     await ensureStoredContainerKeyEpochMatches(
       keyEpoch,
       predecessorBridge,
+      keyring,
       executor,
     );
   }
@@ -357,6 +426,7 @@ export async function storeVerifiedContainerKekStateInTransaction(
   await insertContainerKeyEpoch(
     input.verifiedState.keyEpoch,
     input.predecessorBridge,
+    input.keyring,
     tx,
   );
   await deleteStaleContainerKeyWraps(

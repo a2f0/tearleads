@@ -2,6 +2,7 @@ import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { createContainerKekLogRoute } from "./kekLog";
 import { createListContainerDocumentsRoute } from "./listContainerDocuments";
 import { createListContainerParentLanesRoute } from "./listContainerParentLanes";
 import { createContainerMutationsRoute } from "./mutations";
@@ -33,6 +34,10 @@ export function createContainersRouter({
   containersRouter.route(
     "/",
     createContainerWriterProjectionRoute({ requireAuth, runtime }),
+  );
+  containersRouter.route(
+    "/",
+    createContainerKekLogRoute({ requireAuth, runtime }),
   );
 
   return containersRouter;

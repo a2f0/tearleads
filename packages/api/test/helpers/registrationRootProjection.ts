@@ -53,7 +53,8 @@ export function rootContainerProjectionFromArtifacts(
         keyEpochHash: artifacts.keyEpochHash,
         keyTargetHash: artifacts.keyTargetHash,
         containerManifestHistory: [],
-        predecessorKeks: [],
+        keyring: null,
+        historicalKeyEpochs: [],
         parentContainerKeyEpochId: null,
         recipientTargets: toWireRecords(
           artifacts.recipientTargets,

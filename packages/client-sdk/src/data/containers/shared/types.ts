@@ -9,6 +9,7 @@ import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerMoveAccessEventBody,
+  ContainerRekeyAccessEventBody,
   ContainerRevokeAccessEventBody,
   ContainerUserRecipientKey,
   ReferencedPrincipalHead,
@@ -223,6 +224,37 @@ export interface ContainerRevokePlan {
 export interface MaterializedContainerRevokePlan {
   containerKey: Uint8Array;
   plan: ContainerRevokePlan;
+}
+
+export interface ContainerRekeyPlan {
+  body: ContainerRekeyAccessEventBody;
+  containerId: string;
+  containerKeyEpochId: string;
+  event: AccessEvent;
+  eventHash: string;
+  keyEpoch: ContainerKeyEpoch;
+  manifest: AccessManifest;
+  manifestHash: string;
+  previousManifest: AccessManifestBundleWire;
+  request: ContainerMutationRequest;
+  state: ContainerAccessManifestState;
+  userRecipientKeys: ContainerUserRecipientKey[];
+  wraps: ContainerKeyWrap[];
+}
+
+export interface MaterializedContainerRekeyPlan {
+  containerKey: Uint8Array;
+  plan: ContainerRekeyPlan;
+}
+
+export interface ContainerRekeyApi {
+  getContainerWriterProjection(
+    containerId: string,
+  ): Promise<ContainerWriterProjectionResponse | null>;
+  rekeyContainer(
+    containerId: string,
+    input: ContainerMutationRequest,
+  ): Promise<ContainerMutationResponse | null>;
 }
 
 export interface ContainerMovePlan {

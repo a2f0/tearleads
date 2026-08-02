@@ -107,6 +107,7 @@ function buildContainerCreateRequest(input: {
     ),
     keyEpoch: readCanonicalRecord(input.keyEpoch, "Container create key epoch"),
     predecessorBridge: null,
+    keyring: null,
     wraps: readCanonicalRecords(input.wraps, "Container create wraps"),
     parentKekState: readCanonicalRecord(
       input.parentKek,
@@ -388,7 +389,8 @@ export function childContainerWriterProjectionFromCreatePlan(input: {
         keyTargetHash: plan.keyTargetHash,
         containerManifestHistory: [],
         parentContainerKeyEpochId: parentKek.containerKeyEpochId,
-        predecessorKeks: [],
+        keyring: null,
+        historicalKeyEpochs: [],
         recipientTargets: readCanonicalRecords(
           plan.recipientTargets,
           "Container child recipient targets",

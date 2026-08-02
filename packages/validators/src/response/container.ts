@@ -8,6 +8,7 @@ import {
   hasNumberProperty,
   hasStringProperty,
   isAccessManifestBundleWireResponse,
+  isContainerKekKeyringWireRecord,
   isRecordArray,
 } from "../util";
 import {
@@ -20,10 +21,27 @@ import {
 } from "./principal";
 import { isSyncWatermark, type SyncWatermark } from "./syncWatermark";
 
-/** A superseded KEK reached by decrypting its successor's mandatory bridge. */
-export interface PredecessorContainerKekResponse {
+/**
+ * The container's sealed predecessor key history. Opening it under the
+ * current KEK yields every retained historical KEK in one decrypt; the
+ * bridge log behind it is served only by the rebuild read path.
+ */
+export interface ContainerKekKeyringWireResponse {
+  version: number;
+  sealingSuite: string;
+  containerId: string;
+  containerKeyEpochId: string;
+  iv: string;
+  sealed: string;
+}
+
+/**
+ * A historical epoch record shipped only when an entry in the served path
+ * pins it as `parentContainerKeyEpochId`; content-key envelopes need no
+ * epoch record, so history stays off the hot wire otherwise.
+ */
+export interface HistoricalContainerKeyEpochResponse {
   accessManifestHash: string;
-  bridge: Record<string, unknown>;
   containerId: string;
   containerKeyEpoch: number;
   containerKeyEpochId: string;
@@ -37,8 +55,9 @@ export interface ContainerKekResponse {
   accessManifestHash: string;
   containerKeyEpochId: string;
   containerKeyEpoch: number;
-  /** Immediate predecessor first, followed by the verified bridge chain. */
-  predecessorKeks: PredecessorContainerKekResponse[];
+  /** Null exactly when `containerKeyEpoch` is 1. */
+  keyring: ContainerKekKeyringWireResponse | null;
+  historicalKeyEpochs: HistoricalContainerKeyEpochResponse[];
   keyEpoch: Record<string, unknown>;
   keyEpochHash: string;
   keyTargetHash: string;
@@ -48,19 +67,21 @@ export interface ContainerKekResponse {
   wraps: Record<string, unknown>[];
 }
 
-function isPredecessorContainerKekResponse(
+function isContainerKekKeyringWireResponse(
   value: unknown,
-): value is PredecessorContainerKekResponse {
-  const bridge = isPlainObject(value)
-    ? Reflect.get(value, "bridge")
-    : undefined;
+): value is ContainerKekKeyringWireResponse {
+  return isContainerKekKeyringWireRecord(value);
+}
+
+function isHistoricalContainerKeyEpochResponse(
+  value: unknown,
+): value is HistoricalContainerKeyEpochResponse {
   const keyEpoch = isPlainObject(value)
     ? Reflect.get(value, "keyEpoch")
     : undefined;
 
   return (
     isPlainObject(value) &&
-    isPlainObject(bridge) &&
     hasStringProperty(value, "accessManifestHash") &&
     value.accessManifestHash.length > 0 &&
     hasStringProperty(value, "containerId") &&
@@ -74,6 +95,68 @@ function isPredecessorContainerKekResponse(
     hasStringProperty(value, "keyEpochHash") &&
     value.keyEpochHash.length > 0 &&
     hasNullableStringProperty(value, "parentContainerKeyEpochId")
+  );
+}
+
+/**
+ * The append-only rotation log for one container: every epoch with its
+ * write-once bridge and sealed keyring. This is the rebuild/repair read
+ * path — hot reads use the projection keyring instead.
+ */
+export interface ContainerKekLogEpochResponse {
+  accessManifestHash: string;
+  bridge: Record<string, unknown> | null;
+  containerKeyEpoch: number;
+  containerKeyEpochId: string;
+  keyring: ContainerKekKeyringWireResponse | null;
+  parentContainerKeyEpochId: string | null;
+}
+
+export interface ContainerKekLogResponse {
+  containerId: string;
+  epochs: ContainerKekLogEpochResponse[];
+}
+
+function isContainerKekLogEpochResponse(
+  value: unknown,
+): value is ContainerKekLogEpochResponse {
+  const bridge = isPlainObject(value)
+    ? Reflect.get(value, "bridge")
+    : undefined;
+  const keyring = isPlainObject(value)
+    ? Reflect.get(value, "keyring")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "accessManifestHash") &&
+    value.accessManifestHash.length > 0 &&
+    Reflect.has(value, "bridge") &&
+    (bridge === null || isPlainObject(bridge)) &&
+    hasNumberProperty(value, "containerKeyEpoch") &&
+    Number.isInteger(value.containerKeyEpoch) &&
+    value.containerKeyEpoch > 0 &&
+    hasStringProperty(value, "containerKeyEpochId") &&
+    value.containerKeyEpochId.length > 0 &&
+    Reflect.has(value, "keyring") &&
+    (keyring === null || isContainerKekKeyringWireResponse(keyring)) &&
+    hasNullableStringProperty(value, "parentContainerKeyEpochId")
+  );
+}
+
+export function isContainerKekLogResponse(
+  value: unknown,
+): value is ContainerKekLogResponse {
+  const epochs = isPlainObject(value)
+    ? Reflect.get(value, "epochs")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "containerId") &&
+    value.containerId.length > 0 &&
+    Array.isArray(epochs) &&
+    epochs.every(isContainerKekLogEpochResponse)
   );
 }
 
@@ -215,14 +298,19 @@ function isContainerKekResponse(value: unknown): value is ContainerKekResponse {
     ? Reflect.get(value, "recipientTargets")
     : undefined;
   const wraps = isPlainObject(value) ? Reflect.get(value, "wraps") : undefined;
-  const predecessorKeks = isPlainObject(value)
-    ? Reflect.get(value, "predecessorKeks")
+  const keyring = isPlainObject(value)
+    ? Reflect.get(value, "keyring")
+    : undefined;
+  const historicalKeyEpochs = isPlainObject(value)
+    ? Reflect.get(value, "historicalKeyEpochs")
     : undefined;
 
   return (
     isPlainObject(value) &&
-    Array.isArray(predecessorKeks) &&
-    predecessorKeks.every(isPredecessorContainerKekResponse) &&
+    Reflect.has(value, "keyring") &&
+    (keyring === null || isContainerKekKeyringWireResponse(keyring)) &&
+    Array.isArray(historicalKeyEpochs) &&
+    historicalKeyEpochs.every(isHistoricalContainerKeyEpochResponse) &&
     hasStringProperty(value, "containerId") &&
     hasStringProperty(value, "accessManifestHash") &&
     value.accessManifestHash.length > 0 &&

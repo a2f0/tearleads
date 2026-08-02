@@ -203,6 +203,7 @@ function buildContainerShareRequest(input: {
     ),
     keyEpoch: readCanonicalRecord(input.keyEpoch, "Container share key epoch"),
     predecessorBridge: null,
+    keyring: null,
     wraps: readCanonicalRecords(input.wraps, "Container share wraps"),
     parentKekState:
       input.parentKek === null

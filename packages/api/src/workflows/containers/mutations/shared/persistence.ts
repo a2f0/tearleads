@@ -508,10 +508,8 @@ function containerKekResponseRecord(
   >,
   containerManifestHistory: Awaited<
     ReturnType<typeof loadMutationKekResponseHistory>
-  >["containerManifestHistory"],
-  predecessorKeks: Awaited<
-    ReturnType<typeof loadMutationKekResponseHistory>
-  >["predecessorKeks"],
+  >,
+  keyring: VerifiedContainerKekMutationState["keyring"],
 ): ContainerMutationResponse["containerKek"] {
   return {
     containerId: storedKekState.containerId,
@@ -522,7 +520,10 @@ function containerKekResponseRecord(
     keyEpochHash: storedKekState.keyEpochHash,
     keyTargetHash: storedKekState.keyTargetHash,
     parentContainerKeyEpochId: storedKekState.parentContainerKeyEpochId,
-    predecessorKeks,
+    keyring: keyring ? { ...keyring } : null,
+    // The mutation response carries only the mutated container's KEK; no
+    // descendant in this payload can pin one of its historical epochs.
+    historicalKeyEpochs: [],
     recipientTargets: storedKekState.recipientTargets.map(
       containerKekRecipientTargetRecord,
     ),
@@ -539,7 +540,8 @@ export async function persistVerifiedMutation(
   previousContainerPath?: readonly VerifiedContainerAccessManifest[],
 ): Promise<ContainerMutationResponse> {
   const { executor } = context;
-  const { predecessorBridge, verifiedState: kekState } = verifiedKekMutation;
+  const { keyring, predecessorBridge, verifiedState: kekState } =
+    verifiedKekMutation;
   const updatedAt = new Date();
 
   const container = await persistContainerStructure(
@@ -584,13 +586,16 @@ export async function persistVerifiedMutation(
 
   const storedKekState = await runConflictBoundary(() =>
     storeVerifiedContainerKekStateInTransaction(
-      { predecessorBridge, verifiedState: kekState },
+      { keyring, predecessorBridge, verifiedState: kekState },
       executor,
     ),
   );
 
-  const { containerManifestHistory, predecessorKeks } =
-    await loadMutationKekResponseHistory(context, manifest, kekState);
+  const containerManifestHistory = await loadMutationKekResponseHistory(
+    context,
+    manifest,
+    kekState,
+  );
   await appendOrganizationReadModelChangeInTransaction(executor, {
     organizationId: manifest.state.organizationId,
     lane: "grants",
@@ -622,7 +627,7 @@ export async function persistVerifiedMutation(
     containerKek: containerKekResponseRecord(
       storedKekState,
       containerManifestHistory,
-      predecessorKeks,
+      keyring,
     ),
     referencedPrincipalHeads: manifest.manifest.referencedPrincipalHeads.map(
       referencedPrincipalHeadRecord,

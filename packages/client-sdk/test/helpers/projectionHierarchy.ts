@@ -47,13 +47,9 @@ async function movePlanKek(input: {
   if (!destinationParentKek) {
     throw new Error("Expected destination parent KEK");
   }
-  const predecessorKek = input.sourceProjection.containerKeks.at(-1);
-  if (!predecessorKek) {
-    throw new Error("Expected source container KEK");
-  }
-  const predecessorBridge = input.plan.request.predecessorBridge;
-  if (!predecessorBridge) {
-    throw new Error("Expected move predecessor bridge");
+  const keyring = input.plan.request.keyring;
+  if (!keyring) {
+    throw new Error("Expected move keyring");
   }
   const recipientTargets: ContainerKekRecipientTarget[] = [
     {
@@ -74,19 +70,8 @@ async function movePlanKek(input: {
       await computeContainerKekRecipientTargetHash(recipientTargets),
     parentContainerKeyEpochId: input.plan.keyEpoch.parentContainerKeyEpochId,
     containerManifestHistory: [...input.manifestHistory],
-    predecessorKeks: [
-      {
-        accessManifestHash: predecessorKek.accessManifestHash,
-        bridge: predecessorBridge,
-        containerId: predecessorKek.containerId,
-        containerKeyEpoch: predecessorKek.containerKeyEpoch,
-        containerKeyEpochId: predecessorKek.containerKeyEpochId,
-        keyEpoch: predecessorKek.keyEpoch,
-        keyEpochHash: predecessorKek.keyEpochHash,
-        parentContainerKeyEpochId: predecessorKek.parentContainerKeyEpochId,
-      },
-      ...predecessorKek.predecessorKeks,
-    ],
+    keyring: keyring as unknown as ProjectionKek["keyring"],
+    historicalKeyEpochs: [],
     recipientTargets: recipientTargets as unknown as Record<string, unknown>[],
     wraps: input.plan.wraps as unknown as Record<string, unknown>[],
   };

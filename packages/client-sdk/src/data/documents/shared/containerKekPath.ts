@@ -8,7 +8,7 @@ import {
   assertUnwrappedContainerKekMatchesMaterialId,
   projectedUnreachablePredecessorEpochIds,
   projectionKekLabel,
-  unwrapPredecessorContainerKeksAtIndex,
+  unwrapKeyringContainerKeksAtIndex,
 } from "./containerKekPathHistory";
 import {
   type UnwrapContainerKekPathInput,
@@ -102,6 +102,9 @@ async function unwrapContainerKekFromParentWrap(input: {
     return null;
   }
 
+  if (parentKek.keyEpochHash === null) {
+    return null;
+  }
   const parentWrap = input.wraps.find(
     (wrap) =>
       wrap.recipientKind === "container" &&
@@ -166,13 +169,13 @@ function findProjectedContainerKek(
     if (current.containerKeyEpochId === containerKeyEpochId) {
       return { kek: current, label: projectionKekLabel(index) };
     }
-    const predecessor = current.predecessorKeks.find(
+    const historical = current.historicalKeyEpochs.find(
       (candidate) => candidate.containerKeyEpochId === containerKeyEpochId,
     );
-    if (predecessor) {
+    if (historical) {
       return {
-        kek: predecessor,
-        label: `${projectionKekLabel(index)} predecessor ${containerKeyEpochId}`,
+        kek: historical,
+        label: `${projectionKekLabel(index)} historical ${containerKeyEpochId}`,
       };
     }
   }
@@ -247,9 +250,9 @@ async function unwrapContainerKekAtIndex(input: {
   }
 
   try {
-    // Derive predecessors immediately so descendants pinned to an older parent
+    // Open the keyring immediately so descendants pinned to an older parent
     // epoch can still unwrap during the same path walk.
-    await unwrapPredecessorContainerKeksAtIndex({
+    await unwrapKeyringContainerKeksAtIndex({
       currentManifest,
       index: input.index,
       kek,
@@ -259,13 +262,14 @@ async function unwrapContainerKekAtIndex(input: {
         kek,
         unwrapped,
       ),
-      verifyBridgeCommitment: input.verifyBridgeCommitment,
+      verifyKeyringCommitment: input.verifyBridgeCommitment,
     });
     return null;
   } catch (error) {
-    // Historical bridge damage must not discard an independently verified
-    // current KEK. Keep any predecessors derived before the failure; if the
-    // target still cannot be reached, the caller surfaces this integrity error.
+    // Historical keyring damage must not discard an independently verified
+    // current KEK. If the target still cannot be reached, the caller
+    // surfaces this integrity error; the bridge log remains the recovery
+    // path for the orphaned epochs.
     return {
       containerId: kek.containerId,
       error:
