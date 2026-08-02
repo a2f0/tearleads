@@ -185,15 +185,6 @@ async function verifyRotationArtifacts(input: {
     executor,
   );
 
-  if (keyEpoch.keyEpoch > MAX_CONTAINER_KEY_EPOCH) {
-    // Runaway-rotation backstop, unreachable by legitimate use. Clients must
-    // not retry this from the outbox.
-    throw new ContainerMutationError(
-      "Container KEK rotation limit reached",
-      409,
-    );
-  }
-
   if (!currentEpoch) {
     return verifyInitialEpochArtifacts({ bridge, keyEpoch, keyring, manifest });
   }
@@ -214,6 +205,17 @@ async function verifyRotationArtifacts(input: {
       keyring: await getContainerKeyEpochKeyring(currentEpoch.id, executor),
       predecessorBridge: currentEpoch.predecessorBridge,
     };
+  }
+
+  // Applied only once this is identified as a NEW rotation, so an unchanged
+  // mutation on preexisting above-cap data is never rejected by the backstop.
+  if (keyEpoch.keyEpoch > MAX_CONTAINER_KEY_EPOCH) {
+    // Runaway-rotation backstop, unreachable by legitimate use. Clients must
+    // not retry this from the outbox.
+    throw new ContainerMutationError(
+      "Container KEK rotation limit reached",
+      409,
+    );
   }
 
   assertRotationEpochAdvance(keyEpoch, currentEpoch.keyEpoch);

@@ -342,36 +342,57 @@ test("the kek-log discloses no other member's envelopes", async () => {
   }
 }, 15_000);
 
-test("the kek-log omits principals absent from the requester's access path", async () => {
+test("the kek-log omits a removed member's retained envelope", async () => {
   const owner = createTestUser();
+  const removed = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
-  const { root } = await rotateRootTwice(owner);
+  await registerUser(removed);
+  await authenticate(removed);
+  const root = await bootstrapRoot(owner);
+
+  // Grant, then revoke. The revoked member's envelope is RETAINED — that is
+  // the protocol invariant — so it is exactly the disclosure this filter
+  // exists to prevent.
+  const grantRequest = await buildRootGrantRequest({
+    previous: root.bundle,
+    previousKekState: root.kekState,
+    recipient: removed,
+    signer: owner,
+  });
+  const grantResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(grantRequest),
+    },
+  );
+  expect(grantResponse.status).toBe(200);
 
   const log = (await (
     await getKekLog(root.kekState.containerId, owner.token)
   ).json()) as ContainerKekLogResponse;
 
-  // Every principal envelope served names a principal this requester's own
-  // resolved access path references. A group they were never in — or one
-  // removed from the path — is not disclosed just because its envelope is
-  // retained.
-  const pathPrincipalIds = new Set(
-    root.principalPolicies.map((policy) => policy.principalId),
-  );
+  // The other member's envelope exists in storage but is never served here.
+  expect(
+    log.epochs.some((epoch) =>
+      epoch.wraps.some((wrap) => wrap["recipientId"] === removed.userId),
+    ),
+  ).toBe(false);
   for (const epoch of log.epochs) {
     for (const wrap of epoch.wraps) {
-      if (
-        wrap["recipientKind"] === "group" ||
-        wrap["recipientKind"] === "organization"
-      ) {
-        expect(pathPrincipalIds.has(wrap["recipientId"] as string)).toBe(true);
+      if (wrap["recipientKind"] === "user") {
+        expect(wrap["recipientId"]).toBe(owner.userId);
       }
     }
   }
-}, 15_000);
+}, 20_000);
 
-test("the kek-log keeps a moved container's old-parent envelopes", async () => {
+test("the kek-log serves only parents this container inherited from", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -381,26 +402,14 @@ test("the kek-log keeps a moved container's old-parent envelopes", async () => {
     await getKekLog(root.kekState.containerId, owner.token)
   ).json()) as ContainerKekLogResponse;
 
-  // Every parent-container envelope served names a container this
-  // container's own key history actually inherited from — including a
-  // parent it has since moved away from, whose envelope is the only anchor
-  // for the epochs beneath a severed move bridge. Envelopes for unrelated
-  // containers are never served.
-  const inheritedParentEpochIds = new Set(
-    log.epochs
-      .map((epoch) => epoch.parentContainerKeyEpochId)
-      .filter((id): id is string => id !== null),
-  );
+  // A root inherits from nothing, so no parent-container envelope may be
+  // served for it. The scope is derived from this container's own epochs,
+  // which is what keeps a moved container's OLD parent in scope while
+  // unrelated containers stay out.
   for (const epoch of log.epochs) {
-    for (const wrap of epoch.wraps) {
-      if (wrap["recipientKind"] !== "container") {
-        continue;
-      }
-      // The wrap's recipient key epoch is one this container inherited from.
-      expect(
-        inheritedParentEpochIds.has(wrap["recipientKeyEpochId"] as string) ||
-          wrap["recipientId"] === root.kekState.containerId,
-      ).toBe(true);
-    }
+    expect(epoch.parentContainerKeyEpochId).toBeNull();
+    expect(
+      epoch.wraps.some((wrap) => wrap["recipientKind"] === "container"),
+    ).toBe(false);
   }
 }, 15_000);

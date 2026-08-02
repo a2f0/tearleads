@@ -3,7 +3,10 @@ import {
   computeContainerKekMaterialId,
   createContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
-import { MAX_CONTAINER_KEY_EPOCH } from "@tearleads/validators/util";
+import {
+  CONTAINER_KEK_LOG_PAGE_LIMIT,
+  MAX_CONTAINER_KEY_EPOCH,
+} from "@tearleads/validators/util";
 import {
   fetchContainerKekLog,
   rebuildKeyringEntriesFromLog,
@@ -259,11 +262,12 @@ test("a lying bridge does not mask a supplied anchor", async () => {
   expect(withAnchor.missingEpochIds).toEqual([]);
 });
 
-test("log paging stops at the protocol epoch ceiling", async () => {
+test("log paging rejects a short page claiming more", async () => {
   const containerId = crypto.randomUUID();
   let pages = 0;
 
-  // A hostile server that claims more forever with advancing epochs.
+  // One epoch per page with hasMore set would stretch the walk over 65,536
+  // round trips. Only a FINAL page may be short.
   await expect(
     fetchContainerKekLog({
       apiClient: {
@@ -289,6 +293,45 @@ test("log paging stops at the protocol epoch ceiling", async () => {
       },
       containerId,
     }),
-  ).rejects.toThrow("exceeds the maximum key epoch");
-  expect(pages).toBeLessThanOrEqual(MAX_CONTAINER_KEY_EPOCH);
+  ).rejects.toThrow("short but claims more");
+  // Rejected on the first page, not after thousands of round trips.
+  expect(pages).toBe(1);
+});
+
+test("log paging stops at the protocol epoch ceiling", async () => {
+  const containerId = crypto.randomUUID();
+  let pages = 0;
+
+  // A hostile server that claims more forever with advancing epochs.
+  await expect(
+    fetchContainerKekLog({
+      apiClient: {
+        getContainerKekLog: async (_id, options) => {
+          pages += 1;
+          const start = options?.afterKeyEpoch ?? 0;
+          return {
+            containerId,
+            hasMore: true,
+            epochs: Array.from(
+              { length: CONTAINER_KEK_LOG_PAGE_LIMIT },
+              (_value, index) => ({
+                accessManifestHash: "manifest",
+                bridge: null,
+                containerKeyEpoch: start + index + 1,
+                containerKeyEpochId: `tearleads.container-kek.v1.sha256:${"0".repeat(64)}`,
+                keyring: null,
+                parentContainerKeyEpochId: null,
+                wraps: [],
+              }),
+            ),
+          };
+        },
+      },
+      containerId,
+    }),
+  ).rejects.toThrow("maximum key epoch");
+  // Bounded by the page budget, not by the epoch count.
+  expect(pages).toBeLessThanOrEqual(
+    Math.ceil(MAX_CONTAINER_KEY_EPOCH / CONTAINER_KEK_LOG_PAGE_LIMIT) + 1,
+  );
 });

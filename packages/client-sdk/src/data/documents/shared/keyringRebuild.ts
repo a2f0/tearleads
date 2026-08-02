@@ -10,7 +10,10 @@ import type {
   ContainerKekLogEpochResponse,
   ContainerKekLogResponse,
 } from "@tearleads/validators/response";
-import { MAX_CONTAINER_KEY_EPOCH } from "@tearleads/validators/util";
+import {
+  CONTAINER_KEK_LOG_PAGE_LIMIT,
+  MAX_CONTAINER_KEY_EPOCH,
+} from "@tearleads/validators/util";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { normalizeContainerKeyWrap } from "./readers";
@@ -259,9 +262,18 @@ export async function fetchContainerKekLog(input: {
 }): Promise<AggregatedContainerKekLog> {
   const epochs: ContainerKekLogEpochResponse[] = [];
   let afterKeyEpoch = 0;
-  // A hostile server could claim `hasMore` forever with ever-advancing epoch
-  // numbers. The protocol caps lifetime rotations, so the walk is capped too.
+  // A hostile server could claim `hasMore` forever. Two independent caps
+  // bound the walk: the protocol's lifetime rotation ceiling, and a page
+  // budget — a server that advances one epoch per page cannot force 65,536
+  // round trips, because a non-final page must be full.
+  const maxPages =
+    Math.ceil(MAX_CONTAINER_KEY_EPOCH / CONTAINER_KEK_LOG_PAGE_LIMIT) + 1;
+  let pages = 0;
   while (afterKeyEpoch < MAX_CONTAINER_KEY_EPOCH) {
+    pages += 1;
+    if (pages > maxPages) {
+      throw new Error("Container KEK log exceeds its page budget");
+    }
     const page = await input.apiClient.getContainerKekLog(input.containerId, {
       afterKeyEpoch,
       ...(input.keyringForEpoch === undefined
@@ -271,7 +283,15 @@ export async function fetchContainerKekLog(input: {
     if (!page) {
       throw new Error("Container KEK log is unavailable");
     }
+    if (page.hasMore && page.epochs.length < CONTAINER_KEK_LOG_PAGE_LIMIT) {
+      // Only the final page may be short; a partial page claiming more is a
+      // server stretching the walk across extra round trips.
+      throw new Error("Container KEK log page is short but claims more");
+    }
     epochs.push(...page.epochs);
+    if (epochs.length > MAX_CONTAINER_KEY_EPOCH) {
+      throw new Error("Container KEK log exceeds the maximum key epoch");
+    }
     const lastEpoch = page.epochs.at(-1)?.containerKeyEpoch;
     // Validate before returning, so a final page cannot smuggle an
     // out-of-range epoch past the ceiling check.
