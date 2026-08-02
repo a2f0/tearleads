@@ -234,6 +234,28 @@ checked in `formal/container-keying/KeyringReachability.tla`. Supported
 clients generate fresh successor keys and round-trip both artifacts before
 sending a mutation.
 
+That recovery backstop is bounded by which envelopes the kek-log will serve,
+and the endpoint scopes them through the requester's **current** principal
+policies. Two consequences follow, both stated here rather than left implicit:
+
+- A member formerly authorized through a group that has since been removed
+  keeps a retained envelope on the old epochs, but the endpoint will not serve
+  it, because the group no longer appears in their current policy set. If every
+  bridge below that epoch is also severed, the epoch is unrecoverable for that
+  member even though the material still exists server-side.
+- The per-epoch envelope cap and the principal-scope cap rank candidates by
+  identity, not by whether the client can resolve them — resolvability depends
+  on principal-policy state at that epoch, which the server does not serve. A
+  requester with a very wide principal set can therefore be served envelopes
+  they cannot open while one they could open sorts past the cap.
+
+The requester's direct user envelope and their parent-container envelopes are
+scoped outside the principal cap and rank ahead of principal envelopes, so the
+anchors needing no policy state at all are never what a cap costs. Serving
+verified historical principal-policy state (issue #1941) is what would remove
+both limits; until then they are documented unrecoverable cases, not defects in
+the caps.
+
 All container KEK epochs use a
 `tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the
 decrypted KEK material matches the signed epoch id before using that KEK to
