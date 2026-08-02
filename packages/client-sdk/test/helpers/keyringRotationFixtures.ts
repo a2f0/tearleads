@@ -6,10 +6,7 @@ import {
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import type {
-  ContainerWriterProjectionResponse,
-  HistoricalContainerKeyEpochResponse,
-} from "@tearleads/validators/response";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { readContainerKeyEpoch } from "../../src/data/keyingProjectionVerification/readers";
 import {
   createUserContainerWrap,
@@ -29,8 +26,6 @@ export interface KeyringRotationFixture {
   /** Epoch ids in ascending epoch order (index i is epoch i + 1). */
   epochIds: string[];
   fixture: Awaited<ReturnType<typeof createWrappedProjection>>;
-  /** The verifiable epoch-1 record a descendant pin makes the server ship. */
-  historicalEpoch1: HistoricalContainerKeyEpochResponse;
   /** The current epoch's sealed keyring (all predecessor keys). */
   keyring: ContainerKekKeyring;
   predecessorEpochId: string;
@@ -62,15 +57,6 @@ export async function rotateRootKekKeyringFixture(
   );
   const predecessorKeyEpochHash =
     await computeContainerKeyEpochHash(predecessorKeyEpoch);
-  const historicalEpoch1: HistoricalContainerKeyEpochResponse = {
-    accessManifestHash: rootKek.accessManifestHash,
-    containerId: rootKek.containerId,
-    containerKeyEpoch: rootKek.containerKeyEpoch,
-    containerKeyEpochId: rootKek.containerKeyEpochId,
-    keyEpoch: rootKek.keyEpoch,
-    keyEpochHash: predecessorKeyEpochHash,
-    parentContainerKeyEpochId: null,
-  };
 
   const finalEpoch = rotations + 1;
   const entries: ContainerKekKeyringEntry[] = [];
@@ -127,7 +113,6 @@ export async function rotateRootKekKeyringFixture(
       },
     ],
     keyring,
-    historicalKeyEpochs: [historicalEpoch1],
     wraps: [
       await createUserContainerWrap({
         containerKeyEpochId: currentEpochId,
@@ -153,7 +138,6 @@ export async function rotateRootKekKeyringFixture(
     epochIds,
     epochKeys,
     fixture,
-    historicalEpoch1,
     keyring,
     predecessorEpochId: rootKek.containerKeyEpochId,
     predecessorKeyEpochHash,

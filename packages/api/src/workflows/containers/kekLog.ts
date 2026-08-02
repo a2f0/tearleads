@@ -1,14 +1,26 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import type { ContainerKekKeyring } from "@tearleads/crypto";
 import type { ContainerKekLogResponse } from "@tearleads/validators/response";
 import { CONTAINER_KEK_LOG_PAGE_LIMIT } from "@tearleads/validators/util";
 import {
-  getContainerKeyEpochById,
   getContainerKeyEpochKeyring,
+  getContainerKeyEpochsById,
   getCurrentContainerKeyEpoch,
   listContainerKeyEpochPage,
   listContainerKeyWrapsByEpochId,
 } from "../../access/read/containerKekStore";
 import { resolveContainerAccessProjection } from "./writerProjection";
+
+type StoredWrap =
+  Awaited<ReturnType<typeof listContainerKeyWrapsByEpochId>> extends Map<
+    string,
+    infer Wrap
+  >
+    ? Wrap extends readonly (infer Item)[]
+      ? Item
+      : never
+    : never;
+
 import { createContainerWriterProjectionContext } from "./writerProjection/context";
 import { ContainerWriterProjectionError } from "./writerProjection/types";
 
@@ -40,6 +52,35 @@ import { ContainerWriterProjectionError } from "./writerProjection/types";
  * recipient envelopes are not served" guarantee for everyone but the
  * requester themselves.
  */
+function logEpochResponse(input: {
+  epoch: Awaited<
+    ReturnType<typeof listContainerKeyEpochPage>
+  >["epochs"][number];
+  keyring: ContainerKekKeyring | null;
+  wraps: readonly StoredWrap[];
+}): ContainerKekLogResponse["epochs"][number] {
+  return {
+    accessManifestHash: input.epoch.accessManifestHash,
+    bridge: input.epoch.predecessorBridge
+      ? { ...input.epoch.predecessorBridge }
+      : null,
+    containerKeyEpoch: input.epoch.keyEpoch,
+    containerKeyEpochId: input.epoch.id,
+    keyring: input.keyring ? { ...input.keyring } : null,
+    parentContainerKeyEpochId: input.epoch.parentContainerKeyEpochId,
+    wraps: input.wraps.map((wrap) => ({
+      containerKeyEpochId: wrap.containerKeyEpochId,
+      recipientKind: wrap.recipientKind,
+      recipientId: wrap.recipientId,
+      recipientKeyEpochId: wrap.recipientKeyEpochId,
+      recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+      kemCipherText: wrap.kemCipherText,
+      wrappedKey: wrap.wrappedKey,
+      wrapManifestHash: wrap.wrapManifestHash,
+    })),
+  };
+}
+
 export async function runContainerKekLogWorkflow(
   db: ApiDatabase,
   input: {
@@ -100,19 +141,18 @@ export async function runContainerKekLogWorkflow(
       : null;
     // Scope applied in SQL: the page never materializes envelopes the
     // requester could not use as an anchor.
-    const historicalParentContainerIds = (
-      await Promise.all(
+    // One batched lookup: a full page would otherwise issue a query per
+    // epoch just to name its parent container.
+    const parentEpochIds = [
+      ...new Set(
         page
           .map((epoch) => epoch.parentContainerKeyEpochId)
-          .filter((id): id is string => id !== null)
-          .map(
-            async (parentEpochId) =>
-              (
-                await getContainerKeyEpochById(parentEpochId, tx)
-              )?.containerId,
-          ),
-      )
-    ).filter((id): id is string => id !== undefined);
+          .filter((id): id is string => id !== null),
+      ),
+    ];
+    const historicalParentContainerIds = [
+      ...(await getContainerKeyEpochsById(parentEpochIds, tx)).values(),
+    ].map((epoch) => epoch.containerId);
 
     const wrapsByEpochId = await listContainerKeyWrapsByEpochId(
       page.map((epoch) => epoch.id),
@@ -140,27 +180,13 @@ export async function runContainerKekLogWorkflow(
     return {
       containerId: input.containerId,
       hasMore,
-      epochs: page.map((epoch) => ({
-        accessManifestHash: epoch.accessManifestHash,
-        bridge: epoch.predecessorBridge ? { ...epoch.predecessorBridge } : null,
-        containerKeyEpoch: epoch.keyEpoch,
-        containerKeyEpochId: epoch.id,
-        keyring:
-          requestedKeyring && epoch.id === requestedEpoch?.id
-            ? { ...requestedKeyring }
-            : null,
-        parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
-        wraps: (wrapsByEpochId.get(epoch.id) ?? []).map((wrap) => ({
-          containerKeyEpochId: wrap.containerKeyEpochId,
-          recipientKind: wrap.recipientKind,
-          recipientId: wrap.recipientId,
-          recipientKeyEpochId: wrap.recipientKeyEpochId,
-          recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-          kemCipherText: wrap.kemCipherText,
-          wrappedKey: wrap.wrappedKey,
-          wrapManifestHash: wrap.wrapManifestHash,
-        })),
-      })),
+      epochs: page.map((epoch) =>
+        logEpochResponse({
+          epoch,
+          keyring: epoch.id === requestedEpoch?.id ? requestedKeyring : null,
+          wraps: wrapsByEpochId.get(epoch.id) ?? [],
+        }),
+      ),
     };
   });
 }

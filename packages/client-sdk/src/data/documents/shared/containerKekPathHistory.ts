@@ -1,7 +1,6 @@
 import {
   computeContainerKekKeyringHash,
   computeContainerKekMaterialId,
-  computeContainerKeyEpochHash,
   isContainerKekMaterialId,
   KeyingVerificationError,
   normalizeContainerAccessEventBody,
@@ -19,7 +18,6 @@ import { readManifestContainerId } from "./readers";
 import type { UnwrappedContainerKek } from "./types";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
-type HistoricalKeyEpoch = ProjectionKek["historicalKeyEpochs"][number];
 
 export function projectionKekLabel(index: number): string {
   return `Container writer projection KEK[${index}]`;
@@ -54,46 +52,6 @@ function sameContainerManifestHistory(kek: ProjectionKek) {
   return kek.containerManifestHistory.filter(
     (bundle) => readManifestContainerId(bundle) === kek.containerId,
   );
-}
-
-/**
- * Verifies a historical epoch record the projection shipped because a
- * descendant pins it as `parentContainerKeyEpochId`: the record must belong
- * to this container, predate the current epoch, anchor to a verified
- * manifest, and hash to its committed record hash.
- */
-async function assertHistoricalKeyEpoch(input: {
-  index: number;
-  kek: ProjectionKek;
-  record: HistoricalKeyEpoch;
-  verifiedManifestHashes: ReadonlySet<string>;
-}): Promise<void> {
-  if (
-    input.record.containerId !== input.kek.containerId ||
-    input.record.containerKeyEpoch >= input.kek.containerKeyEpoch ||
-    !input.verifiedManifestHashes.has(input.record.accessManifestHash)
-  ) {
-    throw new Error(
-      `${projectionKekLabel(input.index)} historical epoch is inconsistent`,
-    );
-  }
-  const keyEpoch = readContainerKeyEpoch(
-    input.record.keyEpoch,
-    `${projectionKekLabel(input.index)} historical key epoch`,
-  );
-  if (
-    keyEpoch.id !== input.record.containerKeyEpochId ||
-    keyEpoch.containerId !== input.record.containerId ||
-    keyEpoch.keyEpoch !== input.record.containerKeyEpoch ||
-    keyEpoch.accessManifestHash !== input.record.accessManifestHash ||
-    keyEpoch.parentContainerKeyEpochId !==
-      input.record.parentContainerKeyEpochId ||
-    (await computeContainerKeyEpochHash(keyEpoch)) !== input.record.keyEpochHash
-  ) {
-    throw new Error(
-      `${projectionKekLabel(input.index)} historical key epoch is invalid`,
-    );
-  }
 }
 
 /**
@@ -193,24 +151,14 @@ async function openVerifiedKeyringEntries(input: {
   // id — fresh key, matching commitment — for an epoch the container never
   // had. Anchor every entry the projection can name to the epoch id its
   // signed history actually committed; anything else is a forged epoch.
-  const committedEpochIds = committedHistoricalEpochIds(kek, input.index);
   await Promise.all(
-    entries.map(async (entry, ordinal) => {
-      await verifyContainerKekKeyringEntry({
+    entries.map((entry, ordinal) =>
+      verifyContainerKekKeyringEntry({
         containerId: kek.containerId,
         entry,
         keyEpoch: ordinal + 1,
-      });
-      const committedId = committedEpochIds.get(ordinal + 1);
-      if (
-        committedId !== undefined &&
-        committedId !== entry.containerKeyEpochId
-      ) {
-        throw new Error(
-          `${projectionKekLabel(input.index)} keyring entry for epoch ${ordinal + 1} is not the committed epoch`,
-        );
-      }
-    }),
+      }),
+    ),
   );
 
   // Every epoch id the signed manifest history names must be present in the
@@ -253,100 +201,28 @@ export function manifestHistoryEpochIds(kek: ProjectionKek): Set<string> {
   return epochIds;
 }
 
-/**
- * Epoch ids the projection's signed material commits to, keyed by epoch
- * number: the current epoch's own record plus the historical epoch records a
- * descendant pin makes the server ship. Manifest-history ids are checked
- * separately, by set membership, because a manifest state names an epoch id
- * without naming its epoch number.
- */
-export function committedHistoricalEpochIds(
-  kek: ProjectionKek,
-  index: number,
-): Map<number, string> {
-  const committed = new Map<number, string>([
-    [kek.containerKeyEpoch, kek.containerKeyEpochId],
-  ]);
-  for (const record of kek.historicalKeyEpochs) {
-    const existing = committed.get(record.containerKeyEpoch);
-    if (existing !== undefined && existing !== record.containerKeyEpochId) {
-      // Two records claiming one epoch number with different ids is an
-      // equivocating projection; taking either would pick a winner the
-      // signed history never chose.
-      throw new Error(
-        `${projectionKekLabel(index)} historical epochs disagree at epoch ${record.containerKeyEpoch}`,
-      );
-    }
-    committed.set(record.containerKeyEpoch, record.containerKeyEpochId);
-  }
-  return committed;
-}
-
-async function verifyHistoricalRecordCoverage(input: {
-  entries: Awaited<ReturnType<typeof openContainerKekKeyring>>;
-  index: number;
-  kek: ProjectionKek;
-}): Promise<Map<string, HistoricalKeyEpoch>> {
-  const verifiedManifestHashes = new Set([
-    input.kek.accessManifestHash,
-    ...sameContainerManifestHistory(input.kek).map(
-      (bundle) => bundle.manifestHash,
-    ),
-  ]);
-  const recordsByEpochId = new Map<string, HistoricalKeyEpoch>();
-  const entryEpochIds = new Set(
-    input.entries.map((entry) => entry.containerKeyEpochId),
-  );
-  for (const record of input.kek.historicalKeyEpochs) {
-    await assertHistoricalKeyEpoch({
-      index: input.index,
-      kek: input.kek,
-      record,
-      verifiedManifestHashes,
-    });
-    // Checked before any entry is admitted so a projection whose pinned
-    // historical record is absent from the keyring fails closed without
-    // partially materializing history.
-    if (!entryEpochIds.has(record.containerKeyEpochId)) {
-      throw new Error(
-        `${projectionKekLabel(input.index)} historical epoch is not in the keyring`,
-      );
-    }
-    recordsByEpochId.set(record.containerKeyEpochId, record);
-  }
-  return recordsByEpochId;
-}
-
 function admitKeyringEntry(input: {
   entry: Awaited<ReturnType<typeof openContainerKekKeyring>>[number];
   index: number;
   kek: ProjectionKek;
   keksByEpochId: Map<string, UnwrappedContainerKek>;
-  record: HistoricalKeyEpoch | undefined;
 }): void {
-  const { entry, kek, record } = input;
+  const { entry, kek } = input;
   const cached = input.keksByEpochId.get(entry.containerKeyEpochId);
   if (cached) {
-    if (
-      cached.containerId !== kek.containerId ||
-      (cached.keyEpochHash !== null &&
-        record &&
-        cached.keyEpochHash !== record.keyEpochHash)
-    ) {
+    if (cached.containerId !== kek.containerId) {
       throw new Error(
         `${projectionKekLabel(input.index)} cached historical KEK is inconsistent`,
       );
     }
-    if (cached.keyEpochHash !== null && !record) {
-      return;
-    }
+    return;
   }
   input.keksByEpochId.set(entry.containerKeyEpochId, {
     containerId: kek.containerId,
-    // Parent-wrap matching binds to the epoch record hash, so only epochs
-    // whose records shipped can satisfy a pinned parent wrap; every entry
-    // still serves content-key unwrapping by epoch id alone.
-    keyEpochHash: record ? record.keyEpochHash : null,
+    // Descendants are verified against their parent's CURRENT epoch, so a
+    // historical KEK never satisfies a parent wrap; it serves content-key
+    // unwrapping by epoch id alone.
+    keyEpochHash: null,
     keyMaterial: entry.keyMaterial,
   });
 }
@@ -375,11 +251,6 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
     if (kek.containerKeyEpoch !== 1) {
       throw new Error(`${projectionKekLabel(input.index)} keyring is missing`);
     }
-    if (kek.historicalKeyEpochs.length > 0) {
-      throw new Error(
-        `${projectionKekLabel(input.index)} historical epochs are unreachable`,
-      );
-    }
     return;
   }
 
@@ -390,18 +261,12 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
     successorKeyMaterial,
     verifyKeyringCommitment: input.verifyKeyringCommitment,
   });
-  const recordsByEpochId = await verifyHistoricalRecordCoverage({
-    entries,
-    index: input.index,
-    kek,
-  });
   for (const entry of entries) {
     admitKeyringEntry({
       entry,
       index: input.index,
       kek,
       keksByEpochId: input.keksByEpochId,
-      record: recordsByEpochId.get(entry.containerKeyEpochId),
     });
   }
 }
@@ -414,9 +279,7 @@ export function projectedUnreachablePredecessorEpochIds(input: {
   kek: ProjectionKek;
   keksByEpochId: ReadonlyMap<string, UnwrappedContainerKek>;
 }): string[] {
-  const projectedEpochIds = new Set(
-    input.kek.historicalKeyEpochs.map((record) => record.containerKeyEpochId),
-  );
+  const projectedEpochIds = new Set<string>();
   for (const bundle of sameContainerManifestHistory(input.kek)) {
     const state = readCanonicalRecord(
       bundle.state,

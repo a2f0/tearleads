@@ -515,7 +515,6 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
             previousManifest as unknown as ContainerWriterProjectionResponse["path"][number],
           ],
           keyring,
-          historicalKeyEpochs: [],
         },
       ],
     };
@@ -917,7 +916,6 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
         parentContainerKeyEpochId: null,
         containerManifestHistory: [],
         keyring: null,
-        historicalKeyEpochs: [],
         recipientTargets: recipientTargets as unknown as Record<
           string,
           unknown

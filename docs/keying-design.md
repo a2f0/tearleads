@@ -465,6 +465,12 @@ epoch ids, access-manifest hashes, and parent epoch references. The design
 accepts that metadata disclosure as part of history-inclusive access; only the
 old plaintext KEKs and content remain sealed.
 
+Descendants are always verified against their parent's **current** KEK epoch:
+lazy rekey requires a post-change descendant epoch to be materialized before
+writes are accepted, so a served path never pins a historical parent epoch and
+the projection ships no historical epoch records. Historical KEKs serve
+content-key unwrapping by epoch id alone.
+
 History delivery is **one round trip and one decrypt** regardless of rotation
 count — that is the property the chain lacked, where reaching epoch 1 meant a
 serial walk through every intermediate unwrap. The work itself is not free and
@@ -474,11 +480,7 @@ epoch count. What changes is the shape — one bulk decrypt plus independent,
 parallelizable entry checks, rather than a dependent chain of round-trip-order
 unwraps where each step gates the next. At the epoch cap the sealed keyring is
 about 4 MB, which is why the kek-log serves at most one historical keyring per
-request. Historical
-epoch *records* ride the projection only when a descendant path entry pins an
-older parent epoch, because a child's parent wrap binds to the parent epoch's
-record hash; content-key envelopes address epochs by id alone and need no
-records. Rotation pays the linear cost instead — the rotator opens the
+request. Rotation pays the linear cost instead — the rotator opens the
 previous keyring and re-seals it plus the retiring key under the new KEK —
 which is one decrypt, one seal, and tens of bytes per retained epoch.
 

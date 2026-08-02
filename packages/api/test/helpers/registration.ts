@@ -835,7 +835,6 @@ function childContainerProjectionFromArtifacts(input: {
         keyTargetHash: input.child.keyTargetHash,
         containerManifestHistory: [],
         keyring: null,
-        historicalKeyEpochs: [],
         parentContainerKeyEpochId: parentKek.containerKeyEpochId,
         recipientTargets: toWireRecords(
           input.child.recipientTargets,

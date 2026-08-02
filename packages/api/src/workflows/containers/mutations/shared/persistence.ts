@@ -521,9 +521,6 @@ function containerKekResponseRecord(
     keyTargetHash: storedKekState.keyTargetHash,
     parentContainerKeyEpochId: storedKekState.parentContainerKeyEpochId,
     keyring: keyring ? { ...keyring } : null,
-    // The mutation response carries only the mutated container's KEK; no
-    // descendant in this payload can pin one of its historical epochs.
-    historicalKeyEpochs: [],
     recipientTargets: storedKekState.recipientTargets.map(
       containerKekRecipientTargetRecord,
     ),

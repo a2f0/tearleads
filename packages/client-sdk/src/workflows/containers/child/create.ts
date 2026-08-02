@@ -390,7 +390,6 @@ export function childContainerWriterProjectionFromCreatePlan(input: {
         containerManifestHistory: [],
         parentContainerKeyEpochId: parentKek.containerKeyEpochId,
         keyring: null,
-        historicalKeyEpochs: [],
         recipientTargets: readCanonicalRecords(
           plan.recipientTargets,
           "Container child recipient targets",

@@ -169,15 +169,6 @@ function findProjectedContainerKek(
     if (current.containerKeyEpochId === containerKeyEpochId) {
       return { kek: current, label: projectionKekLabel(index) };
     }
-    const historical = current.historicalKeyEpochs.find(
-      (candidate) => candidate.containerKeyEpochId === containerKeyEpochId,
-    );
-    if (historical) {
-      return {
-        kek: historical,
-        label: `${projectionKekLabel(index)} historical ${containerKeyEpochId}`,
-      };
-    }
   }
   return null;
 }

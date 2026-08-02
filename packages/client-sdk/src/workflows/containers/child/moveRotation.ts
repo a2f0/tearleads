@@ -12,10 +12,7 @@ import {
 } from "@tearleads/crypto";
 import type { ContainerKekResponse } from "@tearleads/validators/response";
 import { resolveContainerKekEpochId } from "../../../data/containers/shared/events";
-import {
-  committedHistoricalEpochIds,
-  manifestHistoryEpochIds,
-} from "../../../data/documents/shared/containerKekPathHistory";
+import { manifestHistoryEpochIds } from "../../../data/documents/shared/containerKekPathHistory";
 
 /**
  * A rotation must never launder history it did not verify: an
@@ -47,18 +44,6 @@ export async function verifyKeyringEntriesForSeal(
   );
   if (!currentKek) {
     return;
-  }
-  const committed = committedHistoricalEpochIds(currentKek, 0);
-  for (const [ordinal, entry] of entries.entries()) {
-    const committedId = committed.get(ordinal + 1);
-    if (
-      committedId !== undefined &&
-      committedId !== entry.containerKeyEpochId
-    ) {
-      throw new Error(
-        `Container KEK keyring entry for epoch ${ordinal + 1} is not the committed epoch`,
-      );
-    }
   }
   const entryIds = new Set(entries.map((entry) => entry.containerKeyEpochId));
   for (const historicalId of manifestHistoryEpochIds(currentKek)) {

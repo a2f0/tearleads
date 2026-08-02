@@ -196,7 +196,6 @@ export async function createContainerMutationResponseFromRequest(
       parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
       containerManifestHistory,
       keyring,
-      historicalKeyEpochs: [],
       recipientTargets: recipientTargets as unknown as Record<
         string,
         unknown

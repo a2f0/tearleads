@@ -17,10 +17,7 @@ import {
 } from "./writerProjection/accessPaths";
 import { createContainerWriterProjectionContext } from "./writerProjection/context";
 import { loadContainerKekState } from "./writerProjection/kek";
-import {
-  loadContainerKekKeyring,
-  loadHistoricalContainerKeyEpoch,
-} from "./writerProjection/keyringDelivery";
+import { loadContainerKekKeyring } from "./writerProjection/keyringDelivery";
 import {
   loadPrincipalPoliciesForAccessPaths,
   verifiedPrincipalPolicyReferenceCacheKeys,
@@ -75,9 +72,10 @@ async function resolveContainerProjectionWithAccess(input: {
 
   // Current access is history-inclusive. Each path KEK carries the sealed
   // keyring for its epoch; opening it under the current KEK yields every
-  // retained historical KEK without a chain walk. Historical epoch records
-  // ship only when the child path entry pins an older parent epoch, because
-  // its parent wrap binds to that epoch's record hash.
+  // retained historical KEK without a chain walk. Descendants are verified
+  // against their parent's CURRENT epoch (lazy rekey must materialize a
+  // post-change descendant epoch before writes), so no historical parent
+  // epoch record is ever part of a served path.
   const containerKeks: ContainerWriterProjectionResponse["containerKeks"] = [];
   for (const index of access.verifiedPath.keys()) {
     const kekState = containerKekStates[index];
@@ -88,24 +86,7 @@ async function resolveContainerProjectionWithAccess(input: {
       containerKeyEpochId: kekState.state.containerKeyEpochId,
       context,
     });
-    const historicalKeyEpochs = [];
-    const pinnedParentEpochId =
-      containerKekStates[index + 1]?.state.parentContainerKeyEpochId;
-    if (
-      pinnedParentEpochId &&
-      pinnedParentEpochId !== kekState.state.containerKeyEpochId
-    ) {
-      historicalKeyEpochs.push(
-        await loadHistoricalContainerKeyEpoch({
-          containerKeyEpochId: pinnedParentEpochId,
-          context,
-          expectedContainerId: kekState.state.containerId,
-        }),
-      );
-    }
-    containerKeks.push(
-      containerKekResponse(kekState, keyring, historicalKeyEpochs),
-    );
+    containerKeks.push(containerKekResponse(kekState, keyring));
   }
 
   return {

@@ -71,7 +71,6 @@ async function movePlanKek(input: {
     parentContainerKeyEpochId: input.plan.keyEpoch.parentContainerKeyEpochId,
     containerManifestHistory: [...input.manifestHistory],
     keyring: keyring as unknown as ProjectionKek["keyring"],
-    historicalKeyEpochs: [],
     recipientTargets: recipientTargets as unknown as Record<string, unknown>[],
     wraps: input.plan.wraps as unknown as Record<string, unknown>[],
   };

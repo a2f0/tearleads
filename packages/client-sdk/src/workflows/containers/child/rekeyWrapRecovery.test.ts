@@ -18,6 +18,12 @@ import {
 import { sealRotationKeyring } from "./moveRotation";
 import { rekeyRemoteContainer } from "./rekey";
 
+/** Variable-key read: the index-signature rule and the literal-key lint
+ * disagree about `record.field`, and a variable key satisfies both. */
+function wrapField(wrap: Record<string, unknown>, key: string): unknown {
+  return wrap[key];
+}
+
 test("group-only historical wraps fail closed on a pristine client", async () => {
   const parent = await createParentProjection();
   const epoch1Kek = parent.projection.containerKeks.at(-1);
@@ -162,8 +168,7 @@ test("a keyring entry claiming an uncommitted epoch id is rejected", async () =>
       containerId: parent.projection.containerId,
       currentKek: {
         ...epoch2Kek,
-        // The signed history that names epoch 1's real id.
-        historicalKeyEpochs: [],
+        // The signed manifest history that names epoch 1's real id.
         containerManifestHistory: parent.projection.path,
         keyring: forged as unknown as (typeof epoch2Kek)["keyring"],
       },
@@ -227,7 +232,8 @@ test("a corrupt direct envelope reports corruption, not an unreachable key", asy
 
   const ownWrap = epoch1Kek.wraps.find(
     (wrap) =>
-      wrap["recipientKind"] === "user" && wrap["recipientId"] === parent.userId,
+      wrapField(wrap, "recipientKind") === "user" &&
+      wrapField(wrap, "recipientId") === parent.userId,
   );
   if (!ownWrap) {
     throw new Error("Expected the requester's own epoch-1 wrap");
@@ -365,7 +371,7 @@ test("an unreachable principal wrap does not mask a usable parent wrap", async (
   expect(recovered.keyMaterial).toEqual(childKey);
 });
 
-test("a repair override carrying a forged epoch id is rejected", async () => {
+test("a repair override inventing a predecessor epoch is rejected", async () => {
   const parent = await createParentProjection();
   const epoch1Kek = parent.projection.containerKeks.at(-1);
   if (!epoch1Kek) {
@@ -373,8 +379,9 @@ test("a repair override carrying a forged epoch id is rejected", async () => {
   }
   const database = await createTestExecSql("keyring-repair-forgery");
 
-  // A "rebuilt" override whose epoch-1 entry is self-consistent but names a
-  // different epoch than the projection's signed history commits to.
+  // A "rebuilt" override whose entry is self-consistent — fresh material with
+  // an id that commits to it — but claims a predecessor of epoch 1, which has
+  // none. The repair may not seal a history the container never had.
   const forgedKey = crypto.getRandomValues(new Uint8Array(32));
   const forgedEntry = {
     containerKeyEpochId: await computeContainerKekMaterialId({
@@ -402,5 +409,5 @@ test("a repair override carrying a forged epoch id is rejected", async () => {
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
-  ).rejects.toThrow("is not the committed epoch");
+  ).rejects.toThrow("exactly one entry per predecessor epoch");
 });

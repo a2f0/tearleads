@@ -255,6 +255,15 @@ function shareManifestHistory(input: {
   return [...byHash.values()];
 }
 
+function readCanonicalRecordOrNull(
+  value: unknown,
+  label: string,
+): Record<string, unknown> | null {
+  return value === null || value === undefined
+    ? null
+    : readCanonicalRecord(value, label);
+}
+
 function buildContainerSharePlanResult(input: {
   body: ContainerGrantAccessEventBody;
   containerManifestHistory: readonly AccessManifestBundleWire[];
@@ -287,11 +296,10 @@ function buildContainerSharePlanResult(input: {
     keyEpoch,
     manifest: input.manifest,
     manifestHash: input.manifestHash,
-    previousKeyring: input.previousProjection.containerKeks.at(-1)?.keyring
-      ? ({
-          ...input.previousProjection.containerKeks.at(-1)?.keyring,
-        } as Record<string, unknown>)
-      : null,
+    previousKeyring: readCanonicalRecordOrNull(
+      input.previousProjection.containerKeks.at(-1)?.keyring ?? null,
+      "Container share previous keyring",
+    ),
     previousManifest: input.previousManifest,
     recipientTarget: input.recipientTarget,
     request: buildContainerShareRequest({

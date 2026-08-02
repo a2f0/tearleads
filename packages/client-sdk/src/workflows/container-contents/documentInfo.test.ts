@@ -31,7 +31,6 @@ function createDocumentWriterProjection(): DocumentWriterProjectionResponse {
             parentContainerKeyEpochId: null,
             containerManifestHistory: [],
             keyring: null,
-            historicalKeyEpochs: [],
             recipientTargets: [{}],
             wraps: [{}],
           },

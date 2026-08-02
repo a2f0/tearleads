@@ -2981,7 +2981,6 @@ test("POST /containers/:containerId/rekey materializes a writer KEK rotation", a
   expect(rekeyed.containerKek.keyring).toEqual(
     request.keyring as ContainerMutationResponse["containerKek"]["keyring"],
   );
-  expect(rekeyed.containerKek.historicalKeyEpochs).toEqual([]);
   expect(rekeyed.containerKek.recipientTargets).toEqual([
     {
       recipientKind: "container",

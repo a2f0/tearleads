@@ -71,7 +71,6 @@ export function createContainerMutationResponse(): ContainerMutationResponse {
       containerKeyEpochId: "container-key-epoch-id",
       containerKeyEpoch: 1,
       keyring: null,
-      historicalKeyEpochs: [],
       keyEpoch: { containerKeyEpochId: "container-key-epoch-id" },
       keyEpochHash: "key-epoch-hash",
       keyTargetHash: "key-target-hash",

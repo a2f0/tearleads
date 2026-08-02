@@ -64,7 +64,6 @@ test("the projection ships the sealed keyring in place of predecessor KEKs", asy
   expect(initial.containerKeyEpoch).toBe(1);
   // Epoch 1 has no history to seal, so its projection carries no keyring.
   expect(initial.keyring).toBeNull();
-  expect(initial.historicalKeyEpochs).toEqual([]);
   expect("predecessorKeks" in initial).toBe(false);
 
   const { revokedKek } = await shareAndRevokeRoot({ owner, root });

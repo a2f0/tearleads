@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import {
   computeContainerKekMaterialId,
-  computeContainerKeyEpochHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   encryptWithDek,
   sealContainerKekKeyring,
@@ -11,7 +10,6 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
-  HistoricalContainerKeyEpochResponse,
 } from "@tearleads/validators/response";
 import { fixtureHash } from "../../../../test/helpers/documentFixtures";
 import {
@@ -19,7 +17,6 @@ import {
   rotateRootKekKeyringFixture,
   tamperSealedKeyring,
 } from "../../../../test/helpers/keyringRotationFixtures";
-import { readContainerKeyEpoch } from "../../keyingProjectionVerification/readers";
 import {
   collectContainerKeksForDocumentSync,
   DocumentHistoryUnavailableError,
@@ -65,7 +62,7 @@ async function wrapContentKeyToEpoch1(rotated: KeyringRotationFixture) {
         containerId: rotated.successor.containerId,
         containerKeyEpoch: 1,
         containerKeyEpochId: rotated.predecessorEpochId,
-        containerManifestHash: rotated.historicalEpoch1.accessManifestHash,
+        containerManifestHash: rotated.successor.accessManifestHash,
         wrappedKey: bytesToBase64(wrapped.ciphertext),
         wrappingMetadata: {
           suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
@@ -77,26 +74,6 @@ async function wrapContentKeyToEpoch1(rotated: KeyringRotationFixture) {
 
   return { bundle, contentKey };
 }
-
-test("unwrapContainerKekPath derives history and then resolves a descendant pinned to it", async () => {
-  const rotated = await rotateRootKekKeyringFixture();
-  const unwrapped = await unwrapContainerKekPath({
-    projection: {
-      ...rotated.fixture.projection,
-      containerKeks: [rotated.successor, rotated.childKek],
-    },
-    secretKey: rotated.fixture.secretKey,
-    trustedLocalProjection: true,
-  });
-
-  expect(Array.from(unwrapped.get(rotated.currentEpochId) ?? [])).toEqual(
-    Array.from(rotated.currentKey),
-  );
-  expect(Array.from(unwrapped.get(rotated.predecessorEpochId) ?? [])).toEqual(
-    Array.from(rotated.fixture.rootContainerKek),
-  );
-  expect(unwrapped.has(rotated.childKek.containerKeyEpochId)).toBe(true);
-});
 
 test("cold unwrap recovers every epoch of a twice-rotated container from the keyring", async () => {
   const rotated = await rotateRootKekKeyringFixture(2);
@@ -146,8 +123,8 @@ test("document projection shares keyring-recovered keys across authorizing paths
     damagedAlone.predecessorFailuresByEpochId.has(rotated.predecessorEpochId),
   ).toBe(true);
 
-  // The intact path recovers the historical key first; the damaged copy then
-  // reuses it through the shared cache instead of walking any chain.
+  // The intact path recovers the historical key, and the damaged copy alongside
+  // it cannot take that recovery away: the shared map still serves the epoch.
   const collected = await collectContainerKeksForDocumentSync({
     writerProjection: writerProjectionFor([projection, damagedCopy]),
     secretKey: rotated.fixture.secretKey,
@@ -158,7 +135,16 @@ test("document projection shares keyring-recovered keys across authorizing paths
   expect(
     Array.from(collected.keksByEpochId.get(rotated.predecessorEpochId) ?? []),
   ).toEqual(Array.from(rotated.fixture.rootContainerKek));
-  expect(collected.predecessorFailuresByEpochId.size).toBe(0);
+
+  // A recovered key outranks the damaged copy's own history failure, so a
+  // document pinned to the historical epoch still reads.
+  const { bundle, contentKey } = await wrapContentKeyToEpoch1(rotated);
+  const unwrappedContentKey = await unwrapDocumentContentKeyFromBundle(
+    bundle,
+    collected.keksByEpochId,
+    collected.predecessorFailuresByEpochId,
+  );
+  expect(Array.from(unwrappedContentKey)).toEqual(Array.from(contentKey));
 });
 
 test("unwrapContainerKekPath rejects missing or inconsistent keyrings", async () => {
@@ -221,57 +207,6 @@ test("unwrapContainerKekPath rejects missing or inconsistent keyrings", async ()
   await expect(
     unwrap({ ...successor, keyring: substitutedKeyring }),
   ).rejects.toThrow("does not match its committed epoch id");
-});
-
-test("unwrapContainerKekPath rejects a pinned historical epoch missing from the keyring", async () => {
-  const rotated = await rotateRootKekKeyringFixture();
-  const fabricatedKey = crypto.getRandomValues(new Uint8Array(32));
-  const fabricatedId = await computeContainerKekMaterialId({
-    containerId: rotated.successor.containerId,
-    keyEpoch: 1,
-    keyMaterial: fabricatedKey,
-  });
-  const fabricatedKeyEpoch = {
-    ...readContainerKeyEpoch(
-      rotated.historicalEpoch1.keyEpoch,
-      "fabricated key epoch",
-    ),
-    id: fabricatedId,
-  };
-  const fabricatedRecord: HistoricalContainerKeyEpochResponse = {
-    ...rotated.historicalEpoch1,
-    containerKeyEpochId: fabricatedId,
-    keyEpoch: fabricatedKeyEpoch as unknown as Record<string, unknown>,
-    keyEpochHash: await computeContainerKeyEpochHash(fabricatedKeyEpoch),
-  };
-  const pinnedChild: ProjectionKek = {
-    ...rotated.childKek,
-    parentContainerKeyEpochId: fabricatedId,
-    keyEpoch: {
-      ...readContainerKeyEpoch(rotated.childKek.keyEpoch, "child key epoch"),
-      parentContainerKeyEpochId: fabricatedId,
-    } as unknown as Record<string, unknown>,
-  };
-
-  await expect(
-    unwrapContainerKekPath({
-      projection: {
-        ...rotated.fixture.projection,
-        containerKeks: [
-          {
-            ...rotated.successor,
-            historicalKeyEpochs: [rotated.historicalEpoch1, fabricatedRecord],
-          },
-          pinnedChild,
-        ],
-      },
-      secretKey: rotated.fixture.secretKey,
-      trustedLocalProjection: true,
-    }),
-    // Two records claiming epoch 1 with different ids: the projection
-    // equivocates about which epoch the pin names, and neither may be
-    // silently preferred.
-  ).rejects.toThrow("historical epochs disagree at epoch 1");
 });
 
 test("unwrapContainerKekPath retains a verified current KEK when history is corrupt", async () => {

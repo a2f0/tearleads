@@ -266,9 +266,7 @@ to the new epoch with a ciphertext length exactly matching the epoch number
 that both artifact hashes match the signed event body. Epoch numbers above
 `MAX_CONTAINER_KEY_EPOCH` (65536) are rejected at rotation time as a
 runaway-rotation backstop. Writer projections are gated by current access and
-return the sealed keyring for each path epoch (null exactly at epoch 1),
-plus historical epoch records only where a descendant pins an older parent
-epoch. Consequently current document access includes retained history;
+return the sealed keyring for each path epoch (null exactly at epoch 1). Consequently current document access includes retained history;
 projections do not return superseded recipient envelopes or filter old epochs
 by requester membership era. `GET /containers/:containerId/kek-log` serves
 the append-only rotation log — every epoch with its write-once bridge and

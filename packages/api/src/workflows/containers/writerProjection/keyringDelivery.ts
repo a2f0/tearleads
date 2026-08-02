@@ -1,11 +1,8 @@
 import type { ContainerKekKeyring } from "@tearleads/crypto";
-import { computeContainerKeyEpochHash } from "@tearleads/crypto";
-import type { HistoricalContainerKeyEpochResponse } from "@tearleads/validators/response";
 import {
   getContainerKeyEpochById,
   getContainerKeyEpochKeyring,
 } from "../../../access/read/containerKekStore";
-import { containerKeyEpochRecord, stripContainerKeyEpoch } from "./records";
 import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
@@ -49,37 +46,4 @@ export async function loadContainerKekKeyring(input: {
     );
   }
   return keyring;
-}
-
-/**
- * Loads the epoch record a descendant path entry pins as its
- * `parentContainerKeyEpochId`. This is the only reason historical epoch
- * records ride the hot wire: content-key envelopes address epochs by id
- * alone, but a child's parent wrap binds to the parent epoch's record hash.
- */
-export async function loadHistoricalContainerKeyEpoch(input: {
-  readonly containerKeyEpochId: string;
-  readonly context: ContainerWriterProjectionContext;
-  readonly expectedContainerId: string;
-}): Promise<HistoricalContainerKeyEpochResponse> {
-  const epoch = await getContainerKeyEpochById(
-    input.containerKeyEpochId,
-    input.context.executor,
-  );
-  if (!epoch || epoch.containerId !== input.expectedContainerId) {
-    throw new ContainerWriterProjectionError(
-      "Container KEK historical epoch missing",
-      409,
-    );
-  }
-  const keyEpoch = stripContainerKeyEpoch(epoch);
-  return {
-    accessManifestHash: epoch.accessManifestHash,
-    containerId: epoch.containerId,
-    containerKeyEpoch: epoch.keyEpoch,
-    containerKeyEpochId: epoch.id,
-    keyEpoch: containerKeyEpochRecord(keyEpoch),
-    keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
-    parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
-  };
 }

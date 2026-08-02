@@ -104,6 +104,12 @@ function assertResponseIdentity(
   }
 }
 
+/** A rotation body commits a keyring hash; other bodies do not. */
+function readOptionalKeyringHash(body: object): string | null {
+  const value = Reflect.get(body, "keyringHash");
+  return typeof value === "string" ? value : null;
+}
+
 /**
  * The response's keyring must be the one this client's own signed event
  * committed to. Without this a server could echo a substituted snapshot and
@@ -114,9 +120,7 @@ async function assertAcknowledgedKeyring(
   plan: AuthoredContainerMutationHead,
   response: ContainerMutationResponse,
 ): Promise<void> {
-  const body = plan.body as { keyringHash?: unknown };
-  const committedHash =
-    typeof body.keyringHash === "string" ? body.keyringHash : null;
+  const committedHash = readOptionalKeyringHash(plan.body);
   const keyring = response.containerKek.keyring;
   if (committedHash === null) {
     // A non-rotating mutation keeps its epoch, so the echoed keyring must be

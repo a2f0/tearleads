@@ -94,7 +94,6 @@ async function expectDamagedPredecessorReadToFail(
       keyEpoch: keyEpoch as unknown as Record<string, unknown>,
       keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
       keyring,
-      historicalKeyEpochs: [],
       wraps: [
         await createUserContainerWrap({
           containerKeyEpochId,

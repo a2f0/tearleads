@@ -1,7 +1,7 @@
 {
   "name": "@tearleads/client-sdk",
   "version": "0.1.0",
-  "description": "React-free Tearleads client runtime with trusted identity, guarded container-store composition, strict local organization, durable usage, verified policy-history projections, streamed encrypted blob storage, and sync diagnostics.",
+  "description": "React-free Tearleads client runtime with trusted identity, guarded container-store composition, strict local organization, durable usage, verified policy-history projections, container KEK history recovery, streamed encrypted blob storage, and sync diagnostics.",
   "private": true,
   "sideEffects": false,
   "type": "module",

@@ -390,7 +390,6 @@ export async function createParentProjection(input?: {
       await computeContainerKekRecipientTargetHash(recipientTargets),
     containerManifestHistory: [],
     keyring: null,
-    historicalKeyEpochs: [],
     parentContainerKeyEpochId: null,
     recipientTargets,
     wraps,

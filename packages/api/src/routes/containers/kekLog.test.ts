@@ -5,8 +5,10 @@ import {
   computeContainerKekMaterialId,
   unwrapContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
   type ContainerKekLogResponse,
+  type ContainerMutationResponse,
   isContainerKekLogResponse,
 } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -15,8 +17,17 @@ import {
   bootstrapRoot,
   buildRootGrantRequest,
 } from "../../../test/helpers/keyingWriterProjectionKit";
+import { buildRootRevokeRequest } from "../../../test/helpers/keyingWriterProjectionRevoke";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
+
+/**
+ * Reads a wire-record field. A variable key satisfies both the index-signature
+ * rule and the literal-key lint, which disagree about `record.field`.
+ */
+function wrapField(wrap: Record<string, unknown>, key: string): unknown {
+  return wrap[key];
+}
 
 async function getKekLog(
   containerId: string,
@@ -142,15 +153,16 @@ test("GET /containers/:containerId/kek-log serves the full rotation log ascendin
     expect(
       epoch.wraps.some(
         (wrap) =>
-          wrap["containerKeyEpochId"] === epoch.containerKeyEpochId &&
-          typeof wrap["wrappedKey"] === "string" &&
-          typeof wrap["kemCipherText"] === "string",
+          wrapField(wrap, "containerKeyEpochId") ===
+            epoch.containerKeyEpochId &&
+          typeof wrapField(wrap, "wrappedKey") === "string" &&
+          typeof wrapField(wrap, "kemCipherText") === "string",
       ),
     ).toBe(true);
   }
   expect(
     log.epochs.every((epoch) =>
-      epoch.wraps.every((wrap) => wrap["recipientKind"] === "group"),
+      epoch.wraps.every((wrap) => wrapField(wrap, "recipientKind") === "group"),
     ),
   ).toBe(true);
   // Bounded by construction: this container fits one page.
@@ -321,7 +333,9 @@ test("the kek-log discloses no other member's envelopes", async () => {
   // The second member's direct envelope exists but is never served.
   expect(
     log.epochs.some((epoch) =>
-      epoch.wraps.some((wrap) => wrap["recipientId"] === second.userId),
+      epoch.wraps.some(
+        (wrap) => wrapField(wrap, "recipientId") === second.userId,
+      ),
     ),
   ).toBe(false);
 
@@ -331,12 +345,12 @@ test("the kek-log discloses no other member's envelopes", async () => {
   // member's user envelope is never disclosed.
   for (const epoch of log.epochs) {
     for (const wrap of epoch.wraps) {
-      const kind = wrap["recipientKind"];
+      const kind = wrapField(wrap, "recipientKind");
       expect(
         kind === "user" || kind === "group" || kind === "organization",
       ).toBe(true);
       if (kind === "user") {
-        expect(wrap["recipientId"]).toBe(owner.userId);
+        expect(wrapField(wrap, "recipientId")).toBe(owner.userId);
       }
     }
   }
@@ -372,21 +386,45 @@ test("the kek-log omits a removed member's retained envelope", async () => {
     },
   );
   expect(grantResponse.status).toBe(200);
+  const granted = (await grantResponse.json()) as ContainerMutationResponse;
+
+  // Revoke: the epoch rotates and the removed member's OLD envelope stays
+  // retained, which is the post-revocation disclosure this filter prevents.
+  const revokeRequest = await buildRootRevokeRequest({
+    previous: granted.accessManifest as unknown as AccessManifestBundleWire,
+    previousKekState: root.kekState,
+    revokedUser: removed,
+    signer: owner,
+  });
+  const revokeResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/revoke`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(revokeRequest),
+    },
+  );
+  expect(revokeResponse.status).toBe(200);
 
   const log = (await (
     await getKekLog(root.kekState.containerId, owner.token)
   ).json()) as ContainerKekLogResponse;
 
-  // The other member's envelope exists in storage but is never served here.
+  // The removed member's retained envelope is never served here.
   expect(
     log.epochs.some((epoch) =>
-      epoch.wraps.some((wrap) => wrap["recipientId"] === removed.userId),
+      epoch.wraps.some(
+        (wrap) => wrapField(wrap, "recipientId") === removed.userId,
+      ),
     ),
   ).toBe(false);
   for (const epoch of log.epochs) {
     for (const wrap of epoch.wraps) {
-      if (wrap["recipientKind"] === "user") {
-        expect(wrap["recipientId"]).toBe(owner.userId);
+      if (wrapField(wrap, "recipientKind") === "user") {
+        expect(wrapField(wrap, "recipientId")).toBe(owner.userId);
       }
     }
   }
@@ -409,7 +447,9 @@ test("the kek-log serves only parents this container inherited from", async () =
   for (const epoch of log.epochs) {
     expect(epoch.parentContainerKeyEpochId).toBeNull();
     expect(
-      epoch.wraps.some((wrap) => wrap["recipientKind"] === "container"),
+      epoch.wraps.some(
+        (wrap) => wrapField(wrap, "recipientKind") === "container",
+      ),
     ).toBe(false);
   }
 }, 15_000);

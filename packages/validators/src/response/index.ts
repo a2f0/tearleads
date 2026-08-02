@@ -53,7 +53,6 @@ export {
   type ContainerSummary,
   type ContainerSyncTombstone,
   type ContainerWriterProjectionResponse,
-  type HistoricalContainerKeyEpochResponse,
   isContainerDeleteResponse,
   isContainerKekLogResponse,
   isContainerMutationResponse,

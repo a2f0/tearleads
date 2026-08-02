@@ -444,7 +444,6 @@ export function rootContainerWriterProjectionFromCreatePlan(
         containerManifestHistory: [],
         parentContainerKeyEpochId: null,
         keyring: null,
-        historicalKeyEpochs: [],
         recipientTargets: readCanonicalRecords(
           plan.recipientTargets,
           "Container root recipient targets",

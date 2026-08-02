@@ -36,21 +36,6 @@ export interface ContainerKekKeyringWireResponse {
   sealed: string;
 }
 
-/**
- * A historical epoch record shipped only when an entry in the served path
- * pins it as `parentContainerKeyEpochId`; content-key envelopes need no
- * epoch record, so history stays off the hot wire otherwise.
- */
-export interface HistoricalContainerKeyEpochResponse {
-  accessManifestHash: string;
-  containerId: string;
-  containerKeyEpoch: number;
-  containerKeyEpochId: string;
-  keyEpoch: Record<string, unknown>;
-  keyEpochHash: string;
-  parentContainerKeyEpochId: string | null;
-}
-
 export interface ContainerKekResponse {
   containerId: string;
   accessManifestHash: string;
@@ -58,7 +43,6 @@ export interface ContainerKekResponse {
   containerKeyEpoch: number;
   /** Null exactly when `containerKeyEpoch` is 1. */
   keyring: ContainerKekKeyringWireResponse | null;
-  historicalKeyEpochs: HistoricalContainerKeyEpochResponse[];
   keyEpoch: Record<string, unknown>;
   keyEpochHash: string;
   keyTargetHash: string;
@@ -72,31 +56,6 @@ function isContainerKekKeyringWireResponse(
   value: unknown,
 ): value is ContainerKekKeyringWireResponse {
   return isContainerKekKeyringWireRecord(value);
-}
-
-function isHistoricalContainerKeyEpochResponse(
-  value: unknown,
-): value is HistoricalContainerKeyEpochResponse {
-  const keyEpoch = isPlainObject(value)
-    ? Reflect.get(value, "keyEpoch")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "accessManifestHash") &&
-    value.accessManifestHash.length > 0 &&
-    hasStringProperty(value, "containerId") &&
-    value.containerId.length > 0 &&
-    hasNumberProperty(value, "containerKeyEpoch") &&
-    Number.isInteger(value.containerKeyEpoch) &&
-    value.containerKeyEpoch > 0 &&
-    hasStringProperty(value, "containerKeyEpochId") &&
-    value.containerKeyEpochId.length > 0 &&
-    isPlainObject(keyEpoch) &&
-    hasStringProperty(value, "keyEpochHash") &&
-    value.keyEpochHash.length > 0 &&
-    hasNullableStringProperty(value, "parentContainerKeyEpochId")
-  );
 }
 
 /**
@@ -314,16 +273,11 @@ function isContainerKekResponse(value: unknown): value is ContainerKekResponse {
   const keyring = isPlainObject(value)
     ? Reflect.get(value, "keyring")
     : undefined;
-  const historicalKeyEpochs = isPlainObject(value)
-    ? Reflect.get(value, "historicalKeyEpochs")
-    : undefined;
 
   return (
     isPlainObject(value) &&
     Reflect.has(value, "keyring") &&
     (keyring === null || isContainerKekKeyringWireResponse(keyring)) &&
-    Array.isArray(historicalKeyEpochs) &&
-    historicalKeyEpochs.every(isHistoricalContainerKeyEpochResponse) &&
     hasStringProperty(value, "containerId") &&
     hasStringProperty(value, "accessManifestHash") &&
     value.accessManifestHash.length > 0 &&

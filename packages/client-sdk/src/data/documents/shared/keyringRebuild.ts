@@ -1,9 +1,10 @@
-import type { ContainerKekKeyringEntry } from "@tearleads/crypto";
+import type {
+  ContainerKekKeyringEntry,
+  ContainerKeyWrap,
+} from "@tearleads/crypto";
 import {
   computeContainerKekMaterialId,
   decryptWithDek,
-  normalizeContainerKekPredecessorBridge,
-  unwrapContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type {
@@ -16,7 +17,120 @@ import {
 } from "@tearleads/validators/util";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import type { AggregatedContainerKekLog } from "./keyringLogWalk";
 import { normalizeContainerKeyWrap } from "./readers";
+
+/**
+ * Splits an epoch's envelopes into the anchor kinds this requester could use:
+ * their own direct envelope, principal envelopes their policies may resolve,
+ * and parent-container envelopes. Anything else is not an identity anchor and
+ * is dropped, so it never produces a misleading failure.
+ */
+function partitionAnchorWraps(
+  wraps: readonly Record<string, unknown>[],
+  containerKeyEpochId: string,
+  userId: string,
+): {
+  directWraps: ContainerKeyWrap[];
+  epochWraps: ContainerKeyWrap[];
+  parentWraps: ContainerKeyWrap[];
+  principalWraps: ContainerKeyWrap[];
+} {
+  const forEpoch = wraps
+    .map((wrap) => normalizeContainerKeyWrap(wrap))
+    .filter((wrap) => wrap.containerKeyEpochId === containerKeyEpochId);
+  const directWraps = forEpoch.filter(
+    (wrap) => wrap.recipientKind === "user" && wrap.recipientId === userId,
+  );
+  const principalWraps = forEpoch.filter(
+    (wrap) =>
+      wrap.recipientKind === "group" || wrap.recipientKind === "organization",
+  );
+  const parentWraps = forEpoch.filter(
+    (wrap) => wrap.recipientKind === "container",
+  );
+  return {
+    directWraps,
+    epochWraps: [...directWraps, ...principalWraps, ...parentWraps],
+    parentWraps,
+    principalWraps,
+  };
+}
+
+/**
+ * Opens the first parent-container envelope whose parent epoch key the caller
+ * supplied. Reports whether any key was available, so a missing parent key is
+ * distinguishable from a corrupt envelope.
+ */
+async function openParentAnchor(
+  parentWraps: readonly ContainerKeyWrap[],
+  parentKeys: ReadonlyMap<string, Uint8Array>,
+): Promise<{
+  failure: unknown;
+  key: Uint8Array | null;
+  keyWasAvailable: boolean;
+}> {
+  let failure: unknown;
+  let keyWasAvailable = false;
+  for (const wrap of parentWraps) {
+    const parentKey = parentKeys.get(wrap.recipientKeyEpochId);
+    if (!parentKey) {
+      continue;
+    }
+    keyWasAvailable = true;
+    try {
+      return {
+        failure: undefined,
+        key: await decryptWithDek(
+          {
+            iv: base64ToBytes(wrap.kemCipherText),
+            ciphertext: base64ToBytes(wrap.wrappedKey),
+          },
+          parentKey,
+        ),
+        keyWasAvailable,
+      };
+    } catch (error) {
+      failure = error;
+    }
+  }
+  return { failure, key: null, keyWasAvailable };
+}
+
+/**
+ * Every anchor kind was tried; report the most specific reason. A wrap that
+ * was actually attempted and failed is corruption; one that could not be
+ * attempted names the key that was missing.
+ */
+function throwMostSpecificAnchorFailure(input: {
+  containerKeyEpoch: number;
+  directFailure: unknown;
+  hadParentWraps: boolean;
+  parentFailure: unknown;
+  parentKeyWasAvailable: boolean;
+  principalFailure: unknown;
+}): never {
+  if (input.directFailure !== undefined || input.parentFailure !== undefined) {
+    throw new HistoricalWrapUnavailableError(
+      input.containerKeyEpoch,
+      "corrupt-envelope",
+      input.directFailure ?? input.parentFailure,
+    );
+  }
+  if (input.principalFailure !== undefined) {
+    throw new HistoricalWrapUnavailableError(
+      input.containerKeyEpoch,
+      "principal-key-unreachable",
+      input.principalFailure,
+    );
+  }
+  throw new HistoricalWrapUnavailableError(
+    input.containerKeyEpoch,
+    input.hadParentWraps && !input.parentKeyWasAvailable
+      ? "parent-key-unavailable"
+      : "no-addressed-envelope",
+  );
+}
 
 /**
  * Raised when the requester holds no envelope they can open for a historical
@@ -100,120 +214,76 @@ export async function recoverKeyringEntryFromWraps(input: {
    */
   userId: string;
 }): Promise<ContainerKekKeyringEntry> {
-  const epochWraps = input.epoch.wraps
-    .map((wrap) => normalizeContainerKeyWrap(wrap))
-    .filter(
-      (wrap) => wrap.containerKeyEpochId === input.epoch.containerKeyEpochId,
+  const { directWraps, epochWraps, parentWraps, principalWraps } =
+    partitionAnchorWraps(
+      input.epoch.wraps,
+      input.epoch.containerKeyEpochId,
+      input.userId,
     );
-  // Only envelopes this requester could plausibly open: their own direct user
-  // envelope, or principal envelopes whose secret key their policies may
-  // resolve. A container (parent) wrap is not an identity anchor.
-  const directWraps = epochWraps.filter(
-    (wrap) =>
-      wrap.recipientKind === "user" && wrap.recipientId === input.userId,
-  );
-  const principalWraps = epochWraps.filter(
-    (wrap) =>
-      wrap.recipientKind === "group" || wrap.recipientKind === "organization",
-  );
-  const parentWraps = epochWraps.filter(
-    (wrap) => wrap.recipientKind === "container",
-  );
-  if (
-    directWraps.length === 0 &&
-    principalWraps.length === 0 &&
-    parentWraps.length === 0
-  ) {
+  if (epochWraps.length === 0) {
     throw new HistoricalWrapUnavailableError(
       input.epoch.containerKeyEpoch,
       "no-addressed-envelope",
     );
   }
 
-  const toEnvelope = (wrap: (typeof epochWraps)[number]) => ({
-    keyFingerprint: wrap.recipientKeyFingerprint,
-    kemCipherText: wrap.kemCipherText,
-    wrappedKey: wrap.wrappedKey,
-  });
-  let keyMaterial: Uint8Array | null = null;
-  let directFailure: unknown;
+  const attempt = async (
+    wraps: typeof epochWraps,
+  ): Promise<{ key: Uint8Array | null; failure: unknown }> => {
+    if (wraps.length === 0) {
+      return { failure: undefined, key: null };
+    }
+    try {
+      return {
+        failure: undefined,
+        key: await unwrapKeyEnvelopesWithPrincipalPolicies({
+          envelopes: wraps.map((wrap) => ({
+            keyFingerprint: wrap.recipientKeyFingerprint,
+            kemCipherText: wrap.kemCipherText,
+            wrappedKey: wrap.wrappedKey,
+          })),
+          execSql: input.execSql,
+          secretKey: input.secretKey,
+        }),
+      };
+    } catch (error) {
+      return { failure: error, key: null };
+    }
+  };
+
   // A direct envelope is decryptable from identity keys alone, so its failure
-  // means corruption — not an unreachable principal key.
-  if (directWraps.length > 0) {
-    try {
-      keyMaterial = await unwrapKeyEnvelopesWithPrincipalPolicies({
-        envelopes: directWraps.map(toEnvelope),
-        execSql: input.execSql,
-        secretKey: input.secretKey,
-      });
-    } catch (error) {
-      directFailure = error;
-    }
-  }
+  // means corruption — not an unreachable principal key. Neither failure ends
+  // the search: a parent-container wrap may still anchor this epoch.
+  const direct = await attempt(directWraps);
+  let keyMaterial = direct.key;
+  const directFailure = direct.failure;
   let principalFailure: unknown;
-  if (keyMaterial === null && principalWraps.length > 0) {
-    try {
-      keyMaterial = await unwrapKeyEnvelopesWithPrincipalPolicies({
-        envelopes: principalWraps.map(toEnvelope),
-        execSql: input.execSql,
-        secretKey: input.secretKey,
-      });
-    } catch (error) {
-      // Do not fail yet: a parent-container wrap may still anchor this
-      // epoch, and an unreachable principal key must not mask it.
-      principalFailure = error;
-    }
+  if (keyMaterial === null) {
+    const principal = await attempt(principalWraps);
+    keyMaterial = principal.key;
+    principalFailure = principal.failure;
   }
   // The inherited-only path: a parent-container envelope opens under the
   // parent epoch's KEK, which the caller recovers from the parent's own log.
-  let parentFailure: unknown;
-  let parentKeyWasAvailable = false;
-  if (keyMaterial === null && parentWraps.length > 0) {
-    const parentKeys = input.parentKeysByEpochId ?? new Map();
-    for (const wrap of parentWraps) {
-      const parentKey = parentKeys.get(wrap.recipientKeyEpochId);
-      if (!parentKey) {
-        continue;
-      }
-      parentKeyWasAvailable = true;
-      try {
-        keyMaterial = await decryptWithDek(
-          {
-            iv: base64ToBytes(wrap.kemCipherText),
-            ciphertext: base64ToBytes(wrap.wrappedKey),
-          },
-          parentKey,
-        );
-        break;
-      } catch (error) {
-        parentFailure = error;
-      }
-    }
-  }
+  const parent =
+    keyMaterial === null
+      ? await openParentAnchor(
+          parentWraps,
+          input.parentKeysByEpochId ?? new Map(),
+        )
+      : { failure: undefined, key: null, keyWasAvailable: false };
+  keyMaterial ??= parent.key;
+  const parentFailure = parent.failure;
+  const parentKeyWasAvailable = parent.keyWasAvailable;
   if (keyMaterial === null) {
-    // Every anchor kind was tried; report the most specific reason. A wrap
-    // that was actually attempted and failed is corruption; one that could
-    // not be attempted names the key that was missing.
-    if (directFailure !== undefined || parentFailure !== undefined) {
-      throw new HistoricalWrapUnavailableError(
-        input.epoch.containerKeyEpoch,
-        "corrupt-envelope",
-        directFailure ?? parentFailure,
-      );
-    }
-    if (principalFailure !== undefined) {
-      throw new HistoricalWrapUnavailableError(
-        input.epoch.containerKeyEpoch,
-        "principal-key-unreachable",
-        principalFailure,
-      );
-    }
-    throw new HistoricalWrapUnavailableError(
-      input.epoch.containerKeyEpoch,
-      parentWraps.length > 0 && !parentKeyWasAvailable
-        ? "parent-key-unavailable"
-        : "no-addressed-envelope",
-    );
+    throwMostSpecificAnchorFailure({
+      containerKeyEpoch: input.epoch.containerKeyEpoch,
+      directFailure,
+      hadParentWraps: parentWraps.length > 0,
+      parentFailure,
+      parentKeyWasAvailable,
+      principalFailure,
+    });
   }
   const expectedId = await computeContainerKekMaterialId({
     containerId: input.containerId,
@@ -229,16 +299,6 @@ export async function recoverKeyringEntryFromWraps(input: {
     containerKeyEpochId: input.epoch.containerKeyEpochId,
     keyMaterial,
   };
-}
-
-/**
- * A whole rotation log assembled from pages. Distinct from the wire type,
- * which describes ONE bounded page and rejects more epochs than a page may
- * carry — an aggregate legitimately exceeds that.
- */
-export interface AggregatedContainerKekLog {
-  readonly containerId: string;
-  readonly epochs: ContainerKekLogEpochResponse[];
 }
 
 /**
@@ -318,145 +378,9 @@ export async function fetchContainerKekLog(input: {
  * carries. Returns entries for epochs 1..n-1 in ascending order, ready to
  * re-seal via a repair rekey.
  */
-export interface KeyringRebuildResult {
-  /** Recovered entries in ascending epoch order, gaps omitted. */
-  readonly entries: ContainerKekKeyringEntry[];
-  /**
-   * Epoch ids the log could not reach — a severed bridge below them with no
-   * anchor supplied. A repair is only complete when this is empty; each id
-   * here is recoverable through `recoverKeyringEntryFromWraps` and can be
-   * fed back as an anchor.
-   */
-  readonly missingEpochIds: string[];
-}
 
-/**
- * Rebuilds the container's keyring entries from the append-only bridge log —
- * the recovery path when a served keyring fails verification. Each link was
- * written once by the rotator that provably held both keys, so the walk
- * depends only on server-persisted state plus the current KEK; every
- * recovered key is checked against the material-id commitment its epoch id
- * carries.
- *
- * A severed bridge does not abort the walk. Recovery resumes below the gap
- * from any `anchorKeysByEpochId` entry the caller wrap-recovered, so a
- * multi-epoch history with a damaged middle link is rebuilt segment by
- * segment rather than lost wholesale. Unreachable epochs are reported in
- * `missingEpochIds` instead of throwing, because a partial rebuild plus a
- * named gap is strictly more useful to a repair than an exception.
- */
-export async function rebuildKeyringEntriesFromLog(input: {
-  /** Wrap-recovered keys that re-anchor the walk below a severed bridge. */
-  anchorKeysByEpochId?: ReadonlyMap<string, Uint8Array> | undefined;
-  containerId: string;
-  currentContainerKey: Uint8Array;
-  currentContainerKeyEpochId: string;
-  log: AggregatedContainerKekLog;
-}): Promise<KeyringRebuildResult> {
-  if (input.log.containerId !== input.containerId) {
-    throw new Error("Container KEK log container is inconsistent");
-  }
-  const epochs = [...input.log.epochs].sort(
-    (left, right) => left.containerKeyEpoch - right.containerKeyEpoch,
-  );
-  const genesis = epochs[0];
-  const tail = epochs.at(-1);
-  if (!genesis || genesis.containerKeyEpoch !== 1) {
-    throw new Error("Container KEK log does not start at epoch 1");
-  }
-  if (!tail || tail.containerKeyEpochId !== input.currentContainerKeyEpochId) {
-    throw new Error("Container KEK log does not end at the current epoch");
-  }
-
-  const anchors = input.anchorKeysByEpochId ?? new Map<string, Uint8Array>();
-  const recovered = new Map<string, Uint8Array>();
-  const missingEpochIds: string[] = [];
-  let successorKey: Uint8Array | null = input.currentContainerKey;
-
-  for (let index = epochs.length - 1; index >= 1; index -= 1) {
-    const epoch = epochs[index];
-    const predecessor = epochs[index - 1];
-    if (
-      !epoch ||
-      !predecessor ||
-      epoch.containerKeyEpoch !== predecessor.containerKeyEpoch + 1
-    ) {
-      throw new Error("Container KEK log is not contiguous");
-    }
-
-    let predecessorKey: Uint8Array | null = null;
-    if (successorKey !== null && epoch.bridge !== null) {
-      // A malformed or undecryptable bridge is severance, not a fatal error:
-      // a poisoned link is exactly the case the wrap anchors exist for, so
-      // treat it like a missing one and let the fallback below run.
-      try {
-        const bridge = normalizeContainerKekPredecessorBridge(epoch.bridge);
-        if (
-          bridge.containerId !== input.containerId ||
-          bridge.successorContainerKeyEpochId !== epoch.containerKeyEpochId ||
-          bridge.predecessorContainerKeyEpochId !==
-            predecessor.containerKeyEpochId
-        ) {
-          throw new Error(
-            `Container KEK log bridge is inconsistent at epoch ${epoch.containerKeyEpoch}`,
-          );
-        }
-        predecessorKey = await unwrapContainerKekPredecessorBridge({
-          bridge,
-          successorContainerKey: successorKey,
-        });
-      } catch {
-        predecessorKey = null;
-      }
-    }
-    // A bridge key is only usable if it matches the epoch id's commitment. A
-    // lying-but-AEAD-valid bridge is therefore discarded here, BEFORE the
-    // anchor fallback, so a supplied anchor still wins — checking the anchor
-    // only when the bridge is absent would let a lying link mask it.
-    if (predecessorKey !== null) {
-      const bridgedId = await computeContainerKekMaterialId({
-        containerId: input.containerId,
-        keyEpoch: predecessor.containerKeyEpoch,
-        keyMaterial: predecessorKey,
-      });
-      if (bridgedId !== predecessor.containerKeyEpochId) {
-        predecessorKey = null;
-      }
-    }
-    // Severed, poisoned, or lying: pick the walk back up from a
-    // wrap-recovered anchor if the caller supplied one, so only the truly
-    // unreachable epochs are lost.
-    predecessorKey ??= anchors.get(predecessor.containerKeyEpochId) ?? null;
-
-    if (predecessorKey === null) {
-      missingEpochIds.push(predecessor.containerKeyEpochId);
-      successorKey = null;
-      continue;
-    }
-    const expectedId = await computeContainerKekMaterialId({
-      containerId: input.containerId,
-      keyEpoch: predecessor.containerKeyEpoch,
-      keyMaterial: predecessorKey,
-    });
-    if (expectedId !== predecessor.containerKeyEpochId) {
-      // Only reachable when a supplied anchor is itself wrong.
-      missingEpochIds.push(predecessor.containerKeyEpochId);
-      successorKey = null;
-      continue;
-    }
-    recovered.set(predecessor.containerKeyEpochId, predecessorKey);
-    successorKey = predecessorKey;
-  }
-
-  const entries: ContainerKekKeyringEntry[] = [];
-  for (const epoch of epochs.slice(0, -1)) {
-    const keyMaterial = recovered.get(epoch.containerKeyEpochId);
-    if (keyMaterial) {
-      entries.push({
-        containerKeyEpochId: epoch.containerKeyEpochId,
-        keyMaterial,
-      });
-    }
-  }
-  return { entries, missingEpochIds: missingEpochIds.reverse() };
-}
+export type {
+  AggregatedContainerKekLog,
+  KeyringRebuildResult,
+} from "./keyringLogWalk";
+export { rebuildKeyringEntriesFromLog } from "./keyringLogWalk";

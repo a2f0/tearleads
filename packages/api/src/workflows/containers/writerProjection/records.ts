@@ -18,7 +18,6 @@ import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   ContainerKekResponse,
-  HistoricalContainerKeyEpochResponse,
 } from "@tearleads/validators/response";
 import {
   projectionAccessManifestRecord,
@@ -303,20 +302,6 @@ export function stripContainerKeyEpoch(
   };
 }
 
-export function containerKeyEpochRecord(
-  keyEpoch: ContainerKeyEpoch,
-): Record<string, unknown> {
-  return {
-    id: keyEpoch.id,
-    containerId: keyEpoch.containerId,
-    keyEpoch: keyEpoch.keyEpoch,
-    accessManifestHash: keyEpoch.accessManifestHash,
-    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-    createdByEventHash: keyEpoch.createdByEventHash,
-    createdByManifestHash: keyEpoch.createdByManifestHash,
-  };
-}
-
 export function stripContainerKeyWrap(
   wrap: ContainerKeyWrap,
 ): ContainerKeyWrap {
@@ -329,6 +314,20 @@ export function stripContainerKeyWrap(
     kemCipherText: wrap.kemCipherText,
     wrappedKey: wrap.wrappedKey,
     wrapManifestHash: wrap.wrapManifestHash,
+  };
+}
+
+function containerKeyEpochRecord(
+  keyEpoch: ContainerKeyEpoch,
+): Record<string, unknown> {
+  return {
+    id: keyEpoch.id,
+    containerId: keyEpoch.containerId,
+    keyEpoch: keyEpoch.keyEpoch,
+    accessManifestHash: keyEpoch.accessManifestHash,
+    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
+    createdByEventHash: keyEpoch.createdByEventHash,
+    createdByManifestHash: keyEpoch.createdByManifestHash,
   };
 }
 
@@ -361,7 +360,6 @@ function containerKekRecipientTargetRecord(
 export function containerKekResponse(
   projection: ContainerKekProjection,
   keyring: ContainerKekKeyring | null,
-  historicalKeyEpochs: readonly HistoricalContainerKeyEpochResponse[],
 ): ContainerKekResponse {
   const kekState = projection.state;
   return {
@@ -370,7 +368,6 @@ export function containerKekResponse(
     containerKeyEpochId: kekState.containerKeyEpochId,
     containerKeyEpoch: kekState.containerKeyEpoch,
     keyring: keyring ? { ...keyring } : null,
-    historicalKeyEpochs: [...historicalKeyEpochs],
     keyEpoch: containerKeyEpochRecord(kekState.keyEpoch),
     keyEpochHash: kekState.keyEpochHash,
     keyTargetHash: kekState.keyTargetHash,

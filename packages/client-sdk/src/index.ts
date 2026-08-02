@@ -339,7 +339,11 @@ export {
   saveContainerSyncWatermark,
   syncedContainerDocumentObjectSyncState,
 } from "./workflows/container-contents";
-export type { ContainerMutationAuthor } from "./workflows/containers";
+export type {
+  AggregatedContainerKekLog,
+  ContainerMutationAuthor,
+  KeyringRebuildResult,
+} from "./workflows/containers";
 export {
   buildRootContainerCreatePlan,
   createRemoteContainer,
