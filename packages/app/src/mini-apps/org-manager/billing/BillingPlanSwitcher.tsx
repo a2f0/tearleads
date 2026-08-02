@@ -152,12 +152,7 @@ export function BillingPlanSwitcher({
         return (
           <BillingPurchaseOption
             actionLabel={action.label}
-            disabled={
-              busy !== null ||
-              pendingSeatCount !== null ||
-              !canSubscribe ||
-              action.disabled
-            }
+            disabled={busy !== null || !canSubscribe || action.disabled}
             key={option.packageId}
             name={option.title || ORG_MANAGER_LABELS.billingSubscribe}
             onSelect={() => onSubscribe(option)}

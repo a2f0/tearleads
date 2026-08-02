@@ -308,10 +308,7 @@ async function resolvePendingNativeSeatCount(
   if (!change || !pendingTier || pendingTier.id === currentTier.id) return null;
 
   const [resolution] = await executor
-    .select({
-      eventType: revenuecatWebhookEvents.eventType,
-      productId: revenuecatWebhookEvents.productId,
-    })
+    .select({ id: revenuecatWebhookEvents.id })
     .from(revenuecatWebhookEvents)
     .where(
       and(
@@ -331,13 +328,7 @@ async function resolvePendingNativeSeatCount(
       desc(revenuecatWebhookEvents.id),
     )
     .limit(1);
-  if (!resolution) return pendingTier.seatLimit;
-  const renewalTier = getSyncBillingTierForNativeProduct(resolution.productId);
-  const renewalMakesDestinationEffective =
-    resolution.eventType === "RENEWAL" && renewalTier?.id === pendingTier.id;
-  return resolution.eventType === "RENEWAL" && !renewalMakesDestinationEffective
-    ? pendingTier.seatLimit
-    : null;
+  return resolution ? null : pendingTier.seatLimit;
 }
 
 async function countActiveOrganizationMembers(

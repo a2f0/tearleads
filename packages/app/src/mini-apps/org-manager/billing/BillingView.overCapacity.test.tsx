@@ -145,7 +145,7 @@ test("a deferred downgrade stays scheduled while the paid tier is current", () =
         name: ORG_MANAGER_LABELS.billingUpgradePlan,
       }) as HTMLButtonElement
     ).disabled,
-  ).toBe(true);
+  ).toBe(false);
   expect(
     (
       view.getByRole("button", {
@@ -175,12 +175,18 @@ test("a scheduled tier below the roster stays visible as a conflict", () => {
   expect(
     view.getByText(ORG_MANAGER_LABELS.billingPlanScheduledCapacityConflict),
   ).toBeDefined();
-  for (const name of [
-    ORG_MANAGER_LABELS.billingCurrentPlan,
-    ORG_MANAGER_LABELS.billingUpgradePlan,
-  ]) {
-    expect(
-      (view.getByRole("button", { name }) as HTMLButtonElement).disabled,
-    ).toBe(true);
-  }
+  expect(
+    (
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.billingCurrentPlan,
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  expect(
+    (
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.billingUpgradePlan,
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(false);
 });
