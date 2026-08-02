@@ -215,7 +215,7 @@ async function resolveRekeyContext(input: RekeyPlanInput): Promise<{
   };
 }
 
-export async function buildMaterializedContainerRekeyPlan(
+async function buildMaterializedContainerRekeyPlan(
   input: RekeyPlanInput,
 ): Promise<MaterializedContainerRekeyPlan> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(

@@ -202,7 +202,6 @@ export {
   Tearleads,
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "./client";
-export { rebuildKeyringEntriesFromLog } from "./data/documents/shared/keyringRebuild";
 export type {
   BlobByteSource,
   BlobByteSourceInput,
@@ -345,6 +344,7 @@ export {
   buildRootContainerCreatePlan,
   createRemoteContainer,
   moveRemoteContainer,
+  rebuildKeyringEntriesFromLog,
   rekeyRemoteContainer,
   revokeRemoteContainer,
   rootContainerWriterProjectionFromCreatePlan,

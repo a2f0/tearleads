@@ -199,7 +199,7 @@ export function containerKeyWrapConflictWhere(wrap: ContainerKeyWrap) {
   );
 }
 
-export interface ContainerKeyWrapConflictTarget {
+interface ContainerKeyWrapConflictTarget {
   readonly containerKeyEpochId: string;
   readonly recipientKind: ContainerKeyWrap["recipientKind"];
   readonly recipientId: string;

@@ -170,8 +170,8 @@
       "bytes": 40645
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
-      "lines": 636,
-      "bytes": 18628
+      "lines": 658,
+      "bytes": 19247
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 725,
@@ -402,8 +402,8 @@
       "bytes": 23225
     },
     "packages/crypto/src/keying/containerAccess.ts": {
-      "lines": 1318,
-      "bytes": 37993
+      "lines": 1323,
+      "bytes": 38024
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 650,
