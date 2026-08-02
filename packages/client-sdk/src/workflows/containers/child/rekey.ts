@@ -13,6 +13,7 @@ import {
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
 import type {
+  ContainerKekResponse,
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -62,7 +63,7 @@ async function buildRekeyRotationArtifacts(input: {
   override: string | undefined;
   predecessorContainerKey: Uint8Array;
   previousContainerId: string;
-  targetKek: ReturnType<typeof getTargetContainerContext>["kek"];
+  targetKek: ContainerKekResponse;
 }): Promise<{
   containerKeyEpochId: string;
   keyring: ContainerKekKeyring;
@@ -84,9 +85,12 @@ async function buildRekeyRotationArtifacts(input: {
     successorContainerKeyEpochId: containerKeyEpochId,
   });
   if (input.keyringEntriesOverride) {
+    // A rebuilt override still has to agree with the epochs the projection's
+    // signed history commits to; otherwise a repair could seal a forgery.
     await verifyKeyringEntriesForSeal(
       input.previousContainerId,
       input.keyringEntriesOverride,
+      input.targetKek,
     );
   }
   const keyring: ContainerKekKeyring = input.keyringEntriesOverride

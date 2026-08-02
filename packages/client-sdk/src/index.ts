@@ -343,6 +343,9 @@ export type { ContainerMutationAuthor } from "./workflows/containers";
 export {
   buildRootContainerCreatePlan,
   createRemoteContainer,
+  fetchContainerKekLog,
+  HistoricalWrapUnavailableError,
+  type HistoricalWrapUnavailableReason,
   moveRemoteContainer,
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,

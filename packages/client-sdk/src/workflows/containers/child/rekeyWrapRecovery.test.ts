@@ -320,3 +320,99 @@ test("an inherited-only child recovers through its parent-container wrap", async
   expect(recovered.containerKeyEpochId).toBe(childEpochId);
   expect(recovered.keyMaterial).toEqual(childKey);
 });
+
+test("an unreachable principal wrap does not mask a usable parent wrap", async () => {
+  const parent = await createParentProjection();
+  const epoch1Kek = parent.projection.containerKeks.at(-1);
+  if (!epoch1Kek) {
+    throw new Error("Expected the epoch-1 KEK");
+  }
+
+  const childId = crypto.randomUUID();
+  const childKey = crypto.getRandomValues(new Uint8Array(32));
+  const childEpochId = await computeContainerKekMaterialId({
+    containerId: childId,
+    keyEpoch: 1,
+    keyMaterial: childKey,
+  });
+  const parentKey = crypto.getRandomValues(new Uint8Array(32));
+  const wrapped = await encryptWithDek(childKey, parentKey);
+
+  // Both a group envelope this pristine client cannot resolve AND a usable
+  // parent envelope. The unresolvable one must not short-circuit recovery.
+  const mixedEpoch = {
+    containerKeyEpoch: 1,
+    containerKeyEpochId: childEpochId,
+    wraps: [
+      {
+        containerKeyEpochId: childEpochId,
+        recipientKind: "group",
+        recipientId: crypto.randomUUID(),
+        recipientKeyEpochId: `group:x:encapsulation:${"0".repeat(64)}`,
+        recipientKeyFingerprint: "0".repeat(64),
+        kemCipherText: "AAAA",
+        wrappedKey: "AAAA",
+        wrapManifestHash: epoch1Kek.accessManifestHash,
+      },
+      {
+        containerKeyEpochId: childEpochId,
+        recipientKind: "container",
+        recipientId: parent.projection.containerId,
+        recipientKeyEpochId: epoch1Kek.containerKeyEpochId,
+        recipientKeyFingerprint: epoch1Kek.keyEpochHash,
+        kemCipherText: bytesToBase64(wrapped.iv),
+        wrappedKey: bytesToBase64(wrapped.ciphertext),
+        wrapManifestHash: epoch1Kek.accessManifestHash,
+      },
+    ],
+  };
+
+  const recovered = await recoverKeyringEntryFromWraps({
+    containerId: childId,
+    epoch: mixedEpoch,
+    parentKeysByEpochId: new Map([[epoch1Kek.containerKeyEpochId, parentKey]]),
+    secretKey: parent.secretKey,
+    userId: parent.userId,
+  });
+  expect(recovered.keyMaterial).toEqual(childKey);
+});
+
+test("a repair override carrying a forged epoch id is rejected", async () => {
+  const parent = await createParentProjection();
+  const epoch1Kek = parent.projection.containerKeks.at(-1);
+  if (!epoch1Kek) {
+    throw new Error("Expected the epoch-1 KEK");
+  }
+  const database = await createTestExecSql("keyring-repair-forgery");
+
+  // A "rebuilt" override whose epoch-1 entry is self-consistent but names a
+  // different epoch than the projection's signed history commits to.
+  const forgedKey = crypto.getRandomValues(new Uint8Array(32));
+  const forgedEntry = {
+    containerKeyEpochId: await computeContainerKekMaterialId({
+      containerId: parent.projection.containerId,
+      keyEpoch: 1,
+      keyMaterial: forgedKey,
+    }),
+    keyMaterial: forgedKey,
+  };
+
+  await expect(
+    rekeyRemoteContainer({
+      apiClient: {
+        getContainerWriterProjection: async () => parent.projection,
+        rekeyContainer: async (_containerId, request) =>
+          createMutationResponseFromRequest(
+            request,
+            parent.projection.containerKeks.at(-1),
+          ),
+      },
+      author: parent.author,
+      containerId: parent.projection.containerId,
+      execSql: database.execSql,
+      keyringEntriesOverride: [forgedEntry],
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      targetSecretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("is not the committed epoch");
+});

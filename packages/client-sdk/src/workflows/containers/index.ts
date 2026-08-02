@@ -1,5 +1,8 @@
 export type { ContainerMutationAuthor } from "../../data/containers/shared/types";
 export {
+  fetchContainerKekLog,
+  HistoricalWrapUnavailableError,
+  type HistoricalWrapUnavailableReason,
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,
 } from "../../data/documents/shared/keyringRebuild";

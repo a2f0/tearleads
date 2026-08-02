@@ -146,6 +146,7 @@ export async function recoverKeyringEntryFromWraps(input: {
       directFailure = error;
     }
   }
+  let principalFailure: unknown;
   if (keyMaterial === null && principalWraps.length > 0) {
     try {
       keyMaterial = await unwrapKeyEnvelopesWithPrincipalPolicies({
@@ -154,17 +155,15 @@ export async function recoverKeyringEntryFromWraps(input: {
         secretKey: input.secretKey,
       });
     } catch (error) {
-      throw new HistoricalWrapUnavailableError(
-        input.epoch.containerKeyEpoch,
-        directFailure === undefined
-          ? "principal-key-unreachable"
-          : "corrupt-envelope",
-        directFailure ?? error,
-      );
+      // Do not fail yet: a parent-container wrap may still anchor this
+      // epoch, and an unreachable principal key must not mask it.
+      principalFailure = error;
     }
   }
   // The inherited-only path: a parent-container envelope opens under the
   // parent epoch's KEK, which the caller recovers from the parent's own log.
+  let parentFailure: unknown;
+  let parentKeyWasAvailable = false;
   if (keyMaterial === null && parentWraps.length > 0) {
     const parentKeys = input.parentKeysByEpochId ?? new Map();
     for (const wrap of parentWraps) {
@@ -172,6 +171,7 @@ export async function recoverKeyringEntryFromWraps(input: {
       if (!parentKey) {
         continue;
       }
+      parentKeyWasAvailable = true;
       try {
         keyMaterial = await decryptWithDek(
           {
@@ -182,25 +182,33 @@ export async function recoverKeyringEntryFromWraps(input: {
         );
         break;
       } catch (error) {
-        throw new HistoricalWrapUnavailableError(
-          input.epoch.containerKeyEpoch,
-          "corrupt-envelope",
-          error,
-        );
+        parentFailure = error;
       }
-    }
-    if (keyMaterial === null) {
-      throw new HistoricalWrapUnavailableError(
-        input.epoch.containerKeyEpoch,
-        "parent-key-unavailable",
-      );
     }
   }
   if (keyMaterial === null) {
+    // Every anchor kind was tried; report the most specific reason. A wrap
+    // that was actually attempted and failed is corruption; one that could
+    // not be attempted names the key that was missing.
+    if (directFailure !== undefined || parentFailure !== undefined) {
+      throw new HistoricalWrapUnavailableError(
+        input.epoch.containerKeyEpoch,
+        "corrupt-envelope",
+        directFailure ?? parentFailure,
+      );
+    }
+    if (principalFailure !== undefined) {
+      throw new HistoricalWrapUnavailableError(
+        input.epoch.containerKeyEpoch,
+        "principal-key-unreachable",
+        principalFailure,
+      );
+    }
     throw new HistoricalWrapUnavailableError(
       input.epoch.containerKeyEpoch,
-      "corrupt-envelope",
-      directFailure,
+      parentWraps.length > 0 && !parentKeyWasAvailable
+        ? "parent-key-unavailable"
+        : "no-addressed-envelope",
     );
   }
   const expectedId = await computeContainerKekMaterialId({
