@@ -95,7 +95,7 @@ export function organizationCanSync(
 export function serializeOrganizationBilling(
   billing: OrganizationBilling,
   activeMemberCount: number,
-  pendingSeatCount: number | null = null,
+  pendingSeatCount: number | null,
 ): OrganizationBillingResponse {
   return {
     organizationId: billing.organizationId,

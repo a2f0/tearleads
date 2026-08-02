@@ -1,17 +1,19 @@
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import {
   isRevenueCatGrantEventType,
+  NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
   SANDBOX_IGNORED_REASON,
 } from "../../billing/revenuecatWebhook";
 
-const ROUTINE_GRANT_IGNORE_REASONS = new Set([
+const ROUTINE_PAID_EVENT_IGNORE_REASONS = new Set([
   "A newer billing event has already been applied",
   "Grant event period has already expired",
+  NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
   SANDBOX_IGNORED_REASON,
 ]);
 
 /** Alerts on rejected paid events while leaving routine redeliveries quiet. */
-export function logUnappliedRevenueCatGrant(
+export function logUnappliedRevenueCatPaidEvent(
   event: RevenueCatWebhookEvent,
   outcome: { readonly status: string; readonly reason?: string },
 ): void {
@@ -20,7 +22,7 @@ export function logUnappliedRevenueCatGrant(
     typeof outcome.reason !== "string" ||
     (!isRevenueCatGrantEventType(event.type) &&
       event.type !== "PRODUCT_CHANGE") ||
-    ROUTINE_GRANT_IGNORE_REASONS.has(outcome.reason)
+    ROUTINE_PAID_EVENT_IGNORE_REASONS.has(outcome.reason)
   ) {
     return;
   }

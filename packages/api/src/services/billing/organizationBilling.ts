@@ -167,7 +167,11 @@ export async function startOrganizationTrial(
     organizationId,
     sessionUserId,
   );
-  return serializeOrganizationBilling(result.billing, result.activeMemberCount);
+  return serializeOrganizationBilling(
+    result.billing,
+    result.activeMemberCount,
+    null,
+  );
 }
 
 /**

@@ -26,19 +26,19 @@ export const ORG_MANAGER_LABELS = {
     "Sync stays active until the end of the period you've paid for.",
   billingCancelSubscriptionKeep: "Keep subscription",
   billingCancelling: "Cancelling…",
-  billingCheckoutPay: "Pay and subscribe",
-  billingCheckoutPaying: "Processing payment...",
-  billingCheckoutStarting: "Preparing checkout...",
-  billingCheckoutUnavailable:
-    "The payment form could not be started. Try again in a moment.",
   billingChangingPlan: "Changing plan...",
   billingCheckoutNoMembers:
     "Add an active organization member before choosing a subscription.",
   billingCheckoutOverCapacity:
     "This organization has more than 10 active members. Reduce the roster to 10 before choosing a subscription.",
+  billingCheckoutPay: "Pay and subscribe",
+  billingCheckoutPaying: "Processing payment...",
+  billingCheckoutStarting: "Preparing checkout...",
+  billingCheckoutUnavailable:
+    "The payment form could not be started. Try again in a moment.",
+  billingCurrentPlan: "Current plan",
   billingCustomOrganizationWebOnly:
     "Custom organizations subscribe on the web. Open Tearleads in a browser to choose a plan.",
-  billingCurrentPlan: "Current plan",
   billingDeleting: "Deleting remote data",
   billingDisabled: "Sync disabled",
   billingDowngradePlan: "Downgrade",

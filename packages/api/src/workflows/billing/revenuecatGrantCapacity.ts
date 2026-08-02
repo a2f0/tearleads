@@ -10,6 +10,7 @@ import {
   BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,
   BOUND_REVENUECAT_TIER_REQUIRED_REASON,
   classifyRevenueCatEvent,
+  NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
   type RevenueCatBillingTransition,
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
 } from "../../billing/revenuecatWebhook";
@@ -82,6 +83,12 @@ function classifyBoundProductChange(input: {
   readonly billing: LockedBillingIdentity | undefined;
   readonly event: RevenueCatWebhookEvent;
 }): RevenueCatBillingTransition {
+  if (!isRecognizedNativeRevenueCatStore(input.event.store)) {
+    return {
+      kind: "ignore",
+      reason: NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
+    };
+  }
   const currentTier = getSyncBillingTierForNativeProduct(
     input.billing?.provider === "revenuecat" &&
       input.billing.providerCustomerId === input.event.app_user_id
@@ -99,9 +106,7 @@ function classifyBoundProductChange(input: {
     !currentTier ||
     input.billing.seatCount !== currentTier.seatLimit ||
     input.billing.providerSubscriptionId === null ||
-    input.event.original_transaction_id !==
-      input.billing.providerSubscriptionId ||
-    !isRecognizedNativeRevenueCatStore(input.event.store)
+    input.event.original_transaction_id !== input.billing.providerSubscriptionId
   ) {
     return {
       kind: "ignore",

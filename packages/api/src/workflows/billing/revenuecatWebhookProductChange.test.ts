@@ -6,7 +6,10 @@ import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
-import { classifyRevenueCatEvent } from "../../billing/revenuecatWebhook";
+import {
+  classifyRevenueCatEvent,
+  NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
+} from "../../billing/revenuecatWebhook";
 import { runGetOrganizationBillingWorkflow } from "./organizationBilling";
 import {
   PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON,
@@ -14,7 +17,7 @@ import {
 } from "./revenuecatGrantCapacity";
 import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
-import { logUnappliedRevenueCatGrant } from "./revenuecatWebhookLogging";
+import { logUnappliedRevenueCatPaidEvent } from "./revenuecatWebhookLogging";
 
 const PERIOD_MS = 30 * 24 * 60 * 60 * 1_000;
 const PRODUCT_CHANGE: RevenueCatWebhookEvent = {
@@ -162,7 +165,27 @@ test("a product change rejects a non-native store", () => {
     resolveProductChange({ event: { ...PRODUCT_CHANGE, store: "STRIPE" } }),
   ).toEqual({
     kind: "ignore",
-    reason: PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON,
+    reason: NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
+  });
+});
+
+test("a Stripe product change is acknowledged as provider-managed", async () => {
+  const change: RevenueCatWebhookEvent = {
+    ...PRODUCT_CHANGE,
+    app_user_id: "cus_stripe_buyer",
+    id: crypto.randomUUID(),
+    new_product_id: "price_team_5",
+    original_transaction_id: "sub_stripe_subscription",
+    product_id: "price_solo",
+    store: "STRIPE",
+  };
+
+  expect(await runRevenueCatWebhookWorkflow(db, change)).toEqual({
+    reason: NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
+    status: "ignored",
+  });
+  expect(await runRevenueCatWebhookWorkflow(db, change)).toEqual({
+    status: "duplicate",
   });
 });
 
@@ -183,7 +206,7 @@ test("a product change rejects a different native subscription", () => {
 test("a rejected product change alerts the operator", () => {
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
   try {
-    logUnappliedRevenueCatGrant(PRODUCT_CHANGE, {
+    logUnappliedRevenueCatPaidEvent(PRODUCT_CHANGE, {
       status: "ignored",
       reason: PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON,
     });

@@ -28,6 +28,15 @@ const OPTIONS: SyncSubscriptionOption[] = [
     description: "Cloud sync",
     priceLabel: "$9.99",
   },
+  {
+    tierId: "team_10",
+    seatLimit: 10,
+    packageId: "team_10",
+    productId: "sync_team_10_monthly",
+    title: "Team (up to 10)",
+    description: "Cloud sync",
+    priceLabel: "$19.99",
+  },
 ];
 
 const BASE_VIEW: OrganizationBillingView = {
@@ -112,9 +121,11 @@ test("an active native subscription renders a plan switcher", () => {
     ).disabled,
   ).toBe(true);
   expect(view.queryByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeNull();
-  fireEvent.click(
-    view.getByRole("button", { name: ORG_MANAGER_LABELS.billingUpgradePlan }),
-  );
+  const [firstUpgrade] = view.getAllByRole("button", {
+    name: ORG_MANAGER_LABELS.billingUpgradePlan,
+  });
+  if (!firstUpgrade) throw new Error("Expected an upgrade option");
+  fireEvent.click(firstUpgrade);
   expect(chosen).toEqual(["team_5"]);
 });
 
@@ -125,6 +136,13 @@ test("a deferred downgrade stays scheduled while the paid tier is current", () =
     (
       view.getByRole("button", {
         name: ORG_MANAGER_LABELS.billingPlanScheduled,
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  expect(
+    (
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.billingUpgradePlan,
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(true);

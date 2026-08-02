@@ -32,7 +32,7 @@ import {
   validateLockedStripeStoreOrganizationId,
 } from "./revenuecatStripeResolution";
 import { applyRevenueCatTransition } from "./revenuecatWebhookApplication";
-import { logUnappliedRevenueCatGrant } from "./revenuecatWebhookLogging";
+import { logUnappliedRevenueCatPaidEvent } from "./revenuecatWebhookLogging";
 import { resolveLifecycleOwnershipConflict } from "./revenuecatWebhookOwnership";
 import {
   isStripeEventSupersededByNative,
@@ -455,6 +455,6 @@ export async function runRevenueCatWebhookWorkflow(
     if (ownershipOutcome) return ownershipOutcome;
     throw error;
   }
-  logUnappliedRevenueCatGrant(event, outcome);
+  logUnappliedRevenueCatPaidEvent(event, outcome);
   return outcome;
 }

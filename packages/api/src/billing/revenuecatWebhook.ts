@@ -102,6 +102,10 @@ export const BOUND_REVENUECAT_TIER_REQUIRED_REASON =
 export const BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON =
   "Product change requires the organization's bound RevenueCat subscription";
 
+/** Non-native plan changes are authoritative in their own billing provider. */
+export const NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON =
+  "Non-native product changes are managed by their billing provider";
+
 export function isRevenueCatGrantEventType(type: string): boolean {
   return GRANT_EVENT_TYPES.has(type);
 }

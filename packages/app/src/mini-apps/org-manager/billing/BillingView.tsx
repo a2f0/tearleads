@@ -231,7 +231,7 @@ function BillingPurchaseSection({
     <>
       <BillingPlanSwitcher
         busy={props.busy}
-        canSubscribe={props.canSubscribe}
+        canSubscribe={props.canSubscribe && !props.activationPending}
         currentSeatCount={currentSeatCount}
         minimumSeatCount={props.minimumSeatCount}
         onSubscribe={props.onSubscribe}
