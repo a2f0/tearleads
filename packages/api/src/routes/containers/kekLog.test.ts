@@ -341,3 +341,32 @@ test("the kek-log discloses no other member's envelopes", async () => {
     }
   }
 }, 15_000);
+
+test("the kek-log omits principals absent from the requester's access path", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const { root } = await rotateRootTwice(owner);
+
+  const log = (await (
+    await getKekLog(root.kekState.containerId, owner.token)
+  ).json()) as ContainerKekLogResponse;
+
+  // Every principal envelope served names a principal this requester's own
+  // resolved access path references. A group they were never in — or one
+  // removed from the path — is not disclosed just because its envelope is
+  // retained.
+  const pathPrincipalIds = new Set(
+    root.principalPolicies.map((policy) => policy.principalId),
+  );
+  for (const epoch of log.epochs) {
+    for (const wrap of epoch.wraps) {
+      if (
+        wrap["recipientKind"] === "group" ||
+        wrap["recipientKind"] === "organization"
+      ) {
+        expect(pathPrincipalIds.has(wrap["recipientId"] as string)).toBe(true);
+      }
+    }
+  }
+}, 15_000);

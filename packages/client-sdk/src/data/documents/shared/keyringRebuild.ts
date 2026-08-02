@@ -347,21 +347,28 @@ export async function rebuildKeyringEntriesFromLog(input: {
 
     let predecessorKey: Uint8Array | null = null;
     if (successorKey !== null && epoch.bridge !== null) {
-      const bridge = normalizeContainerKekPredecessorBridge(epoch.bridge);
-      if (
-        bridge.containerId !== input.containerId ||
-        bridge.successorContainerKeyEpochId !== epoch.containerKeyEpochId ||
-        bridge.predecessorContainerKeyEpochId !==
-          predecessor.containerKeyEpochId
-      ) {
-        throw new Error(
-          `Container KEK log bridge is inconsistent at epoch ${epoch.containerKeyEpoch}`,
-        );
+      // A malformed or undecryptable bridge is severance, not a fatal error:
+      // a poisoned link is exactly the case the wrap anchors exist for, so
+      // treat it like a missing one and let the fallback below run.
+      try {
+        const bridge = normalizeContainerKekPredecessorBridge(epoch.bridge);
+        if (
+          bridge.containerId !== input.containerId ||
+          bridge.successorContainerKeyEpochId !== epoch.containerKeyEpochId ||
+          bridge.predecessorContainerKeyEpochId !==
+            predecessor.containerKeyEpochId
+        ) {
+          throw new Error(
+            `Container KEK log bridge is inconsistent at epoch ${epoch.containerKeyEpoch}`,
+          );
+        }
+        predecessorKey = await unwrapContainerKekPredecessorBridge({
+          bridge,
+          successorContainerKey: successorKey,
+        });
+      } catch {
+        predecessorKey = null;
       }
-      predecessorKey = await unwrapContainerKekPredecessorBridge({
-        bridge,
-        successorContainerKey: successorKey,
-      });
     }
     // The bridge was severed (or its successor was itself unreachable): pick
     // the walk back up from a wrap-recovered anchor if the caller supplied
@@ -379,9 +386,12 @@ export async function rebuildKeyringEntriesFromLog(input: {
       keyMaterial: predecessorKey,
     });
     if (expectedId !== predecessor.containerKeyEpochId) {
-      throw new Error(
-        `Container KEK log key does not match its committed epoch id at epoch ${predecessor.containerKeyEpoch}`,
-      );
+      // A bridge that decrypts to the wrong material is a lying link. It
+      // cannot be trusted onward, but the epochs below it stay recoverable
+      // from an anchor, so record the gap rather than aborting the walk.
+      missingEpochIds.push(predecessor.containerKeyEpochId);
+      successorKey = null;
+      continue;
     }
     recovered.set(predecessor.containerKeyEpochId, predecessorKey);
     successorKey = predecessorKey;

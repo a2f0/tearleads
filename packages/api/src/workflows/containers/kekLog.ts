@@ -31,9 +31,9 @@ import { ContainerWriterProjectionError } from "./writerProjection/types";
  * requested epoch, or epoch 1" rather than "absent".
  *
  * Wraps are filtered to what the requester could actually use as a recovery
- * anchor: their own direct envelopes, principal-addressed ones (whose
- * principal ids current readers already see in the signed manifests on their
- * access path), and parent-container envelopes — the only anchor an
+ * anchor: their own direct envelopes, envelopes for principals named on their
+ * own resolved access path (so a removed group's retained envelopes are not
+ * disclosed to somebody who was never in it), and parent-container envelopes — the only anchor an
  * inherited-only child has, recovered by holding the parent epoch's KEK.
  * Other members' identities are never disclosed, preserving the "superseded
  * recipient envelopes are not served" guarantee for everyone but the
@@ -50,13 +50,23 @@ export async function runContainerKekLogWorkflow(
 ): Promise<ContainerKekLogResponse> {
   return db.transaction(async (tx) => {
     const context = createContainerWriterProjectionContext(tx);
-    await resolveContainerAccessProjection({
+    const access = await resolveContainerAccessProjection({
       containerId: input.containerId,
       context,
       executor: tx,
       minimumAccessLevel: "read",
       userId: input.userId,
     });
+
+    // Principals on the requester's own resolved access path. A wrap for any
+    // other principal — one they were never in, or a removed group whose
+    // membership no longer covers them — is not an anchor they could use, so
+    // serving it would disclose history for nothing.
+    const authorizedPrincipalIds = new Set(
+      access.verifiedPath.flatMap((manifest) =>
+        manifest.state.referencedPrincipalHeads.map((head) => head.principalId),
+      ),
+    );
 
     // One indexed lookup proves the container has key history at all; the
     // page query below never loads more than a page.
@@ -102,8 +112,9 @@ export async function runContainerKekLogWorkflow(
           .filter(
             (wrap) =>
               wrap.recipientKind === "container" ||
-              wrap.recipientKind === "group" ||
-              wrap.recipientKind === "organization" ||
+              ((wrap.recipientKind === "group" ||
+                wrap.recipientKind === "organization") &&
+                authorizedPrincipalIds.has(wrap.recipientId)) ||
               (wrap.recipientKind === "user" &&
                 wrap.recipientId === input.userId),
           )
