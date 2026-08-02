@@ -238,21 +238,22 @@ export async function fetchContainerKekLog(input: {
       containerId: string,
       options?: {
         readonly afterKeyEpoch?: number;
-        readonly includeKeyrings?: boolean;
+        readonly keyringForEpoch?: number;
       },
     ): Promise<ContainerKekLogResponse | null>;
   };
   containerId: string;
-  includeKeyrings?: boolean | undefined;
+  /** Ask for one historical keyring by epoch number; blobs are never bulk. */
+  keyringForEpoch?: number | undefined;
 }): Promise<ContainerKekLogResponse> {
   const epochs: ContainerKekLogResponse["epochs"] = [];
   let afterKeyEpoch = 0;
   for (;;) {
     const page = await input.apiClient.getContainerKekLog(input.containerId, {
       afterKeyEpoch,
-      ...(input.includeKeyrings === undefined
+      ...(input.keyringForEpoch === undefined
         ? {}
-        : { includeKeyrings: input.includeKeyrings }),
+        : { keyringForEpoch: input.keyringForEpoch }),
     });
     if (!page) {
       throw new Error("Container KEK log is unavailable");
@@ -278,12 +279,41 @@ export async function fetchContainerKekLog(input: {
  * carries. Returns entries for epochs 1..n-1 in ascending order, ready to
  * re-seal via a repair rekey.
  */
+export interface KeyringRebuildResult {
+  /** Recovered entries in ascending epoch order, gaps omitted. */
+  readonly entries: ContainerKekKeyringEntry[];
+  /**
+   * Epoch ids the log could not reach — a severed bridge below them with no
+   * anchor supplied. A repair is only complete when this is empty; each id
+   * here is recoverable through `recoverKeyringEntryFromWraps` and can be
+   * fed back as an anchor.
+   */
+  readonly missingEpochIds: string[];
+}
+
+/**
+ * Rebuilds the container's keyring entries from the append-only bridge log —
+ * the recovery path when a served keyring fails verification. Each link was
+ * written once by the rotator that provably held both keys, so the walk
+ * depends only on server-persisted state plus the current KEK; every
+ * recovered key is checked against the material-id commitment its epoch id
+ * carries.
+ *
+ * A severed bridge does not abort the walk. Recovery resumes below the gap
+ * from any `anchorKeysByEpochId` entry the caller wrap-recovered, so a
+ * multi-epoch history with a damaged middle link is rebuilt segment by
+ * segment rather than lost wholesale. Unreachable epochs are reported in
+ * `missingEpochIds` instead of throwing, because a partial rebuild plus a
+ * named gap is strictly more useful to a repair than an exception.
+ */
 export async function rebuildKeyringEntriesFromLog(input: {
+  /** Wrap-recovered keys that re-anchor the walk below a severed bridge. */
+  anchorKeysByEpochId?: ReadonlyMap<string, Uint8Array> | undefined;
   containerId: string;
   currentContainerKey: Uint8Array;
   currentContainerKeyEpochId: string;
   log: ContainerKekLogResponse;
-}): Promise<ContainerKekKeyringEntry[]> {
+}): Promise<KeyringRebuildResult> {
   if (input.log.containerId !== input.containerId) {
     throw new Error("Container KEK log container is inconsistent");
   }
@@ -299,8 +329,11 @@ export async function rebuildKeyringEntriesFromLog(input: {
     throw new Error("Container KEK log does not end at the current epoch");
   }
 
-  let successorKey = input.currentContainerKey;
-  const entries: ContainerKekKeyringEntry[] = [];
+  const anchors = input.anchorKeysByEpochId ?? new Map<string, Uint8Array>();
+  const recovered = new Map<string, Uint8Array>();
+  const missingEpochIds: string[] = [];
+  let successorKey: Uint8Array | null = input.currentContainerKey;
+
   for (let index = epochs.length - 1; index >= 1; index -= 1) {
     const epoch = epochs[index];
     const predecessor = epochs[index - 1];
@@ -311,25 +344,35 @@ export async function rebuildKeyringEntriesFromLog(input: {
     ) {
       throw new Error("Container KEK log is not contiguous");
     }
-    if (epoch.bridge === null) {
-      throw new Error(
-        `Container KEK log bridge is missing at epoch ${epoch.containerKeyEpoch}`,
-      );
+
+    let predecessorKey: Uint8Array | null = null;
+    if (successorKey !== null && epoch.bridge !== null) {
+      const bridge = normalizeContainerKekPredecessorBridge(epoch.bridge);
+      if (
+        bridge.containerId !== input.containerId ||
+        bridge.successorContainerKeyEpochId !== epoch.containerKeyEpochId ||
+        bridge.predecessorContainerKeyEpochId !==
+          predecessor.containerKeyEpochId
+      ) {
+        throw new Error(
+          `Container KEK log bridge is inconsistent at epoch ${epoch.containerKeyEpoch}`,
+        );
+      }
+      predecessorKey = await unwrapContainerKekPredecessorBridge({
+        bridge,
+        successorContainerKey: successorKey,
+      });
     }
-    const bridge = normalizeContainerKekPredecessorBridge(epoch.bridge);
-    if (
-      bridge.containerId !== input.containerId ||
-      bridge.successorContainerKeyEpochId !== epoch.containerKeyEpochId ||
-      bridge.predecessorContainerKeyEpochId !== predecessor.containerKeyEpochId
-    ) {
-      throw new Error(
-        `Container KEK log bridge is inconsistent at epoch ${epoch.containerKeyEpoch}`,
-      );
+    // The bridge was severed (or its successor was itself unreachable): pick
+    // the walk back up from a wrap-recovered anchor if the caller supplied
+    // one, so only the truly unreachable epochs are lost.
+    predecessorKey ??= anchors.get(predecessor.containerKeyEpochId) ?? null;
+
+    if (predecessorKey === null) {
+      missingEpochIds.push(predecessor.containerKeyEpochId);
+      successorKey = null;
+      continue;
     }
-    const predecessorKey = await unwrapContainerKekPredecessorBridge({
-      bridge,
-      successorContainerKey: successorKey,
-    });
     const expectedId = await computeContainerKekMaterialId({
       containerId: input.containerId,
       keyEpoch: predecessor.containerKeyEpoch,
@@ -340,11 +383,19 @@ export async function rebuildKeyringEntriesFromLog(input: {
         `Container KEK log key does not match its committed epoch id at epoch ${predecessor.containerKeyEpoch}`,
       );
     }
-    entries.push({
-      containerKeyEpochId: predecessor.containerKeyEpochId,
-      keyMaterial: predecessorKey,
-    });
+    recovered.set(predecessor.containerKeyEpochId, predecessorKey);
     successorKey = predecessorKey;
   }
-  return entries.reverse();
+
+  const entries: ContainerKekKeyringEntry[] = [];
+  for (const epoch of epochs.slice(0, -1)) {
+    const keyMaterial = recovered.get(epoch.containerKeyEpochId);
+    if (keyMaterial) {
+      entries.push({
+        containerKeyEpochId: epoch.containerKeyEpochId,
+        keyMaterial,
+      });
+    }
+  }
+  return { entries, missingEpochIds: missingEpochIds.reverse() };
 }

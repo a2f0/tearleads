@@ -24,13 +24,11 @@ import { ContainerWriterProjectionError } from "./writerProjection/types";
  * `afterKeyEpoch`, with all of a page's wraps loaded in one query.
  *
  * A retained keyring is O(its epoch) bytes — megabytes near the epoch cap —
- * so `includeKeyrings` serves **at most one**, for the page's first epoch,
- * and the column is not selected at all otherwise. The ladder fallback wants
- * exactly one historical keyring at a time, so recovery walks it with the
- * `afterKeyEpoch` cursor rather than pulling the whole ladder. That keeps the
- * worst-case response one keyring plus one page of bridges and wraps, instead
- * of the quadratic total. `keyring: null` therefore means "not requested,
- * not this page's first epoch, or epoch 1" rather than "absent".
+ * so at most one is ever served, named explicitly by `keyringForEpoch`, and
+ * the column is not selected at all otherwise. The ladder fallback wants one
+ * specific historical keyring at a time, so it asks for that epoch rather
+ * than paging through blobs. `keyring: null` therefore means "not the
+ * requested epoch, or epoch 1" rather than "absent".
  *
  * Wraps are filtered to what the requester could actually use as a recovery
  * anchor: their own direct envelopes, principal-addressed ones (whose
@@ -46,7 +44,7 @@ export async function runContainerKekLogWorkflow(
   input: {
     readonly afterKeyEpoch: number;
     readonly containerId: string;
-    readonly includeKeyrings: boolean;
+    readonly keyringForEpoch: number;
     readonly userId: string;
   },
 ): Promise<ContainerKekLogResponse> {
@@ -74,12 +72,14 @@ export async function runContainerKekLogWorkflow(
       },
       tx,
     );
-    // Exactly one keyring blob is ever read, and only when asked for.
-    const firstEpochId = page[0]?.id;
-    const requestedKeyring =
-      input.includeKeyrings && firstEpochId
-        ? await getContainerKeyEpochKeyring(firstEpochId, tx)
-        : null;
+    // Exactly one keyring blob is ever read, for the epoch named by the
+    // caller, and only when it is on this page.
+    const requestedEpoch = page.find(
+      (epoch) => epoch.keyEpoch === input.keyringForEpoch,
+    );
+    const requestedKeyring = requestedEpoch
+      ? await getContainerKeyEpochKeyring(requestedEpoch.id, tx)
+      : null;
     const wrapsByEpochId = await listContainerKeyWrapsByEpochId(
       page.map((epoch) => epoch.id),
       tx,
@@ -88,13 +88,15 @@ export async function runContainerKekLogWorkflow(
     return {
       containerId: input.containerId,
       hasMore,
-      epochs: page.map((epoch, pageIndex) => ({
+      epochs: page.map((epoch) => ({
         accessManifestHash: epoch.accessManifestHash,
         bridge: epoch.predecessorBridge ? { ...epoch.predecessorBridge } : null,
         containerKeyEpoch: epoch.keyEpoch,
         containerKeyEpochId: epoch.id,
         keyring:
-          pageIndex === 0 && requestedKeyring ? { ...requestedKeyring } : null,
+          requestedKeyring && epoch.id === requestedEpoch?.id
+            ? { ...requestedKeyring }
+            : null,
         parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
         wraps: (wrapsByEpochId.get(epoch.id) ?? [])
           .filter(

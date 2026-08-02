@@ -109,7 +109,10 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
     currentContainerKeyEpochId: epoch2Kek.containerKeyEpochId,
     log,
   });
-  expect(rebuilt.map((entry) => entry.containerKeyEpochId)).toEqual([epoch1Id]);
+  expect(rebuilt.entries.map((entry) => entry.containerKeyEpochId)).toEqual([
+    epoch1Id,
+  ]);
+  expect(rebuilt.missingEpochIds).toEqual([]);
 
   // Repair is an ordinary rekey sealing the rebuilt entries.
   const repaired = await rekeyRemoteContainer({
@@ -126,7 +129,7 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
     author,
     containerId,
     execSql: database.execSql,
-    keyringEntriesOverride: rebuilt,
+    keyringEntriesOverride: rebuilt.entries,
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     targetSecretKey: parent.secretKey,
   });
@@ -238,14 +241,18 @@ test("a severed bridge is recovered through the retained historical wrap", async
       },
     ],
   };
-  await expect(
-    rebuildKeyringEntriesFromLog({
-      containerId: parent.projection.containerId,
-      currentContainerKey: rekeyed.containerKey,
-      currentContainerKeyEpochId: epoch2Kek.containerKeyEpochId,
-      log: severedLog,
-    }),
-  ).rejects.toThrow("bridge is missing at epoch 2");
+  const severedRebuild = await rebuildKeyringEntriesFromLog({
+    containerId: parent.projection.containerId,
+    currentContainerKey: rekeyed.containerKey,
+    currentContainerKeyEpochId: epoch2Kek.containerKeyEpochId,
+    log: severedLog,
+  });
+  // The gap is named rather than thrown, so the repair knows exactly which
+  // epoch needs a wrap-recovered anchor.
+  expect(severedRebuild.entries).toEqual([]);
+  expect(severedRebuild.missingEpochIds).toEqual([
+    epoch1Kek.containerKeyEpochId,
+  ]);
 
   // The epoch-1 recipient envelope written by the epoch-1 rotator is
   // retained forever and recovers the key independent of every bridge.

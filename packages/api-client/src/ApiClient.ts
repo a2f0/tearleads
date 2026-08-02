@@ -1024,20 +1024,20 @@ export class ApiClient {
   /**
    * The append-only rotation log for one container — the rebuild/repair
    * read path. Never cached: it is fetched exactly when the served keyring
-   * failed verification and the ground truth is needed. Historical keyrings
-   * (the fallback ladder) are O(epochs²) in total, so they ship only when
-   * `includeKeyrings` is set.
+   * failed verification and the ground truth is needed. A historical keyring
+   * is O(its epoch) bytes, so at most one ships per request, named by
+   * `keyringForEpoch`.
    */
   getContainerKekLog(
     containerId: string,
     options: {
       readonly afterKeyEpoch?: number;
-      readonly includeKeyrings?: boolean;
+      readonly keyringForEpoch?: number;
     } = {},
   ) {
     const query = new URLSearchParams();
-    if (options.includeKeyrings) {
-      query.set("include", "keyrings");
+    if (options.keyringForEpoch !== undefined) {
+      query.set("keyringForEpoch", String(options.keyringForEpoch));
     }
     if (options.afterKeyEpoch !== undefined) {
       query.set("afterKeyEpoch", String(options.afterKeyEpoch));

@@ -6,7 +6,10 @@ import { getContainerKekLog } from "../../services/containers/kekLog";
 import { ContainerWriterProjectionError } from "../../services/containers/writerProjection";
 import type { ApiServiceRuntime } from "../../services/runtime";
 
-/** A malformed cursor reads as "from the beginning", never as an error. */
+/**
+ * A malformed cursor reads as "from the beginning", never as an error. The
+ * same parse serves `keyringForEpoch`, where 0 means "no keyring".
+ */
 function readAfterKeyEpoch(value: string | undefined): number {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
@@ -31,7 +34,7 @@ export function createContainerKekLogRoute({
         await getContainerKekLog(runtime, {
           afterKeyEpoch: readAfterKeyEpoch(c.req.query("afterKeyEpoch")),
           containerId: c.req.param("containerId"),
-          includeKeyrings: c.req.query("include") === "keyrings",
+          keyringForEpoch: readAfterKeyEpoch(c.req.query("keyringForEpoch")),
           userId: session.userId,
         }),
       );

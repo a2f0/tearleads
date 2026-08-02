@@ -108,7 +108,7 @@ test("GET /containers/:containerId/kek-log serves the full rotation log ascendin
     await getKekLog(
       root.kekState.containerId,
       owner.token,
-      "?include=keyrings&afterKeyEpoch=1",
+      "?keyringForEpoch=2&afterKeyEpoch=1",
     )
   ).json()) as ContainerKekLogResponse;
   expect(atEpoch2.epochs[0]?.keyring).toEqual(
@@ -124,7 +124,7 @@ test("GET /containers/:containerId/kek-log serves the full rotation log ascendin
     await getKekLog(
       root.kekState.containerId,
       owner.token,
-      "?include=keyrings&afterKeyEpoch=2",
+      "?keyringForEpoch=3&afterKeyEpoch=2",
     )
   ).json()) as ContainerKekLogResponse;
   expect(atEpoch3.epochs[0]?.keyring).toEqual(

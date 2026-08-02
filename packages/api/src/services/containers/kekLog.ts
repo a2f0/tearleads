@@ -7,7 +7,7 @@ export async function getContainerKekLog(
   input: {
     readonly afterKeyEpoch: number;
     readonly containerId: string;
-    readonly includeKeyrings: boolean;
+    readonly keyringForEpoch: number;
     readonly userId: string;
   },
 ): Promise<ContainerKekLogResponse> {
