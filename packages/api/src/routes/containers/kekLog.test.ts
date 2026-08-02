@@ -453,3 +453,26 @@ test("the kek-log serves only parents this container inherited from", async () =
     ).toBe(false);
   }
 }, 15_000);
+
+test("every epoch keeps its own anchors rather than sharing one page quota", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const { root } = await rotateRootTwice(owner);
+
+  const log = (await (
+    await getKekLog(root.kekState.containerId, owner.token)
+  ).json()) as ContainerKekLogResponse;
+
+  // The envelope quota is spent PER EPOCH, so a wide epoch can never consume
+  // a later epoch's share. If the bound were a single page-wide limit, the
+  // epochs sorting last would come back empty and recovery would read that as
+  // "no addressed envelope" — a false unreachability rather than a real one.
+  expect(log.epochs.length).toBe(3);
+  for (const epoch of log.epochs) {
+    // Every epoch carries at least one envelope this requester can open —
+    // here the owning group's, since a bootstrapped root addresses its owner
+    // through their principal rather than a direct user wrap.
+    expect(epoch.wraps.length).toBeGreaterThan(0);
+  }
+}, 20_000);

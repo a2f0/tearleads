@@ -4,7 +4,8 @@ import {
   containerKeyWraps,
 } from "@tearleads/api-shared/schema";
 import type { ContainerKekKeyring } from "@tearleads/crypto";
-import { CONTAINER_KEK_LOG_WRAP_LIMIT } from "@tearleads/validators/util";
+import { CONTAINER_KEK_LOG_WRAPS_PER_EPOCH_LIMIT } from "@tearleads/validators/util";
+import type { SQL } from "drizzle-orm";
 import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import type {
   StoredContainerKeyEpoch,
@@ -53,11 +54,6 @@ export async function getContainerKeyEpochKeyring(
 }
 
 /**
- * One query for many epochs' wraps, grouped by epoch id — the per-epoch
- * variant would issue a statement per epoch, which grows with rotation
- * count on history reads.
- */
-/**
  * One bounded page of a container's epochs, selected in SQL. Keyring blobs
  * are the expensive column — each is O(its epoch) bytes — so they load only
  * when asked for. Fetches `limit + 1` rows to report whether more remain
@@ -90,6 +86,52 @@ export async function listContainerKeyEpochPage(
     epochs: rows.slice(0, input.limit).map(toStoredContainerKeyEpoch),
     hasMore: rows.length > input.limit,
   };
+}
+
+/**
+ * The ids of the scoped wraps, at most
+ * `CONTAINER_KEK_LOG_WRAPS_PER_EPOCH_LIMIT` per epoch, chosen in SQL by a per-epoch window so the quota is spent evenly
+ * rather than consumed by whichever epoch sorts first. Returning ids keeps the
+ * typed row mapping on the regular Drizzle select; only two scalar columns
+ * cross the raw-SQL boundary.
+ */
+async function selectQuotaLimitedWrapIds(
+  containerKeyEpochIds: readonly string[],
+  scopeFilter: SQL,
+  executor: DatabaseSession,
+): Promise<string[]> {
+  const result = await executor.execute(sql`
+    select id from (
+      select
+        ${containerKeyWraps.id} as id,
+        row_number() over (
+          partition by ${containerKeyWraps.containerKeyEpochId}
+          order by
+            ${containerKeyWraps.recipientKind},
+            ${containerKeyWraps.recipientId},
+            ${containerKeyWraps.recipientKeyEpochId}
+        ) as epoch_rank
+      from ${containerKeyWraps}
+      where ${containerKeyWraps.containerKeyEpochId} in (${sql.join(
+        containerKeyEpochIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
+        and ${scopeFilter}
+    ) ranked
+    where ranked.epoch_rank <= ${CONTAINER_KEK_LOG_WRAPS_PER_EPOCH_LIMIT}
+  `);
+
+  const rows: unknown = Array.isArray(result) ? result : result.rows;
+  if (!Array.isArray(rows)) {
+    throw new Error("Container key wrap id query returned no row set");
+  }
+  return rows.map((row) => {
+    const id: unknown = Reflect.get(Object(row), "id");
+    if (typeof id !== "string") {
+      throw new Error("Container key wrap id is not a string");
+    }
+    return id;
+  });
 }
 
 export async function listContainerKeyWrapsByEpochId(
@@ -143,15 +185,28 @@ export async function listContainerKeyWrapsByEpochId(
       )
     : undefined;
 
+  // A page's epochs can each carry many recipients, so a recovery read must be
+  // bounded or a wide container could answer with hundreds of megabytes. The
+  // quota is per epoch, never a single limit across the page: one wide epoch
+  // must not starve the others, because a starved epoch is indistinguishable
+  // from a genuinely unaddressed one and would surface as a false
+  // `no-addressed-envelope` recovery failure. A requester's own envelopes for
+  // one epoch number at most (self + authorized principals + parent
+  // containers), so the quota bounds bytes without ever dropping a reachable
+  // anchor.
+  const scopedIds = scopeFilter
+    ? await selectQuotaLimitedWrapIds(uniqueIds, scopeFilter, executor)
+    : null;
+  if (scopedIds?.length === 0) {
+    return wrapsByEpochId;
+  }
+
   const rows = await executor
     .select()
     .from(containerKeyWraps)
     .where(
-      scopeFilter
-        ? and(
-            inArray(containerKeyWraps.containerKeyEpochId, uniqueIds),
-            scopeFilter,
-          )
+      scopedIds
+        ? inArray(containerKeyWraps.id, scopedIds)
         : inArray(containerKeyWraps.containerKeyEpochId, uniqueIds),
     )
     .orderBy(
@@ -159,11 +214,6 @@ export async function listContainerKeyWrapsByEpochId(
       asc(containerKeyWraps.recipientKind),
       asc(containerKeyWraps.recipientId),
       asc(containerKeyWraps.recipientKeyEpochId),
-    )
-    // A page's epochs can each carry many recipients; without this a wide
-    // container could return a response measured in hundreds of megabytes.
-    .limit(
-      recipientScope ? CONTAINER_KEK_LOG_WRAP_LIMIT : Number.MAX_SAFE_INTEGER,
     );
 
   for (const row of rows) {

@@ -73,8 +73,14 @@ export const CONTAINER_KEK_LOG_PAGE_LIMIT = 256;
 export const MAX_INLINE_CONTAINER_REKEYS = 16;
 
 /**
- * Maximum recipient envelopes one kek-log page may serve. Recovery needs the
- * requester's own anchors, not every envelope on every epoch, so the response
- * stays bounded no matter how many recipients a container has accumulated.
+ * Maximum recipient envelopes one kek-log epoch may serve, applied PER EPOCH
+ * rather than across the page. Recovery needs the requester's own anchors, not
+ * every envelope on every epoch, so the response stays bounded no matter how
+ * many recipients a container has accumulated — while a wide epoch can never
+ * consume another epoch's share and leave it looking unaddressed.
+ *
+ * One requester's envelopes for a single epoch number at most (self + the
+ * principals authorizing them + the parent containers on their path), so this
+ * bounds bytes with room to spare rather than truncating reachable anchors.
  */
-export const CONTAINER_KEK_LOG_WRAP_LIMIT = 512;
+export const CONTAINER_KEK_LOG_WRAPS_PER_EPOCH_LIMIT = 64;
