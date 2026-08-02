@@ -210,6 +210,17 @@ async function firstCommittedAnchor(input: {
     if (materialId === input.containerKeyEpochId) {
       return result;
     }
+    // An envelope that decrypts to the WRONG key is a misaddressed or stale
+    // envelope, not an unreachable principal. Recording it keeps the reported
+    // reason `corrupt-envelope`; dropping it silently would let the epoch
+    // report as unaddressed, which points a repair at the wrong problem.
+    //
+    // Only reachable when the server files a wrap under an epoch id its
+    // material does not hash to — the addressing filter already rejects a
+    // wrap whose epoch id simply differs.
+    firstFailure ??= new Error(
+      `Container KEK envelope decrypts to material that is not epoch ${input.containerKeyEpochId}`,
+    );
   }
   return { failure: firstFailure, key: null };
 }
