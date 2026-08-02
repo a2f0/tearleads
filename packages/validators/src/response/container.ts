@@ -4,6 +4,7 @@ import { isPlainObject } from "../isPlainObject";
 import {
   type AccessManifestBundleWireResponse,
   CONTAINER_KEK_LOG_PAGE_LIMIT,
+  CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
   hasArrayProperty,
   hasNullableStringProperty,
   hasNumberProperty,
@@ -128,7 +129,20 @@ export function isContainerKekLogResponse(
     typeof Reflect.get(value, "hasMore") === "boolean" &&
     Array.isArray(epochs) &&
     epochs.length <= CONTAINER_KEK_LOG_PAGE_LIMIT &&
-    epochs.every(isContainerKekLogEpochResponse)
+    epochs.every(isContainerKekLogEpochResponse) &&
+    // The same bounds the server applies, re-checked on the way in. A guard
+    // that accepted an unbounded page would let a hostile or buggy server
+    // hand back arbitrarily many envelopes and multi-megabyte keyrings, and
+    // the recovery walk would do the work before anything noticed.
+    epochs.every(
+      (epoch: ContainerKekLogEpochResponse) =>
+        epoch.wraps.length <= CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
+    ) &&
+    // At most one keyring per page: they are O(their epoch) bytes, so the
+    // endpoint serves exactly the one asked for.
+    epochs.filter(
+      (epoch: ContainerKekLogEpochResponse) => epoch.keyring !== null,
+    ).length <= 1
   );
 }
 

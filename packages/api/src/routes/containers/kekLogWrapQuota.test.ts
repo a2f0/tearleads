@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import type { ContainerKekLogResponse } from "@tearleads/validators/response";
+import {
+  type ContainerKekLogResponse,
+  isContainerKekLogResponse,
+} from "@tearleads/validators/response";
 import { CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT } from "@tearleads/validators/util";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
@@ -141,4 +144,54 @@ test("a granted member's own direct envelope is served as their anchor", async (
   expect(epochWithDirect.wraps.length).toBeLessThanOrEqual(
     CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
   );
+}, 20_000);
+
+test("the response guard enforces the same bounds the server applies", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const { root } = await rotateRootTwice(owner);
+
+  const served = (await (
+    await getKekLog(root.kekState.containerId, owner.token)
+  ).json()) as ContainerKekLogResponse;
+  expect(isContainerKekLogResponse(served)).toBe(true);
+
+  const epoch = served.epochs[0];
+  if (!epoch) throw new Error("expected a served epoch");
+
+  // A page whose epoch carries more envelopes than the per-epoch cap is
+  // rejected on the way in. Without this a hostile or buggy server could hand
+  // back an unbounded page and the recovery walk would do the work first.
+  expect(
+    isContainerKekLogResponse({
+      ...served,
+      epochs: [
+        {
+          ...epoch,
+          wraps: Array.from(
+            { length: CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT + 1 },
+            () => epoch.wraps[0] ?? {},
+          ),
+        },
+      ],
+    }),
+  ).toBe(false);
+
+  // Exactly at the cap still passes, so the bound is a ceiling and not an
+  // off-by-one that rejects a full legitimate page.
+  expect(
+    isContainerKekLogResponse({
+      ...served,
+      epochs: [
+        {
+          ...epoch,
+          wraps: Array.from(
+            { length: CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT },
+            () => epoch.wraps[0] ?? {},
+          ),
+        },
+      ],
+    }),
+  ).toBe(true);
 }, 20_000);
