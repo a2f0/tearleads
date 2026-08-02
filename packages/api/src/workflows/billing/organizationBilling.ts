@@ -261,7 +261,6 @@ export async function runGetOrganizationBillingWorkflow(
 
 const PENDING_CHANGE_RESOLUTION_EVENT_TYPES = [
   "INITIAL_PURCHASE",
-  "RENEWAL",
   "EXPIRATION",
   "SUBSCRIPTION_PAUSED",
 ] as const;

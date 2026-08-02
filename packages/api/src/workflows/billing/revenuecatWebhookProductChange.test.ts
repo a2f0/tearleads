@@ -37,7 +37,7 @@ async function readTier(organizationId: string) {
   return billing;
 }
 
-test("a native downgrade keeps paid capacity until its renewal", async () => {
+test("an old-product renewal preserves a scheduled native downgrade", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const now = Date.now();
@@ -102,7 +102,7 @@ test("a native downgrade keeps paid capacity until its renewal", async () => {
   expect(
     (await runGetOrganizationBillingWorkflow(db, organizationId, admin.userId))
       .pendingSeatCount,
-  ).toBeNull();
+  ).toBe(1);
 
   expect(
     await runRevenueCatWebhookWorkflow(db, {
@@ -118,6 +118,58 @@ test("a native downgrade keeps paid capacity until its renewal", async () => {
     providerProductId: "sync_solo_monthly",
     seatCount: 1,
   });
+  expect(
+    (await runGetOrganizationBillingWorkflow(db, organizationId, admin.userId))
+      .pendingSeatCount,
+  ).toBeNull();
+});
+
+test("a paused subscription clears its scheduled native change", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const now = Date.now();
+  const initial: RevenueCatWebhookEvent = {
+    app_user_id: admin.userId,
+    event_timestamp_ms: now,
+    expiration_at_ms: now + PERIOD_MS,
+    id: crypto.randomUUID(),
+    original_transaction_id: "paused_deferred_change",
+    product_id: "sync_team_10_monthly",
+    purchased_at_ms: now,
+    store: "PLAY_STORE",
+    subscriber_attributes: { orgId: { value: organizationId } },
+    type: "INITIAL_PURCHASE",
+  };
+  expect(await runRevenueCatWebhookWorkflow(db, initial)).toMatchObject({
+    organizationId,
+    status: "applied",
+  });
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      ...initial,
+      event_timestamp_ms: now + 1,
+      id: crypto.randomUUID(),
+      new_product_id: "sync_solo_monthly",
+      type: "PRODUCT_CHANGE",
+    }),
+  ).toMatchObject({ organizationId, status: "applied" });
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      ...initial,
+      event_timestamp_ms: now + 2,
+      id: crypto.randomUUID(),
+      type: "SUBSCRIPTION_PAUSED",
+    }),
+  ).toMatchObject({ organizationId, status: "applied" });
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      ...initial,
+      event_timestamp_ms: now + 3,
+      expiration_at_ms: now + 2 * PERIOD_MS,
+      id: crypto.randomUUID(),
+      type: "RENEWAL",
+    }),
+  ).toMatchObject({ organizationId, status: "applied" });
   expect(
     (await runGetOrganizationBillingWorkflow(db, organizationId, admin.userId))
       .pendingSeatCount,
