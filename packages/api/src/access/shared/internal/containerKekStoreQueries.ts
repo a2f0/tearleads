@@ -101,6 +101,7 @@ export async function listContainerKeyWrapsByEpochId(
   recipientScope?:
     | {
         readonly authorizedPrincipalIds: readonly string[];
+        readonly parentContainerIds: readonly string[];
         readonly userId: string;
       }
     | undefined,
@@ -115,7 +116,14 @@ export async function listContainerKeyWrapsByEpochId(
 
   const scopeFilter = recipientScope
     ? or(
-        eq(containerKeyWraps.recipientKind, "container"),
+        recipientScope.parentContainerIds.length > 0
+          ? and(
+              eq(containerKeyWraps.recipientKind, "container"),
+              inArray(containerKeyWraps.recipientId, [
+                ...recipientScope.parentContainerIds,
+              ]),
+            )
+          : undefined,
         and(
           eq(containerKeyWraps.recipientKind, "user"),
           eq(containerKeyWraps.recipientId, recipientScope.userId),

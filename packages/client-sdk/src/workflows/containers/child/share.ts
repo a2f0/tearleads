@@ -287,6 +287,11 @@ function buildContainerSharePlanResult(input: {
     keyEpoch,
     manifest: input.manifest,
     manifestHash: input.manifestHash,
+    previousKeyring: input.previousProjection.containerKeks.at(-1)?.keyring
+      ? ({
+          ...input.previousProjection.containerKeks.at(-1)?.keyring,
+        } as Record<string, unknown>)
+      : null,
     previousManifest: input.previousManifest,
     recipientTarget: input.recipientTarget,
     request: buildContainerShareRequest({

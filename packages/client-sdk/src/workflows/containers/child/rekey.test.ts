@@ -78,9 +78,8 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
 
   // Ground truth: the append-only log. The bridge the rotation wrote is
   // sufficient to recover epoch 1 from the current key alone.
-  const log: ContainerKekLogResponse = {
+  const log = {
     containerId,
-    hasMore: false,
     epochs: [
       {
         accessManifestHash:
@@ -166,7 +165,6 @@ test("rebuild fails closed on a severed or non-contiguous log", async () => {
       currentContainerKeyEpochId: currentKek.containerKeyEpochId,
       log: {
         containerId: parent.projection.containerId,
-        hasMore: false,
         epochs: [
           {
             accessManifestHash: currentKek.accessManifestHash,
@@ -217,9 +215,8 @@ test("a severed bridge is recovered through the retained historical wrap", async
 
   // The log arrives with the epoch-2 bridge DESTROYED: log-based rebuild
   // fails closed on the missing link.
-  const severedLog: ContainerKekLogResponse = {
+  const severedLog = {
     containerId: parent.projection.containerId,
-    hasMore: false,
     epochs: [
       {
         accessManifestHash: epoch1Kek.accessManifestHash,

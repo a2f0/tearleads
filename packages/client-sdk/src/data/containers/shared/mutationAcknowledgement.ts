@@ -27,6 +27,11 @@ interface AuthoredContainerMutationHead {
   readonly keyEpoch: ContainerKeyEpoch;
   readonly manifest: AccessManifest;
   readonly manifestHash: string;
+  /**
+   * The keyring the epoch already had, for mutations that keep their epoch.
+   * Its artifact is immutable, so the response must echo exactly this.
+   */
+  readonly previousKeyring?: Record<string, unknown> | null | undefined;
   readonly state: ContainerAccessManifestState;
   readonly wraps: readonly ContainerKeyWrap[];
 }
@@ -114,8 +119,27 @@ async function assertAcknowledgedKeyring(
     typeof body.keyringHash === "string" ? body.keyringHash : null;
   const keyring = response.containerKek.keyring;
   if (committedHash === null) {
-    // Non-rotating mutations commit no keyring; the server may still echo the
-    // epoch's stored one, which this event says nothing about.
+    // A non-rotating mutation keeps its epoch, so the echoed keyring must be
+    // the immutable artifact that epoch already had. Accepting anything else
+    // would let a server null or substitute the snapshot in the response that
+    // becomes the next writer projection.
+    const expected = plan.previousKeyring ?? null;
+    if (expected === null) {
+      return;
+    }
+    if (!keyring) {
+      throw new Error(
+        "Container mutation response dropped its unchanged keyring",
+      );
+    }
+    if (
+      (await computeContainerKekKeyringHash(keyring)) !==
+      (await computeContainerKekKeyringHash(expected))
+    ) {
+      throw new Error(
+        "Container mutation response replaced its unchanged keyring",
+      );
+    }
     return;
   }
   if (!keyring) {

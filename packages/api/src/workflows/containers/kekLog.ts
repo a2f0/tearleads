@@ -97,6 +97,11 @@ export async function runContainerKekLogWorkflow(
       tx,
       {
         authorizedPrincipalIds: [...authorizedPrincipalIds],
+        // Only the ancestors on this requester's own resolved path can be a
+        // legitimate inheritance anchor for them.
+        parentContainerIds: access.verifiedPath.map(
+          (manifest) => manifest.state.containerId,
+        ),
         userId: input.userId,
       },
     );

@@ -27,12 +27,22 @@ export const nonEmptyStringSchema = z.string().min(1);
  */
 export function arraySchema<ItemSchema extends z.ZodType>(
   itemSchema: ItemSchema,
+  /** Optional item ceiling, reflected in the generated JSON Schema. */
+  maxItems?: number,
 ) {
+  // The ceiling is enforced at runtime below rather than on the view: the
+  // JSON Schema projector only accepts plain registered views.
   const viewSchema = z.array(itemSchema);
   const runtimeSchema = registerJsonSchemaView(
     z.custom<z.output<ItemSchema>[]>(Array.isArray),
     viewSchema,
   ).superRefine((values, context) => {
+    if (maxItems !== undefined && values.length > maxItems) {
+      context.addIssue({
+        code: "custom",
+        message: `array exceeds ${maxItems} items`,
+      });
+    }
     values.forEach((value, index) => {
       const result = itemSchema.safeParse(value);
       if (result.success) {

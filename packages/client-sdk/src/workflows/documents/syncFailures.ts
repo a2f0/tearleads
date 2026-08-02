@@ -348,7 +348,7 @@ export async function submitDocumentSyncAttemptIfAllowed(
   const { isRemoteSyncBlocked, writeBearing, ...submissionInput } = input;
   const hasRemoteWrites =
     input.plan.request.outgoingUpdates.length > 0 ||
-    (input.plan.request.containerRekeys?.length ?? 0) > 0;
+    (input.plan.request["containerRekeys"]?.length ?? 0) > 0;
   if (hasRemoteWrites && isRemoteSyncBlocked?.(input.plan.organizationId)) {
     return "stop";
   }

@@ -185,6 +185,8 @@ export interface CreateRemoteContainerResult {
 
 export interface ContainerSharePlan {
   body: ContainerGrantAccessEventBody;
+  /** The unchanged epoch's stored keyring, echoed back by the server. */
+  previousKeyring?: Record<string, unknown> | null | undefined;
   containerId: string;
   event: AccessEvent;
   eventHash: string;

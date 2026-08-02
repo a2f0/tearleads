@@ -229,6 +229,16 @@ export async function recoverKeyringEntryFromWraps(input: {
 }
 
 /**
+ * A whole rotation log assembled from pages. Distinct from the wire type,
+ * which describes ONE bounded page and rejects more epochs than a page may
+ * carry — an aggregate legitimately exceeds that.
+ */
+export interface AggregatedContainerKekLog {
+  readonly containerId: string;
+  readonly epochs: ContainerKekLogEpochResponse[];
+}
+
+/**
  * Fetches the container's complete rotation log across pages. The endpoint
  * bounds each page, so a long-lived container needs several round trips; the
  * cursor is the last served epoch number.
@@ -246,8 +256,8 @@ export async function fetchContainerKekLog(input: {
   containerId: string;
   /** Ask for one historical keyring by epoch number; blobs are never bulk. */
   keyringForEpoch?: number | undefined;
-}): Promise<ContainerKekLogResponse> {
-  const epochs: ContainerKekLogResponse["epochs"] = [];
+}): Promise<AggregatedContainerKekLog> {
+  const epochs: ContainerKekLogEpochResponse[] = [];
   let afterKeyEpoch = 0;
   // A hostile server could claim `hasMore` forever with ever-advancing epoch
   // numbers. The protocol caps lifetime rotations, so the walk is capped too.
@@ -262,15 +272,17 @@ export async function fetchContainerKekLog(input: {
       throw new Error("Container KEK log is unavailable");
     }
     epochs.push(...page.epochs);
-    if (!page.hasMore) {
-      return { containerId: page.containerId, epochs, hasMore: false };
-    }
     const lastEpoch = page.epochs.at(-1)?.containerKeyEpoch;
+    // Validate before returning, so a final page cannot smuggle an
+    // out-of-range epoch past the ceiling check.
+    if (lastEpoch !== undefined && lastEpoch > MAX_CONTAINER_KEY_EPOCH) {
+      throw new Error("Container KEK log exceeds the maximum key epoch");
+    }
+    if (!page.hasMore) {
+      return { containerId: page.containerId, epochs };
+    }
     if (lastEpoch === undefined || lastEpoch <= afterKeyEpoch) {
       throw new Error("Container KEK log page did not advance");
-    }
-    if (lastEpoch > MAX_CONTAINER_KEY_EPOCH) {
-      throw new Error("Container KEK log exceeds the maximum key epoch");
     }
     afterKeyEpoch = lastEpoch;
   }
@@ -319,7 +331,7 @@ export async function rebuildKeyringEntriesFromLog(input: {
   containerId: string;
   currentContainerKey: Uint8Array;
   currentContainerKeyEpochId: string;
-  log: ContainerKekLogResponse;
+  log: AggregatedContainerKekLog;
 }): Promise<KeyringRebuildResult> {
   if (input.log.containerId !== input.containerId) {
     throw new Error("Container KEK log container is inconsistent");

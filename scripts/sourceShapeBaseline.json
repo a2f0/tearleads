@@ -383,7 +383,7 @@
     },
     "packages/client-sdk/src/workflows/documents/syncFailures.ts": {
       "lines": 514,
-      "bytes": 16881
+      "bytes": 16884
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,
