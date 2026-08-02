@@ -3,6 +3,7 @@ import {
   computeContainerKekMaterialId,
   computeContainerKeyEpochHash,
   isContainerKekMaterialId,
+  KeyingVerificationError,
   normalizeContainerAccessEventBody,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
@@ -165,9 +166,7 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
 
   if (kek.keyring === null) {
     if (kek.containerKeyEpoch !== 1) {
-      throw new Error(
-        `${projectionKekLabel(input.index)} keyring is missing`,
-      );
+      throw new Error(`${projectionKekLabel(input.index)} keyring is missing`);
     }
     if (kek.historicalKeyEpochs.length > 0) {
       throw new Error(
@@ -195,11 +194,24 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
     });
   }
 
-  const entries = await openContainerKekKeyring({
-    keyEpoch: kek.containerKeyEpoch,
-    keyring,
-    successorContainerKey: input.successorKeyMaterial,
-  });
+  let entries: Awaited<ReturnType<typeof openContainerKekKeyring>>;
+  try {
+    entries = await openContainerKekKeyring({
+      keyEpoch: kek.containerKeyEpoch,
+      keyring,
+      successorContainerKey: input.successorKeyMaterial,
+    });
+  } catch (error) {
+    if (error instanceof KeyingVerificationError) {
+      throw error;
+    }
+    // Label opaque AEAD failures; structural verification errors already
+    // carry their own diagnosis.
+    throw new Error(
+      `${projectionKekLabel(input.index)} keyring could not be opened`,
+      { cause: error },
+    );
+  }
   await Promise.all(
     entries.map((entry, ordinal) =>
       verifyContainerKekKeyringEntry({
@@ -215,6 +227,9 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
     ...sameContainerManifestHistory(kek).map((bundle) => bundle.manifestHash),
   ]);
   const recordsByEpochId = new Map<string, HistoricalKeyEpoch>();
+  const entryEpochIds = new Set(
+    entries.map((entry) => entry.containerKeyEpochId),
+  );
   for (const record of kek.historicalKeyEpochs) {
     await assertHistoricalKeyEpoch({
       index: input.index,
@@ -222,6 +237,14 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
       record,
       verifiedManifestHashes,
     });
+    // Checked before any entry is admitted so a projection whose pinned
+    // historical record is absent from the keyring fails closed without
+    // partially materializing history.
+    if (!entryEpochIds.has(record.containerKeyEpochId)) {
+      throw new Error(
+        `${projectionKekLabel(input.index)} historical epoch is not in the keyring`,
+      );
+    }
     recordsByEpochId.set(record.containerKeyEpochId, record);
   }
 
@@ -252,14 +275,6 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
       keyMaterial: entry.keyMaterial,
     });
   }
-
-  for (const record of kek.historicalKeyEpochs) {
-    if (!input.keksByEpochId.has(record.containerKeyEpochId)) {
-      throw new Error(
-        `${projectionKekLabel(input.index)} historical epoch is not in the keyring`,
-      );
-    }
-  }
 }
 
 /**
@@ -271,9 +286,7 @@ export function projectedUnreachablePredecessorEpochIds(input: {
   keksByEpochId: ReadonlyMap<string, UnwrappedContainerKek>;
 }): string[] {
   const projectedEpochIds = new Set(
-    input.kek.historicalKeyEpochs.map(
-      (record) => record.containerKeyEpochId,
-    ),
+    input.kek.historicalKeyEpochs.map((record) => record.containerKeyEpochId),
   );
   for (const bundle of sameContainerManifestHistory(input.kek)) {
     const state = readCanonicalRecord(

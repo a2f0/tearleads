@@ -124,16 +124,16 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
     throw new Error("Expected rotated container KEK keyring in the response");
   }
   expect(responseKeyring).toEqual(
-    submittedRequest.keyring as typeof responseKeyring,
+    submittedRequest.keyring as unknown as typeof responseKeyring,
   );
   const keyringEntries = await openContainerKekKeyring({
     keyEpoch: revoked.plan.keyEpoch.keyEpoch,
     keyring: normalizeContainerKekKeyring(responseKeyring),
     successorContainerKey: revoked.containerKey,
   });
-  expect(
-    keyringEntries.map((entry) => entry.containerKeyEpochId),
-  ).toEqual([parent.parentKekState.containerKeyEpochId]);
+  expect(keyringEntries.map((entry) => entry.containerKeyEpochId)).toEqual([
+    parent.parentKekState.containerKeyEpochId,
+  ]);
   expect(
     revoked.plan.state.directGrants.map((grant) => grant.subjectId),
   ).toEqual([parent.userId]);
