@@ -1,10 +1,12 @@
 import { expect, test } from "bun:test";
 import {
   computeContainerKekMaterialId,
+  encryptWithDek,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createMutationResponseFromRequest,
@@ -258,4 +260,63 @@ test("a corrupt direct envelope reports corruption, not an unreachable key", asy
   expect((failure as HistoricalWrapUnavailableError).reason).toBe(
     "corrupt-envelope",
   );
+});
+
+test("an inherited-only child recovers through its parent-container wrap", async () => {
+  const parent = await createParentProjection();
+  const epoch1Kek = parent.projection.containerKeks.at(-1);
+  if (!epoch1Kek) {
+    throw new Error("Expected the epoch-1 KEK");
+  }
+
+  // A child with no direct or principal envelope of its own: its only anchor
+  // at this epoch is the parent-container wrap.
+  const childId = crypto.randomUUID();
+  const childKey = crypto.getRandomValues(new Uint8Array(32));
+  const childEpochId = await computeContainerKekMaterialId({
+    containerId: childId,
+    keyEpoch: 1,
+    keyMaterial: childKey,
+  });
+  const parentKey = crypto.getRandomValues(new Uint8Array(32));
+  const wrapped = await encryptWithDek(childKey, parentKey);
+  const inheritedEpoch = {
+    containerKeyEpoch: 1,
+    containerKeyEpochId: childEpochId,
+    wraps: [
+      {
+        containerKeyEpochId: childEpochId,
+        recipientKind: "container",
+        recipientId: parent.projection.containerId,
+        recipientKeyEpochId: epoch1Kek.containerKeyEpochId,
+        recipientKeyFingerprint: epoch1Kek.keyEpochHash,
+        kemCipherText: bytesToBase64(wrapped.iv),
+        wrappedKey: bytesToBase64(wrapped.ciphertext),
+        wrapManifestHash: epoch1Kek.accessManifestHash,
+      },
+    ],
+  };
+
+  // Without the parent KEK the failure names the missing anchor precisely.
+  const withoutParent = await recoverKeyringEntryFromWraps({
+    containerId: childId,
+    epoch: inheritedEpoch,
+    secretKey: parent.secretKey,
+    userId: parent.userId,
+  }).catch((error: unknown) => error);
+  expect(withoutParent).toBeInstanceOf(HistoricalWrapUnavailableError);
+  expect((withoutParent as HistoricalWrapUnavailableError).reason).toBe(
+    "parent-key-unavailable",
+  );
+
+  // With it, the child's epoch recovers and verifies against its committed id.
+  const recovered = await recoverKeyringEntryFromWraps({
+    containerId: childId,
+    epoch: inheritedEpoch,
+    parentKeysByEpochId: new Map([[epoch1Kek.containerKeyEpochId, parentKey]]),
+    secretKey: parent.secretKey,
+    userId: parent.userId,
+  });
+  expect(recovered.containerKeyEpochId).toBe(childEpochId);
+  expect(recovered.keyMaterial).toEqual(childKey);
 });

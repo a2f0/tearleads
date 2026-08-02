@@ -2,6 +2,7 @@ import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { ContainerKekLogResponse } from "@tearleads/validators/response";
 import { CONTAINER_KEK_LOG_PAGE_LIMIT } from "@tearleads/validators/util";
 import {
+  getContainerKeyEpochKeyring,
   getCurrentContainerKeyEpoch,
   listContainerKeyEpochPage,
   listContainerKeyWrapsByEpochId,
@@ -32,11 +33,13 @@ import { ContainerWriterProjectionError } from "./writerProjection/types";
  * not this page's first epoch, or epoch 1" rather than "absent".
  *
  * Wraps are filtered to what the requester could actually use as a recovery
- * anchor: their own direct envelopes, plus principal-addressed ones (whose
+ * anchor: their own direct envelopes, principal-addressed ones (whose
  * principal ids current readers already see in the signed manifests on their
- * access path). Other members' identities are never disclosed, preserving the
- * "superseded recipient envelopes are not served" guarantee for everyone but
- * the requester themselves.
+ * access path), and parent-container envelopes — the only anchor an
+ * inherited-only child has, recovered by holding the parent epoch's KEK.
+ * Other members' identities are never disclosed, preserving the "superseded
+ * recipient envelopes are not served" guarantee for everyone but the
+ * requester themselves.
  */
 export async function runContainerKekLogWorkflow(
   db: ApiDatabase,
@@ -67,11 +70,16 @@ export async function runContainerKekLogWorkflow(
       {
         afterKeyEpoch: input.afterKeyEpoch,
         containerId: input.containerId,
-        includeKeyrings: input.includeKeyrings,
         limit: CONTAINER_KEK_LOG_PAGE_LIMIT,
       },
       tx,
     );
+    // Exactly one keyring blob is ever read, and only when asked for.
+    const firstEpochId = page[0]?.id;
+    const requestedKeyring =
+      input.includeKeyrings && firstEpochId
+        ? await getContainerKeyEpochKeyring(firstEpochId, tx)
+        : null;
     const wrapsByEpochId = await listContainerKeyWrapsByEpochId(
       page.map((epoch) => epoch.id),
       tx,
@@ -85,15 +93,17 @@ export async function runContainerKekLogWorkflow(
         bridge: epoch.predecessorBridge ? { ...epoch.predecessorBridge } : null,
         containerKeyEpoch: epoch.keyEpoch,
         containerKeyEpochId: epoch.id,
-        keyring: pageIndex === 0 && epoch.keyring ? { ...epoch.keyring } : null,
+        keyring:
+          pageIndex === 0 && requestedKeyring ? { ...requestedKeyring } : null,
         parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
         wraps: (wrapsByEpochId.get(epoch.id) ?? [])
           .filter(
             (wrap) =>
-              (wrap.recipientKind === "user" &&
-                wrap.recipientId === input.userId) ||
+              wrap.recipientKind === "container" ||
               wrap.recipientKind === "group" ||
-              wrap.recipientKind === "organization",
+              wrap.recipientKind === "organization" ||
+              (wrap.recipientKind === "user" &&
+                wrap.recipientId === input.userId),
           )
           .map((wrap) => ({
             containerKeyEpochId: wrap.containerKeyEpochId,

@@ -235,7 +235,7 @@ async function openVerifiedKeyringEntries(input: {
  * provably had — and a keyring that omits it in favor of a forged id for the
  * same position is detectable even when no epoch RECORD was shipped.
  */
-function manifestHistoryEpochIds(kek: ProjectionKek): Set<string> {
+export function manifestHistoryEpochIds(kek: ProjectionKek): Set<string> {
   const epochIds = new Set<string>();
   for (const bundle of sameContainerManifestHistory(kek)) {
     const state = readCanonicalRecord(
@@ -260,7 +260,7 @@ function manifestHistoryEpochIds(kek: ProjectionKek): Set<string> {
  * separately, by set membership, because a manifest state names an epoch id
  * without naming its epoch number.
  */
-function committedHistoricalEpochIds(
+export function committedHistoricalEpochIds(
   kek: ProjectionKek,
   index: number,
 ): Map<number, string> {

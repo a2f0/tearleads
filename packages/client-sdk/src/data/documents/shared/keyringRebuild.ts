@@ -1,9 +1,11 @@
 import type { ContainerKekKeyringEntry } from "@tearleads/crypto";
 import {
   computeContainerKekMaterialId,
+  decryptWithDek,
   normalizeContainerKekPredecessorBridge,
   unwrapContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import type {
   ContainerKekLogEpochResponse,
   ContainerKekLogResponse,
@@ -23,7 +25,9 @@ export type HistoricalWrapUnavailableReason =
   /** A direct user envelope exists for the requester but did not open. */
   | "corrupt-envelope"
   /** Only principal-addressed envelopes, whose key epoch is unreachable. */
-  | "principal-key-unreachable";
+  | "principal-key-unreachable"
+  /** Only a parent-container envelope, and the parent KEK was not supplied. */
+  | "parent-key-unavailable";
 
 const HISTORICAL_WRAP_UNAVAILABLE_MESSAGES: Record<
   HistoricalWrapUnavailableReason,
@@ -35,6 +39,8 @@ const HISTORICAL_WRAP_UNAVAILABLE_MESSAGES: Record<
     `Container KEK log envelope for this requester at epoch ${epoch} could not be opened`,
   "principal-key-unreachable": (epoch) =>
     `Container KEK log envelope at epoch ${epoch} is addressed to a principal key epoch this client cannot resolve`,
+  "parent-key-unavailable": (epoch) =>
+    `Container KEK log envelope at epoch ${epoch} is inherited from a parent container whose KEK was not supplied`,
 };
 
 export class HistoricalWrapUnavailableError extends Error {
@@ -77,6 +83,13 @@ export async function recoverKeyringEntryFromWraps(input: {
   execSql?: ExecSql | undefined;
   secretKey: Uint8Array;
   /**
+   * Parent container KEKs by epoch id. An inherited-only child has no direct
+   * or principal envelope of its own; its anchor is the parent-container
+   * wrap, which opens under the parent epoch's KEK. Recover the parent's
+   * epoch first (recursively, through the parent's own log) and pass it here.
+   */
+  parentKeysByEpochId?: ReadonlyMap<string, Uint8Array> | undefined;
+  /**
    * The requester's user id. Direct user envelopes are matched against it, so
    * another member's envelope is never mistaken for an anchor — attempting it
    * would only produce a misleading failure.
@@ -99,7 +112,14 @@ export async function recoverKeyringEntryFromWraps(input: {
     (wrap) =>
       wrap.recipientKind === "group" || wrap.recipientKind === "organization",
   );
-  if (directWraps.length === 0 && principalWraps.length === 0) {
+  const parentWraps = epochWraps.filter(
+    (wrap) => wrap.recipientKind === "container",
+  );
+  if (
+    directWraps.length === 0 &&
+    principalWraps.length === 0 &&
+    parentWraps.length === 0
+  ) {
     throw new HistoricalWrapUnavailableError(
       input.epoch.containerKeyEpoch,
       "no-addressed-envelope",
@@ -140,6 +160,39 @@ export async function recoverKeyringEntryFromWraps(input: {
           ? "principal-key-unreachable"
           : "corrupt-envelope",
         directFailure ?? error,
+      );
+    }
+  }
+  // The inherited-only path: a parent-container envelope opens under the
+  // parent epoch's KEK, which the caller recovers from the parent's own log.
+  if (keyMaterial === null && parentWraps.length > 0) {
+    const parentKeys = input.parentKeysByEpochId ?? new Map();
+    for (const wrap of parentWraps) {
+      const parentKey = parentKeys.get(wrap.recipientKeyEpochId);
+      if (!parentKey) {
+        continue;
+      }
+      try {
+        keyMaterial = await decryptWithDek(
+          {
+            iv: base64ToBytes(wrap.kemCipherText),
+            ciphertext: base64ToBytes(wrap.wrappedKey),
+          },
+          parentKey,
+        );
+        break;
+      } catch (error) {
+        throw new HistoricalWrapUnavailableError(
+          input.epoch.containerKeyEpoch,
+          "corrupt-envelope",
+          error,
+        );
+      }
+    }
+    if (keyMaterial === null) {
+      throw new HistoricalWrapUnavailableError(
+        input.epoch.containerKeyEpoch,
+        "parent-key-unavailable",
       );
     }
   }

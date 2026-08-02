@@ -324,6 +324,19 @@ export async function listContainerKeyWraps(
   return wraps.map(toStoredContainerKeyWrap);
 }
 
+/** Reads one epoch's sealed keyring — the only place the blob is selected. */
+export async function getContainerKeyEpochKeyring(
+  containerKeyEpochId: string,
+  executor: DatabaseSession,
+): Promise<ContainerKekKeyring | null> {
+  const [row] = await executor
+    .select()
+    .from(containerKeyEpochs)
+    .where(eq(containerKeyEpochs.id, containerKeyEpochId))
+    .limit(1);
+  return row ? toStoredContainerKeyEpoch(row).keyring : null;
+}
+
 /**
  * One query for many epochs' wraps, grouped by epoch id — the per-epoch
  * variant would issue a statement per epoch, which grows with rotation
@@ -339,7 +352,6 @@ export async function listContainerKeyEpochPage(
   input: {
     readonly afterKeyEpoch: number;
     readonly containerId: string;
-    readonly includeKeyrings: boolean;
     readonly limit: number;
   },
   executor: DatabaseSession,
@@ -356,20 +368,17 @@ export async function listContainerKeyEpochPage(
       createdByManifestHash: containerKeyEpochs.createdByManifestHash,
       id: containerKeyEpochs.id,
       keyEpoch: containerKeyEpochs.keyEpoch,
-      // Only the page's first epoch can carry a keyring, so at most one
-      // multi-megabyte blob is read per request.
-      keyringIv: input.includeKeyrings
-        ? containerKeyEpochs.keyringIv
-        : sql<null>`null`,
+      // The keyring columns are never selected here: they are O(epoch) bytes
+      // each, so selecting a page of them would read gigabytes to serve one.
+      // getContainerKeyEpochKeyring fetches the single requested blob.
+      keyringIv: sql<null>`null`,
       parentContainerKeyEpochId: containerKeyEpochs.parentContainerKeyEpochId,
       predecessorBridgeIv: containerKeyEpochs.predecessorBridgeIv,
       predecessorBridgeSuite: containerKeyEpochs.predecessorBridgeSuite,
       predecessorBridgeVersion: containerKeyEpochs.predecessorBridgeVersion,
       predecessorContainerKeyEpochId:
         containerKeyEpochs.predecessorContainerKeyEpochId,
-      sealedKeyring: input.includeKeyrings
-        ? containerKeyEpochs.sealedKeyring
-        : sql<null>`null`,
+      sealedKeyring: sql<null>`null`,
       wrappedPredecessorKey: containerKeyEpochs.wrappedPredecessorKey,
     })
     .from(containerKeyEpochs)
