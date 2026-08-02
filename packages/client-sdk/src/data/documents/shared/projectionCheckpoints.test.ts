@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import {
+  computeContainerKekKeyringHash,
   computeContainerKekMaterialId,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
+  sealContainerKekKeyring,
   toFingerprint,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
@@ -38,15 +40,30 @@ test("document dependency evidence cannot hide a newer container head", async ()
   if (!firstManifest) {
     throw new Error("Expected initial container manifest");
   }
+  const rotatedContainerKek = crypto.getRandomValues(new Uint8Array(32));
+  const rotatedContainerKeyEpochId = await computeContainerKekMaterialId({
+    containerId: parent.parentKekState.containerId,
+    keyEpoch: parent.parentKekState.containerKeyEpoch + 1,
+    keyMaterial: rotatedContainerKek,
+  });
+  const keyring = await sealContainerKekKeyring({
+    containerId: parent.parentKekState.containerId,
+    entries: [
+      {
+        containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+        keyMaterial: parent.parentContainerKek,
+      },
+    ],
+    keyEpoch: parent.parentKekState.containerKeyEpoch + 1,
+    successorContainerKey: rotatedContainerKek,
+    successorContainerKeyEpochId: rotatedContainerKeyEpochId,
+  });
   const secondManifest = await createContainerRevokeManifestFixture({
     author: parent.author,
     containerId: parent.parentKekState.containerId,
-    containerKeyEpochId: await computeContainerKekMaterialId({
-      containerId: parent.parentKekState.containerId,
-      keyEpoch: parent.parentKekState.containerKeyEpoch + 1,
-      keyMaterial: crypto.getRandomValues(new Uint8Array(32)),
-    }),
+    containerKeyEpochId: rotatedContainerKeyEpochId,
     eventId: "document-dependency-container-revoke",
+    keyringHash: await computeContainerKekKeyringHash(keyring),
     organizationId: parent.projection.organizationId,
     predecessorBridgeHash: "0".repeat(64),
     previousManifest:

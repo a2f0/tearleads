@@ -5,6 +5,7 @@ import {
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   computeBlobAccessManifestHash,
+  computeContainerKekKeyringHash,
   computeContainerKekMaterialId,
   computeContainerKekPredecessorBridgeHash,
   computeContainerKekRecipientTargetHash,
@@ -16,6 +17,7 @@ import {
   derivePrincipalRecipientKeyEpochId,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
+  sealContainerKekKeyring,
   signPrincipalState,
   toFingerprint,
   type VerifiedContainerAccessManifest,
@@ -436,11 +438,24 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
       successorContainerKey: rotatedContainerKek,
       successorContainerKeyEpochId: rotatedContainerKeyEpochId,
     });
+    const keyring = await sealContainerKekKeyring({
+      containerId: parent.parentKekState.containerId,
+      entries: [
+        {
+          containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
+          keyMaterial: parent.parentContainerKek,
+        },
+      ],
+      keyEpoch: parent.parentKekState.containerKeyEpoch + 1,
+      successorContainerKey: rotatedContainerKek,
+      successorContainerKeyEpochId: rotatedContainerKeyEpochId,
+    });
     const revokedManifest = await createContainerRevokeManifestFixture({
       author: parent.author,
       containerId: parent.parentKekState.containerId,
       containerKeyEpochId: rotatedContainerKeyEpochId,
       eventId: "parent-container-revoke-event-2",
+      keyringHash: await computeContainerKekKeyringHash(keyring),
       organizationId: parent.projection.organizationId,
       predecessorBridgeHash:
         await computeContainerKekPredecessorBridgeHash(predecessorBridge),
@@ -499,22 +514,8 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
           containerManifestHistory: [
             previousManifest as unknown as ContainerWriterProjectionResponse["path"][number],
           ],
-          predecessorKeks: [
-            {
-              accessManifestHash: parent.parentKekState.accessManifestHash,
-              bridge: predecessorBridge as unknown as Record<string, unknown>,
-              containerId: parent.parentKekState.containerId,
-              containerKeyEpoch: parent.parentKekState.containerKeyEpoch,
-              containerKeyEpochId: parent.parentKekState.containerKeyEpochId,
-              keyEpoch: parent.parentKekState.keyEpoch as unknown as Record<
-                string,
-                unknown
-              >,
-              keyEpochHash: parent.parentKekState.keyEpochHash,
-              parentContainerKeyEpochId:
-                parent.parentKekState.parentContainerKeyEpochId,
-            },
-          ],
+          keyring,
+          historicalKeyEpochs: [],
         },
       ],
     };
@@ -555,16 +556,13 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
     ).toEqual(Array.from(parent.parentContainerKek));
 
     const substitutedProjection = structuredClone(revokedProjection);
-    const substitutedBridge =
-      substitutedProjection.containerKeks[0]?.predecessorKeks[0]?.bridge;
-    if (!substitutedBridge) {
-      throw new Error("Expected projected predecessor bridge");
+    const substitutedKeyring = substitutedProjection.containerKeks[0]?.keyring;
+    if (!substitutedKeyring) {
+      throw new Error("Expected projected rotation keyring");
     }
-    Reflect.set(
-      substitutedBridge,
-      "wrappedKey",
-      bytesToBase64(crypto.getRandomValues(new Uint8Array(48))),
-    );
+    const tamperedSealed = base64ToBytes(substitutedKeyring.sealed);
+    tamperedSealed[8] = (tamperedSealed[8] ?? 0) ^ 0xff;
+    Reflect.set(substitutedKeyring, "sealed", bytesToBase64(tamperedSealed));
     const ownerKeksWithCorruptHistory = await unwrapContainerKekPath({
       execSql,
       projection: substitutedProjection,
@@ -918,7 +916,8 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
           await computeContainerKekRecipientTargetHash(recipientTargets),
         parentContainerKeyEpochId: null,
         containerManifestHistory: [],
-        predecessorKeks: [],
+        keyring: null,
+        historicalKeyEpochs: [],
         recipientTargets: recipientTargets as unknown as Record<
           string,
           unknown
