@@ -110,6 +110,13 @@ export interface ContainerKekLogEpochResponse {
   containerKeyEpochId: string;
   keyring: ContainerKekKeyringWireResponse | null;
   parentContainerKeyEpochId: string | null;
+  /**
+   * The epoch's retained recipient envelopes — the identity-key recovery
+   * backstop when a bridge below the current epoch is severed. Cross-epoch
+   * wraps are never deleted, so a member present at this epoch can recover
+   * its KEK from their own wrap independent of every later rotation.
+   */
+  wraps: Record<string, unknown>[];
 }
 
 export interface ContainerKekLogResponse {
@@ -140,7 +147,8 @@ function isContainerKekLogEpochResponse(
     value.containerKeyEpochId.length > 0 &&
     Reflect.has(value, "keyring") &&
     (keyring === null || isContainerKekKeyringWireResponse(keyring)) &&
-    hasNullableStringProperty(value, "parentContainerKeyEpochId")
+    hasNullableStringProperty(value, "parentContainerKeyEpochId") &&
+    isRecordArray(Reflect.get(value, "wraps"))
   );
 }
 

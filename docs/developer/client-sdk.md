@@ -480,6 +480,15 @@ alias. For example, root `ContainerDocumentLinkInput` is the high-level client
 document-link input, while the lower-level container query link input is
 `ContainerDocumentQueriesLinkInput`.
 
+Container KEK-history recovery is public workflow surface: `rekeyRemoteContainer`
+performs an explicit rotation (and, with `keyringEntriesOverride`, the repair
+that replaces a poisoned keyring snapshot), `rebuildKeyringEntriesFromLog`
+reconstructs history from the `GET /containers/:id/kek-log` bridge log, and
+`recoverKeyringEntryFromWraps` recovers a bridge-severed epoch from the caller's
+retained recipient envelope. See
+[keying-design.md](../keying-design.md#container-key-epoch-database-row) for the
+artifact model these operate on.
+
 ### Purchase capabilities
 
 Org sync billing exposes two provider-neutral capabilities:

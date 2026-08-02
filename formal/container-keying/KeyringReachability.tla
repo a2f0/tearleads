@@ -2,20 +2,24 @@
 EXTENDS FiniteSets, Naturals
 
 (* Container KEK history as three immutable rotation artifacts (#1939):    *)
-(* member wraps (retained per epoch), a write-once predecessor bridge      *)
-(* (the append-only log), and a sealed keyring snapshot of all predecessor *)
-(* keys. Per-entry material-id verification makes a poisoned artifact      *)
-(* detected, never silently used, so integrity is modeled as a boolean:    *)
-(* an artifact is either honest or unusable.                               *)
+(* member wraps (retained per epoch, owned by the members they address),   *)
+(* a write-once predecessor bridge (the append-only log), and a sealed     *)
+(* keyring snapshot of all predecessor keys. Per-entry material-id         *)
+(* verification makes a poisoned artifact detected, never silently used,   *)
+(* so integrity is modeled as a boolean: honest or unusable.               *)
 (*                                                                         *)
+(* Recovery is member-scoped: a wrap anchors recovery only for a member it *)
+(* addresses, and only members with current access hold the current KEK.   *)
 (* A rotator can always mint an honest bridge (it holds the current key),  *)
 (* but can seal an HONEST keyring only when the full history is            *)
-(* recoverable to it -- the exact-count structural check rejects anything  *)
-(* less. Repair is an ordinary honest rotation.                            *)
+(* recoverable to that rotator personally -- the exact-count structural    *)
+(* check rejects anything less. Repair is an ordinary honest rotation.     *)
 
-CONSTANTS MaxEpoch
+CONSTANTS MaxEpoch, Members
 
-ASSUME MaxEpoch \in Nat \ {0, 1}
+ASSUME /\ MaxEpoch \in Nat \ {0, 1}
+       /\ Members # {}
+       /\ IsFiniteSet(Members)
 
 Epochs == 1..MaxEpoch
 RotatedEpochs == 2..MaxEpoch
@@ -23,15 +27,25 @@ RotatedEpochs == 2..MaxEpoch
 VARIABLES epoch,          \* current key epoch
           bridgeIntact,   \* e -> the write-once bridge from e to e-1 is honest
           keyringHonest,  \* e -> the keyring sealed at e passes verification
-          wrapRecoverable \* e -> some retained member wrap for e is usable
+          wrapHolders,    \* e -> members whose retained wrap for e is usable
+          membersAtEpoch, \* e -> membership when e was minted (history var)
+          currentMembers  \* members with current access
 
-vars == << epoch, bridgeIntact, keyringHonest, wrapRecoverable >>
+vars == << epoch, bridgeIntact, keyringHonest, wrapHolders, membersAtEpoch,
+           currentMembers >>
 
 TypeOK ==
   /\ epoch \in Epochs
   /\ bridgeIntact \in [RotatedEpochs -> BOOLEAN]
   /\ keyringHonest \in [RotatedEpochs -> BOOLEAN]
-  /\ wrapRecoverable \in [Epochs -> BOOLEAN]
+  /\ wrapHolders \in [Epochs -> SUBSET Members]
+  /\ membersAtEpoch \in [Epochs -> SUBSET Members]
+  /\ currentMembers \in (SUBSET Members) \ {{}}
+
+(* Wraps address only the members present when their epoch was minted --   *)
+(* the write path derives recipient targets from the manifest.             *)
+WrapsRespectMembership ==
+  \A e \in 1..epoch : wrapHolders[e] \subseteq membersAtEpoch[e]
 
 (* One recovery step from a set of held keys: an intact bridge at e yields *)
 (* e-1; an honest retained keyring at e yields every epoch below e (the    *)
@@ -48,11 +62,13 @@ Iterate(S, n) == IF n = 0 THEN S ELSE Iterate(Expand(S), n - 1)
 (* Recovery steps only descend, so MaxEpoch iterations reach the fixpoint. *)
 Closure(S) == Iterate(S, MaxEpoch)
 
-(* Everything a current member can deterministically recover from          *)
-(* server-persisted state: the current key plus every retained wrap,       *)
-(* closed under the log and the keyring ladder. No client caches anywhere. *)
-RecoverableEpochs ==
-  Closure({epoch} \cup { e \in 1..epoch : wrapRecoverable[e] })
+(* What one CURRENT member can deterministically recover from              *)
+(* server-persisted state: the current KEK (their current wrap) plus their *)
+(* OWN retained historical wraps, closed under the log and the keyring     *)
+(* ladder. Another member's wrap never anchors this member's recovery, and *)
+(* a revoked member is not a recovery agent at all.                        *)
+PersonalRecoverable(m) ==
+  Closure({epoch} \cup { e \in 1..epoch : m \in wrapHolders[e] })
 
 FullHistory == 1..epoch
 
@@ -60,20 +76,30 @@ Init ==
   /\ epoch = 1
   /\ bridgeIntact = [e \in RotatedEpochs |-> TRUE]
   /\ keyringHonest = [e \in RotatedEpochs |-> TRUE]
-  /\ wrapRecoverable \in [Epochs -> BOOLEAN]
+  /\ currentMembers \in (SUBSET Members) \ {{}}
+  /\ membersAtEpoch = [e \in Epochs |-> IF e = 1 THEN currentMembers ELSE {}]
+  /\ \E holders \in SUBSET currentMembers :
+       wrapHolders = [e \in Epochs |-> IF e = 1 THEN holders ELSE {}]
 
-(* A rotation appends immutable artifacts; nothing already written ever    *)
-(* changes. An honest keyring is possible exactly when the rotator can     *)
-(* recover the complete history; a poisoned bridge or keyring models a     *)
-(* buggy or malicious rotator whose output is detected downstream.        *)
+(* A rotation appends immutable artifacts and may change membership        *)
+(* (revocations are rotations; additive grants fold in conservatively).    *)
+(* Nothing already written ever changes: old bridges, keyrings, wraps, and *)
+(* the membership history are append-only. An honest keyring is possible   *)
+(* exactly when the ROTATOR -- a current member -- can personally recover  *)
+(* the complete history; a poisoned artifact models a buggy or malicious   *)
+(* rotator whose output is detected downstream.                            *)
 Rotate(honestBridge, honestKeyring) ==
   /\ epoch < MaxEpoch
-  /\ honestKeyring => RecoverableEpochs = FullHistory
+  /\ \E rotator \in currentMembers :
+       honestKeyring => PersonalRecoverable(rotator) = FullHistory
+  /\ \E nextMembers \in (SUBSET Members) \ {{}} :
+       \E holders \in SUBSET nextMembers :
+         /\ currentMembers' = nextMembers
+         /\ wrapHolders' = [wrapHolders EXCEPT ![epoch + 1] = holders]
+         /\ membersAtEpoch' = [membersAtEpoch EXCEPT ![epoch + 1] = nextMembers]
   /\ epoch' = epoch + 1
   /\ bridgeIntact' = [bridgeIntact EXCEPT ![epoch + 1] = honestBridge]
   /\ keyringHonest' = [keyringHonest EXCEPT ![epoch + 1] = honestKeyring]
-  /\ \E wr \in BOOLEAN :
-       wrapRecoverable' = [wrapRecoverable EXCEPT ![epoch + 1] = wr]
 
 Next ==
   \/ \E hb \in BOOLEAN, hk \in BOOLEAN : Rotate(hb, hk)
@@ -81,9 +107,10 @@ Next ==
 
 Spec == Init /\ [][Next]_vars
 
-(* The append-only log is ground truth: while every bridge is intact, a    *)
-(* cold current member rebuilds the complete history regardless of how     *)
-(* many keyring snapshots were poisoned.                                   *)
+(* The append-only log is ground truth: while every bridge is intact, any  *)
+(* current member rebuilds the complete history from the current KEK       *)
+(* alone, regardless of wrap ownership and of how many keyring snapshots   *)
+(* were poisoned.                                                          *)
 LogGroundTruth ==
   (\A e \in 2..epoch : bridgeIntact[e]) => Closure({epoch}) = FullHistory
 
@@ -94,21 +121,25 @@ BoundedSeverance ==
   \A e \in 1..epoch :
     (\A b \in (e + 1)..epoch : bridgeIntact[b]) => e \in Closure({epoch})
 
-(* An honest current snapshot is a complete claim: whenever the served     *)
-(* keyring verifies, the full history really is recoverable. This is the   *)
-(* composed guarantee that sealing requires full recoverability and no     *)
-(* later action can shrink it (artifacts are immutable, wraps retained).   *)
+(* An honest current snapshot is a complete claim for EVERY current        *)
+(* member, including members who own no historical wraps at all (e.g. a    *)
+(* newcomer granted after every rotation): whenever the served keyring     *)
+(* verifies, each current member personally recovers the full history.     *)
 HonestSnapshotComplete ==
-  (epoch > 1 /\ keyringHonest[epoch]) => RecoverableEpochs = FullHistory
+  (epoch > 1 /\ keyringHonest[epoch]) =>
+    \A m \in currentMembers : PersonalRecoverable(m) = FullHistory
 
-(* The retained-wrap backstop composes with the log: any epoch anchored by *)
-(* a usable wrap at or above it is recoverable even under a poisoned       *)
-(* snapshot, provided the bridge path between them held.                   *)
+(* The retained-wrap backstop is member-scoped and composes with the log:  *)
+(* an epoch anchored by a wrap the member OWNS at or above it is           *)
+(* recoverable by that member even under a poisoned snapshot, provided     *)
+(* the bridge path between them held. Ownership matters: the anchor must   *)
+(* be m's own wrap or the current KEK.                                     *)
 WrapBackstop ==
-  \A e \in 1..epoch :
-    \A a \in e..epoch :
-      ((wrapRecoverable[a] \/ a = epoch)
-        /\ (\A b \in (e + 1)..a : bridgeIntact[b]))
-          => e \in RecoverableEpochs
+  \A m \in currentMembers :
+    \A e \in 1..epoch :
+      \A a \in e..epoch :
+        ((m \in wrapHolders[a] \/ a = epoch)
+          /\ (\A b \in (e + 1)..a : bridgeIntact[b]))
+            => e \in PersonalRecoverable(m)
 
 =============================================================================

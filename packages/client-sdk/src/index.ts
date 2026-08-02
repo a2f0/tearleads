@@ -345,6 +345,7 @@ export {
   createRemoteContainer,
   moveRemoteContainer,
   rebuildKeyringEntriesFromLog,
+  recoverKeyringEntryFromWraps,
   rekeyRemoteContainer,
   revokeRemoteContainer,
   rootContainerWriterProjectionFromCreatePlan,

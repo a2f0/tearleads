@@ -93,6 +93,28 @@ test("GET /containers/:containerId/kek-log serves the full rotation log ascendin
     secondRekey.request
       .keyring as ContainerKekLogResponse["epochs"][number]["keyring"],
   );
+
+  // The severed-bridge backstop: every epoch retains its recipient
+  // envelopes (group-addressed here, since root access flows through the
+  // Admins principal), so a member present at a historical epoch can recover
+  // its KEK from their envelope independent of every later bridge. The
+  // client-side journey with direct user wraps and real KEM decapsulation
+  // lives in client-sdk rekey.test.ts.
+  for (const epoch of log.epochs) {
+    expect(
+      epoch.wraps.some(
+        (wrap) =>
+          wrap.containerKeyEpochId === epoch.containerKeyEpochId &&
+          typeof wrap.wrappedKey === "string" &&
+          typeof wrap.kemCipherText === "string",
+      ),
+    ).toBe(true);
+  }
+  expect(
+    log.epochs.every((epoch) =>
+      epoch.wraps.every((wrap) => wrap.recipientKind === "group"),
+    ),
+  ).toBe(true);
 }, 15_000);
 
 test("the kek-log bridges rebuild every predecessor key from the current KEK", async () => {

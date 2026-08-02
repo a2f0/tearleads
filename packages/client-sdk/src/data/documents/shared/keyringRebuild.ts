@@ -4,7 +4,68 @@ import {
   normalizeContainerKekPredecessorBridge,
   unwrapContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
-import type { ContainerKekLogResponse } from "@tearleads/validators/response";
+import type {
+  ContainerKekLogEpochResponse,
+  ContainerKekLogResponse,
+} from "@tearleads/validators/response";
+import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCrypto";
+import type { ExecSql } from "../../sqlite/sqlSchema";
+import { normalizeContainerKeyWrap } from "./readers";
+
+/**
+ * The severed-bridge backstop: recovers one historical epoch's KEK from the
+ * requester's own retained recipient envelope served in the kek-log. Wraps
+ * are written by that epoch's rotator and never deleted, so this path is
+ * independent of every later rotation — it works even when the bridge chain
+ * above the epoch is destroyed. The recovered key is verified against the
+ * epoch id's material commitment before use.
+ */
+export async function recoverKeyringEntryFromWraps(input: {
+  containerId: string;
+  epoch: Pick<
+    ContainerKekLogEpochResponse,
+    "containerKeyEpoch" | "containerKeyEpochId" | "wraps"
+  >;
+  execSql?: ExecSql | undefined;
+  secretKey: Uint8Array;
+}): Promise<ContainerKekKeyringEntry> {
+  const envelopes = input.epoch.wraps
+    .map((wrap) => normalizeContainerKeyWrap(wrap))
+    .filter(
+      (wrap) =>
+        wrap.containerKeyEpochId === input.epoch.containerKeyEpochId &&
+        wrap.recipientKind !== "container",
+    )
+    .map((wrap) => ({
+      keyFingerprint: wrap.recipientKeyFingerprint,
+      kemCipherText: wrap.kemCipherText,
+      wrappedKey: wrap.wrappedKey,
+    }));
+  if (envelopes.length === 0) {
+    throw new Error(
+      `Container KEK log has no recipient envelope for epoch ${input.epoch.containerKeyEpoch}`,
+    );
+  }
+  const keyMaterial = await unwrapKeyEnvelopesWithPrincipalPolicies({
+    envelopes,
+    execSql: input.execSql,
+    secretKey: input.secretKey,
+  });
+  const expectedId = await computeContainerKekMaterialId({
+    containerId: input.containerId,
+    keyEpoch: input.epoch.containerKeyEpoch,
+    keyMaterial,
+  });
+  if (expectedId !== input.epoch.containerKeyEpochId) {
+    throw new Error(
+      `Container KEK log wrap does not match its committed epoch id at epoch ${input.epoch.containerKeyEpoch}`,
+    );
+  }
+  return {
+    containerKeyEpochId: input.epoch.containerKeyEpochId,
+    keyMaterial,
+  };
+}
 
 /**
  * Rebuilds the container's keyring entries from the append-only bridge log —

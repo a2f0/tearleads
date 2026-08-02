@@ -219,6 +219,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "rebuildKeyringEntriesFromLog",
   "reconcileOrganizationDataUsage",
   "reconcileOrganizationDirectoryAndGroups",
+  "recoverKeyringEntryFromWraps",
   "registerIdentity",
   "rekeyRemoteContainer",
   "removeOrganizationGroupUser",

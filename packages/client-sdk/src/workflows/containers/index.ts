@@ -1,5 +1,8 @@
 export type { ContainerMutationAuthor } from "../../data/containers/shared/types";
-export { rebuildKeyringEntriesFromLog } from "../../data/documents/shared/keyringRebuild";
+export {
+  rebuildKeyringEntriesFromLog,
+  recoverKeyringEntryFromWraps,
+} from "../../data/documents/shared/keyringRebuild";
 export {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,
