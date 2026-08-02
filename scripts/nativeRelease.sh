@@ -64,8 +64,8 @@ Android options:
   release_status:<status>     Upload release status; defaults to completed.
   validate_only:true          Validate the upload without publishing.
 
-GOOGLE_PLAY_JSON_KEY_FILE (or SUPPLY_JSON_KEY) can override the default Google
-Play service-account key path.
+GOOGLE_PLAY_JSON_KEY_FILE (or SUPPLY_JSON_KEY) can override the default
+.secrets/google-play-service-account-admin.json key path.
 EOF
   else
     cat <<'EOF'
