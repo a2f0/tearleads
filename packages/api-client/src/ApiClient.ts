@@ -1024,11 +1024,18 @@ export class ApiClient {
   /**
    * The append-only rotation log for one container — the rebuild/repair
    * read path. Never cached: it is fetched exactly when the served keyring
-   * failed verification and the ground truth is needed.
+   * failed verification and the ground truth is needed. Historical keyrings
+   * (the fallback ladder) are O(epochs²) in total, so they ship only when
+   * `includeKeyrings` is set.
    */
-  getContainerKekLog(containerId: string) {
+  getContainerKekLog(
+    containerId: string,
+    options: { readonly includeKeyrings?: boolean } = {},
+  ) {
     return this.request(
-      `/containers/${pathSegment(containerId)}/kek-log`,
+      `/containers/${pathSegment(containerId)}/kek-log${
+        options.includeKeyrings ? "?include=keyrings" : ""
+      }`,
       isContainerKekLogResponse,
       "GET",
     );

@@ -18,9 +18,10 @@ import { routeApp } from "../../routeApp";
 async function getKekLog(
   containerId: string,
   token?: string,
+  query = "",
 ): Promise<Response> {
   return routeApp.request(
-    `/containers/${containerId}/kek-log`,
+    `/containers/${containerId}/kek-log${query}`,
     token ? { headers: { Authorization: `Bearer ${token}` } } : {},
   );
 }
@@ -60,12 +61,29 @@ test("GET /containers/:containerId/kek-log serves the full rotation log ascendin
   await authenticate(owner);
   const { firstRekey, root, secondRekey } = await rotateRootTwice(owner);
 
-  const response = await getKekLog(root.kekState.containerId, owner.token);
+  const response = await getKekLog(
+    root.kekState.containerId,
+    owner.token,
+    "?include=keyrings",
+  );
   expect(response.status).toBe(200);
   const log = (await response.json()) as ContainerKekLogResponse;
   expect(isContainerKekLogResponse(log)).toBe(true);
   expect(log.containerId).toBe(root.kekState.containerId);
   expect(log.epochs.map((epoch) => epoch.containerKeyEpoch)).toEqual([1, 2, 3]);
+
+  // Without the opt-in, the log stays O(epochs): bridges and wraps only.
+  const defaultResponse = await getKekLog(
+    root.kekState.containerId,
+    owner.token,
+  );
+  const defaultLog = (await defaultResponse.json()) as ContainerKekLogResponse;
+  expect(defaultLog.epochs.every((epoch) => epoch.keyring === null)).toBe(true);
+  expect(defaultLog.epochs.map((epoch) => epoch.bridge === null)).toEqual([
+    true,
+    false,
+    false,
+  ]);
   expect(log.epochs.map((epoch) => epoch.containerKeyEpochId)).toEqual([
     root.kekState.containerKeyEpochId,
     firstRekey.kekState.containerKeyEpochId,
@@ -104,15 +122,15 @@ test("GET /containers/:containerId/kek-log serves the full rotation log ascendin
     expect(
       epoch.wraps.some(
         (wrap) =>
-          wrap.containerKeyEpochId === epoch.containerKeyEpochId &&
-          typeof wrap.wrappedKey === "string" &&
-          typeof wrap.kemCipherText === "string",
+          wrap["containerKeyEpochId"] === epoch.containerKeyEpochId &&
+          typeof wrap["wrappedKey"] === "string" &&
+          typeof wrap["kemCipherText"] === "string",
       ),
     ).toBe(true);
   }
   expect(
     log.epochs.every((epoch) =>
-      epoch.wraps.every((wrap) => wrap.recipientKind === "group"),
+      epoch.wraps.every((wrap) => wrap["recipientKind"] === "group"),
     ),
   ).toBe(true);
 }, 15_000);

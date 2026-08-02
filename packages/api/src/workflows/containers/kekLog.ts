@@ -10,16 +10,23 @@ import { ContainerWriterProjectionError } from "./writerProjection/types";
 
 /**
  * Serves the append-only rotation log — every epoch with its write-once
- * bridge, sealed keyring, and retained recipient envelopes — for keyring
- * rebuild and repair. Current read access is history-inclusive, so the whole
- * log is in scope for any reader. The historical wraps are the severed-bridge
- * backstop: a member present at an epoch recovers its KEK from their own
- * envelope regardless of what later rotators wrote.
+ * bridge and retained recipient envelopes — for keyring rebuild and repair.
+ * Current read access is history-inclusive, so the whole log is in scope for
+ * any reader. The historical wraps are the severed-bridge backstop: a member
+ * present at an epoch recovers its KEK from their own envelope regardless of
+ * what later rotators wrote.
+ *
+ * Historical keyrings (the fallback ladder for mixed corruption) are served
+ * only on request: each retained keyring is O(its epoch) bytes, so shipping
+ * all of them is O(epochs²) — the log stays O(epochs) by default, the same
+ * order as one projection. `keyring: null` therefore means "not requested or
+ * epoch 1" unless `includeKeyrings` was set.
  */
 export async function runContainerKekLogWorkflow(
   db: ApiDatabase,
   input: {
     readonly containerId: string;
+    readonly includeKeyrings: boolean;
     readonly userId: string;
   },
 ): Promise<ContainerKekLogResponse> {
@@ -38,30 +45,30 @@ export async function runContainerKekLogWorkflow(
       throw new ContainerWriterProjectionError("Container not found", 404);
     }
 
-    return {
-      containerId: input.containerId,
-      epochs: await Promise.all(
-        epochs.map(async (epoch) => ({
-          accessManifestHash: epoch.accessManifestHash,
-          bridge: epoch.predecessorBridge
-            ? { ...epoch.predecessorBridge }
-            : null,
-          containerKeyEpoch: epoch.keyEpoch,
-          containerKeyEpochId: epoch.id,
-          keyring: epoch.keyring ? { ...epoch.keyring } : null,
-          parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
-          wraps: (await listContainerKeyWraps(epoch.id, tx)).map((wrap) => ({
-            containerKeyEpochId: wrap.containerKeyEpochId,
-            recipientKind: wrap.recipientKind,
-            recipientId: wrap.recipientId,
-            recipientKeyEpochId: wrap.recipientKeyEpochId,
-            recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-            kemCipherText: wrap.kemCipherText,
-            wrappedKey: wrap.wrappedKey,
-            wrapManifestHash: wrap.wrapManifestHash,
-          })),
+    const logEpochs: ContainerKekLogResponse["epochs"] = [];
+    for (const epoch of epochs) {
+      const wraps = await listContainerKeyWraps(epoch.id, tx);
+      logEpochs.push({
+        accessManifestHash: epoch.accessManifestHash,
+        bridge: epoch.predecessorBridge ? { ...epoch.predecessorBridge } : null,
+        containerKeyEpoch: epoch.keyEpoch,
+        containerKeyEpochId: epoch.id,
+        keyring:
+          input.includeKeyrings && epoch.keyring ? { ...epoch.keyring } : null,
+        parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
+        wraps: wraps.map((wrap) => ({
+          containerKeyEpochId: wrap.containerKeyEpochId,
+          recipientKind: wrap.recipientKind,
+          recipientId: wrap.recipientId,
+          recipientKeyEpochId: wrap.recipientKeyEpochId,
+          recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+          kemCipherText: wrap.kemCipherText,
+          wrappedKey: wrap.wrappedKey,
+          wrapManifestHash: wrap.wrapManifestHash,
         })),
-      ),
-    };
+      });
+    }
+
+    return { containerId: input.containerId, epochs: logEpochs };
   });
 }

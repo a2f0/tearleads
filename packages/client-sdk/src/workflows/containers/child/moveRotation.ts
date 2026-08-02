@@ -1,5 +1,6 @@
 import type {
   ContainerKekKeyring,
+  ContainerKekKeyringEntry,
   ContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
 import {
@@ -7,9 +8,33 @@ import {
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
   sealContainerKekKeyring,
+  verifyContainerKekKeyringEntry,
 } from "@tearleads/crypto";
 import type { ContainerKekResponse } from "@tearleads/validators/response";
 import { resolveContainerKekEpochId } from "../../../data/containers/shared/events";
+
+/**
+ * A rotation must never launder history it did not verify: an
+ * authenticated-but-poisoned keyring (sealed by a prior authorized writer
+ * with wrong material) would otherwise be re-signed under the honest
+ * rotator's event. Every entry is checked against the material-id its
+ * ordinal commits to before it is sealed forward; entry i is key epoch
+ * i + 1.
+ */
+export async function verifyKeyringEntriesForSeal(
+  containerId: string,
+  entries: readonly ContainerKekKeyringEntry[],
+): Promise<void> {
+  await Promise.all(
+    entries.map((entry, ordinal) =>
+      verifyContainerKekKeyringEntry({
+        containerId,
+        entry,
+        keyEpoch: ordinal + 1,
+      }),
+    ),
+  );
+}
 
 /**
  * Re-seals the container's key history for a rotation: the previous
@@ -31,6 +56,7 @@ export async function sealRotationKeyring(input: {
         successorContainerKey: input.currentKeyMaterial,
       })
     : [];
+  await verifyKeyringEntriesForSeal(input.containerId, previousEntries);
   return sealContainerKekKeyring({
     containerId: input.containerId,
     entries: [

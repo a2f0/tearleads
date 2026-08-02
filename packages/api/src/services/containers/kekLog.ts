@@ -6,6 +6,7 @@ export async function getContainerKekLog(
   runtime: ApiServiceRuntime,
   input: {
     readonly containerId: string;
+    readonly includeKeyrings: boolean;
     readonly userId: string;
   },
 ): Promise<ContainerKekLogResponse> {

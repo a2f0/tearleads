@@ -24,6 +24,7 @@ export function createContainerKekLogRoute({
       return c.json<ContainerKekLogResponse>(
         await getContainerKekLog(runtime, {
           containerId: c.req.param("containerId"),
+          includeKeyrings: c.req.query("include") === "keyrings",
           userId: session.userId,
         }),
       );

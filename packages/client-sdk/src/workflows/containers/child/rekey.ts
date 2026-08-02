@@ -48,7 +48,10 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { sealRotationKeyring } from "./moveRotation";
+import {
+  sealRotationKeyring,
+  verifyKeyringEntriesForSeal,
+} from "./moveRotation";
 import { collectContainerRevokePrincipalPolicies } from "./revoke";
 import { buildContainerRotationWraps } from "./rotationWraps";
 
@@ -80,6 +83,12 @@ async function buildRekeyRotationArtifacts(input: {
     successorContainerKey: input.containerKey,
     successorContainerKeyEpochId: containerKeyEpochId,
   });
+  if (input.keyringEntriesOverride) {
+    await verifyKeyringEntriesForSeal(
+      input.previousContainerId,
+      input.keyringEntriesOverride,
+    );
+  }
   const keyring: ContainerKekKeyring = input.keyringEntriesOverride
     ? await sealContainerKekKeyring({
         containerId: input.previousContainerId,

@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import {
+  computeContainerKekMaterialId,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
+  sealContainerKekKeyring,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
@@ -19,6 +21,7 @@ import {
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,
 } from "../../../data/documents/shared/keyringRebuild";
+import { sealRotationKeyring } from "./moveRotation";
 import { rekeyRemoteContainer } from "./rekey";
 
 test("a poisoned keyring is rebuilt from the log and repaired by rekey", async () => {
@@ -184,41 +187,103 @@ test("a severed bridge is recovered through the retained historical wrap", async
   if (!epoch1Kek) {
     throw new Error("Expected the epoch-1 KEK");
   }
+  const database = await createTestExecSql("remote-container-wrap-recovery");
+  const submitted: ContainerMutationRequest[] = [];
 
-  // The log arrives with the epoch-2 bridge destroyed: log-based rebuild
-  // fails closed, but the epoch-1 recipient envelope written by the epoch-1
-  // rotator is retained forever and recovers the key independently.
-  const severedEpoch1 = {
-    accessManifestHash: epoch1Kek.accessManifestHash,
-    bridge: null,
-    containerKeyEpoch: 1,
-    containerKeyEpochId: epoch1Kek.containerKeyEpochId,
-    keyring: null,
-    parentContainerKeyEpochId: null,
-    wraps: epoch1Kek.wraps,
+  // An honest rotation to epoch 2 writes the real epoch-2 bridge.
+  const rekeyed = await rekeyRemoteContainer({
+    apiClient: {
+      getContainerWriterProjection: async () => parent.projection,
+      rekeyContainer: async (_containerId, request) => {
+        submitted.push(request);
+        return createMutationResponseFromRequest(
+          request,
+          parent.projection.containerKeks.at(-1),
+        );
+      },
+    },
+    author: parent.author,
+    containerId: parent.projection.containerId,
+    execSql: database.execSql,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+    targetSecretKey: parent.secretKey,
+  });
+  if (!rekeyed?.response.containerKek.keyring) {
+    throw new Error("Expected the rotation to seal a keyring");
+  }
+  const epoch2Kek = rekeyed.response.containerKek;
+
+  // The log arrives with the epoch-2 bridge DESTROYED: log-based rebuild
+  // fails closed on the missing link.
+  const severedLog: ContainerKekLogResponse = {
+    containerId: parent.projection.containerId,
+    epochs: [
+      {
+        accessManifestHash: epoch1Kek.accessManifestHash,
+        bridge: null,
+        containerKeyEpoch: 1,
+        containerKeyEpochId: epoch1Kek.containerKeyEpochId,
+        keyring: null,
+        parentContainerKeyEpochId: null,
+        wraps: epoch1Kek.wraps,
+      },
+      {
+        accessManifestHash: epoch2Kek.accessManifestHash,
+        bridge: null,
+        containerKeyEpoch: 2,
+        containerKeyEpochId: epoch2Kek.containerKeyEpochId,
+        keyring: null,
+        parentContainerKeyEpochId: null,
+        wraps: epoch2Kek.wraps,
+      },
+    ],
   };
+  await expect(
+    rebuildKeyringEntriesFromLog({
+      containerId: parent.projection.containerId,
+      currentContainerKey: rekeyed.containerKey,
+      currentContainerKeyEpochId: epoch2Kek.containerKeyEpochId,
+      log: severedLog,
+    }),
+  ).rejects.toThrow("bridge is missing at epoch 2");
+
+  // The epoch-1 recipient envelope written by the epoch-1 rotator is
+  // retained forever and recovers the key independent of every bridge.
   const recovered = await recoverKeyringEntryFromWraps({
     containerId: parent.projection.containerId,
-    epoch: severedEpoch1,
+    epoch: severedLog.epochs[0] as ContainerKekLogResponse["epochs"][number],
     secretKey: parent.secretKey,
   });
   expect(recovered.containerKeyEpochId).toBe(epoch1Kek.containerKeyEpochId);
 
-  // Repair is the ordinary rekey, sealing the wrap-recovered entry.
-  const database = await createTestExecSql("remote-container-wrap-recovery");
+  // Repair is the ordinary rekey sealing the wrap-recovered entry; the
+  // repaired keyring restores the FULL history (epochs 1 and 2).
+  const epoch2Projection: ContainerWriterProjectionResponse = {
+    ...parent.projection,
+    path: [rekeyed.response.accessManifest],
+    containerKeks: [
+      {
+        ...epoch2Kek,
+        containerManifestHistory: [
+          ...epoch2Kek.containerManifestHistory,
+          ...parent.projection.path,
+        ],
+      },
+    ],
+  };
   const repaired = await rekeyRemoteContainer({
     apiClient: {
-      getContainerWriterProjection: async () => parent.projection,
+      getContainerWriterProjection: async () => epoch2Projection,
       rekeyContainer: async (_containerId, request) =>
         createMutationResponseFromRequest(
           request,
-          parent.projection.containerKeks.at(-1),
+          epoch2Projection.containerKeks.at(-1),
         ),
     },
     author: parent.author,
     containerId: parent.projection.containerId,
     execSql: database.execSql,
-    keyringEntriesOverride: [],
+    keyringEntriesOverride: [recovered],
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     targetSecretKey: parent.secretKey,
   });
@@ -226,7 +291,7 @@ test("a severed bridge is recovered through the retained historical wrap", async
     throw new Error("Expected the repair to seal a keyring");
   }
   const entries = await openContainerKekKeyring({
-    keyEpoch: 2,
+    keyEpoch: 3,
     keyring: normalizeContainerKekKeyring(
       repaired.response.containerKek.keyring,
     ),
@@ -234,6 +299,55 @@ test("a severed bridge is recovered through the retained historical wrap", async
   });
   expect(entries.map((entry) => entry.containerKeyEpochId)).toEqual([
     epoch1Kek.containerKeyEpochId,
+    epoch2Kek.containerKeyEpochId,
   ]);
   expect(entries[0]?.keyMaterial).toEqual(recovered.keyMaterial);
+});
+
+test("a rotation refuses to re-sign a poisoned but authenticated keyring", async () => {
+  const parent = await createParentProjection();
+  const epoch1Kek = parent.projection.containerKeks.at(-1);
+  if (!epoch1Kek) {
+    throw new Error("Expected the epoch-1 KEK");
+  }
+  const currentKey = crypto.getRandomValues(new Uint8Array(32));
+  const currentEpochId = await computeContainerKekMaterialId({
+    containerId: parent.projection.containerId,
+    keyEpoch: 2,
+    keyMaterial: currentKey,
+  });
+  // Authenticated but wrong: the sealed entry claims epoch 1's id over
+  // random material. AEAD accepts it; per-entry verification must not.
+  const poisoned = await sealContainerKekKeyring({
+    containerId: parent.projection.containerId,
+    entries: [
+      {
+        containerKeyEpochId: epoch1Kek.containerKeyEpochId,
+        keyMaterial: crypto.getRandomValues(new Uint8Array(32)),
+      },
+    ],
+    keyEpoch: 2,
+    successorContainerKey: currentKey,
+    successorContainerKeyEpochId: currentEpochId,
+  });
+
+  await expect(
+    sealRotationKeyring({
+      containerId: parent.projection.containerId,
+      currentKek: {
+        ...epoch1Kek,
+        containerKeyEpoch: 2,
+        containerKeyEpochId: currentEpochId,
+        keyring: poisoned as unknown as (typeof epoch1Kek)["keyring"],
+      },
+      currentKeyMaterial: currentKey,
+      keyEpoch: 3,
+      successorContainerKey: crypto.getRandomValues(new Uint8Array(32)),
+      successorContainerKeyEpochId: await computeContainerKekMaterialId({
+        containerId: parent.projection.containerId,
+        keyEpoch: 3,
+        keyMaterial: currentKey,
+      }),
+    }),
+  ).rejects.toThrow("does not match its committed epoch id");
 });
