@@ -3,6 +3,7 @@ import { isPlainObject } from "./isPlainObject";
 import {
   registerJsonSchemaFragment,
   registerJsonSchemaView,
+  toJsonSchema,
 } from "./jsonSchema";
 
 export const plainObjectSchema = registerJsonSchemaView(
@@ -30,8 +31,6 @@ export function arraySchema<ItemSchema extends z.ZodType>(
   /** Optional item ceiling, reflected in the generated JSON Schema. */
   maxItems?: number,
 ) {
-  // The ceiling is enforced at runtime below rather than on the view: the
-  // JSON Schema projector only accepts plain registered views.
   const viewSchema = z.array(itemSchema);
   const runtimeSchema = registerJsonSchemaView(
     z.custom<z.output<ItemSchema>[]>(Array.isArray),
@@ -55,7 +54,20 @@ export function arraySchema<ItemSchema extends z.ZodType>(
     });
   });
 
-  return registerJsonSchemaView(runtimeSchema, viewSchema);
+  if (maxItems === undefined) {
+    return registerJsonSchemaView(runtimeSchema, viewSchema);
+  }
+  // The projector rejects checks on a registered view, so the advertised
+  // ceiling is attached as an explicit fragment instead — the generated
+  // OpenAPI carries maxItems, and the runtime refinement above enforces it.
+  return registerJsonSchemaFragment(runtimeSchema, {
+    // Project the item through this package's own projector so the emitted
+    // item schema — and the types generated from it — stay identical to the
+    // unbounded case; only maxItems is added.
+    items: toJsonSchema(itemSchema),
+    maxItems,
+    type: "array",
+  });
 }
 
 export function nonEmptyArraySchema<ItemSchema extends z.ZodType>(

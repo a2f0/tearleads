@@ -2,6 +2,7 @@ import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { ContainerKekLogResponse } from "@tearleads/validators/response";
 import { CONTAINER_KEK_LOG_PAGE_LIMIT } from "@tearleads/validators/util";
 import {
+  getContainerKeyEpochById,
   getContainerKeyEpochKeyring,
   getCurrentContainerKeyEpoch,
   listContainerKeyEpochPage,
@@ -58,15 +59,22 @@ export async function runContainerKekLogWorkflow(
       userId: input.userId,
     });
 
-    // Principals on the requester's own resolved access path. A wrap for any
-    // other principal — one they were never in, or a removed group whose
-    // membership no longer covers them — is not an anchor they could use, so
-    // serving it would disclose history for nothing.
-    const authorizedPrincipalIds = new Set(
-      access.verifiedPath.flatMap((manifest) =>
-        manifest.state.referencedPrincipalHeads.map((head) => head.principalId),
-      ),
-    );
+    // Principals that actually AUTHORIZE this requester — membership, not
+    // mere reference. A group they were never in, or one that no longer
+    // covers them, is not an anchor they could use, so serving its retained
+    // envelopes would disclose history for nothing.
+    const authorizedPrincipals = access.principalPolicies
+      .filter((policy) =>
+        policy.projection.some(
+          (member) =>
+            member.memberPrincipalType === "user" &&
+            member.memberPrincipalId === input.userId,
+        ),
+      )
+      .map((policy) => ({
+        principalId: policy.principalId,
+        principalType: policy.principalType,
+      }));
 
     // One indexed lookup proves the container has key history at all; the
     // page query below never loads more than a page.
@@ -92,16 +100,39 @@ export async function runContainerKekLogWorkflow(
       : null;
     // Scope applied in SQL: the page never materializes envelopes the
     // requester could not use as an anchor.
+    const historicalParentContainerIds = (
+      await Promise.all(
+        page
+          .map((epoch) => epoch.parentContainerKeyEpochId)
+          .filter((id): id is string => id !== null)
+          .map(
+            async (parentEpochId) =>
+              (
+                await getContainerKeyEpochById(parentEpochId, tx)
+              )?.containerId,
+          ),
+      )
+    ).filter((id): id is string => id !== undefined);
+
     const wrapsByEpochId = await listContainerKeyWrapsByEpochId(
       page.map((epoch) => epoch.id),
       tx,
       {
-        authorizedPrincipalIds: [...authorizedPrincipalIds],
-        // Only the ancestors on this requester's own resolved path can be a
-        // legitimate inheritance anchor for them.
-        parentContainerIds: access.verifiedPath.map(
-          (manifest) => manifest.state.containerId,
-        ),
+        authorizedPrincipals,
+        // Ancestors on the requester's own resolved path, plus the parents
+        // historical epochs actually inherited from: after a move, an
+        // inherited-only container's older epochs are anchored by the OLD
+        // parent, and dropping those envelopes would strand recovery across
+        // a severed move bridge. Every id here is one this requester's own
+        // key history already names.
+        parentContainerIds: [
+          ...new Set([
+            ...access.verifiedPath.map(
+              (manifest) => manifest.state.containerId,
+            ),
+            ...historicalParentContainerIds,
+          ]),
+        ],
         userId: input.userId,
       },
     );

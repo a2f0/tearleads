@@ -62,7 +62,6 @@
                     }
                   },
                   "containerRekeys": {
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -333,7 +332,9 @@
                         "wraps"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 16,
+                    "type": "array"
                   },
                   "contentKeyBundle": {
                     "type": "object",

@@ -100,7 +100,10 @@ export async function listContainerKeyWrapsByEpochId(
    */
   recipientScope?:
     | {
-        readonly authorizedPrincipalIds: readonly string[];
+        readonly authorizedPrincipals: readonly {
+          readonly principalId: string;
+          readonly principalType: "group" | "organization";
+        }[];
         readonly parentContainerIds: readonly string[];
         readonly userId: string;
       }
@@ -128,17 +131,14 @@ export async function listContainerKeyWrapsByEpochId(
           eq(containerKeyWraps.recipientKind, "user"),
           eq(containerKeyWraps.recipientId, recipientScope.userId),
         ),
-        recipientScope.authorizedPrincipalIds.length > 0
-          ? and(
-              inArray(containerKeyWraps.recipientKind, [
-                "group",
-                "organization",
-              ]),
-              inArray(containerKeyWraps.recipientId, [
-                ...recipientScope.authorizedPrincipalIds,
-              ]),
-            )
-          : undefined,
+        // (kind, id) identity: a group and an organization may share an id,
+        // and only the exact principal that authorizes this requester counts.
+        ...recipientScope.authorizedPrincipals.map((principal) =>
+          and(
+            eq(containerKeyWraps.recipientKind, principal.principalType),
+            eq(containerKeyWraps.recipientId, principal.principalId),
+          ),
+        ),
       )
     : undefined;
 

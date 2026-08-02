@@ -125,6 +125,13 @@ async function assertAcknowledgedKeyring(
     // becomes the next writer projection.
     const expected = plan.previousKeyring ?? null;
     if (expected === null) {
+      // The epoch had no keyring, so the response must not invent one: an
+      // injected snapshot would become the next writer projection's history.
+      if (keyring) {
+        throw new Error(
+          "Container mutation response added a keyring to an unchanged epoch",
+        );
+      }
       return;
     }
     if (!keyring) {
