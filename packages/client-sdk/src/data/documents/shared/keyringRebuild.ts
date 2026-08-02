@@ -254,12 +254,32 @@ export async function recoverKeyringEntryFromWraps(input: {
   // A direct envelope is decryptable from identity keys alone, so its failure
   // means corruption — not an unreachable principal key. Neither failure ends
   // the search: a parent-container wrap may still anchor this epoch.
-  const direct = await attempt(directWraps);
+  // Each candidate must match the epoch's material-id commitment, not merely
+  // decrypt. An envelope can be AEAD-valid and still be the WRONG key — a
+  // stale or misaddressed wrap — and accepting it here would end the search on
+  // a key that cannot open the epoch, when a later principal or parent wrap
+  // would have worked.
+  const attemptCommitted = async (candidates: ContainerKeyWrap[]) => {
+    const result = await attempt(candidates);
+    if (result.key === null) {
+      return result;
+    }
+    const materialId = await computeContainerKekMaterialId({
+      containerId: input.containerId,
+      keyEpoch: input.epoch.containerKeyEpoch,
+      keyMaterial: result.key,
+    });
+    return materialId === input.epoch.containerKeyEpochId
+      ? result
+      : { failure: result.failure, key: null };
+  };
+
+  const direct = await attemptCommitted(directWraps);
   let keyMaterial = direct.key;
   const directFailure = direct.failure;
   let principalFailure: unknown;
   if (keyMaterial === null) {
-    const principal = await attempt(principalWraps);
+    const principal = await attemptCommitted(principalWraps);
     keyMaterial = principal.key;
     principalFailure = principal.failure;
   }

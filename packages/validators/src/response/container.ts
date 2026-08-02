@@ -278,6 +278,13 @@ function isContainerKekResponse(value: unknown): value is ContainerKekResponse {
     isPlainObject(value) &&
     Reflect.has(value, "keyring") &&
     (keyring === null || isContainerKekKeyringWireResponse(keyring)) &&
+    // Null EXACTLY at epoch 1: that epoch has no history to seal, and every
+    // later one does. Accepting either shape at any epoch would let a
+    // history-bearing epoch answer with no keyring and read as "nothing to
+    // recover" rather than as the missing snapshot it is.
+    (keyring === null) ===
+      (hasNumberProperty(value, "containerKeyEpoch") &&
+        value.containerKeyEpoch === 1) &&
     hasStringProperty(value, "containerId") &&
     hasStringProperty(value, "accessManifestHash") &&
     value.accessManifestHash.length > 0 &&
