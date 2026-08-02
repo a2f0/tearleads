@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { OrganizationBillingResponse } from "@tearleads/validators/response";
 import {
+  claimNativeOrganizationSubscription,
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
   loadOrganizationBillingManagementUrl,
@@ -221,5 +222,22 @@ test("startOrganizationTrial posts for the given org", async () => {
     organizationId: "org-9",
   });
   expect(calls).toEqual(["org-9"]);
+  expect(result).toBe(snapshot);
+});
+
+test("claimNativeOrganizationSubscription passes the org and store through", async () => {
+  const calls: Array<readonly [string, string]> = [];
+  const snapshot = billing({ status: "active" });
+  const result = await claimNativeOrganizationSubscription({
+    apiClient: {
+      claimNativeOrganizationSubscription: async (organizationId, store) => {
+        calls.push([organizationId, store]);
+        return { data: snapshot, ok: true };
+      },
+    },
+    organizationId: "org-9",
+    store: "app_store",
+  });
+  expect(calls).toEqual([["org-9", "app_store"]]);
   expect(result).toBe(snapshot);
 });

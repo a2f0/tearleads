@@ -49,8 +49,11 @@ async function lockBilling(executor: DatabaseSession, organizationId: string) {
   const query = executor
     .select({
       organizationId: organizationBilling.organizationId,
+      provider: organizationBilling.provider,
+      providerCustomerId: organizationBilling.providerCustomerId,
       providerProductId: organizationBilling.providerProductId,
       providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      status: organizationBilling.status,
     })
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId))
@@ -240,6 +243,7 @@ async function applyNativeSubscriptionClaim(input: {
   readonly organizationId: string;
   readonly sourceId: string;
   readonly subscription: ActiveNativeSubscription;
+  readonly target: Awaited<ReturnType<typeof lockBilling>>;
 }): Promise<{ readonly sourceOrganizationId: string | null }> {
   const tier = getSyncBillingTierForNativeProduct(input.subscription.productId);
   if (!tier) {
@@ -248,11 +252,10 @@ async function applyNativeSubscriptionClaim(input: {
       409,
     );
   }
-  const target = await lockBilling(input.executor, input.organizationId);
   await assertNoStripeBinding(input.executor, input.organizationId);
   if (
-    target.providerSubscriptionId !== null &&
-    target.providerSubscriptionId !== input.subscription.subscriptionId
+    input.target.providerSubscriptionId !== null &&
+    input.target.providerSubscriptionId !== input.subscription.subscriptionId
   ) {
     throw new OrganizationManagerError(
       "The personal organization already has a different subscription",
@@ -260,8 +263,8 @@ async function applyNativeSubscriptionClaim(input: {
     );
   }
   if (
-    target.providerProductId !== null &&
-    getSyncBillingTierForNativeProduct(target.providerProductId) === null
+    input.target.providerProductId !== null &&
+    getSyncBillingTierForNativeProduct(input.target.providerProductId) === null
   ) {
     throw new OrganizationManagerError(
       "Cancel the organization's existing subscription before moving a native subscription",
@@ -329,6 +332,23 @@ export async function runAuthorizeNativeSubscriptionClaimWorkflow(
   });
 }
 
+/** A transfer webhook arrived before the signed-in claim established intent. */
+export class NativeSubscriptionTransferAwaitingClaimError extends Error {}
+
+function targetOwnsNativeSubscription(input: {
+  readonly appUserId: string;
+  readonly subscription: ActiveNativeSubscription;
+  readonly target: Awaited<ReturnType<typeof lockBilling>>;
+}): boolean {
+  return (
+    input.target.provider === "revenuecat" &&
+    input.target.providerCustomerId === input.appUserId &&
+    input.target.providerProductId === input.subscription.productId &&
+    input.target.providerSubscriptionId === input.subscription.subscriptionId &&
+    input.target.status === "active"
+  );
+}
+
 /** Revalidates policy and atomically moves a verified native subscription. */
 export async function runClaimNativeSubscriptionWorkflow(input: {
   readonly appUserId: string;
@@ -339,6 +359,8 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
   readonly db: ApiDatabase;
   readonly now?: Date;
   readonly organizationId: string;
+  readonly recordAlreadyOwnedAudit?: boolean;
+  readonly requireExistingBinding?: boolean;
   readonly requireSessionAccess: boolean;
   readonly sourceId: string;
   readonly subscription: ActiveNativeSubscription;
@@ -360,6 +382,18 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
       organizationId: input.organizationId,
       userId: input.appUserId,
     });
+    const target = await lockBilling(tx, input.organizationId);
+    const alreadyOwned = targetOwnsNativeSubscription({
+      appUserId: input.appUserId,
+      subscription: input.subscription,
+      target,
+    });
+    if (input.requireExistingBinding && !alreadyOwned) {
+      throw new NativeSubscriptionTransferAwaitingClaimError();
+    }
+    if (input.recordAlreadyOwnedAudit === false && alreadyOwned) {
+      return { duplicate: true, sourceOrganizationId: null };
+    }
     if (input.auditEvent) {
       const [claimed] = await tx
         .insert(revenuecatWebhookEvents)
@@ -389,6 +423,7 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
       organizationId: input.organizationId,
       sourceId: input.sourceId,
       subscription: input.subscription,
+      target,
     });
     if (input.auditEvent && applied.sourceOrganizationId) {
       await tx

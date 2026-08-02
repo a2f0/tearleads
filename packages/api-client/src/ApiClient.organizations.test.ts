@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import type { OrganizationBillingResponse } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createOrganizationGroupRequest,
@@ -56,6 +57,51 @@ function organizationDataUsageResponse() {
     totalByteLength: 128,
   };
 }
+
+function organizationBillingResponse(): OrganizationBillingResponse {
+  return {
+    activeMemberCount: 1,
+    currentPeriodEndsAt: null,
+    currentPeriodStartsAt: null,
+    disabledAt: null,
+    organizationId: "org-1",
+    provider: "revenuecat",
+    purgeAfter: null,
+    seatCount: 1,
+    status: "active",
+    trialEndsAt: null,
+  };
+}
+
+testApiClient(
+  "posts a native subscription claim to its store route",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    server.use(
+      http.post(
+        `${apiBaseUrl}/organizations/:organizationId/billing/native/:store/claim`,
+        async ({ request }) => {
+          calls.push(await captureHttpCall(request));
+          return HttpResponse.json(organizationBillingResponse());
+        },
+      ),
+    );
+
+    const result = await new ApiClient(
+      apiBaseUrl,
+    ).claimNativeOrganizationSubscription("org-1", "app_store");
+    expect(result).toEqual({ data: organizationBillingResponse(), ok: true });
+    expect(calls).toEqual([
+      {
+        authorization: null,
+        body: "",
+        contentType: null,
+        method: "POST",
+        url: `${apiBaseUrl}/organizations/org-1/billing/native/app_store/claim`,
+      },
+    ]);
+  },
+);
 
 testApiClient("coalesces only in-flight principal policy reads", async () => {
   let callCount = 0;

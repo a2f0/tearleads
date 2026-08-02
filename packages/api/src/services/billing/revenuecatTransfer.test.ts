@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getDefaultApiServiceRuntime } from "../runtime";
+import { claimNativeOrganizationSubscription } from "./organizationBilling";
 import { processRevenueCatWebhook } from "./revenuecatWebhook";
 
 const ENV = {
@@ -33,7 +34,7 @@ async function registerPersonalOrganization(): Promise<{
   return { organizationId: registered.organizationId, user };
 }
 
-function providerFetch() {
+function providerFetch(subscriptionId = "GPA.transfer-webhook") {
   return (async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/products/prod_team_5")) {
@@ -51,14 +52,14 @@ function providerFetch() {
           product_id: "prod_team_5",
           status: "active",
           store: "play_store",
-          store_subscription_identifier: "GPA.transfer-webhook",
+          store_subscription_identifier: subscriptionId,
         },
       ],
     });
   }) as typeof fetch;
 }
 
-test("a RevenueCat transfer webhook moves native billing to its registered destination", async () => {
+test("only an authenticated claim can move billing before a transfer webhook", async () => {
   const previous = await registerPersonalOrganization();
   const destination = await registerPersonalOrganization();
   await db
@@ -82,8 +83,32 @@ test("a RevenueCat transfer webhook moves native billing to its registered desti
     type: "TRANSFER" as const,
   };
 
+  const runtime = getDefaultApiServiceRuntime();
   expect(
-    await processRevenueCatWebhook(getDefaultApiServiceRuntime(), event, {
+    await processRevenueCatWebhook(runtime, event, {
+      env: ENV,
+      fetchImpl: providerFetch(),
+    }),
+  ).toEqual({
+    reason: "Transfer awaits an authenticated native subscription claim",
+    status: "retry",
+  });
+
+  const [untouched] = await db
+    .select({ status: organizationBilling.status })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, previous.organizationId));
+  expect(untouched?.status).toBe("active");
+
+  await claimNativeOrganizationSubscription(
+    runtime,
+    destination.organizationId,
+    destination.user.userId,
+    "play_store",
+    { env: ENV, fetchImpl: providerFetch() },
+  );
+  expect(
+    await processRevenueCatWebhook(runtime, event, {
       env: ENV,
       fetchImpl: providerFetch(),
     }),
@@ -93,14 +118,18 @@ test("a RevenueCat transfer webhook moves native billing to its registered desti
     status: "applied",
   });
   expect(
-    await processRevenueCatWebhook(getDefaultApiServiceRuntime(), event, {
+    await processRevenueCatWebhook(runtime, event, {
       env: ENV,
       fetchImpl: providerFetch(),
     }),
   ).toEqual({ status: "duplicate" });
 
   const [oldBilling] = await db
-    .select({ status: organizationBilling.status })
+    .select({
+      disabledAt: organizationBilling.disabledAt,
+      purgeAfter: organizationBilling.purgeAfter,
+      status: organizationBilling.status,
+    })
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, previous.organizationId));
   const [newBilling] = await db
@@ -112,6 +141,8 @@ test("a RevenueCat transfer webhook moves native billing to its registered desti
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, destination.organizationId));
   expect(oldBilling?.status).toBe("disabled");
+  expect(oldBilling?.disabledAt).toBeInstanceOf(Date);
+  expect(oldBilling?.purgeAfter).toBeInstanceOf(Date);
   expect(newBilling).toEqual({
     providerCustomerId: destination.user.userId,
     seatCount: 5,
@@ -151,8 +182,17 @@ test("a transfer without its optional store resolves the sole native subscriptio
     });
   }) as typeof fetch;
 
+  const runtime = getDefaultApiServiceRuntime();
+  await claimNativeOrganizationSubscription(
+    runtime,
+    destination.organizationId,
+    destination.user.userId,
+    "play_store",
+    { env: ENV, fetchImpl },
+  );
+
   expect(
-    await processRevenueCatWebhook(getDefaultApiServiceRuntime(), event, {
+    await processRevenueCatWebhook(runtime, event, {
       env: ENV,
       fetchImpl,
     }),
@@ -166,6 +206,18 @@ test("a transfer without its optional store resolves the sole native subscriptio
 test("permanent transfer claim rejections are acknowledged without redelivery", async () => {
   const destination = await registerPersonalOrganization();
   const eventId = crypto.randomUUID();
+  const subscriptionId = `GPA.transfer-permanent-${eventId}`;
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerCustomerId: destination.user.userId,
+      providerProductId: "sync_team_5_monthly:monthly",
+      providerSubscriptionId: subscriptionId,
+      seatCount: 5,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, destination.organizationId));
   await db
     .update(organizationBillingStripeSeats)
     .set({ subscriptionId: `sub_${crypto.randomUUID()}` })
@@ -188,7 +240,7 @@ test("permanent transfer claim rejections are acknowledged without redelivery", 
   expect(
     await processRevenueCatWebhook(getDefaultApiServiceRuntime(), event, {
       env: ENV,
-      fetchImpl: providerFetch(),
+      fetchImpl: providerFetch(subscriptionId),
     }),
   ).toEqual({
     reason:
@@ -203,7 +255,7 @@ test("permanent transfer claim rejections are acknowledged without redelivery", 
   expect(
     await processRevenueCatWebhook(getDefaultApiServiceRuntime(), event, {
       env: ENV,
-      fetchImpl: providerFetch(),
+      fetchImpl: providerFetch(subscriptionId),
     }),
   ).toEqual({ status: "duplicate" });
 });
@@ -228,6 +280,11 @@ test("missing receipts and ambiguous transfer ownership are permanent", async ()
     reason: "Transferred subscription is not active",
     status: "ignored",
   });
+  const [missingAudit] = await db
+    .select({ outcome: revenuecatWebhookEvents.outcome })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, event.id));
+  expect(missingAudit?.outcome).toBe("ignored");
 
   expect(
     await processRevenueCatWebhook(
@@ -279,6 +336,34 @@ test("missing receipts and ambiguous transfer ownership are permanent", async ()
     reason: "Transfer has more than one registered destination",
     status: "ignored",
   });
+});
+
+test("a missing RevenueCat customer retries while transfer data propagates", async () => {
+  const destination = await registerPersonalOrganization();
+  const event = {
+    environment: "SANDBOX",
+    event_timestamp_ms: Date.now(),
+    id: crypto.randomUUID(),
+    store: "PLAY_STORE",
+    transferred_from: [crypto.randomUUID()],
+    transferred_to: [destination.user.userId],
+    type: "TRANSFER" as const,
+  };
+  expect(
+    await processRevenueCatWebhook(getDefaultApiServiceRuntime(), event, {
+      env: ENV,
+      fetchImpl: (async (_input: RequestInfo | URL) =>
+        new Response(null, { status: 404 })) as typeof fetch,
+    }),
+  ).toEqual({
+    reason: "Transferred subscription has not propagated to RevenueCat",
+    status: "retry",
+  });
+  const [audit] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, event.id));
+  expect(audit).toBeUndefined();
 });
 
 test("production ignores Test Store transfers even without a sandbox marker", async () => {

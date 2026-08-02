@@ -32,12 +32,18 @@ export function isProviderSubscriptionOwnershipConflict(
   });
 }
 
-/** A concurrent native move may hit either ownership uniqueness or a deadlock. */
+/** A concurrent native move may hit ownership, serialization, or lock races. */
 export function isNativeSubscriptionMoveConflict(error: unknown): boolean {
   return (
     isProviderSubscriptionOwnershipConflict(error) ||
-    errorChain(error).some(
-      (candidate) => Reflect.get(candidate, "code") === "40P01",
-    )
+    errorChain(error).some((candidate) => {
+      const code = Reflect.get(candidate, "code");
+      return (
+        code === "40P01" ||
+        code === "40001" ||
+        (typeof code === "string" &&
+          (code.startsWith("SQLITE_BUSY") || code.startsWith("SQLITE_LOCKED")))
+      );
+    })
   );
 }

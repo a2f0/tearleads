@@ -229,7 +229,9 @@ function BillingPanelSubscriptionControls(input: {
         purchaseAvailable={nativePurchaseAvailable}
         purchaseSectionHidden={purchaseSectionHidden}
         restoreAvailable={
-          actions.purchaseAvailable && input.isPersonalOrganization === true
+          input.isOrgAdmin &&
+          actions.purchaseAvailable &&
+          input.isPersonalOrganization === true
         }
         view={billing.view}
       />

@@ -399,7 +399,12 @@ test("native claim moves verified billing and records both sides of the transfer
     organizationId: destinationOrganizationId,
     status: "active",
   });
-  const [audit] = await db
+  const repeatedResponse = await app.request(
+    `/organizations/${destinationOrganizationId}/billing/native/play_store/claim`,
+    { method: "POST" },
+  );
+  expect(repeatedResponse.status).toBe(200);
+  const audits = await db
     .select({
       organizationId: revenuecatWebhookEvents.organizationId,
       sourceOrganizationId: revenuecatWebhookEvents.sourceOrganizationId,
@@ -411,10 +416,12 @@ test("native claim moves verified billing and records both sides of the transfer
         eq(revenuecatWebhookEvents.organizationId, destinationOrganizationId),
       ),
     );
-  expect(audit).toEqual({
-    organizationId: destinationOrganizationId,
-    sourceOrganizationId: previousOrganizationId,
-  });
+  expect(audits).toEqual([
+    {
+      organizationId: destinationOrganizationId,
+      sourceOrganizationId: previousOrganizationId,
+    },
+  ]);
 });
 
 test("native claim maps provider outages to 503 and gates Test Store in production", async () => {

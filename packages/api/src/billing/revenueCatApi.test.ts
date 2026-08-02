@@ -422,6 +422,15 @@ test("native verification rejects missing, ambiguous, and disallowed sandbox rec
   ).toEqual({ kind: "not_found" });
 });
 
+test("native verification distinguishes a missing customer from no active receipt", async () => {
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "play_store", {
+      env: ENV,
+      fetchImpl: fakeFetch([{ body: {}, status: 404 }]).fetchImpl,
+    }),
+  ).toEqual({ kind: "customer_not_found" });
+});
+
 test("native verification rejects Test Store outside a sandbox-enabled tier", async () => {
   const { fetchImpl, calls } = fakeFetch([{ body: { items: [] } }]);
   expect(

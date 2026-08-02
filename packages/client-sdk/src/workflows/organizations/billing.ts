@@ -51,7 +51,7 @@ interface OrganizationBillingApi {
   readonly claimNativeOrganizationSubscription: (
     organizationId: string,
     store: NativeSubscriptionStore,
-  ) => Promise<OrganizationBillingResponse | null>;
+  ) => Promise<RequestResult<OrganizationBillingResponse>>;
   readonly getStripeCheckoutOptions: (
     organizationId: string,
     options?: RequestResultOptions,
@@ -112,10 +112,15 @@ export async function claimNativeOrganizationSubscription(input: {
   readonly organizationId: string;
   readonly store: NativeSubscriptionStore;
 }): Promise<OrganizationBilling | null> {
-  return input.apiClient.claimNativeOrganizationSubscription(
+  const result = await input.apiClient.claimNativeOrganizationSubscription(
     input.organizationId,
     input.store,
   );
+  if (!result.ok) {
+    result.report();
+    throw Object.assign(new Error(result.message), { status: result.status });
+  }
+  return result.data;
 }
 
 export async function loadStripeCheckoutOptions(input: {

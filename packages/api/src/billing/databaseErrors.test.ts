@@ -35,3 +35,13 @@ test("classifies a PostgreSQL deadlock as a retriable native move conflict", () 
   expect(isNativeSubscriptionMoveConflict(deadlock)).toBe(true);
   expect(isProviderSubscriptionOwnershipConflict(deadlock)).toBe(false);
 });
+
+test("classifies serialization and SQLite lock races as retriable", () => {
+  for (const code of ["40001", "SQLITE_BUSY", "SQLITE_LOCKED_SHAREDCACHE"]) {
+    expect(
+      isNativeSubscriptionMoveConflict(
+        Object.assign(new Error("concurrent write"), { code }),
+      ),
+    ).toBe(true);
+  }
+});

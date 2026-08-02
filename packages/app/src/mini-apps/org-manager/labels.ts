@@ -100,6 +100,12 @@ export const ORG_MANAGER_LABELS = {
   failedLoadDataUsage: "Failed to load organization data usage.",
   failedLoadBillingHistory: "Failed to load billing history.",
   failedRestorePurchases: "Failed to restore purchases.",
+  nativeClaimConflict:
+    "This subscription cannot be moved here. Cancel any existing web subscription and try again.",
+  nativeClaimNotFound:
+    "No active native subscription was found for this store account.",
+  nativeClaimPending:
+    "The purchase was restored, but verification is still pending. Try Restore again shortly.",
   failedSubscribe: "Purchase failed.",
   failedLoadGrants: "Failed to load organization grants.",
   failedLoadGroupContainers: "Failed to load group container links.",

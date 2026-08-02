@@ -16,6 +16,7 @@ import {
 } from "../../billing/revenueCatApi";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
+  NativeSubscriptionTransferAwaitingClaimError,
   resolvePersonalOrganizationForUser,
   runClaimNativeSubscriptionWorkflow,
 } from "../../workflows/billing/nativeSubscriptionClaim";
@@ -78,6 +79,7 @@ async function resolveTransferredSubscription(input: {
   let found: ActiveSubscriptionLookup | null = null;
   for (const result of results) {
     if (result.kind === "ambiguous") return result;
+    if (result.kind === "customer_not_found") return result;
     if (result.kind === "unavailable") return result;
     if (result.kind !== "found") continue;
     if (found) return { kind: "ambiguous" };
@@ -108,6 +110,26 @@ interface TransferDestination {
   readonly organizationId: string;
 }
 
+async function ignoreRevenueCatTransfer(input: {
+  readonly destination?: TransferDestination;
+  readonly event: RevenueCatTransferWebhookEvent;
+  readonly reason: string;
+  readonly runtime: ApiServiceRuntime;
+}): Promise<RevenueCatWebhookOutcome> {
+  const recorded = await runRecordIgnoredRevenueCatTransferWorkflow({
+    appUserId:
+      input.destination?.appUserId ??
+      input.event.transferred_to[0] ??
+      "unresolved",
+    db: input.runtime.db,
+    event: input.event,
+    organizationId: input.destination?.organizationId ?? null,
+  });
+  return recorded
+    ? { reason: input.reason, status: "ignored" }
+    : { status: "duplicate" };
+}
+
 async function claimTransferredSubscription(input: {
   readonly destination: TransferDestination;
   readonly event: RevenueCatTransferWebhookEvent;
@@ -124,11 +146,18 @@ async function claimTransferredSubscription(input: {
       },
       db: input.runtime.db,
       organizationId: input.destination.organizationId,
+      requireExistingBinding: true,
       requireSessionAccess: false,
       sourceId: input.event.id,
       subscription: input.subscription,
     });
   } catch (error) {
+    if (error instanceof NativeSubscriptionTransferAwaitingClaimError) {
+      return {
+        reason: "Transfer awaits an authenticated native subscription claim",
+        status: "retry",
+      };
+    }
     if (isNativeSubscriptionMoveConflict(error)) {
       return {
         reason: "Native subscription ownership changed concurrently",
@@ -136,15 +165,12 @@ async function claimTransferredSubscription(input: {
       };
     }
     if (error instanceof OrganizationManagerError) {
-      const recorded = await runRecordIgnoredRevenueCatTransferWorkflow({
-        appUserId: input.destination.appUserId,
-        db: input.runtime.db,
+      return ignoreRevenueCatTransfer({
+        destination: input.destination,
         event: input.event,
-        organizationId: input.destination.organizationId,
+        reason: error.message,
+        runtime: input.runtime,
       });
-      return recorded
-        ? { reason: error.message, status: "ignored" }
-        : { status: "duplicate" };
     }
     throw error;
   }
@@ -166,33 +192,47 @@ async function processRevenueCatTransfer(
     event.environment?.toLowerCase() === "sandbox" &&
     !allowsRevenueCatSandboxEvents(deps.env ?? process.env)
   ) {
-    return { status: "ignored", reason: "Sandbox RevenueCat event ignored" };
+    return ignoreRevenueCatTransfer({
+      event,
+      reason: "Sandbox RevenueCat event ignored",
+      runtime,
+    });
   }
   const store = nativeStoreFromTransfer(event);
   if (
     store === "test_store" &&
     !allowsRevenueCatSandboxEvents(deps.env ?? process.env)
   ) {
-    return { status: "ignored", reason: "Test Store transfer ignored" };
+    return ignoreRevenueCatTransfer({
+      event,
+      reason: "Test Store transfer ignored",
+      runtime,
+    });
   }
   if (event.store !== undefined && event.store !== null && !store) {
-    return { status: "ignored", reason: "Transfer store is not supported" };
+    return ignoreRevenueCatTransfer({
+      event,
+      reason: "Transfer store is not supported",
+      runtime,
+    });
   }
   const destination = await resolveTransferDestination(
     runtime,
     event.transferred_to,
   );
   if (destination === "ambiguous") {
-    return {
-      status: "ignored",
+    return ignoreRevenueCatTransfer({
+      event,
       reason: "Transfer has more than one registered destination",
-    };
+      runtime,
+    });
   }
   if (!destination) {
-    return {
-      status: "ignored",
+    return ignoreRevenueCatTransfer({
+      event,
       reason: "Transfer destination is not a Tearleads user",
-    };
+      runtime,
+    });
   }
   const resolved = await resolveTransferredSubscription({
     appUserId: destination.appUserId,
@@ -200,16 +240,24 @@ async function processRevenueCatTransfer(
     store,
   });
   if (resolved.kind === "not_found") {
-    return {
-      status: "ignored",
+    return ignoreRevenueCatTransfer({
+      destination,
+      event,
       reason: "Transferred subscription is not active",
+      runtime,
+    });
+  }
+  if (resolved.kind === "customer_not_found") {
+    return {
+      status: "retry",
+      reason: "Transferred subscription has not propagated to RevenueCat",
     };
   }
   if (resolved.kind !== "found") {
-    return {
-      status: resolved.kind === "ambiguous" ? "ignored" : "retry",
-      reason: `Transferred subscription verification is ${resolved.kind}`,
-    };
+    const reason = `Transferred subscription verification is ${resolved.kind}`;
+    return resolved.kind === "ambiguous"
+      ? ignoreRevenueCatTransfer({ destination, event, reason, runtime })
+      : { reason, status: "retry" };
   }
   return claimTransferredSubscription({
     destination,

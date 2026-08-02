@@ -872,10 +872,12 @@ export class ApiClient {
     organizationId: string,
     store: NativeSubscriptionStore,
   ) {
-    return this.request(
+    return this.makeRequestResult(
       `/organizations/${pathSegment(organizationId)}/billing/native/${pathSegment(store)}/claim`,
       isOrganizationBillingResponse,
       "POST",
+      undefined,
+      { reportErrors: false },
     );
   }
 

@@ -48,9 +48,16 @@ export interface ActiveNativeSubscription {
 
 type ActiveNativeSubscriptionResult =
   | { readonly kind: "found"; readonly subscription: ActiveNativeSubscription }
+  | { readonly kind: "customer_not_found" }
   | { readonly kind: "not_found" }
   | { readonly kind: "ambiguous" }
   | { readonly kind: "unavailable" };
+
+interface CustomerSubscriptionsResult {
+  readonly complete: boolean;
+  readonly customerMissing: boolean;
+  readonly subscriptions: ResolvedSubscription[];
+}
 
 function readNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
@@ -219,7 +226,7 @@ async function fetchCustomerSubscriptions(
   projectId: string,
   secretKey: string,
   fetchImpl: typeof fetch,
-): Promise<{ subscriptions: ResolvedSubscription[]; complete: boolean }> {
+): Promise<CustomerSubscriptionsResult> {
   const headers = {
     Authorization: `Bearer ${secretKey}`,
     Accept: "application/json",
@@ -247,17 +254,18 @@ async function fetchCustomerSubscriptions(
       return {
         subscriptions,
         complete: response.status === 404 && page === 0,
+        customerMissing: response.status === 404 && page === 0,
       };
     }
     const parsed = parseSubscriptionPage(await response.json());
     subscriptions.push(...parsed.subscriptions);
     if (!parsed.nextPage) {
-      return { subscriptions, complete: true };
+      return { subscriptions, complete: true, customerMissing: false };
     }
     path = parsed.nextPage;
   }
   // Reached the page cap with pages still remaining: an incomplete list.
-  return { subscriptions, complete: false };
+  return { subscriptions, complete: false, customerMissing: false };
 }
 
 /**
@@ -320,6 +328,7 @@ export async function fetchActiveRevenueCatNativeSubscription(
       credentials.secretKey,
       fetchImpl,
     );
+    if (result.customerMissing) return { kind: "customer_not_found" };
     if (!result.complete) return { kind: "unavailable" };
     const allowSandbox = allowsRevenueCatSandboxEvents(env);
     const subscriptions = result.subscriptions.filter(

@@ -41,6 +41,16 @@ interface UseNativeSubscriptionMoveInput {
   readonly userId: string | null;
 }
 
+function nativeSubscriptionClaimErrorLabel(error: unknown): string {
+  if (typeof error !== "object" || error === null || !("status" in error)) {
+    return ORG_MANAGER_LABELS.failedRestorePurchases;
+  }
+  if (error.status === 404) return ORG_MANAGER_LABELS.nativeClaimNotFound;
+  if (error.status === 409) return ORG_MANAGER_LABELS.nativeClaimConflict;
+  if (error.status === 503) return ORG_MANAGER_LABELS.nativeClaimPending;
+  return ORG_MANAGER_LABELS.failedRestorePurchases;
+}
+
 /** Owns confirmation and the verified native restore/claim sequence. */
 export function useNativeSubscriptionMove(
   input: UseNativeSubscriptionMoveInput,
@@ -89,7 +99,7 @@ export function useNativeSubscriptionMove(
         logError(formatBillingPurchaseFailure(error, false));
         updateActionState(scope, (current) => ({
           ...current,
-          actionError: ORG_MANAGER_LABELS.failedRestorePurchases,
+          actionError: nativeSubscriptionClaimErrorLabel(error),
         }));
       } finally {
         if (scopeMatches(scopeRef.current, scope)) dismiss();

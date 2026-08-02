@@ -7,7 +7,7 @@ export async function runRecordIgnoredRevenueCatTransferWorkflow(input: {
   readonly appUserId: string;
   readonly db: ApiDatabase;
   readonly event: RevenueCatTransferWebhookEvent;
-  readonly organizationId: string;
+  readonly organizationId: string | null;
 }): Promise<boolean> {
   return input.db.transaction(async (tx) => {
     const [claimed] = await tx

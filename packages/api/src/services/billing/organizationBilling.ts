@@ -192,7 +192,7 @@ export async function claimNativeOrganizationSubscription(
     store,
     deps,
   );
-  if (resolved.kind === "not_found") {
+  if (resolved.kind === "not_found" || resolved.kind === "customer_not_found") {
     throw new OrganizationManagerError(
       "No active subscription was found for this store account",
       404,
@@ -218,6 +218,7 @@ export async function claimNativeOrganizationSubscription(
       db: runtime.db,
       now,
       organizationId,
+      recordAlreadyOwnedAudit: false,
       requireSessionAccess: true,
       sourceId,
       subscription: resolved.subscription,

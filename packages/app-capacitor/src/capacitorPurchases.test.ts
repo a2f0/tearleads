@@ -322,6 +322,19 @@ test("normalizes an already-owned Android product into subscription recovery", a
   );
 });
 
+test("normalizes iOS receipt-ownership conflicts into subscription recovery", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  fixture.platform = "ios";
+  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+
+  for (const code of ["6", "7", "13"]) {
+    fixture.purchaseRejection = { code };
+    await expect(purchaseSync()).rejects.toBeInstanceOf(
+      PurchaseAlreadyOwnedError,
+    );
+  }
+});
+
 test("propagates a genuine store failure unchanged", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
