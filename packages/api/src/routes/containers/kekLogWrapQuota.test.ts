@@ -1,9 +1,13 @@
 import { expect, test } from "bun:test";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type { ContainerKekLogResponse } from "@tearleads/validators/response";
+import { CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT } from "@tearleads/validators/util";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
-import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
+import {
+  bootstrapRoot,
+  buildRootGrantRequest,
+} from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
@@ -78,34 +82,63 @@ test("every epoch keeps its own anchors rather than sharing one page quota", asy
   }
 }, 20_000);
 
-test("a direct user envelope survives however many principals precede it", async () => {
+test("a granted member's own direct envelope is served as their anchor", async () => {
   const owner = createTestUser();
+  const member = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
-  const { root } = await rotateRootTwice(owner);
+  await registerUser(member);
+  await authenticate(member);
+  const root = await bootstrapRoot(owner);
+
+  // A grant mints a direct user envelope addressed to the member. That wrap is
+  // the anchor openable with no principal-policy state at all, so the epoch
+  // ranking must place it first and the per-epoch cap must never cut it.
+  const grantRequest = await buildRootGrantRequest({
+    previous: root.bundle,
+    previousKekState: root.kekState,
+    recipient: member,
+    signer: owner,
+  });
+  const grantResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(grantRequest),
+    },
+  );
+  expect(grantResponse.status).toBe(200);
 
   const log = (await (
-    await getKekLog(root.kekState.containerId, owner.token)
+    await getKekLog(root.kekState.containerId, member.token)
   ).json()) as ContainerKekLogResponse;
 
-  // The envelope quota is spent per (epoch, recipient), so principal
-  // envelopes cannot consume the share belonging to the requester's own
-  // direct wrap — and the ordering ranks that direct wrap first regardless.
-  // A quota shared across an epoch's recipients could not promise this once a
-  // requester holds more principals than the quota, and the dropped anchor
-  // would read as an unaddressed epoch rather than a truncated response.
-  for (const epoch of log.epochs) {
-    const recipients = epoch.wraps.map(
+  const directWraps = log.epochs.flatMap((epoch) =>
+    epoch.wraps.filter(
       (wrap) =>
-        `${wrapField(wrap, "recipientKind")}:${wrapField(wrap, "recipientId")}`,
-    );
-    expect(new Set(recipients).size).toBe(recipients.length);
-    expect(
-      epoch.wraps.every((wrap) =>
-        wrapField(wrap, "recipientKind") === "user"
-          ? wrapField(wrap, "recipientId") === owner.userId
-          : true,
-      ),
-    ).toBe(true);
-  }
+        wrapField(wrap, "recipientKind") === "user" &&
+        wrapField(wrap, "recipientId") === member.userId,
+    ),
+  );
+  // Non-vacuous: the member's own envelope really is present, not merely
+  // "no envelope contradicts the rule".
+  expect(directWraps.length).toBeGreaterThan(0);
+
+  // And it is served on the epoch it was minted for, ranked ahead of the
+  // principal envelopes that share that epoch.
+  const epochWithDirect = log.epochs.find((epoch) =>
+    epoch.wraps.some(
+      (wrap) =>
+        wrapField(wrap, "recipientKind") === "user" &&
+        wrapField(wrap, "recipientId") === member.userId,
+    ),
+  );
+  if (!epochWithDirect) throw new Error("expected an epoch with a direct wrap");
+  expect(epochWithDirect.wraps.length).toBeLessThanOrEqual(
+    CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
+  );
 }, 20_000);

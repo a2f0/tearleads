@@ -73,41 +73,27 @@ export const CONTAINER_KEK_LOG_PAGE_LIMIT = 256;
 export const MAX_INLINE_CONTAINER_REKEYS = 16;
 
 /**
- * Maximum envelopes one kek-log epoch may serve FOR A SINGLE RECIPIENT. The
- * quota is per (epoch, recipient) rather than per epoch or per page, so no
- * epoch and no recipient can consume a share belonging to another: a starved
- * recipient is indistinguishable from an unaddressed one and would surface as
- * a false `no-addressed-envelope` recovery failure.
+ * Maximum recipient envelopes one kek-log epoch may serve, applied PER EPOCH
+ * so no epoch can be starved by another's width — a starved epoch is
+ * indistinguishable from an unaddressed one and would surface as a false
+ * `no-addressed-envelope` recovery failure.
  *
- * A kek-log read only ever selects recipients the requester is authorized
- * through, so the served size scales with their own authorization breadth
- * rather than with the container's total membership. What this constant bounds
- * is the remaining dimension — how many of one recipient's rotated key epochs
- * are retained — where only the newest is normally needed.
+ * Recovery needs ONE openable anchor per epoch, not every envelope, and the
+ * ranking puts the requester's own direct wrap first, so this cap never costs
+ * a usable anchor. Together with the epoch page limit it bounds the response
+ * at page x cap rows regardless of how many recipients a container has
+ * accumulated.
  */
-export const CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT = 8;
+export const CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT = 16;
 
 /**
- * Maximum authorized principals a single kek-log read may scope wraps to. The
- * per-recipient quota bounds how much each recipient partition returns but not
- * how many partitions there are, and a requester's principal set has no
- * intrinsic ceiling — so without this a wide membership would grow the query's
- * bind parameters and the response together.
+ * Maximum authorized principals a single kek-log read may scope wraps to.
+ * A requester's principal set has no intrinsic ceiling and each entry adds a
+ * clause, and bind parameters, to the statement.
  *
- * The requester's direct user envelope and their parent-container envelopes are
- * scoped outside this cap. Those are the anchors openable without any
- * principal-policy state, so the bound never costs the most recoverable one.
+ * The requester's direct user envelope and their parent-container envelopes
+ * are scoped outside this cap and rank ahead of principal wraps, so the bound
+ * never costs the anchors openable without principal-policy state. Opening a
+ * principal wrap needs that state regardless (see issue #1941).
  */
 export const CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT = 64;
-
-/**
- * Hard ceiling on recipient envelopes one kek-log request may return, across
- * every epoch and recipient in it. The per-recipient quota bounds each
- * partition and the principal chunking bounds each statement, but a requester
- * with a very wide principal set could still union those bounded pieces into
- * an unbounded response. This is the outermost bound, sized far above any
- * legitimate recovery — which needs one usable anchor per epoch, not every
- * envelope — so reaching it means the request was pathological rather than
- * merely large.
- */
-export const CONTAINER_KEK_LOG_WRAP_RESPONSE_LIMIT = 4096;

@@ -6,8 +6,7 @@ import {
 import type { ContainerKekKeyring } from "@tearleads/crypto";
 import {
   CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,
-  CONTAINER_KEK_LOG_WRAP_RESPONSE_LIMIT,
-  CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT,
+  CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
 } from "@tearleads/validators/util";
 import type { SQL } from "drizzle-orm";
 import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
@@ -93,40 +92,49 @@ export async function listContainerKeyEpochPage(
 }
 
 /**
- * The ids of the scoped wraps, at most
- * `CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT` per (epoch, recipient), chosen in
- * SQL by a windowed rank so no epoch and no recipient can consume another's
- * share. Returning ids keeps the typed row mapping on the regular Drizzle
- * select; only two scalar columns cross the raw-SQL boundary.
+ * The ids of the envelopes this requester could use as anchors, at most
+ * `CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT` per epoch, chosen in SQL.
+ *
+ * ONE bounded statement does the whole job. The window ranks each epoch's
+ * envelopes independently, so no epoch can be starved by another's width, and
+ * the rank is TOTALLY ORDERED — the requester's own direct wrap first, then
+ * kind, recipient, and recipient key epoch — so the cut is deterministic and
+ * the anchor openable without principal-policy state always survives it.
+ * Recovery only ever needs one usable anchor per epoch, so a per-epoch cap
+ * costs nothing it could have used.
+ *
+ * With the caller's epoch page bounded too, the row count is bounded by
+ * page x cap, which is what keeps the response and the follow-up `IN` list
+ * from growing with membership. Returning ids keeps the typed row mapping on
+ * the regular Drizzle select; only one scalar column crosses the raw-SQL
+ * boundary.
  */
 async function selectQuotaLimitedWrapIds(
   containerKeyEpochIds: readonly string[],
-  scopeFilter: SQL,
+  scope: ContainerKekRecipientScope,
   executor: DatabaseSession,
 ): Promise<string[]> {
+  const scopeFilter = buildWrapScopeFilter(scope);
+  if (!scopeFilter) {
+    return [];
+  }
+
   const result = await executor.execute(sql`
     select id from (
       select
         ${containerKeyWraps.id} as id,
         row_number() over (
-          -- Partition per RECIPIENT, not merely per epoch. Every recipient the
-          -- scope filter admits is one this requester is authorized through,
-          -- so each gets its own quota and none can be crowded out by another.
-          -- The response therefore scales with the requester's own
-          -- authorization breadth rather than with the container's total
-          -- membership, and no reachable anchor is ever dropped — which a
-          -- single per-epoch quota could not promise once a requester holds
-          -- more principals than the quota.
-          partition by
-            ${containerKeyWraps.containerKeyEpochId},
-            ${containerKeyWraps.recipientKind},
-            ${containerKeyWraps.recipientId}
-          -- The requester's OWN envelope first: it needs no principal-policy
-          -- state to open, so it is the anchor most likely to be usable.
+          partition by ${containerKeyWraps.containerKeyEpochId}
           order by
+            -- The requester's OWN envelope ranks first, always: it is the one
+            -- anchor that needs no principal-policy state to open. Ordering by
+            -- kind alone would sort 'user' last of the four and spend the cap
+            -- on principal wraps, reporting a recoverable epoch as unreachable.
             case when ${containerKeyWraps.recipientKind} = 'user' then 0 else 1 end,
+            ${containerKeyWraps.recipientKind},
+            ${containerKeyWraps.recipientId},
             ${containerKeyWraps.recipientKeyEpochId}
-        ) as recipient_rank
+        ) as epoch_rank
       from ${containerKeyWraps}
       where ${containerKeyWraps.containerKeyEpochId} in (${sql.join(
         containerKeyEpochIds.map((id) => sql`${id}`),
@@ -134,7 +142,7 @@ async function selectQuotaLimitedWrapIds(
       )})
         and ${scopeFilter}
     ) ranked
-    where ranked.recipient_rank <= ${CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT}
+    where ranked.epoch_rank <= ${CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT}
   `);
 
   const rows: unknown = Array.isArray(result) ? result : result.rows;
@@ -150,22 +158,6 @@ async function selectQuotaLimitedWrapIds(
   });
 }
 
-/**
- * Splits the principals into statement-sized groups. At least one group is
- * always returned — a requester with no principals still needs their direct
- * user and parent-container envelopes, which every group carries.
- */
-function chunkPrincipals<T>(principals: readonly T[], size: number): T[][] {
-  if (principals.length === 0) {
-    return [[]];
-  }
-  const chunks: T[][] = [];
-  for (let start = 0; start < principals.length; start += size) {
-    chunks.push([...principals.slice(start, start + size)]);
-  }
-  return chunks;
-}
-
 interface ContainerKekRecipientScope {
   readonly authorizedPrincipals: readonly {
     readonly principalId: string;
@@ -176,17 +168,20 @@ interface ContainerKekRecipientScope {
 }
 
 /**
- * One chunk's SQL predicate: the requester's direct user envelope, their
- * parent-container envelopes, and this chunk of authorizing principals.
+ * The SQL predicate selecting the envelopes this requester could open: their
+ * own direct wrap, their parent-container wraps, and the principals that
+ * authorize them.
  *
- * The user and parent clauses repeat in EVERY chunk rather than being split
- * across them, because those are the anchors openable without any
- * principal-policy state — they must be reachable whichever chunk the
- * response ceiling stops on.
+ * The principal list is capped because a requester's principal set has no
+ * intrinsic ceiling and each entry adds a clause — and bind parameters — to
+ * the statement. The direct-user and parent-container clauses sit OUTSIDE that
+ * cap and the ranking below puts the direct wrap first, so the anchors
+ * openable without any principal-policy state are never the ones the cap
+ * costs. (Opening a principal wrap needs historical policy state regardless —
+ * see issue #1941.)
  */
 function buildWrapScopeFilter(
   scope: ContainerKekRecipientScope,
-  principalChunk: readonly ContainerKekRecipientScope["authorizedPrincipals"][number][],
 ): SQL | undefined {
   return or(
     scope.parentContainerIds.length > 0
@@ -201,57 +196,15 @@ function buildWrapScopeFilter(
     ),
     // (kind, id) identity: a group and an organization may share an id, and
     // only the exact principal that authorizes this requester counts.
-    ...principalChunk.map((principal) =>
-      and(
-        eq(containerKeyWraps.recipientKind, principal.principalType),
-        eq(containerKeyWraps.recipientId, principal.principalId),
+    ...scope.authorizedPrincipals
+      .slice(0, CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT)
+      .map((principal) =>
+        and(
+          eq(containerKeyWraps.recipientKind, principal.principalType),
+          eq(containerKeyWraps.recipientId, principal.principalId),
+        ),
       ),
-    ),
   );
-}
-
-/**
- * Every wrap id in scope for this requester, gathered chunk by chunk.
- *
- * A requester's principal set has no intrinsic ceiling, and one filter clause
- * per principal would grow a single statement — and its bind parameters —
- * without limit. So principals are CHUNKED rather than truncated: dropping the
- * tail would be indistinguishable from an unaddressed epoch and would surface
- * as a false `no-addressed-envelope` failure on a container that is in fact
- * recoverable.
- *
- * Chunks run ONE AT A TIME against a response-wide ceiling. Fanning them out
- * would let one authenticated request open as many statements as the requester
- * has principals, and unioning without a ceiling would rebuild the unbounded
- * `IN` list the per-recipient quota exists to prevent. Sequential accumulation
- * with an early exit bounds statements, bind parameters, and bytes together.
- */
-async function collectScopedWrapIds(
-  containerKeyEpochIds: readonly string[],
-  scope: ContainerKekRecipientScope,
-  executor: DatabaseSession,
-): Promise<string[]> {
-  const collected = new Set<string>();
-  for (const chunk of chunkPrincipals(
-    scope.authorizedPrincipals,
-    CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,
-  )) {
-    const scopeFilter = buildWrapScopeFilter(scope, chunk);
-    if (!scopeFilter) {
-      continue;
-    }
-    for (const id of await selectQuotaLimitedWrapIds(
-      containerKeyEpochIds,
-      scopeFilter,
-      executor,
-    )) {
-      collected.add(id);
-    }
-    if (collected.size >= CONTAINER_KEK_LOG_WRAP_RESPONSE_LIMIT) {
-      break;
-    }
-  }
-  return [...collected].slice(0, CONTAINER_KEK_LOG_WRAP_RESPONSE_LIMIT);
 }
 
 export async function listContainerKeyWrapsByEpochId(
@@ -272,7 +225,7 @@ export async function listContainerKeyWrapsByEpochId(
   }
 
   const scopedIds = recipientScope
-    ? await collectScopedWrapIds(uniqueIds, recipientScope, executor)
+    ? await selectQuotaLimitedWrapIds(uniqueIds, recipientScope, executor)
     : null;
   if (scopedIds && scopedIds.length === 0) {
     return wrapsByEpochId;
