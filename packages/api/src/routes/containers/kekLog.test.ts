@@ -370,3 +370,37 @@ test("the kek-log omits principals absent from the requester's access path", asy
     }
   }
 }, 15_000);
+
+test("the kek-log keeps a moved container's old-parent envelopes", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+
+  const log = (await (
+    await getKekLog(root.kekState.containerId, owner.token)
+  ).json()) as ContainerKekLogResponse;
+
+  // Every parent-container envelope served names a container this
+  // container's own key history actually inherited from — including a
+  // parent it has since moved away from, whose envelope is the only anchor
+  // for the epochs beneath a severed move bridge. Envelopes for unrelated
+  // containers are never served.
+  const inheritedParentEpochIds = new Set(
+    log.epochs
+      .map((epoch) => epoch.parentContainerKeyEpochId)
+      .filter((id): id is string => id !== null),
+  );
+  for (const epoch of log.epochs) {
+    for (const wrap of epoch.wraps) {
+      if (wrap["recipientKind"] !== "container") {
+        continue;
+      }
+      // The wrap's recipient key epoch is one this container inherited from.
+      expect(
+        inheritedParentEpochIds.has(wrap["recipientKeyEpochId"] as string) ||
+          wrap["recipientId"] === root.kekState.containerId,
+      ).toBe(true);
+    }
+  }
+}, 15_000);
