@@ -80,7 +80,7 @@ test("configures without a buyer when the sdk has not identified one", async () 
 
   // restore()/hasActiveSyncEntitlement() can be the first call the capability
   // sees; the plugin must not receive an explicit undefined appUserID.
-  await createCapacitorPurchases().restore({ organizationId: "org-1" });
+  await createCapacitorPurchases().restore();
 
   expect(fixture.configureCalls).toEqual([{ apiKey: "ios-key" }]);
 });
@@ -403,7 +403,7 @@ test("restores prior purchases through the native bridge", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   const purchases = createCapacitorPurchases();
 
-  await purchases.restore({ organizationId: "org-1" });
+  await purchases.restore();
 
   // Restore must configure the SDK first; a restore on a fresh install is the
   // first call the capability sees.

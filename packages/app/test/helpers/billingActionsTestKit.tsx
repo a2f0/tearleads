@@ -49,6 +49,7 @@ export function createPurchases(
   purchaseResult: SyncPurchaseResult,
 ): PurchasesCapability {
   return {
+    bindOrganization: mock(() => Promise.resolve()),
     isAvailable: true,
     nativeStore: "test_store",
     supportsEmbeddedCheckout: true,

@@ -17,6 +17,7 @@ afterEach(() => cleanup());
 test("identifies the buyer before loading subscription options", async () => {
   const calls: string[] = [];
   const purchases: PurchasesCapability = {
+    bindOrganization: mock(() => Promise.resolve()),
     isAvailable: true,
     nativeStore: "test_store",
     identify: mock(() => {

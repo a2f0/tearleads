@@ -28,6 +28,8 @@ import {
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 
+const TRANSFER_CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 /**
  * Applies a validated RevenueCat webhook event to organization sync billing.
  * Authentication (the shared-secret header) is enforced at the route boundary;
@@ -130,6 +132,23 @@ async function ignoreRevenueCatTransfer(input: {
     : { status: "duplicate" };
 }
 
+async function deferUnconfirmedTransfer(input: {
+  readonly destination: TransferDestination;
+  readonly event: RevenueCatTransferWebhookEvent;
+  readonly reason: string;
+  readonly runtime: ApiServiceRuntime;
+}): Promise<RevenueCatWebhookOutcome> {
+  if (Date.now() - input.event.event_timestamp_ms <= TRANSFER_CLAIM_WINDOW_MS) {
+    return { reason: input.reason, status: "retry" };
+  }
+  return ignoreRevenueCatTransfer({
+    destination: input.destination,
+    event: input.event,
+    reason: "Transfer was not confirmed by an authenticated native claim",
+    runtime: input.runtime,
+  });
+}
+
 async function claimTransferredSubscription(input: {
   readonly destination: TransferDestination;
   readonly event: RevenueCatTransferWebhookEvent;
@@ -153,10 +172,12 @@ async function claimTransferredSubscription(input: {
     });
   } catch (error) {
     if (error instanceof NativeSubscriptionTransferAwaitingClaimError) {
-      return {
+      return deferUnconfirmedTransfer({
+        destination: input.destination,
+        event: input.event,
         reason: "Transfer awaits an authenticated native subscription claim",
-        status: "retry",
-      };
+        runtime: input.runtime,
+      });
     }
     if (isNativeSubscriptionMoveConflict(error)) {
       return {
@@ -248,10 +269,12 @@ async function processRevenueCatTransfer(
     });
   }
   if (resolved.kind === "customer_not_found") {
-    return {
-      status: "retry",
+    return deferUnconfirmedTransfer({
+      destination,
+      event,
       reason: "Transferred subscription has not propagated to RevenueCat",
-    };
+      runtime,
+    });
   }
   if (resolved.kind !== "found") {
     const reason = `Transferred subscription verification is ${resolved.kind}`;

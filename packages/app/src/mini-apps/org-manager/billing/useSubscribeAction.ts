@@ -84,9 +84,7 @@ export function useNativeSubscriptionMove(
           throw new Error("Native subscription restore is unavailable");
         }
         await purchases.identify({ userId });
-        const restored = await purchases.restore({
-          organizationId: scope.organizationId,
-        });
+        const restored = await purchases.restore();
         if (!restored.syncEntitlementActive) {
           throw new Error("The restored receipt has no sync entitlement");
         }
@@ -94,6 +92,9 @@ export function useNativeSubscriptionMove(
         if (!claimed) {
           throw new Error("The server did not accept the native subscription");
         }
+        await purchases.bindOrganization({
+          organizationId: scope.organizationId,
+        });
         if (scopeMatches(scopeRef.current, scope)) await refresh();
       } catch (error) {
         logError(formatBillingPurchaseFailure(error, false));

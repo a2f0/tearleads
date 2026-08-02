@@ -22,8 +22,11 @@ afterEach(cleanup);
 
 function purchases(
   restore: PurchasesCapability["restore"],
+  bindOrganization: PurchasesCapability["bindOrganization"] = () =>
+    Promise.resolve(),
 ): PurchasesCapability {
   return {
+    bindOrganization,
     identify: () => Promise.resolve(),
     isAvailable: true,
     nativeStore: "play_store",
@@ -32,6 +35,7 @@ function purchases(
 }
 
 function setup(input: {
+  readonly bindOrganization?: PurchasesCapability["bindOrganization"];
   readonly claim: () => Promise<boolean>;
   readonly restore: PurchasesCapability["restore"];
 }) {
@@ -44,7 +48,7 @@ function setup(input: {
       useNativeSubscriptionMove({
         claimNativeSubscription: input.claim,
         currentScope: SCOPE,
-        purchases: purchases(input.restore),
+        purchases: purchases(input.restore, input.bindOrganization),
         refresh: () => Promise.resolve(),
         scopeRef: { current: SCOPE },
         updateActionState,
@@ -83,7 +87,9 @@ test("restore stays busy and rejects a receipt without sync", async () => {
 
 test("restore surfaces a server-side claim rejection", async () => {
   const claim = mock(() => Promise.resolve(false));
+  const bindOrganization = mock(() => Promise.resolve());
   const flow = setup({
+    bindOrganization,
     claim,
     restore: () => Promise.resolve({ syncEntitlementActive: true }),
   });
@@ -95,6 +101,29 @@ test("restore surfaces a server-side claim rejection", async () => {
     ),
   );
   expect(claim).toHaveBeenCalledWith("play_store");
+  expect(bindOrganization).not.toHaveBeenCalled();
+});
+
+test("restore binds lifecycle attribution only after the claim succeeds", async () => {
+  const calls: string[] = [];
+  const flow = setup({
+    bindOrganization: () => {
+      calls.push("bind");
+      return Promise.resolve();
+    },
+    claim: () => {
+      calls.push("claim");
+      return Promise.resolve(true);
+    },
+    restore: () => {
+      calls.push("restore");
+      return Promise.resolve({ syncEntitlementActive: true });
+    },
+  });
+  startMove(flow.view);
+
+  await waitFor(() => expect(flow.state().busy).toBeNull());
+  expect(calls).toEqual(["restore", "claim", "bind"]);
 });
 
 test.each([

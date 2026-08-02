@@ -7,9 +7,9 @@ import {
   getOrganizationBilling,
   getOrganizationBillingHistory,
   getOrganizationBillingManagementUrl,
-  OrganizationBillingProviderUnavailableError,
   startOrganizationTrial,
 } from "../../services/billing/organizationBilling";
+import { OrganizationBillingProviderUnavailableError } from "../../services/billing/organizationBillingErrors";
 import {
   type OrganizationsRouterDeps,
   parseOrganizationId,

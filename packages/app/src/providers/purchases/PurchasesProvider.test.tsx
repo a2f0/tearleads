@@ -9,6 +9,7 @@ import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { PurchasesProvider, usePurchases } from "./PurchasesProvider";
 
 const availableCapability: PurchasesCapability = {
+  bindOrganization: () => Promise.resolve(),
   isAvailable: true,
   nativeStore: "test_store",
   identify: () => Promise.resolve(),

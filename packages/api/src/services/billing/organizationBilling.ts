@@ -32,10 +32,7 @@ import { runGetOrganizationBillingHistoryWorkflow } from "../../workflows/billin
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 import { mapNativeSubscriptionClaimError } from "./nativeSubscriptionClaimError";
-
-export class OrganizationBillingProviderUnavailableError extends Error {
-  readonly status = 503 as const;
-}
+import { OrganizationBillingProviderUnavailableError } from "./organizationBillingErrors";
 
 export async function getOrganizationBilling(
   runtime: ApiServiceRuntime,

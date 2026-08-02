@@ -366,6 +366,33 @@ test("a missing RevenueCat customer retries while transfer data propagates", asy
   expect(audit).toBeUndefined();
 });
 
+test("an unconfirmed transfer expires into an audited permanent outcome", async () => {
+  const destination = await registerPersonalOrganization();
+  const event = {
+    environment: "SANDBOX",
+    event_timestamp_ms: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    id: crypto.randomUUID(),
+    store: "PLAY_STORE",
+    transferred_from: [crypto.randomUUID()],
+    transferred_to: [destination.user.userId],
+    type: "TRANSFER" as const,
+  };
+  expect(
+    await processRevenueCatWebhook(getDefaultApiServiceRuntime(), event, {
+      env: ENV,
+      fetchImpl: providerFetch(`GPA.expired-${event.id}`),
+    }),
+  ).toEqual({
+    reason: "Transfer was not confirmed by an authenticated native claim",
+    status: "ignored",
+  });
+  const [audit] = await db
+    .select({ outcome: revenuecatWebhookEvents.outcome })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, event.id));
+  expect(audit?.outcome).toBe("ignored");
+});
+
 test("production ignores Test Store transfers even without a sandbox marker", async () => {
   const destination = await registerPersonalOrganization();
   expect(

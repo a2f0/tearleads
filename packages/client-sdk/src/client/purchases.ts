@@ -77,8 +77,10 @@ export interface PurchasesCapability {
     checkoutHost?: HTMLElement;
     abortSignal?: AbortSignal;
   }): Promise<SyncPurchaseResult>;
-  /** Restore prior purchases and bind the receipt to this personal org. */
-  restore(input: { organizationId: string }): Promise<SyncPurchaseResult>;
+  /** Restore prior purchases from the signed-in native store account. */
+  restore(): Promise<SyncPurchaseResult>;
+  /** Publish a server-accepted personal-org binding for later lifecycle events. */
+  bindOrganization(input: { organizationId: string }): Promise<void>;
   /** Whether the identified buyer currently holds the sync entitlement. */
   hasActiveSyncEntitlement(): Promise<boolean>;
 }
@@ -209,12 +211,7 @@ function holdsSyncEntitlement(
 async function restoreRevenueCatPurchases(input: {
   readonly backend: RevenueCatBackend;
   readonly entitlementId: string;
-  readonly organizationAttributeKey: string;
-  readonly organizationId: string;
 }): Promise<SyncPurchaseResult> {
-  await input.backend.setAttributes({
-    [input.organizationAttributeKey]: input.organizationId,
-  });
   return {
     syncEntitlementActive: holdsSyncEntitlement(
       await input.backend.restorePurchases(),
@@ -240,6 +237,14 @@ function toSyncSubscriptionOptions(
         },
       ]
     : [];
+}
+
+function requirePurchasesEnabled(enabled: boolean): void {
+  if (!enabled) {
+    throw new PurchasesUnavailableError(
+      "RevenueCat purchases are disabled on this platform",
+    );
+  }
 }
 
 /**
@@ -297,11 +302,7 @@ export function createRevenueCatPurchases(
       return packages.flatMap(toSyncSubscriptionOptions);
     },
     async purchaseSync(input) {
-      if (!purchasesEnabled) {
-        throw new PurchasesUnavailableError(
-          "RevenueCat purchases are disabled on this platform",
-        );
-      }
+      requirePurchasesEnabled(purchasesEnabled);
       try {
         await ensureConfigured();
         // Bind the purchase to the org BEFORE buying so the resulting
@@ -340,13 +341,19 @@ export function createRevenueCatPurchases(
         ),
       };
     },
-    async restore(input) {
+    async restore() {
+      requirePurchasesEnabled(purchasesEnabled);
       await ensureConfigured();
       return restoreRevenueCatPurchases({
         backend,
         entitlementId: config.syncEntitlementId,
-        organizationAttributeKey,
-        organizationId: input.organizationId,
+      });
+    },
+    async bindOrganization(input) {
+      requirePurchasesEnabled(purchasesEnabled);
+      await ensureConfigured();
+      await backend.setAttributes({
+        [organizationAttributeKey]: input.organizationId,
       });
     },
     async hasActiveSyncEntitlement() {
@@ -384,6 +391,9 @@ export function createUnavailablePurchases(): PurchasesCapability {
     },
     restore() {
       return Promise.resolve({ syncEntitlementActive: false });
+    },
+    bindOrganization() {
+      return Promise.reject(new PurchasesUnavailableError());
     },
     hasActiveSyncEntitlement() {
       return Promise.resolve(false);
