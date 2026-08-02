@@ -7,6 +7,7 @@ import {
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import {
+  APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
   BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,
   BOUND_REVENUECAT_TIER_REQUIRED_REASON,
   classifyRevenueCatEvent,
@@ -128,6 +129,15 @@ function classifyBoundProductChange(input: {
     return {
       kind: "ignore",
       reason: PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
+    };
+  }
+  if (
+    input.event.store?.toUpperCase() === "APP_STORE" &&
+    !input.event.new_product_id
+  ) {
+    return {
+      kind: "ignore",
+      reason: APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
     };
   }
   const destinationTier = getSyncBillingTierForNativeProduct(

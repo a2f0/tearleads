@@ -130,6 +130,25 @@ test("a native transfer resolves an older scheduled change", async () => {
   ).toBeNull();
 });
 
+test("a second product change back to the current tier clears the schedule", async () => {
+  const { admin, initial, now, organizationId } =
+    await createScheduledDowngrade();
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      ...initial,
+      event_timestamp_ms: now + 2,
+      id: crypto.randomUUID(),
+      new_product_id: "sync_team_10_monthly",
+      type: "PRODUCT_CHANGE",
+    }),
+  ).toMatchObject({ organizationId, status: "applied" });
+
+  expect(
+    (await runGetOrganizationBillingWorkflow(db, organizationId, admin.userId))
+      .pendingSeatCount,
+  ).toBeNull();
+});
+
 test("a renewal resolves a schedule with no known period start", async () => {
   const { admin, initial, now, organizationId } =
     await createScheduledDowngrade({ purchasedAtMs: null });

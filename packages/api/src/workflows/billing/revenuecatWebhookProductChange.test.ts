@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
 import {
+  APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
   NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
   PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
@@ -347,9 +348,10 @@ test("an Apple upgrade is not blocked by its newer schedule marker", async () =>
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
   try {
     expect(await runRevenueCatWebhookWorkflow(db, missingDestination)).toEqual({
-      reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON,
+      reason: APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
       status: "ignored",
     });
+    expect(errorSpy).not.toHaveBeenCalled();
   } finally {
     errorSpy.mockRestore();
   }

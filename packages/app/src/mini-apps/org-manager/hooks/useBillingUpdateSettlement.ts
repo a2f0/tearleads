@@ -6,7 +6,7 @@ import type {
 } from "../billing/billingActionScope";
 import { ORG_MANAGER_LABELS } from "../labels";
 
-/** Clears polling once an upgrade is effective or a downgrade is scheduled. */
+/** Clears polling once the requested tier is effective or store-scheduled. */
 export function useBillingUpdateSettlement(input: {
   readonly actionState: BillingActionState;
   readonly actionStateMatches: boolean;
@@ -26,16 +26,12 @@ export function useBillingUpdateSettlement(input: {
     updateActionState,
   } = input;
   const target = actionState.activationTargetSeatCount;
-  const scheduledDowngrade =
-    target !== null &&
-    billingSeatCount !== null &&
-    target < billingSeatCount &&
-    target === billingPendingSeatCount;
+  const scheduledChange = target !== null && target === billingPendingSeatCount;
   const settled =
     actionStateMatches &&
     actionState.activationPending &&
     billingIsActive &&
-    (target === null || target === billingSeatCount || scheduledDowngrade);
+    (target === null || target === billingSeatCount || scheduledChange);
   const expire = useCallback(() => {
     updateActionState(currentScope, (current) => ({
       ...current,

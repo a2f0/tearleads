@@ -316,7 +316,7 @@ test("a scheduled downgrade also settles the post-purchase poll", async () => {
   await waitFor(() => expect(result.current.activationPending).toBe(false));
 });
 
-test("an immediate upgrade keeps polling until its capacity is effective", async () => {
+test("an upgrade stops polling when its store schedule is recorded", async () => {
   const purchases = createPurchases({ syncEntitlementActive: true });
   const teamOption = {
     ...OPTION,
@@ -340,14 +340,6 @@ test("an immediate upgrade keeps polling until its capacity is effective", async
     billingIsActive: true,
     billingPendingSeatCount: teamOption.seatLimit,
     billingSeatCount: OPTION.seatLimit,
-    organizationId: "org-1",
-    userId: "user-1",
-  });
-  expect(result.current.activationPending).toBe(true);
-
-  rerender({
-    billingIsActive: true,
-    billingSeatCount: teamOption.seatLimit,
     organizationId: "org-1",
     userId: "user-1",
   });

@@ -16,6 +16,7 @@ import {
   isRevenueCatGrantEventType,
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
+  resolveRevenueCatRecordedProductId,
   SANDBOX_IGNORED_REASON,
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
 } from "../../billing/revenuecatWebhook";
@@ -259,10 +260,7 @@ async function claimRevenueCatEvent(input: {
       eventId: input.event.id,
       eventType: input.event.type,
       appUserId: input.event.app_user_id,
-      productId:
-        input.event.type === "PRODUCT_CHANGE"
-          ? (input.event.new_product_id ?? null)
-          : (input.event.product_id ?? null),
+      productId: resolveRevenueCatRecordedProductId(input.event),
       transactionId: input.event.transaction_id ?? null,
       originalTransactionId: input.event.original_transaction_id ?? null,
       organizationId: input.organizationId,

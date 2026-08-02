@@ -114,6 +114,19 @@ export const UNKNOWN_REVENUECAT_PRODUCT_CHANGE_STORE_REASON =
 export const PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON =
   "Google Play product change has no deferred destination";
 
+/** An App Store change without a destination cannot identify the new tier. */
+export const APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON =
+  "App Store product change has no destination";
+
+/** Product id stored in the durable event row for pending-plan read models. */
+export function resolveRevenueCatRecordedProductId(
+  event: RevenueCatWebhookEvent,
+): string | null {
+  return event.type === "PRODUCT_CHANGE"
+    ? (event.new_product_id ?? null)
+    : (event.product_id ?? null);
+}
+
 export function isRevenueCatGrantEventType(type: string): boolean {
   return GRANT_EVENT_TYPES.has(type);
 }
