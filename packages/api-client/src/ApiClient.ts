@@ -878,6 +878,7 @@ export class ApiClient {
       "POST",
     );
   }
+
   /** Empty options means unconfigured; 403/409 remain errors. */
   getStripeCheckoutOptions(
     organizationId: string,
@@ -892,7 +893,11 @@ export class ApiClient {
     );
   }
 
-  /** Starts or resumes embedded Stripe checkout; live subscriptions return 409. */
+  /**
+   * Starts (or resumes) a checkout for the organization and returns what the
+   * Payment Element needs to confirm it. The server refuses with 409 when the
+   * org already has a live subscription.
+   */
   createStripeCheckout(organizationId: string) {
     return this.request(
       `/organizations/${pathSegment(organizationId)}/billing/stripe/checkout`,
@@ -901,7 +906,12 @@ export class ApiClient {
     );
   }
 
-  /** Starts hosted Stripe Checkout, returning its URL when configured. */
+  /**
+   * Opens a hosted Stripe Checkout page (the off-site alternative to the inline
+   * form). `returnUrl` is where Stripe sends the buyer back and is validated
+   * server-side against the app's origins. Resolves `{ url: null }` when the
+   * integration is unconfigured or the org is not eligible.
+   */
   createStripeCheckoutSession(organizationId: string, returnUrl: string) {
     return this.request(
       `/organizations/${pathSegment(organizationId)}/billing/stripe/checkout-session`,
@@ -912,9 +922,12 @@ export class ApiClient {
   }
 
   /**
-   * Cancels a live Stripe subscription at period end. Like every convenience
-   * request here, null covers both an expected non-2xx and a transient failure;
-   * callers should preserve a retry path rather than treating null as success.
+   * Ends the organization's sync subscription when the paid period closes.
+   * Resolves null on ANY non-2xx (like every method here) — a 404 with no
+   * cancellable subscription, but also a transient 502/network error — so the
+   * caller cannot tell "nothing to cancel" from "try again later". The panel
+   * only renders the cancel action when a cancellable sub is expected (active,
+   * no provider-managed link), so in practice a null is the transient case.
    */
   cancelStripeSubscription(organizationId: string) {
     return this.request(

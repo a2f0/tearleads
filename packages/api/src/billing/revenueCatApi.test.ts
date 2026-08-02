@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import {
   fetchActiveRevenueCatNativeSubscription,
   fetchRevenueCatManagementUrl,
 } from "./revenueCatApi";
+import { classifyRevenueCatEvent } from "./revenuecatWebhook";
 
 const ENV = {
   REVENUECAT_V2_SECRET_KEY: "sk_test",
@@ -332,6 +334,57 @@ test("resolves one verified native subscription and its store product", async ()
   expect(calls[1]?.url).toBe(
     "https://api.revenuecat.com/v2/projects/proj_1/products/prod_1",
   );
+});
+
+test("native verification and lifecycle events use the same store identifier", async () => {
+  const cases = [
+    ["app_store", "APP_STORE", "2000000123456789"],
+    ["play_store", "PLAY_STORE", "GPA.1234-5678-9012-34567"],
+  ] as const;
+  for (const [store, webhookStore, subscriptionId] of cases) {
+    const { fetchImpl } = fakeFetch([
+      {
+        body: {
+          items: [
+            sub({
+              environment: "production",
+              product_id: "prod_solo",
+              store,
+              store_subscription_identifier: subscriptionId,
+            }),
+          ],
+        },
+      },
+      { body: { store_identifier: "sync_solo_monthly:monthly" } },
+    ]);
+    const resolved = await fetchActiveRevenueCatNativeSubscription(
+      "user-1",
+      store,
+      { env: ENV, fetchImpl },
+    );
+    expect(resolved.kind).toBe("found");
+    if (resolved.kind !== "found") throw new Error("expected subscription");
+    const now = Date.now();
+    const event: RevenueCatWebhookEvent = {
+      app_user_id: "user-1",
+      entitlement_ids: ["sync"],
+      event_timestamp_ms: now,
+      expiration_at_ms: now + 60_000,
+      id: crypto.randomUUID(),
+      original_transaction_id: subscriptionId,
+      product_id: "sync_solo_monthly:monthly",
+      purchased_at_ms: now,
+      store: webhookStore,
+      type: "INITIAL_PURCHASE",
+    };
+    const transition = classifyRevenueCatEvent(event, new Date(now));
+    expect(transition.kind).toBe("grant");
+    if (transition.kind === "grant") {
+      expect(transition.fields.providerSubscriptionId).toBe(
+        resolved.subscription.subscriptionId,
+      );
+    }
+  }
 });
 
 test("native verification rejects missing, ambiguous, and disallowed sandbox receipts", async () => {

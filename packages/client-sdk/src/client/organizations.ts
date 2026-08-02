@@ -338,17 +338,15 @@ class OrganizationsService implements Organizations {
   }
 
   loadBillingForOrganization(organizationId: string) {
-    const runtime = this.runtimeService.workflowInput();
     // Gated on an authenticated session rather than on the target being the
     // active org — the point of this read is the orgs the active-org billing
     // snapshot cannot cover. The server still enforces membership, so an org
     // the caller cannot reach resolves to `null`.
-    return authenticatedOrganizationId(runtime) && organizationId.length > 0
-      ? loadOrganizationBilling({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForOrganization(
+      this.runtimeService,
+      organizationId,
+      loadOrganizationBilling,
+    );
   }
 
   loadBillingHistory() {

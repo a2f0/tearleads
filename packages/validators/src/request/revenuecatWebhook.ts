@@ -115,7 +115,6 @@ export function isRevenueCatTransferWebhookEvent(
     value[EVENT_TYPE_KEY] === "TRANSFER" &&
     isRevenueCatTimestampMs(value[EVENT_TIMESTAMP_MS_KEY]) &&
     isStringArray(value[TRANSFERRED_FROM_KEY]) &&
-    value[TRANSFERRED_FROM_KEY].length > 0 &&
     isStringArray(value[TRANSFERRED_TO_KEY]) &&
     value[TRANSFERRED_TO_KEY].length > 0 &&
     isAbsentOrNullableString(value, "store") &&

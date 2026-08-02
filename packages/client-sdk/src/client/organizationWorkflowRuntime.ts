@@ -22,7 +22,8 @@ export function runForOrganization<T>(
   workflow: OrganizationWorkflow<T>,
 ): Promise<T | null> {
   const runtime = runtimeService.workflowInput();
-  return authenticatedOrganizationId(runtime) && organizationId.length > 0
+  return authenticatedOrganizationId(runtime) !== null &&
+    organizationId.length > 0
     ? workflow({ apiClient: runtime.apiClient, organizationId })
     : Promise.resolve(null);
 }

@@ -8,7 +8,7 @@ import type {
 } from "@tearleads/validators/request";
 import { isRevenueCatTransferWebhookEvent } from "@tearleads/validators/request";
 import { isUuidV4String } from "@tearleads/validators/util";
-import { isProviderSubscriptionOwnershipConflict } from "../../billing/databaseErrors";
+import { isNativeSubscriptionMoveConflict } from "../../billing/databaseErrors";
 import {
   fetchActiveRevenueCatNativeSubscription,
   type RevenueCatApiDeps,
@@ -177,7 +177,7 @@ async function processRevenueCatTransfer(
       subscription: resolved.subscription,
     });
   } catch (error) {
-    if (isProviderSubscriptionOwnershipConflict(error)) {
+    if (isNativeSubscriptionMoveConflict(error)) {
       return {
         status: "retry",
         reason: "Native subscription ownership changed concurrently",

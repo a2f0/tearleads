@@ -38,8 +38,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 522,
-      "bytes": 24003
+      "lines": 523,
+      "bytes": 24054
     },
     "docs/document-rekey-and-audit-history.md": {
       "lines": 540,
@@ -78,8 +78,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1748,
-      "bytes": 56063
+      "lines": 1761,
+      "bytes": 56430
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -236,6 +236,10 @@
     "packages/app/src/mini-apps/org-manager/OrgManager.tsx": {
       "lines": 509,
       "bytes": 16145
+    },
+    "packages/app/src/mini-apps/org-manager/billing/BillingPanel.test.tsx": {
+      "lines": 506,
+      "bytes": 15770
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
       "lines": 522,

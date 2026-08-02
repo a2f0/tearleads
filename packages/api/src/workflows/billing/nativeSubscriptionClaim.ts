@@ -4,12 +4,14 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
+  organizationBillingSeatAssignments,
+  organizationBillingSeatEvents,
   organizationBillingStripeSeats,
   revenuecatWebhookEvents,
   users,
 } from "@tearleads/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   LAPSED_BILLING_PURGE_GRACE_MS,
   organizationSeatPeriodKey,
@@ -131,6 +133,62 @@ async function disablePreviousOwner(input: {
     .where(eq(organizationBilling.organizationId, input.organizationId));
 }
 
+async function releasePreviousOwnerSeats(input: {
+  readonly executor: DatabaseSession;
+  readonly now: Date;
+  readonly organizationId: string;
+  readonly sourceId: string;
+}): Promise<void> {
+  const assignments = await input.executor
+    .select({
+      billingPeriodEndsAt:
+        organizationBillingSeatAssignments.billingPeriodEndsAt,
+      billingPeriodStartsAt:
+        organizationBillingSeatAssignments.billingPeriodStartsAt,
+      id: organizationBillingSeatAssignments.id,
+      userId: organizationBillingSeatAssignments.userId,
+    })
+    .from(organizationBillingSeatAssignments)
+    .where(
+      and(
+        eq(
+          organizationBillingSeatAssignments.organizationId,
+          input.organizationId,
+        ),
+        isNull(organizationBillingSeatAssignments.releasedAt),
+      ),
+    );
+  if (assignments.length === 0) return;
+  await input.executor
+    .update(organizationBillingSeatAssignments)
+    .set({
+      releasedAt: input.now,
+      releaseSourceId: input.sourceId,
+      releaseSourceType: "provider_event",
+      updatedAt: input.now,
+    })
+    .where(
+      inArray(
+        organizationBillingSeatAssignments.id,
+        assignments.map((assignment) => assignment.id),
+      ),
+    );
+  const events: Array<typeof organizationBillingSeatEvents.$inferInsert> =
+    assignments.map((assignment) => ({
+      activeSeatCount: 0,
+      billingPeriodEndsAt: assignment.billingPeriodEndsAt,
+      billingPeriodStartsAt: assignment.billingPeriodStartsAt,
+      eventType: "seat_released",
+      licensedSeatCount: 0,
+      organizationId: input.organizationId,
+      quantityDelta: 0,
+      sourceId: input.sourceId,
+      sourceType: "provider_event",
+      userId: assignment.userId,
+    }));
+  await input.executor.insert(organizationBillingSeatEvents).values(events);
+}
+
 async function activateNewOwner(input: {
   readonly appUserId: string;
   readonly executor: DatabaseSession;
@@ -221,6 +279,12 @@ async function applyNativeSubscriptionClaim(input: {
       executor: input.executor,
       now: input.now,
       organizationId: source.organizationId,
+    });
+    await releasePreviousOwnerSeats({
+      executor: input.executor,
+      now: input.now,
+      organizationId: source.organizationId,
+      sourceId: input.sourceId,
     });
   }
   await activateNewOwner({

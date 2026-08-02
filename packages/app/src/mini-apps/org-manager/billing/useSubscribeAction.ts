@@ -63,7 +63,6 @@ export function useNativeSubscriptionMove(
   const confirm = useCallback(() => {
     const scope = currentScope;
     if (!scopeMatches(scopeRef.current, scope)) return;
-    dismiss();
     updateActionState(scope, (current) => ({
       ...current,
       actionError: null,
@@ -93,6 +92,7 @@ export function useNativeSubscriptionMove(
           actionError: ORG_MANAGER_LABELS.failedRestorePurchases,
         }));
       } finally {
+        dismiss();
         updateActionState(scope, (current) => ({
           ...current,
           busy: null,

@@ -15,12 +15,14 @@ import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPanel } from "./BillingPanel";
 
 const spies: { mockRestore: () => void }[] = [];
+
 afterEach(() => {
   cleanup();
   while (spies.length > 0) {
     spies.pop()?.mockRestore();
   }
 });
+
 const OPTION = {
   tierId: "solo" as const,
   seatLimit: 1,
@@ -389,6 +391,9 @@ test("a web Stripe subscription can be cancelled from a native shell", async () 
 });
 
 test("a trialing org can pay before the trial ends", async () => {
+  // A trial is a local status with no subscription yet, so the admin may want
+  // to commit early. The checkout is offered (gate is `isActive`, not the
+  // trial-inclusive `canSync`), and the server allows it.
   stubEnvironment(true, { isActive: false, isTrialing: true });
 
   const view = render(
@@ -417,6 +422,7 @@ test("a trialing org is offered the checkout but no inline cancel", async () => 
 });
 
 test("a provider-managed subscription shows Manage, not direct cancel", async () => {
+  // Bought through RevenueCat (e.g. a store purchase opened on web): the org
   // is active AND resolves a provider manage link, so cancelling belongs to
   // the store, not to us. Offering inline cancel here would only 404.
   stubEnvironment(true, {

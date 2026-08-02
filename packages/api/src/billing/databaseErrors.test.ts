@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { isProviderSubscriptionOwnershipConflict } from "./databaseErrors";
+import {
+  isNativeSubscriptionMoveConflict,
+  isProviderSubscriptionOwnershipConflict,
+} from "./databaseErrors";
 
 test("recognizes the provider-subscription unique index across database drivers", () => {
   const postgres = Object.assign(new Error("duplicate key"), {
@@ -23,4 +26,12 @@ test("recognizes the provider-subscription unique index across database drivers"
       Object.assign(new Error("other index"), { code: "23505" }),
     ),
   ).toBe(false);
+});
+
+test("classifies a PostgreSQL deadlock as a retriable native move conflict", () => {
+  const deadlock = Object.assign(new Error("deadlock detected"), {
+    code: "40P01",
+  });
+  expect(isNativeSubscriptionMoveConflict(deadlock)).toBe(true);
+  expect(isProviderSubscriptionOwnershipConflict(deadlock)).toBe(false);
 });

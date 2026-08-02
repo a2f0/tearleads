@@ -1,12 +1,12 @@
 import { isNativeSubscriptionStore } from "@tearleads/validators/billing";
 import { type Context, Hono } from "hono";
-import type { RevenueCatApiDeps } from "../../billing/revenueCatApi";
 import type { SessionEnv } from "../../middleware/session";
 import {
   claimNativeOrganizationSubscription,
   getOrganizationBilling,
   getOrganizationBillingHistory,
   getOrganizationBillingManagementUrl,
+  type NativeSubscriptionClaimDeps,
   OrganizationBillingProviderUnavailableError,
   startOrganizationTrial,
 } from "../../services/billing/organizationBilling";
@@ -45,7 +45,7 @@ async function respondForOrganization<T extends object>(
 }
 
 interface OrganizationBillingRouteDeps extends OrganizationsRouterDeps {
-  readonly revenueCat?: RevenueCatApiDeps;
+  readonly revenueCat?: NativeSubscriptionClaimDeps;
 }
 
 export function createOrganizationBillingRoute({

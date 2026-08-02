@@ -125,6 +125,11 @@ test("accepts RevenueCat transfer events without an app user id", () => {
   expect(isRevenueCatWebhookRequest(transfer)).toBe(true);
   expect(
     isRevenueCatWebhookRequest({
+      event: { ...transfer.event, transferred_from: [] },
+    }),
+  ).toBe(true);
+  expect(
+    isRevenueCatWebhookRequest({
       ...transfer,
       event: { ...transfer.event, transferred_to: [] },
     }),

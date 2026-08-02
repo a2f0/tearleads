@@ -31,3 +31,13 @@ export function isProviderSubscriptionOwnershipConflict(
     );
   });
 }
+
+/** A concurrent native move may hit either ownership uniqueness or a deadlock. */
+export function isNativeSubscriptionMoveConflict(error: unknown): boolean {
+  return (
+    isProviderSubscriptionOwnershipConflict(error) ||
+    errorChain(error).some(
+      (candidate) => Reflect.get(candidate, "code") === "40P01",
+    )
+  );
+}

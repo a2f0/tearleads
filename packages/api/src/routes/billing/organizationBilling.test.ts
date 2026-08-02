@@ -20,7 +20,10 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
 import type { SessionEnv } from "../../middleware/session";
 import { routeApp } from "../../routeApp";
-import { getOrganizationBillingManagementUrl } from "../../services/billing/organizationBilling";
+import {
+  getOrganizationBillingManagementUrl,
+  type NativeSubscriptionClaimDeps,
+} from "../../services/billing/organizationBilling";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
 import { createOrganizationBillingRoute } from "./organizationBilling";
 
@@ -43,10 +46,7 @@ function authHeader(user: TestUser): { Authorization: string } {
 
 function nativeClaimRoute(
   userId: string,
-  revenueCat: {
-    readonly env: NodeJS.ProcessEnv;
-    readonly fetchImpl?: typeof fetch;
-  },
+  revenueCat: NativeSubscriptionClaimDeps,
 ) {
   return createOrganizationBillingRoute({
     requireAuth: createMiddleware<SessionEnv>(async (c, next) => {
@@ -449,4 +449,52 @@ test("native claim maps provider outages to 503 and gates Test Store in producti
       )
     ).status,
   ).toBe(404);
+});
+
+test("native claim maps ambiguous receipts and concurrent moves to 409", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const claimUrl = `/organizations/${organizationId}/billing/native/play_store/claim`;
+  const active = (subscriptionId: string) => ({
+    environment: "production",
+    gives_access: true,
+    product_id: "prod_1",
+    store: "play_store",
+    store_subscription_identifier: subscriptionId,
+  });
+  const ambiguous = nativeClaimRoute(admin.userId, {
+    env: {
+      REVENUECAT_PROJECT_ID: "proj_1",
+      REVENUECAT_V2_SECRET_KEY: "sk_test",
+    },
+    fetchImpl: (async (_input: RequestInfo | URL) =>
+      Response.json({
+        items: [active("GPA.ambiguous-1"), active("GPA.ambiguous-2")],
+      })) as typeof fetch,
+  });
+  expect((await ambiguous.request(claimUrl, { method: "POST" })).status).toBe(
+    409,
+  );
+  const moveConflicts = [
+    Object.assign(new Error("duplicate key"), {
+      code: "23505",
+      constraint: "organization_billing_provider_subscription_idx",
+    }),
+    Object.assign(new Error("deadlock detected"), { code: "40P01" }),
+  ];
+  for (const error of moveConflicts) {
+    const concurrent = nativeClaimRoute(admin.userId, {
+      claimWorkflow: async () => {
+        throw error;
+      },
+      env: {
+        REVENUECAT_PROJECT_ID: "proj_1",
+        REVENUECAT_V2_SECRET_KEY: "sk_test",
+      },
+      fetchImpl: activeNativeSubscriptionFetch(),
+    });
+    expect(
+      (await concurrent.request(claimUrl, { method: "POST" })).status,
+    ).toBe(409);
+  }
 });

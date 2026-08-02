@@ -2,12 +2,15 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
+  organizationBillingSeatAssignments,
+  organizationBillingSeatEvents,
   organizationBillingStripeSeats,
+  organizations,
   revenuecatWebhookEvents,
   users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { OrganizationManagerError } from "../organizations/errors";
@@ -28,30 +31,38 @@ async function registerPersonalOrganization(): Promise<{
   return { organizationId: registered.organizationId, user };
 }
 
-function subscription() {
+function subscription(subscriptionId: string) {
   return {
     currentPeriodEndsAt: new Date("2030-02-01T00:00:00Z"),
     currentPeriodStartsAt: new Date("2030-01-01T00:00:00Z"),
     productId: "sync_team_5_monthly:monthly",
     store: "play_store" as const,
-    subscriptionId: "GPA.native-transfer",
+    subscriptionId,
   };
 }
 
 test("atomically moves a native subscription between personal organizations", async () => {
   const previous = await registerPersonalOrganization();
   const destination = await registerPersonalOrganization();
+  const nativeSubscription = subscription(`GPA.${crypto.randomUUID()}`);
   await db
     .update(organizationBilling)
     .set({
       provider: "revenuecat",
       providerCustomerId: previous.user.userId,
       providerProductId: "sync_team_5_monthly:monthly",
-      providerSubscriptionId: subscription().subscriptionId,
+      providerSubscriptionId: nativeSubscription.subscriptionId,
       seatCount: 5,
       status: "active",
     })
     .where(eq(organizationBilling.organizationId, previous.organizationId));
+  await db.insert(organizationBillingSeatAssignments).values({
+    assignedAt: new Date(),
+    assignmentSourceId: "existing-native-subscription",
+    assignmentSourceType: "provider_event",
+    organizationId: previous.organizationId,
+    userId: previous.user.userId,
+  });
 
   const eventId = crypto.randomUUID();
   const result = await runClaimNativeSubscriptionWorkflow({
@@ -61,7 +72,7 @@ test("atomically moves a native subscription between personal organizations", as
     organizationId: destination.organizationId,
     requireSessionAccess: false,
     sourceId: eventId,
-    subscription: subscription(),
+    subscription: nativeSubscription,
   });
   expect(result).toEqual({
     duplicate: false,
@@ -94,7 +105,7 @@ test("atomically moves a native subscription between personal organizations", as
   expect(newBilling).toEqual({
     providerCustomerId: destination.user.userId,
     providerProductId: "sync_team_5_monthly:monthly",
-    providerSubscriptionId: subscription().subscriptionId,
+    providerSubscriptionId: nativeSubscription.subscriptionId,
     seatCount: 5,
     status: "active",
   });
@@ -125,6 +136,33 @@ test("atomically moves a native subscription between personal organizations", as
   expect(
     destinationHistory.some((entry) => entry.eventType === "TRANSFER_IN"),
   ).toBe(true);
+  const openPreviousSeats = await db
+    .select({ id: organizationBillingSeatAssignments.id })
+    .from(organizationBillingSeatAssignments)
+    .where(
+      and(
+        eq(
+          organizationBillingSeatAssignments.organizationId,
+          previous.organizationId,
+        ),
+        isNull(organizationBillingSeatAssignments.releasedAt),
+      ),
+    );
+  const releasedPreviousSeats = await db
+    .select({ eventType: organizationBillingSeatEvents.eventType })
+    .from(organizationBillingSeatEvents)
+    .where(
+      and(
+        eq(
+          organizationBillingSeatEvents.organizationId,
+          previous.organizationId,
+        ),
+        eq(organizationBillingSeatEvents.eventType, "seat_released"),
+        eq(organizationBillingSeatEvents.sourceId, eventId),
+      ),
+    );
+  expect(openPreviousSeats).toHaveLength(0);
+  expect(releasedPreviousSeats.length).toBeGreaterThanOrEqual(1);
 
   expect(
     await runClaimNativeSubscriptionWorkflow({
@@ -134,23 +172,32 @@ test("atomically moves a native subscription between personal organizations", as
       organizationId: destination.organizationId,
       requireSessionAccess: false,
       sourceId: eventId,
-      subscription: subscription(),
+      subscription: nativeSubscription,
     }),
   ).toEqual({ duplicate: true, sourceOrganizationId: null });
 });
 
 test("rejects custom organizations and Stripe-bound destinations", async () => {
-  const source = await registerPersonalOrganization();
   const destination = await registerPersonalOrganization();
+  const customOrganizationId = crypto.randomUUID();
+  await db.insert(organizations).values({
+    adminGroupId: crypto.randomUUID(),
+    id: customOrganizationId,
+    memberGroupId: crypto.randomUUID(),
+    name: "Custom organization",
+  });
+  await db.insert(organizationBilling).values({
+    organizationId: customOrganizationId,
+  });
 
   await expect(
     runClaimNativeSubscriptionWorkflow({
       appUserId: destination.user.userId,
       db,
-      organizationId: source.organizationId,
+      organizationId: customOrganizationId,
       requireSessionAccess: false,
       sourceId: crypto.randomUUID(),
-      subscription: { ...subscription(), subscriptionId: crypto.randomUUID() },
+      subscription: subscription(crypto.randomUUID()),
     }),
   ).rejects.toBeInstanceOf(OrganizationManagerError);
 
@@ -170,7 +217,7 @@ test("rejects custom organizations and Stripe-bound destinations", async () => {
       organizationId: destination.organizationId,
       requireSessionAccess: false,
       sourceId: crypto.randomUUID(),
-      subscription: { ...subscription(), subscriptionId: crypto.randomUUID() },
+      subscription: subscription(crypto.randomUUID()),
     }),
   ).rejects.toThrow(
     "Cancel the organization's web subscription before moving a native subscription",
@@ -180,6 +227,7 @@ test("rejects custom organizations and Stripe-bound destinations", async () => {
 test("concurrent claims cannot leave one subscription bound to two organizations", async () => {
   const first = await registerPersonalOrganization();
   const second = await registerPersonalOrganization();
+  const nativeSubscription = subscription(`GPA.${crypto.randomUUID()}`);
   const claims = await Promise.allSettled([
     runClaimNativeSubscriptionWorkflow({
       appUserId: first.user.userId,
@@ -187,7 +235,7 @@ test("concurrent claims cannot leave one subscription bound to two organizations
       organizationId: first.organizationId,
       requireSessionAccess: false,
       sourceId: crypto.randomUUID(),
-      subscription: subscription(),
+      subscription: nativeSubscription,
     }),
     runClaimNativeSubscriptionWorkflow({
       appUserId: second.user.userId,
@@ -195,7 +243,7 @@ test("concurrent claims cannot leave one subscription bound to two organizations
       organizationId: second.organizationId,
       requireSessionAccess: false,
       sourceId: crypto.randomUUID(),
-      subscription: subscription(),
+      subscription: nativeSubscription,
     }),
   ]);
 
@@ -208,7 +256,7 @@ test("concurrent claims cannot leave one subscription bound to two organizations
     .where(
       eq(
         organizationBilling.providerSubscriptionId,
-        subscription().subscriptionId,
+        nativeSubscription.subscriptionId,
       ),
     );
   expect(owners).toHaveLength(1);
