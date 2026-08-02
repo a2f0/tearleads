@@ -84,7 +84,9 @@ export {
 } from "./registration";
 export {
   isRevenueCatWebhookRequest,
+  type RevenueCatIncomingWebhookEvent,
   type RevenueCatSubscriberAttribute,
+  type RevenueCatTransferWebhookEvent,
   type RevenueCatWebhookEvent,
   type RevenueCatWebhookRequest,
 } from "./revenuecatWebhook";

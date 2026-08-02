@@ -7,7 +7,7 @@ import {
   organizationBillingSeatEvents,
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import type { OrganizationBillingHistoryEvent } from "../../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 
@@ -30,6 +30,8 @@ async function loadLifecycleHistory(
   return executor
     .select({
       id: revenuecatWebhookEvents.id,
+      organizationId: revenuecatWebhookEvents.organizationId,
+      sourceOrganizationId: revenuecatWebhookEvents.sourceOrganizationId,
       providerEventId: revenuecatWebhookEvents.eventId,
       eventType: revenuecatWebhookEvents.eventType,
       outcome: revenuecatWebhookEvents.outcome,
@@ -40,7 +42,12 @@ async function loadLifecycleHistory(
       periodEndsAt: revenuecatWebhookEvents.expirationAt,
     })
     .from(revenuecatWebhookEvents)
-    .where(eq(revenuecatWebhookEvents.organizationId, organizationId))
+    .where(
+      or(
+        eq(revenuecatWebhookEvents.organizationId, organizationId),
+        eq(revenuecatWebhookEvents.sourceOrganizationId, organizationId),
+      ),
+    )
     .orderBy(
       desc(revenuecatWebhookEvents.eventTimestamp),
       desc(revenuecatWebhookEvents.id),
@@ -186,6 +193,7 @@ function correlatedSeatRows(
 function projectLifecycleHistory(
   rows: readonly LifecycleHistoryRow[],
   seatsByProviderEventId: ReadonlyMap<string, SeatHistoryRow>,
+  organizationId: string,
 ): OrganizationBillingHistoryEvent[] {
   return rows.map((row) => {
     const seat = seatsByProviderEventId.get(row.providerEventId);
@@ -193,7 +201,12 @@ function projectLifecycleHistory(
       id: row.id,
       category: "lifecycle",
       provider: "revenuecat",
-      eventType: row.eventType,
+      eventType:
+        row.eventType === "TRANSFER"
+          ? row.sourceOrganizationId === organizationId
+            ? "TRANSFER_OUT"
+            : "TRANSFER_IN"
+          : row.eventType,
       outcome: row.outcome,
       eventTimestamp: row.occurredAt,
       productId: row.productId,
@@ -314,6 +327,7 @@ export async function runGetOrganizationBillingHistoryWorkflow(
     const lifecycleEvents = projectLifecycleHistory(
       lifecycleRows,
       seatsByProviderEventId,
+      organizationId,
     );
     const seatEvents = projectSeatHistory(seatRows, lifecycleProviderEventIds);
     const invoiceEvents = projectInvoiceHistory(invoiceRows);

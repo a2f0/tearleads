@@ -35,6 +35,41 @@ native stores ([revenuecat-native-stores.md](./revenuecat-native-stores.md))
 only. Native purchases are offered only for the buyer's personal organization;
 custom organizations always subscribe on the web.
 
+## Native restore and subscription moves
+
+An App Store or Play subscription belongs to the store account, not to an app
+installation or a Tearleads key identity. A fresh Tearleads identity on the
+same store account therefore cannot buy the product again. Billing presents a
+user-confirmed recovery flow instead:
+
+1. The dialog tells the user to recover the original identity first if they
+   need its encrypted data.
+2. RevenueCat restore/sync runs under the new Tearleads user id after stamping
+   that user's personal organization as `orgId`.
+3. `POST /organizations/:id/billing/native/:store/claim` verifies the current
+   App User ID's active subscription through RevenueCat v2. The client never
+   supplies the product, receipt id, billing period, or seat capacity.
+4. One database transaction disables and unbinds the previous personal
+   organization, activates the destination at the verified product's fixed
+   capacity, and reconciles its seats. A target with a different native
+   subscription or any Stripe identity is rejected.
+
+RevenueCat `TRANSFER` webhooks use the same verified claim workflow. Transfer
+events do not include `app_user_id`; the server resolves the registered
+Tearleads user from `transferred_to`, then queries RevenueCat before changing
+billing. The provider subscription id has a unique database index, so only one
+organization can own it. Billing history shows `TRANSFER_OUT` on the source and
+`TRANSFER_IN` on the destination.
+
+This moves billing entitlement only. It does not copy the old organization's
+encrypted documents, keys, or identity. The store restore must be initiated on
+a device signed into the Apple or Google account that owns the purchase; after
+the server activates the personal organization, sync is cross-platform.
+
+Set the RevenueCat project's restore behavior to **Transfer to new App User
+ID**. Do not auto-restore during app launch: Apple restore/sync should follow an
+explicit user action, and both stores can present account UI.
+
 ## Fixed tiers
 
 | Tier | Monthly price | Capacity | Canonical product stem |

@@ -1,8 +1,10 @@
 import type { ContainerGrantSubjectType } from "@tearleads/crypto";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
 import {
   addOrganizationGroupUser,
   cancelStripeSubscription,
+  claimNativeOrganizationSubscription,
   createOrganizationGroup,
   createStripeCheckout,
   createStripeCheckoutSession,
@@ -128,6 +130,9 @@ export interface Organizations {
     returnUrl: string,
   ) => ReturnType<typeof createStripeCheckoutSession>;
   cancelStripeSubscription: () => ReturnType<typeof cancelStripeSubscription>;
+  claimNativeSubscription: (
+    store: NativeSubscriptionStore,
+  ) => ReturnType<typeof claimNativeOrganizationSubscription>;
   loadDataUsage: () => ReturnType<
     OrganizationDataUsageCoordinator["reconcile"]
   >;
@@ -216,6 +221,20 @@ function authenticatedOrganizationId(
   return runtime.auth.organizationId && runtime.auth.isAuthenticated
     ? runtime.auth.organizationId
     : null;
+}
+
+function runForAuthenticatedOrganization<T>(
+  runtimeService: InternalRuntime,
+  workflow: (input: {
+    readonly apiClient: InternalWorkflowRuntimeInput["apiClient"];
+    readonly organizationId: string;
+  }) => Promise<T>,
+): Promise<T | null> {
+  const runtime = runtimeService.workflowInput();
+  const organizationId = authenticatedOrganizationId(runtime);
+  return organizationId
+    ? workflow({ apiClient: runtime.apiClient, organizationId })
+    : Promise.resolve(null);
 }
 
 export function createOrganizations(
@@ -328,14 +347,10 @@ class OrganizationsService implements Organizations {
   }
 
   loadBilling() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? loadOrganizationBilling({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      loadOrganizationBilling,
+    );
   }
 
   loadBillingForOrganization(organizationId: string) {
@@ -353,45 +368,29 @@ class OrganizationsService implements Organizations {
   }
 
   loadBillingHistory() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? loadOrganizationBillingHistory({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      loadOrganizationBillingHistory,
+    );
   }
 
   loadBillingManagementUrl() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? loadOrganizationBillingManagementUrl({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      loadOrganizationBillingManagementUrl,
+    );
   }
   loadStripeCheckoutOptions() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? loadStripeCheckoutOptions({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      loadStripeCheckoutOptions,
+    );
   }
   createStripeCheckout() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? createStripeCheckout({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      createStripeCheckout,
+    );
   }
 
   createStripeCheckoutSession(returnUrl: string) {
@@ -407,14 +406,16 @@ class OrganizationsService implements Organizations {
   }
 
   cancelStripeSubscription() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? cancelStripeSubscription({
-          apiClient: runtime.apiClient,
-          organizationId,
-        })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      cancelStripeSubscription,
+    );
+  }
+
+  claimNativeSubscription(store: NativeSubscriptionStore) {
+    return runForAuthenticatedOrganization(this.runtimeService, (input) =>
+      claimNativeOrganizationSubscription({ ...input, store }),
+    );
   }
 
   loadDataUsage() {
@@ -577,10 +578,9 @@ class OrganizationsService implements Organizations {
   }
 
   startTrial() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? startOrganizationTrial({ apiClient: runtime.apiClient, organizationId })
-      : Promise.resolve(null);
+    return runForAuthenticatedOrganization(
+      this.runtimeService,
+      startOrganizationTrial,
+    );
   }
 }

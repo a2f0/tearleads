@@ -1,4 +1,5 @@
 import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type {
   BlobAttachmentBindRequest,
@@ -866,6 +867,17 @@ export class ApiClient {
       "GET",
     );
   }
+
+  claimNativeOrganizationSubscription(
+    organizationId: string,
+    store: NativeSubscriptionStore,
+  ) {
+    return this.request(
+      `/organizations/${pathSegment(organizationId)}/billing/native/${pathSegment(store)}/claim`,
+      isOrganizationBillingResponse,
+      "POST",
+    );
+  }
   /** Empty options means unconfigured; 403/409 remain errors. */
   getStripeCheckoutOptions(
     organizationId: string,
@@ -880,11 +892,7 @@ export class ApiClient {
     );
   }
 
-  /**
-   * Starts (or resumes) a checkout for the organization and returns what the
-   * Payment Element needs to confirm it. The server refuses with 409 when the
-   * org already has a live subscription.
-   */
+  /** Starts or resumes embedded Stripe checkout; live subscriptions return 409. */
   createStripeCheckout(organizationId: string) {
     return this.request(
       `/organizations/${pathSegment(organizationId)}/billing/stripe/checkout`,
@@ -893,12 +901,7 @@ export class ApiClient {
     );
   }
 
-  /**
-   * Opens a hosted Stripe Checkout page (the off-site alternative to the inline
-   * form). `returnUrl` is where Stripe sends the buyer back and is validated
-   * server-side against the app's origins. Resolves `{ url: null }` when the
-   * integration is unconfigured or the org is not eligible.
-   */
+  /** Starts hosted Stripe Checkout, returning its URL when configured. */
   createStripeCheckoutSession(organizationId: string, returnUrl: string) {
     return this.request(
       `/organizations/${pathSegment(organizationId)}/billing/stripe/checkout-session`,
@@ -908,14 +911,7 @@ export class ApiClient {
     );
   }
 
-  /**
-   * Ends the organization's sync subscription when the paid period closes.
-   * Resolves null on ANY non-2xx (like every method here) — a 404 with no
-   * cancellable subscription, but also a transient 502/network error — so the
-   * caller cannot tell "nothing to cancel" from "try again later". The panel
-   * only renders the cancel action when a cancellable sub is expected (active,
-   * no provider-managed link), so in practice a null is the transient case.
-   */
+  /** Cancels a live Stripe subscription at period end. */
   cancelStripeSubscription(organizationId: string) {
     return this.request(
       `/organizations/${pathSegment(organizationId)}/billing/stripe/cancel`,

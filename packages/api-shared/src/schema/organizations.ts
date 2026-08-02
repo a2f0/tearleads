@@ -197,6 +197,9 @@ export const organizationBilling = pgTable(
       table.purgeStartedAt,
       table.organizationId,
     ),
+    uniqueIndex("organization_billing_provider_subscription_idx").on(
+      table.providerSubscriptionId,
+    ),
   ],
 );
 

@@ -2,6 +2,7 @@ import type {
   RequestResult,
   RequestResultOptions,
 } from "@tearleads/api-client";
+import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import type {
   OrganizationBillingHistoryResponse,
   OrganizationBillingManagementUrlResponse,
@@ -46,6 +47,10 @@ interface OrganizationBillingApi {
   ) => Promise<OrganizationBillingManagementUrlResponse | null>;
   readonly startOrganizationTrial: (
     organizationId: string,
+  ) => Promise<OrganizationBillingResponse | null>;
+  readonly claimNativeOrganizationSubscription: (
+    organizationId: string,
+    store: NativeSubscriptionStore,
   ) => Promise<OrganizationBillingResponse | null>;
   readonly getStripeCheckoutOptions: (
     organizationId: string,
@@ -97,6 +102,20 @@ export async function startOrganizationTrial(input: {
   readonly organizationId: string;
 }): Promise<OrganizationBilling | null> {
   return input.apiClient.startOrganizationTrial(input.organizationId);
+}
+
+export async function claimNativeOrganizationSubscription(input: {
+  readonly apiClient: Pick<
+    OrganizationBillingApi,
+    "claimNativeOrganizationSubscription"
+  >;
+  readonly organizationId: string;
+  readonly store: NativeSubscriptionStore;
+}): Promise<OrganizationBilling | null> {
+  return input.apiClient.claimNativeOrganizationSubscription(
+    input.organizationId,
+    input.store,
+  );
 }
 
 export async function loadStripeCheckoutOptions(input: {

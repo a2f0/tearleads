@@ -1,4 +1,7 @@
-import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
+import {
+  getSyncBillingTierForNativeProduct,
+  type NativeSubscriptionStore,
+} from "@tearleads/validators/billing";
 import type {
   OrganizationBillingHistoryResponse,
   OrganizationBillingManagementUrlResponse,
@@ -9,18 +12,28 @@ import {
   serializeOrganizationBillingHistory,
 } from "../../billing/organizationBilling";
 import {
+  fetchActiveRevenueCatNativeSubscription,
   fetchRevenueCatManagementUrl,
   type RevenueCatApiDeps,
 } from "../../billing/revenueCatApi";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
 import {
+  runAuthorizeNativeSubscriptionClaimWorkflow,
+  runClaimNativeSubscriptionWorkflow,
+} from "../../workflows/billing/nativeSubscriptionClaim";
+import {
   runGetOrganizationBillingWorkflow,
   runResolveOrganizationBillingCustomerWorkflow,
   runStartOrganizationTrialWorkflow,
 } from "../../workflows/billing/organizationBilling";
 import { runGetOrganizationBillingHistoryWorkflow } from "../../workflows/billing/organizationBillingHistory";
+import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
+
+export class OrganizationBillingProviderUnavailableError extends Error {
+  readonly status = 503 as const;
+}
 
 export async function getOrganizationBilling(
   runtime: ApiServiceRuntime,
@@ -152,4 +165,55 @@ export async function startOrganizationTrial(
     sessionUserId,
   );
   return serializeOrganizationBilling(result.billing, result.activeMemberCount);
+}
+
+/**
+ * Verifies the current RevenueCat App User ID's native receipt and assigns its
+ * one active store subscription to the user's personal organization. Restore
+ * on the device may have transferred the receipt between App User IDs; this
+ * operation moves the server-side organization binding to match.
+ */
+export async function claimNativeOrganizationSubscription(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  sessionUserId: string,
+  store: NativeSubscriptionStore,
+  deps: RevenueCatApiDeps = {},
+): Promise<OrganizationBillingResponse> {
+  await runAuthorizeNativeSubscriptionClaimWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+  );
+  const resolved = await fetchActiveRevenueCatNativeSubscription(
+    sessionUserId,
+    store,
+    deps,
+  );
+  if (resolved.kind === "not_found") {
+    throw new OrganizationManagerError(
+      "No active subscription was found for this store account",
+      404,
+    );
+  }
+  if (resolved.kind === "ambiguous") {
+    throw new OrganizationManagerError(
+      "More than one active subscription was found for this store account",
+      409,
+    );
+  }
+  if (resolved.kind === "unavailable") {
+    throw new OrganizationBillingProviderUnavailableError(
+      "RevenueCat could not verify the subscription",
+    );
+  }
+  await runClaimNativeSubscriptionWorkflow({
+    appUserId: sessionUserId,
+    db: runtime.db,
+    organizationId,
+    requireSessionAccess: true,
+    sourceId: `native-claim:${store}:${resolved.subscription.subscriptionId}`,
+    subscription: resolved.subscription,
+  });
+  return getOrganizationBilling(runtime, organizationId, sessionUserId);
 }

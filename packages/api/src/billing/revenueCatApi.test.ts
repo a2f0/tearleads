@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { fetchRevenueCatManagementUrl } from "./revenueCatApi";
+import {
+  fetchActiveRevenueCatNativeSubscription,
+  fetchRevenueCatManagementUrl,
+} from "./revenueCatApi";
 
 const ENV = {
   REVENUECAT_V2_SECRET_KEY: "sk_test",
@@ -290,4 +293,78 @@ test("returns null (never throws) when the request errors", async () => {
       fetchImpl,
     }),
   ).toBeNull();
+});
+
+test("resolves one verified native subscription and its store product", async () => {
+  const { fetchImpl, calls } = fakeFetch([
+    {
+      body: {
+        items: [
+          sub({
+            current_period_ends_at: "2030-02-01T00:00:00Z",
+            current_period_starts_at: "2030-01-01T00:00:00Z",
+            environment: "production",
+            product_id: "prod_1",
+            store: "play_store",
+            store_subscription_identifier: "GPA.1-2-3-4",
+          }),
+        ],
+      },
+    },
+    { body: { store_identifier: "sync_team_5_monthly:monthly" } },
+  ]);
+
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "play_store", {
+      env: ENV,
+      fetchImpl,
+    }),
+  ).toEqual({
+    kind: "found",
+    subscription: {
+      currentPeriodEndsAt: new Date("2030-02-01T00:00:00Z"),
+      currentPeriodStartsAt: new Date("2030-01-01T00:00:00Z"),
+      productId: "sync_team_5_monthly:monthly",
+      store: "play_store",
+      subscriptionId: "GPA.1-2-3-4",
+    },
+  });
+  expect(calls[1]?.url).toBe(
+    "https://api.revenuecat.com/v2/projects/proj_1/products/prod_1",
+  );
+});
+
+test("native verification rejects missing, ambiguous, and disallowed sandbox receipts", async () => {
+  const active = (identifier: string) =>
+    sub({
+      environment: "production",
+      product_id: `prod_${identifier}`,
+      store: "app_store",
+      store_subscription_identifier: identifier,
+    });
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "play_store", {
+      env: ENV,
+      fetchImpl: fakeFetch([{ body: { items: [active("a")] } }]).fetchImpl,
+    }),
+  ).toEqual({ kind: "not_found" });
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "app_store", {
+      env: ENV,
+      fetchImpl: fakeFetch([{ body: { items: [active("a"), active("b")] } }])
+        .fetchImpl,
+    }),
+  ).toEqual({ kind: "ambiguous" });
+  expect(
+    await fetchActiveRevenueCatNativeSubscription("user-1", "app_store", {
+      env: ENV,
+      fetchImpl: fakeFetch([
+        {
+          body: {
+            items: [{ ...active("a"), environment: "sandbox" }],
+          },
+        },
+      ]).fetchImpl,
+    }),
+  ).toEqual({ kind: "not_found" });
 });

@@ -10,11 +10,12 @@ import { PurchasesProvider, usePurchases } from "./PurchasesProvider";
 
 const availableCapability: PurchasesCapability = {
   isAvailable: true,
+  nativeStore: "test_store",
   identify: () => Promise.resolve(),
   reset: () => Promise.resolve(),
   listSyncOptions: () => Promise.resolve([]),
   purchaseSync: () => Promise.resolve({ syncEntitlementActive: false }),
-  restore: () => Promise.resolve(),
+  restore: () => Promise.resolve({ syncEntitlementActive: true }),
   hasActiveSyncEntitlement: () => Promise.resolve(false),
 };
 

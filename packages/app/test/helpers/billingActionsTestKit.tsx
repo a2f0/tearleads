@@ -50,12 +50,13 @@ export function createPurchases(
 ): PurchasesCapability {
   return {
     isAvailable: true,
+    nativeStore: "test_store",
     supportsEmbeddedCheckout: true,
     identify: mock(() => Promise.resolve()),
     reset: mock(() => Promise.resolve()),
     listSyncOptions: mock(() => Promise.resolve([OPTION])),
     purchaseSync: mock(() => Promise.resolve(purchaseResult)),
-    restore: mock(() => Promise.resolve()),
+    restore: mock(() => Promise.resolve({ syncEntitlementActive: true })),
     hasActiveSyncEntitlement: mock(() => Promise.resolve(false)),
   };
 }
@@ -86,6 +87,7 @@ export function renderBillingActions(input: {
   checkoutHostRef?: RefObject<HTMLElement | null>;
   purchases: PurchasesCapability;
   nativePurchaseAllowed?: boolean;
+  claimNativeSubscription?: () => Promise<boolean>;
   refresh?: () => Promise<void>;
   startTrial?: () => Promise<boolean>;
 }) {
@@ -107,6 +109,8 @@ export function renderBillingActions(input: {
       const actions = useBillingActions({
         activationPollDelaysMs: input.activationPollDelaysMs ?? NO_POLL,
         billingCanSync,
+        claimNativeSubscription:
+          input.claimNativeSubscription ?? (() => Promise.resolve(true)),
         ...(input.checkoutHostRef
           ? { checkoutHostRef: input.checkoutHostRef }
           : {}),

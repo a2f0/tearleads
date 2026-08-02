@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { PurchasesPackage } from "@revenuecat/purchases-capacitor";
 import {
   PurchaseAbortedError,
+  PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
 } from "@tearleads/client-sdk";
 import {
@@ -66,7 +67,7 @@ test("configures without a buyer when the sdk has not identified one", async () 
 
   // restore()/hasActiveSyncEntitlement() can be the first call the capability
   // sees; the plugin must not receive an explicit undefined appUserID.
-  await createCapacitorPurchases().restore();
+  await createCapacitorPurchases().restore({ organizationId: "org-1" });
 
   expect(fixture.configureCalls).toEqual([{ apiKey: "ios-key" }]);
 });
@@ -297,6 +298,17 @@ test("normalizes cancellation from the Android RevenueCat bridge", async () => {
   expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
 });
 
+test("normalizes an already-owned Android product into subscription recovery", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.packages = [nativePackage("monthly", "sync_solo_monthly:monthly")];
+  fixture.purchaseRejection = { code: "6" };
+
+  await expect(purchaseSync()).rejects.toBeInstanceOf(
+    PurchaseAlreadyOwnedError,
+  );
+});
+
 test("propagates a genuine store failure unchanged", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
@@ -365,7 +377,7 @@ test("restores prior purchases through the native bridge", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   const purchases = createCapacitorPurchases();
 
-  await purchases.restore();
+  await purchases.restore({ organizationId: "org-1" });
 
   // Restore must configure the SDK first; a restore on a fresh install is the
   // first call the capability sees.

@@ -301,4 +301,16 @@ test("a non-member cannot read or change another org's billing", async () => {
     { headers: authHeader(intruder), method: "POST" },
   );
   expect(trialResponse.status).toBe(403);
+
+  const claimResponse = await routeApp.request(
+    `/organizations/${organizationId}/billing/native/play_store/claim`,
+    { headers: authHeader(intruder), method: "POST" },
+  );
+  expect(claimResponse.status).toBe(403);
+
+  const invalidStoreResponse = await routeApp.request(
+    `/organizations/${organizationId}/billing/native/stripe/claim`,
+    { headers: authHeader(owner), method: "POST" },
+  );
+  expect(invalidStoreResponse.status).toBe(400);
 });

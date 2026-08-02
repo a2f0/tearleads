@@ -50,7 +50,7 @@ for (const conflict of [
       event_timestamp_ms: Date.now(),
       expiration_at_ms: Date.now() + 30 * 24 * 60 * 60 * 1_000,
       id: eventId,
-      original_transaction_id: "native_transaction",
+      original_transaction_id: `native_transaction_${conflict.name}`,
       product_id: "sync_team_10_monthly",
       store: "APP_STORE",
       subscriber_attributes: { orgId: { value: organizationId } },
