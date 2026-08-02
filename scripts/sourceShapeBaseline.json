@@ -79,7 +79,7 @@
     },
     "packages/api-client/src/ApiClient.ts": {
       "lines": 1778,
-      "bytes": 57047
+      "bytes": 57078
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
