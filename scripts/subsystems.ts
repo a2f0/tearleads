@@ -342,6 +342,7 @@ export const subsystems: readonly Subsystem[] = [
     seam: "createLocalKeyring / createBrowserLocalKeyring exports",
     paths: [
       `${sdk}/client/indexedDbStoreConnection.ts`,
+      `${sdk}/client/localKeyring/`,
       `${sdk}/client/localKeyring.ts`,
       `${sdk}/client/localKeyringPinCode.ts`,
       `${sdk}/client/localKeyringPinCodeSupport.ts`,
