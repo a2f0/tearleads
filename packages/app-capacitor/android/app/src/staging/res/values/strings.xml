@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Tearleads Staging</string>
-    <string name="title_activity_main">Tearleads Staging</string>
+    <string name="app_name">TL Staging</string>
+    <string name="title_activity_main">TL Staging</string>
     <string name="package_name">com.tearleads.staging.app</string>
     <string name="custom_url_scheme">com.tearleads.staging.app</string>
 </resources>

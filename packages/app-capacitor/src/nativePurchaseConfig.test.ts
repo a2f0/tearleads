@@ -240,7 +240,7 @@ test("Android staging inherits the production release signing variant", async ()
     ).toContain("applicationIdSuffix");
   }
   expect(stagingStrings).toContain("com.tearleads.staging.app");
-  expect(stagingStrings).toContain("Tearleads Staging");
+  expect(stagingStrings).toContain("TL Staging");
 });
 
 test("Capacitor pins production identity and rejects unknown release tiers", async () => {
@@ -301,7 +301,7 @@ test("iOS exposes a staging release configuration and shared scheme", async () =
   ).toHaveLength(2);
   expect(
     targetBuildSettings.filter((settings) =>
-      settings.includes('APP_DISPLAY_NAME = "Tearleads Staging";'),
+      settings.includes('APP_DISPLAY_NAME = "TL Staging";'),
     ),
   ).toHaveLength(1);
   expect(
@@ -347,7 +347,7 @@ test("iOS staging release settings stay aligned with production", async () => {
   expect(targetRelease).toContain(
     "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.app;",
   );
-  expect(targetStaging).toContain('APP_DISPLAY_NAME = "Tearleads Staging";');
+  expect(targetStaging).toContain('APP_DISPLAY_NAME = "TL Staging";');
   expect(targetStaging).toContain(
     "PRODUCT_BUNDLE_IDENTIFIER = com.tearleads.staging.app;",
   );

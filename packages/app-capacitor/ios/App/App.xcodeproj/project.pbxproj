@@ -411,7 +411,7 @@
 		7D40C0022E3A000100000001 /* Release-Staging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APP_DISPLAY_NAME = "Tearleads Staging";
+				APP_DISPLAY_NAME = "TL Staging";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
