@@ -8,7 +8,6 @@ import type {
   OrganizationBillingManagementUrlResponse,
   OrganizationBillingResponse,
 } from "@tearleads/validators/response";
-import { isNativeSubscriptionMoveConflict } from "../../billing/databaseErrors";
 import {
   serializeOrganizationBilling,
   serializeOrganizationBillingHistory,
@@ -32,10 +31,7 @@ import {
 import { runGetOrganizationBillingHistoryWorkflow } from "../../workflows/billing/organizationBillingHistory";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
-
-export interface NativeSubscriptionClaimDeps extends RevenueCatApiDeps {
-  readonly claimWorkflow?: typeof runClaimNativeSubscriptionWorkflow;
-}
+import { mapNativeSubscriptionClaimError } from "./nativeSubscriptionClaimError";
 
 export class OrganizationBillingProviderUnavailableError extends Error {
   readonly status = 503 as const;
@@ -184,7 +180,7 @@ export async function claimNativeOrganizationSubscription(
   organizationId: string,
   sessionUserId: string,
   store: NativeSubscriptionStore,
-  deps: NativeSubscriptionClaimDeps = {},
+  deps: RevenueCatApiDeps = {},
 ): Promise<OrganizationBillingResponse> {
   await runAuthorizeNativeSubscriptionClaimWorkflow(
     runtime.db,
@@ -216,7 +212,7 @@ export async function claimNativeOrganizationSubscription(
   const now = new Date();
   const sourceId = `native-claim:${randomUUID()}`;
   try {
-    await (deps.claimWorkflow ?? runClaimNativeSubscriptionWorkflow)({
+    await runClaimNativeSubscriptionWorkflow({
       appUserId: sessionUserId,
       auditEvent: { eventId: sourceId, eventTimestamp: now },
       db: runtime.db,
@@ -227,12 +223,8 @@ export async function claimNativeOrganizationSubscription(
       subscription: resolved.subscription,
     });
   } catch (error) {
-    if (isNativeSubscriptionMoveConflict(error)) {
-      throw new OrganizationManagerError(
-        "The native subscription was moved by another request; refresh and try again",
-        409,
-      );
-    }
+    const mapped = mapNativeSubscriptionClaimError(error);
+    if (mapped) throw mapped;
     throw error;
   }
   return getOrganizationBilling(runtime, organizationId, sessionUserId);

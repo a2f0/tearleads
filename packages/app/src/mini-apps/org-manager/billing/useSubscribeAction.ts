@@ -92,7 +92,7 @@ export function useNativeSubscriptionMove(
           actionError: ORG_MANAGER_LABELS.failedRestorePurchases,
         }));
       } finally {
-        dismiss();
+        if (scopeMatches(scopeRef.current, scope)) dismiss();
         updateActionState(scope, (current) => ({
           ...current,
           busy: null,

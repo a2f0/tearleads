@@ -20,10 +20,7 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
 import type { SessionEnv } from "../../middleware/session";
 import { routeApp } from "../../routeApp";
-import {
-  getOrganizationBillingManagementUrl,
-  type NativeSubscriptionClaimDeps,
-} from "../../services/billing/organizationBilling";
+import { getOrganizationBillingManagementUrl } from "../../services/billing/organizationBilling";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
 import { createOrganizationBillingRoute } from "./organizationBilling";
 
@@ -46,7 +43,10 @@ function authHeader(user: TestUser): { Authorization: string } {
 
 function nativeClaimRoute(
   userId: string,
-  revenueCat: NativeSubscriptionClaimDeps,
+  revenueCat: {
+    readonly env: NodeJS.ProcessEnv;
+    readonly fetchImpl?: typeof fetch;
+  },
 ) {
   return createOrganizationBillingRoute({
     requireAuth: createMiddleware<SessionEnv>(async (c, next) => {
@@ -451,7 +451,7 @@ test("native claim maps provider outages to 503 and gates Test Store in producti
   ).toBe(404);
 });
 
-test("native claim maps ambiguous receipts and concurrent moves to 409", async () => {
+test("native claim maps ambiguous receipts to 409", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const claimUrl = `/organizations/${organizationId}/billing/native/play_store/claim`;
@@ -475,26 +475,4 @@ test("native claim maps ambiguous receipts and concurrent moves to 409", async (
   expect((await ambiguous.request(claimUrl, { method: "POST" })).status).toBe(
     409,
   );
-  const moveConflicts = [
-    Object.assign(new Error("duplicate key"), {
-      code: "23505",
-      constraint: "organization_billing_provider_subscription_idx",
-    }),
-    Object.assign(new Error("deadlock detected"), { code: "40P01" }),
-  ];
-  for (const error of moveConflicts) {
-    const concurrent = nativeClaimRoute(admin.userId, {
-      claimWorkflow: async () => {
-        throw error;
-      },
-      env: {
-        REVENUECAT_PROJECT_ID: "proj_1",
-        REVENUECAT_V2_SECRET_KEY: "sk_test",
-      },
-      fetchImpl: activeNativeSubscriptionFetch(),
-    });
-    expect(
-      (await concurrent.request(claimUrl, { method: "POST" })).status,
-    ).toBe(409);
-  }
 });

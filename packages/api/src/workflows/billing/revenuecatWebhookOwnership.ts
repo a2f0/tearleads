@@ -5,7 +5,10 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { and, eq } from "drizzle-orm";
-import { isProviderSubscriptionOwnershipConflict } from "../../billing/databaseErrors";
+import {
+  isNativeSubscriptionMoveConflict,
+  isProviderSubscriptionOwnershipConflict,
+} from "../../billing/databaseErrors";
 import type { RevenueCatBillingTransition } from "../../billing/revenuecatWebhook";
 import type { RevenueCatWebhookOutcome } from "./revenuecatWebhookTypes";
 
@@ -31,6 +34,9 @@ async function ignoreLifecycleEventForMovedSubscription(input: {
       )
       .limit(1);
     if (!owner || owner.organizationId === input.organizationId) return null;
+    console.warn(
+      `RevenueCat event ${input.event.id} ignored: subscription ${input.subscriptionId} moved from ${input.organizationId} to ${owner.organizationId}`,
+    );
     const [claimed] = await tx
       .insert(revenuecatWebhookEvents)
       .values({
@@ -67,8 +73,9 @@ export async function resolveLifecycleOwnershipConflict(input: {
   readonly organizationId: string | null;
   readonly transition: RevenueCatBillingTransition;
 }): Promise<RevenueCatWebhookOutcome | null> {
-  if (!isProviderSubscriptionOwnershipConflict(input.error)) return null;
+  if (!isNativeSubscriptionMoveConflict(input.error)) return null;
   const subscriptionId =
+    isProviderSubscriptionOwnershipConflict(input.error) &&
     input.transition.kind === "grant"
       ? input.transition.fields.providerSubscriptionId
       : null;

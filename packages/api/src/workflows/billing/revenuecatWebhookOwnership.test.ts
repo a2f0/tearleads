@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
@@ -27,6 +27,7 @@ async function registerPersonalOrganization(): Promise<{
 }
 
 test("a stale lifecycle grant for a moved subscription is ignored", async () => {
+  const warning = spyOn(console, "warn").mockImplementation(() => undefined);
   const previous = await registerPersonalOrganization();
   const destination = await registerPersonalOrganization();
   const subscriptionId = `native-${crypto.randomUUID()}`;
@@ -67,4 +68,6 @@ test("a stale lifecycle grant for a moved subscription is ignored", async () => 
   expect(await runRevenueCatWebhookWorkflow(db, event, new Date(now))).toEqual({
     status: "duplicate",
   });
+  expect(warning).toHaveBeenCalledTimes(1);
+  warning.mockRestore();
 });

@@ -61,6 +61,15 @@ billing. The provider subscription id has a unique database index, so only one
 organization can own it. Billing history shows `TRANSFER_OUT` on the source and
 `TRANSFER_IN` on the destination.
 
+This is a greenfield ownership invariant, not a legacy-data migration: the
+initial Postgres and SQLite migrations intentionally add the unique index
+without deduplicating billing rows. Prelaunch environments with conflicting
+fixture data must be reset before applying it. One store subscription funds one
+personal organization even when Apple or Google exposes the receipt through
+family sharing; restoring it moves that single billing entitlement rather than
+minting capacity for another organization. A stale lifecycle grant for the old
+organization is stored as ignored and emits an operator warning.
+
 This moves billing entitlement only. It does not copy the old organization's
 encrypted documents, keys, or identity. The store restore must be initiated on
 a device signed into the Apple or Google account that owns the purchase; after

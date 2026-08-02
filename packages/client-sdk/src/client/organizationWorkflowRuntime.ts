@@ -32,10 +32,9 @@ export function runForAuthenticatedOrganization<T>(
   runtimeService: InternalRuntime,
   workflow: OrganizationWorkflow<T>,
 ): Promise<T | null> {
-  const organizationId = authenticatedOrganizationId(
-    runtimeService.workflowInput(),
-  );
+  const runtime = runtimeService.workflowInput();
+  const organizationId = authenticatedOrganizationId(runtime);
   return organizationId
-    ? runForOrganization(runtimeService, organizationId, workflow)
+    ? workflow({ apiClient: runtime.apiClient, organizationId })
     : Promise.resolve(null);
 }

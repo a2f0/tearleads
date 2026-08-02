@@ -197,6 +197,8 @@ export const organizationBilling = pgTable(
       table.purgeStartedAt,
       table.organizationId,
     ),
+    // Greenfield invariant: one store subscription funds one organization.
+    // Prelaunch databases with conflicting fixtures are reset, not backfilled.
     uniqueIndex("organization_billing_provider_subscription_idx").on(
       table.providerSubscriptionId,
     ),

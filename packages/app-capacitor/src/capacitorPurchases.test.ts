@@ -50,6 +50,19 @@ test("configures the key belonging to the running platform", async () => {
   ]);
 });
 
+test("maps RevenueCat public keys and platforms to the claim store", () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "test_project_key");
+  fixture.platform = "ios";
+  expect(createCapacitorPurchases().nativeStore).toBe("test_store");
+
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "appl_project_key");
+  expect(createCapacitorPurchases().nativeStore).toBe("app_store");
+
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "goog_project_key");
+  fixture.platform = "android";
+  expect(createCapacitorPurchases().nativeStore).toBe("play_store");
+});
+
 test("configures onto the known buyer rather than an anonymous customer", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
 

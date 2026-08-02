@@ -10,6 +10,7 @@ import { isRevenueCatTransferWebhookEvent } from "@tearleads/validators/request"
 import { isUuidV4String } from "@tearleads/validators/util";
 import { isNativeSubscriptionMoveConflict } from "../../billing/databaseErrors";
 import {
+  type ActiveNativeSubscription,
   fetchActiveRevenueCatNativeSubscription,
   type RevenueCatApiDeps,
 } from "../../billing/revenueCatApi";
@@ -18,6 +19,7 @@ import {
   resolvePersonalOrganizationForUser,
   runClaimNativeSubscriptionWorkflow,
 } from "../../workflows/billing/nativeSubscriptionClaim";
+import { runRecordIgnoredRevenueCatTransferWorkflow } from "../../workflows/billing/revenuecatTransferAudit";
 import {
   type RevenueCatWebhookOutcome,
   runRevenueCatWebhookWorkflow,
@@ -87,15 +89,8 @@ async function resolveTransferredSubscription(input: {
 async function resolveTransferDestination(
   runtime: ApiServiceRuntime,
   appUserIds: readonly string[],
-): Promise<
-  | { readonly appUserId: string; readonly organizationId: string }
-  | null
-  | "ambiguous"
-> {
-  const destinations: Array<{
-    appUserId: string;
-    organizationId: string;
-  }> = [];
+): Promise<TransferDestination | null | "ambiguous"> {
+  const destinations: TransferDestination[] = [];
   for (const appUserId of new Set(appUserIds)) {
     if (!isUuidV4String(appUserId)) continue;
     const organizationId = await resolvePersonalOrganizationForUser(
@@ -106,6 +101,60 @@ async function resolveTransferDestination(
   }
   if (destinations.length > 1) return "ambiguous";
   return destinations[0] ?? null;
+}
+
+interface TransferDestination {
+  readonly appUserId: string;
+  readonly organizationId: string;
+}
+
+async function claimTransferredSubscription(input: {
+  readonly destination: TransferDestination;
+  readonly event: RevenueCatTransferWebhookEvent;
+  readonly runtime: ApiServiceRuntime;
+  readonly subscription: ActiveNativeSubscription;
+}): Promise<RevenueCatWebhookOutcome> {
+  let claimed: Awaited<ReturnType<typeof runClaimNativeSubscriptionWorkflow>>;
+  try {
+    claimed = await runClaimNativeSubscriptionWorkflow({
+      appUserId: input.destination.appUserId,
+      auditEvent: {
+        eventId: input.event.id,
+        eventTimestamp: new Date(input.event.event_timestamp_ms),
+      },
+      db: input.runtime.db,
+      organizationId: input.destination.organizationId,
+      requireSessionAccess: false,
+      sourceId: input.event.id,
+      subscription: input.subscription,
+    });
+  } catch (error) {
+    if (isNativeSubscriptionMoveConflict(error)) {
+      return {
+        reason: "Native subscription ownership changed concurrently",
+        status: "retry",
+      };
+    }
+    if (error instanceof OrganizationManagerError) {
+      const recorded = await runRecordIgnoredRevenueCatTransferWorkflow({
+        appUserId: input.destination.appUserId,
+        db: input.runtime.db,
+        event: input.event,
+        organizationId: input.destination.organizationId,
+      });
+      return recorded
+        ? { reason: error.message, status: "ignored" }
+        : { status: "duplicate" };
+    }
+    throw error;
+  }
+  return claimed.duplicate
+    ? { status: "duplicate" }
+    : {
+        billingStatus: "active",
+        organizationId: input.destination.organizationId,
+        status: "applied",
+      };
 }
 
 async function processRevenueCatTransfer(
@@ -135,7 +184,7 @@ async function processRevenueCatTransfer(
   );
   if (destination === "ambiguous") {
     return {
-      status: "retry",
+      status: "ignored",
       reason: "Transfer has more than one registered destination",
     };
   }
@@ -158,41 +207,14 @@ async function processRevenueCatTransfer(
   }
   if (resolved.kind !== "found") {
     return {
-      status: "retry",
+      status: resolved.kind === "ambiguous" ? "ignored" : "retry",
       reason: `Transferred subscription verification is ${resolved.kind}`,
     };
   }
-  let claimed: Awaited<ReturnType<typeof runClaimNativeSubscriptionWorkflow>>;
-  try {
-    claimed = await runClaimNativeSubscriptionWorkflow({
-      appUserId: destination.appUserId,
-      auditEvent: {
-        eventId: event.id,
-        eventTimestamp: new Date(event.event_timestamp_ms),
-      },
-      db: runtime.db,
-      organizationId: destination.organizationId,
-      requireSessionAccess: false,
-      sourceId: event.id,
-      subscription: resolved.subscription,
-    });
-  } catch (error) {
-    if (isNativeSubscriptionMoveConflict(error)) {
-      return {
-        status: "retry",
-        reason: "Native subscription ownership changed concurrently",
-      };
-    }
-    if (error instanceof OrganizationManagerError) {
-      return { status: "ignored", reason: error.message };
-    }
-    throw error;
-  }
-  return claimed.duplicate
-    ? { status: "duplicate" }
-    : {
-        billingStatus: "active",
-        organizationId: destination.organizationId,
-        status: "applied",
-      };
+  return claimTransferredSubscription({
+    destination,
+    event,
+    runtime,
+    subscription: resolved.subscription,
+  });
 }

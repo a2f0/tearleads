@@ -224,7 +224,50 @@ test("rejects custom organizations and Stripe-bound destinations", async () => {
   );
 });
 
-test("concurrent claims cannot leave one subscription bound to two organizations", async () => {
+test("rejects unknown products and a different destination subscription", async () => {
+  const destination = await registerPersonalOrganization();
+  const unknownProduct = {
+    ...subscription(crypto.randomUUID()),
+    productId: "unconfigured_native_product",
+  };
+  await expect(
+    runClaimNativeSubscriptionWorkflow({
+      appUserId: destination.user.userId,
+      db,
+      organizationId: destination.organizationId,
+      requireSessionAccess: false,
+      sourceId: crypto.randomUUID(),
+      subscription: unknownProduct,
+    }),
+  ).rejects.toThrow(
+    "The native subscription product is not configured for sync billing",
+  );
+
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerProductId: "sync_solo_monthly:monthly",
+      providerSubscriptionId: `existing-${crypto.randomUUID()}`,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, destination.organizationId));
+  await expect(
+    runClaimNativeSubscriptionWorkflow({
+      appUserId: destination.user.userId,
+      db,
+      organizationId: destination.organizationId,
+      requireSessionAccess: false,
+      sourceId: crypto.randomUUID(),
+      subscription: subscription(crypto.randomUUID()),
+    }),
+  ).rejects.toThrow(
+    "The personal organization already has a different subscription",
+  );
+});
+
+/** The API package runs this concurrency case on memory and SQLite adapters. */
+test("the database matrix leaves one owner after concurrent claims", async () => {
   const first = await registerPersonalOrganization();
   const second = await registerPersonalOrganization();
   const nativeSubscription = subscription(`GPA.${crypto.randomUUID()}`);
