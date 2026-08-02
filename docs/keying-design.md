@@ -348,22 +348,43 @@ type ContainerKeyEpoch = {
  accessManifestHash: string;
  parentContainerKeyEpochId: string | null;
  predecessorContainerKeyEpochId: string | null;
+ predecessorBridgeVersion: number | null;
+ predecessorBridgeSuite: string | null;
  predecessorBridgeIv: string | null;
  wrappedPredecessorKey: string | null;
+ keyringIv: string | null;
+ sealedKeyring: string | null;
  createdByEventHash: string;
  createdByManifestHash: string;
  createdAt: string;
 };
 ```
 
-Every epoch after the first stores an authenticated bridge encrypted under the
-new KEK whose plaintext is the immediately preceding KEK. The bridge binds the
-container id and both committed epoch ids as AES-GCM additional data. Its
-canonical hash is also committed by the signed move, rekey, or revoke event, so
-server-side ciphertext substitution is detectable before decryption. Initial
-epochs have all three predecessor fields null; later epochs have all three
-populated. A client that unwraps the current KEK follows this chain to epoch 1
-and verifies every recovered key against its material-committing epoch id.
+Every epoch after the first stores two immutable rotation artifacts, both
+committed by hash in the signed move, rekey, or revoke event so server-side
+ciphertext substitution is detectable before decryption.
+
+The **predecessor bridge** is the append-only log entry: the immediately
+preceding KEK encrypted under the new KEK, binding the container id and both
+committed epoch ids as AES-GCM additional data. It is written exactly once by
+the rotator — the only party the protocol guarantees held both keys — and is
+never rewritten by any later rotation. The bridge's wrapping suite and version
+are persisted per row so a future suite rotation is representable.
+
+The **sealed keyring** is the snapshot read path: the container's complete
+predecessor key history — one fixed-width record per epoch, in ascending
+order — AEAD-sealed under the new KEK. A client that unwraps the current KEK
+opens the keyring in one decrypt and holds every retained historical KEK; no
+chain walk occurs on the hot path. Entry ordinal `i` is key epoch `i + 1`, so
+the sealed ciphertext length for key epoch `n` is an equality
+(`8 + (n - 1) * 64 + 16` bytes), which the server enforces at write time on a
+blob it cannot decrypt and clients enforce again after opening. Each recovered
+entry is verified against its material-committing epoch id before use.
+
+Initial epochs have every rotation-artifact field null; later epochs have all
+of them populated (a database check constraint enforces the all-or-none
+shape). The keyring is derived, rebuildable state; the bridge log is ground
+truth.
 
 Container KEK epochs use ids of the form
 `tearleads.container-kek.v1.sha256:<hash>`, where the hash commits to the
@@ -408,6 +429,7 @@ Subtractive changes:
 - advance the signed access manifest;
 - create a new KEK epoch for the changed container;
 - require a bridge from that new KEK to the immediate previous KEK;
+- require a keyring holding every predecessor KEK sealed under the new KEK;
 - require descendants whose future access depends on the changed ancestor KEK to
  move to a post-change KEK epoch before accepting future writes;
 - do not rewrite old document/blob bytes unless a separate re-encryption job is
@@ -429,60 +451,75 @@ server-supplied replacement material rejects it unless the material hashes back
 to the id signed in the manifest.
 
 Current access is history-inclusive. A newly admitted user receives only a
-current recipient wrap, then derives every predecessor through the mandatory
-bridge chain; old user/principal envelopes are never served. Revocation remains
-forward-only because a user who possessed an old KEK may retain it, but a
-current user does not depend on a retained device, an old principal key, or a
-document rebaseline to read retained history. Fresh baselines remain a sync
-optimization and content-key rotation mechanism, not a key-recovery or
+current recipient wrap, then opens the sealed keyring for every retained
+historical KEK; old user/principal envelopes are never served. Revocation
+remains forward-only because a user who possessed an old KEK may retain it,
+but a current user does not depend on a retained device, an old principal key,
+or a document rebaseline to read retained history. Fresh baselines remain a
+sync optimization and content-key rotation mechanism, not a key-recovery or
 liveness dependency.
 
 This also exposes retained-history metadata to every current member even before
-decryption: projection size, numeric epoch values, material-committing epoch
-ids, access-manifest hashes, and parent epoch references. The design accepts
-that metadata disclosure as part of history-inclusive access; only the old
-plaintext KEKs and content remain encrypted by the bridge chain.
+decryption: keyring size (and therefore rotation count), material-committing
+epoch ids, access-manifest hashes, and parent epoch references. The design
+accepts that metadata disclosure as part of history-inclusive access; only the
+old plaintext KEKs and content remain sealed.
 
-The complete predecessor chain is deliberately unbounded and projection size
-and cold client bridge decryption therefore grow linearly with the number of
-rotations. A document operation reuses already verified predecessor keys across
-overlapping authorizing paths, but a server or client must not cap or truncate
-the chain: doing so would make retained ciphertext undecryptable. Any future
-scalability optimization must preserve authenticated recovery of every retained
-epoch.
+History delivery is O(1) in rotation count on the hot path: one sealed blob
+whose length is fixed by the epoch number, opened with one decrypt, with
+per-entry verification that is independent and parallelizable. Historical
+epoch *records* ride the projection only when a descendant path entry pins an
+older parent epoch, because a child's parent wrap binds to the parent epoch's
+record hash; content-key envelopes address epochs by id alone and need no
+records. Rotation pays the linear cost instead — the rotator opens the
+previous keyring and re-seals it plus the retiring key under the new KEK —
+which is one decrypt, one seal, and tens of bytes per retained epoch.
 
-An incomplete or corrupt predecessor chain is a hard integrity failure for the
-affected historical epochs. The client reports that failure when an operation
-needs one of those epochs, but it retains an independently verified current KEK
-so corrupt history cannot also brick current-epoch reads. When storage damage
-prevents the API from completing a chain, it serves the verified current KEK
-and the maximal authenticated predecessor prefix. The declared epoch number
-lets the client detect that this is damaged history, not a legitimately short
-chain. This integrity-degradation behavior is not permission to cap healthy
-history.
+There is deliberately no depth cap and no truncation: the keyring for epoch
+`n` must contain exactly `n - 1` entries, over- and under-length payloads are
+rejected by the same equality, and a keyring that omits an epoch fails the
+structural entry-count check. The `MAX_CONTAINER_KEY_EPOCH` write-time bound
+(65536) is a runaway-rotation backstop sized to be unreachable by legitimate
+use, enforced when a rotation is accepted — never against existing data — so
+it can never make retained ciphertext unreadable.
 
-Operators must restore missing immutable epoch rows or bridge ciphertext from
-database backup to recover the affected historical epochs. Because the server
-never has plaintext KEKs, it cannot synthesize replacement bridge ciphertext,
-and there is intentionally no admin-assisted key reconstruction endpoint. The
-verified current KEK remains usable for ordinary reads and later rotations or
-moves; those mutations extend the healthy prefix but do not reconstruct the
-older damaged link.
+A keyring that fails verification is a hard integrity failure for the affected
+historical epochs, but it is cache poisoning, not data loss. The client
+reports the failure when an operation needs one of those epochs, retains its
+independently verified current KEK so corrupt history cannot brick
+current-epoch reads, and can rebuild ground truth from the append-only bridge
+log served by `GET /containers/:id/kek-log`: walking the write-once bridges
+from the current KEK recovers every predecessor, each checked against its
+material-committing epoch id. Repair is an ordinary `container.rekey` whose
+keyring is sealed from the rebuilt entries; the poisoned artifact stays on
+record, attributed to the signed event that committed it.
 
-The server cannot prove that ciphertext in a signed bridge actually decrypts
-to the predecessor committed by its id. An authorized writer that deliberately
-signs well-formed but undecryptable bridge ciphertext can therefore deny access
-to older history. The supported clients round-trip bridges while constructing
-mutations, but this is not an availability guarantee against a malicious
-writer. Superseded recipient wraps remain stored and may support a future
-explicit recovery path, but current projections do not serve them. Database
-backup only repairs later storage damage; it cannot repair deliberately invalid
-ciphertext that was originally accepted.
+The bridge log has no repair story of its own — that is why it is never
+rewritten. A bridge that fails to decrypt severs log-based recovery for the
+epochs below it, but every epoch's recipient wraps are retained forever
+(cross-epoch wraps are never deleted; this is a stated protocol invariant,
+not an implementation accident). A member present at epoch `i` can therefore
+recover `K_i` from their identity keys plus server state, written by the
+epoch-`i` rotator and untouchable by any later writer, and re-anchor a repair
+rekey from there. The only unrecoverable case is a sole-ever member destroying
+their own history. `formal/container-keying/KeyringReachability.tla` model
+checks this composition: the log alone recovers everything while bridges are
+intact, severance damage is bounded to epochs below the broken link, an
+honest current keyring implies full recoverability, and retained wraps
+backstop a poisoned snapshot.
+
+The server cannot prove that sealed rotation artifacts actually decrypt to the
+keys their ids commit to. An authorized writer that deliberately signs
+well-formed but undecryptable ciphertext can deny access to older history up
+to the limits above. The supported clients round-trip both artifacts while
+constructing mutations, but this is not an availability guarantee against a
+malicious writer. Database backup only repairs later storage damage; it cannot
+repair deliberately invalid ciphertext that was originally accepted.
 
 A container move creates fresh successor KEK material as well as a new epoch
-identity because the parent binding changes. Its mandatory bridge encrypts the
-old KEK under that fresh successor, so moves use the same traversal rule as
-rekeys and revocations without an AES-GCM key-dependent self-wrap.
+identity because the parent binding changes. It carries the same two rotation
+artifacts as rekeys and revocations — the write-once bridge and the re-sealed
+keyring — without an AES-GCM key-dependent self-wrap.
 
 ## Document Content Keys
 

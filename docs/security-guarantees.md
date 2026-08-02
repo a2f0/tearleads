@@ -189,37 +189,50 @@ The content-record suite `aes-256-gcm-hkdf-sha256-record-key` applies only to
 document and blob payload records. Document and blob content-key wraps use
 explicit `tearleads.*.content-key-wrap.aes-256-gcm-container-kek` suites, while
 container KEK wraps use ML-KEM-1024 plus AES-GCM for principals or AES-GCM
-under a parent or successor KEK. Rotations use the
-`tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` suite for their
-immediate predecessor. Current clients must verify that chain through epoch 1.
-Each rotation event signs the canonical predecessor-bridge hash; AES-GCM also
-binds the container and predecessor/successor epoch ids during decryption.
-Failure to decrypt a historical bridge makes that history unavailable but does
-not invalidate an independently verified current KEK; current-epoch reads can
-continue while operations that require the damaged epoch fail explicitly.
-The API preserves that liveness for direct container projections, descendant
-paths, and mutation responses by returning the verified current KEK plus the
-maximal authenticated predecessor prefix; the client detects any missing suffix
-from the signed current epoch number.
+under a parent or successor KEK. Rotations write two artifacts: a write-once
+predecessor bridge under the
+`tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` suite (the
+append-only log) and the complete predecessor key history sealed under the
+`tearleads.container-kek-keyring.aes-256-gcm-current-kek` suite (the snapshot
+current clients open for history). Each rotation event signs both canonical
+hashes; AES-GCM additionally binds the container and epoch ids during
+decryption, and the sealed keyring's ciphertext length is an equality in the
+epoch number, enforced server-side at write time. A keyring for epoch `n` must
+open to exactly `n - 1` entries, each verified against its
+material-committing epoch id, so omission, reordering, and padding all fail
+closed.
+Failure to verify a keyring makes that history unavailable but does not
+invalidate an independently verified current KEK; current-epoch reads continue
+while operations that require the damaged epochs fail explicitly, and the
+bridge log (`GET /containers/:id/kek-log`) remains the deterministic rebuild
+path — any current member walks the write-once bridges from the current KEK,
+verifies every recovered key by its epoch-id commitment, and repairs the
+snapshot with an ordinary `container.rekey`.
 This deliberately changes compromise amplification: possession of the current
-container KEK also reveals every retained predecessor KEK through the bridge
-chain. That is the cost of history-inclusive current access. It does not weaken
-forward revocation—a user who lacks a post-revocation KEK still cannot derive
-that KEK or later epochs—but current-key compromise exposes retained historical
-content for that container. Current members also learn retained-history
-metadata—including chain length, epoch ids and numbers, access-manifest hashes,
-and parent epoch references—even though bridge encryption still protects the
-old plaintext keys. A descendant path may carry this ciphertext metadata for
-ancestor epochs even when that descendant-only member cannot unwrap the
-ancestor KEKs.
+container KEK also reveals every retained predecessor KEK through the sealed
+keyring. That is the cost of history-inclusive current access. It does not
+weaken forward revocation—a user who lacks a post-revocation KEK still cannot
+derive that KEK or later epochs—but current-key compromise exposes retained
+historical content for that container. Current members also learn
+retained-history metadata—including rotation count (from the keyring length),
+epoch ids and numbers, access-manifest hashes, and parent epoch
+references—even though the sealing still protects the old plaintext keys. A
+descendant path may carry this ciphertext metadata for ancestor epochs even
+when that descendant-only member cannot unwrap the ancestor KEKs.
 
-The server validates a signed bridge's shape and commitment but cannot validate
-its plaintext without a KEK. A malicious authorized writer can therefore sign
-undecryptable bridge ciphertext and deny access to predecessor history. This is
-an explicit availability limitation, not a confidentiality bypass; supported
-clients generate fresh successor keys and round-trip the bridge before sending
-a mutation. Superseded recipient wraps remain stored but are not part of the
-current projection recovery path.
+The server validates the signed artifacts' shape, length equality, and hash
+commitments but cannot validate their plaintext without a KEK. A malicious
+authorized writer can therefore sign undecryptable ciphertext and deny access
+to predecessor history. This is an explicit availability limitation with a
+bounded blast radius, not a confidentiality bypass: a poisoned keyring is
+rebuilt from the bridge log; a poisoned bridge orphans only the epochs below
+it for members who joined after it, because cross-epoch recipient wraps are
+retained forever (a stated protocol invariant) and any member present at an
+earlier epoch can recover that epoch's KEK from server state alone and
+re-anchor a repair rekey. The composition of these recovery paths is model
+checked in `formal/container-keying/KeyringReachability.tla`. Supported
+clients generate fresh successor keys and round-trip both artifacts before
+sending a mutation.
 
 All container KEK epochs use a
 `tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the

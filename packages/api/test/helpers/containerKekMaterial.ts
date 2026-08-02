@@ -1,6 +1,8 @@
 import {
+  type ContainerKekKeyring,
   type ContainerKekKeyringEntry,
   type ContainerKeyEpoch,
+  computeContainerKekKeyringHash,
   computeContainerKekMaterialId,
   createContainerKekPredecessorBridge,
   sealContainerKekKeyring,
@@ -95,6 +97,39 @@ export async function createTestFillerKeyringEntries(input: {
     });
   }
   return entries;
+}
+
+/**
+ * Builds a structurally valid rotation keyring (filler predecessor entries,
+ * random retiring/successor keys) plus its signed-body hash for request
+ * builders whose scenarios never open the keyring client-side.
+ */
+export async function createTestRotationKeyring(input: {
+  readonly containerId: string;
+  readonly retiringKeyEpoch: number;
+  readonly retiringContainerKeyEpochId: string;
+  readonly successorContainerKeyEpochId: string;
+}): Promise<{
+  readonly keyring: ContainerKekKeyring;
+  readonly keyringHash: string;
+}> {
+  const keyring = await createTestContainerKekKeyring({
+    containerId: input.containerId,
+    keyEpoch: input.retiringKeyEpoch + 1,
+    predecessorEntries: await createTestFillerKeyringEntries({
+      containerId: input.containerId,
+      count: input.retiringKeyEpoch - 1,
+    }),
+    retiringContainerKey: crypto.getRandomValues(new Uint8Array(32)),
+    retiringContainerKeyEpochId: input.retiringContainerKeyEpochId,
+    successorContainerKey: crypto.getRandomValues(new Uint8Array(32)),
+    successorContainerKeyEpochId: input.successorContainerKeyEpochId,
+  });
+
+  return {
+    keyring,
+    keyringHash: await computeContainerKekKeyringHash(keyring),
+  };
 }
 
 /**

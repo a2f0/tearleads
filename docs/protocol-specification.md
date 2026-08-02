@@ -246,6 +246,9 @@ Each signed mutation request carries:
 - a container key epoch
 - a required nullable predecessor bridge (`null` for creates and same-epoch
   mutations; populated for every KEK rotation)
+- a required nullable sealed keyring (`null` for creates and same-epoch
+  mutations; for every rotation, the complete predecessor key history sealed
+  under the new KEK, with its hash committed in the signed event body)
 - KEK wraps for derived recipient targets
 - optional parent KEK state and direct user recipient keys
 
@@ -257,11 +260,19 @@ access through parent KEK edges without rewriting every descendant object when
 an ancestor grant changes.
 
 For a rotation, the API also verifies that the bridge connects the stored
-current epoch to exactly the proposed next epoch. Writer projections are gated
-by current access and return the complete authenticated predecessor chain.
-Consequently current document access includes retained history; projections do
-not return superseded recipient envelopes or filter old epochs by requester
-membership era.
+current epoch to exactly the proposed next epoch, that the keyring is sealed
+to the new epoch with a ciphertext length exactly matching the epoch number
+(`8 + (n - 1) * 64 + 16` bytes — over- and under-length both reject), and
+that both artifact hashes match the signed event body. Epoch numbers above
+`MAX_CONTAINER_KEY_EPOCH` (65536) are rejected at rotation time as a
+runaway-rotation backstop. Writer projections are gated by current access and
+return the sealed keyring for each path epoch (null exactly at epoch 1),
+plus historical epoch records only where a descendant pins an older parent
+epoch. Consequently current document access includes retained history;
+projections do not return superseded recipient envelopes or filter old epochs
+by requester membership era. `GET /containers/:containerId/kek-log` serves
+the append-only rotation log — every epoch with its write-once bridge and
+sealed keyring — as the rebuild/repair read path for any current reader.
 
 Document and blob writes may carry signed `container.rekey` requests inline in
 `containerRekeys[]`. The API applies those rekeys inside the same transaction
