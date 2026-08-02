@@ -142,13 +142,13 @@ RevenueCat staging records were renamed in place. Retire any developer-portal
 or store test records created with the former identifier manually because the
 release lanes never delete external records.
 
-One-time store setup is still required; the release lanes are intentionally
-readonly for signing and store records:
+Complete this one-time store setup; release lanes do not write signing or store
+records:
 
-Use the staging identifiers `sync_solo_monthly_staging`,
+Use staging product IDs `sync_solo_monthly_staging`,
 `sync_team_5_monthly_staging`, and `sync_team_10_monthly_staging`. Keep the same
-`solo`, `team_5`, and `team_10` RevenueCat package identifiers; each package can
-attach the staging product from each staging app.
+RevenueCat package identifiers and attach each staging app's product to its
+matching package.
 
 1. Register `com.tearleads.staging.app` in Apple Developer and create its App
    Store Connect app record with the In-App Purchase capability.
@@ -156,10 +156,12 @@ attach the staging product from each staging app.
    Store distribution profile for `com.tearleads.staging.app`. The repo's
    `ios:fetch:appstore-profile:staging` lane only verifies/fetches it with
    `readonly: true`; it cannot generate a missing profile.
-3. Create the `com.tearleads.staging.app` Play Console app, grant the configured
-   Google Play service account access, and create an internal testing track.
-4. Create the corresponding Apple and Google apps in RevenueCat and connect
-   their store credentials before adding the public SDK keys below.
+3. Create the `com.tearleads.staging.app` Play app, grant the identity from
+   `.secrets/google-play-service-account-admin.json` access, and create an
+   internal testing track.
+4. Create matching RevenueCat apps. Upload
+   `.secrets/google-play-service-account-revenue-cat.json` to the Google app,
+   connect the Apple credentials, then add the public SDK keys below.
 
 Query both staging stores without building with
 `bun run --cwd packages/app-capacitor store:build-numbers:staging`.
@@ -251,9 +253,9 @@ Before testing the real Google Play purchase sheet:
 1. In Play Console, create and activate `sync_solo_monthly`,
    `sync_team_5_monthly`, and `sync_team_10_monthly`, each with a `monthly`
    auto-renewing base plan for application ID `com.tearleads.app`.
-2. Connect that Google app and its service credentials to RevenueCat, import the
-   products, and attach them to the matching `solo`, `team_5`, and `team_10`
-   packages plus the `sync` entitlement.
+2. Connect it to RevenueCat with
+   `.secrets/google-play-service-account-revenue-cat.json`; import and attach the
+   products to their packages and the `sync` entitlement.
 3. Keep `VITE_REVENUECAT_ANDROID_API_KEY` set to that Google app's public
    `goog_...` key. The activity uses `singleTop`, so returning from a banking or
    verification app does not cancel the purchase flow.

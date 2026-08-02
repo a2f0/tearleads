@@ -6,7 +6,10 @@ require_relative '../lib/capacitor_release_config'
 require_relative '../lib/native_release_target'
 require_relative '../lib/revenuecat_release_key'
 
-GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH = File.join(NATIVE_SECRETS_DIR, 'google-play-service-account.json')
+GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH = File.join(
+  NATIVE_SECRETS_DIR,
+  'google-play-service-account-admin.json'
+)
 GOOGLE_PLAY_DEFAULT_TRACKS = %w[production beta alpha internal].freeze
 
 def load_store_secrets_env

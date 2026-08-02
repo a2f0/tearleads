@@ -107,7 +107,7 @@ It also prints any generated upload companion assets, such as
 
 By default, the `versionCode` is based on the latest PR merged today. The lane
 queries GitHub with `gh` first and falls back to local squash-merge commit
-subjects like `(#1365)`. If `.secrets/google-play-service-account.json` is
+subjects like `(#1365)`. If `.secrets/google-play-service-account-admin.json` is
 available, it also checks the configured Google Play tracks and uses the larger
 of the merged PR number or the next Play version code. Override the date or PR
 with `ANDROID_RELEASE_MERGED_DATE=YYYY-MM-DD`,
@@ -191,10 +191,10 @@ bun run store:build-numbers
 ```
 
 The lane loads `.secrets/root.env` when present, uses
-`.secrets/google-play-service-account.json` by default for Google Play, and uses
-`.secrets/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8` by default for App Store
-Connect. Missing credentials or one store API failure do not block the other
-store lookup.
+`.secrets/google-play-service-account-admin.json` by default for Google Play,
+and uses `.secrets/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8` by default for App
+Store Connect. Missing credentials or one store API failure do not block the
+other store lookup.
 
 It queries the standard Play tracks (`production`, `beta`, `alpha`, and
 `internal`) and returns the highest version code. Override the queried Play
