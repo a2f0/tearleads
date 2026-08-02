@@ -560,11 +560,11 @@ test("verifyContainerKekState rejects forged wrap fingerprints and parent edges"
     }),
     "hash_mismatch",
   );
-  // A child must pin its parent's CURRENT epoch. This is what makes a
-  // historically-pinned parent unservable, and therefore why keyring-recovered
-  // historical KEKs (which carry no epoch record hash) are never needed to
-  // satisfy a parent wrap — see `containerKekPath.ts`. A descendant stranded by
-  // an ancestor rotation is recovered by lazy rekey, not by parent history.
+  // A child must pin its parent's CURRENT epoch, so no historical parent epoch
+  // RECORD is ever served. The historical parent KEY is still reachable through
+  // the parent's keyring, which is what lets a descendant pinned to a
+  // pre-rotation parent be opened and lazily rekeyed rather than stranded —
+  // see `containerKekPath.ts`.
   expectVerificationError(
     await verifyContainerKekState({
       containerManifest: childManifest,

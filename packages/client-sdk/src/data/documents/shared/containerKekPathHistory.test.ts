@@ -273,3 +273,32 @@ test("document unwrap reports corrupt history when its content key needs that ep
     "does not match its committed epoch id",
   );
 });
+
+test("an ancestor rotation still lets a pinned descendant be opened", async () => {
+  // The root rotates to epoch 2 while the child stays pinned to root epoch 1
+  // through its parent wrap — the state a lazy rekey has not caught up with
+  // yet. Opening the child needs the root's HISTORICAL KEK, which now comes
+  // from the sealed keyring rather than a predecessor chain. If a
+  // keyring-recovered key could not satisfy a parent wrap, this descendant
+  // would be permanently unreachable: a cold client could neither read it nor
+  // mint the rekey that would move it forward.
+  const rotated = await rotateRootKekKeyringFixture();
+  const projection: ContainerWriterProjectionResponse = {
+    ...rotated.fixture.projection,
+    containerId: rotated.successor.containerId,
+    containerKeks: [rotated.successor, rotated.childKek],
+  };
+
+  const collected = await collectContainerKeksForDocumentSync({
+    writerProjection: writerProjectionFor([projection]),
+    secretKey: rotated.fixture.secretKey,
+    trustedLocalProjection: true,
+  });
+
+  // The child's own epoch is recovered, which is only possible by unwrapping
+  // its parent wrap under the root's keyring-recovered epoch-1 key.
+  expect(
+    collected.keksByEpochId.has(rotated.childKek.containerKeyEpochId),
+  ).toBe(true);
+  expect(collected.keksByEpochId.has(rotated.predecessorEpochId)).toBe(true);
+});

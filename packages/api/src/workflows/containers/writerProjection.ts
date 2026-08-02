@@ -75,7 +75,10 @@ async function resolveContainerProjectionWithAccess(input: {
   // retained historical KEK without a chain walk. Descendants are verified
   // against their parent's CURRENT epoch (lazy rekey must materialize a
   // post-change descendant epoch before writes), so no historical parent
-  // epoch record is ever part of a served path.
+  // epoch RECORD is ever part of a served path — but the historical parent
+  // KEY still is, via the keyring, and a descendant pinned to a pre-rotation
+  // parent epoch is opened with it. That is what keeps a lazy rekey
+  // performable instead of stranding the subtree.
   const containerKeks: ContainerWriterProjectionResponse["containerKeks"] = [];
   for (const index of access.verifiedPath.keys()) {
     const kekState = containerKekStates[index];

@@ -219,9 +219,10 @@ function admitKeyringEntry(input: {
   }
   input.keksByEpochId.set(entry.containerKeyEpochId, {
     containerId: kek.containerId,
-    // Descendants are verified against their parent's CURRENT epoch, so a
-    // historical KEK never satisfies a parent wrap; it serves content-key
-    // unwrapping by epoch id alone.
+    // A keyring entry is key material plus the epoch id that commits to it —
+    // there is no epoch record, so no fingerprint. Selection falls back to the
+    // epoch id and AEAD authenticates; the commitment check above is what
+    // makes the material itself trustworthy.
     keyEpochHash: null,
     keyMaterial: entry.keyMaterial,
   });

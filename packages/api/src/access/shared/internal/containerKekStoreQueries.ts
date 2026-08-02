@@ -107,6 +107,12 @@ async function selectQuotaLimitedWrapIds(
         row_number() over (
           partition by ${containerKeyWraps.containerKeyEpochId}
           order by
+            -- The requester's OWN envelope ranks first, always. Ordering by
+            -- kind alone sorts 'user' last of the four, so a wide epoch would
+            -- spend the quota on group/organization/container wraps and drop
+            -- the one envelope that needs no principal-policy state to open —
+            -- reporting a recoverable epoch as unreachable.
+            case when ${containerKeyWraps.recipientKind} = 'user' then 0 else 1 end,
             ${containerKeyWraps.recipientKind},
             ${containerKeyWraps.recipientId},
             ${containerKeyWraps.recipientKeyEpochId}

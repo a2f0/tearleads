@@ -102,23 +102,24 @@ async function unwrapContainerKekFromParentWrap(input: {
     return null;
   }
 
-  if (parentKek.keyEpochHash === null) {
-    // Keyring-recovered historical KEKs carry no epoch record hash, so they
-    // can never satisfy a parent wrap. That is consistent by construction:
-    // `assertContainerKeyEpochParentBinding` requires a child to pin its
-    // parent's CURRENT epoch, so a projection pinning a pre-rotation parent
-    // is rejected during verification and never reaches this walk. A
-    // descendant left behind by an ancestor rotation is recovered by lazy
-    // rekey — materializing a post-rotation epoch — not by reading the
-    // parent's history.
-    return null;
-  }
+  // The epoch-record fingerprint is a SELECTOR for picking the right envelope
+  // among several, not the security boundary — the AEAD tag below is what
+  // authenticates the parent key. Keyring-recovered historical KEKs carry no
+  // epoch record (only the material and the epoch id that commits to it), so
+  // for those the epoch id alone selects and decryption authenticates.
+  //
+  // Without this, an ancestor rotation would strand every descendant still
+  // pinned to the predecessor epoch: opening the descendant requires the
+  // parent's historical KEK, and that is exactly the key a lazy rekey needs in
+  // order to materialize a post-rotation epoch. A cold client would have no
+  // way back in.
   const parentWrap = input.wraps.find(
     (wrap) =>
       wrap.recipientKind === "container" &&
       wrap.recipientId === parentKek.containerId &&
       wrap.recipientKeyEpochId === input.parentContainerKeyEpochId &&
-      wrap.recipientKeyFingerprint === parentKek.keyEpochHash,
+      (parentKek.keyEpochHash === null ||
+        wrap.recipientKeyFingerprint === parentKek.keyEpochHash),
   );
   if (!parentWrap) {
     return null;
