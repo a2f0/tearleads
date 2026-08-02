@@ -60,66 +60,57 @@ async function keyFromBridge(input: {
 }
 
 /**
- * Opens every served keyring the caller already holds a key for and records
- * the epochs it seals. The server serves at most one keyring per request, so
- * this is normally a single decrypt; a repair that pages the log can supply
- * several across calls.
+ * Harvests one epoch's served keyring, given that epoch's key, recording every
+ * epoch it seals. This is the rung of the recovery ladder that crosses MORE
+ * THAN ONE severed bridge: the bridge walk can only step over a gap it holds
+ * an anchor for, while a keyring supplies the entire history beneath its epoch
+ * in a single decrypt.
  *
- * A keyring is only opened under a key whose epoch it belongs to — the current
- * KEK for the head epoch, or a wrap-recovered anchor for a historical one —
- * and each recovered entry must match the material-id commitment carried by
- * the epoch id it claims. Anything that fails is skipped in silence: this is a
- * best-effort accelerator, and the bridge walk that follows remains the
+ * It is called for each epoch as that epoch BECOMES reachable — from the
+ * current key at the head, from a caller-supplied anchor, or from a key the
+ * bridge walk itself just recovered — because a keyring sitting below an
+ * intact prefix is only openable once the walk has descended to it. A one-shot
+ * pre-pass would miss exactly those.
+ *
+ * Each recovered entry must match the material-id commitment carried by the
+ * epoch id it claims, so a forged keyring contributes nothing. Failures are
+ * silent: this accelerates recovery, and the bridge walk remains the
  * correctness-bearing path.
  */
-async function seedFromServedKeyrings(input: {
-  anchors: ReadonlyMap<string, Uint8Array>;
+async function harvestServedKeyring(input: {
   containerId: string;
-  currentContainerKey: Uint8Array;
-  currentContainerKeyEpochId: string;
-  epochs: readonly ContainerKekLogEpochResponse[];
+  epoch: ContainerKekLogEpochResponse;
+  epochById: ReadonlyMap<string, ContainerKekLogEpochResponse>;
+  epochKey: Uint8Array;
   recovered: Map<string, Uint8Array>;
 }): Promise<void> {
-  const epochById = new Map(
-    input.epochs.map((epoch) => [epoch.containerKeyEpochId, epoch]),
-  );
+  if (input.epoch.keyring === null) {
+    return;
+  }
 
-  for (const epoch of input.epochs) {
-    if (epoch.keyring === null) {
+  let entries: ContainerKekKeyringEntry[];
+  try {
+    entries = await openContainerKekKeyring({
+      keyEpoch: input.epoch.containerKeyEpoch,
+      keyring: normalizeContainerKekKeyring(input.epoch.keyring),
+      successorContainerKey: input.epochKey,
+    });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    const sealed = input.epochById.get(entry.containerKeyEpochId);
+    if (!sealed || input.recovered.has(entry.containerKeyEpochId)) {
       continue;
     }
-    const sealingKey =
-      epoch.containerKeyEpochId === input.currentContainerKeyEpochId
-        ? input.currentContainerKey
-        : input.anchors.get(epoch.containerKeyEpochId);
-    if (!sealingKey) {
-      continue;
-    }
-
-    let entries: ContainerKekKeyringEntry[];
-    try {
-      entries = await openContainerKekKeyring({
-        keyEpoch: epoch.containerKeyEpoch,
-        keyring: normalizeContainerKekKeyring(epoch.keyring),
-        successorContainerKey: sealingKey,
-      });
-    } catch {
-      continue;
-    }
-
-    for (const entry of entries) {
-      const sealed = epochById.get(entry.containerKeyEpochId);
-      if (!sealed || input.recovered.has(entry.containerKeyEpochId)) {
-        continue;
-      }
-      const materialId = await computeContainerKekMaterialId({
-        containerId: input.containerId,
-        keyEpoch: sealed.containerKeyEpoch,
-        keyMaterial: entry.keyMaterial,
-      });
-      if (materialId === entry.containerKeyEpochId) {
-        input.recovered.set(entry.containerKeyEpochId, entry.keyMaterial);
-      }
+    const materialId = await computeContainerKekMaterialId({
+      containerId: input.containerId,
+      keyEpoch: sealed.containerKeyEpoch,
+      keyMaterial: entry.keyMaterial,
+    });
+    if (materialId === entry.containerKeyEpochId) {
+      input.recovered.set(entry.containerKeyEpochId, entry.keyMaterial);
     }
   }
 }
@@ -195,20 +186,9 @@ export async function rebuildKeyringEntriesFromLog(input: {
   const missingEpochIds: string[] = [];
   let successorKey: Uint8Array | null = input.currentContainerKey;
 
-  // Rung one of the ladder: a served keyring recovers every epoch beneath it
-  // in a single decrypt. That is what lets a rebuild cross MORE THAN ONE
-  // severed bridge — the bridge walk below can only step over a gap it has an
-  // anchor for, while a keyring held at any reachable epoch supplies the whole
-  // history under it at once. Entries are verified against their material-id
-  // commitments before use, so a forged keyring contributes nothing.
-  await seedFromServedKeyrings({
-    anchors,
-    containerId: input.containerId,
-    currentContainerKey: input.currentContainerKey,
-    currentContainerKeyEpochId: input.currentContainerKeyEpochId,
-    epochs,
-    recovered,
-  });
+  const epochById = new Map(
+    epochs.map((epoch) => [epoch.containerKeyEpochId, epoch]),
+  );
 
   for (let index = epochs.length - 1; index >= 1; index -= 1) {
     const epoch = epochs[index];
@@ -221,17 +201,36 @@ export async function rebuildKeyringEntriesFromLog(input: {
       throw new Error("Container KEK log is not contiguous");
     }
 
+    // Harvest this epoch's keyring the moment the epoch is reachable — from
+    // the current key at the head, an anchor, or a key the walk just
+    // recovered. Doing it here rather than in a pre-pass is what lets a
+    // keyring BELOW an intact prefix repair severed bridges under itself.
+    const epochKey: Uint8Array | null =
+      successorKey ??
+      recovered.get(epoch.containerKeyEpochId) ??
+      anchors.get(epoch.containerKeyEpochId) ??
+      null;
+    if (epochKey) {
+      await harvestServedKeyring({
+        containerId: input.containerId,
+        epoch,
+        epochById,
+        epochKey,
+        recovered,
+      });
+    }
+
     // Severed, poisoned, or lying links all degrade to "no key from the
     // bridge"; the walk then picks back up from a wrap-recovered anchor if
     // the caller supplied one, so only truly unreachable epochs are lost.
     let predecessorKey: Uint8Array | null =
-      successorKey === null
+      epochKey === null
         ? null
         : await keyFromBridge({
             containerId: input.containerId,
             epoch,
             predecessor,
-            successorKey,
+            successorKey: epochKey,
           });
     predecessorKey ??= recovered.get(predecessor.containerKeyEpochId) ?? null;
     predecessorKey ??= anchors.get(predecessor.containerKeyEpochId) ?? null;

@@ -86,3 +86,16 @@ export const MAX_INLINE_CONTAINER_REKEYS = 16;
  * are retained — where only the newest is normally needed.
  */
 export const CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT = 8;
+
+/**
+ * Maximum authorized principals a single kek-log read may scope wraps to. The
+ * per-recipient quota bounds how much each recipient partition returns but not
+ * how many partitions there are, and a requester's principal set has no
+ * intrinsic ceiling — so without this a wide membership would grow the query's
+ * bind parameters and the response together.
+ *
+ * The requester's direct user envelope and their parent-container envelopes are
+ * scoped outside this cap. Those are the anchors openable without any
+ * principal-policy state, so the bound never costs the most recoverable one.
+ */
+export const CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT = 64;

@@ -4,7 +4,10 @@ import {
   containerKeyWraps,
 } from "@tearleads/api-shared/schema";
 import type { ContainerKekKeyring } from "@tearleads/crypto";
-import { CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT } from "@tearleads/validators/util";
+import {
+  CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,
+  CONTAINER_KEK_WRAPS_PER_RECIPIENT_LIMIT,
+} from "@tearleads/validators/util";
 import type { SQL } from "drizzle-orm";
 import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import type {
@@ -188,12 +191,22 @@ export async function listContainerKeyWrapsByEpochId(
         ),
         // (kind, id) identity: a group and an organization may share an id,
         // and only the exact principal that authorizes this requester counts.
-        ...recipientScope.authorizedPrincipals.map((principal) =>
-          and(
-            eq(containerKeyWraps.recipientKind, principal.principalType),
-            eq(containerKeyWraps.recipientId, principal.principalId),
+        //
+        // Bounded because a requester's principal set has no intrinsic ceiling:
+        // one clause per principal would grow the statement — and its bind
+        // parameters — without limit, and the per-recipient quota below bounds
+        // only what each partition returns, not how many partitions exist. The
+        // direct-user and parent-container clauses sit outside this cap, so
+        // the anchors that need no principal-policy state are never the ones
+        // dropped.
+        ...recipientScope.authorizedPrincipals
+          .slice(0, CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT)
+          .map((principal) =>
+            and(
+              eq(containerKeyWraps.recipientKind, principal.principalType),
+              eq(containerKeyWraps.recipientId, principal.principalId),
+            ),
           ),
-        ),
       )
     : undefined;
 
