@@ -82,7 +82,6 @@ const GRANT_EVENT_TYPES: ReadonlySet<string> = new Set([
   "INITIAL_PURCHASE",
   "RENEWAL",
   "UNCANCELLATION",
-  "PRODUCT_CHANGE",
   "NON_RENEWING_PURCHASE",
   "SUBSCRIPTION_EXTENDED",
   "TEMPORARY_ENTITLEMENT_GRANT",
@@ -98,6 +97,35 @@ const BOUND_TIER_REUSE_EVENT_TYPES: ReadonlySet<string> = new Set([
 
 export const BOUND_REVENUECAT_TIER_REQUIRED_REASON =
   "Lifecycle grant requires the organization's bound RevenueCat tier";
+
+/** PRODUCT_CHANGE announces a requested change; a later store event makes it effective. */
+export const BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON =
+  "Product change requires the organization's bound RevenueCat subscription";
+
+/** Non-native plan changes are authoritative in their own billing provider. */
+export const NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON =
+  "Non-native product changes are managed by their billing provider";
+
+/** Unknown store values cannot safely authorize native plan changes. */
+export const UNKNOWN_REVENUECAT_PRODUCT_CHANGE_STORE_REASON =
+  "Product change store is not a recognized native store";
+
+/** Immediate Play changes omit a destination and are settled by INITIAL_PURCHASE. */
+export const PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON =
+  "Google Play product change has no deferred destination";
+
+/** An App Store change without a destination cannot identify the new tier. */
+export const APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON =
+  "App Store product change has no destination";
+
+/** Product id stored in the durable event row for pending-plan read models. */
+export function resolveRevenueCatRecordedProductId(
+  event: RevenueCatWebhookEvent,
+): string | null {
+  return event.type === "PRODUCT_CHANGE"
+    ? (event.new_product_id ?? null)
+    : (event.product_id ?? null);
+}
 
 export function isRevenueCatGrantEventType(type: string): boolean {
   return GRANT_EVENT_TYPES.has(type);
@@ -135,6 +163,10 @@ interface RevenueCatRevokeFields {
   purgeAfter: Date;
 }
 
+interface RevenueCatScheduleFields {
+  status: OrganizationBillingStatus;
+}
+
 /**
  * The billing effect a RevenueCat event has on an organization, computed purely
  * from the event. `grant`/`revoke` carry the exact `organization_billing`
@@ -143,6 +175,7 @@ interface RevenueCatRevokeFields {
  */
 export type RevenueCatBillingTransition =
   | { kind: "grant"; fields: RevenueCatGrantFields }
+  | { kind: "schedule"; fields: RevenueCatScheduleFields }
   | { kind: "revoke"; fields: RevenueCatRevokeFields }
   | { kind: "ignore"; reason: string };
 
@@ -290,9 +323,7 @@ function resolveGrantedProductId(
   event: RevenueCatWebhookEvent,
   boundNativeProductId?: string,
 ): string | null {
-  return event.type === "PRODUCT_CHANGE"
-    ? (event.new_product_id ?? null)
-    : (event.product_id ?? boundNativeProductId ?? null);
+  return event.product_id ?? boundNativeProductId ?? null;
 }
 
 interface RevenueCatClassificationOptions {
@@ -399,6 +430,18 @@ export function classifyRevenueCatEvent(
 ): RevenueCatBillingTransition {
   if (isGuardedSandboxEvent(event) && options.allowSandboxEvents !== true) {
     return { kind: "ignore", reason: SANDBOX_IGNORED_REASON };
+  }
+
+  // RevenueCat documents PRODUCT_CHANGE as informational: it can describe an
+  // immediate upgrade or a deferred downgrade, but it is not proof that the
+  // destination product is effective. The database-aware workflow validates
+  // it against the currently bound native subscription and records it as a
+  // pending change; INITIAL_PURCHASE (Play) or RENEWAL (Apple) applies it.
+  if (event.type === "PRODUCT_CHANGE") {
+    return {
+      kind: "ignore",
+      reason: BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,
+    };
   }
 
   if (isRevenueCatGrantEventType(event.type)) {

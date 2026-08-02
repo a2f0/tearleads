@@ -7,12 +7,21 @@ import {
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import {
+  APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
+  BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,
   BOUND_REVENUECAT_TIER_REQUIRED_REASON,
   classifyRevenueCatEvent,
+  NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
+  PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
   type RevenueCatBillingTransition,
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
+  UNKNOWN_REVENUECAT_PRODUCT_CHANGE_STORE_REASON,
 } from "../../billing/revenuecatWebhook";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
+import {
+  isNativeRevenueCatStore,
+  isRecognizedNativeRevenueCatStore,
+} from "./revenuecatBuyerPolicy";
 import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
 
 type RevenueCatGrantCapacityDisposition =
@@ -21,9 +30,9 @@ type RevenueCatGrantCapacityDisposition =
 
 const STRIPE_GRANT_EXCEEDS_CAPACITY_REASON =
   "Stripe subscription cannot cover more than 10 active members";
-export const DEFERRED_NATIVE_DOWNGRADE_REASON =
-  "Native subscription downgrade is deferred until renewal";
 const PROMOTIONAL_PRODUCT_PREFIX = "promotional:";
+export const PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON =
+  "Product change does not match a bound native subscription";
 
 function resolveBoundNativeProduct(productId: string): {
   readonly isPromotional: boolean;
@@ -76,8 +85,72 @@ function classifyBoundLifecycleGrant(input: {
     : classified;
 }
 
-/** Resolves a product-less lifecycle grant only from its locked customer tier. */
-export function resolveBoundRevenueCatGrantTransition(input: {
+function classifyBoundProductChange(input: {
+  readonly billing: LockedBillingIdentity | undefined;
+  readonly event: RevenueCatWebhookEvent;
+}): RevenueCatBillingTransition {
+  if (!isNativeRevenueCatStore(input.event.store)) {
+    return {
+      kind: "ignore",
+      reason: NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
+    };
+  }
+  if (!isRecognizedNativeRevenueCatStore(input.event.store)) {
+    return {
+      kind: "ignore",
+      reason: UNKNOWN_REVENUECAT_PRODUCT_CHANGE_STORE_REASON,
+    };
+  }
+  const currentTier = getSyncBillingTierForNativeProduct(
+    input.billing?.provider === "revenuecat" &&
+      input.billing.providerCustomerId === input.event.app_user_id
+      ? input.billing.providerProductId
+      : null,
+  );
+  const sourceTier = getSyncBillingTierForNativeProduct(input.event.product_id);
+  // Play issues a replacement purchase token for a plan change, and chained
+  // changes may name the already-scheduled tier. Bind to buyer + configured
+  // current/source tiers rather than treating one transaction id as stable.
+  if (
+    !input.billing ||
+    !currentTier ||
+    !sourceTier ||
+    input.billing.seatCount !== currentTier.seatLimit
+  ) {
+    return {
+      kind: "ignore",
+      reason: PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON,
+    };
+  }
+  if (
+    input.event.store?.toUpperCase() === "PLAY_STORE" &&
+    !input.event.new_product_id
+  ) {
+    return {
+      kind: "ignore",
+      reason: PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
+    };
+  }
+  if (
+    input.event.store?.toUpperCase() === "APP_STORE" &&
+    !input.event.new_product_id
+  ) {
+    return {
+      kind: "ignore",
+      reason: APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
+    };
+  }
+  const destinationTier = getSyncBillingTierForNativeProduct(
+    input.event.new_product_id,
+  );
+  if (!destinationTier) {
+    return { kind: "ignore", reason: UNCONFIGURED_SYNC_BILLING_TIER_REASON };
+  }
+  return { kind: "schedule", fields: { status: input.billing.status } };
+}
+
+/** Resolves transitions that require the organization's locked provider state. */
+export function resolveBoundRevenueCatTransition(input: {
   readonly allowSandboxEvents: boolean;
   readonly billing: LockedBillingIdentity | undefined;
   readonly event: RevenueCatWebhookEvent;
@@ -85,6 +158,12 @@ export function resolveBoundRevenueCatGrantTransition(input: {
   readonly transition: RevenueCatBillingTransition;
 }): RevenueCatBillingTransition {
   let transition = input.transition;
+  if (
+    transition.kind === "ignore" &&
+    transition.reason === BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON
+  ) {
+    return classifyBoundProductChange(input);
+  }
   if (
     transition.kind === "ignore" &&
     transition.reason === BOUND_REVENUECAT_TIER_REQUIRED_REASON
@@ -96,23 +175,7 @@ export function resolveBoundRevenueCatGrantTransition(input: {
       now: input.now,
     });
   }
-  if (input.event.type !== "PRODUCT_CHANGE" || transition.kind !== "grant") {
-    return transition;
-  }
-  const currentTier = getSyncBillingTierForNativeProduct(
-    input.billing?.provider === "revenuecat" &&
-      input.billing.providerCustomerId === input.event.app_user_id
-      ? input.billing.providerProductId
-      : null,
-  );
-  const destinationTier = getSyncBillingTierForNativeProduct(
-    transition.fields.providerProductId,
-  );
-  return currentTier &&
-    destinationTier &&
-    destinationTier.seatLimit < currentTier.seatLimit
-    ? { kind: "ignore", reason: DEFERRED_NATIVE_DOWNGRADE_REASON }
-    : transition;
+  return transition;
 }
 
 /**

@@ -110,6 +110,7 @@ describe("organization billing lifecycle", () => {
           purgeAfter: null,
         },
         1,
+        null,
       ),
     ).toEqual({
       organizationId: "org-1",
@@ -120,6 +121,7 @@ describe("organization billing lifecycle", () => {
       currentPeriodStartsAt: null,
       currentPeriodEndsAt: null,
       seatCount: 1,
+      pendingSeatCount: null,
       disabledAt: null,
       purgeAfter: null,
     });

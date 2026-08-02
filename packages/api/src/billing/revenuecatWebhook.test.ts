@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "./organizationBilling";
 import {
+  BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,
   classifyRevenueCatEvent,
   readRevenueCatWebhookAuthToken,
   resolveOrganizationIdFromEvent,
@@ -81,7 +82,7 @@ test("a Stripe grant takes capacity from its immutable subscription binding", ()
   }
 });
 
-test("a native product change grants the newly purchased tier", () => {
+test("a native product change waits for the effective store event", () => {
   const transition = classifyRevenueCatEvent(
     makeEvent({
       new_product_id: "sync_team_5_monthly",
@@ -92,11 +93,10 @@ test("a native product change grants the newly purchased tier", () => {
     ACTIVE_GRANT_NOW,
   );
 
-  expect(transition.kind).toBe("grant");
-  if (transition.kind === "grant") {
-    expect(transition.fields.providerProductId).toBe("sync_team_5_monthly");
-    expect(transition.fields.seatCount).toBe(5);
-  }
+  expect(transition).toEqual({
+    kind: "ignore",
+    reason: BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,
+  });
 });
 
 test("a native product change without a configured destination fails closed", () => {

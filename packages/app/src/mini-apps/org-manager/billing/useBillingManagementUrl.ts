@@ -1,6 +1,8 @@
 import type { OrganizationBillingManagementUrl } from "@tearleads/client-sdk";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { ORG_MANAGER_LABELS } from "../labels";
 
 interface ManagementUrlState {
   readonly canCancelDirectly: boolean;
@@ -97,4 +99,40 @@ export function useBillingManagementUrl(
           },
     [organizationId, state],
   );
+}
+
+function openProviderSubscriptionManagement(managementUrl: string): void {
+  window.open(managementUrl, "_blank", "noopener,noreferrer");
+}
+
+/** Opens the shell's native subscription UI, falling back to the provider URL. */
+export function useOpenSubscriptionManagement(
+  onNativeManagementClosed: () => void,
+): {
+  readonly error: string | null;
+  readonly open: (url: string) => void;
+} {
+  const { openSubscriptionManagement } = useAppHostConfig();
+  const [error, setError] = useState<string | null>(null);
+
+  const open = useCallback(
+    (managementUrl: string) => {
+      setError(null);
+      if (!openSubscriptionManagement) {
+        openProviderSubscriptionManagement(managementUrl);
+        return;
+      }
+      void openSubscriptionManagement(managementUrl).then(
+        (result) => {
+          if (result === "native-closed") onNativeManagementClosed();
+        },
+        (cause: unknown) => {
+          console.error("Failed to open subscription management:", cause);
+          setError(ORG_MANAGER_LABELS.billingManageSubscriptionFailed);
+        },
+      );
+    },
+    [onNativeManagementClosed, openSubscriptionManagement],
+  );
+  return { error, open };
 }

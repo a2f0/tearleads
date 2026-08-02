@@ -13,6 +13,7 @@ const BILLING_RESPONSE = {
   currentPeriodStartsAt: "2026-07-01T00:00:00.000Z",
   currentPeriodEndsAt: "2026-08-01T00:00:00.000Z",
   seatCount: 2,
+  pendingSeatCount: null,
   disabledAt: null,
   purgeAfter: null,
 };
@@ -30,6 +31,15 @@ test("isOrganizationBillingResponse requires a non-negative integer seat count",
   ).toBe(false);
   expect(
     isOrganizationBillingResponse({ ...BILLING_RESPONSE, seatCount: -1 }),
+  ).toBe(false);
+});
+
+test("isOrganizationBillingResponse validates a pending native tier", () => {
+  expect(
+    isOrganizationBillingResponse({ ...BILLING_RESPONSE, pendingSeatCount: 5 }),
+  ).toBe(true);
+  expect(
+    isOrganizationBillingResponse({ ...BILLING_RESPONSE, pendingSeatCount: 0 }),
   ).toBe(false);
 });
 

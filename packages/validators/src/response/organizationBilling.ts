@@ -1,5 +1,6 @@
 import { isPlainObject } from "../isPlainObject";
 import {
+  hasNullableNumberProperty,
   hasNullableStringProperty,
   hasNumberProperty,
   hasStringProperty,
@@ -34,6 +35,8 @@ export interface OrganizationBillingResponse {
   currentPeriodStartsAt: string | null;
   currentPeriodEndsAt: string | null;
   seatCount: number;
+  /** Destination native tier while the store has scheduled but not effected a change. */
+  pendingSeatCount: number | null;
   disabledAt: string | null;
   purgeAfter: string | null;
 }
@@ -80,6 +83,9 @@ export function isOrganizationBillingResponse(
     hasNullableStringProperty(value, "currentPeriodEndsAt") &&
     hasNumberProperty(value, "seatCount") &&
     isSeatCount(value.seatCount) &&
+    hasNullableNumberProperty(value, "pendingSeatCount") &&
+    (value.pendingSeatCount === null ||
+      (isSeatCount(value.pendingSeatCount) && value.pendingSeatCount > 0)) &&
     hasNullableStringProperty(value, "disabledAt") &&
     hasNullableStringProperty(value, "purgeAfter")
   );

@@ -143,6 +143,7 @@ function observeLatePurchase({
   refresh,
   scope,
   scopeRef,
+  targetSeatCount,
   trace,
   traceError,
   updateActionState,
@@ -153,6 +154,7 @@ function observeLatePurchase({
   refresh: () => Promise<void>;
   scope: BillingActionScope;
   scopeRef: BillingScopeRef;
+  targetSeatCount: number;
   trace: (line: string) => void;
   traceError: (line: string) => void;
   updateActionState: UpdateActionState;
@@ -173,6 +175,7 @@ function observeLatePurchase({
       updateActionState(scope, (current) => ({
         ...current,
         activationPending: true,
+        activationTargetSeatCount: targetSeatCount,
       }));
       void refresh();
     },
@@ -375,6 +378,7 @@ async function purchaseForOrganization({
       refresh,
       scope,
       scopeRef,
+      targetSeatCount: option.seatLimit,
       trace,
       traceError,
       updateActionState,
@@ -400,6 +404,7 @@ async function purchaseForOrganization({
     updateActionState(scope, (current) => ({
       ...current,
       activationPending: true,
+      activationTargetSeatCount: option.seatLimit,
     }));
     await refresh();
   } catch (error) {

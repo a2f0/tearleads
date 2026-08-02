@@ -31,6 +31,7 @@ function billing(
     currentPeriodStartsAt: null,
     currentPeriodEndsAt: null,
     seatCount: 0,
+    pendingSeatCount: null,
     disabledAt: null,
     purgeAfter: null,
     ...overrides,

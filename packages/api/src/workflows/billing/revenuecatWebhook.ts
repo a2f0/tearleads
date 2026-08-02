@@ -10,17 +10,19 @@ import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
+  BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,
   BOUND_REVENUECAT_TIER_REQUIRED_REASON,
   classifyRevenueCatEvent,
   isRevenueCatGrantEventType,
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
+  resolveRevenueCatRecordedProductId,
   SANDBOX_IGNORED_REASON,
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import {
-  resolveBoundRevenueCatGrantTransition,
+  resolveBoundRevenueCatTransition,
   resolveRevenueCatGrantCapacity,
 } from "./revenuecatGrantCapacity";
 import { resolveNativeStripeConflictReason } from "./revenuecatProviderConflict";
@@ -31,7 +33,7 @@ import {
   validateLockedStripeStoreOrganizationId,
 } from "./revenuecatStripeResolution";
 import { applyRevenueCatTransition } from "./revenuecatWebhookApplication";
-import { logUnappliedRevenueCatGrant } from "./revenuecatWebhookLogging";
+import { logUnappliedRevenueCatPaidEvent } from "./revenuecatWebhookLogging";
 import { resolveLifecycleOwnershipConflict } from "./revenuecatWebhookOwnership";
 import {
   isStripeEventSupersededByNative,
@@ -164,14 +166,16 @@ async function resolvePreclaimDisposition(
 ): Promise<PreclaimDisposition> {
   const billing =
     (input.transition.kind !== "ignore" ||
-      input.transition.reason === BOUND_REVENUECAT_TIER_REQUIRED_REASON) &&
+      input.transition.reason === BOUND_REVENUECAT_TIER_REQUIRED_REASON ||
+      input.transition.reason ===
+        BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON) &&
     input.organizationId !== null
       ? await lockRevenueCatBillingIdentity(
           input.executor,
           input.organizationId,
         )
       : undefined;
-  let transition = resolveBoundRevenueCatGrantTransition({
+  let transition = resolveBoundRevenueCatTransition({
     allowSandboxEvents: input.allowSandboxEvents,
     billing,
     event: input.event,
@@ -256,7 +260,7 @@ async function claimRevenueCatEvent(input: {
       eventId: input.event.id,
       eventType: input.event.type,
       appUserId: input.event.app_user_id,
-      productId: input.event.product_id ?? null,
+      productId: resolveRevenueCatRecordedProductId(input.event),
       transactionId: input.event.transaction_id ?? null,
       originalTransactionId: input.event.original_transaction_id ?? null,
       organizationId: input.organizationId,
@@ -447,6 +451,6 @@ export async function runRevenueCatWebhookWorkflow(
     if (ownershipOutcome) return ownershipOutcome;
     throw error;
   }
-  logUnappliedRevenueCatGrant(event, outcome);
+  logUnappliedRevenueCatPaidEvent(event, outcome);
   return outcome;
 }

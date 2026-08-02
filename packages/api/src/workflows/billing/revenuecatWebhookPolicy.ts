@@ -8,7 +8,7 @@ import {
   getSyncBillingTierForSeatCount,
 } from "@tearleads/validators/billing";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, ne } from "drizzle-orm";
 import {
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
@@ -65,6 +65,9 @@ async function hasNewerAppliedEvent(
       and(
         eq(revenuecatWebhookEvents.organizationId, organizationId),
         eq(revenuecatWebhookEvents.outcome, "applied"),
+        // PRODUCT_CHANGE is informational and may be timestamped after the
+        // effective store event, so it cannot make lifecycle events stale.
+        ne(revenuecatWebhookEvents.eventType, "PRODUCT_CHANGE"),
         gt(
           revenuecatWebhookEvents.eventTimestamp,
           new Date(event.event_timestamp_ms),
@@ -141,7 +144,10 @@ export async function resolveRevenueCatIgnoredReason(input: {
   if (!input.billing) {
     return "Unknown organization";
   }
-  if (input.transition.kind === "grant") {
+  if (
+    input.transition.kind === "grant" ||
+    input.transition.kind === "schedule"
+  ) {
     const buyerIgnoredReason = await resolveRevenueCatBuyerIgnoredReason({
       currentProviderCustomerId: input.billing.providerCustomerId,
       currentProviderProductId: input.billing.providerProductId,

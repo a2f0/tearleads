@@ -1,5 +1,0 @@
-# #1939 keyring flag-day: rotations must carry the sealed keyring, so the
-# inline containerRekeys request schema gains a required property. Intentional
-# breaking change on an empty server. Remove this entry the next time the
-# OpenAPI compatibility base advances past the #1939 merge commit.
-POST /documents/{documentId}/sync added the new required request property `containerRekeys/items/keyring`

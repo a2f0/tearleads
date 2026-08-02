@@ -2,7 +2,6 @@ import type {
   OrganizationBillingView,
   SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
-import { getLargestSyncBillingTier } from "@tearleads/validators/billing";
 import { type Ref, useCallback } from "react";
 import {
   MiniAppActions,
@@ -26,6 +25,7 @@ import {
   ORG_MANAGER_LABELS,
 } from "../labels";
 import "./BillingCheckout.css";
+import { BillingPlanSwitcher } from "./BillingPlanSwitcher";
 
 /** Which action is currently in flight (`subscribe:<packageId>` while purchasing). */
 export type BillingBusyAction = "trial" | "restore" | "refresh" | string;
@@ -184,81 +184,6 @@ function BillingSummary({ view }: { view: OrganizationBillingView }) {
   );
 }
 
-export function BillingPurchaseOption({
-  actionLabel,
-  disabled,
-  name,
-  onSelect,
-  priceLabel,
-}: {
-  readonly actionLabel: string;
-  readonly disabled: boolean;
-  readonly name: string;
-  readonly onSelect: () => void;
-  readonly priceLabel: string;
-}) {
-  return (
-    <MiniAppRow density="roomy" variant="framed">
-      <MiniAppRowStack>
-        <strong>{name}</strong>
-        <MiniAppRowText muted>{priceLabel}</MiniAppRowText>
-      </MiniAppRowStack>
-      <MiniAppButton disabled={disabled} onClick={onSelect}>
-        {actionLabel}
-      </MiniAppButton>
-    </MiniAppRow>
-  );
-}
-
-function BillingSubscribeList({
-  busy,
-  canSubscribe,
-  minimumSeatCount,
-  onSubscribe,
-  options,
-}: Pick<
-  BillingViewProps,
-  "busy" | "canSubscribe" | "minimumSeatCount" | "onSubscribe" | "options"
->) {
-  if (minimumSeatCount === null) {
-    return (
-      <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.loadingBilling}
-      </MiniAppStatus>
-    );
-  }
-  const eligibleOptions = options.filter(
-    (option) => option.seatLimit >= minimumSeatCount,
-  );
-  if (eligibleOptions.length === 0) {
-    const message =
-      minimumSeatCount > getLargestSyncBillingTier().seatLimit
-        ? ORG_MANAGER_LABELS.billingCheckoutOverCapacity
-        : ORG_MANAGER_LABELS.billingNoOptions;
-    return (
-      <MiniAppStatus className="org-manager-hint">{message}</MiniAppStatus>
-    );
-  }
-  return (
-    <>
-      {eligibleOptions.map((option) => (
-        <BillingPurchaseOption
-          actionLabel={
-            busy === `subscribe:${option.packageId}`
-              ? ORG_MANAGER_LABELS.billingSubscribing
-              : ORG_MANAGER_LABELS.billingSubscribe
-          }
-          disabled={busy !== null || !canSubscribe}
-          key={option.packageId}
-          name={option.title || ORG_MANAGER_LABELS.billingSubscribe}
-          onSelect={() => onSubscribe(option)}
-          priceLabel={option.priceLabel}
-        />
-      ))}
-    </>
-  );
-}
-
 function BillingManageButton({
   onManageSubscription,
   url,
@@ -280,9 +205,13 @@ function BillingManageButton({
  */
 function BillingPurchaseSection({
   checkoutHostRef,
+  currentSeatCount,
+  pendingSeatCount,
   ...props
 }: Omit<BillingViewProps, "view" | "loading" | "managementUrl"> & {
   readonly checkoutHostRef: Ref<HTMLDivElement>;
+  readonly currentSeatCount: number | null;
+  readonly pendingSeatCount: number | null;
 }) {
   if (props.purchaseSectionHidden) {
     return null;
@@ -300,12 +229,14 @@ function BillingPurchaseSection({
   }
   return (
     <>
-      <BillingSubscribeList
+      <BillingPlanSwitcher
         busy={props.busy}
-        canSubscribe={props.canSubscribe}
+        canSubscribe={props.canSubscribe && !props.activationPending}
+        currentSeatCount={currentSeatCount}
         minimumSeatCount={props.minimumSeatCount}
         onSubscribe={props.onSubscribe}
         options={props.options}
+        pendingSeatCount={pendingSeatCount}
       />
       {/* The host (and its cancel-on-detach lifecycle) exists only where the
           backend actually embeds into it. On native platforms the purchase
@@ -351,7 +282,12 @@ function BillingAdminActions({
         </MiniAppActions>
       ) : null}
 
-      <BillingPurchaseSection {...props} checkoutHostRef={checkoutHostRef} />
+      <BillingPurchaseSection
+        {...props}
+        checkoutHostRef={checkoutHostRef}
+        currentSeatCount={view.isActive ? view.seatCount : null}
+        pendingSeatCount={view.pendingSeatCount}
+      />
 
       <MiniAppActions>
         {props.restoreAvailable ? (

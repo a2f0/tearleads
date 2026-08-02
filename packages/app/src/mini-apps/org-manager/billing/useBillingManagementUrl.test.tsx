@@ -8,8 +8,10 @@ import {
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { useBillingManagementUrl } from "./useBillingManagementUrl";
-import { useOpenSubscriptionManagement } from "./useOpenSubscriptionManagement";
+import {
+  useBillingManagementUrl,
+  useOpenSubscriptionManagement,
+} from "./useBillingManagementUrl";
 
 const spies: { mockRestore: () => void }[] = [];
 const originalWindowOpen = window.open;

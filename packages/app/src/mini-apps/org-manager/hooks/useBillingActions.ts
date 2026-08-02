@@ -31,6 +31,7 @@ import {
   useNativeSubscriptionMove,
   useSubscribeAction,
 } from "../billing/useSubscribeAction";
+import { useBillingUpdateSettlement } from "./useBillingUpdateSettlement";
 
 export interface BillingActions {
   readonly purchaseAvailable: boolean;
@@ -46,14 +47,8 @@ export interface BillingActions {
   readonly subscriptionMoveOpen: boolean;
   readonly startTrial: () => void;
   readonly subscribe: (option: SyncSubscriptionOption) => void;
-  /** Dismiss the in-flight embedded checkout, if any; a no-op otherwise. */
   readonly cancelCheckout: () => void;
-  /**
-   * Marks the org as awaiting activation and starts the backoff poll. Used by
-   * the in-app checkout (issue #1654), whose payment grants the entitlement
-   * asynchronously through the provider webhook — a single refresh would
-   * usually still read the pre-purchase status.
-   */
+  /** Starts the webhook-settlement poll after an embedded checkout succeeds. */
   readonly markActivationPending: () => void;
   readonly requestSubscriptionMove: () => void;
   readonly dismissSubscriptionMove: () => void;
@@ -283,6 +278,7 @@ function useMarkActivationPending(
     updateActionState(currentScope, (current) => ({
       ...current,
       activationPending: true,
+      activationTargetSeatCount: null,
       actionError: null,
     }));
     void refresh();
@@ -299,7 +295,6 @@ interface BillingActionStateController {
 }
 
 function useBillingActionState(
-  billingCanSync: boolean,
   organizationId: string,
   userId: string | null,
 ): BillingActionStateController {
@@ -340,15 +335,6 @@ function useBillingActionState(
     };
   }, [organizationId, userId]);
 
-  useEffect(() => {
-    if (billingCanSync) {
-      updateActionState(currentScope, (current) => ({
-        ...current,
-        activationPending: false,
-      }));
-    }
-  }, [billingCanSync, currentScope, updateActionState]);
-
   return {
     actionState,
     currentScope,
@@ -362,7 +348,9 @@ function useBillingActionState(
 interface UseBillingActionsInput {
   /** Backoff schedule for post-purchase billing re-reads; injectable for tests. */
   activationPollDelaysMs?: readonly number[];
-  billingCanSync: boolean;
+  billingIsActive: boolean;
+  billingPendingSeatCount: number | null;
+  billingSeatCount: number | null;
   claimNativeSubscription: (store: NativeSubscriptionStore) => Promise<boolean>;
   /** Checkout embed host, read at purchase time; absent = full-page overlay. */
   checkoutHostRef?: RefObject<HTMLElement | null>;
@@ -375,6 +363,40 @@ interface UseBillingActionsInput {
   userId: string | null;
 }
 
+function projectBillingActions(input: {
+  readonly actionState: BillingActionState;
+  readonly actionStateMatches: boolean;
+  readonly actions: ReturnType<typeof usePurchaseActions>;
+  readonly canSubscribe: boolean;
+  readonly options: ReadonlyArray<SyncSubscriptionOption>;
+  readonly purchases: PurchasesCapability;
+  readonly subscriptionMove: ReturnType<typeof useNativeSubscriptionMove>;
+}): BillingActions {
+  return {
+    purchaseAvailable: input.purchases.isAvailable,
+    canSubscribe: input.canSubscribe,
+    embeddedCheckout: input.purchases.supportsEmbeddedCheckout === true,
+    checkoutActive: input.actionStateMatches
+      ? input.actionState.checkoutActive
+      : false,
+    options: input.options,
+    busy: input.actionStateMatches ? input.actionState.busy : null,
+    actionError: input.actionStateMatches
+      ? input.actionState.actionError
+      : null,
+    activationPending:
+      input.actionStateMatches && input.actionState.activationPending,
+    subscriptionMoveOpen: input.subscriptionMove.open,
+    startTrial: input.actions.startTrial,
+    subscribe: input.actions.subscribe,
+    cancelCheckout: input.actions.cancelCheckout,
+    markActivationPending: input.actions.markActivationPending,
+    requestSubscriptionMove: input.subscriptionMove.request,
+    dismissSubscriptionMove: input.subscriptionMove.dismiss,
+    confirmSubscriptionMove: input.subscriptionMove.confirm,
+  };
+}
+
 /**
  * Owns the billing panel's in-flight action state and orchestrates the platform
  * purchases capability (list options, identify + purchase, restore), refetching
@@ -382,7 +404,9 @@ interface UseBillingActionsInput {
  */
 export function useBillingActions({
   activationPollDelaysMs = ACTIVATION_POLL_DELAYS_MS,
-  billingCanSync,
+  billingIsActive,
+  billingPendingSeatCount,
+  billingSeatCount,
   claimNativeSubscription,
   checkoutHostRef,
   isOrgAdmin,
@@ -405,7 +429,7 @@ export function useBillingActions({
     scopeRef,
     setOptionsState,
     updateActionState,
-  } = useBillingActionState(billingCanSync, organizationId, userId);
+  } = useBillingActionState(organizationId, userId);
   const subscriptionMove = useNativeSubscriptionMove({
     claimNativeSubscription,
     currentScope,
@@ -443,34 +467,34 @@ export function useBillingActions({
     organizationId,
     userId,
   });
+  const activationSettlement = useBillingUpdateSettlement({
+    actionState,
+    actionStateMatches,
+    billingIsActive,
+    billingPendingSeatCount,
+    billingSeatCount,
+    currentScope,
+    updateActionState,
+  });
   useActivationBillingPoll(
     actionStateMatches && actionState.activationPending,
-    billingCanSync,
+    activationSettlement.settled,
     refresh,
     activationPollDelaysMs,
+    activationSettlement.expire,
   );
-
   const options =
     scopeMatchesInputs && scopeMatches(optionsState, currentScope)
       ? optionsState.options
       : [];
 
-  return {
-    purchaseAvailable: purchases.isAvailable,
+  return projectBillingActions({
+    actionState,
+    actionStateMatches,
+    actions,
     canSubscribe,
-    embeddedCheckout: purchases.supportsEmbeddedCheckout === true,
-    checkoutActive: actionStateMatches ? actionState.checkoutActive : false,
     options,
-    busy: actionStateMatches ? actionState.busy : null,
-    actionError: actionStateMatches ? actionState.actionError : null,
-    activationPending: actionStateMatches && actionState.activationPending,
-    subscriptionMoveOpen: subscriptionMove.open,
-    startTrial: actions.startTrial,
-    subscribe: actions.subscribe,
-    cancelCheckout: actions.cancelCheckout,
-    markActivationPending: actions.markActivationPending,
-    requestSubscriptionMove: subscriptionMove.request,
-    dismissSubscriptionMove: subscriptionMove.dismiss,
-    confirmSubscriptionMove: subscriptionMove.confirm,
-  };
+    purchases,
+    subscriptionMove,
+  });
 }

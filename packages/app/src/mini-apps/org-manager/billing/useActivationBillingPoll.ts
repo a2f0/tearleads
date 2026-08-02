@@ -6,9 +6,8 @@ import { useEffect } from "react";
  * webhook that flips this org's `organization_billing` row to active lands a
  * beat later — so a single post-purchase refresh usually still reports the old
  * status. We re-read a few times on this schedule until the billing snapshot
- * reports the org can sync; if it never does (e.g. the buyer is not an org
- * admin, so the webhook ignores the grant), the schedule is exhausted and the
- * "activation pending" hint remains for a manual refresh.
+ * reports an upgrade as effective or a downgrade as scheduled; if it never
+ * does, the schedule is exhausted and the caller releases the in-flight state.
  */
 export const ACTIVATION_POLL_DELAYS_MS: readonly number[] = [
   1000, 2000, 3000, 5000, 8000,
@@ -16,29 +15,38 @@ export const ACTIVATION_POLL_DELAYS_MS: readonly number[] = [
 
 /**
  * While an org's activation is pending (a purchase resolved but the server
- * billing row has not flipped to syncable yet), re-read billing on a backoff
+ * billing row has not reflected the purchase yet), re-read billing on a backoff
  * schedule so the panel reflects the purchase without a manual refresh. The
- * effect is gated on `activationPending && !billingCanSync`, so it stops the
- * moment billing reports the org can sync (which also clears the pending flag)
- * or the pending flag is reset by a scope change; the cleanup cancels any
- * scheduled refresh. `delaysMs` is injectable so tests can drive it without real
- * timers; production uses {@link ACTIVATION_POLL_DELAYS_MS}.
+ * effect stops when the expected tier is effective (or a downgrade is pending),
+ * or when the pending flag is reset by a scope change. `delaysMs` is injectable
+ * so tests can drive it without real timers; production uses
+ * {@link ACTIVATION_POLL_DELAYS_MS}.
  */
 export function useActivationBillingPoll(
   activationPending: boolean,
-  billingCanSync: boolean,
+  billingUpdateSettled: boolean,
   refresh: () => Promise<void>,
   delaysMs: readonly number[],
+  onExhausted: () => void,
 ): void {
   useEffect(() => {
-    if (!activationPending || billingCanSync) {
+    if (!activationPending || billingUpdateSettled) {
       return;
     }
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let attempt = 0;
     const scheduleNext = (): void => {
-      if (cancelled || attempt >= delaysMs.length) {
+      if (cancelled) {
+        return;
+      }
+      if (attempt >= delaysMs.length) {
+        // Let React commit state produced by the final refresh first. A
+        // successful final attempt rerenders and cancels this timer before it
+        // can report a false timeout.
+        timer = setTimeout(() => {
+          if (!cancelled) onExhausted();
+        }, 0);
         return;
       }
       const delayMs = delaysMs[attempt] ?? 0;
@@ -58,5 +66,5 @@ export function useActivationBillingPoll(
         clearTimeout(timer);
       }
     };
-  }, [activationPending, billingCanSync, refresh, delaysMs]);
+  }, [activationPending, billingUpdateSettled, refresh, delaysMs, onExhausted]);
 }

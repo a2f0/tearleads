@@ -9,7 +9,10 @@ import {
   isNativeSubscriptionMoveConflict,
   isProviderSubscriptionOwnershipConflict,
 } from "../../billing/databaseErrors";
-import type { RevenueCatBillingTransition } from "../../billing/revenuecatWebhook";
+import {
+  type RevenueCatBillingTransition,
+  resolveRevenueCatRecordedProductId,
+} from "../../billing/revenuecatWebhook";
 import type { RevenueCatWebhookOutcome } from "./revenuecatWebhookTypes";
 
 const MOVED_SUBSCRIPTION_REASON =
@@ -51,7 +54,7 @@ async function ignoreLifecycleEventForMovedSubscription(input: {
         organizationId: input.organizationId,
         originalTransactionId: input.event.original_transaction_id ?? null,
         outcome: "ignored",
-        productId: input.event.product_id ?? null,
+        productId: resolveRevenueCatRecordedProductId(input.event),
         purchasedAt:
           input.event.purchased_at_ms == null
             ? null

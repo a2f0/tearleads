@@ -10,6 +10,7 @@ import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { runGetOrganizationBillingWorkflow } from "./organizationBilling";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
 /**
@@ -292,7 +293,7 @@ test("a bound native renewal survives a buyer default-organization change", asyn
   });
 });
 
-test("a native product change applies the destination tier capacity", async () => {
+test("a native product change stays pending until its effective event", async () => {
   const { organizationId, user } = await registerOrganizationAdmin();
   const initial = appStorePurchase({
     appUserId: user.userId,
@@ -315,9 +316,13 @@ test("a native product change applies the destination tier capacity", async () =
 
   expect(outcome).toMatchObject({ organizationId, status: "applied" });
   expect(await readBillingStatus(organizationId)).toMatchObject({
-    providerProductId: "sync_team_5_monthly",
-    seatCount: 5,
+    providerProductId: "com.tearleads.sync.monthly",
+    seatCount: 1,
   });
+  expect(
+    (await runGetOrganizationBillingWorkflow(db, organizationId, user.userId))
+      .pendingSeatCount,
+  ).toBe(5);
 });
 
 test("bound lifecycle grants reuse the immutable native tier", async () => {

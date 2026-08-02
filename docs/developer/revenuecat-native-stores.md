@@ -12,9 +12,12 @@ the mobile billing panel directs custom-organization admins to web checkout.
 The billing panel expresses the split through injected capabilities rather than
 a per-platform branch: web supplies `createDirectCheckout` and hides the
 RevenueCat subscribe list; Capacitor supplies only `createPurchases` and keeps
-it for personal organizations. An active native subscription may still show
-the list for tier changes, while an active Stripe subscription never offers a
-second native purchase.
+it for personal organizations. An active native subscription shows the list as
+a plan switcher, while an active Stripe subscription never offers a second
+native purchase. The effective product is labeled **Current plan**;
+higher-capacity products are **Upgrade**, lower-capacity products are
+**Downgrade**, and a store-announced destination remains **Updating** or
+**Scheduled** until the effective lifecycle event arrives.
 
 [`capacitorPurchases.ts`](../../packages/app-capacitor/src/capacitorPurchases.ts)
 adapts `@revenuecat/purchases-capacitor` to the shared `RevenueCatBackend`. What
@@ -210,6 +213,10 @@ Before testing the real Apple purchase sheet:
    staging, at $5, $10, and $20 USD per month. Rank Team 10 at level 1, Team 5
    at level 2, and Solo at level 3 so upgrades take effect immediately and
    downgrades at renewal. Finish their localization, price, and review metadata.
+   StoreKit owns the mid-cycle economics: it immediately moves to a higher
+   service level and prorates the old subscription, while a move to a lower
+   service level stays on the paid tier until renewal. No iOS-specific
+   replacement-mode argument is needed in the purchase call.
 2. Connect that Apple app to RevenueCat, including its In-App Purchase key, and
    import the products. Attach them to the `solo`, `team_5`, and `team_10`
    packages in the current `default` offering and to the `sync` entitlement.
@@ -271,6 +278,13 @@ tier. Upgrades use `CHARGE_PRORATED_PRICE` and take effect immediately;
 downgrades use `DEFERRED` and take effect at renewal. Keep Google real-time
 developer notifications connected to RevenueCat because deferred changes rely
 on the subsequent store lifecycle events.
+
+RevenueCat's `PRODUCT_CHANGE` webhook is informational for both native stores.
+The API records a validated destination as pending but does not change paid
+capacity. Immediate Play changes omit that destination; their accompanying
+`INITIAL_PURCHASE` applies the new tier. Apple changes and deferred Play changes
+become effective through `RENEWAL`; only effective events change capacity. The
+client polls after the store sheet until the change is scheduled or effective.
 
 The Google Billing permission is contributed by the SDK's Play Billing
 dependency during manifest merging.

@@ -35,6 +35,7 @@ function props(overrides: Partial<BillingViewProps> = {}): BillingViewProps {
       isLocal: false,
       isTrialing: false,
       needsAttention: false,
+      pendingSeatCount: null,
       seatCount: 1,
       status: "active",
       trialDaysRemaining: null,

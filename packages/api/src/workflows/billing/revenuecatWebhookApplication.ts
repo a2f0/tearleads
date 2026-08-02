@@ -21,10 +21,15 @@ export async function applyRevenueCatTransition(input: {
   readonly reconcileSeats: boolean;
   readonly transition: AppliedRevenueCatTransition;
 }): Promise<RevenueCatWebhookOutcome> {
-  await input.executor
-    .update(organizationBilling)
-    .set({ ...input.transition.fields, updatedAt: input.now })
-    .where(eq(organizationBilling.organizationId, input.organizationId));
+  // PRODUCT_CHANGE is an accepted pending-state marker, not an effective
+  // entitlement mutation. Its durable audit row drives the billing read model;
+  // only the later effective store event may alter capacity or paid dates.
+  if (input.transition.kind !== "schedule") {
+    await input.executor
+      .update(organizationBilling)
+      .set({ ...input.transition.fields, updatedAt: input.now })
+      .where(eq(organizationBilling.organizationId, input.organizationId));
+  }
   if (
     input.transition.kind === "grant" &&
     isRecognizedNativeRevenueCatStore(input.event.store)

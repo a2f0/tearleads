@@ -12,6 +12,7 @@ import {
   purchaseTraceEntries,
   renderBillingActions,
 } from "../../../../test/helpers/billingActionsTestKit";
+import { ORG_MANAGER_LABELS } from "../labels";
 
 afterEach(() => cleanup());
 
@@ -130,7 +131,7 @@ test("a scope switch leaves a native purchase running", async () => {
   await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(1));
 
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     organizationId: "org-1",
     userId: "user-2",
   });
@@ -176,7 +177,7 @@ test("a scope switch during native identification emits a terminal trace", async
   act(() => result.current.subscribe(OPTION));
   await waitFor(() => expect(identify).toHaveBeenCalledTimes(2));
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     organizationId: "org-1",
     userId: "user-2",
   });
@@ -210,7 +211,7 @@ test("a scope switch cancels the in-flight embedded checkout", async () => {
   );
 
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     organizationId: "org-1",
     userId: "user-2",
   });
@@ -241,7 +242,7 @@ test("losing purchase eligibility cancels the in-flight embedded checkout", asyn
   // the checkout host inside them) unmount, so the purchase must be
   // cancelled rather than left attached to a detached element.
   rerender({
-    billingCanSync: false,
+    billingIsActive: false,
     isOrgAdmin: false,
     organizationId: "org-1",
     userId: "user-1",
@@ -388,7 +389,7 @@ test("an abandoned purchase is distinct from a cancelled checkout", async () => 
  * activation-pending and start the shared backoff poll rather than refresh
  * once and appear stuck.
  */
-test("marking activation pending flags the org and starts the poll", async () => {
+test("an exhausted activation poll releases plan actions", async () => {
   const refresh = mock(() => Promise.resolve());
   const { result } = renderBillingActions({
     purchases: createPurchases({ syncEntitlementActive: false }),
@@ -402,9 +403,12 @@ test("marking activation pending flags the org and starts the poll", async () =>
     result.current.markActivationPending();
   });
 
-  expect(result.current.activationPending).toBe(true);
   await waitFor(() =>
     expect(refresh.mock.calls.length).toBeGreaterThan(refreshesBefore),
+  );
+  await waitFor(() => expect(result.current.activationPending).toBe(false));
+  expect(result.current.actionError).toBe(
+    ORG_MANAGER_LABELS.billingActivationUnconfirmed,
   );
 });
 
