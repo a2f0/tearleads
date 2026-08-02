@@ -5,6 +5,7 @@ import type { ApiServiceRuntime } from "../runtime";
 export async function getContainerKekLog(
   runtime: ApiServiceRuntime,
   input: {
+    readonly afterKeyEpoch: number;
     readonly containerId: string;
     readonly includeKeyrings: boolean;
     readonly userId: string;

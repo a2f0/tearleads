@@ -188,16 +188,60 @@ async function openVerifiedKeyringEntries(input: {
       { cause: error },
     );
   }
+  // Per-entry material-id verification proves an entry's key matches the id
+  // it declares, but a poisoned keyring can declare a self-consistent FAKE
+  // id — fresh key, matching commitment — for an epoch the container never
+  // had. Anchor every entry the projection can name to the epoch id its
+  // signed history actually committed; anything else is a forged epoch.
+  const committedEpochIds = committedHistoricalEpochIds(kek, input.index);
   await Promise.all(
-    entries.map((entry, ordinal) =>
-      verifyContainerKekKeyringEntry({
+    entries.map(async (entry, ordinal) => {
+      await verifyContainerKekKeyringEntry({
         containerId: kek.containerId,
         entry,
         keyEpoch: ordinal + 1,
-      }),
-    ),
+      });
+      const committedId = committedEpochIds.get(ordinal + 1);
+      if (
+        committedId !== undefined &&
+        committedId !== entry.containerKeyEpochId
+      ) {
+        throw new Error(
+          `${projectionKekLabel(input.index)} keyring entry for epoch ${ordinal + 1} is not the committed epoch`,
+        );
+      }
+    }),
   );
   return entries;
+}
+
+/**
+ * Epoch ids the projection's signed material commits to, keyed by epoch
+ * number: the current epoch's own record, the historical epoch records a
+ * descendant pin makes the server ship, and the `containerKeyEpochId` each
+ * verified historical manifest state carries. These are the only epoch ids
+ * a keyring may claim for those positions.
+ */
+function committedHistoricalEpochIds(
+  kek: ProjectionKek,
+  index: number,
+): Map<number, string> {
+  const committed = new Map<number, string>([
+    [kek.containerKeyEpoch, kek.containerKeyEpochId],
+  ]);
+  for (const record of kek.historicalKeyEpochs) {
+    const existing = committed.get(record.containerKeyEpoch);
+    if (existing !== undefined && existing !== record.containerKeyEpochId) {
+      // Two records claiming one epoch number with different ids is an
+      // equivocating projection; taking either would pick a winner the
+      // signed history never chose.
+      throw new Error(
+        `${projectionKekLabel(index)} historical epochs disagree at epoch ${record.containerKeyEpoch}`,
+      );
+    }
+    committed.set(record.containerKeyEpoch, record.containerKeyEpochId);
+  }
+  return committed;
 }
 
 async function verifyHistoricalRecordCoverage(input: {

@@ -13,12 +13,42 @@ import type { ExecSql } from "../../sqlite/sqlSchema";
 import { normalizeContainerKeyWrap } from "./readers";
 
 /**
+ * Raised when the requester holds no envelope they can open for a historical
+ * epoch. Distinct from corruption: the log is intact, the caller simply is
+ * not an anchor for this epoch.
+ */
+export class HistoricalWrapUnavailableError extends Error {
+  constructor(
+    readonly containerKeyEpoch: number,
+    readonly reason: "no-addressed-envelope" | "principal-key-unreachable",
+    cause?: unknown,
+  ) {
+    super(
+      reason === "no-addressed-envelope"
+        ? `Container KEK log has no envelope addressed to this requester at epoch ${containerKeyEpoch}`
+        : `Container KEK log envelope at epoch ${containerKeyEpoch} is addressed to a principal key epoch this client cannot resolve`,
+      cause === undefined ? undefined : { cause },
+    );
+    this.name = "HistoricalWrapUnavailableError";
+  }
+}
+
+/**
  * The severed-bridge backstop: recovers one historical epoch's KEK from the
  * requester's own retained recipient envelope served in the kek-log. Wraps
  * are written by that epoch's rotator and never deleted, so this path is
  * independent of every later rotation — it works even when the bridge chain
  * above the epoch is destroyed. The recovered key is verified against the
  * epoch id's material commitment before use.
+ *
+ * Scope bound: a direct user envelope is recoverable from identity keys
+ * alone, so a pristine client anchors on it. A group- or organization-
+ * addressed envelope additionally requires the principal SECRET key for the
+ * key epoch it was addressed to, which resolves only through principal
+ * policy bundles the client can reach; after a principal key rotation a
+ * pristine client cannot reach the older ones, and this fails closed with
+ * `HistoricalWrapUnavailableError` rather than appearing to be corruption.
+ * Serving historical principal-policy states is tracked separately.
  */
 export async function recoverKeyringEntryFromWraps(input: {
   containerId: string;
@@ -42,15 +72,25 @@ export async function recoverKeyringEntryFromWraps(input: {
       wrappedKey: wrap.wrappedKey,
     }));
   if (envelopes.length === 0) {
-    throw new Error(
-      `Container KEK log has no recipient envelope for epoch ${input.epoch.containerKeyEpoch}`,
+    throw new HistoricalWrapUnavailableError(
+      input.epoch.containerKeyEpoch,
+      "no-addressed-envelope",
     );
   }
-  const keyMaterial = await unwrapKeyEnvelopesWithPrincipalPolicies({
-    envelopes,
-    execSql: input.execSql,
-    secretKey: input.secretKey,
-  });
+  let keyMaterial: Uint8Array;
+  try {
+    keyMaterial = await unwrapKeyEnvelopesWithPrincipalPolicies({
+      envelopes,
+      execSql: input.execSql,
+      secretKey: input.secretKey,
+    });
+  } catch (error) {
+    throw new HistoricalWrapUnavailableError(
+      input.epoch.containerKeyEpoch,
+      "principal-key-unreachable",
+      error,
+    );
+  }
   const expectedId = await computeContainerKekMaterialId({
     containerId: input.containerId,
     keyEpoch: input.epoch.containerKeyEpoch,
@@ -65,6 +105,48 @@ export async function recoverKeyringEntryFromWraps(input: {
     containerKeyEpochId: input.epoch.containerKeyEpochId,
     keyMaterial,
   };
+}
+
+/**
+ * Fetches the container's complete rotation log across pages. The endpoint
+ * bounds each page, so a long-lived container needs several round trips; the
+ * cursor is the last served epoch number.
+ */
+export async function fetchContainerKekLog(input: {
+  apiClient: {
+    getContainerKekLog(
+      containerId: string,
+      options?: {
+        readonly afterKeyEpoch?: number;
+        readonly includeKeyrings?: boolean;
+      },
+    ): Promise<ContainerKekLogResponse | null>;
+  };
+  containerId: string;
+  includeKeyrings?: boolean | undefined;
+}): Promise<ContainerKekLogResponse> {
+  const epochs: ContainerKekLogResponse["epochs"] = [];
+  let afterKeyEpoch = 0;
+  for (;;) {
+    const page = await input.apiClient.getContainerKekLog(input.containerId, {
+      afterKeyEpoch,
+      ...(input.includeKeyrings === undefined
+        ? {}
+        : { includeKeyrings: input.includeKeyrings }),
+    });
+    if (!page) {
+      throw new Error("Container KEK log is unavailable");
+    }
+    epochs.push(...page.epochs);
+    if (!page.hasMore) {
+      return { containerId: page.containerId, epochs, hasMore: false };
+    }
+    const lastEpoch = page.epochs.at(-1)?.containerKeyEpoch;
+    if (lastEpoch === undefined || lastEpoch <= afterKeyEpoch) {
+      throw new Error("Container KEK log page did not advance");
+    }
+    afterKeyEpoch = lastEpoch;
+  }
 }
 
 /**

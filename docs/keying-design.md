@@ -483,6 +483,14 @@ structural entry-count check. The `MAX_CONTAINER_KEY_EPOCH` write-time bound
 use, enforced when a rotation is accepted — never against existing data — so
 it can never make retained ciphertext unreadable.
 
+Every keyring entry is checked twice on the read path: against the material-id
+its ordinal commits to, and — for any epoch the projection's signed material
+names — against that committed epoch id. The second check is what stops a
+self-consistent forgery: a poisoned keyring can mint a fresh key with an id
+that commits to it, which the first check alone would accept. Rotations apply
+the same material check before re-sealing, so an honest rotator never launders
+history it did not verify.
+
 A keyring that fails verification is a hard integrity failure for the affected
 historical epochs, but it is cache poisoning, not data loss. The client
 reports the failure when an operation needs one of those epochs, retains its
@@ -498,11 +506,22 @@ The bridge log has no repair story of its own — that is why it is never
 rewritten. A bridge that fails to decrypt severs log-based recovery for the
 epochs below it, but every epoch's recipient wraps are retained forever
 (cross-epoch wraps are never deleted; this is a stated protocol invariant,
-not an implementation accident). A member present at epoch `i` can therefore
-recover `K_i` from their identity keys plus server state, written by the
-epoch-`i` rotator and untouchable by any later writer, and re-anchor a repair
-rekey from there. The only unrecoverable case is a sole-ever member destroying
-their own history. `formal/container-keying/KeyringReachability.tla` model
+not an implementation accident) and are served by the kek-log alongside the
+bridges. A member holding a **direct user** envelope at epoch `i` can
+therefore recover `K_i` from their identity keys plus server state, written by
+the epoch-`i` rotator and untouchable by any later writer, and re-anchor a
+repair rekey from there.
+
+That backstop has one documented bound. A **group- or organization-addressed**
+envelope additionally requires the principal secret key for the key epoch it
+was addressed to, which resolves only through principal-policy bundles the
+client can reach; after a principal key rotation a pristine client cannot
+reach the older ones. The client fails closed with a distinct
+`HistoricalWrapUnavailableError` (reason `principal-key-unreachable`) rather
+than reporting corruption, so the condition is diagnosable. Serving historical
+principal-policy states — which would close this case — is tracked separately
+and is out of scope for the keyring model. The only wholly unrecoverable case
+is a sole-ever member destroying their own history. `formal/container-keying/KeyringReachability.tla` model
 checks this composition: the log alone recovers everything while bridges are
 intact, severance damage is bounded to epochs below the broken link, an
 honest current keyring implies full recoverability, and retained wraps

@@ -6,6 +6,12 @@ import { getContainerKekLog } from "../../services/containers/kekLog";
 import { ContainerWriterProjectionError } from "../../services/containers/writerProjection";
 import type { ApiServiceRuntime } from "../../services/runtime";
 
+/** A malformed cursor reads as "from the beginning", never as an error. */
+function readAfterKeyEpoch(value: string | undefined): number {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
+}
+
 interface ContainerKekLogRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
@@ -23,6 +29,7 @@ export function createContainerKekLogRoute({
     try {
       return c.json<ContainerKekLogResponse>(
         await getContainerKekLog(runtime, {
+          afterKeyEpoch: readAfterKeyEpoch(c.req.query("afterKeyEpoch")),
           containerId: c.req.param("containerId"),
           includeKeyrings: c.req.query("include") === "keyrings",
           userId: session.userId,

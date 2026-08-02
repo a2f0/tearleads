@@ -1030,12 +1030,21 @@ export class ApiClient {
    */
   getContainerKekLog(
     containerId: string,
-    options: { readonly includeKeyrings?: boolean } = {},
+    options: {
+      readonly afterKeyEpoch?: number;
+      readonly includeKeyrings?: boolean;
+    } = {},
   ) {
+    const query = new URLSearchParams();
+    if (options.includeKeyrings) {
+      query.set("include", "keyrings");
+    }
+    if (options.afterKeyEpoch !== undefined) {
+      query.set("afterKeyEpoch", String(options.afterKeyEpoch));
+    }
+    const suffix = query.size > 0 ? `?${query.toString()}` : "";
     return this.request(
-      `/containers/${pathSegment(containerId)}/kek-log${
-        options.includeKeyrings ? "?include=keyrings" : ""
-      }`,
+      `/containers/${pathSegment(containerId)}/kek-log${suffix}`,
       isContainerKekLogResponse,
       "GET",
     );

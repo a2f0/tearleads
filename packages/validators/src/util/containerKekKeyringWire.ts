@@ -57,3 +57,10 @@ export function isContainerKekKeyringWireRecord(
     Reflect.get(value, "version") === 1
   );
 }
+
+/**
+ * Maximum epochs one kek-log page may serve. Recovery walks the log from the
+ * newest page backward, so the page bound — not the container's lifetime
+ * rotation count — determines a response's size.
+ */
+export const CONTAINER_KEK_LOG_PAGE_LIMIT = 256;

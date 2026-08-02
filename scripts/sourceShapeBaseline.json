@@ -50,8 +50,8 @@
       "bytes": 19220
     },
     "docs/keying-design.md": {
-      "lines": 1002,
-      "bytes": 45334
+      "lines": 1021,
+      "bytes": 46564
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 538,
@@ -78,8 +78,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1769,
-      "bytes": 56752
+      "lines": 1778,
+      "bytes": 57047
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,

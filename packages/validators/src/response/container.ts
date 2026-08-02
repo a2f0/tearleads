@@ -3,6 +3,7 @@ import { isNullableContainerSystemSlot } from "../containerSystemSlot";
 import { isPlainObject } from "../isPlainObject";
 import {
   type AccessManifestBundleWireResponse,
+  CONTAINER_KEK_LOG_PAGE_LIMIT,
   hasArrayProperty,
   hasNullableStringProperty,
   hasNumberProperty,
@@ -122,6 +123,8 @@ export interface ContainerKekLogEpochResponse {
 export interface ContainerKekLogResponse {
   containerId: string;
   epochs: ContainerKekLogEpochResponse[];
+  /** True when epochs above this page's last remain unserved. */
+  hasMore: boolean;
 }
 
 function isContainerKekLogEpochResponse(
@@ -163,7 +166,9 @@ export function isContainerKekLogResponse(
     isPlainObject(value) &&
     hasStringProperty(value, "containerId") &&
     value.containerId.length > 0 &&
+    typeof Reflect.get(value, "hasMore") === "boolean" &&
     Array.isArray(epochs) &&
+    epochs.length <= CONTAINER_KEK_LOG_PAGE_LIMIT &&
     epochs.every(isContainerKekLogEpochResponse)
   );
 }

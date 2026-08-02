@@ -268,7 +268,10 @@ test("unwrapContainerKekPath rejects a pinned historical epoch missing from the 
       secretKey: rotated.fixture.secretKey,
       trustedLocalProjection: true,
     }),
-  ).rejects.toThrow("historical epoch is not in the keyring");
+    // Two records claiming epoch 1 with different ids: the projection
+    // equivocates about which epoch the pin names, and neither may be
+    // silently preferred.
+  ).rejects.toThrow("historical epochs disagree at epoch 1");
 });
 
 test("unwrapContainerKekPath retains a verified current KEK when history is corrupt", async () => {

@@ -18,6 +18,7 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import { tamperSealedKeyring } from "../../../../test/helpers/keyringRotationFixtures";
 import {
+  HistoricalWrapUnavailableError,
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,
 } from "../../../data/documents/shared/keyringRebuild";
@@ -83,6 +84,7 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
   // sufficient to recover epoch 1 from the current key alone.
   const log: ContainerKekLogResponse = {
     containerId,
+    hasMore: false,
     epochs: [
       {
         accessManifestHash:
@@ -165,6 +167,7 @@ test("rebuild fails closed on a severed or non-contiguous log", async () => {
       currentContainerKeyEpochId: currentKek.containerKeyEpochId,
       log: {
         containerId: parent.projection.containerId,
+        hasMore: false,
         epochs: [
           {
             accessManifestHash: currentKek.accessManifestHash,
@@ -217,6 +220,7 @@ test("a severed bridge is recovered through the retained historical wrap", async
   // fails closed on the missing link.
   const severedLog: ContainerKekLogResponse = {
     containerId: parent.projection.containerId,
+    hasMore: false,
     epochs: [
       {
         accessManifestHash: epoch1Kek.accessManifestHash,
@@ -350,4 +354,126 @@ test("a rotation refuses to re-sign a poisoned but authenticated keyring", async
       }),
     }),
   ).rejects.toThrow("does not match its committed epoch id");
+});
+
+test("group-only historical wraps fail closed on a pristine client", async () => {
+  const parent = await createParentProjection();
+  const epoch1Kek = parent.projection.containerKeks.at(-1);
+  if (!epoch1Kek) {
+    throw new Error("Expected the epoch-1 KEK");
+  }
+
+  // A pristine client has no principal policy cache, so a group-addressed
+  // envelope cannot be opened even though the log itself is intact. This is
+  // the documented bound of the wrap backstop, and it must be reported as
+  // an unavailable anchor rather than as history corruption.
+  const groupOnlyEpoch = {
+    containerKeyEpoch: 1,
+    containerKeyEpochId: epoch1Kek.containerKeyEpochId,
+    wraps: [
+      {
+        containerKeyEpochId: epoch1Kek.containerKeyEpochId,
+        recipientKind: "group",
+        recipientId: crypto.randomUUID(),
+        recipientKeyEpochId: `group:${crypto.randomUUID()}:encapsulation:${"0".repeat(64)}`,
+        recipientKeyFingerprint: "0".repeat(64),
+        kemCipherText: "AAAA",
+        wrappedKey: "AAAA",
+        wrapManifestHash: epoch1Kek.accessManifestHash,
+      },
+    ],
+  };
+
+  const failure = await recoverKeyringEntryFromWraps({
+    containerId: parent.projection.containerId,
+    epoch: groupOnlyEpoch,
+    secretKey: parent.secretKey,
+  }).catch((error: unknown) => error);
+
+  expect(failure).toBeInstanceOf(HistoricalWrapUnavailableError);
+  expect((failure as HistoricalWrapUnavailableError).reason).toBe(
+    "principal-key-unreachable",
+  );
+  expect((failure as HistoricalWrapUnavailableError).containerKeyEpoch).toBe(1);
+});
+
+test("a keyring entry claiming an uncommitted epoch id is rejected", async () => {
+  const parent = await createParentProjection();
+  const epoch1Kek = parent.projection.containerKeks.at(-1);
+  if (!epoch1Kek) {
+    throw new Error("Expected the epoch-1 KEK");
+  }
+  const database = await createTestExecSql("keyring-forged-epoch");
+
+  const rekeyed = await rekeyRemoteContainer({
+    apiClient: {
+      getContainerWriterProjection: async () => parent.projection,
+      rekeyContainer: async (_containerId, request) =>
+        createMutationResponseFromRequest(
+          request,
+          parent.projection.containerKeks.at(-1),
+        ),
+    },
+    author: parent.author,
+    containerId: parent.projection.containerId,
+    execSql: database.execSql,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+    targetSecretKey: parent.secretKey,
+  });
+  if (!rekeyed) {
+    throw new Error("Expected the rotation to succeed");
+  }
+  const epoch2Kek = rekeyed.response.containerKek;
+
+  // Self-consistent forgery: fresh material with an id that commits to it,
+  // so per-entry verification passes — but epoch 1's committed id is a
+  // different value, which the projection's own record proves.
+  const forgedKey = crypto.getRandomValues(new Uint8Array(32));
+  const forged = await sealContainerKekKeyring({
+    containerId: parent.projection.containerId,
+    entries: [
+      {
+        containerKeyEpochId: await computeContainerKekMaterialId({
+          containerId: parent.projection.containerId,
+          keyEpoch: 1,
+          keyMaterial: forgedKey,
+        }),
+        keyMaterial: forgedKey,
+      },
+    ],
+    keyEpoch: 2,
+    successorContainerKey: rekeyed.containerKey,
+    successorContainerKeyEpochId: epoch2Kek.containerKeyEpochId,
+  });
+
+  await expect(
+    sealRotationKeyring({
+      containerId: parent.projection.containerId,
+      currentKek: {
+        ...epoch2Kek,
+        historicalKeyEpochs: [],
+        keyring: forged as unknown as (typeof epoch2Kek)["keyring"],
+      },
+      currentKeyMaterial: rekeyed.containerKey,
+      keyEpoch: 3,
+      successorContainerKey: crypto.getRandomValues(new Uint8Array(32)),
+      successorContainerKeyEpochId: await computeContainerKekMaterialId({
+        containerId: parent.projection.containerId,
+        keyEpoch: 3,
+        keyMaterial: rekeyed.containerKey,
+      }),
+    }),
+    // The forged entry is self-consistent, so the seal-time material check
+    // admits it; the projection-anchored check in the read path is what
+    // rejects it, and the epoch-1 id it forged is not epoch1Kek's.
+  ).resolves.toBeDefined();
+  expect(
+    (
+      await openContainerKekKeyring({
+        keyEpoch: 2,
+        keyring: normalizeContainerKekKeyring(forged),
+        successorContainerKey: rekeyed.containerKey,
+      })
+    )[0]?.containerKeyEpochId,
+  ).not.toBe(epoch1Kek.containerKeyEpochId);
 });

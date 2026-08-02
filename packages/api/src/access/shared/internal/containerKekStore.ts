@@ -324,6 +324,42 @@ export async function listContainerKeyWraps(
   return wraps.map(toStoredContainerKeyWrap);
 }
 
+/**
+ * One query for many epochs' wraps, grouped by epoch id — the per-epoch
+ * variant would issue a statement per epoch, which grows with rotation
+ * count on history reads.
+ */
+export async function listContainerKeyWrapsByEpochId(
+  containerKeyEpochIds: readonly string[],
+  executor: DatabaseSession,
+): Promise<Map<string, StoredContainerKeyWrap[]>> {
+  const uniqueIds = [...new Set(containerKeyEpochIds)];
+  const wrapsByEpochId = new Map<string, StoredContainerKeyWrap[]>(
+    uniqueIds.map((id) => [id, []]),
+  );
+  if (uniqueIds.length === 0) {
+    return wrapsByEpochId;
+  }
+
+  const rows = await executor
+    .select()
+    .from(containerKeyWraps)
+    .where(inArray(containerKeyWraps.containerKeyEpochId, uniqueIds))
+    .orderBy(
+      asc(containerKeyWraps.containerKeyEpochId),
+      asc(containerKeyWraps.recipientKind),
+      asc(containerKeyWraps.recipientId),
+      asc(containerKeyWraps.recipientKeyEpochId),
+    );
+
+  for (const row of rows) {
+    wrapsByEpochId
+      .get(row.containerKeyEpochId)
+      ?.push(toStoredContainerKeyWrap(row));
+  }
+  return wrapsByEpochId;
+}
+
 export async function resolveStoredContainerKekState(
   input: ResolveStoredContainerKekStateInput,
   executor: DatabaseSession,

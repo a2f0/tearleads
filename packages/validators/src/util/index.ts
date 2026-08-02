@@ -9,6 +9,7 @@ export {
   isOptionalAccessManifestBundleWireArray,
 } from "./accessManifestBundle";
 export {
+  CONTAINER_KEK_LOG_PAGE_LIMIT,
   isContainerKekKeyringWireRecord,
   MAX_CONTAINER_KEY_EPOCH,
   MAX_SEALED_CONTAINER_KEK_KEYRING_BASE64_LENGTH,

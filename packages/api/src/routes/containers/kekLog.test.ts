@@ -133,6 +133,8 @@ test("GET /containers/:containerId/kek-log serves the full rotation log ascendin
       epoch.wraps.every((wrap) => wrap["recipientKind"] === "group"),
     ),
   ).toBe(true);
+  // Bounded by construction: this container fits one page.
+  expect(log.hasMore).toBe(false);
 }, 15_000);
 
 test("the kek-log bridges rebuild every predecessor key from the current KEK", async () => {
@@ -214,3 +216,47 @@ test("GET /containers/:containerId/kek-log returns 404 for unknown containers", 
   const response = await getKekLog(crypto.randomUUID(), owner.token);
   expect(response.status).toBe(404);
 });
+
+test("the kek-log pages from a cursor and reports more", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const { root, secondRekey } = await rotateRootTwice(owner);
+
+  // Walk with an explicit cursor: after epoch 1, epochs 2 and 3 remain.
+  const response = await getKekLog(
+    root.kekState.containerId,
+    owner.token,
+    "?afterKeyEpoch=1",
+  );
+  expect(response.status).toBe(200);
+  const page = (await response.json()) as ContainerKekLogResponse;
+  expect(isContainerKekLogResponse(page)).toBe(true);
+  expect(page.epochs.map((epoch) => epoch.containerKeyEpoch)).toEqual([2, 3]);
+  expect(page.hasMore).toBe(false);
+  expect(page.epochs.at(-1)?.containerKeyEpochId).toBe(
+    secondRekey.kekState.containerKeyEpochId,
+  );
+
+  // A cursor past the head serves nothing rather than erroring.
+  const emptyResponse = await getKekLog(
+    root.kekState.containerId,
+    owner.token,
+    "?afterKeyEpoch=99",
+  );
+  const emptyPage = (await emptyResponse.json()) as ContainerKekLogResponse;
+  expect(emptyPage.epochs).toEqual([]);
+  expect(emptyPage.hasMore).toBe(false);
+
+  // A malformed cursor reads as "from the beginning".
+  const malformedResponse = await getKekLog(
+    root.kekState.containerId,
+    owner.token,
+    "?afterKeyEpoch=not-a-number",
+  );
+  const malformedPage =
+    (await malformedResponse.json()) as ContainerKekLogResponse;
+  expect(malformedPage.epochs.map((epoch) => epoch.containerKeyEpoch)).toEqual([
+    1, 2, 3,
+  ]);
+}, 15_000);
