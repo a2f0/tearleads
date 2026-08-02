@@ -63,7 +63,7 @@ ML-KEM-wrapped out to users and principals.
 | Wrap container KEK to parent KEK | `tearleads.container-kek-wrap.aes-256-gcm-parent-kek` — `.../containers/shared/projection.ts` |
 | Wrap predecessor container KEK to successor KEK | `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` — `packages/crypto/src/keying/containerKekPredecessor.ts` |
 | DEK wrapping under a KEM shared secret | `packages/crypto/src/encapsulation/wrapDek.ts` |
-| Local keyring root-key wrapping (`account-root` envelope) | `packages/client-sdk/src/client/localKeyring.ts` |
+| Local keyring root-key wrapping (`account-root` envelope) | `packages/client-sdk/src/client/localKeyring/aesGcmWrapping.ts` |
 | Local identity package at rest | `packages/app/src/providers/identity/localIdentityPackageCrypto.ts` |
 | Local OPFS blob store at rest (authenticated 5 MiB chunks) | `packages/client-sdk/src/data/blobs/encryptedBlobStore.ts`, `.../encryptedBlobByteSource.ts` |
 
@@ -81,7 +81,7 @@ server-visible today, so treat that suite label as reserved, not yet applied.
 | KDF | Use | Location |
 | --- | --- | --- |
 | HKDF-SHA-256 | Identity signing/KEM seeds from BIP39 entropy | `packages/crypto/src/identitySeedPhrase.ts` |
-| HKDF-SHA-256 | Per-purpose local keys (sqlite, blob-store, identity-persistence) from the random root | `packages/client-sdk/src/client/localKeyring.ts` |
+| HKDF-SHA-256 | Per-purpose local keys (sqlite, blob-store, identity-persistence) from the random root | `packages/client-sdk/src/client/localKeyring/rootKey.ts` |
 | HKDF-SHA-256 | Per-content-record AES-GCM keys | `.../documents/shared/crypto.ts`, `.../blob/shared/blobRecordCrypto.ts` |
 | PBKDF2-SHA-256 | PIN-code wrapping key (310k iters) | `packages/client-sdk/src/client/localKeyringPinCodeSupport.ts` |
 | PBKDF2-SHA-256 | Local blob-store key from passphrase (310k iters) | `packages/client-sdk/src/data/blobs/encryptedBlobStore.ts` |
@@ -117,7 +117,7 @@ provide an additional application-managed encryption layer.
 
 | OPFS data | Protection | Location |
 | --- | --- | --- |
-| SQLite database | SQLite3MultipleCiphers with the active ChaCha20 codec; its key is the HKDF-derived `sqlite` local-keyring key | `packages/app/src/providers/db/bootSQLiteRuntime.ts`, `packages/client-sdk/src/client/localKeyring.ts` |
+| SQLite database | SQLite3MultipleCiphers with the active ChaCha20 codec; its key is the HKDF-derived `sqlite` local-keyring key | `packages/app/src/providers/db/bootSQLiteRuntime.ts`, `packages/client-sdk/src/client/localKeyring/session.ts` |
 | Blob files | Encrypted-blob-store v2: AES-256-GCM in authenticated 5 MiB chunks, with the namespace, storage key, chunk index, and serialized envelope bound as additional authenticated data | `packages/client-sdk/src/data/blobs/{encryptedBlobStore,encryptedBlobEnvelope,encryptedBlobByteSource}.ts` |
 
 Each encrypted blob has a fresh 96-bit base IV. Chunk IVs are derived from that
