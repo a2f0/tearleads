@@ -12,6 +12,7 @@ import {
   purchaseTraceEntries,
   renderBillingActions,
 } from "../../../../test/helpers/billingActionsTestKit";
+import { ORG_MANAGER_LABELS } from "../labels";
 
 afterEach(() => cleanup());
 
@@ -388,7 +389,7 @@ test("an abandoned purchase is distinct from a cancelled checkout", async () => 
  * activation-pending and start the shared backoff poll rather than refresh
  * once and appear stuck.
  */
-test("marking activation pending flags the org and starts the poll", async () => {
+test("an exhausted activation poll releases plan actions", async () => {
   const refresh = mock(() => Promise.resolve());
   const { result } = renderBillingActions({
     purchases: createPurchases({ syncEntitlementActive: false }),
@@ -402,9 +403,12 @@ test("marking activation pending flags the org and starts the poll", async () =>
     result.current.markActivationPending();
   });
 
-  expect(result.current.activationPending).toBe(true);
   await waitFor(() =>
     expect(refresh.mock.calls.length).toBeGreaterThan(refreshesBefore),
+  );
+  await waitFor(() => expect(result.current.activationPending).toBe(false));
+  expect(result.current.actionError).toBe(
+    ORG_MANAGER_LABELS.billingActivationUnconfirmed,
   );
 });
 

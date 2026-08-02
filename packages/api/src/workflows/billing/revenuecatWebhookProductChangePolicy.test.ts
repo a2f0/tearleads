@@ -10,7 +10,9 @@ import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
 const PERIOD_MS = 30 * 24 * 60 * 60 * 1_000;
 
-async function createScheduledDowngrade() {
+async function createScheduledDowngrade(input?: {
+  readonly purchasedAtMs: null;
+}) {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const now = Date.now();
@@ -21,7 +23,7 @@ async function createScheduledDowngrade() {
     id: crypto.randomUUID(),
     original_transaction_id: `scheduled_change_${crypto.randomUUID()}`,
     product_id: "sync_team_10_monthly",
-    purchased_at_ms: now,
+    purchased_at_ms: input ? input.purchasedAtMs : now,
     store: "PLAY_STORE",
     subscriber_attributes: { orgId: { value: organizationId } },
     type: "INITIAL_PURCHASE",
@@ -122,6 +124,29 @@ test("a native transfer resolves an older scheduled change", async () => {
     transactionId: "replacement_subscription",
   });
 
+  expect(
+    (await runGetOrganizationBillingWorkflow(db, organizationId, admin.userId))
+      .pendingSeatCount,
+  ).toBeNull();
+});
+
+test("a renewal resolves a schedule with no known period start", async () => {
+  const { admin, initial, now, organizationId } =
+    await createScheduledDowngrade({ purchasedAtMs: null });
+  expect(
+    (await runGetOrganizationBillingWorkflow(db, organizationId, admin.userId))
+      .pendingSeatCount,
+  ).toBe(1);
+
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      ...initial,
+      event_timestamp_ms: now + 2,
+      expiration_at_ms: now + 2 * PERIOD_MS,
+      id: crypto.randomUUID(),
+      type: "RENEWAL",
+    }),
+  ).toMatchObject({ organizationId, status: "applied" });
   expect(
     (await runGetOrganizationBillingWorkflow(db, organizationId, admin.userId))
       .pendingSeatCount,

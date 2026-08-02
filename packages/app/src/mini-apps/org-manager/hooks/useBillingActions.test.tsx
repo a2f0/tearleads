@@ -265,7 +265,7 @@ test("polls billing after a successful purchase until the tier is reflected", as
   const { result, rerender } = renderBillingActions({
     purchases,
     refresh,
-    activationPollDelaysMs: [5, 5, 5, 5],
+    activationPollDelaysMs: [50, 50, 50, 50],
   });
 
   await act(async () => {

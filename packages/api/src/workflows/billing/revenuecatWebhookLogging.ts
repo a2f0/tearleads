@@ -1,6 +1,7 @@
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import {
   isRevenueCatGrantEventType,
+  NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
   PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
   SANDBOX_IGNORED_REASON,
 } from "../../billing/revenuecatWebhook";
@@ -8,6 +9,7 @@ import {
 const ROUTINE_PAID_EVENT_IGNORE_REASONS = new Set([
   "A newer billing event has already been applied",
   "Grant event period has already expired",
+  NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON,
   PLAY_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
   SANDBOX_IGNORED_REASON,
 ]);

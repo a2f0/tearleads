@@ -196,9 +196,7 @@ test("a Stripe product change is acknowledged as provider-managed", async () => 
     expect(await runRevenueCatWebhookWorkflow(db, change)).toEqual({
       status: "duplicate",
     });
-    expect(errorSpy).toHaveBeenCalledWith(
-      `RevenueCat paid product change ${change.id} was not applied: ${NON_NATIVE_REVENUECAT_PRODUCT_CHANGE_REASON}`,
-    );
+    expect(errorSpy).not.toHaveBeenCalled();
   } finally {
     errorSpy.mockRestore();
   }

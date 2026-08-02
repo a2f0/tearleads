@@ -12,6 +12,8 @@ export const ORG_MANAGER_LABELS = {
   billing: "Billing",
   billingActivationPending:
     "Billing updates can take a moment after purchase — refresh to check.",
+  billingActivationUnconfirmed:
+    "We couldn't confirm the billing update yet. Refresh to check or try the plan again.",
   billingActive: "Active subscription",
   billingAdminOnly: "Only an organization admin can manage billing.",
   billingCancelCheckout: "Cancel checkout",

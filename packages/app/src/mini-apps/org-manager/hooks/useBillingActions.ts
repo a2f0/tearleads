@@ -467,7 +467,7 @@ export function useBillingActions({
     organizationId,
     userId,
   });
-  const activationSettled = useBillingUpdateSettlement({
+  const activationSettlement = useBillingUpdateSettlement({
     actionState,
     actionStateMatches,
     billingIsActive,
@@ -478,11 +478,11 @@ export function useBillingActions({
   });
   useActivationBillingPoll(
     actionStateMatches && actionState.activationPending,
-    activationSettled,
+    activationSettlement.settled,
     refresh,
     activationPollDelaysMs,
+    activationSettlement.expire,
   );
-
   const options =
     scopeMatchesInputs && scopeMatches(optionsState, currentScope)
       ? optionsState.options

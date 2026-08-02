@@ -19,8 +19,8 @@ import { AppHostConfigProvider } from "../../src/providers/host/AppHostConfigPro
 import { LogProvider, useLog } from "../../src/providers/logging/LogProvider";
 import { PurchasesProvider } from "../../src/providers/purchases/PurchasesProvider";
 
-/** Disables post-purchase polling by default so tests are unaffected. */
-const NO_POLL: readonly number[] = [];
+/** Suspends post-purchase polling by default so tests can drive settlement. */
+const NO_POLL: readonly number[] = [60_000];
 
 export const OPTION: SyncSubscriptionOption = {
   tierId: "solo",

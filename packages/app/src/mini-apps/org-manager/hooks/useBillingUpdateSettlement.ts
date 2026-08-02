@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import type {
   BillingActionScope,
   BillingActionState,
   UpdateActionState,
 } from "../billing/billingActionScope";
+import { ORG_MANAGER_LABELS } from "../labels";
 
 /** Clears polling once an upgrade is effective or a downgrade is scheduled. */
 export function useBillingUpdateSettlement(input: {
@@ -14,7 +15,7 @@ export function useBillingUpdateSettlement(input: {
   readonly billingSeatCount: number | null;
   readonly currentScope: BillingActionScope;
   readonly updateActionState: UpdateActionState;
-}): boolean {
+}): { readonly expire: () => void; readonly settled: boolean } {
   const {
     actionState,
     actionStateMatches,
@@ -35,6 +36,14 @@ export function useBillingUpdateSettlement(input: {
     actionState.activationPending &&
     billingIsActive &&
     (target === null || target === billingSeatCount || scheduledDowngrade);
+  const expire = useCallback(() => {
+    updateActionState(currentScope, (current) => ({
+      ...current,
+      actionError: ORG_MANAGER_LABELS.billingActivationUnconfirmed,
+      activationPending: false,
+      activationTargetSeatCount: null,
+    }));
+  }, [currentScope, updateActionState]);
   useEffect(() => {
     if (!settled) return;
     updateActionState(currentScope, (current) => ({
@@ -43,5 +52,5 @@ export function useBillingUpdateSettlement(input: {
       activationTargetSeatCount: null,
     }));
   }, [currentScope, settled, updateActionState]);
-  return settled;
+  return { expire, settled };
 }

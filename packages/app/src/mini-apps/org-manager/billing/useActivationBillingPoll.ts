@@ -7,8 +7,7 @@ import { useEffect } from "react";
  * beat later — so a single post-purchase refresh usually still reports the old
  * status. We re-read a few times on this schedule until the billing snapshot
  * reports an upgrade as effective or a downgrade as scheduled; if it never
- * does, the schedule is exhausted and the pending hint remains for a manual
- * refresh.
+ * does, the schedule is exhausted and the caller releases the in-flight state.
  */
 export const ACTIVATION_POLL_DELAYS_MS: readonly number[] = [
   1000, 2000, 3000, 5000, 8000,
@@ -28,6 +27,7 @@ export function useActivationBillingPoll(
   billingUpdateSettled: boolean,
   refresh: () => Promise<void>,
   delaysMs: readonly number[],
+  onExhausted: () => void,
 ): void {
   useEffect(() => {
     if (!activationPending || billingUpdateSettled) {
@@ -37,7 +37,11 @@ export function useActivationBillingPoll(
     let timer: ReturnType<typeof setTimeout> | undefined;
     let attempt = 0;
     const scheduleNext = (): void => {
-      if (cancelled || attempt >= delaysMs.length) {
+      if (cancelled) {
+        return;
+      }
+      if (attempt >= delaysMs.length) {
+        onExhausted();
         return;
       }
       const delayMs = delaysMs[attempt] ?? 0;
@@ -57,5 +61,5 @@ export function useActivationBillingPoll(
         clearTimeout(timer);
       }
     };
-  }, [activationPending, billingUpdateSettled, refresh, delaysMs]);
+  }, [activationPending, billingUpdateSettled, refresh, delaysMs, onExhausted]);
 }

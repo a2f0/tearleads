@@ -265,6 +265,10 @@ const PENDING_CHANGE_RESOLUTION_EVENT_TYPES = [
   "SUBSCRIPTION_PAUSED",
   "TRANSFER",
 ] as const;
+const PENDING_CHANGE_WITHOUT_PERIOD_START_RESOLUTION_EVENT_TYPES = [
+  ...PENDING_CHANGE_RESOLUTION_EVENT_TYPES,
+  "RENEWAL",
+] as const;
 
 /**
  * Latest accepted PRODUCT_CHANGE that its destination's effective event has
@@ -324,7 +328,9 @@ async function resolvePendingNativeSeatCount(
         gt(revenuecatWebhookEvents.eventTimestamp, change.occurredAt),
         inArray(
           revenuecatWebhookEvents.eventType,
-          PENDING_CHANGE_RESOLUTION_EVENT_TYPES,
+          billing.currentPeriodStartsAt === null
+            ? PENDING_CHANGE_WITHOUT_PERIOD_START_RESOLUTION_EVENT_TYPES
+            : PENDING_CHANGE_RESOLUTION_EVENT_TYPES,
         ),
       ),
     )
