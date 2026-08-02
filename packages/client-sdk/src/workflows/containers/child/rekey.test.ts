@@ -304,3 +304,44 @@ test("a severed bridge is recovered through the retained historical wrap", async
   ]);
   expect(entries[0]?.keyMaterial).toEqual(recovered.keyMaterial);
 });
+
+test("a substituted keyring is rejected at acknowledgement", async () => {
+  const parent = await createParentProjection();
+  const database = await createTestExecSql("keyring-ack-tamper");
+
+  await expect(
+    rekeyRemoteContainer({
+      apiClient: {
+        getContainerWriterProjection: async () => parent.projection,
+        rekeyContainer: async (_containerId, request) => {
+          const response = await createMutationResponseFromRequest(
+            request,
+            parent.projection.containerKeks.at(-1),
+          );
+          // A hostile server echoes a different sealed blob than the one this
+          // client's signed event committed to.
+          const served = response.containerKek.keyring;
+          if (!served) {
+            throw new Error(
+              "Expected the rotation response to carry a keyring",
+            );
+          }
+          return {
+            ...response,
+            containerKek: {
+              ...response.containerKek,
+              keyring: tamperSealedKeyring(
+                normalizeContainerKekKeyring(served),
+              ),
+            },
+          };
+        },
+      },
+      author: parent.author,
+      containerId: parent.projection.containerId,
+      execSql: database.execSql,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      targetSecretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow("keyring does not match its signed event");
+});

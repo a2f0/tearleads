@@ -11,7 +11,10 @@ import {
 } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
-import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
+import {
+  bootstrapRoot,
+  buildRootGrantRequest,
+} from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
@@ -283,13 +286,44 @@ test("the kek-log pages from a cursor and reports more", async () => {
 
 test("the kek-log discloses no other member's envelopes", async () => {
   const owner = createTestUser();
+  const second = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
-  const { root } = await rotateRootTwice(owner);
+  await registerUser(second);
+  await authenticate(second);
+  const root = await bootstrapRoot(owner);
+
+  // Grant the second user access, so the container retains a direct envelope
+  // addressed to somebody other than the requester.
+  const grantRequest = await buildRootGrantRequest({
+    previous: root.bundle,
+    previousKekState: root.kekState,
+    recipient: second,
+    signer: owner,
+  });
+  const grantResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(grantRequest),
+    },
+  );
+  expect(grantResponse.status).toBe(200);
 
   const log = (await (
     await getKekLog(root.kekState.containerId, owner.token)
   ).json()) as ContainerKekLogResponse;
+
+  // The second member's direct envelope exists but is never served.
+  expect(
+    log.epochs.some((epoch) =>
+      epoch.wraps.some((wrap) => wrap["recipientId"] === second.userId),
+    ),
+  ).toBe(false);
 
   // Every served envelope is one this requester could use as an anchor:
   // their own direct wrap, or a principal wrap whose id current readers

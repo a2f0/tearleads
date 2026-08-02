@@ -1,7 +1,10 @@
 import type { ContainerKekKeyring } from "@tearleads/crypto";
 import { computeContainerKeyEpochHash } from "@tearleads/crypto";
 import type { HistoricalContainerKeyEpochResponse } from "@tearleads/validators/response";
-import { getContainerKeyEpochById } from "../../../access/read/containerKekStore";
+import {
+  getContainerKeyEpochById,
+  getContainerKeyEpochKeyring,
+} from "../../../access/read/containerKekStore";
 import { containerKeyEpochRecord, stripContainerKeyEpoch } from "./records";
 import {
   type ContainerWriterProjectionContext,
@@ -24,8 +27,14 @@ export async function loadContainerKekKeyring(input: {
   if (!epoch) {
     throw new ContainerWriterProjectionError("Container KEK missing", 409);
   }
+  // Generic epoch lookups omit the keyring blob, so read it explicitly here —
+  // this is one of the few paths that genuinely needs it.
+  const keyring = await getContainerKeyEpochKeyring(
+    input.containerKeyEpochId,
+    input.context.executor,
+  );
   if (epoch.keyEpoch === 1) {
-    if (epoch.keyring !== null) {
+    if (keyring !== null) {
       throw new ContainerWriterProjectionError(
         "Initial container KEK epoch cannot have a keyring",
         409,
@@ -33,13 +42,13 @@ export async function loadContainerKekKeyring(input: {
     }
     return null;
   }
-  if (epoch.keyring === null) {
+  if (keyring === null) {
     throw new ContainerWriterProjectionError(
       "Container KEK keyring missing",
       409,
     );
   }
-  return epoch.keyring;
+  return keyring;
 }
 
 /**

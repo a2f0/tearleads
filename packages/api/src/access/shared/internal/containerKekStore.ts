@@ -60,6 +60,11 @@ async function ensureStoredContainerKeyEpochMatches(
   if (!storedEpoch) {
     throw new Error("Failed to load stored container key epoch");
   }
+  // Lookups omit the blob; the idempotency comparison needs it.
+  const storedKeyring = await getContainerKeyEpochKeyring(
+    keyEpoch.id,
+    executor,
+  );
 
   if (
     storedEpoch.containerId !== keyEpoch.containerId ||
@@ -73,7 +78,7 @@ async function ensureStoredContainerKeyEpochMatches(
       storedEpoch.predecessorBridge,
       predecessorBridge,
     ) ||
-    !keyringsEqual(storedEpoch.keyring, keyring)
+    !keyringsEqual(storedKeyring, keyring)
   ) {
     throw new Error("Container key epoch conflict");
   }
@@ -254,7 +259,7 @@ export async function getContainerKeyEpochById(
   executor: DatabaseSession,
 ): Promise<StoredContainerKeyEpoch | null> {
   const [keyEpoch] = await executor
-    .select()
+    .select(EPOCH_COLUMNS_WITHOUT_KEYRING)
     .from(containerKeyEpochs)
     .where(eq(containerKeyEpochs.id, containerKeyEpochId))
     .limit(1);
@@ -273,7 +278,7 @@ export async function getContainerKeyEpochsById(
   }
 
   const rows = await executor
-    .select()
+    .select(EPOCH_COLUMNS_WITHOUT_KEYRING)
     .from(containerKeyEpochs)
     .where(inArray(containerKeyEpochs.id, uniqueContainerKeyEpochIds));
 
@@ -285,7 +290,7 @@ export async function listContainerKeyEpochs(
   executor: DatabaseSession,
 ): Promise<StoredContainerKeyEpoch[]> {
   const rows = await executor
-    .select()
+    .select(EPOCH_COLUMNS_WITHOUT_KEYRING)
     .from(containerKeyEpochs)
     .where(eq(containerKeyEpochs.containerId, containerId))
     .orderBy(asc(containerKeyEpochs.keyEpoch));
@@ -298,7 +303,7 @@ export async function getCurrentContainerKeyEpoch(
   executor: DatabaseSession,
 ): Promise<StoredContainerKeyEpoch | null> {
   const [keyEpoch] = await executor
-    .select()
+    .select(EPOCH_COLUMNS_WITHOUT_KEYRING)
     .from(containerKeyEpochs)
     .where(eq(containerKeyEpochs.containerId, containerId))
     .orderBy(desc(containerKeyEpochs.keyEpoch))
@@ -323,6 +328,30 @@ export async function listContainerKeyWraps(
 
   return wraps.map(toStoredContainerKeyWrap);
 }
+
+/**
+ * Every epoch column except the sealed keyring. The keyring is O(its epoch)
+ * bytes, so hot paths — projections, target checks, current-epoch lookups —
+ * must never select it; `getContainerKeyEpochKeyring` is the sole reader.
+ */
+const EPOCH_COLUMNS_WITHOUT_KEYRING = {
+  accessManifestHash: containerKeyEpochs.accessManifestHash,
+  containerId: containerKeyEpochs.containerId,
+  createdAt: containerKeyEpochs.createdAt,
+  createdByEventHash: containerKeyEpochs.createdByEventHash,
+  createdByManifestHash: containerKeyEpochs.createdByManifestHash,
+  id: containerKeyEpochs.id,
+  keyEpoch: containerKeyEpochs.keyEpoch,
+  keyringIv: sql<null>`null`,
+  parentContainerKeyEpochId: containerKeyEpochs.parentContainerKeyEpochId,
+  predecessorBridgeIv: containerKeyEpochs.predecessorBridgeIv,
+  predecessorBridgeSuite: containerKeyEpochs.predecessorBridgeSuite,
+  predecessorBridgeVersion: containerKeyEpochs.predecessorBridgeVersion,
+  predecessorContainerKeyEpochId:
+    containerKeyEpochs.predecessorContainerKeyEpochId,
+  sealedKeyring: sql<null>`null`,
+  wrappedPredecessorKey: containerKeyEpochs.wrappedPredecessorKey,
+} as const;
 
 /** Reads one epoch's sealed keyring — the only place the blob is selected. */
 export async function getContainerKeyEpochKeyring(
@@ -360,27 +389,7 @@ export async function listContainerKeyEpochPage(
   readonly hasMore: boolean;
 }> {
   const rows = await executor
-    .select({
-      accessManifestHash: containerKeyEpochs.accessManifestHash,
-      containerId: containerKeyEpochs.containerId,
-      createdAt: containerKeyEpochs.createdAt,
-      createdByEventHash: containerKeyEpochs.createdByEventHash,
-      createdByManifestHash: containerKeyEpochs.createdByManifestHash,
-      id: containerKeyEpochs.id,
-      keyEpoch: containerKeyEpochs.keyEpoch,
-      // The keyring columns are never selected here: they are O(epoch) bytes
-      // each, so selecting a page of them would read gigabytes to serve one.
-      // getContainerKeyEpochKeyring fetches the single requested blob.
-      keyringIv: sql<null>`null`,
-      parentContainerKeyEpochId: containerKeyEpochs.parentContainerKeyEpochId,
-      predecessorBridgeIv: containerKeyEpochs.predecessorBridgeIv,
-      predecessorBridgeSuite: containerKeyEpochs.predecessorBridgeSuite,
-      predecessorBridgeVersion: containerKeyEpochs.predecessorBridgeVersion,
-      predecessorContainerKeyEpochId:
-        containerKeyEpochs.predecessorContainerKeyEpochId,
-      sealedKeyring: sql<null>`null`,
-      wrappedPredecessorKey: containerKeyEpochs.wrappedPredecessorKey,
-    })
+    .select(EPOCH_COLUMNS_WITHOUT_KEYRING)
     .from(containerKeyEpochs)
     .where(
       and(

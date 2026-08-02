@@ -25,6 +25,7 @@ import {
   containerKekStoreFixtureHash as fixtureHash,
 } from "../../../test/helpers/containerKekStoreFixtures";
 import {
+  getContainerKeyEpochKeyring,
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
   resolveStoredContainerKekState,
@@ -571,12 +572,16 @@ test("container KEK store advances a revoke rekey with its sealed keyring", asyn
   ).resolves.toMatchObject({
     id: newKeyEpochId,
     keyEpoch: 2,
-    keyring,
+    // Lookups omit the keyring blob; keyringDelivery reads it on demand.
+    keyring: null,
     predecessorBridge: {
       predecessorContainerKeyEpochId: oldKeyEpochId,
       successorContainerKeyEpochId: newKeyEpochId,
     },
   });
+  await expect(getContainerKeyEpochKeyring(newKeyEpochId, db)).resolves.toEqual(
+    keyring,
+  );
   await expect(
     verifyContainerKekState({
       containerManifest: currentManifest,

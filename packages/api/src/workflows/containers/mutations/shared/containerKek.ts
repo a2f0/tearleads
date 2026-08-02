@@ -21,7 +21,10 @@ import {
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { inArray } from "drizzle-orm";
-import { getCurrentContainerKeyEpoch } from "../../../../access/read/containerKekStore";
+import {
+  getContainerKeyEpochKeyring,
+  getCurrentContainerKeyEpoch,
+} from "../../../../access/read/containerKekStore";
 import { ContainerMutationError } from "../errors";
 import {
   readContainerKekKeyring,
@@ -205,8 +208,10 @@ async function verifyRotationArtifacts(input: {
         409,
       );
     }
+    // Epoch lookups omit the keyring blob, so re-read the stored artifact
+    // this unchanged epoch keeps.
     return {
-      keyring: currentEpoch.keyring,
+      keyring: await getContainerKeyEpochKeyring(currentEpoch.id, executor),
       predecessorBridge: currentEpoch.predecessorBridge,
     };
   }

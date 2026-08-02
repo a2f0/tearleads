@@ -6,6 +6,7 @@ import {
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
+  computeContainerKekKeyringHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   serializeKeyingCanonicalJson,
@@ -98,6 +99,35 @@ function assertResponseIdentity(
   }
 }
 
+/**
+ * The response's keyring must be the one this client's own signed event
+ * committed to. Without this a server could echo a substituted snapshot and
+ * have it acknowledged into durable local state — the acknowledgement is the
+ * moment the response becomes trusted, so the commitment is checked here.
+ */
+async function assertAcknowledgedKeyring(
+  plan: AuthoredContainerMutationHead,
+  response: ContainerMutationResponse,
+): Promise<void> {
+  const body = plan.body as { keyringHash?: unknown };
+  const committedHash =
+    typeof body.keyringHash === "string" ? body.keyringHash : null;
+  const keyring = response.containerKek.keyring;
+  if (committedHash === null) {
+    // Non-rotating mutations commit no keyring; the server may still echo the
+    // epoch's stored one, which this event says nothing about.
+    return;
+  }
+  if (!keyring) {
+    throw new Error("Container mutation response is missing its keyring");
+  }
+  if ((await computeContainerKekKeyringHash(keyring)) !== committedHash) {
+    throw new Error(
+      "Container mutation response keyring does not match its signed event",
+    );
+  }
+}
+
 async function assertResponseContent(
   plan: AuthoredContainerMutationHead,
   response: ContainerMutationResponse,
@@ -130,6 +160,7 @@ async function assertResponseContent(
     expected: plan.keyEpoch,
     label: "key epoch",
   });
+  await assertAcknowledgedKeyring(plan, response);
   assertCanonicalMatch({
     actual: sortedCanonicalValues(response.containerKek.wraps, "response wrap"),
     expected: sortedCanonicalValues(plan.wraps, "planned wrap"),

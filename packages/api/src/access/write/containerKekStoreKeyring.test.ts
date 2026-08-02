@@ -21,7 +21,10 @@ import {
   createContainerKekStoreManifestFixture as createContainerManifestFixture,
   containerKekStoreFixtureHash as fixtureHash,
 } from "../../../test/helpers/containerKekStoreFixtures";
-import { getCurrentContainerKeyEpoch } from "../read/containerKekStore";
+import {
+  getContainerKeyEpochKeyring,
+  getCurrentContainerKeyEpoch,
+} from "../read/containerKekStore";
 import { storeVerifiedContainerKekState } from "./containerKekStore";
 
 function createContainerKeyEpochFixture(
@@ -231,14 +234,19 @@ test("container KEK store persists and serves the rotation keyring", async () =>
 
   await storeRotation(fixture);
 
+  // Generic epoch lookups omit the multi-megabyte keyring blob; the
+  // dedicated accessor is the only reader.
   await expect(
     getCurrentContainerKeyEpoch(fixture.containerId, db),
   ).resolves.toMatchObject({
     id: fixture.newKeyEpochId,
     keyEpoch: 2,
-    keyring: fixture.newKeyring,
+    keyring: null,
     predecessorBridge: fixture.predecessorBridge,
   });
+  await expect(
+    getContainerKeyEpochKeyring(fixture.newKeyEpochId, db),
+  ).resolves.toEqual(fixture.newKeyring);
 });
 
 test("container KEK store rejects a predecessor fork carrying its own keyring", async () => {
