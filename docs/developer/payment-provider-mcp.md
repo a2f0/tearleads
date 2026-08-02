@@ -104,6 +104,13 @@ Official references:
   select it on each production web config. The MCP and public API do not expose
   that owner-only flow; follow RevenueCat's
   [Stripe connection guide](https://www.revenuecat.com/docs/web/connect-stripe-account).
+- RevenueCat's MCP and public API v2 do not expose the Google Play service
+  account credential field. The API rejects an extra `credentials` property on
+  Play app updates. Upload
+  `.secrets/google-play-service-account-revenue-cat.json` to every Google Play
+  app under its RevenueCat app settings, then confirm a live product store-state
+  read succeeds. Keep this credential separate from the admin key used by
+  Fastlane and store-listing tooling.
 
 ## CLI and API fallbacks
 
@@ -115,7 +122,7 @@ or CLI tooling.
 | Stripe | Stripe MCP; Stripe CLI | `.secrets/root.env` plus the tier env | Prefer OAuth for MCP. `brew install stripe-cli`; use test mode until live credentials are explicitly selected. |
 | RevenueCat | RevenueCat MCP; API v2 | `REVENUECAT_V2_SECRET_KEY` and `REVENUECAT_PROJECT_ID` | Prefer OAuth for MCP. There is no separate RevenueCat CLI requirement. |
 | Apple | App Store Connect API; `asc` CLI | `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and `.secrets/AuthKey_<id>.p8` | `brew install asc`; `asc` is community maintained, while the underlying API is Apple-supported. |
-| Google | Android Publisher API | `.secrets/google-play-service-account.json` | `gcloud` manages Cloud/API bootstrap but not the Play subscription catalog. The pinned Fastlane Google client can read and write Android Publisher resources when its Play permissions allow it. |
+| Google | Android Publisher API | `.secrets/google-play-service-account-admin.json` | `gcloud` manages Cloud/API bootstrap but not the Play subscription catalog. The pinned Fastlane Google client can read and write Android Publisher resources when its Play permissions allow it. RevenueCat uses the separate `.secrets/google-play-service-account-revenue-cat.json` credential uploaded to each Play app in its dashboard. |
 
 Configure `asc` without copying a private key into its own profile:
 

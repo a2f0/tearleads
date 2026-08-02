@@ -91,6 +91,7 @@ const fastlanePathConstantNames = [
   "IOS_DIR",
   "IOS_BUILD_IMAGES_SCRIPT",
   "NATIVE_SECRETS_DIR",
+  "GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH",
 ] as const;
 
 type FastlanePathConstantName = (typeof fastlanePathConstantNames)[number];
@@ -100,7 +101,7 @@ const fastlanePathConstantsScript = [
   'require "fastlane"',
   "Fastlane.load_actions",
   'Fastlane::FastFile.new("fastlane/Fastfile")',
-  "names = %w[ANDROID_DIR ANDROID_BUILD_IMAGES_SCRIPT IOS_PACKAGE_DIR IOS_DIR IOS_BUILD_IMAGES_SCRIPT]",
+  "names = %w[ANDROID_DIR ANDROID_BUILD_IMAGES_SCRIPT IOS_PACKAGE_DIR IOS_DIR IOS_BUILD_IMAGES_SCRIPT GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH]",
   "constants = names.to_h { |name| [name, Fastlane::FastFile.const_get(name)] }",
   'puts JSON.generate(constants.merge("NATIVE_SECRETS_DIR" => NATIVE_SECRETS_DIR))',
 ].join("; ");
@@ -160,5 +161,9 @@ test("Fastlane lane files resolve paths outside their directory", async () => {
     IOS_DIR: resolve(packageRoot, "ios"),
     IOS_BUILD_IMAGES_SCRIPT: resolve(packageRoot, "scripts/buildIosImages.sh"),
     NATIVE_SECRETS_DIR: resolve(packageRoot, "../../.secrets"),
+    GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH: resolve(
+      packageRoot,
+      "../../.secrets/google-play-service-account-admin.json",
+    ),
   });
 });
