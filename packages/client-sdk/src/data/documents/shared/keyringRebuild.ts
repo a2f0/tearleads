@@ -10,6 +10,7 @@ import type {
   ContainerKekLogEpochResponse,
   ContainerKekLogResponse,
 } from "@tearleads/validators/response";
+import { MAX_CONTAINER_KEY_EPOCH } from "@tearleads/validators/util";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { normalizeContainerKeyWrap } from "./readers";
@@ -248,7 +249,9 @@ export async function fetchContainerKekLog(input: {
 }): Promise<ContainerKekLogResponse> {
   const epochs: ContainerKekLogResponse["epochs"] = [];
   let afterKeyEpoch = 0;
-  for (;;) {
+  // A hostile server could claim `hasMore` forever with ever-advancing epoch
+  // numbers. The protocol caps lifetime rotations, so the walk is capped too.
+  while (afterKeyEpoch < MAX_CONTAINER_KEY_EPOCH) {
     const page = await input.apiClient.getContainerKekLog(input.containerId, {
       afterKeyEpoch,
       ...(input.keyringForEpoch === undefined
@@ -266,8 +269,12 @@ export async function fetchContainerKekLog(input: {
     if (lastEpoch === undefined || lastEpoch <= afterKeyEpoch) {
       throw new Error("Container KEK log page did not advance");
     }
+    if (lastEpoch > MAX_CONTAINER_KEY_EPOCH) {
+      throw new Error("Container KEK log exceeds the maximum key epoch");
+    }
     afterKeyEpoch = lastEpoch;
   }
+  throw new Error("Container KEK log exceeds the maximum key epoch");
 }
 
 /**
@@ -370,9 +377,23 @@ export async function rebuildKeyringEntriesFromLog(input: {
         predecessorKey = null;
       }
     }
-    // The bridge was severed (or its successor was itself unreachable): pick
-    // the walk back up from a wrap-recovered anchor if the caller supplied
-    // one, so only the truly unreachable epochs are lost.
+    // A bridge key is only usable if it matches the epoch id's commitment. A
+    // lying-but-AEAD-valid bridge is therefore discarded here, BEFORE the
+    // anchor fallback, so a supplied anchor still wins — checking the anchor
+    // only when the bridge is absent would let a lying link mask it.
+    if (predecessorKey !== null) {
+      const bridgedId = await computeContainerKekMaterialId({
+        containerId: input.containerId,
+        keyEpoch: predecessor.containerKeyEpoch,
+        keyMaterial: predecessorKey,
+      });
+      if (bridgedId !== predecessor.containerKeyEpochId) {
+        predecessorKey = null;
+      }
+    }
+    // Severed, poisoned, or lying: pick the walk back up from a
+    // wrap-recovered anchor if the caller supplied one, so only the truly
+    // unreachable epochs are lost.
     predecessorKey ??= anchors.get(predecessor.containerKeyEpochId) ?? null;
 
     if (predecessorKey === null) {
@@ -386,9 +407,7 @@ export async function rebuildKeyringEntriesFromLog(input: {
       keyMaterial: predecessorKey,
     });
     if (expectedId !== predecessor.containerKeyEpochId) {
-      // A bridge that decrypts to the wrong material is a lying link. It
-      // cannot be trusted onward, but the epochs below it stay recoverable
-      // from an anchor, so record the gap rather than aborting the walk.
+      // Only reachable when a supplied anchor is itself wrong.
       missingEpochIds.push(predecessor.containerKeyEpochId);
       successorKey = null;
       continue;

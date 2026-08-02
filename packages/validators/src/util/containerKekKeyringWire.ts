@@ -64,3 +64,10 @@ export function isContainerKekKeyringWireRecord(
  * rotation count — determines a response's size.
  */
 export const CONTAINER_KEK_LOG_PAGE_LIMIT = 256;
+
+/**
+ * Maximum signed container rekeys one document/blob write may carry inline.
+ * Each rotation ships a keyring, which is O(its epoch) bytes, so an unbounded
+ * batch is an unbounded request body.
+ */
+export const MAX_INLINE_CONTAINER_REKEYS = 16;

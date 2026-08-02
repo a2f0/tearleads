@@ -7,6 +7,7 @@ import {
   isOptionalAccessManifestBundleWireArray,
   isOptionalRecordArray,
   isRecordArray,
+  MAX_INLINE_CONTAINER_REKEYS,
 } from "../util";
 
 export interface ContainerMutationRequest {
@@ -109,6 +110,10 @@ export function isOptionalContainerMutationRequestArray(
 ): value is ContainerMutationRequest[] | undefined {
   return (
     value === undefined ||
-    (Array.isArray(value) && value.every(isContainerMutationRequest))
+    // Each rotation carries a keyring sized by its epoch, so the batch is
+    // bounded: an unbounded array is an unbounded request body.
+    (Array.isArray(value) &&
+      value.length <= MAX_INLINE_CONTAINER_REKEYS &&
+      value.every(isContainerMutationRequest))
   );
 }

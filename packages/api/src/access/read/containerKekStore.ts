@@ -1,10 +1,12 @@
 export {
   getContainerKeyEpochById,
-  getContainerKeyEpochKeyring,
   getCurrentContainerKeyEpoch,
-  listContainerKeyEpochPage,
   listContainerKeyEpochs,
   listContainerKeyWraps,
-  listContainerKeyWrapsByEpochId,
   resolveStoredContainerKekState,
 } from "../shared/internal/containerKekStore";
+export {
+  getContainerKeyEpochKeyring,
+  listContainerKeyEpochPage,
+  listContainerKeyWrapsByEpochId,
+} from "../shared/internal/containerKekStoreQueries";

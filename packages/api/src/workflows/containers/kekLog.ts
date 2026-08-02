@@ -90,9 +90,15 @@ export async function runContainerKekLogWorkflow(
     const requestedKeyring = requestedEpoch
       ? await getContainerKeyEpochKeyring(requestedEpoch.id, tx)
       : null;
+    // Scope applied in SQL: the page never materializes envelopes the
+    // requester could not use as an anchor.
     const wrapsByEpochId = await listContainerKeyWrapsByEpochId(
       page.map((epoch) => epoch.id),
       tx,
+      {
+        authorizedPrincipalIds: [...authorizedPrincipalIds],
+        userId: input.userId,
+      },
     );
 
     return {
@@ -108,26 +114,16 @@ export async function runContainerKekLogWorkflow(
             ? { ...requestedKeyring }
             : null,
         parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
-        wraps: (wrapsByEpochId.get(epoch.id) ?? [])
-          .filter(
-            (wrap) =>
-              wrap.recipientKind === "container" ||
-              ((wrap.recipientKind === "group" ||
-                wrap.recipientKind === "organization") &&
-                authorizedPrincipalIds.has(wrap.recipientId)) ||
-              (wrap.recipientKind === "user" &&
-                wrap.recipientId === input.userId),
-          )
-          .map((wrap) => ({
-            containerKeyEpochId: wrap.containerKeyEpochId,
-            recipientKind: wrap.recipientKind,
-            recipientId: wrap.recipientId,
-            recipientKeyEpochId: wrap.recipientKeyEpochId,
-            recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-            kemCipherText: wrap.kemCipherText,
-            wrappedKey: wrap.wrappedKey,
-            wrapManifestHash: wrap.wrapManifestHash,
-          })),
+        wraps: (wrapsByEpochId.get(epoch.id) ?? []).map((wrap) => ({
+          containerKeyEpochId: wrap.containerKeyEpochId,
+          recipientKind: wrap.recipientKind,
+          recipientId: wrap.recipientId,
+          recipientKeyEpochId: wrap.recipientKeyEpochId,
+          recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+          kemCipherText: wrap.kemCipherText,
+          wrappedKey: wrap.wrappedKey,
+          wrapManifestHash: wrap.wrapManifestHash,
+        })),
       })),
     };
   });

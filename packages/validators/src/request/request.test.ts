@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { ML_DSA87_SIGNATURE_BYTES } from "../util";
+import { MAX_INLINE_CONTAINER_REKEYS, ML_DSA87_SIGNATURE_BYTES } from "../util";
+import { isOptionalContainerMutationRequestArray } from "./container";
 import {
   isChallengeRequest,
   isCompleteMultipartBlobStageRequest,
@@ -256,4 +257,30 @@ test("isCreateOrganizationGroupRequest", () => {
     }),
   ).toBe(false);
   expect(isCreateOrganizationGroupRequest(null)).toBe(false);
+});
+
+test("containerRekeys batches are bounded", () => {
+  const rekey = {
+    event: { eventType: "container.rekey" },
+    body: { eventType: "container.rekey" },
+    expectedManifestHash: "manifest-hash",
+    manifest: { objectKind: "container" },
+    principalPolicies: [],
+    keyEpoch: { id: "epoch" },
+    predecessorBridge: null,
+    keyring: null,
+    wraps: [{ containerKeyEpochId: "epoch" }],
+  };
+  expect(
+    isOptionalContainerMutationRequestArray(
+      Array.from({ length: MAX_INLINE_CONTAINER_REKEYS }, () => rekey),
+    ),
+  ).toBe(true);
+  // Each rotation ships a keyring sized by its epoch, so an unbounded batch
+  // is an unbounded request body.
+  expect(
+    isOptionalContainerMutationRequestArray(
+      Array.from({ length: MAX_INLINE_CONTAINER_REKEYS + 1 }, () => rekey),
+    ),
+  ).toBe(false);
 });

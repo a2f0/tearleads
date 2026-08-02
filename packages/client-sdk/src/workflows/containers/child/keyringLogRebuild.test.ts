@@ -3,7 +3,11 @@ import {
   computeContainerKekMaterialId,
   createContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
-import { rebuildKeyringEntriesFromLog } from "../../../data/documents/shared/keyringRebuild";
+import { MAX_CONTAINER_KEY_EPOCH } from "@tearleads/validators/util";
+import {
+  fetchContainerKekLog,
+  rebuildKeyringEntriesFromLog,
+} from "../../../data/documents/shared/keyringRebuild";
 
 test("a severed middle bridge rebuilds both segments around the gap", async () => {
   const containerId = crypto.randomUUID();
@@ -168,4 +172,123 @@ test("a poisoned bridge is treated as severance, not a fatal error", async () =>
     keys[0]?.containerKeyEpochId as string,
   ]);
   expect(withAnchor.missingEpochIds).toEqual([]);
+});
+
+test("a lying bridge does not mask a supplied anchor", async () => {
+  const containerId = crypto.randomUUID();
+  const keys = await Promise.all(
+    [1, 2].map(async (keyEpoch) => {
+      const keyMaterial = crypto.getRandomValues(new Uint8Array(32));
+      return {
+        containerKeyEpochId: await computeContainerKekMaterialId({
+          containerId,
+          keyEpoch,
+          keyMaterial,
+        }),
+        keyEpoch,
+        keyMaterial,
+      };
+    }),
+  );
+
+  // An AEAD-VALID bridge that decrypts to the wrong material: it opens
+  // cleanly but yields a key that is not the committed epoch's. The anchor
+  // must still win, so the check has to run before the fallback.
+  const lyingKey = crypto.getRandomValues(new Uint8Array(32));
+  const lyingBridge = await createContainerKekPredecessorBridge({
+    containerId,
+    predecessorContainerKey: lyingKey,
+    predecessorContainerKeyEpochId: keys[0]?.containerKeyEpochId as string,
+    successorContainerKey: keys[1]?.keyMaterial as Uint8Array,
+    successorContainerKeyEpochId: keys[1]?.containerKeyEpochId as string,
+  });
+  const log = {
+    containerId,
+    hasMore: false,
+    epochs: [
+      {
+        accessManifestHash: "manifest-1",
+        bridge: null,
+        containerKeyEpoch: 1,
+        containerKeyEpochId: keys[0]?.containerKeyEpochId as string,
+        keyring: null,
+        parentContainerKeyEpochId: null,
+        wraps: [],
+      },
+      {
+        accessManifestHash: "manifest-2",
+        bridge: lyingBridge as unknown as Record<string, unknown>,
+        containerKeyEpoch: 2,
+        containerKeyEpochId: keys[1]?.containerKeyEpochId as string,
+        keyring: null,
+        parentContainerKeyEpochId: null,
+        wraps: [],
+      },
+    ],
+  };
+
+  const withoutAnchor = await rebuildKeyringEntriesFromLog({
+    containerId,
+    currentContainerKey: keys[1]?.keyMaterial as Uint8Array,
+    currentContainerKeyEpochId: keys[1]?.containerKeyEpochId as string,
+    log,
+  });
+  expect(withoutAnchor.entries).toEqual([]);
+  expect(withoutAnchor.missingEpochIds).toEqual([
+    keys[0]?.containerKeyEpochId as string,
+  ]);
+
+  const withAnchor = await rebuildKeyringEntriesFromLog({
+    anchorKeysByEpochId: new Map([
+      [
+        keys[0]?.containerKeyEpochId as string,
+        keys[0]?.keyMaterial as Uint8Array,
+      ],
+    ]),
+    containerId,
+    currentContainerKey: keys[1]?.keyMaterial as Uint8Array,
+    currentContainerKeyEpochId: keys[1]?.containerKeyEpochId as string,
+    log,
+  });
+  expect(withAnchor.entries.map((e) => e.containerKeyEpochId)).toEqual([
+    keys[0]?.containerKeyEpochId as string,
+  ]);
+  expect(withAnchor.entries[0]?.keyMaterial).toEqual(
+    keys[0]?.keyMaterial as Uint8Array,
+  );
+  expect(withAnchor.missingEpochIds).toEqual([]);
+});
+
+test("log paging stops at the protocol epoch ceiling", async () => {
+  const containerId = crypto.randomUUID();
+  let pages = 0;
+
+  // A hostile server that claims more forever with advancing epochs.
+  await expect(
+    fetchContainerKekLog({
+      apiClient: {
+        getContainerKekLog: async (_id, options) => {
+          pages += 1;
+          const start = (options?.afterKeyEpoch ?? 0) + 1;
+          return {
+            containerId,
+            hasMore: true,
+            epochs: [
+              {
+                accessManifestHash: "manifest",
+                bridge: null,
+                containerKeyEpoch: start,
+                containerKeyEpochId: `tearleads.container-kek.v1.sha256:${"0".repeat(64)}`,
+                keyring: null,
+                parentContainerKeyEpochId: null,
+                wraps: [],
+              },
+            ],
+          };
+        },
+      },
+      containerId,
+    }),
+  ).rejects.toThrow("exceeds the maximum key epoch");
+  expect(pages).toBeLessThanOrEqual(MAX_CONTAINER_KEY_EPOCH);
 });
