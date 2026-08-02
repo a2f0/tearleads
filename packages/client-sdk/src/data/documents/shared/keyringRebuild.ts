@@ -176,6 +176,74 @@ export class HistoricalWrapUnavailableError extends Error {
 }
 
 /**
+ * The first candidate envelope that both decrypts AND matches the epoch's
+ * material-id commitment.
+ *
+ * Candidates are tried ONE AT A TIME. An envelope can be AEAD-valid and still
+ * carry the WRONG key — a stale or misaddressed wrap — so decrypting a batch
+ * together would let that one envelope answer for the whole group and mask a
+ * later envelope that would have opened the epoch. The reported failure is the
+ * first real decrypt failure, since a commitment mismatch is a wrong envelope
+ * rather than an unreachable one.
+ */
+async function firstCommittedAnchor(input: {
+  attempt: (
+    wraps: ContainerKeyWrap[],
+  ) => Promise<{ failure: unknown; key: Uint8Array | null }>;
+  candidates: ContainerKeyWrap[];
+  containerId: string;
+  containerKeyEpoch: number;
+  containerKeyEpochId: string;
+}): Promise<{ failure: unknown; key: Uint8Array | null }> {
+  let firstFailure: unknown;
+  for (const candidate of input.candidates) {
+    const result = await input.attempt([candidate]);
+    if (result.key === null) {
+      firstFailure ??= result.failure;
+      continue;
+    }
+    const materialId = await computeContainerKekMaterialId({
+      containerId: input.containerId,
+      keyEpoch: input.containerKeyEpoch,
+      keyMaterial: result.key,
+    });
+    if (materialId === input.containerKeyEpochId) {
+      return result;
+    }
+  }
+  return { failure: firstFailure, key: null };
+}
+
+/**
+ * Binds one page to what was actually asked for.
+ *
+ * Every page is checked, not just the last: the aggregate is handed to a
+ * rebuild that trusts its shape, so a page for another container — or one
+ * replaying epochs at or below the cursor — would splice foreign or duplicate
+ * history into the walk before any commitment check could notice the ordering
+ * was wrong.
+ */
+function assertLogPageMatchesRequest(
+  page: {
+    containerId: string;
+    epochs: readonly { containerKeyEpoch: number }[];
+  },
+  containerId: string,
+  afterKeyEpoch: number,
+): void {
+  if (page.containerId !== containerId) {
+    throw new Error("Container KEK log page is for the wrong container");
+  }
+  let previousKeyEpoch = afterKeyEpoch;
+  for (const epoch of page.epochs) {
+    if (epoch.containerKeyEpoch <= previousKeyEpoch) {
+      throw new Error("Container KEK log page is out of order");
+    }
+    previousKeyEpoch = epoch.containerKeyEpoch;
+  }
+}
+
+/**
  * The severed-bridge backstop: recovers one historical epoch's KEK from the
  * requester's own retained recipient envelope served in the kek-log. Wraps
  * are written by that epoch's rotator and never deleted, so this path is
@@ -254,25 +322,20 @@ export async function recoverKeyringEntryFromWraps(input: {
   // A direct envelope is decryptable from identity keys alone, so its failure
   // means corruption — not an unreachable principal key. Neither failure ends
   // the search: a parent-container wrap may still anchor this epoch.
-  // Each candidate must match the epoch's material-id commitment, not merely
-  // decrypt. An envelope can be AEAD-valid and still be the WRONG key — a
-  // stale or misaddressed wrap — and accepting it here would end the search on
-  // a key that cannot open the epoch, when a later principal or parent wrap
-  // would have worked.
-  const attemptCommitted = async (candidates: ContainerKeyWrap[]) => {
-    const result = await attempt(candidates);
-    if (result.key === null) {
-      return result;
-    }
-    const materialId = await computeContainerKekMaterialId({
+  //
+  // Candidates are tried ONE AT A TIME, and each must match the epoch's
+  // material-id commitment rather than merely decrypt. An envelope can be
+  // AEAD-valid and still carry the WRONG key — a stale or misaddressed wrap —
+  // so batching would let that one envelope answer for the whole group and
+  // mask a later envelope that would have opened the epoch.
+  const attemptCommitted = (candidates: ContainerKeyWrap[]) =>
+    firstCommittedAnchor({
+      attempt,
+      candidates,
       containerId: input.containerId,
-      keyEpoch: input.epoch.containerKeyEpoch,
-      keyMaterial: result.key,
+      containerKeyEpoch: input.epoch.containerKeyEpoch,
+      containerKeyEpochId: input.epoch.containerKeyEpochId,
     });
-    return materialId === input.epoch.containerKeyEpochId
-      ? result
-      : { failure: result.failure, key: null };
-  };
 
   const direct = await attemptCommitted(directWraps);
   let keyMaterial = direct.key;
@@ -368,6 +431,7 @@ export async function fetchContainerKekLog(input: {
       // server stretching the walk across extra round trips.
       throw new Error("Container KEK log page is short but claims more");
     }
+    assertLogPageMatchesRequest(page, input.containerId, afterKeyEpoch);
     epochs.push(...page.epochs);
     if (epochs.length > MAX_CONTAINER_KEY_EPOCH) {
       throw new Error("Container KEK log exceeds the maximum key epoch");

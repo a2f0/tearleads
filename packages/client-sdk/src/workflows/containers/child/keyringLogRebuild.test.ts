@@ -335,3 +335,71 @@ test("log paging stops at the protocol epoch ceiling", async () => {
     Math.ceil(MAX_CONTAINER_KEY_EPOCH / CONTAINER_KEK_LOG_PAGE_LIMIT) + 1,
   );
 });
+
+test("log paging rejects a page for another container", async () => {
+  const containerId = crypto.randomUUID();
+
+  // The aggregate is handed to a rebuild that trusts its shape, so a page
+  // belonging to a different container must be refused before it can splice
+  // foreign history into the walk.
+  await expect(
+    fetchContainerKekLog({
+      apiClient: {
+        getContainerKekLog: async () => ({
+          containerId: crypto.randomUUID(),
+          hasMore: false,
+          epochs: [
+            {
+              accessManifestHash: "manifest",
+              bridge: null,
+              containerKeyEpoch: 1,
+              containerKeyEpochId: `tearleads.container-kek.v1.sha256:${"0".repeat(64)}`,
+              keyring: null,
+              parentContainerKeyEpochId: null,
+              wraps: [],
+            },
+          ],
+        }),
+      },
+      containerId,
+    }),
+  ).rejects.toThrow("wrong container");
+});
+
+test("log paging rejects a page replaying epochs at or below the cursor", async () => {
+  const containerId = crypto.randomUUID();
+
+  // A stale or duplicated page would re-add epochs the walk already consumed,
+  // producing a non-contiguous aggregate that reads as corrupt history.
+  await expect(
+    fetchContainerKekLog({
+      apiClient: {
+        getContainerKekLog: async () => ({
+          containerId,
+          hasMore: false,
+          epochs: [
+            {
+              accessManifestHash: "manifest",
+              bridge: null,
+              containerKeyEpoch: 2,
+              containerKeyEpochId: `tearleads.container-kek.v1.sha256:${"1".repeat(64)}`,
+              keyring: null,
+              parentContainerKeyEpochId: null,
+              wraps: [],
+            },
+            {
+              accessManifestHash: "manifest",
+              bridge: null,
+              containerKeyEpoch: 2,
+              containerKeyEpochId: `tearleads.container-kek.v1.sha256:${"2".repeat(64)}`,
+              keyring: null,
+              parentContainerKeyEpochId: null,
+              wraps: [],
+            },
+          ],
+        }),
+      },
+      containerId,
+    }),
+  ).rejects.toThrow("out of order");
+});
