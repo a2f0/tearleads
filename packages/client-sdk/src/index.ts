@@ -202,6 +202,7 @@ export {
   Tearleads,
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "./client";
+export { rebuildKeyringEntriesFromLog } from "./data/documents/shared/keyringRebuild";
 export type {
   BlobByteSource,
   BlobByteSourceInput,
@@ -339,7 +340,6 @@ export {
   saveContainerSyncWatermark,
   syncedContainerDocumentObjectSyncState,
 } from "./workflows/container-contents";
-export { rebuildKeyringEntriesFromLog } from "./data/documents/shared/keyringRebuild";
 export type { ContainerMutationAuthor } from "./workflows/containers";
 export {
   buildRootContainerCreatePlan,

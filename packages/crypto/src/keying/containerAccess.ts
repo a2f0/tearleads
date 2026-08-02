@@ -562,7 +562,12 @@ function normalizeContainerRekeyAccessEventBody(
 ): ContainerRekeyAccessEventBody {
   const record = assertExactKeys(
     value,
-    ["containerKeyEpochId", "eventType", "keyringHash", "predecessorBridgeHash"],
+    [
+      "containerKeyEpochId",
+      "eventType",
+      "keyringHash",
+      "predecessorBridgeHash",
+    ],
     "container.rekey event body",
   );
 

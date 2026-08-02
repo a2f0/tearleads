@@ -112,10 +112,7 @@ function materialIdHashBytes(
   label: string,
 ): Uint8Array {
   if (!isContainerKekMaterialId(containerKeyEpochId)) {
-    throwVerification(
-      "invalid_shape",
-      `${label} must commit to key material`,
-    );
+    throwVerification("invalid_shape", `${label} must commit to key material`);
   }
   return hexToBytes(
     containerKeyEpochId.slice(CONTAINER_KEK_MATERIAL_ID_PREFIX.length),
@@ -189,7 +186,10 @@ export function normalizeContainerKekKeyring(
   }
   const iv = canonicalBase64(keyring.iv, "container KEK keyring.iv");
   assertAesGcmIv(iv, "Container KEK keyring IV must be 12 bytes");
-  const sealed = canonicalBase64(keyring.sealed, "container KEK keyring.sealed");
+  const sealed = canonicalBase64(
+    keyring.sealed,
+    "container KEK keyring.sealed",
+  );
   const bodyBytes =
     sealed.byteLength - CONTAINER_KEK_KEYRING_HEADER_BYTES - AES_GCM_TAG_BYTES;
   if (

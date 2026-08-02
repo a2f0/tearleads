@@ -2,6 +2,7 @@ import type {
   ContainerKekKeyring,
   ContainerKekKeyringEntry,
   ContainerRekeyAccessEventBody,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
@@ -11,8 +12,10 @@ import {
   deriveContainerAccessManifest,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  ContainerMutationResponse,
+  ContainerWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import {
   buildContainerCreateKeyEpoch,
   resolveContainerKekEpochId,
@@ -49,13 +52,119 @@ import { sealRotationKeyring } from "./moveRotation";
 import { collectContainerRevokePrincipalPolicies } from "./revoke";
 import { buildContainerRotationWraps } from "./rotationWraps";
 
+async function buildRekeyRotationArtifacts(input: {
+  containerKey: Uint8Array;
+  keyringEntriesOverride: readonly ContainerKekKeyringEntry[] | undefined;
+  nextContainerKeyEpoch: number;
+  override: string | undefined;
+  predecessorContainerKey: Uint8Array;
+  previousContainerId: string;
+  targetKek: ReturnType<typeof getTargetContainerContext>["kek"];
+}): Promise<{
+  containerKeyEpochId: string;
+  keyring: ContainerKekKeyring;
+  predecessorBridge: Awaited<
+    ReturnType<typeof createContainerKekPredecessorBridge>
+  >;
+}> {
+  const containerKeyEpochId = await resolveContainerKekEpochId({
+    containerId: input.previousContainerId,
+    keyEpoch: input.nextContainerKeyEpoch,
+    keyMaterial: input.containerKey,
+    override: input.override,
+  });
+  const predecessorBridge = await createContainerKekPredecessorBridge({
+    containerId: input.previousContainerId,
+    predecessorContainerKey: input.predecessorContainerKey,
+    predecessorContainerKeyEpochId: input.targetKek.containerKeyEpochId,
+    successorContainerKey: input.containerKey,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
+  const keyring: ContainerKekKeyring = input.keyringEntriesOverride
+    ? await sealContainerKekKeyring({
+        containerId: input.previousContainerId,
+        entries: [
+          ...input.keyringEntriesOverride,
+          {
+            containerKeyEpochId: input.targetKek.containerKeyEpochId,
+            keyMaterial: input.predecessorContainerKey,
+          },
+        ],
+        keyEpoch: input.nextContainerKeyEpoch,
+        successorContainerKey: input.containerKey,
+        successorContainerKeyEpochId: containerKeyEpochId,
+      })
+    : await sealRotationKeyring({
+        containerId: input.previousContainerId,
+        currentKek: input.targetKek,
+        currentKeyMaterial: input.predecessorContainerKey,
+        keyEpoch: input.nextContainerKeyEpoch,
+        successorContainerKey: input.containerKey,
+        successorContainerKeyEpochId: containerKeyEpochId,
+      });
+  return { containerKeyEpochId, keyring, predecessorBridge };
+}
+
+async function deriveRekeyManifestArtifacts(input: {
+  author: ContainerMutationAuthor;
+  containerKeyEpochId: string;
+  eventId: string | undefined;
+  keyring: ContainerKekKeyring;
+  parentKek: ReturnType<typeof getParentKekForTarget>;
+  predecessorBridge: Awaited<
+    ReturnType<typeof createContainerKekPredecessorBridge>
+  >;
+  previousProjection: ContainerWriterProjectionResponse;
+  previousState: ReturnType<typeof readContainerState>;
+  signedAt: string | undefined;
+  target: ReturnType<typeof getTargetContainerContext>;
+}) {
+  const body: ContainerRekeyAccessEventBody = {
+    eventType: "container.rekey",
+    containerKeyEpochId: input.containerKeyEpochId,
+    keyringHash: await computeContainerKekKeyringHash(input.keyring),
+    predecessorBridgeHash: await computeContainerKekPredecessorBridgeHash(
+      input.predecessorBridge,
+    ),
+  };
+  const { event, eventHash } = await signContainerMutationEvent({
+    author: input.author,
+    body,
+    containerId: input.previousState.containerId,
+    dependencyManifestHashes: uniqueSortedManifestHashes(
+      input.previousProjection.path,
+    ),
+    eventId: input.eventId ?? crypto.randomUUID(),
+    previousManifestHash: input.target.manifest.manifestHash,
+    signedAt: input.signedAt ?? new Date().toISOString(),
+  });
+  const state = {
+    ...input.previousState,
+    epoch: input.previousState.epoch + 1,
+    previousManifestHash: input.target.manifest.manifestHash,
+    eventHash,
+    containerKeyEpochId: input.containerKeyEpochId,
+  };
+  const manifest = await deriveContainerAccessManifest(state);
+  const manifestHash = await computeAccessManifestHash(manifest);
+  const keyEpoch = buildContainerCreateKeyEpoch({
+    containerId: input.previousState.containerId,
+    containerKeyEpochId: input.containerKeyEpochId,
+    eventHash,
+    manifestHash,
+    parentContainerKeyEpochId: input.parentKek?.containerKeyEpochId ?? null,
+  });
+  keyEpoch.keyEpoch = input.target.kek.containerKeyEpoch + 1;
+  return { body, event, eventHash, keyEpoch, manifest, manifestHash, state };
+}
+
 /**
  * An explicit container KEK rotation with no membership change. Doubles as
  * the repair operation: passing `keyringEntriesOverride` seals a keyring
  * rebuilt from the bridge log instead of re-opening the served one, so a
  * poisoned snapshot is replaced by ground truth.
  */
-export async function buildMaterializedContainerRekeyPlan(input: {
+interface RekeyPlanInput {
   author: ContainerMutationAuthor;
   containerKeyEpochId?: string | undefined;
   eventId?: string | undefined;
@@ -66,13 +175,15 @@ export async function buildMaterializedContainerRekeyPlan(input: {
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<MaterializedContainerRekeyPlan> {
-  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
-    input.resolveProjectionUserKey,
-    "Remote container rekey",
-  );
-  const containerKey = crypto.getRandomValues(new Uint8Array(32));
+}
 
+async function resolveRekeyContext(input: RekeyPlanInput): Promise<{
+  parentKek: ReturnType<typeof getParentKekForTarget>;
+  parentKekMaterial: Uint8Array | null;
+  predecessorContainerKey: Uint8Array;
+  previousState: ReturnType<typeof readContainerState>;
+  target: ReturnType<typeof getTargetContainerContext>;
+}> {
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     projection: input.previousProjection,
@@ -95,77 +206,54 @@ export async function buildMaterializedContainerRekeyPlan(input: {
   const parentKekMaterial = parentKek
     ? (keksByEpochId.get(parentKek.containerKeyEpochId) ?? null)
     : null;
-  const nextContainerKeyEpoch = target.kek.containerKeyEpoch + 1;
-  const containerKeyEpochId = await resolveContainerKekEpochId({
-    containerId: previousState.containerId,
-    keyEpoch: nextContainerKeyEpoch,
-    keyMaterial: containerKey,
-    override: input.containerKeyEpochId,
-  });
-  const predecessorBridge = await createContainerKekPredecessorBridge({
-    containerId: previousState.containerId,
+  return {
+    parentKek,
+    parentKekMaterial,
     predecessorContainerKey,
-    predecessorContainerKeyEpochId: target.kek.containerKeyEpochId,
-    successorContainerKey: containerKey,
-    successorContainerKeyEpochId: containerKeyEpochId,
-  });
-  const keyring: ContainerKekKeyring = input.keyringEntriesOverride
-    ? await sealContainerKekKeyring({
-        containerId: previousState.containerId,
-        entries: [
-          ...input.keyringEntriesOverride,
-          {
-            containerKeyEpochId: target.kek.containerKeyEpochId,
-            keyMaterial: predecessorContainerKey,
-          },
-        ],
-        keyEpoch: nextContainerKeyEpoch,
-        successorContainerKey: containerKey,
-        successorContainerKeyEpochId: containerKeyEpochId,
-      })
-    : await sealRotationKeyring({
-        containerId: previousState.containerId,
-        currentKek: target.kek,
-        currentKeyMaterial: predecessorContainerKey,
-        keyEpoch: nextContainerKeyEpoch,
-        successorContainerKey: containerKey,
-        successorContainerKeyEpochId: containerKeyEpochId,
-      });
-  const body: ContainerRekeyAccessEventBody = {
-    eventType: "container.rekey",
-    containerKeyEpochId,
-    keyringHash: await computeContainerKekKeyringHash(keyring),
-    predecessorBridgeHash:
-      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
+    previousState,
+    target,
   };
-  const { event, eventHash } = await signContainerMutationEvent({
-    author: input.author,
-    body,
-    containerId: previousState.containerId,
-    dependencyManifestHashes: uniqueSortedManifestHashes(
-      input.previousProjection.path,
-    ),
-    eventId: input.eventId ?? crypto.randomUUID(),
-    previousManifestHash: target.manifest.manifestHash,
-    signedAt: input.signedAt ?? new Date().toISOString(),
-  });
-  const state = {
-    ...previousState,
-    epoch: previousState.epoch + 1,
-    previousManifestHash: target.manifest.manifestHash,
-    eventHash,
-    containerKeyEpochId,
-  };
-  const manifest = await deriveContainerAccessManifest(state);
-  const manifestHash = await computeAccessManifestHash(manifest);
-  const keyEpoch = buildContainerCreateKeyEpoch({
-    containerId: previousState.containerId,
-    containerKeyEpochId,
-    eventHash,
-    manifestHash,
-    parentContainerKeyEpochId: parentKek?.containerKeyEpochId ?? null,
-  });
-  keyEpoch.keyEpoch = nextContainerKeyEpoch;
+}
+
+export async function buildMaterializedContainerRekeyPlan(
+  input: RekeyPlanInput,
+): Promise<MaterializedContainerRekeyPlan> {
+  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
+    input.resolveProjectionUserKey,
+    "Remote container rekey",
+  );
+  const containerKey = crypto.getRandomValues(new Uint8Array(32));
+  const {
+    parentKek,
+    parentKekMaterial,
+    predecessorContainerKey,
+    previousState,
+    target,
+  } = await resolveRekeyContext(input);
+  const nextContainerKeyEpoch = target.kek.containerKeyEpoch + 1;
+  const { containerKeyEpochId, keyring, predecessorBridge } =
+    await buildRekeyRotationArtifacts({
+      containerKey,
+      keyringEntriesOverride: input.keyringEntriesOverride,
+      nextContainerKeyEpoch,
+      override: input.containerKeyEpochId,
+      predecessorContainerKey,
+      previousContainerId: previousState.containerId,
+      targetKek: target.kek,
+    });
+  const { body, event, eventHash, keyEpoch, manifest, manifestHash, state } =
+    await deriveRekeyManifestArtifacts({
+      author: input.author,
+      containerKeyEpochId,
+      eventId: input.eventId,
+      keyring,
+      parentKek,
+      predecessorBridge,
+      previousProjection: input.previousProjection,
+      previousState,
+      signedAt: input.signedAt,
+      target,
+    });
   const principalPolicies = await collectContainerRevokePrincipalPolicies({
     execSql: input.execSql,
     previousProjection: input.previousProjection,
@@ -184,52 +272,102 @@ export async function buildMaterializedContainerRekeyPlan(input: {
     state,
   });
 
-  const previousManifest = asContainerManifestBundle(target.manifest);
-  const plan: ContainerRekeyPlan = {
-    body,
-    containerId: previousState.containerId,
-    containerKeyEpochId,
-    event,
-    eventHash,
-    keyEpoch,
-    manifest,
-    manifestHash,
-    previousManifest,
+  return {
+    containerKey,
+    plan: buildContainerRekeyPlan({
+      body,
+      containerId: previousState.containerId,
+      containerKeyEpochId,
+      event,
+      eventHash,
+      keyEpoch,
+      keyring,
+      manifest,
+      manifestHash,
+      parentKek,
+      predecessorBridge,
+      previousManifest: asContainerManifestBundle(target.manifest),
+      previousProjection: input.previousProjection,
+      principalPolicies,
+      state,
+      userRecipientKeys,
+      wraps,
+    }),
+  };
+}
+
+function buildContainerRekeyPlan(input: {
+  body: ContainerRekeyAccessEventBody;
+  containerId: string;
+  containerKeyEpochId: string;
+  event: ContainerRekeyPlan["event"];
+  eventHash: string;
+  keyEpoch: ContainerRekeyPlan["keyEpoch"];
+  keyring: ContainerKekKeyring;
+  manifest: ContainerRekeyPlan["manifest"];
+  manifestHash: string;
+  parentKek: ReturnType<typeof getParentKekForTarget>;
+  predecessorBridge: Awaited<
+    ReturnType<typeof createContainerKekPredecessorBridge>
+  >;
+  previousManifest: ContainerRekeyPlan["previousManifest"];
+  previousProjection: ContainerWriterProjectionResponse;
+  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  state: ContainerRekeyPlan["state"];
+  userRecipientKeys: ContainerRekeyPlan["userRecipientKeys"];
+  wraps: ContainerRekeyPlan["wraps"];
+}): ContainerRekeyPlan {
+  return {
+    body: input.body,
+    containerId: input.containerId,
+    containerKeyEpochId: input.containerKeyEpochId,
+    event: input.event,
+    eventHash: input.eventHash,
+    keyEpoch: input.keyEpoch,
+    manifest: input.manifest,
+    manifestHash: input.manifestHash,
+    previousManifest: input.previousManifest,
     request: {
-      event: readCanonicalRecord(event, "Container rekey event"),
-      body: readCanonicalRecord(body, "Container rekey body"),
-      expectedManifestHash: manifestHash,
-      manifest: readCanonicalRecord(manifest, "Container rekey manifest"),
-      previousManifest,
+      event: readCanonicalRecord(input.event, "Container rekey event"),
+      body: readCanonicalRecord(input.body, "Container rekey body"),
+      expectedManifestHash: input.manifestHash,
+      manifest: readCanonicalRecord(input.manifest, "Container rekey manifest"),
+      previousManifest: input.previousManifest,
       previousContainerPath: input.previousProjection.path.map(
         asContainerManifestBundle,
       ),
       principalPolicies: readCanonicalRecords(
-        principalPolicies.map((policy) => principalPolicyRequestRecord(policy)),
+        input.principalPolicies.map((policy) =>
+          principalPolicyRequestRecord(policy),
+        ),
         "Container rekey principal policies",
       ),
-      keyEpoch: readCanonicalRecord(keyEpoch, "Container rekey key epoch"),
+      keyEpoch: readCanonicalRecord(
+        input.keyEpoch,
+        "Container rekey key epoch",
+      ),
       predecessorBridge: readCanonicalRecord(
-        predecessorBridge,
+        input.predecessorBridge,
         "Container rekey predecessor bridge",
       ),
-      keyring: readCanonicalRecord(keyring, "Container rekey keyring"),
-      wraps: readCanonicalRecords(wraps, "Container rekey wraps"),
+      keyring: readCanonicalRecord(input.keyring, "Container rekey keyring"),
+      wraps: readCanonicalRecords(input.wraps, "Container rekey wraps"),
       parentKekState:
-        parentKek === null
+        input.parentKek === null
           ? null
-          : readCanonicalRecord(parentKek, "Container rekey parent KEK state"),
+          : readCanonicalRecord(
+              input.parentKek,
+              "Container rekey parent KEK state",
+            ),
       userRecipientKeys: readCanonicalRecords(
-        userRecipientKeys,
+        input.userRecipientKeys,
         "Container rekey user recipient keys",
       ),
     },
-    state,
-    userRecipientKeys,
-    wraps,
+    state: input.state,
+    userRecipientKeys: input.userRecipientKeys,
+    wraps: input.wraps,
   };
-
-  return { containerKey, plan };
 }
 
 export async function rekeyRemoteContainer(input: {

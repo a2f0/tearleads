@@ -98,6 +98,76 @@ function assertRotationKeyringShape(
   }
 }
 
+function verifyInitialEpochArtifacts(input: {
+  readonly bridge: ContainerKekPredecessorBridge | null;
+  readonly keyEpoch: ContainerKeyEpoch;
+  readonly keyring: ContainerKekKeyring | null;
+  readonly manifest: VerifiedContainerAccessManifest;
+}): VerifiedRotationArtifacts {
+  if (
+    input.manifest.event.event.eventType !== "container.create" ||
+    input.keyEpoch.keyEpoch !== 1
+  ) {
+    throw new ContainerMutationError(
+      "Initial container KEK epoch is invalid",
+      409,
+    );
+  }
+  if (input.bridge !== null || input.keyring !== null) {
+    throw new ContainerMutationError(
+      "Initial container KEK epoch cannot have rotation artifacts",
+      409,
+    );
+  }
+  return { keyring: null, predecessorBridge: null };
+}
+
+function assertRotationEpochAdvance(
+  keyEpoch: ContainerKeyEpoch,
+  currentKeyEpoch: number,
+): void {
+  if (keyEpoch.keyEpoch <= currentKeyEpoch) {
+    throw new ContainerMutationError("Container KEK epoch is stale", 409);
+  }
+  if (keyEpoch.keyEpoch > currentKeyEpoch + 1) {
+    throw new ContainerMutationError(
+      "Container KEK rotation must advance by exactly one epoch",
+      409,
+    );
+  }
+}
+
+async function assertRotationEventCommitments(input: {
+  readonly bridge: ContainerKekPredecessorBridge;
+  readonly keyring: ContainerKekKeyring;
+  readonly manifest: VerifiedContainerAccessManifest;
+}): Promise<void> {
+  const eventBody = normalizeContainerAccessEventBody(
+    input.manifest.event.body,
+  );
+  if (
+    (eventBody.eventType !== "container.move" &&
+      eventBody.eventType !== "container.rekey" &&
+      eventBody.eventType !== "container.revoke") ||
+    eventBody.predecessorBridgeHash !==
+      (await computeContainerKekPredecessorBridgeHash(input.bridge))
+  ) {
+    throw new ContainerMutationError(
+      "Container KEK predecessor bridge does not match its signed event",
+      409,
+    );
+  }
+  if (
+    eventBody.keyringHash !==
+    (await computeContainerKekKeyringHash(input.keyring))
+  ) {
+    throw new ContainerMutationError(
+      "Container KEK keyring does not match its signed event",
+      409,
+    );
+  }
+}
+
 async function verifyRotationArtifacts(input: {
   readonly executor: DatabaseTransaction;
   readonly keyEpoch: ContainerKeyEpoch;
@@ -122,22 +192,7 @@ async function verifyRotationArtifacts(input: {
   }
 
   if (!currentEpoch) {
-    if (
-      manifest.event.event.eventType !== "container.create" ||
-      keyEpoch.keyEpoch !== 1
-    ) {
-      throw new ContainerMutationError(
-        "Initial container KEK epoch is invalid",
-        409,
-      );
-    }
-    if (bridge !== null || keyring !== null) {
-      throw new ContainerMutationError(
-        "Initial container KEK epoch cannot have rotation artifacts",
-        409,
-      );
-    }
-    return { keyring: null, predecessorBridge: null };
+    return verifyInitialEpochArtifacts({ bridge, keyEpoch, keyring, manifest });
   }
 
   if (keyEpoch.id === currentEpoch.id) {
@@ -156,16 +211,7 @@ async function verifyRotationArtifacts(input: {
     };
   }
 
-  if (keyEpoch.keyEpoch <= currentEpoch.keyEpoch) {
-    throw new ContainerMutationError("Container KEK epoch is stale", 409);
-  }
-
-  if (keyEpoch.keyEpoch > currentEpoch.keyEpoch + 1) {
-    throw new ContainerMutationError(
-      "Container KEK rotation must advance by exactly one epoch",
-      409,
-    );
-  }
+  assertRotationEpochAdvance(keyEpoch, currentEpoch.keyEpoch);
 
   if (
     bridge === null ||
@@ -179,26 +225,7 @@ async function verifyRotationArtifacts(input: {
     );
   }
   assertRotationKeyringShape(keyring, keyEpoch, manifest.state.containerId);
-
-  const eventBody = normalizeContainerAccessEventBody(manifest.event.body);
-  if (
-    (eventBody.eventType !== "container.move" &&
-      eventBody.eventType !== "container.rekey" &&
-      eventBody.eventType !== "container.revoke") ||
-    eventBody.predecessorBridgeHash !==
-      (await computeContainerKekPredecessorBridgeHash(bridge))
-  ) {
-    throw new ContainerMutationError(
-      "Container KEK predecessor bridge does not match its signed event",
-      409,
-    );
-  }
-  if (eventBody.keyringHash !== (await computeContainerKekKeyringHash(keyring))) {
-    throw new ContainerMutationError(
-      "Container KEK keyring does not match its signed event",
-      409,
-    );
-  }
+  await assertRotationEventCommitments({ bridge, keyring, manifest });
 
   return { keyring, predecessorBridge: bridge };
 }

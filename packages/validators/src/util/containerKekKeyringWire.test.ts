@@ -49,9 +49,9 @@ test("the wire guard rejects malformed records", () => {
   expect(isContainerKekKeyringWireRecord(keyringRecord({ version: 2 }))).toBe(
     false,
   );
-  expect(
-    isContainerKekKeyringWireRecord(keyringRecord({ sealed: 7 })),
-  ).toBe(false);
+  expect(isContainerKekKeyringWireRecord(keyringRecord({ sealed: 7 }))).toBe(
+    false,
+  );
   const missingIv = keyringRecord();
   Reflect.deleteProperty(missingIv, "iv");
   expect(isContainerKekKeyringWireRecord(missingIv)).toBe(false);

@@ -69,7 +69,10 @@ async function ensureStoredContainerKeyEpochMatches(
       keyEpoch.parentContainerKeyEpochId ||
     storedEpoch.createdByEventHash !== keyEpoch.createdByEventHash ||
     storedEpoch.createdByManifestHash !== keyEpoch.createdByManifestHash ||
-    !predecessorBridgesEqual(storedEpoch.predecessorBridge, predecessorBridge) ||
+    !predecessorBridgesEqual(
+      storedEpoch.predecessorBridge,
+      predecessorBridge,
+    ) ||
     !keyringsEqual(storedEpoch.keyring, keyring)
   ) {
     throw new Error("Container key epoch conflict");

@@ -144,38 +144,14 @@ async function assertKeyringCommitment(input: {
   }
 }
 
-/**
- * Opens the sealed keyring for one path index and admits every entry into
- * `keksByEpochId` after verifying it against the material-id commitment its
- * ordinal position implies (entry i is key epoch i + 1). No chain walk:
- * one decrypt yields the container's complete retained history, and entry
- * verification is independent per entry.
- */
-export async function unwrapKeyringContainerKeksAtIndex(input: {
+async function openVerifiedKeyringEntries(input: {
   currentManifest: ContainerWriterProjectionResponse["path"][number];
   index: number;
   kek: ProjectionKek;
-  keksByEpochId: Map<string, UnwrappedContainerKek>;
-  successorKeyMaterial: Uint8Array | null;
+  successorKeyMaterial: Uint8Array;
   verifyKeyringCommitment: boolean;
-}): Promise<void> {
-  if (!input.successorKeyMaterial) {
-    return;
-  }
+}): Promise<Awaited<ReturnType<typeof openContainerKekKeyring>>> {
   const { kek } = input;
-
-  if (kek.keyring === null) {
-    if (kek.containerKeyEpoch !== 1) {
-      throw new Error(`${projectionKekLabel(input.index)} keyring is missing`);
-    }
-    if (kek.historicalKeyEpochs.length > 0) {
-      throw new Error(
-        `${projectionKekLabel(input.index)} historical epochs are unreachable`,
-      );
-    }
-    return;
-  }
-
   const keyring = normalizeContainerKekKeyring(kek.keyring);
   if (
     keyring.containerId !== kek.containerId ||
@@ -221,19 +197,28 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
       }),
     ),
   );
+  return entries;
+}
 
+async function verifyHistoricalRecordCoverage(input: {
+  entries: Awaited<ReturnType<typeof openContainerKekKeyring>>;
+  index: number;
+  kek: ProjectionKek;
+}): Promise<Map<string, HistoricalKeyEpoch>> {
   const verifiedManifestHashes = new Set([
-    kek.accessManifestHash,
-    ...sameContainerManifestHistory(kek).map((bundle) => bundle.manifestHash),
+    input.kek.accessManifestHash,
+    ...sameContainerManifestHistory(input.kek).map(
+      (bundle) => bundle.manifestHash,
+    ),
   ]);
   const recordsByEpochId = new Map<string, HistoricalKeyEpoch>();
   const entryEpochIds = new Set(
-    entries.map((entry) => entry.containerKeyEpochId),
+    input.entries.map((entry) => entry.containerKeyEpochId),
   );
-  for (const record of kek.historicalKeyEpochs) {
+  for (const record of input.kek.historicalKeyEpochs) {
     await assertHistoricalKeyEpoch({
       index: input.index,
-      kek,
+      kek: input.kek,
       record,
       verifiedManifestHashes,
     });
@@ -247,32 +232,94 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
     }
     recordsByEpochId.set(record.containerKeyEpochId, record);
   }
+  return recordsByEpochId;
+}
 
-  for (const entry of entries) {
-    const record = recordsByEpochId.get(entry.containerKeyEpochId);
-    const cached = input.keksByEpochId.get(entry.containerKeyEpochId);
-    if (cached) {
-      if (
-        cached.containerId !== kek.containerId ||
-        (cached.keyEpochHash !== null &&
-          record &&
-          cached.keyEpochHash !== record.keyEpochHash)
-      ) {
-        throw new Error(
-          `${projectionKekLabel(input.index)} cached historical KEK is inconsistent`,
-        );
-      }
-      if (cached.keyEpochHash !== null && !record) {
-        continue;
-      }
+function admitKeyringEntry(input: {
+  entry: Awaited<ReturnType<typeof openContainerKekKeyring>>[number];
+  index: number;
+  kek: ProjectionKek;
+  keksByEpochId: Map<string, UnwrappedContainerKek>;
+  record: HistoricalKeyEpoch | undefined;
+}): void {
+  const { entry, kek, record } = input;
+  const cached = input.keksByEpochId.get(entry.containerKeyEpochId);
+  if (cached) {
+    if (
+      cached.containerId !== kek.containerId ||
+      (cached.keyEpochHash !== null &&
+        record &&
+        cached.keyEpochHash !== record.keyEpochHash)
+    ) {
+      throw new Error(
+        `${projectionKekLabel(input.index)} cached historical KEK is inconsistent`,
+      );
     }
-    input.keksByEpochId.set(entry.containerKeyEpochId, {
-      containerId: kek.containerId,
-      // Parent-wrap matching binds to the epoch record hash, so only epochs
-      // whose records shipped can satisfy a pinned parent wrap; every entry
-      // still serves content-key unwrapping by epoch id alone.
-      keyEpochHash: record ? record.keyEpochHash : null,
-      keyMaterial: entry.keyMaterial,
+    if (cached.keyEpochHash !== null && !record) {
+      return;
+    }
+  }
+  input.keksByEpochId.set(entry.containerKeyEpochId, {
+    containerId: kek.containerId,
+    // Parent-wrap matching binds to the epoch record hash, so only epochs
+    // whose records shipped can satisfy a pinned parent wrap; every entry
+    // still serves content-key unwrapping by epoch id alone.
+    keyEpochHash: record ? record.keyEpochHash : null,
+    keyMaterial: entry.keyMaterial,
+  });
+}
+
+/**
+ * Opens the sealed keyring for one path index and admits every entry into
+ * `keksByEpochId` after verifying it against the material-id commitment its
+ * ordinal position implies (entry i is key epoch i + 1). No chain walk:
+ * one decrypt yields the container's complete retained history, and entry
+ * verification is independent per entry.
+ */
+export async function unwrapKeyringContainerKeksAtIndex(input: {
+  currentManifest: ContainerWriterProjectionResponse["path"][number];
+  index: number;
+  kek: ProjectionKek;
+  keksByEpochId: Map<string, UnwrappedContainerKek>;
+  successorKeyMaterial: Uint8Array | null;
+  verifyKeyringCommitment: boolean;
+}): Promise<void> {
+  const { kek, successorKeyMaterial } = input;
+  if (!successorKeyMaterial) {
+    return;
+  }
+
+  if (kek.keyring === null) {
+    if (kek.containerKeyEpoch !== 1) {
+      throw new Error(`${projectionKekLabel(input.index)} keyring is missing`);
+    }
+    if (kek.historicalKeyEpochs.length > 0) {
+      throw new Error(
+        `${projectionKekLabel(input.index)} historical epochs are unreachable`,
+      );
+    }
+    return;
+  }
+
+  const entries = await openVerifiedKeyringEntries({
+    currentManifest: input.currentManifest,
+    index: input.index,
+    kek,
+    successorKeyMaterial,
+    verifyKeyringCommitment: input.verifyKeyringCommitment,
+  });
+  const recordsByEpochId = await verifyHistoricalRecordCoverage({
+    entries,
+    index: input.index,
+    kek,
+  });
+  for (const entry of entries) {
+    admitKeyringEntry({
+      entry,
+      index: input.index,
+      kek,
+      keksByEpochId: input.keksByEpochId,
+      record: recordsByEpochId.get(entry.containerKeyEpochId),
     });
   }
 }

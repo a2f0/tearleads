@@ -532,6 +532,38 @@ function containerKekResponseRecord(
   };
 }
 
+async function persistMutationTombstones(input: {
+  container: StoredContainerRow;
+  executor: DatabaseTransaction;
+  manifest: VerifiedContainerAccessManifest;
+  previousContainerPath: readonly VerifiedContainerAccessManifest[] | undefined;
+  previousManifest: VerifiedContainerAccessManifest | null;
+  updatedAt: Date;
+}): Promise<void> {
+  const { container, executor, manifest, previousManifest, updatedAt } = input;
+  await persistAccessRevocationTombstones({
+    container,
+    executor,
+    manifest,
+    previousManifest,
+    updatedAt,
+  });
+  await pruneAccessGrantTombstones({
+    executor,
+    manifest,
+    previousManifest,
+  });
+  if (input.previousContainerPath) {
+    await persistMoveAccessLossTombstones({
+      executor,
+      manifest,
+      previousContainerPath: input.previousContainerPath,
+      previousManifest,
+      updatedAt,
+    });
+  }
+}
+
 export async function persistVerifiedMutation(
   context: ContainerMutationContext,
   manifest: VerifiedContainerAccessManifest,
@@ -540,8 +572,11 @@ export async function persistVerifiedMutation(
   previousContainerPath?: readonly VerifiedContainerAccessManifest[],
 ): Promise<ContainerMutationResponse> {
   const { executor } = context;
-  const { keyring, predecessorBridge, verifiedState: kekState } =
-    verifiedKekMutation;
+  const {
+    keyring,
+    predecessorBridge,
+    verifiedState: kekState,
+  } = verifiedKekMutation;
   const updatedAt = new Date();
 
   const container = await persistContainerStructure(
@@ -562,27 +597,14 @@ export async function persistVerifiedMutation(
     manifest.state.containerId,
     manifestHead,
   );
-  await persistAccessRevocationTombstones({
+  await persistMutationTombstones({
     container,
     executor,
     manifest,
+    previousContainerPath,
     previousManifest,
     updatedAt,
   });
-  await pruneAccessGrantTombstones({
-    executor,
-    manifest,
-    previousManifest,
-  });
-  if (previousContainerPath) {
-    await persistMoveAccessLossTombstones({
-      executor,
-      manifest,
-      previousContainerPath,
-      previousManifest,
-      updatedAt,
-    });
-  }
 
   const storedKekState = await runConflictBoundary(() =>
     storeVerifiedContainerKekStateInTransaction(

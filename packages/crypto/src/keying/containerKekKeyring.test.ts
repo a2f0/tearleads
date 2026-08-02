@@ -171,7 +171,10 @@ test("a swapped entry fails per-entry material-id verification", async () => {
   const [first, second] = fixture.entries;
   const swapped = await sealContainerKekKeyring({
     containerId: fixture.containerId,
-    entries: [second as ContainerKekKeyringEntry, first as ContainerKekKeyringEntry],
+    entries: [
+      second as ContainerKekKeyringEntry,
+      first as ContainerKekKeyringEntry,
+    ],
     keyEpoch: fixture.keyEpoch,
     successorContainerKey: fixture.currentKey,
     successorContainerKeyEpochId: fixture.currentKeyEpochId,

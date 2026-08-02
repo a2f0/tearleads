@@ -339,6 +339,61 @@ function buildMoveKeyEpoch(input: {
   return keyEpoch;
 }
 
+async function buildMoveRotationWithBody(input: {
+  destinationParent: ReturnType<typeof getTargetContainerContext>;
+  destinationState: ContainerAccessManifestState;
+  override: string | undefined;
+  predecessorContainerKey: Uint8Array;
+  previousState: ContainerAccessManifestState;
+  source: ReturnType<typeof getTargetContainerContext>;
+}) {
+  const rotation = await buildContainerRotationArtifacts({
+    containerId: input.previousState.containerId,
+    currentKek: input.source.kek,
+    currentKeyMaterial: input.predecessorContainerKey,
+    keyEpoch: input.source.kek.containerKeyEpoch + 1,
+    override: input.override,
+  });
+  const body = await buildContainerMoveEventBody({
+    containerKeyEpochId: rotation.containerKeyEpochId,
+    keyring: rotation.keyring,
+    parentContainerId: input.destinationState.containerId,
+    parentManifestHash: input.destinationParent.manifest.manifestHash,
+    predecessorBridge: rotation.predecessorBridge,
+  });
+  return { ...rotation, body };
+}
+
+async function deriveMoveManifestArtifacts(input: {
+  body: ContainerMoveAccessEventBody;
+  containerKeyEpochId: string;
+  destinationParent: ReturnType<typeof getTargetContainerContext>;
+  planInput: MaterializedContainerMoveInput;
+  previousState: ContainerAccessManifestState;
+  source: ReturnType<typeof getTargetContainerContext>;
+}) {
+  const { event, eventHash } = await signContainerMoveEvent({
+    body: input.body,
+    containerId: input.previousState.containerId,
+    planInput: input.planInput,
+    source: input.source,
+  });
+  const { manifest, manifestHash, state } = await deriveContainerMoveManifest({
+    containerKeyEpochId: input.containerKeyEpochId,
+    destinationParent: input.destinationParent.manifest,
+    eventHash,
+    previousManifest: input.source.manifest,
+  });
+  const keyEpoch = buildMoveKeyEpoch({
+    containerKeyEpochId: input.containerKeyEpochId,
+    destinationParent: input.destinationParent,
+    eventHash,
+    manifestHash,
+    source: input.source,
+  });
+  return { event, eventHash, keyEpoch, manifest, manifestHash, state };
+}
+
 async function buildMaterializedContainerMovePlan(
   input: MaterializedContainerMoveInput,
 ): Promise<MaterializedContainerMovePlan> {
@@ -360,40 +415,29 @@ async function buildMaterializedContainerMovePlan(
     destinationParent,
     source,
   });
-  const { containerKey, containerKeyEpochId, keyring, predecessorBridge } =
-    await buildContainerRotationArtifacts({
-      containerId: previousState.containerId,
-      currentKek: source.kek,
-      currentKeyMaterial: predecessorContainerKey,
-      keyEpoch: source.kek.containerKeyEpoch + 1,
-      override: input.containerKeyEpochId,
-    });
-  const body = await buildContainerMoveEventBody({
+  const {
+    body,
+    containerKey,
     containerKeyEpochId,
     keyring,
-    parentContainerId: destinationState.containerId,
-    parentManifestHash: destinationParent.manifest.manifestHash,
     predecessorBridge,
-  });
-  const { event, eventHash } = await signContainerMoveEvent({
-    body,
-    containerId: previousState.containerId,
-    planInput: input,
-    source,
-  });
-  const { manifest, manifestHash, state } = await deriveContainerMoveManifest({
-    containerKeyEpochId,
-    destinationParent: destinationParent.manifest,
-    eventHash,
-    previousManifest: source.manifest,
-  });
-  const keyEpoch = buildMoveKeyEpoch({
-    containerKeyEpochId,
+  } = await buildMoveRotationWithBody({
     destinationParent,
-    eventHash,
-    manifestHash,
+    destinationState,
+    override: input.containerKeyEpochId,
+    predecessorContainerKey,
+    previousState,
     source,
   });
+  const { event, eventHash, keyEpoch, manifest, manifestHash, state } =
+    await deriveMoveManifestArtifacts({
+      body,
+      containerKeyEpochId,
+      destinationParent,
+      planInput: input,
+      previousState,
+      source,
+    });
   const { principalPolicies, userRecipientKeys, wraps } =
     await buildContainerMoveWraps({
       containerKey,
