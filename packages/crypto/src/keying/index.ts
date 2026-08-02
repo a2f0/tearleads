@@ -4,6 +4,18 @@ export * from "./checkpoints";
 export * from "./containerAccess";
 export * from "./containerKek";
 export {
+  assertSealedContainerKekKeyringLength,
+  CONTAINER_KEK_KEYRING_ENTRY_BYTES,
+  CONTAINER_KEK_KEYRING_FORMAT_VERSION,
+  CONTAINER_KEK_KEYRING_HEADER_BYTES,
+  computeContainerKekKeyringHash,
+  expectedSealedContainerKekKeyringBytes,
+  normalizeContainerKekKeyring,
+  openContainerKekKeyring,
+  sealContainerKekKeyring,
+  verifyContainerKekKeyringEntry,
+} from "./containerKekKeyring";
+export {
   computeContainerKekPredecessorBridgeHash,
   createContainerKekPredecessorBridge,
   normalizeContainerKekPredecessorBridge,

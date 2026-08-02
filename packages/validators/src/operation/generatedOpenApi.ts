@@ -84,6 +84,9 @@ export interface operations {
                         keyEpoch: {
                             [key: string]: unknown;
                         };
+                        keyring: {
+                            [key: string]: unknown;
+                        } | null;
                         manifest: {
                             [key: string]: unknown;
                         };

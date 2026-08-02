@@ -24,6 +24,7 @@ import {
   plainObjectSchema,
   positiveIntegerSchema,
 } from "../schema";
+import { MAX_INLINE_CONTAINER_REKEYS } from "../util/containerKekKeyringWire";
 import { isUuidV4String, UUID_V4_PATTERN } from "../util/uuid";
 import { isWalLsnString, WAL_LSN_PATTERN } from "../util/walLsn";
 import {
@@ -130,6 +131,7 @@ const ContainerMutationRequestViewSchema = loosePlainObject({
   event: plainObjectSchema,
   expectedManifestHash: nonEmptyStringSchema,
   keyEpoch: plainObjectSchema,
+  keyring: plainObjectSchema.nullable(),
   manifest: plainObjectSchema,
   parentContainerPath: z.array(AccessManifestBundleWireViewSchema).optional(),
   parentKekState: plainObjectSchema.nullable().optional(),
@@ -155,7 +157,12 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
   loosePlainObject({
     authorizingContainerPathRefs:
       ContainerManifestRefArrayArraySchema.optional(),
-    containerRekeys: arraySchema(ContainerMutationRequestSchema).optional(),
+    // Each rotation carries a keyring sized by its epoch, so the batch is
+    // bounded here as well as in the runtime guard.
+    containerRekeys: arraySchema(
+      ContainerMutationRequestSchema,
+      MAX_INLINE_CONTAINER_REKEYS,
+    ).optional(),
     contentKeyBundle: DocumentContentKeyBundleRequestSchema.optional(),
     contentKeyEpoch: positiveIntegerSchema,
     expectedLinkSetManifestHash: nonEmptyStringSchema,

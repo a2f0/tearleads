@@ -6,6 +6,7 @@ import {
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
+  computeContainerKekKeyringHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   serializeKeyingCanonicalJson,
@@ -26,6 +27,11 @@ interface AuthoredContainerMutationHead {
   readonly keyEpoch: ContainerKeyEpoch;
   readonly manifest: AccessManifest;
   readonly manifestHash: string;
+  /**
+   * The keyring the epoch already had, for mutations that keep their epoch.
+   * Its artifact is immutable, so the response must echo exactly this.
+   */
+  readonly previousKeyring?: Record<string, unknown> | null | undefined;
   readonly state: ContainerAccessManifestState;
   readonly wraps: readonly ContainerKeyWrap[];
 }
@@ -98,6 +104,65 @@ function assertResponseIdentity(
   }
 }
 
+/** A rotation body commits a keyring hash; other bodies do not. */
+function readOptionalKeyringHash(body: object): string | null {
+  const value = Reflect.get(body, "keyringHash");
+  return typeof value === "string" ? value : null;
+}
+
+/**
+ * The response's keyring must be the one this client's own signed event
+ * committed to. Without this a server could echo a substituted snapshot and
+ * have it acknowledged into durable local state — the acknowledgement is the
+ * moment the response becomes trusted, so the commitment is checked here.
+ */
+async function assertAcknowledgedKeyring(
+  plan: AuthoredContainerMutationHead,
+  response: ContainerMutationResponse,
+): Promise<void> {
+  const committedHash = readOptionalKeyringHash(plan.body);
+  const keyring = response.containerKek.keyring;
+  if (committedHash === null) {
+    // A non-rotating mutation keeps its epoch, so the echoed keyring must be
+    // the immutable artifact that epoch already had. Accepting anything else
+    // would let a server null or substitute the snapshot in the response that
+    // becomes the next writer projection.
+    const expected = plan.previousKeyring ?? null;
+    if (expected === null) {
+      // The epoch had no keyring, so the response must not invent one: an
+      // injected snapshot would become the next writer projection's history.
+      if (keyring) {
+        throw new Error(
+          "Container mutation response added a keyring to an unchanged epoch",
+        );
+      }
+      return;
+    }
+    if (!keyring) {
+      throw new Error(
+        "Container mutation response dropped its unchanged keyring",
+      );
+    }
+    if (
+      (await computeContainerKekKeyringHash(keyring)) !==
+      (await computeContainerKekKeyringHash(expected))
+    ) {
+      throw new Error(
+        "Container mutation response replaced its unchanged keyring",
+      );
+    }
+    return;
+  }
+  if (!keyring) {
+    throw new Error("Container mutation response is missing its keyring");
+  }
+  if ((await computeContainerKekKeyringHash(keyring)) !== committedHash) {
+    throw new Error(
+      "Container mutation response keyring does not match its signed event",
+    );
+  }
+}
+
 async function assertResponseContent(
   plan: AuthoredContainerMutationHead,
   response: ContainerMutationResponse,
@@ -130,6 +195,7 @@ async function assertResponseContent(
     expected: plan.keyEpoch,
     label: "key epoch",
   });
+  await assertAcknowledgedKeyring(plan, response);
   assertCanonicalMatch({
     actual: sortedCanonicalValues(response.containerKek.wraps, "response wrap"),
     expected: sortedCanonicalValues(plan.wraps, "planned wrap"),

@@ -9,6 +9,19 @@ export {
   isOptionalAccessManifestBundleWireArray,
 } from "./accessManifestBundle";
 export {
+  CONTAINER_KEK_LOG_PAGE_LIMIT,
+  CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,
+  CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
+  isContainerKekKeyringWireRecord,
+  MAX_CONTAINER_KEY_EPOCH,
+  MAX_INLINE_CONTAINER_REKEYS,
+  MAX_SEALED_CONTAINER_KEK_KEYRING_BASE64_LENGTH,
+  SEALED_CONTAINER_KEK_KEYRING_AEAD_OVERHEAD_BYTES,
+  SEALED_CONTAINER_KEK_KEYRING_ENTRY_BYTES,
+  SEALED_CONTAINER_KEK_KEYRING_HEADER_BYTES,
+  sealedContainerKekKeyringBytes,
+} from "./containerKekKeyringWire";
+export {
   isSerializedKeyEnvelope,
   isSerializedKeyEnvelopeArray,
   type SerializedKeyEnvelope,

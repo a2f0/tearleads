@@ -1,31 +1,8 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import type {
-  ContainerKekHistoryObservation,
-  ContainerKekHistoryObserver,
-  ContainerWriterProjectionContext,
-} from "./types";
-
-const LONG_PREDECESSOR_CHAIN_WARNING_THRESHOLD = 8;
-
-function observeContainerKekHistory(
-  observation: ContainerKekHistoryObservation,
-): void {
-  if (observation.degradationReason !== null) {
-    console.warn("Container KEK predecessor history degraded", observation);
-    return;
-  }
-  if (
-    observation.predecessorCount >= LONG_PREDECESSOR_CHAIN_WARNING_THRESHOLD
-  ) {
-    console.warn("Container KEK predecessor chain is long", observation);
-  }
-}
+import type { ContainerWriterProjectionContext } from "./types";
 
 export function createContainerWriterProjectionContext(
   executor: DatabaseSession,
-  options: {
-    readonly observeContainerKekHistory?: ContainerKekHistoryObserver;
-  } = {},
 ): ContainerWriterProjectionContext {
   return {
     containerKekStateByCacheKey: new Map(),
@@ -33,9 +10,6 @@ export function createContainerWriterProjectionContext(
     executor,
     currentManifestBundleByContainerId: new Map(),
     manifestBundleByHash: new Map(),
-    observeContainerKekHistory:
-      options.observeContainerKekHistory ?? observeContainerKekHistory,
-    predecessorContainerKeksByEpochId: new Map(),
   };
 }
 

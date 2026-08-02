@@ -20,7 +20,6 @@ import type {
   AccessEvent,
   ContainerAccessEventBody,
   ContainerAccessManifestState,
-  ContainerGrantSubjectType,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
@@ -39,7 +38,6 @@ import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
-  computeContainerKekPredecessorBridgeHash,
   computeDocumentContentKeyTargetHash,
   computePrincipalStateHash,
   deriveContainerAccessManifest,
@@ -74,6 +72,11 @@ import {
   createContainerKeyEpoch,
   createContainerKeyWrap,
 } from "../../../test/helpers/containerKeying";
+import {
+  buildMoveRequest,
+  buildRekeyRequest,
+  buildRevokeRequest,
+} from "../../../test/helpers/containerMutationRotations";
 import {
   firstContainerTombstone as firstTombstone,
   requestSingleContainerParentLane as listContainersForUser,
@@ -613,6 +616,7 @@ async function buildCreateRequest(input: {
       unknown
     >[],
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    keyring: null,
     predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
@@ -809,6 +813,7 @@ async function buildGrantRequest(input: {
       string,
       unknown
     >,
+    keyring: null,
     predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
@@ -925,6 +930,7 @@ async function buildGroupGrantRequest(input: {
       string,
       unknown
     >,
+    keyring: null,
     predecessorBridge: null,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<
@@ -935,300 +941,6 @@ async function buildGroupGrantRequest(input: {
       string,
       unknown
     >[],
-  };
-}
-
-async function buildRevokeRequest(input: {
-  readonly parentKekState: VerifiedContainerKekState | null;
-  readonly previous: AccessManifestBundleWire;
-  readonly previousContainerPath: readonly AccessManifestBundleWire[];
-  readonly previousKekState: VerifiedContainerKekState;
-  readonly revokedGrant?: {
-    readonly subjectId: string;
-    readonly subjectType: ContainerGrantSubjectType;
-  };
-  readonly revokedUser?: TestUser;
-  readonly signer: TestUser;
-}): Promise<ContainerMutationRequest> {
-  const previous = asVerifiedContainerManifest(input.previous);
-  const principalPolicies = await loadPrincipalPoliciesForContainerPaths([
-    input.previousContainerPath,
-  ]);
-  const containerKeyEpochId = await createTestContainerKekId(
-    previous.state.containerId,
-    input.previousKekState.containerKeyEpoch + 1,
-  );
-  const predecessorBridge = await createTestContainerKekPredecessorBridge({
-    containerId: previous.state.containerId,
-    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
-    successorContainerKeyEpochId: containerKeyEpochId,
-  });
-  const revokedGrant = input.revokedGrant ?? {
-    subjectType: "user" as const,
-    subjectId: input.revokedUser?.userId,
-  };
-  if (!revokedGrant.subjectId) {
-    throw new Error("buildRevokeRequest requires a revoked grant");
-  }
-  const body: ContainerAccessEventBody = {
-    eventType: "container.revoke",
-    containerKeyEpochId,
-    predecessorBridgeHash:
-      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
-    subjectType: revokedGrant.subjectType,
-    subjectId: revokedGrant.subjectId,
-  };
-  const event = await createSignedContainerEvent({
-    body,
-    dependencyManifestHashes: [
-      ...new Set(
-        input.previousContainerPath.map((manifest) => manifest.manifestHash),
-      ),
-    ],
-    objectId: previous.state.containerId,
-    organizationId: previous.state.organizationId,
-    previousManifestHash: input.previous.manifestHash,
-    signer: input.signer,
-  });
-  const bundle = await createManifestBundle(
-    {
-      ...previous.state,
-      epoch: previous.state.epoch + 1,
-      previousManifestHash: input.previous.manifestHash,
-      eventHash: event.eventHash,
-      containerKeyEpochId,
-      directGrants: previous.state.directGrants.filter(
-        (grant) =>
-          grant.subjectType !== revokedGrant.subjectType ||
-          grant.subjectId !== revokedGrant.subjectId,
-      ),
-      referencedPrincipalHeads: previous.state.referencedPrincipalHeads.filter(
-        (principalHead) =>
-          principalHead.principalType !== revokedGrant.subjectType ||
-          principalHead.principalId !== revokedGrant.subjectId,
-      ),
-    },
-    event,
-  );
-  const keyEpoch = createContainerKeyEpoch({
-    containerKeyEpochId,
-    keyEpoch: input.previousKekState.containerKeyEpoch + 1,
-    manifest: bundle,
-    parentKekState: input.parentKekState,
-  });
-  const wraps = input.parentKekState
-    ? [
-        createContainerKeyWrap({
-          containerKeyEpochId,
-          recipientKind: "container",
-          recipientId: input.parentKekState.containerId,
-          recipientKeyEpochId: input.parentKekState.containerKeyEpochId,
-          recipientKeyFingerprint: input.parentKekState.keyEpochHash,
-          wrapManifestHash: bundle.manifestHash,
-        }),
-      ]
-    : [];
-
-  return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown,
-    expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [...input.previousContainerPath],
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
-    keyEpoch: keyEpoch as unknown as Record<string, unknown>,
-    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
-    wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
-    userRecipientKeys: [],
-  };
-}
-
-async function buildRekeyRequest(input: {
-  readonly parentKekState: VerifiedContainerKekState;
-  readonly previous: AccessManifestBundleWire;
-  readonly previousContainerPath: readonly AccessManifestBundleWire[];
-  readonly previousKekState: VerifiedContainerKekState;
-  readonly signer: TestUser;
-}): Promise<ContainerMutationRequest> {
-  const previous = asVerifiedContainerManifest(input.previous);
-  const principalPolicies = await loadPrincipalPoliciesForContainerPaths([
-    input.previousContainerPath,
-  ]);
-  const containerKeyEpochId = await createTestContainerKekId(
-    previous.state.containerId,
-    input.previousKekState.containerKeyEpoch + 1,
-  );
-  const predecessorBridge = await createTestContainerKekPredecessorBridge({
-    containerId: previous.state.containerId,
-    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
-    successorContainerKeyEpochId: containerKeyEpochId,
-  });
-  const body: ContainerAccessEventBody = {
-    eventType: "container.rekey",
-    containerKeyEpochId,
-    predecessorBridgeHash:
-      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
-  };
-  const event = await createSignedContainerEvent({
-    body,
-    dependencyManifestHashes: [
-      ...new Set(
-        input.previousContainerPath.map((manifest) => manifest.manifestHash),
-      ),
-    ],
-    objectId: previous.state.containerId,
-    organizationId: previous.state.organizationId,
-    previousManifestHash: input.previous.manifestHash,
-    signer: input.signer,
-  });
-  const bundle = await createManifestBundle(
-    {
-      ...previous.state,
-      epoch: previous.state.epoch + 1,
-      previousManifestHash: input.previous.manifestHash,
-      eventHash: event.eventHash,
-      containerKeyEpochId,
-    },
-    event,
-  );
-  const keyEpoch = createContainerKeyEpoch({
-    containerKeyEpochId,
-    keyEpoch: input.previousKekState.containerKeyEpoch + 1,
-    manifest: bundle,
-    parentKekState: input.parentKekState,
-  });
-  const wraps = [
-    createContainerKeyWrap({
-      containerKeyEpochId,
-      recipientKind: "container",
-      recipientId: input.parentKekState.containerId,
-      recipientKeyEpochId: input.parentKekState.containerKeyEpochId,
-      recipientKeyFingerprint: input.parentKekState.keyEpochHash,
-      wrapManifestHash: bundle.manifestHash,
-    }),
-  ];
-
-  return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown,
-    expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [...input.previousContainerPath],
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
-    keyEpoch: keyEpoch as unknown as Record<string, unknown>,
-    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
-    wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
-    userRecipientKeys: [],
-  };
-}
-
-async function buildMoveRequest(input: {
-  readonly destinationParent: AccessManifestBundleWire;
-  readonly destinationParentKekState: VerifiedContainerKekState;
-  readonly destinationParentPath: readonly AccessManifestBundleWire[];
-  readonly previous: AccessManifestBundleWire;
-  readonly previousContainerPath: readonly AccessManifestBundleWire[];
-  readonly previousKekState: VerifiedContainerKekState;
-  readonly signer: TestUser;
-}): Promise<ContainerMutationRequest> {
-  const previous = asVerifiedContainerManifest(input.previous);
-  const destinationParent = asVerifiedContainerManifest(
-    input.destinationParent,
-  );
-  const principalPolicies = await loadPrincipalPoliciesForContainerPaths([
-    input.previousContainerPath,
-    input.destinationParentPath,
-  ]);
-  const containerKeyEpochId = await createTestContainerKekId(
-    previous.state.containerId,
-    input.previousKekState.containerKeyEpoch + 1,
-  );
-  const predecessorBridge = await createTestContainerKekPredecessorBridge({
-    containerId: previous.state.containerId,
-    predecessorContainerKeyEpochId: input.previousKekState.containerKeyEpochId,
-    successorContainerKeyEpochId: containerKeyEpochId,
-  });
-  const body: ContainerAccessEventBody = {
-    eventType: "container.move",
-    parentContainerId: destinationParent.state.containerId,
-    parentManifestHash: input.destinationParent.manifestHash,
-    containerKeyEpochId,
-    predecessorBridgeHash:
-      await computeContainerKekPredecessorBridgeHash(predecessorBridge),
-  };
-  const event = await createSignedContainerEvent({
-    body,
-    dependencyManifestHashes: [
-      ...new Set(
-        [...input.previousContainerPath, ...input.destinationParentPath].map(
-          (manifest) => manifest.manifestHash,
-        ),
-      ),
-    ],
-    objectId: previous.state.containerId,
-    organizationId: previous.state.organizationId,
-    previousManifestHash: input.previous.manifestHash,
-    signer: input.signer,
-  });
-  const bundle = await createManifestBundle(
-    {
-      ...previous.state,
-      epoch: previous.state.epoch + 1,
-      previousManifestHash: input.previous.manifestHash,
-      eventHash: event.eventHash,
-      parentContainerId: destinationParent.state.containerId,
-      parentManifestHash: input.destinationParent.manifestHash,
-      containerKeyEpochId,
-    },
-    event,
-  );
-  const keyEpoch = createContainerKeyEpoch({
-    containerKeyEpochId,
-    keyEpoch: input.previousKekState.containerKeyEpoch + 1,
-    manifest: bundle,
-    parentKekState: input.destinationParentKekState,
-  });
-  const wraps = [
-    createContainerKeyWrap({
-      containerKeyEpochId,
-      recipientKind: "container",
-      recipientId: input.destinationParentKekState.containerId,
-      recipientKeyEpochId: input.destinationParentKekState.containerKeyEpochId,
-      recipientKeyFingerprint: input.destinationParentKekState.keyEpochHash,
-      wrapManifestHash: bundle.manifestHash,
-    }),
-  ];
-
-  return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown,
-    expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [...input.previousContainerPath],
-    destinationParentContainerPath: [...input.destinationParentPath],
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
-    keyEpoch: keyEpoch as unknown as Record<string, unknown>,
-    predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
-    wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.destinationParentKekState as unknown as Record<
-      string,
-      unknown
-    >,
-    userRecipientKeys: [],
   };
 }
 
@@ -1513,7 +1225,7 @@ test("POST /containers rejects a predecessor bridge on its initial KEK epoch", a
   });
   expect(response.status).toBe(409);
   await expect(response.json()).resolves.toEqual({
-    error: "Initial container KEK epoch cannot have a predecessor bridge",
+    error: "Initial container KEK epoch cannot have rotation artifacts",
   });
 });
 
@@ -3266,11 +2978,9 @@ test("POST /containers/:containerId/rekey materializes a writer KEK rotation", a
   expect(rekeyed.containerKek.containerKeyEpochId).not.toBe(
     childKek.containerKeyEpochId,
   );
-  expect(
-    rekeyed.containerKek.predecessorKeks.map(
-      (predecessor) => predecessor.containerKeyEpochId,
-    ),
-  ).toEqual([childKek.containerKeyEpochId]);
+  expect(rekeyed.containerKek.keyring).toEqual(
+    request.keyring as ContainerMutationResponse["containerKek"]["keyring"],
+  );
   expect(rekeyed.containerKek.recipientTargets).toEqual([
     {
       recipientKind: "container",

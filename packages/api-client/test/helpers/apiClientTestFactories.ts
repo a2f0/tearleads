@@ -31,6 +31,7 @@ export function createContainerMutationRequest(): ContainerMutationRequest {
     manifest: { objectKind: "container" },
     keyEpoch: { containerKeyEpochId: "container-key-epoch-id" },
     predecessorBridge: null,
+    keyring: null,
     principalPolicies: [],
     wraps: [],
   };
@@ -69,7 +70,7 @@ export function createContainerMutationResponse(): ContainerMutationResponse {
       accessManifestHash: "container-manifest-hash",
       containerKeyEpochId: "container-key-epoch-id",
       containerKeyEpoch: 1,
-      predecessorKeks: [],
+      keyring: null,
       keyEpoch: { containerKeyEpochId: "container-key-epoch-id" },
       keyEpochHash: "key-epoch-hash",
       keyTargetHash: "key-target-hash",

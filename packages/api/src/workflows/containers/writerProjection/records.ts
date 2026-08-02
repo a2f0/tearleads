@@ -5,6 +5,7 @@ import type {
   ContainerAccessManifestState,
   ContainerDirectGrant,
   ContainerGrantSubjectType,
+  ContainerKekKeyring,
   ContainerKekRecipientTarget,
   ContainerKeyEpoch,
   ContainerKeyWrap,
@@ -17,7 +18,6 @@ import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   ContainerKekResponse,
-  PredecessorContainerKekResponse,
 } from "@tearleads/validators/response";
 import {
   projectionAccessManifestRecord,
@@ -302,20 +302,6 @@ export function stripContainerKeyEpoch(
   };
 }
 
-export function containerKeyEpochRecord(
-  keyEpoch: ContainerKeyEpoch,
-): Record<string, unknown> {
-  return {
-    id: keyEpoch.id,
-    containerId: keyEpoch.containerId,
-    keyEpoch: keyEpoch.keyEpoch,
-    accessManifestHash: keyEpoch.accessManifestHash,
-    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-    createdByEventHash: keyEpoch.createdByEventHash,
-    createdByManifestHash: keyEpoch.createdByManifestHash,
-  };
-}
-
 export function stripContainerKeyWrap(
   wrap: ContainerKeyWrap,
 ): ContainerKeyWrap {
@@ -328,6 +314,20 @@ export function stripContainerKeyWrap(
     kemCipherText: wrap.kemCipherText,
     wrappedKey: wrap.wrappedKey,
     wrapManifestHash: wrap.wrapManifestHash,
+  };
+}
+
+function containerKeyEpochRecord(
+  keyEpoch: ContainerKeyEpoch,
+): Record<string, unknown> {
+  return {
+    id: keyEpoch.id,
+    containerId: keyEpoch.containerId,
+    keyEpoch: keyEpoch.keyEpoch,
+    accessManifestHash: keyEpoch.accessManifestHash,
+    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
+    createdByEventHash: keyEpoch.createdByEventHash,
+    createdByManifestHash: keyEpoch.createdByManifestHash,
   };
 }
 
@@ -359,7 +359,7 @@ function containerKekRecipientTargetRecord(
 
 export function containerKekResponse(
   projection: ContainerKekProjection,
-  predecessorKeks: readonly PredecessorContainerKekResponse[],
+  keyring: ContainerKekKeyring | null,
 ): ContainerKekResponse {
   const kekState = projection.state;
   return {
@@ -367,7 +367,7 @@ export function containerKekResponse(
     accessManifestHash: kekState.accessManifestHash,
     containerKeyEpochId: kekState.containerKeyEpochId,
     containerKeyEpoch: kekState.containerKeyEpoch,
-    predecessorKeks: [...predecessorKeks],
+    keyring: keyring ? { ...keyring } : null,
     keyEpoch: containerKeyEpochRecord(kekState.keyEpoch),
     keyEpochHash: kekState.keyEpochHash,
     keyTargetHash: kekState.keyTargetHash,

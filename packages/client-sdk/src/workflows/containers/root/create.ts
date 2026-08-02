@@ -192,6 +192,7 @@ function buildRootContainerCreateRequest(input: {
       "Container root create key epoch",
     ),
     predecessorBridge: null,
+    keyring: null,
     wraps: readCanonicalRecords(input.wraps, "Container root create wraps"),
     userRecipientKeys: readCanonicalRecords(
       input.userRecipientKeys,
@@ -442,7 +443,7 @@ export function rootContainerWriterProjectionFromCreatePlan(
         keyTargetHash: plan.keyTargetHash,
         containerManifestHistory: [],
         parentContainerKeyEpochId: null,
-        predecessorKeks: [],
+        keyring: null,
         recipientTargets: readCanonicalRecords(
           plan.recipientTargets,
           "Container root recipient targets",

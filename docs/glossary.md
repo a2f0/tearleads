@@ -180,6 +180,33 @@ Related docs:
 - [keying-design.md](./keying-design.md#container-kek-hierarchy)
 - [container-dek-onboarding.md](./container-dek-onboarding.md)
 
+## Container KEK Keyring
+
+The container's complete predecessor KEK history sealed under the current
+epoch's KEK — the snapshot read path for history-inclusive access. One
+decrypt yields every retained historical KEK; each entry is verified against
+its material-committing epoch id, and the sealed length is an exact function
+of the epoch number. Rewritten at every rotation by re-sealing the previous
+entries plus the retiring key. Distinct from the Local Keyring, which wraps a
+device's root key material.
+
+Related docs:
+
+- [keying-design.md](./keying-design.md#container-key-epoch-database-row)
+
+## Container KEK Predecessor Bridge
+
+The write-once append-only log entry a rotation stores alongside the keyring:
+the retiring KEK encrypted under the new KEK, hash-committed by the signed
+rotation event. Never rewritten by later rotations, which makes the bridge
+log ground truth for rebuilding a damaged keyring via
+`GET /containers/:id/kek-log`.
+
+Related docs:
+
+- [keying-design.md](./keying-design.md#container-key-epoch-database-row)
+- [security-guarantees.md](./security-guarantees.md)
+
 ## Content Key
 
 The symmetric key used to encrypt a document update stream or blob record. It

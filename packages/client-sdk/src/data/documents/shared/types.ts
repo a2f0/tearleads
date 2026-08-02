@@ -542,6 +542,16 @@ export type PersistedDocumentSyncState = PersistedDocumentCreateState;
 
 export interface UnwrappedContainerKek {
   containerId: string;
-  keyEpochHash: string;
+  /**
+   * Null for keyring-recovered historical keys, which carry key material and
+   * the epoch id committing to it but no epoch record to hash.
+   *
+   * Such a key still satisfies a parent wrap: the epoch-record fingerprint is
+   * a selector for choosing among envelopes, not the security boundary, so a
+   * null hash falls back to selecting on the epoch id while AEAD authenticates
+   * (see `containerKekPath.ts`). That is what lets a descendant pinned to a
+   * rotated parent be opened rather than stranded.
+   */
+  keyEpochHash: string | null;
   keyMaterial: Uint8Array;
 }
