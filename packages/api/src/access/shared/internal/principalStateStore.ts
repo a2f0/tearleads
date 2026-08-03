@@ -209,8 +209,6 @@ export async function getPrincipalStatesForReferences(
   return statesByReference;
 }
 
-export { principalStateProjectionKey };
-
 export async function listPrincipalProjectionMembersForStates(
   principalType: ManagedRecipientPrincipalType,
   states: readonly Pick<StoredPrincipalState, "principalId" | "stateHash">[],

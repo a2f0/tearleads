@@ -5,7 +5,10 @@ import {
   isPrincipalPolicyBundleResponse,
   isPrincipalPolicyHistoryResponse,
 } from "@tearleads/validators/response";
-import { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "@tearleads/validators/util";
+import {
+  MAX_PRINCIPAL_STATE_VERSION,
+  PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT,
+} from "@tearleads/validators/util";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
@@ -350,4 +353,50 @@ test("policy-history serves no envelope for a group the requester cannot reach",
   expect(
     theirs.entries.every((entry) => entry.memberEnvelopes.length === 0),
   ).toBe(true);
+}, 30_000);
+
+test("a policy write past the version ceiling is rejected, not a 500", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const principalId = crypto.randomUUID();
+
+  // The ceiling exists because a recovery walk must be able to page back
+  // through the whole chain. Enforcing it only in the crypto layer would
+  // surface an unmapped throw as a 500 on what is a malformed request.
+  // Built at a legal version, then pushed out of range on the wire: the
+  // signing helper refuses to mint one past the ceiling, which is the crypto
+  // layer's own guard. What this asserts is that the REQUEST boundary rejects
+  // it too, so the crypto guard is never the thing a client sees.
+  const signed = await createSignedPrincipalState({
+    principalType: "group",
+    principalId,
+    members: [{ principalType: "user", principalId: actor.userId }],
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+  });
+
+  const response = await routeApp.request(
+    `/principals/group/${principalId}/policy`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        state: {
+          ...signed.state,
+          version: MAX_PRINCIPAL_STATE_VERSION + 1,
+        },
+        encryptedPayload: signed.encryptedPayload,
+        projection: signed.projection,
+        memberEnvelopes: signed.memberEnvelopes,
+      }),
+    },
+  );
+
+  expect(response.status).toBeGreaterThanOrEqual(400);
+  expect(response.status).toBeLessThan(500);
 }, 30_000);

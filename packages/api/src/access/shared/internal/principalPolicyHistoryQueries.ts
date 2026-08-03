@@ -1,6 +1,7 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   principalMemberEnvelopes,
+  principalMembershipProjection,
   principalStates,
 } from "@tearleads/api-shared/schema";
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
@@ -8,7 +9,7 @@ import {
   PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT,
   PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT,
 } from "@tearleads/validators/util";
-import { and, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import {
   principalStateSelect,
   type StoredPrincipalState,
@@ -74,6 +75,51 @@ export async function listPrincipalStateHistoryPage(
  * membership cannot make one page unbounded. Recovery needs one openable
  * envelope per state, so the cap cannot cost a reachable key.
  */
+/**
+ * The distinct groups appearing as direct members across a page of states,
+ * bounded in SQL.
+ *
+ * These are only candidates for a reachability walk, so the page's full
+ * projection never needs to reach the application: a state's member list has
+ * no server-side bound, and materializing 64 states' worth to then keep at
+ * most `PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT` of them would put an
+ * unbounded allocation in front of a bounded endpoint. Ordered so which
+ * candidates survive the cap is deterministic rather than a function of
+ * database return order.
+ */
+export async function listPrincipalGroupMemberCandidates(
+  input: {
+    readonly principalId: string;
+    readonly principalType: ManagedRecipientPrincipalType;
+    readonly stateHashes: readonly string[];
+  },
+  executor: DatabaseSession,
+): Promise<string[]> {
+  if (input.stateHashes.length === 0) {
+    return [];
+  }
+  const rows = await executor
+    .select({
+      memberPrincipalId: principalMembershipProjection.memberPrincipalId,
+    })
+    .from(principalMembershipProjection)
+    .where(
+      and(
+        eq(principalMembershipProjection.principalType, input.principalType),
+        eq(principalMembershipProjection.principalId, input.principalId),
+        eq(principalMembershipProjection.memberPrincipalType, "group"),
+        inArray(principalMembershipProjection.stateHash, [
+          ...input.stateHashes,
+        ]),
+      ),
+    )
+    .groupBy(principalMembershipProjection.memberPrincipalId)
+    .orderBy(asc(principalMembershipProjection.memberPrincipalId))
+    .limit(PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT);
+
+  return rows.map((row) => row.memberPrincipalId);
+}
+
 export async function listPrincipalMemberEnvelopesForStates(
   input: {
     readonly memberGroupIds: readonly string[];

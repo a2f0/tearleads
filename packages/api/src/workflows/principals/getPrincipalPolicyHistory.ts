@@ -3,15 +3,11 @@ import type {
   PrincipalPolicyHistoryEntryResponse,
   PrincipalPolicyHistoryResponse,
 } from "@tearleads/validators/response";
-import {
-  PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT,
-  PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT,
-} from "@tearleads/validators/util";
+import { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "@tearleads/validators/util";
 import { listPrincipalMemberEnvelopesForStates } from "../../access/read/principalMemberEnvelopes";
 import {
-  listPrincipalProjectionMembersForStates,
+  listPrincipalGroupMemberCandidates,
   listPrincipalStateHistoryPage,
-  principalStateProjectionKey,
 } from "../../access/read/principalStateStore";
 import { listUserReachableCurrentGroupIds } from "../organizations/principalReachability";
 import { toPrincipalStateResponse } from "./shared";
@@ -66,33 +62,23 @@ export async function runGetPrincipalPolicyHistoryWorkflow(input: {
       };
     }
 
-    // One batched projection read for the page, not one per state.
-    const projectionsByKey = await listPrincipalProjectionMembersForStates(
-      input.principalType,
-      page.states,
+    // The group candidates come back already bounded and deduped from SQL, so
+    // the page's full projection never reaches the application — a state's
+    // member list has no server-side bound, and this endpoint's whole point is
+    // being bounded.
+    const groupIds = await listPrincipalGroupMemberCandidates(
+      {
+        principalId: input.principalId,
+        principalType: input.principalType,
+        stateHashes: page.states.map((state) => state.stateHash),
+      },
       tx,
     );
-    const projectionFor = (state: (typeof page.states)[number]) =>
-      projectionsByKey.get(principalStateProjectionKey(state)) ?? [];
 
-    const groupIds = new Set<string>();
-    for (const state of page.states) {
-      for (const member of projectionFor(state)) {
-        if (member.memberPrincipalType === "group") {
-          groupIds.add(member.memberPrincipalId);
-        }
-      }
-    }
-
-    // One reachability walk for the whole page, not one per state — and the
-    // candidate set is bounded BEFORE it enters that recursive query, since
-    // every id becomes a bind parameter in it. Sorted first so which groups
-    // survive the cap does not depend on projection iteration order.
+    // One reachability walk for the whole page, not one per state.
     const reachableGroupIds = await listUserReachableCurrentGroupIds({
       executor: tx,
-      groupIds: [...groupIds]
-        .sort()
-        .slice(0, PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT),
+      groupIds,
       userId: input.userId,
     });
 

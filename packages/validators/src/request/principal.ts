@@ -6,6 +6,7 @@ import {
   hasObjectProperty,
   hasStringProperty,
   isUuidV4String,
+  MAX_PRINCIPAL_STATE_VERSION,
 } from "../util";
 
 export interface PrincipalProjectionMemberRequest {
@@ -110,6 +111,13 @@ function isPrincipalStateRequest(
     hasStringProperty(value, "principalId") &&
     isUuidV4String(value.principalId) &&
     hasNumberProperty(value, "version") &&
+    Number.isInteger(value.version) &&
+    value.version > 0 &&
+    // Rejected at the request boundary so an out-of-domain version is a 400,
+    // not a 500 from the crypto layer's own check further in. The bound exists
+    // because a recovery walk must be able to page back through the whole
+    // chain; see MAX_PRINCIPAL_STATE_VERSION.
+    value.version <= MAX_PRINCIPAL_STATE_VERSION &&
     hasNullableStringProperty(value, "prevStateHash") &&
     hasNumberProperty(value, "keyEpoch") &&
     hasStringProperty(value, "encapsulationPublicKey") &&
