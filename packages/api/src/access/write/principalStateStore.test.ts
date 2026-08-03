@@ -889,23 +889,13 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
   expect(
     projections
       .get(firstKey)
-      ?.map((member) => `${member.userId}:${member.userId}:${member.role}`)
+      ?.map((member) => `${member.userId}:${member.role}`)
       .sort(),
-  ).toEqual(
-    [
-      `user:${firstMemberId}:member`,
-      `user:${signer.signerUserId}:admin`,
-    ].sort(),
-  );
+  ).toEqual([`${firstMemberId}:member`, `${signer.signerUserId}:admin`].sort());
   expect(
     projections
       .get(secondKey)
-      ?.map((member) => `${member.userId}:${member.userId}:${member.role}`)
+      ?.map((member) => `${member.userId}:${member.role}`)
       .sort(),
-  ).toEqual(
-    [
-      `group:${nestedGroupId}:member`,
-      `user:${signer.signerUserId}:admin`,
-    ].sort(),
-  );
+  ).toEqual([`${nestedGroupId}:member`, `${signer.signerUserId}:admin`].sort());
 });

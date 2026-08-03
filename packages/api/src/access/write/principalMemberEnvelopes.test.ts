@@ -68,10 +68,10 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
     generateSigningSeedAndKeyPair();
   const aliceUserId = crypto.randomUUID();
   const groupPrincipalId = crypto.randomUUID();
-  const nestedGroupPrincipalId = crypto.randomUUID();
+  const bobUserId = crypto.randomUUID();
 
   const aliceKem = generateKemSeedAndKeyPair();
-  const nestedGroupKem = generateKemSeedAndKeyPair();
+  const bobKem = generateKemSeedAndKeyPair();
   const groupKem = generateKemSeedAndKeyPair();
 
   const aliceSigner = await insertUserWithRecipientKey(
@@ -79,56 +79,17 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
     aliceKem.publicKey,
     { signingPrivateKey, signingPublicKey },
   );
-  const nestedMembers = [{ userId: aliceUserId }];
-  const nestedProjection = [
-    {
-      userId: aliceUserId,
-      role: "admin" as const,
-    },
-  ];
-  const nestedWrappedSecretEntries = await wrapDekForRecipients(
-    nestedGroupKem.secretKey,
-    [aliceKem.publicKey],
-  );
-  const nestedMemberEnvelopes = toMemberEnvelopeInputs(
-    [
-      {
-        userId: aliceUserId,
-        memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
-        encapsulationPublicKey: bytesToBase64(aliceKem.publicKey),
-      },
-    ],
-    nestedWrappedSecretEntries,
-  );
+  // Bob is an ordinary second user. This block used to stand up a nested group
+  // principal and make it a member; principals contain only users now.
+  await insertUserWithRecipientKey(bobUserId, bobKem.publicKey, {
+    signingPrivateKey,
+    signingPublicKey,
+  });
 
-  await storeVerifiedPrincipalState(
-    await signPrincipalStateBundle({
-      principalType: "group",
-      principalId: nestedGroupPrincipalId,
-      version: 1,
-      prevStateHash: null,
-      keyEpoch: 1,
-      encapsulationPublicKey: bytesToBase64(nestedGroupKem.publicKey),
-      keyFingerprint: await toFingerprint(nestedGroupKem.publicKey),
-      members: nestedMembers,
-      memberEnvelopes: nestedMemberEnvelopes,
-      projection: nestedProjection,
-      payloadCiphertext: JSON.stringify({ members: nestedProjection }),
-      signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
-      signerUserId: aliceSigner.signerUserId,
-      signerUserKeyFingerprint: aliceSigner.signerUserKeyFingerprint,
-      signingPrivateKey,
-    }),
-    db,
-  );
-
-  const groupMembers = [
-    { userId: aliceUserId },
-    { userId: nestedGroupPrincipalId },
-  ];
+  const groupMembers = [{ userId: aliceUserId }, { userId: bobUserId }];
   const groupProjection = [
     {
-      userId: nestedGroupPrincipalId,
+      userId: bobUserId,
       role: "member" as const,
     },
     {
@@ -137,15 +98,15 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
     },
   ];
   const wrappedSecretEntries = await wrapDekForRecipients(groupKem.secretKey, [
-    nestedGroupKem.publicKey,
+    bobKem.publicKey,
     aliceKem.publicKey,
   ]);
   const memberEnvelopes = toMemberEnvelopeInputs(
     [
       {
-        userId: nestedGroupPrincipalId,
-        memberKeyFingerprint: await toFingerprint(nestedGroupKem.publicKey),
-        encapsulationPublicKey: bytesToBase64(nestedGroupKem.publicKey),
+        userId: bobUserId,
+        memberKeyFingerprint: await toFingerprint(bobKem.publicKey),
+        encapsulationPublicKey: bytesToBase64(bobKem.publicKey),
       },
       {
         userId: aliceUserId,
@@ -195,8 +156,8 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
     })),
   ).toEqual([
     {
-      userId: nestedGroupPrincipalId,
-      memberKeyFingerprint: await toFingerprint(nestedGroupKem.publicKey),
+      userId: bobUserId,
+      memberKeyFingerprint: await toFingerprint(bobKem.publicKey),
       stateHash: storedState.stateHash,
       epoch: 1,
     },
