@@ -2,6 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import type {
   PurchasesCapability,
   SyncPurchaseResult,
+  SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
 import {
   PurchaseIdentityPendingError,
@@ -208,6 +209,41 @@ test("keeps loaded options when a later provider retry fails", async () => {
   );
   expect(result.current.canSubscribe).toBe(false);
   expect(result.current.optionsRetryAvailable).toBe(true);
+});
+
+test("manual retry preserves the last options until reload settles", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: false });
+  purchases.identify = mock(() =>
+    Promise.reject(new PurchaseIdentityPendingError()),
+  );
+  let finishReload = (_options: SyncSubscriptionOption[]) => {};
+  let optionAttempts = 0;
+  purchases.listSyncOptions = mock(() => {
+    optionAttempts += 1;
+    if (optionAttempts === 1) return Promise.resolve([OPTION]);
+    return new Promise<SyncSubscriptionOption[]>((resolve) => {
+      finishReload = resolve;
+    });
+  });
+  const { result } = renderBillingActions({
+    optionsRetryDelaysMs: [],
+    purchases,
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  expect(result.current.canSubscribe).toBe(false);
+
+  act(() => result.current.retryOptions());
+  await waitFor(() =>
+    expect(purchases.listSyncOptions).toHaveBeenCalledTimes(2),
+  );
+  expect(result.current.options).toEqual([OPTION]);
+  expect(result.current.actionError).toBe(
+    ORG_MANAGER_LABELS.billingIdentityPending,
+  );
+  expect(result.current.canSubscribe).toBe(false);
+
+  finishReload([OPTION]);
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 });
 
 test("a billing action does not hide an exhausted options error", async () => {

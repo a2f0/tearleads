@@ -27,10 +27,13 @@ function createBackend(): RevenueCatBackend {
   };
 }
 
-function purchases(backend: RevenueCatBackend) {
+function purchases(
+  backend: RevenueCatBackend,
+  nativeStore: "app_store" | "play_store" = "play_store",
+) {
   return createRevenueCatPurchases(backend, {
     apiKey: "key",
-    nativeStore: "test_store",
+    nativeStore,
     operationTimeoutMs: 50,
     syncEntitlementId: "sync",
   });
@@ -102,7 +105,7 @@ test("restore stays buyer-paced beyond the ordinary provider deadline", async ()
     await restoreReady;
     return { activeEntitlementIds: ["sync"] };
   };
-  const capability = purchases(backend);
+  const capability = purchases(backend, "app_store");
   let settled = false;
   const restoring = capability.restore().then(() => {
     settled = true;
@@ -117,6 +120,15 @@ test("restore stays buyer-paced beyond the ordinary provider deadline", async ()
   await restoring;
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(await capability.hasActiveSyncEntitlement()).toBe(false);
+});
+
+test("Android restore exposes a terminal error when the bridge stalls", async () => {
+  const backend = createBackend();
+  backend.restorePurchases = () => new Promise(() => {});
+
+  await expect(purchases(backend).restore()).rejects.toBeInstanceOf(
+    PurchaseProviderStalledError,
+  );
 });
 
 test("identity queued behind buyer-paced restore stays retryable", async () => {
@@ -134,7 +146,7 @@ test("identity queued behind buyer-paced restore stays retryable", async () => {
     await restoreReady;
     return { activeEntitlementIds: ["sync"] };
   };
-  const capability = purchases(backend);
+  const capability = purchases(backend, "app_store");
   await capability.identify({ userId: "user-1" });
   const restoring = capability.restore();
   await restoreStarted;

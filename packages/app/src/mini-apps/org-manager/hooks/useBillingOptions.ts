@@ -109,8 +109,15 @@ export function useBillingOptions(
   useEffect(() => {
     const scope = currentScope;
     if (!scopeMatches(scopeRef.current, scope)) return;
-    setOptionsState(emptyOptionsState(scope));
-    if (!canSubscribe || userId === null) return;
+    if (!canSubscribe || userId === null) {
+      setOptionsState(emptyOptionsState(scope));
+      return;
+    }
+    // Preserve a last-known-good catalog and its disabled/error state while a
+    // same-scope manual retry is in flight. A changed scope still starts empty.
+    setOptionsState((current) =>
+      scopeMatches(current, scope) ? current : emptyOptionsState(scope),
+    );
     let cancelled = false;
     let retryIndex = 0;
     let retryTimeout: ReturnType<typeof setTimeout> | undefined;

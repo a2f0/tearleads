@@ -417,7 +417,10 @@ export function createRevenueCatPurchases(
     async restore() {
       requirePurchasesEnabled(purchasesEnabled);
       const info = await runRevenueCatCustomerOperation({
-        buyerPaced: true,
+        // App Store restore may show buyer-controlled Apple sign-in UI. Google
+        // Play restore has no equivalent sheet, so bound it like any other
+        // bridge call instead of leaving an Android spinner up forever.
+        buyerPaced: config.nativeStore === "app_store",
         identity,
         operation: () => backend.restorePurchases(),
         operationName: "restore",
