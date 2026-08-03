@@ -316,14 +316,16 @@ test("an aborted checkout releases its identity gate", async () => {
   const abortController = new AbortController();
   const identity = coordinator(backend);
   await identity.identify("user-1");
-  void identity.runCheckout({
-    abortReleasesIdentityGate: true,
-    abortSignal: abortController.signal,
-    operation: () => {
-      checkoutStarted.resolve();
-      return new Promise<void>(() => {});
-    },
-  });
+  void identity
+    .runCheckout({
+      abortReleasesIdentityGate: true,
+      abortSignal: abortController.signal,
+      operation: () => {
+        checkoutStarted.resolve();
+        return new Promise<void>(() => {});
+      },
+    })
+    .catch(() => undefined);
   await checkoutStarted.promise;
 
   const identifying = identity.identify("user-2");
