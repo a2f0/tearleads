@@ -114,12 +114,10 @@ test("a removed member recovers the group key epoch their envelope was sealed to
         publicKey: epochTwo.publicKey,
         version: 2,
       }),
-      projection: [],
       memberEnvelopes: [],
     },
     {
       state: genesis,
-      projection: [],
       memberEnvelopes: [
         await memberEnvelopeFor({
           principalSecret: historicalSecret,
@@ -161,7 +159,6 @@ test("a state whose claimed hash is not its real hash is rejected", async () => 
       pageOf([
         {
           state: forged,
-          projection: [],
           memberEnvelopes: [
             await memberEnvelopeFor({
               principalSecret: forgedSecret,
@@ -201,10 +198,9 @@ test("a broken predecessor link is rejected", async () => {
   const recovered = await resolveHistoricalPrincipalKey({
     fetchHistory: async () =>
       pageOf([
-        { state: orphan, projection: [], memberEnvelopes: [] },
+        { state: orphan, memberEnvelopes: [] },
         {
           state: genesis,
-          projection: [],
           memberEnvelopes: [
             await memberEnvelopeFor({
               principalSecret: forgedSecret,
@@ -233,7 +229,7 @@ test("a page for the wrong principal yields no key", async () => {
 
   const recovered = await resolveHistoricalPrincipalKey({
     fetchHistory: async () => ({
-      ...pageOf([{ state: genesis, projection: [], memberEnvelopes: [] }]),
+      ...pageOf([{ state: genesis, memberEnvelopes: [] }]),
       principalId: "44444444-4444-4444-8444-444444444444",
     }),
     keyFingerprint: genesis.keyFingerprint,
@@ -262,7 +258,6 @@ test("the walk stops instead of following an endless claim of more", async () =>
               publicKey: epochOne.publicKey,
               version,
             }),
-            projection: [],
             memberEnvelopes: [],
           },
         ],
@@ -321,7 +316,6 @@ test("a member reaches an outer group transitively through an inner one", async 
             entries: [
               {
                 state: innerGenesis,
-                projection: [],
                 memberEnvelopes: [
                   await memberEnvelopeFor({
                     principalSecret: innerSecret,
@@ -334,7 +328,6 @@ test("a member reaches an outer group transitively through an inner one", async 
         : pageOf([
             {
               state: outerGenesis,
-              projection: [],
               memberEnvelopes: [
                 {
                   memberPrincipalType: "group",
@@ -393,7 +386,6 @@ test("a container envelope sealed to a historical group key is opened end to end
       pageOf([
         {
           state: genesis,
-          projection: [],
           memberEnvelopes: [
             await memberEnvelopeFor({
               principalSecret: groupEpoch.secretKey,

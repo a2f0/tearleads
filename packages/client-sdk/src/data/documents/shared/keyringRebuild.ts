@@ -411,6 +411,7 @@ export async function recoverKeyringEntryFromWraps(input: {
  */
 
 export { fetchContainerKekLog } from "./containerKekLogFetch";
+export type { PrincipalPolicyHistoryFetcher } from "./historicalPrincipalKeys";
 export type {
   AggregatedContainerKekLog,
   KeyringRebuildResult,

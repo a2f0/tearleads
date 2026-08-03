@@ -110,11 +110,6 @@ export async function runGetPrincipalPolicyHistoryWorkflow(input: {
     const entries: PrincipalPolicyHistoryEntryResponse[] = page.states.map(
       (state) => ({
         memberEnvelopes: [...(envelopesByStateHash.get(state.stateHash) ?? [])],
-        projection: projectionFor(state).map((member) => ({
-          memberPrincipalId: member.memberPrincipalId,
-          memberPrincipalType: member.memberPrincipalType,
-          role: member.role,
-        })),
         state: toPrincipalStateResponse(state),
       }),
     );

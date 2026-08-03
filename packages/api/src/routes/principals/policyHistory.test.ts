@@ -304,3 +304,50 @@ test("policy-history fills a page and links across the page boundary", async () 
   expect(newestOnNext.state.version).toBe(oldestOnPage.state.version - 1);
   expect(second.hasMore).toBe(false);
 }, 300_000);
+
+test("policy-history serves no envelope for a group the requester cannot reach", async () => {
+  const actor = createTestUser();
+  const outsider = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  await registerUser(outsider);
+  await authenticate(outsider);
+  const principalId = crypto.randomUUID();
+
+  // The state carries a member envelope addressed to the actor. The outsider
+  // reaches neither the actor's user principal nor any group in the
+  // projection, so the scope must yield them nothing — this is the
+  // key-disclosure boundary, and it is enforced in SQL rather than by the
+  // caller remembering to filter.
+  await putPolicy({
+    actor,
+    members: [{ principalType: "user", principalId: actor.userId }],
+    principalId,
+  });
+
+  const mine = await (await getHistory(principalId, actor.token)).json();
+  invariant(
+    isPrincipalPolicyHistoryResponse(mine),
+    "expected a policy history response",
+  );
+  expect(
+    mine.entries.some((entry) =>
+      entry.memberEnvelopes.some(
+        (envelope) =>
+          envelope.memberPrincipalType === "user" &&
+          envelope.memberPrincipalId === actor.userId,
+      ),
+    ),
+  ).toBe(true);
+
+  const theirs = await (await getHistory(principalId, outsider.token)).json();
+  invariant(
+    isPrincipalPolicyHistoryResponse(theirs),
+    "expected a policy history response",
+  );
+  // Same states, zero key material — and specifically never the actor's.
+  expect(theirs.entries.length).toBe(mine.entries.length);
+  expect(
+    theirs.entries.every((entry) => entry.memberEnvelopes.length === 0),
+  ).toBe(true);
+}, 30_000);

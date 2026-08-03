@@ -94,10 +94,15 @@ export interface PrincipalPolicyStateChainEntryResponse {
  * signed header and projection but no key material: verifying the chain and
  * recovering a key off it are different jobs, and only the recovery path pays
  * for the envelopes.
+ *
+ * Carries no projection. A recovery walk reads the state header and the
+ * envelopes and nothing else, and a state's member list has no server-side
+ * bound — shipping it would put an unbounded field in a response whose whole
+ * point is being bounded. Callers that want membership read the current-policy
+ * bundle, which already exposes it.
  */
 export interface PrincipalPolicyHistoryEntryResponse {
   state: PrincipalStateResponse;
-  projection: PrincipalProjectionMemberResponse[];
   /**
    * Envelopes at this state addressed to the requester or to a principal that
    * authorizes them. Never the full member set — one member's envelope is not
@@ -286,8 +291,6 @@ export function isPrincipalPolicyHistoryEntryResponse(
     isPlainObject(value) &&
     hasObjectProperty(value, "state") &&
     isPrincipalStateResponse(value.state) &&
-    hasArrayProperty(value, "projection") &&
-    value.projection.every(isPrincipalProjectionMemberResponse) &&
     hasArrayProperty(value, "memberEnvelopes") &&
     // The same per-state bound the server applies, re-checked on the way in so
     // a hostile server cannot hand back an unbounded page.

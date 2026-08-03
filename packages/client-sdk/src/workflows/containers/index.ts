@@ -2,6 +2,7 @@ export type { ContainerMutationAuthor } from "../../data/containers/shared/types
 export type {
   AggregatedContainerKekLog,
   KeyringRebuildResult,
+  PrincipalPolicyHistoryFetcher,
 } from "../../data/documents/shared/keyringRebuild";
 export {
   fetchContainerKekLog,
