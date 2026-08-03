@@ -60,8 +60,7 @@ async function updateMemberGroupUser(
           },
         ]
       : existingProjection.filter(
-          (member) =>
-            member.userId !== "user" || member.userId !== input.memberUserId,
+          (member) => member.userId !== input.memberUserId,
         ),
   );
   const payloadCiphertext = bytesToBase64(
