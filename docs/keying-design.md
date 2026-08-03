@@ -97,7 +97,8 @@ object keying algorithm can fully fix that by itself.
 Organization administration uses reserved groups: `Admins` authorizes admins,
 and `Members` drives the roster. `Admins` is not nested into `Members`; instead
 a managed principal may name only active roster entries. The signed organization
-payload binds both IDs, and `Admins` contains only `admin` users. Each signed principal state uses a null
+payload binds both IDs, and `Admins` contains only `admin` users. Each signed
+principal state uses a null
 `externalAuthority` for direct authorization or the exact Admins head for
 external authorization. Historical citations match exact signed Admins states;
 post-checkpoint child successors must cite its verified current head.
