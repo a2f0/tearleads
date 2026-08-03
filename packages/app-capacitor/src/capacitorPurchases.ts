@@ -1,4 +1,3 @@
-import { Capacitor } from "@capacitor/core";
 import {
   PURCHASES_ERROR_CODE,
   Purchases,
@@ -21,6 +20,7 @@ import {
   prepareCapacitorRevenueCatPackage,
   purchaseCapacitorRevenueCatPackage,
 } from "./capacitorRevenueCatPurchase";
+import { getRevenueCatPlatform } from "./capacitorRevenueCatRuntime";
 
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
 let cachedPurchases:
@@ -54,7 +54,7 @@ function googleProductId(productIdentifier: string): string {
 }
 
 async function androidProductChangeOptions(targetProductId: string) {
-  if (Capacitor.getPlatform() !== "android") {
+  if (getRevenueCatPlatform() !== "android") {
     return {};
   }
   const result = await Purchases.getCustomerInfo();
@@ -245,7 +245,7 @@ function validateOperationTimeoutMs(value: number | undefined): void {
 }
 
 function readPlatformApiKey(): string | undefined {
-  const platform = Capacitor.getPlatform();
+  const platform = getRevenueCatPlatform();
   if (platform === "ios") {
     return readEnvString(import.meta.env?.VITE_REVENUECAT_IOS_API_KEY);
   }
@@ -267,7 +267,7 @@ export function createCapacitorPurchases(input?: {
 }): PurchasesCapability {
   const operationTimeoutMs = input?.operationTimeoutMs;
   validateOperationTimeoutMs(operationTimeoutMs);
-  const platform = Capacitor.getPlatform();
+  const platform = getRevenueCatPlatform();
   const apiKey = readPlatformApiKey();
   if (!apiKey) {
     cachedPurchases = undefined;

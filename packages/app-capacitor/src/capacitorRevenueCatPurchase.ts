@@ -1,29 +1,18 @@
-import { Capacitor } from "@capacitor/core";
 import {
   type CustomerInfo,
   Purchases,
   type PurchasesPackage,
 } from "@revenuecat/purchases-capacitor";
 import type { RevenueCatCustomerInfo } from "@tearleads/client-sdk";
+import {
+  getNativeRevenueCatPurchase,
+  getRevenueCatPlatform,
+} from "./capacitorRevenueCatRuntime";
 
 type OfficialPurchaseOptions = Omit<
   Parameters<typeof Purchases.purchasePackage>[0],
   "aPackage"
 >;
-
-interface NativeRevenueCatPurchasePlugin {
-  preparePackage(options: {
-    packageId: string;
-    productId: string;
-  }): Promise<void>;
-  purchasePackage(options: {
-    googleIsPersonalizedPrice?: boolean;
-    oldProductIdentifier?: string;
-    packageId: string;
-    productId: string;
-    replacementMode?: string;
-  }): Promise<{ activeEntitlementIds?: unknown }>;
-}
 
 function nativePackageInput(aPackage: PurchasesPackage) {
   return {
@@ -40,20 +29,10 @@ function isNativeStorePlatform(platform: string): boolean {
 export async function prepareCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
 ): Promise<void> {
-  if (!isNativeStorePlatform(Capacitor.getPlatform())) return;
+  if (!isNativeStorePlatform(getRevenueCatPlatform())) return;
   await getNativeRevenueCatPurchase().preparePackage(
     nativePackageInput(aPackage),
   );
-}
-
-let nativeRevenueCatPurchase: NativeRevenueCatPurchasePlugin | undefined;
-
-function getNativeRevenueCatPurchase(): NativeRevenueCatPurchasePlugin {
-  nativeRevenueCatPurchase ??=
-    Capacitor.registerPlugin<NativeRevenueCatPurchasePlugin>(
-      "RevenueCatPurchase",
-    );
-  return nativeRevenueCatPurchase;
 }
 
 function fromActiveEntitlementIds(
@@ -94,7 +73,7 @@ export async function purchaseCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
   options: OfficialPurchaseOptions = {},
 ): Promise<RevenueCatCustomerInfo> {
-  if (!isNativeStorePlatform(Capacitor.getPlatform())) {
+  if (!isNativeStorePlatform(getRevenueCatPlatform())) {
     return purchaseThroughOfficialBridge(aPackage, options);
   }
 

@@ -137,38 +137,29 @@ function nativePurchaseResult(input: NativePurchaseInput) {
   return Promise.resolve({ activeEntitlementIds: activeEntitlementIds() });
 }
 
-mock.module("@capacitor/core", () => ({
-  Capacitor: {
-    getPlatform: () => fixture.platform,
-    isNativePlatform: () => fixture.platform !== "web",
-    isPluginAvailable: () => fixture.platform !== "web",
-    registerPlugin: (name: string) => {
-      if (name !== "RevenueCatPurchase") {
-        return { show: () => Promise.resolve() };
+mock.module("../src/capacitorRevenueCatRuntime", () => ({
+  getRevenueCatPlatform: () => fixture.platform,
+  getNativeRevenueCatPurchase: () => ({
+    preparePackage: ({
+      packageId,
+      productId,
+    }: {
+      packageId: string;
+      productId: string;
+    }) => {
+      fixture.nativePrepareCalls.push({
+        identifier: packageId,
+        productId,
+      });
+      if (fixture.nativePreparePromise !== null) {
+        return fixture.nativePreparePromise;
       }
-      return {
-        preparePackage: ({
-          packageId,
-          productId,
-        }: {
-          packageId: string;
-          productId: string;
-        }) => {
-          fixture.nativePrepareCalls.push({
-            identifier: packageId,
-            productId,
-          });
-          if (fixture.nativePreparePromise !== null) {
-            return fixture.nativePreparePromise;
-          }
-          return fixture.nativePrepareRejection === null
-            ? Promise.resolve()
-            : Promise.reject(fixture.nativePrepareRejection);
-        },
-        purchasePackage: nativePurchaseResult,
-      };
+      return fixture.nativePrepareRejection === null
+        ? Promise.resolve()
+        : Promise.reject(fixture.nativePrepareRejection);
     },
-  },
+    purchasePackage: nativePurchaseResult,
+  }),
 }));
 
 mock.module("@revenuecat/purchases-capacitor", () => ({
