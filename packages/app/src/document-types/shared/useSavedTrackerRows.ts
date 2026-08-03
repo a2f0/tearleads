@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 
 export type AddTrackerRow<Entry> = (entry: Entry) => Promise<string | null>;
 
@@ -14,7 +14,6 @@ interface SavedTrackerRowState {
  * the inverse, so existing and newly-arriving rows remain editable until they
  * are explicitly saved.
  */
-
 export function useSavedTrackerRows(
   rows: ReadonlyArray<{ readonly id: string }>,
   initialEditingRowId: string | null,
@@ -28,19 +27,12 @@ export function useSavedTrackerRows(
       overrides: hasEditingRow
         ? new Map([[initialEditingRowId, false]])
         : new Map(),
-      unknownRowsAreSaved: hasEditingRow,
+      unknownRowsAreSaved: initialEditingRowId !== null,
     };
   });
-  const savedRowIds = useMemo(
-    () =>
-      new Set(
-        rows
-          .filter(
-            (row) => state.overrides.get(row.id) ?? state.unknownRowsAreSaved,
-          )
-          .map((row) => row.id),
-      ),
-    [rows, state],
+  const isRowSaved = useCallback(
+    (id: string) => state.overrides.get(id) ?? state.unknownRowsAreSaved,
+    [state],
   );
   const setRowSaved = useCallback((id: string, saved: boolean) => {
     setState((current) => {
@@ -59,5 +51,5 @@ export function useSavedTrackerRows(
     [setRowSaved],
   );
 
-  return { saveAddedRow, savedRowIds, setRowSaved };
+  return { isRowSaved, saveAddedRow, setRowSaved };
 }

@@ -127,7 +127,7 @@ function EnvFileEditFields(params: {
     resolveRowWriter,
     variables,
   } = params;
-  const { saveAddedRow, savedRowIds, setRowSaved } = useSavedTrackerRows(
+  const { isRowSaved, saveAddedRow, setRowSaved } = useSavedTrackerRows(
     variables,
     editingVariableId,
   );
@@ -166,10 +166,10 @@ function EnvFileEditFields(params: {
         <EnvFileEditRows
           controlsDisabled={controlsDisabled}
           currentAuthorId={currentAuthorId}
+          isRowSaved={isRowSaved}
           onRemoveVariable={onRemoveVariable}
           onUpdateVariable={onUpdateVariable}
           resolveRowWriter={resolveRowWriter}
-          savedRowIds={savedRowIds}
           setRowSaved={setRowSaved}
           variables={variables}
         />
@@ -184,15 +184,15 @@ function EnvFileEditFields(params: {
 function EnvFileEditRows(params: {
   controlsDisabled: boolean;
   currentAuthorId: string | null;
+  isRowSaved: (id: string) => boolean;
   onRemoveVariable: (id: string) => void;
   onUpdateVariable: UpdateEnvVariable;
   resolveRowWriter?: RowWriterResolver | undefined;
-  savedRowIds: ReadonlySet<string>;
   setRowSaved: (id: string, saved: boolean) => void;
   variables: ReadonlyArray<EnvVariableRow>;
 }) {
   return params.variables.map((variable, index) =>
-    params.savedRowIds.has(variable.id) ? (
+    params.isRowSaved(variable.id) ? (
       <EnvFileVariableReadRow
         key={variable.id}
         currentAuthorId={params.currentAuthorId}
@@ -284,6 +284,7 @@ export function EnvFileFields(params: {
 
   return (
     <EnvFileEditFields
+      key={editingVariableId ?? "document"}
       currentAuthorId={currentAuthorId}
       controlsDisabled={controlsDisabled}
       entryPending={newVariablePending}
@@ -326,8 +327,6 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
 
   const fileName = readFileNameField(structuredFields);
   const variables = toEnvVariableRows(rows, readCell);
-  // Row kebabs can enter targeted edit mode only for writers.
-  const onEnterEdit = canWrite ? enterRowEdit : undefined;
 
   function handleUpdateVariable(
     id: string,
@@ -351,7 +350,7 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
           fileNameInputId={fileNameInputId}
           isEditing={isEditing && canWrite}
           resolveRowWriter={resolveRowWriter}
-          onEnterEdit={onEnterEdit}
+          onEnterEdit={enterRowEdit}
           onAddVariable={(variable) => {
             if (canWrite) {
               return addRow({

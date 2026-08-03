@@ -20,15 +20,23 @@ export function useTargetedTrackerEditing(
 
   const enterRowEdit = useCallback(
     (id: string) => {
+      if (!canWrite) {
+        return;
+      }
       setEditingRowId(id);
       setIsEditing(true);
     },
-    [setIsEditing],
+    [canWrite, setIsEditing],
   );
   const toggleEditing = useCallback(() => {
     setEditingRowId(null);
     setIsEditing((editing) => !editing);
   }, [setIsEditing]);
 
-  return { editingRowId, enterRowEdit, isEditing, toggleEditing };
+  return {
+    editingRowId,
+    enterRowEdit: canWrite ? enterRowEdit : undefined,
+    isEditing,
+    toggleEditing,
+  };
 }

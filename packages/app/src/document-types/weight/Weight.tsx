@@ -142,7 +142,7 @@ function WeightEditFields(params: {
     unit,
     unitInputId,
   } = params;
-  const { saveAddedRow, savedRowIds, setRowSaved } = useSavedTrackerRows(
+  const { isRowSaved, saveAddedRow, setRowSaved } = useSavedTrackerRows(
     entries,
     editingEntryId,
   );
@@ -201,10 +201,10 @@ function WeightEditFields(params: {
           currentAuthorId={currentAuthorId}
           controlsDisabled={controlsDisabled}
           entries={entries}
+          isRowSaved={isRowSaved}
           onRemoveEntry={onRemoveEntry}
           onUpdateEntry={onUpdateEntry}
           resolveRowWriter={resolveRowWriter}
-          savedRowIds={savedRowIds}
           setRowSaved={setRowSaved}
         />
         <div className="weight-entry-list-footer tracker-entry-list-footer">
@@ -219,14 +219,14 @@ function WeightEditRows(params: {
   currentAuthorId: string | null;
   controlsDisabled: boolean;
   entries: ReadonlyArray<WeightEntryRow>;
+  isRowSaved: (id: string) => boolean;
   onRemoveEntry: (id: string) => void;
   onUpdateEntry: UpdateEntry;
   resolveRowWriter?: RowWriterResolver | undefined;
-  savedRowIds: ReadonlySet<string>;
   setRowSaved: (id: string, saved: boolean) => void;
 }) {
   return params.entries.map((entry, index) =>
-    params.savedRowIds.has(entry.id) ? (
+    params.isRowSaved(entry.id) ? (
       <WeightEntryReadRow
         key={entry.id}
         currentAuthorId={params.currentAuthorId}
@@ -322,6 +322,7 @@ export function WeightFields(params: {
 
   return (
     <WeightEditFields
+      key={editingEntryId ?? "document"}
       currentAuthorId={currentAuthorId}
       controlsDisabled={controlsDisabled}
       entryPending={newEntryPending}
@@ -369,8 +370,6 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
   const trackerName = readTrackerNameField(structuredFields);
   const unit = readTrackerUnitField(structuredFields);
   const entries = toWeightEntryRows(rows, readCell, unit);
-  // Row kebabs can enter targeted edit mode only for writers.
-  const onEnterEdit = canWrite ? enterRowEdit : undefined;
 
   function handleUpdateEntry(id: string, field: WeightField, value: string) {
     stageCell(id, field, value);
@@ -389,7 +388,7 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
           editingEntryId={editingEntryId}
           isEditing={isEditing && canWrite}
           resolveRowWriter={resolveRowWriter}
-          onEnterEdit={onEnterEdit}
+          onEnterEdit={enterRowEdit}
           onAddEntry={(entry) => {
             if (canWrite) {
               return addRow({
