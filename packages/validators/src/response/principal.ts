@@ -42,8 +42,7 @@ export interface PrincipalStateExternalAuthorityResponse {
 }
 
 export interface PrincipalProjectionMemberResponse {
-  memberPrincipalType: "user" | "group";
-  memberPrincipalId: string;
+  userId: string;
   role: "member" | "admin";
 }
 
@@ -58,8 +57,7 @@ export interface PrincipalStatePayloadResponse {
 }
 
 export interface PrincipalMemberEnvelopeResponse {
-  memberPrincipalType: "user" | "group";
-  memberPrincipalId: string;
+  userId: string;
   memberKeyFingerprint: string;
   kemCipherText: string;
   wrappedKey: string;
@@ -139,12 +137,6 @@ function isManagedPrincipalType(
   return value === "group" || value === "organization";
 }
 
-function isPrincipalStateMemberType(
-  value: string,
-): value is PrincipalMemberEnvelopeResponse["memberPrincipalType"] {
-  return value === "user" || value === "group";
-}
-
 function isProjectionRole(
   value: string,
 ): value is PrincipalProjectionMemberResponse["role"] {
@@ -156,9 +148,7 @@ function isPrincipalProjectionMemberResponse(
 ): value is PrincipalProjectionMemberResponse {
   return (
     isPlainObject(value) &&
-    hasStringProperty(value, "memberPrincipalType") &&
-    isPrincipalStateMemberType(value.memberPrincipalType) &&
-    hasStringProperty(value, "memberPrincipalId") &&
+    hasStringProperty(value, "userId") &&
     hasStringProperty(value, "role") &&
     isProjectionRole(value.role)
   );
@@ -169,9 +159,7 @@ function isPrincipalMemberEnvelopeResponse(
 ): value is PrincipalMemberEnvelopeResponse {
   return (
     isPlainObject(value) &&
-    hasStringProperty(value, "memberPrincipalType") &&
-    isPrincipalStateMemberType(value.memberPrincipalType) &&
-    hasStringProperty(value, "memberPrincipalId") &&
+    hasStringProperty(value, "userId") &&
     hasStringProperty(value, "memberKeyFingerprint") &&
     hasStringProperty(value, "kemCipherText") &&
     hasStringProperty(value, "wrappedKey")

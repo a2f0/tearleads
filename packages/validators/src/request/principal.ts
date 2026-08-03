@@ -10,8 +10,7 @@ import {
 } from "../util";
 
 export interface PrincipalProjectionMemberRequest {
-  memberPrincipalType: "user" | "group";
-  memberPrincipalId: string;
+  userId: string;
   role: "member" | "admin";
 }
 
@@ -59,8 +58,7 @@ export interface PutPrincipalPolicyRequest {
 }
 
 export interface PrincipalMemberEnvelopeRequest {
-  memberPrincipalType: "user" | "group";
-  memberPrincipalId: string;
+  userId: string;
   memberKeyFingerprint: string;
   kemCipherText: string;
   wrappedKey: string;
@@ -70,12 +68,6 @@ function isManagedPrincipalType(
   value: string,
 ): value is PrincipalStateRequest["principalType"] {
   return value === "group" || value === "organization";
-}
-
-function isPrincipalStateMemberType(
-  value: string,
-): value is PrincipalProjectionMemberRequest["memberPrincipalType"] {
-  return value === "user" || value === "group";
 }
 
 function isProjectionRole(
@@ -89,10 +81,8 @@ function isPrincipalProjectionMemberRequest(
 ): value is PrincipalProjectionMemberRequest {
   return (
     isPlainObject(value) &&
-    hasStringProperty(value, "memberPrincipalType") &&
-    isPrincipalStateMemberType(value.memberPrincipalType) &&
-    hasStringProperty(value, "memberPrincipalId") &&
-    isUuidV4String(value.memberPrincipalId) &&
+    hasStringProperty(value, "userId") &&
+    isUuidV4String(value.userId) &&
     hasStringProperty(value, "role") &&
     isProjectionRole(value.role)
   );
@@ -170,10 +160,8 @@ function isPrincipalMemberEnvelopeRequest(
 ): value is PrincipalMemberEnvelopeRequest {
   return (
     isPlainObject(value) &&
-    hasStringProperty(value, "memberPrincipalType") &&
-    isPrincipalStateMemberType(value.memberPrincipalType) &&
-    hasStringProperty(value, "memberPrincipalId") &&
-    isUuidV4String(value.memberPrincipalId) &&
+    hasStringProperty(value, "userId") &&
+    isUuidV4String(value.userId) &&
     hasStringProperty(value, "memberKeyFingerprint") &&
     hasStringProperty(value, "kemCipherText") &&
     hasStringProperty(value, "wrappedKey")

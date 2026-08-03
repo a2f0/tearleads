@@ -282,7 +282,7 @@ function isGroupMembership(
     ) {
       return false;
     }
-    const key = `${member.memberPrincipalType}:${member.memberPrincipalId}`;
+    const key = member.userId;
     if (memberKeys.has(key)) {
       return false;
     }
