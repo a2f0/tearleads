@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
+import { STORE_REPLACEMENT_MODE } from "@revenuecat/purchases-capacitor";
 
 const packageRoot = resolve(import.meta.dir, "..");
 
@@ -34,6 +35,7 @@ test("iOS project registers the RevenueCat purchase plugin contract", async () =
   expect(bridgeController).toContain(
     "bridge?.registerPluginInstance(RevenueCatPurchasePlugin())",
   );
+  expect(purchasePlugin).toContain('let jsName = "RevenueCatPurchase"');
   expect(purchasePlugin).toContain(
     "nativeError.domain == ErrorCode.errorDomain",
   );
@@ -43,6 +45,9 @@ test("iOS project registers the RevenueCat purchase plugin contract", async () =
   );
   expect(purchasePlugin).toContain(
     'CAPPluginMethod(name: "preparePackage", returnType: CAPPluginReturnPromise)',
+  );
+  expect(purchasePlugin).toContain(
+    'CAPPluginMethod(name: "purchasePackage", returnType: CAPPluginReturnPromise)',
   );
   expect(purchasePlugin).toContain(
     "preparedPackages.removeValue(forKey: packageId)",
@@ -119,6 +124,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
     mainActivity,
     purchasePlugin,
     revenueCatPluginBuild,
+    runtime,
     variables,
   ] = await Promise.all([
     Bun.file(resolve(packageRoot, "android/app/build.gradle")).text(),
@@ -140,6 +146,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
         "node_modules/@revenuecat/purchases-capacitor/android/build.gradle",
       ),
     ).text(),
+    Bun.file(resolve(packageRoot, "src/capacitorRevenueCatRuntime.ts")).text(),
     Bun.file(resolve(packageRoot, "android/variables.gradle")).text(),
   ]);
 
@@ -158,6 +165,19 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
     /com\.revenuecat\.purchases:purchases-hybrid-common:([^'"]+)/,
     "Capacitor plugin RevenueCat hybrid version",
   );
+  const replacementModeBlock = requiredMatch(
+    purchasePlugin,
+    /private fun replacementMode[\s\S]*?= when \(name\) \{([\s\S]*?)\n {4}\}/,
+    "Android RevenueCat replacement modes",
+  );
+  const kotlinReplacementModes = [
+    ...replacementModeBlock.matchAll(/"([^"]+)" -> StoreReplacementMode\./g),
+  ]
+    .map((match) => match[1])
+    .sort();
+  const capacitorReplacementModes = Object.values(
+    STORE_REPLACEMENT_MODE,
+  ).sort();
 
   expect(mainActivity).toContain(
     "registerPlugin(RevenueCatPurchasePlugin.class)",
@@ -166,12 +186,18 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
     /implementation "com\.revenuecat\.purchases:purchases:\$\{rootProject\.ext\.revenueCatPurchasesVersion\}"/,
   );
   expect(appBuild).toContain("resolutionStrategy.eachDependency");
-  expect(appBuild).toContain("details.requested.version != expectedVersion");
+  expect(appBuild).toContain("requestedVersion != null");
+  expect(appBuild).toContain("requestedVersion != expectedVersion");
   expect(purchasesVersion).toMatch(/^\d+\.\d+\.\d+$/);
   expect(hybridCommonVersion).toBe(pluginHybridCommonVersion);
   expect(purchasePlugin).toContain(
     '@CapacitorPlugin(name = "RevenueCatPurchase")',
   );
+  expect(runtime).toContain(
+    'registerPlugin<NativeRevenueCatPurchasePlugin>(\n      "RevenueCatPurchase"',
+  );
+  expect(purchasePlugin).toContain("@PluginMethod\n    fun preparePackage");
+  expect(purchasePlugin).toContain("@PluginMethod\n    fun purchasePackage");
   expect(purchasePlugin).toContain("preparedPackages[packageId] = prepared");
   expect(purchasePlugin).toContain("preparedPackages.clear()");
   expect(purchasePlugin).toContain("preparedPackages.remove(packageId)");
@@ -180,6 +206,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(purchasePlugin).toContain(
     "StoreReplacementMode.CHARGE_PRORATED_PRICE",
   );
+  expect(kotlinReplacementModes).toEqual(capacitorReplacementModes);
   expect(purchasePlugin).toContain(
     'JSObject().put("userCancelled", userCancelled)',
   );

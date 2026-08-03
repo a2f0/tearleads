@@ -1,8 +1,8 @@
 import type { PurchasesCapability } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
-import type { BillingActionState } from "../billing/billingActionScope";
 import {
   type BillingActionScope,
+  type BillingActionState,
   type BillingScopeRef,
   scopeMatches,
 } from "../billing/billingActionScope";

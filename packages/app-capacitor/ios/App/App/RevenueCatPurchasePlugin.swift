@@ -10,7 +10,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "preparePackage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchasePackage", returnType: CAPPluginReturnPromise)
     ]
-    private var preparedPackages: [String: Package] = [:]
+    @MainActor private var preparedPackages: [String: Package] = [:]
 
     @objc func preparePackage(_ call: CAPPluginCall) {
         guard Purchases.isConfigured else {

@@ -78,17 +78,20 @@ repositories {
     }
 }
 
+def revenueCatExpectedVersions = [
+    'purchases': rootProject.ext.revenueCatPurchasesVersion,
+    'purchases-hybrid-common': rootProject.ext.revenueCatHybridCommonVersion,
+]
 configurations.configureEach {
     resolutionStrategy.eachDependency { details ->
-        def expectedVersions = [
-            'purchases': rootProject.ext.revenueCatPurchasesVersion,
-            'purchases-hybrid-common': rootProject.ext.revenueCatHybridCommonVersion,
-        ]
         if (details.requested.group == 'com.revenuecat.purchases') {
-            def expectedVersion = expectedVersions[details.requested.name]
-            if (expectedVersion != null && details.requested.version != expectedVersion) {
+            def expectedVersion = revenueCatExpectedVersions[details.requested.name]
+            def requestedVersion = details.requested.version
+            if (expectedVersion != null && requestedVersion != null &&
+                requestedVersion != expectedVersion
+            ) {
                 throw new GradleException(
-                    "RevenueCat ${details.requested.name} ${details.requested.version} " +
+                    "RevenueCat ${details.requested.name} ${requestedVersion} " +
                     "does not match the pinned ${expectedVersion}",
                 )
             }
