@@ -34,12 +34,17 @@ materializes them into a temp directory (`tearleads-api-migrations-*`), passes i
 as `migrationsFolder`, and removes it afterwards. Run from source, no files are
 embedded and `initializeApiDatabase` uses its own default folder.
 
-The database connection is always closed and the temp folder always removed, even
-when migration fails. The two paths differ in which error wins: when the
-migration itself fails, that error propagates and any cleanup error is only
-logged; when the migration succeeds, a cleanup failure is thrown.
+Once the migration starts, both the success and failure paths attempt to close
+the database and remove the temp folder; each attempt is guarded, so a failing
+close or `rm` is reported rather than masking the other. The paths differ in
+which error wins: when the migration itself fails, that error propagates and the
+cleanup error is only logged; when the migration succeeds, a cleanup failure is
+thrown. Cleanup is not reached at all if the `@tearleads/api-shared/postgres`
+import fails, which happens after the temp folder is created.
 
-Locally, prefer the wrapper that checks Postgres is reachable first:
+Locally, prefer the wrapper — it fails early with setup instructions when no
+Postgres connection variable (`DATABASE_URL`, `PGHOST`, …) is set, `pg_isready`
+is available, and no server answers on the local socket or `localhost:5432`:
 
 ```bash
 sh scripts/postgres/runPostgresMigration.sh
