@@ -17,7 +17,6 @@ export const fixture: {
   }[];
   nativePrepareCalls: { identifier: string; productId: string }[];
   nativePurchaseCalls: {
-    googleIsPersonalizedPrice?: boolean;
     identifier: string;
     oldProductIdentifier?: string;
     productId: string;
@@ -33,6 +32,7 @@ export const fixture: {
   nativePreparePromise: Promise<void> | null;
   customerInfo: unknown;
   nativePurchaseResult: { activeEntitlementIds?: unknown } | null;
+  onGetCustomerInfo: (() => void) | null;
   onGetOfferings: (() => void) | null;
   offeringsPromise: Promise<{
     current: { availablePackages: PurchasesPackage[] };
@@ -57,6 +57,7 @@ export const fixture: {
   nativePreparePromise: null,
   customerInfo: { entitlements: { active: { sync: {} } } },
   nativePurchaseResult: null,
+  onGetCustomerInfo: null,
   onGetOfferings: null,
   offeringsPromise: null,
 };
@@ -74,7 +75,6 @@ export function nativePackage(identifier: string, productId: string) {
 }
 
 interface NativePurchaseInput {
-  googleIsPersonalizedPrice?: boolean;
   oldProductIdentifier?: string;
   packageId: string;
   productId: string;
@@ -83,9 +83,6 @@ interface NativePurchaseInput {
 
 function recordNativePurchase(input: NativePurchaseInput): void {
   fixture.nativePurchaseCalls.push({
-    ...(input.googleIsPersonalizedPrice === undefined
-      ? {}
-      : { googleIsPersonalizedPrice: input.googleIsPersonalizedPrice }),
     identifier: input.packageId,
     ...(input.oldProductIdentifier === undefined
       ? {}
@@ -177,8 +174,11 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
     LOG_OUT_ANONYMOUS_USER_ERROR: "22",
   },
   STORE_REPLACEMENT_MODE: {
+    CHARGE_FULL_PRICE: "CHARGE_FULL_PRICE",
     CHARGE_PRORATED_PRICE: "CHARGE_PRORATED_PRICE",
     DEFERRED: "DEFERRED",
+    WITHOUT_PRORATION: "WITHOUT_PRORATION",
+    WITH_TIME_PRORATION: "WITH_TIME_PRORATION",
   },
   Purchases: {
     configure: (options: { apiKey: string; appUserID?: string }) => {
@@ -226,8 +226,10 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
       }
       return Promise.resolve({ customerInfo: fixture.customerInfo });
     },
-    getCustomerInfo: () =>
-      Promise.resolve({ customerInfo: fixture.customerInfo }),
+    getCustomerInfo: () => {
+      fixture.onGetCustomerInfo?.();
+      return Promise.resolve({ customerInfo: fixture.customerInfo });
+    },
     restorePurchases: () =>
       Promise.resolve({ customerInfo: fixture.customerInfo }),
   },
@@ -281,6 +283,7 @@ export function resetFixture(): void {
   fixture.nativePreparePromise = null;
   fixture.customerInfo = { entitlements: { active: { sync: {} } } };
   fixture.nativePurchaseResult = null;
+  fixture.onGetCustomerInfo = null;
   fixture.onGetOfferings = null;
   fixture.offeringsPromise = null;
   clearEnv();

@@ -6,9 +6,9 @@ import type {
 import type { RevenueCatCustomerInfo } from "@tearleads/client-sdk";
 import { getNativeRevenueCatPurchase } from "./capacitorRevenueCatRuntime";
 
-type OfficialPurchaseOptions = Omit<
+type NativePurchaseChangeOptions = Pick<
   Parameters<typeof Purchases.purchasePackage>[0],
-  "aPackage"
+  "storeProductChangeInfo"
 >;
 
 function nativePackageInput(aPackage: PurchasesPackage) {
@@ -55,14 +55,11 @@ function normalizeActiveEntitlementIds(value: unknown): string[] {
  */
 export async function purchaseCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
-  options: OfficialPurchaseOptions = {},
+  options: NativePurchaseChangeOptions = {},
 ): Promise<RevenueCatCustomerInfo> {
   const change = options.storeProductChangeInfo;
   const result = await getNativeRevenueCatPurchase().purchasePackage({
     ...nativePackageInput(aPackage),
-    ...(options.googleIsPersonalizedPrice == null
-      ? {}
-      : { googleIsPersonalizedPrice: options.googleIsPersonalizedPrice }),
     ...(change == null
       ? {}
       : {

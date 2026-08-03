@@ -141,12 +141,12 @@ bun run --filter=app-web dev
 
 ## Provider deadlines
 
-Provider setup, identity changes, checkout preparation, and ordinary calls have
-a 30-second deadline. Checkout itself is unbounded. Restore always bounds
-preflight. Its App Store call is unbounded because Apple may wait on buyer sign
-in and cannot be cancelled; Google Play restore has no buyer sheet and retains
-the ordinary deadline so a stuck Android bridge cannot leave the app busy
-forever.
+Setup, identity, checkout preparation, and ordinary calls have a 30-second
+deadline. Native checkout is buyer-paced, but its wait has a 10-minute recovery
+deadline. It fails closed with restart guidance until callback or restart; a
+late callback clears the block. Restore bounds preflight. App Store restore is
+unbounded for buyer sign-in; Play has no buyer sheet and keeps the ordinary
+deadline.
 
 `PurchaseIdentityPendingError` means a call timed out before reaching the
 provider, including while queued behind checkout or buyer-paced restore; retry

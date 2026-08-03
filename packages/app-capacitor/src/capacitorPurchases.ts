@@ -109,6 +109,7 @@ async function prepareCapacitorPurchase(input: {
   }
   const productChangeOptions =
     await androidProductChangeOptions(productIdentifier);
+  if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
   await prepareCapacitorRevenueCatPackage(aPackage);
   if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
   return new CapacitorPreparedPurchase(aPackage, productChangeOptions);

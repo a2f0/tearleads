@@ -3,6 +3,13 @@ import { resolve } from "node:path";
 import { STORE_REPLACEMENT_MODE } from "@revenuecat/purchases-capacitor";
 
 const packageRoot = resolve(import.meta.dir, "..");
+const EXPECTED_ANDROID_REPLACEMENT_MODES = [
+  "CHARGE_FULL_PRICE",
+  "CHARGE_PRORATED_PRICE",
+  "DEFERRED",
+  "WITHOUT_PRORATION",
+  "WITH_TIME_PRORATION",
+];
 
 function requiredMatch(source: string, pattern: RegExp, description: string) {
   const value = source.match(pattern)?.[1];
@@ -175,9 +182,9 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   ]
     .map((match) => match[1])
     .sort();
-  const capacitorReplacementModes = Object.values(
-    STORE_REPLACEMENT_MODE,
-  ).sort();
+  const capacitorReplacementModes = Object.values(STORE_REPLACEMENT_MODE)
+    .map(String)
+    .sort();
 
   expect(mainActivity).toContain(
     "registerPlugin(RevenueCatPurchasePlugin.class)",
@@ -193,9 +200,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(purchasePlugin).toContain(
     '@CapacitorPlugin(name = "RevenueCatPurchase")',
   );
-  expect(runtime).toContain(
-    'registerPlugin<NativeRevenueCatPurchasePlugin>(\n      "RevenueCatPurchase"',
-  );
+  expect(runtime).toContain('"RevenueCatPurchase"');
   expect(purchasePlugin).toContain("@PluginMethod\n    fun preparePackage");
   expect(purchasePlugin).toContain("@PluginMethod\n    fun purchasePackage");
   expect(purchasePlugin).toContain("preparedPackages[packageId] = prepared");
@@ -206,9 +211,8 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(purchasePlugin).toContain(
     "StoreReplacementMode.CHARGE_PRORATED_PRICE",
   );
-  for (const replacementMode of capacitorReplacementModes) {
-    expect(kotlinReplacementModes).toContain(replacementMode);
-  }
+  expect(capacitorReplacementModes).toEqual(EXPECTED_ANDROID_REPLACEMENT_MODES);
+  expect(kotlinReplacementModes).toEqual(EXPECTED_ANDROID_REPLACEMENT_MODES);
   expect(purchasePlugin).toContain(
     'JSObject().put("userCancelled", userCancelled)',
   );

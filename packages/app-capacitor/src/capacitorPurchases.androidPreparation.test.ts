@@ -1,5 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
-import { PurchaseProviderStalledError } from "@tearleads/client-sdk";
+import {
+  PurchaseAbortedError,
+  PurchaseProviderStalledError,
+} from "@tearleads/client-sdk";
 import {
   createCapacitorPurchases,
   fixture,
@@ -45,6 +48,25 @@ test("bounds Android native preparation before opening Play", async () => {
     { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
   ]);
   expect(fixture.purchaseCalls).toEqual([]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
+});
+
+test("aborts after product-change lookup without preparing Play", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.packages = [nativePackage("monthly", "sync_solo_monthly:monthly")];
+  const controller = new AbortController();
+  fixture.onGetCustomerInfo = () => controller.abort();
+
+  await expect(
+    createCapacitorPurchases().purchaseSync({
+      abortSignal: controller.signal,
+      organizationId: "org-1",
+      packageId: "monthly",
+    }),
+  ).rejects.toBeInstanceOf(PurchaseAbortedError);
+
+  expect(fixture.nativePrepareCalls).toEqual([]);
   expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 

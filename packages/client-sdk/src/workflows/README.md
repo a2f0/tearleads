@@ -23,7 +23,7 @@ The `sync` facade exposes read-only coordinator snapshots through
 those snapshots to show lane status, request/run/error counts, and last action
 timestamps without reaching into coordinator internals or owning sync policy.
 
-Provider-neutral purchase errors live in `client/purchases.ts`, outside the
+Provider-neutral purchase errors live in `client/purchaseErrors.ts`, outside the
 organization workflow facade; callers can distinguish retryable identity races
 from provider stalls that require an app restart.
 

@@ -86,8 +86,6 @@ class RevenueCatPurchasePlugin : Plugin() {
         val builder = PurchaseParams.Builder(activity, prepared)
         call.getString("oldProductIdentifier")?.let(builder::oldProductId)
         replacementMode?.let(builder::replacementMode)
-        call.getBoolean("googleIsPersonalizedPrice")
-            ?.let(builder::isPersonalizedPrice)
         Purchases.sharedInstance.purchase(
             builder.build(),
             object : PurchaseCallback {

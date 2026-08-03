@@ -15,7 +15,6 @@ interface NativeRevenueCatPurchasePlugin {
     productId: string;
   }): Promise<void>;
   purchasePackage(options: {
-    googleIsPersonalizedPrice?: boolean;
     oldProductIdentifier?: string;
     packageId: string;
     productId: string;
