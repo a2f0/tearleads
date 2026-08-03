@@ -1,3 +1,8 @@
+import {
+  type RevenueCatOperationTimeoutError,
+  withRevenueCatOperationTimeout,
+} from "./revenueCatErrors";
+
 interface RevenueCatCheckoutGate {
   readonly promise: Promise<void>;
   readonly release: () => void;
@@ -58,9 +63,23 @@ export class RevenueCatCheckoutGateCoordinator {
   start<T>(
     operation: () => Promise<T>,
     gate: RevenueCatCheckoutGate,
+    settlement: {
+      readonly onTimeout: (error: RevenueCatOperationTimeoutError) => void;
+      readonly timeoutMs: number;
+    },
   ): { result: Promise<T> } {
-    const result = Promise.resolve().then(operation);
-    void result.then(gate.release, gate.release);
+    const providerResult = Promise.resolve().then(operation);
+    void providerResult.then(gate.release, gate.release);
+    const result = withRevenueCatOperationTimeout({
+      operation: () => providerResult,
+      operationName: "checkout settlement",
+      onTimeout: (error) => {
+        error.markRestartRequired();
+        gate.release();
+        settlement.onTimeout(error);
+      },
+      timeoutMs: settlement.timeoutMs,
+    });
     return { result };
   }
 }

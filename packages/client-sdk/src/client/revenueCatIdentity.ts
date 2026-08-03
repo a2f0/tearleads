@@ -18,15 +18,11 @@ export {
   RevenueCatCheckoutAbandonedError,
   RevenueCatCheckoutIdentityPendingError,
   RevenueCatOperationTimeoutError,
+  revenueCatCheckoutSettlementTimeoutMs,
   revenueCatOperationTimeoutMs,
 } from "./revenueCatErrors";
 export type { RevenueCatIdentityCoordinator } from "./revenueCatIdentityTypes";
 
-/**
- * Serializes identity changes and identity-dependent provider operations.
- * Once an identity mutation times out, every provider call fails fast because
- * the single native queue's ownership is unknown until that mutation settles.
- */
 class RevenueCatIdentityCoordinatorState
   implements RevenueCatIdentityCoordinator
 {
@@ -401,7 +397,12 @@ class RevenueCatIdentityCoordinatorState
       providerPreparationStarted = true;
       await checkoutInput.prepare?.();
       if (abandoned) throw new RevenueCatCheckoutAbandonedError();
-      return this.checkouts.start(checkoutInput.operation, gate);
+      return this.checkouts.start(checkoutInput.operation, gate, {
+        onTimeout: (error) => {
+          this.wedgedIdentityError = error;
+        },
+        timeoutMs: this.input.checkoutSettlementTimeoutMs,
+      });
     });
     const prepared = this.withProviderTimeout(
       registration,

@@ -36,5 +36,6 @@ export interface RevenueCatIdentityCoordinator {
 export interface RevenueCatIdentityCoordinatorInput {
   readonly apiKey: string;
   readonly backend: RevenueCatIdentityBackend;
+  readonly checkoutSettlementTimeoutMs: number;
   readonly timeoutMs: number;
 }

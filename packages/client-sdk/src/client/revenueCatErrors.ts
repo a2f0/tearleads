@@ -1,4 +1,5 @@
 const DEFAULT_OPERATION_TIMEOUT_MS = 30_000;
+const DEFAULT_CHECKOUT_SETTLEMENT_TIMEOUT_MS = 10 * 60_000;
 
 export class RevenueCatOperationTimeoutError extends Error {
   private restartRequiredValue = false;
@@ -91,6 +92,19 @@ export function revenueCatOperationTimeoutMs(
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new RangeError(
       "RevenueCat operation timeout must be a positive finite number",
+    );
+  }
+  return timeoutMs;
+}
+
+export function revenueCatCheckoutSettlementTimeoutMs(
+  configuredTimeoutMs: number | undefined,
+): number {
+  const timeoutMs =
+    configuredTimeoutMs ?? DEFAULT_CHECKOUT_SETTLEMENT_TIMEOUT_MS;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new RangeError(
+      "RevenueCat checkout settlement timeout must be a positive finite number",
     );
   }
   return timeoutMs;

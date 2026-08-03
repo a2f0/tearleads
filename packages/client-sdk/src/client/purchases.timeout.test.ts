@@ -89,6 +89,26 @@ test("checkout bounds provider package resolution before the store sheet", async
   expect(purchaseStarts).toBe(0);
 });
 
+test("a lost native checkout callback surfaces restart guidance", async () => {
+  const backend = createBackend();
+  backend.purchasePackage = () => new Promise(() => {});
+  const capability = createRevenueCatPurchases(backend, {
+    apiKey: "key",
+    checkoutSettlementTimeoutMs: 5,
+    nativeStore: "play_store",
+    operationTimeoutMs: 50,
+    restorePurchasesBuyerPaced: false,
+    syncEntitlementId: "sync",
+  });
+
+  await expect(
+    capability.purchaseSync({
+      organizationId: "org-1",
+      packageId: "monthly",
+    }),
+  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
+});
+
 test("checkout waiting on stalled configuration asks for restart", async () => {
   const backend = createBackend();
   backend.configure = () => new Promise(() => {});

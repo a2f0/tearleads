@@ -50,6 +50,7 @@ function coordinator(backend: RevenueCatBackend, timeoutMs = 1_000) {
   return createRevenueCatIdentityCoordinator({
     apiKey: "key",
     backend,
+    checkoutSettlementTimeoutMs: 1_000,
     timeoutMs,
   });
 }

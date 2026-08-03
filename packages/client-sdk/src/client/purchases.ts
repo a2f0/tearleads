@@ -28,6 +28,7 @@ import {
   RevenueCatCheckoutIdentityPendingError,
   type RevenueCatIdentityCoordinator,
   RevenueCatOperationTimeoutError,
+  revenueCatCheckoutSettlementTimeoutMs,
   revenueCatOperationTimeoutMs,
 } from "./revenueCatIdentity";
 import { prepareRevenueCatPurchase } from "./revenueCatPurchasePreparation";
@@ -174,6 +175,12 @@ export interface RevenueCatPurchasesConfig {
    */
   readonly restorePurchasesBuyerPaced: boolean;
   /**
+   * Recovery deadline after native checkout presentation. Defaults to ten
+   * minutes so normal buyer interaction remains unhurried while a lost native
+   * callback eventually releases identity serialization with restart guidance.
+   */
+  readonly checkoutSettlementTimeoutMs?: number;
+  /**
    * Whether this platform may start RevenueCat purchases. Defaults to true.
    * Set false when RevenueCat is retained only for entitlement observation.
    */
@@ -213,6 +220,9 @@ function revenueCatIdentity(
   return createRevenueCatIdentityCoordinator({
     apiKey: config.apiKey,
     backend,
+    checkoutSettlementTimeoutMs: revenueCatCheckoutSettlementTimeoutMs(
+      config.checkoutSettlementTimeoutMs,
+    ),
     timeoutMs: revenueCatOperationTimeoutMs(config.operationTimeoutMs),
   });
 }

@@ -50,10 +50,15 @@ function createDeferred() {
   return { promise, reject, resolve };
 }
 
-function coordinator(backend: RevenueCatBackend, timeoutMs = 1_000) {
+function coordinator(
+  backend: RevenueCatBackend,
+  timeoutMs = 1_000,
+  checkoutSettlementTimeoutMs = 1_000,
+) {
   return createRevenueCatIdentityCoordinator({
     apiKey: "key",
     backend,
+    checkoutSettlementTimeoutMs,
     timeoutMs,
   });
 }
@@ -385,6 +390,28 @@ test("a second checkout waits until the active store sheet settles", async () =>
     },
   });
   expect(secondStarts).toBe(1);
+});
+
+test("a lost checkout callback eventually requires restart", async () => {
+  const backend = createBackend();
+  const identity = coordinator(backend, 1_000, 5);
+  await identity.identify("user-1");
+
+  const error = await identity
+    .runCheckout({ operation: () => new Promise<void>(() => {}) })
+    .then(
+      () => null,
+      (rejection: unknown) => rejection,
+    );
+  expect(error).toBeInstanceOf(RevenueCatOperationTimeoutError);
+  expect(error).toMatchObject({
+    operationName: "checkout settlement",
+    restartRequired: true,
+  });
+  await expect(identity.identify("user-2")).rejects.toMatchObject({
+    operationName: "checkout settlement",
+    restartRequired: true,
+  });
 });
 
 test("abort before checkout registration skips preparation and mounting", async () => {
