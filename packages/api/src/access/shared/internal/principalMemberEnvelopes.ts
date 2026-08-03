@@ -3,28 +3,22 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import { principalMemberEnvelopes, users } from "@tearleads/api-shared/schema";
-import type {
-  ManagedRecipientPrincipalType,
-  PrincipalStateMemberType,
-} from "@tearleads/crypto";
+import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import { computePrincipalMemberEnvelopesRoot } from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import {
-  getCurrentPrincipalEpochKeys,
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "./principalStateStore";
 
 interface PrincipalMemberRecipient {
-  memberPrincipalType: PrincipalStateMemberType;
-  memberPrincipalId: string;
+  userId: string;
   memberKeyFingerprint: string;
   encapsulationPublicKey: string;
 }
 
 interface PrincipalMemberEnvelopeInput {
-  memberPrincipalType: PrincipalStateMemberType;
-  memberPrincipalId: string;
+  userId: string;
   memberKeyFingerprint: string;
   kemCipherText: string;
   wrappedKey: string;
@@ -43,13 +37,6 @@ interface StorePrincipalMemberEnvelopesInput {
   principalId: string;
   stateHash: string;
   envelopes: PrincipalMemberEnvelopeInput[];
-}
-
-function memberRecipientKey(input: {
-  memberPrincipalType: PrincipalStateMemberType;
-  memberPrincipalId: string;
-}): string {
-  return `${input.memberPrincipalType}:${input.memberPrincipalId}`;
 }
 
 async function loadUserMemberRecipients(
@@ -73,8 +60,7 @@ async function loadUserMemberRecipients(
 
   for (const row of rows) {
     recipientsByUserId.set(row.userId, {
-      memberPrincipalType: "user",
-      memberPrincipalId: row.userId,
+      userId: row.userId,
       memberKeyFingerprint: row.memberKeyFingerprint,
       encapsulationPublicKey: row.encapsulationPublicKey,
     });
@@ -109,54 +95,22 @@ async function loadCurrentPrincipalMemberRecipientsForState(
     principalId,
     executor,
   );
-  const userMemberIds = currentProjection
-    .filter((member) => member.memberPrincipalType === "user")
-    .map((member) => member.memberPrincipalId);
+  // Every projected member is a user, so this is one lookup rather than a
+  // split over member kinds followed by a nested principal-epoch-key fetch.
   const userRecipientsById = await loadUserMemberRecipients(
-    userMemberIds,
-    executor,
-  );
-  const groupMemberIds = currentProjection
-    .filter((member) => member.memberPrincipalType === "group")
-    .map((member) => member.memberPrincipalId);
-  const groupRecipientsById = await getCurrentPrincipalEpochKeys(
-    "group",
-    groupMemberIds,
+    currentProjection.map((member) => member.userId),
     executor,
   );
 
   const recipients: PrincipalMemberRecipient[] = [];
-
   for (const member of currentProjection) {
-    if (member.memberPrincipalType === "user") {
-      const recipient = userRecipientsById.get(member.memberPrincipalId);
-
-      if (!recipient) {
-        throw new Error(
-          `Missing user recipient key for principal state member ${member.memberPrincipalId}`,
-        );
-      }
-
-      recipients.push(recipient);
-      continue;
-    }
-
-    const nestedPrincipalEpochKey = groupRecipientsById.get(
-      member.memberPrincipalId,
-    );
-
-    if (!nestedPrincipalEpochKey) {
+    const recipient = userRecipientsById.get(member.userId);
+    if (!recipient) {
       throw new Error(
-        `Missing current principal epoch key for group member ${member.memberPrincipalId}`,
+        `Missing user recipient key for principal state member ${member.userId}`,
       );
     }
-
-    recipients.push({
-      memberPrincipalType: "group",
-      memberPrincipalId: member.memberPrincipalId,
-      memberKeyFingerprint: nestedPrincipalEpochKey.keyFingerprint,
-      encapsulationPublicKey: nestedPrincipalEpochKey.encapsulationPublicKey,
-    });
+    recipients.push(recipient);
   }
 
   return {
@@ -178,8 +132,7 @@ export async function listPrincipalMemberEnvelopesForState(
       principalId: principalMemberEnvelopes.principalId,
       stateHash: principalMemberEnvelopes.stateHash,
       epoch: principalMemberEnvelopes.epoch,
-      memberPrincipalType: principalMemberEnvelopes.memberPrincipalType,
-      memberPrincipalId: principalMemberEnvelopes.memberPrincipalId,
+      userId: principalMemberEnvelopes.userId,
       memberKeyFingerprint: principalMemberEnvelopes.memberKeyFingerprint,
       kemCipherText: principalMemberEnvelopes.kemCipherText,
       wrappedKey: principalMemberEnvelopes.wrappedKey,
@@ -193,10 +146,7 @@ export async function listPrincipalMemberEnvelopesForState(
         eq(principalMemberEnvelopes.stateHash, stateHash),
       ),
     )
-    .orderBy(
-      principalMemberEnvelopes.memberPrincipalType,
-      principalMemberEnvelopes.memberPrincipalId,
-    );
+    .orderBy(principalMemberEnvelopes.userId);
 
   return rows;
 }
@@ -247,10 +197,7 @@ function buildPrincipalMemberEnvelopeRows(input: {
   readonly stateHash: string;
 }): Array<Omit<StoredPrincipalMemberEnvelope, "createdAt">> {
   const expectedRecipients = new Map(
-    input.recipients.map((recipient) => [
-      memberRecipientKey(recipient),
-      recipient,
-    ]),
+    input.recipients.map((recipient) => [recipient.userId, recipient]),
   );
   if (input.envelopes.length !== expectedRecipients.size) {
     throw new Error(
@@ -259,7 +206,7 @@ function buildPrincipalMemberEnvelopeRows(input: {
   }
 
   const rows = input.envelopes.map((envelope) => {
-    const recipientKey = memberRecipientKey(envelope);
+    const recipientKey = envelope.userId;
     const expectedRecipient = expectedRecipients.get(recipientKey);
     if (!expectedRecipient) {
       throw new Error(
@@ -317,8 +264,7 @@ async function insertAndVerifyPrincipalMemberEnvelopeRows(input: {
           principalMemberEnvelopes.principalType,
           principalMemberEnvelopes.principalId,
           principalMemberEnvelopes.stateHash,
-          principalMemberEnvelopes.memberPrincipalType,
-          principalMemberEnvelopes.memberPrincipalId,
+          principalMemberEnvelopes.userId,
         ],
       });
   }

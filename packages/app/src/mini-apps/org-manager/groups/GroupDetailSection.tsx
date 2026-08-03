@@ -75,7 +75,6 @@ export function GroupDetailSection({
   directory,
   groupContainers,
   groupPolicyHistory,
-  groups,
   members,
   memberUserIds,
   mutating,
@@ -96,7 +95,6 @@ export function GroupDetailSection({
   directory: OrganizationDirectory | null;
   groupContainers: OrganizationGroupContainers | null;
   groupPolicyHistory: OrganizationGroupPolicyHistory | null;
-  groups: ReadonlyArray<OrganizationGroupSummary>;
   members: OrganizationGroupMembers | null;
   memberUserIds: ReadonlySet<string>;
   mutating: boolean;
@@ -184,7 +182,6 @@ export function GroupDetailSection({
         {activeTab === "policy-history" ? (
           <PolicyHistorySection
             directory={directory}
-            groups={groups}
             history={groupPolicyHistory}
             pending={pending}
             profileDisplayNamesByUserId={profileDisplayNamesByUserId}

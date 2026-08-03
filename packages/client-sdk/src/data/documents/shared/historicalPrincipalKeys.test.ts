@@ -29,8 +29,7 @@ async function memberEnvelopeFor(input: {
   ]);
   if (!recipient) throw new Error("expected a wrapped recipient");
   return {
-    memberPrincipalType: "user" as const,
-    memberPrincipalId: USER_ID,
+    userId: USER_ID,
     memberKeyFingerprint: recipient.keyFingerprint,
     kemCipherText: bytesToBase64(recipient.kemCipherText),
     wrappedKey: bytesToBase64(recipient.wrappedKey),
@@ -276,79 +275,55 @@ test("the walk stops instead of following an endless claim of more", async () =>
   expect(pages).toBeLessThan(100);
 });
 
-test("a member reaches an outer group transitively through an inner one", async () => {
+test("an envelope addressed to another principal is never followed", async () => {
   const identity = generateKemSeedAndKeyPair();
-  const outerEpoch = generateKemSeedAndKeyPair();
-  const innerEpoch = generateKemSeedAndKeyPair();
-  const outerSecret = crypto.getRandomValues(new Uint8Array(32));
-  // A group's "secret key" IS its KEM secret: the outer envelope is sealed to
-  // the inner group's PUBLIC key, so only that KEM secret opens it.
-  const innerSecret = innerEpoch.secretKey;
-  const innerGroupId = "55555555-5555-4555-8555-555555555555";
+  const groupEpoch = generateKemSeedAndKeyPair();
+  const otherEpoch = generateKemSeedAndKeyPair();
+  const groupSecret = crypto.getRandomValues(new Uint8Array(32));
+  const otherPrincipalId = "55555555-5555-4555-8555-555555555555";
 
-  // The outer group's envelope is addressed to the INNER group, not to the
-  // user. Membership is transitive, so opening it means recovering the inner
-  // group's key first — a hop the walk has to make on its own.
-  const [innerRecipient] = await wrapDekForRecipients(outerSecret, [
-    innerEpoch.publicKey,
+  // The only envelope on the state is sealed to ANOTHER principal's KEM key,
+  // not to this member's. Group membership is not transitive: the walk must
+  // stop here rather than fetch the other principal and hop through its key.
+  const [otherRecipient] = await wrapDekForRecipients(groupSecret, [
+    otherEpoch.publicKey,
   ]);
-  if (!innerRecipient) throw new Error("expected the inner recipient");
+  if (!otherRecipient) throw new Error("expected the other recipient");
 
-  const outerGenesis = await stateAt({
+  const genesis = await stateAt({
     prevStateHash: null,
-    publicKey: outerEpoch.publicKey,
-    version: 1,
-  });
-  const innerGenesis = await stateAt({
-    prevStateHash: null,
-    principalId: innerGroupId,
-    publicKey: innerEpoch.publicKey,
+    publicKey: groupEpoch.publicKey,
     version: 1,
   });
 
+  let fetchedOtherPrincipal = false;
   const recovered = await resolveHistoricalPrincipalKey({
-    fetchHistory: async (request) =>
-      request.principalId === innerGroupId
-        ? {
-            principalType: "group",
-            principalId: innerGroupId,
-            hasMore: false,
-            entries: [
-              {
-                state: innerGenesis,
-                memberEnvelopes: [
-                  await memberEnvelopeFor({
-                    principalSecret: innerSecret,
-                    publicKey: identity.publicKey,
-                  }),
-                ],
-              },
-            ],
-          }
-        : pageOf([
+    fetchHistory: async (request) => {
+      if (request.principalId === otherPrincipalId) {
+        fetchedOtherPrincipal = true;
+      }
+      return pageOf([
+        {
+          state: genesis,
+          memberEnvelopes: [
             {
-              state: outerGenesis,
-              memberEnvelopes: [
-                {
-                  memberPrincipalType: "group",
-                  memberPrincipalId: innerGroupId,
-                  memberKeyFingerprint: innerRecipient.keyFingerprint,
-                  kemCipherText: bytesToBase64(innerRecipient.kemCipherText),
-                  wrappedKey: bytesToBase64(innerRecipient.wrappedKey),
-                },
-              ],
+              userId: otherPrincipalId,
+              memberKeyFingerprint: otherRecipient.keyFingerprint,
+              kemCipherText: bytesToBase64(otherRecipient.kemCipherText),
+              wrappedKey: bytesToBase64(otherRecipient.wrappedKey),
             },
-          ]),
-    keyFingerprint: outerGenesis.keyFingerprint,
+          ],
+        },
+      ]);
+    },
+    keyFingerprint: genesis.keyFingerprint,
     principalId: PRINCIPAL_ID,
     principalType: "group",
     secretKey: identity.secretKey,
   });
 
-  // Only the inner group's key opens the outer envelope, so recovering the
-  // outer secret proves the hop happened.
-  expect(recovered).not.toBeNull();
-  expect(Array.from(recovered ?? [])).toEqual(Array.from(outerSecret));
+  expect(recovered).toBeNull();
+  expect(fetchedOtherPrincipal).toBe(false);
 });
 
 test("a container envelope sealed to a historical group key is opened end to end", async () => {

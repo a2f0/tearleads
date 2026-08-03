@@ -5769,18 +5769,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "member_principal_type": {
-          "name": "member_principal_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "member_principal_id": {
-          "name": "member_principal_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "member_key_fingerprint": {
           "name": "member_key_fingerprint",
           "type": "text",
@@ -5805,6 +5793,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
         }
       },
       "indexes": {
@@ -5851,13 +5845,7 @@
               "nulls": "last"
             },
             {
-              "expression": "member_principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "member_principal_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -5905,18 +5893,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "member_principal_type": {
-          "name": "member_principal_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "member_principal_id": {
-          "name": "member_principal_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "role": {
           "name": "role",
           "type": "text",
@@ -5929,6 +5905,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
         }
       },
       "indexes": {
@@ -5957,13 +5939,7 @@
           "name": "principal_membership_projection_member_idx",
           "columns": [
             {
-              "expression": "member_principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "member_principal_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -5978,13 +5954,7 @@
           "name": "principal_membership_projection_member_state_idx",
           "columns": [
             {
-              "expression": "member_principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "member_principal_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6035,13 +6005,7 @@
               "nulls": "last"
             },
             {
-              "expression": "member_principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "member_principal_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

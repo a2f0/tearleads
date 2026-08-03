@@ -70,52 +70,6 @@ async function createPrincipalPolicyResolutionContext(
   };
 }
 
-async function unwrapThroughNestedGroup(input: {
-  context: PrincipalPolicyResolutionContext;
-  memberEnvelopeEntries: RecipientEntry[];
-  memberEnvelopes: ReadonlyArray<PrincipalMemberEnvelopeResponse>;
-  nextVisitingPrincipalKeys: Set<string>;
-  policyEpochKey: string;
-  secretKey: Uint8Array;
-}): Promise<Uint8Array | null> {
-  for (const memberEnvelope of input.memberEnvelopes) {
-    if (memberEnvelope.memberPrincipalType !== "group") {
-      continue;
-    }
-    const nestedBundles =
-      input.context.bundlesByKeyFingerprint.get(
-        memberEnvelope.memberKeyFingerprint,
-      ) ?? [];
-    for (const nestedBundle of nestedBundles) {
-      if (
-        nestedBundle.currentState.principalType !== "group" ||
-        nestedBundle.currentState.principalId !==
-          memberEnvelope.memberPrincipalId
-      ) {
-        continue;
-      }
-      try {
-        const nestedSecretKey = await unwrapPrincipalSecretKey(
-          nestedBundle,
-          input.secretKey,
-          input.context,
-          input.nextVisitingPrincipalKeys,
-        );
-        const resolvedSecretKey = await unwrapDek(
-          input.memberEnvelopeEntries,
-          nestedSecretKey,
-        );
-        input.context.resolvedPrincipalSecretKeys.set(
-          input.policyEpochKey,
-          resolvedSecretKey,
-        );
-        return resolvedSecretKey;
-      } catch {}
-    }
-  }
-  return null;
-}
-
 async function unwrapPrincipalSecretKey(
   bundle: PrincipalPolicyBundleResponse,
   secretKey: Uint8Array,
@@ -146,17 +100,9 @@ async function unwrapPrincipalSecretKey(
     context.resolvedPrincipalSecretKeys.set(policyEpochKey, resolvedSecretKey);
     return resolvedSecretKey;
   } catch {
-    const nestedSecretKey = await unwrapThroughNestedGroup({
-      context,
-      memberEnvelopeEntries,
-      memberEnvelopes: bundle.currentMemberEnvelopes.envelopes,
-      nextVisitingPrincipalKeys,
-      policyEpochKey,
-      secretKey,
-    });
-    if (nestedSecretKey) {
-      return nestedSecretKey;
-    }
+    // No transitive fallback: a principal's envelopes are all addressed to
+    // users directly, so if this identity key opens none of them the requester
+    // is not a member.
   }
 
   throw new Error(`No matching principal member envelope for ${principalKey}`);

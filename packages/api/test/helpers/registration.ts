@@ -143,8 +143,7 @@ function createSignerDeviceId(signingFingerprint: string): string {
 function groupProjectionMember(userId: string) {
   return [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: userId,
+      userId: userId,
       role: "admin" as const,
     },
   ];
@@ -174,8 +173,7 @@ export async function createInitialAdminGroupRequest(input: {
 
   const memberEnvelopes = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       memberKeyFingerprint: await toFingerprint(input.encapsulationPublicKey),
       kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
@@ -190,7 +188,7 @@ export async function createInitialAdminGroupRequest(input: {
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
       keyFingerprint: await toFingerprint(groupKem.publicKey),
-      members: [{ principalType: "user", principalId: input.userId }],
+      members: [{ userId: input.userId }],
       memberEnvelopes,
       projection,
       payloadCiphertext,
@@ -219,7 +217,6 @@ export async function createInitialAdminGroupRequest(input: {
 }
 
 export async function createInitialMemberGroupRequest(input: {
-  adminGroup: CreateOrganizationGroupRequest;
   encapsulationPublicKey: Uint8Array;
   groupId?: string | undefined;
   signingPrivateKey: Uint8Array;
@@ -228,15 +225,11 @@ export async function createInitialMemberGroupRequest(input: {
 }): Promise<CreateOrganizationGroupRequest> {
   const groupId = input.groupId ?? crypto.randomUUID();
   const groupKem = generateKemSeedAndKeyPair();
+  // Members holds the registering user alone; the Admins group is no longer a
+  // nested member.
   const projection = [
     {
-      memberPrincipalType: "group" as const,
-      memberPrincipalId: input.adminGroup.groupId,
-      role: "member" as const,
-    },
-    {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       role: "admin" as const,
     },
   ];
@@ -246,28 +239,13 @@ export async function createInitialMemberGroupRequest(input: {
   const [userEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
     input.encapsulationPublicKey,
   ]);
-  const [adminGroupEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
-    base64ToBytes(
-      input.adminGroup.initialGroupPolicy.state.encapsulationPublicKey,
-    ),
-  ]);
-
-  if (!userEnvelope || !adminGroupEnvelope) {
+  if (!userEnvelope) {
     throw new Error("Failed to wrap member group key for test user");
   }
 
   const memberEnvelopes = [
     {
-      memberPrincipalType: "group" as const,
-      memberPrincipalId: input.adminGroup.groupId,
-      memberKeyFingerprint:
-        input.adminGroup.initialGroupPolicy.state.keyFingerprint,
-      kemCipherText: bytesToBase64(adminGroupEnvelope.kemCipherText),
-      wrappedKey: bytesToBase64(adminGroupEnvelope.wrappedKey),
-    },
-    {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       memberKeyFingerprint: await toFingerprint(input.encapsulationPublicKey),
       kemCipherText: bytesToBase64(userEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(userEnvelope.wrappedKey),
@@ -282,10 +260,7 @@ export async function createInitialMemberGroupRequest(input: {
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
       keyFingerprint: await toFingerprint(groupKem.publicKey),
-      members: [
-        { principalType: "group", principalId: input.adminGroup.groupId },
-        { principalType: "user", principalId: input.userId },
-      ],
+      members: [{ userId: input.userId }],
       memberEnvelopes,
       projection,
       payloadCiphertext,

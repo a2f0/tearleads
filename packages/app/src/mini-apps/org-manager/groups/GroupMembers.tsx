@@ -6,7 +6,6 @@ import {
 import {
   MiniAppRow,
   MiniAppRowButton,
-  MiniAppRowStack,
   MiniAppRowText,
 } from "../../../components/mini-app/rows/MiniAppRow";
 import {
@@ -47,10 +46,7 @@ export function GroupMembers({
     );
   }
 
-  const adminCount = members.filter(
-    (member) =>
-      member.memberPrincipalType === "user" && member.role === "admin",
-  ).length;
+  const adminCount = members.filter((member) => member.role === "admin").length;
 
   return (
     <MiniAppVirtualListFrame
@@ -65,52 +61,32 @@ export function GroupMembers({
         {virtualMembers.rows.map((member) => {
           const isLastAdmin = member.role === "admin" && adminCount <= 1;
           const canRemove =
-            canMutateGroup &&
-            member.memberPrincipalType === "user" &&
-            member.memberPrincipalId !== userId &&
-            !isLastAdmin;
-
-          const memberUserId =
-            member.memberPrincipalType === "user" ? member.userId : null;
-          const memberLabel = (
-            <>
-              <strong title={member.memberPrincipalId}>
-                {member.userId
-                  ? compactFingerprint(member.userId)
-                  : (member.groupName ??
-                    compactFingerprint(member.memberPrincipalId))}
-              </strong>
-              <MiniAppRowText muted>
-                {getOrgManagerPolicyRoleLabel(member.role)}
-              </MiniAppRowText>
-            </>
-          );
+            canMutateGroup && member.userId !== userId && !isLastAdmin;
 
           return (
-            <MiniAppVirtualListRow key={member.memberPrincipalId}>
+            <MiniAppVirtualListRow key={member.userId}>
               <MiniAppRow
                 className="org-manager-member-row"
                 density="roomy"
                 variant="framed"
               >
-                {memberUserId ? (
-                  <MiniAppRowButton
-                    className="org-manager-member-button"
-                    onClick={() => openRosterUser(memberUserId)}
-                  >
-                    {memberLabel}
-                  </MiniAppRowButton>
-                ) : (
-                  <MiniAppRowStack>{memberLabel}</MiniAppRowStack>
-                )}
-                {member.memberPrincipalType === "user" && (
-                  <MiniAppButton
-                    disabled={!canRemove || mutating}
-                    onClick={() => removeMember(member.memberPrincipalId)}
-                  >
-                    {ORG_MANAGER_LABELS.remove}
-                  </MiniAppButton>
-                )}
+                <MiniAppRowButton
+                  className="org-manager-member-button"
+                  onClick={() => openRosterUser(member.userId)}
+                >
+                  <strong title={member.userId}>
+                    {compactFingerprint(member.userId)}
+                  </strong>
+                  <MiniAppRowText muted>
+                    {getOrgManagerPolicyRoleLabel(member.role)}
+                  </MiniAppRowText>
+                </MiniAppRowButton>
+                <MiniAppButton
+                  disabled={!canRemove || mutating}
+                  onClick={() => removeMember(member.userId)}
+                >
+                  {ORG_MANAGER_LABELS.remove}
+                </MiniAppButton>
               </MiniAppRow>
             </MiniAppVirtualListRow>
           );

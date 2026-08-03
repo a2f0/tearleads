@@ -160,8 +160,7 @@ test("group policy acknowledgements reject altered projection and envelopes", as
     projection: [
       ...fixture.mutation.projection,
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: crypto.randomUUID(),
+        userId: crypto.randomUUID(),
         role: "member",
       },
     ],

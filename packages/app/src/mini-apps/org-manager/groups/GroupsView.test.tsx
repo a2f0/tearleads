@@ -83,9 +83,8 @@ const groupPolicyHistory: OrganizationGroupPolicyHistory = {
       changes: [
         {
           changeType: "added",
-          memberPrincipalId: rosterUser.userId,
-          memberPrincipalType: "user",
           nextRole: "member",
+          userId: rosterUser.userId,
           previousRole: null,
         },
       ],
@@ -111,10 +110,6 @@ const groupMembers: OrganizationGroupMembers = {
     {
       encapsulationKeyFingerprint: null,
       encapsulationPublicKey: null,
-      groupId: null,
-      groupName: null,
-      memberPrincipalId: rosterUser.userId,
-      memberPrincipalType: "user",
       role: "member",
       signingKeyFingerprint: null,
       signingPublicKey: null,

@@ -103,33 +103,36 @@ export const organizationReadModelGroupMemberships = sqliteTable(
   (table) => [primaryKey({ columns: [table.organizationId, table.groupId] })],
 );
 
-/** Direct members bound to the exact state in the membership completeness row. */
+/**
+ * Direct members bound to the exact state in the membership completeness row.
+ *
+ * `member_principal_type`/`member_principal_id` were REPLACED by `user_id` when
+ * group nesting was removed, WITHOUT a migration, under the greenfield reset
+ * documented on the `documents` table: no database predating the change
+ * survives it. A database that did survive would keep the old NOT NULL columns
+ * — `CREATE TABLE IF NOT EXISTS` never alters an existing table — and every
+ * insert here would fail against them. The read-model is a server-refetchable
+ * cache, so the reset costs nothing but a re-snapshot; the read-model protocol
+ * version and the local backup format version were both bumped alongside it so
+ * a stale peer or backup fails loudly rather than writing into the old shape.
+ */
 export const organizationReadModelGroupMembers = sqliteTable(
   "organization_read_model_group_members",
   {
     organizationId: text("organization_id").notNull(),
     groupId: text("group_id").notNull(),
-    memberPrincipalType: text("member_principal_type").notNull(),
-    memberPrincipalId: text("member_principal_id").notNull(),
+    userId: text("user_id").notNull(),
     sortOrder: integer("sort_order").notNull(),
     stateHash: text("state_hash").notNull(),
     role: text("role").notNull(),
-    userId: text("user_id"),
     signingKeyFingerprint: text("signing_key_fingerprint"),
     signingPublicKey: text("signing_public_key"),
     encapsulationPublicKey: text("encapsulation_public_key"),
     encapsulationKeyFingerprint: text("encapsulation_key_fingerprint"),
-    nestedGroupId: text("nested_group_id"),
-    nestedGroupName: text("nested_group_name"),
   },
   (table) => [
     primaryKey({
-      columns: [
-        table.organizationId,
-        table.groupId,
-        table.memberPrincipalType,
-        table.memberPrincipalId,
-      ],
+      columns: [table.organizationId, table.groupId, table.userId],
     }),
   ],
 );

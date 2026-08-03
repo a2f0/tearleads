@@ -66,16 +66,12 @@ const groupMemberships = {
       stateHash: "member-state-1",
       members: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: "user-1",
-          role: "admin",
           userId: "user-1",
+          role: "admin",
           signingKeyFingerprint: "signing-fingerprint-1",
           signingPublicKey: "signing-public-key-1",
           encapsulationPublicKey: "encapsulation-public-key-1",
           encapsulationKeyFingerprint: "encapsulation-fingerprint-1",
-          groupId: null,
-          groupName: null,
         },
       ],
     },
@@ -85,7 +81,7 @@ const groupMemberships = {
 test("validates organization read-model snapshots and deltas", () => {
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "snapshot",
       organizationId,
       nextCursor: "cursor-1",
@@ -102,7 +98,7 @@ test("validates organization read-model snapshots and deltas", () => {
   ).toBe(true);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -113,7 +109,7 @@ test("validates organization read-model snapshots and deltas", () => {
   ).toBe(true);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -125,6 +121,20 @@ test("validates organization read-model snapshots and deltas", () => {
 });
 
 test("rejects legacy protocols and incomplete snapshots", () => {
+  // v4 is the version this reset replaced. Its group members carried
+  // memberPrincipalType/memberPrincipalId rather than userId, so accepting a v4
+  // response would read every member as having no id.
+  expect(
+    isOrganizationReadModelResponse({
+      version: 4,
+      mode: "snapshot",
+      organizationId,
+      nextCursor: "cursor-v4",
+      hasMore: false,
+      currentUser: { isOrgAdmin: true },
+      lanes: { directory, grants, groupMemberships, groups },
+    }),
+  ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
       version: 1,
@@ -138,7 +148,7 @@ test("rejects legacy protocols and incomplete snapshots", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -192,7 +202,7 @@ test("rejects legacy protocols and incomplete snapshots", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "snapshot",
       organizationId,
       nextCursor: "cursor-1",
@@ -206,7 +216,7 @@ test("rejects legacy protocols and incomplete snapshots", () => {
 test("rejects cross-organization or malformed read-model lanes", () => {
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -219,7 +229,7 @@ test("rejects cross-organization or malformed read-model lanes", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -235,7 +245,7 @@ test("rejects cross-organization or malformed read-model lanes", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -254,7 +264,7 @@ test("rejects cross-organization or malformed read-model lanes", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -265,7 +275,7 @@ test("rejects cross-organization or malformed read-model lanes", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -281,7 +291,7 @@ test("rejects cross-organization or malformed read-model lanes", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -302,7 +312,7 @@ test("rejects cross-organization or malformed read-model lanes", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -313,7 +323,7 @@ test("rejects cross-organization or malformed read-model lanes", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -365,7 +375,7 @@ test("rejects ambiguous group-membership lane data", () => {
   for (const groupMembershipLane of invalidLanes) {
     expect(
       isOrganizationReadModelResponse({
-        version: 4,
+        version: 5,
         mode: "delta",
         organizationId,
         nextCursor: "cursor-2",
@@ -378,7 +388,7 @@ test("rejects ambiguous group-membership lane data", () => {
 
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "snapshot",
       organizationId,
       nextCursor: "cursor-2",
@@ -409,7 +419,7 @@ test("rejects ambiguous or malformed grants", () => {
   for (const grantsLane of invalidGrants) {
     expect(
       isOrganizationReadModelResponse({
-        version: 4,
+        version: 5,
         mode: "delta",
         organizationId,
         nextCursor: "cursor-2",
@@ -424,7 +434,7 @@ test("rejects ambiguous or malformed grants", () => {
 test("rejects invalid envelopes and legacy fields", () => {
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "",
@@ -435,7 +445,7 @@ test("rejects invalid envelopes and legacy fields", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -446,7 +456,7 @@ test("rejects invalid envelopes and legacy fields", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -461,7 +471,7 @@ test("rejects invalid envelopes and legacy fields", () => {
 test("requires requester metadata only at the response top level", () => {
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "delta",
       organizationId,
       nextCursor: "cursor-2",
@@ -471,7 +481,7 @@ test("requires requester metadata only at the response top level", () => {
   ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
-      version: 4,
+      version: 5,
       mode: "snapshot",
       organizationId,
       nextCursor: "cursor-2",

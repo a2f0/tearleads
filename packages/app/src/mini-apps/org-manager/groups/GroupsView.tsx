@@ -139,7 +139,6 @@ export function GroupsView({
         directory={directory}
         groupContainers={groupContainers}
         groupPolicyHistory={groupPolicyHistory}
-        groups={groups}
         members={members}
         memberUserIds={memberUserIds}
         mutating={mutating}

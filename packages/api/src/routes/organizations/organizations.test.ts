@@ -779,16 +779,12 @@ test("org manager routes create and list groups with members", async () => {
   );
   expect(membersBody.members).toEqual([
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: actor.userId,
-      role: "admin",
       userId: actor.userId,
+      role: "admin",
       signingKeyFingerprint: actor.fingerprint,
       signingPublicKey: bytesToBase64(actor.signing.signingPublicKey),
       encapsulationPublicKey: bytesToBase64(actor.kem.publicKey),
       encapsulationKeyFingerprint: await toFingerprint(actor.kem.publicKey),
-      groupId: null,
-      groupName: null,
     },
   ]);
 

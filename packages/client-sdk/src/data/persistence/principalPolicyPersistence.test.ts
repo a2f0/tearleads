@@ -30,13 +30,11 @@ async function createPrincipalPolicyBundle() {
   const signerUserKeyFingerprint = await toFingerprint(signingPublicKey);
   const currentProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signerUserId,
+      userId: signerUserId,
       role: "admin" as const,
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: "alice",
+      userId: "alice",
       role: "member" as const,
     },
   ];
@@ -49,8 +47,7 @@ async function createPrincipalPolicyBundle() {
     aliceKem.publicKey,
   ]);
   const memberEnvelopes = wrappedRecipients.map((envelope, index) => ({
-    memberPrincipalType: "user" as const,
-    memberPrincipalId: recipientIds[index] ?? "",
+    userId: recipientIds[index] ?? "",
     memberKeyFingerprint: envelope.keyFingerprint,
     kemCipherText: bytesToBase64(envelope.kemCipherText),
     wrappedKey: bytesToBase64(envelope.wrappedKey),
@@ -65,8 +62,7 @@ async function createPrincipalPolicyBundle() {
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: await toFingerprint(principalKem.publicKey),
       members: currentProjection.map((member) => ({
-        principalType: member.memberPrincipalType,
-        principalId: member.memberPrincipalId,
+        userId: member.userId,
       })),
       memberEnvelopes,
       projection: currentProjection,

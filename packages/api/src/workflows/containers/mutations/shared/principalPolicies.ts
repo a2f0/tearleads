@@ -17,24 +17,16 @@ import { getCurrentPrincipalPolicyWithExecutor } from "../../../principals/getCu
 import { ContainerMutationError } from "../errors";
 
 function projectionMemberKey(
-  member: Pick<
-    PrincipalProjectionMember,
-    "memberPrincipalId" | "memberPrincipalType" | "role"
-  >,
+  member: Pick<PrincipalProjectionMember, "userId" | "role">,
 ): string {
-  return [
-    member.memberPrincipalType,
-    member.memberPrincipalId,
-    member.role,
-  ].join(":");
+  return [member.userId, member.role].join(":");
 }
 
 function projectionMemberFromStored(
   member: StoredPrincipalProjectionMember,
 ): PrincipalProjectionMember {
   return {
-    memberPrincipalType: member.memberPrincipalType,
-    memberPrincipalId: member.memberPrincipalId,
+    userId: member.userId,
     role: member.role,
   };
 }

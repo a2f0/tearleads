@@ -95,16 +95,14 @@ test("buildInitialOrganizationPolicyRequest creates the initial admin organizati
   ).toEqual({ version: 1, organizationId, adminGroupId, memberGroupId });
   expect(policy.projection).toEqual([
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: userId,
+      userId: userId,
       role: "admin",
     },
   ]);
   expect(policy.memberEnvelopes).toHaveLength(1);
   expect(policy.memberEnvelopes[0]).toEqual(
     expect.objectContaining({
-      memberPrincipalType: "user",
-      memberPrincipalId: userId,
+      userId: userId,
       memberKeyFingerprint: await toFingerprint(encapsulationKeyPair.publicKey),
     }),
   );
@@ -273,8 +271,7 @@ test("registerIdentity submits the registration request and persists the local b
     );
     expect(request.initialOrganizationPolicy.projection).toEqual([
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: request.userId,
+        userId: request.userId,
         role: "admin",
       },
     ]);

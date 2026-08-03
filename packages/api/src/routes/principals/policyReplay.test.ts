@@ -28,8 +28,7 @@ import { routeApp } from "../../routeApp";
 type TestPrincipalKem = ReturnType<typeof generateKemSeedAndKeyPair>;
 
 interface TestProjectionMember {
-  readonly memberPrincipalType: "user";
-  readonly memberPrincipalId: string;
+  readonly userId: string;
   readonly role: "admin" | "member";
 }
 
@@ -53,8 +52,7 @@ async function createSignedPolicy(input: {
       invariant(wrappedKey, "expected principal member envelope");
 
       return {
-        memberPrincipalType: "user" as const,
-        memberPrincipalId: recipient.userId,
+        userId: recipient.userId,
         memberKeyFingerprint: await toFingerprint(recipient.kem.publicKey),
         kemCipherText: bytesToBase64(wrappedKey.kemCipherText),
         wrappedKey: bytesToBase64(wrappedKey.wrappedKey),
@@ -70,10 +68,7 @@ async function createSignedPolicy(input: {
     keyEpoch: input.keyEpoch,
     encapsulationPublicKey: bytesToBase64(input.principalKem.publicKey),
     keyFingerprint: await toFingerprint(input.principalKem.publicKey),
-    members: input.projection.map((member) => ({
-      principalType: member.memberPrincipalType,
-      principalId: member.memberPrincipalId,
-    })),
+    members: input.projection.map((member) => ({ userId: member.userId })),
     projection: input.projection,
     payloadCiphertext: bytesToBase64(
       new TextEncoder().encode(JSON.stringify(input.projection)),
@@ -119,13 +114,11 @@ test("an exact policy replay succeeds after the signer removes themself", async 
     signer: departingAdmin,
     projection: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: departingAdmin.userId,
+        userId: departingAdmin.userId,
         role: "admin",
       },
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: replacementAdmin.userId,
+        userId: replacementAdmin.userId,
         role: "member",
       },
     ],
@@ -153,8 +146,7 @@ test("an exact policy replay succeeds after the signer removes themself", async 
     signer: departingAdmin,
     projection: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: replacementAdmin.userId,
+        userId: replacementAdmin.userId,
         role: "admin",
       },
     ],
@@ -179,13 +171,12 @@ test("an exact policy replay succeeds after the signer removes themself", async 
   );
   expect(projectionAfterRemoval).toHaveLength(1);
   expect(projectionAfterRemoval[0]).toMatchObject({
-    memberPrincipalType: "user",
-    memberPrincipalId: replacementAdmin.userId,
+    userId: replacementAdmin.userId,
     role: "admin",
   });
   expect(
     projectionAfterRemoval.some(
-      (member) => member.memberPrincipalId === departingAdmin.userId,
+      (member) => member.userId === departingAdmin.userId,
     ),
   ).toBe(false);
 
@@ -226,15 +217,13 @@ test("recipient-key rejection rolls back every policy artifact", async () => {
   invariant(substitutedEnvelope, "expected substituted member envelope");
   const projection: TestProjectionMember[] = [
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: actor.userId,
+      userId: actor.userId,
       role: "admin",
     },
   ];
   const memberEnvelopes = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: actor.userId,
+      userId: actor.userId,
       memberKeyFingerprint: await toFingerprint(
         substitutedRecipientKem.publicKey,
       ),
@@ -253,7 +242,7 @@ test("recipient-key rejection rolls back every policy artifact", async () => {
     keyEpoch: 1,
     encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
     keyFingerprint: await toFingerprint(principalKem.publicKey),
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     projection,
     payloadCiphertext: bytesToBase64(
       new TextEncoder().encode(JSON.stringify(projection)),
@@ -268,7 +257,7 @@ test("recipient-key rejection rolls back every policy artifact", async () => {
   const response = await putPolicy(actor, principalId, signedPolicy);
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
-    error: `Principal member envelope fingerprint mismatch for user:${actor.userId}`,
+    error: `Principal member envelope fingerprint mismatch for ${actor.userId}`,
   });
 
   const [states, payloads, storedProjection, envelopes] = await Promise.all([

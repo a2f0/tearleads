@@ -25,39 +25,16 @@ const ORGANIZATION_ID = "organization-local-details";
 const CURRENT_USER_ID = "requester-user";
 const TARGET_USER_ID = "target-user";
 const MEMBERS_GROUP_ID = "members-group";
-const PARENT_GROUP_ID = "parent-group";
 const CYCLE_GROUP_ID = "cycle-group";
 
 function userMember(userId: string): OrganizationGroupMemberResponse {
   return {
-    memberPrincipalType: "user",
-    memberPrincipalId: userId,
-    role: "member",
     userId,
+    role: "member",
     signingKeyFingerprint: `signing-fingerprint-${userId}`,
     signingPublicKey: `signing-key-${userId}`,
     encapsulationPublicKey: `encapsulation-key-${userId}`,
     encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
-    groupId: null,
-    groupName: null,
-  };
-}
-
-function groupMember(
-  groupId: string,
-  groupName: string,
-): OrganizationGroupMemberResponse {
-  return {
-    memberPrincipalType: "group",
-    memberPrincipalId: groupId,
-    role: "member",
-    userId: null,
-    signingKeyFingerprint: null,
-    signingPublicKey: null,
-    encapsulationPublicKey: null,
-    encapsulationKeyFingerprint: null,
-    groupId,
-    groupName,
   };
 }
 
@@ -105,11 +82,6 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
       subjectType: "group",
     }),
     grant({
-      containerId: "container-parent-group",
-      subjectId: PARENT_GROUP_ID,
-      subjectType: "group",
-    }),
-    grant({
       containerId: "container-unrelated-group",
       subjectId: "unrelated-group",
       subjectType: "group",
@@ -126,7 +98,7 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
     }),
   ];
   return {
-    version: 4,
+    version: 5,
     mode: "snapshot",
     organizationId: ORGANIZATION_ID,
     nextCursor: "cursor-local-details",
@@ -158,20 +130,6 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
         memberGroupId: MEMBERS_GROUP_ID,
         groups: [
           {
-            groupId: PARENT_GROUP_ID,
-            organizationId: ORGANIZATION_ID,
-            name: "Parent",
-            createdAt: CREATED_AT,
-            isBuiltin: false,
-            currentState: {
-              stateHash: "parent-state",
-              version: 1,
-              keyEpoch: 1,
-              keyFingerprint: "parent-key-fingerprint",
-              memberCount: 2,
-            },
-          },
-          {
             groupId: CYCLE_GROUP_ID,
             organizationId: ORGANIZATION_ID,
             name: "Cycle",
@@ -197,17 +155,9 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
             members: [userMember(TARGET_USER_ID)],
           },
           {
-            groupId: PARENT_GROUP_ID,
-            stateHash: "parent-state",
-            members: [
-              groupMember(MEMBERS_GROUP_ID, "Members"),
-              groupMember(CYCLE_GROUP_ID, "Cycle"),
-            ],
-          },
-          {
             groupId: CYCLE_GROUP_ID,
             stateHash: "cycle-state",
-            members: [groupMember(PARENT_GROUP_ID, "Parent")],
+            members: [userMember(TARGET_USER_ID)],
           },
         ],
       },
@@ -290,7 +240,12 @@ function policySnapshot(input: {
   };
 }
 
-test("local organization detail derives effective grants through hidden groups and cycles", async () => {
+test("local organization detail derives a user's groups and effective grants", async () => {
+  // This replaces a test that also exercised group-in-group reachability and
+  // membership cycles. Groups hold only users now, so the walk is gone — but
+  // the derivation it wrapped is not, and this keeps it covered: which groups a
+  // user belongs to, which grants reach them by group, directly, and through
+  // the organization, and that a requester outside the projection sees nothing.
   const { close, execSql } = await createTestExecSql(
     "organization-local-read-model-details",
   );
@@ -301,7 +256,7 @@ test("local organization detail derives effective grants through hidden groups a
       organizationId: ORGANIZATION_ID,
       parentId: null,
       metadataDocumentId: null,
-      name: "Hidden Group Container",
+      name: "Members Group Container",
       icon: null,
     });
     await expect(
@@ -324,16 +279,17 @@ test("local organization detail derives effective grants through hidden groups a
     });
     expect(detail?.user.userId).toBe(TARGET_USER_ID);
     expect(detail?.user.isSelf).toBe(false);
+    // Both groups list the user directly; neither reaches them via the other.
+    // Only catalogued groups appear here — Members is the reserved group and is
+    // carried separately as `memberGroupId`.
     expect(detail?.groups.map((group) => group.groupId)).toEqual([
-      PARENT_GROUP_ID,
       CYCLE_GROUP_ID,
     ]);
     expect(detail?.grants.groupGrants.map((item) => item.subjectId)).toEqual([
       MEMBERS_GROUP_ID,
-      PARENT_GROUP_ID,
     ]);
     expect(detail?.grants.groupGrants[0]?.containerDisplayName).toBe(
-      "Hidden Group Container",
+      "Members Group Container",
     );
     expect(detail?.grants.directGrants.map((item) => item.subjectId)).toEqual([
       TARGET_USER_ID,
@@ -351,7 +307,7 @@ test("local organization detail derives effective grants through hidden groups a
       containers: [
         {
           containerId: "container-hidden-group",
-          containerDisplayName: "Hidden Group Container",
+          containerDisplayName: "Members Group Container",
         },
       ],
     });
@@ -362,8 +318,9 @@ test("local organization detail derives effective grants through hidden groups a
       }),
     ).resolves.toBeNull();
     const allGrants = await loadLocalOrganizationContainerGrants(common);
-    expect(allGrants?.grants).toHaveLength(6);
+    expect(allGrants?.grants).toHaveLength(5);
 
+    // A requester with no projection row reads nothing at all.
     const otherRequester = {
       ...common,
       currentUserId: "requester-without-projection-access",

@@ -5,10 +5,7 @@ export function isDirectGroupAdmin(
   userId: string,
 ): boolean {
   return policy.currentProjection.some(
-    (member) =>
-      member.memberPrincipalType === "user" &&
-      member.memberPrincipalId === userId &&
-      member.role === "admin",
+    (member) => member.userId === userId && member.role === "admin",
   );
 }
 

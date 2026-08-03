@@ -15,24 +15,15 @@ function invalidEnvelope(message: string): never {
   throw new PrincipalMemberEnvelopeValidationError(message);
 }
 
+/**
+ * Envelopes are ordered by user id alone — recipient identity is the user id
+ * now that a principal cannot contain another principal.
+ */
 function compareEnvelopes(
   left: PrincipalStateMemberEnvelope,
   right: PrincipalStateMemberEnvelope,
 ): number {
-  const principalTypeOrder =
-    left.memberPrincipalType < right.memberPrincipalType
-      ? -1
-      : left.memberPrincipalType > right.memberPrincipalType
-        ? 1
-        : 0;
-  if (principalTypeOrder !== 0) {
-    return principalTypeOrder;
-  }
-  return left.memberPrincipalId < right.memberPrincipalId
-    ? -1
-    : left.memberPrincipalId > right.memberPrincipalId
-      ? 1
-      : 0;
+  return left.userId < right.userId ? -1 : left.userId > right.userId ? 1 : 0;
 }
 
 function requireCanonicalBase64(value: string, label: string): Uint8Array {
@@ -53,8 +44,7 @@ export function normalizePrincipalStateMemberEnvelopes(
 ): PrincipalStateMemberEnvelope[] {
   const normalized = envelopes
     .map((envelope) => ({
-      memberPrincipalType: envelope.memberPrincipalType,
-      memberPrincipalId: envelope.memberPrincipalId,
+      userId: envelope.userId,
       memberKeyFingerprint: envelope.memberKeyFingerprint,
       kemCipherText: envelope.kemCipherText,
       wrappedKey: envelope.wrappedKey,
@@ -63,18 +53,13 @@ export function normalizePrincipalStateMemberEnvelopes(
 
   for (const [index, envelope] of normalized.entries()) {
     if (
-      (envelope.memberPrincipalType !== "user" &&
-        envelope.memberPrincipalType !== "group") ||
-      envelope.memberPrincipalId.length === 0 ||
+      envelope.userId.length === 0 ||
       !/^[0-9a-f]{64}$/.test(envelope.memberKeyFingerprint)
     ) {
       invalidEnvelope("Principal member envelope identity is invalid");
     }
     const previous = normalized[index - 1];
-    if (
-      previous?.memberPrincipalType === envelope.memberPrincipalType &&
-      previous.memberPrincipalId === envelope.memberPrincipalId
-    ) {
+    if (previous?.userId === envelope.userId) {
       invalidEnvelope(
         "Principal state cannot contain duplicate member envelopes",
       );

@@ -255,8 +255,7 @@ export function createPrincipalPolicyBundleResponse(): PrincipalPolicyBundleResp
     },
     currentProjection: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: "user-1",
+        userId: "user-1",
         role: "admin",
       },
     ],
@@ -408,15 +407,13 @@ export function createPrincipalPolicyRequest(): PutPrincipalPolicyRequest {
     },
     projection: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: "550e8400-e29b-41d4-a716-446655440002",
+        userId: "550e8400-e29b-41d4-a716-446655440002",
         role: "admin",
       },
     ],
     memberEnvelopes: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: "550e8400-e29b-41d4-a716-446655440002",
+        userId: "550e8400-e29b-41d4-a716-446655440002",
         memberKeyFingerprint: "member-fingerprint",
         kemCipherText: "kem-ciphertext",
         wrappedKey: "wrapped-key",

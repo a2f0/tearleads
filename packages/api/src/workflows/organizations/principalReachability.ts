@@ -39,48 +39,23 @@ export async function listUserReachableCurrentGroupIds(input: {
     return new Set();
   }
 
+  // Direct membership IS reachability now. This used to be a recursive CTE
+  // walking group-in-group edges; principals contain only users, so a user
+  // reaches exactly the groups that list them.
   const result = await input.executor.execute(sql`
-    with recursive
-      reachable_principals(
-        principal_type,
-        principal_id
-      ) as (
-        select
-          pmp.principal_type,
-          pmp.principal_id
-        from ${principalMembershipProjection} pmp
-        where
-          pmp.principal_type = ${"group"}
-          and pmp.member_principal_type = ${"user"}
-          and pmp.member_principal_id = ${input.userId}
-          and pmp.state_hash = ${currentPrincipalStateHashSql({
-            principalId: sql`pmp.principal_id`,
-            principalType: sql`pmp.principal_type`,
-          })}
-        union
-        select
-          pmp.principal_type,
-          pmp.principal_id
-        from reachable_principals rp
-        inner join ${principalMembershipProjection} pmp
-          on pmp.member_principal_type = rp.principal_type
-          and pmp.member_principal_id = rp.principal_id
-        where
-          rp.principal_type = ${"group"}
-          and pmp.principal_type = ${"group"}
-          and pmp.state_hash = ${currentPrincipalStateHashSql({
-            principalId: sql`pmp.principal_id`,
-            principalType: sql`pmp.principal_type`,
-          })}
-      )
-    select distinct principal_id as "groupId"
-    from reachable_principals
+    select distinct pmp.principal_id as "groupId"
+    from ${principalMembershipProjection} pmp
     where
-      principal_type = ${"group"}
-      and principal_id in (${sql.join(
+      pmp.principal_type = ${"group"}
+      and pmp.user_id = ${input.userId}
+      and pmp.principal_id in (${sql.join(
         groupIds.map((groupId) => sql`${groupId}`),
         sql`, `,
       )})
+      and pmp.state_hash = ${currentPrincipalStateHashSql({
+        principalId: sql`pmp.principal_id`,
+        principalType: sql`pmp.principal_type`,
+      })}
   `);
 
   return new Set(result.rows.map(readReachableGroupId));
@@ -102,41 +77,18 @@ export async function listUsersReachableFromCurrentPrincipal(input: {
   principalId: string;
   principalType: "group" | "organization";
 }): Promise<string[]> {
+  // The members ARE the reachable users. This used to descend through
+  // group-in-group edges; principals contain only users now.
   const result = await input.executor.execute(sql`
-    with recursive
-      reachable_members(
-        member_principal_type,
-        member_principal_id
-      ) as (
-        select
-          pmp.member_principal_type,
-          pmp.member_principal_id
-        from ${principalMembershipProjection} pmp
-        where
-          pmp.principal_type = ${input.principalType}
-          and pmp.principal_id = ${input.principalId}
-          and pmp.state_hash = ${currentPrincipalStateHashSql({
-            principalId: sql`pmp.principal_id`,
-            principalType: sql`pmp.principal_type`,
-          })}
-        union
-        select
-          pmp.member_principal_type,
-          pmp.member_principal_id
-        from reachable_members reachable
-        inner join ${principalMembershipProjection} pmp
-          on pmp.principal_type = ${"group"}
-          and pmp.principal_id = reachable.member_principal_id
-        where
-          reachable.member_principal_type = ${"group"}
-          and pmp.state_hash = ${currentPrincipalStateHashSql({
-            principalId: sql`pmp.principal_id`,
-            principalType: sql`pmp.principal_type`,
-          })}
-      )
-    select distinct member_principal_id as "userId"
-    from reachable_members
-    where member_principal_type = ${"user"}
+    select distinct pmp.user_id as "userId"
+    from ${principalMembershipProjection} pmp
+    where
+      pmp.principal_type = ${input.principalType}
+      and pmp.principal_id = ${input.principalId}
+      and pmp.state_hash = ${currentPrincipalStateHashSql({
+        principalId: sql`pmp.principal_id`,
+        principalType: sql`pmp.principal_type`,
+      })}
   `);
 
   return result.rows.map(readReachableUserId).sort();

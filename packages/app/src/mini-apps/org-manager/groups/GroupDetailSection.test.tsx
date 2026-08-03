@@ -32,7 +32,6 @@ test("group detail separates members, policy history, and links into tabs", () =
       directory={null}
       groupContainers={null}
       groupPolicyHistory={null}
-      groups={[group]}
       members={null}
       memberUserIds={new Set()}
       mutating={false}

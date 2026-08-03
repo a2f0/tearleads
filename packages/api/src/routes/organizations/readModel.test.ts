@@ -73,7 +73,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
     "Admins",
     "Catalog only",
   ]);
-  expect(snapshot.version).toBe(4);
+  expect(snapshot.version).toBe(5);
   expect(snapshot.lanes.organizationPolicy).toEqual({
     organizationId,
     currentState: expect.objectContaining({
@@ -118,7 +118,6 @@ test("organization read-model route snapshots and coalesces group changes", asyn
     actor,
     groupId,
     name: "Operators",
-    nestedGroupIds: [adminGroupId],
   });
   const createResponse = await routeApp.request(
     `/organizations/${organizationId}/groups`,
@@ -159,13 +158,10 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   expect(changed.lanes.groupMemberships?.groups[0]?.stateHash).toBe(
     created.currentState?.stateHash,
   );
+  // The creator is the group's only member. This used to also assert a nested
+  // Admins group member; principals contain only users now.
   expect(changed.lanes.groupMemberships?.groups[0]?.members).toContainEqual(
-    expect.objectContaining({
-      groupId: adminGroupId,
-      groupName: "Admins",
-      memberPrincipalId: adminGroupId,
-      memberPrincipalType: "group",
-    }),
+    expect.objectContaining({ userId: actor.userId, role: "admin" }),
   );
 
   const rejectedReplay = await routeApp.request(
@@ -290,8 +286,7 @@ test("Members and Admins policy changes invalidate exact membership rows", async
         stateHash: memberGroupState.stateHash,
         members: expect.arrayContaining([
           expect.objectContaining({
-            memberPrincipalId: member.userId,
-            memberPrincipalType: "user",
+            userId: member.userId,
           }),
         ]),
       }),
@@ -402,9 +397,7 @@ test("membership deltas coalesce transitions to final entity state", async () =>
   expect(delta.lanes.groupMemberships?.groups[0]?.groupId).toBe(memberGroupId);
   expect(
     delta.lanes.groupMemberships?.groups[0]?.members.some(
-      (projectedMember) =>
-        projectedMember.memberPrincipalType === "user" &&
-        projectedMember.memberPrincipalId === member.userId,
+      (projectedMember) => projectedMember.userId === member.userId,
     ),
   ).toBe(false);
   expect(

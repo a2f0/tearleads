@@ -395,8 +395,9 @@ Related docs:
 The reserved organization-scoped `Members` group. Reachable users belong to the
 organization. Active roster entries are synchronized from this group's signed
 reachability, but disabled roster entries may remain visible without granting
-access. Registration nests `Admins` into `Members`, so admins are organization
-members by reachability.
+access. `Admins` is not nested into `Members` — principals contain only users —
+so the policy write instead rejects any managed principal naming a user who is
+not an active roster entry, which keeps every admin an organization member.
 
 ## Organization Roster Entry
 

@@ -152,6 +152,16 @@ export function deriveOrgManagerState(input: DeriveOrgManagerStateInput) {
   );
   const selectedGroupIsMembersGroup =
     selectedGroup?.name === ORG_MANAGER_LABELS.members;
+  // Identify Admins structurally, never by display name: an organization may
+  // create an ordinary group called "Admins", and seeding Members off the back
+  // of that would enroll — and bill — users the operator never made admins.
+  // There are exactly two reserved groups, so a builtin that is not Members is
+  // Admins.
+  const selectedGroupIsAdminsGroup = Boolean(
+    selectedGroup?.isBuiltin &&
+      input.memberGroupId &&
+      selectedGroup.groupId !== input.memberGroupId,
+  );
   const canCreateGroup = Boolean(
     input.databaseReady && input.activeDirectory?.currentUser.isOrgAdmin,
   );
@@ -177,9 +187,7 @@ export function deriveOrgManagerState(input: DeriveOrgManagerStateInput) {
     ) ??
     null;
   const memberUserIds = new Set(
-    scoped.activeMembers?.members
-      .filter((member) => member.memberPrincipalType === "user")
-      .map((member) => member.memberPrincipalId) ?? [],
+    scoped.activeMembers?.members.map((member) => member.userId) ?? [],
   );
   const addableUsers =
     input.activeDirectory?.users.filter(
@@ -198,6 +206,7 @@ export function deriveOrgManagerState(input: DeriveOrgManagerStateInput) {
     memberUserIds,
     selectedGrant,
     selectedGroup,
+    selectedGroupIsAdminsGroup,
     selectedGroupIsMembersGroup,
     selectedRosterUser,
   };

@@ -61,11 +61,11 @@ at-least-once: duplicate invalidations are safe because projection application
 is idempotent, and avoiding source-based deduplication preserves legitimate
 temporal transitions such as A to B to A.
 
-Organization-scoped policies may reference only groups owned by that same
-organization. This preserves the bootstrap `Members` to `Admins` nesting while
-preventing standalone or cross-organization groups from creating unbounded
-reverse invalidation fanout. Generic standalone principal policies retain their
-independent nested-group behavior.
+A principal's members are users, never other principals, so a membership edit
+invalidates exactly the one principal it names. This is what bounds reverse
+invalidation fanout: there is no group-in-group edge for an edit to propagate
+along, and no standalone or cross-organization group can widen the blast radius
+of a change.
 
 Deleted organization group IDs are never reused. Deletion writes a durable,
 domain-owned group tombstone in the same transaction as the hard delete and
@@ -73,7 +73,7 @@ feed marker. Policy replay and catalog creation consult that tombstone; they do
 not treat the read-model change log as authority, so future feed retention
 cannot alter cryptographic or lifecycle decisions.
 
-Protocol version 4 includes these lanes:
+Protocol version 5 includes these lanes:
 
 - `directory`: roster and profile-binding rows;
 - `groups`: visible group catalog rows and state-head summaries;
@@ -107,11 +107,13 @@ state-bound entity or lane snapshot.
 
 ## Protocol versioning
 
-Version 4 is a clean protocol reset, not a compatibility extension. Responses
-and opaque cursors carry version 4, response validation accepts only the exact
-version 4 lane shapes, and the server rejects other cursor versions. Local
-storage contains only the current projection schema; pre-reset databases must
-be discarded rather than upgraded.
+Version 5 is a clean protocol reset, not a compatibility extension. Responses
+and opaque cursors carry version 5, response validation accepts only the exact
+version 5 lane shapes, and the server rejects other cursor versions. Version 4
+was the previous reset; group members carried `memberPrincipalType` and
+`memberPrincipalId` there, and carry a single `userId` now. Local storage
+contains only the current projection schema; pre-reset databases must be
+discarded rather than upgraded.
 
 There is no translation, dual-read period, or legacy directory, group,
 membership, grants, group-container, user-detail, or raw policy-history fallback.
@@ -205,10 +207,10 @@ absent. HTTP reconciliation then purges the local projection on 403 or 404.
 
 Principal-policy writes publish the container-discovery `shared_with_you` hint
 only for users who become newly reachable after the commit, and only when the
-changed principal or one of its current ancestors holds a grant in a current
-container manifest. Existing members and ungranted group changes publish no
-discovery hint. Ancestor traversal preserves real nested-group access gains
-without turning every membership edit into root-container synchronization.
+changed principal holds a grant in a current container manifest, or an ancestor
+*container* of one does. Existing members and ungranted group changes publish no
+discovery hint. Container-ancestor traversal surfaces a real access gain without
+turning every membership edit into root-container synchronization.
 
 Every HTTP request that observes one or more marker appends retains the highest
 observed cursor per organization. After the handler finishes, one batched head

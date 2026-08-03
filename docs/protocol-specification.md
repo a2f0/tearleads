@@ -160,8 +160,7 @@ Registration is a bootstrap protocol, not only an account create call.
 - `userId`, `organizationId`, and `rootContainerId`
 - signing and encapsulation public keys
 - the initial reserved `Admins` group policy and direct member envelope
-- the initial reserved `Members` group policy, with `Admins` nested as a
- member
+- the initial reserved `Members` group policy, holding the registering user
 - the initial signed organization policy state and direct member envelope
 - the signed root container create request
 - the signed root metadata document create request
@@ -296,11 +295,11 @@ would need to know whether the requester belonged to that group at that state,
 and current membership is not a safe proxy — a user who joins a group today
 would otherwise be handed every envelope the principal ever addressed to it,
 and an additive join need not rotate the group key. Issue #1948 tracks
-historical tenure resolution, which is also what unblocks transitive
-(nested-group) recovery. The primary case does not need it: opening a container
-envelope sealed to a group's older key epoch means recovering that group's
-secret from its OWN history, through the envelope addressed to the requester as
-a user. At most one envelope per state can match a single requester, so
+historical tenure resolution. Nothing else needs it: a principal contains only
+users, so opening a container envelope sealed to a group's older key epoch
+means recovering that group's secret from its OWN history, through the envelope
+addressed to the requester as a user. At most one envelope per state can match
+a single requester, so
 `PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT` (4) is a structural
 backstop that cannot bite rather than a truncation. One member's envelope is
 not another's to read.

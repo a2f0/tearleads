@@ -53,8 +53,8 @@ This avoids a circular foreign key between organizations and containers.
 
 1. Generate signing and encapsulation key pairs (already existed).
 2. Create the initial reserved `Admins` group policy.
-3. Create the initial reserved `Members` group policy, nesting `Admins` as a
- direct group member.
+3. Create the initial reserved `Members` group policy, holding the registering
+ user. Bootstrap has exactly one user, who is also the initial admin.
 4. Create the initial organization policy and member envelope. The
  organization policy is cryptographic principal state, not the org-manager
  product role source.

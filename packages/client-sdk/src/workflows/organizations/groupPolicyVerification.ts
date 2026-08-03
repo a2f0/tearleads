@@ -9,16 +9,10 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
-import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
 import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../data/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
-import {
-  externalAdminPolicyPersistenceEntries,
-  loadOrganizationExternalAdminPolicy,
-  type VerifiedExternalAdminPolicy,
-} from "../principals/externalAdminPolicy";
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
@@ -47,18 +41,6 @@ function groupPolicyReference(
     stateHash: state.stateHash,
     keyFingerprint: state.keyFingerprint,
   };
-}
-
-function requireRequestedGroupPolicy(
-  bundle: PrincipalPolicyBundleResponse,
-  groupId: string,
-): void {
-  if (
-    bundle.currentState.principalType !== "group" ||
-    bundle.currentState.principalId !== groupId
-  ) {
-    throw new Error(`Group policy response does not match ${groupId}`);
-  }
 }
 
 export async function collectGroupPolicySignerPublicKeys(input: {
@@ -150,72 +132,4 @@ export async function prepareGroupPolicyVerification(input: {
     }),
     localPolicyCheckpoint,
   };
-}
-
-export async function loadVerifiedOrganizationGroupPolicies(input: {
-  readonly execSql: ExecSql;
-  readonly getCurrentPrincipalPolicy: (
-    principalType: "group" | "organization",
-    principalId: string,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
-  readonly groupIds: readonly string[];
-  readonly organizationId: string;
-  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-}): Promise<VerifiedPrincipalPolicy[]> {
-  const groupIds = [...new Set(input.groupIds)].sort();
-  if (groupIds.length === 0) {
-    return [];
-  }
-
-  let externalAdminPolicy:
-    | Promise<VerifiedExternalAdminPolicy | null>
-    | undefined;
-  const loadExternalAdminPolicy = () => {
-    externalAdminPolicy ??= loadOrganizationExternalAdminPolicy({
-      execSql: input.execSql,
-      getCurrentPrincipalPolicy: input.getCurrentPrincipalPolicy,
-      organizationId: input.organizationId,
-      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    });
-    return externalAdminPolicy;
-  };
-
-  const entries = await Promise.all(
-    groupIds.map(async (groupId) => {
-      const bundle = await input.getCurrentPrincipalPolicy("group", groupId);
-      if (!bundle) {
-        throw new Error(`Group policy could not be loaded for ${groupId}`);
-      }
-      requireRequestedGroupPolicy(bundle, groupId);
-      const verification = await prepareGroupPolicyVerification({
-        currentPolicy: bundle,
-        execSql: input.execSql,
-        resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-      });
-      const policy = await verifyGroupPolicyWithExternalOrganizationAdmins({
-        currentPolicy: bundle,
-        loadExternalAuthority: async () =>
-          (await loadExternalAdminPolicy())?.externalAuthority ?? null,
-        localPolicyCheckpoint: verification.localPolicyCheckpoint,
-        signerPublicKeys: verification.currentPolicySignerPublicKeys,
-      });
-      return { bundle, policy };
-    }),
-  );
-
-  const verifiedExternalAdminPolicy = externalAdminPolicy
-    ? await externalAdminPolicy
-    : null;
-  await persistVerifiedPrincipalPolicyBundlesAtomically({
-    entries: [
-      ...(verifiedExternalAdminPolicy
-        ? externalAdminPolicyPersistenceEntries(verifiedExternalAdminPolicy)
-        : []),
-      ...entries,
-    ],
-    execSql: input.execSql,
-    updatedAt: new Date().toISOString(),
-  });
-
-  return entries.map((entry) => entry.policy);
 }

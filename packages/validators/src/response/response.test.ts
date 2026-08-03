@@ -491,16 +491,12 @@ test("organization manager responses", () => {
       groupId: "group-1",
       members: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: "user-1",
-          role: "admin",
           userId: "user-1",
+          role: "admin",
           signingKeyFingerprint: "signing-fingerprint",
           signingPublicKey: "signing-key",
           encapsulationPublicKey: "encapsulation-key",
           encapsulationKeyFingerprint: "encapsulation-fingerprint",
-          groupId: null,
-          groupName: null,
         },
       ],
     }),
@@ -681,8 +677,7 @@ test("isCurrentPrincipalMemberEnvelopesResponse", () => {
       epoch: 2,
       envelopes: [
         {
-          memberPrincipalType: "group",
-          memberPrincipalId: "group-234",
+          userId: "user-234",
           memberKeyFingerprint: "fingerprint",
           kemCipherText: "cipher",
           wrappedKey: "wrapped",
@@ -728,8 +723,7 @@ test("isPrincipalPolicyBundleResponse", () => {
       },
       currentProjection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: "user-1",
+          userId: "user-1",
           role: "admin",
         },
       ],

@@ -68,7 +68,7 @@ test("storeVerifiedPrincipalState persists signed state and epoch key", async ()
     generateSigningSeedAndKeyPair();
   const signer = await createPrincipalStateSigner(signingPublicKey);
   const principalId = crypto.randomUUID();
-  const nestedGroupId = crypto.randomUUID();
+  const secondMemberId = crypto.randomUUID();
   const signedState = await signPrincipalState(
     {
       principalType: "group",
@@ -78,25 +78,14 @@ test("storeVerifiedPrincipalState persists signed state and epoch key", async ()
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [
-        {
-          principalType: "user",
-          principalId: signer.signerUserId,
-        },
-        {
-          principalType: "group",
-          principalId: nestedGroupId,
-        },
-      ],
+      members: [{ userId: signer.signerUserId }, { userId: secondMemberId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
         {
-          memberPrincipalType: "group",
-          memberPrincipalId: nestedGroupId,
+          userId: secondMemberId,
           role: "member",
         },
       ],
@@ -147,16 +136,10 @@ test("storeVerifiedPrincipalState rejects invalid signatures", async () => {
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [
-        {
-          principalType: "user",
-          principalId: signer.signerUserId,
-        },
-      ],
+      members: [{ userId: signer.signerUserId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
       ],
@@ -186,11 +169,10 @@ test("storeVerifiedPrincipalState rejects projection roots that do not match the
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [{ principalType: "user", principalId: signer.signerUserId }],
+      members: [{ userId: signer.signerUserId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
       ],
@@ -206,8 +188,7 @@ test("storeVerifiedPrincipalState rejects projection roots that do not match the
         projection: [
           ...signedState.projection,
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: crypto.randomUUID(),
+            userId: crypto.randomUUID(),
             role: "member",
           },
         ],
@@ -232,11 +213,10 @@ test("storeVerifiedPrincipalState rejects encrypted payloads that do not match t
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [{ principalType: "user", principalId: signer.signerUserId }],
+      members: [{ userId: signer.signerUserId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
       ],
@@ -278,8 +258,7 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
   const principalId = crypto.randomUUID();
   const projection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signer.signerUserId,
+      userId: signer.signerUserId,
       role: "admin" as const,
     },
   ];
@@ -295,7 +274,7 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
       keyFingerprint: await toFingerprint(publicKey),
       membershipMode: "projection",
       membershipRoot: await computePrincipalMembershipRoot([
-        { principalType: "user", principalId: signer.signerUserId },
+        { userId: signer.signerUserId },
       ]),
       memberEnvelopesRoot: await computePrincipalMemberEnvelopesRoot([]),
       projectionRoot: await computePrincipalProjectionRoot(projection),
@@ -388,13 +367,10 @@ test("storeVerifiedPrincipalState rejects successor states signed by non-admins"
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKeyPair.publicKey),
       keyFingerprint: await toFingerprint(principalKeyPair.publicKey),
-      members: [
-        { principalType: "user", principalId: adminSigner.signerUserId },
-      ],
+      members: [{ userId: adminSigner.signerUserId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: adminSigner.signerUserId,
+          userId: adminSigner.signerUserId,
           role: "admin",
         },
       ],
@@ -416,13 +392,10 @@ test("storeVerifiedPrincipalState rejects successor states signed by non-admins"
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKeyPair.publicKey),
       keyFingerprint: await toFingerprint(principalKeyPair.publicKey),
-      members: [
-        { principalType: "user", principalId: outsiderSigner.signerUserId },
-      ],
+      members: [{ userId: outsiderSigner.signerUserId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: outsiderSigner.signerUserId,
+          userId: outsiderSigner.signerUserId,
           role: "admin",
         },
       ],
@@ -454,11 +427,10 @@ test("storeVerifiedPrincipalState rejects same-version state hash conflicts", as
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(publicKey),
         keyFingerprint: await toFingerprint(publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -481,13 +453,10 @@ test("storeVerifiedPrincipalState rejects same-version state hash conflicts", as
           keyEpoch: 1,
           encapsulationPublicKey: bytesToBase64(publicKey),
           keyFingerprint: await toFingerprint(publicKey),
-          members: [
-            { principalType: "user", principalId: signer.signerUserId },
-          ],
+          members: [{ userId: signer.signerUserId }],
           projection: [
             {
-              memberPrincipalType: "user",
-              memberPrincipalId: signer.signerUserId,
+              userId: signer.signerUserId,
               role: "admin",
             },
           ],
@@ -518,19 +487,14 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(publicKey),
         keyFingerprint: await toFingerprint(publicKey),
-        members: [
-          { principalType: "user", principalId: signer.signerUserId },
-          { principalType: "user", principalId: removedUserId },
-        ],
+        members: [{ userId: signer.signerUserId }, { userId: removedUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: removedUserId,
+            userId: removedUserId,
             role: "member",
           },
         ],
@@ -553,13 +517,10 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
           keyEpoch: 1,
           encapsulationPublicKey: bytesToBase64(publicKey),
           keyFingerprint: await toFingerprint(publicKey),
-          members: [
-            { principalType: "user", principalId: signer.signerUserId },
-          ],
+          members: [{ userId: signer.signerUserId }],
           projection: [
             {
-              memberPrincipalType: "user",
-              memberPrincipalId: signer.signerUserId,
+              userId: signer.signerUserId,
               role: "admin",
             },
           ],
@@ -594,11 +555,10 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(firstKemInitial.publicKey),
       keyFingerprint: await toFingerprint(firstKemInitial.publicKey),
-      members: [{ principalType: "user", principalId: signer.signerUserId }],
+      members: [{ userId: signer.signerUserId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
       ],
@@ -622,11 +582,10 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
         keyEpoch: 2,
         encapsulationPublicKey: bytesToBase64(firstKemCurrent.publicKey),
         keyFingerprint: await toFingerprint(firstKemCurrent.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -648,11 +607,10 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
         keyFingerprint: await toFingerprint(secondKem.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -699,11 +657,10 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(firstKemInitial.publicKey),
       keyFingerprint: await toFingerprint(firstKemInitial.publicKey),
-      members: [{ principalType: "user", principalId: signer.signerUserId }],
+      members: [{ userId: signer.signerUserId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
       ],
@@ -727,11 +684,10 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
         keyEpoch: 2,
         encapsulationPublicKey: bytesToBase64(firstKemCurrent.publicKey),
         keyFingerprint: await toFingerprint(firstKemCurrent.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -753,11 +709,10 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
         keyFingerprint: await toFingerprint(secondKem.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -799,11 +754,10 @@ test("getPrincipalStatesForReferences batches exact historical state lookup by r
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(firstKem.publicKey),
         keyFingerprint: await toFingerprint(firstKem.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -824,11 +778,10 @@ test("getPrincipalStatesForReferences batches exact historical state lookup by r
         keyEpoch: 2,
         encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
         keyFingerprint: await toFingerprint(secondKem.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -862,30 +815,26 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
   const firstPrincipalId = crypto.randomUUID();
   const secondPrincipalId = crypto.randomUUID();
   const firstMemberId = crypto.randomUUID();
-  const nestedGroupId = crypto.randomUUID();
+  const secondMemberId = crypto.randomUUID();
   const firstKem = generateKemSeedAndKeyPair();
   const secondKem = generateKemSeedAndKeyPair();
   const firstProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signer.signerUserId,
+      userId: signer.signerUserId,
       role: "admin" as const,
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: firstMemberId,
+      userId: firstMemberId,
       role: "member" as const,
     },
   ];
   const secondProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signer.signerUserId,
+      userId: signer.signerUserId,
       role: "admin" as const,
     },
     {
-      memberPrincipalType: "group" as const,
-      memberPrincipalId: nestedGroupId,
+      userId: secondMemberId,
       role: "member" as const,
     },
   ];
@@ -900,10 +849,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(firstKem.publicKey),
         keyFingerprint: await toFingerprint(firstKem.publicKey),
-        members: [
-          { principalType: "user", principalId: signer.signerUserId },
-          { principalType: "user", principalId: firstMemberId },
-        ],
+        members: [{ userId: signer.signerUserId }, { userId: firstMemberId }],
         projection: firstProjection,
         signedAt: new Date("2026-04-07T16:00:00.000Z").toISOString(),
         ...signer,
@@ -922,10 +868,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
         keyFingerprint: await toFingerprint(secondKem.publicKey),
-        members: [
-          { principalType: "user", principalId: signer.signerUserId },
-          { principalType: "group", principalId: nestedGroupId },
-        ],
+        members: [{ userId: signer.signerUserId }, { userId: secondMemberId }],
         projection: secondProjection,
         signedAt: new Date("2026-04-07T16:05:00.000Z").toISOString(),
         ...signer,
@@ -946,29 +889,15 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
   expect(
     projections
       .get(firstKey)
-      ?.map(
-        (member) =>
-          `${member.memberPrincipalType}:${member.memberPrincipalId}:${member.role}`,
-      )
+      ?.map((member) => `${member.userId}:${member.role}`)
       .sort(),
-  ).toEqual(
-    [
-      `user:${firstMemberId}:member`,
-      `user:${signer.signerUserId}:admin`,
-    ].sort(),
-  );
+  ).toEqual([`${firstMemberId}:member`, `${signer.signerUserId}:admin`].sort());
   expect(
     projections
       .get(secondKey)
-      ?.map(
-        (member) =>
-          `${member.memberPrincipalType}:${member.memberPrincipalId}:${member.role}`,
-      )
+      ?.map((member) => `${member.userId}:${member.role}`)
       .sort(),
   ).toEqual(
-    [
-      `group:${nestedGroupId}:member`,
-      `user:${signer.signerUserId}:admin`,
-    ].sort(),
+    [`${secondMemberId}:member`, `${signer.signerUserId}:admin`].sort(),
   );
 });

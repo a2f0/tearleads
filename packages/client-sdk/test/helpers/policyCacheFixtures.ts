@@ -100,13 +100,11 @@ export async function createPrincipalPolicyBundle(): Promise<{
   const signerUserKeyFingerprint = await toFingerprint(signerPublicKey);
   const currentProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signerUserId,
+      userId: signerUserId,
       role: "admin" as const,
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: "alice",
+      userId: "alice",
       role: "member" as const,
     },
   ];
@@ -122,8 +120,7 @@ export async function createPrincipalPolicyBundle(): Promise<{
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
       members: currentProjection.map((member) => ({
-        principalType: member.memberPrincipalType,
-        principalId: member.memberPrincipalId,
+        userId: member.userId,
       })),
       memberEnvelopes,
       projection: currentProjection,
@@ -194,13 +191,11 @@ export async function createSuccessorPrincipalPolicyBundle(
   const signerUserKeyFingerprint = await toFingerprint(signerPublicKey);
   const previousProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signerUserId,
+      userId: signerUserId,
       role: "admin" as const,
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: "alice",
+      userId: "alice",
       role: "member" as const,
     },
   ];
@@ -217,8 +212,7 @@ export async function createSuccessorPrincipalPolicyBundle(
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
       members: previousProjection.map((member) => ({
-        principalType: member.memberPrincipalType,
-        principalId: member.memberPrincipalId,
+        userId: member.userId,
       })),
       memberEnvelopes: previousMemberEnvelopes,
       projection: previousProjection,
@@ -234,22 +228,19 @@ export async function createSuccessorPrincipalPolicyBundle(
     await computePrincipalStateHash(previousSignedState);
   const currentProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signerUserId,
+      userId: signerUserId,
       role: "admin" as const,
     },
     ...(options.shrinkWithoutRotation
       ? []
       : [
           {
-            memberPrincipalType: "user" as const,
-            memberPrincipalId: "alice",
+            userId: "alice",
             role: "member" as const,
           },
         ]),
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: "bob",
+      userId: "bob",
       role: "member" as const,
     },
   ];
@@ -266,8 +257,7 @@ export async function createSuccessorPrincipalPolicyBundle(
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
       members: currentProjection.map((member) => ({
-        principalType: member.memberPrincipalType,
-        principalId: member.memberPrincipalId,
+        userId: member.userId,
       })),
       memberEnvelopes: currentMemberEnvelopes,
       projection: currentProjection,
@@ -348,13 +338,11 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
   );
   const previousProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: adminUserId,
+      userId: adminUserId,
       role: "admin" as const,
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: outsiderUserId,
+      userId: outsiderUserId,
       role: "member" as const,
     },
   ];
@@ -371,8 +359,7 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
       members: previousProjection.map((member) => ({
-        principalType: member.memberPrincipalType,
-        principalId: member.memberPrincipalId,
+        userId: member.userId,
       })),
       memberEnvelopes: previousMemberEnvelopes,
       projection: previousProjection,
@@ -388,8 +375,7 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
     await computePrincipalStateHash(previousSignedState);
   const currentProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: outsiderUserId,
+      userId: outsiderUserId,
       role: "admin" as const,
     },
   ];
@@ -405,7 +391,7 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
-      members: [{ principalType: "user", principalId: outsiderUserId }],
+      members: [{ userId: outsiderUserId }],
       memberEnvelopes: currentMemberEnvelopes,
       projection: currentProjection,
       payloadCiphertext: currentPayloadCiphertext,

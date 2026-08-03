@@ -19,10 +19,9 @@ import { unwrapKeyEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto
 
 async function createPrincipalPolicyBundle(input: {
   keyEpoch?: number;
-  members: Array<{ principalType: "user" | "group"; principalId: string }>;
+  members: Array<{ userId: string }>;
   memberRecipientPublicKeys: Array<{
-    memberPrincipalId: string;
-    memberPrincipalType: "user" | "group";
+    userId: string;
     publicKey: Uint8Array;
   }>;
   principalId: string;
@@ -41,13 +40,11 @@ async function createPrincipalPolicyBundle(input: {
   const signerUserKeyFingerprint = await toFingerprint(signingPublicKey);
   const currentProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signerUserId,
+      userId: signerUserId,
       role: "admin" as const,
     },
     ...input.members.map((member) => ({
-      memberPrincipalType: member.principalType,
-      memberPrincipalId: member.principalId,
+      userId: member.userId,
       role: "member" as const,
     })),
   ];
@@ -55,8 +52,7 @@ async function createPrincipalPolicyBundle(input: {
   const signerRecipientKem = generateKemSeedAndKeyPair();
   const recipients = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signerUserId,
+      userId: signerUserId,
       publicKey: signerRecipientKem.publicKey,
     },
     ...input.memberRecipientPublicKeys,
@@ -73,8 +69,7 @@ async function createPrincipalPolicyBundle(input: {
     }
 
     return {
-      memberPrincipalType: recipient.memberPrincipalType,
-      memberPrincipalId: recipient.memberPrincipalId,
+      userId: recipient.userId,
       memberKeyFingerprint: recipientEntry.keyFingerprint,
       kemCipherText: bytesToBase64(recipientEntry.kemCipherText),
       wrappedKey: bytesToBase64(recipientEntry.wrappedKey),
@@ -90,8 +85,7 @@ async function createPrincipalPolicyBundle(input: {
       encapsulationPublicKey: bytesToBase64(input.principalKem.publicKey),
       keyFingerprint: await toFingerprint(input.principalKem.publicKey),
       members: currentProjection.map((member) => ({
-        principalType: member.memberPrincipalType,
-        principalId: member.memberPrincipalId,
+        userId: member.userId,
       })),
       memberEnvelopes,
       projection: currentProjection,
@@ -142,11 +136,10 @@ test("principal policy crypto unwraps an object key addressed to a cached group 
 
   try {
     const bundle = await createPrincipalPolicyBundle({
-      members: [{ principalType: "user", principalId: "alice" }],
+      members: [{ userId: "alice" }],
       memberRecipientPublicKeys: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: "alice",
+          userId: "alice",
           publicKey: aliceKem.publicKey,
         },
       ],
@@ -168,81 +161,6 @@ test("principal policy crypto unwraps an object key addressed to a cached group 
     if (!wrappedObjectEntry) {
       throw new Error("Missing wrapped object key entry");
     }
-
-    await expect(
-      unwrapKeyEnvelopesWithPrincipalPolicies({
-        envelopes: [
-          {
-            keyFingerprint: wrappedObjectEntry.keyFingerprint,
-            kemCipherText: bytesToBase64(wrappedObjectEntry.kemCipherText),
-            wrappedKey: bytesToBase64(wrappedObjectEntry.wrappedKey),
-          },
-        ],
-        execSql,
-        secretKey: aliceKem.secretKey,
-      }),
-    ).resolves.toEqual(objectKey);
-  } finally {
-    close();
-  }
-});
-
-test("principal policy crypto recursively unwraps nested group principals", async () => {
-  const aliceKem = generateKemSeedAndKeyPair();
-  const nestedGroupKem = generateKemSeedAndKeyPair();
-  const outerGroupKem = generateKemSeedAndKeyPair();
-  const objectKey = crypto.getRandomValues(new Uint8Array(32));
-  const { close, execSql } = await createTestExecSql(
-    "principal-policy-crypto-test",
-  );
-
-  try {
-    const nestedBundle = await createPrincipalPolicyBundle({
-      members: [{ principalType: "user", principalId: "alice" }],
-      memberRecipientPublicKeys: [
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: "alice",
-          publicKey: aliceKem.publicKey,
-        },
-      ],
-      principalId: "group-nested",
-      principalKem: nestedGroupKem,
-      signedAt: "2026-04-08T00:00:00.000Z",
-    });
-    const outerBundle = await createPrincipalPolicyBundle({
-      members: [{ principalType: "group", principalId: "group-nested" }],
-      memberRecipientPublicKeys: [
-        {
-          memberPrincipalType: "group",
-          memberPrincipalId: "group-nested",
-          publicKey: nestedGroupKem.publicKey,
-        },
-      ],
-      principalId: "group-outer",
-      principalKem: outerGroupKem,
-      signedAt: "2026-04-08T00:02:00.000Z",
-    });
-    const wrappedObjectEntries = await wrapDekForRecipients(objectKey, [
-      outerGroupKem.publicKey,
-    ]);
-    const wrappedObjectEntry = wrappedObjectEntries[0];
-
-    if (!wrappedObjectEntry) {
-      throw new Error("Missing wrapped object key entry");
-    }
-
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
-      execSql,
-      nestedBundle,
-      "2026-04-08T00:01:00.000Z",
-    );
-    await savePrincipalPolicyBundle(
-      execSql,
-      outerBundle,
-      "2026-04-08T00:03:00.000Z",
-    );
 
     await expect(
       unwrapKeyEnvelopesWithPrincipalPolicies({

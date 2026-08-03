@@ -9,7 +9,7 @@ import {
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   CreateOrganizationGroupRequest,
   PrincipalMemberEnvelopeRequest,
@@ -35,16 +35,13 @@ export function userProjectionMember(
   userId: string,
   role: "member" | "admin",
 ): PrincipalProjectionMemberRequest {
-  return { memberPrincipalType: "user", memberPrincipalId: userId, role };
+  return { userId: userId, role };
 }
 
 function projectionToStateMembers(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
 ) {
-  return projection.map((member) => ({
-    principalType: member.memberPrincipalType,
-    principalId: member.memberPrincipalId,
-  }));
+  return projection.map((member) => ({ userId: member.userId }));
 }
 
 function payloadCiphertextForProjection(
@@ -131,8 +128,7 @@ export async function buildInitialGroupPolicyRequest(
     }
 
     memberEnvelopes.push({
-      memberPrincipalType: "user",
-      memberPrincipalId: input.signerUserId,
+      userId: input.signerUserId,
       memberKeyFingerprint: creatorFingerprint,
       kemCipherText: bytesToBase64(creatorEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(creatorEnvelope.wrappedKey),
@@ -159,8 +155,15 @@ export async function buildInitialGroupPolicyRequest(
   };
 }
 
+/**
+ * Members at bootstrap holds the registering user alone.
+ *
+ * It used to also contain the Admins group as a nested member, so that admins
+ * were implicitly members. Principals contain only users now, so an admin is an
+ * ordinary Members entry — and bootstrap has exactly one user, who is that
+ * admin.
+ */
 export async function buildInitialMemberGroupPolicyRequest(input: {
-  readonly adminGroup: CreateOrganizationGroupRequest;
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly groupId: string;
   readonly signerUserId: string;
@@ -173,39 +176,20 @@ export async function buildInitialMemberGroupPolicyRequest(input: {
   );
   const projection = normalizePrincipalProjectionMembers([
     userProjectionMember(input.signerUserId, "admin"),
-    {
-      memberPrincipalType: "group",
-      memberPrincipalId: input.adminGroup.groupId,
-      role: "member",
-    },
   ]);
   const [creatorEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
     input.creatorEncapsulationKeyPair.publicKey,
   ]);
-  const [adminGroupEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
-    base64ToBytes(
-      input.adminGroup.initialGroupPolicy.state.encapsulationPublicKey,
-    ),
-  ]);
 
-  if (!creatorEnvelope || !adminGroupEnvelope) {
+  if (!creatorEnvelope) {
     throw new Error("Failed to wrap member group key");
   }
   const memberEnvelopes: PrincipalMemberEnvelopeRequest[] = [
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: input.signerUserId,
+      userId: input.signerUserId,
       memberKeyFingerprint: creatorFingerprint,
       kemCipherText: bytesToBase64(creatorEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(creatorEnvelope.wrappedKey),
-    },
-    {
-      memberPrincipalType: "group",
-      memberPrincipalId: input.adminGroup.groupId,
-      memberKeyFingerprint:
-        input.adminGroup.initialGroupPolicy.state.keyFingerprint,
-      kemCipherText: bytesToBase64(adminGroupEnvelope.kemCipherText),
-      wrappedKey: bytesToBase64(adminGroupEnvelope.wrappedKey),
     },
   ];
   const policyRequest = await signedGroupPolicyRequest({

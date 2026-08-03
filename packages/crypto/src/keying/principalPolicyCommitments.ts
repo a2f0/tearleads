@@ -16,10 +16,7 @@ export async function verifyPrincipalPolicyProjectionCommitments(input: {
   const [computedProjectionRoot, computedMembershipRoot] = await Promise.all([
     computePrincipalProjectionRoot(projection),
     computePrincipalMembershipRoot(
-      projection.map((member) => ({
-        principalType: member.memberPrincipalType,
-        principalId: member.memberPrincipalId,
-      })),
+      projection.map((member) => ({ userId: member.userId })),
     ),
   ]);
 

@@ -50,7 +50,7 @@ interface OrganizationReadModelResponseBase {
   readonly hasMore: boolean;
   readonly nextCursor: string;
   readonly organizationId: string;
-  readonly version: 4;
+  readonly version: 5;
 }
 
 export interface OrganizationReadModelSnapshotResponse
@@ -268,21 +268,17 @@ function isGroupMembership(
     if (
       !isOrganizationGroupMemberResponse(member) ||
       !hasExactKeys(member, [
-        "memberPrincipalType",
-        "memberPrincipalId",
         "role",
         "userId",
         "signingKeyFingerprint",
         "signingPublicKey",
         "encapsulationPublicKey",
         "encapsulationKeyFingerprint",
-        "groupId",
-        "groupName",
       ])
     ) {
       return false;
     }
-    const key = `${member.memberPrincipalType}:${member.memberPrincipalId}`;
+    const key = member.userId;
     if (memberKeys.has(key)) {
       return false;
     }
@@ -347,7 +343,7 @@ function hasValidCommonFields(value: unknown): value is {
       "lanes",
     ]) &&
     hasNumberProperty(value, "version") &&
-    value.version === 4 &&
+    value.version === 5 &&
     hasStringProperty(value, "mode") &&
     hasStringProperty(value, "organizationId") &&
     hasStringProperty(value, "nextCursor") &&

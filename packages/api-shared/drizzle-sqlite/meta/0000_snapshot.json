@@ -4230,20 +4230,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "member_principal_type": {
-          "name": "member_principal_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "member_principal_id": {
-          "name": "member_principal_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "member_key_fingerprint": {
           "name": "member_key_fingerprint",
           "type": "text",
@@ -4272,6 +4258,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -4286,8 +4279,7 @@
             "principal_type",
             "principal_id",
             "state_hash",
-            "member_principal_type",
-            "member_principal_id"
+            "user_id"
           ],
           "isUnique": true
         }
@@ -4328,20 +4320,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "member_principal_type": {
-          "name": "member_principal_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "member_principal_id": {
-          "name": "member_principal_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "role": {
           "name": "role",
           "type": "text",
@@ -4356,6 +4334,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -4366,14 +4351,13 @@
         },
         "principal_membership_projection_member_idx": {
           "name": "principal_membership_projection_member_idx",
-          "columns": ["member_principal_type", "member_principal_id"],
+          "columns": ["user_id"],
           "isUnique": false
         },
         "principal_membership_projection_member_state_idx": {
           "name": "principal_membership_projection_member_state_idx",
           "columns": [
-            "member_principal_type",
-            "member_principal_id",
+            "user_id",
             "principal_type",
             "principal_id",
             "state_hash"
@@ -4386,8 +4370,7 @@
             "principal_type",
             "principal_id",
             "state_hash",
-            "member_principal_type",
-            "member_principal_id"
+            "user_id"
           ],
           "isUnique": true
         }

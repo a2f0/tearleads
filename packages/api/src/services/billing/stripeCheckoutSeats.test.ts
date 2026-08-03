@@ -80,8 +80,7 @@ async function addEffectiveMember(
     principalType: "group",
     principalId: memberGroupId,
     stateHash,
-    memberPrincipalType: "user",
-    memberPrincipalId: userId,
+    userId: userId,
     role: "member",
   });
 }

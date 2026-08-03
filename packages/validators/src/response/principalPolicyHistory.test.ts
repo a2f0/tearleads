@@ -34,8 +34,7 @@ function stateAtVersion(version: number) {
 }
 
 const envelope = {
-  memberPrincipalType: "user",
-  memberPrincipalId: "user-1",
+  userId: "user-1",
   memberKeyFingerprint: "fingerprint",
   kemCipherText: "cipher",
   wrappedKey: "wrapped",
@@ -46,8 +45,7 @@ function entryAtVersion(version: number, envelopeCount = 1) {
     state: stateAtVersion(version),
     projection: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: "user-1",
+        userId: "user-1",
         role: "admin",
       },
     ],

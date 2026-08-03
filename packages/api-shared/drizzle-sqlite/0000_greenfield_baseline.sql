@@ -688,8 +688,7 @@ CREATE TABLE `principal_member_envelopes` (
 	`principal_id` text NOT NULL,
 	`state_hash` text NOT NULL,
 	`epoch` integer NOT NULL,
-	`member_principal_type` text NOT NULL,
-	`member_principal_id` text NOT NULL,
+	`user_id` text NOT NULL,
 	`member_key_fingerprint` text NOT NULL,
 	`kem_cipher_text` text NOT NULL,
 	`wrapped_key` text NOT NULL,
@@ -697,22 +696,21 @@ CREATE TABLE `principal_member_envelopes` (
 );
 --> statement-breakpoint
 CREATE INDEX `principal_member_envelopes_principal_idx` ON `principal_member_envelopes` (`principal_type`,`principal_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `principal_member_envelopes_state_member_idx` ON `principal_member_envelopes` (`principal_type`,`principal_id`,`state_hash`,`member_principal_type`,`member_principal_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `principal_member_envelopes_state_member_idx` ON `principal_member_envelopes` (`principal_type`,`principal_id`,`state_hash`,`user_id`);--> statement-breakpoint
 CREATE TABLE `principal_membership_projection` (
 	`id` text PRIMARY KEY NOT NULL,
 	`principal_type` text NOT NULL,
 	`principal_id` text NOT NULL,
 	`state_hash` text NOT NULL,
-	`member_principal_type` text NOT NULL,
-	`member_principal_id` text NOT NULL,
+	`user_id` text NOT NULL,
 	`role` text NOT NULL,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
 CREATE INDEX `principal_membership_projection_principal_idx` ON `principal_membership_projection` (`principal_type`,`principal_id`);--> statement-breakpoint
-CREATE INDEX `principal_membership_projection_member_idx` ON `principal_membership_projection` (`member_principal_type`,`member_principal_id`);--> statement-breakpoint
-CREATE INDEX `principal_membership_projection_member_state_idx` ON `principal_membership_projection` (`member_principal_type`,`member_principal_id`,`principal_type`,`principal_id`,`state_hash`);--> statement-breakpoint
-CREATE UNIQUE INDEX `principal_membership_projection_state_member_idx` ON `principal_membership_projection` (`principal_type`,`principal_id`,`state_hash`,`member_principal_type`,`member_principal_id`);--> statement-breakpoint
+CREATE INDEX `principal_membership_projection_member_idx` ON `principal_membership_projection` (`user_id`);--> statement-breakpoint
+CREATE INDEX `principal_membership_projection_member_state_idx` ON `principal_membership_projection` (`user_id`,`principal_type`,`principal_id`,`state_hash`);--> statement-breakpoint
+CREATE UNIQUE INDEX `principal_membership_projection_state_member_idx` ON `principal_membership_projection` (`principal_type`,`principal_id`,`state_hash`,`user_id`);--> statement-breakpoint
 CREATE TABLE `principal_state_payloads` (
 	`id` text PRIMARY KEY NOT NULL,
 	`principal_type` text NOT NULL,

@@ -123,10 +123,8 @@ function organizationReadModelMemberships(
                 stateHash: group.currentState.stateHash,
                 members: [
                   {
-                    memberPrincipalType: "user" as const,
-                    memberPrincipalId: "user-1",
-                    role: "admin" as const,
                     userId: "user-1",
+                    role: "admin" as const,
                     signingKeyFingerprint: "signing-fingerprint-user-1",
                     signingPublicKey: "signing-public-key-user-1",
                     encapsulationPublicKey: "encapsulation-public-key-user-1",
@@ -158,7 +156,7 @@ export function organizationReadModelSnapshot(
 ): OrganizationReadModelSnapshotResponse {
   const groups = organizationReadModelGroups(organizationId, suffix);
   return {
-    version: 4,
+    version: 5,
     mode: "snapshot",
     organizationId,
     nextCursor,
@@ -192,7 +190,7 @@ export function organizationReadModelDelta(input: {
       ? organizationReadModelMemberships(input.groups, false)
       : undefined);
   return {
-    version: 4,
+    version: 5,
     mode: "delta",
     organizationId: input.organizationId,
     nextCursor: input.nextCursor,

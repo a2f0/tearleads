@@ -1,23 +1,34 @@
 export type ManagedRecipientPrincipalType = "group" | "organization";
-export type PrincipalStateMemberType = "user" | "group";
 export type PrincipalProjectionRole = "member" | "admin";
 export type PrincipalStateMembershipMode = "projection";
 export type PrincipalStatePayloadCipherSuite = "aes-256-gcm";
 
+/**
+ * Principals contain users only — never other groups.
+ *
+ * Group nesting was removed deliberately. It was the sole source of unbounded
+ * cost when a principal rotates: re-wrapping a containing group's member
+ * envelope changes that group's `memberEnvelopesRoot`, which is inside its
+ * SIGNED state, so the container needs a new state — and so does anything
+ * containing it, with no depth limit. Removing one member from a deeply nested
+ * group therefore had no bounded cost.
+ *
+ * The member type is gone rather than pinned to `"user"`: a field that can only
+ * hold one value still has to be encoded, hashed, stored, and read everywhere,
+ * and it invites the branch back. Membership is now a set of user ids, and
+ * reachability is a lookup rather than a graph walk.
+ */
 export interface PrincipalStateMember {
-  principalType: PrincipalStateMemberType;
-  principalId: string;
+  userId: string;
 }
 
 export interface PrincipalProjectionMember {
-  memberPrincipalType: PrincipalStateMemberType;
-  memberPrincipalId: string;
+  userId: string;
   role: PrincipalProjectionRole;
 }
 
 export interface PrincipalStateMemberEnvelope {
-  memberPrincipalType: PrincipalStateMemberType;
-  memberPrincipalId: string;
+  userId: string;
   memberKeyFingerprint: string;
   kemCipherText: string;
   wrappedKey: string;

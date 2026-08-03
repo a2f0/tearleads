@@ -14,10 +14,7 @@ export function canCurrentUserMutateSelectedGroup(input: {
 
   return (
     input.members?.members.some(
-      (member) =>
-        member.memberPrincipalType === "user" &&
-        member.memberPrincipalId === input.userId &&
-        member.role === "admin",
+      (member) => member.userId === input.userId && member.role === "admin",
     ) ?? false
   );
 }

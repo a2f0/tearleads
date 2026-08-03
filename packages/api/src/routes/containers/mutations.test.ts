@@ -312,11 +312,7 @@ async function putGroupPrincipalPolicy(input: {
   readonly stateHash: string;
 }> {
   const principalKem = input.principalKem ?? generateKemSeedAndKeyPair();
-  const members = [
-    ...(input.members ?? [
-      { principalType: "user" as const, principalId: input.actor.userId },
-    ]),
-  ];
+  const members = [...(input.members ?? [{ userId: input.actor.userId }])];
   const projection = [
     ...(input.projection ??
       createProjectionWithAdminSigner(input.actor.userId, members)),
@@ -2291,7 +2287,7 @@ test("POST /containers/:containerId/revoke emits tombstones for removed group gr
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
+    members: [{ userId: recipient.userId }],
     principalId: groupPrincipalId,
   });
   const groupGrantRequest = await buildGroupGrantRequest({
@@ -2400,7 +2396,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
+    members: [{ userId: recipient.userId }],
     principalId: groupPrincipalId,
   });
   const groupGrantRequest = await buildGroupGrantRequest({
@@ -2436,7 +2432,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
   await putGroupPrincipalPolicy({
     actor: owner,
     keyEpoch: 2,
-    members: [{ principalType: "user", principalId: owner.userId }],
+    members: [{ userId: owner.userId }],
     prevStateHash: group.stateHash,
     principalId: groupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
@@ -2515,7 +2511,7 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
+    members: [{ userId: recipient.userId }],
     principalId: groupPrincipalId,
   });
   const directSharedBundle = accessManifestFromResponse(directShared);
@@ -2554,7 +2550,7 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
   await putGroupPrincipalPolicy({
     actor: owner,
     keyEpoch: 2,
-    members: [{ principalType: "user", principalId: owner.userId }],
+    members: [{ userId: owner.userId }],
     prevStateHash: group.stateHash,
     principalId: groupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
@@ -2570,265 +2566,6 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
   const recipientDelta = await readLanePage(recipientDeltaResponse);
   expect(recipientDelta.tombstones).toEqual([]);
   expect(recipientDelta.nextWatermark).toEqual(recipientBaseline.nextWatermark);
-});
-
-test("POST /containers/:containerId/revoke emits tombstones for nested group grant members", async () => {
-  const owner = createTestUser();
-  await registerAndAuthenticate(owner);
-  const recipient = createTestUser();
-  await registerAndAuthenticate(recipient);
-
-  const root = await bootstrapRoot(owner);
-  const created = await createChild({
-    parent: root.bundle,
-    parentKekState: root.kekState,
-    signer: owner,
-  });
-  const nestedGroupPrincipalId = crypto.randomUUID();
-  const nestedGroup = await putGroupPrincipalPolicy({
-    actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
-    principalId: nestedGroupPrincipalId,
-  });
-  const outerGroupPrincipalId = crypto.randomUUID();
-  const outerGroup = await putGroupPrincipalPolicy({
-    actor: owner,
-    members: [{ principalType: "group", principalId: nestedGroupPrincipalId }],
-    principalId: outerGroupPrincipalId,
-  });
-  const createdBundle = accessManifestFromResponse(created);
-  const groupGrantRequest = await buildGroupGrantRequest({
-    parentKekState: root.kekState,
-    previous: createdBundle,
-    previousContainerPath: [root.bundle, createdBundle],
-    previousKekState: kekStateFromResponse(created),
-    principalPolicies: [nestedGroup.policy],
-    principalPolicy: outerGroup.policy,
-    principalReference: outerGroup.reference,
-    signer: owner,
-  });
-  const shared = await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/share`,
-      request: groupGrantRequest,
-      token: owner.token,
-    }),
-  );
-
-  const sharedBundle = accessManifestFromResponse(shared);
-  const revokeRequest = await buildRevokeRequest({
-    parentKekState: root.kekState,
-    previous: sharedBundle,
-    previousContainerPath: [root.bundle, sharedBundle],
-    previousKekState: kekStateFromResponse(shared),
-    revokedGrant: {
-      subjectType: "group",
-      subjectId: outerGroupPrincipalId,
-    },
-    signer: owner,
-  });
-
-  await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/revoke`,
-      request: revokeRequest,
-      token: owner.token,
-    }),
-  );
-
-  const tombstones = await db
-    .select({
-      containerId: containerSyncTombstones.containerId,
-      depth: containerSyncTombstones.depth,
-      parentId: containerSyncTombstones.parentId,
-      reason: containerSyncTombstones.reason,
-      updatedAt: containerSyncTombstones.updatedAt,
-      userId: containerSyncTombstones.userId,
-    })
-    .from(containerSyncTombstones)
-    .where(
-      and(
-        eq(containerSyncTombstones.containerId, created.containerId),
-        eq(containerSyncTombstones.userId, recipient.userId),
-      ),
-    );
-
-  expect(tombstones).toEqual([
-    {
-      containerId: created.containerId,
-      depth: 1,
-      parentId: root.kekState.containerId,
-      reason: "access_revoked",
-      updatedAt: expect.any(Date),
-      userId: recipient.userId,
-    },
-  ]);
-});
-
-test("PUT /principals/group/:principalId/policy emits tombstones for removed nested group members", async () => {
-  const owner = createTestUser();
-  await registerAndAuthenticate(owner);
-  const recipient = createTestUser();
-  await registerAndAuthenticate(recipient);
-
-  const root = await bootstrapRoot(owner);
-  const created = await createChild({
-    parent: root.bundle,
-    parentKekState: root.kekState,
-    signer: owner,
-  });
-  const nestedGroupPrincipalId = crypto.randomUUID();
-  const nestedGroup = await putGroupPrincipalPolicy({
-    actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
-    principalId: nestedGroupPrincipalId,
-  });
-  const outerGroupPrincipalId = crypto.randomUUID();
-  const outerGroup = await putGroupPrincipalPolicy({
-    actor: owner,
-    members: [{ principalType: "group", principalId: nestedGroupPrincipalId }],
-    principalId: outerGroupPrincipalId,
-  });
-  const createdBundle = accessManifestFromResponse(created);
-  const groupGrantRequest = await buildGroupGrantRequest({
-    parentKekState: root.kekState,
-    previous: createdBundle,
-    previousContainerPath: [root.bundle, createdBundle],
-    previousKekState: kekStateFromResponse(created),
-    principalPolicies: [nestedGroup.policy],
-    principalPolicy: outerGroup.policy,
-    principalReference: outerGroup.reference,
-    signer: owner,
-  });
-  await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/share`,
-      request: groupGrantRequest,
-      token: owner.token,
-    }),
-  );
-
-  await putGroupPrincipalPolicy({
-    actor: owner,
-    keyEpoch: 2,
-    members: [{ principalType: "user", principalId: owner.userId }],
-    prevStateHash: outerGroup.stateHash,
-    principalId: outerGroupPrincipalId,
-    principalKem: generateKemSeedAndKeyPair(),
-    signedAt: "2026-04-30T00:04:00.000Z",
-    version: 2,
-  });
-
-  const tombstones = await db
-    .select({
-      containerId: containerSyncTombstones.containerId,
-      depth: containerSyncTombstones.depth,
-      parentId: containerSyncTombstones.parentId,
-      reason: containerSyncTombstones.reason,
-      updatedAt: containerSyncTombstones.updatedAt,
-      userId: containerSyncTombstones.userId,
-    })
-    .from(containerSyncTombstones)
-    .where(
-      and(
-        eq(containerSyncTombstones.containerId, created.containerId),
-        eq(containerSyncTombstones.userId, recipient.userId),
-      ),
-    );
-
-  expect(tombstones).toEqual([
-    {
-      containerId: created.containerId,
-      depth: 1,
-      parentId: root.kekState.containerId,
-      reason: "access_revoked",
-      updatedAt: expect.any(Date),
-      userId: recipient.userId,
-    },
-  ]);
-});
-
-test("PUT /principals/group/:principalId/policy emits tombstones for ancestor group grants", async () => {
-  const owner = createTestUser();
-  await registerAndAuthenticate(owner);
-  const recipient = createTestUser();
-  await registerAndAuthenticate(recipient);
-
-  const root = await bootstrapRoot(owner);
-  const created = await createChild({
-    parent: root.bundle,
-    parentKekState: root.kekState,
-    signer: owner,
-  });
-  const nestedGroupPrincipalId = crypto.randomUUID();
-  const nestedGroup = await putGroupPrincipalPolicy({
-    actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
-    principalId: nestedGroupPrincipalId,
-  });
-  const outerGroupPrincipalId = crypto.randomUUID();
-  const outerGroup = await putGroupPrincipalPolicy({
-    actor: owner,
-    members: [{ principalType: "group", principalId: nestedGroupPrincipalId }],
-    principalId: outerGroupPrincipalId,
-  });
-  const createdBundle = accessManifestFromResponse(created);
-  const groupGrantRequest = await buildGroupGrantRequest({
-    parentKekState: root.kekState,
-    previous: createdBundle,
-    previousContainerPath: [root.bundle, createdBundle],
-    previousKekState: kekStateFromResponse(created),
-    principalPolicies: [nestedGroup.policy],
-    principalPolicy: outerGroup.policy,
-    principalReference: outerGroup.reference,
-    signer: owner,
-  });
-  await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/share`,
-      request: groupGrantRequest,
-      token: owner.token,
-    }),
-  );
-
-  await putGroupPrincipalPolicy({
-    actor: owner,
-    keyEpoch: 2,
-    members: [{ principalType: "user", principalId: owner.userId }],
-    prevStateHash: nestedGroup.stateHash,
-    principalId: nestedGroupPrincipalId,
-    principalKem: generateKemSeedAndKeyPair(),
-    signedAt: "2026-04-30T00:05:00.000Z",
-    version: 2,
-  });
-
-  const tombstones = await db
-    .select({
-      containerId: containerSyncTombstones.containerId,
-      depth: containerSyncTombstones.depth,
-      parentId: containerSyncTombstones.parentId,
-      reason: containerSyncTombstones.reason,
-      updatedAt: containerSyncTombstones.updatedAt,
-      userId: containerSyncTombstones.userId,
-    })
-    .from(containerSyncTombstones)
-    .where(
-      and(
-        eq(containerSyncTombstones.containerId, created.containerId),
-        eq(containerSyncTombstones.userId, recipient.userId),
-      ),
-    );
-
-  expect(tombstones).toEqual([
-    {
-      containerId: created.containerId,
-      depth: 1,
-      parentId: root.kekState.containerId,
-      reason: "access_revoked",
-      updatedAt: expect.any(Date),
-      userId: recipient.userId,
-    },
-  ]);
 });
 
 test("POST /containers/:containerId/revoke skips tombstones while access remains inherited", async () => {
@@ -3449,7 +3186,7 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: groupMember,
-    members: [{ principalType: "user", principalId: groupMember.userId }],
+    members: [{ userId: groupMember.userId }],
     principalId: groupPrincipalId,
   });
   const sharedChildBundle = accessManifestFromResponse(sharedChild);
@@ -3775,10 +3512,7 @@ test("POST share group grant prunes member tombstones", async () => {
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [
-      { principalType: "user", principalId: owner.userId },
-      { principalType: "user", principalId: recipient.userId },
-    ],
+    members: [{ userId: owner.userId }, { userId: recipient.userId }],
     principalId: groupPrincipalId,
   });
 

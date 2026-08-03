@@ -59,8 +59,7 @@ export const principalPolicy: PrincipalPolicyBundleResponse = {
   },
   currentProjection: [
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: "user-1",
+      userId: "user-1",
       role: "admin",
     },
   ],
@@ -97,8 +96,7 @@ export const principalPolicy: PrincipalPolicyBundleResponse = {
       },
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: "user-1",
+          userId: "user-1",
           role: "admin",
         },
       ],
@@ -128,13 +126,11 @@ export const principalPolicy: PrincipalPolicyBundleResponse = {
       },
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: "user-1",
+          userId: "user-1",
           role: "member",
         },
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: "user-2",
+          userId: "user-2",
           role: "member",
         },
       ],

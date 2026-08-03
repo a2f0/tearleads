@@ -9,21 +9,17 @@ import {
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   getCurrentPrincipalStates,
-  type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 
 type ManagedPrincipalType = StoredPrincipalState["principalType"];
-type PrincipalMemberType =
-  StoredPrincipalProjectionMember["memberPrincipalType"];
-
 interface PrincipalReference {
   readonly principalId: string;
   readonly principalType: ManagedPrincipalType;
 }
 
 interface ParentPrincipalMembership {
-  readonly memberPrincipalId: string;
+  readonly userId: string;
   readonly principalId: string;
   readonly principalType: ManagedPrincipalType;
   readonly stateHash: string;
@@ -67,12 +63,6 @@ function toPrincipalReference(
   };
 }
 
-function principalMemberTypeForPrincipal(
-  principalType: ManagedPrincipalType,
-): PrincipalMemberType | null {
-  return principalType === "group" ? "group" : null;
-}
-
 async function loadCurrentStatesByReference(input: {
   readonly executor: DatabaseTransaction;
   readonly principals: Iterable<PrincipalReference>;
@@ -104,40 +94,27 @@ async function loadCurrentStatesByReference(input: {
 
 async function listParentPrincipalMemberships(input: {
   readonly executor: DatabaseTransaction;
-  readonly memberPrincipalIds: Iterable<string>;
-  readonly memberPrincipalType: PrincipalMemberType;
+  readonly userIds: Iterable<string>;
 }): Promise<ParentPrincipalMembership[]> {
-  const memberPrincipalIds = uniqueSortedStrings(input.memberPrincipalIds);
-  if (memberPrincipalIds.length === 0) {
+  const userIds = uniqueSortedStrings(input.userIds);
+  if (userIds.length === 0) {
     return [];
   }
 
   return input.executor
     .select({
-      memberPrincipalId: principalMembershipProjection.memberPrincipalId,
+      userId: principalMembershipProjection.userId,
       principalType: principalMembershipProjection.principalType,
       principalId: principalMembershipProjection.principalId,
       stateHash: principalMembershipProjection.stateHash,
     })
     .from(principalMembershipProjection)
-    .where(
-      and(
-        eq(
-          principalMembershipProjection.memberPrincipalType,
-          input.memberPrincipalType,
-        ),
-        inArray(
-          principalMembershipProjection.memberPrincipalId,
-          memberPrincipalIds,
-        ),
-      ),
-    );
+    .where(and(inArray(principalMembershipProjection.userId, userIds)));
 }
 
 async function listCurrentParentPrincipalMemberships(input: {
   readonly executor: DatabaseTransaction;
-  readonly memberPrincipalIds: Iterable<string>;
-  readonly memberPrincipalType: PrincipalMemberType;
+  readonly userIds: Iterable<string>;
 }): Promise<ParentPrincipalMembership[]> {
   const membershipRows = await listParentPrincipalMemberships(input);
   const currentStates = await loadCurrentStatesByReference({
@@ -153,60 +130,35 @@ async function listCurrentParentPrincipalMemberships(input: {
   );
 }
 
-async function collectCurrentAncestorPrincipals(input: {
-  readonly executor: DatabaseTransaction;
+/**
+ * The principals whose access must be reconsidered — which is exactly the seed
+ * set.
+ *
+ * This used to walk upward through containing principals, because a group could
+ * be a member of another group and losing access to the inner one propagated
+ * outward. Principals contain only users now, so a principal has no containing
+ * principals and there is nothing to traverse.
+ */
+function collectCurrentAncestorPrincipals(input: {
   readonly seedPrincipals: readonly PrincipalReference[];
-}): Promise<Map<string, PrincipalReference>> {
-  const principalsByKey = new Map<string, PrincipalReference>();
-  let frontier = [...input.seedPrincipals];
-
-  for (const principal of frontier) {
-    principalsByKey.set(principalKey(principal), principal);
-  }
-
-  while (frontier.length > 0) {
-    const memberIdsByType = new Map<PrincipalMemberType, Set<string>>();
-    for (const principal of frontier) {
-      const memberType = principalMemberTypeForPrincipal(
-        principal.principalType,
-      );
-      if (!memberType) {
-        continue;
-      }
-
-      const memberIds = memberIdsByType.get(memberType) ?? new Set<string>();
-      memberIds.add(principal.principalId);
-      memberIdsByType.set(memberType, memberIds);
-    }
-
-    const nextFrontier: PrincipalReference[] = [];
-    for (const [memberPrincipalType, memberPrincipalIds] of memberIdsByType) {
-      const parentMemberships = await listCurrentParentPrincipalMemberships({
-        executor: input.executor,
-        memberPrincipalType,
-        memberPrincipalIds,
-      });
-
-      for (const membership of parentMemberships) {
-        const principal = {
-          principalType: membership.principalType,
-          principalId: membership.principalId,
-        };
-        const key = principalKey(principal);
-        if (principalsByKey.has(key)) {
-          continue;
-        }
-        principalsByKey.set(key, principal);
-        nextFrontier.push(principal);
-      }
-    }
-
-    frontier = nextFrontier;
-  }
-
-  return principalsByKey;
+}): Map<string, PrincipalReference> {
+  return new Map(
+    input.seedPrincipals.map((principal) => [
+      principalKey(principal),
+      principal,
+    ]),
+  );
 }
 
+/**
+ * The principals each user currently belongs to.
+ *
+ * This used to be a breadth-first walk outward: a group could be a member of
+ * another group, so belonging to the inner one meant belonging to the outer one
+ * too. Principals contain only users now, so the seed memberships ARE the
+ * answer — and re-querying with group ids against a user-id column, as the walk
+ * did on its second hop, can only match by accident.
+ */
 async function collectCurrentPrincipalsForUsers(input: {
   readonly executor: DatabaseTransaction;
   readonly userIds: readonly string[];
@@ -216,72 +168,17 @@ async function collectCurrentPrincipalsForUsers(input: {
     principalsByUserId.set(userId, new Map());
   }
 
-  let frontier = (
-    await listCurrentParentPrincipalMemberships({
-      executor: input.executor,
-      memberPrincipalType: "user",
-      memberPrincipalIds: input.userIds,
-    })
-  ).map((membership) => ({
-    userId: membership.memberPrincipalId,
-    principal: {
+  for (const membership of await listCurrentParentPrincipalMemberships({
+    executor: input.executor,
+    userIds: input.userIds,
+  })) {
+    const principal = {
       principalType: membership.principalType,
       principalId: membership.principalId,
-    },
-  }));
-
-  while (frontier.length > 0) {
-    const nextFrontier: typeof frontier = [];
-    const groupIds = new Set<string>();
-    const frontierByGroupId = new Map<string, typeof frontier>();
-
-    for (const item of frontier) {
-      const userPrincipals = principalsByUserId.get(item.userId);
-      if (!userPrincipals) {
-        continue;
-      }
-
-      const key = principalKey(item.principal);
-      if (userPrincipals.has(key)) {
-        continue;
-      }
-      userPrincipals.set(key, item.principal);
-
-      const memberType = principalMemberTypeForPrincipal(
-        item.principal.principalType,
-      );
-      if (!memberType) {
-        continue;
-      }
-
-      groupIds.add(item.principal.principalId);
-      const groupFrontier =
-        frontierByGroupId.get(item.principal.principalId) ?? [];
-      groupFrontier.push(item);
-      frontierByGroupId.set(item.principal.principalId, groupFrontier);
-    }
-
-    const parentMemberships = await listCurrentParentPrincipalMemberships({
-      executor: input.executor,
-      memberPrincipalType: "group",
-      memberPrincipalIds: groupIds,
-    });
-
-    for (const membership of parentMemberships) {
-      const childFrontier =
-        frontierByGroupId.get(membership.memberPrincipalId) ?? [];
-      for (const child of childFrontier) {
-        nextFrontier.push({
-          userId: child.userId,
-          principal: {
-            principalType: membership.principalType,
-            principalId: membership.principalId,
-          },
-        });
-      }
-    }
-
-    frontier = nextFrontier;
+    };
+    principalsByUserId
+      .get(membership.userId)
+      ?.set(principalKey(principal), principal);
   }
 
   return principalsByUserId;
@@ -504,8 +401,7 @@ async function buildPrincipalPolicyAccessLossRows(input: {
     return [];
   }
 
-  const affectedPrincipals = await collectCurrentAncestorPrincipals({
-    executor: input.executor,
+  const affectedPrincipals = collectCurrentAncestorPrincipals({
     seedPrincipals: [toPrincipalReference(input.currentState)],
   });
   const candidateContainers = await loadCandidateContainersForPrincipals({
@@ -632,8 +528,7 @@ export async function candidateContainerIdsForPrincipalState(input: {
   readonly currentState: StoredPrincipalState;
   readonly executor: DatabaseTransaction;
 }): Promise<string[]> {
-  const affectedPrincipals = await collectCurrentAncestorPrincipals({
-    executor: input.executor,
+  const affectedPrincipals = collectCurrentAncestorPrincipals({
     seedPrincipals: [toPrincipalReference(input.currentState)],
   });
   const candidateContainers = await loadCandidateContainersForPrincipals({

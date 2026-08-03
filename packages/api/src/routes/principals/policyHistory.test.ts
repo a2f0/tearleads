@@ -17,7 +17,7 @@ import { routeApp } from "../../routeApp";
 
 async function putPolicy(input: {
   actor: TestUser;
-  members: { principalId: string; principalType: "group" | "user" }[];
+  members: { userId: string }[];
   principalId: string;
   // The principal's KEM keypair is carried across versions; a fresh one per
   // PUT is a key rotation the successor rules reject.
@@ -87,7 +87,7 @@ test("policy-history serves the requester's own states newest first", async () =
 
   await putPolicy({
     actor,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     principalId,
   });
 
@@ -111,11 +111,7 @@ test("policy-history serves the requester's own states newest first", async () =
   // The envelopes are the whole point: the chain alone was already available
   // through the policy bundle's `previousStates`.
   expect(
-    newest.memberEnvelopes.some(
-      (envelope) =>
-        envelope.memberPrincipalType === "user" &&
-        envelope.memberPrincipalId === actor.userId,
-    ),
+    newest.memberEnvelopes.some((envelope) => envelope.userId === actor.userId),
   ).toBe(true);
 }, 20_000);
 
@@ -130,7 +126,7 @@ test("policy-history discloses no key material to a non-member", async () => {
 
   await putPolicy({
     actor,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     principalId,
   });
 
@@ -160,7 +156,7 @@ test("policy-history rejects an out-of-domain cursor without a 500", async () =>
 
   await putPolicy({
     actor,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     principalId,
   });
 
@@ -203,7 +199,7 @@ test("policy-history pages a multi-version chain contiguously", async () => {
   for (let version = 1; version <= 3; version += 1) {
     const signed = await putPolicy({
       actor,
-      members: [{ principalType: "user", principalId: actor.userId }],
+      members: [{ userId: actor.userId }],
       principalId,
       principalKem,
       ...(version === 1 ? {} : { version }),
@@ -264,7 +260,7 @@ test("policy-history fills a page and links across the page boundary", async () 
   for (let version = 1; version <= total; version += 1) {
     const signed = await putPolicy({
       actor,
-      members: [{ principalType: "user", principalId: actor.userId }],
+      members: [{ userId: actor.userId }],
       principalId,
       principalKem,
       ...(version === 1 ? {} : { version }),
@@ -324,7 +320,7 @@ test("policy-history serves no envelope for a group the requester cannot reach",
   // caller remembering to filter.
   await putPolicy({
     actor,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     principalId,
   });
 
@@ -336,9 +332,7 @@ test("policy-history serves no envelope for a group the requester cannot reach",
   expect(
     mine.entries.some((entry) =>
       entry.memberEnvelopes.some(
-        (envelope) =>
-          envelope.memberPrincipalType === "user" &&
-          envelope.memberPrincipalId === actor.userId,
+        (envelope) => envelope.userId === actor.userId,
       ),
     ),
   ).toBe(true);
@@ -371,7 +365,7 @@ test("a policy write past the version ceiling is rejected, not a 500", async () 
   const signed = await createSignedPrincipalState({
     principalType: "group",
     principalId,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     signerUserId: actor.userId,
     signerUserKeyFingerprint: actor.fingerprint,
     signingPrivateKey: actor.signing.signingPrivateKey,

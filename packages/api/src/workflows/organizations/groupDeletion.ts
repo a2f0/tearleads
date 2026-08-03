@@ -11,35 +11,13 @@ import {
   principalStatePayloads,
   principalStates,
 } from "@tearleads/api-shared/schema";
-import { and, eq, sql } from "drizzle-orm";
-import { currentPrincipalStateHashSql } from "../principals/currentPrincipalStateSql";
+import { and, eq } from "drizzle-orm";
 import { OrganizationManagerError } from "./errors";
 
 interface OrganizationGroupMutationInput {
   executor: DatabaseSession;
   groupId: string;
   organizationId: string;
-}
-
-async function hasCurrentPrincipalReferences(input: {
-  executor: DatabaseSession;
-  groupId: string;
-}): Promise<boolean> {
-  const result = await input.executor.execute(sql`
-    select 1
-    from ${principalMembershipProjection} pmp
-    where
-      pmp.principal_type in (${"group"}, ${"organization"})
-      and pmp.member_principal_type = ${"group"}
-      and pmp.member_principal_id = ${input.groupId}
-      and pmp.state_hash = ${currentPrincipalStateHashSql({
-        principalId: sql`pmp.principal_id`,
-        principalType: sql`pmp.principal_type`,
-      })}
-    limit 1
-  `);
-
-  return result.rows.length > 0;
 }
 
 async function hasCurrentContainerGrant(input: {
@@ -129,17 +107,9 @@ export async function requireOrganizationGroupWithoutDeleteBlockers(
     );
   }
 
-  if (
-    await hasCurrentPrincipalReferences({
-      executor: input.executor,
-      groupId: input.groupId,
-    })
-  ) {
-    throw new OrganizationManagerError(
-      "Group is referenced by current principal policy",
-      409,
-    );
-  }
+  // A group used to be blocked from deletion while it was a member of another
+  // principal. Principals contain only users now, so no such reference can
+  // exist and the guard has nothing left to check.
 }
 
 export async function deleteOrganizationGroupRows(input: {

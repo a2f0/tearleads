@@ -41,11 +41,7 @@ function hasDirectUserMember(
   members: OrganizationGroupMembers,
   userId: string,
 ): boolean {
-  return members.members.some(
-    (member) =>
-      member.memberPrincipalType === "user" &&
-      member.memberPrincipalId === userId,
-  );
+  return members.members.some((member) => member.userId === userId);
 }
 
 function canDisableRosterUserRequest(input: {

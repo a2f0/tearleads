@@ -71,16 +71,12 @@ export interface ListOrganizationGroupsResponse {
 }
 
 export interface OrganizationGroupMemberResponse {
-  memberPrincipalType: "user" | "group";
-  memberPrincipalId: string;
+  userId: string;
   role: OrganizationRole;
-  userId: string | null;
   signingKeyFingerprint: string | null;
   signingPublicKey: string | null;
   encapsulationPublicKey: string | null;
   encapsulationKeyFingerprint: string | null;
-  groupId: string | null;
-  groupName: string | null;
 }
 
 export interface OrganizationGroupMembersResponse {
@@ -151,10 +147,6 @@ function isOrganizationRosterStatus(
   value: string,
 ): value is OrganizationRosterStatus {
   return value === "active" || value === "disabled";
-}
-
-function isPrincipalMemberType(value: string): value is "user" | "group" {
-  return value === "user" || value === "group";
 }
 
 export function isOrganizationGroupContainerAccessLevel(
@@ -275,18 +267,13 @@ export function isOrganizationGroupMemberResponse(
 ): value is OrganizationGroupMemberResponse {
   return (
     isPlainObject(value) &&
-    hasStringProperty(value, "memberPrincipalType") &&
-    isPrincipalMemberType(value.memberPrincipalType) &&
-    hasStringProperty(value, "memberPrincipalId") &&
+    hasStringProperty(value, "userId") &&
     hasStringProperty(value, "role") &&
     isOrganizationRole(value.role) &&
-    hasNullableStringProperty(value, "userId") &&
     hasNullableStringProperty(value, "signingKeyFingerprint") &&
     hasNullableStringProperty(value, "signingPublicKey") &&
     hasNullableStringProperty(value, "encapsulationPublicKey") &&
-    hasNullableStringProperty(value, "encapsulationKeyFingerprint") &&
-    hasNullableStringProperty(value, "groupId") &&
-    hasNullableStringProperty(value, "groupName")
+    hasNullableStringProperty(value, "encapsulationKeyFingerprint")
   );
 }
 

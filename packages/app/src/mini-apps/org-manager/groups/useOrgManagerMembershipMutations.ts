@@ -22,11 +22,13 @@ interface OrgManagerMembershipMutationsParams {
   readonly directory: OrganizationDirectory | null;
   readonly invalidateSelectedGroupDetails: Refreshers["invalidateSelectedGroupDetails"];
   readonly isOperationActive: (organizationId: string) => boolean;
+  readonly memberGroupId: string | null;
   readonly members: OrganizationGroupMembers | null;
   readonly orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   readonly refreshDirectoryAndGroups: Refreshers["refreshDirectoryAndGroups"];
   readonly refreshSelectedGroupDetails: Refreshers["refreshSelectedGroupDetails"];
   readonly selectedGroupId: string | null;
+  readonly selectedGroupIsAdminsGroup: boolean;
   readonly selectedGroupIsMembersGroup: boolean;
   readonly setAddUserId: Dispatch<SetStateAction<string>>;
   readonly setError: Dispatch<SetStateAction<string | null>>;
@@ -70,7 +72,9 @@ async function addUserToSelectedGroup(
     const policyBundle = await addRosterUserToGroup({
       directoryUser,
       groupId: params.selectedGroupId,
+      isAdminGroup: params.selectedGroupIsAdminsGroup,
       isOperationActive: params.isOperationActive,
+      memberGroupId: params.memberGroupId,
       operationOrganizationId,
       orgManagerActions: params.orgManagerActions,
       setError: params.setError,
@@ -157,11 +161,13 @@ export function useOrgManagerMembershipMutations(
       params.directory,
       params.invalidateSelectedGroupDetails,
       params.isOperationActive,
+      params.memberGroupId,
       params.members,
       params.orgManagerActions,
       params.refreshDirectoryAndGroups,
       params.refreshSelectedGroupDetails,
       params.selectedGroupId,
+      params.selectedGroupIsAdminsGroup,
       params.selectedGroupIsMembersGroup,
       params.setAddUserId,
       params.setError,
