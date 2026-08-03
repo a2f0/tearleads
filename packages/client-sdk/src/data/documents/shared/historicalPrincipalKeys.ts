@@ -364,6 +364,11 @@ export async function openPrincipalWrapsThroughHistory(input: {
     return null;
   }
 
+  // ONE budget for the whole recovery. A per-wrap budget would multiply by the
+  // number of principal envelopes on the epoch, so a wide epoch could turn a
+  // single recovery into thousands of sequential requests.
+  const budget = { remaining: MAX_POLICY_HISTORY_FETCHES };
+
   for (const wrap of input.principalWraps) {
     if (
       wrap.recipientKind !== "group" &&
@@ -371,13 +376,23 @@ export async function openPrincipalWrapsThroughHistory(input: {
     ) {
       continue;
     }
-    const principalKey = await resolveHistoricalPrincipalKey({
-      fetchHistory,
-      keyFingerprint: wrap.recipientKeyFingerprint,
-      principalId: wrap.recipientId,
-      principalType: wrap.recipientKind,
-      secretKey: input.secretKey,
-    });
+    // A history fetch can fail — offline, 5xx, a hostile response. That must
+    // never end the recovery: the caller still has parent-container anchors to
+    // try, and enabling this feature must not break a recovery that would
+    // otherwise have succeeded without it.
+    let principalKey: Uint8Array | null = null;
+    try {
+      principalKey = await resolveHistoricalPrincipalKey({
+        budget,
+        fetchHistory,
+        keyFingerprint: wrap.recipientKeyFingerprint,
+        principalId: wrap.recipientId,
+        principalType: wrap.recipientKind,
+        secretKey: input.secretKey,
+      });
+    } catch {
+      continue;
+    }
     if (!principalKey) {
       continue;
     }

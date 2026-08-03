@@ -276,7 +276,7 @@ sealed keyring — as the rebuild/repair read path for any current reader.
 read path for principal-addressed envelopes. A container envelope sealed to a
 group names the group key epoch it was addressed to; opening it needs the
 group's secret key at that epoch, which current policy alone cannot supply
-after a key rotation or a membership removal. The route serves the principal's
+after a group key rotation. The route serves the principal's
 signed state chain, newest first, paged by a `beforeVersion` cursor and bounded
 by `PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT` (64) states per page.
 
@@ -291,7 +291,9 @@ to any authenticated caller.
 What the route does scope is key material. Each entry's `memberEnvelopes`
 carry only envelopes addressed to the requester or to a principal that
 authorizes them, capped per state by
-`PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT` (16) and ranked so the
+`PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT` — deliberately one more
+than `PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT` (64) allows to match, so the
+cap can never be the binding constraint — and ranked so the
 requester's own direct envelope — the one that opens from identity keys alone
 — is never the entry a cap drops. One member's envelope is not another's to
 read.

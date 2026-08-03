@@ -238,12 +238,18 @@ That recovery backstop is bounded by which envelopes the kek-log will serve,
 and by whether the requester can still resolve the principal key an envelope
 was addressed to. Three cases, materially different from one another:
 
-- **Group key rotated, or the member removed.** The retained envelope still
-  exists, and so does the principal state it was sealed under: a removal writes
-  a NEW signed state rather than rewriting the old one, and nothing prunes the
-  old one. `GET /principals/:principalType/:principalId/policy-history` serves
-  that history, so the member walks the signed chain back to the key epoch the
-  envelope names and recovers it. **Recoverable.**
+- **Group key rotated, member still in the group.** The container envelope
+  names the group key epoch it was sealed to, and current policy holds only the
+  group's newest key. `GET /principals/:principalType/:principalId/policy-history`
+  serves the group's signed state chain, so the member walks back to the epoch
+  the envelope names and recovers that key. **Recoverable.**
+- **Member removed from the group.** The envelope and the state it was sealed
+  under both survive — a removal writes a NEW state rather than rewriting the
+  old one — but the kek-log will not serve the group's container wrap to a
+  requester the group no longer authorizes, so the client never receives the
+  envelope that policy history would let it open. **Not recoverable today**;
+  closing it needs tenure-aware scoping on the kek-log as well as on policy
+  history (issue #1948).
 - **Group deleted.** `deleteOrganizationGroupRows` purges the group's states,
   payloads, epoch keys, and member envelopes outright. Container envelopes
   addressed to that group can never be opened again by anyone — the key

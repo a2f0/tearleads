@@ -66,12 +66,12 @@
       "bytes": 35585
     },
     "docs/protocol-specification.md": {
-      "lines": 574,
-      "bytes": 26269
+      "lines": 576,
+      "bytes": 26395
     },
     "docs/security-guarantees.md": {
-      "lines": 478,
-      "bytes": 24355
+      "lines": 484,
+      "bytes": 24779
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
