@@ -48,8 +48,8 @@
     "lint:knip:exports": "knip --exports",
     "lint:knip:files": "knip --files",
     "lint:knip:production": "knip --production",
-    "lint:markdown": "markdownlint-cli2 '**/*.md'",
-    "lint:markdown:fix": "markdownlint-cli2 --fix '**/*.md'",
+    "lint:markdown": "bun --bun x markdownlint-cli2 '**/*.md'",
+    "lint:markdown:fix": "bun --bun x markdownlint-cli2 --fix '**/*.md'",
     "lint:openapi": "bun run --cwd packages/validators lint:openapi",
     "lint:openapi:compatibility": "sh scripts/checks/checkOpenApiCompatibility.sh",
     "lint:package-assertions": "bun scripts/lintPackageAssertions.ts",
@@ -102,7 +102,7 @@
   ],
   "lint-staged": {
     "*.{css,html,js,json,jsonc,jsx,mjs,cjs,ts,tsx}": "biome check --fix --error-on-warnings",
-    "*.md": "markdownlint-cli2 --fix"
+    "*.md": "bun --bun x markdownlint-cli2 --fix"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.8",
