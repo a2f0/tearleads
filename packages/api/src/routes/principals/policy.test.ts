@@ -67,8 +67,7 @@ async function addOrganizationMember(input: {
     prevStateHash: currentState.stateHash,
     keyEpoch: currentState.keyEpoch + 1,
     members: nextProjection.map((projectionMember) => ({
-      principalType: projectionMember.memberPrincipalType,
-      principalId: projectionMember.userId,
+      userId: projectionMember.userId,
     })),
     projection: nextProjection,
     signerUserId: input.actor.userId,
@@ -211,8 +210,7 @@ test("PUT /principals/:principalType/:principalId/policy syncs org roster from M
     prevStateHash: currentState.stateHash,
     keyEpoch: currentState.keyEpoch + 1,
     members: nextProjection.map((projectionMember) => ({
-      principalType: projectionMember.memberPrincipalType,
-      principalId: projectionMember.userId,
+      userId: projectionMember.userId,
     })),
     projection: nextProjection,
     signerUserId: actor.userId,
@@ -286,8 +284,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects disabled roster
     principalType: "group",
     principalId: groupId,
     members: projection.map((projectionMember) => ({
-      principalType: projectionMember.memberPrincipalType,
-      principalId: projectionMember.userId,
+      userId: projectionMember.userId,
     })),
     projection,
     signerUserId: actor.userId,
@@ -325,9 +322,7 @@ test("GET /principals/:principalType/:principalId/policy returns previous states
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
-  const members = [
-    { principalType: "user" as const, principalId: actor.userId },
-  ];
+  const members = [{ userId: actor.userId }];
   const principalKem = generateKemSeedAndKeyPair();
   const projection = createProjectionWithAdminSigner(actor.userId, members);
 
@@ -733,10 +728,7 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
     prevStateHash: initialStoredState.stateHash,
     keyEpoch: initialStoredState.keyEpoch,
     principalKem,
-    members: successorProjection.map((member) => ({
-      principalType: member.memberPrincipalType,
-      principalId: member.userId,
-    })),
+    members: successorProjection.map((member) => ({ userId: member.userId })),
     projection: successorProjection,
     externalAuthority,
     signedAt: "2026-04-08T16:01:00.000Z",

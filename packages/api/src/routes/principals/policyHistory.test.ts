@@ -17,7 +17,7 @@ import { routeApp } from "../../routeApp";
 
 async function putPolicy(input: {
   actor: TestUser;
-  members: { principalId: string; principalType: "group" | "user" }[];
+  members: { userId: string }[];
   principalId: string;
   // The principal's KEM keypair is carried across versions; a fresh one per
   // PUT is a key rotation the successor rules reject.
@@ -113,8 +113,7 @@ test("policy-history serves the requester's own states newest first", async () =
   expect(
     newest.memberEnvelopes.some(
       (envelope) =>
-        envelope.memberPrincipalType === "user" &&
-        envelope.userId === actor.userId,
+        envelope.userId === "user" && envelope.userId === actor.userId,
     ),
   ).toBe(true);
 }, 20_000);
@@ -337,8 +336,7 @@ test("policy-history serves no envelope for a group the requester cannot reach",
     mine.entries.some((entry) =>
       entry.memberEnvelopes.some(
         (envelope) =>
-          envelope.memberPrincipalType === "user" &&
-          envelope.userId === actor.userId,
+          envelope.userId === "user" && envelope.userId === actor.userId,
       ),
     ),
   ).toBe(true);

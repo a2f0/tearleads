@@ -312,11 +312,7 @@ async function putGroupPrincipalPolicy(input: {
   readonly stateHash: string;
 }> {
   const principalKem = input.principalKem ?? generateKemSeedAndKeyPair();
-  const members = [
-    ...(input.members ?? [
-      { principalType: "user" as const, principalId: input.actor.userId },
-    ]),
-  ];
+  const members = [...(input.members ?? [{ userId: input.actor.userId }])];
   const projection = [
     ...(input.projection ??
       createProjectionWithAdminSigner(input.actor.userId, members)),

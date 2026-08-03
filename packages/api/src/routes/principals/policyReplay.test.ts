@@ -68,10 +68,7 @@ async function createSignedPolicy(input: {
     keyEpoch: input.keyEpoch,
     encapsulationPublicKey: bytesToBase64(input.principalKem.publicKey),
     keyFingerprint: await toFingerprint(input.principalKem.publicKey),
-    members: input.projection.map((member) => ({
-      principalType: member.memberPrincipalType,
-      principalId: member.userId,
-    })),
+    members: input.projection.map((member) => ({ userId: member.userId })),
     projection: input.projection,
     payloadCiphertext: bytesToBase64(
       new TextEncoder().encode(JSON.stringify(input.projection)),

@@ -79,12 +79,7 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
     aliceKem.publicKey,
     { signingPrivateKey, signingPublicKey },
   );
-  const nestedMembers = [
-    {
-      principalType: "user" as const,
-      principalId: aliceUserId,
-    },
-  ];
+  const nestedMembers = [{ userId: aliceUserId }];
   const nestedProjection = [
     {
       userId: aliceUserId,
@@ -128,14 +123,8 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
   );
 
   const groupMembers = [
-    {
-      principalType: "user" as const,
-      principalId: aliceUserId,
-    },
-    {
-      principalType: "group" as const,
-      principalId: nestedGroupPrincipalId,
-    },
+    { userId: aliceUserId },
+    { userId: nestedGroupPrincipalId },
   ];
   const groupProjection = [
     {
@@ -244,12 +233,7 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
   );
   await insertUserWithRecipientKey(bobUserId, bobKem.publicKey);
 
-  const initialMembers = [
-    {
-      principalType: "user" as const,
-      principalId: aliceUserId,
-    },
-  ];
+  const initialMembers = [{ userId: aliceUserId }];
   const initialProjection = [
     {
       userId: aliceUserId,
@@ -292,16 +276,7 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
     db,
   );
 
-  const nextMembers = [
-    {
-      principalType: "user" as const,
-      principalId: aliceUserId,
-    },
-    {
-      principalType: "user" as const,
-      principalId: bobUserId,
-    },
-  ];
+  const nextMembers = [{ userId: aliceUserId }, { userId: bobUserId }];
   const nextProjection = [
     {
       userId: aliceUserId,

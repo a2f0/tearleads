@@ -78,16 +78,7 @@ test("storeVerifiedPrincipalState persists signed state and epoch key", async ()
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [
-        {
-          principalType: "user",
-          principalId: signer.signerUserId,
-        },
-        {
-          principalType: "group",
-          principalId: nestedGroupId,
-        },
-      ],
+      members: [{ userId: signer.signerUserId }, { userId: nestedGroupId }],
       projection: [
         {
           userId: signer.signerUserId,
@@ -145,12 +136,7 @@ test("storeVerifiedPrincipalState rejects invalid signatures", async () => {
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [
-        {
-          principalType: "user",
-          principalId: signer.signerUserId,
-        },
-      ],
+      members: [{ userId: signer.signerUserId }],
       projection: [
         {
           userId: signer.signerUserId,
@@ -903,10 +889,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
   expect(
     projections
       .get(firstKey)
-      ?.map(
-        (member) =>
-          `${member.memberPrincipalType}:${member.userId}:${member.role}`,
-      )
+      ?.map((member) => `${member.userId}:${member.userId}:${member.role}`)
       .sort(),
   ).toEqual(
     [
@@ -917,10 +900,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
   expect(
     projections
       .get(secondKey)
-      ?.map(
-        (member) =>
-          `${member.memberPrincipalType}:${member.userId}:${member.role}`,
-      )
+      ?.map((member) => `${member.userId}:${member.userId}:${member.role}`)
       .sort(),
   ).toEqual(
     [

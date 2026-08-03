@@ -85,7 +85,7 @@ async function signContainerEvent(input: {
 async function storeGroupPolicy(input: {
   groupId: string;
   keyEpoch: number;
-  members: readonly { principalType: "user"; principalId: string }[];
+  members: readonly { userId: string }[];
   previousStateHash: string | null;
   signerKeyFingerprint: string;
   signerPrivateKey: Uint8Array;

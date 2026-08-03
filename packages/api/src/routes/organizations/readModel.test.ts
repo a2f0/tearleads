@@ -401,7 +401,7 @@ test("membership deltas coalesce transitions to final entity state", async () =>
   expect(
     delta.lanes.groupMemberships?.groups[0]?.members.some(
       (projectedMember) =>
-        projectedMember.memberPrincipalType === "user" &&
+        projectedMember.userId === "user" &&
         projectedMember.userId === member.userId,
     ),
   ).toBe(false);

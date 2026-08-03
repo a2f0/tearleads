@@ -57,7 +57,7 @@ export async function createSignedPrincipalState(input: {
     typeof signPrincipalStateBundle
   >[0]["externalAuthority"];
   keyEpoch?: number;
-  members: Array<{ principalType: "user" | "group"; principalId: string }>;
+  members: Array<{ userId: string }>;
   prevStateHash?: string | null;
   principalKem?: ReturnType<typeof generateKemSeedAndKeyPair>;
   principalId: string;

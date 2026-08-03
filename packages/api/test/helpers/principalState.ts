@@ -36,12 +36,12 @@ export function createProjectionWithAdminSigner(
   });
 
   for (const member of members) {
-    const key = `${member.principalType}:${member.principalId}`;
+    const key = member.userId;
     if (key === `user:${signerUserId}`) {
       continue;
     }
     projectionByMember.set(key, {
-      userId: member.principalId,
+      userId: member.userId,
       role: "member",
     });
   }

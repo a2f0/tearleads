@@ -99,8 +99,7 @@ export async function addUserToAdminGroup(input: {
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     keyFingerprint: await toFingerprint(groupKem.publicKey),
     members: nextProjection.map((projectionMember) => ({
-      principalType: projectionMember.memberPrincipalType,
-      principalId: projectionMember.userId,
+      userId: projectionMember.userId,
     })),
     projection: nextProjection,
     payloadCiphertext: JSON.stringify({ members: nextProjection }),

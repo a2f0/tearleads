@@ -131,14 +131,12 @@ export async function createRegistrationRequestBody(
     userId,
   });
   const initialMemberGroup = await createInitialMemberGroupRequest({
-    adminGroup: initialAdminGroup,
     encapsulationPublicKey,
     signingPrivateKey,
     signingPublicKey,
     userId,
   });
   const rootBootstrap = await createRegistrationBootstrap({
-    adminGroup: initialAdminGroup,
     encapsulationPublicKey,
     memberGroup: initialMemberGroup,
     organizationId,

@@ -7,7 +7,6 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import { getCurrentPrincipalEpochKey } from "../../src/access/read/principalStateStore";
 
 export async function createPrincipalMemberEnvelopes(input: {
   readonly principalSecretKey: Uint8Array;
@@ -18,35 +17,20 @@ export async function createPrincipalMemberEnvelopes(input: {
   }));
   const memberEnvelopes = await Promise.all(
     stateMembers.map(async (member) => {
-      let encapsulationPublicKey: Uint8Array;
-      let memberKeyFingerprint: string;
-
-      if (member.principalType === "user") {
-        const [recipient] = await db
-          .select({
-            encapsulationPublicKey: users.encapsulationPublicKey,
-            memberKeyFingerprint: users.encapsulationKeyFingerprint,
-          })
-          .from(users)
-          .where(eq(users.id, member.principalId))
-          .limit(1);
-        invariant(recipient, "expected user principal member recipient");
-        encapsulationPublicKey = base64ToBytes(
-          recipient.encapsulationPublicKey,
-        );
-        memberKeyFingerprint = recipient.memberKeyFingerprint;
-      } else {
-        const recipient = await getCurrentPrincipalEpochKey(
-          "group",
-          member.principalId,
-          db,
-        );
-        invariant(recipient, "expected group principal member recipient");
-        encapsulationPublicKey = base64ToBytes(
-          recipient.encapsulationPublicKey,
-        );
-        memberKeyFingerprint = recipient.keyFingerprint;
-      }
+      // Every member is a user, so there is no group-recipient branch.
+      const [recipient] = await db
+        .select({
+          encapsulationPublicKey: users.encapsulationPublicKey,
+          memberKeyFingerprint: users.encapsulationKeyFingerprint,
+        })
+        .from(users)
+        .where(eq(users.id, member.userId))
+        .limit(1);
+      invariant(recipient, "expected user principal member recipient");
+      const encapsulationPublicKey = base64ToBytes(
+        recipient.encapsulationPublicKey,
+      );
+      const memberKeyFingerprint = recipient.memberKeyFingerprint;
 
       const [wrappedGroupKey] = await wrapDekForRecipients(
         input.principalSecretKey,
@@ -55,7 +39,7 @@ export async function createPrincipalMemberEnvelopes(input: {
       invariant(wrappedGroupKey, "expected principal member envelope");
 
       return {
-        userId: member.principalId,
+        userId: member.userId,
         memberKeyFingerprint,
         kemCipherText: bytesToBase64(wrappedGroupKey.kemCipherText),
         wrappedKey: bytesToBase64(wrappedGroupKey.wrappedKey),
