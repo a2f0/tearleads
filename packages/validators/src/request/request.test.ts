@@ -149,15 +149,13 @@ test("isPutPrincipalPolicyRequest", () => {
     },
     projection: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: "550e8400-e29b-41d4-a716-446655440001",
+        userId: "550e8400-e29b-41d4-a716-446655440001",
         role: "member",
       },
     ],
     memberEnvelopes: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: "550e8400-e29b-41d4-a716-446655440001",
+        userId: "550e8400-e29b-41d4-a716-446655440001",
         memberKeyFingerprint: "fingerprint",
         kemCipherText: "cipher",
         wrappedKey: "wrapped",
@@ -178,7 +176,7 @@ test("isPutPrincipalPolicyRequest", () => {
       memberEnvelopes: [
         {
           ...request.memberEnvelopes[0],
-          memberPrincipalType: "organization",
+          userId: 42,
         },
       ],
     }),
@@ -223,15 +221,13 @@ test("isCreateOrganizationGroupRequest", () => {
       },
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: userId,
+          userId: userId,
           role: "admin",
         },
       ],
       memberEnvelopes: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: userId,
+          userId: userId,
           memberKeyFingerprint: "fingerprint",
           kemCipherText: "cipher",
           wrappedKey: "wrapped",

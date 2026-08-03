@@ -270,13 +270,10 @@ export function isOrganizationGroupMemberResponse(
     hasStringProperty(value, "userId") &&
     hasStringProperty(value, "role") &&
     isOrganizationRole(value.role) &&
-    hasNullableStringProperty(value, "userId") &&
     hasNullableStringProperty(value, "signingKeyFingerprint") &&
     hasNullableStringProperty(value, "signingPublicKey") &&
     hasNullableStringProperty(value, "encapsulationPublicKey") &&
-    hasNullableStringProperty(value, "encapsulationKeyFingerprint") &&
-    hasNullableStringProperty(value, "groupId") &&
-    hasNullableStringProperty(value, "groupName")
+    hasNullableStringProperty(value, "encapsulationKeyFingerprint")
   );
 }
 

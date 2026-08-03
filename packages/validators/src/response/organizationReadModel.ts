@@ -268,16 +268,12 @@ function isGroupMembership(
     if (
       !isOrganizationGroupMemberResponse(member) ||
       !hasExactKeys(member, [
-        "memberPrincipalType",
-        "memberPrincipalId",
         "role",
         "userId",
         "signingKeyFingerprint",
         "signingPublicKey",
         "encapsulationPublicKey",
         "encapsulationKeyFingerprint",
-        "groupId",
-        "groupName",
       ])
     ) {
       return false;

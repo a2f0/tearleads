@@ -48,15 +48,13 @@ test("isRegistrationRequest", () => {
     },
     projection: [
       {
-        memberPrincipalType: "user" as const,
-        memberPrincipalId: userId,
+        userId: userId,
         role: "admin" as const,
       },
     ],
     memberEnvelopes: [
       {
-        memberPrincipalType: "user" as const,
-        memberPrincipalId: userId,
+        userId: userId,
         memberKeyFingerprint: "member-key-fingerprint",
         kemCipherText: "kem-ciphertext",
         wrappedKey: "wrapped-key",

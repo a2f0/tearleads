@@ -66,16 +66,12 @@ const groupMemberships = {
       stateHash: "member-state-1",
       members: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: "user-1",
-          role: "admin",
           userId: "user-1",
+          role: "admin",
           signingKeyFingerprint: "signing-fingerprint-1",
           signingPublicKey: "signing-public-key-1",
           encapsulationPublicKey: "encapsulation-public-key-1",
           encapsulationKeyFingerprint: "encapsulation-fingerprint-1",
-          groupId: null,
-          groupName: null,
         },
       ],
     },
