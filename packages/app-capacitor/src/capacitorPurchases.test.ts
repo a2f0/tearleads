@@ -161,17 +161,6 @@ test("binds the purchase to the organization before presenting the sheet", async
   expect(result.syncEntitlementActive).toBe(true);
 });
 
-test("keeps Android purchases on RevenueCat's official Capacitor bridge", async () => {
-  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
-  fixture.platform = "android";
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
-
-  await purchaseSync();
-
-  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
-  expect(fixture.nativePurchaseCalls).toEqual([]);
-});
-
 test("bounds a stalled Android offerings read before opening Play", async () => {
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
   fixture.platform = "android";
@@ -207,16 +196,15 @@ test("an Android tier upgrade charges the prorated price difference", async () =
     packageId: "team_5",
   });
 
-  expect(fixture.purchaseCalls).toEqual([
+  expect(fixture.nativePurchaseCalls).toEqual([
     {
       identifier: "team_5",
-      storeProductChangeInfo: {
-        oldProductIdentifier: "sync_solo_monthly",
-        replacementMode: "CHARGE_PRORATED_PRICE",
-      },
+      oldProductIdentifier: "sync_solo_monthly",
+      productId: "sync_team_5_monthly:monthly",
+      replacementMode: "CHARGE_PRORATED_PRICE",
     },
   ]);
-  expect(fixture.nativePurchaseCalls).toEqual([]);
+  expect(fixture.purchaseCalls).toEqual([]);
 });
 
 test("an Android tier downgrade waits for the next renewal", async () => {
@@ -239,16 +227,15 @@ test("an Android tier downgrade waits for the next renewal", async () => {
     packageId: "team_5",
   });
 
-  expect(fixture.purchaseCalls).toEqual([
+  expect(fixture.nativePurchaseCalls).toEqual([
     {
       identifier: "team_5",
-      storeProductChangeInfo: {
-        oldProductIdentifier: "sync_team_10_monthly",
-        replacementMode: "DEFERRED",
-      },
+      oldProductIdentifier: "sync_team_10_monthly",
+      productId: "sync_team_5_monthly:monthly",
+      replacementMode: "DEFERRED",
     },
   ]);
-  expect(fixture.nativePurchaseCalls).toEqual([]);
+  expect(fixture.purchaseCalls).toEqual([]);
 });
 
 test("an iOS tier change lets the subscription group determine timing", async () => {
@@ -339,7 +326,7 @@ test("rejects a stale package whose product is not a configured tier", async () 
   expect(fixture.purchaseCalls).toEqual([]);
 });
 
-test("falls back when the diagnostic iOS bridge cannot validate", async () => {
+test("fails closed when the native bridge cannot validate", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
   fixture.nativePurchaseRejection = {
@@ -348,13 +335,14 @@ test("falls back when the diagnostic iOS bridge cannot validate", async () => {
     data: { userCancelled: false },
   };
 
-  const result = await purchaseSync();
+  await expect(purchaseSync()).rejects.toMatchObject({
+    code: "bridge-invalid",
+  });
 
   expect(fixture.nativePurchaseCalls).toEqual([
     { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
   ]);
-  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
-  expect(result.syncEntitlementActive).toBe(true);
+  expect(fixture.purchaseCalls).toEqual([]);
 });
 
 test("rejects a package the current offering does not contain", async () => {
@@ -393,7 +381,10 @@ test("normalizes cancellation from the Android RevenueCat bridge", async () => {
   fixture.purchaseRejection = { code: "1" };
 
   await expect(purchaseSync()).rejects.toBeInstanceOf(PurchaseCancelledError);
-  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(fixture.nativePurchaseCalls).toEqual([
+    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+  ]);
+  expect(fixture.purchaseCalls).toEqual([]);
 });
 
 test("normalizes an already-owned Android product into subscription recovery", async () => {

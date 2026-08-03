@@ -17,8 +17,11 @@ interface NativeRevenueCatPurchasePlugin {
     productId: string;
   }): Promise<void>;
   purchasePackage(options: {
+    googleIsPersonalizedPrice?: boolean;
+    oldProductIdentifier?: string;
     packageId: string;
     productId: string;
+    replacementMode?: string;
   }): Promise<{ activeEntitlementIds?: unknown }>;
 }
 
@@ -29,19 +32,18 @@ function nativePackageInput(aPackage: PurchasesPackage) {
   };
 }
 
-/** Resolves the iOS package while checkout preparation still has a deadline. */
+function isNativeStorePlatform(platform: string): boolean {
+  return platform === "ios" || platform === "android";
+}
+
+/** Resolves the native package while checkout preparation has a deadline. */
 export async function prepareCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
 ): Promise<void> {
-  if (Capacitor.getPlatform() !== "ios") return;
-  try {
-    await getNativeRevenueCatPurchase().preparePackage(
-      nativePackageInput(aPackage),
-    );
-  } catch (error) {
-    // An unavailable diagnostic bridge can still use the official SDK path.
-    if (!isBridgeValidationError(error)) throw error;
-  }
+  if (!isNativeStorePlatform(Capacitor.getPlatform())) return;
+  await getNativeRevenueCatPurchase().preparePackage(
+    nativePackageInput(aPackage),
+  );
 }
 
 let nativeRevenueCatPurchase: NativeRevenueCatPurchasePlugin | undefined;
@@ -76,15 +78,6 @@ function normalizeActiveEntitlementIds(value: unknown): string[] {
     : [];
 }
 
-function isBridgeValidationError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "bridge-invalid"
-  );
-}
-
 async function purchaseThroughOfficialBridge(
   aPackage: PurchasesPackage,
   options: OfficialPurchaseOptions,
@@ -94,29 +87,31 @@ async function purchaseThroughOfficialBridge(
 }
 
 /**
- * Purchases through the first-party iOS bridge so RevenueCat's bounded native
- * diagnostics survive a rejection. Android keeps the official Capacitor path;
- * the bridge changes no RevenueCat configuration or non-purchase operation.
+ * Purchases the package resolved by the bounded first-party native preparation.
+ * The bridge changes no RevenueCat configuration or non-purchase operation.
  */
 export async function purchaseCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
   options: OfficialPurchaseOptions = {},
 ): Promise<RevenueCatCustomerInfo> {
-  if (Capacitor.getPlatform() !== "ios") {
+  if (!isNativeStorePlatform(Capacitor.getPlatform())) {
     return purchaseThroughOfficialBridge(aPackage, options);
   }
 
-  try {
-    const result = await getNativeRevenueCatPurchase().purchasePackage({
-      ...nativePackageInput(aPackage),
-    });
-    return fromActiveEntitlementIds(
-      normalizeActiveEntitlementIds(result?.activeEntitlementIds),
-    );
-  } catch (error) {
-    if (!isBridgeValidationError(error)) {
-      throw error;
-    }
-    return purchaseThroughOfficialBridge(aPackage, options);
-  }
+  const change = options.storeProductChangeInfo;
+  const result = await getNativeRevenueCatPurchase().purchasePackage({
+    ...nativePackageInput(aPackage),
+    ...(options.googleIsPersonalizedPrice == null
+      ? {}
+      : { googleIsPersonalizedPrice: options.googleIsPersonalizedPrice }),
+    ...(change == null
+      ? {}
+      : {
+          oldProductIdentifier: change.oldProductIdentifier,
+          replacementMode: change.replacementMode,
+        }),
+  });
+  return fromActiveEntitlementIds(
+    normalizeActiveEntitlementIds(result?.activeEntitlementIds),
+  );
 }

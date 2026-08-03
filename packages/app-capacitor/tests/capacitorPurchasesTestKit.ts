@@ -15,7 +15,13 @@ export const fixture: {
     };
   }[];
   nativePrepareCalls: { identifier: string; productId: string }[];
-  nativePurchaseCalls: { identifier: string; productId: string }[];
+  nativePurchaseCalls: {
+    googleIsPersonalizedPrice?: boolean;
+    identifier: string;
+    oldProductIdentifier?: string;
+    productId: string;
+    replacementMode?: string;
+  }[];
   attributeCalls: Record<string, string | null>[];
   packages: PurchasesPackage[];
   purchaseRejection: unknown;
@@ -65,6 +71,72 @@ export function nativePackage(identifier: string, productId: string) {
   } as unknown as PurchasesPackage;
 }
 
+interface NativePurchaseInput {
+  googleIsPersonalizedPrice?: boolean;
+  oldProductIdentifier?: string;
+  packageId: string;
+  productId: string;
+  replacementMode?: string;
+}
+
+function recordNativePurchase(input: NativePurchaseInput): void {
+  fixture.nativePurchaseCalls.push({
+    ...(input.googleIsPersonalizedPrice === undefined
+      ? {}
+      : { googleIsPersonalizedPrice: input.googleIsPersonalizedPrice }),
+    identifier: input.packageId,
+    ...(input.oldProductIdentifier === undefined
+      ? {}
+      : { oldProductIdentifier: input.oldProductIdentifier }),
+    productId: input.productId,
+    ...(input.replacementMode === undefined
+      ? {}
+      : { replacementMode: input.replacementMode }),
+  });
+}
+
+function activeEntitlementIds(): string[] {
+  const customerInfo = fixture.customerInfo;
+  if (
+    typeof customerInfo !== "object" ||
+    customerInfo === null ||
+    !("entitlements" in customerInfo) ||
+    typeof customerInfo.entitlements !== "object" ||
+    customerInfo.entitlements === null ||
+    !("active" in customerInfo.entitlements) ||
+    typeof customerInfo.entitlements.active !== "object" ||
+    customerInfo.entitlements.active === null
+  ) {
+    return [];
+  }
+  return Object.keys(customerInfo.entitlements.active);
+}
+
+function nativePurchaseResult(input: NativePurchaseInput) {
+  recordNativePurchase(input);
+  fixture.onNativePurchase?.();
+  if (!input.packageId || !input.productId) {
+    return Promise.reject({
+      code: "bridge-invalid",
+      message: "RevenueCat purchase failed",
+      data: { userCancelled: false },
+    });
+  }
+  if (fixture.nativePurchaseRejection !== null) {
+    return Promise.reject(fixture.nativePurchaseRejection);
+  }
+  if (fixture.nativePurchasePromise !== null) {
+    return fixture.nativePurchasePromise;
+  }
+  if (fixture.purchaseRejection !== null) {
+    return Promise.reject(fixture.purchaseRejection);
+  }
+  if (fixture.nativePurchaseResult !== null) {
+    return Promise.resolve(fixture.nativePurchaseResult);
+  }
+  return Promise.resolve({ activeEntitlementIds: activeEntitlementIds() });
+}
+
 mock.module("@capacitor/core", () => ({
   Capacitor: {
     getPlatform: () => fixture.platform,
@@ -93,51 +165,7 @@ mock.module("@capacitor/core", () => ({
             ? Promise.resolve()
             : Promise.reject(fixture.nativePrepareRejection);
         },
-        purchasePackage: ({
-          packageId,
-          productId,
-        }: {
-          packageId: string;
-          productId: string;
-        }) => {
-          fixture.nativePurchaseCalls.push({
-            identifier: packageId,
-            productId,
-          });
-          fixture.onNativePurchase?.();
-          if (!packageId || !productId) {
-            return Promise.reject({
-              code: "bridge-invalid",
-              message: "RevenueCat purchase failed",
-              data: { userCancelled: false },
-            });
-          }
-          if (fixture.nativePurchaseRejection !== null) {
-            return Promise.reject(fixture.nativePurchaseRejection);
-          }
-          if (fixture.nativePurchasePromise !== null) {
-            return fixture.nativePurchasePromise;
-          }
-          if (fixture.purchaseRejection !== null) {
-            return Promise.reject(fixture.purchaseRejection);
-          }
-          if (fixture.nativePurchaseResult !== null) {
-            return Promise.resolve(fixture.nativePurchaseResult);
-          }
-          const customerInfo = fixture.customerInfo;
-          const activeEntitlements =
-            typeof customerInfo === "object" &&
-            customerInfo !== null &&
-            "entitlements" in customerInfo &&
-            typeof customerInfo.entitlements === "object" &&
-            customerInfo.entitlements !== null &&
-            "active" in customerInfo.entitlements &&
-            typeof customerInfo.entitlements.active === "object" &&
-            customerInfo.entitlements.active !== null
-              ? Object.keys(customerInfo.entitlements.active)
-              : [];
-          return Promise.resolve({ activeEntitlementIds: activeEntitlements });
-        },
+        purchasePackage: nativePurchaseResult,
       };
     },
   },

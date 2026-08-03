@@ -109,3 +109,41 @@ test("iOS RevenueCat project pin matches the resolved SDK version", async () => 
   ).toHaveLength(1);
   expect(projectVersion).toBe(resolvedVersion);
 });
+
+test("Android registers a bounded RevenueCat purchase plugin", async () => {
+  const [appBuild, mainActivity, purchasePlugin] = await Promise.all([
+    Bun.file(resolve(packageRoot, "android/app/build.gradle")).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "android/app/src/main/java/com/tearleads/app/MainActivity.java",
+      ),
+    ).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "android/app/src/main/java/com/tearleads/app/RevenueCatPurchasePlugin.kt",
+      ),
+    ).text(),
+  ]);
+
+  expect(mainActivity).toContain(
+    "registerPlugin(RevenueCatPurchasePlugin.class)",
+  );
+  expect(appBuild).toContain(
+    "implementation 'com.revenuecat.purchases:purchases:10.11.0'",
+  );
+  expect(purchasePlugin).toContain(
+    '@CapacitorPlugin(name = "RevenueCatPurchase")',
+  );
+  expect(purchasePlugin).toContain("preparedPackages[packageId] = prepared");
+  expect(purchasePlugin).toContain("packageId?.let(preparedPackages::remove)");
+  expect(purchasePlugin).toContain("Purchases.sharedInstance.purchase(");
+  expect(purchasePlugin.match(/\.getOfferings\(/g) ?? []).toHaveLength(1);
+  expect(purchasePlugin).toContain(
+    "StoreReplacementMode.CHARGE_PRORATED_PRICE",
+  );
+  expect(purchasePlugin).toContain(
+    'JSObject().put("userCancelled", userCancelled)',
+  );
+});

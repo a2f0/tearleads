@@ -26,16 +26,14 @@ is specific to the native bridge, as opposed to the web one:
 - **The bridge is untyped at runtime.** A `CustomerInfo` or package can arrive
   partial or nullish, so every field read is guarded rather than trusted; a bad
   payload reads as "no entitlement", never a crash.
-- **iOS purchase failures retain content-free diagnostics.** The first-party
-  `RevenueCatPurchasePlugin` purchases through RevenueCat's public Swift API and
-  returns only active entitlement IDs. On failure it preserves the RevenueCat
-  code, cancellation flag, and StoreKit domain/code.
-  If that bridge cannot validate its shared SDK state before presenting
-  StoreKit, the adapter retries the package through RevenueCat's official
-  bridge so diagnostics cannot become a purchase-availability dependency.
-  Android and every non-purchase operation continue through RevenueCat's
+- **Native purchases use a bounded first-party bridge.** The Android and iOS
+  `RevenueCatPurchasePlugin` implementations resolve and cache the package
+  during bounded preparation, then purchase that exact package without a
+  second offerings lookup. Both return only active entitlement IDs and preserve
+  the RevenueCat code and cancellation flag; iOS also preserves the StoreKit
+  domain/code. Every non-purchase operation continues through RevenueCat's
   official Capacitor plugin. The System Monitor includes those bounded values
-  but still excludes receipt, account, and free-form provider text.
+  but excludes receipt, account, and free-form provider text.
 - **A dismissed store sheet is a cancellation, not a failure.** The bridge
   serializes RevenueCat's `PurchasesError` across the native boundary, so what
   arrives is a plain object — `instanceof` cannot work the way it does on web.
@@ -45,10 +43,10 @@ is specific to the native bridge, as opposed to the web one:
   surfaces "Failed to subscribe".
 - **`abortSignal` is honored before the native purchase call, and only before
   it.** A presented StoreKit or Play sheet has no programmatic dismissal, so the
-  abort is checked on entry and again after the adapter's offerings fetch. The
-  iOS diagnostic bridge performs a fresh native offerings fetch to resolve the
-  package after that point. The abort takes precedence over an unknown package
-  so an abandoned flow's outcome stays a pre-sheet abort.
+  abort is checked on entry and after both the adapter and native package
+  lookups. Those lookups remain inside the preparation deadline; only the
+  buyer-controlled store sheet is unbounded. The abort takes precedence over an
+  unknown package so an abandoned flow's outcome stays a pre-sheet abort.
 - **Configure binds the known buyer.** `Purchases.configure` receives the
   `appUserID` when the sdk has one; configuring anonymously and aliasing on the
   following `logIn` leaves a stray anonymous customer per fresh install.
