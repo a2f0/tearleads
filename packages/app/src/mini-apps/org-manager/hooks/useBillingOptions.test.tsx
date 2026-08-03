@@ -208,8 +208,11 @@ test("keeps loaded options when a later provider retry fails", async () => {
   expect(result.current.actionError).toBe(
     ORG_MANAGER_LABELS.billingOptionsUnavailable,
   );
-  expect(result.current.canSubscribe).toBe(false);
+  expect(result.current.canSubscribe).toBe(true);
   expect(result.current.optionsRetryAvailable).toBe(true);
+
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() => expect(purchases.purchaseSync).toHaveBeenCalledTimes(1));
 });
 
 test("manual retry preserves the last options until reload settles", async () => {

@@ -47,3 +47,26 @@ test("bounds Android native preparation before opening Play", async () => {
   expect(fixture.purchaseCalls).toEqual([]);
   expect(fixture.nativePurchaseCalls).toEqual([]);
 });
+
+test("fails closed when Android package preparation cannot validate", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.packages = [nativePackage("monthly", "sync_solo_monthly:monthly")];
+  fixture.nativePrepareRejection = {
+    code: "bridge-invalid",
+    message: "RevenueCat purchase failed",
+    data: { userCancelled: false },
+  };
+
+  await expect(
+    createCapacitorPurchases().purchaseSync({
+      organizationId: "org-1",
+      packageId: "monthly",
+    }),
+  ).rejects.toMatchObject({ code: "bridge-invalid" });
+  expect(fixture.nativePrepareCalls).toEqual([
+    { identifier: "monthly", productId: "sync_solo_monthly:monthly" },
+  ]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
+  expect(fixture.purchaseCalls).toEqual([]);
+});

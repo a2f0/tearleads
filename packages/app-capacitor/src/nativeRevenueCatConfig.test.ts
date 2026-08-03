@@ -111,7 +111,13 @@ test("iOS RevenueCat project pin matches the resolved SDK version", async () => 
 });
 
 test("Android registers a bounded RevenueCat purchase plugin", async () => {
-  const [appBuild, mainActivity, purchasePlugin] = await Promise.all([
+  const [
+    appBuild,
+    mainActivity,
+    purchasePlugin,
+    revenueCatPluginBuild,
+    variables,
+  ] = await Promise.all([
     Bun.file(resolve(packageRoot, "android/app/build.gradle")).text(),
     Bun.file(
       resolve(
@@ -125,14 +131,41 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
         "android/app/src/main/java/com/tearleads/app/RevenueCatPurchasePlugin.kt",
       ),
     ).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "node_modules/@revenuecat/purchases-capacitor/android/build.gradle",
+      ),
+    ).text(),
+    Bun.file(resolve(packageRoot, "android/variables.gradle")).text(),
   ]);
+
+  const purchasesVersion = requiredMatch(
+    variables,
+    /revenueCatPurchasesVersion = '([^']+)'/,
+    "pinned Android RevenueCat purchases version",
+  );
+  const hybridCommonVersion = requiredMatch(
+    variables,
+    /revenueCatHybridCommonVersion = '([^']+)'/,
+    "pinned Android RevenueCat hybrid version",
+  );
+  const pluginHybridCommonVersion = requiredMatch(
+    revenueCatPluginBuild,
+    /com\.revenuecat\.purchases:purchases-hybrid-common:([^'"]+)/,
+    "Capacitor plugin RevenueCat hybrid version",
+  );
 
   expect(mainActivity).toContain(
     "registerPlugin(RevenueCatPurchasePlugin.class)",
   );
-  expect(appBuild).toContain(
-    "implementation 'com.revenuecat.purchases:purchases:10.11.0'",
+  expect(appBuild).toMatch(
+    /implementation "com\.revenuecat\.purchases:purchases:\$\{rootProject\.ext\.revenueCatPurchasesVersion\}"/,
   );
+  expect(appBuild).toContain("resolutionStrategy.eachDependency");
+  expect(appBuild).toContain("details.requested.version != expectedVersion");
+  expect(purchasesVersion).toMatch(/^\d+\.\d+\.\d+$/);
+  expect(hybridCommonVersion).toBe(pluginHybridCommonVersion);
   expect(purchasePlugin).toContain(
     '@CapacitorPlugin(name = "RevenueCatPurchase")',
   );

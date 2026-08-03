@@ -78,6 +78,24 @@ repositories {
     }
 }
 
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        def expectedVersions = [
+            'purchases': rootProject.ext.revenueCatPurchasesVersion,
+            'purchases-hybrid-common': rootProject.ext.revenueCatHybridCommonVersion,
+        ]
+        if (details.requested.group == 'com.revenuecat.purchases') {
+            def expectedVersion = expectedVersions[details.requested.name]
+            if (expectedVersion != null && details.requested.version != expectedVersion) {
+                throw new GradleException(
+                    "RevenueCat ${details.requested.name} ${details.requested.version} " +
+                    "does not match the pinned ${expectedVersion}",
+                )
+            }
+        }
+    }
+}
+
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
@@ -86,7 +104,10 @@ dependencies {
     implementation project(':capacitor-android')
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
-    implementation 'com.revenuecat.purchases:purchases:10.11.0'
+    // The first-party purchase bridge imports the native SDK directly. Keep
+    // this pin aligned with purchases-hybrid-common from the Capacitor plugin;
+    // the resolution guard above fails the build if either transitive moves.
+    implementation "com.revenuecat.purchases:purchases:${rootProject.ext.revenueCatPurchasesVersion}"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

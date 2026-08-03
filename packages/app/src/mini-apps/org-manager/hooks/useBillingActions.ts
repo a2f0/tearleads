@@ -35,9 +35,9 @@ import {
   type BillingOptionsState,
   billingOptionsErrorLabel,
   emptyOptionsState,
-  useBillingOptions,
 } from "./useBillingOptions";
 import { useBillingUpdateSettlement } from "./useBillingUpdateSettlement";
+import { useResolvedBillingOptions } from "./useResolvedBillingOptions";
 
 export interface BillingActions {
   readonly purchaseAvailable: boolean;
@@ -194,30 +194,6 @@ function usePurchaseActions(input: {
     markActivationPending,
     startTrial,
     subscribe,
-  };
-}
-
-/**
- * Whether the live scope still matches the caller's inputs, and whether the
- * held action state belongs to it. Both gate every value the hook returns, so
- * a stale scope reports neutral rather than another org's state.
- */
-function resolveScopeMatches(input: {
-  actionState: BillingActionState;
-  currentScope: BillingActionScope;
-  optionsState: BillingOptionsState;
-  organizationId: string;
-  userId: string | null;
-}): { actionStateMatches: boolean; optionsMatch: boolean } {
-  const scopeMatchesInputs =
-    input.currentScope.organizationId === input.organizationId &&
-    input.currentScope.userId === input.userId;
-  return {
-    actionStateMatches:
-      scopeMatchesInputs && scopeMatches(input.actionState, input.currentScope),
-    optionsMatch:
-      scopeMatchesInputs &&
-      scopeMatches(input.optionsState, input.currentScope),
   };
 }
 
@@ -407,25 +383,24 @@ export function useBillingActions({
     updateActionState,
     userId,
   });
-  const retryOptions = useBillingOptions(
-    !scopeMatches(actionState, currentScope) || actionState.busy === null,
+  const {
+    actionStateMatches,
+    optionsErrorKind,
+    optionsMatch,
+    purchaseCanSubscribe,
+    retryOptions,
+  } = useResolvedBillingOptions({
+    actionState,
     canSubscribe,
     currentScope,
+    optionsRetryDelaysMs,
+    optionsState,
+    organizationId,
     purchases,
     scopeRef,
     setOptionsState,
     userId,
-    optionsRetryDelaysMs,
-  );
-  const { actionStateMatches, optionsMatch } = resolveScopeMatches({
-    actionState,
-    currentScope,
-    optionsState,
-    organizationId,
-    userId,
   });
-  const optionsErrorKind = optionsMatch ? optionsState.errorKind : null;
-  const purchaseCanSubscribe = canSubscribe && optionsErrorKind === null;
   const actions = usePurchaseActions({
     canSubscribe: purchaseCanSubscribe,
     checkoutEligible: canSubscribe,
