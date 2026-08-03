@@ -243,15 +243,14 @@ function toPrincipalMemberEnvelopeResponse(
   envelope: Pick<
     PrincipalMemberEnvelopeRequest,
     | "memberPrincipalType"
-    | "memberPrincipalId"
+    | "userId"
     | "memberKeyFingerprint"
     | "kemCipherText"
     | "wrappedKey"
   >,
 ): PrincipalMemberEnvelopeResponse {
   return {
-    memberPrincipalType: envelope.memberPrincipalType,
-    memberPrincipalId: envelope.memberPrincipalId,
+    userId: envelope.userId,
     memberKeyFingerprint: envelope.memberKeyFingerprint,
     kemCipherText: envelope.kemCipherText,
     wrappedKey: envelope.wrappedKey,
@@ -267,7 +266,7 @@ export function toCurrentPrincipalMemberEnvelopesResponse(input: {
     Pick<
       PrincipalMemberEnvelopeRequest,
       | "memberPrincipalType"
-      | "memberPrincipalId"
+      | "userId"
       | "memberKeyFingerprint"
       | "kemCipherText"
       | "wrappedKey"

@@ -12,7 +12,7 @@ export async function hasOnlySameOrganizationGroupMembers(input: {
     ...new Set(
       input.projection
         .filter((member) => member.memberPrincipalType === "group")
-        .map((member) => member.memberPrincipalId),
+        .map((member) => member.userId),
     ),
   ];
   if (nestedGroupIds.length === 0) {

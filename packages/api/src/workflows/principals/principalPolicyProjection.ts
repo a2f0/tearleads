@@ -39,8 +39,7 @@ function projectionMemberFromStored(
   member: StoredPrincipalProjectionMember,
 ): PrincipalProjectionMember {
   return {
-    memberPrincipalType: member.memberPrincipalType,
-    memberPrincipalId: member.memberPrincipalId,
+    userId: member.userId,
     role: member.role,
   };
 }

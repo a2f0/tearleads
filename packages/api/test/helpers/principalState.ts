@@ -31,8 +31,7 @@ export function createProjectionWithAdminSigner(
   const projectionByMember = new Map<string, PrincipalProjectionMember>();
 
   projectionByMember.set(`user:${signerUserId}`, {
-    memberPrincipalType: "user",
-    memberPrincipalId: signerUserId,
+    userId: signerUserId,
     role: "admin",
   });
 
@@ -42,8 +41,7 @@ export function createProjectionWithAdminSigner(
       continue;
     }
     projectionByMember.set(key, {
-      memberPrincipalType: member.principalType,
-      memberPrincipalId: member.principalId,
+      userId: member.principalId,
       role: "member",
     });
   }

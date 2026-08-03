@@ -143,8 +143,7 @@ function createSignerDeviceId(signingFingerprint: string): string {
 function groupProjectionMember(userId: string) {
   return [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: userId,
+      userId: userId,
       role: "admin" as const,
     },
   ];
@@ -174,8 +173,7 @@ export async function createInitialAdminGroupRequest(input: {
 
   const memberEnvelopes = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       memberKeyFingerprint: await toFingerprint(input.encapsulationPublicKey),
       kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
@@ -230,13 +228,11 @@ export async function createInitialMemberGroupRequest(input: {
   const groupKem = generateKemSeedAndKeyPair();
   const projection = [
     {
-      memberPrincipalType: "group" as const,
-      memberPrincipalId: input.adminGroup.groupId,
+      userId: input.adminGroup.groupId,
       role: "member" as const,
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       role: "admin" as const,
     },
   ];
@@ -258,16 +254,14 @@ export async function createInitialMemberGroupRequest(input: {
 
   const memberEnvelopes = [
     {
-      memberPrincipalType: "group" as const,
-      memberPrincipalId: input.adminGroup.groupId,
+      userId: input.adminGroup.groupId,
       memberKeyFingerprint:
         input.adminGroup.initialGroupPolicy.state.keyFingerprint,
       kemCipherText: bytesToBase64(adminGroupEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(adminGroupEnvelope.wrappedKey),
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       memberKeyFingerprint: await toFingerprint(input.encapsulationPublicKey),
       kemCipherText: bytesToBase64(userEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(userEnvelope.wrappedKey),

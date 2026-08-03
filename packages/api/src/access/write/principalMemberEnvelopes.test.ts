@@ -55,8 +55,7 @@ function toMemberEnvelopeInputs(
     }
 
     return {
-      memberPrincipalType: recipient.memberPrincipalType,
-      memberPrincipalId: recipient.memberPrincipalId,
+      userId: recipient.userId,
       memberKeyFingerprint: recipient.memberKeyFingerprint,
       kemCipherText: bytesToBase64(wrappedSecretEntry.kemCipherText),
       wrappedKey: bytesToBase64(wrappedSecretEntry.wrappedKey),
@@ -88,8 +87,7 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
   ];
   const nestedProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: aliceUserId,
+      userId: aliceUserId,
       role: "admin" as const,
     },
   ];
@@ -100,8 +98,7 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
   const nestedMemberEnvelopes = toMemberEnvelopeInputs(
     [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: aliceUserId,
+        userId: aliceUserId,
         memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
         encapsulationPublicKey: bytesToBase64(aliceKem.publicKey),
       },
@@ -142,13 +139,11 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
   ];
   const groupProjection = [
     {
-      memberPrincipalType: "group" as const,
-      memberPrincipalId: nestedGroupPrincipalId,
+      userId: nestedGroupPrincipalId,
       role: "member" as const,
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: aliceUserId,
+      userId: aliceUserId,
       role: "admin" as const,
     },
   ];
@@ -159,14 +154,12 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
   const memberEnvelopes = toMemberEnvelopeInputs(
     [
       {
-        memberPrincipalType: "group",
-        memberPrincipalId: nestedGroupPrincipalId,
+        userId: nestedGroupPrincipalId,
         memberKeyFingerprint: await toFingerprint(nestedGroupKem.publicKey),
         encapsulationPublicKey: bytesToBase64(nestedGroupKem.publicKey),
       },
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: aliceUserId,
+        userId: aliceUserId,
         memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
         encapsulationPublicKey: bytesToBase64(aliceKem.publicKey),
       },
@@ -206,23 +199,20 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
 
   expect(
     storedEnvelopes.map((envelope) => ({
-      memberPrincipalType: envelope.memberPrincipalType,
-      memberPrincipalId: envelope.memberPrincipalId,
+      userId: envelope.userId,
       memberKeyFingerprint: envelope.memberKeyFingerprint,
       stateHash: envelope.stateHash,
       epoch: envelope.epoch,
     })),
   ).toEqual([
     {
-      memberPrincipalType: "group",
-      memberPrincipalId: nestedGroupPrincipalId,
+      userId: nestedGroupPrincipalId,
       memberKeyFingerprint: await toFingerprint(nestedGroupKem.publicKey),
       stateHash: storedState.stateHash,
       epoch: 1,
     },
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: aliceUserId,
+      userId: aliceUserId,
       memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
       stateHash: storedState.stateHash,
       epoch: 1,
@@ -262,8 +252,7 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
   ];
   const initialProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: aliceUserId,
+      userId: aliceUserId,
       role: "admin" as const,
     },
   ];
@@ -276,8 +265,7 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
   }
   const initialMemberEnvelopes = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: aliceUserId,
+      userId: aliceUserId,
       memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
       kemCipherText: bytesToBase64(initialWrappedSecretEntry.kemCipherText),
       wrappedKey: bytesToBase64(initialWrappedSecretEntry.wrappedKey),
@@ -316,13 +304,11 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
   ];
   const nextProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: aliceUserId,
+      userId: aliceUserId,
       role: "admin" as const,
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: bobUserId,
+      userId: bobUserId,
       role: "member" as const,
     },
   ];
@@ -333,14 +319,12 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
   const nextMemberEnvelopes = toMemberEnvelopeInputs(
     [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: aliceUserId,
+        userId: aliceUserId,
         memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
         encapsulationPublicKey: bytesToBase64(aliceKem.publicKey),
       },
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: bobUserId,
+        userId: bobUserId,
         memberKeyFingerprint: await toFingerprint(bobKem.publicKey),
         encapsulationPublicKey: bytesToBase64(bobKem.publicKey),
       },

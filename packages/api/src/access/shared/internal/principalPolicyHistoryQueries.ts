@@ -85,8 +85,7 @@ export async function listPrincipalMemberEnvelopesForStates(
     {
       readonly kemCipherText: string;
       readonly memberKeyFingerprint: string;
-      readonly memberPrincipalId: string;
-      readonly memberPrincipalType: "group" | "user";
+      readonly userId: string;
       readonly wrappedKey: string;
     }[]
   >
@@ -96,8 +95,7 @@ export async function listPrincipalMemberEnvelopesForStates(
     {
       readonly kemCipherText: string;
       readonly memberKeyFingerprint: string;
-      readonly memberPrincipalId: string;
-      readonly memberPrincipalType: "group" | "user";
+      readonly userId: string;
       readonly wrappedKey: string;
     }[]
   >(input.stateHashes.map((stateHash) => [stateHash, []]));
@@ -110,10 +108,7 @@ export async function listPrincipalMemberEnvelopesForStates(
   // current group membership is not a safe proxy for membership at a
   // historical state. This also makes the per-state count naturally bounded:
   // at most one envelope per state can match.
-  const recipientScope = and(
-    eq(principalMemberEnvelopes.memberPrincipalType, "user"),
-    eq(principalMemberEnvelopes.memberPrincipalId, input.userId),
-  );
+  const recipientScope = and(eq(principalMemberEnvelopes.userId, input.userId));
   if (!recipientScope) {
     return byStateHash;
   }
@@ -122,8 +117,7 @@ export async function listPrincipalMemberEnvelopesForStates(
     .select({
       kemCipherText: principalMemberEnvelopes.kemCipherText,
       memberKeyFingerprint: principalMemberEnvelopes.memberKeyFingerprint,
-      memberPrincipalId: principalMemberEnvelopes.memberPrincipalId,
-      memberPrincipalType: principalMemberEnvelopes.memberPrincipalType,
+      userId: principalMemberEnvelopes.userId,
       stateHash: principalMemberEnvelopes.stateHash,
       wrappedKey: principalMemberEnvelopes.wrappedKey,
       stateRank: sql<number>`row_number() over (
@@ -134,7 +128,7 @@ export async function listPrincipalMemberEnvelopesForStates(
           -- type alone sorts 'group' ahead of 'user' and would spend the cap
           -- on envelopes that need another key to open.
           case when ${principalMemberEnvelopes.memberPrincipalType} = 'user' then 0 else 1 end,
-          ${principalMemberEnvelopes.memberPrincipalId}
+          ${principalMemberEnvelopes.userId}
       )`.as("state_rank"),
     })
     .from(principalMemberEnvelopes)
@@ -155,8 +149,7 @@ export async function listPrincipalMemberEnvelopesForStates(
     .select({
       kemCipherText: ranked.kemCipherText,
       memberKeyFingerprint: ranked.memberKeyFingerprint,
-      memberPrincipalId: ranked.memberPrincipalId,
-      memberPrincipalType: ranked.memberPrincipalType,
+      userId: ranked.userId,
       stateHash: ranked.stateHash,
       wrappedKey: ranked.wrappedKey,
     })
@@ -169,8 +162,7 @@ export async function listPrincipalMemberEnvelopesForStates(
     byStateHash.get(row.stateHash)?.push({
       kemCipherText: row.kemCipherText,
       memberKeyFingerprint: row.memberKeyFingerprint,
-      memberPrincipalId: row.memberPrincipalId,
-      memberPrincipalType: row.memberPrincipalType,
+      userId: row.userId,
       wrappedKey: row.wrappedKey,
     });
   }

@@ -23,8 +23,7 @@ function toProjectionResponse(
   projection: ReadonlyArray<StoredPrincipalProjectionMember>,
 ) {
   return projection.map((member) => ({
-    memberPrincipalType: member.memberPrincipalType,
-    memberPrincipalId: member.memberPrincipalId,
+    userId: member.userId,
     role: member.role,
   }));
 }

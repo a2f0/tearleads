@@ -90,13 +90,11 @@ test("storeVerifiedPrincipalState persists signed state and epoch key", async ()
       ],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
         {
-          memberPrincipalType: "group",
-          memberPrincipalId: nestedGroupId,
+          userId: nestedGroupId,
           role: "member",
         },
       ],
@@ -155,8 +153,7 @@ test("storeVerifiedPrincipalState rejects invalid signatures", async () => {
       ],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
       ],
@@ -189,8 +186,7 @@ test("storeVerifiedPrincipalState rejects projection roots that do not match the
       members: [{ principalType: "user", principalId: signer.signerUserId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
       ],
@@ -206,8 +202,7 @@ test("storeVerifiedPrincipalState rejects projection roots that do not match the
         projection: [
           ...signedState.projection,
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: crypto.randomUUID(),
+            userId: crypto.randomUUID(),
             role: "member",
           },
         ],
@@ -235,8 +230,7 @@ test("storeVerifiedPrincipalState rejects encrypted payloads that do not match t
       members: [{ principalType: "user", principalId: signer.signerUserId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
       ],
@@ -278,8 +272,7 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
   const principalId = crypto.randomUUID();
   const projection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signer.signerUserId,
+      userId: signer.signerUserId,
       role: "admin" as const,
     },
   ];
@@ -393,8 +386,7 @@ test("storeVerifiedPrincipalState rejects successor states signed by non-admins"
       ],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: adminSigner.signerUserId,
+          userId: adminSigner.signerUserId,
           role: "admin",
         },
       ],
@@ -421,8 +413,7 @@ test("storeVerifiedPrincipalState rejects successor states signed by non-admins"
       ],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: outsiderSigner.signerUserId,
+          userId: outsiderSigner.signerUserId,
           role: "admin",
         },
       ],
@@ -457,8 +448,7 @@ test("storeVerifiedPrincipalState rejects same-version state hash conflicts", as
         members: [{ principalType: "user", principalId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -486,8 +476,7 @@ test("storeVerifiedPrincipalState rejects same-version state hash conflicts", as
           ],
           projection: [
             {
-              memberPrincipalType: "user",
-              memberPrincipalId: signer.signerUserId,
+              userId: signer.signerUserId,
               role: "admin",
             },
           ],
@@ -524,13 +513,11 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
         ],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: removedUserId,
+            userId: removedUserId,
             role: "member",
           },
         ],
@@ -558,8 +545,7 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
           ],
           projection: [
             {
-              memberPrincipalType: "user",
-              memberPrincipalId: signer.signerUserId,
+              userId: signer.signerUserId,
               role: "admin",
             },
           ],
@@ -597,8 +583,7 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
       members: [{ principalType: "user", principalId: signer.signerUserId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
       ],
@@ -625,8 +610,7 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
         members: [{ principalType: "user", principalId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -651,8 +635,7 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
         members: [{ principalType: "user", principalId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -702,8 +685,7 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
       members: [{ principalType: "user", principalId: signer.signerUserId }],
       projection: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: signer.signerUserId,
+          userId: signer.signerUserId,
           role: "admin",
         },
       ],
@@ -730,8 +712,7 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
         members: [{ principalType: "user", principalId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -756,8 +737,7 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
         members: [{ principalType: "user", principalId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -802,8 +782,7 @@ test("getPrincipalStatesForReferences batches exact historical state lookup by r
         members: [{ principalType: "user", principalId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -827,8 +806,7 @@ test("getPrincipalStatesForReferences batches exact historical state lookup by r
         members: [{ principalType: "user", principalId: signer.signerUserId }],
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: signer.signerUserId,
+            userId: signer.signerUserId,
             role: "admin",
           },
         ],
@@ -867,25 +845,21 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
   const secondKem = generateKemSeedAndKeyPair();
   const firstProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signer.signerUserId,
+      userId: signer.signerUserId,
       role: "admin" as const,
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: firstMemberId,
+      userId: firstMemberId,
       role: "member" as const,
     },
   ];
   const secondProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signer.signerUserId,
+      userId: signer.signerUserId,
       role: "admin" as const,
     },
     {
-      memberPrincipalType: "group" as const,
-      memberPrincipalId: nestedGroupId,
+      userId: nestedGroupId,
       role: "member" as const,
     },
   ];
@@ -948,7 +922,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
       .get(firstKey)
       ?.map(
         (member) =>
-          `${member.memberPrincipalType}:${member.memberPrincipalId}:${member.role}`,
+          `${member.memberPrincipalType}:${member.userId}:${member.role}`,
       )
       .sort(),
   ).toEqual(
@@ -962,7 +936,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
       .get(secondKey)
       ?.map(
         (member) =>
-          `${member.memberPrincipalType}:${member.memberPrincipalId}:${member.role}`,
+          `${member.memberPrincipalType}:${member.userId}:${member.role}`,
       )
       .sort(),
   ).toEqual(

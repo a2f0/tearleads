@@ -142,10 +142,7 @@ export async function listProjectionMembersForState(
         eq(principalMembershipProjection.stateHash, stateHash),
       ),
     )
-    .orderBy(
-      principalMembershipProjection.memberPrincipalType,
-      principalMembershipProjection.memberPrincipalId,
-    );
+    .orderBy(principalMembershipProjection.userId);
 
   return rows.map(toStoredProjectionMember);
 }
@@ -246,8 +243,7 @@ export async function listPrincipalProjectionMembersForStates(
     )
     .orderBy(
       principalMembershipProjection.principalId,
-      principalMembershipProjection.memberPrincipalType,
-      principalMembershipProjection.memberPrincipalId,
+      principalMembershipProjection.userId,
     );
 
   for (const row of rows.map(toStoredProjectionMember)) {
@@ -529,8 +525,7 @@ async function insertPrincipalProjectionRows(
         principalType: input.normalizedInput.state.principalType,
         principalId: input.normalizedInput.state.principalId,
         stateHash: input.stateHash,
-        memberPrincipalType: member.memberPrincipalType,
-        memberPrincipalId: member.memberPrincipalId,
+        userId: member.userId,
         role: member.role,
       })),
     )
@@ -539,8 +534,7 @@ async function insertPrincipalProjectionRows(
         principalMembershipProjection.principalType,
         principalMembershipProjection.principalId,
         principalMembershipProjection.stateHash,
-        principalMembershipProjection.memberPrincipalType,
-        principalMembershipProjection.memberPrincipalId,
+        principalMembershipProjection.userId,
       ],
     });
 }

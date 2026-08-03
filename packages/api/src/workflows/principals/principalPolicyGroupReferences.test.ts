@@ -11,8 +11,7 @@ test("principal policy projections reject missing groups after locking reference
       assertPrincipalPolicyGroupReferencesExist({
         projection: [
           {
-            memberPrincipalType: "group",
-            memberPrincipalId: missingGroupId,
+            userId: missingGroupId,
             role: "member",
           },
         ],
@@ -38,8 +37,7 @@ test("principal policy projections reject non-canonical group IDs", async () => 
       assertPrincipalPolicyGroupReferencesExist({
         projection: [
           {
-            memberPrincipalType: "group",
-            memberPrincipalId: groupId.toUpperCase(),
+            userId: groupId.toUpperCase(),
             role: "member",
           },
         ],

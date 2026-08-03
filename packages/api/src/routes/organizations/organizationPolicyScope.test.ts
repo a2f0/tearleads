@@ -134,8 +134,7 @@ test("policy updates reject foreign nested groups without advancing the cursor",
   const projection = [
     ...currentProjection,
     {
-      memberPrincipalType: "group" as const,
-      memberPrincipalId: foreign.adminGroupId,
+      userId: foreign.adminGroupId,
       role: "member" as const,
     },
   ];

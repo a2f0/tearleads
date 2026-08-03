@@ -74,8 +74,7 @@ async function insertMemberGroupState(input: {
       principalType: "group" as const,
       principalId: input.groupId,
       stateHash: input.stateHash,
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: userId,
+      userId: userId,
       role: "member" as const,
     })),
   );

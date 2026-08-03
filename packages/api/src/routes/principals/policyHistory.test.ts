@@ -114,7 +114,7 @@ test("policy-history serves the requester's own states newest first", async () =
     newest.memberEnvelopes.some(
       (envelope) =>
         envelope.memberPrincipalType === "user" &&
-        envelope.memberPrincipalId === actor.userId,
+        envelope.userId === actor.userId,
     ),
   ).toBe(true);
 }, 20_000);
@@ -338,7 +338,7 @@ test("policy-history serves no envelope for a group the requester cannot reach",
       entry.memberEnvelopes.some(
         (envelope) =>
           envelope.memberPrincipalType === "user" &&
-          envelope.memberPrincipalId === actor.userId,
+          envelope.userId === actor.userId,
       ),
     ),
   ).toBe(true);

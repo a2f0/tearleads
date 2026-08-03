@@ -47,8 +47,7 @@ async function updateMemberGroupUser(
     db,
   );
   const existingProjection = currentProjection.map((member) => ({
-    memberPrincipalType: member.memberPrincipalType,
-    memberPrincipalId: member.memberPrincipalId,
+    userId: member.userId,
     role: member.role,
   }));
   const projection = normalizePrincipalProjectionMembers(
@@ -56,15 +55,14 @@ async function updateMemberGroupUser(
       ? [
           ...existingProjection,
           {
-            memberPrincipalType: "user" as const,
-            memberPrincipalId: input.memberUserId,
+            userId: input.memberUserId,
             role: "member" as const,
           },
         ]
       : existingProjection.filter(
           (member) =>
             member.memberPrincipalType !== "user" ||
-            member.memberPrincipalId !== input.memberUserId,
+            member.userId !== input.memberUserId,
         ),
   );
   const payloadCiphertext = bytesToBase64(

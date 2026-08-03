@@ -57,19 +57,17 @@ export async function addOrganizationMember(input: {
   );
   const nextProjection = [
     ...currentProjection.map((projectionMember) => ({
-      memberPrincipalType: projectionMember.memberPrincipalType,
-      memberPrincipalId: projectionMember.memberPrincipalId,
+      userId: projectionMember.userId,
       role: projectionMember.role,
     })),
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.member.userId,
+      userId: input.member.userId,
       role: "member" as const,
     },
   ];
   const principalKem = generateKemSeedAndKeyPair();
   const members = nextProjection.map((projectionMember) => ({
-    principalId: projectionMember.memberPrincipalId,
+    principalId: projectionMember.userId,
     principalType: projectionMember.memberPrincipalType,
   }));
   const projection = nextProjection;

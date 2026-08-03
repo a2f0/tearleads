@@ -19,22 +19,17 @@ import { ContainerMutationError } from "../errors";
 function projectionMemberKey(
   member: Pick<
     PrincipalProjectionMember,
-    "memberPrincipalId" | "memberPrincipalType" | "role"
+    "userId" | "memberPrincipalType" | "role"
   >,
 ): string {
-  return [
-    member.memberPrincipalType,
-    member.memberPrincipalId,
-    member.role,
-  ].join(":");
+  return [member.userId, member.role].join(":");
 }
 
 function projectionMemberFromStored(
   member: StoredPrincipalProjectionMember,
 ): PrincipalProjectionMember {
   return {
-    memberPrincipalType: member.memberPrincipalType,
-    memberPrincipalId: member.memberPrincipalId,
+    userId: member.userId,
     role: member.role,
   };
 }

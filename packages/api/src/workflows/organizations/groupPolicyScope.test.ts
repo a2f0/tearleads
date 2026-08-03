@@ -5,8 +5,7 @@ import { hasOnlySameOrganizationGroupMembers } from "./groupPolicyScope";
 
 function groupMember(groupId: string) {
   return {
-    memberPrincipalType: "group" as const,
-    memberPrincipalId: groupId,
+    userId: groupId,
     role: "member" as const,
   };
 }

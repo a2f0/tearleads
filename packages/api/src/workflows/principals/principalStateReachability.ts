@@ -80,16 +80,16 @@ export async function listUserIdsReachableFromPrincipalState(input: {
       for (const member of projectionsByState.get(projectionStateKey(state)) ??
         []) {
         if (member.memberPrincipalType === "user") {
-          userIds.add(member.memberPrincipalId);
+          userIds.add(member.userId);
           continue;
         }
 
         const key = principalKey({
           principalType: "group",
-          principalId: member.memberPrincipalId,
+          principalId: member.userId,
         });
         if (!visitedPrincipalKeys.has(key)) {
-          nextGroupIds.add(member.memberPrincipalId);
+          nextGroupIds.add(member.userId);
         }
       }
     }

@@ -29,15 +29,13 @@ export async function createGroupRequest(input: {
     ...(includeActor
       ? [
           {
-            memberPrincipalType: "user" as const,
-            memberPrincipalId: input.actor.userId,
+            userId: input.actor.userId,
             role: "admin" as const,
           },
         ]
       : []),
     ...(input.nestedGroupIds ?? []).map((groupId) => ({
-      memberPrincipalType: "group" as const,
-      memberPrincipalId: groupId,
+      userId: groupId,
       role: "member" as const,
     })),
   ]);

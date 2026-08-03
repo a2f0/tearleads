@@ -41,8 +41,7 @@ async function signSoloGroupState(
   invariant(wrappedGroupKey, "expected principal member envelope");
   const memberEnvelopes = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: actor.userId,
+      userId: actor.userId,
       memberKeyFingerprint: await toFingerprint(actor.kem.publicKey),
       kemCipherText: bytesToBase64(wrappedGroupKey.kemCipherText),
       wrappedKey: bytesToBase64(wrappedGroupKey.wrappedKey),
@@ -92,13 +91,11 @@ async function signAdminsAccessGain(
   );
   const projection: PrincipalProjectionMember[] = [
     ...currentProjection.map((projectionMember) => ({
-      memberPrincipalType: projectionMember.memberPrincipalType,
-      memberPrincipalId: projectionMember.memberPrincipalId,
+      userId: projectionMember.userId,
       role: projectionMember.role,
     })),
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: member.userId,
+      userId: member.userId,
       role: "admin",
     },
   ];
@@ -255,11 +252,11 @@ test("PUT granted access still succeeds when shared_with_you publish throws", as
     isPrincipalPolicyBundleResponse(storedPolicy),
     "expected principal policy bundle response",
   );
-  const sortByMemberId = <T extends { memberPrincipalId: string }>(
+  const sortByMemberId = <T extends { userId: string }>(
     envelopes: readonly T[],
   ) =>
     [...envelopes].sort((left, right) =>
-      left.memberPrincipalId.localeCompare(right.memberPrincipalId),
+      left.userId.localeCompare(right.userId),
     );
   expect(sortByMemberId(storedPolicy.currentMemberEnvelopes.envelopes)).toEqual(
     sortByMemberId(signedState.memberEnvelopes),

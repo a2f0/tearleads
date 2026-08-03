@@ -26,8 +26,7 @@ async function createInitialOrganizationPolicy(input: {
   const organizationKem = generateKemSeedAndKeyPair();
   const projection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       role: "admin" as const,
     },
   ];
@@ -51,8 +50,7 @@ async function createInitialOrganizationPolicy(input: {
   }
   const memberEnvelopes = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       memberKeyFingerprint: await toFingerprint(input.encapsulationPublicKey),
       kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),

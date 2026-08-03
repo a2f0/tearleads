@@ -11,7 +11,6 @@ import {
   type PrincipalProjectionRole,
   type PrincipalStateExternalAuthority,
   type PrincipalStateMemberEnvelope,
-  type PrincipalStateMemberType,
   type PrincipalStatePayloadCipherSuite,
   type SignedPrincipalState,
 } from "@tearleads/crypto";
@@ -35,8 +34,7 @@ export interface StoredPrincipalProjectionMember {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
   stateHash: string;
-  memberPrincipalType: PrincipalStateMemberType;
-  memberPrincipalId: string;
+  userId: string;
   role: PrincipalProjectionRole;
   createdAt: Date;
 }
@@ -132,8 +130,7 @@ export const principalProjectionMemberSelect = {
   principalType: principalMembershipProjection.principalType,
   principalId: principalMembershipProjection.principalId,
   stateHash: principalMembershipProjection.stateHash,
-  memberPrincipalType: principalMembershipProjection.memberPrincipalType,
-  memberPrincipalId: principalMembershipProjection.memberPrincipalId,
+  userId: principalMembershipProjection.userId,
   role: principalMembershipProjection.role,
   createdAt: principalMembershipProjection.createdAt,
 } as const;
@@ -165,8 +162,7 @@ interface PrincipalProjectionMemberRow {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
   stateHash: string;
-  memberPrincipalType: PrincipalStateMemberType;
-  memberPrincipalId: string;
+  userId: string;
   role: PrincipalProjectionRole;
   createdAt: Date;
 }
@@ -205,8 +201,7 @@ export function toStoredProjectionMember(
     principalType: row.principalType,
     principalId: row.principalId,
     stateHash: row.stateHash,
-    memberPrincipalType: row.memberPrincipalType,
-    memberPrincipalId: row.memberPrincipalId,
+    userId: row.userId,
     role: row.role,
     createdAt: row.createdAt,
   };
@@ -249,8 +244,7 @@ export function normalizePrincipalStateWriteInput(
     },
     projection: normalizePrincipalProjectionMembers(input.projection),
     memberEnvelopes: input.memberEnvelopes.map((envelope) => ({
-      memberPrincipalType: envelope.memberPrincipalType,
-      memberPrincipalId: envelope.memberPrincipalId,
+      userId: envelope.userId,
       memberKeyFingerprint: envelope.memberKeyFingerprint,
       kemCipherText: envelope.kemCipherText,
       wrappedKey: envelope.wrappedKey,
@@ -259,7 +253,7 @@ export function normalizePrincipalStateWriteInput(
 }
 
 export function projectionMemberKey(member: PrincipalProjectionMember): string {
-  return `${member.memberPrincipalType}:${member.memberPrincipalId}:${member.role}`;
+  return `${member.memberPrincipalType}:${member.userId}:${member.role}`;
 }
 
 export function principalStateProjectionKey(input: {

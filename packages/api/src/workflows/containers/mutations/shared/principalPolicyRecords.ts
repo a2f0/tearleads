@@ -65,12 +65,7 @@ function readPrincipalProjectionMember(
 
   return {
     memberPrincipalType,
-    memberPrincipalId: readProjectionString(
-      record,
-      "memberPrincipalId",
-      label,
-      mutationShapeError,
-    ),
+    userId: readProjectionString(record, "userId", label, mutationShapeError),
     role,
   };
 }

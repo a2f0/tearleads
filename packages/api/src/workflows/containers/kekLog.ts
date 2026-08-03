@@ -109,7 +109,7 @@ export async function runContainerKekLogWorkflow(
         policy.projection.some(
           (member) =>
             member.memberPrincipalType === "user" &&
-            member.memberPrincipalId === input.userId,
+            member.userId === input.userId,
         ),
       )
       .map((policy) => ({

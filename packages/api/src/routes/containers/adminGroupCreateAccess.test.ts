@@ -158,13 +158,11 @@ async function advanceAdminPolicy(input: {
   const principalKem = generateKemSeedAndKeyPair();
   const projection: PrincipalProjectionMember[] = [
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: input.owner.userId,
+      userId: input.owner.userId,
       role: "admin",
     },
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: input.peer.userId,
+      userId: input.peer.userId,
       role: "admin",
     },
   ];

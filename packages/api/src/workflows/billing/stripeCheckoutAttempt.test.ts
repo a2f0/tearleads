@@ -48,8 +48,7 @@ async function addEffectiveMember(
     .limit(1);
   invariant(state, "expected current Members-group state");
   await db.insert(principalMembershipProjection).values({
-    memberPrincipalId: userId,
-    memberPrincipalType: "user",
+    userId: userId,
     principalId: organization.memberGroupId,
     principalType: "group",
     role: "member",

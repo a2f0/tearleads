@@ -15,7 +15,7 @@ export async function createPrincipalMemberEnvelopes(input: {
 }) {
   const stateMembers = input.projection.map((member) => ({
     principalType: member.memberPrincipalType,
-    principalId: member.memberPrincipalId,
+    principalId: member.userId,
   }));
   const memberEnvelopes = await Promise.all(
     stateMembers.map(async (member) => {
@@ -56,8 +56,7 @@ export async function createPrincipalMemberEnvelopes(input: {
       invariant(wrappedGroupKey, "expected principal member envelope");
 
       return {
-        memberPrincipalType: member.principalType,
-        memberPrincipalId: member.principalId,
+        userId: member.principalId,
         memberKeyFingerprint,
         kemCipherText: bytesToBase64(wrappedGroupKey.kemCipherText),
         wrappedKey: bytesToBase64(wrappedGroupKey.wrappedKey),

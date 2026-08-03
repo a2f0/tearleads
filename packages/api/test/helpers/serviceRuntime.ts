@@ -79,8 +79,7 @@ export async function createRegistrationRequest(
   const organizationKem = generateKemSeedAndKeyPair();
   const initialOrganizationProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: userId,
+      userId: userId,
       role: "admin" as const,
     },
   ];
@@ -94,8 +93,7 @@ export async function createRegistrationRequest(
   }
   const organizationMemberEnvelopes = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: userId,
+      userId: userId,
       memberKeyFingerprint: await toFingerprint(user.kem.publicKey),
       kemCipherText: bytesToBase64(organizationMemberEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(organizationMemberEnvelope.wrappedKey),

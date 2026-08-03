@@ -215,7 +215,7 @@ async function loadNestedGroupsById(input: {
         eq(groupsTable.organizationId, input.organizationId),
         inArray(
           groupsTable.id,
-          input.groupMembers.map((member) => member.memberPrincipalId),
+          input.groupMembers.map((member) => member.userId),
         ),
       ),
     );
@@ -258,7 +258,7 @@ async function listOrganizationGroupMembersInTransaction(input: {
   );
   const usersById = await loadUsersById(
     input.executor,
-    userMembers.map((member) => member.memberPrincipalId),
+    userMembers.map((member) => member.userId),
   );
   const groupsById = await loadNestedGroupsById({
     executor: input.executor,

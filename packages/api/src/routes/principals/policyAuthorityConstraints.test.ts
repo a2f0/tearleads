@@ -108,8 +108,7 @@ test("PUT policy rejects non-admin roles in the reserved Admins group", async ()
   invariant(currentState, "expected Admins policy");
   const projection: PrincipalProjectionMember[] = [
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: actor.userId,
+      userId: actor.userId,
       role: "member",
     },
   ];
@@ -157,8 +156,7 @@ test("PUT policy cannot replace the signed organization authority descriptor", a
       db,
     )
   ).map((member) => ({
-    memberPrincipalType: member.memberPrincipalType,
-    memberPrincipalId: member.memberPrincipalId,
+    userId: member.userId,
     role: member.role,
   }));
   const payloadCiphertext = bytesToBase64(

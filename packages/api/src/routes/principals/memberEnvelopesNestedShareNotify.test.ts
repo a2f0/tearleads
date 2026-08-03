@@ -71,13 +71,11 @@ async function signChildAccessGain(input: {
   );
   const projection: PrincipalProjectionMember[] = [
     ...currentProjection.map((projectionMember) => ({
-      memberPrincipalType: projectionMember.memberPrincipalType,
-      memberPrincipalId: projectionMember.memberPrincipalId,
+      userId: projectionMember.userId,
       role: projectionMember.role,
     })),
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: input.member.userId,
+      userId: input.member.userId,
       role: "member",
     },
   ];

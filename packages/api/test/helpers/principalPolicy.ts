@@ -68,8 +68,7 @@ export async function createSignedPrincipalState(input: {
   signingPrivateKey: Uint8Array;
   version?: number;
   projection?: Array<{
-    memberPrincipalType: "user" | "group";
-    memberPrincipalId: string;
+    userId: string;
     role: "member" | "admin";
   }>;
 }) {

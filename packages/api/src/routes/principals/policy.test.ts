@@ -52,13 +52,11 @@ async function addOrganizationMember(input: {
   );
   const nextProjection = [
     ...currentProjection.map((projectionMember) => ({
-      memberPrincipalType: projectionMember.memberPrincipalType,
-      memberPrincipalId: projectionMember.memberPrincipalId,
+      userId: projectionMember.userId,
       role: projectionMember.role,
     })),
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.member.userId,
+      userId: input.member.userId,
       role: "member" as const,
     },
   ];
@@ -70,7 +68,7 @@ async function addOrganizationMember(input: {
     keyEpoch: currentState.keyEpoch + 1,
     members: nextProjection.map((projectionMember) => ({
       principalType: projectionMember.memberPrincipalType,
-      principalId: projectionMember.memberPrincipalId,
+      principalId: projectionMember.userId,
     })),
     projection: nextProjection,
     signerUserId: input.actor.userId,
@@ -198,13 +196,11 @@ test("PUT /principals/:principalType/:principalId/policy syncs org roster from M
   );
   const nextProjection = [
     ...currentProjection.map((projectionMember) => ({
-      memberPrincipalType: projectionMember.memberPrincipalType,
-      memberPrincipalId: projectionMember.memberPrincipalId,
+      userId: projectionMember.userId,
       role: projectionMember.role,
     })),
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: member.userId,
+      userId: member.userId,
       role: "member" as const,
     },
   ];
@@ -216,7 +212,7 @@ test("PUT /principals/:principalType/:principalId/policy syncs org roster from M
     keyEpoch: currentState.keyEpoch + 1,
     members: nextProjection.map((projectionMember) => ({
       principalType: projectionMember.memberPrincipalType,
-      principalId: projectionMember.memberPrincipalId,
+      principalId: projectionMember.userId,
     })),
     projection: nextProjection,
     signerUserId: actor.userId,
@@ -278,13 +274,11 @@ test("PUT /principals/:principalType/:principalId/policy rejects disabled roster
   });
   const projection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: actor.userId,
+      userId: actor.userId,
       role: "admin" as const,
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: disabledUser.userId,
+      userId: disabledUser.userId,
       role: "member" as const,
     },
   ];
@@ -293,7 +287,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects disabled roster
     principalId: groupId,
     members: projection.map((projectionMember) => ({
       principalType: projectionMember.memberPrincipalType,
-      principalId: projectionMember.memberPrincipalId,
+      principalId: projectionMember.userId,
     })),
     projection,
     signerUserId: actor.userId,
@@ -633,8 +627,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects signers who are
     signingPrivateKey: actor.signing.signingPrivateKey,
     projection: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: actor.userId,
+        userId: actor.userId,
         role: "member",
       },
     ],
@@ -653,8 +646,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects signers who are
         encryptedPayload: signedState.encryptedPayload,
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: actor.userId,
+            userId: actor.userId,
             role: "member",
           },
         ],
@@ -730,8 +722,7 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
   const successorProjection = [
     ...initialState.projection,
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: orgAdmin.userId,
+      userId: orgAdmin.userId,
       role: "member" as const,
     },
   ];
@@ -744,7 +735,7 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
     principalKem,
     members: successorProjection.map((member) => ({
       principalType: member.memberPrincipalType,
-      principalId: member.memberPrincipalId,
+      principalId: member.userId,
     })),
     projection: successorProjection,
     externalAuthority,

@@ -251,7 +251,7 @@ function validateInitialOrganizationPolicyInput(
     projection.length !== 1 ||
     !onlyProjectionMember ||
     onlyProjectionMember.memberPrincipalType !== "user" ||
-    onlyProjectionMember.memberPrincipalId !== input.userId ||
+    onlyProjectionMember.userId !== input.userId ||
     onlyProjectionMember.role !== "admin" ||
     state.memberCount !== 1
   ) {
@@ -266,7 +266,7 @@ function validateInitialOrganizationPolicyInput(
     memberEnvelopes.length !== 1 ||
     !onlyMemberEnvelope ||
     onlyMemberEnvelope.memberPrincipalType !== "user" ||
-    onlyMemberEnvelope.memberPrincipalId !== input.userId ||
+    onlyMemberEnvelope.userId !== input.userId ||
     onlyMemberEnvelope.memberKeyFingerprint !== encapsulationFingerprint
   ) {
     throw new OrganizationProvisioningError(
@@ -324,7 +324,7 @@ function validateInitialAdminGroupInput(
     projection.length !== 1 ||
     !onlyProjectionMember ||
     onlyProjectionMember.memberPrincipalType !== "user" ||
-    onlyProjectionMember.memberPrincipalId !== input.userId ||
+    onlyProjectionMember.userId !== input.userId ||
     onlyProjectionMember.role !== "admin" ||
     state.memberCount !== 1
   ) {
@@ -339,7 +339,7 @@ function validateInitialAdminGroupInput(
     memberEnvelopes.length !== 1 ||
     !onlyMemberEnvelope ||
     onlyMemberEnvelope.memberPrincipalType !== "user" ||
-    onlyMemberEnvelope.memberPrincipalId !== input.userId ||
+    onlyMemberEnvelope.userId !== input.userId ||
     onlyMemberEnvelope.memberKeyFingerprint !== encapsulationFingerprint
   ) {
     throw new OrganizationProvisioningError(
@@ -401,13 +401,12 @@ function validateInitialMemberGroupInput(
 
   const userMember = projection.find(
     (member) =>
-      member.memberPrincipalType === "user" &&
-      member.memberPrincipalId === input.userId,
+      member.memberPrincipalType === "user" && member.userId === input.userId,
   );
   const adminGroupMember = projection.find(
     (member) =>
       member.memberPrincipalType === "group" &&
-      member.memberPrincipalId === input.initialAdminGroup.groupId,
+      member.userId === input.initialAdminGroup.groupId,
   );
   if (
     projection.length !== 2 ||
@@ -424,12 +423,12 @@ function validateInitialMemberGroupInput(
   const userEnvelope = memberEnvelopes.find(
     (envelope) =>
       envelope.memberPrincipalType === "user" &&
-      envelope.memberPrincipalId === input.userId,
+      envelope.userId === input.userId,
   );
   const adminGroupEnvelope = memberEnvelopes.find(
     (envelope) =>
       envelope.memberPrincipalType === "group" &&
-      envelope.memberPrincipalId === input.initialAdminGroup.groupId,
+      envelope.userId === input.initialAdminGroup.groupId,
   );
   if (
     memberEnvelopes.length !== 2 ||

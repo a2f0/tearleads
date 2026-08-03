@@ -65,13 +65,11 @@ export async function addUserToAdminGroup(input: {
   );
   const nextProjection = [
     ...currentProjection.map((projectionMember) => ({
-      memberPrincipalType: projectionMember.memberPrincipalType,
-      memberPrincipalId: projectionMember.memberPrincipalId,
+      userId: projectionMember.userId,
       role: projectionMember.role,
     })),
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.member.userId,
+      userId: input.member.userId,
       role: "admin" as const,
     },
   ];
@@ -85,8 +83,7 @@ export async function addUserToAdminGroup(input: {
       ]);
       invariant(wrappedGroupKey, "expected principal member envelope");
       return {
-        memberPrincipalType: "user" as const,
-        memberPrincipalId: recipient.userId,
+        userId: recipient.userId,
         memberKeyFingerprint: await toFingerprint(recipient.kem.publicKey),
         kemCipherText: bytesToBase64(wrappedGroupKey.kemCipherText),
         wrappedKey: bytesToBase64(wrappedGroupKey.wrappedKey),
@@ -103,7 +100,7 @@ export async function addUserToAdminGroup(input: {
     keyFingerprint: await toFingerprint(groupKem.publicKey),
     members: nextProjection.map((projectionMember) => ({
       principalType: projectionMember.memberPrincipalType,
-      principalId: projectionMember.memberPrincipalId,
+      principalId: projectionMember.userId,
     })),
     projection: nextProjection,
     payloadCiphertext: JSON.stringify({ members: nextProjection }),

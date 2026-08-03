@@ -163,8 +163,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
     expect.objectContaining({
       groupId: adminGroupId,
       groupName: "Admins",
-      memberPrincipalId: adminGroupId,
-      memberPrincipalType: "group",
+      userId: adminGroupId,
     }),
   );
 
@@ -290,8 +289,7 @@ test("Members and Admins policy changes invalidate exact membership rows", async
         stateHash: memberGroupState.stateHash,
         members: expect.arrayContaining([
           expect.objectContaining({
-            memberPrincipalId: member.userId,
-            memberPrincipalType: "user",
+            userId: member.userId,
           }),
         ]),
       }),
@@ -404,7 +402,7 @@ test("membership deltas coalesce transitions to final entity state", async () =>
     delta.lanes.groupMemberships?.groups[0]?.members.some(
       (projectedMember) =>
         projectedMember.memberPrincipalType === "user" &&
-        projectedMember.memberPrincipalId === member.userId,
+        projectedMember.userId === member.userId,
     ),
   ).toBe(false);
   expect(

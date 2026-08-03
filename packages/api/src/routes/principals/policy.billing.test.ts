@@ -55,20 +55,18 @@ test("a native tier capacity conflict is returned as a policy 409", async () => 
   );
   const projection = [
     ...currentProjection.map((entry) => ({
-      memberPrincipalId: entry.memberPrincipalId,
-      memberPrincipalType: entry.memberPrincipalType,
+      userId: entry.userId,
       role: entry.role,
     })),
     {
-      memberPrincipalId: member.userId,
-      memberPrincipalType: "user" as const,
+      userId: member.userId,
       role: "member" as const,
     },
   ];
   const signedState = await createSignedPrincipalState({
     keyEpoch: currentState.keyEpoch + 1,
     members: projection.map((entry) => ({
-      principalId: entry.memberPrincipalId,
+      principalId: entry.userId,
       principalType: entry.memberPrincipalType,
     })),
     prevStateHash: currentState.stateHash,

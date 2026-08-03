@@ -23,7 +23,7 @@ interface PrincipalReference {
 }
 
 interface ParentPrincipalMembership {
-  readonly memberPrincipalId: string;
+  readonly userId: string;
   readonly principalId: string;
   readonly principalType: ManagedPrincipalType;
   readonly stateHash: string;
@@ -104,17 +104,16 @@ async function loadCurrentStatesByReference(input: {
 
 async function listParentPrincipalMemberships(input: {
   readonly executor: DatabaseTransaction;
-  readonly memberPrincipalIds: Iterable<string>;
-  readonly memberPrincipalType: PrincipalMemberType;
+  readonly userIds: Iterable<string>;
 }): Promise<ParentPrincipalMembership[]> {
-  const memberPrincipalIds = uniqueSortedStrings(input.memberPrincipalIds);
-  if (memberPrincipalIds.length === 0) {
+  const userIds = uniqueSortedStrings(input.userIds);
+  if (userIds.length === 0) {
     return [];
   }
 
   return input.executor
     .select({
-      memberPrincipalId: principalMembershipProjection.memberPrincipalId,
+      userId: principalMembershipProjection.userId,
       principalType: principalMembershipProjection.principalType,
       principalId: principalMembershipProjection.principalId,
       stateHash: principalMembershipProjection.stateHash,
@@ -126,18 +125,14 @@ async function listParentPrincipalMemberships(input: {
           principalMembershipProjection.memberPrincipalType,
           input.memberPrincipalType,
         ),
-        inArray(
-          principalMembershipProjection.memberPrincipalId,
-          memberPrincipalIds,
-        ),
+        inArray(principalMembershipProjection.userId, userIds),
       ),
     );
 }
 
 async function listCurrentParentPrincipalMemberships(input: {
   readonly executor: DatabaseTransaction;
-  readonly memberPrincipalIds: Iterable<string>;
-  readonly memberPrincipalType: PrincipalMemberType;
+  readonly userIds: Iterable<string>;
 }): Promise<ParentPrincipalMembership[]> {
   const membershipRows = await listParentPrincipalMemberships(input);
   const currentStates = await loadCurrentStatesByReference({
@@ -180,11 +175,11 @@ async function collectCurrentAncestorPrincipals(input: {
     }
 
     const nextFrontier: PrincipalReference[] = [];
-    for (const [memberPrincipalType, memberPrincipalIds] of memberIdsByType) {
+    for (const [memberPrincipalType, userIds] of memberIdsByType) {
       const parentMemberships = await listCurrentParentPrincipalMemberships({
         executor: input.executor,
         memberPrincipalType,
-        memberPrincipalIds,
+        userIds,
       });
 
       for (const membership of parentMemberships) {
@@ -219,11 +214,10 @@ async function collectCurrentPrincipalsForUsers(input: {
   let frontier = (
     await listCurrentParentPrincipalMemberships({
       executor: input.executor,
-      memberPrincipalType: "user",
-      memberPrincipalIds: input.userIds,
+      userIds: input.userIds,
     })
   ).map((membership) => ({
-    userId: membership.memberPrincipalId,
+    userId: membership.userId,
     principal: {
       principalType: membership.principalType,
       principalId: membership.principalId,
@@ -263,13 +257,11 @@ async function collectCurrentPrincipalsForUsers(input: {
 
     const parentMemberships = await listCurrentParentPrincipalMemberships({
       executor: input.executor,
-      memberPrincipalType: "group",
-      memberPrincipalIds: groupIds,
+      userIds: groupIds,
     });
 
     for (const membership of parentMemberships) {
-      const childFrontier =
-        frontierByGroupId.get(membership.memberPrincipalId) ?? [];
+      const childFrontier = frontierByGroupId.get(membership.userId) ?? [];
       for (const child of childFrontier) {
         nextFrontier.push({
           userId: child.userId,
