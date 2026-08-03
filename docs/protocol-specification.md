@@ -299,13 +299,10 @@ historical tenure resolution, which is also what unblocks transitive
 (nested-group) recovery. The primary case does not need it: opening a container
 envelope sealed to a group's older key epoch means recovering that group's
 secret from its OWN history, through the envelope addressed to the requester as
-a user. Envelopes are capped per state by
-`PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT` — deliberately one more
-than `PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT` (64) allows to match, so the
-cap can never be the binding constraint — and ranked so the
-requester's own direct envelope — the one that opens from identity keys alone
-— is never the entry a cap drops. One member's envelope is not another's to
-read.
+a user. At most one envelope per state can match a single requester, so
+`PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT` (4) is a structural
+backstop that cannot bite rather than a truncation. One member's envelope is
+not another's to read.
 
 Clients recompute each state's hash and check that every entry's
 `prevStateHash` names the entry below it, across page boundaries as well as
