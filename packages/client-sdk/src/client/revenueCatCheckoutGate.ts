@@ -14,7 +14,13 @@ export class RevenueCatCheckoutGateCoordinator {
   afterActive<T>(operation: () => Promise<T>): Promise<T> {
     if (!this.hasActive) return operation();
     const current = Array.from(this.active);
-    return Promise.all(current).then(() => this.afterActive(operation));
+    return Promise.all(current).then(operation);
+  }
+
+  reserve(): { gate: RevenueCatCheckoutGate; ready: Promise<void> } {
+    const current = Array.from(this.active);
+    const gate = this.create(undefined, false, () => {});
+    return { gate, ready: Promise.all(current).then(() => undefined) };
   }
 
   create(

@@ -391,6 +391,7 @@ export function createRevenueCatPurchases(
         identity,
         operation: () => backend.restorePurchases(),
         operationName: "restore",
+        waitForCheckout: true,
       });
       return {
         syncEntitlementActive: holdsSyncEntitlement(
@@ -401,15 +402,15 @@ export function createRevenueCatPurchases(
     },
     async bindOrganization(input) {
       requirePurchasesEnabled(purchasesEnabled);
-      await runRevenueCatCustomerOperation({
-        identity,
-        operation: () =>
-          backend.setAttributes({
-            [attributeKey]: input.organizationId,
-          }),
-        operationName: "organization binding",
-        waitForCheckout: true,
-      });
+      await identity
+        .runCustomerMutation({
+          operation: () =>
+            backend.setAttributes({
+              [attributeKey]: input.organizationId,
+            }),
+          operationName: "organization binding",
+        })
+        .catch(normalizeRevenueCatIdentityError);
     },
     async hasActiveSyncEntitlement() {
       const info = await runRevenueCatCustomerOperation({

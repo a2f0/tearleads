@@ -7,6 +7,11 @@ import {
   type RevenueCatOperationTimeoutError,
   withRevenueCatOperationTimeout,
 } from "./revenueCatErrors";
+import type {
+  RevenueCatIdentityCoordinator,
+  RevenueCatIdentityCoordinatorInput,
+  RevenueCatProviderOperation,
+} from "./revenueCatIdentityTypes";
 
 export {
   RevenueCatCheckoutAbandonedError,
@@ -14,41 +19,7 @@ export {
   RevenueCatOperationTimeoutError,
   revenueCatOperationTimeoutMs,
 } from "./revenueCatErrors";
-
-interface RevenueCatIdentityBackend {
-  configure(input: { apiKey: string; appUserId?: string }): Promise<void>;
-  logIn(input: { appUserId: string }): Promise<void>;
-  logOut(): Promise<void>;
-}
-
-interface RevenueCatProviderOperation<T> {
-  /** True for provider flows that may wait on buyer-controlled store UI. */
-  readonly buyerPaced?: boolean;
-  readonly operation: () => Promise<T>;
-  readonly operationName: string;
-  /** False only for provider state that is not scoped to a customer. */
-  readonly requiresKnownIdentity?: boolean;
-  /** Defers shared customer mutations until the native store sheet settles. */
-  readonly waitForCheckout?: boolean;
-}
-
-export interface RevenueCatIdentityCoordinator {
-  identify(appUserId: string): Promise<void>;
-  reset(): Promise<void>;
-  runProviderOperation<T>(input: RevenueCatProviderOperation<T>): Promise<T>;
-  runCheckout<T>(input: {
-    readonly abortReleasesIdentityGate?: boolean;
-    readonly abortSignal?: AbortSignal;
-    readonly operation: () => Promise<T>;
-    readonly prepare?: () => Promise<void>;
-  }): Promise<T>;
-}
-
-interface RevenueCatIdentityCoordinatorInput {
-  readonly apiKey: string;
-  readonly backend: RevenueCatIdentityBackend;
-  readonly timeoutMs: number;
-}
+export type { RevenueCatIdentityCoordinator } from "./revenueCatIdentityTypes";
 
 /**
  * Serializes identity changes and identity-dependent provider operations.
@@ -282,6 +253,20 @@ class RevenueCatIdentityCoordinatorState
     this.resolveIdentityIdle = undefined;
   }
 
+  runCustomerMutation(input: {
+    readonly operation: () => Promise<void>;
+    readonly operationName: string;
+  }): Promise<void> {
+    const timedOut = this.rejectIfIdentityTimedOut<void>();
+    if (timedOut) return timedOut;
+    const ready = this.startConfiguration();
+    return this.runIdentityChange(async () => {
+      await ready;
+      await this.recoverIdentity();
+      await this.runIdentityMutation(input.operation);
+    }, input.operationName);
+  }
+
   runProviderOperation<T>(
     providerInput: RevenueCatProviderOperation<T>,
   ): Promise<T> {
@@ -294,6 +279,10 @@ class RevenueCatIdentityCoordinatorState
     if (pendingError && requiresKnownIdentity) {
       return Promise.reject(copyRevenueCatError(pendingError));
     }
+    const identityBeforeOperation = this.identityIdle;
+    const reservation = providerInput.waitForCheckout
+      ? this.checkouts.reserve()
+      : undefined;
     const ready = this.startConfiguration();
     let providerStarted = false;
     let abandoned = false;
@@ -327,13 +316,19 @@ class RevenueCatIdentityCoordinatorState
           if (lateTimeout !== undefined) clearTimeout(lateTimeout);
         }
       });
+    const identityToAwait = reservation
+      ? identityBeforeOperation
+      : this.identityIdle;
     const scheduleAfterIdentity = () =>
-      requiresKnownIdentity && this.identityIdle
-        ? this.identityIdle.then(schedule)
+      requiresKnownIdentity && identityToAwait
+        ? identityToAwait.then(schedule)
         : schedule();
-    const operation = providerInput.waitForCheckout
-      ? this.checkouts.afterActive(scheduleAfterIdentity)
+    const operation = reservation
+      ? reservation.ready.then(scheduleAfterIdentity)
       : scheduleAfterIdentity();
+    if (reservation) {
+      void operation.then(reservation.gate.release, reservation.gate.release);
+    }
     if (providerInput.buyerPaced) {
       void operation.catch(() => undefined);
       return this.withProviderTimeout(
@@ -342,6 +337,7 @@ class RevenueCatIdentityCoordinatorState
         () => this.identityMutationInFlight,
         () => {
           abandoned = true;
+          reservation?.gate.release();
         },
       ).then(() => operation);
     }
@@ -352,6 +348,9 @@ class RevenueCatIdentityCoordinatorState
       providerInput.waitForCheckout
         ? () => {
             abandoned = true;
+            if (!providerStarted && !this.identityMutationInFlight) {
+              reservation?.gate.release();
+            }
           }
         : undefined,
     );

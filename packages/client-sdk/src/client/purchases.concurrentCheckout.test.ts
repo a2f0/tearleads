@@ -16,15 +16,23 @@ function createDeferred() {
 
 function createFixture() {
   const attributes: Record<string, string | null> = {};
+  const calls: string[] = [];
   const purchaseInputs: Array<{ packageId: string }> = [];
   const checkout = createDeferred();
   const checkoutStarted = createDeferred();
   const emptyInfo: RevenueCatCustomerInfo = { activeEntitlementIds: [] };
   const backend: RevenueCatBackend = {
-    configure: async () => {},
-    logIn: async () => {},
+    configure: async () => {
+      calls.push("configure");
+    },
+    logIn: async ({ appUserId }) => {
+      calls.push(`logIn:${appUserId}`);
+    },
     logOut: async () => {},
-    setAttributes: async (next) => Object.assign(attributes, next),
+    setAttributes: async (next) => {
+      Object.assign(attributes, next);
+      calls.push(`setAttributes:${String(next.orgId)}`);
+    },
     getCurrentPackages: async () => [],
     purchasePackage: async (input) => {
       purchaseInputs.push(input);
@@ -33,7 +41,10 @@ function createFixture() {
       return { activeEntitlementIds: ["sync"] };
     },
     getCustomerInfo: async () => emptyInfo,
-    restorePurchases: async () => emptyInfo,
+    restorePurchases: async () => {
+      calls.push("restorePurchases");
+      return emptyInfo;
+    },
   };
   const purchases = createRevenueCatPurchases(backend, {
     apiKey: "key",
@@ -42,6 +53,7 @@ function createFixture() {
   });
   return {
     attributes,
+    calls,
     checkout,
     checkoutStarted,
     purchaseInputs,
@@ -89,4 +101,63 @@ test("organization binding waits for the active checkout", async () => {
   fixture.checkout.resolve();
   await Promise.all([checkout, binding]);
   expect(fixture.attributes).toEqual({ orgId: "org-2" });
+});
+
+test("organization binding stays ahead of a later identity change", async () => {
+  const fixture = createFixture();
+  const { purchases } = fixture;
+  await purchases.identify({ userId: "user-1" });
+  const checkout = purchases.purchaseSync({
+    organizationId: "org-1",
+    packageId: "monthly",
+  });
+  await fixture.checkoutStarted.promise;
+
+  const binding = purchases.bindOrganization({ organizationId: "org-2" });
+  const identifying = purchases.identify({ userId: "user-2" });
+  fixture.checkout.resolve();
+  await Promise.all([checkout, binding, identifying]);
+
+  expect(fixture.calls.indexOf("setAttributes:org-2")).toBeLessThan(
+    fixture.calls.indexOf("logIn:user-2"),
+  );
+});
+
+test("restore waits for the active checkout", async () => {
+  const fixture = createFixture();
+  const { purchases } = fixture;
+  await purchases.identify({ userId: "user-1" });
+  const checkout = purchases.purchaseSync({
+    organizationId: "org-1",
+    packageId: "monthly",
+  });
+  await fixture.checkoutStarted.promise;
+
+  const restoring = purchases.restore();
+  await Promise.resolve();
+  expect(fixture.calls).not.toContain("restorePurchases");
+
+  fixture.checkout.resolve();
+  await Promise.all([checkout, restoring]);
+  expect(fixture.calls).toContain("restorePurchases");
+});
+
+test("restore stays ahead of a later identity change", async () => {
+  const fixture = createFixture();
+  const { purchases } = fixture;
+  await purchases.identify({ userId: "user-1" });
+  const checkout = purchases.purchaseSync({
+    organizationId: "org-1",
+    packageId: "monthly",
+  });
+  await fixture.checkoutStarted.promise;
+
+  const restoring = purchases.restore();
+  const identifying = purchases.identify({ userId: "user-2" });
+  fixture.checkout.resolve();
+  await Promise.all([checkout, restoring, identifying]);
+
+  expect(fixture.calls.indexOf("restorePurchases")).toBeLessThan(
+    fixture.calls.indexOf("logIn:user-2"),
+  );
 });
