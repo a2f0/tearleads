@@ -249,6 +249,72 @@ test("PUT /principals/:principalType/:principalId/policy syncs org roster from M
   });
 });
 
+test("PUT /principals/:principalType/:principalId/policy rejects Admins users who are not organization members", async () => {
+  // Nesting used to make this structural: Members contained Admins, so an admin
+  // was reachable from Members and therefore always on the roster. Without it,
+  // a direct PUT could seat an admin who belongs to no organization — absent
+  // from the directory, and uncounted by billing, which bills Members alone.
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
+  const outsider = createTestUser();
+  await registerUser(outsider);
+
+  const [organization] = await db
+    .select({ adminGroupId: organizations.adminGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId));
+  invariant(organization, "expected organization row");
+  const currentAdmins = await getCurrentPrincipalState(
+    "group",
+    organization.adminGroupId,
+    db,
+  );
+  invariant(currentAdmins, "expected current Admins state");
+
+  const projection = [
+    { userId: actor.userId, role: "admin" as const },
+    { userId: outsider.userId, role: "admin" as const },
+  ];
+  const signedState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId: organization.adminGroupId,
+    version: currentAdmins.version + 1,
+    prevStateHash: currentAdmins.stateHash,
+    keyEpoch: currentAdmins.keyEpoch + 1,
+    members: projection.map((projectionMember) => ({
+      userId: projectionMember.userId,
+    })),
+    projection,
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+  });
+
+  const response = await routeApp.request(
+    `/principals/group/${organization.adminGroupId}/policy`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
+        projection: signedState.projection,
+        memberEnvelopes: signedState.memberEnvelopes,
+      }),
+    },
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Admins contains users who are not active organization members",
+  });
+});
+
 test("PUT /principals/:principalType/:principalId/policy rejects disabled roster users in non-Members groups", async () => {
   const actor = createTestUser();
   await registerUser(actor);

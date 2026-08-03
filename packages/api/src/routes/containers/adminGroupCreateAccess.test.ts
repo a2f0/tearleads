@@ -39,6 +39,10 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
+import {
+  addOrganizationMember,
+  getDefaultOrganizationId,
+} from "../../../test/helpers/organizationMembership";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
@@ -155,6 +159,14 @@ async function advanceAdminPolicy(input: {
   readonly peer: TestUser;
   readonly policy: VerifiedPrincipalPolicy;
 }): Promise<void> {
+  // Members before Admins, the order production uses: without nesting, an
+  // Admins member must already be an active organization member.
+  await addOrganizationMember({
+    actor: input.owner,
+    member: input.peer,
+    organizationId: await getDefaultOrganizationId(input.owner.userId),
+  });
+
   const principalKem = generateKemSeedAndKeyPair();
   const projection: PrincipalProjectionMember[] = [
     {

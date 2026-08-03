@@ -35,7 +35,7 @@ test("organization read-model cursors are scoped and strictly validated", () => 
     ).toString("base64url"),
     Buffer.from(
       JSON.stringify({
-        version: 4,
+        version: 5,
         organizationId,
         cursor: "01",
       }),

@@ -15,6 +15,7 @@ import {
   listCurrentPrincipalProjectionMembers,
 } from "../../src/access/read/principalStateStore";
 import { routeApp } from "../../src/routeApp";
+import { addOrganizationMember } from "./organizationMembership";
 import {
   signPrincipalStateBundle,
   toPrincipalStateExternalAuthority,
@@ -40,11 +41,43 @@ export async function getCurrentOrganizationAdminAuthority(
   return toPrincipalStateExternalAuthority(state);
 }
 
+/**
+ * Adds a user to the organization's Admins group, seeding Members first.
+ *
+ * Members-then-Admins is the order production uses (`prepareRosterImport`), and
+ * since group nesting was removed the server requires it: Admins no longer
+ * contains Members transitively, so an Admins-only user would be an admin on no
+ * roster and on nobody's invoice, which the policy PUT now rejects.
+ */
+async function ensureOrganizationMember(input: {
+  actor: ReturnType<typeof createTestUser>;
+  member: TestUser;
+  organizationId: string;
+}): Promise<void> {
+  const [organization] = await db
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, input.organizationId))
+    .limit(1);
+  invariant(organization, "expected organization row");
+  const currentMembers = await listCurrentPrincipalProjectionMembers(
+    "group",
+    organization.memberGroupId,
+    db,
+  );
+  if (currentMembers.some((member) => member.userId === input.member.userId)) {
+    return;
+  }
+  await addOrganizationMember(input);
+}
+
 export async function addUserToAdminGroup(input: {
   actor: ReturnType<typeof createTestUser>;
   member: TestUser;
   organizationId: string;
 }): Promise<string> {
+  await ensureOrganizationMember(input);
+
   const [organization] = await db
     .select({ adminGroupId: organizations.adminGroupId })
     .from(organizations)

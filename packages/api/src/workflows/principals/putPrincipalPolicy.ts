@@ -2,15 +2,11 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import {
-  groups,
-  organizationRosterEntries,
-  organizations,
-} from "@tearleads/api-shared/schema";
+import { groups, organizations } from "@tearleads/api-shared/schema";
 import { computePrincipalStateHash } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
@@ -20,7 +16,6 @@ import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats"
 import { OrganizationManagerError } from "../organizations/errors";
 import { wasOrganizationGroupDeleted } from "../organizations/groupTombstone";
 import { isCurrentOrganizationAdminAuthority } from "../organizations/principalPolicyExternalAuthority";
-import { listUsersReachableFromCurrentPrincipal } from "../organizations/principalReachability";
 import {
   appendOrganizationReadModelChangeInTransaction,
   lockOrganizationReadModelHeadForUpdateInTransaction,
@@ -34,6 +29,7 @@ import {
   persistPrincipalPolicyAccessLossTombstones,
 } from "./accessLossTombstones";
 import { getPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
+import { assertManagedPrincipalRosterMembership } from "./managedPrincipalRosterMembership";
 import { assertPrincipalOrganizationCanSync } from "./organizationSync";
 import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
 import {
@@ -130,39 +126,6 @@ async function loadRosterSyncTargetForPrincipal(input: {
   return organization ?? null;
 }
 
-async function assertManagedPrincipalUsersAreNotDisabledRosterEntries(input: {
-  readonly organizationId: string;
-  readonly principalId: string;
-  readonly principalType: "group" | "organization";
-  readonly tx: DatabaseTransaction;
-}): Promise<void> {
-  const reachableUserIds = await listUsersReachableFromCurrentPrincipal({
-    executor: input.tx,
-    principalId: input.principalId,
-    principalType: input.principalType,
-  });
-  if (reachableUserIds.length === 0) {
-    return;
-  }
-
-  const disabledRows = await input.tx
-    .select({ userId: organizationRosterEntries.userId })
-    .from(organizationRosterEntries)
-    .where(
-      and(
-        eq(organizationRosterEntries.organizationId, input.organizationId),
-        eq(organizationRosterEntries.status, "disabled"),
-        inArray(organizationRosterEntries.userId, reachableUserIds),
-      ),
-    );
-  if (disabledRows.length > 0) {
-    throw new PrincipalPolicyError(
-      "Principal contains disabled organization users",
-      409,
-    );
-  }
-}
-
 async function syncRosterForStoredPrincipalState(input: {
   readonly request: PutPrincipalPolicyInput;
   readonly tx: DatabaseTransaction;
@@ -186,7 +149,7 @@ async function syncRosterForStoredPrincipalState(input: {
     input.request.expectedPrincipalType === "organization" ||
     input.request.expectedPrincipalId !== rosterSyncTarget.memberGroupId
   ) {
-    await assertManagedPrincipalUsersAreNotDisabledRosterEntries({
+    await assertManagedPrincipalRosterMembership({
       organizationId: rosterSyncTarget.organizationId,
       principalId: input.request.expectedPrincipalId,
       principalType: input.request.expectedPrincipalType,

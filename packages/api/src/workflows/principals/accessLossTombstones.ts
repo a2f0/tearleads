@@ -150,6 +150,15 @@ function collectCurrentAncestorPrincipals(input: {
   );
 }
 
+/**
+ * The principals each user currently belongs to.
+ *
+ * This used to be a breadth-first walk outward: a group could be a member of
+ * another group, so belonging to the inner one meant belonging to the outer one
+ * too. Principals contain only users now, so the seed memberships ARE the
+ * answer — and re-querying with group ids against a user-id column, as the walk
+ * did on its second hop, can only match by accident.
+ */
 async function collectCurrentPrincipalsForUsers(input: {
   readonly executor: DatabaseTransaction;
   readonly userIds: readonly string[];
@@ -159,69 +168,17 @@ async function collectCurrentPrincipalsForUsers(input: {
     principalsByUserId.set(userId, new Map());
   }
 
-  let frontier = (
-    await listCurrentParentPrincipalMemberships({
-      executor: input.executor,
-      userIds: input.userIds,
-    })
-  ).map((membership) => ({
-    userId: membership.userId,
-    principal: {
+  for (const membership of await listCurrentParentPrincipalMemberships({
+    executor: input.executor,
+    userIds: input.userIds,
+  })) {
+    const principal = {
       principalType: membership.principalType,
       principalId: membership.principalId,
-    },
-  }));
-
-  while (frontier.length > 0) {
-    const nextFrontier: typeof frontier = [];
-    const groupIds = new Set<string>();
-    const frontierByGroupId = new Map<string, typeof frontier>();
-
-    for (const item of frontier) {
-      const userPrincipals = principalsByUserId.get(item.userId);
-      if (!userPrincipals) {
-        continue;
-      }
-
-      const key = principalKey(item.principal);
-      if (userPrincipals.has(key)) {
-        continue;
-      }
-      userPrincipals.set(key, item.principal);
-
-      // Only a group principal can itself appear in another principal's
-      // membership — and none can, now that principals contain users only. The
-      // frontier therefore never advances past its seed.
-      if (item.principal.principalType !== "group") {
-        continue;
-      }
-
-      groupIds.add(item.principal.principalId);
-      const groupFrontier =
-        frontierByGroupId.get(item.principal.principalId) ?? [];
-      groupFrontier.push(item);
-      frontierByGroupId.set(item.principal.principalId, groupFrontier);
-    }
-
-    const parentMemberships = await listCurrentParentPrincipalMemberships({
-      executor: input.executor,
-      userIds: groupIds,
-    });
-
-    for (const membership of parentMemberships) {
-      const childFrontier = frontierByGroupId.get(membership.userId) ?? [];
-      for (const child of childFrontier) {
-        nextFrontier.push({
-          userId: child.userId,
-          principal: {
-            principalType: membership.principalType,
-            principalId: membership.principalId,
-          },
-        });
-      }
-    }
-
-    frontier = nextFrontier;
+    };
+    principalsByUserId
+      .get(membership.userId)
+      ?.set(principalKey(principal), principal);
   }
 
   return principalsByUserId;

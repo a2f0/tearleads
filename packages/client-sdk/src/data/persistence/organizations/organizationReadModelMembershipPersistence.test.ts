@@ -152,7 +152,7 @@ function snapshot(
   } = {},
 ): OrganizationReadModelSnapshotResponse {
   return {
-    version: 4,
+    version: 5,
     mode: "snapshot",
     organizationId: ORGANIZATION_ID,
     nextCursor: input.cursor ?? "cursor-1",
@@ -180,7 +180,7 @@ function delta(input: {
   profileDocumentId?: string;
 }): OrganizationReadModelDeltaResponse {
   return {
-    version: 4,
+    version: 5,
     mode: "delta",
     organizationId: ORGANIZATION_ID,
     nextCursor: input.nextCursor ?? "cursor-2",

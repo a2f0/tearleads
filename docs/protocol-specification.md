@@ -160,8 +160,7 @@ Registration is a bootstrap protocol, not only an account create call.
 - `userId`, `organizationId`, and `rootContainerId`
 - signing and encapsulation public keys
 - the initial reserved `Admins` group policy and direct member envelope
-- the initial reserved `Members` group policy, with `Admins` nested as a
- member
+- the initial reserved `Members` group policy, holding the registering user
 - the initial signed organization policy state and direct member envelope
 - the signed root container create request
 - the signed root metadata document create request

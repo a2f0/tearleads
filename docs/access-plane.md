@@ -69,8 +69,10 @@ Organizations also carry two reserved group pointers:
 - `memberGroupId` points to the reserved `Members` group. Users reachable
  through this group belong to the organization.
 
-Registration creates both groups atomically. The initial `Members` policy nests
-`Admins`, so organization admins are organization members by reachability.
+Registration creates both groups atomically, seeding each with the single
+registering user. The `Members` policy used to nest `Admins` so that admins were
+members by reachability; principals contain only users now, so the policy write
+enforces it instead — a managed principal may only name active roster entries.
 Org-manager keeps separate roster rows for directory lifecycle state. Active
 roster entries are synchronized from users reachable through `Members`, while
 disabled roster entries can remain visible after access removal. The roster is

@@ -73,7 +73,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
     "Admins",
     "Catalog only",
   ]);
-  expect(snapshot.version).toBe(4);
+  expect(snapshot.version).toBe(5);
   expect(snapshot.lanes.organizationPolicy).toEqual({
     organizationId,
     currentState: expect.objectContaining({

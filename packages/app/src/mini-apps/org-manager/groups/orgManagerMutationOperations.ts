@@ -85,7 +85,9 @@ export async function prepareRosterImport(input: {
 export async function addRosterUserToGroup(input: {
   directoryUser: OrganizationDirectory["users"][number] | undefined;
   groupId: string;
+  isAdminGroup: boolean;
   isOperationActive: IsOperationActive;
+  memberGroupId: string | null;
   operationOrganizationId: string;
   orgManagerActions: OrgManagerActions;
   setError: Dispatch<SetStateAction<string | null>>;
@@ -100,6 +102,36 @@ export async function addRosterUserToGroup(input: {
   if (!targetUser) {
     input.setError(ORG_MANAGER_LABELS.userNotFound);
     return null;
+  }
+
+  // An admin must be an organization member. Nesting used to supply that for
+  // free — Members contained Admins — so adding straight to Admins was enough.
+  // Now Members has to be seeded first, and the server rejects the write if it
+  // is not. Ordinary groups keep their old behaviour: they may hold users who
+  // are not Members, so seeding them would change who gets billed.
+  if (input.isAdminGroup && input.memberGroupId) {
+    const memberGroupMembers = await input.orgManagerActions.loadGroupMembers(
+      input.memberGroupId,
+    );
+    if (!input.isOperationActive(input.operationOrganizationId)) {
+      return null;
+    }
+    if (!memberGroupMembers) {
+      input.setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
+      return null;
+    }
+    const alreadyMember = memberGroupMembers.members.some(
+      (member) => member.userId === targetUser.userId,
+    );
+    if (!alreadyMember) {
+      await input.orgManagerActions.addUserToGroup(
+        input.memberGroupId,
+        targetUser.userId,
+      );
+      if (!input.isOperationActive(input.operationOrganizationId)) {
+        return null;
+      }
+    }
   }
 
   const bundle = await input.orgManagerActions.addUserToGroup(

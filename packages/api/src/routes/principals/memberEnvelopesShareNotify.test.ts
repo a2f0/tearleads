@@ -13,6 +13,7 @@ import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response"
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
   createProjectionWithAdminSigner,
@@ -71,12 +72,24 @@ async function signAdminsAccessGain(
   member: ReturnType<typeof createTestUser>,
 ) {
   const [organization] = await db
-    .select({ adminGroupId: organizations.adminGroupId })
+    .select({
+      adminGroupId: organizations.adminGroupId,
+      organizationId: organizations.id,
+    })
     .from(users)
     .innerJoin(organizations, eq(organizations.id, users.defaultOrganizationId))
     .where(eq(users.id, actor.userId))
     .limit(1);
   invariant(organization, "expected actor's default organization");
+
+  // Members before Admins, the order production uses: an Admins member must
+  // already be an active organization member now that Admins is no longer
+  // reachable through Members by nesting.
+  await addOrganizationMember({
+    actor,
+    member,
+    organizationId: organization.organizationId,
+  });
 
   const currentState = await getCurrentPrincipalState(
     "group",

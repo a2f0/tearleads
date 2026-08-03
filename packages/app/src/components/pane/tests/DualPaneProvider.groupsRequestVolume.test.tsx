@@ -58,36 +58,41 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   },
 };
 
-// Removing group nesting cost one extra settle round (+1 writer-projection,
-// +1 sync) on the shared root's metadata document, 41 -> 43. Admins is no
-// longer a nested member of Members, so adding a peer to Admins no longer makes
-// them a Members member too; the peer gains the root through one grant instead
-// of two, and that path takes an extra round to converge. Verified against main
-// request-for-request: every other path is unchanged.
+// Adding a brand-new person as an admin is two signed mutations now, 41 -> 66.
+//
+// Nesting made it one: Members contained Admins, so an Admins add implicitly
+// made the user a Member. Without it, an admin who is not already a Member has
+// to be written into Members first — the server rejects an Admins policy naming
+// a non-member, because such an admin would sit on no roster and on no invoice.
+// Each mutation carries its own settle, so the counts roughly double: two policy
+// PUTs, two container shares, two rounds of policy fetches and document syncs.
+//
+// This is the worst case on purpose. Adding an admin who is already in the
+// directory — the normal path, since importing a user seeds Members — skips the
+// first mutation entirely and stays near the old cost.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 43,
+  total: 66,
   byRequest: {
     "GET /containers": 0,
-    "POST /containers/parent-lanes/query": 6,
-    "GET /principals/group/:groupId/policy": 5,
-    "GET /containers/:containerId/documents": 7,
-    "GET /documents/:documentId/writer-projection": 9,
-    "POST /documents/:documentId/sync": 9,
+    "POST /containers/parent-lanes/query": 11,
+    "GET /principals/group/:groupId/policy": 10,
+    "GET /containers/:containerId/documents": 9,
+    "GET /documents/:documentId/writer-projection": 11,
+    "POST /documents/:documentId/sync": 12,
     "GET /auth/user-identity/:userId": 2,
     "GET /organizations/:organizationId/read-model": 2,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
-    "GET /organizations/:organizationId/groups/:groupId/members": 0,
-    "GET /containers/:containerId/writer-projection": 1,
+    "GET /organizations/:organizationId/groups/:groupId/members": 1,
+    "GET /containers/:containerId/writer-projection": 2,
     "GET /organizations/:organizationId/directory": 0,
     "GET /organizations/:organizationId/groups": 0,
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
-    "GET /principals/organization/:organizationId/policy": 1,
-    "POST /containers/:containerId/share": 1,
-    "PUT /principals/group/:groupId/policy": 1,
+    "GET /principals/organization/:organizationId/policy": 2,
+    "POST /containers/:containerId/share": 2,
+    "PUT /principals/group/:groupId/policy": 2,
   },
 };
-
 function documentSyncIntentCounts(
   requests: ReturnType<typeof listProxiedApiRequests>,
 ): { readOnly: number; writeBearing: number } {
@@ -182,10 +187,10 @@ test(
       mutationRequests,
       ADMIN_GROUP_MUTATION_REQUEST_BUDGET,
     );
-    // The extra settle round the nesting removal costs is read-only; a
-    // membership add still writes nothing through the document sync lane.
+    // The extra settle rounds are read-only; a membership add still writes
+    // nothing through the document sync lane, however many mutations it takes.
     expect(syncIntents.writeBearing).toBe(0);
-    expect(syncIntents.readOnly).toBeLessThanOrEqual(9);
+    expect(syncIntents.readOnly).toBeLessThanOrEqual(12);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

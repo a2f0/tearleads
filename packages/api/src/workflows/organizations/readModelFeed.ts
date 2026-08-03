@@ -159,7 +159,7 @@ async function loadSnapshotResponse(
   });
   const organizationPolicy = await loadOrganizationPolicyLane(input);
   return {
-    version: 4,
+    version: 5,
     mode: "snapshot",
     organizationId: input.organizationId,
     nextCursor: input.nextCursor,
@@ -233,7 +233,7 @@ async function loadDeltaResponse(
     lanes.organizationPolicy = await loadOrganizationPolicyLane(input);
   }
   return {
-    version: 4,
+    version: 5,
     mode: "delta",
     organizationId: input.organizationId,
     nextCursor: input.nextCursor,

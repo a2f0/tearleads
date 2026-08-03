@@ -190,7 +190,7 @@ export function organizationReadModelSnapshot(
     organizationId,
   });
   return {
-    version: 4,
+    version: 5,
     mode: "snapshot",
     organizationId,
     nextCursor: input.cursor ?? "cursor-1",
@@ -225,7 +225,7 @@ export function organizationReadModelGroupsDelta(input: {
     organizationId,
   });
   return {
-    version: 4,
+    version: 5,
     mode: "delta",
     organizationId,
     nextCursor: input.cursor,

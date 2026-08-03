@@ -152,6 +152,8 @@ export function deriveOrgManagerState(input: DeriveOrgManagerStateInput) {
   );
   const selectedGroupIsMembersGroup =
     selectedGroup?.name === ORG_MANAGER_LABELS.members;
+  const selectedGroupIsAdminsGroup =
+    selectedGroup?.name === ORG_MANAGER_LABELS.admins;
   const canCreateGroup = Boolean(
     input.databaseReady && input.activeDirectory?.currentUser.isOrgAdmin,
   );
@@ -196,6 +198,7 @@ export function deriveOrgManagerState(input: DeriveOrgManagerStateInput) {
     memberUserIds,
     selectedGrant,
     selectedGroup,
+    selectedGroupIsAdminsGroup,
     selectedGroupIsMembersGroup,
     selectedRosterUser,
   };

@@ -158,6 +158,7 @@ export function useOrgManagerModel() {
     memberUserIds,
     selectedGrant,
     selectedGroup,
+    selectedGroupIsAdminsGroup,
     selectedGroupIsMembersGroup,
     selectedRosterUser,
   } = deriveOrgManagerState({
@@ -405,6 +406,7 @@ export function useOrgManagerModel() {
     selectUser,
     selectedGroupId,
     selectedGroupIdRef,
+    selectedGroupIsAdminsGroup,
     selectedGroupIsMembersGroup,
     selectedUserIdRef,
     setAddUserId,

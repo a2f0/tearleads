@@ -43,6 +43,7 @@ interface OrgManagerMutationsParams {
   selectUser: (userId: string | null) => void;
   selectedGroupId: string | null;
   selectedGroupIdRef: { current: string | null };
+  selectedGroupIsAdminsGroup: boolean;
   selectedGroupIsMembersGroup: boolean;
   selectedUserIdRef: { current: string | null };
   setAddUserId: Dispatch<SetStateAction<string>>;
@@ -88,6 +89,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     selectUser,
     selectedGroupId,
     selectedGroupIdRef,
+    selectedGroupIsAdminsGroup,
     selectedGroupIsMembersGroup,
     selectedUserIdRef,
     setAddUserId,
@@ -312,11 +314,13 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     directory,
     invalidateSelectedGroupDetails,
     isOperationActive,
+    memberGroupId,
     members,
     orgManagerActions,
     refreshDirectoryAndGroups,
     refreshSelectedGroupDetails,
     selectedGroupId,
+    selectedGroupIsAdminsGroup,
     selectedGroupIsMembersGroup,
     setAddUserId,
     setError,

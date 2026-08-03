@@ -153,6 +153,7 @@ export const ORG_MANAGER_LABELS = {
   loadingPolicyHistory: "Loading policy history...",
   loadingProfileDocument: "Loading profile document...",
   loadingUserDetail: "Loading user detail...",
+  admins: "Admins",
   members: "Members",
   menuNavLabel: "Org Manager sections",
   metadataAccessEpoch: "Metadata access epoch",

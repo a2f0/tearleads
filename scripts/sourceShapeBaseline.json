@@ -16,7 +16,9 @@
       "./documentStore",
       "./types"
     ],
-    "packages/crypto/src/keying.ts": ["./keying/index"],
+    "packages/crypto/src/keying.ts": [
+      "./keying/index"
+    ],
     "packages/crypto/src/keying/index.ts": [
       "./accessEvent",
       "./canonical",
@@ -29,8 +31,13 @@
       "./types",
       "./writeHeader"
     ],
-    "packages/loro/src/index.ts": ["./server", "./shared"],
-    "packages/api-shared/src/schema.ts": ["./schema/index"]
+    "packages/loro/src/index.ts": [
+      "./server",
+      "./shared"
+    ],
+    "packages/api-shared/src/schema.ts": [
+      "./schema/index"
+    ]
   },
   "fileSizes": {
     "dependency-cruiser.config.ts": {
@@ -55,7 +62,7 @@
     },
     "docs/keying-design.md": {
       "lines": 1030,
-      "bytes": 47165
+      "bytes": 47194
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 538,
@@ -188,10 +195,6 @@
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 710,
       "bytes": 20923
-    },
-    "packages/api/src/workflows/principals/putPrincipalPolicy.ts": {
-      "lines": 535,
-      "bytes": 17775
     },
     "packages/api/src/wsRouting.test.ts": {
       "lines": 530,
@@ -461,7 +464,9 @@
   "categories": {
     "configuration": {
       "description": "Monorepo configuration files that depend on holistic, interlocking rule sets.",
-      "files": ["dependency-cruiser.config.ts"]
+      "files": [
+        "dependency-cruiser.config.ts"
+      ]
     },
     "documentation": {
       "description": "Long-form design and reference documents that lose coherence when split.",

@@ -69,9 +69,7 @@ export async function validatePrincipalStateArtifacts(
   }
 
   if (computedMembershipRoot !== input.state.membershipRoot) {
-    throw new Error(
-      `Principal state membershipRoot does not match projection [${input.state.principalType}:${input.state.principalId} n=${input.projection.length} ${JSON.stringify(input.projection)}]`,
-    );
+    throw new Error("Principal state membershipRoot does not match projection");
   }
 
   if (computedEnvelopesRoot !== input.state.memberEnvelopesRoot) {

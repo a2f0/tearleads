@@ -182,7 +182,9 @@ test("adding a roster user stops before the write when an import resolves in a s
   const resultPromise = addRosterUserToGroup({
     directoryUser: undefined,
     groupId: "custom-group",
+    isAdminGroup: false,
     isOperationActive,
+    memberGroupId: null,
     operationOrganizationId: DIRECTORY.organizationId,
     orgManagerActions: actions,
     setError: createErrorSetter().setError,
@@ -210,7 +212,9 @@ test("adding a roster user reports a stale result when the organization changes 
   const result = await addRosterUserToGroup({
     directoryUser: undefined,
     groupId: "custom-group",
+    isAdminGroup: false,
     isOperationActive,
+    memberGroupId: null,
     operationOrganizationId: DIRECTORY.organizationId,
     orgManagerActions: actions,
     setError: createErrorSetter().setError,
