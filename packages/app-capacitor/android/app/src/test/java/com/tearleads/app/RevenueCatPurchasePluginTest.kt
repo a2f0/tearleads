@@ -27,6 +27,16 @@ class RevenueCatPurchasePluginTest {
     }
 
     @Test
+    fun clearingTheCacheInvalidatesAStalePreparedPackage() {
+        val cache = PreparedPackageCache<String>()
+        cache.replace("team", "team-product")
+
+        cache.clear()
+
+        assertNull(cache.consume("team", "team-product") { it })
+    }
+
+    @Test
     fun mapsEverySupportedReplacementMode() {
         val expected = mapOf(
             "WITHOUT_PRORATION" to StoreReplacementMode.WITHOUT_PRORATION,

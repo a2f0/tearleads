@@ -11,6 +11,8 @@ import type {
   RevenueCatIdentityCoordinatorInput,
   RevenueCatProviderOperation,
 } from "./revenueCatIdentityTypes";
+import { RevenueCatProviderPhaseCoordinator } from "./revenueCatProviderPhase";
+import { settleRevenueCatProviderOperation } from "./revenueCatProviderSettlement";
 import { RevenueCatTimeoutCoordinator } from "./revenueCatTimeoutCoordinator";
 
 export {
@@ -272,6 +274,7 @@ class RevenueCatIdentityCoordinatorState
     readonly isAbandoned: () => boolean;
     readonly markStarted: () => void;
     readonly providerInput: RevenueCatProviderOperation<T>;
+    readonly providerPhase: RevenueCatProviderPhaseCoordinator | undefined;
     readonly ready: Promise<void>;
     readonly rejectPreflight: (error: unknown) => void;
     readonly requiresKnownIdentity: boolean;
@@ -306,7 +309,7 @@ class RevenueCatIdentityCoordinatorState
       const lateTimeout = this.timeouts.armLateProviderTimeout();
       input.resolvePreflight();
       try {
-        return await input.providerInput.operation();
+        return await input.providerInput.operation(input.providerPhase);
       } finally {
         if (lateTimeout !== undefined) clearTimeout(lateTimeout);
       }
@@ -333,6 +336,10 @@ class RevenueCatIdentityCoordinatorState
     const reservation = providerInput.waitForCheckout
       ? this.checkouts.reserve()
       : undefined;
+    const providerPhase =
+      providerInput.phasedProviderOperations === true
+        ? new RevenueCatProviderPhaseCoordinator(this.timeouts)
+        : undefined;
     const ready = this.startConfiguration(providerInput.expectedAppUserId);
     let providerStarted = false;
     let abandoned = false;
@@ -351,6 +358,7 @@ class RevenueCatIdentityCoordinatorState
           providerStarted = true;
         },
         providerInput,
+        providerPhase,
         ready,
         rejectPreflight,
         requiresKnownIdentity,
@@ -374,35 +382,31 @@ class RevenueCatIdentityCoordinatorState
     if (reservation) {
       void operation.then(reservation.gate.release, reservation.gate.release);
     }
-    if (providerInput.buyerPaced) {
-      void operation.catch(() => undefined);
-      return this.timeouts
-        .withProviderTimeout(
-          preflight,
-          `${providerInput.operationName} preparation`,
-          () => this.timeouts.identityMutationActive,
-          () => {
-            abandoned = true;
-            enqueueReservation?.release();
+    const abandonPreparation = () => {
+      abandoned = true;
+      enqueueReservation?.release();
+      reservation?.gate.release();
+    };
+    const abandonProvider = providerInput.waitForCheckout
+      ? () => {
+          abandoned = true;
+          enqueueReservation?.release();
+          if (!providerStarted && !this.timeouts.identityMutationActive) {
             reservation?.gate.release();
-          },
-        )
-        .then(() => operation);
-    }
-    return this.timeouts.withProviderTimeout(
-      operation,
-      providerInput.operationName,
-      () => providerStarted || this.timeouts.identityMutationActive,
-      providerInput.waitForCheckout
-        ? () => {
-            abandoned = true;
-            enqueueReservation?.release();
-            if (!providerStarted && !this.timeouts.identityMutationActive) {
-              reservation?.gate.release();
-            }
           }
-        : undefined,
-    );
+        }
+      : undefined;
+    return settleRevenueCatProviderOperation({
+      buyerPaced: providerInput.buyerPaced === true,
+      onPreparationTimeout: abandonPreparation,
+      ...(abandonProvider ? { onProviderTimeout: abandonProvider } : {}),
+      operation,
+      operationName: providerInput.operationName,
+      preflight,
+      providerPhase,
+      providerStarted: () => providerStarted,
+      timeouts: this.timeouts,
+    });
   }
 
   private async ensureExpectedIdentity(appUserId: string): Promise<void> {

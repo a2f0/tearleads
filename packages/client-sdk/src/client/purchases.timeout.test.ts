@@ -204,7 +204,38 @@ test("Android restore exposes a terminal error when the bridge stalls", async ()
   );
 });
 
-test("an Android native move keeps the server claim buyer-paced", async () => {
+test("an Android native move bounds only the Play restore phase", async () => {
+  const backend = createBackend();
+  let finishRestore = () => {};
+  backend.restorePurchases = () =>
+    new Promise((resolve) => {
+      finishRestore = () => resolve({ activeEntitlementIds: ["sync"] });
+    });
+  let claimAttempts = 0;
+  const capability = purchases(backend);
+
+  await expect(
+    capability.moveNativeSubscription({
+      claim: async () => {
+        claimAttempts += 1;
+        return true;
+      },
+      organizationId: "org-1",
+      userId: "user-1",
+    }),
+  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
+  expect(claimAttempts).toBe(0);
+  await expect(capability.hasActiveSyncEntitlement()).rejects.toBeInstanceOf(
+    PurchaseProviderStalledError,
+  );
+
+  finishRestore();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(await capability.hasActiveSyncEntitlement()).toBe(false);
+  expect(claimAttempts).toBe(0);
+});
+
+test("an Android native move excludes the server claim from its deadline", async () => {
   const backend = createBackend();
   backend.restorePurchases = async () => ({
     activeEntitlementIds: ["sync"],
@@ -240,6 +271,68 @@ test("an Android native move keeps the server claim buyer-paced", async () => {
   expect(settled).toBe(false);
   finishClaim(true);
   expect(await moving).toBeNull();
+});
+
+test("a native move bounds RevenueCat binding after the server claim", async () => {
+  const backend = createBackend();
+  backend.restorePurchases = async () => ({
+    activeEntitlementIds: ["sync"],
+  });
+  let finishBinding = () => {};
+  backend.setAttributes = () =>
+    new Promise((resolve) => {
+      finishBinding = resolve;
+    });
+  let claimAttempts = 0;
+  const capability = purchases(backend);
+
+  await expect(
+    capability.moveNativeSubscription({
+      claim: async () => {
+        claimAttempts += 1;
+        return true;
+      },
+      organizationId: "org-1",
+      userId: "user-1",
+    }),
+  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
+  expect(claimAttempts).toBe(1);
+
+  finishBinding();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(await capability.hasActiveSyncEntitlement()).toBe(false);
+});
+
+test("an iOS native move leaves StoreKit restore buyer-paced", async () => {
+  const backend = createBackend();
+  let finishRestore = () => {};
+  let markRestoreStarted = () => {};
+  const restoreStarted = new Promise<void>((resolve) => {
+    markRestoreStarted = resolve;
+  });
+  backend.restorePurchases = () => {
+    markRestoreStarted();
+    return new Promise((resolve) => {
+      finishRestore = () => resolve({ activeEntitlementIds: ["sync"] });
+    });
+  };
+  const capability = purchases(backend, "app_store");
+  let settled = false;
+  const moving = capability
+    .moveNativeSubscription({
+      claim: async () => true,
+      organizationId: "org-1",
+      userId: "user-1",
+    })
+    .finally(() => {
+      settled = true;
+    });
+
+  await restoreStarted;
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  expect(settled).toBe(false);
+  finishRestore();
+  await moving;
 });
 
 test("identity queued behind buyer-paced restore stays retryable", async () => {

@@ -1,3 +1,5 @@
+import type { RevenueCatProviderPhaseControl } from "./revenueCatProviderPhase";
+
 interface RevenueCatIdentityBackend {
   configure(input: { apiKey: string; appUserId?: string }): Promise<void>;
   logIn(input: { appUserId: string }): Promise<void>;
@@ -9,12 +11,16 @@ export interface RevenueCatProviderOperation<T> {
   readonly buyerPaced?: boolean;
   /** Re-establish this buyer inside the serialized provider operation. */
   readonly expectedAppUserId?: string;
-  readonly operation: () => Promise<T>;
+  readonly operation: (
+    providerPhase?: RevenueCatProviderPhaseControl,
+  ) => Promise<T>;
   readonly operationName: string;
   /** False only for provider state that is not scoped to a customer. */
   readonly requiresKnownIdentity?: boolean;
   /** Defers store operations until the active native checkout settles. */
   readonly waitForCheckout?: boolean;
+  /** Gives the operation independently bounded provider phases. */
+  readonly phasedProviderOperations?: boolean;
 }
 
 export interface RevenueCatCustomerMutation {

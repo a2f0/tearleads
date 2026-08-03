@@ -100,8 +100,7 @@ export function useBillingOptions(
   userId: string | null,
   retryDelaysMs: readonly number[] = OPTIONS_RETRY_DELAYS_MS,
 ): () => void {
-  // A load generation uses one schedule even if a test caller rerenders with a
-  // new array; production uses the module-level fixed schedule.
+  // A hook instance uses one schedule; production uses the fixed module value.
   const retryDelaysRef = useRef(retryDelaysMs);
   const [loadGeneration, setLoadGeneration] = useState(0);
   const retryOptions = useCallback(() => {

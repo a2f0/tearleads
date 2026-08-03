@@ -13,6 +13,7 @@ interface NativeSubscriptionMoveBackend {
 interface NativeSubscriptionMoveConfig {
   readonly nativeStore: NativeSubscriptionStore | null;
   readonly purchasesEnabled?: boolean;
+  readonly restorePurchasesBuyerPaced: boolean;
   readonly syncEntitlementId: string;
 }
 
@@ -24,14 +25,23 @@ function moveRevenueCatNativeSubscription(input: {
   readonly entitlementId: string;
   readonly identity: RevenueCatIdentityCoordinator;
   readonly organizationId: string;
+  readonly restorePurchasesBuyerPaced: boolean;
   readonly store: NativeSubscriptionStore;
   readonly userId: string;
 }): Promise<void> {
   return input.identity.runProviderOperation({
-    buyerPaced: true,
     expectedAppUserId: input.userId,
-    operation: async () => {
-      const info = await input.backend.restorePurchases();
+    operation: async (providerPhase) => {
+      if (!providerPhase) {
+        throw new Error("Native move requires provider phase control");
+      }
+      const info = await providerPhase.run(
+        () => input.backend.restorePurchases(),
+        {
+          ...(input.restorePurchasesBuyerPaced ? { buyerPaced: true } : {}),
+          operationName: "restore",
+        },
+      );
       if (
         !Array.isArray(info.activeEntitlementIds) ||
         !info.activeEntitlementIds.includes(input.entitlementId)
@@ -41,11 +51,16 @@ function moveRevenueCatNativeSubscription(input: {
       if (!(await input.claim(input.store))) {
         throw new Error("The server did not accept the native subscription");
       }
-      await input.backend.setAttributes({
-        [input.attributeKey]: input.organizationId,
-      });
+      await providerPhase.run(
+        () =>
+          input.backend.setAttributes({
+            [input.attributeKey]: input.organizationId,
+          }),
+        { operationName: "organization binding" },
+      );
     },
     operationName: "native subscription move",
+    phasedProviderOperations: true,
     waitForCheckout: true,
   });
 }
@@ -69,6 +84,7 @@ export function nativeMove(
       backend,
       entitlementId: config.syncEntitlementId,
       identity,
+      restorePurchasesBuyerPaced: config.restorePurchasesBuyerPaced,
       ...request,
       store: config.nativeStore,
     }).catch(normalizeRevenueCatIdentityError);

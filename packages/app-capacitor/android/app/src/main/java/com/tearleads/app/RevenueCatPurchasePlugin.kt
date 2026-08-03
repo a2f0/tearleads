@@ -20,6 +20,11 @@ internal class PreparedPackageCache<T> {
     private val entries = HashMap<String, T>()
 
     @Synchronized
+    fun clear() {
+        entries.clear()
+    }
+
+    @Synchronized
     fun replace(packageId: String, value: T) {
         entries.clear()
         entries[packageId] = value
@@ -52,6 +57,7 @@ class RevenueCatPurchasePlugin : Plugin() {
 
     @PluginMethod
     fun preparePackage(call: PluginCall) {
+        preparedPackages.clear()
         if (!Purchases.isConfigured) {
             rejectBridgeValidation(call)
             return

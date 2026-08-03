@@ -54,7 +54,10 @@ test.each<[string, Error, string, boolean]>([
         error,
       );
     } else {
-      expect(consoleError).not.toHaveBeenCalled();
+      expect(consoleError).not.toHaveBeenCalledWith(
+        "Failed to complete the organization sync purchase:",
+        error,
+      );
     }
   } finally {
     consoleError.mockRestore();

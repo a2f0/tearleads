@@ -124,7 +124,7 @@ export class RevenueCatTimeoutCoordinator {
     operation: Promise<T>,
     operationName: string,
     hasStarted: () => boolean,
-    onTimeout?: () => void,
+    onTimeout?: (error: RevenueCatOperationTimeoutError) => void,
   ): Promise<T> {
     let timeoutError: RevenueCatOperationTimeoutError | undefined;
     const clearWedge = () => {
@@ -145,7 +145,7 @@ export class RevenueCatTimeoutCoordinator {
       } else {
         this.pendingProviderTimeoutError = error;
       }
-      onTimeout?.();
+      onTimeout?.(error);
     });
   }
 

@@ -230,6 +230,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(purchasePlugin).toContain(
     "preparedPackages.replace(packageId, prepared)",
   );
+  expect(purchasePlugin).toContain("preparedPackages.clear()");
   expect(purchasePlugin).toContain(
     "preparedPackages.consume(packageId, productId)",
   );
