@@ -26,13 +26,11 @@ const MAX_POLICY_HISTORY_PAGES =
   1;
 
 /**
- * Total history fetches one recovery may make, across every principal it hops
- * through.
+ * Total history fetches one recovery may make, across every principal it tries.
  *
- * Enough for one full-depth walk plus a bounded number of nested-group hops,
- * and no more — a hostile server must not be able to turn one recovery into an
- * unbounded request storm, and the budget is shared so recursion cannot
- * multiply it.
+ * Enough for a handful of full-depth walks and no more — a hostile server must
+ * not be able to turn one recovery into an unbounded request storm, and the
+ * budget is shared across wraps so a wide key epoch cannot multiply it.
  */
 const MAX_POLICY_HISTORY_FETCHES = MAX_POLICY_HISTORY_PAGES * 4;
 
@@ -183,10 +181,9 @@ export async function resolveHistoricalPrincipalKey(input: {
   principalType: "group" | "organization";
   secretKey: Uint8Array;
   /**
-   * Fetches remaining for the WHOLE traversal, nested hops included. Shared by
-   * reference so recursion cannot multiply the budget: a deeply-nested
-   * membership graph would otherwise fan out a full page walk per hop, and
-   * each hop's pages fan out again.
+   * Fetches remaining for the WHOLE recovery. Shared by reference so a wide key
+   * epoch cannot multiply the budget: one page walk per principal envelope
+   * would otherwise fan out without bound.
    */
   budget?: { remaining: number } | undefined;
 }): Promise<Uint8Array | null> {

@@ -68,7 +68,7 @@ test("storeVerifiedPrincipalState persists signed state and epoch key", async ()
     generateSigningSeedAndKeyPair();
   const signer = await createPrincipalStateSigner(signingPublicKey);
   const principalId = crypto.randomUUID();
-  const nestedGroupId = crypto.randomUUID();
+  const secondMemberId = crypto.randomUUID();
   const signedState = await signPrincipalState(
     {
       principalType: "group",
@@ -78,14 +78,14 @@ test("storeVerifiedPrincipalState persists signed state and epoch key", async ()
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [{ userId: signer.signerUserId }, { userId: nestedGroupId }],
+      members: [{ userId: signer.signerUserId }, { userId: secondMemberId }],
       projection: [
         {
           userId: signer.signerUserId,
           role: "admin",
         },
         {
-          userId: nestedGroupId,
+          userId: secondMemberId,
           role: "member",
         },
       ],
@@ -815,7 +815,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
   const firstPrincipalId = crypto.randomUUID();
   const secondPrincipalId = crypto.randomUUID();
   const firstMemberId = crypto.randomUUID();
-  const nestedGroupId = crypto.randomUUID();
+  const secondMemberId = crypto.randomUUID();
   const firstKem = generateKemSeedAndKeyPair();
   const secondKem = generateKemSeedAndKeyPair();
   const firstProjection = [
@@ -834,7 +834,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
       role: "admin" as const,
     },
     {
-      userId: nestedGroupId,
+      userId: secondMemberId,
       role: "member" as const,
     },
   ];
@@ -868,7 +868,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
         keyFingerprint: await toFingerprint(secondKem.publicKey),
-        members: [{ userId: signer.signerUserId }, { userId: nestedGroupId }],
+        members: [{ userId: signer.signerUserId }, { userId: secondMemberId }],
         projection: secondProjection,
         signedAt: new Date("2026-04-07T16:05:00.000Z").toISOString(),
         ...signer,
@@ -897,5 +897,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
       .get(secondKey)
       ?.map((member) => `${member.userId}:${member.role}`)
       .sort(),
-  ).toEqual([`${nestedGroupId}:member`, `${signer.signerUserId}:admin`].sort());
+  ).toEqual(
+    [`${secondMemberId}:member`, `${signer.signerUserId}:admin`].sort(),
+  );
 });

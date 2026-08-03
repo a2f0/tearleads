@@ -77,8 +77,8 @@ Principal policy uses the signed group/organization model and tightens two
 rules.
 
 First, any principal transition that removes a reader, demotes a role that can
-read, removes a nested group, disables a member, or changes a member key in a
-way that shrinks future access must advance the principal key epoch. Clients
+read, disables a member, or changes a member key in a way that shrinks future
+access must advance the principal key epoch. Clients
 and the API both reject shrinking policy transitions that reuse the old
 principal key epoch.
 

@@ -326,10 +326,7 @@ test("seedPeerRosterEntry does not re-add a peer already in the member group", a
       users: [self],
       memberGroupId: "mg",
     }),
-    members: members([
-      member({ userId: "self" }),
-      member({ userId: "peer" }),
-    ]),
+    members: members([member({ userId: "self" }), member({ userId: "peer" })]),
   });
 
   expect(await seedPeerRosterEntry(actions, "peer", "Peer 2")).toBe(false);

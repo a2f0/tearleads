@@ -149,6 +149,10 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
     db,
   );
 
+  // Envelopes come back ordered by user id. That used to be a two-level sort on
+  // (member kind, id) which put a user member first regardless of its random
+  // uuid; with only users left, the ids alone decide, so the expectation has to
+  // sort the same way rather than pin an insertion order.
   expect(
     storedEnvelopes.map((envelope) => ({
       userId: envelope.userId,
@@ -156,20 +160,22 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
       stateHash: envelope.stateHash,
       epoch: envelope.epoch,
     })),
-  ).toEqual([
-    {
-      userId: bobUserId,
-      memberKeyFingerprint: await toFingerprint(bobKem.publicKey),
-      stateHash: storedState.stateHash,
-      epoch: 1,
-    },
-    {
-      userId: aliceUserId,
-      memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
-      stateHash: storedState.stateHash,
-      epoch: 1,
-    },
-  ]);
+  ).toEqual(
+    [
+      {
+        userId: bobUserId,
+        memberKeyFingerprint: await toFingerprint(bobKem.publicKey),
+        stateHash: storedState.stateHash,
+        epoch: 1,
+      },
+      {
+        userId: aliceUserId,
+        memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
+        stateHash: storedState.stateHash,
+        epoch: 1,
+      },
+    ].sort((left, right) => (left.userId < right.userId ? -1 : 1)),
+  );
 
   const currentStoredEnvelopes = await listCurrentPrincipalMemberEnvelopes(
     "group",

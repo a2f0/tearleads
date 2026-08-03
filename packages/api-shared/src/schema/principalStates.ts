@@ -287,8 +287,8 @@ export const principalMembershipProjection = pgTable(
  * A principal state has a `keyEpoch`, `encapsulationPublicKey`, and
  * `keyFingerprint`. This table indexes that key material by principal and
  * epoch so other systems can encrypt to the principal as a recipient. For
- * example, a group member envelope can target a nested group by looking up the
- * nested group's current principal epoch key.
+ * example, a container key wrap can target a group by looking up that group's
+ * current principal epoch key.
  *
  * Key epochs are historical and monotonic. Additive policy changes may reuse an
  * existing epoch and key material; membership shrink or key material changes

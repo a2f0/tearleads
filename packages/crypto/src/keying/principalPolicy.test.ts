@@ -120,35 +120,6 @@ test("verifyPrincipalPolicyBundle rejects direct member removal without a new ke
   expectVerificationError(result, "key_epoch_reuse");
 });
 
-test("verifyPrincipalPolicyBundle rejects nested group removal without a new key epoch", async () => {
-  const signer = await createPolicySigner();
-  const principalId = "group-nested-shrink";
-  const principalKeyPair = generateKemSeedAndKeyPair();
-  const first = await signPolicyState({
-    principalId,
-    principalKeyPair,
-    version: 1,
-    prevStateHash: null,
-    members: [{ userId: signer.userId }, { userId: "user-nested-group" }],
-    signer,
-  });
-  const second = await signPolicyState({
-    principalId,
-    principalKeyPair,
-    version: 2,
-    prevStateHash: first.state.stateHash,
-    members: [{ userId: signer.userId }],
-    signer,
-  });
-
-  const result = await verifyPrincipalPolicyBundle({
-    bundle: createBundle({ current: second, previous: [first.entry] }),
-    signerPublicKeys: [signer],
-  });
-
-  expectVerificationError(result, "key_epoch_reuse");
-});
-
 test("verifyPrincipalPolicyBundle rejects role demotion and same-epoch key changes", async () => {
   const signer = await createPolicySigner();
   const principalId = "group-role-shrink";

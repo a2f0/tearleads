@@ -58,15 +58,21 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   },
 };
 
+// Removing group nesting cost one extra settle round (+1 writer-projection,
+// +1 sync) on the shared root's metadata document, 41 -> 43. Admins is no
+// longer a nested member of Members, so adding a peer to Admins no longer makes
+// them a Members member too; the peer gains the root through one grant instead
+// of two, and that path takes an extra round to converge. Verified against main
+// request-for-request: every other path is unchanged.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 41,
+  total: 43,
   byRequest: {
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 6,
     "GET /principals/group/:groupId/policy": 5,
     "GET /containers/:containerId/documents": 7,
-    "GET /documents/:documentId/writer-projection": 8,
-    "POST /documents/:documentId/sync": 8,
+    "GET /documents/:documentId/writer-projection": 9,
+    "POST /documents/:documentId/sync": 9,
     "GET /auth/user-identity/:userId": 2,
     "GET /organizations/:organizationId/read-model": 2,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
@@ -176,8 +182,10 @@ test(
       mutationRequests,
       ADMIN_GROUP_MUTATION_REQUEST_BUDGET,
     );
+    // The extra settle round the nesting removal costs is read-only; a
+    // membership add still writes nothing through the document sync lane.
     expect(syncIntents.writeBearing).toBe(0);
-    expect(syncIntents.readOnly).toBeLessThanOrEqual(8);
+    expect(syncIntents.readOnly).toBeLessThanOrEqual(9);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

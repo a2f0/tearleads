@@ -46,9 +46,7 @@ export function GroupMembers({
     );
   }
 
-  const adminCount = members.filter(
-    (member) => member.role === "admin",
-  ).length;
+  const adminCount = members.filter((member) => member.role === "admin").length;
 
   return (
     <MiniAppVirtualListFrame
