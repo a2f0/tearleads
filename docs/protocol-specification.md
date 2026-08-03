@@ -288,9 +288,18 @@ whatever the server chose to send. The chain is also not new disclosure: the
 current-policy bundle already ships all of `previousStates`, with projections,
 to any authenticated caller.
 
-What the route does scope is key material. Each entry's `memberEnvelopes`
-carry only envelopes addressed to the requester or to a principal that
-authorizes them, capped per state by
+What the route does scope is key material. Each entry's `memberEnvelopes` carry
+ONLY the requester's own direct user envelopes; group-addressed envelopes are
+never served. That is a security boundary, not a simplification: serving them
+would need to know whether the requester belonged to that group at that state,
+and current membership is not a safe proxy — a user who joins a group today
+would otherwise be handed every envelope the principal ever addressed to it,
+and an additive join need not rotate the group key. Issue #1948 tracks
+historical tenure resolution, which is also what unblocks transitive
+(nested-group) recovery. The primary case does not need it: opening a container
+envelope sealed to a group's older key epoch means recovering that group's
+secret from its OWN history, through the envelope addressed to the requester as
+a user. Envelopes are capped per state by
 `PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT` — deliberately one more
 than `PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT` (64) allows to match, so the
 cap can never be the binding constraint — and ranked so the

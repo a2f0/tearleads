@@ -1,15 +1,11 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   principalMemberEnvelopes,
-  principalMembershipProjection,
   principalStates,
 } from "@tearleads/api-shared/schema";
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
-import {
-  PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT,
-  PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT,
-} from "@tearleads/validators/util";
-import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
+import { PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT } from "@tearleads/validators/util";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import {
   principalStateSelect,
   type StoredPrincipalState,
@@ -75,60 +71,8 @@ export async function listPrincipalStateHistoryPage(
  * membership cannot make one page unbounded. Recovery needs one openable
  * envelope per state, so the cap cannot cost a reachable key.
  */
-/**
- * The distinct groups appearing as direct members across a page of states,
- * bounded in SQL.
- *
- * These are only candidates for a reachability walk, so the page's full
- * projection never needs to reach the application: a state's member list has
- * no server-side bound, and materializing 64 states' worth to then keep at
- * most `PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT` of them would put an
- * unbounded allocation in front of a bounded endpoint. Ordered so which
- * candidates survive the cap is deterministic rather than a function of
- * database return order.
- */
-export async function listPrincipalGroupMemberCandidates(
-  input: {
-    /**
-     * The principal's CURRENT state hash — not the page's states.
-     *
-     * Scoping to current membership is what stops a privilege escalation: a
-     * user who joins group G today would otherwise be served every envelope P
-     * ever addressed to G, including states from before they joined. If G's
-     * key was never rotated on that join — an additive membership change need
-     * not rotate — they would decrypt P key epochs they never had access to.
-     * Restricting to groups still in P keeps the rotation case working while
-     * closing that path; a group removed from P is covered by issue #1948.
-     */
-    readonly currentStateHash: string;
-    readonly principalId: string;
-    readonly principalType: ManagedRecipientPrincipalType;
-  },
-  executor: DatabaseSession,
-): Promise<string[]> {
-  const rows = await executor
-    .select({
-      memberPrincipalId: principalMembershipProjection.memberPrincipalId,
-    })
-    .from(principalMembershipProjection)
-    .where(
-      and(
-        eq(principalMembershipProjection.principalType, input.principalType),
-        eq(principalMembershipProjection.principalId, input.principalId),
-        eq(principalMembershipProjection.memberPrincipalType, "group"),
-        eq(principalMembershipProjection.stateHash, input.currentStateHash),
-      ),
-    )
-    .groupBy(principalMembershipProjection.memberPrincipalId)
-    .orderBy(asc(principalMembershipProjection.memberPrincipalId))
-    .limit(PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT);
-
-  return rows.map((row) => row.memberPrincipalId);
-}
-
 export async function listPrincipalMemberEnvelopesForStates(
   input: {
-    readonly memberGroupIds: readonly string[];
     readonly principalId: string;
     readonly principalType: ManagedRecipientPrincipalType;
     readonly stateHashes: readonly string[];
@@ -161,28 +105,14 @@ export async function listPrincipalMemberEnvelopesForStates(
     return byStateHash;
   }
 
-  const recipientScope = or(
-    and(
-      eq(principalMemberEnvelopes.memberPrincipalType, "user"),
-      eq(principalMemberEnvelopes.memberPrincipalId, input.userId),
-    ),
-    input.memberGroupIds.length > 0
-      ? and(
-          eq(principalMemberEnvelopes.memberPrincipalType, "group"),
-          // Bounded here rather than by truncating results: the scope is what
-          // determines how many envelopes a state can yield, and the per-state
-          // cap is deliberately one larger so it never binds.
-          inArray(
-            principalMemberEnvelopes.memberPrincipalId,
-            // Sorted before slicing: the caller's set has no defined order, so
-            // slicing it raw would make which groups survive the cap depend on
-            // database return order — a different answer run to run.
-            [...input.memberGroupIds]
-              .sort()
-              .slice(0, PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT),
-          ),
-        )
-      : undefined,
+  // ONLY the requester's own direct envelopes. Group-addressed envelopes are
+  // never served here — see `runGetPrincipalPolicyHistoryWorkflow` for why
+  // current group membership is not a safe proxy for membership at a
+  // historical state. This also makes the per-state count naturally bounded:
+  // at most one envelope per state can match.
+  const recipientScope = and(
+    eq(principalMemberEnvelopes.memberPrincipalType, "user"),
+    eq(principalMemberEnvelopes.memberPrincipalId, input.userId),
   );
   if (!recipientScope) {
     return byStateHash;

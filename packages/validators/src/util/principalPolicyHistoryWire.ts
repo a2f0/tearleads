@@ -16,27 +16,16 @@
 export const PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT = 64;
 
 /**
- * Maximum groups a policy-history read may scope envelopes to.
- *
- * The scope — the requester's own user principal plus the groups they can
- * reach — is the real bound on how many envelopes a state can yield, so it is
- * bounded here rather than by truncating the result. A requester's reachable
- * group set has no intrinsic ceiling and each entry adds a clause, and bind
- * parameters, to the statement.
- */
-export const PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT = 64;
-
-/**
  * Maximum member envelopes one historical state may serve.
  *
- * Deliberately one MORE than the group scope allows, so it can never be the
- * binding constraint: at most one direct user envelope plus one per scoped
- * group can match, and all of them fit. A cap that could bite would drop the
- * only historically resolvable envelope whenever it happened to sort last,
- * and a dropped envelope is indistinguishable from an absent one.
+ * A page carries only the requester's own direct user envelopes, and a state
+ * holds at most one envelope per direct member, so at most one can match per
+ * state. The cap is a structural backstop that cannot bite rather than a
+ * truncation — a cap that could bite would drop the only resolvable envelope
+ * whenever it happened to sort last, and a dropped envelope is
+ * indistinguishable from an absent one.
  */
-export const PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT =
-  PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT + 1;
+export const PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT = 4;
 
 /**
  * The longest principal state chain the protocol supports.

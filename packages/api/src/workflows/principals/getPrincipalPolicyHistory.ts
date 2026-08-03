@@ -5,12 +5,7 @@ import type {
 } from "@tearleads/validators/response";
 import { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "@tearleads/validators/util";
 import { listPrincipalMemberEnvelopesForStates } from "../../access/read/principalMemberEnvelopes";
-import {
-  getCurrentPrincipalState,
-  listPrincipalGroupMemberCandidates,
-  listPrincipalStateHistoryPage,
-} from "../../access/read/principalStateStore";
-import { listUserReachableCurrentGroupIds } from "../organizations/principalReachability";
+import { listPrincipalStateHistoryPage } from "../../access/read/principalStateStore";
 import { toPrincipalStateResponse } from "./shared";
 
 /**
@@ -29,13 +24,24 @@ import { toPrincipalStateResponse } from "./shared";
  * the whole of `previousStates`, with projections, to any authenticated
  * caller.
  *
- * What IS scoped is the key material: `memberEnvelopes` carry only envelopes
- * this requester could open. One member's envelope is not another's to read,
- * and recovery only ever needs the requester's own.
+ * What IS scoped is the key material: `memberEnvelopes` carry ONLY the
+ * requester's own direct user envelopes. Group-addressed envelopes are
+ * deliberately never served, and that is a security boundary rather than a
+ * simplification.
  *
- * A removed member therefore still recovers the epochs covering their tenure,
- * which is exactly the case this endpoint exists for: opening a container
- * envelope addressed to a principal key epoch that predates their removal.
+ * Serving them would require knowing whether the requester was in that group
+ * at that state. Current membership is not a safe proxy: a user who joins
+ * group G today would be handed every envelope this principal ever addressed
+ * to G, and an additive join need not rotate G's key, so they could open
+ * principal key epochs from before they had any access. Resolving historical
+ * tenure needs the same history walk applied recursively at authorization
+ * time — issue #1948.
+ *
+ * The primary case does not need them. Opening a container envelope sealed to
+ * group G at one of G's older key epochs means recovering G's secret at that
+ * epoch, which comes from G's OWN history via the envelope addressed to the
+ * requester as a user. Only transitive recovery — reaching G through another
+ * group — needs group-addressed envelopes, and that is what #1948 unblocks.
  */
 export async function runGetPrincipalPolicyHistoryWorkflow(input: {
   readonly beforeVersion: number | null;
@@ -67,32 +73,8 @@ export async function runGetPrincipalPolicyHistoryWorkflow(input: {
     // the page's full projection never reaches the application — a state's
     // member list has no server-side bound, and this endpoint's whole point is
     // being bounded.
-    const currentState = await getCurrentPrincipalState(
-      input.principalType,
-      input.principalId,
-      tx,
-    );
-    const groupIds = currentState
-      ? await listPrincipalGroupMemberCandidates(
-          {
-            currentStateHash: currentState.stateHash,
-            principalId: input.principalId,
-            principalType: input.principalType,
-          },
-          tx,
-        )
-      : [];
-
-    // One reachability walk for the whole page, not one per state.
-    const reachableGroupIds = await listUserReachableCurrentGroupIds({
-      executor: tx,
-      groupIds,
-      userId: input.userId,
-    });
-
     const envelopesByStateHash = await listPrincipalMemberEnvelopesForStates(
       {
-        memberGroupIds: [...reachableGroupIds],
         principalId: input.principalId,
         principalType: input.principalType,
         stateHashes: page.states.map((state) => state.stateHash),
