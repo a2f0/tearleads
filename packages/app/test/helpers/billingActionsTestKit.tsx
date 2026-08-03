@@ -48,7 +48,7 @@ export function purchaseTraceEntries(
 export function createPurchases(
   purchaseResult: SyncPurchaseResult,
 ): PurchasesCapability {
-  return {
+  const purchases: PurchasesCapability = {
     bindOrganization: mock(() => Promise.resolve()),
     isAvailable: true,
     nativeStore: "test_store",
@@ -56,10 +56,23 @@ export function createPurchases(
     identify: mock(() => Promise.resolve()),
     reset: mock(() => Promise.resolve()),
     listSyncOptions: mock(() => Promise.resolve([OPTION])),
+    moveNativeSubscription: mock(async (input) => {
+      const restored = await purchases.restore();
+      if (!restored.syncEntitlementActive) {
+        throw new Error("The restored receipt has no sync entitlement");
+      }
+      if (!(await input.claim("test_store"))) {
+        throw new Error("The server did not accept the native subscription");
+      }
+      await purchases.bindOrganization({
+        organizationId: input.organizationId,
+      });
+    }),
     purchaseSync: mock(() => Promise.resolve(purchaseResult)),
     restore: mock(() => Promise.resolve({ syncEntitlementActive: true })),
     hasActiveSyncEntitlement: mock(() => Promise.resolve(false)),
   };
+  return purchases;
 }
 
 function wrapper(createPurchasesFn: CreatePurchasesFn) {

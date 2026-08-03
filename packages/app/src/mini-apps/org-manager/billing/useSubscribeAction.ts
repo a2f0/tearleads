@@ -8,7 +8,7 @@ import {
   type SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
-import { type RefObject, useCallback, useRef, useState } from "react";
+import { type RefObject, useCallback, useState } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import {
   formatBillingPurchaseFailure,
@@ -64,7 +64,6 @@ async function restoreClaimAndBindNativeSubscription(input: {
   readonly claimNativeSubscription: (
     store: NativeSubscriptionStore,
   ) => Promise<boolean>;
-  readonly pendingBindScopeRef: RefObject<BillingActionScope | null>;
   readonly purchases: PurchasesCapability;
   readonly scope: BillingActionScope;
   readonly userId: string | null;
@@ -72,27 +71,11 @@ async function restoreClaimAndBindNativeSubscription(input: {
   if (!input.userId || !input.purchases.nativeStore) {
     throw new Error("Native subscription restore is unavailable");
   }
-  const pendingScope = input.pendingBindScopeRef.current;
-  if (pendingScope === null || !scopeMatches(pendingScope, input.scope)) {
-    await input.purchases.identify({ userId: input.userId });
-    const restored = await input.purchases.restore();
-    if (!restored.syncEntitlementActive) {
-      throw new Error("The restored receipt has no sync entitlement");
-    }
-    const claimed = await input.claimNativeSubscription(
-      input.purchases.nativeStore,
-    );
-    if (!claimed) {
-      throw new Error("The server did not accept the native subscription");
-    }
-    // The server claim is durable and idempotent across restarts. Within this
-    // mounted flow, retain it across bind failures so only binding is retried.
-    input.pendingBindScopeRef.current = input.scope;
-  }
-  await input.purchases.bindOrganization({
+  await input.purchases.moveNativeSubscription({
+    claim: input.claimNativeSubscription,
     organizationId: input.scope.organizationId,
+    userId: input.userId,
   });
-  input.pendingBindScopeRef.current = null;
 }
 
 /** Owns confirmation and the verified native restore/claim sequence. */
@@ -110,7 +93,6 @@ export function useNativeSubscriptionMove(
   } = input;
   const { logError } = useLog();
   const [openScope, setOpenScope] = useState<BillingActionScope | null>(null);
-  const pendingBindScopeRef = useRef<BillingActionScope | null>(null);
   const open = openScope !== null && scopeMatches(openScope, currentScope);
   const request = useCallback(() => setOpenScope(currentScope), [currentScope]);
   const dismiss = useCallback(() => setOpenScope(null), []);
@@ -126,7 +108,6 @@ export function useNativeSubscriptionMove(
     const move = enqueueNativeSubscriptionMove(purchases, () =>
       restoreClaimAndBindNativeSubscription({
         claimNativeSubscription,
-        pendingBindScopeRef,
         purchases,
         scope,
         userId,

@@ -362,6 +362,8 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/client/revenueCatErrors.ts`,
       `${sdk}/client/revenueCatIdentity.ts`,
       `${sdk}/client/revenueCatIdentityTypes.ts`,
+      `${sdk}/client/revenueCatNativeSubscriptionMove.ts`,
+      `${sdk}/client/revenueCatPurchaseErrorNormalization.ts`,
       `${sdk}/client/revenueCatPurchasePreparation.ts`,
       `${sdk}/client/revenueCatTimeoutCoordinator.ts`,
       `${sdk}/client/directCheckout.ts`,

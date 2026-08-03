@@ -24,6 +24,7 @@ test("identifies the buyer before loading subscription options", async () => {
     bindOrganization: mock(() => Promise.resolve()),
     isAvailable: true,
     nativeStore: "test_store",
+    moveNativeSubscription: mock(() => Promise.resolve()),
     identify: mock(() => {
       calls.push("identify");
       return Promise.resolve();
@@ -278,12 +279,14 @@ test("billing actions pause option retries and hide their stale error", async ()
   expect(result.current.actionError).toBeNull();
   expect(result.current.optionsRetryAvailable).toBe(false);
   await act(() => new Promise((resolve) => setTimeout(resolve, 30)));
-  expect(purchases.identify).toHaveBeenCalledTimes(2);
+  // The native move owns its buyer selection inside the provider queue, so the
+  // app-level options identity remains untouched while the move is active.
+  expect(purchases.identify).toHaveBeenCalledTimes(1);
   expect(purchases.listSyncOptions).toHaveBeenCalledTimes(1);
 
   finishRestore({ syncEntitlementActive: true });
   await waitFor(() => expect(result.current.busy).toBeNull());
-  await waitFor(() => expect(purchases.identify).toHaveBeenCalledTimes(3));
+  await waitFor(() => expect(purchases.identify).toHaveBeenCalledTimes(2));
   expect(purchases.listSyncOptions).toHaveBeenCalledTimes(2);
 });
 

@@ -16,21 +16,18 @@ import {
   type NativeSubscriptionStore,
   type SyncBillingTierId,
 } from "@tearleads/validators/billing";
-import {
-  PurchaseAbortedError,
-  PurchaseIdentityPendingError,
-  PurchaseProviderStalledError,
-  PurchasesUnavailableError,
-} from "./purchaseErrors";
+import { PurchasesUnavailableError } from "./purchaseErrors";
 import {
   createRevenueCatIdentityCoordinator,
-  RevenueCatCheckoutAbandonedError,
-  RevenueCatCheckoutIdentityPendingError,
   type RevenueCatIdentityCoordinator,
-  RevenueCatOperationTimeoutError,
   revenueCatCheckoutSettlementTimeoutMs,
   revenueCatOperationTimeoutMs,
 } from "./revenueCatIdentity";
+import { nativeMove } from "./revenueCatNativeSubscriptionMove";
+import {
+  normalizeRevenueCatCheckoutError,
+  normalizeRevenueCatIdentityError,
+} from "./revenueCatPurchaseErrorNormalization";
 import { prepareRevenueCatPurchase } from "./revenueCatPurchasePreparation";
 
 export {
@@ -106,6 +103,12 @@ export interface PurchasesCapability {
   restore(): Promise<SyncPurchaseResult>;
   /** Publish a server-accepted personal-org binding for later lifecycle events. */
   bindOrganization(input: { organizationId: string }): Promise<void>;
+  /** Atomically restore, server-claim, and bind a native receipt for one buyer. */
+  moveNativeSubscription(input: {
+    userId: string;
+    organizationId: string;
+    claim: (store: NativeSubscriptionStore) => Promise<boolean>;
+  }): Promise<void>;
   /** Whether the identified buyer currently holds the sync entitlement. */
   hasActiveSyncEntitlement(): Promise<boolean>;
 }
@@ -264,34 +267,6 @@ function requirePurchasesEnabled(enabled: boolean): void {
   }
 }
 
-function normalizeRevenueCatCheckoutError(error: unknown): never {
-  if (error instanceof RevenueCatCheckoutAbandonedError) {
-    throw new PurchaseAbortedError();
-  }
-  if (error instanceof RevenueCatCheckoutIdentityPendingError) {
-    throw new PurchaseIdentityPendingError(error);
-  }
-  if (error instanceof RevenueCatOperationTimeoutError) {
-    throwPurchaseTimeoutError(error);
-  }
-  throw error;
-}
-
-function normalizeRevenueCatIdentityError(error: unknown): never {
-  if (error instanceof RevenueCatOperationTimeoutError) {
-    throwPurchaseTimeoutError(error);
-  }
-  throw error;
-}
-
-function throwPurchaseTimeoutError(
-  error: RevenueCatOperationTimeoutError,
-): never {
-  throw error.restartRequired
-    ? new PurchaseProviderStalledError(error)
-    : new PurchaseIdentityPendingError(error);
-}
-
 function runRevenueCatCustomerOperation<T>(input: {
   readonly buyerPaced?: boolean;
   readonly identity: RevenueCatIdentityCoordinator;
@@ -334,10 +309,6 @@ export function createRevenueCatPurchases(
   const purchasesEnabled = config.purchasesEnabled ?? true;
   const attributeKey = revenueCatAttributeKey(config);
   const identity = revenueCatIdentity(backend, config);
-  // Defensive against a backend that returns a malformed customer info despite
-  // the typed contract (native bridges can hand back partial objects). Optional
-  // chaining alone is insufficient: a non-array truthy `activeEntitlementIds`
-  // would make `.includes` a TypeError, so gate on an actual array.
   return {
     isAvailable: purchasesEnabled,
     nativeStore: config.nativeStore,
@@ -428,6 +399,7 @@ export function createRevenueCatPurchases(
         })
         .catch(normalizeRevenueCatIdentityError);
     },
+    moveNativeSubscription: nativeMove(backend, config, identity, attributeKey),
     async hasActiveSyncEntitlement() {
       const info = await runRevenueCatCustomerOperation({
         identity,
@@ -466,6 +438,9 @@ export function createUnavailablePurchases(): PurchasesCapability {
       return Promise.resolve({ syncEntitlementActive: false });
     },
     bindOrganization() {
+      return Promise.reject(new PurchasesUnavailableError());
+    },
+    moveNativeSubscription() {
       return Promise.reject(new PurchasesUnavailableError());
     },
     hasActiveSyncEntitlement() {

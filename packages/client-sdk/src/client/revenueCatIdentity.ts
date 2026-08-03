@@ -286,7 +286,13 @@ class RevenueCatIdentityCoordinatorState
     const scheduled = this.enqueueProviderOperation(async () => {
       try {
         await input.ready;
-        if (input.requiresKnownIdentity) await this.recoverIdentity();
+        if (input.providerInput.expectedAppUserId !== undefined) {
+          await this.ensureExpectedIdentity(
+            input.providerInput.expectedAppUserId,
+          );
+        } else if (input.requiresKnownIdentity) {
+          await this.recoverIdentity();
+        }
       } catch (error) {
         input.rejectPreflight(error);
         throw error;
@@ -327,7 +333,7 @@ class RevenueCatIdentityCoordinatorState
     const reservation = providerInput.waitForCheckout
       ? this.checkouts.reserve()
       : undefined;
-    const ready = this.startConfiguration();
+    const ready = this.startConfiguration(providerInput.expectedAppUserId);
     let providerStarted = false;
     let abandoned = false;
     let resolvePreflight = () => {};
@@ -397,6 +403,14 @@ class RevenueCatIdentityCoordinatorState
           }
         : undefined,
     );
+  }
+
+  private async ensureExpectedIdentity(appUserId: string): Promise<void> {
+    if (!this.retryIdentity && this.currentAppUserId === appUserId) {
+      this.blockedIdentityError = undefined;
+      return;
+    }
+    await this.logIn(appUserId);
   }
 
   runCheckout<T>(checkoutInput: {

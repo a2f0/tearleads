@@ -33,6 +33,18 @@ function purchases(
     bindOrganization,
     identify: () => Promise.resolve(),
     isAvailable: true,
+    async moveNativeSubscription(
+      input: Parameters<PurchasesCapability["moveNativeSubscription"]>[0],
+    ) {
+      const restored = await restore();
+      if (!restored.syncEntitlementActive) {
+        throw new Error("The restored receipt has no sync entitlement");
+      }
+      if (!(await input.claim("play_store"))) {
+        throw new Error("The server did not accept the native subscription");
+      }
+      await bindOrganization({ organizationId: input.organizationId });
+    },
     nativeStore: "play_store",
     restore,
   } as never;
@@ -158,7 +170,7 @@ test("restore binds lifecycle attribution only after the claim succeeds", async 
   expect(calls).toEqual(["restore", "claim", "bind"]);
 });
 
-test("a post-claim retry resumes at organization binding", async () => {
+test("a binding failure can retry the idempotent native move", async () => {
   const claim = mock(() => Promise.resolve(true));
   const restore = mock(() => Promise.resolve({ syncEntitlementActive: true }));
   let bindAttempts = 0;
@@ -179,8 +191,8 @@ test("a post-claim retry resumes at organization binding", async () => {
   startMove(flow.view);
   await waitFor(() => expect(flow.state().busy).toBeNull());
 
-  expect(restore).toHaveBeenCalledTimes(1);
-  expect(claim).toHaveBeenCalledTimes(1);
+  expect(restore).toHaveBeenCalledTimes(2);
+  expect(claim).toHaveBeenCalledTimes(2);
   expect(bindOrganization).toHaveBeenCalledTimes(2);
   expect(flow.state().actionError).toBeNull();
 });

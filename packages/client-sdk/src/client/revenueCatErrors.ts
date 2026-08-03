@@ -74,14 +74,22 @@ export function normalizeRevenueCatError(source: unknown): Error {
     : new Error(message, { cause: source });
 }
 
-/** Gives each rejected caller its own error without losing subclass identity. */
-export function copyRevenueCatError<T extends Error>(source: T): T {
-  // Keep timeout state as ordinary descriptor-backed fields: this clone cannot
-  // reproduce JavaScript #private slots.
-  const copy: T = Object.create(
-    Object.getPrototypeOf(source),
-    Object.getOwnPropertyDescriptors(source),
-  );
+/** Gives each rejected caller an independent, valid error instance. */
+export function copyRevenueCatError(
+  source: RevenueCatOperationTimeoutError,
+): RevenueCatOperationTimeoutError;
+export function copyRevenueCatError(source: Error): Error;
+export function copyRevenueCatError(source: Error): Error {
+  if (source instanceof RevenueCatOperationTimeoutError) {
+    const copy = new RevenueCatOperationTimeoutError(
+      source.operationName,
+      source.timeoutMs,
+    );
+    if (source.restartRequired) copy.markRestartRequired();
+    return copy;
+  }
+  const copy = new Error(source.message, { cause: source });
+  copy.name = source.name;
   return copy;
 }
 

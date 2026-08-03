@@ -7,6 +7,8 @@ interface RevenueCatIdentityBackend {
 export interface RevenueCatProviderOperation<T> {
   /** True for provider flows that may wait on buyer-controlled store UI. */
   readonly buyerPaced?: boolean;
+  /** Re-establish this buyer inside the serialized provider operation. */
+  readonly expectedAppUserId?: string;
   readonly operation: () => Promise<T>;
   readonly operationName: string;
   /** False only for provider state that is not scoped to a customer. */

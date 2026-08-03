@@ -44,7 +44,7 @@ function createFixture() {
     getCustomerInfo: async () => emptyInfo,
     restorePurchases: async () => {
       calls.push("restorePurchases");
-      return emptyInfo;
+      return { activeEntitlementIds: ["sync"] };
     },
   };
   const purchases = createRevenueCatPurchases(backend, {
@@ -160,6 +160,37 @@ test("restore stays ahead of a later identity change", async () => {
   await Promise.all([checkout, restoring, identifying]);
 
   expect(fixture.calls.indexOf("restorePurchases")).toBeLessThan(
+    fixture.calls.indexOf("logIn:user-2"),
+  );
+});
+
+test("native move holds its buyer through claim and binding", async () => {
+  const fixture = createFixture();
+  const claim = createDeferred();
+  const claimStarted = createDeferred();
+  await fixture.purchases.identify({ userId: "user-1" });
+
+  const moving = fixture.purchases.moveNativeSubscription({
+    claim: async () => {
+      fixture.calls.push("claim");
+      claimStarted.resolve();
+      await claim.promise;
+      return true;
+    },
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+  await claimStarted.promise;
+  const identifying = fixture.purchases.identify({ userId: "user-2" });
+  await Promise.resolve();
+  expect(fixture.calls).not.toContain("logIn:user-2");
+
+  claim.resolve();
+  await Promise.all([moving, identifying]);
+  expect(fixture.calls.indexOf("claim")).toBeLessThan(
+    fixture.calls.indexOf("setAttributes:org-1"),
+  );
+  expect(fixture.calls.indexOf("setAttributes:org-1")).toBeLessThan(
     fixture.calls.indexOf("logIn:user-2"),
   );
 });
