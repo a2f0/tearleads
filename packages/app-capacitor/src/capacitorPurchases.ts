@@ -11,6 +11,7 @@ import {
   PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
   type PurchasesCapability,
+  PurchasesUnavailableError,
   type RevenueCatBackend,
   type RevenueCatPackage,
 } from "@tearleads/client-sdk";
@@ -156,6 +157,30 @@ function isAnonymousLogOut(error: unknown): boolean {
   );
 }
 
+function isInvalidNativePurchaseBridge(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "bridge-invalid"
+  );
+}
+
+function normalizeCapacitorPurchaseError(error: unknown): never {
+  if (isUserCancelledPurchase(error)) {
+    throw new PurchaseCancelledError();
+  }
+  if (isAlreadyOwnedPurchase(error)) {
+    throw new PurchaseAlreadyOwnedError();
+  }
+  if (isInvalidNativePurchaseBridge(error)) {
+    throw new PurchasesUnavailableError(
+      "The native purchase bridge could not validate this package",
+    );
+  }
+  throw error;
+}
+
 /**
  * Adapts the native `@revenuecat/purchases-capacitor` plugin to the client-sdk
  * {@link RevenueCatBackend}. Only the normalized surface the sdk consumes is
@@ -190,7 +215,11 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
   async getCurrentPackages() {
     return (await currentPackages()).map(toRevenueCatPackage);
   },
-  preparePurchasePackage: prepareCapacitorPurchase,
+  async preparePurchasePackage(input) {
+    return prepareCapacitorPurchase(input).catch(
+      normalizeCapacitorPurchaseError,
+    );
+  },
   async purchasePackage({ abortSignal, packageId, preparedPurchase }) {
     if (abortSignal?.aborted) throw new PurchaseAbortedError();
     if (
@@ -205,17 +234,7 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
         preparedPurchase.productChangeOptions,
       );
     } catch (error) {
-      // Backing out of the store sheet is a normal exit, not a failure.
-      // Without this the panel surfaces "Failed to subscribe" and logs an
-      // error every time a buyer dismisses the sheet, because
-      // useSubscribeAction only treats PurchaseCancelledError as a no-op.
-      if (isUserCancelledPurchase(error)) {
-        throw new PurchaseCancelledError();
-      }
-      if (isAlreadyOwnedPurchase(error)) {
-        throw new PurchaseAlreadyOwnedError();
-      }
-      throw error;
+      normalizeCapacitorPurchaseError(error);
     }
   },
   async getCustomerInfo() {

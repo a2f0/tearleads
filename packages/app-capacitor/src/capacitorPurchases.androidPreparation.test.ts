@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import {
   PurchaseAbortedError,
   PurchaseProviderStalledError,
+  PurchasesUnavailableError,
 } from "@tearleads/client-sdk";
 import {
   createCapacitorPurchases,
@@ -85,7 +86,7 @@ test("fails closed when Android package preparation cannot validate", async () =
       organizationId: "org-1",
       packageId: "monthly",
     }),
-  ).rejects.toMatchObject({ code: "bridge-invalid" });
+  ).rejects.toBeInstanceOf(PurchasesUnavailableError);
   expect(fixture.nativePrepareCalls).toEqual([
     { identifier: "monthly", productId: "sync_solo_monthly:monthly" },
   ]);

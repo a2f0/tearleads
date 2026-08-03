@@ -5,6 +5,7 @@ import {
   PurchaseIdentityPendingError,
   PurchaseProviderStalledError,
   type PurchasesCapability,
+  PurchasesUnavailableError,
   type SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
@@ -302,6 +303,9 @@ function reportUnexpectedPurchaseError(error: unknown): void {
 function purchaseErrorLabel(error: unknown): string {
   if (error instanceof PurchaseIdentityPendingError) {
     return ORG_MANAGER_LABELS.billingIdentityPending;
+  }
+  if (error instanceof PurchasesUnavailableError) {
+    return ORG_MANAGER_LABELS.billingNativeCheckoutUnavailable;
   }
   return error instanceof PurchaseProviderStalledError
     ? ORG_MANAGER_LABELS.billingProviderStalled

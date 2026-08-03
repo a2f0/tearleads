@@ -5,6 +5,7 @@ import {
   PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
   PurchaseProviderStalledError,
+  PurchasesUnavailableError,
 } from "@tearleads/client-sdk";
 import {
   clearEnv,
@@ -335,9 +336,9 @@ test("fails closed when the native bridge cannot validate", async () => {
     data: { userCancelled: false },
   };
 
-  await expect(purchaseSync()).rejects.toMatchObject({
-    code: "bridge-invalid",
-  });
+  await expect(purchaseSync()).rejects.toBeInstanceOf(
+    PurchasesUnavailableError,
+  );
 
   expect(fixture.nativePurchaseCalls).toEqual([
     { identifier: "monthly", productId: "com.tearleads.sync.monthly" },

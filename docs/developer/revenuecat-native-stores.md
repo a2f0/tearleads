@@ -29,11 +29,12 @@ is specific to the native bridge, as opposed to the web one:
 - **Native purchases use a bounded first-party bridge.** The Android and iOS
   `RevenueCatPurchasePlugin` implementations resolve and cache the package
   during bounded preparation, then purchase that exact package without a
-  second offerings lookup. Both return only active entitlement IDs and preserve
-  the RevenueCat code and cancellation flag; iOS also preserves the StoreKit
-  domain/code. Every non-purchase operation continues through RevenueCat's
-  official Capacitor plugin. The System Monitor includes those bounded values
-  but excludes receipt, account, and free-form provider text.
+  second offerings lookup. No fallback exists: `bridge-invalid` fails closed
+  and tells the buyer to retry or restart. Both return active entitlement IDs
+  and preserve the RevenueCat code and cancellation flag; iOS also preserves
+  the StoreKit domain/code. Non-purchase operations use RevenueCat's official
+  Capacitor plugin. The System Monitor includes those values but excludes
+  receipt, account, and free-form provider text.
 - **A dismissed store sheet is a cancellation, not a failure.** The bridge
   serializes RevenueCat's `PurchasesError` across the native boundary, so what
   arrives is a plain object — `instanceof` cannot work the way it does on web.

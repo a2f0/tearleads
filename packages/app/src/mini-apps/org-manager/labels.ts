@@ -54,6 +54,8 @@ export const ORG_MANAGER_LABELS = {
   billingManageSubscription: "Manage subscription",
   billingManageSubscriptionFailed:
     "Could not open subscription management. Try again.",
+  billingNativeCheckoutUnavailable:
+    "Store checkout could not be prepared. Tap Subscribe again; restart the app if it continues.",
   billingNoOptions: "No subscription options are available right now.",
   billingOptionsUnavailable: "Couldn't load subscription plans. Try again.",
   billingPastDue: "Payment past due",

@@ -5,6 +5,7 @@ import {
   PurchaseIdentityPendingError,
   PurchaseProviderStalledError,
   type PurchasesCapability,
+  PurchasesUnavailableError,
   type SyncPurchaseResult,
 } from "@tearleads/client-sdk";
 import { act, cleanup, waitFor } from "@testing-library/react";
@@ -31,6 +32,12 @@ test.each<[string, Error, string, boolean]>([
     ORG_MANAGER_LABELS.billingProviderStalled,
     true,
   ],
+  [
+    "native bridge unavailable",
+    new PurchasesUnavailableError(),
+    ORG_MANAGER_LABELS.billingNativeCheckoutUnavailable,
+    true,
+  ],
 ])("%s billing readiness gives actionable guidance", async (_case, error, label, shouldLog) => {
   const consoleError = spyOn(console, "error").mockImplementation(() => {});
   try {
@@ -48,6 +55,10 @@ test.each<[string, Error, string, boolean]>([
     });
     await waitFor(() => expect(result.current.busy).toBe(null));
     expect(result.current.actionError).toBe(label);
+    if (error instanceof PurchasesUnavailableError) {
+      expect(result.current.canSubscribe).toBe(true);
+      expect(result.current.options).toEqual([OPTION]);
+    }
     if (shouldLog) {
       expect(consoleError).toHaveBeenCalledWith(
         "Failed to complete the organization sync purchase:",
