@@ -10,8 +10,7 @@ export type OrganizationPrincipalMemberChangeType =
   | "role_changed";
 export interface OrganizationPrincipalMemberChange {
   readonly changeType: OrganizationPrincipalMemberChangeType;
-  readonly memberPrincipalId: string;
-  readonly memberPrincipalType: PrincipalProjectionMemberResponse["memberPrincipalType"];
+  readonly userId: string;
   readonly nextRole: PrincipalProjectionMemberResponse["role"] | null;
   readonly previousRole: PrincipalProjectionMemberResponse["role"] | null;
 }
@@ -51,12 +50,9 @@ interface PrincipalPolicyHistoryState {
 }
 
 function projectionMemberKey(
-  member: Pick<
-    PrincipalProjectionMemberResponse,
-    "memberPrincipalId" | "memberPrincipalType"
-  >,
+  member: Pick<PrincipalProjectionMemberResponse, "userId">,
 ): string {
-  return `${member.memberPrincipalType}:${member.memberPrincipalId}`;
+  return member.userId;
 }
 
 function comparePrincipalMemberChanges(
@@ -64,8 +60,8 @@ function comparePrincipalMemberChanges(
   right: OrganizationPrincipalMemberChange,
 ): number {
   return (
-    left.memberPrincipalType.localeCompare(right.memberPrincipalType) ||
-    left.memberPrincipalId.localeCompare(right.memberPrincipalId) ||
+    left.userId.localeCompare(right.userId) ||
+    left.userId.localeCompare(right.userId) ||
     left.changeType.localeCompare(right.changeType)
   );
 }
@@ -89,8 +85,7 @@ function diffPrincipalProjectionMembers(input: {
     if (!previousMember) {
       changes.push({
         changeType: "added",
-        memberPrincipalId: currentMember.memberPrincipalId,
-        memberPrincipalType: currentMember.memberPrincipalType,
+        userId: currentMember.userId,
         nextRole: currentMember.role,
         previousRole: null,
       });
@@ -100,8 +95,7 @@ function diffPrincipalProjectionMembers(input: {
     if (previousMember.role !== currentMember.role) {
       changes.push({
         changeType: "role_changed",
-        memberPrincipalId: currentMember.memberPrincipalId,
-        memberPrincipalType: currentMember.memberPrincipalType,
+        userId: currentMember.userId,
         nextRole: currentMember.role,
         previousRole: previousMember.role,
       });
@@ -115,8 +109,7 @@ function diffPrincipalProjectionMembers(input: {
 
     changes.push({
       changeType: "removed",
-      memberPrincipalId: previousMember.memberPrincipalId,
-      memberPrincipalType: previousMember.memberPrincipalType,
+      userId: previousMember.userId,
       nextRole: null,
       previousRole: previousMember.role,
     });

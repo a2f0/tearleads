@@ -125,10 +125,7 @@ async function assertPolicyRequestCommitments(
   request: PutPrincipalPolicyRequest,
 ): Promise<void> {
   const projection = normalizePrincipalProjectionMembers(request.projection);
-  const members = projection.map((member) => ({
-    principalId: member.memberPrincipalId,
-    principalType: member.memberPrincipalType,
-  }));
+  const members = projection.map((member) => ({ userId: member.userId }));
   const [
     membershipRoot,
     memberEnvelopesRoot,

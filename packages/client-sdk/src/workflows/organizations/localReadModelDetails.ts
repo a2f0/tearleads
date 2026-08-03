@@ -88,20 +88,16 @@ function memberKey(type: "group" | "user", id: string): string {
 function reachableGroupIds(input: {
   readonly edges: ReadonlyArray<{
     readonly groupId: string;
-    readonly memberPrincipalId: string;
-    readonly memberPrincipalType: string;
+    readonly userId: string;
   }>;
   readonly userId: string;
 }): Set<string> {
   const parentsByMember = new Map<string, string[]>();
   for (const edge of input.edges) {
-    if (
-      edge.memberPrincipalType !== "group" &&
-      edge.memberPrincipalType !== "user"
-    ) {
+    if (edge.userId !== "group" && edge.userId !== "user") {
       throw new Error("Stored organization membership type is invalid");
     }
-    const key = memberKey(edge.memberPrincipalType, edge.memberPrincipalId);
+    const key = memberKey(edge.userId, edge.userId);
     const parents = parentsByMember.get(key) ?? [];
     parents.push(edge.groupId);
     parentsByMember.set(key, parents);

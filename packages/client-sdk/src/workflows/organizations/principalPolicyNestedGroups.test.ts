@@ -196,20 +196,16 @@ test("group remove policy builder rekeys remaining nested group members", async 
 
   expect(removeRequest.state.keyEpoch).toBe(2);
   expect(
-    removeRequest.projection.some(
-      (member) => member.memberPrincipalId === targetUserId,
-    ),
+    removeRequest.projection.some((member) => member.userId === targetUserId),
   ).toBe(false);
   expect(removeRequest.memberEnvelopes).toHaveLength(2);
   expect(removeRequest.memberEnvelopes).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        memberPrincipalId: signerUserId,
-        memberPrincipalType: "user",
+        userId: signerUserId,
       }),
       expect.objectContaining({
-        memberPrincipalId: initialAdminGroup.groupId,
-        memberPrincipalType: "group",
+        userId: initialAdminGroup.groupId,
       }),
     ]),
   );

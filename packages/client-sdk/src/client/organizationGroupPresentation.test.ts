@@ -24,10 +24,8 @@ const projectedMembers: OrganizationGroupMembersResponse = {
   groupId,
   members: [
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: "projected-user",
-      role: "admin",
       userId: "projected-user",
+      role: "admin",
       signingKeyFingerprint: "projected-signing-fingerprint",
       signingPublicKey: "projected-signing-public-key",
       encapsulationPublicKey: "projected-encapsulation-public-key",

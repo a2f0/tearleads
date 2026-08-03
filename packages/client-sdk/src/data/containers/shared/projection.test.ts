@@ -58,8 +58,7 @@ import {
 
 async function createGroupPrincipalPolicyBundle(input: {
   memberRecipientPublicKeys: Array<{
-    memberPrincipalId: string;
-    memberPrincipalType: "user" | "group";
+    userId: string;
     publicKey: Uint8Array;
   }>;
   members: Array<{ principalType: "user" | "group"; principalId: string }>;
@@ -78,21 +77,18 @@ async function createGroupPrincipalPolicyBundle(input: {
 }): Promise<PrincipalPolicyBundleResponse> {
   const currentProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.signer.signerUserId,
+      userId: input.signer.signerUserId,
       role: "admin" as const,
     },
     ...input.members.map((member) => ({
-      memberPrincipalType: member.principalType,
-      memberPrincipalId: member.principalId,
+      userId: member.principalId,
       role: "member" as const,
     })),
   ];
   const payloadCiphertext = `${input.principalId}-payload`;
   const recipients = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.signer.signerUserId,
+      userId: input.signer.signerUserId,
       publicKey: input.signer.recipientPublicKey,
     },
     ...input.memberRecipientPublicKeys,
@@ -108,8 +104,7 @@ async function createGroupPrincipalPolicyBundle(input: {
     }
 
     return {
-      memberPrincipalType: recipient.memberPrincipalType,
-      memberPrincipalId: recipient.memberPrincipalId,
+      userId: recipient.userId,
       memberKeyFingerprint: wrappedMember.keyFingerprint,
       kemCipherText: bytesToBase64(wrappedMember.kemCipherText),
       wrappedKey: bytesToBase64(wrappedMember.wrappedKey),
@@ -126,7 +121,7 @@ async function createGroupPrincipalPolicyBundle(input: {
       keyFingerprint: await toFingerprint(input.principalKem.publicKey),
       members: currentProjection.map((member) => ({
         principalType: member.memberPrincipalType,
-        principalId: member.memberPrincipalId,
+        principalId: member.userId,
       })),
       memberEnvelopes,
       projection: currentProjection,
@@ -806,8 +801,7 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
   const groupBundle = await createGroupPrincipalPolicyBundle({
     memberRecipientPublicKeys: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: groupMemberUserId,
+        userId: groupMemberUserId,
         publicKey: groupMemberKem.publicKey,
       },
     ],

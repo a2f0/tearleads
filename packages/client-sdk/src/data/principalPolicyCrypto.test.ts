@@ -21,8 +21,7 @@ async function createPrincipalPolicyBundle(input: {
   keyEpoch?: number;
   members: Array<{ principalType: "user" | "group"; principalId: string }>;
   memberRecipientPublicKeys: Array<{
-    memberPrincipalId: string;
-    memberPrincipalType: "user" | "group";
+    userId: string;
     publicKey: Uint8Array;
   }>;
   principalId: string;
@@ -41,13 +40,11 @@ async function createPrincipalPolicyBundle(input: {
   const signerUserKeyFingerprint = await toFingerprint(signingPublicKey);
   const currentProjection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signerUserId,
+      userId: signerUserId,
       role: "admin" as const,
     },
     ...input.members.map((member) => ({
-      memberPrincipalType: member.principalType,
-      memberPrincipalId: member.principalId,
+      userId: member.principalId,
       role: "member" as const,
     })),
   ];
@@ -55,8 +52,7 @@ async function createPrincipalPolicyBundle(input: {
   const signerRecipientKem = generateKemSeedAndKeyPair();
   const recipients = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: signerUserId,
+      userId: signerUserId,
       publicKey: signerRecipientKem.publicKey,
     },
     ...input.memberRecipientPublicKeys,
@@ -73,8 +69,7 @@ async function createPrincipalPolicyBundle(input: {
     }
 
     return {
-      memberPrincipalType: recipient.memberPrincipalType,
-      memberPrincipalId: recipient.memberPrincipalId,
+      userId: recipient.userId,
       memberKeyFingerprint: recipientEntry.keyFingerprint,
       kemCipherText: bytesToBase64(recipientEntry.kemCipherText),
       wrappedKey: bytesToBase64(recipientEntry.wrappedKey),
@@ -91,7 +86,7 @@ async function createPrincipalPolicyBundle(input: {
       keyFingerprint: await toFingerprint(input.principalKem.publicKey),
       members: currentProjection.map((member) => ({
         principalType: member.memberPrincipalType,
-        principalId: member.memberPrincipalId,
+        principalId: member.userId,
       })),
       memberEnvelopes,
       projection: currentProjection,
@@ -145,8 +140,7 @@ test("principal policy crypto unwraps an object key addressed to a cached group 
       members: [{ principalType: "user", principalId: "alice" }],
       memberRecipientPublicKeys: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: "alice",
+          userId: "alice",
           publicKey: aliceKem.publicKey,
         },
       ],
@@ -201,8 +195,7 @@ test("principal policy crypto recursively unwraps nested group principals", asyn
       members: [{ principalType: "user", principalId: "alice" }],
       memberRecipientPublicKeys: [
         {
-          memberPrincipalType: "user",
-          memberPrincipalId: "alice",
+          userId: "alice",
           publicKey: aliceKem.publicKey,
         },
       ],
@@ -214,8 +207,7 @@ test("principal policy crypto recursively unwraps nested group principals", asyn
       members: [{ principalType: "group", principalId: "group-nested" }],
       memberRecipientPublicKeys: [
         {
-          memberPrincipalType: "group",
-          memberPrincipalId: "group-nested",
+          userId: "group-nested",
           publicKey: nestedGroupKem.publicKey,
         },
       ],

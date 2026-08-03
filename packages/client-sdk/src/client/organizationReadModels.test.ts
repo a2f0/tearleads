@@ -29,24 +29,20 @@ function projectedPolicyMember(
 ): OrganizationGroupMemberResponse {
   const isUser = member.memberPrincipalType === "user";
   return {
-    memberPrincipalType: member.memberPrincipalType,
-    memberPrincipalId: member.memberPrincipalId,
+    userId: member.userId,
     role: member.role,
-    userId: isUser ? member.memberPrincipalId : null,
     signingKeyFingerprint: isUser
-      ? `signing-fingerprint-${member.memberPrincipalId}`
+      ? `signing-fingerprint-${member.userId}`
       : null,
-    signingPublicKey: isUser
-      ? `signing-public-key-${member.memberPrincipalId}`
-      : null,
+    signingPublicKey: isUser ? `signing-public-key-${member.userId}` : null,
     encapsulationPublicKey: isUser
-      ? `encapsulation-public-key-${member.memberPrincipalId}`
+      ? `encapsulation-public-key-${member.userId}`
       : null,
     encapsulationKeyFingerprint: isUser
-      ? `encapsulation-fingerprint-${member.memberPrincipalId}`
+      ? `encapsulation-fingerprint-${member.userId}`
       : null,
-    groupId: isUser ? null : member.memberPrincipalId,
-    groupName: isUser ? null : member.memberPrincipalId,
+    groupId: isUser ? null : member.userId,
+    groupName: isUser ? null : member.userId,
   };
 }
 

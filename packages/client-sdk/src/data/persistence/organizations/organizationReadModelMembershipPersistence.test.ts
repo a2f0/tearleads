@@ -47,16 +47,12 @@ function member(
   role: OrganizationGroupMemberResponse["role"] = "member",
 ): OrganizationGroupMemberResponse {
   return {
-    memberPrincipalType: "user",
-    memberPrincipalId: userId,
-    role,
     userId,
+    role,
     signingKeyFingerprint: `signing-fingerprint-${userId}`,
     signingPublicKey: `signing-public-key-${userId}`,
     encapsulationPublicKey: `encapsulation-public-key-${userId}`,
     encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
-    groupId: null,
-    groupName: null,
   };
 }
 

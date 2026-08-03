@@ -54,8 +54,7 @@ async function createAdminPolicyBundle(input: {
   const keyEpoch = (previousState?.keyEpoch ?? 0) + 1;
   const projection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: USER_ID,
+      userId: USER_ID,
       role: "admin" as const,
     },
   ];
@@ -68,8 +67,7 @@ async function createAdminPolicyBundle(input: {
   }
   const memberEnvelopes = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: USER_ID,
+      userId: USER_ID,
       memberKeyFingerprint: wrappedMember.keyFingerprint,
       kemCipherText: bytesToBase64(wrappedMember.kemCipherText),
       wrappedKey: bytesToBase64(wrappedMember.wrappedKey),

@@ -128,11 +128,8 @@ interface LoadedGroupPolicyMutationContext
   readonly memberGroupId: string;
 }
 
-function projectionMemberKey(member: {
-  readonly memberPrincipalType: "user" | "group";
-  readonly memberPrincipalId: string;
-}): string {
-  return `${member.memberPrincipalType}:${member.memberPrincipalId}`;
+function projectionMemberKey(member: { readonly userId: string }): string {
+  return member.userId;
 }
 
 function requireExternalAuthority(
@@ -346,11 +343,9 @@ async function buildOrgAdminAddGroupUserPolicyRequest(
     [input.targetUser.userId, input.targetUser] as const,
   ]);
   const recipientUsers = projection.map((member) => {
-    const user = usersById.get(member.memberPrincipalId);
+    const user = usersById.get(member.userId);
     if (!user) {
-      throw new Error(
-        `Missing recipient key for user ${member.memberPrincipalId}`,
-      );
+      throw new Error(`Missing recipient key for user ${member.userId}`);
     }
 
     return user;
@@ -362,8 +357,7 @@ async function buildOrgAdminAddGroupUserPolicyRequest(
   const memberEnvelopes = wrappedRecipients.map((envelope, index) =>
     toPrincipalMemberEnvelopeRequest({
       envelope,
-      memberPrincipalType: "user",
-      memberPrincipalId: recipientUsers[index]?.userId ?? "",
+      userId: recipientUsers[index]?.userId ?? "",
     }),
   );
   return signedGroupPolicyRequest({
@@ -405,8 +399,7 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
       (envelope) => projectionMemberKey(envelope) !== targetKey,
     ),
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.targetUser.userId,
+      userId: input.targetUser.userId,
       memberKeyFingerprint: input.targetUser.encapsulationKeyFingerprint,
       kemCipherText: bytesToBase64(targetEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(targetEnvelope.wrappedKey),
@@ -447,8 +440,7 @@ export async function buildAddGroupUserPolicyRequest(
   );
 
   const targetKey = projectionMemberKey({
-    memberPrincipalType: "user",
-    memberPrincipalId: input.targetUser.userId,
+    userId: input.targetUser.userId,
   });
   const currentProjection = input.currentPolicy.currentProjection;
   if (
@@ -494,8 +486,7 @@ export async function buildRemoveGroupUserPolicyRequest(
   );
 
   const key = projectionMemberKey({
-    memberPrincipalType: "user",
-    memberPrincipalId: input.removedUserId,
+    userId: input.removedUserId,
   });
   const projection = input.currentPolicy.currentProjection.filter(
     (member) => projectionMemberKey(member) !== key,
@@ -722,8 +713,7 @@ export async function removeOrganizationGroupUser(input: {
     signingKeyPair: input.signingKeyPair,
   });
   const removedKey = projectionMemberKey({
-    memberPrincipalType: "user",
-    memberPrincipalId: input.removedUserId,
+    userId: input.removedUserId,
   });
   const projection = policyContext.currentPolicy.currentProjection.filter(
     (member) => projectionMemberKey(member) !== removedKey,

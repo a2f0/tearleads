@@ -30,16 +30,12 @@ const CYCLE_GROUP_ID = "cycle-group";
 
 function userMember(userId: string): OrganizationGroupMemberResponse {
   return {
-    memberPrincipalType: "user",
-    memberPrincipalId: userId,
-    role: "member",
     userId,
+    role: "member",
     signingKeyFingerprint: `signing-fingerprint-${userId}`,
     signingPublicKey: `signing-key-${userId}`,
     encapsulationPublicKey: `encapsulation-key-${userId}`,
     encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
-    groupId: null,
-    groupName: null,
   };
 }
 
@@ -48,10 +44,8 @@ function groupMember(
   groupName: string,
 ): OrganizationGroupMemberResponse {
   return {
-    memberPrincipalType: "group",
-    memberPrincipalId: groupId,
+    userId: groupId,
     role: "member",
-    userId: null,
     signingKeyFingerprint: null,
     signingPublicKey: null,
     encapsulationPublicKey: null,

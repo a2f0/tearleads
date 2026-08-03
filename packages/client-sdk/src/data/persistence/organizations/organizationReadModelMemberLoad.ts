@@ -24,26 +24,11 @@ import { purgeOrganizationReadModelProjectionInTransaction } from "./organizatio
 interface SelectedGroupMember {
   readonly encapsulationKeyFingerprint: string | null;
   readonly encapsulationPublicKey: string | null;
-  readonly memberPrincipalId: string;
-  readonly memberPrincipalType: string;
-  readonly nestedGroupId: string | null;
-  readonly nestedGroupName: string | null;
+  readonly userId: string;
   readonly role: string;
   readonly signingKeyFingerprint: string | null;
   readonly signingPublicKey: string | null;
   readonly stateHash: string;
-  readonly userId: string | null;
-}
-
-function requireMemberPrincipalType(
-  value: string,
-): OrganizationGroupMemberResponse["memberPrincipalType"] {
-  if (value !== "user" && value !== "group") {
-    throw new OrganizationReadModelIntegrityError(
-      "Stored organization group member type is invalid",
-    );
-  }
-  return value;
 }
 
 function requireOrganizationRole(value: string): OrganizationRole {
@@ -65,16 +50,12 @@ function toGroupMember(
     );
   }
   return {
-    memberPrincipalType: requireMemberPrincipalType(row.memberPrincipalType),
-    memberPrincipalId: row.memberPrincipalId,
-    role: requireOrganizationRole(row.role),
     userId: row.userId,
+    role: requireOrganizationRole(row.role),
     signingKeyFingerprint: row.signingKeyFingerprint,
     signingPublicKey: row.signingPublicKey,
     encapsulationPublicKey: row.encapsulationPublicKey,
     encapsulationKeyFingerprint: row.encapsulationKeyFingerprint,
-    groupId: row.nestedGroupId,
-    groupName: row.nestedGroupName,
   };
 }
 
@@ -89,17 +70,13 @@ async function loadMembershipRows(input: {
         organizationReadModelGroupMembers.encapsulationKeyFingerprint,
       encapsulationPublicKey:
         organizationReadModelGroupMembers.encapsulationPublicKey,
-      memberPrincipalId: organizationReadModelGroupMembers.memberPrincipalId,
-      memberPrincipalType:
-        organizationReadModelGroupMembers.memberPrincipalType,
-      nestedGroupId: organizationReadModelGroupMembers.nestedGroupId,
-      nestedGroupName: organizationReadModelGroupMembers.nestedGroupName,
+      userId: organizationReadModelGroupMembers.userId,
+      memberPrincipalType: organizationReadModelGroupMembers.userId,
       role: organizationReadModelGroupMembers.role,
       signingKeyFingerprint:
         organizationReadModelGroupMembers.signingKeyFingerprint,
       signingPublicKey: organizationReadModelGroupMembers.signingPublicKey,
       stateHash: organizationReadModelGroupMembers.stateHash,
-      userId: organizationReadModelGroupMembers.userId,
     })
     .from(organizationReadModelGroupMembers)
     .where(
@@ -113,8 +90,8 @@ async function loadMembershipRows(input: {
     )
     .orderBy(
       asc(organizationReadModelGroupMembers.sortOrder),
-      asc(organizationReadModelGroupMembers.memberPrincipalType),
-      asc(organizationReadModelGroupMembers.memberPrincipalId),
+      asc(organizationReadModelGroupMembers.userId),
+      asc(organizationReadModelGroupMembers.userId),
     );
 }
 

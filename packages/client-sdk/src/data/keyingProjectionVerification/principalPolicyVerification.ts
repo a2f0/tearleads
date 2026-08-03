@@ -171,8 +171,7 @@ function assertReservedAdminsPolicyShape(
       (entry) =>
         entry.projection.length === 0 ||
         entry.projection.some(
-          (member) =>
-            member.memberPrincipalType !== "user" || member.role !== "admin",
+          (member) => member.userId !== "user" || member.role !== "admin",
         ),
     )
   ) {

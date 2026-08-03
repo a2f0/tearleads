@@ -127,10 +127,8 @@ function organizationReadModelMemberships(
               stateHash: visibleGroup.currentState.stateHash,
               members: [
                 {
-                  memberPrincipalType: "user" as const,
-                  memberPrincipalId: organizationReadModelUserId,
-                  role: "admin" as const,
                   userId: organizationReadModelUserId,
+                  role: "admin" as const,
                   signingKeyFingerprint: `signing-fingerprint-${organizationReadModelUserId}`,
                   signingPublicKey: `signing-public-key-${organizationReadModelUserId}`,
                   encapsulationPublicKey: `encapsulation-public-key-${organizationReadModelUserId}`,

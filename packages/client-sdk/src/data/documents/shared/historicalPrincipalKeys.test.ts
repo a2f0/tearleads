@@ -29,8 +29,7 @@ async function memberEnvelopeFor(input: {
   ]);
   if (!recipient) throw new Error("expected a wrapped recipient");
   return {
-    memberPrincipalType: "user" as const,
-    memberPrincipalId: USER_ID,
+    userId: USER_ID,
     memberKeyFingerprint: recipient.keyFingerprint,
     kemCipherText: bytesToBase64(recipient.kemCipherText),
     wrappedKey: bytesToBase64(recipient.wrappedKey),
@@ -330,8 +329,7 @@ test("a member reaches an outer group transitively through an inner one", async 
               state: outerGenesis,
               memberEnvelopes: [
                 {
-                  memberPrincipalType: "group",
-                  memberPrincipalId: innerGroupId,
+                  userId: innerGroupId,
                   memberKeyFingerprint: innerRecipient.keyFingerprint,
                   kemCipherText: bytesToBase64(innerRecipient.kemCipherText),
                   wrappedKey: bytesToBase64(innerRecipient.wrappedKey),

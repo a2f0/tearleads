@@ -55,8 +55,7 @@ test("organization read-model snapshots persist normalized requester-safe projec
       membershipEdges: [
         {
           groupId: "admins-org-1",
-          memberPrincipalId: "user-1",
-          memberPrincipalType: "user",
+          userId: "user-1",
         },
       ],
       organizationId: "org-1",

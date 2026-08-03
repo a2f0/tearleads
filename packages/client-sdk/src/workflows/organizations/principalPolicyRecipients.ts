@@ -12,8 +12,7 @@ import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 
 type PrincipalRekeyRecipient = {
   readonly encapsulationPublicKey: Uint8Array;
-  readonly memberPrincipalId: string;
-  readonly memberPrincipalType: "user" | "group";
+  readonly userId: string;
 };
 
 export function toPrincipalMemberEnvelopeRequest(input: {
@@ -22,12 +21,10 @@ export function toPrincipalMemberEnvelopeRequest(input: {
     readonly kemCipherText: Uint8Array;
     readonly wrappedKey: Uint8Array;
   };
-  readonly memberPrincipalId: string;
-  readonly memberPrincipalType: "user" | "group";
+  readonly userId: string;
 }): PrincipalMemberEnvelopeRequest {
   return {
-    memberPrincipalType: input.memberPrincipalType,
-    memberPrincipalId: input.memberPrincipalId,
+    userId: input.userId,
     memberKeyFingerprint: input.envelope.keyFingerprint,
     kemCipherText: bytesToBase64(input.envelope.kemCipherText),
     wrappedKey: bytesToBase64(input.envelope.wrappedKey),
@@ -59,32 +56,26 @@ function toRekeyRecipientEntries(input: {
   }
 
   return input.projection.map((member) => {
-    if (member.memberPrincipalType === "user") {
-      const user = usersById.get(member.memberPrincipalId);
+    if (member.userId === "user") {
+      const user = usersById.get(member.userId);
       if (!user) {
-        throw new Error(
-          `Missing recipient key for user ${member.memberPrincipalId}`,
-        );
+        throw new Error(`Missing recipient key for user ${member.userId}`);
       }
 
       return {
         encapsulationPublicKey: user.encapsulationPublicKey,
-        memberPrincipalId: user.userId,
-        memberPrincipalType: "user",
+        userId: user.userId,
       };
     }
 
-    const group = groupsById.get(member.memberPrincipalId);
+    const group = groupsById.get(member.userId);
     if (!group) {
-      throw new Error(
-        `Missing recipient key for group ${member.memberPrincipalId}`,
-      );
+      throw new Error(`Missing recipient key for group ${member.userId}`);
     }
 
     return {
       encapsulationPublicKey: base64ToBytes(group.state.encapsulationPublicKey),
-      memberPrincipalId: group.principalId,
-      memberPrincipalType: "group",
+      userId: group.principalId,
     };
   });
 }
@@ -93,8 +84,8 @@ export function remainingGroupMemberIds(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
 ): string[] {
   return projection
-    .filter((member) => member.memberPrincipalType === "group")
-    .map((member) => member.memberPrincipalId);
+    .filter((member) => member.userId === "group")
+    .map((member) => member.userId);
 }
 
 export async function rewrapProjectionMemberEnvelopes(input: {
@@ -112,8 +103,7 @@ export async function rewrapProjectionMemberEnvelopes(input: {
   return wrappedRecipients.map((envelope, index) =>
     toPrincipalMemberEnvelopeRequest({
       envelope,
-      memberPrincipalType: recipients[index]?.memberPrincipalType ?? "user",
-      memberPrincipalId: recipients[index]?.memberPrincipalId ?? "",
+      userId: recipients[index]?.userId ?? "",
     }),
   );
 }

@@ -35,16 +35,13 @@ export function userProjectionMember(
   userId: string,
   role: "member" | "admin",
 ): PrincipalProjectionMemberRequest {
-  return { memberPrincipalType: "user", memberPrincipalId: userId, role };
+  return { userId: userId, role };
 }
 
 function projectionToStateMembers(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
 ) {
-  return projection.map((member) => ({
-    principalType: member.memberPrincipalType,
-    principalId: member.memberPrincipalId,
-  }));
+  return projection.map((member) => ({ userId: member.userId }));
 }
 
 function payloadCiphertextForProjection(
@@ -131,8 +128,7 @@ export async function buildInitialGroupPolicyRequest(
     }
 
     memberEnvelopes.push({
-      memberPrincipalType: "user",
-      memberPrincipalId: input.signerUserId,
+      userId: input.signerUserId,
       memberKeyFingerprint: creatorFingerprint,
       kemCipherText: bytesToBase64(creatorEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(creatorEnvelope.wrappedKey),
@@ -174,8 +170,7 @@ export async function buildInitialMemberGroupPolicyRequest(input: {
   const projection = normalizePrincipalProjectionMembers([
     userProjectionMember(input.signerUserId, "admin"),
     {
-      memberPrincipalType: "group",
-      memberPrincipalId: input.adminGroup.groupId,
+      userId: input.adminGroup.groupId,
       role: "member",
     },
   ]);
@@ -193,15 +188,13 @@ export async function buildInitialMemberGroupPolicyRequest(input: {
   }
   const memberEnvelopes: PrincipalMemberEnvelopeRequest[] = [
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: input.signerUserId,
+      userId: input.signerUserId,
       memberKeyFingerprint: creatorFingerprint,
       kemCipherText: bytesToBase64(creatorEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(creatorEnvelope.wrappedKey),
     },
     {
-      memberPrincipalType: "group",
-      memberPrincipalId: input.adminGroup.groupId,
+      userId: input.adminGroup.groupId,
       memberKeyFingerprint:
         input.adminGroup.initialGroupPolicy.state.keyFingerprint,
       kemCipherText: bytesToBase64(adminGroupEnvelope.kemCipherText),
