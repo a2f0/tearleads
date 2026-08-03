@@ -28,7 +28,7 @@ export interface BillingOptionsState extends BillingActionScope {
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
 }
 
-type BillingOptionsErrorKind =
+export type BillingOptionsErrorKind =
   | "identity-pending"
   | "stalled"
   | "unavailable"

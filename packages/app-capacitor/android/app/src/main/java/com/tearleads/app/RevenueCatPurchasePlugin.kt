@@ -77,8 +77,13 @@ class RevenueCatPurchasePlugin : Plugin() {
             rejectBridgeValidation(call)
             return
         }
+        val activity = bridge.activity
+        if (activity == null) {
+            rejectBridgeValidation(call)
+            return
+        }
 
-        val builder = PurchaseParams.Builder(bridge.activity, prepared)
+        val builder = PurchaseParams.Builder(activity, prepared)
         call.getString("oldProductIdentifier")?.let(builder::oldProductId)
         replacementMode?.let(builder::replacementMode)
         call.getBoolean("googleIsPersonalizedPrice")

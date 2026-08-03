@@ -1,13 +1,10 @@
-import {
-  type CustomerInfo,
+import type {
+  CustomerInfo,
   Purchases,
-  type PurchasesPackage,
+  PurchasesPackage,
 } from "@revenuecat/purchases-capacitor";
 import type { RevenueCatCustomerInfo } from "@tearleads/client-sdk";
-import {
-  getNativeRevenueCatPurchase,
-  getRevenueCatPlatform,
-} from "./capacitorRevenueCatRuntime";
+import { getNativeRevenueCatPurchase } from "./capacitorRevenueCatRuntime";
 
 type OfficialPurchaseOptions = Omit<
   Parameters<typeof Purchases.purchasePackage>[0],
@@ -21,15 +18,10 @@ function nativePackageInput(aPackage: PurchasesPackage) {
   };
 }
 
-function isNativeStorePlatform(platform: string): boolean {
-  return platform === "ios" || platform === "android";
-}
-
 /** Resolves the native package while checkout preparation has a deadline. */
 export async function prepareCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
 ): Promise<void> {
-  if (!isNativeStorePlatform(getRevenueCatPlatform())) return;
   await getNativeRevenueCatPurchase().preparePackage(
     nativePackageInput(aPackage),
   );
@@ -57,14 +49,6 @@ function normalizeActiveEntitlementIds(value: unknown): string[] {
     : [];
 }
 
-async function purchaseThroughOfficialBridge(
-  aPackage: PurchasesPackage,
-  options: OfficialPurchaseOptions,
-): Promise<RevenueCatCustomerInfo> {
-  const result = await Purchases.purchasePackage({ aPackage, ...options });
-  return fromCapacitorCustomerInfo(result?.customerInfo);
-}
-
 /**
  * Purchases the package resolved by the bounded first-party native preparation.
  * The bridge changes no RevenueCat configuration or non-purchase operation.
@@ -73,10 +57,6 @@ export async function purchaseCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
   options: OfficialPurchaseOptions = {},
 ): Promise<RevenueCatCustomerInfo> {
-  if (!isNativeStorePlatform(getRevenueCatPlatform())) {
-    return purchaseThroughOfficialBridge(aPackage, options);
-  }
-
   const change = options.storeProductChangeInfo;
   const result = await getNativeRevenueCatPurchase().purchasePackage({
     ...nativePackageInput(aPackage),

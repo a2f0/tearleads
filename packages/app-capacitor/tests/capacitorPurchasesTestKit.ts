@@ -2,6 +2,7 @@ import { mock } from "bun:test";
 import type { PurchasesPackage } from "@revenuecat/purchases-capacitor";
 
 export const fixture: {
+  cachedPurchases: unknown;
   platform: string;
   configureCalls: { apiKey: string; appUserID?: string }[];
   logInCalls: string[];
@@ -37,6 +38,7 @@ export const fixture: {
     current: { availablePackages: PurchasesPackage[] };
   }> | null;
 } = {
+  cachedPurchases: undefined,
   platform: "ios",
   configureCalls: [],
   logInCalls: [],
@@ -138,6 +140,7 @@ function nativePurchaseResult(input: NativePurchaseInput) {
 }
 
 mock.module("../src/capacitorRevenueCatRuntime", () => ({
+  getCachedCapacitorPurchases: () => fixture.cachedPurchases,
   getRevenueCatPlatform: () => fixture.platform,
   getNativeRevenueCatPurchase: () => ({
     preparePackage: ({
@@ -160,6 +163,9 @@ mock.module("../src/capacitorRevenueCatRuntime", () => ({
     },
     purchasePackage: nativePurchaseResult,
   }),
+  setCachedCapacitorPurchases: (cached: unknown) => {
+    fixture.cachedPurchases = cached;
+  },
 }));
 
 mock.module("@revenuecat/purchases-capacitor", () => ({
@@ -227,8 +233,9 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
   },
 }));
 
-export const { createCapacitorPurchases, resetCapacitorPurchasesForTesting } =
-  await import("../src/capacitorPurchases");
+export const { createCapacitorPurchases } = await import(
+  "../src/capacitorPurchases"
+);
 
 export function purchaseSync(packageId = "monthly", abortSignal?: AbortSignal) {
   return createCapacitorPurchases().purchaseSync({
@@ -255,6 +262,7 @@ export function clearEnv() {
 }
 
 export function resetFixture(): void {
+  fixture.cachedPurchases = undefined;
   fixture.platform = "ios";
   fixture.configureCalls = [];
   fixture.logInCalls = [];
@@ -276,5 +284,4 @@ export function resetFixture(): void {
   fixture.onGetOfferings = null;
   fixture.offeringsPromise = null;
   clearEnv();
-  resetCapacitorPurchasesForTesting();
 }

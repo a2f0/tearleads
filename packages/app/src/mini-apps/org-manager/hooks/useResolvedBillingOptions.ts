@@ -7,13 +7,14 @@ import {
   scopeMatches,
 } from "../billing/billingActionScope";
 import {
+  type BillingOptionsErrorKind,
   type BillingOptionsState,
   useBillingOptions,
 } from "./useBillingOptions";
 
 interface ResolvedBillingOptions {
   readonly actionStateMatches: boolean;
-  readonly optionsErrorKind: BillingOptionsState["errorKind"];
+  readonly optionsErrorKind: BillingOptionsErrorKind;
   readonly optionsMatch: boolean;
   readonly purchaseCanSubscribe: boolean;
   readonly retryOptions: () => void;

@@ -20,18 +20,13 @@ import {
   prepareCapacitorRevenueCatPackage,
   purchaseCapacitorRevenueCatPackage,
 } from "./capacitorRevenueCatPurchase";
-import { getRevenueCatPlatform } from "./capacitorRevenueCatRuntime";
+import {
+  getCachedCapacitorPurchases,
+  getRevenueCatPlatform,
+  setCachedCapacitorPurchases,
+} from "./capacitorRevenueCatRuntime";
 
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
-let cachedPurchases:
-  | {
-      readonly apiKey: string;
-      readonly capability: PurchasesCapability;
-      readonly operationTimeoutMs: number | undefined;
-      readonly platform: string;
-      readonly syncEntitlementId: string;
-    }
-  | undefined;
 
 function toRevenueCatPackage(entry: PurchasesPackage): RevenueCatPackage {
   return {
@@ -275,7 +270,7 @@ export function createCapacitorPurchases(input?: {
   const syncEntitlementId =
     readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
     DEFAULT_SYNC_ENTITLEMENT_ID;
-  const cached = cachedPurchases;
+  const cached = getCachedCapacitorPurchases();
   if (
     cached?.apiKey === apiKey &&
     cached.platform === platform &&
@@ -299,17 +294,12 @@ export function createCapacitorPurchases(input?: {
     syncEntitlementId,
     ...(operationTimeoutMs === undefined ? {} : { operationTimeoutMs }),
   });
-  cachedPurchases = {
+  setCachedCapacitorPurchases({
     apiKey,
     capability,
     operationTimeoutMs,
     platform,
     syncEntitlementId,
-  };
+  });
   return capability;
-}
-
-/** Clears the process singleton between isolated test cases. */
-export function resetCapacitorPurchasesForTesting(): void {
-  cachedPurchases = undefined;
 }
