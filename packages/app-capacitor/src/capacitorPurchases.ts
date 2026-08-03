@@ -270,7 +270,6 @@ export function createCapacitorPurchases(input?: {
   const platform = getRevenueCatPlatform();
   const apiKey = readPlatformApiKey();
   if (!apiKey) {
-    cachedPurchases = undefined;
     return createUnavailablePurchases();
   }
   const syncEntitlementId =
@@ -308,4 +307,9 @@ export function createCapacitorPurchases(input?: {
     syncEntitlementId,
   };
   return capability;
+}
+
+/** Clears the process singleton between isolated test cases. */
+export function resetCapacitorPurchasesForTesting(): void {
+  cachedPurchases = undefined;
 }

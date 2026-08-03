@@ -13,17 +13,17 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
     @MainActor private var preparedPackages: [String: Package] = [:]
 
     @objc func preparePackage(_ call: CAPPluginCall) {
-        guard Purchases.isConfigured else {
-            Self.rejectBridgeValidation(call)
-            return
-        }
-        guard let packageId = call.getString("packageId"), !packageId.isEmpty,
-              let productId = call.getString("productId"), !productId.isEmpty else {
-            Self.rejectBridgeValidation(call)
-            return
-        }
-
         Task { @MainActor in
+            self.preparedPackages.removeAll(keepingCapacity: true)
+            guard Purchases.isConfigured else {
+                Self.rejectBridgeValidation(call)
+                return
+            }
+            guard let packageId = call.getString("packageId"), !packageId.isEmpty,
+                  let productId = call.getString("productId"), !productId.isEmpty else {
+                Self.rejectBridgeValidation(call)
+                return
+            }
             do {
                 let offerings = try await Purchases.shared.offerings()
                 guard let package = offerings.current?.package(identifier: packageId),
@@ -31,7 +31,6 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
                     Self.rejectBridgeValidation(call)
                     return
                 }
-                self.preparedPackages.removeAll(keepingCapacity: true)
                 self.preparedPackages[packageId] = package
                 call.resolve()
             } catch {

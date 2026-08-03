@@ -23,6 +23,7 @@ class RevenueCatPurchasePlugin : Plugin() {
 
     @PluginMethod
     fun preparePackage(call: PluginCall) {
+        preparedPackages.clear()
         if (!Purchases.isConfigured) {
             rejectBridgeValidation(call)
             return
@@ -43,7 +44,6 @@ class RevenueCatPurchasePlugin : Plugin() {
                     rejectBridgeValidation(call)
                     return
                 }
-                preparedPackages.clear()
                 preparedPackages[packageId] = prepared
                 call.resolve()
             }

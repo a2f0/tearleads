@@ -227,9 +227,8 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
   },
 }));
 
-export const { createCapacitorPurchases } = await import(
-  "../src/capacitorPurchases"
-);
+export const { createCapacitorPurchases, resetCapacitorPurchasesForTesting } =
+  await import("../src/capacitorPurchases");
 
 export function purchaseSync(packageId = "monthly", abortSignal?: AbortSignal) {
   return createCapacitorPurchases().purchaseSync({
@@ -277,7 +276,5 @@ export function resetFixture(): void {
   fixture.onGetOfferings = null;
   fixture.offeringsPromise = null;
   clearEnv();
-  // Calling the factory without a platform key clears its process-wide native
-  // capability, keeping tests isolated while production keys stay immutable.
-  createCapacitorPurchases();
+  resetCapacitorPurchasesForTesting();
 }
