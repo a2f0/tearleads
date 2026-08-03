@@ -108,10 +108,7 @@ export async function listPrincipalMemberEnvelopesForStates(
   // current group membership is not a safe proxy for membership at a
   // historical state. This also makes the per-state count naturally bounded:
   // at most one envelope per state can match.
-  const recipientScope = and(eq(principalMemberEnvelopes.userId, input.userId));
-  if (!recipientScope) {
-    return byStateHash;
-  }
+  const recipientScope = eq(principalMemberEnvelopes.userId, input.userId);
 
   const ranked = executor
     .select({
@@ -122,13 +119,8 @@ export async function listPrincipalMemberEnvelopesForStates(
       wrappedKey: principalMemberEnvelopes.wrappedKey,
       stateRank: sql<number>`row_number() over (
         partition by ${principalMemberEnvelopes.stateHash}
-        order by
-          -- The requester's OWN envelope first: it opens from identity keys
-          -- alone, with no further principal to resolve. Ordering by member
-          -- type alone sorts 'group' ahead of 'user' and would spend the cap
-          -- on envelopes that need another key to open.
-          case when ${principalMemberEnvelopes.userId} = 'user' then 0 else 1 end,
-          ${principalMemberEnvelopes.userId}
+        -- One envelope per (state, user), so the order only has to be stable.
+        order by ${principalMemberEnvelopes.userId}
       )`.as("state_rank"),
     })
     .from(principalMemberEnvelopes)
