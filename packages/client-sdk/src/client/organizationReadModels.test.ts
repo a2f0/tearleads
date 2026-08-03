@@ -27,22 +27,14 @@ import type {
 function projectedPolicyMember(
   member: PrincipalPolicyBundleResponse["currentProjection"][number],
 ): OrganizationGroupMemberResponse {
-  const isUser = member.memberPrincipalType === "user";
+  // Every projected member is a user, so there is no group branch to take.
   return {
     userId: member.userId,
     role: member.role,
-    signingKeyFingerprint: isUser
-      ? `signing-fingerprint-${member.userId}`
-      : null,
-    signingPublicKey: isUser ? `signing-public-key-${member.userId}` : null,
-    encapsulationPublicKey: isUser
-      ? `encapsulation-public-key-${member.userId}`
-      : null,
-    encapsulationKeyFingerprint: isUser
-      ? `encapsulation-fingerprint-${member.userId}`
-      : null,
-    groupId: isUser ? null : member.userId,
-    groupName: isUser ? null : member.userId,
+    signingKeyFingerprint: `signing-fingerprint-${member.userId}`,
+    signingPublicKey: `signing-public-key-${member.userId}`,
+    encapsulationPublicKey: `encapsulation-public-key-${member.userId}`,
+    encapsulationKeyFingerprint: `encapsulation-fingerprint-${member.userId}`,
   };
 }
 

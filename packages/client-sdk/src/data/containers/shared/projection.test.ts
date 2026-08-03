@@ -61,7 +61,7 @@ async function createGroupPrincipalPolicyBundle(input: {
     userId: string;
     publicKey: Uint8Array;
   }>;
-  members: Array<{ principalType: "user" | "group"; principalId: string }>;
+  members: Array<{ userId: string }>;
   principalId: string;
   principalKem: {
     publicKey: Uint8Array;
@@ -81,7 +81,7 @@ async function createGroupPrincipalPolicyBundle(input: {
       role: "admin" as const,
     },
     ...input.members.map((member) => ({
-      userId: member.principalId,
+      userId: member.userId,
       role: "member" as const,
     })),
   ];
@@ -119,10 +119,7 @@ async function createGroupPrincipalPolicyBundle(input: {
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(input.principalKem.publicKey),
       keyFingerprint: await toFingerprint(input.principalKem.publicKey),
-      members: currentProjection.map((member) => ({
-        principalType: member.memberPrincipalType,
-        principalId: member.userId,
-      })),
+      members: currentProjection.map((member) => ({ userId: member.userId })),
       memberEnvelopes,
       projection: currentProjection,
       payloadCiphertext,
@@ -805,7 +802,7 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
         publicKey: groupMemberKem.publicKey,
       },
     ],
-    members: [{ principalType: "user", principalId: groupMemberUserId }],
+    members: [{ userId: groupMemberUserId }],
     principalId: "group-managed-container-access",
     principalKem: groupKem,
     signedAt: SIGNED_AT,

@@ -62,8 +62,7 @@ async function createPrincipalPolicyBundle() {
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: await toFingerprint(principalKem.publicKey),
       members: currentProjection.map((member) => ({
-        principalType: member.memberPrincipalType,
-        principalId: member.userId,
+        userId: member.userId,
       })),
       memberEnvelopes,
       projection: currentProjection,

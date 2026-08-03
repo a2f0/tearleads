@@ -82,7 +82,7 @@ async function createAdminPolicyBundle(input: {
       keyEpoch,
       encapsulationPublicKey: bytesToBase64(input.groupKem.publicKey),
       keyFingerprint: await toFingerprint(input.groupKem.publicKey),
-      members: [{ principalType: "user", principalId: USER_ID }],
+      members: [{ userId: USER_ID }],
       memberEnvelopes,
       projection,
       payloadCiphertext,

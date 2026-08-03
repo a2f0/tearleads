@@ -30,8 +30,6 @@ const projectedMembers: OrganizationGroupMembersResponse = {
       signingPublicKey: "projected-signing-public-key",
       encapsulationPublicKey: "projected-encapsulation-public-key",
       encapsulationKeyFingerprint: "projected-encapsulation-fingerprint",
-      groupId: null,
-      groupName: null,
     },
   ],
 };

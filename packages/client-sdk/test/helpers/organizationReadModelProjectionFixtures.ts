@@ -133,8 +133,6 @@ function organizationReadModelMemberships(
                   signingPublicKey: `signing-public-key-${organizationReadModelUserId}`,
                   encapsulationPublicKey: `encapsulation-public-key-${organizationReadModelUserId}`,
                   encapsulationKeyFingerprint: `encapsulation-fingerprint-${organizationReadModelUserId}`,
-                  groupId: null,
-                  groupName: null,
                 },
               ],
             },
