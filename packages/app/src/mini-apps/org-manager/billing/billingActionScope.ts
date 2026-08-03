@@ -1,25 +1,4 @@
-import type { PurchasesCapability } from "@tearleads/client-sdk";
 import type { BillingBusyAction } from "./BillingView";
-
-const nativeMoveTails = new WeakMap<PurchasesCapability, Promise<void>>();
-
-/** Keeps native receipt claim/bind sequences ordered across panel remounts. */
-export function enqueueNativeSubscriptionMove(
-  purchases: PurchasesCapability,
-  operation: () => Promise<void>,
-): Promise<void> {
-  const result = (nativeMoveTails.get(purchases) ?? Promise.resolve()).then(
-    operation,
-  );
-  nativeMoveTails.set(
-    purchases,
-    result.then(
-      () => undefined,
-      () => undefined,
-    ),
-  );
-  return result;
-}
 
 /**
  * Identity of one billing panel instance: which org and buyer it acts for, plus

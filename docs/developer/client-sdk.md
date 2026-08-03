@@ -521,12 +521,12 @@ Org sync billing exposes two provider-neutral capabilities:
 Both ship an unavailable stub (`createUnavailablePurchases` and
 `createUnavailableDirectCheckout`). Web keeps entitlement reads but uses direct
 checkout. Native purchases are personal-org only. `PurchaseIdentityPendingError`
-means retry; `PurchaseProviderStalledError` means restart. On
-`PurchaseAlreadyOwnedError`, restore, call
-`tearleads.organizations.claimNativeSubscription(organizationId,
-store)`, then call `purchases.bindOrganization({ organizationId })` only after
-the claim succeeds. Rejected claims leave lifecycle attribution unchanged. See
-[revenuecat-billing.md](./revenuecat-billing.md).
+means retry; `PurchaseProviderStalledError` means restart. Recover
+`PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`; its `claim`
+calls `tearleads.organizations.claimNativeSubscription`. Never split
+restore/claim/bind: the atomic move keeps one buyer and publishes attribution
+only after acceptance.
+See [revenuecat-billing.md](./revenuecat-billing.md).
 
 ## Package Contract
 

@@ -19,7 +19,6 @@ import { ORG_MANAGER_LABELS } from "../labels";
 import {
   type BillingActionScope,
   type BillingScopeRef,
-  enqueueNativeSubscriptionMove,
   scopeMatches,
   type UpdateActionState,
 } from "./billingActionScope";
@@ -105,14 +104,12 @@ export function useNativeSubscriptionMove(
       actionError: null,
       busy: "restore",
     }));
-    const move = enqueueNativeSubscriptionMove(purchases, () =>
-      restoreClaimAndBindNativeSubscription({
-        claimNativeSubscription,
-        purchases,
-        scope,
-        userId,
-      }),
-    );
+    const move = restoreClaimAndBindNativeSubscription({
+      claimNativeSubscription,
+      purchases,
+      scope,
+      userId,
+    });
     void (async () => {
       try {
         await move;

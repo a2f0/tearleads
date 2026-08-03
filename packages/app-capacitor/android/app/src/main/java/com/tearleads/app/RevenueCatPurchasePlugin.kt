@@ -94,7 +94,15 @@ class RevenueCatPurchasePlugin : Plugin() {
             rejectBridgeValidation(call)
             return
         }
+        val oldProductIdentifier = call.getString("oldProductIdentifier")
         val replacementName = call.getString("replacementMode")
+        if (
+            (oldProductIdentifier == null) != (replacementName == null) ||
+            oldProductIdentifier?.isEmpty() == true
+        ) {
+            rejectBridgeValidation(call)
+            return
+        }
         val replacementMode = revenueCatReplacementMode(replacementName)
         if (replacementName != null && replacementMode == null) {
             rejectBridgeValidation(call)
@@ -114,7 +122,7 @@ class RevenueCatPurchasePlugin : Plugin() {
         }
 
         val builder = PurchaseParams.Builder(activity, prepared)
-        call.getString("oldProductIdentifier")?.let(builder::oldProductId)
+        oldProductIdentifier?.let(builder::oldProductId)
         replacementMode?.let(builder::replacementMode)
         Purchases.sharedInstance.purchase(
             builder.build(),

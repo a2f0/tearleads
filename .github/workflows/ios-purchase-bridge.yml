@@ -1,18 +1,6 @@
 name: iOS Purchase Bridge
 
 on:
-  push:
-    paths:
-      - ".github/workflows/ios-purchase-bridge.yml"
-      - "bun.lock"
-      - "package.json"
-      - "packages/app-capacitor/**"
-      - "packages/app/src/mini-apps/org-manager/billing/**"
-      - "packages/app/src/mini-apps/org-manager/hooks/useBillingActions*"
-      - "packages/app/src/providers/purchases/**"
-      - "packages/client-sdk/src/client/purchase*"
-      - "packages/client-sdk/src/client/revenueCat*"
-      - "packages/validators/src/billing/**"
   pull_request:
     paths:
       - ".github/workflows/ios-purchase-bridge.yml"
@@ -21,6 +9,9 @@ on:
       - "packages/app-capacitor/**"
       - "packages/app/src/mini-apps/org-manager/billing/**"
       - "packages/app/src/mini-apps/org-manager/hooks/useBillingActions*"
+      - "packages/app/src/mini-apps/org-manager/hooks/useBillingOptions*"
+      - "packages/app/src/mini-apps/org-manager/hooks/useResolvedBillingOptions*"
+      - "packages/app/src/mini-apps/org-manager/labels.ts"
       - "packages/app/src/providers/purchases/**"
       - "packages/client-sdk/src/client/purchase*"
       - "packages/client-sdk/src/client/revenueCat*"
@@ -29,6 +20,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   compile:
