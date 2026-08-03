@@ -31,7 +31,8 @@ function createFixture() {
     logOut: async () => {},
     setAttributes: async (next) => {
       Object.assign(attributes, next);
-      calls.push(`setAttributes:${String(next.orgId)}`);
+      const { orgId } = next;
+      calls.push(`setAttributes:${String(orgId)}`);
     },
     getCurrentPackages: async () => [],
     purchasePackage: async (input) => {
