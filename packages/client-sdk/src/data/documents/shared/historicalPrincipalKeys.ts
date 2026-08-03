@@ -15,11 +15,26 @@ import {
 } from "@tearleads/validators/util";
 
 /**
- * Total history fetches one recovery may make, across every principal it hops
- * through. Generous enough that a legitimate deep walk completes, small enough
- * that a hostile server cannot turn one recovery into a request storm.
+ * Pages needed to traverse the longest supported chain, plus one.
+ *
+ * Derived rather than chosen, so the walk can always reach every state inside
+ * the declared domain: a smaller number would make older keys silently
+ * unrecoverable within the range the protocol claims to support.
  */
-const MAX_POLICY_HISTORY_FETCHES = 256;
+const MAX_POLICY_HISTORY_PAGES =
+  Math.ceil(MAX_PRINCIPAL_STATE_VERSION / PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT) +
+  1;
+
+/**
+ * Total history fetches one recovery may make, across every principal it hops
+ * through.
+ *
+ * Enough for one full-depth walk plus a bounded number of nested-group hops,
+ * and no more — a hostile server must not be able to turn one recovery into an
+ * unbounded request storm, and the budget is shared so recursion cannot
+ * multiply it.
+ */
+const MAX_POLICY_HISTORY_FETCHES = MAX_POLICY_HISTORY_PAGES * 4;
 
 /**
  * Fetches one page of a principal's policy history, newest first.
@@ -249,11 +264,8 @@ export async function resolveHistoricalPrincipalKey(input: {
   let beforeVersion: number | undefined;
   let expectedNewestStateHash: string | null = null;
   let pages = 0;
-  // Derived from the wire bounds, not a magic number: a principal may hold up
-  // to MAX_PRINCIPAL_STATE_VERSION states and each page carries at most
-  // PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT of them, so anything smaller would
-  // make legitimately old keys unreachable. The bound still exists so a server
-  // that always claims more cannot spin the walk forever.
+  // Bounded so a server that always claims more cannot spin the walk forever,
+  // while still reaching every state inside the supported domain.
   const maxPages =
     Math.ceil(
       MAX_PRINCIPAL_STATE_VERSION / PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT,

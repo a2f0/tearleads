@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import { isPrincipalPolicyHistoryResponse } from "@tearleads/validators/response";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  isPrincipalPolicyBundleResponse,
+  isPrincipalPolicyHistoryResponse,
+} from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
@@ -11,6 +15,9 @@ async function putPolicy(input: {
   actor: TestUser;
   members: { principalId: string; principalType: "user" }[];
   principalId: string;
+  // The principal's KEM keypair is carried across versions; a fresh one per
+  // PUT is a key rotation the successor rules reject.
+  principalKem?: ReturnType<typeof generateKemSeedAndKeyPair>;
   prevStateHash?: string;
   version?: number;
 }) {
@@ -18,6 +25,9 @@ async function putPolicy(input: {
     principalType: "group",
     principalId: input.principalId,
     members: input.members,
+    ...(input.principalKem === undefined
+      ? {}
+      : { principalKem: input.principalKem }),
     signerUserId: input.actor.userId,
     signerUserKeyFingerprint: input.actor.fingerprint,
     signingPrivateKey: input.actor.signing.signingPrivateKey,
@@ -44,7 +54,14 @@ async function putPolicy(input: {
     },
   );
   expect(response.status).toBe(200);
-  return signedState;
+  // The server computes the state hash, so read it back rather than guessing:
+  // the next version has to name it in prevStateHash.
+  const stored = await response.json();
+  invariant(
+    isPrincipalPolicyBundleResponse(stored),
+    "expected a principal policy bundle response",
+  );
+  return stored.currentState;
 }
 
 async function getHistory(
@@ -168,3 +185,63 @@ test("policy-history requires authentication", async () => {
   );
   expect(response.status).toBe(401);
 }, 20_000);
+
+test("policy-history pages a multi-version chain contiguously", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const principalId = crypto.randomUUID();
+
+  // Three accepted states, so paging has something to walk and each entry's
+  // prevStateHash has a neighbour to name.
+  const principalKem = generateKemSeedAndKeyPair();
+  let prevStateHash: string | undefined;
+  for (let version = 1; version <= 3; version += 1) {
+    const signed = await putPolicy({
+      actor,
+      members: [{ principalType: "user", principalId: actor.userId }],
+      principalId,
+      principalKem,
+      ...(version === 1 ? {} : { version }),
+      ...(prevStateHash === undefined ? {} : { prevStateHash }),
+    });
+    prevStateHash = signed.stateHash;
+  }
+
+  const response = await getHistory(principalId, actor.token);
+  expect(response.status).toBe(200);
+  const history = await response.json();
+  invariant(
+    isPrincipalPolicyHistoryResponse(history),
+    "expected a policy history response",
+  );
+
+  // Newest first, strictly descending, and contiguous: every entry's
+  // prevStateHash names the entry below it. That linkage is what the client
+  // walk verifies, so it has to hold on the wire.
+  const versions = history.entries.map((entry) => entry.state.version);
+  expect(versions).toEqual([...versions].sort((a, b) => b - a));
+  for (const [index, entry] of history.entries.entries()) {
+    const older = history.entries[index + 1];
+    if (!older) continue;
+    expect(entry.state.prevStateHash).toBe(older.state.stateHash);
+  }
+
+  // The cursor excludes its own version, so paging from the newest yields
+  // strictly older states and cannot loop.
+  const newest = history.entries[0];
+  invariant(newest, "expected a newest entry");
+  const nextPage = await getHistory(
+    principalId,
+    actor.token,
+    `?beforeVersion=${newest.state.version}`,
+  );
+  const older = await nextPage.json();
+  invariant(
+    isPrincipalPolicyHistoryResponse(older),
+    "expected a policy history response",
+  );
+  expect(
+    older.entries.every((entry) => entry.state.version < newest.state.version),
+  ).toBe(true);
+}, 30_000);

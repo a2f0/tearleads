@@ -341,6 +341,15 @@ export function isPrincipalPolicyHistoryResponse(
     if (!isPrincipalPolicyHistoryEntryResponse(entry)) {
       return false;
     }
+    // Every entry must be a state OF the principal this page claims to
+    // describe. Without this a page could carry another principal's states and
+    // the walk would chain and use them as if they belonged here.
+    if (
+      entry.state.principalType !== value.principalType ||
+      entry.state.principalId !== value.principalId
+    ) {
+      return false;
+    }
     validated.push(entry);
   }
   return isStrictlyDescendingByVersion(validated);

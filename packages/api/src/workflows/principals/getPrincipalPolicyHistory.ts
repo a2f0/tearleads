@@ -3,7 +3,10 @@ import type {
   PrincipalPolicyHistoryEntryResponse,
   PrincipalPolicyHistoryResponse,
 } from "@tearleads/validators/response";
-import { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "@tearleads/validators/util";
+import {
+  PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT,
+  PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT,
+} from "@tearleads/validators/util";
 import { listPrincipalMemberEnvelopesForStates } from "../../access/read/principalMemberEnvelopes";
 import {
   listPrincipalProjectionMembersForStates,
@@ -81,10 +84,15 @@ export async function runGetPrincipalPolicyHistoryWorkflow(input: {
       }
     }
 
-    // One reachability walk for the whole page, not one per state.
+    // One reachability walk for the whole page, not one per state — and the
+    // candidate set is bounded BEFORE it enters that recursive query, since
+    // every id becomes a bind parameter in it. Sorted first so which groups
+    // survive the cap does not depend on projection iteration order.
     const reachableGroupIds = await listUserReachableCurrentGroupIds({
       executor: tx,
-      groupIds: [...groupIds],
+      groupIds: [...groupIds]
+        .sort()
+        .slice(0, PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT),
       userId: input.userId,
     });
 

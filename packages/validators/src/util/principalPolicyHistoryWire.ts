@@ -39,9 +39,17 @@ export const PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT =
   PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT + 1;
 
 /**
+ * The longest principal state chain the protocol supports.
+ *
  * A principal version is a positive integer that increments once per accepted
- * state. This ceiling bounds a cursor before it reaches the database, where a
- * safe integer could still exceed an `integer` column and turn a malformed
- * request into a 500.
+ * state, so this doubles as a cursor ceiling: it bounds a cursor before it
+ * reaches the database, where a safe integer could still exceed an `integer`
+ * column and turn a malformed request into a 500.
+ *
+ * It is also the number a recovery walk must be able to traverse. Declaring a
+ * domain larger than the walk's request budget can reach would make older keys
+ * silently unrecoverable inside the supported range, so the budget is derived
+ * from this constant rather than chosen independently — see
+ * `MAX_POLICY_HISTORY_FETCHES`.
  */
-export const MAX_PRINCIPAL_STATE_VERSION = 1_000_000;
+export const MAX_PRINCIPAL_STATE_VERSION = 16_384;

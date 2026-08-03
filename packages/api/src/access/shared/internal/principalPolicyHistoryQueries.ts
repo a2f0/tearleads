@@ -120,12 +120,15 @@ export async function listPrincipalMemberEnvelopesForStates(
           // Bounded here rather than by truncating results: the scope is what
           // determines how many envelopes a state can yield, and the per-state
           // cap is deliberately one larger so it never binds.
-          inArray(principalMemberEnvelopes.memberPrincipalId, [
-            ...input.memberGroupIds.slice(
-              0,
-              PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT,
-            ),
-          ]),
+          inArray(
+            principalMemberEnvelopes.memberPrincipalId,
+            // Sorted before slicing: the caller's set has no defined order, so
+            // slicing it raw would make which groups survive the cap depend on
+            // database return order — a different answer run to run.
+            [...input.memberGroupIds]
+              .sort()
+              .slice(0, PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT),
+          ),
         )
       : undefined,
   );
