@@ -17,6 +17,16 @@ import com.revenuecat.purchases.models.StoreReplacementMode
 import com.revenuecat.purchases.models.StoreTransaction
 import java.util.concurrent.ConcurrentHashMap
 
+internal fun revenueCatReplacementMode(name: String?): StoreReplacementMode? = when (name) {
+    null -> null
+    "WITHOUT_PRORATION" -> StoreReplacementMode.WITHOUT_PRORATION
+    "WITH_TIME_PRORATION" -> StoreReplacementMode.WITH_TIME_PRORATION
+    "CHARGE_FULL_PRICE" -> StoreReplacementMode.CHARGE_FULL_PRICE
+    "CHARGE_PRORATED_PRICE" -> StoreReplacementMode.CHARGE_PRORATED_PRICE
+    "DEFERRED" -> StoreReplacementMode.DEFERRED
+    else -> null
+}
+
 @CapacitorPlugin(name = "RevenueCatPurchase")
 class RevenueCatPurchasePlugin : Plugin() {
     private val preparedPackages = ConcurrentHashMap<String, Package>()
@@ -67,7 +77,7 @@ class RevenueCatPurchasePlugin : Plugin() {
             return
         }
         val replacementName = call.getString("replacementMode")
-        val replacementMode = replacementMode(replacementName)
+        val replacementMode = revenueCatReplacementMode(replacementName)
         if (replacementName != null && replacementMode == null) {
             rejectBridgeValidation(call)
             return
@@ -106,16 +116,6 @@ class RevenueCatPurchasePlugin : Plugin() {
                 }
             },
         )
-    }
-
-    private fun replacementMode(name: String?): StoreReplacementMode? = when (name) {
-        null -> null
-        "WITHOUT_PRORATION" -> StoreReplacementMode.WITHOUT_PRORATION
-        "WITH_TIME_PRORATION" -> StoreReplacementMode.WITH_TIME_PRORATION
-        "CHARGE_FULL_PRICE" -> StoreReplacementMode.CHARGE_FULL_PRICE
-        "CHARGE_PRORATED_PRICE" -> StoreReplacementMode.CHARGE_PRORATED_PRICE
-        "DEFERRED" -> StoreReplacementMode.DEFERRED
-        else -> null
     }
 
     private fun reject(call: PluginCall, error: PurchasesError, userCancelled: Boolean) {

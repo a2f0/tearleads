@@ -58,7 +58,7 @@ jobs:
 
       - name: Compile Android purchase bridge
         working-directory: packages/app-capacitor/android
-        run: mise exec -- gradle :app:compileDebugKotlin --no-daemon
+        run: mise exec -- gradle :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
 
   build:
     name: Build and test

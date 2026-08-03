@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
-import { STORE_REPLACEMENT_MODE } from "@revenuecat/purchases-capacitor";
 
 const packageRoot = resolve(import.meta.dir, "..");
 const EXPECTED_ANDROID_REPLACEMENT_MODES = [
@@ -17,6 +16,32 @@ function requiredMatch(source: string, pattern: RegExp, description: string) {
     throw new Error(`Could not find ${description}`);
   }
   return value;
+}
+
+function installedCapacitorReplacementModes(): string[] {
+  const result = Bun.spawnSync({
+    cmd: [
+      process.execPath,
+      "-e",
+      'import { STORE_REPLACEMENT_MODE } from "@revenuecat/purchases-capacitor"; process.stdout.write(JSON.stringify(Object.values(STORE_REPLACEMENT_MODE)))',
+    ],
+    cwd: packageRoot,
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  if (result.exitCode !== 0) {
+    throw new Error(
+      `Could not import installed RevenueCat replacement modes: ${new TextDecoder().decode(result.stderr)}`,
+    );
+  }
+  const modes: unknown = JSON.parse(new TextDecoder().decode(result.stdout));
+  if (
+    !Array.isArray(modes) ||
+    !modes.every((mode) => typeof mode === "string")
+  ) {
+    throw new Error("Installed RevenueCat replacement modes are malformed");
+  }
+  return modes.sort();
 }
 
 test("iOS project registers the RevenueCat purchase plugin contract", async () => {
@@ -174,7 +199,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   );
   const replacementModeBlock = requiredMatch(
     purchasePlugin,
-    /private fun replacementMode[\s\S]*?= when \(name\) \{([\s\S]*?)\n {4}\}/,
+    /internal fun revenueCatReplacementMode[\s\S]*?= when \(name\) \{([\s\S]*?)\n\}/,
     "Android RevenueCat replacement modes",
   );
   const kotlinReplacementModes = [
@@ -182,9 +207,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   ]
     .map((match) => match[1])
     .sort();
-  const capacitorReplacementModes = Object.values(STORE_REPLACEMENT_MODE)
-    .map(String)
-    .sort();
+  const capacitorReplacementModes = installedCapacitorReplacementModes();
 
   expect(mainActivity).toContain(
     "registerPlugin(RevenueCatPurchasePlugin.class)",
