@@ -40,7 +40,6 @@ import {
   assertPolicyAuthorityConstraints,
   type OrganizationPolicyTarget,
 } from "./principalPolicyAuthorityConstraints";
-import { assertPrincipalPolicyGroupReferencesExist } from "./principalPolicyGroupReferences";
 import { listUserIdsReachableFromPrincipalState } from "./principalStateReachability";
 import { PrincipalPolicyError, toPrincipalPolicyError } from "./shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "./storeVerifiedPrincipalPolicy";
@@ -372,10 +371,6 @@ async function lockPolicyPrincipalMutation(
     input.expectedPrincipalType,
     input.expectedPrincipalId,
   );
-  await assertPrincipalPolicyGroupReferencesExist({
-    projection: input.projection,
-    tx,
-  });
 }
 
 async function applyPrincipalPolicyTransitionEffects(input: {
@@ -454,9 +449,10 @@ export async function runPutPrincipalPolicyWorkflow(
   try {
     return await db.transaction(async (tx) => {
       await lockPolicyPrincipalMutation(tx, input);
-      const organizationTarget =
-        await lockOrganizationReadModelForPolicyMutation(tx, input);
-      await assertPolicyAuthorityConstraints(tx, organizationTarget, input);
+      // Still locks the org read model; its target is no longer needed now
+      // that group-scope validation is gone.
+      await lockOrganizationReadModelForPolicyMutation(tx, input);
+      await assertPolicyAuthorityConstraints(tx, input);
       const previousState = await getCurrentPrincipalState(
         input.state.principalType,
         input.state.principalId,

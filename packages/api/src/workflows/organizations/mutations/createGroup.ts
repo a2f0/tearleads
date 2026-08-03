@@ -12,7 +12,6 @@ import { toPrincipalPolicyError } from "../../principals/shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "../../principals/storeVerifiedPrincipalPolicy";
 import { requireDirectOrganizationAccess } from "../access";
 import { OrganizationManagerError } from "../errors";
-import { hasOnlySameOrganizationGroupMembers } from "../groupPolicyScope";
 import { toGroupSummary } from "../groupSummary";
 import { wasOrganizationGroupDeleted } from "../groupTombstone";
 import { requireSerializedOrganizationMutationAccess } from "../mutationAccess";
@@ -67,18 +66,6 @@ async function prepareOrganizationGroupCreation(input: {
     await getCurrentPrincipalState("group", input.request.groupId, input.tx)
   ) {
     throw new OrganizationManagerError("Group principal already exists", 409);
-  }
-  if (
-    !(await hasOnlySameOrganizationGroupMembers({
-      executor: input.tx,
-      organizationId: input.organizationId,
-      projection: input.request.initialGroupPolicy.projection,
-    }))
-  ) {
-    throw new OrganizationManagerError(
-      "Organization policies may only reference groups from the same organization",
-      400,
-    );
   }
 }
 
