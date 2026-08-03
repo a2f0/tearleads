@@ -1,6 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 
-export interface NativeRevenueCatPurchasePlugin {
+interface NativeRevenueCatPurchasePlugin {
   preparePackage(options: {
     packageId: string;
     productId: string;
