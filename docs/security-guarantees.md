@@ -251,11 +251,13 @@ was addressed to. Three cases, materially different from one another:
   closing it needs tenure-aware scoping on the kek-log as well as on policy
   history (issue #1948).
 - **Group deleted.** `deleteOrganizationGroupRows` purges the group's states,
-  payloads, epoch keys, and member envelopes outright. Container envelopes
-  addressed to that group can never be opened again by anyone — the key
-  material is gone, not merely withheld, and no history walk recovers it.
-  **Permanently unrecoverable**, by design, and the reason group deletion is
-  a heavier operation than removing every member from a group.
+  payloads, epoch keys, and member envelopes outright. The key material is gone
+  from the server, not merely withheld, so no history walk recovers it.
+  **Permanently unrecoverable from server state**, by design, and the reason
+  group deletion is a heavier operation than removing every member from a
+  group. This is a statement about recovery, not about erasure: a client that
+  had already resolved and cached that group key still holds it, and deletion
+  cannot reach into clients to remove what they fetched while access was live.
 - **Anchor caps.** The per-epoch envelope cap and the principal-scope cap rank
   candidates by identity, not by whether the client can resolve them. A
   requester with a very wide principal set can be served envelopes they cannot

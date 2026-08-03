@@ -5,6 +5,7 @@ import {
   isPrincipalPolicyBundleResponse,
   isPrincipalPolicyHistoryResponse,
 } from "@tearleads/validators/response";
+import { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "@tearleads/validators/util";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
@@ -245,3 +246,61 @@ test("policy-history pages a multi-version chain contiguously", async () => {
     older.entries.every((entry) => entry.state.version < newest.state.version),
   ).toBe(true);
 }, 30_000);
+
+test("policy-history fills a page and links across the page boundary", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const principalId = crypto.randomUUID();
+  const principalKem = generateKemSeedAndKeyPair();
+
+  // One more state than a page holds, so the first page comes back full with
+  // hasMore set and the cursor has to carry the walk across the boundary.
+  const total = PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT + 1;
+  let prevStateHash: string | undefined;
+  for (let version = 1; version <= total; version += 1) {
+    const signed = await putPolicy({
+      actor,
+      members: [{ principalType: "user", principalId: actor.userId }],
+      principalId,
+      principalKem,
+      ...(version === 1 ? {} : { version }),
+      ...(prevStateHash === undefined ? {} : { prevStateHash }),
+    });
+    prevStateHash = signed.stateHash;
+  }
+
+  const firstResponse = await getHistory(principalId, actor.token);
+  const first = await firstResponse.json();
+  invariant(
+    isPrincipalPolicyHistoryResponse(first),
+    "expected a policy history response",
+  );
+  expect(first.entries.length).toBe(PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT);
+  expect(first.hasMore).toBe(true);
+
+  const oldestOnPage = first.entries.at(-1);
+  invariant(oldestOnPage, "expected an oldest entry");
+
+  const secondResponse = await getHistory(
+    principalId,
+    actor.token,
+    `?beforeVersion=${oldestOnPage.state.version}`,
+  );
+  const second = await secondResponse.json();
+  invariant(
+    isPrincipalPolicyHistoryResponse(second),
+    "expected a policy history response",
+  );
+
+  // The boundary must chain: the newest entry of the next page is exactly the
+  // state the previous page's oldest entry names as its predecessor. The
+  // client walk carries that hash forward and rejects a page that breaks it.
+  const newestOnNext = second.entries[0];
+  invariant(newestOnNext, "expected a next-page entry");
+  const boundaryHash = oldestOnPage.state.prevStateHash;
+  invariant(boundaryHash, "expected the page boundary to name a predecessor");
+  expect(newestOnNext.state.stateHash).toBe(boundaryHash);
+  expect(newestOnNext.state.version).toBe(oldestOnPage.state.version - 1);
+  expect(second.hasMore).toBe(false);
+}, 300_000);

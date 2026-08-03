@@ -1,4 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { MAX_PRINCIPAL_STATE_VERSION } from "@tearleads/validators/util";
 import { ML_KEM1024_PUBLIC_KEY_BYTES } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
 import { computePrincipalMemberEnvelopesRoot } from "./principalMemberEnvelopes";
@@ -143,6 +144,16 @@ function validatePrincipalStateIdentityFields(
 ): void {
   if (!isValidPositiveInteger(state.version)) {
     throw new Error("Principal state version must be a positive integer");
+  }
+  // The chain length a recovery walk can traverse is bounded, so accepting a
+  // write past that ceiling would mint history no client could page back
+  // through — the key would still exist and still be unreachable. Rejecting at
+  // write time keeps the supported domain and the recoverable domain the same
+  // set.
+  if (state.version > MAX_PRINCIPAL_STATE_VERSION) {
+    throw new Error(
+      `Principal state version must not exceed ${MAX_PRINCIPAL_STATE_VERSION}`,
+    );
   }
 
   if (!isValidPositiveInteger(state.keyEpoch)) {

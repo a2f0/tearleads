@@ -11,6 +11,7 @@ import type {
   PrincipalPolicyHistoryEntryResponse,
   PrincipalPolicyHistoryResponse,
 } from "@tearleads/validators/response";
+import { MAX_PRINCIPAL_STATE_VERSION } from "@tearleads/validators/util";
 import {
   openPrincipalWrapsThroughHistory,
   resolveHistoricalPrincipalKey,
@@ -252,7 +253,7 @@ test("the walk stops instead of following an endless claim of more", async () =>
   const recovered = await resolveHistoricalPrincipalKey({
     fetchHistory: async (input) => {
       pages += 1;
-      const version = (input.beforeVersion ?? 100_000) - 1;
+      const version = (input.beforeVersion ?? MAX_PRINCIPAL_STATE_VERSION) - 1;
       return pageOf(
         [
           {
