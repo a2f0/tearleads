@@ -28,7 +28,7 @@
     "build:packages": "turbo run build --filter=@tearleads/sqlite-instance --filter=@tearleads/client-sdk",
     "check": "bun run build:packages && bun tsc --build --pretty false && bun run check:fast && bun run test:turbo",
     "check:affected": "bun run build:packages && bun tsc --build --pretty false && bun run check:fast && bun run test:turbo:affected",
-    "check:fast": "bun run lint:biome && bun run lint:openapi && bun run lint:openapi:compatibility && bun run test:openapi:compatibility && bun run test:protocol-models && bun run check:protocol-models && bun run test:protocol-conformance && bun run lint:package-assertions && bun run lint:infrastructure-parity && bun run lint:knip:all && bun run lint:knip:production && bun run lint:architecture && bun run lint:files && bun run lint:source-shape && bun run lint:binary-files && bun run lint:ruby && bun run lint:scripts",
+    "check:fast": "bun run lint:biome && bun run lint:openapi && bun run lint:openapi:compatibility && bun run test:openapi:compatibility && bun run test:protocol-models && bun run check:protocol-models && bun run test:protocol-conformance && bun run lint:package-assertions && bun run lint:infrastructure-parity && bun run lint:knip:all && bun run lint:knip:production && bun run lint:architecture && bun run lint:files && bun run lint:source-shape && bun run lint:binary-files && bun run lint:ruby && bun run lint:scripts && bun run lint:markdown",
     "check:protocol-models": "sh scripts/checks/checkProtocolModels.sh",
     "clean:local-caches": "bun scripts/cleanLocalCaches.ts",
     "clean:local-caches:deps": "bun scripts/cleanLocalCaches.ts --include-node-modules",
@@ -48,6 +48,8 @@
     "lint:knip:exports": "knip --exports",
     "lint:knip:files": "knip --files",
     "lint:knip:production": "knip --production",
+    "lint:markdown": "bun --bun x markdownlint-cli2 '**/*.md'",
+    "lint:markdown:fix": "bun --bun x markdownlint-cli2 --fix '**/*.md'",
     "lint:openapi": "bun run --cwd packages/validators lint:openapi",
     "lint:openapi:compatibility": "sh scripts/checks/checkOpenApiCompatibility.sh",
     "lint:package-assertions": "bun scripts/lintPackageAssertions.ts",
@@ -99,7 +101,8 @@
     "packages/website"
   ],
   "lint-staged": {
-    "*.{css,html,js,json,jsonc,jsx,mjs,cjs,ts,tsx}": "biome check --fix --error-on-warnings"
+    "*.{css,html,js,json,jsonc,jsx,mjs,cjs,ts,tsx}": "biome check --fix --error-on-warnings",
+    "*.md": "bun --bun x markdownlint-cli2 --fix"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.8",
@@ -113,6 +116,7 @@
     "invariant": "catalog:",
     "knip": "6.0.6",
     "lint-staged": "16.4.0",
+    "markdownlint-cli2": "0.23.2",
     "turbo": "2.8.20",
     "typescript": "5.9.3"
   }

@@ -8,7 +8,7 @@ It is a separate deployable entry package: it depends on `@tearleads/api-shared`
 for server infrastructure and **must not** import `packages/api` (enforced by the
 `api-cli-does-not-depend-on-api` dependency-cruiser rule).
 
-```
+```text
 Usage: tearleads-api-cli <command>
 
 Commands:
@@ -69,8 +69,8 @@ per line to stdout.
 
 Arguments are parsed in a single pass, so a literal `--with-size` passed as the
 `--prefix` *value* stays the prefix instead of being read as the flag. Unknown
-arguments and a `--prefix` with no value throw. A truncated S3 response without a
-continuation token is an error rather than a silent short listing.
+arguments and a `--prefix` with no value throw. A truncated S3 response without
+a continuation token is an error rather than a silent short listing.
 
 Requires these environment variables (read at command time, all validated):
 
