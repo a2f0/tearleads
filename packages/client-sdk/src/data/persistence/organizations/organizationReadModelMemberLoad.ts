@@ -71,7 +71,6 @@ async function loadMembershipRows(input: {
       encapsulationPublicKey:
         organizationReadModelGroupMembers.encapsulationPublicKey,
       userId: organizationReadModelGroupMembers.userId,
-      memberPrincipalType: organizationReadModelGroupMembers.userId,
       role: organizationReadModelGroupMembers.role,
       signingKeyFingerprint:
         organizationReadModelGroupMembers.signingKeyFingerprint,

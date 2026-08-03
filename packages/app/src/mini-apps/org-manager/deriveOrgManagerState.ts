@@ -177,9 +177,7 @@ export function deriveOrgManagerState(input: DeriveOrgManagerStateInput) {
     ) ??
     null;
   const memberUserIds = new Set(
-    scoped.activeMembers?.members
-      .filter((member) => member.memberPrincipalType === "user")
-      .map((member) => member.memberPrincipalId) ?? [],
+    scoped.activeMembers?.members.map((member) => member.userId) ?? [],
   );
   const addableUsers =
     input.activeDirectory?.users.filter(

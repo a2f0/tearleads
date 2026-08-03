@@ -19,7 +19,6 @@ function renderSection(
   return render(
     <PolicyHistorySection
       directory={null}
-      groups={[]}
       heading={ORG_MANAGER_LABELS.organizationPolicyHistory}
       history={null}
       {...overrides}

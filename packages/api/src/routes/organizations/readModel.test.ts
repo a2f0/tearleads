@@ -118,7 +118,6 @@ test("organization read-model route snapshots and coalesces group changes", asyn
     actor,
     groupId,
     name: "Operators",
-    nestedGroupIds: [adminGroupId],
   });
   const createResponse = await routeApp.request(
     `/organizations/${organizationId}/groups`,
@@ -159,12 +158,10 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   expect(changed.lanes.groupMemberships?.groups[0]?.stateHash).toBe(
     created.currentState?.stateHash,
   );
+  // The creator is the group's only member. This used to also assert a nested
+  // Admins group member; principals contain only users now.
   expect(changed.lanes.groupMemberships?.groups[0]?.members).toContainEqual(
-    expect.objectContaining({
-      groupId: adminGroupId,
-      groupName: "Admins",
-      userId: adminGroupId,
-    }),
+    expect.objectContaining({ userId: actor.userId, role: "admin" }),
   );
 
   const rejectedReplay = await routeApp.request(

@@ -68,9 +68,7 @@ export async function prepareRosterImport(input: {
   }
 
   const alreadyMember = memberGroupMembers.members.some(
-    (member) =>
-      member.memberPrincipalType === "user" &&
-      member.memberPrincipalId === targetUser.userId,
+    (member) => member.userId === targetUser.userId,
   );
   if (!alreadyMember) {
     await input.orgManagerActions.addUserToGroup(

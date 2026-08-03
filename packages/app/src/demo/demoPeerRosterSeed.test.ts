@@ -54,16 +54,12 @@ function member(
   overrides: Partial<OrganizationGroupMember>,
 ): OrganizationGroupMember {
   return {
-    memberPrincipalType: "user",
-    memberPrincipalId: "member-id",
     role: "member",
     userId: "member-id",
     signingKeyFingerprint: "signing-fp",
     signingPublicKey: "signing-pub",
     encapsulationPublicKey: "encap-pub",
     encapsulationKeyFingerprint: "encap-fp",
-    groupId: null,
-    groupName: null,
     ...overrides,
   };
 }
@@ -125,23 +121,12 @@ test("isPeerOnRoster only matches an active directory entry for the peer", () =>
   expect(isPeerOnRoster(directory({ users: [self] }), "peer")).toBe(false);
 });
 
-test("isPeerInMemberGroup matches only a user member with the peer's id", () => {
+test("isPeerInMemberGroup matches only a member with the peer's id", () => {
   expect(
-    isPeerInMemberGroup(
-      members([member({ memberPrincipalId: "peer" })]),
-      "peer",
-    ),
+    isPeerInMemberGroup(members([member({ userId: "peer" })]), "peer"),
   ).toBe(true);
   expect(
-    isPeerInMemberGroup(
-      members([
-        member({
-          memberPrincipalType: "group",
-          memberPrincipalId: "peer",
-        }),
-      ]),
-      "peer",
-    ),
+    isPeerInMemberGroup(members([member({ userId: "someone-else" })]), "peer"),
   ).toBe(false);
   expect(isPeerInMemberGroup(members([]), "peer")).toBe(false);
   expect(isPeerInMemberGroup(null, "peer")).toBe(false);
@@ -173,7 +158,7 @@ test("planDemoPeerRosterSeed is idle once the peer is on the roster", () => {
     planDemoPeerRosterSeed({
       directory: directory({ users: [self, peer] }),
       memberGroupId: "member-group",
-      members: members([member({ memberPrincipalId: "self" })]),
+      members: members([member({ userId: "self" })]),
       peerUserId: "peer",
     }),
   ).toEqual({ kind: "idle" });
@@ -186,8 +171,8 @@ test("planDemoPeerRosterSeed is idle once the peer is a member-group user", () =
       directory: directory({ users: [self] }),
       memberGroupId: "member-group",
       members: members([
-        member({ memberPrincipalId: "self" }),
-        member({ memberPrincipalId: "peer" }),
+        member({ userId: "self" }),
+        member({ userId: "peer" }),
       ]),
       peerUserId: "peer",
     }),
@@ -204,7 +189,7 @@ test("planDemoPeerRosterSeed plans an import-and-add when the peer is unknown", 
   const plan = planDemoPeerRosterSeed({
     directory: directory({ users: [self] }),
     memberGroupId: "member-group",
-    members: members([member({ memberPrincipalId: "self" })]),
+    members: members([member({ userId: "self" })]),
     peerUserId: "peer",
   });
 
@@ -227,7 +212,7 @@ test("planDemoPeerRosterSeed skips import for a known-but-unseeded peer", () => 
   const plan = planDemoPeerRosterSeed({
     directory: directory({ users: [self, peer] }),
     memberGroupId: "member-group",
-    members: members([member({ memberPrincipalId: "self" })]),
+    members: members([member({ userId: "self" })]),
     peerUserId: "peer",
   });
 
@@ -318,7 +303,7 @@ test("seedPeerRosterEntry adds the peer to the member group, then retries", asyn
       users: [self],
       memberGroupId: "mg",
     }),
-    members: members([member({ memberPrincipalId: "self" })]),
+    members: members([member({ userId: "self" })]),
     importedUser: importedPeer,
   });
 
@@ -342,8 +327,8 @@ test("seedPeerRosterEntry does not re-add a peer already in the member group", a
       memberGroupId: "mg",
     }),
     members: members([
-      member({ memberPrincipalId: "self" }),
-      member({ memberPrincipalId: "peer" }),
+      member({ userId: "self" }),
+      member({ userId: "peer" }),
     ]),
   });
 
@@ -424,7 +409,7 @@ test("seedPeerRosterEntry waits when directory, members, or peer import is unava
       users: [self],
       memberGroupId: "mg",
     }),
-    members: members([member({ memberPrincipalId: "self" })]),
+    members: members([member({ userId: "self" })]),
     importedUser: null,
   });
   expect(

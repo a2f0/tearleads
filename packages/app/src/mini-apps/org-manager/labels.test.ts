@@ -6,7 +6,6 @@ import {
   getOrgManagerMemberCountLabel,
   getOrgManagerPolicyAddedLabel,
   getOrgManagerPolicyChangeTypeLabel,
-  getOrgManagerPolicyMemberTypeLabel,
   getOrgManagerPolicyRemovedLabel,
   getOrgManagerPolicyRoleChangedLabel,
   getOrgManagerPolicyRoleLabel,
@@ -36,7 +35,6 @@ test("org manager labels format variable display text", () => {
   expect(getOrgManagerPolicyChangeTypeLabel("role_changed")).toBe(
     "Role changed",
   );
-  expect(getOrgManagerPolicyMemberTypeLabel("group")).toBe("Group");
   expect(getOrgManagerPolicyRoleChangedLabel("Alice", "member", "admin")).toBe(
     "Alice changed from member to admin",
   );

@@ -373,14 +373,6 @@ export function getOrgManagerPolicyChangeTypeLabel(
   }
 }
 
-export function getOrgManagerPolicyMemberTypeLabel(
-  memberPrincipalType: "group" | "user",
-): string {
-  return memberPrincipalType === "group"
-    ? ORG_MANAGER_LABELS.group
-    : ORG_MANAGER_LABELS.user;
-}
-
 export function getOrgManagerPolicyRoleChangedLabel(
   memberLabel: string,
   previousRoleLabel: string,

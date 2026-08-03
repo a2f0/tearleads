@@ -294,14 +294,12 @@ async function loadMembershipEdges(
     .select({
       groupId: organizationReadModelGroupMembers.groupId,
       userId: organizationReadModelGroupMembers.userId,
-      memberPrincipalType: organizationReadModelGroupMembers.userId,
     })
     .from(organizationReadModelGroupMembers)
     .where(eq(organizationReadModelGroupMembers.organizationId, organizationId))
     .orderBy(
       asc(organizationReadModelGroupMembers.groupId),
       asc(organizationReadModelGroupMembers.sortOrder),
-      asc(organizationReadModelGroupMembers.userId),
       asc(organizationReadModelGroupMembers.userId),
     );
 }

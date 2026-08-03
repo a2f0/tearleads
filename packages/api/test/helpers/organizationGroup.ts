@@ -21,7 +21,6 @@ export async function createGroupRequest(input: {
   groupId: string;
   includeActorAsAdmin?: boolean | undefined;
   name: string;
-  nestedGroupIds?: readonly string[] | undefined;
 }) {
   const principalKem = generateKemSeedAndKeyPair();
   const includeActor = input.includeActorAsAdmin ?? true;
@@ -34,10 +33,6 @@ export async function createGroupRequest(input: {
           },
         ]
       : []),
-    ...(input.nestedGroupIds ?? []).map((groupId) => ({
-      userId: groupId,
-      role: "member" as const,
-    })),
   ]);
   const payloadCiphertext = bytesToBase64(
     new TextEncoder().encode(JSON.stringify({ members: projection })),
