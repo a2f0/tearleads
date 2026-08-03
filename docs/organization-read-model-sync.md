@@ -73,7 +73,7 @@ feed marker. Policy replay and catalog creation consult that tombstone; they do
 not treat the read-model change log as authority, so future feed retention
 cannot alter cryptographic or lifecycle decisions.
 
-Protocol version 4 includes these lanes:
+Protocol version 5 includes these lanes:
 
 - `directory`: roster and profile-binding rows;
 - `groups`: visible group catalog rows and state-head summaries;
@@ -108,8 +108,8 @@ state-bound entity or lane snapshot.
 ## Protocol versioning
 
 Version 4 is a clean protocol reset, not a compatibility extension. Responses
-and opaque cursors carry version 4, response validation accepts only the exact
-version 4 lane shapes, and the server rejects other cursor versions. Local
+and opaque cursors carry version 5, response validation accepts only the exact
+version 5 lane shapes, and the server rejects other cursor versions. Local
 storage contains only the current projection schema; pre-reset databases must
 be discarded rather than upgraded.
 

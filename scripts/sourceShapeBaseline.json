@@ -77,8 +77,8 @@
       "bytes": 27100
     },
     "docs/security-guarantees.md": {
-      "lines": 488,
-      "bytes": 25105
+      "lines": 491,
+      "bytes": 25360
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
@@ -165,8 +165,8 @@
       "bytes": 36129
     },
     "packages/api/src/routes/principals/policy.test.ts": {
-      "lines": 874,
-      "bytes": 28152
+      "lines": 905,
+      "bytes": 29720
     },
     "packages/api/src/schema.test.ts": {
       "lines": 507,

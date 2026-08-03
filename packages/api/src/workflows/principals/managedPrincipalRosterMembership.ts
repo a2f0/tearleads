@@ -84,3 +84,33 @@ export async function assertManagedPrincipalRosterMembership(input: {
     );
   }
 }
+
+/**
+ * Re-validates the reserved `Admins` group after a `Members` transition.
+ *
+ * Removing someone from `Members` takes them off the roster but leaves every
+ * other group they belong to untouched — including `Admins`. Without this, that
+ * one write produces exactly what the Admins rule exists to prevent: an admin
+ * with no roster entry, invisible to the directory and absent from the invoice,
+ * still holding admin authority. Remove them from `Admins` first; the disable
+ * flow already does, in that order.
+ */
+export async function assertOrganizationAdminsRosterMembership(input: {
+  readonly organizationId: string;
+  readonly tx: DatabaseTransaction;
+}): Promise<void> {
+  const [organization] = await input.tx
+    .select({ adminGroupId: organizations.adminGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, input.organizationId))
+    .limit(1);
+  if (!organization) {
+    return;
+  }
+  await assertManagedPrincipalRosterMembership({
+    organizationId: input.organizationId,
+    principalId: organization.adminGroupId,
+    principalType: "group",
+    tx: input.tx,
+  });
+}

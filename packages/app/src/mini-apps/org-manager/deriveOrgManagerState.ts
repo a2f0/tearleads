@@ -152,8 +152,16 @@ export function deriveOrgManagerState(input: DeriveOrgManagerStateInput) {
   );
   const selectedGroupIsMembersGroup =
     selectedGroup?.name === ORG_MANAGER_LABELS.members;
-  const selectedGroupIsAdminsGroup =
-    selectedGroup?.name === ORG_MANAGER_LABELS.admins;
+  // Identify Admins structurally, never by display name: an organization may
+  // create an ordinary group called "Admins", and seeding Members off the back
+  // of that would enroll — and bill — users the operator never made admins.
+  // There are exactly two reserved groups, so a builtin that is not Members is
+  // Admins.
+  const selectedGroupIsAdminsGroup = Boolean(
+    selectedGroup?.isBuiltin &&
+      input.memberGroupId &&
+      selectedGroup.groupId !== input.memberGroupId,
+  );
   const canCreateGroup = Boolean(
     input.databaseReady && input.activeDirectory?.currentUser.isOrgAdmin,
   );

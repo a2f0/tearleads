@@ -29,7 +29,10 @@ import {
   persistPrincipalPolicyAccessLossTombstones,
 } from "./accessLossTombstones";
 import { getPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
-import { assertManagedPrincipalRosterMembership } from "./managedPrincipalRosterMembership";
+import {
+  assertManagedPrincipalRosterMembership,
+  assertOrganizationAdminsRosterMembership,
+} from "./managedPrincipalRosterMembership";
 import { assertPrincipalOrganizationCanSync } from "./organizationSync";
 import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
 import {
@@ -153,6 +156,13 @@ async function syncRosterForStoredPrincipalState(input: {
       organizationId: rosterSyncTarget.organizationId,
       principalId: input.request.expectedPrincipalId,
       principalType: input.request.expectedPrincipalType,
+      tx: input.tx,
+    });
+  } else {
+    // A Members write just moved the roster underneath every other group.
+    // Admins is the one that must not be left holding an off-roster user.
+    await assertOrganizationAdminsRosterMembership({
+      organizationId: rosterSyncTarget.organizationId,
       tx: input.tx,
     });
   }

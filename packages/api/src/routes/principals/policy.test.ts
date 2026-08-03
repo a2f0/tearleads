@@ -15,7 +15,10 @@ import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response"
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { getCurrentOrganizationAdminAuthority } from "../../../test/helpers/organizationAdmin";
+import {
+  addUserToAdminGroup,
+  getCurrentOrganizationAdminAuthority,
+} from "../../../test/helpers/organizationAdmin";
 import {
   createSignedPrincipalState,
   getDefaultOrganizationId,
@@ -313,6 +316,76 @@ test("PUT /principals/:principalType/:principalId/policy rejects Admins users wh
   expect(await response.json()).toEqual({
     error: "Admins contains users who are not active organization members",
   });
+});
+
+test("PUT /principals/:principalType/:principalId/policy rejects a Members removal that strands an admin", async () => {
+  // Removing someone from Members takes them off the roster but leaves Admins
+  // untouched, which would leave an admin nobody can see and nobody bills.
+  // Admins has to be unwound first — the order the disable flow already uses.
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
+  const admin = createTestUser();
+  await registerUser(admin);
+  await addUserToAdminGroup({ actor, member: admin, organizationId });
+
+  const [organization] = await db
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId));
+  invariant(organization, "expected organization row");
+  const currentMembers = await getCurrentPrincipalState(
+    "group",
+    organization.memberGroupId,
+    db,
+  );
+  invariant(currentMembers, "expected current Members state");
+
+  const projection = [{ userId: actor.userId, role: "admin" as const }];
+  const signedState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId: organization.memberGroupId,
+    version: currentMembers.version + 1,
+    prevStateHash: currentMembers.stateHash,
+    keyEpoch: currentMembers.keyEpoch + 1,
+    members: projection.map((projectionMember) => ({
+      userId: projectionMember.userId,
+    })),
+    projection,
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+  });
+
+  const response = await routeApp.request(
+    `/principals/group/${organization.memberGroupId}/policy`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
+        projection: signedState.projection,
+        memberEnvelopes: signedState.memberEnvelopes,
+      }),
+    },
+  );
+
+  // The removal disables their roster entry in the same transaction, so Admins
+  // is now holding a disabled user and that rule reports first. Either way the
+  // write is refused rather than stranding an admin off the roster.
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Principal contains disabled organization users",
+  });
+  expect(
+    (await getCurrentPrincipalState("group", organization.memberGroupId, db))
+      ?.version,
+  ).toBe(currentMembers.version);
 });
 
 test("PUT /principals/:principalType/:principalId/policy rejects disabled roster users in non-Members groups", async () => {
