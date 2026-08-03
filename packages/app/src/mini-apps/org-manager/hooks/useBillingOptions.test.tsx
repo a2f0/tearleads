@@ -126,7 +126,7 @@ test("keeps options empty when buyer identification genuinely fails", async () =
   expect(purchases.listSyncOptions).not.toHaveBeenCalled();
 });
 
-test("shows restart guidance when the provider stalls loading options", async () => {
+test("offers a manual retry when stalled option loading recovers", async () => {
   const purchases = createPurchases({ syncEntitlementActive: false });
   let stalled = true;
   purchases.identify = mock(() =>
@@ -134,7 +134,7 @@ test("shows restart guidance when the provider stalls loading options", async ()
       ? Promise.reject(new PurchaseProviderStalledError())
       : Promise.resolve(),
   );
-  const { result, rerender } = renderBillingActions({ purchases });
+  const { result } = renderBillingActions({ purchases });
 
   await waitFor(() =>
     expect(result.current.actionError).toBe(
@@ -144,14 +144,10 @@ test("shows restart guidance when the provider stalls loading options", async ()
   expect(purchases.listSyncOptions).not.toHaveBeenCalled();
   await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
   expect(purchases.identify).toHaveBeenCalledTimes(1);
-  expect(result.current.optionsRetryAvailable).toBe(false);
+  expect(result.current.optionsRetryAvailable).toBe(true);
 
   stalled = false;
-  rerender({
-    billingIsActive: false,
-    organizationId: "org-1",
-    userId: "user-2",
-  });
+  act(() => result.current.retryOptions());
   await waitFor(() => expect(result.current.options).toEqual([OPTION]));
   expect(result.current.actionError).toBeNull();
 });
@@ -205,8 +201,10 @@ test("keeps loaded options when a later provider retry fails", async () => {
     expect(purchases.listSyncOptions).toHaveBeenCalledTimes(2),
   );
   expect(result.current.options).toEqual([OPTION]);
-  expect(result.current.actionError).toBe(
-    ORG_MANAGER_LABELS.billingOptionsUnavailable,
+  await waitFor(() =>
+    expect(result.current.actionError).toBe(
+      ORG_MANAGER_LABELS.billingOptionsUnavailable,
+    ),
   );
   expect(result.current.canSubscribe).toBe(true);
   expect(result.current.optionsRetryAvailable).toBe(true);

@@ -324,10 +324,7 @@ function projectBillingActions(input: {
     actionError: input.actionStateMatches
       ? (input.actionState.actionError ?? optionsError)
       : optionsError,
-    optionsRetryAvailable:
-      busy === null &&
-      input.optionsErrorKind !== null &&
-      input.optionsErrorKind !== "stalled",
+    optionsRetryAvailable: busy === null && input.optionsErrorKind !== null,
     activationPending:
       input.actionStateMatches && input.actionState.activationPending,
     subscriptionMoveOpen: input.subscriptionMove.open,
