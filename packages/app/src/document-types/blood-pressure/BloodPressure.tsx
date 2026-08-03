@@ -1,4 +1,4 @@
-import { useCallback, useId, useState } from "react";
+import { useId } from "react";
 import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
@@ -10,7 +10,6 @@ import {
   StructuredDocumentField,
   StructuredDocumentFields,
   useStructuredDocumentEditAction,
-  useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
 import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
@@ -18,6 +17,7 @@ import {
   type AddTrackerRow,
   useSavedTrackerRows,
 } from "../shared/useSavedTrackerRows";
+import { useTargetedTrackerEditing } from "../shared/useTargetedTrackerEditing";
 import {
   type BloodPressureField,
   BloodPressureReadingEditRow,
@@ -314,22 +314,19 @@ export function BloodPressure(params: {
     updateRowFields,
   } = useDocument();
   const trackerNameInputId = useId();
-  const [editingReadingId, setEditingReadingId] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
-    canWrite,
-    params.initialEditing,
-  );
-  // Kept reference-stable so the toolbar action it feeds does not re-register
-  // on every render.
-  const toggleEditing = useCallback(() => {
-    setEditingReadingId(null);
-    setIsEditing((editing) => !editing);
-  }, [setIsEditing]);
+  const {
+    editingRowId: editingReadingId,
+    enterRowEdit,
+    isEditing,
+    toggleEditing,
+  } = useTargetedTrackerEditing(canWrite, params.initialEditing);
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
   const resolveRowWriter = useDocumentRowWriters(rows.length > 0);
 
   const trackerName = readTrackerNameField(structuredFields);
   const readings = toBloodPressureReadingRows(rows, readCell);
+  // Row kebabs can enter targeted edit mode only for writers.
+  const onEnterEdit = canWrite ? enterRowEdit : undefined;
 
   function handleUpdateReading(
     id: string,
@@ -351,14 +348,7 @@ export function BloodPressure(params: {
           editingReadingId={editingReadingId}
           isEditing={isEditing && canWrite}
           resolveRowWriter={resolveRowWriter}
-          onEnterEdit={
-            canWrite
-              ? (id) => {
-                  setEditingReadingId(id);
-                  setIsEditing(true);
-                }
-              : undefined
-          }
+          onEnterEdit={onEnterEdit}
           onAddReading={(reading) => {
             if (canWrite) {
               return addRow({

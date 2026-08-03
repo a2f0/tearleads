@@ -1,4 +1,4 @@
-import { useCallback, useId, useState } from "react";
+import { useId } from "react";
 import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
@@ -10,7 +10,6 @@ import {
   StructuredDocumentField,
   StructuredDocumentFields,
   useStructuredDocumentEditAction,
-  useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
 import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
@@ -18,6 +17,7 @@ import {
   type AddTrackerRow,
   useSavedTrackerRows,
 } from "../shared/useSavedTrackerRows";
+import { useTargetedTrackerEditing } from "../shared/useTargetedTrackerEditing";
 import {
   EnvFileVariableEditRow,
   type EnvVariableField,
@@ -218,9 +218,9 @@ function EnvFileEditRows(params: {
 export function EnvFileFields(params: {
   currentAuthorId?: string | null;
   disabled?: boolean | undefined;
+  editingVariableId?: string | null | undefined;
   fileName: string;
   fileNameInputId: string;
-  editingVariableId?: string | null | undefined;
   isEditing?: boolean | undefined;
   onAddVariable: AddTrackerRow<EnvFileQuickVariable>;
   onEnterEdit?: ((id: string) => void) | undefined;
@@ -315,24 +315,19 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
     updateRowFields,
   } = useDocument();
   const fileNameInputId = useId();
-  const [editingVariableId, setEditingVariableId] = useState<string | null>(
-    null,
-  );
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
-    canWrite,
-    params.initialEditing,
-  );
-  // Kept reference-stable so the toolbar action it feeds does not re-register
-  // on every render.
-  const toggleEditing = useCallback(() => {
-    setEditingVariableId(null);
-    setIsEditing((editing) => !editing);
-  }, [setIsEditing]);
+  const {
+    editingRowId: editingVariableId,
+    enterRowEdit,
+    isEditing,
+    toggleEditing,
+  } = useTargetedTrackerEditing(canWrite, params.initialEditing);
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
   const resolveRowWriter = useDocumentRowWriters(rows.length > 0);
 
   const fileName = readFileNameField(structuredFields);
   const variables = toEnvVariableRows(rows, readCell);
+  // Row kebabs can enter targeted edit mode only for writers.
+  const onEnterEdit = canWrite ? enterRowEdit : undefined;
 
   function handleUpdateVariable(
     id: string,
@@ -356,14 +351,7 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
           fileNameInputId={fileNameInputId}
           isEditing={isEditing && canWrite}
           resolveRowWriter={resolveRowWriter}
-          onEnterEdit={
-            canWrite
-              ? (id) => {
-                  setEditingVariableId(id);
-                  setIsEditing(true);
-                }
-              : undefined
-          }
+          onEnterEdit={onEnterEdit}
           onAddVariable={(variable) => {
             if (canWrite) {
               return addRow({

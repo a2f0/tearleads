@@ -1,4 +1,4 @@
-import { useCallback, useId, useState } from "react";
+import { useId } from "react";
 import {
   MiniAppInput,
   MiniAppSelect,
@@ -13,7 +13,6 @@ import {
   StructuredDocumentField,
   StructuredDocumentFields,
   useStructuredDocumentEditAction,
-  useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
 import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
@@ -21,6 +20,7 @@ import {
   type AddTrackerRow,
   useSavedTrackerRows,
 } from "../shared/useSavedTrackerRows";
+import { useTargetedTrackerEditing } from "../shared/useTargetedTrackerEditing";
 import {
   type UpdateEntry,
   WeightEntryEditRow,
@@ -273,8 +273,8 @@ export function WeightFields(params: {
   const {
     currentAuthorId = null,
     disabled = false,
-    entries,
     editingEntryId = null,
+    entries,
     isEditing = true,
     onAddEntry,
     onChangeUnit,
@@ -357,23 +357,20 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
   } = useDocument();
   const trackerNameInputId = useId();
   const unitInputId = useId();
-  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
-    canWrite,
-    params.initialEditing,
-  );
-  // Kept reference-stable so the toolbar action it feeds does not re-register
-  // on every render.
-  const toggleEditing = useCallback(() => {
-    setEditingEntryId(null);
-    setIsEditing((editing) => !editing);
-  }, [setIsEditing]);
+  const {
+    editingRowId: editingEntryId,
+    enterRowEdit,
+    isEditing,
+    toggleEditing,
+  } = useTargetedTrackerEditing(canWrite, params.initialEditing);
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
   const resolveRowWriter = useDocumentRowWriters(rows.length > 0);
 
   const trackerName = readTrackerNameField(structuredFields);
   const unit = readTrackerUnitField(structuredFields);
   const entries = toWeightEntryRows(rows, readCell, unit);
+  // Row kebabs can enter targeted edit mode only for writers.
+  const onEnterEdit = canWrite ? enterRowEdit : undefined;
 
   function handleUpdateEntry(id: string, field: WeightField, value: string) {
     stageCell(id, field, value);
@@ -392,14 +389,7 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
           editingEntryId={editingEntryId}
           isEditing={isEditing && canWrite}
           resolveRowWriter={resolveRowWriter}
-          onEnterEdit={
-            canWrite
-              ? (id) => {
-                  setEditingEntryId(id);
-                  setIsEditing(true);
-                }
-              : undefined
-          }
+          onEnterEdit={onEnterEdit}
           onAddEntry={(entry) => {
             if (canWrite) {
               return addRow({
