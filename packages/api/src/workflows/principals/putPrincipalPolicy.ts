@@ -2,15 +2,11 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import {
-  groups,
-  organizationRosterEntries,
-  organizations,
-} from "@tearleads/api-shared/schema";
+import { groups, organizations } from "@tearleads/api-shared/schema";
 import { computePrincipalStateHash } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
@@ -20,7 +16,6 @@ import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats"
 import { OrganizationManagerError } from "../organizations/errors";
 import { wasOrganizationGroupDeleted } from "../organizations/groupTombstone";
 import { isCurrentOrganizationAdminAuthority } from "../organizations/principalPolicyExternalAuthority";
-import { listUsersReachableFromCurrentPrincipal } from "../organizations/principalReachability";
 import {
   appendOrganizationReadModelChangeInTransaction,
   lockOrganizationReadModelHeadForUpdateInTransaction,
@@ -34,13 +29,16 @@ import {
   persistPrincipalPolicyAccessLossTombstones,
 } from "./accessLossTombstones";
 import { getPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
+import {
+  assertManagedPrincipalRosterMembership,
+  assertOrganizationAdminsRosterMembership,
+} from "./managedPrincipalRosterMembership";
 import { assertPrincipalOrganizationCanSync } from "./organizationSync";
 import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
 import {
   assertPolicyAuthorityConstraints,
   type OrganizationPolicyTarget,
 } from "./principalPolicyAuthorityConstraints";
-import { assertPrincipalPolicyGroupReferencesExist } from "./principalPolicyGroupReferences";
 import { listUserIdsReachableFromPrincipalState } from "./principalStateReachability";
 import { PrincipalPolicyError, toPrincipalPolicyError } from "./shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "./storeVerifiedPrincipalPolicy";
@@ -131,39 +129,6 @@ async function loadRosterSyncTargetForPrincipal(input: {
   return organization ?? null;
 }
 
-async function assertManagedPrincipalUsersAreNotDisabledRosterEntries(input: {
-  readonly organizationId: string;
-  readonly principalId: string;
-  readonly principalType: "group" | "organization";
-  readonly tx: DatabaseTransaction;
-}): Promise<void> {
-  const reachableUserIds = await listUsersReachableFromCurrentPrincipal({
-    executor: input.tx,
-    principalId: input.principalId,
-    principalType: input.principalType,
-  });
-  if (reachableUserIds.length === 0) {
-    return;
-  }
-
-  const disabledRows = await input.tx
-    .select({ userId: organizationRosterEntries.userId })
-    .from(organizationRosterEntries)
-    .where(
-      and(
-        eq(organizationRosterEntries.organizationId, input.organizationId),
-        eq(organizationRosterEntries.status, "disabled"),
-        inArray(organizationRosterEntries.userId, reachableUserIds),
-      ),
-    );
-  if (disabledRows.length > 0) {
-    throw new PrincipalPolicyError(
-      "Principal contains disabled organization users",
-      409,
-    );
-  }
-}
-
 async function syncRosterForStoredPrincipalState(input: {
   readonly request: PutPrincipalPolicyInput;
   readonly tx: DatabaseTransaction;
@@ -187,10 +152,17 @@ async function syncRosterForStoredPrincipalState(input: {
     input.request.expectedPrincipalType === "organization" ||
     input.request.expectedPrincipalId !== rosterSyncTarget.memberGroupId
   ) {
-    await assertManagedPrincipalUsersAreNotDisabledRosterEntries({
+    await assertManagedPrincipalRosterMembership({
       organizationId: rosterSyncTarget.organizationId,
       principalId: input.request.expectedPrincipalId,
       principalType: input.request.expectedPrincipalType,
+      tx: input.tx,
+    });
+  } else {
+    // A Members write just moved the roster underneath every other group.
+    // Admins is the one that must not be left holding an off-roster user.
+    await assertOrganizationAdminsRosterMembership({
+      organizationId: rosterSyncTarget.organizationId,
       tx: input.tx,
     });
   }
@@ -334,9 +306,7 @@ async function lockOrganizationReadModelForPolicyMutation(
     : input.projection;
   const isDirectAdmin = authorizationProjection.some(
     (member) =>
-      member.memberPrincipalType === "user" &&
-      member.memberPrincipalId === input.state.signerUserId &&
-      member.role === "admin",
+      member.userId === input.state.signerUserId && member.role === "admin",
   );
   const isOrganizationAdmin =
     !isDirectAdmin &&
@@ -374,10 +344,6 @@ async function lockPolicyPrincipalMutation(
     input.expectedPrincipalType,
     input.expectedPrincipalId,
   );
-  await assertPrincipalPolicyGroupReferencesExist({
-    projection: input.projection,
-    tx,
-  });
 }
 
 async function applyPrincipalPolicyTransitionEffects(input: {
@@ -456,9 +422,10 @@ export async function runPutPrincipalPolicyWorkflow(
   try {
     return await db.transaction(async (tx) => {
       await lockPolicyPrincipalMutation(tx, input);
-      const organizationTarget =
-        await lockOrganizationReadModelForPolicyMutation(tx, input);
-      await assertPolicyAuthorityConstraints(tx, organizationTarget, input);
+      // Still locks the org read model; its target is no longer needed now
+      // that group-scope validation is gone.
+      await lockOrganizationReadModelForPolicyMutation(tx, input);
+      await assertPolicyAuthorityConstraints(tx, input);
       const previousState = await getCurrentPrincipalState(
         input.state.principalType,
         input.state.principalId,

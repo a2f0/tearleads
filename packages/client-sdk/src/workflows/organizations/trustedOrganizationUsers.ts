@@ -8,9 +8,7 @@ import {
 export function projectionUserIds(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
 ): string[] {
-  return projection
-    .filter((member) => member.memberPrincipalType === "user")
-    .map((member) => member.memberPrincipalId);
+  return projection.map((member) => member.userId);
 }
 
 export async function resolveRequiredUserIdentities(input: {

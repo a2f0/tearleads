@@ -53,8 +53,7 @@ export interface OrganizationReadModelPolicyHead {
 
 export interface OrganizationReadModelMembershipEdge {
   readonly groupId: string;
-  readonly memberPrincipalId: string;
-  readonly memberPrincipalType: string;
+  readonly userId: string;
 }
 
 interface SelectedDirectoryUser {
@@ -294,17 +293,14 @@ async function loadMembershipEdges(
   return tx
     .select({
       groupId: organizationReadModelGroupMembers.groupId,
-      memberPrincipalId: organizationReadModelGroupMembers.memberPrincipalId,
-      memberPrincipalType:
-        organizationReadModelGroupMembers.memberPrincipalType,
+      userId: organizationReadModelGroupMembers.userId,
     })
     .from(organizationReadModelGroupMembers)
     .where(eq(organizationReadModelGroupMembers.organizationId, organizationId))
     .orderBy(
       asc(organizationReadModelGroupMembers.groupId),
       asc(organizationReadModelGroupMembers.sortOrder),
-      asc(organizationReadModelGroupMembers.memberPrincipalType),
-      asc(organizationReadModelGroupMembers.memberPrincipalId),
+      asc(organizationReadModelGroupMembers.userId),
     );
 }
 

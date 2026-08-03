@@ -74,8 +74,7 @@ async function insertMemberGroupState(input: {
       principalType: "group" as const,
       principalId: input.groupId,
       stateHash: input.stateHash,
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: userId,
+      userId: userId,
       role: "member" as const,
     })),
   );
@@ -384,4 +383,40 @@ test("an over-capacity native roster can stay level and shrink", async () => {
   expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
     [userA, userB].sort(),
   );
+});
+
+test("seats count the Members group's own members and nobody else's", async () => {
+  // Billing bills whoever the Members group lists, and only them. Group nesting
+  // is gone, so belonging to some other group in the organization can never
+  // pull a user onto the invoice — a guard worth pinning explicitly, because a
+  // reintroduced transitive walk here would silently change what customers pay.
+  const { memberGroupId, organizationId } = await createBillableOrganization();
+  const billedUser = crypto.randomUUID();
+  const otherGroupUserA = crypto.randomUUID();
+  const otherGroupUserB = crypto.randomUUID();
+
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: billedUser,
+    stateHash: "state-1",
+    userIds: [billedUser],
+    version: 1,
+  });
+  await insertMemberGroupState({
+    groupId: crypto.randomUUID(),
+    signerUserId: otherGroupUserA,
+    stateHash: "other-group-state-1",
+    userIds: [otherGroupUserA, otherGroupUserB],
+    version: 1,
+  });
+
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    source: { sourceId: "state-1", sourceType: "principal_state" },
+  });
+
+  expect(await readSeatCount(organizationId)).toBe(1);
+  expect(await readOpenAssignmentUserIds(organizationId)).toEqual([billedUser]);
 });

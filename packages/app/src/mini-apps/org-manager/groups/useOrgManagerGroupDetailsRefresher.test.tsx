@@ -25,10 +25,6 @@ const staleMembers: OrganizationGroupMembers = {
     {
       encapsulationKeyFingerprint: null,
       encapsulationPublicKey: null,
-      groupId: null,
-      groupName: null,
-      memberPrincipalId: "stale-user",
-      memberPrincipalType: "user",
       role: "member",
       signingKeyFingerprint: null,
       signingPublicKey: null,

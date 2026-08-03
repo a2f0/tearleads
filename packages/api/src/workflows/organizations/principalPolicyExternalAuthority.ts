@@ -60,9 +60,6 @@ export async function isCurrentOrganizationAdminAuthority(input: {
     input.executor,
   );
   return projection.some(
-    (member) =>
-      member.memberPrincipalType === "user" &&
-      member.memberPrincipalId === input.signerUserId &&
-      member.role === "admin",
+    (member) => member.userId === input.signerUserId && member.role === "admin",
   );
 }

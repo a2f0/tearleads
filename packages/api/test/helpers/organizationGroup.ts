@@ -18,10 +18,11 @@ import {
 
 export async function createGroupRequest(input: {
   actor: TestUser;
+  /** Extra users to seed into the new group's initial policy. */
+  additionalMembers?: readonly TestUser[] | undefined;
   groupId: string;
   includeActorAsAdmin?: boolean | undefined;
   name: string;
-  nestedGroupIds?: readonly string[] | undefined;
 }) {
   const principalKem = generateKemSeedAndKeyPair();
   const includeActor = input.includeActorAsAdmin ?? true;
@@ -29,15 +30,13 @@ export async function createGroupRequest(input: {
     ...(includeActor
       ? [
           {
-            memberPrincipalType: "user" as const,
-            memberPrincipalId: input.actor.userId,
+            userId: input.actor.userId,
             role: "admin" as const,
           },
         ]
       : []),
-    ...(input.nestedGroupIds ?? []).map((groupId) => ({
-      memberPrincipalType: "group" as const,
-      memberPrincipalId: groupId,
+    ...(input.additionalMembers ?? []).map((member) => ({
+      userId: member.userId,
       role: "member" as const,
     })),
   ]);

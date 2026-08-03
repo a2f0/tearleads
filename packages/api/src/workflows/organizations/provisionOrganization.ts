@@ -250,8 +250,8 @@ function validateInitialOrganizationPolicyInput(
   if (
     projection.length !== 1 ||
     !onlyProjectionMember ||
-    onlyProjectionMember.memberPrincipalType !== "user" ||
-    onlyProjectionMember.memberPrincipalId !== input.userId ||
+    false ||
+    onlyProjectionMember.userId !== input.userId ||
     onlyProjectionMember.role !== "admin" ||
     state.memberCount !== 1
   ) {
@@ -265,8 +265,8 @@ function validateInitialOrganizationPolicyInput(
   if (
     memberEnvelopes.length !== 1 ||
     !onlyMemberEnvelope ||
-    onlyMemberEnvelope.memberPrincipalType !== "user" ||
-    onlyMemberEnvelope.memberPrincipalId !== input.userId ||
+    false ||
+    onlyMemberEnvelope.userId !== input.userId ||
     onlyMemberEnvelope.memberKeyFingerprint !== encapsulationFingerprint
   ) {
     throw new OrganizationProvisioningError(
@@ -323,8 +323,8 @@ function validateInitialAdminGroupInput(
   if (
     projection.length !== 1 ||
     !onlyProjectionMember ||
-    onlyProjectionMember.memberPrincipalType !== "user" ||
-    onlyProjectionMember.memberPrincipalId !== input.userId ||
+    false ||
+    onlyProjectionMember.userId !== input.userId ||
     onlyProjectionMember.role !== "admin" ||
     state.memberCount !== 1
   ) {
@@ -338,8 +338,8 @@ function validateInitialAdminGroupInput(
   if (
     memberEnvelopes.length !== 1 ||
     !onlyMemberEnvelope ||
-    onlyMemberEnvelope.memberPrincipalType !== "user" ||
-    onlyMemberEnvelope.memberPrincipalId !== input.userId ||
+    false ||
+    onlyMemberEnvelope.userId !== input.userId ||
     onlyMemberEnvelope.memberKeyFingerprint !== encapsulationFingerprint
   ) {
     throw new OrganizationProvisioningError(
@@ -399,46 +399,33 @@ function validateInitialMemberGroupInput(
     );
   }
 
+  // Members holds the registering user alone. It used to also contain the
+  // Admins group as a nested member; principals contain only users now, so
+  // admins are ordinary Members entries. Bootstrap has exactly one user, so
+  // that user is the whole of Members at provisioning time.
   const userMember = projection.find(
-    (member) =>
-      member.memberPrincipalType === "user" &&
-      member.memberPrincipalId === input.userId,
-  );
-  const adminGroupMember = projection.find(
-    (member) =>
-      member.memberPrincipalType === "group" &&
-      member.memberPrincipalId === input.initialAdminGroup.groupId,
+    (member) => member.userId === input.userId,
   );
   if (
-    projection.length !== 2 ||
+    projection.length !== 1 ||
     userMember?.role !== "admin" ||
-    adminGroupMember?.role !== "member" ||
-    state.memberCount !== 2
+    state.memberCount !== 1
   ) {
     throw new OrganizationProvisioningError(
-      "initialMemberGroup policy must contain the registering user as admin and Admins as member",
+      "initialMemberGroup policy must contain the registering user as its only admin",
       400,
     );
   }
 
   const userEnvelope = memberEnvelopes.find(
-    (envelope) =>
-      envelope.memberPrincipalType === "user" &&
-      envelope.memberPrincipalId === input.userId,
-  );
-  const adminGroupEnvelope = memberEnvelopes.find(
-    (envelope) =>
-      envelope.memberPrincipalType === "group" &&
-      envelope.memberPrincipalId === input.initialAdminGroup.groupId,
+    (envelope) => envelope.userId === input.userId,
   );
   if (
-    memberEnvelopes.length !== 2 ||
-    userEnvelope?.memberKeyFingerprint !== encapsulationFingerprint ||
-    adminGroupEnvelope?.memberKeyFingerprint !==
-      input.initialAdminGroup.initialGroupPolicy.state.keyFingerprint
+    memberEnvelopes.length !== 1 ||
+    userEnvelope?.memberKeyFingerprint !== encapsulationFingerprint
   ) {
     throw new OrganizationProvisioningError(
-      "initialMemberGroup member envelopes must wrap the registering user and Admins group",
+      "initialMemberGroup member envelopes must wrap the registering user",
       400,
     );
   }

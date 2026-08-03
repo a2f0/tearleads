@@ -26,8 +26,7 @@ async function createInitialOrganizationPolicy(input: {
   const organizationKem = generateKemSeedAndKeyPair();
   const projection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       role: "admin" as const,
     },
   ];
@@ -51,8 +50,7 @@ async function createInitialOrganizationPolicy(input: {
   }
   const memberEnvelopes = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       memberKeyFingerprint: await toFingerprint(input.encapsulationPublicKey),
       kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
@@ -67,7 +65,7 @@ async function createInitialOrganizationPolicy(input: {
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
       keyFingerprint: await toFingerprint(organizationKem.publicKey),
-      members: [{ principalType: "user", principalId: input.userId }],
+      members: [{ userId: input.userId }],
       memberEnvelopes,
       projection,
       payloadCiphertext,
@@ -133,7 +131,6 @@ export async function createRegistrationRequestBody(
     userId,
   });
   const initialMemberGroup = await createInitialMemberGroupRequest({
-    adminGroup: initialAdminGroup,
     encapsulationPublicKey,
     signingPrivateKey,
     signingPublicKey,

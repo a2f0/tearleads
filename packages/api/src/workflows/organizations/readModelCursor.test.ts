@@ -35,7 +35,7 @@ test("organization read-model cursors are scoped and strictly validated", () => 
     ).toString("base64url"),
     Buffer.from(
       JSON.stringify({
-        version: 4,
+        version: 5,
         organizationId,
         cursor: "01",
       }),
@@ -52,6 +52,17 @@ test("organization read-model cursors are scoped and strictly validated", () => 
     Buffer.from(
       JSON.stringify({
         version: 3,
+        organizationId,
+        cursor: "4",
+      }),
+      "utf8",
+    ).toString("base64url"),
+    // v4 is the version this reset replaced, so it is the one a real client
+    // could still be holding — rejecting it is what forces a fresh snapshot
+    // instead of applying v5 deltas onto v4-shaped rows.
+    Buffer.from(
+      JSON.stringify({
+        version: 4,
         organizationId,
         cursor: "4",
       }),

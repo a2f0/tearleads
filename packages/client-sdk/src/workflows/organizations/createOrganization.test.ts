@@ -83,7 +83,7 @@ test("createOrganization provisions a new org for the existing user and persists
     expect(request.initialAdminGroup.name).toBe("Admins");
     expect(request.initialMemberGroup.name).toBe("Members");
     expect(request.initialOrganizationPolicy.projection).toEqual([
-      { memberPrincipalType: "user", memberPrincipalId: userId, role: "admin" },
+      { userId: userId, role: "admin" },
     ]);
 
     // The three core container-metadata bodies are committed atomically with

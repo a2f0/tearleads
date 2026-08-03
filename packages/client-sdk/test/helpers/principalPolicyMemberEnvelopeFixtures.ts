@@ -12,12 +12,9 @@ export async function memberEnvelopesForProjection(
 ) {
   return Promise.all(
     projection.map(async (member, index) => ({
-      memberPrincipalType: member.memberPrincipalType,
-      memberPrincipalId: member.memberPrincipalId,
+      userId: member.userId,
       memberKeyFingerprint: await toFingerprint(
-        new TextEncoder().encode(
-          `${member.memberPrincipalType}:${member.memberPrincipalId}`,
-        ),
+        new TextEncoder().encode(member.userId),
       ),
       kemCipherText: bytesToBase64(
         new Uint8Array(ML_KEM1024_CIPHERTEXT_BYTES).fill(index + 1),

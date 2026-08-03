@@ -211,8 +211,7 @@ export async function buildInitialOrganizationPolicyRequest(input: {
   );
   const projection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       role: "admin" as const,
     },
   ];
@@ -232,8 +231,7 @@ export async function buildInitialOrganizationPolicyRequest(input: {
   }
   const memberEnvelopes = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.userId,
+      userId: input.userId,
       memberKeyFingerprint: userEncapsulationKeyFingerprint,
       kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
@@ -248,7 +246,7 @@ export async function buildInitialOrganizationPolicyRequest(input: {
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
       keyFingerprint: await toFingerprint(organizationKem.publicKey),
-      members: [{ principalType: "user", principalId: input.userId }],
+      members: [{ userId: input.userId }],
       memberEnvelopes,
       projection,
       payloadCiphertext,
@@ -290,7 +288,6 @@ async function createOrganizationPrincipalPolicies(input: {
     signingKeyPair: input.signingKeyPair,
   });
   const initialMemberGroup = await buildInitialMemberGroupPolicyRequest({
-    adminGroup: initialAdminGroup,
     creatorEncapsulationKeyPair: input.encapsulationKeyPair,
     groupId: crypto.randomUUID(),
     signerUserId: input.userId,

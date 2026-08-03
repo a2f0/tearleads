@@ -8,7 +8,6 @@ import {
   type SigningKeyPair,
   toFingerprint,
   unwrapDek,
-  type VerifiedPrincipalPolicy,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -57,17 +56,12 @@ import {
 } from "./groupPolicyMutationHead";
 import {
   collectGroupPolicySignerPublicKeys,
-  loadVerifiedOrganizationGroupPolicies,
   prepareGroupPolicyVerification,
   verifyGroupPolicy,
   verifyGroupPolicyWithExternalOrganizationAdmins,
 } from "./groupPolicyVerification";
+import { hasAdmin } from "./principalPolicyProjection";
 import {
-  ensureNoNestedGroupMembers,
-  hasAdmin,
-} from "./principalPolicyProjection";
-import {
-  remainingGroupMemberIds,
   rewrapProjectionMemberEnvelopes,
   toPrincipalMemberEnvelopeRequest,
   toRecipientEntries,
@@ -128,11 +122,8 @@ interface LoadedGroupPolicyMutationContext
   readonly memberGroupId: string;
 }
 
-function projectionMemberKey(member: {
-  readonly memberPrincipalType: "user" | "group";
-  readonly memberPrincipalId: string;
-}): string {
-  return `${member.memberPrincipalType}:${member.memberPrincipalId}`;
+function projectionMemberKey(member: { readonly userId: string }): string {
+  return member.userId;
 }
 
 function requireExternalAuthority(
@@ -338,19 +329,15 @@ async function buildOrgAdminAddGroupUserPolicyRequest(
   input: BuildAddGroupUserPolicyInput,
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
 ): Promise<GroupPolicyMutationRequest> {
-  ensureNoNestedGroupMembers(projection);
-
   const groupKem = generateKemSeedAndKeyPair();
   const usersById = new Map([
     ...input.currentUsers.map((user) => [user.userId, user] as const),
     [input.targetUser.userId, input.targetUser] as const,
   ]);
   const recipientUsers = projection.map((member) => {
-    const user = usersById.get(member.memberPrincipalId);
+    const user = usersById.get(member.userId);
     if (!user) {
-      throw new Error(
-        `Missing recipient key for user ${member.memberPrincipalId}`,
-      );
+      throw new Error(`Missing recipient key for user ${member.userId}`);
     }
 
     return user;
@@ -362,8 +349,7 @@ async function buildOrgAdminAddGroupUserPolicyRequest(
   const memberEnvelopes = wrappedRecipients.map((envelope, index) =>
     toPrincipalMemberEnvelopeRequest({
       envelope,
-      memberPrincipalType: "user",
-      memberPrincipalId: recipientUsers[index]?.userId ?? "",
+      userId: recipientUsers[index]?.userId ?? "",
     }),
   );
   return signedGroupPolicyRequest({
@@ -405,8 +391,7 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
       (envelope) => projectionMemberKey(envelope) !== targetKey,
     ),
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.targetUser.userId,
+      userId: input.targetUser.userId,
       memberKeyFingerprint: input.targetUser.encapsulationKeyFingerprint,
       kemCipherText: bytesToBase64(targetEnvelope.kemCipherText),
       wrappedKey: bytesToBase64(targetEnvelope.wrappedKey),
@@ -447,8 +432,7 @@ export async function buildAddGroupUserPolicyRequest(
   );
 
   const targetKey = projectionMemberKey({
-    memberPrincipalType: "user",
-    memberPrincipalId: input.targetUser.userId,
+    userId: input.targetUser.userId,
   });
   const currentProjection = input.currentPolicy.currentProjection;
   if (
@@ -474,7 +458,6 @@ export async function buildAddGroupUserPolicyRequest(
 
 export async function buildRemoveGroupUserPolicyRequest(
   input: BuildGroupMembershipMutationInput & {
-    readonly remainingGroups?: readonly VerifiedPrincipalPolicy[];
     readonly remainingUsers: ReadonlyArray<TrustedUserIdentity>;
     readonly removedUserId: string;
   },
@@ -494,8 +477,7 @@ export async function buildRemoveGroupUserPolicyRequest(
   );
 
   const key = projectionMemberKey({
-    memberPrincipalType: "user",
-    memberPrincipalId: input.removedUserId,
+    userId: input.removedUserId,
   });
   const projection = input.currentPolicy.currentProjection.filter(
     (member) => projectionMemberKey(member) !== key,
@@ -511,7 +493,6 @@ export async function buildRemoveGroupUserPolicyRequest(
 
   const groupKem = generateKemSeedAndKeyPair();
   const memberEnvelopes = await rewrapProjectionMemberEnvelopes({
-    groups: input.remainingGroups,
     projection,
     secretKey: groupKem.secretKey,
     users: input.remainingUsers,
@@ -722,8 +703,7 @@ export async function removeOrganizationGroupUser(input: {
     signingKeyPair: input.signingKeyPair,
   });
   const removedKey = projectionMemberKey({
-    memberPrincipalType: "user",
-    memberPrincipalId: input.removedUserId,
+    userId: input.removedUserId,
   });
   const projection = policyContext.currentPolicy.currentProjection.filter(
     (member) => projectionMemberKey(member) !== removedKey,
@@ -733,21 +713,12 @@ export async function removeOrganizationGroupUser(input: {
   ) {
     throw new Error("User is not a group member");
   }
-  const gs = await loadVerifiedOrganizationGroupPolicies({
-    execSql: input.execSql,
-    getCurrentPrincipalPolicy: (principalType, principalId) =>
-      input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
-    groupIds: remainingGroupMemberIds(projection),
-    organizationId: input.organizationId,
-    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-  });
   const remainingUsers = await resolveRequiredUserIdentities({
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     userIds: projectionUserIds(projection),
   });
   const request = await buildRemoveGroupUserPolicyRequest({
     ...policyContext,
-    remainingGroups: gs,
     remainingUsers,
     removedUserId: input.removedUserId,
   });

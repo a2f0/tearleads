@@ -242,16 +242,11 @@ export function toPrincipalStatePayloadResponse(input: {
 function toPrincipalMemberEnvelopeResponse(
   envelope: Pick<
     PrincipalMemberEnvelopeRequest,
-    | "memberPrincipalType"
-    | "memberPrincipalId"
-    | "memberKeyFingerprint"
-    | "kemCipherText"
-    | "wrappedKey"
+    "userId" | "memberKeyFingerprint" | "kemCipherText" | "wrappedKey"
   >,
 ): PrincipalMemberEnvelopeResponse {
   return {
-    memberPrincipalType: envelope.memberPrincipalType,
-    memberPrincipalId: envelope.memberPrincipalId,
+    userId: envelope.userId,
     memberKeyFingerprint: envelope.memberKeyFingerprint,
     kemCipherText: envelope.kemCipherText,
     wrappedKey: envelope.wrappedKey,
@@ -266,11 +261,7 @@ export function toCurrentPrincipalMemberEnvelopesResponse(input: {
   envelopes: ReadonlyArray<
     Pick<
       PrincipalMemberEnvelopeRequest,
-      | "memberPrincipalType"
-      | "memberPrincipalId"
-      | "memberKeyFingerprint"
-      | "kemCipherText"
-      | "wrappedKey"
+      "userId" | "memberKeyFingerprint" | "kemCipherText" | "wrappedKey"
     >
   >;
 }): CurrentPrincipalMemberEnvelopesResponse {

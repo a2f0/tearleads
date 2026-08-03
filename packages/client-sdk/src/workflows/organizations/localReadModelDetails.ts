@@ -81,52 +81,24 @@ function toGroupContainer(
   };
 }
 
-function memberKey(type: "group" | "user", id: string): string {
-  return `${type}\0${id}`;
-}
-
+/**
+ * The groups a user belongs to is exactly the set naming them as a member.
+ *
+ * This used to be a breadth-first walk over group-in-group edges. Groups
+ * contain only users now, so the walk had no second level to visit.
+ */
 function reachableGroupIds(input: {
   readonly edges: ReadonlyArray<{
     readonly groupId: string;
-    readonly memberPrincipalId: string;
-    readonly memberPrincipalType: string;
+    readonly userId: string;
   }>;
   readonly userId: string;
 }): Set<string> {
-  const parentsByMember = new Map<string, string[]>();
-  for (const edge of input.edges) {
-    if (
-      edge.memberPrincipalType !== "group" &&
-      edge.memberPrincipalType !== "user"
-    ) {
-      throw new Error("Stored organization membership type is invalid");
-    }
-    const key = memberKey(edge.memberPrincipalType, edge.memberPrincipalId);
-    const parents = parentsByMember.get(key) ?? [];
-    parents.push(edge.groupId);
-    parentsByMember.set(key, parents);
-  }
-
-  const reachable = new Set<string>();
-  const visited = new Set<string>();
-  const queue = [memberKey("user", input.userId)];
-  let queueIndex = 0;
-  while (queueIndex < queue.length) {
-    const key = queue[queueIndex];
-    queueIndex += 1;
-    if (!key) {
-      break;
-    }
-    if (visited.has(key)) {
-      continue;
-    }
-    visited.add(key);
-    for (const groupId of parentsByMember.get(key) ?? []) {
-      reachable.add(groupId);
-      queue.push(memberKey("group", groupId));
-    }
-  }
-  return reachable;
+  return new Set(
+    input.edges
+      .filter((edge) => edge.userId === input.userId)
+      .map((edge) => edge.groupId),
+  );
 }
 
 export async function loadLocalOrganizationContainerGrants(

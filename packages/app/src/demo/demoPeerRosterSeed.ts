@@ -54,11 +54,7 @@ export function isPeerInMemberGroup(
   peerUserId: string,
 ): boolean {
   return Boolean(
-    members?.members.some(
-      (member) =>
-        member.memberPrincipalType === "user" &&
-        member.memberPrincipalId === peerUserId,
-    ),
+    members?.members.some((member) => member.userId === peerUserId),
   );
 }
 

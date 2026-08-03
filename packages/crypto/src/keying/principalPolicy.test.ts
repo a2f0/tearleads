@@ -18,7 +18,7 @@ test("verifyPrincipalPolicyBundle accepts additive membership without key epoch 
     principalKeyPair,
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: signer.userId }],
+    members: [{ userId: signer.userId }],
     signer,
   });
   const second = await signPolicyState({
@@ -26,10 +26,7 @@ test("verifyPrincipalPolicyBundle accepts additive membership without key epoch 
     principalKeyPair,
     version: 2,
     prevStateHash: first.state.stateHash,
-    members: [
-      { principalType: "user", principalId: signer.userId },
-      { principalType: "user", principalId: "user-bob" },
-    ],
+    members: [{ userId: signer.userId }, { userId: "user-bob" }],
     signer,
   });
 
@@ -88,7 +85,7 @@ test("verifyPrincipalPolicyBundle accepts additive membership without key epoch 
     expect(previousReferenceResult.value.history).toHaveLength(2);
     expect(
       previousReferenceResult.value.projection.some(
-        (member) => member.memberPrincipalId === "user-bob",
+        (member) => member.userId === "user-bob",
       ),
     ).toBe(true);
   }
@@ -103,10 +100,7 @@ test("verifyPrincipalPolicyBundle rejects direct member removal without a new ke
     principalKeyPair,
     version: 1,
     prevStateHash: null,
-    members: [
-      { principalType: "user", principalId: signer.userId },
-      { principalType: "user", principalId: "user-bob" },
-    ],
+    members: [{ userId: signer.userId }, { userId: "user-bob" }],
     signer,
   });
   const second = await signPolicyState({
@@ -114,39 +108,7 @@ test("verifyPrincipalPolicyBundle rejects direct member removal without a new ke
     principalKeyPair,
     version: 2,
     prevStateHash: first.state.stateHash,
-    members: [{ principalType: "user", principalId: signer.userId }],
-    signer,
-  });
-
-  const result = await verifyPrincipalPolicyBundle({
-    bundle: createBundle({ current: second, previous: [first.entry] }),
-    signerPublicKeys: [signer],
-  });
-
-  expectVerificationError(result, "key_epoch_reuse");
-});
-
-test("verifyPrincipalPolicyBundle rejects nested group removal without a new key epoch", async () => {
-  const signer = await createPolicySigner();
-  const principalId = "group-nested-shrink";
-  const principalKeyPair = generateKemSeedAndKeyPair();
-  const first = await signPolicyState({
-    principalId,
-    principalKeyPair,
-    version: 1,
-    prevStateHash: null,
-    members: [
-      { principalType: "user", principalId: signer.userId },
-      { principalType: "group", principalId: "nested-group" },
-    ],
-    signer,
-  });
-  const second = await signPolicyState({
-    principalId,
-    principalKeyPair,
-    version: 2,
-    prevStateHash: first.state.stateHash,
-    members: [{ principalType: "user", principalId: signer.userId }],
+    members: [{ userId: signer.userId }],
     signer,
   });
 
@@ -164,25 +126,21 @@ test("verifyPrincipalPolicyBundle rejects role demotion and same-epoch key chang
   const principalKeyPair = generateKemSeedAndKeyPair();
   const firstProjection: PrincipalProjectionMember[] = [
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: signer.userId,
+      userId: signer.userId,
       role: "admin",
     },
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: "user-bob",
+      userId: "user-bob",
       role: "admin",
     },
   ];
   const demotedProjection: PrincipalProjectionMember[] = [
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: signer.userId,
+      userId: signer.userId,
       role: "admin",
     },
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: "user-bob",
+      userId: "user-bob",
       role: "member",
     },
   ];
@@ -192,10 +150,7 @@ test("verifyPrincipalPolicyBundle rejects role demotion and same-epoch key chang
     projection: firstProjection,
     version: 1,
     prevStateHash: null,
-    members: [
-      { principalType: "user", principalId: signer.userId },
-      { principalType: "user", principalId: "user-bob" },
-    ],
+    members: [{ userId: signer.userId }, { userId: "user-bob" }],
     signer,
   });
   const demoted = await signPolicyState({
@@ -204,10 +159,7 @@ test("verifyPrincipalPolicyBundle rejects role demotion and same-epoch key chang
     projection: demotedProjection,
     version: 2,
     prevStateHash: first.state.stateHash,
-    members: [
-      { principalType: "user", principalId: signer.userId },
-      { principalType: "user", principalId: "user-bob" },
-    ],
+    members: [{ userId: signer.userId }, { userId: "user-bob" }],
     signer,
   });
 
@@ -222,10 +174,7 @@ test("verifyPrincipalPolicyBundle rejects role demotion and same-epoch key chang
     principalKeyPair: generateKemSeedAndKeyPair(),
     version: 2,
     prevStateHash: first.state.stateHash,
-    members: [
-      { principalType: "user", principalId: signer.userId },
-      { principalType: "user", principalId: "user-bob" },
-    ],
+    members: [{ userId: signer.userId }, { userId: "user-bob" }],
     signer,
   });
   const keyChangeResult = await verifyPrincipalPolicyBundle({
@@ -246,10 +195,7 @@ test("verifyPrincipalPolicyBundle accepts shrink with a rotated key epoch", asyn
     principalKeyPair: generateKemSeedAndKeyPair(),
     version: 1,
     prevStateHash: null,
-    members: [
-      { principalType: "user", principalId: signer.userId },
-      { principalType: "user", principalId: "user-bob" },
-    ],
+    members: [{ userId: signer.userId }, { userId: "user-bob" }],
     signer,
   });
   const second = await signPolicyState({
@@ -258,7 +204,7 @@ test("verifyPrincipalPolicyBundle accepts shrink with a rotated key epoch", asyn
     keyEpoch: 2,
     version: 2,
     prevStateHash: first.state.stateHash,
-    members: [{ principalType: "user", principalId: signer.userId }],
+    members: [{ userId: signer.userId }],
     signer,
   });
 
@@ -279,7 +225,7 @@ test("verifyPrincipalPolicyBundle rejects rollback and equivocation against loca
     principalKeyPair,
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: signer.userId }],
+    members: [{ userId: signer.userId }],
     signer,
   });
   const second = await signPolicyState({
@@ -287,10 +233,7 @@ test("verifyPrincipalPolicyBundle rejects rollback and equivocation against loca
     principalKeyPair,
     version: 2,
     prevStateHash: first.state.stateHash,
-    members: [
-      { principalType: "user", principalId: signer.userId },
-      { principalType: "user", principalId: "user-bob" },
-    ],
+    members: [{ userId: signer.userId }, { userId: "user-bob" }],
     signer,
   });
   const alternateFirst = await signPolicyState({
@@ -299,7 +242,7 @@ test("verifyPrincipalPolicyBundle rejects rollback and equivocation against loca
     version: 1,
     prevStateHash: null,
     signedAt: "2026-04-26T12:59:00.000Z",
-    members: [{ principalType: "user", principalId: signer.userId }],
+    members: [{ userId: signer.userId }],
     signer,
   });
 
@@ -335,7 +278,7 @@ test("verifyPrincipalPolicyBundle fails closed when signer keys are unavailable"
     principalId,
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: signer.userId }],
+    members: [{ userId: signer.userId }],
     signer,
   });
 
@@ -354,16 +297,14 @@ test("verifyPrincipalPolicyBundle rejects membership roots that do not match the
     principalId,
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: signer.userId }],
+    members: [{ userId: signer.userId }],
     projection: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: signer.userId,
+        userId: signer.userId,
         role: "admin",
       },
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: "user-hidden-from-membership-root",
+        userId: "user-hidden-from-membership-root",
         role: "member",
       },
     ],

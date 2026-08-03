@@ -13,7 +13,7 @@ import {
 } from "../../access/read/principalStateStore";
 import { loadUsersById, type UserKeyRow } from "./users";
 
-export interface OrganizationGroupCatalogRow {
+interface OrganizationGroupCatalogRow {
   readonly groupId: string;
   readonly groupName: string;
 }
@@ -26,40 +26,18 @@ interface GroupMembershipLoadInput {
 }
 
 export function toOrganizationGroupMemberResponse(input: {
-  readonly groupsById: ReadonlyMap<string, OrganizationGroupCatalogRow>;
   readonly member: StoredPrincipalProjectionMember;
   readonly usersById: ReadonlyMap<string, UserKeyRow>;
 }): OrganizationGroupMemberResponse {
-  if (input.member.memberPrincipalType === "user") {
-    const user = input.usersById.get(input.member.memberPrincipalId);
-
-    return {
-      memberPrincipalType: "user",
-      memberPrincipalId: input.member.memberPrincipalId,
-      role: input.member.role,
-      userId: user?.userId ?? null,
-      signingKeyFingerprint: user?.signingKeyFingerprint ?? null,
-      signingPublicKey: user?.signingPublicKey ?? null,
-      encapsulationPublicKey: user?.encapsulationPublicKey ?? null,
-      encapsulationKeyFingerprint: user?.encapsulationKeyFingerprint ?? null,
-      groupId: null,
-      groupName: null,
-    };
-  }
-
-  const nestedGroup = input.groupsById.get(input.member.memberPrincipalId);
+  const user = input.usersById.get(input.member.userId);
 
   return {
-    memberPrincipalType: "group",
-    memberPrincipalId: input.member.memberPrincipalId,
+    userId: input.member.userId,
     role: input.member.role,
-    userId: null,
-    signingKeyFingerprint: null,
-    signingPublicKey: null,
-    encapsulationPublicKey: null,
-    encapsulationKeyFingerprint: null,
-    groupId: nestedGroup?.groupId ?? null,
-    groupName: nestedGroup?.groupName ?? null,
+    signingKeyFingerprint: user?.signingKeyFingerprint ?? null,
+    signingPublicKey: user?.signingPublicKey ?? null,
+    encapsulationPublicKey: user?.encapsulationPublicKey ?? null,
+    encapsulationKeyFingerprint: user?.encapsulationKeyFingerprint ?? null,
   };
 }
 
@@ -128,45 +106,14 @@ async function loadMemberEnrichment(input: {
   readonly organizationId: string;
   readonly projectionMembers: readonly StoredPrincipalProjectionMember[];
 }): Promise<{
-  readonly groupsById: ReadonlyMap<string, OrganizationGroupCatalogRow>;
   readonly usersById: ReadonlyMap<string, UserKeyRow>;
 }> {
+  // Every projected member is a user, so there is no member-kind split and no
+  // nested-group catalog to join against.
   const userIds = [
-    ...new Set(
-      input.projectionMembers.flatMap((member) =>
-        member.memberPrincipalType === "user" ? [member.memberPrincipalId] : [],
-      ),
-    ),
+    ...new Set(input.projectionMembers.map((member) => member.userId)),
   ];
-  const nestedGroupIds = [
-    ...new Set(
-      input.projectionMembers.flatMap((member) =>
-        member.memberPrincipalType === "group"
-          ? [member.memberPrincipalId]
-          : [],
-      ),
-    ),
-  ];
-  const usersById = await loadUsersById(input.executor, userIds);
-  const nestedGroupRows =
-    nestedGroupIds.length === 0
-      ? []
-      : await input.executor
-          .select({
-            groupId: groupsTable.id,
-            groupName: groupsTable.name,
-          })
-          .from(groupsTable)
-          .where(
-            and(
-              eq(groupsTable.organizationId, input.organizationId),
-              inArray(groupsTable.id, nestedGroupIds),
-            ),
-          );
-  return {
-    groupsById: new Map(nestedGroupRows.map((group) => [group.groupId, group])),
-    usersById,
-  };
+  return { usersById: await loadUsersById(input.executor, userIds) };
 }
 
 /**
@@ -203,7 +150,7 @@ export async function loadOrganizationGroupMembershipsInTransaction(
     projectionsByState,
   );
   const projectionMembers = [...projectionsByGroupId.values()].flat();
-  const { groupsById, usersById } = await loadMemberEnrichment({
+  const { usersById } = await loadMemberEnrichment({
     executor: input.executor,
     organizationId: input.organizationId,
     projectionMembers,
@@ -216,12 +163,7 @@ export async function loadOrganizationGroupMembershipsInTransaction(
       groupId: state.principalId,
       stateHash: state.stateHash,
       members: (projectionsByGroupId.get(state.principalId) ?? []).map(
-        (member) =>
-          toOrganizationGroupMemberResponse({
-            groupsById,
-            member,
-            usersById,
-          }),
+        (member) => toOrganizationGroupMemberResponse({ member, usersById }),
       ),
     })),
   };

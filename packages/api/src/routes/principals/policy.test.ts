@@ -15,7 +15,10 @@ import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response"
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { getCurrentOrganizationAdminAuthority } from "../../../test/helpers/organizationAdmin";
+import {
+  addUserToAdminGroup,
+  getCurrentOrganizationAdminAuthority,
+} from "../../../test/helpers/organizationAdmin";
 import {
   createSignedPrincipalState,
   getDefaultOrganizationId,
@@ -52,13 +55,11 @@ async function addOrganizationMember(input: {
   );
   const nextProjection = [
     ...currentProjection.map((projectionMember) => ({
-      memberPrincipalType: projectionMember.memberPrincipalType,
-      memberPrincipalId: projectionMember.memberPrincipalId,
+      userId: projectionMember.userId,
       role: projectionMember.role,
     })),
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.member.userId,
+      userId: input.member.userId,
       role: "member" as const,
     },
   ];
@@ -69,8 +70,7 @@ async function addOrganizationMember(input: {
     prevStateHash: currentState.stateHash,
     keyEpoch: currentState.keyEpoch + 1,
     members: nextProjection.map((projectionMember) => ({
-      principalType: projectionMember.memberPrincipalType,
-      principalId: projectionMember.memberPrincipalId,
+      userId: projectionMember.userId,
     })),
     projection: nextProjection,
     signerUserId: input.actor.userId,
@@ -107,7 +107,7 @@ test("PUT /principals/:principalType/:principalId/policy atomically stores and r
   const signedState = await createSignedPrincipalState({
     principalType: "group",
     principalId,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     signerUserId: actor.userId,
     signerUserKeyFingerprint: actor.fingerprint,
     signingPrivateKey: actor.signing.signingPrivateKey,
@@ -198,13 +198,11 @@ test("PUT /principals/:principalType/:principalId/policy syncs org roster from M
   );
   const nextProjection = [
     ...currentProjection.map((projectionMember) => ({
-      memberPrincipalType: projectionMember.memberPrincipalType,
-      memberPrincipalId: projectionMember.memberPrincipalId,
+      userId: projectionMember.userId,
       role: projectionMember.role,
     })),
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: member.userId,
+      userId: member.userId,
       role: "member" as const,
     },
   ];
@@ -215,8 +213,7 @@ test("PUT /principals/:principalType/:principalId/policy syncs org roster from M
     prevStateHash: currentState.stateHash,
     keyEpoch: currentState.keyEpoch + 1,
     members: nextProjection.map((projectionMember) => ({
-      principalType: projectionMember.memberPrincipalType,
-      principalId: projectionMember.memberPrincipalId,
+      userId: projectionMember.userId,
     })),
     projection: nextProjection,
     signerUserId: actor.userId,
@@ -255,6 +252,142 @@ test("PUT /principals/:principalType/:principalId/policy syncs org roster from M
   });
 });
 
+test("PUT /principals/:principalType/:principalId/policy rejects Admins users who are not organization members", async () => {
+  // Nesting used to make this structural: Members contained Admins, so an admin
+  // was reachable from Members and therefore always on the roster. Without it,
+  // a direct PUT could seat an admin who belongs to no organization — absent
+  // from the directory, and uncounted by billing, which bills Members alone.
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
+  const outsider = createTestUser();
+  await registerUser(outsider);
+
+  const [organization] = await db
+    .select({ adminGroupId: organizations.adminGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId));
+  invariant(organization, "expected organization row");
+  const currentAdmins = await getCurrentPrincipalState(
+    "group",
+    organization.adminGroupId,
+    db,
+  );
+  invariant(currentAdmins, "expected current Admins state");
+
+  const projection = [
+    { userId: actor.userId, role: "admin" as const },
+    { userId: outsider.userId, role: "admin" as const },
+  ];
+  const signedState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId: organization.adminGroupId,
+    version: currentAdmins.version + 1,
+    prevStateHash: currentAdmins.stateHash,
+    keyEpoch: currentAdmins.keyEpoch + 1,
+    members: projection.map((projectionMember) => ({
+      userId: projectionMember.userId,
+    })),
+    projection,
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+  });
+
+  const response = await routeApp.request(
+    `/principals/group/${organization.adminGroupId}/policy`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
+        projection: signedState.projection,
+        memberEnvelopes: signedState.memberEnvelopes,
+      }),
+    },
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Admins contains users who are not active organization members",
+  });
+});
+
+test("PUT /principals/:principalType/:principalId/policy rejects a Members removal that strands an admin", async () => {
+  // Removing someone from Members takes them off the roster but leaves Admins
+  // untouched, which would leave an admin nobody can see and nobody bills.
+  // Admins has to be unwound first — the order the disable flow already uses.
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
+  const admin = createTestUser();
+  await registerUser(admin);
+  await addUserToAdminGroup({ actor, member: admin, organizationId });
+
+  const [organization] = await db
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId));
+  invariant(organization, "expected organization row");
+  const currentMembers = await getCurrentPrincipalState(
+    "group",
+    organization.memberGroupId,
+    db,
+  );
+  invariant(currentMembers, "expected current Members state");
+
+  const projection = [{ userId: actor.userId, role: "admin" as const }];
+  const signedState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId: organization.memberGroupId,
+    version: currentMembers.version + 1,
+    prevStateHash: currentMembers.stateHash,
+    keyEpoch: currentMembers.keyEpoch + 1,
+    members: projection.map((projectionMember) => ({
+      userId: projectionMember.userId,
+    })),
+    projection,
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+  });
+
+  const response = await routeApp.request(
+    `/principals/group/${organization.memberGroupId}/policy`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
+        projection: signedState.projection,
+        memberEnvelopes: signedState.memberEnvelopes,
+      }),
+    },
+  );
+
+  // The removal disables their roster entry in the same transaction, so Admins
+  // is now holding a disabled user and that rule reports first. Either way the
+  // write is refused rather than stranding an admin off the roster.
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Principal contains disabled organization users",
+  });
+  expect(
+    (await getCurrentPrincipalState("group", organization.memberGroupId, db))
+      ?.version,
+  ).toBe(currentMembers.version);
+});
+
 test("PUT /principals/:principalType/:principalId/policy rejects disabled roster users in non-Members groups", async () => {
   const actor = createTestUser();
   await registerUser(actor);
@@ -278,13 +411,11 @@ test("PUT /principals/:principalType/:principalId/policy rejects disabled roster
   });
   const projection = [
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: actor.userId,
+      userId: actor.userId,
       role: "admin" as const,
     },
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: disabledUser.userId,
+      userId: disabledUser.userId,
       role: "member" as const,
     },
   ];
@@ -292,8 +423,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects disabled roster
     principalType: "group",
     principalId: groupId,
     members: projection.map((projectionMember) => ({
-      principalType: projectionMember.memberPrincipalType,
-      principalId: projectionMember.memberPrincipalId,
+      userId: projectionMember.userId,
     })),
     projection,
     signerUserId: actor.userId,
@@ -331,9 +461,7 @@ test("GET /principals/:principalType/:principalId/policy returns previous states
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
-  const members = [
-    { principalType: "user" as const, principalId: actor.userId },
-  ];
+  const members = [{ userId: actor.userId }];
   const principalKem = generateKemSeedAndKeyPair();
   const projection = createProjectionWithAdminSigner(actor.userId, members);
 
@@ -448,7 +576,7 @@ test("PUT /principals/:principalType/:principalId/policy stores signed current m
   const signedState = await createSignedPrincipalState({
     principalType: "group",
     principalId,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     signerUserId: actor.userId,
     signerUserKeyFingerprint: actor.fingerprint,
     signingPrivateKey: actor.signing.signingPrivateKey,
@@ -525,7 +653,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects a non-signer an
     principalType: "group",
     principalId,
     principalKem,
-    members: [{ principalType: "user", principalId: owner.userId }],
+    members: [{ userId: owner.userId }],
     signerUserId: owner.userId,
     signerUserKeyFingerprint: owner.fingerprint,
     signingPrivateKey: owner.signing.signingPrivateKey,
@@ -627,14 +755,13 @@ test("PUT /principals/:principalType/:principalId/policy rejects signers who are
   const signedState = await createSignedPrincipalState({
     principalType: "organization",
     principalId,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     signerUserId: actor.userId,
     signerUserKeyFingerprint: actor.fingerprint,
     signingPrivateKey: actor.signing.signingPrivateKey,
     projection: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: actor.userId,
+        userId: actor.userId,
         role: "member",
       },
     ],
@@ -653,8 +780,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects signers who are
         encryptedPayload: signedState.encryptedPayload,
         projection: [
           {
-            memberPrincipalType: "user",
-            memberPrincipalId: actor.userId,
+            userId: actor.userId,
             role: "member",
           },
         ],
@@ -696,7 +822,7 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
     principalType: "group",
     principalId: groupId,
     principalKem,
-    members: [{ principalType: "user", principalId: groupAdmin.userId }],
+    members: [{ userId: groupAdmin.userId }],
     signerUserId: groupAdmin.userId,
     signerUserKeyFingerprint: groupAdmin.fingerprint,
     signingPrivateKey: groupAdmin.signing.signingPrivateKey,
@@ -730,8 +856,7 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
   const successorProjection = [
     ...initialState.projection,
     {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: orgAdmin.userId,
+      userId: orgAdmin.userId,
       role: "member" as const,
     },
   ];
@@ -742,10 +867,7 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
     prevStateHash: initialStoredState.stateHash,
     keyEpoch: initialStoredState.keyEpoch,
     principalKem,
-    members: successorProjection.map((member) => ({
-      principalType: member.memberPrincipalType,
-      principalId: member.memberPrincipalId,
-    })),
+    members: successorProjection.map((member) => ({ userId: member.userId })),
     projection: successorProjection,
     externalAuthority,
     signedAt: "2026-04-08T16:01:00.000Z",

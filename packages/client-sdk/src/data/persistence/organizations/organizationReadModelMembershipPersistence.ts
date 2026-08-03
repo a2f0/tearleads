@@ -21,12 +21,9 @@ export class OrganizationReadModelBindingError extends Error {
 }
 
 function membershipMemberKey(
-  member: Pick<
-    OrganizationGroupMemberResponse,
-    "memberPrincipalId" | "memberPrincipalType"
-  >,
+  member: Pick<OrganizationGroupMemberResponse, "userId">,
 ): string {
-  return `${member.memberPrincipalType}:${member.memberPrincipalId}`;
+  return member.userId;
 }
 
 function assertUniqueMembershipRows(
@@ -171,18 +168,14 @@ async function insertMembershipRows(
     group.members.map((member, sortOrder) => ({
       organizationId: input.organizationId,
       groupId: group.groupId,
-      memberPrincipalType: member.memberPrincipalType,
-      memberPrincipalId: member.memberPrincipalId,
+      userId: member.userId,
       sortOrder,
       stateHash: group.stateHash,
       role: member.role,
-      userId: member.userId,
       signingKeyFingerprint: member.signingKeyFingerprint,
       signingPublicKey: member.signingPublicKey,
       encapsulationPublicKey: member.encapsulationPublicKey,
       encapsulationKeyFingerprint: member.encapsulationKeyFingerprint,
-      nestedGroupId: member.groupId,
-      nestedGroupName: member.groupName,
     })),
   );
   for (

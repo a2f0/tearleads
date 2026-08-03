@@ -14,7 +14,7 @@ test("verifyPrincipalPolicyBundle rejects member envelopes that do not match the
     principalId: "group-member-envelope-root-mismatch",
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: signer.userId }],
+    members: [{ userId: signer.userId }],
     signer,
   });
   const bundle = createBundle({ current });
@@ -39,7 +39,7 @@ test("verifyPrincipalPolicyBundle rejects signed envelopes outside the projectio
     principalId: "group-member-envelope-projection-mismatch",
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: signer.userId }],
+    members: [{ userId: signer.userId }],
     signer,
   });
   const signerEnvelope = base.memberEnvelopes[0];
@@ -48,14 +48,14 @@ test("verifyPrincipalPolicyBundle rejects signed envelopes outside the projectio
   }
   const extraEnvelope = {
     ...signerEnvelope,
-    memberPrincipalId: "user-outside-projection",
+    userId: "user-outside-projection",
     memberKeyFingerprint: "2".repeat(64),
   };
   const current = await signPolicyState({
     principalId: "group-member-envelope-projection-mismatch",
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: signer.userId }],
+    members: [{ userId: signer.userId }],
     memberEnvelopes: [signerEnvelope, extraEnvelope],
     signer,
   });

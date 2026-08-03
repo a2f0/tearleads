@@ -94,14 +94,11 @@ test("buildInitialGroupPolicyRequest creates an admin-only initial group policy"
   expect(request.initialGroupPolicy.state.version).toBe(1);
   expect(request.initialGroupPolicy.projection).toEqual([
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: userId,
+      userId: userId,
       role: "admin",
     },
   ]);
-  expect(request.initialGroupPolicy.memberEnvelopes[0]?.memberPrincipalId).toBe(
-    userId,
-  );
+  expect(request.initialGroupPolicy.memberEnvelopes[0]?.userId).toBe(userId);
 });
 
 test("buildInitialGroupPolicyRequest can create an externally-administered empty initial group policy", async () => {
@@ -362,9 +359,9 @@ test("group add and remove policy builders preserve additive epochs and rotate s
   });
 
   expect(addRequest.state.keyEpoch).toBe(1);
-  expect(
-    addRequest.projection.map((member) => member.memberPrincipalId),
-  ).toContain(targetUserId);
+  expect(addRequest.projection.map((member) => member.userId)).toContain(
+    targetUserId,
+  );
   expect(addRequest.memberEnvelopes).toHaveLength(2);
 
   const addStateHash = await computePrincipalStateHash(addRequest.state);
@@ -426,14 +423,10 @@ test("group add and remove policy builders preserve additive epochs and rotate s
 
   expect(removeRequest.state.keyEpoch).toBe(2);
   expect(
-    removeRequest.projection.some(
-      (member) => member.memberPrincipalId === targetUserId,
-    ),
+    removeRequest.projection.some((member) => member.userId === targetUserId),
   ).toBe(false);
   expect(removeRequest.memberEnvelopes).toHaveLength(1);
-  expect(removeRequest.memberEnvelopes[0]?.memberPrincipalId).toBe(
-    signerUserId,
-  );
+  expect(removeRequest.memberEnvelopes[0]?.userId).toBe(signerUserId);
 });
 
 test("group mutation builders reject tampered server policy projections", async () => {
@@ -459,8 +452,7 @@ test("group mutation builders reject tampered server policy projections", async 
     currentProjection: [
       ...initialPolicy.currentProjection,
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: "server-injected-user",
+        userId: "server-injected-user",
         role: "admin",
       },
     ],

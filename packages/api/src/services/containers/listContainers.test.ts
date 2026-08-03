@@ -85,7 +85,7 @@ async function signContainerEvent(input: {
 async function storeGroupPolicy(input: {
   groupId: string;
   keyEpoch: number;
-  members: readonly { principalType: "user"; principalId: string }[];
+  members: readonly { userId: string }[];
   previousStateHash: string | null;
   signerKeyFingerprint: string;
   signerPrivateKey: Uint8Array;
@@ -106,9 +106,10 @@ async function storeGroupPolicy(input: {
     keyEpoch: input.keyEpoch,
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     keyFingerprint: await toFingerprint(groupKem.publicKey),
+    // The signer may also appear in input.members; members must be unique.
     members: [
-      { principalType: "user", principalId: input.signerUserId },
-      ...input.members,
+      { userId: input.signerUserId },
+      ...input.members.filter((m) => m.userId !== input.signerUserId),
     ],
     projection,
     payloadCiphertext,
@@ -277,7 +278,7 @@ test("listContainers admits users added by current managed grants when they exte
   const currentGroupPolicy = await storeGroupPolicy({
     groupId,
     keyEpoch: 2,
-    members: [{ principalType: "user", principalId: member.userId }],
+    members: [{ userId: member.userId }],
     previousStateHash: originalGroupPolicy.stateHash,
     signerKeyFingerprint: owner.fingerprint,
     signerPrivateKey: owner.signing.signingPrivateKey,
@@ -363,7 +364,7 @@ test("listContainers keeps valid containers when a sibling candidate uses a hist
   await storeGroupPolicy({
     groupId,
     keyEpoch: 2,
-    members: [{ principalType: "user", principalId: member.userId }],
+    members: [{ userId: member.userId }],
     previousStateHash: originalGroupPolicy.stateHash,
     signerKeyFingerprint: owner.fingerprint,
     signerPrivateKey: owner.signing.signingPrivateKey,

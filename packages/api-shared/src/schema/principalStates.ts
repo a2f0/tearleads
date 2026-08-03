@@ -3,7 +3,6 @@ import type {
   PrincipalProjectionRole,
   PrincipalStateExternalAuthority,
   PrincipalStateMembershipMode,
-  PrincipalStateMemberType,
   PrincipalStatePayloadCipherSuite,
 } from "@tearleads/crypto";
 import {
@@ -224,8 +223,7 @@ export const principalStatePayloads = pgTable(
  *
  * Columns:
  * - `id`: Surrogate database primary key. Domain identity is the tuple
- *   `(principalType, principalId, stateHash, memberPrincipalType,
- *   memberPrincipalId)`.
+ *   `(principalType, principalId, stateHash, userId)`.
  * - `principalType`: Managed principal kind whose state owns this projection,
  *   currently `organization` or `group`.
  * - `principalId`: Stable id of the managed principal whose members are being
@@ -233,9 +231,8 @@ export const principalStatePayloads = pgTable(
  * - `stateHash`: Content address of the signed principal state header this
  *   projection belongs to. This joins the rows to `principalStates` and scopes
  *   membership to a specific historical version.
- * - `memberPrincipalType`: Kind of direct member in the projection, currently
- *   `user` or `group`.
- * - `memberPrincipalId`: Stable id of the direct member principal.
+ * - `userId`: Stable id of the direct member, always a user. Principals cannot
+ *   contain other principals, so there is no member-kind column.
  * - `role`: Authorization role for that member in this principal state,
  *   currently `member` or `admin`. Admin membership authorizes signing
  *   successor principal states.
@@ -245,8 +242,8 @@ export const principalStatePayloads = pgTable(
  * Indexes:
  * - `(principalType, principalId)` supports loading current or historical
  *   projection rows for a principal.
- * - `(principalType, principalId, stateHash, memberPrincipalType,
- *   memberPrincipalId)` is unique so a state cannot contain duplicate rows for
+ * - `(principalType, principalId, stateHash, userId)` is unique so a state
+ *   cannot contain duplicate rows for
  *   the same direct member. The role is intentionally not part of the unique
  *   key; a replay that changes only `role` is a projection conflict.
  */
@@ -259,10 +256,7 @@ export const principalMembershipProjection = pgTable(
       .notNull(),
     principalId: uuid("principal_id").notNull(),
     stateHash: text("state_hash").notNull(),
-    memberPrincipalType: text("member_principal_type")
-      .$type<PrincipalStateMemberType>()
-      .notNull(),
-    memberPrincipalId: uuid("member_principal_id").notNull(),
+    userId: uuid("user_id").notNull(),
     role: text("role").$type<PrincipalProjectionRole>().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -271,13 +265,9 @@ export const principalMembershipProjection = pgTable(
       table.principalType,
       table.principalId,
     ),
-    index("principal_membership_projection_member_idx").on(
-      table.memberPrincipalType,
-      table.memberPrincipalId,
-    ),
+    index("principal_membership_projection_member_idx").on(table.userId),
     index("principal_membership_projection_member_state_idx").on(
-      table.memberPrincipalType,
-      table.memberPrincipalId,
+      table.userId,
       table.principalType,
       table.principalId,
       table.stateHash,
@@ -286,8 +276,7 @@ export const principalMembershipProjection = pgTable(
       table.principalType,
       table.principalId,
       table.stateHash,
-      table.memberPrincipalType,
-      table.memberPrincipalId,
+      table.userId,
     ),
   ],
 );
@@ -298,8 +287,8 @@ export const principalMembershipProjection = pgTable(
  * A principal state has a `keyEpoch`, `encapsulationPublicKey`, and
  * `keyFingerprint`. This table indexes that key material by principal and
  * epoch so other systems can encrypt to the principal as a recipient. For
- * example, a group member envelope can target a nested group by looking up the
- * nested group's current principal epoch key.
+ * example, a container key wrap can target a group by looking up that group's
+ * current principal epoch key.
  *
  * Key epochs are historical and monotonic. Additive policy changes may reuse an
  * existing epoch and key material; membership shrink or key material changes
@@ -375,8 +364,7 @@ export const principalEpochKeys = pgTable(
  *
  * Columns:
  * - `id`: Surrogate database primary key. Domain identity is
- *   `(principalType, principalId, stateHash, memberPrincipalType,
- *   memberPrincipalId)`.
+ *   `(principalType, principalId, stateHash, userId)`.
  * - `principalType`: Managed principal kind whose key material is wrapped,
  *   currently `organization` or `group`.
  * - `principalId`: Stable id of the managed principal whose key is being
@@ -385,9 +373,7 @@ export const principalEpochKeys = pgTable(
  *   set must match the direct members projected for this state.
  * - `epoch`: Principal key epoch being wrapped. This is the owning principal's
  *   epoch, not the member recipient's epoch.
- * - `memberPrincipalType`: Direct member recipient kind, currently `user` or
- *   `group`.
- * - `memberPrincipalId`: Stable id of the direct member recipient.
+ * - `userId`: Stable id of the direct member recipient, always a user.
  * - `memberKeyFingerprint`: Recipient key fingerprint used for this envelope.
  *   For users this is `users.encapsulationKeyFingerprint`; for groups this is
  *   the group's current `principalEpochKeys.keyFingerprint`.
@@ -400,8 +386,8 @@ export const principalEpochKeys = pgTable(
  * Indexes:
  * - `(principalType, principalId)` supports loading current envelopes after the
  *   current state hash is resolved.
- * - `(principalType, principalId, stateHash, memberPrincipalType,
- *   memberPrincipalId)` is unique so one state has at most one envelope per
+ * - `(principalType, principalId, stateHash, userId)` is unique so one state
+ *   has at most one envelope per
  *   direct member.
  */
 export const principalMemberEnvelopes = pgTable(
@@ -414,10 +400,7 @@ export const principalMemberEnvelopes = pgTable(
     principalId: uuid("principal_id").notNull(),
     stateHash: text("state_hash").notNull(),
     epoch: integer("epoch").notNull(),
-    memberPrincipalType: text("member_principal_type")
-      .$type<PrincipalStateMemberType>()
-      .notNull(),
-    memberPrincipalId: uuid("member_principal_id").notNull(),
+    userId: uuid("user_id").notNull(),
     memberKeyFingerprint: text("member_key_fingerprint").notNull(),
     kemCipherText: text("kem_cipher_text").notNull(),
     wrappedKey: text("wrapped_key").notNull(),
@@ -432,8 +415,7 @@ export const principalMemberEnvelopes = pgTable(
       table.principalType,
       table.principalId,
       table.stateHash,
-      table.memberPrincipalType,
-      table.memberPrincipalId,
+      table.userId,
     ),
   ],
 );

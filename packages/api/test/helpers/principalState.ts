@@ -30,20 +30,18 @@ export function createProjectionWithAdminSigner(
 ): PrincipalProjectionMember[] {
   const projectionByMember = new Map<string, PrincipalProjectionMember>();
 
-  projectionByMember.set(`user:${signerUserId}`, {
-    memberPrincipalType: "user",
-    memberPrincipalId: signerUserId,
+  projectionByMember.set(signerUserId, {
+    userId: signerUserId,
     role: "admin",
   });
 
   for (const member of members) {
-    const key = `${member.principalType}:${member.principalId}`;
-    if (key === `user:${signerUserId}`) {
+    const key = member.userId;
+    if (key === signerUserId) {
       continue;
     }
     projectionByMember.set(key, {
-      memberPrincipalType: member.principalType,
-      memberPrincipalId: member.principalId,
+      userId: member.userId,
       role: "member",
     });
   }

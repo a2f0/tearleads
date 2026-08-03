@@ -20,7 +20,7 @@ testApiClient(
           calls.push(await captureHttpCall(request));
           const { organizationId } = params as { organizationId: string };
           return HttpResponse.json({
-            version: 4,
+            version: 5,
             mode: "snapshot",
             organizationId,
             nextCursor: "next-cursor",

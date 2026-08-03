@@ -340,7 +340,7 @@ test("organization read-model persistence rejects v3 responses at runtime", asyn
     ).resolves.toMatchObject({
       cursor: "cursor-1",
       groups: initial.lanes.groups,
-      protocolVersion: 4,
+      protocolVersion: 5,
     });
   } finally {
     close();

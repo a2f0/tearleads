@@ -2,7 +2,6 @@ import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
   OrganizationGroupPolicyHistory,
-  OrganizationGroupSummary,
   OrganizationPolicyHistory,
 } from "@tearleads/client-sdk";
 import {
@@ -21,7 +20,6 @@ import {
   getOrgManagerEpochLabel,
   getOrgManagerPolicyAddedLabel,
   getOrgManagerPolicyChangeTypeLabel,
-  getOrgManagerPolicyMemberTypeLabel,
   getOrgManagerPolicyRemovedLabel,
   getOrgManagerPolicyRoleChangedLabel,
   getOrgManagerPolicyRoleLabel,
@@ -56,31 +54,21 @@ function getPolicyUserLabel(input: {
 function getPolicyMemberLabel(input: {
   change: OrgManagerPrincipalMemberChange;
   directory: OrganizationDirectory | null;
-  groups: ReadonlyArray<OrganizationGroupSummary>;
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
 }): string {
-  if (input.change.memberPrincipalType === "group") {
-    return (
-      input.groups.find(
-        (group) => group.groupId === input.change.memberPrincipalId,
-      )?.name ?? compactFingerprint(input.change.memberPrincipalId)
-    );
-  }
-
   const user = input.directory?.users.find(
-    (directoryUser) => directoryUser.userId === input.change.memberPrincipalId,
+    (directoryUser) => directoryUser.userId === input.change.userId,
   );
   return getPolicyUserLabel({
     profileDisplayNamesByUserId: input.profileDisplayNamesByUserId,
     user: user ?? null,
-    userId: input.change.memberPrincipalId,
+    userId: input.change.userId,
   });
 }
 
 function getPolicyChangeLabel(input: {
   change: OrgManagerPrincipalMemberChange;
   directory: OrganizationDirectory | null;
-  groups: ReadonlyArray<OrganizationGroupSummary>;
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
 }): string {
   const memberLabel = getPolicyMemberLabel(input);
@@ -122,18 +110,15 @@ function getPolicyChangeRoleDetail(
 function PolicyHistoryChange({
   change,
   directory,
-  groups,
   profileDisplayNamesByUserId,
 }: {
   change: OrgManagerPrincipalMemberChange;
   directory: OrganizationDirectory | null;
-  groups: ReadonlyArray<OrganizationGroupSummary>;
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
 }) {
   const memberLabel = getPolicyMemberLabel({
     change,
     directory,
-    groups,
     profileDisplayNamesByUserId,
   });
   const roleDetail = getPolicyChangeRoleDetail(change);
@@ -144,7 +129,6 @@ function PolicyHistoryChange({
       title={getPolicyChangeLabel({
         change,
         directory,
-        groups,
         profileDisplayNamesByUserId,
       })}
     >
@@ -152,12 +136,9 @@ function PolicyHistoryChange({
         {getOrgManagerPolicyChangeTypeLabel(change.changeType)}
       </span>
       <span className="org-manager-policy-change-principal">
-        <span className="org-manager-policy-change-principal-type">
-          {getOrgManagerPolicyMemberTypeLabel(change.memberPrincipalType)}
-        </span>
         <span
           className="org-manager-policy-change-principal-name"
-          title={change.memberPrincipalId}
+          title={change.userId}
         >
           {memberLabel}
         </span>
@@ -172,12 +153,10 @@ function PolicyHistoryChange({
 function PolicyHistoryEntry({
   directory,
   entry,
-  groups,
   profileDisplayNamesByUserId,
 }: {
   directory: OrganizationDirectory | null;
   entry: OrgManagerGroupPolicyHistoryEntry;
-  groups: ReadonlyArray<OrganizationGroupSummary>;
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
 }) {
   const signerUser =
@@ -215,8 +194,7 @@ function PolicyHistoryEntry({
               <PolicyHistoryChange
                 change={change}
                 directory={directory}
-                key={`${change.changeType}:${change.memberPrincipalType}:${change.memberPrincipalId}`}
-                groups={groups}
+                key={`${change.changeType}:${change.userId}`}
                 profileDisplayNamesByUserId={profileDisplayNamesByUserId}
               />
             ))
@@ -233,13 +211,11 @@ function PolicyHistoryEntry({
 
 function PolicyHistory({
   directory,
-  groups,
   history,
   pending,
   profileDisplayNamesByUserId,
 }: {
   directory: OrganizationDirectory | null;
-  groups: ReadonlyArray<OrganizationGroupSummary>;
   history: OrganizationGroupPolicyHistory | OrganizationPolicyHistory | null;
   pending: boolean;
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
@@ -268,7 +244,6 @@ function PolicyHistory({
         <PolicyHistoryEntry
           directory={directory}
           entry={entry}
-          groups={groups}
           key={entry.stateHash}
           profileDisplayNamesByUserId={profileDisplayNamesByUserId}
         />
@@ -279,14 +254,12 @@ function PolicyHistory({
 
 export function PolicyHistorySection({
   directory,
-  groups,
   heading,
   history,
   pending = false,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
 }: {
   directory: OrganizationDirectory | null;
-  groups: ReadonlyArray<OrganizationGroupSummary>;
   heading?: string | undefined;
   history: OrganizationGroupPolicyHistory | OrganizationPolicyHistory | null;
   // History arrives on its own refresh, well after the section first renders,
@@ -301,7 +274,6 @@ export function PolicyHistorySection({
       ) : null}
       <PolicyHistory
         directory={directory}
-        groups={groups}
         history={history}
         pending={pending}
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}

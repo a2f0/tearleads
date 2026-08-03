@@ -368,21 +368,18 @@ test("a verified Admins member absent from organization policy can mutate anothe
 
     expect(result.currentProjection).toEqual([
       {
-        memberPrincipalId: targetUserId,
-        memberPrincipalType: "user",
+        userId: targetUserId,
         role: "member",
       },
     ]);
     expect(organizationPolicy.currentProjection).toEqual([
       {
-        memberPrincipalId: founderUserId,
-        memberPrincipalType: "user",
+        userId: founderUserId,
         role: "admin",
       },
     ]);
     expect(currentAdminPolicy.currentProjection).toContainEqual({
-      memberPrincipalId: signerUserId,
-      memberPrincipalType: "user",
+      userId: signerUserId,
       role: "admin",
     });
     expect(adminPolicyReads).toBeGreaterThan(0);

@@ -91,7 +91,7 @@ test("local organization policy history is bound to the projected verified head"
         execSql,
         requestedCursor: initial.nextCursor,
         response: {
-          version: 4,
+          version: 5,
           mode: "delta",
           organizationId: ORGANIZATION_ID,
           nextCursor: "cursor-new-organization-policy",

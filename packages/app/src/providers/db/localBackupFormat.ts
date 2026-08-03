@@ -12,7 +12,12 @@ export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
 // v5: container create intents gained a `last_attempted_at` column; a v4
 // backup would restore the table without it and break every create-intent
 // write, whose INSERT/UPDATE statements name the column.
-export const BACKUP_FORMAT_VERSION = 5;
+// v6: the organization read-model group-members cache replaced its
+// `member_principal_type`/`member_principal_id` columns with a single `user_id`
+// when group nesting was removed; a v5 backup would restore the table with the
+// old NOT NULL columns and break every read-model write, whose INSERT
+// statements no longer name them.
+export const BACKUP_FORMAT_VERSION = 6;
 
 const BACKUP_KDF_ITERATIONS = 250_000;
 const BACKUP_KDF_MIN_ITERATIONS = 1_000;

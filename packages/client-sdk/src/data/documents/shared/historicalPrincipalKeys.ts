@@ -26,13 +26,11 @@ const MAX_POLICY_HISTORY_PAGES =
   1;
 
 /**
- * Total history fetches one recovery may make, across every principal it hops
- * through.
+ * Total history fetches one recovery may make, across every principal it tries.
  *
- * Enough for one full-depth walk plus a bounded number of nested-group hops,
- * and no more — a hostile server must not be able to turn one recovery into an
- * unbounded request storm, and the budget is shared so recursion cannot
- * multiply it.
+ * Enough for a handful of full-depth walks and no more — a hostile server must
+ * not be able to turn one recovery into an unbounded request storm, and the
+ * budget is shared across wraps so a wide key epoch cannot multiply it.
  */
 const MAX_POLICY_HISTORY_FETCHES = MAX_POLICY_HISTORY_PAGES * 4;
 
@@ -133,7 +131,6 @@ async function keyFromPage(input: {
   fetchHistory: PrincipalPolicyHistoryFetcher;
   keyFingerprint: string;
   secretKey: Uint8Array;
-  visiting: ReadonlySet<string>;
 }): Promise<Uint8Array | null> {
   for (const entry of input.entries) {
     if (entry.state.keyFingerprint !== input.keyFingerprint) {
@@ -149,74 +146,9 @@ async function keyFromPage(input: {
         input.secretKey,
       );
     } catch {
-      // The identity key opens none of them. The requester may still reach
-      // this principal transitively — through a group that is itself a member
-      // here — so try each group-addressed envelope by recovering that
-      // group's key at the epoch the envelope names.
-      const nested = await keyThroughNestedGroup({
-        budget: input.budget,
-        entry,
-        fetchHistory: input.fetchHistory,
-        secretKey: input.secretKey,
-        visiting: input.visiting,
-      });
-      if (nested) {
-        return nested;
-      }
-    }
-  }
-  return null;
-}
-
-/**
- * Opens one state's group-addressed envelopes by recovering the nested group's
- * own key at the epoch each envelope names.
- *
- * Membership is transitive, so a container envelope sealed to an outer group
- * can be reachable only through an inner one. Each hop is the same walk
- * applied to a different principal, with `visiting` breaking cycles a hostile
- * server could otherwise use to make the recursion run forever.
- */
-async function keyThroughNestedGroup(input: {
-  budget: { remaining: number };
-  entry: PrincipalPolicyHistoryEntryResponse;
-  fetchHistory: PrincipalPolicyHistoryFetcher;
-  secretKey: Uint8Array;
-  visiting: ReadonlySet<string>;
-}): Promise<Uint8Array | null> {
-  for (const envelope of input.entry.memberEnvelopes) {
-    if (envelope.memberPrincipalType !== "group") {
-      continue;
-    }
-    const nestedKey = `group:${envelope.memberPrincipalId}`;
-    if (input.visiting.has(nestedKey)) {
-      continue;
-    }
-    const nestedSecret = await resolveHistoricalPrincipalKey({
-      budget: input.budget,
-      fetchHistory: input.fetchHistory,
-      keyFingerprint: envelope.memberKeyFingerprint,
-      principalId: envelope.memberPrincipalId,
-      principalType: "group",
-      secretKey: input.secretKey,
-      visiting: new Set([...input.visiting, nestedKey]),
-    });
-    if (!nestedSecret) {
-      continue;
-    }
-    try {
-      return await unwrapDek(
-        [
-          {
-            keyFingerprint: envelope.memberKeyFingerprint,
-            kemCipherText: base64ToBytes(envelope.kemCipherText),
-            wrappedKey: base64ToBytes(envelope.wrappedKey),
-          },
-        ],
-        nestedSecret,
-      );
-    } catch {
-      // This hop did not open it; another member envelope may.
+      // Keep scanning: an older state may carry an envelope this identity key
+      // opens. There is no transitive hop to try — a principal contains only
+      // users, so every envelope here is addressed to one directly.
     }
   }
   return null;
@@ -249,17 +181,12 @@ export async function resolveHistoricalPrincipalKey(input: {
   principalType: "group" | "organization";
   secretKey: Uint8Array;
   /**
-   * Fetches remaining for the WHOLE traversal, nested hops included. Shared by
-   * reference so recursion cannot multiply the budget: a deeply-nested
-   * membership graph would otherwise fan out a full page walk per hop, and
-   * each hop's pages fan out again.
+   * Fetches remaining for the WHOLE recovery. Shared by reference so a wide key
+   * epoch cannot multiply the budget: one page walk per principal envelope
+   * would otherwise fan out without bound.
    */
   budget?: { remaining: number } | undefined;
-  /** Principals already on the recursion path; breaks membership cycles. */
-  visiting?: ReadonlySet<string> | undefined;
 }): Promise<Uint8Array | null> {
-  const visiting =
-    input.visiting ?? new Set([`${input.principalType}:${input.principalId}`]);
   const budget = input.budget ?? { remaining: MAX_POLICY_HISTORY_FETCHES };
   let beforeVersion: number | undefined;
   let expectedNewestStateHash: string | null = null;
@@ -302,7 +229,6 @@ export async function resolveHistoricalPrincipalKey(input: {
       fetchHistory: input.fetchHistory,
       keyFingerprint: input.keyFingerprint,
       secretKey: input.secretKey,
-      visiting,
     });
     if (fromPage) {
       return fromPage;

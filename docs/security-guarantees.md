@@ -393,8 +393,13 @@ Result: detected and fail closed.
 Org-manager directory lifecycle is stored in `organization_roster_entries`.
 Active roster state is synchronized from users reachable through the reserved
 `Members` group, and disabled rows may remain visible after access removal.
-Because `Admins` is nested into `Members`, admins appear as active organization
-members through the same signed reachability path.
+`Admins` is no longer nested into `Members`, so admins are not members by
+construction. Instead the policy write refuses any managed principal naming a
+*disabled* roster user, and refuses `Admins` specifically unless every user it
+names is an *active* roster entry — including after a `Members` transition,
+which is re-checked against `Admins`. An admin is therefore always an active
+organization member, and always counted as a seat. Ordinary groups may still
+name users who are not in `Members`, exactly as they could under nesting.
 
 If roster or projection rows are edited directly, server-side directory and
 listing surfaces can be distorted, but those rows are still not cryptographic

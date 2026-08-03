@@ -49,10 +49,7 @@ function assertAdminsPolicyShape(policy: VerifiedPrincipalPolicy): void {
     (policy.history ?? [{ projection: policy.projection }]).some(
       (entry) =>
         entry.projection.length === 0 ||
-        entry.projection.some(
-          (member) =>
-            member.memberPrincipalType !== "user" || member.role !== "admin",
-        ),
+        entry.projection.some((member) => member.role !== "admin"),
     )
   ) {
     throw new KeyingVerificationError(

@@ -16,7 +16,7 @@ test("verifyPrincipalPolicyBundle accepts external admin signers for successors 
     principalId: "admins-group",
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: externalAdmin.userId }],
+    members: [{ userId: externalAdmin.userId }],
     signer: externalAdmin,
   });
   const adminHead = {
@@ -38,14 +38,13 @@ test("verifyPrincipalPolicyBundle accepts external admin signers for successors 
     principalKeyPair,
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: principalAdmin.userId }],
+    members: [{ userId: principalAdmin.userId }],
     signer: principalAdmin,
   });
   const secondProjection: PrincipalProjectionMember[] = [
     ...first.entry.projection,
     {
-      memberPrincipalType: "user",
-      memberPrincipalId: externalAdmin.userId,
+      userId: externalAdmin.userId,
       role: "member",
     },
   ];
@@ -54,10 +53,7 @@ test("verifyPrincipalPolicyBundle accepts external admin signers for successors 
     principalKeyPair,
     version: 2,
     prevStateHash: first.state.stateHash,
-    members: secondProjection.map((member) => ({
-      principalType: member.memberPrincipalType,
-      principalId: member.memberPrincipalId,
-    })),
+    members: secondProjection.map((member) => ({ userId: member.userId })),
     projection: secondProjection,
     externalAuthority: adminHead,
     signer: externalAdmin,
@@ -98,11 +94,10 @@ test("verifyPrincipalPolicyBundle accepts external admin signers for successors 
     principalId: "group-external-initial",
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: principalAdmin.userId }],
+    members: [{ userId: principalAdmin.userId }],
     projection: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: principalAdmin.userId,
+        userId: principalAdmin.userId,
         role: "admin",
       },
     ],
@@ -126,7 +121,7 @@ test("verifyPrincipalPolicyBundle rejects a post-checkpoint successor citing a r
     principalId: "admins-removal",
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: removedAdmin.userId }],
+    members: [{ userId: removedAdmin.userId }],
     signer: removedAdmin,
   });
   const adminV2 = await signPolicyState({
@@ -134,11 +129,10 @@ test("verifyPrincipalPolicyBundle rejects a post-checkpoint successor citing a r
     version: 2,
     prevStateHash: adminV1.state.stateHash,
     keyEpoch: 2,
-    members: [{ principalType: "user", principalId: replacementAdmin.userId }],
+    members: [{ userId: replacementAdmin.userId }],
     projection: [
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: replacementAdmin.userId,
+        userId: replacementAdmin.userId,
         role: "admin",
       },
     ],
@@ -166,7 +160,7 @@ test("verifyPrincipalPolicyBundle rejects a post-checkpoint successor citing a r
     principalId: "externally-managed-child",
     version: 1,
     prevStateHash: null,
-    members: [{ principalType: "user", principalId: childAdmin.userId }],
+    members: [{ userId: childAdmin.userId }],
     signer: childAdmin,
   });
   const forgedChildV2 = await signPolicyState({
@@ -175,8 +169,7 @@ test("verifyPrincipalPolicyBundle rejects a post-checkpoint successor citing a r
     prevStateHash: childV1.state.stateHash,
     keyEpoch: 2,
     members: childV1.entry.projection.map((member) => ({
-      principalType: member.memberPrincipalType,
-      principalId: member.memberPrincipalId,
+      userId: member.userId,
     })),
     projection: childV1.entry.projection,
     externalAuthority: adminV1Head,

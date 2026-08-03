@@ -2,7 +2,6 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { groups, organizations } from "@tearleads/api-shared/schema";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
-import { hasOnlySameOrganizationGroupMembers } from "../organizations/groupPolicyScope";
 import { parseOrganizationAuthorityDescriptor } from "../organizations/organizationAuthorityDescriptor";
 import { PrincipalPolicyError } from "./shared";
 
@@ -15,26 +14,6 @@ interface PrincipalPolicyAuthorityConstraintInput
 export interface OrganizationPolicyTarget {
   readonly organizationId: string;
   readonly memberGroupId: string;
-}
-
-async function assertOrganizationPolicyGroupScope(input: {
-  readonly policy: PrincipalPolicyAuthorityConstraintInput;
-  readonly target: OrganizationPolicyTarget | null;
-  readonly tx: DatabaseTransaction;
-}): Promise<void> {
-  if (
-    input.target &&
-    !(await hasOnlySameOrganizationGroupMembers({
-      executor: input.tx,
-      organizationId: input.target.organizationId,
-      projection: input.policy.projection,
-    }))
-  ) {
-    throw new PrincipalPolicyError(
-      "Organization policies may only reference groups from the same organization",
-      400,
-    );
-  }
 }
 
 async function assertReservedAdminsPolicyShape(
@@ -58,10 +37,7 @@ async function assertReservedAdminsPolicyShape(
   }
   if (
     input.projection.length === 0 ||
-    input.projection.some(
-      (member) =>
-        member.memberPrincipalType !== "user" || member.role !== "admin",
-    )
+    input.projection.some((member) => false || member.role !== "admin")
   ) {
     throw new PrincipalPolicyError(
       "Reserved Admins policy must contain only direct admin users",
@@ -106,10 +82,8 @@ async function assertOrganizationAuthorityDescriptor(
 
 export async function assertPolicyAuthorityConstraints(
   tx: DatabaseTransaction,
-  target: OrganizationPolicyTarget | null,
   policy: PrincipalPolicyAuthorityConstraintInput,
 ): Promise<void> {
-  await assertOrganizationPolicyGroupScope({ policy, target, tx });
   await assertReservedAdminsPolicyShape(tx, policy);
   await assertOrganizationAuthorityDescriptor(tx, policy);
 }

@@ -99,8 +99,7 @@ export function externalAuthorityIncludesAdminSigner(input: {
   return authorityState
     ? authorityState.projection.some(
         (member) =>
-          member.memberPrincipalType === "user" &&
-          member.memberPrincipalId === input.entry.state.signerUserId &&
+          member.userId === input.entry.state.signerUserId &&
           member.role === "admin",
       )
     : false;

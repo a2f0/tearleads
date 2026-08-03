@@ -127,16 +127,12 @@ function organizationReadModelMemberships(
               stateHash: visibleGroup.currentState.stateHash,
               members: [
                 {
-                  memberPrincipalType: "user" as const,
-                  memberPrincipalId: organizationReadModelUserId,
-                  role: "admin" as const,
                   userId: organizationReadModelUserId,
+                  role: "admin" as const,
                   signingKeyFingerprint: `signing-fingerprint-${organizationReadModelUserId}`,
                   signingPublicKey: `signing-public-key-${organizationReadModelUserId}`,
                   encapsulationPublicKey: `encapsulation-public-key-${organizationReadModelUserId}`,
                   encapsulationKeyFingerprint: `encapsulation-fingerprint-${organizationReadModelUserId}`,
-                  groupId: null,
-                  groupName: null,
                 },
               ],
             },
@@ -194,7 +190,7 @@ export function organizationReadModelSnapshot(
     organizationId,
   });
   return {
-    version: 4,
+    version: 5,
     mode: "snapshot",
     organizationId,
     nextCursor: input.cursor ?? "cursor-1",
@@ -229,7 +225,7 @@ export function organizationReadModelGroupsDelta(input: {
     organizationId,
   });
   return {
-    version: 4,
+    version: 5,
     mode: "delta",
     organizationId,
     nextCursor: input.cursor,

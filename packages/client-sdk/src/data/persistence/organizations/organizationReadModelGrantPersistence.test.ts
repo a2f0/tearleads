@@ -61,7 +61,7 @@ function grantsDelta(input: {
   readonly organizationId?: string;
 }): OrganizationReadModelDeltaResponse {
   return {
-    version: 4,
+    version: 5,
     mode: "delta",
     organizationId: ORGANIZATION_ID,
     nextCursor: input.cursor ?? "cursor-2",

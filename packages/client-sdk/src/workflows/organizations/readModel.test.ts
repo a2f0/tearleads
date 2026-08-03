@@ -27,15 +27,13 @@ test("buildOrganizationGroupPolicyHistory diffs policy projections", () => {
   expect(history.entries[0]?.changes).toEqual([
     {
       changeType: "role_changed",
-      memberPrincipalType: "user",
-      memberPrincipalId: "user-1",
+      userId: "user-1",
       previousRole: "member",
       nextRole: "admin",
     },
     {
       changeType: "removed",
-      memberPrincipalType: "user",
-      memberPrincipalId: "user-2",
+      userId: "user-2",
       previousRole: "member",
       nextRole: null,
     },
@@ -43,15 +41,13 @@ test("buildOrganizationGroupPolicyHistory diffs policy projections", () => {
   expect(history.entries[1]?.changes).toEqual([
     {
       changeType: "role_changed",
-      memberPrincipalType: "user",
-      memberPrincipalId: "user-1",
+      userId: "user-1",
       previousRole: "admin",
       nextRole: "member",
     },
     {
       changeType: "added",
-      memberPrincipalType: "user",
-      memberPrincipalId: "user-2",
+      userId: "user-2",
       previousRole: null,
       nextRole: "member",
     },
@@ -59,8 +55,7 @@ test("buildOrganizationGroupPolicyHistory diffs policy projections", () => {
   expect(history.entries[2]?.changes).toEqual([
     {
       changeType: "added",
-      memberPrincipalType: "user",
-      memberPrincipalId: "user-1",
+      userId: "user-1",
       previousRole: null,
       nextRole: "admin",
     },
@@ -77,15 +72,13 @@ test("buildOrganizationPolicyHistory diffs organization policy projections", () 
   expect(history.entries[0]?.changes).toEqual([
     {
       changeType: "role_changed",
-      memberPrincipalType: "user",
-      memberPrincipalId: "user-1",
+      userId: "user-1",
       previousRole: "member",
       nextRole: "admin",
     },
     {
       changeType: "removed",
-      memberPrincipalType: "user",
-      memberPrincipalId: "user-2",
+      userId: "user-2",
       previousRole: "member",
       nextRole: null,
     },
