@@ -288,7 +288,6 @@ async function createOrganizationPrincipalPolicies(input: {
     signingKeyPair: input.signingKeyPair,
   });
   const initialMemberGroup = await buildInitialMemberGroupPolicyRequest({
-    adminGroup: initialAdminGroup,
     creatorEncapsulationKeyPair: input.encapsulationKeyPair,
     groupId: crypto.randomUUID(),
     signerUserId: input.userId,

@@ -10,9 +10,7 @@ export async function hasOnlySameOrganizationGroupMembers(input: {
 }): Promise<boolean> {
   const nestedGroupIds = [
     ...new Set(
-      input.projection
-        .filter((member) => member.userId === "group")
-        .map((member) => member.userId),
+      input.projection.filter(() => false).map((member) => member.userId),
     ),
   ];
   if (nestedGroupIds.length === 0) {

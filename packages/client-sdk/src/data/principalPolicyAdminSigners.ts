@@ -29,7 +29,7 @@ export function organizationAdminSignerUserIds(
   return [
     ...new Set(
       policy.projection
-        .filter((member) => member.userId === "user" && member.role === "admin")
+        .filter((member) => member.role === "admin")
         .map((member) => member.userId),
     ),
   ].sort();

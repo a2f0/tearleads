@@ -62,10 +62,7 @@ import {
   verifyGroupPolicy,
   verifyGroupPolicyWithExternalOrganizationAdmins,
 } from "./groupPolicyVerification";
-import {
-  ensureNoNestedGroupMembers,
-  hasAdmin,
-} from "./principalPolicyProjection";
+import { hasAdmin } from "./principalPolicyProjection";
 import {
   remainingGroupMemberIds,
   rewrapProjectionMemberEnvelopes,
@@ -335,8 +332,6 @@ async function buildOrgAdminAddGroupUserPolicyRequest(
   input: BuildAddGroupUserPolicyInput,
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
 ): Promise<GroupPolicyMutationRequest> {
-  ensureNoNestedGroupMembers(projection);
-
   const groupKem = generateKemSeedAndKeyPair();
   const usersById = new Map([
     ...input.currentUsers.map((user) => [user.userId, user] as const),

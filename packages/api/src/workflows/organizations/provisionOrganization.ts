@@ -399,22 +399,20 @@ function validateInitialMemberGroupInput(
     );
   }
 
+  // Members holds the registering user alone. It used to also contain the
+  // Admins group as a nested member; principals contain only users now, so
+  // admins are ordinary Members entries. Bootstrap has exactly one user, so
+  // that user is the whole of Members at provisioning time.
   const userMember = projection.find(
-    (member) => member.userId === "user" && member.userId === input.userId,
-  );
-  const adminGroupMember = projection.find(
-    (member) =>
-      member.userId === "group" &&
-      member.userId === input.initialAdminGroup.groupId,
+    (member) => member.userId === input.userId,
   );
   if (
-    projection.length !== 2 ||
+    projection.length !== 1 ||
     userMember?.role !== "admin" ||
-    adminGroupMember?.role !== "member" ||
-    state.memberCount !== 2
+    state.memberCount !== 1
   ) {
     throw new OrganizationProvisioningError(
-      "initialMemberGroup policy must contain the registering user as admin and Admins as member",
+      "initialMemberGroup policy must contain the registering user as its only admin",
       400,
     );
   }
@@ -422,19 +420,12 @@ function validateInitialMemberGroupInput(
   const userEnvelope = memberEnvelopes.find(
     (envelope) => envelope.userId === input.userId,
   );
-  const adminGroupEnvelope = memberEnvelopes.find(
-    (envelope) =>
-      envelope.userId === "group" &&
-      envelope.userId === input.initialAdminGroup.groupId,
-  );
   if (
-    memberEnvelopes.length !== 2 ||
-    userEnvelope?.memberKeyFingerprint !== encapsulationFingerprint ||
-    adminGroupEnvelope?.memberKeyFingerprint !==
-      input.initialAdminGroup.initialGroupPolicy.state.keyFingerprint
+    memberEnvelopes.length !== 1 ||
+    userEnvelope?.memberKeyFingerprint !== encapsulationFingerprint
   ) {
     throw new OrganizationProvisioningError(
-      "initialMemberGroup member envelopes must wrap the registering user and Admins group",
+      "initialMemberGroup member envelopes must wrap the registering user",
       400,
     );
   }

@@ -55,27 +55,16 @@ function toRekeyRecipientEntries(input: {
     groupsById.set(group.principalId, group);
   }
 
+  // Every projected member is a user, so there is no group recipient branch.
   return input.projection.map((member) => {
-    if (member.userId === "user") {
-      const user = usersById.get(member.userId);
-      if (!user) {
-        throw new Error(`Missing recipient key for user ${member.userId}`);
-      }
-
-      return {
-        encapsulationPublicKey: user.encapsulationPublicKey,
-        userId: user.userId,
-      };
-    }
-
-    const group = groupsById.get(member.userId);
-    if (!group) {
-      throw new Error(`Missing recipient key for group ${member.userId}`);
+    const user = usersById.get(member.userId);
+    if (!user) {
+      throw new Error(`Missing recipient key for user ${member.userId}`);
     }
 
     return {
-      encapsulationPublicKey: base64ToBytes(group.state.encapsulationPublicKey),
-      userId: group.principalId,
+      encapsulationPublicKey: user.encapsulationPublicKey,
+      userId: user.userId,
     };
   });
 }
@@ -83,9 +72,7 @@ function toRekeyRecipientEntries(input: {
 export function remainingGroupMemberIds(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
 ): string[] {
-  return projection
-    .filter((member) => member.userId === "group")
-    .map((member) => member.userId);
+  return projection.filter(() => false).map((member) => member.userId);
 }
 
 export async function rewrapProjectionMemberEnvelopes(input: {
