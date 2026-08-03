@@ -2,11 +2,9 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
-  principalMembershipProjection,
 } from "@tearleads/api-shared/schema";
 import { sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
-import { currentPrincipalStateHashSql } from "./currentPrincipalStateSql";
 
 type ManagedPrincipalType = "group" | "organization";
 
@@ -16,23 +14,10 @@ async function hasCurrentContainerGrantForPrincipalOrAncestor(input: {
   readonly principalType: ManagedPrincipalType;
 }): Promise<boolean> {
   const result = await input.executor.execute(sql`
-    with recursive affected_principals(
-      principal_type,
-      principal_id
-    ) as (
+    -- Just this principal. It used to also walk upward through containing
+    -- principals; principals contain only users now, so nothing contains it.
+    with affected_principals(principal_type, principal_id) as (
       select ${input.principalType}, ${uuidValue(input.principalId)}
-      union
-      select
-        membership.principal_type,
-        membership.principal_id
-      from ${principalMembershipProjection} membership
-      inner join affected_principals affected
-        on membership.member_principal_type = affected.principal_type
-        and membership.member_principal_id = affected.principal_id
-      where membership.state_hash = ${currentPrincipalStateHashSql({
-        principalId: sql`membership.principal_id`,
-        principalType: sql`membership.principal_type`,
-      })}
     )
     select 1
     from affected_principals affected

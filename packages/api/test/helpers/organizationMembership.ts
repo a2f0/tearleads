@@ -67,8 +67,7 @@ export async function addOrganizationMember(input: {
   ];
   const principalKem = generateKemSeedAndKeyPair();
   const members = nextProjection.map((projectionMember) => ({
-    principalId: projectionMember.userId,
-    principalType: projectionMember.memberPrincipalType,
+    userId: projectionMember.userId,
   }));
   const projection = nextProjection;
   const { memberEnvelopes, stateMembers } =

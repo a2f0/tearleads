@@ -65,7 +65,7 @@ async function createInitialOrganizationPolicy(input: {
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
       keyFingerprint: await toFingerprint(organizationKem.publicKey),
-      members: [{ principalType: "user", principalId: input.userId }],
+      members: [{ userId: input.userId }],
       memberEnvelopes,
       projection,
       payloadCiphertext,

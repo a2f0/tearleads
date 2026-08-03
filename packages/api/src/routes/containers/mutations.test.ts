@@ -2291,7 +2291,7 @@ test("POST /containers/:containerId/revoke emits tombstones for removed group gr
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
+    members: [{ userId: recipient.userId }],
     principalId: groupPrincipalId,
   });
   const groupGrantRequest = await buildGroupGrantRequest({
@@ -2400,7 +2400,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
+    members: [{ userId: recipient.userId }],
     principalId: groupPrincipalId,
   });
   const groupGrantRequest = await buildGroupGrantRequest({
@@ -2436,7 +2436,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
   await putGroupPrincipalPolicy({
     actor: owner,
     keyEpoch: 2,
-    members: [{ principalType: "user", principalId: owner.userId }],
+    members: [{ userId: owner.userId }],
     prevStateHash: group.stateHash,
     principalId: groupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
@@ -2515,7 +2515,7 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
+    members: [{ userId: recipient.userId }],
     principalId: groupPrincipalId,
   });
   const directSharedBundle = accessManifestFromResponse(directShared);
@@ -2554,7 +2554,7 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
   await putGroupPrincipalPolicy({
     actor: owner,
     keyEpoch: 2,
-    members: [{ principalType: "user", principalId: owner.userId }],
+    members: [{ userId: owner.userId }],
     prevStateHash: group.stateHash,
     principalId: groupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
@@ -2587,13 +2587,13 @@ test("POST /containers/:containerId/revoke emits tombstones for nested group gra
   const nestedGroupPrincipalId = crypto.randomUUID();
   const nestedGroup = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
+    members: [{ userId: recipient.userId }],
     principalId: nestedGroupPrincipalId,
   });
   const outerGroupPrincipalId = crypto.randomUUID();
   const outerGroup = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "group", principalId: nestedGroupPrincipalId }],
+    members: [{ userId: nestedGroupPrincipalId }],
     principalId: outerGroupPrincipalId,
   });
   const createdBundle = accessManifestFromResponse(created);
@@ -2680,13 +2680,13 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed nes
   const nestedGroupPrincipalId = crypto.randomUUID();
   const nestedGroup = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
+    members: [{ userId: recipient.userId }],
     principalId: nestedGroupPrincipalId,
   });
   const outerGroupPrincipalId = crypto.randomUUID();
   const outerGroup = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "group", principalId: nestedGroupPrincipalId }],
+    members: [{ userId: nestedGroupPrincipalId }],
     principalId: outerGroupPrincipalId,
   });
   const createdBundle = accessManifestFromResponse(created);
@@ -2711,7 +2711,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed nes
   await putGroupPrincipalPolicy({
     actor: owner,
     keyEpoch: 2,
-    members: [{ principalType: "user", principalId: owner.userId }],
+    members: [{ userId: owner.userId }],
     prevStateHash: outerGroup.stateHash,
     principalId: outerGroupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
@@ -2763,13 +2763,13 @@ test("PUT /principals/group/:principalId/policy emits tombstones for ancestor gr
   const nestedGroupPrincipalId = crypto.randomUUID();
   const nestedGroup = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "user", principalId: recipient.userId }],
+    members: [{ userId: recipient.userId }],
     principalId: nestedGroupPrincipalId,
   });
   const outerGroupPrincipalId = crypto.randomUUID();
   const outerGroup = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [{ principalType: "group", principalId: nestedGroupPrincipalId }],
+    members: [{ userId: nestedGroupPrincipalId }],
     principalId: outerGroupPrincipalId,
   });
   const createdBundle = accessManifestFromResponse(created);
@@ -2794,7 +2794,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for ancestor gr
   await putGroupPrincipalPolicy({
     actor: owner,
     keyEpoch: 2,
-    members: [{ principalType: "user", principalId: owner.userId }],
+    members: [{ userId: owner.userId }],
     prevStateHash: nestedGroup.stateHash,
     principalId: nestedGroupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
@@ -3449,7 +3449,7 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: groupMember,
-    members: [{ principalType: "user", principalId: groupMember.userId }],
+    members: [{ userId: groupMember.userId }],
     principalId: groupPrincipalId,
   });
   const sharedChildBundle = accessManifestFromResponse(sharedChild);
@@ -3775,10 +3775,7 @@ test("POST share group grant prunes member tombstones", async () => {
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: owner,
-    members: [
-      { principalType: "user", principalId: owner.userId },
-      { principalType: "user", principalId: recipient.userId },
-    ],
+    members: [{ userId: owner.userId }, { userId: recipient.userId }],
     principalId: groupPrincipalId,
   });
 

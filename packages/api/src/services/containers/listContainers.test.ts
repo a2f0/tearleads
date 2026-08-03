@@ -106,10 +106,7 @@ async function storeGroupPolicy(input: {
     keyEpoch: input.keyEpoch,
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     keyFingerprint: await toFingerprint(groupKem.publicKey),
-    members: [
-      { principalType: "user", principalId: input.signerUserId },
-      ...input.members,
-    ],
+    members: [{ userId: input.signerUserId }, ...input.members],
     projection,
     payloadCiphertext,
     signedAt: SIGNED_AT,
@@ -277,7 +274,7 @@ test("listContainers admits users added by current managed grants when they exte
   const currentGroupPolicy = await storeGroupPolicy({
     groupId,
     keyEpoch: 2,
-    members: [{ principalType: "user", principalId: member.userId }],
+    members: [{ userId: member.userId }],
     previousStateHash: originalGroupPolicy.stateHash,
     signerKeyFingerprint: owner.fingerprint,
     signerPrivateKey: owner.signing.signingPrivateKey,
@@ -363,7 +360,7 @@ test("listContainers keeps valid containers when a sibling candidate uses a hist
   await storeGroupPolicy({
     groupId,
     keyEpoch: 2,
-    members: [{ principalType: "user", principalId: member.userId }],
+    members: [{ userId: member.userId }],
     previousStateHash: originalGroupPolicy.stateHash,
     signerKeyFingerprint: owner.fingerprint,
     signerPrivateKey: owner.signing.signingPrivateKey,

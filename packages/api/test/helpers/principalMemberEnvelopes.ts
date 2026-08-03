@@ -14,8 +14,7 @@ export async function createPrincipalMemberEnvelopes(input: {
   readonly projection: readonly PrincipalProjectionMember[];
 }) {
   const stateMembers = input.projection.map((member) => ({
-    principalType: member.memberPrincipalType,
-    principalId: member.userId,
+    userId: member.userId,
   }));
   const memberEnvelopes = await Promise.all(
     stateMembers.map(async (member) => {

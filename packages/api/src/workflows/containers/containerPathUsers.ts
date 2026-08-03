@@ -7,7 +7,6 @@ import type {
 } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
-import { currentPrincipalStateHashSql } from "../principals/currentPrincipalStateSql";
 
 interface ContainerPathUserIds {
   readonly allUserIds: readonly string[];
@@ -110,42 +109,25 @@ async function userIdsForManagedGrantReferences(input: {
         sql`, `,
       )}
     ),
-    reachable_members as (
+    -- Members ARE the reachable users; there is no nested tier to descend.
+    direct_members as (
       select
         referenced_principals.principal_type as root_principal_type,
         referenced_principals.principal_id as root_principal_id,
         referenced_principals.state_hash as root_state_hash,
-        direct_members.member_principal_type,
-        direct_members.member_principal_id
+        members.user_id
       from referenced_principals
-      inner join ${principalMembershipProjection} direct_members
-        on direct_members.principal_type = referenced_principals.principal_type
-        and direct_members.principal_id = referenced_principals.principal_id
-        and direct_members.state_hash = referenced_principals.state_hash
-      union
-      select
-        reachable.root_principal_type,
-        reachable.root_principal_id,
-        reachable.root_state_hash,
-        nested_members.member_principal_type,
-        nested_members.member_principal_id
-      from reachable_members reachable
-      inner join ${principalMembershipProjection} nested_members
-        on nested_members.principal_type = reachable.member_principal_type
-        and nested_members.principal_id = reachable.member_principal_id
-        and nested_members.state_hash = ${currentPrincipalStateHashSql({
-          principalId: sql`nested_members.principal_id`,
-          principalType: sql`nested_members.principal_type`,
-        })}
-      where reachable.member_principal_type <> ${"user"}
+      inner join ${principalMembershipProjection} members
+        on members.principal_type = referenced_principals.principal_type
+        and members.principal_id = referenced_principals.principal_id
+        and members.state_hash = referenced_principals.state_hash
     )
     select distinct
       root_principal_type as "principalType",
       root_principal_id as "principalId",
       root_state_hash as "stateHash",
-      member_principal_id as "userId"
-    from reachable_members
-    where member_principal_type = ${"user"}
+      user_id as "userId"
+    from direct_members
   `);
 
   for (const row of result.rows) {

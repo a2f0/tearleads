@@ -245,7 +245,7 @@ test("recipient-key rejection rolls back every policy artifact", async () => {
     keyEpoch: 1,
     encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
     keyFingerprint: await toFingerprint(principalKem.publicKey),
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     projection,
     payloadCiphertext: bytesToBase64(
       new TextEncoder().encode(JSON.stringify(projection)),

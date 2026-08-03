@@ -32,7 +32,7 @@ async function signSoloGroupState(
   principalId: string,
 ) {
   const projection = createProjectionWithAdminSigner(actor.userId, [
-    { principalType: "user", principalId: actor.userId },
+    { userId: actor.userId },
   ]);
   const groupKem = generateKemSeedAndKeyPair();
   const [wrappedGroupKey] = await wrapDekForRecipients(groupKem.secretKey, [
@@ -55,7 +55,7 @@ async function signSoloGroupState(
     keyEpoch: 1,
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     keyFingerprint: await toFingerprint(groupKem.publicKey),
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     projection,
     payloadCiphertext: JSON.stringify({ members: projection }),
     signedAt: "2026-04-08T16:00:00.000Z",

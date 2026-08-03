@@ -13,7 +13,9 @@ export async function registerUser(user: TestUser): Promise<string> {
     user.kem.publicKey,
   );
   if (res.status !== 200) {
-    throw new Error(`submitRegistration failed with status ${res.status}`);
+    throw new Error(
+      `submitRegistration failed with status ${res.status}: ${await res.text()}`,
+    );
   }
 
   const body = await res.json();

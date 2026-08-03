@@ -87,7 +87,7 @@ test("policy-history serves the requester's own states newest first", async () =
 
   await putPolicy({
     actor,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     principalId,
   });
 
@@ -130,7 +130,7 @@ test("policy-history discloses no key material to a non-member", async () => {
 
   await putPolicy({
     actor,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     principalId,
   });
 
@@ -160,7 +160,7 @@ test("policy-history rejects an out-of-domain cursor without a 500", async () =>
 
   await putPolicy({
     actor,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     principalId,
   });
 
@@ -203,7 +203,7 @@ test("policy-history pages a multi-version chain contiguously", async () => {
   for (let version = 1; version <= 3; version += 1) {
     const signed = await putPolicy({
       actor,
-      members: [{ principalType: "user", principalId: actor.userId }],
+      members: [{ userId: actor.userId }],
       principalId,
       principalKem,
       ...(version === 1 ? {} : { version }),
@@ -264,7 +264,7 @@ test("policy-history fills a page and links across the page boundary", async () 
   for (let version = 1; version <= total; version += 1) {
     const signed = await putPolicy({
       actor,
-      members: [{ principalType: "user", principalId: actor.userId }],
+      members: [{ userId: actor.userId }],
       principalId,
       principalKem,
       ...(version === 1 ? {} : { version }),
@@ -324,7 +324,7 @@ test("policy-history serves no envelope for a group the requester cannot reach",
   // caller remembering to filter.
   await putPolicy({
     actor,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     principalId,
   });
 
@@ -371,7 +371,7 @@ test("a policy write past the version ceiling is rejected, not a 500", async () 
   const signed = await createSignedPrincipalState({
     principalType: "group",
     principalId,
-    members: [{ principalType: "user", principalId: actor.userId }],
+    members: [{ userId: actor.userId }],
     signerUserId: actor.userId,
     signerUserKeyFingerprint: actor.fingerprint,
     signingPrivateKey: actor.signing.signingPrivateKey,

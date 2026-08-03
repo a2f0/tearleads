@@ -183,7 +183,7 @@ test("storeVerifiedPrincipalState rejects projection roots that do not match the
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [{ principalType: "user", principalId: signer.signerUserId }],
+      members: [{ userId: signer.signerUserId }],
       projection: [
         {
           userId: signer.signerUserId,
@@ -227,7 +227,7 @@ test("storeVerifiedPrincipalState rejects encrypted payloads that do not match t
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
-      members: [{ principalType: "user", principalId: signer.signerUserId }],
+      members: [{ userId: signer.signerUserId }],
       projection: [
         {
           userId: signer.signerUserId,
@@ -288,7 +288,7 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
       keyFingerprint: await toFingerprint(publicKey),
       membershipMode: "projection",
       membershipRoot: await computePrincipalMembershipRoot([
-        { principalType: "user", principalId: signer.signerUserId },
+        { userId: signer.signerUserId },
       ]),
       memberEnvelopesRoot: await computePrincipalMemberEnvelopesRoot([]),
       projectionRoot: await computePrincipalProjectionRoot(projection),
@@ -381,9 +381,7 @@ test("storeVerifiedPrincipalState rejects successor states signed by non-admins"
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKeyPair.publicKey),
       keyFingerprint: await toFingerprint(principalKeyPair.publicKey),
-      members: [
-        { principalType: "user", principalId: adminSigner.signerUserId },
-      ],
+      members: [{ userId: adminSigner.signerUserId }],
       projection: [
         {
           userId: adminSigner.signerUserId,
@@ -408,9 +406,7 @@ test("storeVerifiedPrincipalState rejects successor states signed by non-admins"
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKeyPair.publicKey),
       keyFingerprint: await toFingerprint(principalKeyPair.publicKey),
-      members: [
-        { principalType: "user", principalId: outsiderSigner.signerUserId },
-      ],
+      members: [{ userId: outsiderSigner.signerUserId }],
       projection: [
         {
           userId: outsiderSigner.signerUserId,
@@ -445,7 +441,7 @@ test("storeVerifiedPrincipalState rejects same-version state hash conflicts", as
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(publicKey),
         keyFingerprint: await toFingerprint(publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
             userId: signer.signerUserId,
@@ -471,9 +467,7 @@ test("storeVerifiedPrincipalState rejects same-version state hash conflicts", as
           keyEpoch: 1,
           encapsulationPublicKey: bytesToBase64(publicKey),
           keyFingerprint: await toFingerprint(publicKey),
-          members: [
-            { principalType: "user", principalId: signer.signerUserId },
-          ],
+          members: [{ userId: signer.signerUserId }],
           projection: [
             {
               userId: signer.signerUserId,
@@ -507,10 +501,7 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(publicKey),
         keyFingerprint: await toFingerprint(publicKey),
-        members: [
-          { principalType: "user", principalId: signer.signerUserId },
-          { principalType: "user", principalId: removedUserId },
-        ],
+        members: [{ userId: signer.signerUserId }, { userId: removedUserId }],
         projection: [
           {
             userId: signer.signerUserId,
@@ -540,9 +531,7 @@ test("storeVerifiedPrincipalState rejects member removal without key rotation", 
           keyEpoch: 1,
           encapsulationPublicKey: bytesToBase64(publicKey),
           keyFingerprint: await toFingerprint(publicKey),
-          members: [
-            { principalType: "user", principalId: signer.signerUserId },
-          ],
+          members: [{ userId: signer.signerUserId }],
           projection: [
             {
               userId: signer.signerUserId,
@@ -580,7 +569,7 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(firstKemInitial.publicKey),
       keyFingerprint: await toFingerprint(firstKemInitial.publicKey),
-      members: [{ principalType: "user", principalId: signer.signerUserId }],
+      members: [{ userId: signer.signerUserId }],
       projection: [
         {
           userId: signer.signerUserId,
@@ -607,7 +596,7 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
         keyEpoch: 2,
         encapsulationPublicKey: bytesToBase64(firstKemCurrent.publicKey),
         keyFingerprint: await toFingerprint(firstKemCurrent.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
             userId: signer.signerUserId,
@@ -632,7 +621,7 @@ test("getCurrentPrincipalEpochKeys batches latest epoch-key lookup by principal 
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
         keyFingerprint: await toFingerprint(secondKem.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
             userId: signer.signerUserId,
@@ -682,7 +671,7 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(firstKemInitial.publicKey),
       keyFingerprint: await toFingerprint(firstKemInitial.publicKey),
-      members: [{ principalType: "user", principalId: signer.signerUserId }],
+      members: [{ userId: signer.signerUserId }],
       projection: [
         {
           userId: signer.signerUserId,
@@ -709,7 +698,7 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
         keyEpoch: 2,
         encapsulationPublicKey: bytesToBase64(firstKemCurrent.publicKey),
         keyFingerprint: await toFingerprint(firstKemCurrent.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
             userId: signer.signerUserId,
@@ -734,7 +723,7 @@ test("getCurrentPrincipalStates batches latest state lookup by principal id", as
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
         keyFingerprint: await toFingerprint(secondKem.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
             userId: signer.signerUserId,
@@ -779,7 +768,7 @@ test("getPrincipalStatesForReferences batches exact historical state lookup by r
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(firstKem.publicKey),
         keyFingerprint: await toFingerprint(firstKem.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
             userId: signer.signerUserId,
@@ -803,7 +792,7 @@ test("getPrincipalStatesForReferences batches exact historical state lookup by r
         keyEpoch: 2,
         encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
         keyFingerprint: await toFingerprint(secondKem.publicKey),
-        members: [{ principalType: "user", principalId: signer.signerUserId }],
+        members: [{ userId: signer.signerUserId }],
         projection: [
           {
             userId: signer.signerUserId,
@@ -874,10 +863,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(firstKem.publicKey),
         keyFingerprint: await toFingerprint(firstKem.publicKey),
-        members: [
-          { principalType: "user", principalId: signer.signerUserId },
-          { principalType: "user", principalId: firstMemberId },
-        ],
+        members: [{ userId: signer.signerUserId }, { userId: firstMemberId }],
         projection: firstProjection,
         signedAt: new Date("2026-04-07T16:00:00.000Z").toISOString(),
         ...signer,
@@ -896,10 +882,7 @@ test("listPrincipalProjectionMembersForStates batches projection lookup by curre
         keyEpoch: 1,
         encapsulationPublicKey: bytesToBase64(secondKem.publicKey),
         keyFingerprint: await toFingerprint(secondKem.publicKey),
-        members: [
-          { principalType: "user", principalId: signer.signerUserId },
-          { principalType: "group", principalId: nestedGroupId },
-        ],
+        members: [{ userId: signer.signerUserId }, { userId: nestedGroupId }],
         projection: secondProjection,
         signedAt: new Date("2026-04-07T16:05:00.000Z").toISOString(),
         ...signer,

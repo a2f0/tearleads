@@ -106,7 +106,6 @@ export async function createRegistrationRequest(
     userId,
   });
   const initialMemberGroup = await createInitialMemberGroupRequest({
-    adminGroup: initialAdminGroup,
     encapsulationPublicKey: user.kem.publicKey,
     signingPrivateKey: user.signing.signingPrivateKey,
     signingPublicKey: user.signing.signingPublicKey,
@@ -150,7 +149,7 @@ export async function createRegistrationRequest(
           keyEpoch: 1,
           encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
           keyFingerprint: await toFingerprint(organizationKem.publicKey),
-          members: [{ principalType: "user", principalId: userId }],
+          members: [{ userId }],
           memberEnvelopes: organizationMemberEnvelopes,
           projection: initialOrganizationProjection,
           payloadCiphertext: organizationPayloadCiphertext,

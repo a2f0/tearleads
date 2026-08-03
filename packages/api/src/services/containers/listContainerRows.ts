@@ -103,30 +103,19 @@ export async function listAccessibleContainersForUser(input: {
   readonly watermark: SyncWatermark | null;
 }): Promise<AccessibleContainerRow[]> {
   const result = await input.runtime.db.execute(sql`
-    with recursive reachable_principals as (
+    -- Direct membership is the whole of reachability; principals contain only
+    -- users, so there is no transitive tier to walk.
+    with reachable_principals as (
       select
         pmp.principal_type,
         pmp.principal_id
       from ${principalMembershipProjection} pmp
       where
-        pmp.member_principal_type = ${"user"}
-        and pmp.member_principal_id = ${input.userId}
+        pmp.user_id = ${input.userId}
         and pmp.state_hash = ${currentPrincipalStateHashSql({
           principalId: sql`pmp.principal_id`,
           principalType: sql`pmp.principal_type`,
         })}
-      union
-      select
-        pmp.principal_type,
-        pmp.principal_id
-      from ${principalMembershipProjection} pmp
-      inner join reachable_principals rp
-        on pmp.member_principal_type = rp.principal_type
-        and pmp.member_principal_id = rp.principal_id
-      where pmp.state_hash = ${currentPrincipalStateHashSql({
-        principalId: sql`pmp.principal_id`,
-        principalType: sql`pmp.principal_type`,
-      })}
     ),
     target_parent_path as (
       select
