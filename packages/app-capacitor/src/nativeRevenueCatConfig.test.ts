@@ -19,6 +19,7 @@ function requiredMatch(source: string, pattern: RegExp, description: string) {
 }
 
 function installedCapacitorReplacementModes(): string[] {
+  // Isolate the real package import from the process-wide mock used by the purchase test kit.
   const result = Bun.spawnSync({
     cmd: [
       process.execPath,

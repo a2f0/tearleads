@@ -64,7 +64,9 @@ export async function purchaseCapacitorRevenueCatPackage(
       ? {}
       : {
           oldProductIdentifier: change.oldProductIdentifier,
-          replacementMode: change.replacementMode,
+          ...(change.replacementMode === undefined
+            ? {}
+            : { replacementMode: change.replacementMode }),
         }),
   });
   return fromActiveEntitlementIds(

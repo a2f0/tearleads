@@ -13,7 +13,6 @@ interface NativeSubscriptionMoveBackend {
 interface NativeSubscriptionMoveConfig {
   readonly nativeStore: NativeSubscriptionStore | null;
   readonly purchasesEnabled?: boolean;
-  readonly restorePurchasesBuyerPaced: boolean;
   readonly syncEntitlementId: string;
 }
 
@@ -21,7 +20,6 @@ interface NativeSubscriptionMoveConfig {
 function moveRevenueCatNativeSubscription(input: {
   readonly attributeKey: string;
   readonly backend: NativeSubscriptionMoveBackend;
-  readonly buyerPaced: boolean;
   readonly claim: (store: NativeSubscriptionStore) => Promise<boolean>;
   readonly entitlementId: string;
   readonly identity: RevenueCatIdentityCoordinator;
@@ -30,7 +28,7 @@ function moveRevenueCatNativeSubscription(input: {
   readonly userId: string;
 }): Promise<void> {
   return input.identity.runProviderOperation({
-    ...(input.buyerPaced ? { buyerPaced: true } : {}),
+    buyerPaced: true,
     expectedAppUserId: input.userId,
     operation: async () => {
       const info = await input.backend.restorePurchases();
@@ -69,7 +67,6 @@ export function nativeMove(
     await moveRevenueCatNativeSubscription({
       attributeKey,
       backend,
-      buyerPaced: config.restorePurchasesBuyerPaced,
       entitlementId: config.syncEntitlementId,
       identity,
       ...request,

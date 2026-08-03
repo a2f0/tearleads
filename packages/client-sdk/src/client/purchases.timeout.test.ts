@@ -204,6 +204,44 @@ test("Android restore exposes a terminal error when the bridge stalls", async ()
   );
 });
 
+test("an Android native move keeps the server claim buyer-paced", async () => {
+  const backend = createBackend();
+  backend.restorePurchases = async () => ({
+    activeEntitlementIds: ["sync"],
+  });
+  let finishClaim = (_accepted: boolean) => {};
+  let markClaimStarted = () => {};
+  const claimStarted = new Promise<void>((resolve) => {
+    markClaimStarted = resolve;
+  });
+  const capability = purchases(backend);
+  let settled = false;
+  const moving = capability
+    .moveNativeSubscription({
+      claim: () => {
+        markClaimStarted();
+        return new Promise<boolean>((resolve) => {
+          finishClaim = resolve;
+        });
+      },
+      organizationId: "org-1",
+      userId: "user-1",
+    })
+    .then(
+      () => null,
+      (error: unknown) => error,
+    )
+    .finally(() => {
+      settled = true;
+    });
+
+  await claimStarted;
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  expect(settled).toBe(false);
+  finishClaim(true);
+  expect(await moving).toBeNull();
+});
+
 test("identity queued behind buyer-paced restore stays retryable", async () => {
   const backend = createBackend();
   let finishRestore = () => {};
