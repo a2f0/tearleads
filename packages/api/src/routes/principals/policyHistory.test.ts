@@ -111,10 +111,7 @@ test("policy-history serves the requester's own states newest first", async () =
   // The envelopes are the whole point: the chain alone was already available
   // through the policy bundle's `previousStates`.
   expect(
-    newest.memberEnvelopes.some(
-      (envelope) =>
-        envelope.userId === "user" && envelope.userId === actor.userId,
-    ),
+    newest.memberEnvelopes.some((envelope) => envelope.userId === actor.userId),
   ).toBe(true);
 }, 20_000);
 
@@ -335,8 +332,7 @@ test("policy-history serves no envelope for a group the requester cannot reach",
   expect(
     mine.entries.some((entry) =>
       entry.memberEnvelopes.some(
-        (envelope) =>
-          envelope.userId === "user" && envelope.userId === actor.userId,
+        (envelope) => envelope.userId === actor.userId,
       ),
     ),
   ).toBe(true);
