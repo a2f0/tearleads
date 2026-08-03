@@ -16,8 +16,9 @@ Commands:
   migrate    Run API database migrations
 ```
 
-An unknown or missing command prints usage to stderr and exits `1`; `-h` /
-`--help` prints it to stdout and exits `0`.
+A missing command prints usage to stderr and exits `1`; an unknown command
+prints only `Unknown command: <name>` — no usage — and exits `1`. `-h` /
+`--help` prints usage to stdout and exits `0`.
 
 ## Commands
 
@@ -33,9 +34,10 @@ materializes them into a temp directory (`tearleads-api-migrations-*`), passes i
 as `migrationsFolder`, and removes it afterwards. Run from source, no files are
 embedded and `initializeApiDatabase` uses its own default folder.
 
-The database connection is always closed and the temp folder always cleaned up,
-even when migration fails; a cleanup failure is surfaced as a thrown error rather
-than swallowed.
+The database connection is always closed and the temp folder always removed, even
+when migration fails. The two paths differ in which error wins: when the
+migration itself fails, that error propagates and any cleanup error is only
+logged; when the migration succeeds, a cleanup failure is thrown.
 
 Locally, prefer the wrapper that checks Postgres is reachable first:
 
