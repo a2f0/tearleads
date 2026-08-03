@@ -1,4 +1,4 @@
-import { useCallback, useId } from "react";
+import { useCallback, useId, useState } from "react";
 import {
   MiniAppInput,
   MiniAppSelect,
@@ -54,7 +54,7 @@ function WeightReadFields(params: {
   entryPending: boolean;
   entries: ReadonlyArray<WeightEntryRow>;
   onAddEntry: AddTrackerRow<WeightQuickEntry>;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   onPendingChange: (pending: boolean) => void;
   resolveRowWriter?: RowWriterResolver | undefined;
   unit: WeightUnit;
@@ -109,6 +109,7 @@ function WeightEditFields(params: {
   controlsDisabled: boolean;
   entryPending: boolean;
   entries: ReadonlyArray<WeightEntryRow>;
+  editingEntryId: string | null;
   onAddEntry: AddTrackerRow<WeightQuickEntry>;
   onChangeUnit: (unit: WeightUnit) => void;
   onRemoveEntry: (id: string) => void;
@@ -127,6 +128,7 @@ function WeightEditFields(params: {
     controlsDisabled,
     entryPending,
     entries,
+    editingEntryId,
     onAddEntry,
     onChangeUnit,
     onRemoveEntry,
@@ -140,7 +142,10 @@ function WeightEditFields(params: {
     unit,
     unitInputId,
   } = params;
-  const { saveAddedRow, savedRowIds, setRowSaved } = useSavedTrackerRows();
+  const { saveAddedRow, savedRowIds, setRowSaved } = useSavedTrackerRows(
+    entries,
+    editingEntryId,
+  );
 
   return (
     <div className="tracker-document-fields">
@@ -248,11 +253,12 @@ function WeightEditRows(params: {
 export function WeightFields(params: {
   currentAuthorId?: string | null;
   disabled?: boolean | undefined;
+  editingEntryId?: string | null | undefined;
   entries: ReadonlyArray<WeightEntryRow>;
   isEditing?: boolean | undefined;
   onAddEntry: AddTrackerRow<WeightQuickEntry>;
   onChangeUnit: (unit: WeightUnit) => void;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   onRemoveEntry: (id: string) => void;
   onRenameTracker: (value: string) => void;
   onToggleEditing: () => void;
@@ -268,6 +274,7 @@ export function WeightFields(params: {
     currentAuthorId = null,
     disabled = false,
     entries,
+    editingEntryId = null,
     isEditing = true,
     onAddEntry,
     onChangeUnit,
@@ -319,6 +326,7 @@ export function WeightFields(params: {
       controlsDisabled={controlsDisabled}
       entryPending={newEntryPending}
       entries={entries}
+      editingEntryId={editingEntryId}
       onAddEntry={onAddEntry}
       onChangeUnit={onChangeUnit}
       onRemoveEntry={onRemoveEntry}
@@ -349,16 +357,17 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
   } = useDocument();
   const trackerNameInputId = useId();
   const unitInputId = useId();
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useStructuredDocumentEditing(
     canWrite,
     params.initialEditing,
   );
   // Kept reference-stable so the toolbar action it feeds does not re-register
   // on every render.
-  const toggleEditing = useCallback(
-    () => setIsEditing((editing) => !editing),
-    [setIsEditing],
-  );
+  const toggleEditing = useCallback(() => {
+    setEditingEntryId(null);
+    setIsEditing((editing) => !editing);
+  }, [setIsEditing]);
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
   const resolveRowWriter = useDocumentRowWriters(rows.length > 0);
 
@@ -380,11 +389,17 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
           currentAuthorId={currentAuthorId}
           disabled={!ready || !canWrite}
           entries={entries}
+          editingEntryId={editingEntryId}
           isEditing={isEditing && canWrite}
           resolveRowWriter={resolveRowWriter}
-          // The read-row "Edit" action switches the whole tracker into edit
-          // mode; only offer it when the viewer can actually write.
-          onEnterEdit={canWrite ? () => setIsEditing(true) : undefined}
+          onEnterEdit={
+            canWrite
+              ? (id) => {
+                  setEditingEntryId(id);
+                  setIsEditing(true);
+                }
+              : undefined
+          }
           onAddEntry={(entry) => {
             if (canWrite) {
               return addRow({

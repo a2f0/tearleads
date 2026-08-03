@@ -1,4 +1,4 @@
-import { useCallback, useId } from "react";
+import { useCallback, useId, useState } from "react";
 import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
@@ -47,7 +47,7 @@ function EnvFileReadFields(params: {
   currentAuthorId: string | null;
   entryPending: boolean;
   onAddVariable: AddTrackerRow<EnvFileQuickVariable>;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   onPendingChange: (pending: boolean) => void;
   resolveRowWriter?: RowWriterResolver | undefined;
   variables: ReadonlyArray<EnvVariableRow>;
@@ -99,6 +99,7 @@ function EnvFileEditFields(params: {
   currentAuthorId: string | null;
   controlsDisabled: boolean;
   entryPending: boolean;
+  editingVariableId: string | null;
   fileName: string;
   fileNameInputId: string;
   onAddVariable: AddTrackerRow<EnvFileQuickVariable>;
@@ -113,6 +114,7 @@ function EnvFileEditFields(params: {
   const {
     currentAuthorId,
     entryPending,
+    editingVariableId,
     controlsDisabled,
     fileName,
     fileNameInputId,
@@ -125,7 +127,10 @@ function EnvFileEditFields(params: {
     resolveRowWriter,
     variables,
   } = params;
-  const { saveAddedRow, savedRowIds, setRowSaved } = useSavedTrackerRows();
+  const { saveAddedRow, savedRowIds, setRowSaved } = useSavedTrackerRows(
+    variables,
+    editingVariableId,
+  );
 
   return (
     <div className="tracker-document-fields">
@@ -215,9 +220,10 @@ export function EnvFileFields(params: {
   disabled?: boolean | undefined;
   fileName: string;
   fileNameInputId: string;
+  editingVariableId?: string | null | undefined;
   isEditing?: boolean | undefined;
   onAddVariable: AddTrackerRow<EnvFileQuickVariable>;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   onRemoveVariable: (id: string) => void;
   onRenameFile: (value: string) => void;
   onToggleEditing: () => void;
@@ -233,6 +239,7 @@ export function EnvFileFields(params: {
   const {
     currentAuthorId = null,
     disabled = false,
+    editingVariableId = null,
     fileName,
     fileNameInputId,
     isEditing = true,
@@ -280,6 +287,7 @@ export function EnvFileFields(params: {
       currentAuthorId={currentAuthorId}
       controlsDisabled={controlsDisabled}
       entryPending={newVariablePending}
+      editingVariableId={editingVariableId}
       fileName={fileName}
       fileNameInputId={fileNameInputId}
       onAddVariable={onAddVariable}
@@ -307,16 +315,19 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
     updateRowFields,
   } = useDocument();
   const fileNameInputId = useId();
+  const [editingVariableId, setEditingVariableId] = useState<string | null>(
+    null,
+  );
   const [isEditing, setIsEditing] = useStructuredDocumentEditing(
     canWrite,
     params.initialEditing,
   );
   // Kept reference-stable so the toolbar action it feeds does not re-register
   // on every render.
-  const toggleEditing = useCallback(
-    () => setIsEditing((editing) => !editing),
-    [setIsEditing],
-  );
+  const toggleEditing = useCallback(() => {
+    setEditingVariableId(null);
+    setIsEditing((editing) => !editing);
+  }, [setIsEditing]);
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
   const resolveRowWriter = useDocumentRowWriters(rows.length > 0);
 
@@ -340,11 +351,19 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
         <EnvFileFields
           currentAuthorId={currentAuthorId}
           disabled={!ready || !canWrite}
+          editingVariableId={editingVariableId}
           fileName={fileName}
           fileNameInputId={fileNameInputId}
           isEditing={isEditing && canWrite}
           resolveRowWriter={resolveRowWriter}
-          onEnterEdit={canWrite ? () => setIsEditing(true) : undefined}
+          onEnterEdit={
+            canWrite
+              ? (id) => {
+                  setEditingVariableId(id);
+                  setIsEditing(true);
+                }
+              : undefined
+          }
           onAddVariable={(variable) => {
             if (canWrite) {
               return addRow({

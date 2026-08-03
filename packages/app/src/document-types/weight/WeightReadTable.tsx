@@ -116,7 +116,7 @@ function getWeightColumns(context: {
 export function WeightReadTable(params: {
   currentAuthorId: string | null;
   entries: ReadonlyArray<WeightEntryRow>;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   resolveRowWriter?: RowWriterResolver | undefined;
 }) {
   const { currentAuthorId, entries, onEnterEdit, resolveRowWriter } = params;
@@ -152,7 +152,9 @@ export function WeightReadTable(params: {
             detailLabel="Attribution"
             detailsOpen={detailRowId === row.entry.id}
             directAriaLabel={`Entry ${row.index + 1} attribution`}
-            onEnterEdit={onEnterEdit}
+            onEnterEdit={
+              onEnterEdit ? () => onEnterEdit(row.entry.id) : undefined
+            }
             onOpenDetails={() => setDetailRowId(row.entry.id)}
           />
         )}
