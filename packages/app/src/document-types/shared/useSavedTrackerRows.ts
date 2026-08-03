@@ -2,19 +2,43 @@ import { useCallback, useState } from "react";
 
 export type AddTrackerRow<Entry> = (entry: Entry) => Promise<string | null>;
 
-export function useSavedTrackerRows() {
-  const [savedRowIds, setSavedRowIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
+interface SavedTrackerRowState {
+  readonly overrides: ReadonlyMap<string, boolean>;
+  readonly unknownRowsAreSaved: boolean;
+}
+
+/**
+ * Tracks which rows have been individually saved during an edit session.
+ * Targeted sessions default every row except the selected one to read mode,
+ * including rows that arrive later through sync. Full-document sessions do
+ * the inverse, so existing and newly-arriving rows remain editable until they
+ * are explicitly saved.
+ */
+export function useSavedTrackerRows(
+  rows: ReadonlyArray<{ readonly id: string }>,
+  initialEditingRowId: string | null,
+) {
+  const [state, setState] = useState<SavedTrackerRowState>(() => {
+    const hasEditingRow =
+      initialEditingRowId !== null &&
+      rows.some((row) => row.id === initialEditingRowId);
+
+    return {
+      overrides: hasEditingRow
+        ? new Map([[initialEditingRowId, false]])
+        : new Map(),
+      unknownRowsAreSaved: initialEditingRowId !== null,
+    };
+  });
+  const isRowSaved = useCallback(
+    (id: string) => state.overrides.get(id) ?? state.unknownRowsAreSaved,
+    [state],
   );
   const setRowSaved = useCallback((id: string, saved: boolean) => {
-    setSavedRowIds((current) => {
-      const next = new Set(current);
-      if (saved) {
-        next.add(id);
-      } else {
-        next.delete(id);
-      }
-      return next;
+    setState((current) => {
+      const overrides = new Map(current.overrides);
+      overrides.set(id, saved);
+      return { ...current, overrides };
     });
   }, []);
   const saveAddedRow = useCallback(
@@ -27,5 +51,5 @@ export function useSavedTrackerRows() {
     [setRowSaved],
   );
 
-  return { saveAddedRow, savedRowIds, setRowSaved };
+  return { isRowSaved, saveAddedRow, setRowSaved };
 }

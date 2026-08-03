@@ -82,11 +82,12 @@ const attributedResolver = (peer: string | null): string | null => {
 
 function renderWeightFields(params?: {
   currentAuthorId?: string | null;
+  editingEntryId?: string | null;
   entries?: WeightEntryRow[];
   isEditing?: boolean | undefined;
   onAddEntry?: (entry: WeightQuickEntry) => Promise<string | null>;
   onChangeUnit?: (unit: WeightUnit) => void;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   onRemoveEntry?: (id: string) => void;
   onRenameTracker?: (value: string) => void;
   onToggleEditing?: () => void;
@@ -100,6 +101,7 @@ function renderWeightFields(params?: {
     <WithWindowToolbar>
       <WeightFields
         currentAuthorId={params?.currentAuthorId ?? null}
+        editingEntryId={params?.editingEntryId}
         entries={params?.entries ?? entries}
         isEditing={params?.isEditing}
         onAddEntry={params?.onAddEntry ?? (() => Promise.resolve("new-entry"))}
@@ -371,14 +373,12 @@ test("read-only viewer opens attribution directly, without showing values", () =
 });
 
 test("writer's kebab menu offers Edit and Attribution", () => {
-  let editCalls = 0;
+  const editedEntryIds: string[] = [];
   const view = renderWeightFields({
     currentAuthorId: "user-alice",
     entries: [attributedEntry],
     isEditing: false,
-    onEnterEdit: () => {
-      editCalls += 1;
-    },
+    onEnterEdit: (id) => editedEntryIds.push(id),
     resolveRowWriter: attributedResolver,
   });
 
@@ -393,7 +393,7 @@ test("writer's kebab menu offers Edit and Attribution", () => {
   // Edit switches the tracker into edit mode.
   fireEvent.click(view.getByRole("button", { name: "Entry 1 actions" }));
   fireEvent.click(view.getByRole("button", { name: "Edit" }));
-  expect(editCalls).toBe(1);
+  expect(editedEntryIds).toEqual(["e1"]);
 });
 
 test("edits tracker name and entry cells through callbacks", () => {
@@ -448,10 +448,11 @@ test("marks out-of-range weights invalid without blocking edits", () => {
   ).toBe("true");
 });
 
-test("each entry saves independently beside Remove", () => {
+test("a targeted entry saves independently beside Remove", () => {
   const removals: string[] = [];
   const view = renderWeightFields({
     currentAuthorId: "user-alice",
+    editingEntryId: "e1",
     onRemoveEntry: (id) => removals.push(id),
     entries: [attributedEntry, makeEntry({ id: "e2" })],
     resolveRowWriter: attributedResolver,
@@ -460,9 +461,9 @@ test("each entry saves independently beside Remove", () => {
   const remove = view.getByRole("button", { name: "Remove entry 1" });
   const save = view.getByRole("button", { name: "Save entry 1" });
   expect(save.parentElement).toBe(remove.parentElement);
+  expect(view.queryByLabelText("Entry 2 weight")).toBeNull();
   fireEvent.click(save);
   expect(view.queryByLabelText("Entry 1 weight")).toBeNull();
-  expect(view.getByLabelText("Entry 2 weight")).toBeTruthy();
   expect(view.getByText(/by user-bob/u)).toBeTruthy();
   expect(view.getByRole("button", { name: "Toolbar Save" })).toBeTruthy();
 
