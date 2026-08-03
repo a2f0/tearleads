@@ -17,7 +17,6 @@ import type {
   PrincipalStateHeaderInput,
   PrincipalStateMember,
   PrincipalStateMembershipMode,
-  PrincipalStateMemberType,
   PrincipalStateSigningInput,
   SignedPrincipalState,
   UnsignedPrincipalState,
@@ -37,7 +36,6 @@ export type {
   PrincipalStateMember,
   PrincipalStateMemberEnvelope,
   PrincipalStateMembershipMode,
-  PrincipalStateMemberType,
   PrincipalStatePayloadCipherSuite,
   PrincipalStateSigningInput,
   SignedPrincipalState,
@@ -62,8 +60,7 @@ function encodeNormalizedPrincipalStateMembers(
   return TEXT_ENCODER.encode(
     JSON.stringify(
       normalizedMembers.map((member) => ({
-        principalType: member.principalType,
-        principalId: member.principalId,
+        userId: member.userId,
       })),
     ),
   );
@@ -75,8 +72,7 @@ function encodeNormalizedPrincipalProjectionMembers(
   return TEXT_ENCODER.encode(
     JSON.stringify(
       normalizedMembers.map((member) => ({
-        memberPrincipalType: member.memberPrincipalType,
-        memberPrincipalId: member.memberPrincipalId,
+        userId: member.userId,
         role: member.role,
       })),
     ),
@@ -330,12 +326,6 @@ export function isManagedRecipientPrincipalType(
   return value === "group" || value === "organization";
 }
 
-export function isPrincipalStateMemberType(
-  value: string,
-): value is PrincipalStateMemberType {
-  return value === "user" || value === "group";
-}
-
 export function isPrincipalProjectionRole(
   value: string,
 ): value is PrincipalProjectionRole {
@@ -346,10 +336,7 @@ export function normalizePrincipalStateMembers(
   members: ReadonlyArray<PrincipalStateMember>,
 ): PrincipalStateMember[] {
   return members
-    .map((member) => ({
-      principalType: member.principalType,
-      principalId: member.principalId,
-    }))
+    .map((member) => ({ userId: member.userId }))
     .sort(comparePrincipalStateMembers);
 }
 
@@ -357,8 +344,7 @@ export function derivePrincipalProjectionMembers(
   members: ReadonlyArray<PrincipalStateMember>,
 ): PrincipalProjectionMember[] {
   return normalizePrincipalStateMembers(members).map((member) => ({
-    memberPrincipalType: member.principalType,
-    memberPrincipalId: member.principalId,
+    userId: member.userId,
     role: "member",
   }));
 }
@@ -367,11 +353,7 @@ export function normalizePrincipalProjectionMembers(
   members: ReadonlyArray<PrincipalProjectionMember>,
 ): PrincipalProjectionMember[] {
   return members
-    .map((member) => ({
-      memberPrincipalType: member.memberPrincipalType,
-      memberPrincipalId: member.memberPrincipalId,
-      role: member.role,
-    }))
+    .map((member) => ({ userId: member.userId, role: member.role }))
     .sort(comparePrincipalProjectionMembers);
 }
 

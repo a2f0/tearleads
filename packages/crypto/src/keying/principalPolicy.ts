@@ -35,7 +35,7 @@ import { makeVerifiedPrincipalPolicy } from "./types";
 function principalProjectionMemberKey(
   member: PrincipalProjectionMember,
 ): string {
-  return `${member.memberPrincipalType}:${member.memberPrincipalId}`;
+  return member.userId;
 }
 
 function principalProjectionRoleRank(
@@ -49,10 +49,7 @@ function projectionIncludesAdminUser(
   userId: string,
 ): boolean {
   return projection.some(
-    (member) =>
-      member.memberPrincipalType === "user" &&
-      member.memberPrincipalId === userId &&
-      member.role === "admin",
+    (member) => member.userId === userId && member.role === "admin",
   );
 }
 

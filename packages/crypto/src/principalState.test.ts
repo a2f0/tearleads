@@ -21,12 +21,10 @@ test("signPrincipalState normalizes members and produces a verifiable state hash
     generateSigningSeedAndKeyPair();
   const members = [
     {
-      principalType: "group" as const,
-      principalId: "nested-group",
+      userId: "bob",
     },
     {
-      principalType: "user" as const,
-      principalId: "alice",
+      userId: "alice",
     },
   ];
   const signedState = await signPrincipalState(
@@ -65,22 +63,18 @@ test("signPrincipalState computes membershipRoot and key fingerprint from normal
     generateSigningSeedAndKeyPair();
   const expectedMembershipRoot = await computePrincipalMembershipRoot([
     {
-      principalType: "group",
-      principalId: "nested-group",
+      userId: "bob",
     },
     {
-      principalType: "user",
-      principalId: "alice",
+      userId: "alice",
     },
   ]);
   const members = [
     {
-      principalType: "user" as const,
-      principalId: "alice",
+      userId: "alice",
     },
     {
-      principalType: "group" as const,
-      principalId: "nested-group",
+      userId: "bob",
     },
   ];
   const signedState = await signPrincipalState(
@@ -156,16 +150,13 @@ test("principal roots reject duplicate members after normalization", async () =>
   await expect(
     computePrincipalMembershipRoot([
       {
-        principalType: "user",
-        principalId: "alice",
+        userId: "alice",
       },
       {
-        principalType: "group",
-        principalId: "team",
+        userId: "user-team",
       },
       {
-        principalType: "user",
-        principalId: "alice",
+        userId: "alice",
       },
     ]),
   ).rejects.toThrow("Principal state cannot contain duplicate members");
@@ -173,18 +164,15 @@ test("principal roots reject duplicate members after normalization", async () =>
   await expect(
     computePrincipalProjectionRoot([
       {
-        memberPrincipalType: "group",
-        memberPrincipalId: "team",
+        userId: "team",
         role: "member",
       },
       {
-        memberPrincipalType: "user",
-        memberPrincipalId: "alice",
+        userId: "alice",
         role: "member",
       },
       {
-        memberPrincipalType: "group",
-        memberPrincipalId: "team",
+        userId: "team",
         role: "admin",
       },
     ]),
@@ -199,8 +187,7 @@ test("verifySignedPrincipalState rejects tampered membership roots", async () =>
     generateSigningSeedAndKeyPair();
   const members = [
     {
-      principalType: "user" as const,
-      principalId: "alice",
+      userId: "alice",
     },
   ];
   const signedState = await signPrincipalState(

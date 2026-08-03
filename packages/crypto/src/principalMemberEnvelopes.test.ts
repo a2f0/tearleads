@@ -12,13 +12,11 @@ import type { PrincipalStateMemberEnvelope } from "./principalStateTypes";
 import { AES_GCM_TAG_BYTES } from "./symmetric";
 
 function memberEnvelope(input: {
-  memberPrincipalId: string;
-  memberPrincipalType: "group" | "user";
+  userId: string;
   seed: number;
 }): PrincipalStateMemberEnvelope {
   return {
-    memberPrincipalType: input.memberPrincipalType,
-    memberPrincipalId: input.memberPrincipalId,
+    userId: input.userId,
     memberKeyFingerprint: input.seed.toString(16).padStart(64, "0"),
     kemCipherText: bytesToBase64(
       new Uint8Array(ML_KEM1024_CIPHERTEXT_BYTES).fill(input.seed),
@@ -32,35 +30,31 @@ function memberEnvelope(input: {
 }
 
 test("principal member envelope roots are canonical across input ordering", async () => {
-  const group = memberEnvelope({
-    memberPrincipalType: "group",
-    memberPrincipalId: "nested-group",
+  const first = memberEnvelope({
+    userId: "aaa-first",
     seed: 1,
   });
-  const user = memberEnvelope({
-    memberPrincipalType: "user",
-    memberPrincipalId: "user-alice",
+  const second = memberEnvelope({
+    userId: "zzz-second",
     seed: 2,
   });
 
-  expect(normalizePrincipalStateMemberEnvelopes([user, group])).toEqual([
-    group,
-    user,
+  expect(normalizePrincipalStateMemberEnvelopes([second, first])).toEqual([
+    first,
+    second,
   ]);
-  expect(await computePrincipalMemberEnvelopesRoot([user, group])).toBe(
-    await computePrincipalMemberEnvelopesRoot([group, user]),
+  expect(await computePrincipalMemberEnvelopesRoot([second, first])).toBe(
+    await computePrincipalMemberEnvelopesRoot([first, second]),
   );
 });
 
 test("principal member envelopes use deterministic code-unit ordering", () => {
   const uppercase = memberEnvelope({
-    memberPrincipalType: "user",
-    memberPrincipalId: "Z-user",
+    userId: "Z-user",
     seed: 1,
   });
   const lowercase = memberEnvelope({
-    memberPrincipalType: "user",
-    memberPrincipalId: "a-user",
+    userId: "a-user",
     seed: 2,
   });
 
@@ -70,40 +64,49 @@ test("principal member envelopes use deterministic code-unit ordering", () => {
 });
 
 test("principal member envelope root matches the protocol golden vector", async () => {
-  const group = {
+  // Previously this pinned that a GROUP "alpha" and a USER "alpha" encode
+  // distinctly — the (type, id) pair being the identity. Group members no
+  // longer exist, so what remains worth pinning is that the root is order
+  // independent and stable across distinct user members.
+  const userAlpha = {
     ...memberEnvelope({
-      memberPrincipalType: "group" as const,
-      memberPrincipalId: "alpha",
+      userId: "alpha",
       seed: 1,
     }),
     memberKeyFingerprint: "a".repeat(64),
   };
   const userZeta = {
     ...memberEnvelope({
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: "zeta",
+      userId: "zeta",
       seed: 2,
     }),
     memberKeyFingerprint: "b".repeat(64),
   };
-  const userAlpha = {
+  const userMid = {
     ...memberEnvelope({
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: "alpha",
+      userId: "mid",
       seed: 3,
     }),
     memberKeyFingerprint: "c".repeat(64),
   };
 
+  const root = await computePrincipalMemberEnvelopesRoot([
+    userZeta,
+    userAlpha,
+    userMid,
+  ]);
+  expect(root).toBe(
+    "2c4ef0599d93306b6b05c38b9fee8c04e69f496dfc992da5e6e68953fb395de2",
+  );
+  // Order independent: normalization sorts before hashing.
   expect(
-    await computePrincipalMemberEnvelopesRoot([userZeta, group, userAlpha]),
-  ).toBe("484b1db23861177163ca9c6c5102fc2abf08f7fe43ae389a46bef57a1fcacff0");
+    await computePrincipalMemberEnvelopesRoot([userAlpha, userMid, userZeta]),
+  ).toBe(root);
 });
 
 test("principal member envelopes reject duplicate recipient identities", () => {
   const envelope = memberEnvelope({
-    memberPrincipalType: "user",
-    memberPrincipalId: "user-alice",
+    userId: "user-alice",
     seed: 1,
   });
 
@@ -117,8 +120,7 @@ test("principal member envelopes reject duplicate recipient identities", () => {
 
 test("principal member envelopes require canonical base64", () => {
   const envelope = memberEnvelope({
-    memberPrincipalType: "user",
-    memberPrincipalId: "user-alice",
+    userId: "user-alice",
     seed: 1,
   });
 
@@ -136,8 +138,7 @@ test("principal member envelopes require canonical base64", () => {
 
 test("principal member envelopes require exact ML-KEM field sizes", () => {
   const envelope = memberEnvelope({
-    memberPrincipalType: "user",
-    memberPrincipalId: "user-alice",
+    userId: "user-alice",
     seed: 1,
   });
 

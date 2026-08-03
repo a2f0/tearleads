@@ -2,11 +2,8 @@ import { computePrincipalMemberEnvelopesRoot } from "../principalMemberEnvelopes
 import { throwVerification } from "./shared";
 import type { PrincipalPolicyBundle } from "./types";
 
-function memberKey(input: {
-  readonly memberPrincipalId: string;
-  readonly memberPrincipalType: "group" | "user";
-}): string {
-  return `${input.memberPrincipalType}:${input.memberPrincipalId}`;
+function memberKey(input: { readonly userId: string }): string {
+  return input.userId;
 }
 
 export async function verifyPrincipalPolicyMemberEnvelopes(input: {

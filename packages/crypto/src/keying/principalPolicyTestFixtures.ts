@@ -43,23 +43,18 @@ function projectionWithAdmin(
 ): PrincipalProjectionMember[] {
   const projectionByMember = new Map<string, PrincipalProjectionMember>();
 
-  projectionByMember.set(`user:${signerUserId}`, {
-    memberPrincipalType: "user",
-    memberPrincipalId: signerUserId,
+  projectionByMember.set(signerUserId, {
+    userId: signerUserId,
     role: "admin",
   });
 
   for (const member of members) {
-    const key = `${member.principalType}:${member.principalId}`;
+    const key = member.userId;
     if (projectionByMember.has(key)) {
       continue;
     }
 
-    projectionByMember.set(key, {
-      memberPrincipalType: member.principalType,
-      memberPrincipalId: member.principalId,
-      role: "member",
-    });
+    projectionByMember.set(key, { userId: member.userId, role: "member" });
   }
 
   return Array.from(projectionByMember.values());
@@ -106,12 +101,9 @@ export async function signPolicyState(input: {
     input.memberEnvelopes ??
     (await Promise.all(
       projection.map(async (member, index) => ({
-        memberPrincipalType: member.memberPrincipalType,
-        memberPrincipalId: member.memberPrincipalId,
+        userId: member.userId,
         memberKeyFingerprint: await toFingerprint(
-          new TextEncoder().encode(
-            `${member.memberPrincipalType}:${member.memberPrincipalId}`,
-          ),
+          new TextEncoder().encode(member.userId),
         ),
         kemCipherText: bytesToBase64(
           new Uint8Array(ML_KEM1024_CIPHERTEXT_BYTES).fill(index + 1),

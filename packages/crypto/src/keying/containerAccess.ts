@@ -809,9 +809,7 @@ function grantAccessLevelForUser(input: {
   }
 
   return verifiedPolicy.projection.some(
-    (member) =>
-      member.memberPrincipalType === "user" &&
-      member.memberPrincipalId === input.userId,
+    (member) => member.userId === input.userId,
   )
     ? input.grant.accessLevel
     : null;
