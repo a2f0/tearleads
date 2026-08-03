@@ -28,6 +28,8 @@ interface RevenueCatProviderOperation<T> {
   readonly operationName: string;
   /** False only for provider state that is not scoped to a customer. */
   readonly requiresKnownIdentity?: boolean;
+  /** Defers shared customer mutations until the native store sheet settles. */
+  readonly waitForCheckout?: boolean;
 }
 
 export interface RevenueCatIdentityCoordinator {
@@ -325,10 +327,13 @@ class RevenueCatIdentityCoordinatorState
           if (lateTimeout !== undefined) clearTimeout(lateTimeout);
         }
       });
-    const operation =
+    const scheduleAfterIdentity = () =>
       requiresKnownIdentity && this.identityIdle
         ? this.identityIdle.then(schedule)
         : schedule();
+    const operation = providerInput.waitForCheckout
+      ? this.checkouts.afterActive(scheduleAfterIdentity)
+      : scheduleAfterIdentity();
     if (providerInput.buyerPaced) {
       void operation.catch(() => undefined);
       return this.withProviderTimeout(
@@ -344,6 +349,11 @@ class RevenueCatIdentityCoordinatorState
       operation,
       providerInput.operationName,
       () => providerStarted || this.identityMutationInFlight,
+      providerInput.waitForCheckout
+        ? () => {
+            abandoned = true;
+          }
+        : undefined,
     );
   }
 

@@ -14,7 +14,7 @@ function createDeferred() {
   return { promise, resolve };
 }
 
-test("an overlapping checkout cannot overwrite the active organization", async () => {
+function createFixture() {
   const attributes: Record<string, string | null> = {};
   const purchaseInputs: Array<{ packageId: string }> = [];
   const checkout = createDeferred();
@@ -40,12 +40,24 @@ test("an overlapping checkout cannot overwrite the active organization", async (
     nativeStore: "test_store",
     syncEntitlementId: "sync",
   });
+  return {
+    attributes,
+    checkout,
+    checkoutStarted,
+    purchaseInputs,
+    purchases,
+  };
+}
+
+test("an overlapping checkout cannot overwrite the active organization", async () => {
+  const fixture = createFixture();
+  const { purchases } = fixture;
   await purchases.identify({ userId: "user-1" });
   const first = purchases.purchaseSync({
     organizationId: "org-1",
     packageId: "monthly",
   });
-  await checkoutStarted.promise;
+  await fixture.checkoutStarted.promise;
 
   await expect(
     purchases.purchaseSync({
@@ -53,9 +65,28 @@ test("an overlapping checkout cannot overwrite the active organization", async (
       packageId: "monthly",
     }),
   ).rejects.toBeInstanceOf(PurchaseIdentityPendingError);
-  expect(attributes).toEqual({ orgId: "org-1" });
-  expect(purchaseInputs).toHaveLength(1);
+  expect(fixture.attributes).toEqual({ orgId: "org-1" });
+  expect(fixture.purchaseInputs).toHaveLength(1);
 
-  checkout.resolve();
+  fixture.checkout.resolve();
   await first;
+});
+
+test("organization binding waits for the active checkout", async () => {
+  const fixture = createFixture();
+  const { purchases } = fixture;
+  await purchases.identify({ userId: "user-1" });
+  const checkout = purchases.purchaseSync({
+    organizationId: "org-1",
+    packageId: "monthly",
+  });
+  await fixture.checkoutStarted.promise;
+
+  const binding = purchases.bindOrganization({ organizationId: "org-2" });
+  await Promise.resolve();
+  expect(fixture.attributes).toEqual({ orgId: "org-1" });
+
+  fixture.checkout.resolve();
+  await Promise.all([checkout, binding]);
+  expect(fixture.attributes).toEqual({ orgId: "org-2" });
 });

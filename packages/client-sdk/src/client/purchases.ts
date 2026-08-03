@@ -281,12 +281,14 @@ function runRevenueCatCustomerOperation<T>(input: {
   readonly identity: RevenueCatIdentityCoordinator;
   readonly operation: () => Promise<T>;
   readonly operationName: string;
+  readonly waitForCheckout?: boolean;
 }): Promise<T> {
   return input.identity
     .runProviderOperation({
       ...(input.buyerPaced ? { buyerPaced: true } : {}),
       operation: input.operation,
       operationName: input.operationName,
+      ...(input.waitForCheckout ? { waitForCheckout: true } : {}),
     })
     .catch(normalizeRevenueCatIdentityError);
 }
@@ -406,6 +408,7 @@ export function createRevenueCatPurchases(
             [attributeKey]: input.organizationId,
           }),
         operationName: "organization binding",
+        waitForCheckout: true,
       });
     },
     async hasActiveSyncEntitlement() {
