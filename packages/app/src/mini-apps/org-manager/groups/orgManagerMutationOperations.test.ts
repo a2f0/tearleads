@@ -4,6 +4,7 @@ import type {
   OrganizationGroupMembers,
 } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
+import { ORG_MANAGER_LABELS } from "../labels";
 import {
   addRosterUserToGroup,
   prepareRosterImport,
@@ -227,4 +228,37 @@ test("adding a roster user reports a stale result when the organization changes 
     TARGET_USER.userId,
   );
   expect(result).toBeNull();
+});
+
+test("a failed Admins add after a Members add reports the user is now a billed member", async () => {
+  // The two writes cannot be one transaction. When the second fails the first
+  // has already landed, so the user is an organization member and on the
+  // invoice; reporting a bare failure would hide that.
+  const addUserToGroup = mock(async (groupId: string) => {
+    if (groupId === "admins") {
+      throw new Error("policy write failed");
+    }
+    return undefined as never;
+  });
+  const { observed, setError } = createErrorSetter();
+  const actions = createActions({
+    addUserToGroup,
+    loadGroupMembers: mock(async () => MEMBERS),
+  });
+
+  const result = await addRosterUserToGroup({
+    directoryUser: { ...TARGET_USER } as never,
+    groupId: "admins",
+    isAdminGroup: true,
+    isOperationActive: () => true,
+    memberGroupId: "members",
+    operationOrganizationId: DIRECTORY.organizationId,
+    orgManagerActions: actions,
+    setError,
+    targetUserId: TARGET_USER.userId,
+  });
+
+  expect(result).toBeNull();
+  expect(addUserToGroup).toHaveBeenCalledTimes(2);
+  expect(observed).toContain(ORG_MANAGER_LABELS.failedAddAdminAfterMemberAdd);
 });

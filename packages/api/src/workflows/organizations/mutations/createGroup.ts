@@ -7,8 +7,12 @@ import type { CreateOrganizationGroupRequest } from "@tearleads/validators/reque
 import type { OrganizationGroupSummaryResponse } from "@tearleads/validators/response";
 import { getCurrentPrincipalState } from "../../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { assertManagedPrincipalRosterMembership } from "../../principals/managedPrincipalRosterMembership";
 import { lockPrincipalMutationInTransaction } from "../../principals/principalMutationLock";
-import { toPrincipalPolicyError } from "../../principals/shared";
+import {
+  PrincipalPolicyError,
+  toPrincipalPolicyError,
+} from "../../principals/shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "../../principals/storeVerifiedPrincipalPolicy";
 import { requireDirectOrganizationAccess } from "../access";
 import { OrganizationManagerError } from "../errors";
@@ -21,7 +25,13 @@ import { appendOrganizationReadModelChangeInTransaction } from "../readModelChan
 function toPrincipalWriteError(
   error: unknown,
 ): OrganizationManagerError | null {
-  const policyError = toPrincipalPolicyError(error);
+  // `toPrincipalPolicyError` only recognises state and envelope failures, so a
+  // PrincipalPolicyError raised directly — the roster rules below — would fall
+  // through to a 500 without this.
+  const policyError =
+    error instanceof PrincipalPolicyError
+      ? error
+      : toPrincipalPolicyError(error);
   return policyError
     ? new OrganizationManagerError(policyError.message, policyError.status)
     : null;
@@ -170,6 +180,17 @@ export async function runCreateOrganizationGroupWorkflow(
               : Promise.resolve(false),
         },
       );
+
+      // A brand-new group's initial policy goes through this route rather than
+      // the policy PUT, so it needs the same roster rule: a group must not be
+      // stood up already naming a disabled user, which would hand back access
+      // the organization revoked.
+      await assertManagedPrincipalRosterMembership({
+        organizationId,
+        principalId: input.groupId,
+        principalType: "group",
+        tx,
+      });
 
       await appendCreatedGroupReadModelChanges({
         groupId: input.groupId,

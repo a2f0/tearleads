@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizations, users } from "@tearleads/api-shared/schema";
+import {
+  organizationRosterEntries,
+  organizations,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { isOrganizationReadModelResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
@@ -115,4 +119,36 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
   );
   expect(reuseResponse.status).toBe(409);
   await expectNoChange(owner, organization.organizationId, before.nextCursor);
+});
+
+test("group creation rejects an initial policy naming a disabled user", async () => {
+  // Creating a group takes its own route, not the policy PUT, so it needs the
+  // same roster rule: standing a group up around a disabled user would hand
+  // back through a later grant exactly the access disabling revoked.
+  const owner = createTestUser();
+  const organization = await registerActor(owner);
+  const disabledUser = createTestUser();
+  await registerUser(disabledUser);
+  await db.insert(organizationRosterEntries).values({
+    organizationId: organization.organizationId,
+    userId: disabledUser.userId,
+    status: "disabled",
+    disabledAt: new Date("2026-05-24T12:00:00.000Z"),
+    disabledByUserId: owner.userId,
+  });
+
+  const groupId = crypto.randomUUID();
+  const request = await createGroupRequest({
+    actor: owner,
+    additionalMembers: [disabledUser],
+    groupId,
+    name: "Revoked",
+  });
+
+  const response = await postGroup(owner, organization.organizationId, request);
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Principal contains disabled organization users",
+  });
+  expect(await getCurrentPrincipalState("group", groupId, db)).toBeNull();
 });

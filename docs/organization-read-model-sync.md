@@ -107,11 +107,13 @@ state-bound entity or lane snapshot.
 
 ## Protocol versioning
 
-Version 4 is a clean protocol reset, not a compatibility extension. Responses
+Version 5 is a clean protocol reset, not a compatibility extension. Responses
 and opaque cursors carry version 5, response validation accepts only the exact
-version 5 lane shapes, and the server rejects other cursor versions. Local
-storage contains only the current projection schema; pre-reset databases must
-be discarded rather than upgraded.
+version 5 lane shapes, and the server rejects other cursor versions. Version 4
+was the previous reset; group members carried `memberPrincipalType` and
+`memberPrincipalId` there, and carry a single `userId` now. Local storage
+contains only the current projection schema; pre-reset databases must be
+discarded rather than upgraded.
 
 There is no translation, dual-read period, or legacy directory, group,
 membership, grants, group-container, user-detail, or raw policy-history fallback.

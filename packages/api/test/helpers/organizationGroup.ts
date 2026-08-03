@@ -18,6 +18,8 @@ import {
 
 export async function createGroupRequest(input: {
   actor: TestUser;
+  /** Extra users to seed into the new group's initial policy. */
+  additionalMembers?: readonly TestUser[] | undefined;
   groupId: string;
   includeActorAsAdmin?: boolean | undefined;
   name: string;
@@ -33,6 +35,10 @@ export async function createGroupRequest(input: {
           },
         ]
       : []),
+    ...(input.additionalMembers ?? []).map((member) => ({
+      userId: member.userId,
+      role: "member" as const,
+    })),
   ]);
   const payloadCiphertext = bytesToBase64(
     new TextEncoder().encode(JSON.stringify({ members: projection })),

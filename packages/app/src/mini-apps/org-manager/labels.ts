@@ -122,6 +122,8 @@ export const ORG_MANAGER_LABELS = {
   failedLoadGrants: "Failed to load organization grants.",
   failedLoadGroupContainers: "Failed to load group container links.",
   failedLoadGroupMembers: "Failed to load group members.",
+  failedAddAdminAfterMemberAdd:
+    "The user was added to Members but not to Admins. They are an organization member and count toward billing. Retry to finish making them an admin, or remove them from Members.",
   failedLoadOrganizations: "Failed to load organizations.",
   failedLoadUserDetail: "Failed to load user detail.",
   failedCreateProfileDocument: "Failed to create profile document.",
