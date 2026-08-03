@@ -22,6 +22,9 @@ export const fixture: {
   customerInfo: unknown;
   nativePurchaseResult: { activeEntitlementIds?: unknown } | null;
   onGetOfferings: (() => void) | null;
+  offeringsPromise: Promise<{
+    current: { availablePackages: PurchasesPackage[] };
+  }> | null;
 } = {
   platform: "ios",
   configureCalls: [],
@@ -37,6 +40,7 @@ export const fixture: {
   customerInfo: { entitlements: { active: { sync: {} } } },
   nativePurchaseResult: null,
   onGetOfferings: null,
+  offeringsPromise: null,
 };
 
 export function nativePackage(identifier: string, productId: string) {
@@ -140,9 +144,12 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
     },
     getOfferings: () => {
       fixture.onGetOfferings?.();
-      return Promise.resolve({
-        current: { availablePackages: fixture.packages },
-      });
+      return (
+        fixture.offeringsPromise ??
+        Promise.resolve({
+          current: { availablePackages: fixture.packages },
+        })
+      );
     },
     purchasePackage: (options: {
       aPackage: PurchasesPackage;
@@ -212,5 +219,6 @@ export function resetFixture(): void {
   fixture.customerInfo = { entitlements: { active: { sync: {} } } };
   fixture.nativePurchaseResult = null;
   fixture.onGetOfferings = null;
+  fixture.offeringsPromise = null;
   clearEnv();
 }

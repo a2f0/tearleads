@@ -356,10 +356,12 @@ export const subsystems: readonly Subsystem[] = [
       "Provider-agnostic purchase capabilities for org sync billing: the PurchasesCapability interface (provider-hosted flows) with the RevenueCat mapping core over an injectable backend, the DirectCheckoutCapability interface (an in-app payment element the app styles itself), and the unavailable stubs for both.",
     seam: "createRevenueCatPurchases / createUnavailablePurchases / createUnavailableDirectCheckout exports",
     paths: [
+      `${sdk}/client/purchaseErrors.ts`,
       `${sdk}/client/purchases.ts`,
       `${sdk}/client/revenueCatCheckoutGate.ts`,
       `${sdk}/client/revenueCatErrors.ts`,
       `${sdk}/client/revenueCatIdentity.ts`,
+      `${sdk}/client/revenueCatPurchasePreparation.ts`,
       `${sdk}/client/directCheckout.ts`,
     ],
   },

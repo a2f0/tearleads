@@ -4,6 +4,7 @@ import {
   PurchaseAbortedError,
   PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
+  PurchaseProviderStalledError,
 } from "@tearleads/client-sdk";
 import {
   clearEnv,
@@ -168,6 +169,21 @@ test("keeps Android purchases on RevenueCat's official Capacitor bridge", async 
   await purchaseSync();
 
   expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
+});
+
+test("bounds a stalled Android offerings read before opening Play", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.offeringsPromise = new Promise(() => {});
+
+  await expect(
+    createCapacitorPurchases({ operationTimeoutMs: 5 }).purchaseSync({
+      organizationId: "org-1",
+      packageId: "monthly",
+    }),
+  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
+  expect(fixture.purchaseCalls).toEqual([]);
   expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 

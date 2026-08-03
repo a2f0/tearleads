@@ -77,6 +77,37 @@ async function androidProductChangeOptions(targetProductId: string) {
   };
 }
 
+class CapacitorPreparedPurchase {
+  constructor(
+    readonly aPackage: PurchasesPackage,
+    readonly productChangeOptions: Awaited<
+      ReturnType<typeof androidProductChangeOptions>
+    >,
+  ) {}
+}
+
+async function prepareCapacitorPurchase(input: {
+  readonly abortSignal?: AbortSignal;
+  readonly packageId: string;
+}): Promise<CapacitorPreparedPurchase> {
+  if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
+  const aPackage = (await currentPackages()).find(
+    (entry) => entry?.identifier === input.packageId,
+  );
+  if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
+  if (!aPackage) {
+    throw new Error(`Unknown purchase package: ${input.packageId}`);
+  }
+  const productIdentifier = aPackage.product?.identifier ?? "";
+  if (!getSyncBillingTierForNativeProduct(productIdentifier)) {
+    throw new Error(`Unknown sync subscription product: ${productIdentifier}`);
+  }
+  const productChangeOptions =
+    await androidProductChangeOptions(productIdentifier);
+  if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
+  return new CapacitorPreparedPurchase(aPackage, productChangeOptions);
+}
+
 /**
  * True when the native SDK rejected because the buyer dismissed the store
  * sheet rather than because the purchase failed.
@@ -152,41 +183,19 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
   async getCurrentPackages() {
     return (await currentPackages()).map(toRevenueCatPackage);
   },
-  async purchasePackage({ packageId, abortSignal }) {
-    if (abortSignal?.aborted) {
-      throw new PurchaseAbortedError();
-    }
-    const aPackage = (await currentPackages()).find(
-      (entry) => entry?.identifier === packageId,
-    );
-    // This is the last abort-aware await. The iOS diagnostic bridge validates
-    // the package with one more native offerings fetch, but neither that call
-    // nor a presented StoreKit / Play sheet has programmatic cancellation.
-    // A caller that abandoned the flow while this offerings request was loading
-    // must not get a modal purchase sheet for a flow nobody awaits any more.
-    // Aborted takes precedence over a missing package so an abandoned flow's
-    // outcome stays a pre-sheet abort, matching webPurchases.ts.
-    if (abortSignal?.aborted) {
-      throw new PurchaseAbortedError();
-    }
-    if (!aPackage) {
-      throw new Error(`Unknown purchase package: ${packageId}`);
-    }
-    const productIdentifier = aPackage.product?.identifier ?? "";
-    if (!getSyncBillingTierForNativeProduct(productIdentifier)) {
-      throw new Error(
-        `Unknown sync subscription product: ${productIdentifier}`,
-      );
-    }
-    const productChangeOptions =
-      await androidProductChangeOptions(productIdentifier);
-    if (abortSignal?.aborted) {
-      throw new PurchaseAbortedError();
+  preparePurchasePackage: prepareCapacitorPurchase,
+  async purchasePackage({ abortSignal, packageId, preparedPurchase }) {
+    if (abortSignal?.aborted) throw new PurchaseAbortedError();
+    if (
+      !(preparedPurchase instanceof CapacitorPreparedPurchase) ||
+      preparedPurchase.aPackage.identifier !== packageId
+    ) {
+      throw new Error(`Purchase package was not prepared: ${packageId}`);
     }
     try {
       return await purchaseCapacitorRevenueCatPackage(
-        aPackage,
-        productChangeOptions,
+        preparedPurchase.aPackage,
+        preparedPurchase.productChangeOptions,
       );
     } catch (error) {
       // Backing out of the store sheet is a normal exit, not a failure.
@@ -234,7 +243,9 @@ function readPlatformApiKey(): string | undefined {
  * otherwise (web preview, or key not yet provisioned) it degrades to the
  * unavailable stub so the app still runs.
  */
-export function createCapacitorPurchases(): PurchasesCapability {
+export function createCapacitorPurchases(input?: {
+  readonly operationTimeoutMs?: number;
+}): PurchasesCapability {
   const apiKey = readPlatformApiKey();
   if (!apiKey) {
     return createUnavailablePurchases();
@@ -249,5 +260,8 @@ export function createCapacitorPurchases(): PurchasesCapability {
     syncEntitlementId:
       readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
       DEFAULT_SYNC_ENTITLEMENT_ID,
+    ...(input?.operationTimeoutMs === undefined
+      ? {}
+      : { operationTimeoutMs: input.operationTimeoutMs }),
   });
 }

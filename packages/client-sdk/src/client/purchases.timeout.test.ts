@@ -69,6 +69,24 @@ test("checkout preparation exposes a terminal provider timeout", async () => {
   ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
 });
 
+test("checkout bounds provider package resolution before the store sheet", async () => {
+  const backend = createBackend();
+  let purchaseStarts = 0;
+  backend.preparePurchasePackage = () => new Promise(() => {});
+  backend.purchasePackage = async () => {
+    purchaseStarts += 1;
+    return { activeEntitlementIds: [] };
+  };
+
+  await expect(
+    purchases(backend).purchaseSync({
+      organizationId: "org-1",
+      packageId: "monthly",
+    }),
+  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
+  expect(purchaseStarts).toBe(0);
+});
+
 test("checkout waiting on stalled configuration asks for restart", async () => {
   const backend = createBackend();
   backend.configure = () => new Promise(() => {});

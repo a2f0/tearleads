@@ -17,6 +17,12 @@ import {
   type SyncBillingTierId,
 } from "@tearleads/validators/billing";
 import {
+  PurchaseAbortedError,
+  PurchaseIdentityPendingError,
+  PurchaseProviderStalledError,
+  PurchasesUnavailableError,
+} from "./purchaseErrors";
+import {
   createRevenueCatIdentityCoordinator,
   RevenueCatCheckoutAbandonedError,
   RevenueCatCheckoutIdentityPendingError,
@@ -24,6 +30,16 @@ import {
   RevenueCatOperationTimeoutError,
   revenueCatOperationTimeoutMs,
 } from "./revenueCatIdentity";
+import { prepareRevenueCatPurchase } from "./revenueCatPurchasePreparation";
+
+export {
+  PurchaseAbortedError,
+  PurchaseAlreadyOwnedError,
+  PurchaseCancelledError,
+  PurchaseIdentityPendingError,
+  PurchaseProviderStalledError,
+  PurchasesUnavailableError,
+} from "./purchaseErrors";
 
 /** A purchasable sync subscription option, shaped for display in billing UI. */
 export interface SyncSubscriptionOption {
@@ -93,62 +109,6 @@ export interface PurchasesCapability {
   hasActiveSyncEntitlement(): Promise<boolean>;
 }
 
-/** Thrown when a purchase is attempted on a platform without a purchases provider. */
-export class PurchasesUnavailableError extends Error {
-  constructor(message = "Purchases are not available on this platform") {
-    super(message);
-    this.name = "PurchasesUnavailableError";
-  }
-}
-
-/**
- * Thrown when the buyer dismisses the provider checkout without completing the
- * purchase. Callers should treat it as a no-op, not a failure.
- */
-export class PurchaseCancelledError extends Error {
-  constructor(message = "The purchase was cancelled") {
-    super(message);
-    this.name = "PurchaseCancelledError";
-  }
-}
-
-/** The store account already owns this subscription; offer restore/move. */
-export class PurchaseAlreadyOwnedError extends Error {
-  constructor(message = "This store account already owns the subscription") {
-    super(message);
-    this.name = "PurchaseAlreadyOwnedError";
-  }
-}
-
-/**
- * A {@link PurchaseCancelledError} raised before any checkout UI mounted —
- * the purchase was abandoned (aborted) while still preparing. Distinct from
- * the base class so callers can tell "nothing ever existed on screen" apart
- * from a mounted checkout that was cancelled and torn down.
- */
-export class PurchaseAbortedError extends PurchaseCancelledError {
-  constructor(message = "The purchase was abandoned before checkout") {
-    super(message);
-    this.name = "PurchaseAbortedError";
-  }
-}
-
-/** Checkout could not start because the provider identity is still changing. */
-export class PurchaseIdentityPendingError extends Error {
-  constructor(cause?: unknown) {
-    super("RevenueCat identity or provider queue has not settled", { cause });
-    this.name = "PurchaseIdentityPendingError";
-  }
-}
-
-/** Provider bridge stopped responding; the app must be restarted before retrying. */
-export class PurchaseProviderStalledError extends Error {
-  constructor(cause?: unknown) {
-    super("RevenueCat provider bridge stopped responding", { cause });
-    this.name = "PurchaseProviderStalledError";
-  }
-}
-
 /** A normalized purchasable package as returned by {@link RevenueCatBackend.getOfferings}. */
 export interface RevenueCatPackage {
   readonly identifier: string;
@@ -175,6 +135,11 @@ export interface RevenueCatBackend {
   logOut(): Promise<void>;
   setAttributes(attributes: Record<string, string | null>): Promise<void>;
   getCurrentPackages(): Promise<RevenueCatPackage[]>;
+  /** Resolve any provider data needed before buyer-controlled checkout begins. */
+  preparePurchasePackage?(input: {
+    packageId: string;
+    abortSignal?: AbortSignal;
+  }): Promise<unknown>;
   /**
    * `htmlTarget` embeds the provider checkout in the given element (Web
    * Billing); backends with a native checkout ignore it, as they do
@@ -189,6 +154,7 @@ export interface RevenueCatBackend {
     htmlTarget?: HTMLElement;
     metadata?: Record<string, string>;
     abortSignal?: AbortSignal;
+    preparedPurchase?: unknown;
   }): Promise<RevenueCatCustomerInfo>;
   getCustomerInfo(): Promise<RevenueCatCustomerInfo>;
   restorePurchases(): Promise<RevenueCatCustomerInfo>;
@@ -229,6 +195,10 @@ export interface RevenueCatPurchasesConfig {
 }
 
 const DEFAULT_ORGANIZATION_ATTRIBUTE_KEY = "orgId";
+
+function revenueCatAttributeKey(config: RevenueCatPurchasesConfig): string {
+  return config.organizationAttributeKey ?? DEFAULT_ORGANIZATION_ATTRIBUTE_KEY;
+}
 
 function holdsSyncEntitlement(
   info: RevenueCatCustomerInfo,
@@ -323,19 +293,6 @@ function listRevenueCatOptions(
     .catch(normalizeRevenueCatIdentityError);
 }
 
-async function prepareRevenueCatPurchase(input: {
-  readonly abortSignal: AbortSignal | undefined;
-  readonly attributes: Record<string, string>;
-  readonly backend: RevenueCatBackend;
-}): Promise<void> {
-  try {
-    await input.backend.setAttributes(input.attributes);
-  } catch (error) {
-    if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
-    throw error;
-  }
-}
-
 /**
  * Adapts a {@link RevenueCatBackend} into a {@link PurchasesCapability}. The
  * provider is configured lazily and exactly once (the first call that needs it),
@@ -346,8 +303,7 @@ export function createRevenueCatPurchases(
   config: RevenueCatPurchasesConfig,
 ): PurchasesCapability {
   const purchasesEnabled = config.purchasesEnabled ?? true;
-  const organizationAttributeKey =
-    config.organizationAttributeKey ?? DEFAULT_ORGANIZATION_ATTRIBUTE_KEY;
+  const attributeKey = revenueCatAttributeKey(config);
   const operationTimeoutMs = revenueCatOperationTimeoutMs(
     config.operationTimeoutMs,
   );
@@ -382,6 +338,7 @@ export function createRevenueCatPurchases(
       // instance, so it must not hold provider reads or block a replacement.
       // Identity changes wait until checkout settles or the caller abandons
       // it; the web backend isolates an abandoned provider instance.
+      let preparedPurchase: unknown;
       const info = await identity
         .runCheckout({
           ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
@@ -390,21 +347,24 @@ export function createRevenueCatPurchases(
               packageId: input.packageId,
               // Web metadata is immutable per transaction. Native backends
               // ignore it and use the customer attribute prepared above.
-              metadata: { [organizationAttributeKey]: input.organizationId },
+              metadata: { [attributeKey]: input.organizationId },
+              ...(preparedPurchase === undefined ? {} : { preparedPurchase }),
               ...(input.checkoutHost ? { htmlTarget: input.checkoutHost } : {}),
               ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
             }),
           // Bind inside the checkout gate so native events carry the org the
           // webhook resolves. Web metadata is immutable per transaction;
           // native stores continue to rely on this mutable customer attribute.
-          prepare: () =>
-            prepareRevenueCatPurchase({
+          prepare: async () => {
+            preparedPurchase = await prepareRevenueCatPurchase({
               abortSignal: input.abortSignal,
               attributes: {
-                [organizationAttributeKey]: input.organizationId,
+                [attributeKey]: input.organizationId,
               },
               backend,
-            }),
+              packageId: input.packageId,
+            });
+          },
         })
         .catch(normalizeRevenueCatCheckoutError);
       return {
@@ -438,7 +398,7 @@ export function createRevenueCatPurchases(
         identity,
         operation: () =>
           backend.setAttributes({
-            [organizationAttributeKey]: input.organizationId,
+            [attributeKey]: input.organizationId,
           }),
         operationName: "organization binding",
       });
