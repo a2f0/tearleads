@@ -15,7 +15,26 @@ import com.revenuecat.purchases.interfaces.PurchaseCallback
 import com.revenuecat.purchases.interfaces.ReceiveOfferingsCallback
 import com.revenuecat.purchases.models.StoreReplacementMode
 import com.revenuecat.purchases.models.StoreTransaction
-import java.util.concurrent.ConcurrentHashMap
+
+internal class PreparedPackageCache<T> {
+    private val entries = HashMap<String, T>()
+
+    @Synchronized
+    fun replace(packageId: String, value: T) {
+        entries.clear()
+        entries[packageId] = value
+    }
+
+    @Synchronized
+    fun consume(
+        packageId: String,
+        expectedProductId: String,
+        productId: (T) -> String,
+    ): T? {
+        val value = entries.remove(packageId) ?: return null
+        return value.takeIf { productId(it) == expectedProductId }
+    }
+}
 
 internal fun revenueCatReplacementMode(name: String?): StoreReplacementMode? = when (name) {
     null -> null
@@ -29,11 +48,10 @@ internal fun revenueCatReplacementMode(name: String?): StoreReplacementMode? = w
 
 @CapacitorPlugin(name = "RevenueCatPurchase")
 class RevenueCatPurchasePlugin : Plugin() {
-    private val preparedPackages = ConcurrentHashMap<String, Package>()
+    private val preparedPackages = PreparedPackageCache<Package>()
 
     @PluginMethod
     fun preparePackage(call: PluginCall) {
-        preparedPackages.clear()
         if (!Purchases.isConfigured) {
             rejectBridgeValidation(call)
             return
@@ -54,7 +72,7 @@ class RevenueCatPurchasePlugin : Plugin() {
                     rejectBridgeValidation(call)
                     return
                 }
-                preparedPackages[packageId] = prepared
+                preparedPackages.replace(packageId, prepared)
                 call.resolve()
             }
 
@@ -82,8 +100,10 @@ class RevenueCatPurchasePlugin : Plugin() {
             rejectBridgeValidation(call)
             return
         }
-        val prepared = preparedPackages.remove(packageId)
-        if (prepared?.product?.id != productId) {
+        val prepared = preparedPackages.consume(packageId, productId) {
+            it.product.id
+        }
+        if (prepared == null) {
             rejectBridgeValidation(call)
             return
         }

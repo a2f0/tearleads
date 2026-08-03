@@ -191,9 +191,10 @@ class RevenueCatIdentityCoordinatorState
       resolveCompletion = resolve;
     });
     this.pendingIdentityChanges.add(completion);
-    const transition = this.checkouts.afterActive(() =>
-      this.enqueueProviderOperation(operation),
-    );
+    const transition = this.checkouts.afterActive(() => {
+      const timedOut = this.timeouts.rejectIfWedged<void>();
+      return timedOut ?? this.enqueueProviderOperation(operation);
+    });
     const settled = transition.then(
       () => {
         this.finishIdentityChange(completion, resolveCompletion);

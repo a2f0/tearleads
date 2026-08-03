@@ -7,6 +7,26 @@ import org.junit.Test
 
 class RevenueCatPurchasePluginTest {
     @Test
+    fun preparedPackagesAreValidatedAndConsumedOnce() {
+        val cache = PreparedPackageCache<String>()
+        cache.replace("solo", "solo-product")
+        cache.replace("team", "team-product")
+
+        assertNull(cache.consume("solo", "solo-product") { it })
+        assertEquals("team-product", cache.consume("team", "team-product") { it })
+        assertNull(cache.consume("team", "team-product") { it })
+    }
+
+    @Test
+    fun aMismatchedProductConsumesThePreparedPackage() {
+        val cache = PreparedPackageCache<String>()
+        cache.replace("team", "team-product")
+
+        assertNull(cache.consume("team", "stale-product") { it })
+        assertNull(cache.consume("team", "team-product") { it })
+    }
+
+    @Test
     fun mapsEverySupportedReplacementMode() {
         val expected = mapOf(
             "WITHOUT_PRORATION" to StoreReplacementMode.WITHOUT_PRORATION,

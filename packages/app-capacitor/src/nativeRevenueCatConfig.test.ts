@@ -226,9 +226,12 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(runtime).toContain('"RevenueCatPurchase"');
   expect(purchasePlugin).toContain("@PluginMethod\n    fun preparePackage");
   expect(purchasePlugin).toContain("@PluginMethod\n    fun purchasePackage");
-  expect(purchasePlugin).toContain("preparedPackages[packageId] = prepared");
-  expect(purchasePlugin).toContain("preparedPackages.clear()");
-  expect(purchasePlugin).toContain("preparedPackages.remove(packageId)");
+  expect(purchasePlugin).toContain(
+    "preparedPackages.replace(packageId, prepared)",
+  );
+  expect(purchasePlugin).toContain(
+    "preparedPackages.consume(packageId, productId)",
+  );
   expect(purchasePlugin).toContain("Purchases.sharedInstance.purchase(");
   expect(purchasePlugin.match(/\.getOfferings\(/g) ?? []).toHaveLength(1);
   expect(purchasePlugin).toContain(
