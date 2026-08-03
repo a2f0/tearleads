@@ -459,6 +459,10 @@
     "scripts/subsystems.ts": {
       "lines": 723,
       "bytes": 26489
+    },
+    "packages/validators/src/response/organizationReadModel.test.ts": {
+      "lines": 502,
+      "bytes": 12271
     }
   },
   "categories": {

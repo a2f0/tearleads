@@ -8,7 +8,6 @@ import {
   type SigningKeyPair,
   toFingerprint,
   unwrapDek,
-  type VerifiedPrincipalPolicy,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -57,14 +56,12 @@ import {
 } from "./groupPolicyMutationHead";
 import {
   collectGroupPolicySignerPublicKeys,
-  loadVerifiedOrganizationGroupPolicies,
   prepareGroupPolicyVerification,
   verifyGroupPolicy,
   verifyGroupPolicyWithExternalOrganizationAdmins,
 } from "./groupPolicyVerification";
 import { hasAdmin } from "./principalPolicyProjection";
 import {
-  remainingGroupMemberIds,
   rewrapProjectionMemberEnvelopes,
   toPrincipalMemberEnvelopeRequest,
   toRecipientEntries,
@@ -461,7 +458,6 @@ export async function buildAddGroupUserPolicyRequest(
 
 export async function buildRemoveGroupUserPolicyRequest(
   input: BuildGroupMembershipMutationInput & {
-    readonly remainingGroups?: readonly VerifiedPrincipalPolicy[];
     readonly remainingUsers: ReadonlyArray<TrustedUserIdentity>;
     readonly removedUserId: string;
   },
@@ -497,7 +493,6 @@ export async function buildRemoveGroupUserPolicyRequest(
 
   const groupKem = generateKemSeedAndKeyPair();
   const memberEnvelopes = await rewrapProjectionMemberEnvelopes({
-    groups: input.remainingGroups,
     projection,
     secretKey: groupKem.secretKey,
     users: input.remainingUsers,
@@ -718,21 +713,12 @@ export async function removeOrganizationGroupUser(input: {
   ) {
     throw new Error("User is not a group member");
   }
-  const gs = await loadVerifiedOrganizationGroupPolicies({
-    execSql: input.execSql,
-    getCurrentPrincipalPolicy: (principalType, principalId) =>
-      input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
-    groupIds: remainingGroupMemberIds(projection),
-    organizationId: input.organizationId,
-    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-  });
   const remainingUsers = await resolveRequiredUserIdentities({
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     userIds: projectionUserIds(projection),
   });
   const request = await buildRemoveGroupUserPolicyRequest({
     ...policyContext,
-    remainingGroups: gs,
     remainingUsers,
     removedUserId: input.removedUserId,
   });

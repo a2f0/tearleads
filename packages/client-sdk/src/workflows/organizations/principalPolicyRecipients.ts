@@ -1,7 +1,4 @@
-import {
-  type VerifiedPrincipalPolicy,
-  wrapDekForRecipients,
-} from "@tearleads/crypto";
+import { wrapDekForRecipients } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   PrincipalMemberEnvelopeRequest,
@@ -41,21 +38,13 @@ export function toRecipientEntries(
   }));
 }
 
+/** Every projected member is a user, so there is no group recipient branch. */
 function toRekeyRecipientEntries(input: {
-  readonly groups?: readonly VerifiedPrincipalPolicy[] | undefined;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
   readonly users: ReadonlyArray<TrustedUserIdentity>;
 }): PrincipalRekeyRecipient[] {
   const usersById = new Map(input.users.map((user) => [user.userId, user]));
-  const groupsById = new Map<string, VerifiedPrincipalPolicy>();
-  for (const group of input.groups ?? []) {
-    if (group.principalType !== "group") {
-      throw new Error("Organization group recipient policy must be a group");
-    }
-    groupsById.set(group.principalId, group);
-  }
 
-  // Every projected member is a user, so there is no group recipient branch.
   return input.projection.map((member) => {
     const user = usersById.get(member.userId);
     if (!user) {
@@ -69,14 +58,7 @@ function toRekeyRecipientEntries(input: {
   });
 }
 
-export function remainingGroupMemberIds(
-  projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
-): string[] {
-  return projection.filter(() => false).map((member) => member.userId);
-}
-
 export async function rewrapProjectionMemberEnvelopes(input: {
-  readonly groups?: readonly VerifiedPrincipalPolicy[] | undefined;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
   readonly secretKey: Uint8Array;
   readonly users: ReadonlyArray<TrustedUserIdentity>;

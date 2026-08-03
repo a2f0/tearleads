@@ -7,9 +7,18 @@ import type {
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { principalPolicy } from "../../../test/helpers/organizationReadModelFixtures";
+import {
+  ensureContainerTables,
+  saveContainer,
+} from "../../data/persistence/containers/containerPersistence";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
-import { loadLocalOrganizationGroupPolicyHistory } from "./localReadModelDetails";
+import {
+  loadLocalOrganizationContainerGrants,
+  loadLocalOrganizationGroupContainers,
+  loadLocalOrganizationGroupPolicyHistory,
+  loadLocalOrganizationUserDetail,
+} from "./localReadModelDetails";
 
 const CREATED_AT = "2026-07-17T12:00:00.000Z";
 const ORGANIZATION_ID = "organization-local-details";
@@ -230,6 +239,111 @@ function policySnapshot(input: {
     },
   };
 }
+
+test("local organization detail derives a user's groups and effective grants", async () => {
+  // This replaces a test that also exercised group-in-group reachability and
+  // membership cycles. Groups hold only users now, so the walk is gone — but
+  // the derivation it wrapped is not, and this keeps it covered: which groups a
+  // user belongs to, which grants reach them by group, directly, and through
+  // the organization, and that a requester outside the projection sees nothing.
+  const { close, execSql } = await createTestExecSql(
+    "organization-local-read-model-details",
+  );
+  try {
+    await ensureContainerTables(execSql);
+    await saveContainer(execSql, {
+      id: "container-hidden-group",
+      organizationId: ORGANIZATION_ID,
+      parentId: null,
+      metadataDocumentId: null,
+      name: "Members Group Container",
+      icon: null,
+    });
+    await expect(
+      applyOrganizationReadModelResponse({
+        currentUserId: CURRENT_USER_ID,
+        execSql,
+        requestedCursor: null,
+        response: snapshot(),
+      }),
+    ).resolves.toBe("applied");
+
+    const common = {
+      currentUserId: CURRENT_USER_ID,
+      execSql,
+      organizationId: ORGANIZATION_ID,
+    };
+    const detail = await loadLocalOrganizationUserDetail({
+      ...common,
+      userId: TARGET_USER_ID,
+    });
+    expect(detail?.user.userId).toBe(TARGET_USER_ID);
+    expect(detail?.user.isSelf).toBe(false);
+    // Both groups list the user directly; neither reaches them via the other.
+    // Only catalogued groups appear here — Members is the reserved group and is
+    // carried separately as `memberGroupId`.
+    expect(detail?.groups.map((group) => group.groupId)).toEqual([
+      CYCLE_GROUP_ID,
+    ]);
+    expect(detail?.grants.groupGrants.map((item) => item.subjectId)).toEqual([
+      MEMBERS_GROUP_ID,
+    ]);
+    expect(detail?.grants.groupGrants[0]?.containerDisplayName).toBe(
+      "Members Group Container",
+    );
+    expect(detail?.grants.directGrants.map((item) => item.subjectId)).toEqual([
+      TARGET_USER_ID,
+    ]);
+    expect(
+      detail?.grants.organizationGrants.map((item) => item.subjectId),
+    ).toEqual([ORGANIZATION_ID]);
+
+    const groupContainers = await loadLocalOrganizationGroupContainers({
+      ...common,
+      groupId: MEMBERS_GROUP_ID,
+    });
+    expect(groupContainers).toMatchObject({
+      groupId: MEMBERS_GROUP_ID,
+      containers: [
+        {
+          containerId: "container-hidden-group",
+          containerDisplayName: "Members Group Container",
+        },
+      ],
+    });
+    await expect(
+      loadLocalOrganizationGroupContainers({
+        ...common,
+        groupId: "unrelated-group",
+      }),
+    ).resolves.toBeNull();
+    const allGrants = await loadLocalOrganizationContainerGrants(common);
+    expect(allGrants?.grants).toHaveLength(5);
+
+    // A requester with no projection row reads nothing at all.
+    const otherRequester = {
+      ...common,
+      currentUserId: "requester-without-projection-access",
+    };
+    await expect(
+      loadLocalOrganizationContainerGrants(otherRequester),
+    ).resolves.toBeNull();
+    await expect(
+      loadLocalOrganizationGroupContainers({
+        ...otherRequester,
+        groupId: MEMBERS_GROUP_ID,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      loadLocalOrganizationUserDetail({
+        ...otherRequester,
+        userId: TARGET_USER_ID,
+      }),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
 
 test("local group policy history requires an exact projected policy head", async () => {
   const { close, execSql } = await createTestExecSql(

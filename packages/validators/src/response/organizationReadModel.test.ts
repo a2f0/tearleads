@@ -121,6 +121,20 @@ test("validates organization read-model snapshots and deltas", () => {
 });
 
 test("rejects legacy protocols and incomplete snapshots", () => {
+  // v4 is the version this reset replaced. Its group members carried
+  // memberPrincipalType/memberPrincipalId rather than userId, so accepting a v4
+  // response would read every member as having no id.
+  expect(
+    isOrganizationReadModelResponse({
+      version: 4,
+      mode: "snapshot",
+      organizationId,
+      nextCursor: "cursor-v4",
+      hasMore: false,
+      currentUser: { isOrgAdmin: true },
+      lanes: { directory, grants, groupMemberships, groups },
+    }),
+  ).toBe(false);
   expect(
     isOrganizationReadModelResponse({
       version: 1,
