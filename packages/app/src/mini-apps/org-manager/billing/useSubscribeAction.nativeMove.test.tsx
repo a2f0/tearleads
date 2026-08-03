@@ -185,7 +185,7 @@ test("a post-claim retry resumes at organization binding", async () => {
   expect(flow.state().actionError).toBeNull();
 });
 
-test("organization changes serialize native move bindings", async () => {
+test("a panel remount preserves native move binding order", async () => {
   const nextScope: BillingActionScope = {
     generation: 2,
     organizationId: "org-2",
@@ -203,36 +203,53 @@ test("organization changes serialize native move bindings", async () => {
   const bindOrganization = mock(() => Promise.resolve());
   const scopeRef = { current: SCOPE };
   const updateActionState: UpdateActionState = () => {};
-  const view = renderHook(
-    ({ scope }: { scope: BillingActionScope }) =>
+  const capability = purchases(
+    () => Promise.resolve({ syncEntitlementActive: true }),
+    bindOrganization,
+  );
+  const firstView = renderHook(
+    () =>
       useNativeSubscriptionMove({
         claimNativeSubscription: claim,
-        currentScope: scope,
-        purchases: purchases(
-          () => Promise.resolve({ syncEntitlementActive: true }),
-          bindOrganization,
-        ),
+        currentScope: SCOPE,
+        purchases: capability,
         refresh: () => Promise.resolve(),
         scopeRef,
         updateActionState,
-        userId: scope.userId,
+        userId: SCOPE.userId,
       }),
     {
-      initialProps: { scope: SCOPE },
       wrapper: ({ children }: PropsWithChildren) => (
         <LogProvider>{children}</LogProvider>
       ),
     },
   );
 
-  act(() => view.result.current.request());
-  act(() => view.result.current.confirm());
+  act(() => firstView.result.current.request());
+  act(() => firstView.result.current.confirm());
   await waitFor(() => expect(claim).toHaveBeenCalledTimes(1));
+  firstView.unmount();
 
   scopeRef.current = nextScope;
-  view.rerender({ scope: nextScope });
-  act(() => view.result.current.request());
-  act(() => view.result.current.confirm());
+  const secondView = renderHook(
+    () =>
+      useNativeSubscriptionMove({
+        claimNativeSubscription: claim,
+        currentScope: nextScope,
+        purchases: capability,
+        refresh: () => Promise.resolve(),
+        scopeRef,
+        updateActionState,
+        userId: nextScope.userId,
+      }),
+    {
+      wrapper: ({ children }: PropsWithChildren) => (
+        <LogProvider>{children}</LogProvider>
+      ),
+    },
+  );
+  act(() => secondView.result.current.request());
+  act(() => secondView.result.current.confirm());
   await act(() => Promise.resolve());
   expect(claim).toHaveBeenCalledTimes(1);
   expect(bindOrganization).not.toHaveBeenCalled();

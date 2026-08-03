@@ -19,6 +19,7 @@ import { ORG_MANAGER_LABELS } from "../labels";
 import {
   type BillingActionScope,
   type BillingScopeRef,
+  enqueueNativeSubscriptionMove,
   scopeMatches,
   type UpdateActionState,
 } from "./billingActionScope";
@@ -109,7 +110,6 @@ export function useNativeSubscriptionMove(
   } = input;
   const { logError } = useLog();
   const [openScope, setOpenScope] = useState<BillingActionScope | null>(null);
-  const moveTailRef = useRef<Promise<void>>(Promise.resolve());
   const pendingBindScopeRef = useRef<BillingActionScope | null>(null);
   const open = openScope !== null && scopeMatches(openScope, currentScope);
   const request = useCallback(() => setOpenScope(currentScope), [currentScope]);
@@ -123,7 +123,7 @@ export function useNativeSubscriptionMove(
       actionError: null,
       busy: "restore",
     }));
-    const move = moveTailRef.current.then(() =>
+    const move = enqueueNativeSubscriptionMove(purchases, () =>
       restoreClaimAndBindNativeSubscription({
         claimNativeSubscription,
         pendingBindScopeRef,
@@ -131,10 +131,6 @@ export function useNativeSubscriptionMove(
         scope,
         userId,
       }),
-    );
-    moveTailRef.current = move.then(
-      () => undefined,
-      () => undefined,
     );
     void (async () => {
       try {
