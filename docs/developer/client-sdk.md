@@ -228,7 +228,8 @@ readonly array of `DocumentProjectorDefinition` values. Prefer passing
 definitions when integrating an app-owned document type list; the SDK will
 normalize and cache the registry internally.
 
-HTTP uses `apiBaseUrl`; the API client is internal. See [identity trust](./trusted-user-identity.md) for TOFU configuration.
+HTTP uses `apiBaseUrl`; the API client is internal. See
+[identity trust](./trusted-user-identity.md) for TOFU configuration.
 Use `database.client` for a SQLite worker client that implements
 `ExecSqlClientLike`; the SDK creates the canonical `ExecSql` adapter from it.
 Use `database.execSql` only when the host already owns executor construction.

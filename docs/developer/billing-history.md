@@ -11,11 +11,11 @@ line—not mutable current subscription state. Capacity is resolved from the
 line's immutable monthly USD Price economics against the canonical tier
 registry (falling back to a currently configured Price ID only when older line
 payloads omit economics), so Price rotation does not collapse historical fixed
-tiers to item quantity `1`. Creation and cycle invoices use a pinned-API lookup when the
-signed webhook's line details are incomplete or could be enriched; only those
-reasons advance seat-period state. Paid subscription update and threshold
-invoices are audited too, but they never make fulfillment retry solely for
-missing reporting details.
+tiers to item quantity `1`. Creation and cycle invoices use a pinned-API lookup
+when the signed webhook's line details are incomplete or could be enriched;
+only those reasons advance seat-period state. Paid subscription update and
+threshold invoices are audited too, but they never make fulfillment retry
+solely for missing reporting details.
 
 If an invoice has no unambiguous recurring plan line (for example, a
 proration-only update), its exact total is still recorded while capacity and price

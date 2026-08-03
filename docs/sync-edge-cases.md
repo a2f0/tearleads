@@ -24,10 +24,11 @@ structural-first). Its blast-radius rules:
 | The whole engine | Stops only on teardown (app close, identity switch). There is no global failure state. |
 
 Retry is event-driven, not timed: a parked failure waits for a keystroke, a
-remote WebSocket event, startup priming, reconnect, the write queue's
-"Retry sync" action, the lanes panel's "Sync now", or (for permission
-failures — document writes and parked document moves alike) the
-org-access-restored signal, which is gated on recorded failure evidence. An app restart re-attempts everything retriable.
+remote WebSocket event, startup priming, reconnect, the write queue's "Retry
+sync" action, the lanes panel's "Sync now", or (for permission failures —
+document writes and parked document moves alike) the org-access-restored signal,
+which is gated on recorded failure evidence. An app restart re-attempts
+everything retriable.
 
 ## Queue statuses
 

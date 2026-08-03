@@ -6,8 +6,9 @@
 2. Run `mise install`.
 3. Run `bundle install` from `packages/app-capacitor` so the native release
    checks can run.
-4. Run `source scripts/session.sh` to extend the path for scripts. Or, alternatively:
-   - Add `tl() { . /path/to/checkout/scripts/session.sh /path/to/checkout; } && tl` to `~/.zshrc`
+4. Run `source scripts/session.sh` to extend the path for scripts. Or,
+   alternatively, add this to `~/.zshrc`:
+   `tl() { . /path/to/checkout/scripts/session.sh /path/to/checkout; } && tl`
 5. Run `buildSqliteMultipleCiphers.sh`.
 6. Run `install-hooks.sh` to install Git hooks.
 7. Run `bun run --filter=@tearleads/api dev` to start the API.

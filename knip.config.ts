@@ -7,7 +7,11 @@ const strictConfigDefaults = {
 const rootToolingWorkspace = {
   entry: [],
   project: [],
-  ignoreDependencies: ["@commitlint/cli", "lint-staged"],
+  // `markdownlint-cli2` is invoked as `bun --bun x markdownlint-cli2` so it runs
+  // on Bun rather than an unpinned Node (its bin declares `engines.node >=22`,
+  // and neither `.mise.toml` nor CI installs Node). Knip cannot resolve the
+  // binary through `bun x`, so the dependency has to be declared used here.
+  ignoreDependencies: ["@commitlint/cli", "lint-staged", "markdownlint-cli2"],
   ignoreBinaries: ["ansible-lint", "shellcheck"],
 };
 

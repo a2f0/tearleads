@@ -522,19 +522,19 @@ the epoch-`i` rotator and untouchable by any later writer, and re-anchor a
 repair rekey from there.
 
 That backstop has one documented bound. A **group- or organization-addressed**
-envelope additionally requires the principal secret key for the key epoch it
-was addressed to, which resolves only through principal-policy bundles the
-client can reach; after a principal key rotation a pristine client cannot
-reach the older ones. The client fails closed with a distinct
+envelope additionally requires the principal secret key for the key epoch it was
+addressed to, which resolves only through principal-policy bundles the client
+can reach; after a principal key rotation a pristine client cannot reach the
+older ones. The client fails closed with a distinct
 `HistoricalWrapUnavailableError` (reason `principal-key-unreachable`) rather
 than reporting corruption, so the condition is diagnosable. Serving historical
 principal-policy states — which would close this case — is tracked separately
-and is out of scope for the keyring model. The only wholly unrecoverable case
-is a sole-ever member destroying their own history. `formal/container-keying/KeyringReachability.tla` model
-checks this composition: the log alone recovers everything while bridges are
-intact, severance damage is bounded to epochs below the broken link, an
-honest current keyring implies full recoverability, and retained wraps
-backstop a poisoned snapshot.
+and is out of scope for the keyring model. The only wholly unrecoverable case is
+a sole-ever member destroying their own history.
+`formal/container-keying/KeyringReachability.tla` model checks this composition:
+the log alone recovers everything while bridges are intact, severance damage is
+bounded to epochs below the broken link, an honest current keyring implies full
+recoverability, and retained wraps backstop a poisoned snapshot.
 
 The server cannot prove that sealed rotation artifacts actually decrypt to the
 keys their ids commit to. An authorized writer that deliberately signs

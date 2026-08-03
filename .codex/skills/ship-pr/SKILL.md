@@ -128,16 +128,16 @@ loop, subject-only squash, and `MERGED`-state verification.
 2. **Review and repair** — invoke `cross-agent-review`, forwarding the
    review-agent argument, and `--passes <n>` / `--repair-rounds <n>` when given.
 
-   That skill owns the review, the severity gate, and the bounded repair loop: for
-   each candidate head it first brings the branch up to date with its base (a merge
-   of the latest base — local while there is no PR, so this flow's single push is
-   preserved), snapshots the head — the pushed PR head when one is open, the local
-   HEAD otherwise — reviews it, repairs blocking findings (committing locally when
-   there is no PR, pushing when there is), and re-reviews every head it changes. It
-   reports back a **head SHA**, a **verdict**, and the **repair rounds** it
-   performed. The SHA is a reviewed head on every verdict except
-   **review-could-not-run**, where it is the unreviewed candidate head — only
-   reachable here via `--merge-anyway`.
+   That skill owns the review, the severity gate, and the bounded repair loop:
+   for each candidate head it first brings the branch up to date with its base
+   (a merge of the latest base — local while there is no PR, so this flow's
+   single push is preserved), snapshots the head — the pushed PR head when one
+   is open, the local HEAD otherwise — reviews it, repairs blocking findings
+   (committing locally when there is no PR, pushing when there is), and
+   re-reviews every head it changes. It reports back a **head SHA**, a
+   **verdict**, and the **repair rounds** it performed. The SHA is a reviewed
+   head on every verdict except **review-could-not-run**, where it is the
+   unreviewed candidate head — only reachable here via `--merge-anyway`.
 
    Relay its output — which agent ran, whether it fell back, the findings, and
    what was repaired.
@@ -151,9 +151,9 @@ loop, subject-only squash, and `MERGED`-state verification.
    [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
    ```
 
-   If either differs, a commit landed after the loop finished. Discard the result,
-   reconcile safely, and re-run `cross-agent-review` on the new head. Never carry a
-   stale SHA into the later steps.
+   If either differs, a commit landed after the loop finished. Discard the
+   result, reconcile safely, and re-run `cross-agent-review` on the new head.
+   Never carry a stale SHA into the later steps.
 
    **Merge gate** — decide on the reported verdict:
    - **Clean, or non-blocking nits only** — carry that exact `REVIEWED_SHA`
@@ -245,11 +245,11 @@ loop, subject-only squash, and `MERGED`-state verification.
    squash-merge '' "$REVIEWED_SHA" --keep-branch   # only when the caller gave it
    ```
 
-   The empty subject falls back to the PR title captured when the PR was opened or
-   resumed (step 3, or step 1 on the resume path), to which the tool appends the
-   `(#<pr>)` reference; it validates the subject with commitlint and
-   confirms the PR reached `MERGED` before returning. A non-zero result means the
-   PR did not actually merge (queued, blocked, or the head moved off
+   The empty subject falls back to the PR title captured when the PR was opened
+   or resumed (step 3, or step 1 on the resume path), to which the tool appends
+   the `(#<pr>)` reference; it validates the subject with commitlint and
+   confirms the PR reached `MERGED` before returning. A non-zero result means
+   the PR did not actually merge (queued, blocked, or the head moved off
    `REVIEWED_SHA`) — do not report success in that case; re-review the new head
    instead.
 
@@ -274,7 +274,7 @@ loop, subject-only squash, and `MERGED`-state verification.
 
 6. **Report results**: the PR URL, review agent and fallback status, repair rounds
    performed, findings fixed or waived, and the final squash subject including
-   its ` (#<pr>)` reference. Note that the branch was pushed once, at open time
+   its `(#<pr>)` reference. Note that the branch was pushed once, at open time
    (or, on the resume path, that it was already open). Confirm the merge reached
    `MERGED`, and state the branch returned to, that the merged branch was
    deleted, and that the hooks were reinstalled — or, when cleanup or the reset
@@ -296,21 +296,20 @@ loop, subject-only squash, and `MERGED`-state verification.
 - **The review gates the merge** — this flow never silently merges over a verdict
   that reports unresolved blocking findings, and never merges an unreviewed head.
 - **Repair belongs to `cross-agent-review`** — including the severity vocabulary
-  (Blocker/Major ≡ [P0]/[P1] are blocking), the round budget, and the re-review of
-  every changed head. This skill only reads the verdict it reports and decides
-  whether to merge. `--repair-rounds` and `--passes` are forwarded, not
+  (Blocker/Major ≡ [P0]/[P1] are blocking), the round budget, and the re-review
+  of every changed head. This skill only reads the verdict it reports and
+  decides whether to merge. `--repair-rounds` and `--passes` are forwarded, not
   interpreted.
-- **The merged head is the reviewed head** — `cross-agent-review` reports a SHA it
-  actually reviewed; this skill re-verifies it against the local head (and against
-  the pushed head once the PR is open) and passes it to `squash-merge`, which
-  binds the merge with
-  `--match-head-commit`. GitHub then rejects the merge outright if any commit
-  landed after the review, so an unreviewed commit can never be merged. (A
-  message-only co-author strip keeps it: step 3 checks tree and merge-base
-  identity, then re-pins `REVIEWED_SHA`.) The lone
-  exception is an explicit `--merge-anyway` over a could-not-run verdict, where
-  the bound head is a candidate that no review read — the merge is still pinned,
-  but the reviewed-head guarantee is the thing the caller chose to waive.
+- **The merged head is the reviewed head** — `cross-agent-review` reports a SHA
+  it actually reviewed; this skill re-verifies it against the local head (and
+  against the pushed head once the PR is open) and passes it to `squash-merge`,
+  which binds the merge with `--match-head-commit`. GitHub then rejects the
+  merge outright if any commit landed after the review, so an unreviewed commit
+  can never be merged. (A message-only co-author strip keeps it: step 3 checks
+  tree and merge-base identity, then re-pins `REVIEWED_SHA`.) The lone exception
+  is an explicit `--merge-anyway` over a could-not-run verdict, where the bound
+  head is a candidate that no review read — the merge is still pinned, but the
+  reviewed-head guarantee is the thing the caller chose to waive.
 - **Title and subject stay in sync automatically**: `squash-merge` defaults to
   the PR title that `open-pr` set, so a single title argument (or none) suffices
   for both.
@@ -325,10 +324,10 @@ loop, subject-only squash, and `MERGED`-state verification.
   cannot move into `reset` without losing its gate, which is why `reset` runs
   after rather than instead.
 - **Cleanup never runs on an unmerged branch** — it is gated on GitHub reporting
-  `MERGED` *and* on the base branch verifiably containing the merge commit, and it
-  is skipped on a dirty worktree so in-progress work is never carried onto the
-  base branch or stranded. In every case the branch survives and the reason is
-  reported.
+  `MERGED` *and* on the base branch verifiably containing the merge commit, and
+  it is skipped on a dirty worktree so in-progress work is never carried onto
+  the base branch or stranded. In every case the branch survives and the reason
+  is reported.
 - **Invoke the wrapped skills, not the tools they call.** `squash-merge` is the
   clearest case: its cleanup and `--keep-branch` wrap the tool call rather than
   living inside the tool, so calling `squashMerge` directly still merges — it just

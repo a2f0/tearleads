@@ -97,7 +97,8 @@ VITE_REVENUECAT_IOS_API_KEY=test_... \
 Then sign in, open Organization Manager → Billing as an organization admin, and
 verify this sequence:
 
-1. Solo ($5), Team up to 5 ($10), and Team up to 10 ($20) load from the current offering.
+1. Solo ($5), Team up to 5 ($10), and Team up to 10 ($20) load from the current
+   offering.
 2. Subscribe opens the RevenueCat Test Store sheet; cancelling returns without
    a failure message.
 3. Completing the purchase activates the `sync` entitlement for the signed-in
