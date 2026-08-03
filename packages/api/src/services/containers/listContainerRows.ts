@@ -105,7 +105,7 @@ export async function listAccessibleContainersForUser(input: {
   const result = await input.runtime.db.execute(sql`
     -- Direct membership is the whole of reachability; principals contain only
     -- users, so there is no transitive tier to walk.
-    with reachable_principals as (
+    with recursive reachable_principals as (
       select
         pmp.principal_type,
         pmp.principal_id

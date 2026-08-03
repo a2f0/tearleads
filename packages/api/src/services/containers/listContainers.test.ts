@@ -106,7 +106,11 @@ async function storeGroupPolicy(input: {
     keyEpoch: input.keyEpoch,
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     keyFingerprint: await toFingerprint(groupKem.publicKey),
-    members: [{ userId: input.signerUserId }, ...input.members],
+    // The signer may also appear in input.members; members must be unique.
+    members: [
+      { userId: input.signerUserId },
+      ...input.members.filter((m) => m.userId !== input.signerUserId),
+    ],
     projection,
     payloadCiphertext,
     signedAt: SIGNED_AT,
