@@ -16,7 +16,6 @@ const ORGANIZATION_ID = "organization-local-details";
 const CURRENT_USER_ID = "requester-user";
 const TARGET_USER_ID = "target-user";
 const MEMBERS_GROUP_ID = "members-group";
-const PARENT_GROUP_ID = "parent-group";
 const CYCLE_GROUP_ID = "cycle-group";
 
 function userMember(userId: string): OrganizationGroupMemberResponse {
@@ -74,11 +73,6 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
       subjectType: "group",
     }),
     grant({
-      containerId: "container-parent-group",
-      subjectId: PARENT_GROUP_ID,
-      subjectType: "group",
-    }),
-    grant({
       containerId: "container-unrelated-group",
       subjectId: "unrelated-group",
       subjectType: "group",
@@ -127,20 +121,6 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
         memberGroupId: MEMBERS_GROUP_ID,
         groups: [
           {
-            groupId: PARENT_GROUP_ID,
-            organizationId: ORGANIZATION_ID,
-            name: "Parent",
-            createdAt: CREATED_AT,
-            isBuiltin: false,
-            currentState: {
-              stateHash: "parent-state",
-              version: 1,
-              keyEpoch: 1,
-              keyFingerprint: "parent-key-fingerprint",
-              memberCount: 2,
-            },
-          },
-          {
             groupId: CYCLE_GROUP_ID,
             organizationId: ORGANIZATION_ID,
             name: "Cycle",
@@ -163,6 +143,11 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
           {
             groupId: MEMBERS_GROUP_ID,
             stateHash: "members-state",
+            members: [userMember(TARGET_USER_ID)],
+          },
+          {
+            groupId: CYCLE_GROUP_ID,
+            stateHash: "cycle-state",
             members: [userMember(TARGET_USER_ID)],
           },
         ],

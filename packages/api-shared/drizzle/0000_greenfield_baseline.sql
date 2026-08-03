@@ -568,8 +568,7 @@ CREATE TABLE "principal_member_envelopes" (
 	"principal_id" uuid NOT NULL,
 	"state_hash" text NOT NULL,
 	"epoch" integer NOT NULL,
-	"member_principal_type" text NOT NULL,
-	"member_principal_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
 	"member_key_fingerprint" text NOT NULL,
 	"kem_cipher_text" text NOT NULL,
 	"wrapped_key" text NOT NULL,
@@ -581,8 +580,7 @@ CREATE TABLE "principal_membership_projection" (
 	"principal_type" text NOT NULL,
 	"principal_id" uuid NOT NULL,
 	"state_hash" text NOT NULL,
-	"member_principal_type" text NOT NULL,
-	"member_principal_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
 	"role" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
@@ -771,11 +769,11 @@ CREATE INDEX "organizations_profile_document_idx" ON "organizations" USING btree
 CREATE INDEX "principal_epoch_keys_principal_idx" ON "principal_epoch_keys" USING btree ("principal_type","principal_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_epoch_keys_principal_epoch_idx" ON "principal_epoch_keys" USING btree ("principal_type","principal_id","epoch");--> statement-breakpoint
 CREATE INDEX "principal_member_envelopes_principal_idx" ON "principal_member_envelopes" USING btree ("principal_type","principal_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "principal_member_envelopes_state_member_idx" ON "principal_member_envelopes" USING btree ("principal_type","principal_id","state_hash","member_principal_type","member_principal_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "principal_member_envelopes_state_member_idx" ON "principal_member_envelopes" USING btree ("principal_type","principal_id","state_hash","user_id");--> statement-breakpoint
 CREATE INDEX "principal_membership_projection_principal_idx" ON "principal_membership_projection" USING btree ("principal_type","principal_id");--> statement-breakpoint
-CREATE INDEX "principal_membership_projection_member_idx" ON "principal_membership_projection" USING btree ("member_principal_type","member_principal_id");--> statement-breakpoint
-CREATE INDEX "principal_membership_projection_member_state_idx" ON "principal_membership_projection" USING btree ("member_principal_type","member_principal_id","principal_type","principal_id","state_hash");--> statement-breakpoint
-CREATE UNIQUE INDEX "principal_membership_projection_state_member_idx" ON "principal_membership_projection" USING btree ("principal_type","principal_id","state_hash","member_principal_type","member_principal_id");--> statement-breakpoint
+CREATE INDEX "principal_membership_projection_member_idx" ON "principal_membership_projection" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "principal_membership_projection_member_state_idx" ON "principal_membership_projection" USING btree ("user_id","principal_type","principal_id","state_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "principal_membership_projection_state_member_idx" ON "principal_membership_projection" USING btree ("principal_type","principal_id","state_hash","user_id");--> statement-breakpoint
 CREATE INDEX "principal_state_payloads_principal_idx" ON "principal_state_payloads" USING btree ("principal_type","principal_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_state_payloads_principal_state_idx" ON "principal_state_payloads" USING btree ("principal_type","principal_id","state_hash");--> statement-breakpoint
 CREATE INDEX "principal_states_principal_idx" ON "principal_states" USING btree ("principal_type","principal_id");--> statement-breakpoint

@@ -103,13 +103,11 @@ test("organization read model schema stores exact policy heads and access lanes"
       execSql,
       "organization_read_model_group_members",
     );
-    expect(requireColumn(members, "member_principal_type")).toMatchObject({
+    // The member-kind column is gone, so the composite key is
+    // (organizationId, groupId, userId) and userId sits third.
+    expect(requireColumn(members, "user_id")).toMatchObject({
       notNull: 1,
       pk: 3,
-    });
-    expect(requireColumn(members, "member_principal_id")).toMatchObject({
-      notNull: 1,
-      pk: 4,
     });
 
     const grants = await readTableColumns(
