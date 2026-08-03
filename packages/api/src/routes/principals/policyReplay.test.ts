@@ -257,7 +257,7 @@ test("recipient-key rejection rolls back every policy artifact", async () => {
   const response = await putPolicy(actor, principalId, signedPolicy);
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
-    error: `Principal member envelope fingerprint mismatch for user:${actor.userId}`,
+    error: `Principal member envelope fingerprint mismatch for ${actor.userId}`,
   });
 
   const [states, payloads, storedProjection, envelopes] = await Promise.all([

@@ -81,10 +81,12 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
   );
   // Bob is an ordinary second user. This block used to stand up a nested group
   // principal and make it a member; principals contain only users now.
-  await insertUserWithRecipientKey(bobUserId, bobKem.publicKey, {
-    signingPrivateKey,
-    signingPublicKey,
-  });
+  // His own signing keypair: the users table enforces a unique fingerprint.
+  await insertUserWithRecipientKey(
+    bobUserId,
+    bobKem.publicKey,
+    generateSigningSeedAndKeyPair(),
+  );
 
   const groupMembers = [{ userId: aliceUserId }, { userId: bobUserId }];
   const groupProjection = [
