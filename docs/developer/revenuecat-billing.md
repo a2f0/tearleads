@@ -115,6 +115,12 @@ an unavailable RevenueCat capability. On web this affects entitlement
 observation, not the direct Stripe purchase path; the Stripe path has its own
 publishable key.
 
+Provider setup, identity changes, and non-checkout calls use a 30-second client
+deadline. Store checkout itself remains unbounded because its native sheet is
+under the buyer's control and the provider bridges expose no cancellation API.
+An actual buyer change waits for a live checkout to settle and can therefore
+reach that deadline; re-identifying the already-current buyer remains a no-op.
+
 | Platform | Env var | How it's injected |
 | --- | --- | --- |
 | Web | `BUN_PUBLIC_REVENUECAT_WEB_API_KEY` | Set in `.secrets/<tier>.env`; `deployAppWeb.sh` sources tier secrets and passes it to `bun build --env='BUN_PUBLIC_*'`, which inlines it. |

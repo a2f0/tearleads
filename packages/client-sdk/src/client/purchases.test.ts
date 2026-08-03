@@ -75,6 +75,14 @@ function createFakeBackend(options?: {
   };
 }
 
+function createDeferred() {
+  let resolve = () => {};
+  const promise = new Promise<void>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
+
 const CONFIG = {
   apiKey: "key",
   nativeStore: "test_store" as const,
@@ -116,12 +124,21 @@ test("retries configuration after a failed attempt instead of caching the reject
   expect(backend.calls.filter((call) => call === "configure")).toHaveLength(2);
 });
 
-test("identify logs in with the user id as the app user id", async () => {
+test("identify configures directly onto the first app user id", async () => {
   const backend = createFakeBackend();
   const purchases = createRevenueCatPurchases(backend, CONFIG);
   await purchases.identify({ userId: "user-42" });
   expect(backend.configureAppUserIds).toEqual(["user-42"]);
-  expect(backend.calls).toContain("logIn:user-42");
+  expect(backend.calls).not.toContain("logIn:user-42");
+});
+
+test("rejects an invalid provider operation timeout at construction", () => {
+  expect(() =>
+    createRevenueCatPurchases(createFakeBackend(), {
+      ...CONFIG,
+      operationTimeoutMs: 0,
+    }),
+  ).toThrow("RevenueCat operation timeout must be positive");
 });
 
 test("listSyncOptions maps provider packages to display options", async () => {
@@ -189,6 +206,34 @@ test("purchaseSync forwards the checkout host and abort signal to the backend", 
   expect(backend.purchaseInputs[0]?.abortSignal).toBe(abortSignal);
   expect(backend.purchaseInputs[1]?.htmlTarget).toBeUndefined();
   expect(backend.purchaseInputs[1]?.abortSignal).toBeUndefined();
+});
+
+test("a live checkout delays identity changes but not entitlement reads", async () => {
+  const backend = createFakeBackend({ entitlementsNow: ["sync"] });
+  const checkout = createDeferred();
+  const checkoutStarted = createDeferred();
+  backend.purchasePackage = async (input) => {
+    backend.calls.push(`purchasePackage:${input.packageId}`);
+    checkoutStarted.resolve();
+    await checkout.promise;
+    return { activeEntitlementIds: ["sync"] };
+  };
+  const purchases = createRevenueCatPurchases(backend, CONFIG);
+  await purchases.identify({ userId: "user-1" });
+  const purchasing = purchases.purchaseSync({
+    organizationId: "org-1",
+    packageId: "monthly",
+  });
+  await checkoutStarted.promise;
+
+  expect(await purchases.hasActiveSyncEntitlement()).toBe(true);
+  const identifying = purchases.identify({ userId: "user-2" });
+  await Promise.resolve();
+  expect(backend.calls).not.toContain("logIn:user-2");
+
+  checkout.resolve();
+  await Promise.all([purchasing, identifying]);
+  expect(backend.calls).toContain("logIn:user-2");
 });
 
 test("purchaseSync normalizes post-abort preparation failures to cancellation", async () => {
@@ -299,6 +344,42 @@ test("restore leaves org attribution unchanged until the server accepts it", asy
     backend.calls.indexOf("restorePurchases"),
   );
   expect(purchases.nativeStore).toBe("test_store");
+});
+
+test("restore rejects instead of waiting forever for the provider", async () => {
+  const backend = createFakeBackend();
+  backend.restorePurchases = () => new Promise(() => {});
+  const purchases = createRevenueCatPurchases(backend, {
+    ...CONFIG,
+    operationTimeoutMs: 5,
+  });
+
+  await expect(purchases.restore()).rejects.toThrow(
+    "RevenueCat restore timed out after 5ms",
+  );
+});
+
+test("restore waits for a queued identity transition", async () => {
+  const backend = createFakeBackend();
+  const login = createDeferred();
+  const loginStarted = createDeferred();
+  backend.logIn = async (input) => {
+    backend.calls.push(`logIn:${input.appUserId}`);
+    loginStarted.resolve();
+    await login.promise;
+  };
+  const purchases = createRevenueCatPurchases(backend, CONFIG);
+  await purchases.listSyncOptions();
+  const identifying = purchases.identify({ userId: "user-1" });
+  await loginStarted.promise;
+
+  const restoring = purchases.restore();
+  await Promise.resolve();
+  expect(backend.calls).not.toContain("restorePurchases");
+
+  login.resolve();
+  await Promise.all([identifying, restoring]);
+  expect(backend.calls).toContain("restorePurchases");
 });
 
 test("observation-only RevenueCat disables purchases but preserves entitlement reads", async () => {

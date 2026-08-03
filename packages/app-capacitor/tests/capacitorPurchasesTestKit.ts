@@ -4,6 +4,9 @@ import type { PurchasesPackage } from "@revenuecat/purchases-capacitor";
 export const fixture: {
   platform: string;
   configureCalls: { apiKey: string; appUserID?: string }[];
+  logInCalls: string[];
+  logOutCalls: number;
+  logOutRejection: unknown;
   purchaseCalls: {
     identifier: string;
     storeProductChangeInfo?: {
@@ -22,6 +25,9 @@ export const fixture: {
 } = {
   platform: "ios",
   configureCalls: [],
+  logInCalls: [],
+  logOutCalls: 0,
+  logOutRejection: null,
   purchaseCalls: [],
   nativePurchaseCalls: [],
   attributeCalls: [],
@@ -107,6 +113,7 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
     PRODUCT_ALREADY_PURCHASED_ERROR: "6",
     RECEIPT_ALREADY_IN_USE_ERROR: "7",
     RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR: "13",
+    LOG_OUT_ANONYMOUS_USER_ERROR: "22",
   },
   STORE_REPLACEMENT_MODE: {
     CHARGE_PRORATED_PRICE: "CHARGE_PRORATED_PRICE",
@@ -117,8 +124,16 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
       fixture.configureCalls.push(options);
       return Promise.resolve();
     },
-    logIn: () => Promise.resolve(),
-    logOut: () => Promise.resolve(),
+    logIn: ({ appUserID }: { appUserID: string }) => {
+      fixture.logInCalls.push(appUserID);
+      return Promise.resolve();
+    },
+    logOut: () => {
+      fixture.logOutCalls += 1;
+      return fixture.logOutRejection === null
+        ? Promise.resolve()
+        : Promise.reject(fixture.logOutRejection);
+    },
     setAttributes: (attributes: Record<string, string | null>) => {
       fixture.attributeCalls.push(attributes);
       return Promise.resolve();
@@ -185,6 +200,9 @@ export function clearEnv() {
 export function resetFixture(): void {
   fixture.platform = "ios";
   fixture.configureCalls = [];
+  fixture.logInCalls = [];
+  fixture.logOutCalls = 0;
+  fixture.logOutRejection = null;
   fixture.purchaseCalls = [];
   fixture.nativePurchaseCalls = [];
   fixture.attributeCalls = [];

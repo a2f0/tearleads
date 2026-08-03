@@ -109,6 +109,15 @@ function isAlreadyOwnedPurchase(error: unknown): boolean {
   );
 }
 
+function isAnonymousLogOut(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === PURCHASES_ERROR_CODE.LOG_OUT_ANONYMOUS_USER_ERROR
+  );
+}
+
 /**
  * Adapts the native `@revenuecat/purchases-capacitor` plugin to the client-sdk
  * {@link RevenueCatBackend}. Only the normalized surface the sdk consumes is
@@ -129,7 +138,13 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
     await Purchases.logIn({ appUserID: appUserId });
   },
   async logOut() {
-    await Purchases.logOut();
+    try {
+      await Purchases.logOut();
+    } catch (error) {
+      // RevenueCat rejects logOut for an already-anonymous buyer. That is the
+      // requested end state, so make reset idempotent across fresh installs.
+      if (!isAnonymousLogOut(error)) throw error;
+    }
   },
   async setAttributes(attributes) {
     await Purchases.setAttributes(attributes);
