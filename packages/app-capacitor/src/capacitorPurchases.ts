@@ -23,6 +23,14 @@ import {
 } from "./capacitorRevenueCatPurchase";
 
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
+let cachedPurchases:
+  | {
+      readonly apiKey: string;
+      readonly capability: PurchasesCapability;
+      readonly platform: string;
+      readonly syncEntitlementId: string;
+    }
+  | undefined;
 
 function toRevenueCatPackage(entry: PurchasesPackage): RevenueCatPackage {
   return {
@@ -248,22 +256,34 @@ function readPlatformApiKey(): string | undefined {
 export function createCapacitorPurchases(input?: {
   readonly operationTimeoutMs?: number;
 }): PurchasesCapability {
+  const platform = Capacitor.getPlatform();
   const apiKey = readPlatformApiKey();
   if (!apiKey) {
+    cachedPurchases = undefined;
     return createUnavailablePurchases();
   }
-  return createRevenueCatPurchases(capacitorRevenueCatBackend, {
+  const syncEntitlementId =
+    readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
+    DEFAULT_SYNC_ENTITLEMENT_ID;
+  if (
+    cachedPurchases?.apiKey === apiKey &&
+    cachedPurchases.platform === platform &&
+    cachedPurchases.syncEntitlementId === syncEntitlementId
+  ) {
+    return cachedPurchases.capability;
+  }
+  const capability = createRevenueCatPurchases(capacitorRevenueCatBackend, {
     apiKey,
     nativeStore: apiKey.startsWith("test_")
       ? "test_store"
-      : Capacitor.getPlatform() === "ios"
+      : platform === "ios"
         ? "app_store"
         : "play_store",
-    syncEntitlementId:
-      readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
-      DEFAULT_SYNC_ENTITLEMENT_ID,
+    syncEntitlementId,
     ...(input?.operationTimeoutMs === undefined
       ? {}
       : { operationTimeoutMs: input.operationTimeoutMs }),
   });
+  cachedPurchases = { apiKey, capability, platform, syncEntitlementId };
+  return capability;
 }

@@ -20,6 +20,8 @@ export const fixture: {
   packages: PurchasesPackage[];
   purchaseRejection: unknown;
   nativePurchaseRejection: unknown;
+  nativePurchasePromise: Promise<{ activeEntitlementIds?: unknown }> | null;
+  onNativePurchase: (() => void) | null;
   nativePrepareRejection: unknown;
   nativePreparePromise: Promise<void> | null;
   customerInfo: unknown;
@@ -41,6 +43,8 @@ export const fixture: {
   packages: [],
   purchaseRejection: null,
   nativePurchaseRejection: null,
+  nativePurchasePromise: null,
+  onNativePurchase: null,
   nativePrepareRejection: null,
   nativePreparePromise: null,
   customerInfo: { entitlements: { active: { sync: {} } } },
@@ -100,6 +104,7 @@ mock.module("@capacitor/core", () => ({
             identifier: packageId,
             productId,
           });
+          fixture.onNativePurchase?.();
           if (!packageId || !productId) {
             return Promise.reject({
               code: "bridge-invalid",
@@ -109,6 +114,9 @@ mock.module("@capacitor/core", () => ({
           }
           if (fixture.nativePurchaseRejection !== null) {
             return Promise.reject(fixture.nativePurchaseRejection);
+          }
+          if (fixture.nativePurchasePromise !== null) {
+            return fixture.nativePurchasePromise;
           }
           if (fixture.purchaseRejection !== null) {
             return Promise.reject(fixture.purchaseRejection);
@@ -241,6 +249,8 @@ export function resetFixture(): void {
   fixture.packages = [];
   fixture.purchaseRejection = null;
   fixture.nativePurchaseRejection = null;
+  fixture.nativePurchasePromise = null;
+  fixture.onNativePurchase = null;
   fixture.nativePrepareRejection = null;
   fixture.nativePreparePromise = null;
   fixture.customerInfo = { entitlements: { active: { sync: {} } } };
@@ -248,4 +258,7 @@ export function resetFixture(): void {
   fixture.onGetOfferings = null;
   fixture.offeringsPromise = null;
   clearEnv();
+  // Calling the factory without a platform key clears its process-wide native
+  // capability, keeping tests isolated while production keys stay immutable.
+  createCapacitorPurchases();
 }
