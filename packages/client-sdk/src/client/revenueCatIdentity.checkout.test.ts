@@ -95,7 +95,7 @@ test("checkout blocks identity changes but not provider reads", async () => {
   expect(laterReadStarted).toBe(true);
 });
 
-test("a hung checkout makes a waiting identity timeout terminal", async () => {
+test("a buyer-paced checkout keeps a waiting identity retryable", async () => {
   const backend = createBackend();
   const checkout = createDeferred();
   const checkoutStarted = createDeferred();
@@ -110,7 +110,7 @@ test("a hung checkout makes a waiting identity timeout terminal", async () => {
   await checkoutStarted.promise;
 
   const identifying = identity.identify("user-2");
-  await expect(identifying).rejects.toMatchObject({ restartRequired: true });
+  await expect(identifying).rejects.toMatchObject({ restartRequired: false });
   const customerRead = identity.runProviderOperation({
     operation: async () => undefined,
     operationName: "customer read",
@@ -118,10 +118,95 @@ test("a hung checkout makes a waiting identity timeout terminal", async () => {
   await expect(customerRead).rejects.toBeInstanceOf(
     RevenueCatOperationTimeoutError,
   );
-  await expect(customerRead).rejects.toMatchObject({ restartRequired: true });
+  await expect(customerRead).rejects.toMatchObject({ restartRequired: false });
 
   checkout.resolve();
   await purchasing;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await identity.runProviderOperation({
+    operation: async () => undefined,
+    operationName: "settled read",
+  });
+});
+
+test("a late identity mutation stall promotes restart guidance", async () => {
+  const backend = createBackend();
+  const checkout = createDeferred();
+  const checkoutStarted = createDeferred();
+  const login = createDeferred();
+  const loginStarted = createDeferred();
+  backend.logIn = async () => {
+    loginStarted.resolve();
+    await login.promise;
+  };
+  const identity = coordinator(backend, 5);
+  await identity.identify("user-1");
+  const purchasing = identity.runCheckout({
+    operation: async () => {
+      checkoutStarted.resolve();
+      await checkout.promise;
+    },
+  });
+  await checkoutStarted.promise;
+
+  await expect(identity.identify("user-2")).rejects.toMatchObject({
+    restartRequired: false,
+  });
+  checkout.resolve();
+  await purchasing;
+  await loginStarted.promise;
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const stalledRead = identity.runProviderOperation({
+    operation: async () => undefined,
+    operationName: "stalled read",
+  });
+  await expect(stalledRead).rejects.toMatchObject({ restartRequired: true });
+
+  login.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await identity.runProviderOperation({
+    operation: async () => undefined,
+    operationName: "settled read",
+  });
+});
+
+test("a queued provider stall eventually promotes restart guidance", async () => {
+  const backend = createBackend();
+  const restore = createDeferred();
+  const restoreStarted = createDeferred();
+  const read = createDeferred();
+  const readStarted = createDeferred();
+  const identity = coordinator(backend, 5);
+  await identity.identify("user-1");
+  const restoring = identity.runProviderOperation({
+    buyerPaced: true,
+    operation: async () => {
+      restoreStarted.resolve();
+      await restore.promise;
+    },
+    operationName: "restore",
+  });
+  await restoreStarted.promise;
+  const queuedRead = identity.runProviderOperation({
+    operation: async () => {
+      readStarted.resolve();
+      await read.promise;
+    },
+    operationName: "queued read",
+  });
+
+  await expect(queuedRead).rejects.toMatchObject({ restartRequired: false });
+  restore.resolve();
+  await restoring;
+  await readStarted.promise;
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const stalledRead = identity.runProviderOperation({
+    operation: async () => undefined,
+    operationName: "stalled read",
+  });
+  await expect(stalledRead).rejects.toMatchObject({ restartRequired: true });
+
+  read.resolve();
   await new Promise((resolve) => setTimeout(resolve, 0));
   await identity.runProviderOperation({
     operation: async () => undefined,

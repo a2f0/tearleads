@@ -333,7 +333,9 @@ function projectBillingActions(input: {
   readonly retryOptions: () => void;
   readonly subscriptionMove: ReturnType<typeof useNativeSubscriptionMove>;
 }): BillingActions {
-  const optionsError = billingOptionsErrorLabel(input.optionsErrorKind);
+  const busy = input.actionStateMatches ? input.actionState.busy : null;
+  const optionsError =
+    busy === null ? billingOptionsErrorLabel(input.optionsErrorKind) : null;
   return {
     purchaseAvailable: input.purchases.isAvailable,
     canSubscribe: input.canSubscribe,
@@ -342,11 +344,11 @@ function projectBillingActions(input: {
       ? input.actionState.checkoutActive
       : false,
     options: input.options,
-    busy: input.actionStateMatches ? input.actionState.busy : null,
+    busy,
     actionError: input.actionStateMatches
       ? (input.actionState.actionError ?? optionsError)
       : optionsError,
-    optionsRetryAvailable: input.optionsErrorKind !== null,
+    optionsRetryAvailable: busy === null && input.optionsErrorKind !== null,
     activationPending:
       input.actionStateMatches && input.actionState.activationPending,
     subscriptionMoveOpen: input.subscriptionMove.open,
@@ -403,6 +405,7 @@ export function useBillingActions({
     userId,
   });
   const retryOptions = useBillingOptions(
+    !scopeMatches(actionState, currentScope) || actionState.busy === null,
     canSubscribe,
     currentScope,
     purchases,

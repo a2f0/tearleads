@@ -149,8 +149,8 @@ the ordinary deadline so a stuck Android bridge cannot leave the app busy
 forever.
 
 `PurchaseIdentityPendingError` means a call timed out before reaching the
-provider, including while queued behind buyer-paced restore; retry after that
-flow settles. `PurchaseProviderStalledError` means active provider setup,
+provider, including while queued behind checkout or buyer-paced restore; retry
+after that flow settles. `PurchaseProviderStalledError` means active setup,
 identity, or bridge work exceeded its deadline; restart the app. Timed-out work
 stays serialized and may still take effect. Buyer changes wait for checkout to
 settle, and re-identifying the current buyer is otherwise a no-op.

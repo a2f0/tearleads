@@ -102,17 +102,18 @@ test("an options failure does not cancel an open checkout", async () => {
   );
   act(() => result.current.retryOptions());
 
+  expect(result.current.actionError).toBeNull();
+  expect(result.current.checkoutActive).toBe(true);
+  expect(result.current.busy).toBe("subscribe:monthly");
+
+  finishPurchase({ syncEntitlementActive: true });
+  await waitFor(() => expect(result.current.busy).toBeNull());
   await waitFor(() =>
     expect(result.current.actionError).toBe(
       ORG_MANAGER_LABELS.billingProviderStalled,
     ),
   );
   expect(result.current.canSubscribe).toBe(false);
-  expect(result.current.checkoutActive).toBe(true);
-  expect(result.current.busy).toBe("subscribe:monthly");
-
-  finishPurchase({ syncEntitlementActive: true });
-  await waitFor(() => expect(result.current.busy).toBeNull());
 });
 
 test("keeps options empty when buyer identification genuinely fails", async () => {
@@ -244,6 +245,45 @@ test("manual retry preserves the last options until reload settles", async () =>
 
   finishReload([OPTION]);
   await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+});
+
+test("billing actions pause option retries and hide their stale error", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: false });
+  let identityAttempts = 0;
+  purchases.identify = mock(() => {
+    identityAttempts += 1;
+    return identityAttempts === 1
+      ? Promise.reject(new PurchaseIdentityPendingError())
+      : Promise.resolve();
+  });
+  let finishRestore = (_value: SyncPurchaseResult) => {};
+  purchases.restore = mock(
+    () =>
+      new Promise<SyncPurchaseResult>((resolve) => {
+        finishRestore = resolve;
+      }),
+  );
+  const { result } = renderBillingActions({
+    optionsRetryDelaysMs: [200],
+    purchases,
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  expect(result.current.actionError).toBe(
+    ORG_MANAGER_LABELS.billingIdentityPending,
+  );
+
+  act(() => result.current.confirmSubscriptionMove());
+  await waitFor(() => expect(result.current.busy).toBe("restore"));
+  expect(result.current.actionError).toBeNull();
+  expect(result.current.optionsRetryAvailable).toBe(false);
+  await act(() => new Promise((resolve) => setTimeout(resolve, 30)));
+  expect(purchases.identify).toHaveBeenCalledTimes(2);
+  expect(purchases.listSyncOptions).toHaveBeenCalledTimes(1);
+
+  finishRestore({ syncEntitlementActive: true });
+  await waitFor(() => expect(result.current.busy).toBeNull());
+  await waitFor(() => expect(purchases.identify).toHaveBeenCalledTimes(3));
+  expect(purchases.listSyncOptions).toHaveBeenCalledTimes(2);
 });
 
 test("a billing action does not hide an exhausted options error", async () => {

@@ -70,7 +70,6 @@ class RevenueCatIdentityCoordinatorState
   private identityMutationTimeoutError:
     | RevenueCatOperationTimeoutError
     | undefined;
-  private blockingFlowTimeoutError: RevenueCatOperationTimeoutError | undefined;
   private identityMutationInFlight = false;
   private pendingIdentityChanges = 0;
   private identityIdle: Promise<void> | undefined;
@@ -223,9 +222,11 @@ class RevenueCatIdentityCoordinatorState
     operation: () => Promise<void>,
   ): Promise<void> {
     this.identityMutationInFlight = true;
+    const lateTimeout = this.armLateIdentityMutationTimeout();
     try {
       await operation();
     } finally {
+      if (lateTimeout !== undefined) clearTimeout(lateTimeout);
       this.identityMutationInFlight = false;
       if (
         this.identityMutationTimeoutError !== undefined &&
@@ -265,10 +266,6 @@ class RevenueCatIdentityCoordinatorState
         error.markRestartRequired();
         this.identityMutationTimeoutError = error;
         this.wedgedIdentityError = error;
-      } else if (this.checkouts.hasActive) {
-        error.markRestartRequired();
-        this.blockingFlowTimeoutError = error;
-        this.wedgedIdentityError = error;
       }
     });
   }
@@ -276,10 +273,6 @@ class RevenueCatIdentityCoordinatorState
   private finishIdentityChange(): void {
     this.pendingIdentityChanges -= 1;
     if (this.pendingIdentityChanges !== 0) return;
-    if (this.wedgedIdentityError === this.blockingFlowTimeoutError) {
-      this.wedgedIdentityError = undefined;
-    }
-    this.blockingFlowTimeoutError = undefined;
     this.pendingIdentityTimeoutError = undefined;
     this.resolveIdentityIdle?.();
     this.identityIdle = undefined;
@@ -323,8 +316,13 @@ class RevenueCatIdentityCoordinatorState
           throw error;
         }
         providerStarted = true;
+        const lateTimeout = this.armLateProviderTimeout();
         resolvePreflight();
-        return providerInput.operation();
+        try {
+          return await providerInput.operation();
+        } finally {
+          if (lateTimeout !== undefined) clearTimeout(lateTimeout);
+        }
       });
     const operation =
       requiresKnownIdentity && this.identityIdle
@@ -407,6 +405,34 @@ class RevenueCatIdentityCoordinatorState
       ...(onTimeout ? { onTimeout } : {}),
       timeoutMs: this.input.timeoutMs,
     });
+  }
+
+  private armLateIdentityMutationTimeout():
+    | ReturnType<typeof setTimeout>
+    | undefined {
+    const error = this.pendingIdentityTimeoutError;
+    if (!error || error.restartRequired) return undefined;
+    return setTimeout(() => {
+      if (
+        this.pendingIdentityTimeoutError !== error ||
+        !this.identityMutationInFlight
+      ) {
+        return;
+      }
+      error.markRestartRequired();
+      this.identityMutationTimeoutError = error;
+      this.wedgedIdentityError = error;
+    }, this.input.timeoutMs);
+  }
+
+  private armLateProviderTimeout(): ReturnType<typeof setTimeout> | undefined {
+    const error = this.pendingProviderTimeoutError;
+    if (!error || error.restartRequired) return undefined;
+    return setTimeout(() => {
+      if (this.pendingProviderTimeoutError !== error) return;
+      error.markRestartRequired();
+      this.wedgedIdentityError = error;
+    }, this.input.timeoutMs);
   }
 
   private withProviderTimeout<T>(

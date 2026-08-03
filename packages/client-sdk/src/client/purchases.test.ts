@@ -3,6 +3,7 @@ import {
   createRevenueCatPurchases,
   createUnavailablePurchases,
   PurchaseCancelledError,
+  PurchaseIdentityPendingError,
   PurchaseProviderStalledError,
   PurchasesUnavailableError,
   type RevenueCatBackend,
@@ -231,7 +232,7 @@ test("purchaseSync forwards the checkout host and abort signal to the backend", 
   expect(backend.purchaseInputs[1]?.abortSignal).toBeUndefined();
 });
 
-test("a hung checkout makes a delayed identity change terminal", async () => {
+test("a buyer-paced checkout keeps a delayed identity change retryable", async () => {
   const backend = createFakeBackend({ entitlementsNow: ["sync"] });
   const checkout = createDeferred();
   const checkoutStarted = createDeferred();
@@ -257,13 +258,11 @@ test("a hung checkout makes a delayed identity change terminal", async () => {
   await Promise.resolve();
   expect(backend.calls).not.toContain("logIn:user-2");
   await expect(identifying).rejects.toBeInstanceOf(
-    PurchaseProviderStalledError,
+    PurchaseIdentityPendingError,
   );
-  await expect(purchases.listSyncOptions()).rejects.toBeInstanceOf(
-    PurchaseProviderStalledError,
-  );
+  expect(await purchases.listSyncOptions()).toEqual([]);
   await expect(purchases.hasActiveSyncEntitlement()).rejects.toBeInstanceOf(
-    PurchaseProviderStalledError,
+    PurchaseIdentityPendingError,
   );
 
   checkout.resolve();

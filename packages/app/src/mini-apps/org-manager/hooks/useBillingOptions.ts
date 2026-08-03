@@ -91,6 +91,7 @@ function scheduleOptionsRetry(
 }
 
 export function useBillingOptions(
+  actionIdle: boolean,
   canSubscribe: boolean,
   currentScope: BillingActionScope,
   purchases: PurchasesCapability,
@@ -109,6 +110,7 @@ export function useBillingOptions(
   useEffect(() => {
     const scope = currentScope;
     if (!scopeMatches(scopeRef.current, scope)) return;
+    if (!actionIdle) return;
     if (!canSubscribe || userId === null) {
       setOptionsState(emptyOptionsState(scope));
       return;
@@ -163,6 +165,7 @@ export function useBillingOptions(
       if (retryTimeout !== undefined) clearTimeout(retryTimeout);
     };
   }, [
+    actionIdle,
     canSubscribe,
     currentScope,
     loadGeneration,
