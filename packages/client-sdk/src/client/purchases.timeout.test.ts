@@ -109,6 +109,39 @@ test("a lost native checkout callback surfaces restart guidance", async () => {
   ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
 });
 
+test("a native checkout that settles after its deadline restores billing", async () => {
+  const backend = createBackend();
+  let finishPurchase = () => {};
+  backend.purchasePackage = () =>
+    new Promise((resolve) => {
+      finishPurchase = () => resolve({ activeEntitlementIds: ["sync"] });
+    });
+  const capability = createRevenueCatPurchases(backend, {
+    apiKey: "key",
+    checkoutSettlementTimeoutMs: 5,
+    nativeStore: "play_store",
+    operationTimeoutMs: 50,
+    restorePurchasesBuyerPaced: false,
+    syncEntitlementId: "sync",
+  });
+
+  await expect(
+    capability.purchaseSync({
+      organizationId: "org-1",
+      packageId: "monthly",
+    }),
+  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
+  await expect(capability.listSyncOptions()).rejects.toBeInstanceOf(
+    PurchaseProviderStalledError,
+  );
+
+  finishPurchase();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(await capability.listSyncOptions()).toEqual([]);
+  expect(await capability.hasActiveSyncEntitlement()).toBe(false);
+});
+
 test("checkout waiting on stalled configuration asks for restart", async () => {
   const backend = createBackend();
   backend.configure = () => new Promise(() => {});

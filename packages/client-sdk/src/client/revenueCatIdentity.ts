@@ -362,6 +362,9 @@ class RevenueCatIdentityCoordinatorState
       await checkoutInput.prepare?.();
       if (abandoned) throw new RevenueCatCheckoutAbandonedError();
       return this.checkouts.start(checkoutInput.operation, gate, {
+        onLateSettlement: (error) => {
+          this.timeouts.clearWedge(error);
+        },
         onTimeout: (error) => {
           this.timeouts.markWedged(error);
         },

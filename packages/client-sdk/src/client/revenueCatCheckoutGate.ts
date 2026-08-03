@@ -64,16 +64,27 @@ export class RevenueCatCheckoutGateCoordinator {
     operation: () => Promise<T>,
     gate: RevenueCatCheckoutGate,
     settlement: {
+      readonly onLateSettlement: (
+        error: RevenueCatOperationTimeoutError,
+      ) => void;
       readonly onTimeout: (error: RevenueCatOperationTimeoutError) => void;
       readonly timeoutMs: number;
     },
   ): { result: Promise<T> } {
+    let timeoutError: RevenueCatOperationTimeoutError | undefined;
     const providerResult = Promise.resolve().then(operation);
-    void providerResult.then(gate.release, gate.release);
+    const finishProviderResult = () => {
+      gate.release();
+      if (timeoutError !== undefined) {
+        settlement.onLateSettlement(timeoutError);
+      }
+    };
+    void providerResult.then(finishProviderResult, finishProviderResult);
     const result = withRevenueCatOperationTimeout({
       operation: () => providerResult,
       operationName: "checkout settlement",
       onTimeout: (error) => {
+        timeoutError = error;
         error.markRestartRequired();
         gate.release();
         settlement.onTimeout(error);

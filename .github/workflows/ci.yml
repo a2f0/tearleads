@@ -27,7 +27,7 @@ jobs:
         uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
         with:
           version: 2026.6.12
-          install_args: java shellcheck github:oasdiff/oasdiff github:tlaplus/tlaplus
+          install_args: java gradle shellcheck github:oasdiff/oasdiff github:tlaplus/tlaplus
           cache: true
 
       - name: Set up Bun
@@ -55,6 +55,10 @@ jobs:
           FASTLANE_OPT_OUT_USAGE: "1"
           FASTLANE_SKIP_UPDATE_CHECK: "1"
         run: bun run build:packages && bun run --cwd packages/app-capacitor test
+
+      - name: Compile Android purchase bridge
+        working-directory: packages/app-capacitor/android
+        run: mise exec -- gradle :app:assembleDebug --no-daemon
 
   build:
     name: Build and test

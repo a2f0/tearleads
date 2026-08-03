@@ -61,6 +61,12 @@ export class RevenueCatTimeoutCoordinator {
     this.wedgedIdentityError = error;
   }
 
+  clearWedge(error: RevenueCatOperationTimeoutError): void {
+    if (this.wedgedIdentityError === error) {
+      this.wedgedIdentityError = undefined;
+    }
+  }
+
   clearPendingIdentityTimeout(): void {
     this.pendingIdentityTimeoutError = undefined;
   }

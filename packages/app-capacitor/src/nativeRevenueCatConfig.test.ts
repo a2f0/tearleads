@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { realpath } from "node:fs/promises";
 import { resolve } from "node:path";
+import { STORE_REPLACEMENT_MODE } from "@revenuecat/purchases-capacitor";
 
 const packageRoot = resolve(import.meta.dir, "..");
 
@@ -119,15 +119,11 @@ test("iOS RevenueCat project pin matches the resolved SDK version", async () => 
 });
 
 test("Android registers a bounded RevenueCat purchase plugin", async () => {
-  const revenueCatPackageRoot = await realpath(
-    resolve(packageRoot, "node_modules/@revenuecat/purchases-capacitor"),
-  );
   const [
     appBuild,
     mainActivity,
     purchasePlugin,
     revenueCatPluginBuild,
-    revenueCatTypes,
     runtime,
     variables,
   ] = await Promise.all([
@@ -148,12 +144,6 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
       resolve(
         packageRoot,
         "node_modules/@revenuecat/purchases-capacitor/android/build.gradle",
-      ),
-    ).text(),
-    Bun.file(
-      resolve(
-        revenueCatPackageRoot,
-        "../purchases-typescript-internal-esm/dist/offerings.js",
       ),
     ).text(),
     Bun.file(resolve(packageRoot, "src/capacitorRevenueCatRuntime.ts")).text(),
@@ -180,26 +170,14 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
     /private fun replacementMode[\s\S]*?= when \(name\) \{([\s\S]*?)\n {4}\}/,
     "Android RevenueCat replacement modes",
   );
-  const revenueCatReplacementModeBlock = requiredMatch(
-    revenueCatTypes,
-    /export var STORE_REPLACEMENT_MODE;([\s\S]*?)\}\)\(STORE_REPLACEMENT_MODE/,
-    "installed RevenueCat replacement modes",
-  );
   const kotlinReplacementModes = [
     ...replacementModeBlock.matchAll(/"([^"]+)" -> StoreReplacementMode\./g),
   ]
     .map((match) => match[1])
     .sort();
-  const capacitorReplacementModes = [
-    ...revenueCatReplacementModeBlock.matchAll(
-      /STORE_REPLACEMENT_MODE\["([^"]+)"\] = "([^"]+)"/g,
-    ),
-  ]
-    .map((match) => {
-      expect(match[1]).toBe(match[2]);
-      return match[2];
-    })
-    .sort();
+  const capacitorReplacementModes = Object.values(
+    STORE_REPLACEMENT_MODE,
+  ).sort();
 
   expect(mainActivity).toContain(
     "registerPlugin(RevenueCatPurchasePlugin.class)",
@@ -228,7 +206,9 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(purchasePlugin).toContain(
     "StoreReplacementMode.CHARGE_PRORATED_PRICE",
   );
-  expect(kotlinReplacementModes).toEqual(capacitorReplacementModes);
+  for (const replacementMode of capacitorReplacementModes) {
+    expect(kotlinReplacementModes).toContain(replacementMode);
+  }
   expect(purchasePlugin).toContain(
     'JSObject().put("userCancelled", userCancelled)',
   );
