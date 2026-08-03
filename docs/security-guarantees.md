@@ -235,26 +235,37 @@ clients generate fresh successor keys and round-trip both artifacts before
 sending a mutation.
 
 That recovery backstop is bounded by which envelopes the kek-log will serve,
-and the endpoint scopes them through the requester's **current** principal
-policies. Two consequences follow, both stated here rather than left implicit:
+and by whether the requester can still resolve the principal key an envelope
+was addressed to. Three cases, materially different from one another:
 
-- A member formerly authorized through a group that has since been removed
-  keeps a retained envelope on the old epochs, but the endpoint will not serve
-  it, because the group no longer appears in their current policy set. If every
-  bridge below that epoch is also severed, the epoch is unrecoverable for that
-  member even though the material still exists server-side.
-- The per-epoch envelope cap and the principal-scope cap rank candidates by
-  identity, not by whether the client can resolve them — resolvability depends
-  on principal-policy state at that epoch, which the server does not serve. A
-  requester with a very wide principal set can therefore be served envelopes
-  they cannot open while one they could open sorts past the cap.
+- **Group key rotated, member still in the group.** The container envelope
+  names the group key epoch it was sealed to, and current policy holds only the
+  group's newest key. `GET /principals/:principalType/:principalId/policy-history`
+  serves the group's signed state chain, so the member walks back to the epoch
+  the envelope names and recovers that key. **Recoverable.**
+- **Member removed from the group.** The envelope and the state it was sealed
+  under both survive — a removal writes a NEW state rather than rewriting the
+  old one — but the kek-log will not serve the group's container wrap to a
+  requester the group no longer authorizes, so the client never receives the
+  envelope that policy history would let it open. **Not recoverable today**;
+  closing it needs tenure-aware scoping on the kek-log as well as on policy
+  history (issue #1948).
+- **Group deleted.** `deleteOrganizationGroupRows` purges the group's states,
+  payloads, epoch keys, and member envelopes outright. The key material is gone
+  from the server, not merely withheld, so no history walk recovers it.
+  **Permanently unrecoverable from server state**, by design, and the reason
+  group deletion is a heavier operation than removing every member from a
+  group. This is a statement about recovery, not about erasure: a client that
+  had already resolved and cached that group key still holds it, and deletion
+  cannot reach into clients to remove what they fetched while access was live.
+- **Anchor caps.** The per-epoch envelope cap and the principal-scope cap rank
+  candidates by identity, not by whether the client can resolve them. A
+  requester with a very wide principal set can be served envelopes they cannot
+  open while one they could open sorts past the cap.
 
 The requester's direct user envelope and their parent-container envelopes are
 scoped outside the principal cap and rank ahead of principal envelopes, so the
-anchors needing no policy state at all are never what a cap costs. Serving
-verified historical principal-policy state (issue #1941) is what would remove
-both limits; until then they are documented unrecoverable cases, not defects in
-the caps.
+anchors needing no policy state at all are never what a cap costs.
 
 All container KEK epochs use a
 `tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the

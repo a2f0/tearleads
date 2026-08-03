@@ -272,6 +272,59 @@ by requester membership era. `GET /containers/:containerId/kek-log` serves
 the append-only rotation log — every epoch with its write-once bridge and
 sealed keyring — as the rebuild/repair read path for any current reader.
 
+`GET /principals/:principalType/:principalId/policy-history` is the companion
+read path for principal-addressed envelopes. A container envelope sealed to a
+group names the group key epoch it was addressed to; opening it needs the
+group's secret key at that epoch, which current policy alone cannot supply
+after a group key rotation. The route serves the principal's
+signed state chain, newest first, paged by a `beforeVersion` cursor and bounded
+by `PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT` (64) states per page.
+
+The chain is served contiguously — never filtered — because each state names
+its predecessor by `prevStateHash`, and a client can only establish that a
+state belongs to this principal's history by checking it against its
+neighbours. Filtering states out of the middle would leave a client trusting
+whatever the server chose to send. The chain is also not new disclosure: the
+current-policy bundle already ships all of `previousStates`, with projections,
+to any authenticated caller.
+
+What the route does scope is key material. Each entry's `memberEnvelopes` carry
+ONLY the requester's own direct user envelopes; group-addressed envelopes are
+never served. That is a security boundary, not a simplification: serving them
+would need to know whether the requester belonged to that group at that state,
+and current membership is not a safe proxy — a user who joins a group today
+would otherwise be handed every envelope the principal ever addressed to it,
+and an additive join need not rotate the group key. Issue #1948 tracks
+historical tenure resolution, which is also what unblocks transitive
+(nested-group) recovery. The primary case does not need it: opening a container
+envelope sealed to a group's older key epoch means recovering that group's
+secret from its OWN history, through the envelope addressed to the requester as
+a user. At most one envelope per state can match a single requester, so
+`PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT` (4) is a structural
+backstop that cannot bite rather than a truncation. One member's envelope is
+not another's to read.
+
+Clients recompute each state's hash and check that every entry's
+`prevStateHash` names the entry below it, across page boundaries as well as
+within a page, before using any envelope on that entry. Recomputation is what
+makes the linkage mean anything — comparing the server's own `prevStateHash`
+string against its own `stateHash` string is self-consistent for any fabricated
+pair.
+
+The walk does **not** verify each state's signature against its signer's
+identity key, nor does it check envelope inclusion against
+`memberEnvelopesRoot` (which is unavailable by construction, since the response
+carries only the requester's own envelopes rather than the full set the root
+commits to). So this is a hash-chained, not a signature-authenticated, walk.
+
+What makes that safe is the layer below: a recovered principal key is only
+useful if it opens a container envelope AND the resulting container key matches
+that epoch's material-id commitment. A fabricated chain therefore costs a
+failed recovery, never a wrong key admitted into a keyring. Full signature
+verification would additionally let the client distinguish "server is lying"
+from "key genuinely unreachable"; that requires the trusted-identity gateway in
+the recovery path and is tracked separately.
+
 Document and blob writes may carry signed `container.rekey` requests inline in
 `containerRekeys[]`. The API applies those rekeys inside the same transaction
 before resolving document/blob targets. If the enclosing write fails, the rekey

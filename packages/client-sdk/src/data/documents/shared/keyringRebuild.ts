@@ -7,17 +7,13 @@ import {
   decryptWithDek,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import type {
-  ContainerKekLogEpochResponse,
-  ContainerKekLogResponse,
-} from "@tearleads/validators/response";
-import {
-  CONTAINER_KEK_LOG_PAGE_LIMIT,
-  MAX_CONTAINER_KEY_EPOCH,
-} from "@tearleads/validators/util";
+import type { ContainerKekLogEpochResponse } from "@tearleads/validators/response";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import type { AggregatedContainerKekLog } from "./keyringLogWalk";
+import {
+  openPrincipalWrapsThroughHistory,
+  type PrincipalPolicyHistoryFetcher,
+} from "./historicalPrincipalKeys";
 import { normalizeContainerKeyWrap } from "./readers";
 
 /**
@@ -226,31 +222,36 @@ async function firstCommittedAnchor(input: {
 }
 
 /**
- * Binds one page to what was actually asked for.
+ * Opens one group of envelopes with the requester's CURRENT policies, folding
+ * failure into a value rather than throwing.
  *
- * Every page is checked, not just the last: the aggregate is handed to a
- * rebuild that trusts its shape, so a page for another container — or one
- * replaying epochs at or below the cursor — would splice foreign or duplicate
- * history into the walk before any commitment check could notice the ordering
- * was wrong.
+ * The caller tries several groups in order, and a failure in one is not the
+ * end of the search — so the failure has to travel back alongside the miss
+ * instead of unwinding the whole recovery.
  */
-function assertLogPageMatchesRequest(
-  page: {
-    containerId: string;
-    epochs: readonly { containerKeyEpoch: number }[];
-  },
-  containerId: string,
-  afterKeyEpoch: number,
-): void {
-  if (page.containerId !== containerId) {
-    throw new Error("Container KEK log page is for the wrong container");
+async function unwrapWrapsWithCurrentPolicies(input: {
+  execSql?: ExecSql | undefined;
+  secretKey: Uint8Array;
+  wraps: readonly ContainerKeyWrap[];
+}): Promise<{ failure: unknown; key: Uint8Array | null }> {
+  if (input.wraps.length === 0) {
+    return { failure: undefined, key: null };
   }
-  let previousKeyEpoch = afterKeyEpoch;
-  for (const epoch of page.epochs) {
-    if (epoch.containerKeyEpoch <= previousKeyEpoch) {
-      throw new Error("Container KEK log page is out of order");
-    }
-    previousKeyEpoch = epoch.containerKeyEpoch;
+  try {
+    return {
+      failure: undefined,
+      key: await unwrapKeyEnvelopesWithPrincipalPolicies({
+        envelopes: input.wraps.map((wrap) => ({
+          keyFingerprint: wrap.recipientKeyFingerprint,
+          kemCipherText: wrap.kemCipherText,
+          wrappedKey: wrap.wrappedKey,
+        })),
+        execSql: input.execSql,
+        secretKey: input.secretKey,
+      }),
+    };
+  } catch (error) {
+    return { failure: error, key: null };
   }
 }
 
@@ -287,6 +288,12 @@ export async function recoverKeyringEntryFromWraps(input: {
    */
   parentKeysByEpochId?: ReadonlyMap<string, Uint8Array> | undefined;
   /**
+   * Fetches a principal's signed policy history. Supplied by callers that can
+   * reach the API; without it, a principal envelope addressed to a key epoch
+   * the requester no longer holds stays unopenable, exactly as before.
+   */
+  fetchPrincipalPolicyHistory?: PrincipalPolicyHistoryFetcher | undefined;
+  /**
    * The requester's user id. Direct user envelopes are matched against it, so
    * another member's envelope is never mistaken for an anchor — attempting it
    * would only produce a misleading failure.
@@ -306,29 +313,12 @@ export async function recoverKeyringEntryFromWraps(input: {
     );
   }
 
-  const attempt = async (
-    wraps: typeof epochWraps,
-  ): Promise<{ key: Uint8Array | null; failure: unknown }> => {
-    if (wraps.length === 0) {
-      return { failure: undefined, key: null };
-    }
-    try {
-      return {
-        failure: undefined,
-        key: await unwrapKeyEnvelopesWithPrincipalPolicies({
-          envelopes: wraps.map((wrap) => ({
-            keyFingerprint: wrap.recipientKeyFingerprint,
-            kemCipherText: wrap.kemCipherText,
-            wrappedKey: wrap.wrappedKey,
-          })),
-          execSql: input.execSql,
-          secretKey: input.secretKey,
-        }),
-      };
-    } catch (error) {
-      return { failure: error, key: null };
-    }
-  };
+  const attempt = (wraps: typeof epochWraps) =>
+    unwrapWrapsWithCurrentPolicies({
+      execSql: input.execSql,
+      secretKey: input.secretKey,
+      wraps,
+    });
 
   // A direct envelope is decryptable from identity keys alone, so its failure
   // means corruption — not an unreachable principal key. Neither failure ends
@@ -355,6 +345,21 @@ export async function recoverKeyringEntryFromWraps(input: {
   if (keyMaterial === null) {
     const principal = await attemptCommitted(principalWraps);
     keyMaterial = principal.key;
+    // Current policy could not open any principal envelope. Each one names the
+    // principal AND the key epoch it was sealed to, so the principal's own
+    // signed history can still supply that epoch's key — the case a member
+    // removed after the wrap was written, or a client that joined after a
+    // group key rotation, otherwise fails on.
+    keyMaterial ??= await openPrincipalWrapsThroughHistory({
+      containerKeyEpoch: input.epoch.containerKeyEpoch,
+      containerKeyEpochId: input.epoch.containerKeyEpochId,
+      containerId: input.containerId,
+      ...(input.fetchPrincipalPolicyHistory
+        ? { fetchHistory: input.fetchPrincipalPolicyHistory }
+        : {}),
+      principalWraps,
+      secretKey: input.secretKey,
+    });
     principalFailure = principal.failure;
   }
   // The inherited-only path: a parent-container envelope opens under the
@@ -396,75 +401,6 @@ export async function recoverKeyringEntryFromWraps(input: {
 }
 
 /**
- * Fetches the container's complete rotation log across pages. The endpoint
- * bounds each page, so a long-lived container needs several round trips; the
- * cursor is the last served epoch number.
- */
-export async function fetchContainerKekLog(input: {
-  apiClient: {
-    getContainerKekLog(
-      containerId: string,
-      options?: {
-        readonly afterKeyEpoch?: number;
-        readonly keyringForEpoch?: number;
-      },
-    ): Promise<ContainerKekLogResponse | null>;
-  };
-  containerId: string;
-  /** Ask for one historical keyring by epoch number; blobs are never bulk. */
-  keyringForEpoch?: number | undefined;
-}): Promise<AggregatedContainerKekLog> {
-  const epochs: ContainerKekLogEpochResponse[] = [];
-  let afterKeyEpoch = 0;
-  // A hostile server could claim `hasMore` forever. Two independent caps
-  // bound the walk: the protocol's lifetime rotation ceiling, and a page
-  // budget — a server that advances one epoch per page cannot force 65,536
-  // round trips, because a non-final page must be full.
-  const maxPages =
-    Math.ceil(MAX_CONTAINER_KEY_EPOCH / CONTAINER_KEK_LOG_PAGE_LIMIT) + 1;
-  let pages = 0;
-  while (afterKeyEpoch < MAX_CONTAINER_KEY_EPOCH) {
-    pages += 1;
-    if (pages > maxPages) {
-      throw new Error("Container KEK log exceeds its page budget");
-    }
-    const page = await input.apiClient.getContainerKekLog(input.containerId, {
-      afterKeyEpoch,
-      ...(input.keyringForEpoch === undefined
-        ? {}
-        : { keyringForEpoch: input.keyringForEpoch }),
-    });
-    if (!page) {
-      throw new Error("Container KEK log is unavailable");
-    }
-    if (page.hasMore && page.epochs.length < CONTAINER_KEK_LOG_PAGE_LIMIT) {
-      // Only the final page may be short; a partial page claiming more is a
-      // server stretching the walk across extra round trips.
-      throw new Error("Container KEK log page is short but claims more");
-    }
-    assertLogPageMatchesRequest(page, input.containerId, afterKeyEpoch);
-    epochs.push(...page.epochs);
-    if (epochs.length > MAX_CONTAINER_KEY_EPOCH) {
-      throw new Error("Container KEK log exceeds the maximum key epoch");
-    }
-    const lastEpoch = page.epochs.at(-1)?.containerKeyEpoch;
-    // Validate before returning, so a final page cannot smuggle an
-    // out-of-range epoch past the ceiling check.
-    if (lastEpoch !== undefined && lastEpoch > MAX_CONTAINER_KEY_EPOCH) {
-      throw new Error("Container KEK log exceeds the maximum key epoch");
-    }
-    if (!page.hasMore) {
-      return { containerId: page.containerId, epochs };
-    }
-    if (lastEpoch === undefined || lastEpoch <= afterKeyEpoch) {
-      throw new Error("Container KEK log page did not advance");
-    }
-    afterKeyEpoch = lastEpoch;
-  }
-  throw new Error("Container KEK log exceeds the maximum key epoch");
-}
-
-/**
  * Rebuilds the container's keyring entries from the append-only bridge log —
  * the recovery path when a served keyring fails verification. Each link was
  * written once by the rotator that provably held both keys, so the walk
@@ -474,6 +410,8 @@ export async function fetchContainerKekLog(input: {
  * re-seal via a repair rekey.
  */
 
+export { fetchContainerKekLog } from "./containerKekLogFetch";
+export type { PrincipalPolicyHistoryFetcher } from "./historicalPrincipalKeys";
 export type {
   AggregatedContainerKekLog,
   KeyringRebuildResult,

@@ -5,6 +5,8 @@ import {
   hasNumberProperty,
   hasObjectProperty,
   hasStringProperty,
+  PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT,
+  PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT,
 } from "../util";
 
 export interface PrincipalStateResponse {
@@ -83,6 +85,38 @@ export interface ReferencedPrincipalStateResponse {
 export interface PrincipalPolicyStateChainEntryResponse {
   state: PrincipalStateResponse;
   projection: PrincipalProjectionMemberResponse[];
+}
+
+/**
+ * One historical state, with the envelopes this requester could open at it.
+ *
+ * Distinct from `PrincipalPolicyStateChainEntryResponse`, which carries the
+ * signed header and projection but no key material: verifying the chain and
+ * recovering a key off it are different jobs, and only the recovery path pays
+ * for the envelopes.
+ *
+ * Carries no projection. A recovery walk reads the state header and the
+ * envelopes and nothing else, and a state's member list has no server-side
+ * bound — shipping it would put an unbounded field in a response whose whole
+ * point is being bounded. Callers that want membership read the current-policy
+ * bundle, which already exposes it.
+ */
+export interface PrincipalPolicyHistoryEntryResponse {
+  state: PrincipalStateResponse;
+  /**
+   * Envelopes at this state addressed to the requester or to a principal that
+   * authorizes them. Never the full member set — one member's envelope is not
+   * another's to read.
+   */
+  memberEnvelopes: PrincipalMemberEnvelopeResponse[];
+}
+
+export interface PrincipalPolicyHistoryResponse {
+  principalType: "group" | "organization";
+  principalId: string;
+  entries: PrincipalPolicyHistoryEntryResponse[];
+  /** True when states below this page's oldest remain unserved. */
+  hasMore: boolean;
 }
 
 export interface PrincipalPolicyBundleResponse {
@@ -248,6 +282,80 @@ export function isPrincipalPolicyStateChainEntryResponse(
     hasArrayProperty(value, "projection") &&
     value.projection.every(isPrincipalProjectionMemberResponse)
   );
+}
+
+export function isPrincipalPolicyHistoryEntryResponse(
+  value: unknown,
+): value is PrincipalPolicyHistoryEntryResponse {
+  return (
+    isPlainObject(value) &&
+    hasObjectProperty(value, "state") &&
+    isPrincipalStateResponse(value.state) &&
+    hasArrayProperty(value, "memberEnvelopes") &&
+    // The same per-state bound the server applies, re-checked on the way in so
+    // a hostile server cannot hand back an unbounded page.
+    value.memberEnvelopes.length <=
+      PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT &&
+    value.memberEnvelopes.every(isPrincipalMemberEnvelopeResponse)
+  );
+}
+
+/**
+ * Strictly descending by version.
+ *
+ * The recovery walk consumes pages newest-first and verifies each state
+ * against the next one's `prevStateHash`. A repeated or out-of-order version
+ * would re-apply a state already verified, or break the chain check on a page
+ * boundary, so the ordering is part of the contract rather than a convention.
+ */
+function isStrictlyDescendingByVersion(
+  entries: readonly PrincipalPolicyHistoryEntryResponse[],
+): boolean {
+  for (const [index, entry] of entries.entries()) {
+    const previous = entries[index - 1];
+    if (previous && entry.state.version >= previous.state.version) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function isPrincipalPolicyHistoryResponse(
+  value: unknown,
+): value is PrincipalPolicyHistoryResponse {
+  if (
+    !isPlainObject(value) ||
+    !hasStringProperty(value, "principalType") ||
+    !isManagedPrincipalType(value.principalType) ||
+    !hasStringProperty(value, "principalId") ||
+    typeof Reflect.get(value, "hasMore") !== "boolean" ||
+    !hasArrayProperty(value, "entries")
+  ) {
+    return false;
+  }
+
+  const entries: unknown[] = value.entries;
+  if (entries.length > PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT) {
+    return false;
+  }
+
+  const validated: PrincipalPolicyHistoryEntryResponse[] = [];
+  for (const entry of entries) {
+    if (!isPrincipalPolicyHistoryEntryResponse(entry)) {
+      return false;
+    }
+    // Every entry must be a state OF the principal this page claims to
+    // describe. Without this a page could carry another principal's states and
+    // the walk would chain and use them as if they belonged here.
+    if (
+      entry.state.principalType !== value.principalType ||
+      entry.state.principalId !== value.principalId
+    ) {
+      return false;
+    }
+    validated.push(entry);
+  }
+  return isStrictlyDescendingByVersion(validated);
 }
 
 export function isPrincipalPolicyBundleResponse(

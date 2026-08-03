@@ -38,8 +38,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 532,
-      "bytes": 24670
+      "lines": 551,
+      "bytes": 25503
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -66,12 +66,12 @@
       "bytes": 35585
     },
     "docs/protocol-specification.md": {
-      "lines": 529,
-      "bytes": 23571
+      "lines": 585,
+      "bytes": 27100
     },
     "docs/security-guarantees.md": {
-      "lines": 475,
-      "bytes": 24120
+      "lines": 486,
+      "bytes": 24954
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
@@ -82,8 +82,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1793,
-      "bytes": 57510
+      "lines": 1811,
+      "bytes": 58123
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,

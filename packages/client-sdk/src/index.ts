@@ -352,6 +352,7 @@ export {
   HistoricalWrapUnavailableError,
   type HistoricalWrapUnavailableReason,
   moveRemoteContainer,
+  type PrincipalPolicyHistoryFetcher,
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,
   rekeyRemoteContainer,
