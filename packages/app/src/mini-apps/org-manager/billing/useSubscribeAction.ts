@@ -84,6 +84,8 @@ async function restoreClaimAndBindNativeSubscription(input: {
     if (!claimed) {
       throw new Error("The server did not accept the native subscription");
     }
+    // The server claim is already durable. Keep this marker across every bind
+    // failure so a retry cannot re-claim the same receipt; only binding remains.
     input.pendingBindScopeRef.current = input.scope;
   }
   await input.purchases.bindOrganization({

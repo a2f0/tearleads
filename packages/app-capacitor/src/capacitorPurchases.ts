@@ -296,6 +296,7 @@ export function createCapacitorPurchases(input?: {
       : platform === "ios"
         ? "app_store"
         : "play_store",
+    restorePurchasesBuyerPaced: platform === "ios",
     syncEntitlementId,
     ...(operationTimeoutMs === undefined ? {} : { operationTimeoutMs }),
   });

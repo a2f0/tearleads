@@ -98,6 +98,53 @@ test("checkout blocks identity changes but not provider reads", async () => {
   expect(laterReadStarted).toBe(true);
 });
 
+test("a restore waits only for identity changes pending at reservation", async () => {
+  const backend = createBackend();
+  const firstLogin = createDeferred();
+  const firstLoginStarted = createDeferred();
+  const restore = createDeferred();
+  const restoreStarted = createDeferred();
+  backend.logIn = async ({ appUserId }) => {
+    backend.calls.push(`login:${appUserId}`);
+    if (appUserId === "user-2") {
+      firstLoginStarted.resolve();
+      await firstLogin.promise;
+    }
+  };
+  const identity = coordinator(backend);
+  await identity.identify("user-1");
+  const firstIdentity = identity.identify("user-2");
+  await firstLoginStarted.promise;
+
+  const restoring = identity.runProviderOperation({
+    buyerPaced: true,
+    operation: async () => {
+      backend.calls.push("restore");
+      restoreStarted.resolve();
+      await restore.promise;
+    },
+    operationName: "restore",
+    waitForCheckout: true,
+  });
+  const laterIdentity = identity.identify("user-3");
+  firstLogin.resolve();
+
+  await restoreStarted.promise;
+  expect(backend.calls).toEqual([
+    "configure:user-1",
+    "login:user-2",
+    "restore",
+  ]);
+  restore.resolve();
+  await Promise.all([firstIdentity, restoring, laterIdentity]);
+  expect(backend.calls).toEqual([
+    "configure:user-1",
+    "login:user-2",
+    "restore",
+    "login:user-3",
+  ]);
+});
+
 test("a buyer-paced checkout keeps a waiting identity retryable", async () => {
   const backend = createBackend();
   const checkout = createDeferred();

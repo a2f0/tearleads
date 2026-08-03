@@ -46,9 +46,7 @@ class RevenueCatIdentityCoordinatorState
     | RevenueCatOperationTimeoutError
     | undefined;
   private identityMutationInFlight = false;
-  private pendingIdentityChanges = 0;
-  private identityIdle: Promise<void> | undefined;
-  private resolveIdentityIdle: (() => void) | undefined;
+  private readonly pendingIdentityChanges = new Set<Promise<void>>();
   private providerTail = Promise.resolve();
   private readonly checkouts = new RevenueCatCheckoutGateCoordinator();
 
@@ -117,7 +115,7 @@ class RevenueCatIdentityCoordinatorState
     if (timedOut) return timedOut;
     const ready = this.startConfiguration(appUserId);
     if (
-      this.pendingIdentityChanges === 0 &&
+      this.pendingIdentityChanges.size === 0 &&
       !this.retryIdentity &&
       this.currentAppUserId === appUserId
     ) {
@@ -160,7 +158,7 @@ class RevenueCatIdentityCoordinatorState
     if (timedOut) return timedOut;
     const ready = this.startConfiguration();
     if (
-      this.pendingIdentityChanges === 0 &&
+      this.pendingIdentityChanges.size === 0 &&
       !this.retryIdentity &&
       this.currentAppUserId === null
     ) {
@@ -217,21 +215,20 @@ class RevenueCatIdentityCoordinatorState
     operation: () => Promise<void>,
     operationName: string,
   ): Promise<void> {
-    if (this.pendingIdentityChanges === 0) {
-      this.identityIdle = new Promise<void>((resolve) => {
-        this.resolveIdentityIdle = resolve;
-      });
-    }
-    this.pendingIdentityChanges += 1;
+    let resolveCompletion = () => {};
+    const completion = new Promise<void>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    this.pendingIdentityChanges.add(completion);
     const transition = this.checkouts.afterActive(() =>
       this.enqueueProviderOperation(operation),
     );
     const settled = transition.then(
       () => {
-        this.finishIdentityChange();
+        this.finishIdentityChange(completion, resolveCompletion);
       },
       (error) => {
-        this.finishIdentityChange();
+        this.finishIdentityChange(completion, resolveCompletion);
         throw normalizeRevenueCatError(error);
       },
     );
@@ -245,13 +242,20 @@ class RevenueCatIdentityCoordinatorState
     });
   }
 
-  private finishIdentityChange(): void {
-    this.pendingIdentityChanges -= 1;
-    if (this.pendingIdentityChanges !== 0) return;
-    this.pendingIdentityTimeoutError = undefined;
-    this.resolveIdentityIdle?.();
-    this.identityIdle = undefined;
-    this.resolveIdentityIdle = undefined;
+  private finishIdentityChange(
+    completion: Promise<void>,
+    resolveCompletion: () => void,
+  ): void {
+    this.pendingIdentityChanges.delete(completion);
+    if (this.pendingIdentityChanges.size === 0) {
+      this.pendingIdentityTimeoutError = undefined;
+    }
+    resolveCompletion();
+  }
+
+  private identityChangesBeforeNow(): Promise<void> | undefined {
+    if (this.pendingIdentityChanges.size === 0) return undefined;
+    return Promise.all(this.pendingIdentityChanges).then(() => undefined);
   }
 
   runCustomerMutation(input: RevenueCatCustomerMutation): Promise<void> {
@@ -277,7 +281,7 @@ class RevenueCatIdentityCoordinatorState
     if (pendingError && requiresKnownIdentity) {
       return Promise.reject(copyRevenueCatError(pendingError));
     }
-    const identityBeforeOperation = this.identityIdle;
+    const identityBeforeOperation = this.identityChangesBeforeNow();
     const reservation = providerInput.waitForCheckout
       ? this.checkouts.reserve()
       : undefined;
@@ -314,12 +318,9 @@ class RevenueCatIdentityCoordinatorState
           if (lateTimeout !== undefined) clearTimeout(lateTimeout);
         }
       });
-    const identityToAwait = reservation
-      ? identityBeforeOperation
-      : this.identityIdle;
     const scheduleAfterIdentity = () =>
-      requiresKnownIdentity && identityToAwait
-        ? identityToAwait.then(schedule)
+      requiresKnownIdentity && identityBeforeOperation
+        ? identityBeforeOperation.then(schedule)
         : schedule();
     const operation = reservation
       ? reservation.ready.then(scheduleAfterIdentity)
@@ -366,7 +367,7 @@ class RevenueCatIdentityCoordinatorState
     if (
       this.pendingIdentityTimeoutError ||
       this.pendingProviderTimeoutError ||
-      this.identityIdle
+      this.pendingIdentityChanges.size > 0
     ) {
       return Promise.reject(new RevenueCatCheckoutIdentityPendingError());
     }

@@ -31,6 +31,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
                     Self.rejectBridgeValidation(call)
                     return
                 }
+                self.preparedPackages.removeAll(keepingCapacity: true)
                 self.preparedPackages[packageId] = package
                 call.resolve()
             } catch {

@@ -29,12 +29,14 @@ function createBackend(): RevenueCatBackend {
 
 function purchases(
   backend: RevenueCatBackend,
-  nativeStore: "app_store" | "play_store" = "play_store",
+  nativeStore: "app_store" | "play_store" | "test_store" = "play_store",
+  restorePurchasesBuyerPaced = nativeStore === "app_store",
 ) {
   return createRevenueCatPurchases(backend, {
     apiKey: "key",
     nativeStore,
     operationTimeoutMs: 50,
+    restorePurchasesBuyerPaced,
     syncEntitlementId: "sync",
   });
 }
@@ -108,7 +110,7 @@ test("organization binding exposes a terminal provider timeout", async () => {
   ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
 });
 
-test("restore stays buyer-paced beyond the ordinary provider deadline", async () => {
+test("iOS Test Store restore stays buyer-paced beyond the deadline", async () => {
   const backend = createBackend();
   let finishRestore = () => {};
   let markRestoreStarted = () => {};
@@ -123,7 +125,7 @@ test("restore stays buyer-paced beyond the ordinary provider deadline", async ()
     await restoreReady;
     return { activeEntitlementIds: ["sync"] };
   };
-  const capability = purchases(backend, "app_store");
+  const capability = purchases(backend, "test_store", true);
   let settled = false;
   const restoring = capability.restore().then(() => {
     settled = true;

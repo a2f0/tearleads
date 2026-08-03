@@ -168,6 +168,12 @@ export interface RevenueCatPurchasesConfig {
   /** Store represented by this SDK key; null for Web Billing. */
   readonly nativeStore: NativeSubscriptionStore | null;
   /**
+   * Whether restore may present buyer-controlled authentication UI. This is a
+   * platform property, not a key/store property: an iOS Test Store key still
+   * uses Apple's buyer-paced restore flow.
+   */
+  readonly restorePurchasesBuyerPaced: boolean;
+  /**
    * Whether this platform may start RevenueCat purchases. Defaults to true.
    * Set false when RevenueCat is retained only for entitlement observation.
    */
@@ -387,7 +393,7 @@ export function createRevenueCatPurchases(
         // App Store restore may show buyer-controlled Apple sign-in UI. Google
         // Play restore has no equivalent sheet, so bound it like any other
         // bridge call instead of leaving an Android spinner up forever.
-        buyerPaced: config.nativeStore === "app_store",
+        buyerPaced: config.restorePurchasesBuyerPaced,
         identity,
         operation: () => backend.restorePurchases(),
         operationName: "restore",

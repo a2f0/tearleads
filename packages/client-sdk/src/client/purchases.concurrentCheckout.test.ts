@@ -50,6 +50,7 @@ function createFixture() {
   const purchases = createRevenueCatPurchases(backend, {
     apiKey: "key",
     nativeStore: "test_store",
+    restorePurchasesBuyerPaced: false,
     syncEntitlementId: "sync",
   });
   return {

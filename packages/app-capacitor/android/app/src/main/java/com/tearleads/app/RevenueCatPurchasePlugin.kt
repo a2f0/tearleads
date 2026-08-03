@@ -43,6 +43,7 @@ class RevenueCatPurchasePlugin : Plugin() {
                     rejectBridgeValidation(call)
                     return
                 }
+                preparedPackages.clear()
                 preparedPackages[packageId] = prepared
                 call.resolve()
             }
@@ -61,16 +62,18 @@ class RevenueCatPurchasePlugin : Plugin() {
         }
         val packageId = call.getString("packageId")
         val productId = call.getString("productId")
-        val prepared = packageId?.let(preparedPackages::remove)
-        if (packageId.isNullOrEmpty() || productId.isNullOrEmpty() ||
-            prepared?.product?.id != productId
-        ) {
+        if (packageId.isNullOrEmpty() || productId.isNullOrEmpty()) {
             rejectBridgeValidation(call)
             return
         }
         val replacementName = call.getString("replacementMode")
         val replacementMode = replacementMode(replacementName)
         if (replacementName != null && replacementMode == null) {
+            rejectBridgeValidation(call)
+            return
+        }
+        val prepared = preparedPackages.remove(packageId)
+        if (prepared?.product?.id != productId) {
             rejectBridgeValidation(call)
             return
         }

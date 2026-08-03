@@ -48,6 +48,9 @@ test("iOS project registers the RevenueCat purchase plugin contract", async () =
     "preparedPackages.removeValue(forKey: packageId)",
   );
   expect(purchasePlugin).toContain(
+    "preparedPackages.removeAll(keepingCapacity: true)",
+  );
+  expect(purchasePlugin).toContain(
     "candidate.userInfo[NSUnderlyingErrorKey] as? NSError",
   );
   expect(purchasePlugin).toContain('"bridge-invalid"');
@@ -170,7 +173,8 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
     '@CapacitorPlugin(name = "RevenueCatPurchase")',
   );
   expect(purchasePlugin).toContain("preparedPackages[packageId] = prepared");
-  expect(purchasePlugin).toContain("packageId?.let(preparedPackages::remove)");
+  expect(purchasePlugin).toContain("preparedPackages.clear()");
+  expect(purchasePlugin).toContain("preparedPackages.remove(packageId)");
   expect(purchasePlugin).toContain("Purchases.sharedInstance.purchase(");
   expect(purchasePlugin.match(/\.getOfferings\(/g) ?? []).toHaveLength(1);
   expect(purchasePlugin).toContain(
