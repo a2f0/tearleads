@@ -17,7 +17,7 @@ import { routeApp } from "../../routeApp";
 
 async function putPolicy(input: {
   actor: TestUser;
-  members: { principalId: string; principalType: "user" }[];
+  members: { principalId: string; principalType: "group" | "user" }[];
   principalId: string;
   // The principal's KEM keypair is carried across versions; a fresh one per
   // PUT is a key rotation the successor rules reject.

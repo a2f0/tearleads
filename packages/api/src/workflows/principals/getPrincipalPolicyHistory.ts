@@ -6,6 +6,7 @@ import type {
 import { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "@tearleads/validators/util";
 import { listPrincipalMemberEnvelopesForStates } from "../../access/read/principalMemberEnvelopes";
 import {
+  getCurrentPrincipalState,
   listPrincipalGroupMemberCandidates,
   listPrincipalStateHistoryPage,
 } from "../../access/read/principalStateStore";
@@ -66,14 +67,21 @@ export async function runGetPrincipalPolicyHistoryWorkflow(input: {
     // the page's full projection never reaches the application — a state's
     // member list has no server-side bound, and this endpoint's whole point is
     // being bounded.
-    const groupIds = await listPrincipalGroupMemberCandidates(
-      {
-        principalId: input.principalId,
-        principalType: input.principalType,
-        stateHashes: page.states.map((state) => state.stateHash),
-      },
+    const currentState = await getCurrentPrincipalState(
+      input.principalType,
+      input.principalId,
       tx,
     );
+    const groupIds = currentState
+      ? await listPrincipalGroupMemberCandidates(
+          {
+            currentStateHash: currentState.stateHash,
+            principalId: input.principalId,
+            principalType: input.principalType,
+          },
+          tx,
+        )
+      : [];
 
     // One reachability walk for the whole page, not one per state.
     const reachableGroupIds = await listUserReachableCurrentGroupIds({

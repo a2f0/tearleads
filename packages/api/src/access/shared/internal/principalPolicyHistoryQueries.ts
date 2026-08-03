@@ -89,15 +89,23 @@ export async function listPrincipalStateHistoryPage(
  */
 export async function listPrincipalGroupMemberCandidates(
   input: {
+    /**
+     * The principal's CURRENT state hash — not the page's states.
+     *
+     * Scoping to current membership is what stops a privilege escalation: a
+     * user who joins group G today would otherwise be served every envelope P
+     * ever addressed to G, including states from before they joined. If G's
+     * key was never rotated on that join — an additive membership change need
+     * not rotate — they would decrypt P key epochs they never had access to.
+     * Restricting to groups still in P keeps the rotation case working while
+     * closing that path; a group removed from P is covered by issue #1948.
+     */
+    readonly currentStateHash: string;
     readonly principalId: string;
     readonly principalType: ManagedRecipientPrincipalType;
-    readonly stateHashes: readonly string[];
   },
   executor: DatabaseSession,
 ): Promise<string[]> {
-  if (input.stateHashes.length === 0) {
-    return [];
-  }
   const rows = await executor
     .select({
       memberPrincipalId: principalMembershipProjection.memberPrincipalId,
@@ -108,9 +116,7 @@ export async function listPrincipalGroupMemberCandidates(
         eq(principalMembershipProjection.principalType, input.principalType),
         eq(principalMembershipProjection.principalId, input.principalId),
         eq(principalMembershipProjection.memberPrincipalType, "group"),
-        inArray(principalMembershipProjection.stateHash, [
-          ...input.stateHashes,
-        ]),
+        eq(principalMembershipProjection.stateHash, input.currentStateHash),
       ),
     )
     .groupBy(principalMembershipProjection.memberPrincipalId)
