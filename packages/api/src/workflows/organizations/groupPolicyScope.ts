@@ -11,7 +11,7 @@ export async function hasOnlySameOrganizationGroupMembers(input: {
   const nestedGroupIds = [
     ...new Set(
       input.projection
-        .filter((member) => member.memberPrincipalType === "group")
+        .filter((member) => member.userId === "group")
         .map((member) => member.userId),
     ),
   ];

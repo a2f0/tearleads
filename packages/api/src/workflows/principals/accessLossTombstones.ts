@@ -9,14 +9,10 @@ import {
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   getCurrentPrincipalStates,
-  type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 
 type ManagedPrincipalType = StoredPrincipalState["principalType"];
-type PrincipalMemberType =
-  StoredPrincipalProjectionMember["memberPrincipalType"];
-
 interface PrincipalReference {
   readonly principalId: string;
   readonly principalType: ManagedPrincipalType;
@@ -67,12 +63,6 @@ function toPrincipalReference(
   };
 }
 
-function principalMemberTypeForPrincipal(
-  principalType: ManagedPrincipalType,
-): PrincipalMemberType | null {
-  return principalType === "group" ? "group" : null;
-}
-
 async function loadCurrentStatesByReference(input: {
   readonly executor: DatabaseTransaction;
   readonly principals: Iterable<PrincipalReference>;
@@ -119,15 +109,7 @@ async function listParentPrincipalMemberships(input: {
       stateHash: principalMembershipProjection.stateHash,
     })
     .from(principalMembershipProjection)
-    .where(
-      and(
-        eq(
-          principalMembershipProjection.memberPrincipalType,
-          input.memberPrincipalType,
-        ),
-        inArray(principalMembershipProjection.userId, userIds),
-      ),
-    );
+    .where(and(inArray(principalMembershipProjection.userId, userIds)));
 }
 
 async function listCurrentParentPrincipalMemberships(input: {
@@ -148,58 +130,24 @@ async function listCurrentParentPrincipalMemberships(input: {
   );
 }
 
-async function collectCurrentAncestorPrincipals(input: {
-  readonly executor: DatabaseTransaction;
+/**
+ * The principals whose access must be reconsidered — which is exactly the seed
+ * set.
+ *
+ * This used to walk upward through containing principals, because a group could
+ * be a member of another group and losing access to the inner one propagated
+ * outward. Principals contain only users now, so a principal has no containing
+ * principals and there is nothing to traverse.
+ */
+function collectCurrentAncestorPrincipals(input: {
   readonly seedPrincipals: readonly PrincipalReference[];
-}): Promise<Map<string, PrincipalReference>> {
-  const principalsByKey = new Map<string, PrincipalReference>();
-  let frontier = [...input.seedPrincipals];
-
-  for (const principal of frontier) {
-    principalsByKey.set(principalKey(principal), principal);
-  }
-
-  while (frontier.length > 0) {
-    const memberIdsByType = new Map<PrincipalMemberType, Set<string>>();
-    for (const principal of frontier) {
-      const memberType = principalMemberTypeForPrincipal(
-        principal.principalType,
-      );
-      if (!memberType) {
-        continue;
-      }
-
-      const memberIds = memberIdsByType.get(memberType) ?? new Set<string>();
-      memberIds.add(principal.principalId);
-      memberIdsByType.set(memberType, memberIds);
-    }
-
-    const nextFrontier: PrincipalReference[] = [];
-    for (const [memberPrincipalType, userIds] of memberIdsByType) {
-      const parentMemberships = await listCurrentParentPrincipalMemberships({
-        executor: input.executor,
-        memberPrincipalType,
-        userIds,
-      });
-
-      for (const membership of parentMemberships) {
-        const principal = {
-          principalType: membership.principalType,
-          principalId: membership.principalId,
-        };
-        const key = principalKey(principal);
-        if (principalsByKey.has(key)) {
-          continue;
-        }
-        principalsByKey.set(key, principal);
-        nextFrontier.push(principal);
-      }
-    }
-
-    frontier = nextFrontier;
-  }
-
-  return principalsByKey;
+}): Map<string, PrincipalReference> {
+  return new Map(
+    input.seedPrincipals.map((principal) => [
+      principalKey(principal),
+      principal,
+    ]),
+  );
 }
 
 async function collectCurrentPrincipalsForUsers(input: {
@@ -241,10 +189,10 @@ async function collectCurrentPrincipalsForUsers(input: {
       }
       userPrincipals.set(key, item.principal);
 
-      const memberType = principalMemberTypeForPrincipal(
-        item.principal.principalType,
-      );
-      if (!memberType) {
+      // Only a group principal can itself appear in another principal's
+      // membership — and none can, now that principals contain users only. The
+      // frontier therefore never advances past its seed.
+      if (item.principal.principalType !== "group") {
         continue;
       }
 
@@ -496,8 +444,7 @@ async function buildPrincipalPolicyAccessLossRows(input: {
     return [];
   }
 
-  const affectedPrincipals = await collectCurrentAncestorPrincipals({
-    executor: input.executor,
+  const affectedPrincipals = collectCurrentAncestorPrincipals({
     seedPrincipals: [toPrincipalReference(input.currentState)],
   });
   const candidateContainers = await loadCandidateContainersForPrincipals({
@@ -624,8 +571,7 @@ export async function candidateContainerIdsForPrincipalState(input: {
   readonly currentState: StoredPrincipalState;
   readonly executor: DatabaseTransaction;
 }): Promise<string[]> {
-  const affectedPrincipals = await collectCurrentAncestorPrincipals({
-    executor: input.executor,
+  const affectedPrincipals = collectCurrentAncestorPrincipals({
     seedPrincipals: [toPrincipalReference(input.currentState)],
   });
   const candidateContainers = await loadCandidateContainersForPrincipals({

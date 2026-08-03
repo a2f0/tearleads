@@ -334,9 +334,7 @@ async function lockOrganizationReadModelForPolicyMutation(
     : input.projection;
   const isDirectAdmin = authorizationProjection.some(
     (member) =>
-      member.memberPrincipalType === "user" &&
-      member.userId === input.state.signerUserId &&
-      member.role === "admin",
+      member.userId === input.state.signerUserId && member.role === "admin",
   );
   const isOrganizationAdmin =
     !isDirectAdmin &&

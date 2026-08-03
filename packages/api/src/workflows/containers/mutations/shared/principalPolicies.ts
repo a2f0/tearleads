@@ -17,10 +17,7 @@ import { getCurrentPrincipalPolicyWithExecutor } from "../../../principals/getCu
 import { ContainerMutationError } from "../errors";
 
 function projectionMemberKey(
-  member: Pick<
-    PrincipalProjectionMember,
-    "userId" | "memberPrincipalType" | "role"
-  >,
+  member: Pick<PrincipalProjectionMember, "userId" | "role">,
 ): string {
   return [member.userId, member.role].join(":");
 }

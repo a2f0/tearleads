@@ -18,10 +18,7 @@ export function projectionIncludesAdminUser(
   userId: string,
 ): boolean {
   return projection.some(
-    (member) =>
-      member.memberPrincipalType === "user" &&
-      member.userId === userId &&
-      member.role === "admin",
+    (member) => member.userId === userId && member.role === "admin",
   );
 }
 
@@ -62,8 +59,7 @@ export async function validatePrincipalStateArtifacts(
     computePrincipalProjectionRoot(input.projection),
     computePrincipalMembershipRoot(
       input.projection.map((member) => ({
-        principalType: member.memberPrincipalType,
-        principalId: member.userId,
+        userId: member.userId,
       })),
     ),
     computePrincipalMemberEnvelopesRoot(input.memberEnvelopes),

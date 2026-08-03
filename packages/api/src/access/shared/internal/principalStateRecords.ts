@@ -253,7 +253,7 @@ export function normalizePrincipalStateWriteInput(
 }
 
 export function projectionMemberKey(member: PrincipalProjectionMember): string {
-  return `${member.memberPrincipalType}:${member.userId}:${member.role}`;
+  return `${member.userId}:${member.role}`;
 }
 
 export function principalStateProjectionKey(input: {

@@ -106,11 +106,7 @@ export async function runContainerKekLogWorkflow(
     // envelopes would disclose history for nothing.
     const authorizedPrincipals = access.principalPolicies
       .filter((policy) =>
-        policy.projection.some(
-          (member) =>
-            member.memberPrincipalType === "user" &&
-            member.userId === input.userId,
-        ),
+        policy.projection.some((member) => member.userId === input.userId),
       )
       .map((policy) => ({
         principalId: policy.principalId,

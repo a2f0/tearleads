@@ -250,7 +250,7 @@ function validateInitialOrganizationPolicyInput(
   if (
     projection.length !== 1 ||
     !onlyProjectionMember ||
-    onlyProjectionMember.memberPrincipalType !== "user" ||
+    false ||
     onlyProjectionMember.userId !== input.userId ||
     onlyProjectionMember.role !== "admin" ||
     state.memberCount !== 1
@@ -265,7 +265,7 @@ function validateInitialOrganizationPolicyInput(
   if (
     memberEnvelopes.length !== 1 ||
     !onlyMemberEnvelope ||
-    onlyMemberEnvelope.memberPrincipalType !== "user" ||
+    false ||
     onlyMemberEnvelope.userId !== input.userId ||
     onlyMemberEnvelope.memberKeyFingerprint !== encapsulationFingerprint
   ) {
@@ -323,7 +323,7 @@ function validateInitialAdminGroupInput(
   if (
     projection.length !== 1 ||
     !onlyProjectionMember ||
-    onlyProjectionMember.memberPrincipalType !== "user" ||
+    false ||
     onlyProjectionMember.userId !== input.userId ||
     onlyProjectionMember.role !== "admin" ||
     state.memberCount !== 1
@@ -338,7 +338,7 @@ function validateInitialAdminGroupInput(
   if (
     memberEnvelopes.length !== 1 ||
     !onlyMemberEnvelope ||
-    onlyMemberEnvelope.memberPrincipalType !== "user" ||
+    false ||
     onlyMemberEnvelope.userId !== input.userId ||
     onlyMemberEnvelope.memberKeyFingerprint !== encapsulationFingerprint
   ) {
@@ -400,12 +400,11 @@ function validateInitialMemberGroupInput(
   }
 
   const userMember = projection.find(
-    (member) =>
-      member.memberPrincipalType === "user" && member.userId === input.userId,
+    (member) => member.userId === "user" && member.userId === input.userId,
   );
   const adminGroupMember = projection.find(
     (member) =>
-      member.memberPrincipalType === "group" &&
+      member.userId === "group" &&
       member.userId === input.initialAdminGroup.groupId,
   );
   if (
@@ -421,13 +420,11 @@ function validateInitialMemberGroupInput(
   }
 
   const userEnvelope = memberEnvelopes.find(
-    (envelope) =>
-      envelope.memberPrincipalType === "user" &&
-      envelope.userId === input.userId,
+    (envelope) => envelope.userId === input.userId,
   );
   const adminGroupEnvelope = memberEnvelopes.find(
     (envelope) =>
-      envelope.memberPrincipalType === "group" &&
+      envelope.userId === "group" &&
       envelope.userId === input.initialAdminGroup.groupId,
   );
   if (

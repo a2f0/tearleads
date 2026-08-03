@@ -12,12 +12,11 @@ import type {
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, eq, notInArray } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
   getCurrentPrincipalStates,
   listCurrentPrincipalProjectionMembers,
-  type StoredPrincipalProjectionMember,
 } from "../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import { lockGroupReferenceExclusiveInTransaction } from "../principals/groupReferenceLock";
@@ -29,10 +28,7 @@ import {
   requireDeletableOrganizationGroup,
   requireOrganizationGroupWithoutDeleteBlockers,
 } from "./groupDeletion";
-import {
-  type OrganizationGroupCatalogRow,
-  toOrganizationGroupMemberResponse,
-} from "./groupMemberships";
+import { toOrganizationGroupMemberResponse } from "./groupMemberships";
 import { toGroupSummary } from "./groupSummary";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
@@ -195,34 +191,6 @@ async function listOrganizationGroupSummariesInTransaction(input: {
   };
 }
 
-async function loadNestedGroupsById(input: {
-  executor: DatabaseSession;
-  groupMembers: ReadonlyArray<StoredPrincipalProjectionMember>;
-  organizationId: string;
-}): Promise<Map<string, OrganizationGroupCatalogRow>> {
-  if (input.groupMembers.length === 0) {
-    return new Map();
-  }
-
-  const rows = await input.executor
-    .select({
-      groupId: groupsTable.id,
-      groupName: groupsTable.name,
-    })
-    .from(groupsTable)
-    .where(
-      and(
-        eq(groupsTable.organizationId, input.organizationId),
-        inArray(
-          groupsTable.id,
-          input.groupMembers.map((member) => member.userId),
-        ),
-      ),
-    );
-
-  return new Map(rows.map((row) => [row.groupId, row]));
-}
-
 async function listOrganizationGroupMembersInTransaction(input: {
   executor: DatabaseSession;
   groupId: string;
@@ -250,28 +218,16 @@ async function listOrganizationGroupMembersInTransaction(input: {
     input.groupId,
     input.executor,
   );
-  const userMembers = projection.filter(
-    (member) => member.memberPrincipalType === "user",
-  );
-  const groupMembers = projection.filter(
-    (member) => member.memberPrincipalType === "group",
-  );
   const usersById = await loadUsersById(
     input.executor,
-    userMembers.map((member) => member.userId),
+    projection.map((member) => member.userId),
   );
-  const groupsById = await loadNestedGroupsById({
-    executor: input.executor,
-    groupMembers,
-    organizationId: input.organizationId,
-  });
 
   return {
     organizationId: input.organizationId,
     groupId: input.groupId,
     members: projection.map((member) =>
       toOrganizationGroupMemberResponse({
-        groupsById,
         member,
         usersById,
       }),

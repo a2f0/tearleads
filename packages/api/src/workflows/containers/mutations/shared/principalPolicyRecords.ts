@@ -33,12 +33,6 @@ function isManagedPrincipalKind(value: unknown): value is ManagedPrincipalKind {
   return value === "group" || value === "organization";
 }
 
-function isPrincipalProjectionMemberType(
-  value: unknown,
-): value is PrincipalProjectionMember["memberPrincipalType"] {
-  return value === "group" || value === "user";
-}
-
 function isPrincipalProjectionRole(
   value: unknown,
 ): value is PrincipalProjectionMember["role"] {
@@ -50,21 +44,13 @@ function readPrincipalProjectionMember(
   label: string,
 ): PrincipalProjectionMember {
   const record = readProjectionPlainRecord(value, label, mutationShapeError);
-  const memberPrincipalType = readProjectionValue(
-    record,
-    "memberPrincipalType",
-  );
   const role = readProjectionValue(record, "role");
 
-  if (!isPrincipalProjectionMemberType(memberPrincipalType)) {
-    throw mutationShapeError(`${label}.memberPrincipalType is invalid`);
-  }
   if (!isPrincipalProjectionRole(role)) {
     throw mutationShapeError(`${label}.role is invalid`);
   }
 
   return {
-    memberPrincipalType,
     userId: readProjectionString(record, "userId", label, mutationShapeError),
     role,
   };

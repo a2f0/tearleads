@@ -10,7 +10,7 @@ export async function assertPrincipalPolicyGroupReferencesExist(input: {
   const missingGroupIds = await lockAndFindMissingGroupReferencesInTransaction(
     input.tx,
     input.projection.flatMap((member) =>
-      member.memberPrincipalType === "group" ? [member.userId] : [],
+      member.userId === "group" ? [member.userId] : [],
     ),
   );
   if (missingGroupIds.length > 0) {

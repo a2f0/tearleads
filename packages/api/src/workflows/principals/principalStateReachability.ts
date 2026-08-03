@@ -79,7 +79,7 @@ export async function listUserIdsReachableFromPrincipalState(input: {
     for (const state of frontier) {
       for (const member of projectionsByState.get(projectionStateKey(state)) ??
         []) {
-        if (member.memberPrincipalType === "user") {
+        if (member.userId === "user") {
           userIds.add(member.userId);
           continue;
         }

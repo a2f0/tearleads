@@ -127,7 +127,7 @@ export async function listPrincipalMemberEnvelopesForStates(
           -- alone, with no further principal to resolve. Ordering by member
           -- type alone sorts 'group' ahead of 'user' and would spend the cap
           -- on envelopes that need another key to open.
-          case when ${principalMemberEnvelopes.memberPrincipalType} = 'user' then 0 else 1 end,
+          case when ${principalMemberEnvelopes.userId} = 'user' then 0 else 1 end,
           ${principalMemberEnvelopes.userId}
       )`.as("state_rank"),
     })
