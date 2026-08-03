@@ -1,63 +1,43 @@
-export interface RevenueCatIdentityBackend {
+import { RevenueCatCheckoutGateCoordinator } from "./revenueCatCheckoutGate";
+import {
+  copyRevenueCatError,
+  normalizeRevenueCatError,
+  RevenueCatCheckoutAbandonedError,
+  RevenueCatCheckoutIdentityPendingError,
+  type RevenueCatOperationTimeoutError,
+  withRevenueCatOperationTimeout,
+} from "./revenueCatErrors";
+
+export {
+  RevenueCatCheckoutAbandonedError,
+  RevenueCatCheckoutIdentityPendingError,
+  RevenueCatOperationTimeoutError,
+  revenueCatOperationTimeoutMs,
+} from "./revenueCatErrors";
+
+interface RevenueCatIdentityBackend {
   configure(input: { apiKey: string; appUserId?: string }): Promise<void>;
   logIn(input: { appUserId: string }): Promise<void>;
   logOut(): Promise<void>;
 }
 
-const DEFAULT_OPERATION_TIMEOUT_MS = 30_000;
-
-export function revenueCatOperationTimeoutMs(
-  configuredTimeoutMs: number | undefined,
-): number {
-  const timeoutMs = configuredTimeoutMs ?? DEFAULT_OPERATION_TIMEOUT_MS;
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    throw new RangeError("RevenueCat operation timeout must be positive");
-  }
-  return timeoutMs;
-}
-
-export function withRevenueCatOperationTimeout<T>(input: {
-  readonly operation: () => Promise<T>;
-  readonly operationName: string;
-  readonly onTimeout?: () => void;
-  readonly timeoutMs: number;
-}): Promise<T> {
-  // The native bridge exposes no cancellation primitive. The deadline releases
-  // this caller, while the underlying operation remains owned by the identity
-  // queue so a retry cannot start a conflicting provider mutation.
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<never>((_resolve, reject) => {
-    timeout = setTimeout(() => {
-      input.onTimeout?.();
-      reject(
-        new Error(
-          `RevenueCat ${input.operationName} timed out after ${input.timeoutMs}ms`,
-        ),
-      );
-    }, input.timeoutMs);
-  });
-  return Promise.race([
-    Promise.resolve().then(input.operation),
-    deadline,
-  ]).finally(() => {
-    if (timeout !== undefined) clearTimeout(timeout);
-  });
-}
-
 interface RevenueCatProviderOperation<T> {
+  /** True for provider flows that may wait on buyer-controlled store UI. */
+  readonly buyerPaced?: boolean;
   readonly operation: () => Promise<T>;
   readonly operationName: string;
   /** False only for provider state that is not scoped to a customer. */
   readonly requiresKnownIdentity?: boolean;
 }
 
-interface RevenueCatIdentityCoordinator {
+export interface RevenueCatIdentityCoordinator {
   identify(appUserId: string): Promise<void>;
   reset(): Promise<void>;
   runProviderOperation<T>(input: RevenueCatProviderOperation<T>): Promise<T>;
   runCheckout<T>(input: {
     readonly abortSignal?: AbortSignal;
     readonly operation: () => Promise<T>;
+    readonly prepare?: () => Promise<void>;
   }): Promise<T>;
 }
 
@@ -67,12 +47,11 @@ interface RevenueCatIdentityCoordinatorInput {
   readonly timeoutMs: number;
 }
 
-interface RevenueCatCheckoutGate {
-  readonly promise: Promise<void>;
-  readonly release: () => void;
-}
-
-/** Serializes identity changes and identity-dependent provider operations. */
+/**
+ * Serializes identity changes and identity-dependent provider operations.
+ * Once an identity mutation times out, every provider call fails fast because
+ * the single native queue's ownership is unknown until that mutation settles.
+ */
 class RevenueCatIdentityCoordinatorState
   implements RevenueCatIdentityCoordinator
 {
@@ -81,11 +60,18 @@ class RevenueCatIdentityCoordinatorState
   private currentAppUserId: string | null | undefined;
   private retryIdentity: (() => Promise<void>) | undefined;
   private blockedIdentityError: Error | undefined;
+  private wedgedIdentityError: Error | undefined;
+  private pendingIdentityTimeoutError: Error | undefined;
+  private pendingProviderTimeoutError: Error | undefined;
+  private identityMutationTimeoutError: Error | undefined;
+  private blockingFlowTimeoutError: Error | undefined;
+  private buyerPacedInFlight = false;
+  private identityMutationInFlight = false;
   private pendingIdentityChanges = 0;
   private identityIdle: Promise<void> | undefined;
   private resolveIdentityIdle: (() => void) | undefined;
   private providerTail = Promise.resolve();
-  private readonly activeCheckouts = new Set<Promise<void>>();
+  private readonly checkouts = new RevenueCatCheckoutGateCoordinator();
 
   constructor(private readonly input: RevenueCatIdentityCoordinatorInput) {}
 
@@ -97,7 +83,11 @@ class RevenueCatIdentityCoordinatorState
         ? { apiKey: this.input.apiKey }
         : { apiKey: this.input.apiKey, appUserId };
     const attempt = Promise.resolve()
-      .then(() => this.input.backend.configure(configureInput))
+      .then(() =>
+        this.runIdentityMutation(() =>
+          this.input.backend.configure(configureInput),
+        ),
+      )
       .then(() => {
         // A bare configure can restore a previously persisted identified user.
         // Keep that identity unknown so reset still performs a real logOut.
@@ -106,8 +96,9 @@ class RevenueCatIdentityCoordinatorState
     const cached = attempt.catch((error) => {
       if (this.configured === cached) this.configured = undefined;
       this.currentAppUserId = undefined;
-      throw error;
+      throw normalizeRevenueCatError(error);
     });
+    void cached.catch(() => undefined);
     this.configured = cached;
     return cached;
   }
@@ -124,7 +115,9 @@ class RevenueCatIdentityCoordinatorState
   }
 
   private async recoverIdentity(): Promise<void> {
-    if (this.blockedIdentityError) throw this.blockedIdentityError;
+    if (this.blockedIdentityError) {
+      throw copyRevenueCatError(this.blockedIdentityError);
+    }
     const retry = this.retryIdentity;
     if (!retry) return;
     // Recovery is deliberately one-shot. A deterministic provider failure
@@ -135,29 +128,27 @@ class RevenueCatIdentityCoordinatorState
       await retry();
     } catch (error) {
       this.currentAppUserId = undefined;
-      this.blockedIdentityError =
-        error instanceof Error
-          ? error
-          : new Error("RevenueCat identity recovery failed");
+      this.blockedIdentityError = normalizeRevenueCatError(error);
       throw this.blockedIdentityError;
     }
   }
 
   identify(appUserId: string): Promise<void> {
+    const timedOut = this.rejectIfIdentityTimedOut<void>();
+    if (timedOut) return timedOut;
     const ready = this.startConfiguration(appUserId);
     if (
       this.pendingIdentityChanges === 0 &&
+      !this.retryIdentity &&
       this.currentAppUserId === appUserId
     ) {
-      this.retryIdentity = undefined;
       this.blockedIdentityError = undefined;
       return this.withTimeout(ready, "identification");
     }
     return this.runIdentityChange(async () => {
       await ready;
       // configure({ appUserId }) already establishes this exact identity.
-      if (this.currentAppUserId === appUserId) {
-        this.retryIdentity = undefined;
+      if (!this.retryIdentity && this.currentAppUserId === appUserId) {
         this.blockedIdentityError = undefined;
         return;
       }
@@ -168,13 +159,17 @@ class RevenueCatIdentityCoordinatorState
   private async logIn(appUserId: string): Promise<void> {
     this.blockedIdentityError = undefined;
     try {
-      await this.input.backend.logIn({ appUserId });
+      await this.runIdentityMutation(() =>
+        this.input.backend.logIn({ appUserId }),
+      );
       this.currentAppUserId = appUserId;
       this.retryIdentity = undefined;
       this.blockedIdentityError = undefined;
     } catch (error) {
       this.retryIdentity = async () => {
-        await this.input.backend.logIn({ appUserId });
+        await this.runIdentityMutation(() =>
+          this.input.backend.logIn({ appUserId }),
+        );
         this.currentAppUserId = appUserId;
       };
       throw error;
@@ -182,16 +177,20 @@ class RevenueCatIdentityCoordinatorState
   }
 
   reset(): Promise<void> {
+    const timedOut = this.rejectIfIdentityTimedOut<void>();
+    if (timedOut) return timedOut;
     const ready = this.startConfiguration();
-    if (this.pendingIdentityChanges === 0 && this.currentAppUserId === null) {
-      this.retryIdentity = undefined;
+    if (
+      this.pendingIdentityChanges === 0 &&
+      !this.retryIdentity &&
+      this.currentAppUserId === null
+    ) {
       this.blockedIdentityError = undefined;
       return this.withTimeout(ready, "reset");
     }
     return this.runIdentityChange(async () => {
       await ready;
-      if (this.currentAppUserId === null) {
-        this.retryIdentity = undefined;
+      if (!this.retryIdentity && this.currentAppUserId === null) {
         this.blockedIdentityError = undefined;
         return;
       }
@@ -202,23 +201,35 @@ class RevenueCatIdentityCoordinatorState
   private async logOut(): Promise<void> {
     this.blockedIdentityError = undefined;
     try {
-      await this.input.backend.logOut();
+      await this.runIdentityMutation(() => this.input.backend.logOut());
       this.currentAppUserId = null;
       this.retryIdentity = undefined;
       this.blockedIdentityError = undefined;
     } catch (error) {
       this.retryIdentity = async () => {
-        await this.input.backend.logOut();
+        await this.runIdentityMutation(() => this.input.backend.logOut());
         this.currentAppUserId = null;
       };
       throw error;
     }
   }
 
-  private afterActiveCheckouts<T>(operation: () => Promise<T>): Promise<T> {
-    if (this.activeCheckouts.size === 0) return operation();
-    const active = Array.from(this.activeCheckouts);
-    return Promise.all(active).then(() => this.afterActiveCheckouts(operation));
+  private async runIdentityMutation(
+    operation: () => Promise<void>,
+  ): Promise<void> {
+    this.identityMutationInFlight = true;
+    try {
+      await operation();
+    } finally {
+      this.identityMutationInFlight = false;
+      if (
+        this.identityMutationTimeoutError !== undefined &&
+        this.wedgedIdentityError === this.identityMutationTimeoutError
+      ) {
+        this.wedgedIdentityError = undefined;
+      }
+      this.identityMutationTimeoutError = undefined;
+    }
   }
 
   private runIdentityChange(
@@ -231,7 +242,7 @@ class RevenueCatIdentityCoordinatorState
       });
     }
     this.pendingIdentityChanges += 1;
-    const transition = this.afterActiveCheckouts(() =>
+    const transition = this.checkouts.afterActive(() =>
       this.enqueueProviderOperation(operation),
     );
     const settled = transition.then(
@@ -240,15 +251,31 @@ class RevenueCatIdentityCoordinatorState
       },
       (error) => {
         this.finishIdentityChange();
-        throw error;
+        throw normalizeRevenueCatError(error);
       },
     );
-    return this.withTimeout(settled, operationName);
+    return this.withTimeout(settled, operationName, (error) => {
+      this.pendingIdentityTimeoutError = error;
+      if (this.identityMutationInFlight) {
+        error.markRestartRequired();
+        this.identityMutationTimeoutError = error;
+        this.wedgedIdentityError = error;
+      } else if (this.checkouts.hasActive || this.buyerPacedInFlight) {
+        error.markRestartRequired();
+        this.blockingFlowTimeoutError = error;
+        this.wedgedIdentityError = error;
+      }
+    });
   }
 
   private finishIdentityChange(): void {
     this.pendingIdentityChanges -= 1;
     if (this.pendingIdentityChanges !== 0) return;
+    if (this.wedgedIdentityError === this.blockingFlowTimeoutError) {
+      this.wedgedIdentityError = undefined;
+    }
+    this.blockingFlowTimeoutError = undefined;
+    this.pendingIdentityTimeoutError = undefined;
     this.resolveIdentityIdle?.();
     this.identityIdle = undefined;
     this.resolveIdentityIdle = undefined;
@@ -257,43 +284,113 @@ class RevenueCatIdentityCoordinatorState
   runProviderOperation<T>(
     providerInput: RevenueCatProviderOperation<T>,
   ): Promise<T> {
-    const ready = this.startConfiguration();
     const requiresKnownIdentity = providerInput.requiresKnownIdentity !== false;
+    if (this.wedgedIdentityError) {
+      return Promise.reject(copyRevenueCatError(this.wedgedIdentityError));
+    }
+    const pendingError =
+      this.pendingIdentityTimeoutError ?? this.pendingProviderTimeoutError;
+    if (pendingError && requiresKnownIdentity) {
+      return Promise.reject(copyRevenueCatError(pendingError));
+    }
+    const ready = this.startConfiguration();
+    let providerStarted = false;
+    let abandoned = false;
+    let resolvePreflight = () => {};
+    let rejectPreflight = (_error: unknown) => {};
+    const preflight = new Promise<void>((resolve, reject) => {
+      resolvePreflight = resolve;
+      rejectPreflight = reject;
+    });
+    void preflight.catch(() => undefined);
     const schedule = () =>
       this.enqueueProviderOperation(async () => {
-        await ready;
-        if (requiresKnownIdentity) await this.recoverIdentity();
-        return providerInput.operation();
+        try {
+          await ready;
+          if (requiresKnownIdentity) await this.recoverIdentity();
+        } catch (error) {
+          rejectPreflight(error);
+          throw error;
+        }
+        if (abandoned) {
+          const error = new RevenueCatCheckoutAbandonedError();
+          rejectPreflight(error);
+          throw error;
+        }
+        providerStarted = true;
+        if (providerInput.buyerPaced) this.buyerPacedInFlight = true;
+        resolvePreflight();
+        try {
+          return await providerInput.operation();
+        } finally {
+          if (providerInput.buyerPaced) this.buyerPacedInFlight = false;
+        }
       });
     const operation =
       requiresKnownIdentity && this.identityIdle
         ? this.identityIdle.then(schedule)
         : schedule();
-    return this.withTimeout(operation, providerInput.operationName);
+    if (providerInput.buyerPaced) {
+      void operation.catch(() => undefined);
+      return this.withProviderTimeout(
+        preflight,
+        `${providerInput.operationName} preparation`,
+        () => this.identityMutationInFlight,
+        () => {
+          abandoned = true;
+        },
+      ).then(() => operation);
+    }
+    return this.withProviderTimeout(
+      operation,
+      providerInput.operationName,
+      () =>
+        providerStarted ||
+        this.identityMutationInFlight ||
+        this.buyerPacedInFlight,
+    );
   }
 
   runCheckout<T>(checkoutInput: {
     readonly abortSignal?: AbortSignal;
     readonly operation: () => Promise<T>;
+    readonly prepare?: () => Promise<void>;
   }): Promise<T> {
+    if (this.wedgedIdentityError) {
+      return Promise.reject(copyRevenueCatError(this.wedgedIdentityError));
+    }
+    if (
+      this.pendingIdentityTimeoutError ||
+      this.pendingProviderTimeoutError ||
+      this.identityIdle
+    ) {
+      return Promise.reject(new RevenueCatCheckoutIdentityPendingError());
+    }
     const ready = this.startConfiguration();
-    const gate = this.createCheckoutGate(checkoutInput.abortSignal);
-    let abandoned = false;
+    let abandoned = checkoutInput.abortSignal?.aborted ?? false;
+    const gate = this.checkouts.create(checkoutInput.abortSignal, () => {
+      abandoned = true;
+      void ready.catch(() => undefined);
+    });
     const abandon = () => {
       abandoned = true;
       gate.release();
     };
+    let providerPreparationStarted = false;
     const registration = this.enqueueProviderOperation(async () => {
+      if (abandoned) throw new RevenueCatCheckoutAbandonedError();
       await ready;
       await this.recoverIdentity();
-      if (abandoned) {
-        throw new Error("RevenueCat checkout preparation was abandoned");
-      }
-      return this.startCheckout(checkoutInput.operation, gate);
+      if (abandoned) throw new RevenueCatCheckoutAbandonedError();
+      providerPreparationStarted = true;
+      await checkoutInput.prepare?.();
+      if (abandoned) throw new RevenueCatCheckoutAbandonedError();
+      return this.checkouts.start(checkoutInput.operation, gate);
     });
-    const prepared = this.withTimeout(
+    const prepared = this.withProviderTimeout(
       registration,
       "checkout preparation",
+      () => providerPreparationStarted || this.buyerPacedInFlight,
       abandon,
     ).catch((error) => {
       abandon();
@@ -302,45 +399,10 @@ class RevenueCatIdentityCoordinatorState
     return prepared.then(({ result }) => result);
   }
 
-  private createCheckoutGate(
-    abortSignal: AbortSignal | undefined,
-  ): RevenueCatCheckoutGate {
-    let resolveGate = () => {};
-    let released = false;
-    const promise = new Promise<void>((resolve) => {
-      resolveGate = resolve;
-    });
-    const release = () => {
-      if (released) return;
-      released = true;
-      abortSignal?.removeEventListener("abort", release);
-      this.activeCheckouts.delete(promise);
-      resolveGate();
-    };
-    this.activeCheckouts.add(promise);
-    if (abortSignal?.aborted) {
-      release();
-    } else {
-      abortSignal?.addEventListener("abort", release, { once: true });
-    }
-    return { promise, release };
-  }
-
-  private startCheckout<T>(
-    operation: () => Promise<T>,
-    gate: RevenueCatCheckoutGate,
-  ): {
-    result: Promise<T>;
-  } {
-    const result = Promise.resolve().then(operation);
-    void result.then(gate.release, gate.release);
-    return { result };
-  }
-
   private withTimeout<T>(
     operation: Promise<T>,
     operationName: string,
-    onTimeout?: () => void,
+    onTimeout?: (error: RevenueCatOperationTimeoutError) => void,
   ): Promise<T> {
     return withRevenueCatOperationTimeout({
       operation: () => operation,
@@ -348,6 +410,42 @@ class RevenueCatIdentityCoordinatorState
       ...(onTimeout ? { onTimeout } : {}),
       timeoutMs: this.input.timeoutMs,
     });
+  }
+
+  private withProviderTimeout<T>(
+    operation: Promise<T>,
+    operationName: string,
+    hasStarted: () => boolean,
+    onTimeout?: () => void,
+  ): Promise<T> {
+    let timeoutError: RevenueCatOperationTimeoutError | undefined;
+    const clearWedge = () => {
+      if (this.wedgedIdentityError === timeoutError) {
+        this.wedgedIdentityError = undefined;
+      }
+      if (this.pendingProviderTimeoutError === timeoutError) {
+        this.pendingProviderTimeoutError = undefined;
+      }
+    };
+    void operation.then(clearWedge, clearWedge);
+    return this.withTimeout(operation, operationName, (error) => {
+      timeoutError = error;
+      if (hasStarted()) {
+        error.markRestartRequired();
+        this.wedgedIdentityError = error;
+      } else {
+        this.pendingProviderTimeoutError = error;
+      }
+      onTimeout?.();
+    });
+  }
+
+  private rejectIfIdentityTimedOut<T>(): Promise<T> | undefined {
+    const error =
+      this.wedgedIdentityError ??
+      this.pendingIdentityTimeoutError ??
+      this.pendingProviderTimeoutError;
+    return error ? Promise.reject(copyRevenueCatError(error)) : undefined;
   }
 }
 

@@ -90,6 +90,7 @@ export function renderBillingActions(input: {
   checkoutHostRef?: RefObject<HTMLElement | null>;
   purchases: PurchasesCapability;
   nativePurchaseAllowed?: boolean;
+  optionsRetryDelaysMs?: readonly number[];
   claimNativeSubscription?: () => Promise<boolean>;
   refresh?: () => Promise<void>;
   startTrial?: () => Promise<boolean>;
@@ -130,6 +131,9 @@ export function renderBillingActions(input: {
           : {}),
         isOrgAdmin: isOrgAdmin ?? true,
         nativePurchaseAllowed: input.nativePurchaseAllowed ?? true,
+        ...(input.optionsRetryDelaysMs
+          ? { optionsRetryDelaysMs: input.optionsRetryDelaysMs }
+          : {}),
         organizationId,
         refresh: input.refresh ?? (() => Promise.resolve()),
         startTrial: input.startTrial ?? (() => Promise.resolve(true)),

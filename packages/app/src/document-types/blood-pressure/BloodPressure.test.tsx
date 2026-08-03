@@ -86,9 +86,10 @@ const attributedResolver = (peer: string | null): string | null => {
 };
 function renderBloodPressureFields(params?: {
   currentAuthorId?: string | null;
+  editingReadingId?: string | null;
   isEditing?: boolean | undefined;
   onAddReading?: (reading: BloodPressureQuickReading) => Promise<string | null>;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   onRemoveReading?: (id: string) => void;
   onRenameTracker?: (value: string) => void;
   onToggleEditing?: () => void;
@@ -102,6 +103,7 @@ function renderBloodPressureFields(params?: {
     <WithWindowToolbar>
       <BloodPressureFields
         currentAuthorId={params?.currentAuthorId ?? null}
+        editingReadingId={params?.editingReadingId}
         isEditing={params?.isEditing}
         onAddReading={
           params?.onAddReading ?? (() => Promise.resolve("new-reading"))
@@ -237,11 +239,11 @@ test("read-only viewer opens attribution directly, without showing values", () =
 });
 
 test("writer's kebab menu offers Edit and Attribution", () => {
-  const edits: boolean[] = [];
+  const editedReadingIds: string[] = [];
   const view = renderBloodPressureFields({
     currentAuthorId: "user-alice",
     isEditing: false,
-    onEnterEdit: () => edits.push(true),
+    onEnterEdit: (id) => editedReadingIds.push(id),
     readings: [attributedReading],
     resolveRowWriter: attributedResolver,
   });
@@ -259,7 +261,16 @@ test("writer's kebab menu offers Edit and Attribution", () => {
   // Edit switches the tracker into edit mode.
   fireEvent.click(view.getByRole("button", { name: "Reading 1 actions" }));
   fireEvent.click(view.getByRole("button", { name: "Edit" }));
-  expect(edits).toHaveLength(1);
+  expect(editedReadingIds).toEqual(["r1"]);
+});
+
+test("a row-specific edit keeps the other readings saved", () => {
+  const view = renderBloodPressureFields({ editingReadingId: "r2" });
+
+  expect(view.queryByLabelText("Reading 1 systolic")).toBeNull();
+  expect(view.getByLabelText("Reading 2 systolic")).toBeTruthy();
+  expect(view.getByRole("button", { name: "Reading 1 actions" })).toBeTruthy();
+  expect(view.queryByRole("button", { name: "Reading 2 actions" })).toBeNull();
 });
 
 test("read mode leaves the tracker name to the document title bar", () => {

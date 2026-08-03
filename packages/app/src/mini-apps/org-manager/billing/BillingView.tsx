@@ -88,6 +88,7 @@ export interface BillingViewProps {
   readonly busy: BillingBusyAction | null;
   readonly activationPending: boolean;
   readonly actionError: string | null;
+  readonly optionsRetryAvailable?: boolean;
   readonly onStartTrial: () => void;
   readonly onSubscribe: (option: SyncSubscriptionOption) => void;
   /**
@@ -98,6 +99,7 @@ export interface BillingViewProps {
    */
   readonly onCancelCheckout?: () => void;
   readonly onRestore: () => void;
+  readonly onRetryOptions?: () => void;
   readonly onRefresh: () => void;
 }
 
@@ -290,6 +292,17 @@ function BillingAdminActions({
       />
 
       <MiniAppActions>
+        {props.optionsRetryAvailable &&
+        props.purchaseAvailable &&
+        !props.purchaseSectionHidden &&
+        props.onRetryOptions ? (
+          <MiniAppButton
+            disabled={props.busy !== null}
+            onClick={props.onRetryOptions}
+          >
+            {ORG_MANAGER_LABELS.billingRetryOptions}
+          </MiniAppButton>
+        ) : null}
         {props.restoreAvailable ? (
           <MiniAppButton
             disabled={props.busy !== null}

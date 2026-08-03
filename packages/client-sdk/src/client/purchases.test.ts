@@ -3,6 +3,7 @@ import {
   createRevenueCatPurchases,
   createUnavailablePurchases,
   PurchaseCancelledError,
+  PurchaseProviderStalledError,
   PurchasesUnavailableError,
   type RevenueCatBackend,
   type RevenueCatCustomerInfo,
@@ -132,13 +133,35 @@ test("identify configures directly onto the first app user id", async () => {
   expect(backend.calls).not.toContain("logIn:user-42");
 });
 
+test("normalizes a plain provider identity error consistently", async () => {
+  const backend = createFakeBackend();
+  const providerError = { code: "10", message: "Provider offline" };
+  backend.logIn = () => Promise.reject(providerError);
+  const purchases = createRevenueCatPurchases(backend, CONFIG);
+  await purchases.listSyncOptions();
+  const firstError = await purchases.identify({ userId: "user-1" }).then(
+    () => null,
+    (rejection: unknown) => rejection,
+  );
+  const retryError = await purchases.hasActiveSyncEntitlement().then(
+    () => null,
+    (rejection: unknown) => rejection,
+  );
+  for (const error of [firstError, retryError]) {
+    expect(error).toBeInstanceOf(Error);
+    if (!(error instanceof Error)) throw new Error("Expected provider error");
+    expect(error.message).toBe("Provider offline");
+    expect(error.cause).toBe(providerError);
+  }
+});
+
 test("rejects an invalid provider operation timeout at construction", () => {
   expect(() =>
     createRevenueCatPurchases(createFakeBackend(), {
       ...CONFIG,
       operationTimeoutMs: 0,
     }),
-  ).toThrow("RevenueCat operation timeout must be positive");
+  ).toThrow("RevenueCat operation timeout must be a positive finite number");
 });
 
 test("listSyncOptions maps provider packages to display options", async () => {
@@ -208,7 +231,7 @@ test("purchaseSync forwards the checkout host and abort signal to the backend", 
   expect(backend.purchaseInputs[1]?.abortSignal).toBeUndefined();
 });
 
-test("a live checkout delays identity changes but not entitlement reads", async () => {
+test("a hung checkout makes a delayed identity change terminal", async () => {
   const backend = createFakeBackend({ entitlementsNow: ["sync"] });
   const checkout = createDeferred();
   const checkoutStarted = createDeferred();
@@ -218,7 +241,10 @@ test("a live checkout delays identity changes but not entitlement reads", async 
     await checkout.promise;
     return { activeEntitlementIds: ["sync"] };
   };
-  const purchases = createRevenueCatPurchases(backend, CONFIG);
+  const purchases = createRevenueCatPurchases(backend, {
+    ...CONFIG,
+    operationTimeoutMs: 50,
+  });
   await purchases.identify({ userId: "user-1" });
   const purchasing = purchases.purchaseSync({
     organizationId: "org-1",
@@ -230,10 +256,64 @@ test("a live checkout delays identity changes but not entitlement reads", async 
   const identifying = purchases.identify({ userId: "user-2" });
   await Promise.resolve();
   expect(backend.calls).not.toContain("logIn:user-2");
+  await expect(identifying).rejects.toBeInstanceOf(
+    PurchaseProviderStalledError,
+  );
+  await expect(purchases.listSyncOptions()).rejects.toBeInstanceOf(
+    PurchaseProviderStalledError,
+  );
+  await expect(purchases.hasActiveSyncEntitlement()).rejects.toBeInstanceOf(
+    PurchaseProviderStalledError,
+  );
 
   checkout.resolve();
-  await Promise.all([purchasing, identifying]);
+  await purchasing;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await purchases.identify({ userId: "user-2" });
   expect(backend.calls).toContain("logIn:user-2");
+
+  backend.logIn = () => new Promise(() => {});
+  await expect(purchases.identify({ userId: "user-3" })).rejects.toBeInstanceOf(
+    PurchaseProviderStalledError,
+  );
+  await expect(purchases.listSyncOptions()).rejects.toBeInstanceOf(
+    PurchaseProviderStalledError,
+  );
+  await expect(
+    purchases.purchaseSync({ organizationId: "org-1", packageId: "monthly" }),
+  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
+});
+
+test("a pending identity change surfaces a retryable pre-checkout error", async () => {
+  const backend = createFakeBackend();
+  const login = createDeferred();
+  const loginStarted = createDeferred();
+  backend.logIn = async () => {
+    loginStarted.resolve();
+    await login.promise;
+  };
+  const purchases = createRevenueCatPurchases(backend, CONFIG);
+  await purchases.listSyncOptions();
+  const identifying = purchases.identify({ userId: "user-2" });
+  await loginStarted.promise;
+
+  const error = await purchases
+    .purchaseSync({
+      organizationId: "org-1",
+      packageId: "monthly",
+    })
+    .then(
+      () => null,
+      (rejection: unknown) => rejection,
+    );
+  expect(error).toBeInstanceOf(Error);
+  if (!(error instanceof Error)) throw new Error("Expected checkout error");
+  expect(error.name).toBe("PurchaseIdentityPendingError");
+  expect(error.message).toContain("has not settled");
+  login.resolve();
+  await identifying;
+  expect(backend.calls).not.toContain("purchasePackage:monthly");
+  expect(backend.calls).not.toContain("setAttributes");
 });
 
 test("purchaseSync normalizes post-abort preparation failures to cancellation", async () => {
@@ -344,19 +424,6 @@ test("restore leaves org attribution unchanged until the server accepts it", asy
     backend.calls.indexOf("restorePurchases"),
   );
   expect(purchases.nativeStore).toBe("test_store");
-});
-
-test("restore rejects instead of waiting forever for the provider", async () => {
-  const backend = createFakeBackend();
-  backend.restorePurchases = () => new Promise(() => {});
-  const purchases = createRevenueCatPurchases(backend, {
-    ...CONFIG,
-    operationTimeoutMs: 5,
-  });
-
-  await expect(purchases.restore()).rejects.toThrow(
-    "RevenueCat restore timed out after 5ms",
-  );
 });
 
 test("restore waits for a queued identity transition", async () => {

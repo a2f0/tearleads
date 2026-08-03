@@ -86,7 +86,7 @@ function getEnvFileColumns(context: {
  */
 export function EnvFileReadTable(params: {
   currentAuthorId: string | null;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   resolveRowWriter?: RowWriterResolver | undefined;
   variables: ReadonlyArray<EnvVariableRow>;
 }) {
@@ -118,7 +118,9 @@ export function EnvFileReadTable(params: {
             detailLabel="Details"
             detailsOpen={detailRowId === row.entry.id}
             directAriaLabel={`Env variable ${row.index + 1} details`}
-            onEnterEdit={onEnterEdit}
+            onEnterEdit={
+              onEnterEdit ? () => onEnterEdit(row.entry.id) : undefined
+            }
             onOpenDetails={() => setDetailRowId(row.entry.id)}
           />
         )}

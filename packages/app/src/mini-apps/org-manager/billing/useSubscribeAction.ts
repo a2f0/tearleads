@@ -2,11 +2,13 @@ import {
   PurchaseAbortedError,
   PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
+  PurchaseIdentityPendingError,
+  PurchaseProviderStalledError,
   type PurchasesCapability,
   type SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
-import { type RefObject, useCallback, useState } from "react";
+import { type RefObject, useCallback, useRef, useState } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import {
   formatBillingPurchaseFailure,
@@ -42,6 +44,12 @@ interface UseNativeSubscriptionMoveInput {
 }
 
 function nativeSubscriptionClaimErrorLabel(error: unknown): string {
+  if (error instanceof PurchaseProviderStalledError) {
+    return ORG_MANAGER_LABELS.billingProviderStalled;
+  }
+  if (error instanceof PurchaseIdentityPendingError) {
+    return ORG_MANAGER_LABELS.billingIdentityPending;
+  }
   if (typeof error !== "object" || error === null || !("status" in error)) {
     return ORG_MANAGER_LABELS.failedRestorePurchases;
   }
@@ -49,6 +57,39 @@ function nativeSubscriptionClaimErrorLabel(error: unknown): string {
   if (error.status === 409) return ORG_MANAGER_LABELS.nativeClaimConflict;
   if (error.status === 503) return ORG_MANAGER_LABELS.nativeClaimPending;
   return ORG_MANAGER_LABELS.failedRestorePurchases;
+}
+
+async function restoreClaimAndBindNativeSubscription(input: {
+  readonly claimNativeSubscription: (
+    store: NativeSubscriptionStore,
+  ) => Promise<boolean>;
+  readonly pendingBindScopeRef: RefObject<BillingActionScope | null>;
+  readonly purchases: PurchasesCapability;
+  readonly scope: BillingActionScope;
+  readonly userId: string | null;
+}): Promise<void> {
+  if (!input.userId || !input.purchases.nativeStore) {
+    throw new Error("Native subscription restore is unavailable");
+  }
+  const pendingScope = input.pendingBindScopeRef.current;
+  if (pendingScope === null || !scopeMatches(pendingScope, input.scope)) {
+    await input.purchases.identify({ userId: input.userId });
+    const restored = await input.purchases.restore();
+    if (!restored.syncEntitlementActive) {
+      throw new Error("The restored receipt has no sync entitlement");
+    }
+    const claimed = await input.claimNativeSubscription(
+      input.purchases.nativeStore,
+    );
+    if (!claimed) {
+      throw new Error("The server did not accept the native subscription");
+    }
+    input.pendingBindScopeRef.current = input.scope;
+  }
+  await input.purchases.bindOrganization({
+    organizationId: input.scope.organizationId,
+  });
+  input.pendingBindScopeRef.current = null;
 }
 
 /** Owns confirmation and the verified native restore/claim sequence. */
@@ -66,6 +107,7 @@ export function useNativeSubscriptionMove(
   } = input;
   const { logError } = useLog();
   const [openScope, setOpenScope] = useState<BillingActionScope | null>(null);
+  const pendingBindScopeRef = useRef<BillingActionScope | null>(null);
   const open = openScope !== null && scopeMatches(openScope, currentScope);
   const request = useCallback(() => setOpenScope(currentScope), [currentScope]);
   const dismiss = useCallback(() => setOpenScope(null), []);
@@ -80,20 +122,12 @@ export function useNativeSubscriptionMove(
     }));
     void (async () => {
       try {
-        if (!userId || !purchases.nativeStore) {
-          throw new Error("Native subscription restore is unavailable");
-        }
-        await purchases.identify({ userId });
-        const restored = await purchases.restore();
-        if (!restored.syncEntitlementActive) {
-          throw new Error("The restored receipt has no sync entitlement");
-        }
-        const claimed = await claimNativeSubscription(purchases.nativeStore);
-        if (!claimed) {
-          throw new Error("The server did not accept the native subscription");
-        }
-        await purchases.bindOrganization({
-          organizationId: scope.organizationId,
+        await restoreClaimAndBindNativeSubscription({
+          claimNativeSubscription,
+          pendingBindScopeRef,
+          purchases,
+          scope,
+          userId,
         });
         if (scopeMatches(scopeRef.current, scope)) await refresh();
       } catch (error) {
@@ -276,6 +310,20 @@ function handleExpectedPurchaseError(input: {
   return false;
 }
 
+function reportUnexpectedPurchaseError(error: unknown): void {
+  if (error instanceof PurchaseIdentityPendingError) return;
+  console.error("Failed to complete the organization sync purchase:", error);
+}
+
+function purchaseErrorLabel(error: unknown): string {
+  if (error instanceof PurchaseIdentityPendingError) {
+    return ORG_MANAGER_LABELS.billingIdentityPending;
+  }
+  return error instanceof PurchaseProviderStalledError
+    ? ORG_MANAGER_LABELS.billingProviderStalled
+    : ORG_MANAGER_LABELS.failedSubscribe;
+}
+
 /**
  * Runs one purchase attempt end to end. The embedded Web Billing checkout has
  * no provider-side abort API, which shapes everything here:
@@ -414,10 +462,10 @@ async function purchaseForOrganization({
     // ConfigurationError from a key/offering mismatch) so it is diagnosable,
     // while still surfacing the generic label to the user.
     traceError(formatBillingPurchaseFailure(error));
-    console.error("Failed to complete the organization sync purchase:", error);
+    reportUnexpectedPurchaseError(error);
     updateActionState(scope, (current) => ({
       ...current,
-      actionError: ORG_MANAGER_LABELS.failedSubscribe,
+      actionError: purchaseErrorLabel(error),
     }));
   } finally {
     // This attempt is settled from the panel's point of view; whatever the

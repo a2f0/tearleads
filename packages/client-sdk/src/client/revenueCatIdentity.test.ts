@@ -3,7 +3,6 @@ import type { RevenueCatBackend } from "./purchases";
 import {
   createRevenueCatIdentityCoordinator,
   revenueCatOperationTimeoutMs,
-  withRevenueCatOperationTimeout,
 } from "./revenueCatIdentity";
 
 interface RecordingBackend extends RevenueCatBackend {
@@ -138,29 +137,38 @@ test("different-user identity transitions do not overlap", async () => {
   await Promise.all([first, second]);
 });
 
-test("a provider read safely retries a failed identity change", async () => {
+test("a delayed identity recovery clears its timeout wedge", async () => {
   const backend = createBackend();
+  const recovery = createDeferred();
+  const readRan = createDeferred();
   let attempts = 0;
   backend.logIn = async (input) => {
     attempts += 1;
     backend.calls.push(`login:${input.appUserId}`);
     if (attempts === 1) throw new Error("login failed");
+    await recovery.promise;
   };
-  const identity = coordinator(backend);
+  const identity = coordinator(backend, 5);
   await configureAnonymously(identity);
 
   await expect(identity.identify("user-1")).rejects.toThrow("login failed");
   let reads = 0;
-  const read = () =>
-    identity.runProviderOperation({
-      operation: async () => {
-        reads += 1;
-      },
-      operationName: "test read",
-    });
-  // A failed identity change must not read the prior buyer's state. The queue
-  // retries the requested identity before allowing the provider read through.
-  await read();
+  const read = identity.runProviderOperation({
+    operation: async () => {
+      reads += 1;
+      readRan.resolve();
+    },
+    operationName: "test read",
+  });
+  await expect(read).rejects.toThrow(
+    "RevenueCat test read timed out after 5ms",
+  );
+  await expect(identity.identify("user-2")).rejects.toThrow(
+    "RevenueCat test read timed out after 5ms",
+  );
+  recovery.resolve();
+  await readRan.promise;
+  await new Promise((resolve) => setTimeout(resolve, 0));
   await identity.identify("user-1");
 
   expect(attempts).toBe(2);
@@ -277,135 +285,6 @@ test("an identity change cannot overtake a provider operation", async () => {
   expect(backend.calls).toEqual(["configure:user-1", "login:user-2"]);
 });
 
-test("checkout blocks identity changes but not provider reads", async () => {
-  const backend = createBackend();
-  const checkout = createDeferred();
-  const checkoutStarted = createDeferred();
-  const identity = coordinator(backend);
-  await identity.identify("user-1");
-  const purchasing = identity.runCheckout({
-    operation: async () => {
-      checkoutStarted.resolve();
-      await checkout.promise;
-      return "purchased";
-    },
-  });
-  await checkoutStarted.promise;
-
-  await identity.identify("user-1");
-  const read = identity.runProviderOperation({
-    operation: async () => "read",
-    operationName: "test read",
-  });
-  const identifying = identity.identify("user-2");
-  let laterReadStarted = false;
-  const laterRead = identity.runProviderOperation({
-    operation: async () => {
-      laterReadStarted = true;
-    },
-    operationName: "later read",
-  });
-  expect(await read).toBe("read");
-  await Promise.resolve();
-  expect(backend.calls).toEqual(["configure:user-1"]);
-  expect(laterReadStarted).toBe(false);
-
-  checkout.resolve();
-  expect(await purchasing).toBe("purchased");
-  await Promise.all([identifying, laterRead]);
-  expect(backend.calls).toEqual(["configure:user-1", "login:user-2"]);
-  expect(laterReadStarted).toBe(true);
-});
-
-test("an aborted checkout releases its identity gate", async () => {
-  const backend = createBackend();
-  const checkoutStarted = createDeferred();
-  const abortController = new AbortController();
-  const identity = coordinator(backend);
-  await identity.identify("user-1");
-  void identity.runCheckout({
-    abortSignal: abortController.signal,
-    operation: () => {
-      checkoutStarted.resolve();
-      return new Promise<void>(() => {});
-    },
-  });
-  await checkoutStarted.promise;
-
-  const identifying = identity.identify("user-2");
-  abortController.abort();
-  await identifying;
-  expect(backend.calls).toEqual(["configure:user-1", "login:user-2"]);
-});
-
-test("checkout gates identity before queued registration starts", async () => {
-  const backend = createBackend();
-  const blocker = createDeferred();
-  const blockerStarted = createDeferred();
-  const checkout = createDeferred();
-  const checkoutStarted = createDeferred();
-  const identity = coordinator(backend);
-  await identity.identify("user-1");
-  const blocking = identity.runProviderOperation({
-    operation: async () => {
-      blockerStarted.resolve();
-      await blocker.promise;
-    },
-    operationName: "blocker",
-  });
-  await blockerStarted.promise;
-
-  const purchasing = identity.runCheckout({
-    operation: async () => {
-      checkoutStarted.resolve();
-      await checkout.promise;
-    },
-  });
-  const identifying = identity.identify("user-2");
-  blocker.resolve();
-  await Promise.all([blocking, checkoutStarted.promise]);
-  expect(backend.calls).toEqual(["configure:user-1"]);
-
-  checkout.resolve();
-  await Promise.all([purchasing, identifying]);
-  expect(backend.calls).toEqual(["configure:user-1", "login:user-2"]);
-});
-
-test("a timed-out checkout registration never starts an orphan sheet", async () => {
-  const backend = createBackend();
-  const blocker = createDeferred();
-  const blockerStarted = createDeferred();
-  const identity = coordinator(backend, 5);
-  await identity.identify("user-1");
-  const blocking = identity.runProviderOperation({
-    operation: async () => {
-      blockerStarted.resolve();
-      await blocker.promise;
-    },
-    operationName: "blocker",
-  });
-  await blockerStarted.promise;
-  await expect(blocking).rejects.toThrow(
-    "RevenueCat blocker timed out after 5ms",
-  );
-
-  let checkoutStarts = 0;
-  await expect(
-    identity.runCheckout({
-      operation: async () => {
-        checkoutStarts += 1;
-      },
-    }),
-  ).rejects.toThrow("RevenueCat checkout preparation timed out after 5ms");
-  blocker.resolve();
-  await identity.runProviderOperation({
-    operation: async () => undefined,
-    operationName: "settlement",
-    requiresKnownIdentity: false,
-  });
-  expect(checkoutStarts).toBe(0);
-});
-
 test("a configuration timeout never starts a second configure", async () => {
   const backend = createBackend();
   const configuration = createDeferred();
@@ -429,6 +308,7 @@ test("a configuration timeout never starts a second configure", async () => {
   expect(backend.calls).toEqual(["configure:anonymous"]);
 
   configuration.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
   await configure();
   expect(backend.calls).toEqual(["configure:anonymous"]);
 });
@@ -440,6 +320,26 @@ test("a stalled login times out without leaving the caller busy", async () => {
   await configureAnonymously(identity);
 
   await expect(identity.identify("user-1")).rejects.toThrow(
+    "RevenueCat identification timed out after 5ms",
+  );
+  let readStarted = false;
+  const read = identity.runProviderOperation({
+    operation: async () => {
+      readStarted = true;
+    },
+    operationName: "customer read",
+  });
+  let readRejected = false;
+  void read.catch(() => {
+    readRejected = true;
+  });
+  await Promise.resolve();
+  expect(readRejected).toBe(true);
+  expect(readStarted).toBe(false);
+  await expect(read).rejects.toThrow(
+    "RevenueCat identification timed out after 5ms",
+  );
+  await expect(identity.identify("user-2")).rejects.toThrow(
     "RevenueCat identification timed out after 5ms",
   );
 });
@@ -462,16 +362,6 @@ test.each([
   Number.POSITIVE_INFINITY,
 ])("rejects an invalid operation timeout: %s", (timeoutMs) => {
   expect(() => revenueCatOperationTimeoutMs(timeoutMs)).toThrow(
-    "RevenueCat operation timeout must be positive",
+    "RevenueCat operation timeout must be a positive finite number",
   );
-});
-
-test("provider operations have a bounded wait", async () => {
-  await expect(
-    withRevenueCatOperationTimeout({
-      operation: () => new Promise<void>(() => {}),
-      operationName: "restore",
-      timeoutMs: 5,
-    }),
-  ).rejects.toThrow("RevenueCat restore timed out after 5ms");
 });

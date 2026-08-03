@@ -82,7 +82,7 @@ function getBloodPressureColumns(context: {
  */
 export function BloodPressureReadTable(params: {
   currentAuthorId: string | null;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   resolveRowWriter?: RowWriterResolver | undefined;
 }) {
@@ -113,7 +113,9 @@ export function BloodPressureReadTable(params: {
             detailLabel="Attribution"
             detailsOpen={detailRowId === row.entry.id}
             directAriaLabel={`Reading ${row.index + 1} attribution`}
-            onEnterEdit={onEnterEdit}
+            onEnterEdit={
+              onEnterEdit ? () => onEnterEdit(row.entry.id) : undefined
+            }
             onOpenDetails={() => setDetailRowId(row.entry.id)}
           />
         )}

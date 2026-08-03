@@ -115,12 +115,6 @@ an unavailable RevenueCat capability. On web this affects entitlement
 observation, not the direct Stripe purchase path; the Stripe path has its own
 publishable key.
 
-Provider setup, identity changes, and non-checkout calls use a 30-second client
-deadline. Store checkout itself remains unbounded because its native sheet is
-under the buyer's control and the provider bridges expose no cancellation API.
-An actual buyer change waits for a live checkout to settle and can therefore
-reach that deadline; re-identifying the already-current buyer remains a no-op.
-
 | Platform | Env var | How it's injected |
 | --- | --- | --- |
 | Web | `BUN_PUBLIC_REVENUECAT_WEB_API_KEY` | Set in `.secrets/<tier>.env`; `deployAppWeb.sh` sources tier secrets and passes it to `bun build --env='BUN_PUBLIC_*'`, which inlines it. |
@@ -144,6 +138,18 @@ bun run --filter=app-web dev
   connected Stripe account, but it does not enable Tearleads web purchases. Do
   not re-enable the embedded adapter without the same server-authoritative tier
   contract.
+
+## Provider deadlines
+
+Provider setup, identity changes, and ordinary calls have a 30-second deadline.
+Checkout is unbounded. Restore bounds preflight, then leaves the store call
+unbounded because native UI can wait on the buyer and cannot be cancelled.
+Calls queued behind an unfinished restore ask for restart after their own
+deadline. Buyer changes wait for checkout to settle and can also time out;
+re-identifying the current buyer is otherwise a no-op. Timed-out identity work
+stays serialized and may still take effect. A provider call retaining the queue
+asks for restart until it settles or the app restarts. Offerings share that
+queue and bridge availability.
 
 ## RevenueCat webhook (server)
 

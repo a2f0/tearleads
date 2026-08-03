@@ -76,6 +76,19 @@ test("configures onto the known buyer rather than an anonymous customer", async 
   expect(fixture.logInCalls).toEqual([]);
 });
 
+test("logs in when the configured app changes to another buyer", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  const purchases = createCapacitorPurchases();
+
+  await purchases.identify({ userId: "user-1" });
+  await purchases.identify({ userId: "user-2" });
+
+  expect(fixture.configureCalls).toEqual([
+    { apiKey: "ios-key", appUserID: "user-1" },
+  ]);
+  expect(fixture.logInCalls).toEqual(["user-2"]);
+});
+
 test("configures without a buyer when the sdk has not identified one", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
 
@@ -101,9 +114,15 @@ test("reset preserves a genuine RevenueCat log-out failure", async () => {
   const providerError = { code: "2", message: "Store unavailable" };
   fixture.logOutRejection = providerError;
 
-  await expect(createCapacitorPurchases().reset()).rejects.toEqual(
-    providerError,
-  );
+  const error = await createCapacitorPurchases()
+    .reset()
+    .then(
+      () => null,
+      (rejection: unknown) => rejection,
+    );
+  expect(error).toBeInstanceOf(Error);
+  expect(error).toMatchObject(providerError);
+  expect((error as Error).cause).toBe(providerError);
 });
 
 test("lists the current offering's packages as sync options", async () => {

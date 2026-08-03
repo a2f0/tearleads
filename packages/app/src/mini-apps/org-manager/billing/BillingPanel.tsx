@@ -233,9 +233,11 @@ function BillingPanelSubscriptionControls(input: {
         onManageSubscription={input.subscriptionManagement.open}
         onRefresh={input.onRefresh}
         onRestore={actions.requestSubscriptionMove}
+        onRetryOptions={actions.retryOptions}
         onStartTrial={actions.startTrial}
         onSubscribe={actions.subscribe}
         options={actions.options}
+        optionsRetryAvailable={actions.optionsRetryAvailable}
         purchaseAvailable={nativePurchaseAvailable}
         purchaseSectionHidden={purchaseSectionHidden}
         restoreAvailable={

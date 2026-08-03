@@ -203,6 +203,8 @@ export {
   PurchaseAbortedError,
   PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
+  PurchaseIdentityPendingError,
+  PurchaseProviderStalledError,
   type PurchasesCapability,
   PurchasesUnavailableError,
   type RevenueCatBackend,

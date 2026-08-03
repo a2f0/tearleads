@@ -1,5 +1,9 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import type { PurchasesCapability } from "@tearleads/client-sdk";
+import {
+  PurchaseIdentityPendingError,
+  PurchaseProviderStalledError,
+  type PurchasesCapability,
+} from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { LogProvider } from "../../../providers/logging/LogProvider";
@@ -85,6 +89,34 @@ test("restore stays busy and rejects a receipt without sync", async () => {
   expect(flow.view.result.current.open).toBe(false);
 });
 
+test("restore asks the buyer to retry while identity is settling", async () => {
+  const flow = setup({
+    claim: () => Promise.resolve(true),
+    restore: () => Promise.reject(new PurchaseIdentityPendingError()),
+  });
+  startMove(flow.view);
+
+  await waitFor(() =>
+    expect(flow.state().actionError).toBe(
+      ORG_MANAGER_LABELS.billingIdentityPending,
+    ),
+  );
+});
+
+test("restore asks for restart when the provider bridge stalls", async () => {
+  const flow = setup({
+    claim: () => Promise.resolve(true),
+    restore: () => Promise.reject(new PurchaseProviderStalledError()),
+  });
+  startMove(flow.view);
+
+  await waitFor(() =>
+    expect(flow.state().actionError).toBe(
+      ORG_MANAGER_LABELS.billingProviderStalled,
+    ),
+  );
+});
+
 test("restore surfaces a server-side claim rejection", async () => {
   const claim = mock(() => Promise.resolve(false));
   const bindOrganization = mock(() => Promise.resolve());
@@ -124,6 +156,33 @@ test("restore binds lifecycle attribution only after the claim succeeds", async 
 
   await waitFor(() => expect(flow.state().busy).toBeNull());
   expect(calls).toEqual(["restore", "claim", "bind"]);
+});
+
+test("a post-claim retry resumes at organization binding", async () => {
+  const claim = mock(() => Promise.resolve(true));
+  const restore = mock(() => Promise.resolve({ syncEntitlementActive: true }));
+  let bindAttempts = 0;
+  const bindOrganization = mock(() => {
+    bindAttempts += 1;
+    return bindAttempts === 1
+      ? Promise.reject(new PurchaseProviderStalledError())
+      : Promise.resolve();
+  });
+  const flow = setup({ bindOrganization, claim, restore });
+  startMove(flow.view);
+  await waitFor(() =>
+    expect(flow.state().actionError).toBe(
+      ORG_MANAGER_LABELS.billingProviderStalled,
+    ),
+  );
+
+  startMove(flow.view);
+  await waitFor(() => expect(flow.state().busy).toBeNull());
+
+  expect(restore).toHaveBeenCalledTimes(1);
+  expect(claim).toHaveBeenCalledTimes(1);
+  expect(bindOrganization).toHaveBeenCalledTimes(2);
+  expect(flow.state().actionError).toBeNull();
 });
 
 test.each([

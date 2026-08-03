@@ -357,6 +357,8 @@ export const subsystems: readonly Subsystem[] = [
     seam: "createRevenueCatPurchases / createUnavailablePurchases / createUnavailableDirectCheckout exports",
     paths: [
       `${sdk}/client/purchases.ts`,
+      `${sdk}/client/revenueCatCheckoutGate.ts`,
+      `${sdk}/client/revenueCatErrors.ts`,
       `${sdk}/client/revenueCatIdentity.ts`,
       `${sdk}/client/directCheckout.ts`,
     ],

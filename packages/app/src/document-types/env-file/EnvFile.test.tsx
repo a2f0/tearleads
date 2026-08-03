@@ -67,9 +67,10 @@ const variables: EnvVariableRow[] = [
 
 function renderEnvFileFields(params?: {
   currentAuthorId?: string | null;
+  editingVariableId?: string | null;
   isEditing?: boolean | undefined;
   onAddVariable?: (variable: EnvFileQuickVariable) => Promise<string | null>;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   onRemoveVariable?: (id: string) => void;
   onRenameFile?: (value: string) => void;
   onToggleEditing?: () => void;
@@ -82,6 +83,7 @@ function renderEnvFileFields(params?: {
     <WithWindowToolbar>
       <EnvFileFields
         currentAuthorId={params?.currentAuthorId ?? null}
+        editingVariableId={params?.editingVariableId}
         fileName=".env.local"
         fileNameInputId="env-file-name"
         isEditing={params?.isEditing}
@@ -346,6 +348,31 @@ test("quick add rejects malformed keys and cancel clears the draft", () => {
     (view.getByLabelText("Quick add env variable key") as HTMLInputElement)
       .value,
   ).toBe("");
+});
+
+test("a variable kebab targets only that variable for editing", () => {
+  const editedVariableIds: string[] = [];
+  const readView = renderEnvFileFields({
+    isEditing: false,
+    onEnterEdit: (id) => editedVariableIds.push(id),
+  });
+
+  fireEvent.click(
+    readView.getByRole("button", { name: "Env variable 2 actions" }),
+  );
+  fireEvent.click(readView.getByRole("button", { name: "Edit" }));
+  expect(editedVariableIds).toEqual(["v2"]);
+  readView.unmount();
+
+  const editView = renderEnvFileFields({ editingVariableId: "v2" });
+  expect(editView.queryByLabelText("Env variable 1 key")).toBeNull();
+  expect(editView.getByLabelText("Env variable 2 key")).toBeTruthy();
+  expect(
+    editView.getByRole("button", { name: "Env variable 1 actions" }),
+  ).toBeTruthy();
+  expect(
+    editView.queryByRole("button", { name: "Env variable 2 actions" }),
+  ).toBeNull();
 });
 
 test("a pending variable owns the read-mode entry state", () => {

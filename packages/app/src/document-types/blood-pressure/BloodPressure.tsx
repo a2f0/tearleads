@@ -1,4 +1,4 @@
-import { useCallback, useId } from "react";
+import { useId } from "react";
 import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
@@ -10,7 +10,6 @@ import {
   StructuredDocumentField,
   StructuredDocumentFields,
   useStructuredDocumentEditAction,
-  useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
 import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
@@ -18,6 +17,7 @@ import {
   type AddTrackerRow,
   useSavedTrackerRows,
 } from "../shared/useSavedTrackerRows";
+import { useTargetedTrackerEditing } from "../shared/useTargetedTrackerEditing";
 import {
   type BloodPressureField,
   BloodPressureReadingEditRow,
@@ -49,7 +49,7 @@ function BloodPressureReadFields(params: {
   controlsDisabled: boolean;
   entryPending: boolean;
   onAddReading: AddTrackerRow<BloodPressureQuickReading>;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   onPendingChange: (pending: boolean) => void;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   resolveRowWriter?: RowWriterResolver | undefined;
@@ -99,6 +99,7 @@ function BloodPressureEditFields(params: {
   currentAuthorId: string | null;
   controlsDisabled: boolean;
   entryPending: boolean;
+  editingReadingId: string | null;
   onAddReading: AddTrackerRow<BloodPressureQuickReading>;
   onRemoveReading: (id: string) => void;
   onRenameTracker: (value: string) => void;
@@ -114,6 +115,7 @@ function BloodPressureEditFields(params: {
     currentAuthorId,
     controlsDisabled,
     entryPending,
+    editingReadingId,
     onAddReading,
     onRemoveReading,
     onRenameTracker,
@@ -125,7 +127,10 @@ function BloodPressureEditFields(params: {
     trackerName,
     trackerNameInputId,
   } = params;
-  const { saveAddedRow, savedRowIds, setRowSaved } = useSavedTrackerRows();
+  const { isRowSaved, saveAddedRow, setRowSaved } = useSavedTrackerRows(
+    readings,
+    editingReadingId,
+  );
 
   return (
     <div className="tracker-document-fields">
@@ -162,11 +167,11 @@ function BloodPressureEditFields(params: {
         <BloodPressureEditRows
           currentAuthorId={currentAuthorId}
           controlsDisabled={controlsDisabled}
+          isRowSaved={isRowSaved}
           onRemoveReading={onRemoveReading}
           onUpdateReading={onUpdateReading}
           readings={readings}
           resolveRowWriter={resolveRowWriter}
-          savedRowIds={savedRowIds}
           setRowSaved={setRowSaved}
         />
         <div className="blood-pressure-reading-list-footer tracker-entry-list-footer">
@@ -180,15 +185,15 @@ function BloodPressureEditFields(params: {
 function BloodPressureEditRows(params: {
   currentAuthorId: string | null;
   controlsDisabled: boolean;
+  isRowSaved: (id: string) => boolean;
   onRemoveReading: (id: string) => void;
   onUpdateReading: UpdateReading;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   resolveRowWriter?: RowWriterResolver | undefined;
-  savedRowIds: ReadonlySet<string>;
   setRowSaved: (id: string, saved: boolean) => void;
 }) {
   return params.readings.map((reading, index) =>
-    params.savedRowIds.has(reading.id) ? (
+    params.isRowSaved(reading.id) ? (
       <BloodPressureReadingReadRow
         key={reading.id}
         currentAuthorId={params.currentAuthorId}
@@ -214,9 +219,10 @@ function BloodPressureEditRows(params: {
 export function BloodPressureFields(params: {
   currentAuthorId?: string | null;
   disabled?: boolean | undefined;
+  editingReadingId?: string | null | undefined;
   isEditing?: boolean | undefined;
   onAddReading: AddTrackerRow<BloodPressureQuickReading>;
-  onEnterEdit?: (() => void) | undefined;
+  onEnterEdit?: ((id: string) => void) | undefined;
   onRemoveReading: (id: string) => void;
   onRenameTracker: (value: string) => void;
   onToggleEditing: () => void;
@@ -230,6 +236,7 @@ export function BloodPressureFields(params: {
   const {
     currentAuthorId = null,
     disabled = false,
+    editingReadingId = null,
     isEditing = true,
     onAddReading,
     onEnterEdit,
@@ -274,9 +281,11 @@ export function BloodPressureFields(params: {
 
   return (
     <BloodPressureEditFields
+      key={editingReadingId ?? "document"}
       currentAuthorId={currentAuthorId}
       controlsDisabled={controlsDisabled}
       entryPending={newReadingPending}
+      editingReadingId={editingReadingId}
       onAddReading={onAddReading}
       onRemoveReading={onRemoveReading}
       onRenameTracker={onRenameTracker}
@@ -306,16 +315,12 @@ export function BloodPressure(params: {
     updateRowFields,
   } = useDocument();
   const trackerNameInputId = useId();
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
-    canWrite,
-    params.initialEditing,
-  );
-  // Kept reference-stable so the toolbar action it feeds does not re-register
-  // on every render.
-  const toggleEditing = useCallback(
-    () => setIsEditing((editing) => !editing),
-    [setIsEditing],
-  );
+  const {
+    editingRowId: editingReadingId,
+    enterRowEdit,
+    isEditing,
+    toggleEditing,
+  } = useTargetedTrackerEditing(canWrite, params.initialEditing);
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
   const resolveRowWriter = useDocumentRowWriters(rows.length > 0);
 
@@ -339,11 +344,10 @@ export function BloodPressure(params: {
         <BloodPressureFields
           currentAuthorId={currentAuthorId}
           disabled={!ready || !canWrite}
+          editingReadingId={editingReadingId}
           isEditing={isEditing && canWrite}
           resolveRowWriter={resolveRowWriter}
-          // The read-row "Edit" action switches the whole tracker into edit
-          // mode; only offer it when the viewer can actually write.
-          onEnterEdit={canWrite ? () => setIsEditing(true) : undefined}
+          onEnterEdit={enterRowEdit}
           onAddReading={(reading) => {
             if (canWrite) {
               return addRow({

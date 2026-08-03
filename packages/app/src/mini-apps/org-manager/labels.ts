@@ -49,11 +49,13 @@ export const ORG_MANAGER_LABELS = {
   billingHistoryEventsTab: "Events",
   billingHistoryTabsLabel: "Billing history sections",
   billingHistoryTitle: "Billing history",
+  billingIdentityPending: "Billing account is still updating. Try again.",
   billingLocal: "Local only",
   billingManageSubscription: "Manage subscription",
   billingManageSubscriptionFailed:
     "Could not open subscription management. Try again.",
   billingNoOptions: "No subscription options are available right now.",
+  billingOptionsUnavailable: "Couldn't load subscription plans. Try again.",
   billingPastDue: "Payment past due",
   billingPlanChangeTiming:
     "Upgrades take effect immediately with a store-managed mid-cycle adjustment. Downgrades start at the next renewal; use Manage subscription to change a scheduled downgrade.",
@@ -65,10 +67,13 @@ export const ORG_MANAGER_LABELS = {
   billingPayOnStripeStarting: "Opening Stripe...",
   billingPayOnStripeUnavailable:
     "Couldn't open Stripe checkout right now. Try again.",
+  billingProviderStalled:
+    "Billing stopped responding. Restart the app and try again.",
   billingPurchaseUnavailable: "Purchases aren't available right now.",
   billingPurged: "Remote data purged",
   billingRestore: "Restore purchases",
   billingRestoring: "Restoring...",
+  billingRetryOptions: "Retry plans",
   billingSubscriptionMoveTitle: "Move this subscription?",
   billingSubscriptionMoveMessage:
     "This checks the Apple or Google account on this device and moves its Tearleads subscription to this personal organization. The previous personal organization will stop syncing, and its remote sync data becomes eligible for permanent deletion after 30 days. Its encrypted data and identity keys are not moved. If you need that data, cancel and recover the original identity in Identity Manager first.",
