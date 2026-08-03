@@ -47,8 +47,8 @@ the verdict gate), so callers can fall back to another reviewer on failure.
 Backs the `cross-agent-review` skill in `.claude/skills/` and `.codex/skills/`.
 
 These actions **only review**. The fallback chain, the severity gate, and the
-bounded repair loop live in the `cross-agent-review` skill *around* these calls —
-invoking the actions directly gets you one raw review and no repair.
+bounded repair loop live in the `cross-agent-review` skill *around* these calls
+— invoking the actions directly gets you one raw review and no repair.
 
 ## Open a PR
 
@@ -97,16 +97,17 @@ tool directly merges without any of that cleanup.
 ## Ship (commit → review → repair → open/resume → merge → reset)
 
 The `ship-pr` skill commits the work on a feature branch, hands it to
-`cross-agent-review` — which reviews the local commits (or the pushed head when a
-PR is already open), repairs blocking findings in up to two rounds by default, and
-re-reviews every head it changes — then opens or resumes the PR with a single push
-and squash-merges only the reviewed commit that review reports back. Opening the
-PR after the review is what keeps the branch to a single push through the pre-push
-hook. It finishes by handing off to `reset`, which returns the checkout to the
-default branch and reinstalls the repo's git hooks, so a merged change under
-`scripts/git/hooks/` takes effect instead of sitting uninstalled. It adds no new
-CLI action; it orchestrates the `open-pr`, `cross-agent-review`, `squash-merge`,
-and `reset` skills. See `.claude/skills/ship-pr/` and `.codex/skills/ship-pr/`.
+`cross-agent-review` — which reviews the local commits (or the pushed head when
+a PR is already open), repairs blocking findings in up to two rounds by default,
+and re-reviews every head it changes — then opens or resumes the PR with a
+single push and squash-merges only the reviewed commit that review reports back.
+Opening the PR after the review is what keeps the branch to a single push
+through the pre-push hook. It finishes by handing off to `reset`, which returns
+the checkout to the default branch and reinstalls the repo's git hooks, so a
+merged change under `scripts/git/hooks/` takes effect instead of sitting
+uninstalled. It adds no new CLI action; it orchestrates the `open-pr`,
+`cross-agent-review`, `squash-merge`, and `reset` skills. See
+`.claude/skills/ship-pr/` and `.codex/skills/ship-pr/`.
 
 Review and repair are one unit, owned by `cross-agent-review`; `ship-pr` keeps
 only the merge gate (and `--merge-anyway` to override it). For a review that

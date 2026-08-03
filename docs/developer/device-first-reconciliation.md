@@ -39,7 +39,7 @@ recovery without replacing empty-tree state.
 
 ## Design: two layers in `client-sdk`
 
-```
+```text
             packages/app (React)  ── subscribes only ──┐
                                                        ▼
   ┌──────────────────────────────────────────────────────────────┐
@@ -133,12 +133,12 @@ interface ReconciliationService {
 
 Work items (each maps to an existing function, lane-scheduled here):
 
-| Work item              | Implementation reused                                            |
-|------------------------|------------------------------------------------------------------|
-| container hydration    | `hydrateRemoteContainers` / `requestRemoteHydration`            |
-| document discovery     | `discoverContainerDocuments` (per container, watermark-based)   |
-| metadata sync          | `syncContainerMetadataState`                                    |
-| writer projection      | `assertDocumentWriterProjectionConsistent` (on document sync)   |
+| Work item           | Implementation reused                                         |
+|---------------------|---------------------------------------------------------------|
+| container hydration | `hydrateRemoteContainers` / `requestRemoteHydration`          |
+| document discovery  | `discoverContainerDocuments` (per container, watermark-based) |
+| metadata sync       | `syncContainerMetadataState`                                  |
+| writer projection   | `assertDocumentWriterProjectionConsistent` (on document sync) |
 
 Scheduling policy (active-first, then idle backfill):
 

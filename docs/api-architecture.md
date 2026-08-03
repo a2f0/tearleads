@@ -108,11 +108,11 @@ The API is organized in layers like this:
 These are the top-level process and app bindings.
 
 - `packages/api/src/index.ts`
- - server entrypoint
- - owns the HTTP server binding and websocket upgrade handling
+  - server entrypoint
+  - owns the HTTP server binding and websocket upgrade handling
 - `packages/api/src/routeApp.ts`
- - reusable HTTP app
- - owns route registration, but not the outer server process
+  - reusable HTTP app
+  - owns route registration, but not the outer server process
 
 This split allows in-process callers, especially tests, to use the HTTP app
 without importing the full server entrypoint and its runtime side effects.

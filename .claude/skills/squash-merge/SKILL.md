@@ -28,14 +28,14 @@ it, and delete the merged branch, so a shipped PR leaves no local leftovers.
   cleanup (step 4) and stay on the feature branch. Use when the branch is still
   needed locally (e.g. to build a follow-up PR on top of it).
 
-  **This flag is consumed by this skill and must never reach the tool.** The tool
-  takes only the two positionals above — `squashMerge <subject> <sha>` — and how a
-  forwarded `--keep-branch` fails depends on where it lands: first, it is read as
-  the *subject* and rejected by commitlint; after the positionals (the position
-  `ship-pr` forwards), it is **silently ignored**. The silent case is the
-  dangerous one — the merge succeeds, the caller believes cleanup was skipped, and
-  it ran anyway. Strip the flag from the arguments, let it gate step 4, and call
-  the tool with the subject and SHA only.
+  **This flag is consumed by this skill and must never reach the tool.** The
+  tool takes only the two positionals above — `squashMerge <subject> <sha>` —
+  and how a forwarded `--keep-branch` fails depends on where it lands: first, it
+  is read as the *subject* and rejected by commitlint; after the positionals
+  (the position `ship-pr` forwards), it is **silently ignored**. The silent case
+  is the dangerous one — the merge succeeds, the caller believes cleanup was
+  skipped, and it ran anyway. Strip the flag from the arguments, let it gate
+  step 4, and call the tool with the subject and SHA only.
 
 ## Prerequisites
 
@@ -123,9 +123,9 @@ as-is.
      subject; the appended PR reference is excluded from that limit, exactly as
      GitHub's server-side suffix is. If validation fails it prints commitlint's
      report and exits non-zero **without merging**.
-   - Appends the PR reference so the subject ends with ` (#<pr>)`, replacing any
-     existing trailing `(#<n>)` (idempotent on re-runs), and asserts the suffix
-     is present before merging.
+   - Appends the PR reference so the subject ends with a space followed by
+     `(#<pr>)`, replacing any existing trailing `(#<n>)` (idempotent on
+     re-runs), and asserts the suffix is present before merging.
    - Runs `gh pr merge --squash --subject <subject-with-#pr> --body ""` (adding
      `--match-head-commit <sha>` when the head SHA argument is given), then
      confirms the PR reached the `MERGED` state (a merge queue can otherwise exit
@@ -207,7 +207,7 @@ as-is.
      plus the ancestry check above are what make the force safe.
 
 5. **Report results**: state the merged PR number, the final squash subject
-   (including the ` (#<pr>)` reference), and confirm the merge succeeded. Name the
+   (including the `(#<pr>)` reference), and confirm the merge succeeded. Name the
    base branch returned to, that it was fast-forwarded and verified to contain the
    merge commit, and that the merged branch was deleted (locally, and remotely when
    it still existed) — or why cleanup was skipped.
@@ -216,8 +216,9 @@ as-is.
 
 - The commit message is the subject only; no `--body` content is added, and
   multi-line subjects are rejected.
-- The final subject always ends with ` (#<pr>)`; the tool appends and asserts it,
-  and the reference is excluded from the 50-char commitlint header limit.
+- The final subject always ends with a space followed by `(#<pr>)`; the tool
+  appends and asserts it, and the reference is excluded from the 50-char
+  commitlint header limit.
 - Validation runs before the merge, so an invalid subject never reaches GitHub.
 - Always single-quote the subject argument to avoid shell expansion.
 - A non-zero exit after `gh pr merge` means the PR did not actually merge (e.g.

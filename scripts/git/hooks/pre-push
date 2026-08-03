@@ -55,6 +55,9 @@ bun tsc --build --pretty false
 echo "Running biome check..."
 bun run lint:biome
 
+echo "Running markdown linting..."
+bun run lint:markdown
+
 echo "Checking package type assertions..."
 bun run lint:package-assertions
 

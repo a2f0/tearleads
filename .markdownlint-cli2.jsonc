@@ -1,0 +1,28 @@
+{
+  // The glob lives in the `lint:markdown` script, not here: config `globs` are
+  // *appended* to any paths given on the command line, so setting them here
+  // would make `lint-staged` re-lint (and --fix) the whole tree on every commit
+  // instead of just the staged files.
+  //
+  // Vendored and generated Markdown (Swift package checkouts, Terraform
+  // provider docs, build output) is excluded by the repo's ignore rules.
+  "gitignore": true,
+  "ignores": [
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/.serena/**",
+    "packages/app-capacitor/android/**",
+    "packages/app-capacitor/ios/**",
+    "packages/app-capacitor/vendor/**"
+  ],
+  "config": {
+    "default": true,
+    // Prose wraps at 80 columns. Code samples, shell transcripts, and tables
+    // carry their own formatting and cannot be rewrapped without changing what
+    // they mean, so they are measured by their own rules instead.
+    "MD013": {
+      "code_blocks": false,
+      "tables": false
+    }
+  }
+}
