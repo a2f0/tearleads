@@ -13,7 +13,7 @@ import {
 } from "../../access/read/principalStateStore";
 import { loadUsersById, type UserKeyRow } from "./users";
 
-export interface OrganizationGroupCatalogRow {
+interface OrganizationGroupCatalogRow {
   readonly groupId: string;
   readonly groupName: string;
 }
