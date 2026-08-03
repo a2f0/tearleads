@@ -296,11 +296,26 @@ requester's own direct envelope — the one that opens from identity keys alone
 — is never the entry a cap drops. One member's envelope is not another's to
 read.
 
-Clients verify each page chains (`prevStateHash` linking every entry to the one
-below, and across page boundaries) before using any envelope on it, so a server
-cannot splice a fabricated state carrying a key of its choosing into the
-history. A recovered principal key is then checked against the container epoch's
-material-id commitment before it can enter a keyring.
+Clients recompute each state's hash and check that every entry's
+`prevStateHash` names the entry below it, across page boundaries as well as
+within a page, before using any envelope on that entry. Recomputation is what
+makes the linkage mean anything — comparing the server's own `prevStateHash`
+string against its own `stateHash` string is self-consistent for any fabricated
+pair.
+
+The walk does **not** verify each state's signature against its signer's
+identity key, nor does it check envelope inclusion against
+`memberEnvelopesRoot` (which is unavailable by construction, since the response
+carries only the requester's own envelopes rather than the full set the root
+commits to). So this is a hash-chained, not a signature-authenticated, walk.
+
+What makes that safe is the layer below: a recovered principal key is only
+useful if it opens a container envelope AND the resulting container key matches
+that epoch's material-id commitment. A fabricated chain therefore costs a
+failed recovery, never a wrong key admitted into a keyring. Full signature
+verification would additionally let the client distinguish "server is lying"
+from "key genuinely unreachable"; that requires the trusted-identity gateway in
+the recovery path and is tracked separately.
 
 Document and blob writes may carry signed `container.rekey` requests inline in
 `containerRekeys[]`. The API applies those rekeys inside the same transaction

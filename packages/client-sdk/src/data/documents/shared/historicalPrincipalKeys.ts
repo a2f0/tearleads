@@ -2,7 +2,6 @@ import {
   type ContainerKeyWrap,
   computeContainerKekMaterialId,
   computePrincipalStateHash,
-  decryptWithDek,
   unwrapDek,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
@@ -14,6 +13,13 @@ import {
   MAX_PRINCIPAL_STATE_VERSION,
   PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT,
 } from "@tearleads/validators/util";
+
+/**
+ * Total history fetches one recovery may make, across every principal it hops
+ * through. Generous enough that a legitimate deep walk completes, small enough
+ * that a hostile server cannot turn one recovery into a request storm.
+ */
+const MAX_POLICY_HISTORY_FETCHES = 256;
 
 /**
  * Fetches one page of a principal's policy history, newest first.
@@ -36,13 +42,20 @@ export type PrincipalPolicyHistoryFetcher = (input: {
  * self-consistent for any fabricated pair, so without recomputation the check
  * would be theatre.
  *
- * What this does NOT do is verify each state's signature against its signer's
- * identity key — that needs the trusted-identity gateway threaded into the
- * recovery walk, and is tracked separately. The outcome is still safe without
- * it: a recovered principal key only matters if it opens a container envelope
- * AND the resulting container key matches that epoch's material-id commitment,
- * so a fabricated chain costs a failed recovery, never a wrong key admitted
- * into a keyring.
+ * What this does NOT do is verify each state's SIGNATURE against its signer's
+ * identity key, nor check envelope inclusion against `memberEnvelopesRoot` —
+ * the latter is unavailable by construction, since the response carries only
+ * the requester's own envelopes and the root commits to the full set. This is
+ * a hash-chained walk, not a signature-authenticated one, and the distinction
+ * is worth naming rather than glossing.
+ *
+ * What makes that safe is the layer below: a recovered principal key only
+ * matters if it opens a container envelope AND the resulting container key
+ * matches that epoch's material-id commitment, so a fabricated chain costs a
+ * failed recovery, never a wrong key admitted into a keyring. Signature
+ * verification would additionally distinguish "server is lying" from "key
+ * genuinely unreachable"; it needs the trusted-identity gateway threaded into
+ * this walk and is tracked separately.
  */
 async function isChainedPage(
   entries: readonly PrincipalPolicyHistoryEntryResponse[],
@@ -100,6 +113,7 @@ async function isChainedPage(
  * directly, and an older state may still carry a direct envelope.
  */
 async function keyFromPage(input: {
+  budget: { remaining: number };
   entries: readonly PrincipalPolicyHistoryEntryResponse[];
   fetchHistory: PrincipalPolicyHistoryFetcher;
   keyFingerprint: string;
@@ -125,6 +139,7 @@ async function keyFromPage(input: {
       // here — so try each group-addressed envelope by recovering that
       // group's key at the epoch the envelope names.
       const nested = await keyThroughNestedGroup({
+        budget: input.budget,
         entry,
         fetchHistory: input.fetchHistory,
         secretKey: input.secretKey,
@@ -148,6 +163,7 @@ async function keyFromPage(input: {
  * server could otherwise use to make the recursion run forever.
  */
 async function keyThroughNestedGroup(input: {
+  budget: { remaining: number };
   entry: PrincipalPolicyHistoryEntryResponse;
   fetchHistory: PrincipalPolicyHistoryFetcher;
   secretKey: Uint8Array;
@@ -162,6 +178,7 @@ async function keyThroughNestedGroup(input: {
       continue;
     }
     const nestedSecret = await resolveHistoricalPrincipalKey({
+      budget: input.budget,
       fetchHistory: input.fetchHistory,
       keyFingerprint: envelope.memberKeyFingerprint,
       principalId: envelope.memberPrincipalId,
@@ -190,17 +207,45 @@ async function keyThroughNestedGroup(input: {
   return null;
 }
 
+/**
+ * Whether a served page is one this walk may act on: it belongs to the
+ * principal that was asked for, and its entries hash-chain to each other and
+ * to the boundary carried from the previous page.
+ */
+async function isUsablePage(input: {
+  expectedNewestStateHash: string | null;
+  page: PrincipalPolicyHistoryResponse;
+  principalId: string;
+  principalType: "group" | "organization";
+}): Promise<boolean> {
+  if (
+    input.page.principalId !== input.principalId ||
+    input.page.principalType !== input.principalType
+  ) {
+    return false;
+  }
+  return isChainedPage(input.page.entries, input.expectedNewestStateHash);
+}
+
 export async function resolveHistoricalPrincipalKey(input: {
   fetchHistory: PrincipalPolicyHistoryFetcher;
   keyFingerprint: string;
   principalId: string;
   principalType: "group" | "organization";
   secretKey: Uint8Array;
+  /**
+   * Fetches remaining for the WHOLE traversal, nested hops included. Shared by
+   * reference so recursion cannot multiply the budget: a deeply-nested
+   * membership graph would otherwise fan out a full page walk per hop, and
+   * each hop's pages fan out again.
+   */
+  budget?: { remaining: number } | undefined;
   /** Principals already on the recursion path; breaks membership cycles. */
   visiting?: ReadonlySet<string> | undefined;
 }): Promise<Uint8Array | null> {
   const visiting =
     input.visiting ?? new Set([`${input.principalType}:${input.principalId}`]);
+  const budget = input.budget ?? { remaining: MAX_POLICY_HISTORY_FETCHES };
   let beforeVersion: number | undefined;
   let expectedNewestStateHash: string | null = null;
   let pages = 0;
@@ -215,6 +260,10 @@ export async function resolveHistoricalPrincipalKey(input: {
     ) + 1;
 
   while (pages < maxPages) {
+    if (budget.remaining <= 0) {
+      return null;
+    }
+    budget.remaining -= 1;
     pages += 1;
     const page = await input.fetchHistory({
       principalId: input.principalId,
@@ -225,17 +274,19 @@ export async function resolveHistoricalPrincipalKey(input: {
       return null;
     }
     if (
-      page.principalId !== input.principalId ||
-      page.principalType !== input.principalType
+      !(await isUsablePage({
+        expectedNewestStateHash,
+        page,
+        principalId: input.principalId,
+        principalType: input.principalType,
+      }))
     ) {
-      return null;
-    }
-    if (!(await isChainedPage(page.entries, expectedNewestStateHash))) {
       return null;
     }
 
     const fromPage = await keyFromPage({
       entries: page.entries,
+      budget,
       fetchHistory: input.fetchHistory,
       keyFingerprint: input.keyFingerprint,
       secretKey: input.secretKey,
@@ -245,19 +296,45 @@ export async function resolveHistoricalPrincipalKey(input: {
       return fromPage;
     }
 
-    const oldest = page.entries.at(-1);
-    if (!page.hasMore || !oldest) {
+    const next = nextCursor(page);
+    if (!next) {
       return null;
     }
-    // Carry the boundary forward so the next page's newest entry is checked
-    // against this page's oldest, closing the per-page chain gap.
-    expectedNewestStateHash = oldest.state.prevStateHash;
-    beforeVersion = oldest.state.version;
-    if (beforeVersion <= 1 || beforeVersion > MAX_PRINCIPAL_STATE_VERSION) {
-      return null;
-    }
+    expectedNewestStateHash = next.expectedNewestStateHash;
+    beforeVersion = next.beforeVersion;
   }
   return null;
+}
+
+/**
+ * Where the walk continues after this page, or null when it must stop.
+ *
+ * Carries the chain boundary forward so the next page's newest entry is
+ * checked against this page's oldest, which is what closes the per-page gap in
+ * `isChainedPage`. Stops on a short non-final page: only a FINAL page may be
+ * short, and a one-entry page claiming more would stretch the walk over a
+ * request per state — the amplification the page limit exists to prevent.
+ */
+function nextCursor(page: PrincipalPolicyHistoryResponse): {
+  beforeVersion: number;
+  expectedNewestStateHash: string | null;
+} | null {
+  const oldest = page.entries.at(-1);
+  if (
+    !page.hasMore ||
+    !oldest ||
+    page.entries.length < PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT
+  ) {
+    return null;
+  }
+  const beforeVersion = oldest.state.version;
+  if (beforeVersion <= 1 || beforeVersion > MAX_PRINCIPAL_STATE_VERSION) {
+    return null;
+  }
+  return {
+    beforeVersion,
+    expectedNewestStateHash: oldest.state.prevStateHash,
+  };
 }
 
 /**
@@ -305,11 +382,18 @@ export async function openPrincipalWrapsThroughHistory(input: {
       continue;
     }
     try {
-      const containerKey = await decryptWithDek(
-        {
-          iv: base64ToBytes(wrap.kemCipherText),
-          ciphertext: base64ToBytes(wrap.wrappedKey),
-        },
+      // A principal-addressed container envelope is KEM-wrapped to the
+      // principal's encapsulation key, so it needs decapsulation — NOT the
+      // symmetric path a parent-container wrap uses, where the parent KEK is
+      // already a symmetric key.
+      const containerKey = await unwrapDek(
+        [
+          {
+            keyFingerprint: wrap.recipientKeyFingerprint,
+            kemCipherText: base64ToBytes(wrap.kemCipherText),
+            wrappedKey: base64ToBytes(wrap.wrappedKey),
+          },
+        ],
         principalKey,
       );
       const materialId = await computeContainerKekMaterialId({

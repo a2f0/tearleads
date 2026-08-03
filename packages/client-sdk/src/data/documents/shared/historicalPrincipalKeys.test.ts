@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  computeContainerKekMaterialId,
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   toFingerprint,
@@ -10,7 +11,10 @@ import type {
   PrincipalPolicyHistoryEntryResponse,
   PrincipalPolicyHistoryResponse,
 } from "@tearleads/validators/response";
-import { resolveHistoricalPrincipalKey } from "./historicalPrincipalKeys";
+import {
+  openPrincipalWrapsThroughHistory,
+  resolveHistoricalPrincipalKey,
+} from "./historicalPrincipalKeys";
 
 const PRINCIPAL_ID = "11111111-1111-4111-8111-111111111111";
 const USER_ID = "22222222-2222-4222-8222-222222222222";
@@ -351,4 +355,67 @@ test("a member reaches an outer group transitively through an inner one", async 
   // outer secret proves the hop happened.
   expect(recovered).not.toBeNull();
   expect(Array.from(recovered ?? [])).toEqual(Array.from(outerSecret));
+});
+
+test("a container envelope sealed to a historical group key is opened end to end", async () => {
+  const identity = generateKemSeedAndKeyPair();
+  const groupEpoch = generateKemSeedAndKeyPair();
+  const containerId = crypto.randomUUID();
+  const containerKey = crypto.getRandomValues(new Uint8Array(32));
+
+  // The container envelope is KEM-wrapped to the GROUP's encapsulation key —
+  // the same shape the server writes. Opening it needs decapsulation, not the
+  // symmetric path a parent-container wrap uses, and this test exists because
+  // that distinction is invisible until a real envelope is round-tripped.
+  const [containerRecipient] = await wrapDekForRecipients(containerKey, [
+    groupEpoch.publicKey,
+  ]);
+  if (!containerRecipient) throw new Error("expected a container recipient");
+
+  const containerKeyEpochId = await computeContainerKekMaterialId({
+    containerId,
+    keyEpoch: 1,
+    keyMaterial: containerKey,
+  });
+
+  const genesis = await stateAt({
+    prevStateHash: null,
+    publicKey: groupEpoch.publicKey,
+    version: 1,
+  });
+
+  const recovered = await openPrincipalWrapsThroughHistory({
+    containerId,
+    containerKeyEpoch: 1,
+    containerKeyEpochId,
+    fetchHistory: async () =>
+      pageOf([
+        {
+          state: genesis,
+          projection: [],
+          memberEnvelopes: [
+            await memberEnvelopeFor({
+              principalSecret: groupEpoch.secretKey,
+              publicKey: identity.publicKey,
+            }),
+          ],
+        },
+      ]),
+    principalWraps: [
+      {
+        containerKeyEpochId,
+        recipientKind: "group",
+        recipientId: PRINCIPAL_ID,
+        recipientKeyEpochId: "epoch-1",
+        recipientKeyFingerprint: containerRecipient.keyFingerprint,
+        wrapManifestHash: "wrap-manifest-hash",
+        kemCipherText: bytesToBase64(containerRecipient.kemCipherText),
+        wrappedKey: bytesToBase64(containerRecipient.wrappedKey),
+      },
+    ],
+    secretKey: identity.secretKey,
+  });
+
+  expect(recovered).not.toBeNull();
+  expect(Array.from(recovered ?? [])).toEqual(Array.from(containerKey));
 });

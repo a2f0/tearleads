@@ -4,7 +4,10 @@ import {
   principalStates,
 } from "@tearleads/api-shared/schema";
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
-import { PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT } from "@tearleads/validators/util";
+import {
+  PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT,
+  PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT,
+} from "@tearleads/validators/util";
 import { and, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import {
   principalStateSelect,
@@ -114,8 +117,14 @@ export async function listPrincipalMemberEnvelopesForStates(
     input.memberGroupIds.length > 0
       ? and(
           eq(principalMemberEnvelopes.memberPrincipalType, "group"),
+          // Bounded here rather than by truncating results: the scope is what
+          // determines how many envelopes a state can yield, and the per-state
+          // cap is deliberately one larger so it never binds.
           inArray(principalMemberEnvelopes.memberPrincipalId, [
-            ...input.memberGroupIds,
+            ...input.memberGroupIds.slice(
+              0,
+              PRINCIPAL_POLICY_HISTORY_GROUP_SCOPE_LIMIT,
+            ),
           ]),
         )
       : undefined,
