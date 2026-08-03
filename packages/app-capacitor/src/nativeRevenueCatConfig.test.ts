@@ -42,6 +42,12 @@ test("iOS project registers the RevenueCat purchase plugin contract", async () =
     "package.storeProduct.productIdentifier == productId",
   );
   expect(purchasePlugin).toContain(
+    'CAPPluginMethod(name: "preparePackage", returnType: CAPPluginReturnPromise)',
+  );
+  expect(purchasePlugin).toContain(
+    "preparedPackages.removeValue(forKey: packageId)",
+  );
+  expect(purchasePlugin).toContain(
     "candidate.userInfo[NSUnderlyingErrorKey] as? NSError",
   );
   expect(purchasePlugin).toContain('"bridge-invalid"');

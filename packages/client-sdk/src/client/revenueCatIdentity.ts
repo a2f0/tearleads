@@ -35,6 +35,7 @@ export interface RevenueCatIdentityCoordinator {
   reset(): Promise<void>;
   runProviderOperation<T>(input: RevenueCatProviderOperation<T>): Promise<T>;
   runCheckout<T>(input: {
+    readonly abortReleasesIdentityGate?: boolean;
     readonly abortSignal?: AbortSignal;
     readonly operation: () => Promise<T>;
     readonly prepare?: () => Promise<void>;
@@ -347,6 +348,7 @@ class RevenueCatIdentityCoordinatorState
   }
 
   runCheckout<T>(checkoutInput: {
+    readonly abortReleasesIdentityGate?: boolean;
     readonly abortSignal?: AbortSignal;
     readonly operation: () => Promise<T>;
     readonly prepare?: () => Promise<void>;
@@ -361,12 +363,19 @@ class RevenueCatIdentityCoordinatorState
     ) {
       return Promise.reject(new RevenueCatCheckoutIdentityPendingError());
     }
+    if (this.checkouts.hasActive) {
+      return Promise.reject(new RevenueCatCheckoutIdentityPendingError());
+    }
     const ready = this.startConfiguration();
     let abandoned = checkoutInput.abortSignal?.aborted ?? false;
-    const gate = this.checkouts.create(checkoutInput.abortSignal, () => {
-      abandoned = true;
-      void ready.catch(() => undefined);
-    });
+    const gate = this.checkouts.create(
+      checkoutInput.abortSignal,
+      checkoutInput.abortReleasesIdentityGate === true,
+      () => {
+        abandoned = true;
+        void ready.catch(() => undefined);
+      },
+    );
     const abandon = () => {
       abandoned = true;
       gate.release();

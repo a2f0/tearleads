@@ -19,6 +19,7 @@ export class RevenueCatCheckoutGateCoordinator {
 
   create(
     abortSignal: AbortSignal | undefined,
+    releaseOnAbort: boolean,
     markAbandoned: () => void,
   ): RevenueCatCheckoutGate {
     let resolveGate = () => {};
@@ -28,10 +29,9 @@ export class RevenueCatCheckoutGateCoordinator {
     });
     const onAbort = () => {
       markAbandoned();
-      // Only embedded Web Billing supplies this abort signal. Its abandoned
-      // provider instance and immutable transaction metadata are isolated from
-      // later identity changes; native checkout never releases this gate early.
-      release();
+      // An isolated Web Billing instance can release immediately. Native store
+      // sheets are not cancellable, so their identity gate stays until result.
+      if (releaseOnAbort) release();
     };
     const release = () => {
       if (released) return;

@@ -200,6 +200,17 @@ function revenueCatAttributeKey(config: RevenueCatPurchasesConfig): string {
   return config.organizationAttributeKey ?? DEFAULT_ORGANIZATION_ATTRIBUTE_KEY;
 }
 
+function revenueCatIdentity(
+  backend: RevenueCatBackend,
+  config: RevenueCatPurchasesConfig,
+): RevenueCatIdentityCoordinator {
+  return createRevenueCatIdentityCoordinator({
+    apiKey: config.apiKey,
+    backend,
+    timeoutMs: revenueCatOperationTimeoutMs(config.operationTimeoutMs),
+  });
+}
+
 function holdsSyncEntitlement(
   info: RevenueCatCustomerInfo,
   entitlementId: string,
@@ -304,14 +315,7 @@ export function createRevenueCatPurchases(
 ): PurchasesCapability {
   const purchasesEnabled = config.purchasesEnabled ?? true;
   const attributeKey = revenueCatAttributeKey(config);
-  const operationTimeoutMs = revenueCatOperationTimeoutMs(
-    config.operationTimeoutMs,
-  );
-  const identity = createRevenueCatIdentityCoordinator({
-    apiKey: config.apiKey,
-    backend,
-    timeoutMs: operationTimeoutMs,
-  });
+  const identity = revenueCatIdentity(backend, config);
   // Defensive against a backend that returns a malformed customer info despite
   // the typed contract (native bridges can hand back partial objects). Optional
   // chaining alone is insufficient: a non-array truthy `activeEntitlementIds`
@@ -341,6 +345,7 @@ export function createRevenueCatPurchases(
       let preparedPurchase: unknown;
       const info = await identity
         .runCheckout({
+          abortReleasesIdentityGate: config.supportsEmbeddedCheckout === true,
           ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
           operation: () =>
             backend.purchasePackage({

@@ -18,6 +18,7 @@ import {
 import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import {
   fromCapacitorCustomerInfo,
+  prepareCapacitorRevenueCatPackage,
   purchaseCapacitorRevenueCatPackage,
 } from "./capacitorRevenueCatPurchase";
 
@@ -104,6 +105,7 @@ async function prepareCapacitorPurchase(input: {
   }
   const productChangeOptions =
     await androidProductChangeOptions(productIdentifier);
+  await prepareCapacitorRevenueCatPackage(aPackage);
   if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
   return new CapacitorPreparedPurchase(aPackage, productChangeOptions);
 }

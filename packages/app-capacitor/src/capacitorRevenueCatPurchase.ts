@@ -12,10 +12,36 @@ type OfficialPurchaseOptions = Omit<
 >;
 
 interface NativeRevenueCatPurchasePlugin {
+  preparePackage(options: {
+    packageId: string;
+    productId: string;
+  }): Promise<void>;
   purchasePackage(options: {
     packageId: string;
     productId: string;
   }): Promise<{ activeEntitlementIds?: unknown }>;
+}
+
+function nativePackageInput(aPackage: PurchasesPackage) {
+  return {
+    packageId: aPackage?.identifier ?? "",
+    productId: aPackage?.product?.identifier ?? "",
+  };
+}
+
+/** Resolves the iOS package while checkout preparation still has a deadline. */
+export async function prepareCapacitorRevenueCatPackage(
+  aPackage: PurchasesPackage,
+): Promise<void> {
+  if (Capacitor.getPlatform() !== "ios") return;
+  try {
+    await getNativeRevenueCatPurchase().preparePackage(
+      nativePackageInput(aPackage),
+    );
+  } catch (error) {
+    // An unavailable diagnostic bridge can still use the official SDK path.
+    if (!isBridgeValidationError(error)) throw error;
+  }
 }
 
 let nativeRevenueCatPurchase: NativeRevenueCatPurchasePlugin | undefined;
@@ -82,8 +108,7 @@ export async function purchaseCapacitorRevenueCatPackage(
 
   try {
     const result = await getNativeRevenueCatPurchase().purchasePackage({
-      packageId: aPackage?.identifier ?? "",
-      productId: aPackage?.product?.identifier ?? "",
+      ...nativePackageInput(aPackage),
     });
     return fromActiveEntitlementIds(
       normalizeActiveEntitlementIds(result?.activeEntitlementIds),

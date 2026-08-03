@@ -144,7 +144,7 @@ test("shows restart guidance when the provider stalls loading options", async ()
   expect(purchases.listSyncOptions).not.toHaveBeenCalled();
   await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
   expect(purchases.identify).toHaveBeenCalledTimes(1);
-  expect(result.current.optionsRetryAvailable).toBe(true);
+  expect(result.current.optionsRetryAvailable).toBe(false);
 
   stalled = false;
   rerender({

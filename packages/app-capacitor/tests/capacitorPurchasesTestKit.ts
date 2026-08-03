@@ -14,11 +14,14 @@ export const fixture: {
       replacementMode: string;
     };
   }[];
+  nativePrepareCalls: { identifier: string; productId: string }[];
   nativePurchaseCalls: { identifier: string; productId: string }[];
   attributeCalls: Record<string, string | null>[];
   packages: PurchasesPackage[];
   purchaseRejection: unknown;
   nativePurchaseRejection: unknown;
+  nativePrepareRejection: unknown;
+  nativePreparePromise: Promise<void> | null;
   customerInfo: unknown;
   nativePurchaseResult: { activeEntitlementIds?: unknown } | null;
   onGetOfferings: (() => void) | null;
@@ -32,11 +35,14 @@ export const fixture: {
   logOutCalls: 0,
   logOutRejection: null,
   purchaseCalls: [],
+  nativePrepareCalls: [],
   nativePurchaseCalls: [],
   attributeCalls: [],
   packages: [],
   purchaseRejection: null,
   nativePurchaseRejection: null,
+  nativePrepareRejection: null,
+  nativePreparePromise: null,
   customerInfo: { entitlements: { active: { sync: {} } } },
   nativePurchaseResult: null,
   onGetOfferings: null,
@@ -65,6 +71,24 @@ mock.module("@capacitor/core", () => ({
         return { show: () => Promise.resolve() };
       }
       return {
+        preparePackage: ({
+          packageId,
+          productId,
+        }: {
+          packageId: string;
+          productId: string;
+        }) => {
+          fixture.nativePrepareCalls.push({
+            identifier: packageId,
+            productId,
+          });
+          if (fixture.nativePreparePromise !== null) {
+            return fixture.nativePreparePromise;
+          }
+          return fixture.nativePrepareRejection === null
+            ? Promise.resolve()
+            : Promise.reject(fixture.nativePrepareRejection);
+        },
         purchasePackage: ({
           packageId,
           productId,
@@ -211,11 +235,14 @@ export function resetFixture(): void {
   fixture.logOutCalls = 0;
   fixture.logOutRejection = null;
   fixture.purchaseCalls = [];
+  fixture.nativePrepareCalls = [];
   fixture.nativePurchaseCalls = [];
   fixture.attributeCalls = [];
   fixture.packages = [];
   fixture.purchaseRejection = null;
   fixture.nativePurchaseRejection = null;
+  fixture.nativePrepareRejection = null;
+  fixture.nativePreparePromise = null;
   fixture.customerInfo = { entitlements: { active: { sync: {} } } };
   fixture.nativePurchaseResult = null;
   fixture.onGetOfferings = null;

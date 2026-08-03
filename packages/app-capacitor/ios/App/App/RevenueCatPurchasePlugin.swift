@@ -7,8 +7,37 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
     let identifier = "RevenueCatPurchasePlugin"
     let jsName = "RevenueCatPurchase"
     let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "preparePackage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchasePackage", returnType: CAPPluginReturnPromise)
     ]
+    private var preparedPackages: [String: Package] = [:]
+
+    @objc func preparePackage(_ call: CAPPluginCall) {
+        guard Purchases.isConfigured else {
+            Self.rejectBridgeValidation(call)
+            return
+        }
+        guard let packageId = call.getString("packageId"), !packageId.isEmpty,
+              let productId = call.getString("productId"), !productId.isEmpty else {
+            Self.rejectBridgeValidation(call)
+            return
+        }
+
+        Task { @MainActor in
+            do {
+                let offerings = try await Purchases.shared.offerings()
+                guard let package = offerings.current?.package(identifier: packageId),
+                      package.storeProduct.productIdentifier == productId else {
+                    Self.rejectBridgeValidation(call)
+                    return
+                }
+                self.preparedPackages[packageId] = package
+                call.resolve()
+            } catch {
+                Self.reject(call, error: error)
+            }
+        }
+    }
 
     @objc func purchasePackage(_ call: CAPPluginCall) {
         guard Purchases.isConfigured else {
@@ -26,8 +55,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
 
         Task { @MainActor in
             do {
-                let offerings = try await Purchases.shared.offerings()
-                guard let package = offerings.current?.package(identifier: packageId),
+                guard let package = self.preparedPackages.removeValue(forKey: packageId),
                       package.storeProduct.productIdentifier == productId else {
                     Self.rejectBridgeValidation(call)
                     return

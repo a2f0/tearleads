@@ -3,6 +3,7 @@ import type { RevenueCatBackend } from "./purchases";
 import {
   createRevenueCatIdentityCoordinator,
   RevenueCatCheckoutAbandonedError,
+  RevenueCatCheckoutIdentityPendingError,
   RevenueCatOperationTimeoutError,
 } from "./revenueCatIdentity";
 
@@ -238,6 +239,7 @@ test("an aborted checkout releases its identity gate", async () => {
   const identity = coordinator(backend);
   await identity.identify("user-1");
   void identity.runCheckout({
+    abortReleasesIdentityGate: true,
     abortSignal: abortController.signal,
     operation: () => {
       checkoutStarted.resolve();
@@ -250,6 +252,66 @@ test("an aborted checkout releases its identity gate", async () => {
   abortController.abort();
   await identifying;
   expect(backend.calls).toEqual(["configure:user-1", "login:user-2"]);
+});
+
+test("native abort keeps identity gated until the store settles", async () => {
+  const backend = createBackend();
+  const checkout = createDeferred();
+  const checkoutStarted = createDeferred();
+  const abortController = new AbortController();
+  const identity = coordinator(backend);
+  await identity.identify("user-1");
+  const purchasing = identity.runCheckout({
+    abortSignal: abortController.signal,
+    operation: async () => {
+      checkoutStarted.resolve();
+      await checkout.promise;
+    },
+  });
+  await checkoutStarted.promise;
+
+  const identifying = identity.identify("user-2");
+  abortController.abort();
+  await Promise.resolve();
+  expect(backend.calls).toEqual(["configure:user-1"]);
+
+  checkout.resolve();
+  await Promise.all([purchasing, identifying]);
+  expect(backend.calls).toEqual(["configure:user-1", "login:user-2"]);
+});
+
+test("a second checkout waits until the active store sheet settles", async () => {
+  const backend = createBackend();
+  const checkout = createDeferred();
+  const checkoutStarted = createDeferred();
+  const identity = coordinator(backend);
+  await identity.identify("user-1");
+  const first = identity.runCheckout({
+    operation: async () => {
+      checkoutStarted.resolve();
+      await checkout.promise;
+    },
+  });
+  await checkoutStarted.promise;
+  let secondStarts = 0;
+
+  await expect(
+    identity.runCheckout({
+      operation: async () => {
+        secondStarts += 1;
+      },
+    }),
+  ).rejects.toBeInstanceOf(RevenueCatCheckoutIdentityPendingError);
+  expect(secondStarts).toBe(0);
+
+  checkout.resolve();
+  await first;
+  await identity.runCheckout({
+    operation: async () => {
+      secondStarts += 1;
+    },
+  });
+  expect(secondStarts).toBe(1);
 });
 
 test("abort before checkout registration skips preparation and mounting", async () => {
