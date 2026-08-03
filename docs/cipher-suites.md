@@ -68,7 +68,8 @@ ML-KEM-wrapped out to users and principals.
 | Local identity package at rest | `packages/app/src/providers/identity/localIdentityPackageCrypto.ts` |
 | Local OPFS blob store at rest (authenticated 5 MiB chunks) | `packages/client-sdk/src/data/blobs/encryptedBlobStore.ts`, `.../encryptedBlobByteSource.ts` |
 
-Core helpers: `packages/crypto/src/symmetric.ts` (32-byte key, 12-byte IV, 16-byte tag).
+Core helpers: `packages/crypto/src/symmetric.ts` (32-byte key, 12-byte IV,
+16-byte tag).
 
 Note: the principal policy payload carries a `cipherSuite: "aes-256-gcm"` label
 (`packages/crypto/src/principalStateTypes.ts`), but the current

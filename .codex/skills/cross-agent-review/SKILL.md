@@ -94,8 +94,8 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    and the loop could commit and push without limit.
 
 2. **Sync with the base, then snapshot the candidate head**: before reviewing,
-   bring the branch up to date with its base, so the review — and the head that is
-   eventually merged — reflects the branch integrated with the *current* base
+   bring the branch up to date with its base, so the review — and the head that
+   is eventually merged — reflects the branch integrated with the *current* base
    rather than a stale one. **Skip the sync under `--repair-rounds 0`**, whose
    contract is to change nothing; take the snapshot as-is in that mode.
 
@@ -138,13 +138,13 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    a conflict, abort and stop** — never auto-resolve, and never review a conflicted
    tree.
 
-   The merge moves `HEAD` only when the base actually advanced; on a branch already
-   current, or a later repair round where nothing new landed, it is a no-op. **When
-   a PR is open**, push the updated head without force so the pushed head still
-   matches what is reviewed — but **only when the merge actually moved `HEAD`**, so
-   an already-current branch does not fire the (expensive) pre-push hook for
-   nothing; **with no PR**, the merge stays local and `open-pr` pushes it later, so
-   the flow's single push is preserved:
+   The merge moves `HEAD` only when the base actually advanced; on a branch
+   already current, or a later repair round where nothing new landed, it is a
+   no-op. **When a PR is open**, push the updated head without force so the
+   pushed head still matches what is reviewed — but **only when the merge
+   actually moved `HEAD`**, so an already-current branch does not fire the
+   (expensive) pre-push hook for nothing; **with no PR**, the merge stays local
+   and `open-pr` pushes it later, so the flow's single push is preserved:
 
    ```bash
    if [ -n "$PR_NUMBER" ] && [ "$(git rev-parse HEAD)" != "$PRE_SYNC_HEAD" ]; then
@@ -152,8 +152,8 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    fi
    ```
 
-   Then snapshot the head under review — the integrated head when the sync ran, the
-   current head when it was skipped:
+   Then snapshot the head under review — the integrated head when the sync ran,
+   the current head when it was skipped:
 
    ```bash
    REVIEWED_SHA=$(git rev-parse HEAD)
@@ -303,8 +303,8 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
           not step 1, so the new head is snapshotted and the **complete** PR diff
           is reviewed again while the round count survives.
 
-   **Never report a head as reviewed after fixing it.** Every repair round ends by
-   re-entering the loop; the reported `REVIEWED_SHA` is always a head that a
+   **Never report a head as reviewed after fixing it.** Every repair round ends
+   by re-entering the loop; the reported `REVIEWED_SHA` is always a head that a
    review actually read.
 
 6. **Report results**: Output
@@ -313,11 +313,11 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    - The review findings from the final review
    - **The head SHA** — normally `REVIEWED_SHA`, a head a review actually read.
      With an open PR it is the pushed head; with no PR it is a local, not-yet-
-     pushed head that `open-pr` will push unchanged. On a **review-could-not-run**
-     verdict nothing was reviewed, so report the **candidate** head snapshotted in
-     step 2 and label it plainly as *unreviewed*. Always report a SHA: a caller
-     overriding the gate still needs a head to bind its merge to, and inventing
-     one later would defeat the bind.
+     pushed head that `open-pr` will push unchanged. On a
+     **review-could-not-run** verdict nothing was reviewed, so report the
+     **candidate** head snapshotted in step 2 and label it plainly as
+     *unreviewed*. Always report a SHA: a caller overriding the gate still needs
+     a head to bind its merge to, and inventing one later would defeat the bind.
    - **The final verdict** — clean, non-blocking nits only, unresolved blocking
      findings, or review-could-not-run
    - **Repair rounds performed**, and what was fixed in them
@@ -356,11 +356,12 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 - Reviews are based on the diff between the base branch and HEAD — the PR's base
   when a PR is open, the repository's default branch when there is none yet.
 - **Each round merges the current base into the branch first**, so a branch cut
-  from an older base is reviewed as it will actually merge — a signature change or
-  a moved dependency that landed on the base surfaces during the review and the
-  pre-push checks, not after the merge. The merge (never a rebase, so no force
-  push) is local when there is no PR and pushed when there is; a conflict aborts
-  and stops for the user. `--repair-rounds 0` skips it, keeping report-only inert.
+  from an older base is reviewed as it will actually merge — a signature change
+  or a moved dependency that landed on the base surfaces during the review and
+  the pre-push checks, not after the merge. The merge (never a rebase, so no
+  force push) is local when there is no PR and pushed when there is; a conflict
+  aborts and stops for the user. `--repair-rounds 0` skips it, keeping
+  report-only inert.
 - Both reviewers get the prompt/diff via stdin (not argv) to avoid
   "Argument list too long" failures on large PRs.
 - The Claude reviewer runs with read-only tools (`--tools "Read,Grep,Glob"`) and

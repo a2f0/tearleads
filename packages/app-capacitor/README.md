@@ -88,7 +88,10 @@ any live-reload URL from the generated native config:
 bun run android:sideload:release
 ```
 
-Release builds use `.secrets/tearleads-release.keystore` with `ANDROID_KEYSTORE_STORE_PASS` and `ANDROID_KEYSTORE_KEY_PASS` when present. Without those values, Gradle signs the release APK with the debug signing config so it can still be sideloaded locally.
+Release builds use `.secrets/tearleads-release.keystore` with
+`ANDROID_KEYSTORE_STORE_PASS` and `ANDROID_KEYSTORE_KEY_PASS` when present.
+Without those values, Gradle signs the release APK with the debug signing config
+so it can still be sideloaded locally.
 
 ## Android Google Play Release
 

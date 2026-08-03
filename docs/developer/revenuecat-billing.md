@@ -172,8 +172,8 @@ returning an unbounded 503.
 
 - The server value comes from `.secrets/root.env` and is rendered into the API
   server's systemd `EnvironmentFile` by the ansible playbook
-  ([`api.env.j2`](../../ansible/playbooks/templates/etc/tearleads/api.env.j2)), so
-  it only reaches a deployed server via the **ansible** deploy step (not
+  ([`api.env.j2`](../../ansible/playbooks/templates/etc/tearleads/api.env.j2)),
+  so it only reaches a deployed server via the **ansible** deploy step (not
   `--skip-infra`).
 - Register the endpoint in the RevenueCat dashboard, or via the v2 API
   (`POST /v2/projects/{project_id}/integrations/webhooks`), with the `Authorization`
@@ -244,8 +244,8 @@ leaves RevenueCat responsible for mirroring the resulting entitlement lifecycle:
 - Stripe gives every webhook endpoint its own signing secret. Staging and
   production therefore need separate `STRIPE_WEBHOOK_SECRET` values in their
   tier env files; do not leave one shared root value when both endpoints are
-  enabled. The publishable key, secret key, and all three price ids must likewise belong
-  to the same Stripe mode for that tier.
+  enabled. The publishable key, secret key, and all three price ids must
+  likewise belong to the same Stripe mode for that tier.
 - One-time provider steps: create one Stripe product with the three monthly
   Prices listed above; attach that Stripe product to the `sync` entitlement in
   RevenueCat; register the webhook endpoint in Stripe with `invoice.paid`

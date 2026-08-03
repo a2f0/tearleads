@@ -529,9 +529,9 @@ When structural attachment changes are accepted through
 
 - mutates `attachment_bindings`, blob content-key rows, and live blobs
 - writes, before live pruning can delete rows needed for audit metadata:
- - `blob_audit_objects` rows for newly referenced blobs
- - one `document_audit_entries` row plus one
- `document_attachment_audit_events` row per committed attach / replace /
- detach / rewrap event
+  - `blob_audit_objects` rows for newly referenced blobs
+  - one `document_audit_entries` row plus one
+    `document_attachment_audit_events` row per committed attach / replace /
+    detach / rewrap event
 
 Live GC never deletes from history-side tables.
