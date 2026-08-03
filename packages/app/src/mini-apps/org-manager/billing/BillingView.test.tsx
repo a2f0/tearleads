@@ -50,10 +50,12 @@ function props(overrides: Partial<BillingViewProps>): BillingViewProps {
     busy: null,
     activationPending: false,
     actionError: null,
+    optionsRetryAvailable: false,
     onManageSubscription: () => undefined,
     onStartTrial: () => undefined,
     onSubscribe: () => undefined,
     onRestore: () => undefined,
+    onRetryOptions: () => undefined,
     onRefresh: () => undefined,
     ...overrides,
   };

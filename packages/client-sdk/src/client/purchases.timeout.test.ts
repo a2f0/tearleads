@@ -66,7 +66,7 @@ test("checkout preparation exposes a terminal provider timeout", async () => {
   ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
 });
 
-test("checkout waiting on configuration stays retryable", async () => {
+test("checkout waiting on stalled configuration asks for restart", async () => {
   const backend = createBackend();
   backend.configure = () => new Promise(() => {});
 
@@ -75,7 +75,7 @@ test("checkout waiting on configuration stays retryable", async () => {
       organizationId: "org-1",
       packageId: "monthly",
     }),
-  ).rejects.toBeInstanceOf(PurchaseIdentityPendingError);
+  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
 });
 
 test("organization binding exposes a terminal provider timeout", async () => {
@@ -110,13 +110,42 @@ test("restore stays buyer-paced beyond the ordinary provider deadline", async ()
 
   await restoreStarted;
   await expect(capability.hasActiveSyncEntitlement()).rejects.toBeInstanceOf(
-    PurchaseProviderStalledError,
+    PurchaseIdentityPendingError,
   );
   expect(settled).toBe(false);
   finishRestore();
   await restoring;
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(await capability.hasActiveSyncEntitlement()).toBe(false);
+});
+
+test("identity queued behind buyer-paced restore stays retryable", async () => {
+  const backend = createBackend();
+  let finishRestore = () => {};
+  let markRestoreStarted = () => {};
+  const restoreStarted = new Promise<void>((resolve) => {
+    markRestoreStarted = resolve;
+  });
+  const restoreReady = new Promise<void>((resolve) => {
+    finishRestore = resolve;
+  });
+  backend.restorePurchases = async () => {
+    markRestoreStarted();
+    await restoreReady;
+    return { activeEntitlementIds: ["sync"] };
+  };
+  const capability = purchases(backend);
+  await capability.identify({ userId: "user-1" });
+  const restoring = capability.restore();
+  await restoreStarted;
+
+  await expect(
+    capability.identify({ userId: "user-2" }),
+  ).rejects.toBeInstanceOf(PurchaseIdentityPendingError);
+  finishRestore();
+  await restoring;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await capability.identify({ userId: "user-2" });
 });
 
 test("restore bounds identity settlement before opening store UI", async () => {

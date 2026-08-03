@@ -60,12 +60,17 @@ class RevenueCatIdentityCoordinatorState
   private currentAppUserId: string | null | undefined;
   private retryIdentity: (() => Promise<void>) | undefined;
   private blockedIdentityError: Error | undefined;
-  private wedgedIdentityError: Error | undefined;
-  private pendingIdentityTimeoutError: Error | undefined;
-  private pendingProviderTimeoutError: Error | undefined;
-  private identityMutationTimeoutError: Error | undefined;
-  private blockingFlowTimeoutError: Error | undefined;
-  private buyerPacedInFlight = false;
+  private wedgedIdentityError: RevenueCatOperationTimeoutError | undefined;
+  private pendingIdentityTimeoutError:
+    | RevenueCatOperationTimeoutError
+    | undefined;
+  private pendingProviderTimeoutError:
+    | RevenueCatOperationTimeoutError
+    | undefined;
+  private identityMutationTimeoutError:
+    | RevenueCatOperationTimeoutError
+    | undefined;
+  private blockingFlowTimeoutError: RevenueCatOperationTimeoutError | undefined;
   private identityMutationInFlight = false;
   private pendingIdentityChanges = 0;
   private identityIdle: Promise<void> | undefined;
@@ -260,7 +265,7 @@ class RevenueCatIdentityCoordinatorState
         error.markRestartRequired();
         this.identityMutationTimeoutError = error;
         this.wedgedIdentityError = error;
-      } else if (this.checkouts.hasActive || this.buyerPacedInFlight) {
+      } else if (this.checkouts.hasActive) {
         error.markRestartRequired();
         this.blockingFlowTimeoutError = error;
         this.wedgedIdentityError = error;
@@ -318,13 +323,8 @@ class RevenueCatIdentityCoordinatorState
           throw error;
         }
         providerStarted = true;
-        if (providerInput.buyerPaced) this.buyerPacedInFlight = true;
         resolvePreflight();
-        try {
-          return await providerInput.operation();
-        } finally {
-          if (providerInput.buyerPaced) this.buyerPacedInFlight = false;
-        }
+        return providerInput.operation();
       });
     const operation =
       requiresKnownIdentity && this.identityIdle
@@ -344,10 +344,7 @@ class RevenueCatIdentityCoordinatorState
     return this.withProviderTimeout(
       operation,
       providerInput.operationName,
-      () =>
-        providerStarted ||
-        this.identityMutationInFlight ||
-        this.buyerPacedInFlight,
+      () => providerStarted || this.identityMutationInFlight,
     );
   }
 
@@ -390,7 +387,7 @@ class RevenueCatIdentityCoordinatorState
     const prepared = this.withProviderTimeout(
       registration,
       "checkout preparation",
-      () => providerPreparationStarted || this.buyerPacedInFlight,
+      () => providerPreparationStarted || this.identityMutationInFlight,
       abandon,
     ).catch((error) => {
       abandon();

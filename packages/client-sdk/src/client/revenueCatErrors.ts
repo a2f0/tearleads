@@ -74,10 +74,10 @@ export function normalizeRevenueCatError(source: unknown): Error {
 }
 
 /** Gives each rejected caller its own error without losing subclass identity. */
-export function copyRevenueCatError(source: Error): Error {
+export function copyRevenueCatError<T extends Error>(source: T): T {
   // Keep timeout state as ordinary descriptor-backed fields: this clone cannot
   // reproduce JavaScript #private slots.
-  const copy: Error = Object.create(
+  const copy: T = Object.create(
     Object.getPrototypeOf(source),
     Object.getOwnPropertyDescriptors(source),
   );

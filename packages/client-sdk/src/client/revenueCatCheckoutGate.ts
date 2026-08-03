@@ -28,6 +28,9 @@ export class RevenueCatCheckoutGateCoordinator {
     });
     const onAbort = () => {
       markAbandoned();
+      // Only embedded Web Billing supplies this abort signal. Its abandoned
+      // provider instance and immutable transaction metadata are isolated from
+      // later identity changes; native checkout never releases this gate early.
       release();
     };
     const release = () => {
