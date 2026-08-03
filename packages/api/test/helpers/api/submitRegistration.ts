@@ -137,6 +137,7 @@ export async function createRegistrationRequestBody(
     userId,
   });
   const rootBootstrap = await createRegistrationBootstrap({
+    adminGroup: initialAdminGroup,
     encapsulationPublicKey,
     memberGroup: initialMemberGroup,
     organizationId,
