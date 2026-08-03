@@ -185,6 +185,68 @@ test("a post-claim retry resumes at organization binding", async () => {
   expect(flow.state().actionError).toBeNull();
 });
 
+test("organization changes serialize native move bindings", async () => {
+  const nextScope: BillingActionScope = {
+    generation: 2,
+    organizationId: "org-2",
+    userId: "user-1",
+  };
+  let finishFirstClaim = (_accepted: boolean) => {};
+  const firstClaim = new Promise<boolean>((resolve) => {
+    finishFirstClaim = resolve;
+  });
+  let claimAttempts = 0;
+  const claim = mock(() => {
+    claimAttempts += 1;
+    return claimAttempts === 1 ? firstClaim : Promise.resolve(true);
+  });
+  const bindOrganization = mock(() => Promise.resolve());
+  const scopeRef = { current: SCOPE };
+  const updateActionState: UpdateActionState = () => {};
+  const view = renderHook(
+    ({ scope }: { scope: BillingActionScope }) =>
+      useNativeSubscriptionMove({
+        claimNativeSubscription: claim,
+        currentScope: scope,
+        purchases: purchases(
+          () => Promise.resolve({ syncEntitlementActive: true }),
+          bindOrganization,
+        ),
+        refresh: () => Promise.resolve(),
+        scopeRef,
+        updateActionState,
+        userId: scope.userId,
+      }),
+    {
+      initialProps: { scope: SCOPE },
+      wrapper: ({ children }: PropsWithChildren) => (
+        <LogProvider>{children}</LogProvider>
+      ),
+    },
+  );
+
+  act(() => view.result.current.request());
+  act(() => view.result.current.confirm());
+  await waitFor(() => expect(claim).toHaveBeenCalledTimes(1));
+
+  scopeRef.current = nextScope;
+  view.rerender({ scope: nextScope });
+  act(() => view.result.current.request());
+  act(() => view.result.current.confirm());
+  await act(() => Promise.resolve());
+  expect(claim).toHaveBeenCalledTimes(1);
+  expect(bindOrganization).not.toHaveBeenCalled();
+
+  finishFirstClaim(true);
+  await waitFor(() => expect(bindOrganization).toHaveBeenCalledTimes(2));
+  expect(bindOrganization).toHaveBeenNthCalledWith(1, {
+    organizationId: "org-1",
+  });
+  expect(bindOrganization).toHaveBeenNthCalledWith(2, {
+    organizationId: "org-2",
+  });
+});
+
 test.each([
   [404, ORG_MANAGER_LABELS.nativeClaimNotFound],
   [409, ORG_MANAGER_LABELS.nativeClaimConflict],

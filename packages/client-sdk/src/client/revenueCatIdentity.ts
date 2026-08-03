@@ -22,6 +22,10 @@ export {
 } from "./revenueCatErrors";
 export type { RevenueCatIdentityCoordinator } from "./revenueCatIdentityTypes";
 
+interface ProviderEnqueueReservation {
+  readonly release: () => void;
+}
+
 class RevenueCatIdentityCoordinatorState
   implements RevenueCatIdentityCoordinator
 {
@@ -31,6 +35,7 @@ class RevenueCatIdentityCoordinatorState
   private retryIdentity: (() => Promise<void>) | undefined;
   private blockedIdentityError: Error | undefined;
   private readonly pendingIdentityChanges = new Set<Promise<void>>();
+  private readonly pendingProviderEnqueues = new Set<Promise<void>>();
   private providerTail = Promise.resolve();
   private readonly checkouts = new RevenueCatCheckoutGateCoordinator();
   private readonly timeouts: RevenueCatTimeoutCoordinator;
@@ -186,15 +191,21 @@ class RevenueCatIdentityCoordinatorState
     operation: () => Promise<void>,
     operationName: string,
   ): Promise<void> {
+    const providerEnqueuesBeforeChange = this.providerEnqueuesBeforeNow();
     let resolveCompletion = () => {};
     const completion = new Promise<void>((resolve) => {
       resolveCompletion = resolve;
     });
     this.pendingIdentityChanges.add(completion);
-    const transition = this.checkouts.afterActive(() => {
+    const enqueue = () => {
       const timedOut = this.timeouts.rejectIfWedged<void>();
       return timedOut ?? this.enqueueProviderOperation(operation);
-    });
+    };
+    const transition = this.checkouts.afterActive(() =>
+      providerEnqueuesBeforeChange
+        ? providerEnqueuesBeforeChange.then(enqueue)
+        : enqueue(),
+    );
     const settled = transition.then(
       () => {
         this.finishIdentityChange(completion, resolveCompletion);
@@ -223,6 +234,28 @@ class RevenueCatIdentityCoordinatorState
     return Promise.all(this.pendingIdentityChanges).then(() => undefined);
   }
 
+  private providerEnqueuesBeforeNow(): Promise<void> | undefined {
+    if (this.pendingProviderEnqueues.size === 0) return undefined;
+    return Promise.all(this.pendingProviderEnqueues).then(() => undefined);
+  }
+
+  private reserveProviderEnqueue(): ProviderEnqueueReservation {
+    let resolveReservation = () => {};
+    const reservation = new Promise<void>((resolve) => {
+      resolveReservation = resolve;
+    });
+    let released = false;
+    this.pendingProviderEnqueues.add(reservation);
+    return {
+      release: () => {
+        if (released) return;
+        released = true;
+        this.pendingProviderEnqueues.delete(reservation);
+        resolveReservation();
+      },
+    };
+  }
+
   runCustomerMutation(input: RevenueCatCustomerMutation): Promise<void> {
     const timedOut = this.timeouts.rejectIfIdentityTimedOut<void>();
     if (timedOut) return timedOut;
@@ -234,6 +267,48 @@ class RevenueCatIdentityCoordinatorState
     }, input.operationName);
   }
 
+  private scheduleProviderOperation<T>(input: {
+    readonly enqueueReservation: ProviderEnqueueReservation | undefined;
+    readonly isAbandoned: () => boolean;
+    readonly markStarted: () => void;
+    readonly providerInput: RevenueCatProviderOperation<T>;
+    readonly ready: Promise<void>;
+    readonly rejectPreflight: (error: unknown) => void;
+    readonly requiresKnownIdentity: boolean;
+    readonly resolvePreflight: () => void;
+  }): Promise<T> {
+    const wedged = this.timeouts.rejectIfWedged<T>();
+    if (wedged) {
+      input.enqueueReservation?.release();
+      void wedged.catch(input.rejectPreflight);
+      return wedged;
+    }
+    const scheduled = this.enqueueProviderOperation(async () => {
+      try {
+        await input.ready;
+        if (input.requiresKnownIdentity) await this.recoverIdentity();
+      } catch (error) {
+        input.rejectPreflight(error);
+        throw error;
+      }
+      if (input.isAbandoned()) {
+        const error = new RevenueCatCheckoutAbandonedError();
+        input.rejectPreflight(error);
+        throw error;
+      }
+      input.markStarted();
+      const lateTimeout = this.timeouts.armLateProviderTimeout();
+      input.resolvePreflight();
+      try {
+        return await input.providerInput.operation();
+      } finally {
+        if (lateTimeout !== undefined) clearTimeout(lateTimeout);
+      }
+    });
+    input.enqueueReservation?.release();
+    return scheduled;
+  }
+
   runProviderOperation<T>(
     providerInput: RevenueCatProviderOperation<T>,
   ): Promise<T> {
@@ -243,6 +318,12 @@ class RevenueCatIdentityCoordinatorState
     );
     if (timedOut) return timedOut;
     const identityBeforeOperation = this.identityChangesBeforeNow();
+    const providerEnqueuesBeforeOperation = requiresKnownIdentity
+      ? this.providerEnqueuesBeforeNow()
+      : undefined;
+    const enqueueReservation = requiresKnownIdentity
+      ? this.reserveProviderEnqueue()
+      : undefined;
     const reservation = providerInput.waitForCheckout
       ? this.checkouts.reserve()
       : undefined;
@@ -257,32 +338,30 @@ class RevenueCatIdentityCoordinatorState
     });
     void preflight.catch(() => undefined);
     const schedule = () =>
-      this.enqueueProviderOperation(async () => {
-        try {
-          await ready;
-          if (requiresKnownIdentity) await this.recoverIdentity();
-        } catch (error) {
-          rejectPreflight(error);
-          throw error;
-        }
-        if (abandoned) {
-          const error = new RevenueCatCheckoutAbandonedError();
-          rejectPreflight(error);
-          throw error;
-        }
-        providerStarted = true;
-        const lateTimeout = this.timeouts.armLateProviderTimeout();
-        resolvePreflight();
-        try {
-          return await providerInput.operation();
-        } finally {
-          if (lateTimeout !== undefined) clearTimeout(lateTimeout);
-        }
+      this.scheduleProviderOperation({
+        enqueueReservation,
+        isAbandoned: () => abandoned,
+        markStarted: () => {
+          providerStarted = true;
+        },
+        providerInput,
+        ready,
+        rejectPreflight,
+        requiresKnownIdentity,
+        resolvePreflight,
       });
-    const scheduleAfterIdentity = () =>
-      requiresKnownIdentity && identityBeforeOperation
-        ? identityBeforeOperation.then(schedule)
+    const scheduleAfterIdentity = () => {
+      const dependencies: Promise<void>[] = [];
+      if (requiresKnownIdentity && identityBeforeOperation) {
+        dependencies.push(identityBeforeOperation);
+      }
+      if (providerEnqueuesBeforeOperation) {
+        dependencies.push(providerEnqueuesBeforeOperation);
+      }
+      return dependencies.length > 0
+        ? Promise.all(dependencies).then(schedule)
         : schedule();
+    };
     const operation = reservation
       ? reservation.ready.then(scheduleAfterIdentity)
       : scheduleAfterIdentity();
@@ -298,6 +377,7 @@ class RevenueCatIdentityCoordinatorState
           () => this.timeouts.identityMutationActive,
           () => {
             abandoned = true;
+            enqueueReservation?.release();
             reservation?.gate.release();
           },
         )
@@ -310,6 +390,7 @@ class RevenueCatIdentityCoordinatorState
       providerInput.waitForCheckout
         ? () => {
             abandoned = true;
+            enqueueReservation?.release();
             if (!providerStarted && !this.timeouts.identityMutationActive) {
               reservation?.gate.release();
             }

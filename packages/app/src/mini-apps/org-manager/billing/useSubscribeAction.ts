@@ -109,6 +109,7 @@ export function useNativeSubscriptionMove(
   } = input;
   const { logError } = useLog();
   const [openScope, setOpenScope] = useState<BillingActionScope | null>(null);
+  const moveTailRef = useRef<Promise<void>>(Promise.resolve());
   const pendingBindScopeRef = useRef<BillingActionScope | null>(null);
   const open = openScope !== null && scopeMatches(openScope, currentScope);
   const request = useCallback(() => setOpenScope(currentScope), [currentScope]);
@@ -122,15 +123,22 @@ export function useNativeSubscriptionMove(
       actionError: null,
       busy: "restore",
     }));
+    const move = moveTailRef.current.then(() =>
+      restoreClaimAndBindNativeSubscription({
+        claimNativeSubscription,
+        pendingBindScopeRef,
+        purchases,
+        scope,
+        userId,
+      }),
+    );
+    moveTailRef.current = move.then(
+      () => undefined,
+      () => undefined,
+    );
     void (async () => {
       try {
-        await restoreClaimAndBindNativeSubscription({
-          claimNativeSubscription,
-          pendingBindScopeRef,
-          purchases,
-          scope,
-          userId,
-        });
+        await move;
         if (scopeMatches(scopeRef.current, scope)) await refresh();
       } catch (error) {
         logError(formatBillingPurchaseFailure(error, false));
