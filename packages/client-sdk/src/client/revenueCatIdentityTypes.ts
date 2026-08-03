@@ -15,13 +15,15 @@ export interface RevenueCatProviderOperation<T> {
   readonly waitForCheckout?: boolean;
 }
 
+export interface RevenueCatCustomerMutation {
+  readonly operation: () => Promise<void>;
+  readonly operationName: string;
+}
+
 export interface RevenueCatIdentityCoordinator {
   identify(appUserId: string): Promise<void>;
   reset(): Promise<void>;
-  runCustomerMutation(input: {
-    readonly operation: () => Promise<void>;
-    readonly operationName: string;
-  }): Promise<void>;
+  runCustomerMutation(input: RevenueCatCustomerMutation): Promise<void>;
   runProviderOperation<T>(input: RevenueCatProviderOperation<T>): Promise<T>;
   runCheckout<T>(input: {
     readonly abortReleasesIdentityGate?: boolean;

@@ -46,3 +46,18 @@ test("factory instances share native checkout identity serialization", async () 
   purchaseResult.resolve({ activeEntitlementIds: ["sync"] });
   await firstPurchase;
 });
+
+test("factory rejects an incompatible operation timeout", () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  const firstCapability = createCapacitorPurchases({ operationTimeoutMs: 5 });
+
+  expect(() => createCapacitorPurchases({ operationTimeoutMs: 0 })).toThrow(
+    "RevenueCat operation timeout must be a positive finite number",
+  );
+  expect(() => createCapacitorPurchases({ operationTimeoutMs: 10 })).toThrow(
+    "already configured with a different operation timeout",
+  );
+  expect(createCapacitorPurchases({ operationTimeoutMs: 5 })).toBe(
+    firstCapability,
+  );
+});

@@ -8,6 +8,7 @@ import {
   withRevenueCatOperationTimeout,
 } from "./revenueCatErrors";
 import type {
+  RevenueCatCustomerMutation,
   RevenueCatIdentityCoordinator,
   RevenueCatIdentityCoordinatorInput,
   RevenueCatProviderOperation,
@@ -253,10 +254,7 @@ class RevenueCatIdentityCoordinatorState
     this.resolveIdentityIdle = undefined;
   }
 
-  runCustomerMutation(input: {
-    readonly operation: () => Promise<void>;
-    readonly operationName: string;
-  }): Promise<void> {
+  runCustomerMutation(input: RevenueCatCustomerMutation): Promise<void> {
     const timedOut = this.rejectIfIdentityTimedOut<void>();
     if (timedOut) return timedOut;
     const ready = this.startConfiguration();
@@ -392,8 +390,12 @@ class RevenueCatIdentityCoordinatorState
     let providerPreparationStarted = false;
     const registration = this.enqueueProviderOperation(async () => {
       if (abandoned) throw new RevenueCatCheckoutAbandonedError();
-      await ready;
-      await this.recoverIdentity();
+      try {
+        await ready;
+        await this.recoverIdentity();
+      } catch (error) {
+        if (!abandoned) throw error;
+      }
       if (abandoned) throw new RevenueCatCheckoutAbandonedError();
       providerPreparationStarted = true;
       await checkoutInput.prepare?.();

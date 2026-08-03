@@ -42,10 +42,12 @@ function createBackend(): RecordingBackend {
 
 function createDeferred() {
   let resolve = () => {};
-  const promise = new Promise<void>((next) => {
+  let reject = (_error: unknown) => {};
+  const promise = new Promise<void>((next, fail) => {
     resolve = next;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, reject, resolve };
 }
 
 function coordinator(backend: RevenueCatBackend, timeoutMs = 1_000) {
@@ -230,6 +232,30 @@ test("a failed checkout releases its identity gate", async () => {
   await expect(purchasing).rejects.toThrow("purchase failed");
   await identifying;
   expect(backend.calls).toEqual(["configure:user-1", "login:user-2"]);
+});
+
+test("abort wins over a pending configuration failure", async () => {
+  const backend = createBackend();
+  const configuration = createDeferred();
+  const configurationStarted = createDeferred();
+  backend.configure = async () => {
+    configurationStarted.resolve();
+    await configuration.promise;
+  };
+  const abortController = new AbortController();
+  const identity = coordinator(backend);
+  const purchasing = identity.runCheckout({
+    abortSignal: abortController.signal,
+    operation: async () => undefined,
+  });
+  await configurationStarted.promise;
+
+  abortController.abort();
+  configuration.reject(new Error("configuration failed"));
+
+  await expect(purchasing).rejects.toBeInstanceOf(
+    RevenueCatCheckoutAbandonedError,
+  );
 });
 
 test("an aborted checkout releases its identity gate", async () => {

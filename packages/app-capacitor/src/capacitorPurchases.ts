@@ -27,6 +27,7 @@ let cachedPurchases:
   | {
       readonly apiKey: string;
       readonly capability: PurchasesCapability;
+      readonly operationTimeoutMs: number | undefined;
       readonly platform: string;
       readonly syncEntitlementId: string;
     }
@@ -235,6 +236,14 @@ function readEnvString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+function validateOperationTimeoutMs(value: number | undefined): void {
+  if (value !== undefined && (!Number.isFinite(value) || value <= 0)) {
+    throw new RangeError(
+      "RevenueCat operation timeout must be a positive finite number",
+    );
+  }
+}
+
 function readPlatformApiKey(): string | undefined {
   const platform = Capacitor.getPlatform();
   if (platform === "ios") {
@@ -256,6 +265,8 @@ function readPlatformApiKey(): string | undefined {
 export function createCapacitorPurchases(input?: {
   readonly operationTimeoutMs?: number;
 }): PurchasesCapability {
+  const operationTimeoutMs = input?.operationTimeoutMs;
+  validateOperationTimeoutMs(operationTimeoutMs);
   const platform = Capacitor.getPlatform();
   const apiKey = readPlatformApiKey();
   if (!apiKey) {
@@ -265,12 +276,18 @@ export function createCapacitorPurchases(input?: {
   const syncEntitlementId =
     readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
     DEFAULT_SYNC_ENTITLEMENT_ID;
+  const cached = cachedPurchases;
   if (
-    cachedPurchases?.apiKey === apiKey &&
-    cachedPurchases.platform === platform &&
-    cachedPurchases.syncEntitlementId === syncEntitlementId
+    cached?.apiKey === apiKey &&
+    cached.platform === platform &&
+    cached.syncEntitlementId === syncEntitlementId
   ) {
-    return cachedPurchases.capability;
+    if (cached.operationTimeoutMs !== operationTimeoutMs) {
+      throw new Error(
+        "RevenueCat is already configured with a different operation timeout",
+      );
+    }
+    return cached.capability;
   }
   const capability = createRevenueCatPurchases(capacitorRevenueCatBackend, {
     apiKey,
@@ -280,10 +297,14 @@ export function createCapacitorPurchases(input?: {
         ? "app_store"
         : "play_store",
     syncEntitlementId,
-    ...(input?.operationTimeoutMs === undefined
-      ? {}
-      : { operationTimeoutMs: input.operationTimeoutMs }),
+    ...(operationTimeoutMs === undefined ? {} : { operationTimeoutMs }),
   });
-  cachedPurchases = { apiKey, capability, platform, syncEntitlementId };
+  cachedPurchases = {
+    apiKey,
+    capability,
+    operationTimeoutMs,
+    platform,
+    syncEntitlementId,
+  };
   return capability;
 }
