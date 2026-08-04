@@ -7,6 +7,18 @@ import type { InternalWorkflowRuntimeInput } from "./workflowRuntime";
 
 type ContainerTree = ReturnType<ContainerContents["openTree"]>;
 
+/** Retry pacing mirrors the root re-share coordinator. */
+const INITIAL_RETRY_DELAY_MS = 1_000;
+const MAX_RETRY_DELAY_MS = 60_000;
+const MAX_RETRY_ATTEMPTS = 6;
+
+interface GroupGrantReshareOutcome {
+  /** Every granted container was resolved against a freshly pulled read model. */
+  readonly complete: boolean;
+  /** Containers left stale: unresolvable, or a re-wrap that did not apply. */
+  readonly unresolvedContainerIds: readonly string[];
+}
+
 /**
  * Run a group policy mutation and sweep its grants once the head is known.
  *
@@ -27,6 +39,7 @@ export async function withGroupGrantReshareAfterRotation<T>(input: {
   readExpectedGroupHead: () => ReferencedPrincipalHead | null;
   reconcileReadModel: () => Promise<unknown>;
   runtime: InternalWorkflowRuntimeInput;
+  scheduleRetry?: ((retry: () => void, delayMs: number) => void) | undefined;
   signingContext: { organizationId: string; signerUserId: string };
 }): Promise<T> {
   try {
@@ -38,6 +51,7 @@ export async function withGroupGrantReshareAfterRotation<T>(input: {
       mutatedGroupId: input.mutatedGroupId,
       reconcileReadModel: input.reconcileReadModel,
       runtime: input.runtime,
+      ...(input.scheduleRetry ? { scheduleRetry: input.scheduleRetry } : {}),
       signingContext: input.signingContext,
     });
   }
@@ -51,32 +65,86 @@ export async function withGroupGrantReshareAfterRotation<T>(input: {
  * mutation itself. The sweep is idempotent, so the next mutation on the same
  * group repairs whatever this pass missed.
  */
-function scheduleGroupGrantReshareAfterRotation(input: {
+export function scheduleGroupGrantReshareAfterRotation(input: {
   containerContents: ContainerContents;
   expectedGroupHead: ReferencedPrincipalHead | null;
   mutatedGroupId: string;
   reconcileReadModel: () => Promise<unknown>;
   runtime: InternalWorkflowRuntimeInput;
+  scheduleRetry?: ((retry: () => void, delayMs: number) => void) | undefined;
   signingContext: { organizationId: string; signerUserId: string };
 }): void {
   if (!input.expectedGroupHead || input.runtime.infra.dbStatus !== "ready") {
     return;
   }
-  void reshareGroupContainerGrantsAfterRotation({
-    containerContents: input.containerContents,
-    currentUserId: input.signingContext.signerUserId,
-    execSql: input.runtime.infra.execSql,
-    expectedGroupHead: input.expectedGroupHead,
+  const head = input.expectedGroupHead;
+  const sweep = () =>
+    reshareGroupContainerGrantsAfterRotation({
+      containerContents: input.containerContents,
+      currentUserId: input.signingContext.signerUserId,
+      execSql: input.runtime.infra.execSql,
+      expectedGroupHead: head,
+      log: (message) => input.runtime.util.log(message),
+      mutatedGroupId: input.mutatedGroupId,
+      organizationId: input.signingContext.organizationId,
+      reconcileReadModel: input.reconcileReadModel,
+    });
+
+  void runSweepWithRetry({
+    logError: (message, cause) => input.runtime.util.logError(message, cause),
     log: (message) => input.runtime.util.log(message),
     mutatedGroupId: input.mutatedGroupId,
-    organizationId: input.signingContext.organizationId,
-    reconcileReadModel: input.reconcileReadModel,
-  }).catch((error: unknown) => {
-    input.runtime.util.logError(
-      `Organizations: group grant re-share failed for group ${input.mutatedGroupId}`,
-      error,
-    );
+    scheduleRetry: input.scheduleRetry ?? defaultScheduleRetry,
+    sweep,
   });
+}
+
+function defaultScheduleRetry(retry: () => void, delayMs: number): void {
+  setTimeout(retry, delayMs);
+}
+
+/**
+ * Re-run the sweep until it reports completion, backing off between attempts.
+ *
+ * An incomplete sweep leaves containers pinned to the superseded epoch, so the
+ * members this repair exists for stay locked out of them. One best-effort pass
+ * would strand exactly the transient cases — a container not yet hydrated, a
+ * read-model pull that declined while offline — that a later attempt resolves.
+ * Pacing and the 60s ceiling mirror the root re-share coordinator; the attempt
+ * cap bounds a permanently unreachable container instead of retrying forever.
+ */
+async function runSweepWithRetry(input: {
+  log: (message: string) => void;
+  logError: (message: string, cause?: unknown) => void;
+  mutatedGroupId: string;
+  scheduleRetry: (retry: () => void, delayMs: number) => void;
+  sweep: () => Promise<GroupGrantReshareOutcome>;
+}): Promise<void> {
+  let delayMs = INITIAL_RETRY_DELAY_MS;
+  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt += 1) {
+    let outcome: GroupGrantReshareOutcome | null = null;
+    try {
+      outcome = await input.sweep();
+    } catch (error) {
+      input.logError(
+        `Organizations: group grant re-share failed for group ${input.mutatedGroupId}`,
+        error,
+      );
+    }
+    if (outcome?.complete) {
+      return;
+    }
+    if (attempt === MAX_RETRY_ATTEMPTS) {
+      input.log(
+        `Organizations: group grant re-share gave up for group ${input.mutatedGroupId} after ${attempt} attempts; unresolved: ${outcome?.unresolvedContainerIds.join(", ") ?? "unknown"}`,
+      );
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      input.scheduleRetry(resolve, delayMs);
+    });
+    delayMs = Math.min(delayMs * 2, MAX_RETRY_DELAY_MS);
+  }
 }
 
 /**
@@ -117,19 +185,29 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   mutatedGroupId: string;
   organizationId: string;
   reconcileReadModel: () => Promise<unknown>;
-}): Promise<void> {
+}): Promise<GroupGrantReshareOutcome> {
   // The read model is a local cache. A grant created since the last reconcile
   // is absent from it, and a container missing from the candidate list is never
   // visited — the silent staleness this sweep exists to prevent. Pull first so
   // enumeration sees the server's current grant set.
+  // reconcileAfterMutation resolves `undefined` when it declines to run —
+  // offline, unauthenticated, or a different org — rather than throwing. Reading
+  // that as a successful pull is what would let a stale cache pass for a fresh
+  // one, so both the decline and the throw are treated as "not reconciled".
+  let reconciled = false;
   try {
-    await input.reconcileReadModel();
+    reconciled = (await input.reconcileReadModel()) !== undefined;
   } catch (error) {
     rethrowKeyingVerificationError(error);
-    // Offline or a failed pull: sweep the cached grants rather than nothing. A
-    // grant this view omits is repaired by the next mutation on the group.
     input.log(
-      `Organizations: group grant re-share swept a stale read model for group ${input.mutatedGroupId}: ${error instanceof Error ? error.message : String(error)}`,
+      `Organizations: group grant re-share read-model pull failed for group ${input.mutatedGroupId}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (!reconciled) {
+    // Sweep the cached grants rather than nothing, but report it as incomplete
+    // so the caller retries: a grant this view omits was never even visited.
+    input.log(
+      `Organizations: group grant re-share swept a stale read model for group ${input.mutatedGroupId}`,
     );
   }
 
@@ -140,12 +218,13 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
     organizationId: input.organizationId,
   });
   if (!granted || granted.containers.length === 0) {
-    return;
+    return { complete: reconciled, unresolvedContainerIds: [] };
   }
 
   const tree = input.containerContents.openTree();
+  const unresolvedContainerIds: string[] = [];
   for (const container of granted.containers) {
-    await reshareOneGrantedContainer({
+    const repaired = await reshareOneGrantedContainer({
       accessLevel: container.accessLevel,
       containerId: container.containerId,
       expectedGroupHead: input.expectedGroupHead,
@@ -154,7 +233,14 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
       organizationId: input.organizationId,
       tree,
     });
+    if (!repaired) {
+      unresolvedContainerIds.push(container.containerId);
+    }
   }
+  return {
+    complete: reconciled && unresolvedContainerIds.length === 0,
+    unresolvedContainerIds,
+  };
 }
 
 /**
@@ -174,7 +260,7 @@ async function reshareOneGrantedContainer(input: {
   mutatedGroupId: string;
   organizationId: string;
   tree: ContainerTree;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
     const prepared = await input.tree.prepareGroupRewrap(
       input.containerId,
@@ -189,10 +275,12 @@ async function reshareOneGrantedContainer(input: {
       input.log(
         `Organizations: group grant re-share was unavailable for container ${input.containerId} in org ${input.organizationId}`,
       );
-      return;
+      return false;
     }
     if (prepared.status === "not-granted") {
-      return;
+      // The manifest answered: this group holds no grant here. Nothing to
+      // repair, so this is a resolved container, not a pending one.
+      return true;
     }
     if (
       await prepared.isCurrent(
@@ -201,17 +289,20 @@ async function reshareOneGrantedContainer(input: {
         input.organizationId,
       )
     ) {
-      return;
+      return true;
     }
     if (!(await prepared.rewrap())) {
       input.log(
         `Organizations: group grant re-share did not apply for container ${input.containerId} in org ${input.organizationId}`,
       );
+      return false;
     }
+    return true;
   } catch (error) {
     rethrowKeyingVerificationError(error);
     input.log(
       `Organizations: best-effort group grant re-share skipped for container ${input.containerId} in org ${input.organizationId}: ${error instanceof Error ? error.message : String(error)}`,
     );
+    return false;
   }
 }

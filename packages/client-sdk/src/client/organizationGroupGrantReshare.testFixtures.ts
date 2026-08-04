@@ -155,6 +155,7 @@ export interface RewrapCall {
 export function fakeContainerContents(input: {
   currentContainerIds?: ReadonlySet<string>;
   notGrantedContainerIds?: ReadonlySet<string>;
+  order?: string[];
   prepareCalls: RewrapCall[];
   rewrapped: string[];
   throwForContainerIds?: ReadonlySet<string>;
@@ -173,6 +174,7 @@ export function fakeContainerContents(input: {
           groupId,
           requireExistingGrant: options?.requireExistingGrant,
         });
+        input.order?.push(`prepare:${containerId}`);
         if (input.throwForContainerIds?.has(containerId)) {
           throw new Error(`container ${containerId} is unavailable`);
         }

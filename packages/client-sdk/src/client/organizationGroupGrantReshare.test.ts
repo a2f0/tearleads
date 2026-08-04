@@ -4,6 +4,7 @@ import type { ExecSql } from "../data/sqlite/sqlSchema";
 import type { ContainerContents } from "./containerContents";
 import {
   reshareGroupContainerGrantsAfterRotation,
+  scheduleGroupGrantReshareAfterRotation,
   withGroupGrantReshareAfterRotation,
 } from "./organizationGroupGrantReshare";
 import {
@@ -30,7 +31,7 @@ async function run(input: {
     log: () => undefined,
     mutatedGroupId: GRANTED_GROUP_ID,
     organizationId: ORGANIZATION_ID,
-    reconcileReadModel: input.reconcileReadModel ?? (async () => undefined),
+    reconcileReadModel: input.reconcileReadModel ?? (async () => ({})),
   });
 }
 
@@ -130,7 +131,7 @@ test("an unreachable container does not abort the rest of the sweep", async () =
       log: (message) => logged.push(message),
       mutatedGroupId: GRANTED_GROUP_ID,
       organizationId: ORGANIZATION_ID,
-      reconcileReadModel: async () => undefined,
+      reconcileReadModel: async () => ({}),
     });
 
     expect(rewrapped).toEqual(["container-b"]);
@@ -142,7 +143,7 @@ test("an unreachable container does not abort the rest of the sweep", async () =
   }
 });
 
-test("reconciles the read model before enumerating grants", async () => {
+test("pulls the read model before it enumerates any grant", async () => {
   const { close, execSql } = await createTestExecSql(
     "group-grant-reshare-reconcile",
   );
@@ -152,21 +153,23 @@ test("reconciles the read model before enumerating grants", async () => {
     const rewrapped: string[] = [];
     const order: string[] = [];
     await run({
-      contents: fakeContainerContents({
-        prepareCalls,
-        rewrapped,
-      }),
+      contents: fakeContainerContents({ order, prepareCalls, rewrapped }),
       execSql,
       reconcileReadModel: async () => {
         order.push("reconcile");
-        return undefined;
+        return {};
       },
     });
 
-    // A grant created since the last pull is absent from the cached read model,
-    // so enumerating first would never visit its container.
-    expect(order).toEqual(["reconcile"]);
-    expect(rewrapped.length).toBeGreaterThan(0);
+    // Enumeration reads the local cache, so any container visited before the
+    // pull resolves was chosen from a stale grant set — the failure mode this
+    // ordering exists to prevent. Asserting the pull is strictly first is what
+    // rules that out; a grant absent at seed time is never enumerated at all.
+    expect(order[0]).toBe("reconcile");
+    expect(order.filter((entry) => entry.startsWith("prepare:"))).toEqual([
+      "prepare:container-a",
+      "prepare:container-b",
+    ]);
   } finally {
     close();
   }
@@ -221,7 +224,7 @@ test("logs a container whose preparation is unavailable", async () => {
       log: (message) => logged.push(message),
       mutatedGroupId: GRANTED_GROUP_ID,
       organizationId: ORGANIZATION_ID,
-      reconcileReadModel: async () => undefined,
+      reconcileReadModel: async () => ({}),
     });
 
     // Unavailable is not "not-granted": the grant is neither confirmed nor
@@ -255,7 +258,7 @@ test("sweeps a rotation whose mutation rejected after committing", async () => {
         reconcileReadModel: async () => {
           reconciled = true;
           resolve();
-          return undefined;
+          return {};
         },
         runtime: runtime as never,
         signingContext: {
@@ -299,4 +302,94 @@ test("rethrows the mutation error rather than swallowing it", async () => {
       },
     }),
   ).rejects.toThrow("policy commit failed");
+});
+
+test("retries until every granted container resolves", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-retry",
+  );
+  try {
+    await seedReadModel(execSql);
+    const log: string[] = [];
+    const runtime = fakeRuntime(log);
+    runtime.infra.execSql = execSql as never;
+    const rewrapped: string[] = [];
+    const delays: number[] = [];
+    // container-a is unreachable until the first retry is scheduled.
+    let transientFailure = true;
+    scheduleGroupGrantReshareAfterRotation({
+      containerContents: fakeContainerContents({
+        prepareCalls: [],
+        rewrapped,
+        get throwForContainerIds() {
+          return transientFailure
+            ? new Set(["container-a"])
+            : new Set<string>();
+        },
+      }),
+      expectedGroupHead: EXPECTED_HEAD,
+      mutatedGroupId: GRANTED_GROUP_ID,
+      reconcileReadModel: async () => ({}),
+      runtime: runtime as never,
+      scheduleRetry: (retry, delayMs) => {
+        delays.push(delayMs);
+        transientFailure = false;
+        retry();
+      },
+      signingContext: {
+        organizationId: ORGANIZATION_ID,
+        signerUserId: CURRENT_USER_ID,
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // A transient failure must not strand the container: the members this
+    // repair exists for stay locked out of anything left pinned.
+    expect(rewrapped).toContain("container-a");
+    expect(delays).toEqual([1_000]);
+    expect(log.some((m) => m.includes("gave up"))).toBe(false);
+  } finally {
+    close();
+  }
+});
+
+test("gives up and reports the containers left pinned", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-give-up",
+  );
+  try {
+    await seedReadModel(execSql);
+    const log: string[] = [];
+    const runtime = fakeRuntime(log);
+    runtime.infra.execSql = execSql as never;
+    const delays: number[] = [];
+    scheduleGroupGrantReshareAfterRotation({
+      containerContents: fakeContainerContents({
+        prepareCalls: [],
+        rewrapped: [],
+        throwForContainerIds: new Set(["container-a", "container-b"]),
+      }),
+      expectedGroupHead: EXPECTED_HEAD,
+      mutatedGroupId: GRANTED_GROUP_ID,
+      reconcileReadModel: async () => ({}),
+      runtime: runtime as never,
+      scheduleRetry: (retry, delayMs) => {
+        delays.push(delayMs);
+        retry();
+      },
+      signingContext: {
+        organizationId: ORGANIZATION_ID,
+        signerUserId: CURRENT_USER_ID,
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Bounded, and it says what stayed broken rather than falling silent.
+    expect(delays.length).toBe(5);
+    expect(delays.at(-1)).toBe(16_000);
+    expect(log.some((m) => m.includes("gave up"))).toBe(true);
+    expect(log.some((m) => m.includes("container-a"))).toBe(true);
+  } finally {
+    close();
+  }
 });
