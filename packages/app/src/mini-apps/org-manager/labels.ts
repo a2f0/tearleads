@@ -49,11 +49,17 @@ export const ORG_MANAGER_LABELS = {
   billingHistoryEventsTab: "Events",
   billingHistoryTabsLabel: "Billing history sections",
   billingHistoryTitle: "Billing history",
+  billingIdentityPending: "Billing account is still updating. Try again.",
   billingLocal: "Local only",
   billingManageSubscription: "Manage subscription",
   billingManageSubscriptionFailed:
     "Could not open subscription management. Try again.",
+  billingNativeCheckoutUnavailable:
+    "Store checkout could not be prepared. Tap Subscribe again; restart the app if it continues.",
+  billingNativeCheckoutUnregistered:
+    "Store checkout is unavailable in this app build. Update the app; contact support if you already have the latest version.",
   billingNoOptions: "No subscription options are available right now.",
+  billingOptionsUnavailable: "Couldn't load subscription plans. Try again.",
   billingPastDue: "Payment past due",
   billingPlanChangeTiming:
     "Upgrades take effect immediately with a store-managed mid-cycle adjustment. Downgrades start at the next renewal; use Manage subscription to change a scheduled downgrade.",
@@ -65,10 +71,13 @@ export const ORG_MANAGER_LABELS = {
   billingPayOnStripeStarting: "Opening Stripe...",
   billingPayOnStripeUnavailable:
     "Couldn't open Stripe checkout right now. Try again.",
+  billingProviderStalled:
+    "Billing stopped responding. Restart the app and try again.",
   billingPurchaseUnavailable: "Purchases aren't available right now.",
   billingPurged: "Remote data purged",
   billingRestore: "Restore purchases",
   billingRestoring: "Restoring...",
+  billingRetryOptions: "Retry plans",
   billingSubscriptionMoveTitle: "Move this subscription?",
   billingSubscriptionMoveMessage:
     "This checks the Apple or Google account on this device and moves its Tearleads subscription to this personal organization. The previous personal organization will stop syncing, and its remote sync data becomes eligible for permanent deletion after 30 days. Its encrypted data and identity keys are not moved. If you need that data, cancel and recover the original identity in Identity Manager first.",
@@ -116,6 +125,8 @@ export const ORG_MANAGER_LABELS = {
     "This subscription cannot be moved here. Cancel any existing web subscription and try again.",
   nativeClaimNotFound:
     "No active native subscription was found for this store account.",
+  nativeClaimTimedOut:
+    "The billing server did not respond. Check your connection and try Restore again.",
   nativeClaimPending:
     "The purchase was restored, but verification is still pending. Try Restore again shortly.",
   failedSubscribe: "Purchase failed.",

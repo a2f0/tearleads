@@ -1,4 +1,3 @@
-import { Capacitor } from "@capacitor/core";
 import {
   PURCHASES_ERROR_CODE,
   Purchases,
@@ -12,16 +11,27 @@ import {
   PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
   type PurchasesCapability,
+  PurchasesUnavailableError,
   type RevenueCatBackend,
   type RevenueCatPackage,
 } from "@tearleads/client-sdk";
 import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import {
   fromCapacitorCustomerInfo,
+  type NativeProductChangeInput,
+  nativeProductChangeInput,
+  prepareCapacitorRevenueCatPackage,
   purchaseCapacitorRevenueCatPackage,
 } from "./capacitorRevenueCatPurchase";
+import {
+  getCachedCapacitorPurchases,
+  getNativeRevenueCatPurchase,
+  getRevenueCatPlatform,
+  setCachedCapacitorPurchases,
+} from "./capacitorRevenueCatRuntime";
 
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
+const CAPACITOR_UNIMPLEMENTED_CODE = "UNIMPLEMENTED";
 
 function toRevenueCatPackage(entry: PurchasesPackage): RevenueCatPackage {
   return {
@@ -44,7 +54,7 @@ function googleProductId(productIdentifier: string): string {
 }
 
 async function androidProductChangeOptions(targetProductId: string) {
-  if (Capacitor.getPlatform() !== "android") {
+  if (getRevenueCatPlatform() !== "android") {
     return {};
   }
   const result = await Purchases.getCustomerInfo();
@@ -75,6 +85,46 @@ async function androidProductChangeOptions(targetProductId: string) {
           : STORE_REPLACEMENT_MODE.DEFERRED,
     },
   };
+}
+
+class CapacitorPreparedPurchase {
+  constructor(
+    readonly aPackage: PurchasesPackage,
+    readonly productChange: NativeProductChangeInput | undefined,
+  ) {}
+}
+
+async function prepareCapacitorPurchase(input: {
+  readonly abortSignal?: AbortSignal;
+  readonly packageId: string;
+}): Promise<CapacitorPreparedPurchase> {
+  if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
+  // The official configuration bridge and our bounded purchase bridge must
+  // observe the same native RevenueCat singleton. Assert the invariant only
+  // at the purchase boundary so official entitlement and restore reads remain
+  // available even when this first-party bridge cannot be registered.
+  await getNativeRevenueCatPurchase().assertConfigured();
+  if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
+  const aPackage = (await currentPackages()).find(
+    (entry) => entry?.identifier === input.packageId,
+  );
+  if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
+  if (!aPackage) {
+    throw new Error(`Unknown purchase package: ${input.packageId}`);
+  }
+  const productIdentifier = aPackage.product?.identifier ?? "";
+  if (!getSyncBillingTierForNativeProduct(productIdentifier)) {
+    throw new Error(`Unknown sync subscription product: ${productIdentifier}`);
+  }
+  const productChangeOptions =
+    await androidProductChangeOptions(productIdentifier);
+  if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
+  const productChange = nativeProductChangeInput(
+    productChangeOptions.storeProductChangeInfo,
+  );
+  await prepareCapacitorRevenueCatPackage(aPackage);
+  if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
+  return new CapacitorPreparedPurchase(aPackage, productChange);
 }
 
 /**
@@ -109,6 +159,75 @@ function isAlreadyOwnedPurchase(error: unknown): boolean {
   );
 }
 
+function isAnonymousLogOut(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === PURCHASES_ERROR_CODE.LOG_OUT_ANONYMOUS_USER_ERROR
+  );
+}
+
+function hasNativePurchaseBridgeCode(error: unknown, code: string): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === code
+  );
+}
+
+class NativePurchaseBridgeUnavailableError extends PurchasesUnavailableError {
+  readonly code = "bridge-invalid";
+
+  constructor(cause: unknown) {
+    super("The native purchase bridge could not validate this package", {
+      cause,
+    });
+    this.name = "NativePurchaseBridgeUnavailableError";
+  }
+}
+
+class NativePurchaseBridgeUnregisteredError extends PurchasesUnavailableError {
+  readonly code = "bridge-unregistered";
+
+  constructor(cause: unknown) {
+    super("This app build does not contain the native purchase bridge", {
+      cause,
+    });
+    this.name = "NativePurchaseBridgeUnregisteredError";
+  }
+}
+
+function normalizeNativePurchaseBridgeError(error: unknown): void {
+  if (hasNativePurchaseBridgeCode(error, CAPACITOR_UNIMPLEMENTED_CODE)) {
+    throw new NativePurchaseBridgeUnregisteredError(error);
+  }
+  if (hasNativePurchaseBridgeCode(error, "bridge-invalid")) {
+    throw new NativePurchaseBridgeUnavailableError(error);
+  }
+}
+
+function normalizeCapacitorPurchaseError(error: unknown): never {
+  if (isUserCancelledPurchase(error)) {
+    throw new PurchaseCancelledError();
+  }
+  if (isAlreadyOwnedPurchase(error)) {
+    throw new PurchaseAlreadyOwnedError();
+  }
+  normalizeNativePurchaseBridgeError(error);
+  throw error;
+}
+
+function normalizeCapacitorPreparationError(
+  error: unknown,
+  abortSignal: AbortSignal | undefined,
+): never {
+  if (abortSignal?.aborted) throw new PurchaseAbortedError();
+  normalizeNativePurchaseBridgeError(error);
+  throw error;
+}
+
 /**
  * Adapts the native `@revenuecat/purchases-capacitor` plugin to the client-sdk
  * {@link RevenueCatBackend}. Only the normalized surface the sdk consumes is
@@ -129,7 +248,13 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
     await Purchases.logIn({ appUserID: appUserId });
   },
   async logOut() {
-    await Purchases.logOut();
+    try {
+      await Purchases.logOut();
+    } catch (error) {
+      // RevenueCat rejects logOut for an already-anonymous buyer. That is the
+      // requested end state, so make reset idempotent across fresh installs.
+      if (!isAnonymousLogOut(error)) throw error;
+    }
   },
   async setAttributes(attributes) {
     await Purchases.setAttributes(attributes);
@@ -137,54 +262,31 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
   async getCurrentPackages() {
     return (await currentPackages()).map(toRevenueCatPackage);
   },
-  async purchasePackage({ packageId, abortSignal }) {
-    if (abortSignal?.aborted) {
-      throw new PurchaseAbortedError();
-    }
-    const aPackage = (await currentPackages()).find(
-      (entry) => entry?.identifier === packageId,
+  async preparePurchasePackage(input) {
+    return prepareCapacitorPurchase(input).catch((error: unknown) =>
+      normalizeCapacitorPreparationError(error, input.abortSignal),
     );
-    // This is the last abort-aware await. The iOS diagnostic bridge validates
-    // the package with one more native offerings fetch, but neither that call
-    // nor a presented StoreKit / Play sheet has programmatic cancellation.
-    // A caller that abandoned the flow while this offerings request was loading
-    // must not get a modal purchase sheet for a flow nobody awaits any more.
-    // Aborted takes precedence over a missing package so an abandoned flow's
-    // outcome stays a pre-sheet abort, matching webPurchases.ts.
-    if (abortSignal?.aborted) {
-      throw new PurchaseAbortedError();
-    }
-    if (!aPackage) {
-      throw new Error(`Unknown purchase package: ${packageId}`);
-    }
-    const productIdentifier = aPackage.product?.identifier ?? "";
-    if (!getSyncBillingTierForNativeProduct(productIdentifier)) {
-      throw new Error(
-        `Unknown sync subscription product: ${productIdentifier}`,
+  },
+  async purchasePackage({ abortSignal, packageId, preparedPurchase }) {
+    if (abortSignal?.aborted) throw new PurchaseAbortedError();
+    if (
+      !(preparedPurchase instanceof CapacitorPreparedPurchase) ||
+      preparedPurchase.aPackage.identifier !== packageId
+    ) {
+      throw new NativePurchaseBridgeUnavailableError(
+        Object.assign(
+          new Error(`Purchase package was not prepared: ${packageId}`),
+          { code: "bridge-invalid" },
+        ),
       );
-    }
-    const productChangeOptions =
-      await androidProductChangeOptions(productIdentifier);
-    if (abortSignal?.aborted) {
-      throw new PurchaseAbortedError();
     }
     try {
       return await purchaseCapacitorRevenueCatPackage(
-        aPackage,
-        productChangeOptions,
+        preparedPurchase.aPackage,
+        preparedPurchase.productChange,
       );
     } catch (error) {
-      // Backing out of the store sheet is a normal exit, not a failure.
-      // Without this the panel surfaces "Failed to subscribe" and logs an
-      // error every time a buyer dismisses the sheet, because
-      // useSubscribeAction only treats PurchaseCancelledError as a no-op.
-      if (isUserCancelledPurchase(error)) {
-        throw new PurchaseCancelledError();
-      }
-      if (isAlreadyOwnedPurchase(error)) {
-        throw new PurchaseAlreadyOwnedError();
-      }
-      throw error;
+      normalizeCapacitorPurchaseError(error);
     }
   },
   async getCustomerInfo() {
@@ -201,8 +303,16 @@ function readEnvString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+function validateOperationTimeoutMs(value: number | undefined): void {
+  if (value !== undefined && (!Number.isFinite(value) || value <= 0)) {
+    throw new RangeError(
+      "RevenueCat operation timeout must be a positive finite number",
+    );
+  }
+}
+
 function readPlatformApiKey(): string | undefined {
-  const platform = Capacitor.getPlatform();
+  const platform = getRevenueCatPlatform();
   if (platform === "ios") {
     return readEnvString(import.meta.env?.VITE_REVENUECAT_IOS_API_KEY);
   }
@@ -219,20 +329,50 @@ function readPlatformApiKey(): string | undefined {
  * otherwise (web preview, or key not yet provisioned) it degrades to the
  * unavailable stub so the app still runs.
  */
-export function createCapacitorPurchases(): PurchasesCapability {
+export function createCapacitorPurchases(input?: {
+  readonly operationTimeoutMs?: number;
+}): PurchasesCapability {
+  const operationTimeoutMs = input?.operationTimeoutMs;
+  validateOperationTimeoutMs(operationTimeoutMs);
+  const platform = getRevenueCatPlatform();
   const apiKey = readPlatformApiKey();
   if (!apiKey) {
     return createUnavailablePurchases();
   }
-  return createRevenueCatPurchases(capacitorRevenueCatBackend, {
+  const syncEntitlementId =
+    readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
+    DEFAULT_SYNC_ENTITLEMENT_ID;
+  const cached = getCachedCapacitorPurchases();
+  if (cached) {
+    if (
+      cached.apiKey === apiKey &&
+      cached.operationTimeoutMs === operationTimeoutMs &&
+      cached.platform === platform &&
+      cached.syncEntitlementId === syncEntitlementId
+    ) {
+      return cached.capability;
+    }
+    throw new Error(
+      "Capacitor purchases were already initialized with different configuration",
+    );
+  }
+  const capability = createRevenueCatPurchases(capacitorRevenueCatBackend, {
     apiKey,
     nativeStore: apiKey.startsWith("test_")
       ? "test_store"
-      : Capacitor.getPlatform() === "ios"
+      : platform === "ios"
         ? "app_store"
         : "play_store",
-    syncEntitlementId:
-      readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
-      DEFAULT_SYNC_ENTITLEMENT_ID,
+    restorePurchasesUsesCheckoutTimeout: true,
+    syncEntitlementId,
+    ...(operationTimeoutMs === undefined ? {} : { operationTimeoutMs }),
   });
+  setCachedCapacitorPurchases({
+    apiKey,
+    capability,
+    operationTimeoutMs,
+    platform,
+    syncEntitlementId,
+  });
+  return capability;
 }

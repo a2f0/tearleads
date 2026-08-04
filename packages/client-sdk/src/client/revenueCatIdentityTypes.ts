@@ -1,0 +1,49 @@
+import type { RevenueCatProviderPhaseControl } from "./revenueCatProviderPhase";
+
+interface RevenueCatIdentityBackend {
+  configure(input: { apiKey: string; appUserId?: string }): Promise<void>;
+  logIn(input: { appUserId: string }): Promise<void>;
+  logOut(): Promise<void>;
+}
+
+export interface RevenueCatProviderOperation<T> {
+  /** Uses the longer checkout-settlement deadline for store-controlled work. */
+  readonly usesCheckoutSettlementTimeout?: boolean;
+  /** Re-establish this buyer inside the serialized provider operation. */
+  readonly expectedAppUserId?: string;
+  readonly operation: (
+    providerPhase?: RevenueCatProviderPhaseControl,
+  ) => Promise<T>;
+  readonly operationName: string;
+  /** False only for provider state that is not scoped to a customer. */
+  readonly requiresKnownIdentity?: boolean;
+  /** Defers store operations until the active native checkout settles. */
+  readonly waitForCheckout?: boolean;
+  /** Gives the operation independently bounded provider phases. */
+  readonly phasedProviderOperations?: boolean;
+}
+
+export interface RevenueCatCustomerMutation {
+  readonly operation: () => Promise<void>;
+  readonly operationName: string;
+}
+
+export interface RevenueCatIdentityCoordinator {
+  identify(appUserId: string): Promise<void>;
+  reset(): Promise<void>;
+  runCustomerMutation(input: RevenueCatCustomerMutation): Promise<void>;
+  runProviderOperation<T>(input: RevenueCatProviderOperation<T>): Promise<T>;
+  runCheckout<T>(input: {
+    readonly abortReleasesIdentityGate?: boolean;
+    readonly abortSignal?: AbortSignal;
+    readonly operation: () => Promise<T>;
+    readonly prepare?: () => Promise<void>;
+  }): Promise<T>;
+}
+
+export interface RevenueCatIdentityCoordinatorInput {
+  readonly apiKey: string;
+  readonly backend: RevenueCatIdentityBackend;
+  readonly checkoutSettlementTimeoutMs: number;
+  readonly timeoutMs: number;
+}

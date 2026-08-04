@@ -1,31 +1,54 @@
-import { Capacitor } from "@capacitor/core";
-import {
-  type CustomerInfo,
+import type {
+  CustomerInfo,
   Purchases,
-  type PurchasesPackage,
+  PurchasesPackage,
 } from "@revenuecat/purchases-capacitor";
 import type { RevenueCatCustomerInfo } from "@tearleads/client-sdk";
+import { getNativeRevenueCatPurchase } from "./capacitorRevenueCatRuntime";
 
-type OfficialPurchaseOptions = Omit<
+type NativePurchaseChangeOptions = Pick<
   Parameters<typeof Purchases.purchasePackage>[0],
-  "aPackage"
+  "storeProductChangeInfo"
 >;
 
-interface NativeRevenueCatPurchasePlugin {
-  purchasePackage(options: {
-    packageId: string;
-    productId: string;
-  }): Promise<{ activeEntitlementIds?: unknown }>;
+type NativeReplacementMode = NonNullable<
+  NonNullable<
+    NativePurchaseChangeOptions["storeProductChangeInfo"]
+  >["replacementMode"]
+>;
+
+export interface NativeProductChangeInput {
+  readonly oldProductIdentifier: string;
+  readonly replacementMode: NativeReplacementMode;
 }
 
-let nativeRevenueCatPurchase: NativeRevenueCatPurchasePlugin | undefined;
+export function nativeProductChangeInput(
+  change: NativePurchaseChangeOptions["storeProductChangeInfo"],
+): NativeProductChangeInput | undefined {
+  if (change == null) return undefined;
+  if (!change.oldProductIdentifier || change.replacementMode === undefined) {
+    throw new Error("Android product changes require both store fields");
+  }
+  return {
+    oldProductIdentifier: change.oldProductIdentifier,
+    replacementMode: change.replacementMode,
+  };
+}
 
-function getNativeRevenueCatPurchase(): NativeRevenueCatPurchasePlugin {
-  nativeRevenueCatPurchase ??=
-    Capacitor.registerPlugin<NativeRevenueCatPurchasePlugin>(
-      "RevenueCatPurchase",
-    );
-  return nativeRevenueCatPurchase;
+function nativePackageInput(aPackage: PurchasesPackage) {
+  return {
+    packageId: aPackage?.identifier ?? "",
+    productId: aPackage?.product?.identifier ?? "",
+  };
+}
+
+/** Resolves the native package while checkout preparation has a deadline. */
+export async function prepareCapacitorRevenueCatPackage(
+  aPackage: PurchasesPackage,
+): Promise<void> {
+  await getNativeRevenueCatPurchase().preparePackage(
+    nativePackageInput(aPackage),
+  );
 }
 
 function fromActiveEntitlementIds(
@@ -50,48 +73,19 @@ function normalizeActiveEntitlementIds(value: unknown): string[] {
     : [];
 }
 
-function isBridgeValidationError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "bridge-invalid"
-  );
-}
-
-async function purchaseThroughOfficialBridge(
-  aPackage: PurchasesPackage,
-  options: OfficialPurchaseOptions,
-): Promise<RevenueCatCustomerInfo> {
-  const result = await Purchases.purchasePackage({ aPackage, ...options });
-  return fromCapacitorCustomerInfo(result?.customerInfo);
-}
-
 /**
- * Purchases through the first-party iOS bridge so RevenueCat's bounded native
- * diagnostics survive a rejection. Android keeps the official Capacitor path;
- * the bridge changes no RevenueCat configuration or non-purchase operation.
+ * Purchases the package resolved by the bounded first-party native preparation.
+ * The bridge changes no RevenueCat configuration or non-purchase operation.
  */
 export async function purchaseCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
-  options: OfficialPurchaseOptions = {},
+  change?: NativeProductChangeInput,
 ): Promise<RevenueCatCustomerInfo> {
-  if (Capacitor.getPlatform() !== "ios") {
-    return purchaseThroughOfficialBridge(aPackage, options);
-  }
-
-  try {
-    const result = await getNativeRevenueCatPurchase().purchasePackage({
-      packageId: aPackage?.identifier ?? "",
-      productId: aPackage?.product?.identifier ?? "",
-    });
-    return fromActiveEntitlementIds(
-      normalizeActiveEntitlementIds(result?.activeEntitlementIds),
-    );
-  } catch (error) {
-    if (!isBridgeValidationError(error)) {
-      throw error;
-    }
-    return purchaseThroughOfficialBridge(aPackage, options);
-  }
+  const result = await getNativeRevenueCatPurchase().purchasePackage({
+    ...nativePackageInput(aPackage),
+    ...(change ?? {}),
+  });
+  return fromActiveEntitlementIds(
+    normalizeActiveEntitlementIds(result?.activeEntitlementIds),
+  );
 }

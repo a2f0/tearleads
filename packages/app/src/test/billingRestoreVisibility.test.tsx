@@ -11,6 +11,7 @@ afterEach(() => cleanup());
 function props(overrides: Partial<BillingViewProps> = {}): BillingViewProps {
   return {
     actionError: null,
+    actionErrorIsOptionsError: false,
     activationPending: false,
     busy: null,
     canSubscribe: false,
@@ -22,9 +23,11 @@ function props(overrides: Partial<BillingViewProps> = {}): BillingViewProps {
     onManageSubscription: () => undefined,
     onRefresh: () => undefined,
     onRestore: () => undefined,
+    onRetryOptions: () => undefined,
     onStartTrial: () => undefined,
     onSubscribe: () => undefined,
     options: [],
+    optionsRetryAvailable: false,
     purchaseAvailable: false,
     restoreAvailable: true,
     view: {

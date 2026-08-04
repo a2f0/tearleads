@@ -38,12 +38,12 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 552,
-      "bytes": 25503
+      "lines": 554,
+      "bytes": 25593
     },
     "docs/developer/revenuecat-native-stores.md": {
-      "lines": 365,
-      "bytes": 20967
+      "lines": 364,
+      "bytes": 20904
     },
     "docs/document-rekey-and-audit-history.md": {
       "lines": 540,
@@ -200,6 +200,10 @@
     "packages/api/test/helpers/registration.ts": {
       "lines": 1211,
       "bytes": 40919
+    },
+    "packages/app-capacitor/ios/App/App.xcodeproj/project.pbxproj": {
+      "lines": 494,
+      "bytes": 20521
     },
     "packages/app/src/mini-apps/explorer/ExplorerTree.test.tsx": {
       "lines": 677,
@@ -450,8 +454,8 @@
       "bytes": 33792
     },
     "scripts/subsystems.ts": {
-      "lines": 723,
-      "bytes": 26489
+      "lines": 734,
+      "bytes": 27040
     },
     "packages/validators/src/response/organizationReadModel.test.ts": {
       "lines": 502,

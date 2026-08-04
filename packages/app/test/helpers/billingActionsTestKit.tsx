@@ -48,7 +48,7 @@ export function purchaseTraceEntries(
 export function createPurchases(
   purchaseResult: SyncPurchaseResult,
 ): PurchasesCapability {
-  return {
+  const purchases: PurchasesCapability = {
     bindOrganization: mock(() => Promise.resolve()),
     isAvailable: true,
     nativeStore: "test_store",
@@ -56,10 +56,25 @@ export function createPurchases(
     identify: mock(() => Promise.resolve()),
     reset: mock(() => Promise.resolve()),
     listSyncOptions: mock(() => Promise.resolve([OPTION])),
+    moveNativeSubscription: mock(
+      async (
+        input: Parameters<PurchasesCapability["moveNativeSubscription"]>[0],
+      ) => {
+        if (!purchaseResult.syncEntitlementActive) {
+          throw new Error("The restored receipt has no sync entitlement");
+        }
+        if (!(await input.claim("test_store"))) {
+          throw new Error("The server did not accept the native subscription");
+        }
+        await purchases.bindOrganization({
+          organizationId: input.organizationId,
+        });
+      },
+    ),
     purchaseSync: mock(() => Promise.resolve(purchaseResult)),
-    restore: mock(() => Promise.resolve({ syncEntitlementActive: true })),
     hasActiveSyncEntitlement: mock(() => Promise.resolve(false)),
   };
+  return purchases;
 }
 
 function wrapper(createPurchasesFn: CreatePurchasesFn) {
@@ -90,6 +105,7 @@ export function renderBillingActions(input: {
   checkoutHostRef?: RefObject<HTMLElement | null>;
   purchases: PurchasesCapability;
   nativePurchaseAllowed?: boolean;
+  optionsRetryDelaysMs?: readonly number[];
   claimNativeSubscription?: () => Promise<boolean>;
   refresh?: () => Promise<void>;
   startTrial?: () => Promise<boolean>;
@@ -130,6 +146,9 @@ export function renderBillingActions(input: {
           : {}),
         isOrgAdmin: isOrgAdmin ?? true,
         nativePurchaseAllowed: input.nativePurchaseAllowed ?? true,
+        ...(input.optionsRetryDelaysMs
+          ? { optionsRetryDelaysMs: input.optionsRetryDelaysMs }
+          : {}),
         organizationId,
         refresh: input.refresh ?? (() => Promise.resolve()),
         startTrial: input.startTrial ?? (() => Promise.resolve(true)),

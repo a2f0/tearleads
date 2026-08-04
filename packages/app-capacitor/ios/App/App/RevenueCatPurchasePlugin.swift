@@ -7,29 +7,72 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
     let identifier = "RevenueCatPurchasePlugin"
     let jsName = "RevenueCatPurchase"
     let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "assertConfigured", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "preparePackage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchasePackage", returnType: CAPPluginReturnPromise)
     ]
+    @MainActor private let preparedPackages = RevenueCatPreparedPackageStore<Package>()
 
-    @objc func purchasePackage(_ call: CAPPluginCall) {
+    @objc func assertConfigured(_ call: CAPPluginCall) {
         guard Purchases.isConfigured else {
             Self.rejectBridgeValidation(call)
             return
         }
-        guard let packageId = call.getString("packageId"), !packageId.isEmpty else {
-            Self.rejectBridgeValidation(call)
-            return
-        }
-        guard let productId = call.getString("productId"), !productId.isEmpty else {
-            Self.rejectBridgeValidation(call)
-            return
-        }
+        call.resolve()
+    }
 
+    @objc func preparePackage(_ call: CAPPluginCall) {
         Task { @MainActor in
+            self.preparedPackages.clear()
+            guard Purchases.isConfigured else {
+                Self.rejectBridgeValidation(call)
+                return
+            }
+            guard let packageId = call.getString("packageId"), !packageId.isEmpty,
+                  let productId = call.getString("productId"), !productId.isEmpty else {
+                Self.rejectBridgeValidation(call)
+                return
+            }
             do {
                 let offerings = try await Purchases.shared.offerings()
                 guard let package = offerings.current?.package(identifier: packageId),
-                      package.storeProduct.productIdentifier == productId else {
+                      self.preparedPackages.replaceIfExact(
+                          requestedPackageId: packageId,
+                          requestedProductId: productId,
+                          candidatePackageId: package.identifier,
+                          candidateProductId: package.storeProduct.productIdentifier,
+                          value: package
+                      ) else {
                     Self.rejectBridgeValidation(call)
+                    return
+                }
+                call.resolve()
+            } catch {
+                Self.reject(call, error: error)
+            }
+        }
+    }
+
+    @objc func purchasePackage(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            guard Purchases.isConfigured else {
+                self.rejectPreparedPackage(call)
+                return
+            }
+            guard let packageId = call.getString("packageId"), !packageId.isEmpty else {
+                self.rejectPreparedPackage(call)
+                return
+            }
+            guard let productId = call.getString("productId"), !productId.isEmpty else {
+                self.rejectPreparedPackage(call)
+                return
+            }
+            do {
+                guard let package = self.preparedPackages.consume(
+                    packageId: packageId,
+                    productId: productId
+                ) else {
+                    self.rejectPreparedPackage(call)
                     return
                 }
 
@@ -49,6 +92,11 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
                 Self.reject(call, error: error)
             }
         }
+    }
+
+    @MainActor private func rejectPreparedPackage(_ call: CAPPluginCall) {
+        preparedPackages.clear()
+        Self.rejectBridgeValidation(call)
     }
 
     private static func reject(_ call: CAPPluginCall, error: Error) {
@@ -77,7 +125,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
 
     private static func rejectBridgeValidation(_ call: CAPPluginCall) {
         // Validation fails before StoreKit is presented. The TypeScript adapter
-        // can therefore retry this package through RevenueCat's official bridge.
+        // fails closed so it never enters an unbounded fallback preparation.
         call.reject(
             "RevenueCat purchase failed",
             "bridge-invalid",

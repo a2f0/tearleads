@@ -2,6 +2,13 @@ import { expect, test } from "bun:test";
 import { resolve } from "node:path";
 
 const packageRoot = resolve(import.meta.dir, "..");
+const EXPECTED_ANDROID_REPLACEMENT_MODES = [
+  "CHARGE_FULL_PRICE",
+  "CHARGE_PRORATED_PRICE",
+  "DEFERRED",
+  "WITHOUT_PRORATION",
+  "WITH_TIME_PRORATION",
+];
 
 function requiredMatch(source: string, pattern: RegExp, description: string) {
   const value = source.match(pattern)?.[1];
@@ -11,35 +18,118 @@ function requiredMatch(source: string, pattern: RegExp, description: string) {
   return value;
 }
 
-test("iOS project registers the RevenueCat purchase plugin contract", async () => {
-  const [project, bridgeController, purchasePlugin, billingPurchaseTrace] =
-    await Promise.all([
-      Bun.file(
-        resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
-      ).text(),
-      Bun.file(
-        resolve(packageRoot, "ios/App/App/BridgeViewController.swift"),
-      ).text(),
-      Bun.file(
-        resolve(packageRoot, "ios/App/App/RevenueCatPurchasePlugin.swift"),
-      ).text(),
-      Bun.file(
-        resolve(packageRoot, "../app/src/utils/billingPurchaseTrace.ts"),
-      ).text(),
-    ]);
+function installedCapacitorReplacementModes(): string[] {
+  // Isolate the real package import from the process-wide mock used by the purchase test kit.
+  const result = Bun.spawnSync({
+    cmd: [
+      process.execPath,
+      "-e",
+      'import { STORE_REPLACEMENT_MODE } from "@revenuecat/purchases-capacitor"; process.stdout.write(JSON.stringify(Object.values(STORE_REPLACEMENT_MODE)))',
+    ],
+    cwd: packageRoot,
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  if (result.exitCode !== 0) {
+    throw new Error(
+      `Could not import installed RevenueCat replacement modes: ${new TextDecoder().decode(result.stderr)}`,
+    );
+  }
+  const modes: unknown = JSON.parse(new TextDecoder().decode(result.stdout));
+  if (
+    !Array.isArray(modes) ||
+    !modes.every((mode) => typeof mode === "string")
+  ) {
+    throw new Error("Installed RevenueCat replacement modes are malformed");
+  }
+  return modes.sort();
+}
+
+test("iOS project registers and tests the RevenueCat purchase plugin contract", async () => {
+  const [
+    project,
+    bridgeController,
+    purchasePlugin,
+    preparedStore,
+    preparedStoreTests,
+    nativeWorkflow,
+    billingPurchaseTrace,
+  ] = await Promise.all([
+    Bun.file(
+      resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
+    ).text(),
+    Bun.file(
+      resolve(packageRoot, "ios/App/App/BridgeViewController.swift"),
+    ).text(),
+    Bun.file(
+      resolve(packageRoot, "ios/App/App/RevenueCatPurchasePlugin.swift"),
+    ).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "ios/App/RevenueCatPurchaseState/Sources/RevenueCatPurchaseState/RevenueCatPreparedPackageStore.swift",
+      ),
+    ).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "ios/App/RevenueCatPurchaseState/Tests/RevenueCatPurchaseStateTests/RevenueCatPreparedPackageStoreTests.swift",
+      ),
+    ).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "../../.github/workflows/native-purchase-bridges.yml",
+      ),
+    ).text(),
+    Bun.file(
+      resolve(packageRoot, "../app/src/utils/billingPurchaseTrace.ts"),
+    ).text(),
+  ]);
 
   expect(project).toMatch(
     /Begin PBXSourcesBuildPhase[\s\S]*RevenueCatPurchasePlugin\.swift in Sources[\s\S]*End PBXSourcesBuildPhase/,
   );
+  expect(project).toMatch(
+    /Begin PBXSourcesBuildPhase[\s\S]*RevenueCatPreparedPackageStore\.swift in Sources[\s\S]*End PBXSourcesBuildPhase/,
+  );
   expect(bridgeController).toContain(
     "bridge?.registerPluginInstance(RevenueCatPurchasePlugin())",
   );
+  expect(purchasePlugin).toContain('let jsName = "RevenueCatPurchase"');
+  expect(purchasePlugin).toContain(
+    'CAPPluginMethod(name: "assertConfigured", returnType: CAPPluginReturnPromise)',
+  );
+  expect(purchasePlugin).toContain("@objc func assertConfigured");
+  expect(purchasePlugin).toContain("guard Purchases.isConfigured else");
   expect(purchasePlugin).toContain(
     "nativeError.domain == ErrorCode.errorDomain",
   );
   expect(purchasePlugin).toContain("Self.reject(call, error: error)");
   expect(purchasePlugin).toContain(
-    "package.storeProduct.productIdentifier == productId",
+    "candidateProductId: package.storeProduct.productIdentifier",
+  );
+  expect(purchasePlugin).toContain(
+    'CAPPluginMethod(name: "preparePackage", returnType: CAPPluginReturnPromise)',
+  );
+  expect(purchasePlugin).toContain(
+    'CAPPluginMethod(name: "purchasePackage", returnType: CAPPluginReturnPromise)',
+  );
+  expect(purchasePlugin).toContain("preparedPackages.consume(");
+  expect(purchasePlugin).toContain("preparedPackages.clear()");
+  expect(preparedStore).toContain("entries.removeValue(forKey: packageId)");
+  expect(preparedStore).toContain("entries.removeAll(keepingCapacity: true)");
+  expect(preparedStoreTests).toContain(
+    "testConsumesOnlyTheExactPackageAndProductOnce",
+  );
+  expect(preparedStoreTests).toContain(
+    "testPreparationRequiresTheExactPackageAndProductIdentity",
+  );
+  expect(preparedStoreTests).toContain(
+    "testASecondPreparationReplacesEveryStalePackage",
+  );
+  expect(nativeWorkflow).toContain(
+    "swift test --package-path ios/App/RevenueCatPurchaseState",
   );
   expect(purchasePlugin).toContain(
     "candidate.userInfo[NSUnderlyingErrorKey] as? NSError",
@@ -48,6 +138,7 @@ test("iOS project registers the RevenueCat purchase plugin contract", async () =
   expect(purchasePlugin).toContain('"native-error"');
   expect(purchasePlugin).toContain('["userCancelled": userCancelled]');
   expect(purchasePlugin).toContain('data["storeError"] = storeError');
+  expect(purchasePlugin).toContain('"activeEntitlementIds"');
   expect(purchasePlugin).toContain(
     '["domain": candidate.domain, "code": candidate.code]',
   );
@@ -102,4 +193,122 @@ test("iOS RevenueCat project pin matches the resolved SDK version", async () => 
     packageResolution.match(/"identity" : "purchases-hybrid-common"/g) ?? [],
   ).toHaveLength(1);
   expect(projectVersion).toBe(resolvedVersion);
+});
+
+test("Android registers a bounded RevenueCat purchase plugin", async () => {
+  const [
+    appBuild,
+    mainActivity,
+    nativeRegistry,
+    purchasePlugin,
+    revenueCatPluginBuild,
+    runtime,
+    variables,
+  ] = await Promise.all([
+    Bun.file(resolve(packageRoot, "android/app/build.gradle")).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "android/app/src/main/java/com/tearleads/app/MainActivity.java",
+      ),
+    ).text(),
+    Bun.file(
+      resolve(packageRoot, "src/nativeRevenueCatPurchaseRegistry.ts"),
+    ).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "android/app/src/main/java/com/tearleads/app/RevenueCatPurchasePlugin.kt",
+      ),
+    ).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "node_modules/@revenuecat/purchases-capacitor/android/build.gradle",
+      ),
+    ).text(),
+    Bun.file(resolve(packageRoot, "src/capacitorRevenueCatRuntime.ts")).text(),
+    Bun.file(resolve(packageRoot, "android/variables.gradle")).text(),
+  ]);
+
+  const purchasesVersion = requiredMatch(
+    variables,
+    /revenueCatPurchasesVersion = '([^']+)'/,
+    "pinned Android RevenueCat purchases version",
+  );
+  const hybridCommonVersion = requiredMatch(
+    variables,
+    /revenueCatHybridCommonVersion = '([^']+)'/,
+    "pinned Android RevenueCat hybrid version",
+  );
+  const pluginHybridCommonVersion = requiredMatch(
+    revenueCatPluginBuild,
+    /com\.revenuecat\.purchases:purchases-hybrid-common:([^'"]+)/,
+    "Capacitor plugin RevenueCat hybrid version",
+  );
+  const replacementModeBlock = requiredMatch(
+    purchasePlugin,
+    /internal fun revenueCatReplacementMode[\s\S]*?= when \(name\) \{([\s\S]*?)\n\}/,
+    "Android RevenueCat replacement modes",
+  );
+  const kotlinReplacementModes = [
+    ...replacementModeBlock.matchAll(/"([^"]+)" -> StoreReplacementMode\./g),
+  ]
+    .map((match) => match[1])
+    .sort();
+  const capacitorReplacementModes = installedCapacitorReplacementModes();
+  const nativePurchasesVersionByHybridCommon = new Map([
+    ["18.18.0", "10.11.0"],
+  ]);
+  const expectedPurchasesVersion =
+    nativePurchasesVersionByHybridCommon.get(hybridCommonVersion) ??
+    `unsupported hybrid common version: ${hybridCommonVersion}`;
+
+  expect(mainActivity).toContain(
+    "registerPlugin(RevenueCatPurchasePlugin.class)",
+  );
+  expect(
+    mainActivity.indexOf("registerPlugin(RevenueCatPurchasePlugin.class)"),
+  ).toBeLessThan(mainActivity.indexOf("super.onCreate(savedInstanceState)"));
+  expect(appBuild).toMatch(
+    /implementation "com\.revenuecat\.purchases:purchases:\$\{rootProject\.ext\.revenueCatPurchasesVersion\}"/,
+  );
+  expect(appBuild).toContain("resolutionStrategy.eachDependency");
+  expect(appBuild).toContain("requestedVersion == null");
+  expect(appBuild).toContain("details.useVersion(expectedVersion)");
+  expect(appBuild).toContain("requestedVersion != expectedVersion");
+  expect(purchasesVersion).toBe(expectedPurchasesVersion);
+  expect(hybridCommonVersion).toBe(pluginHybridCommonVersion);
+  expect(purchasePlugin).toContain(
+    '@CapacitorPlugin(name = "RevenueCatPurchase")',
+  );
+  expect(runtime).toContain("createNativeRevenueCatPurchaseRegistry");
+  expect(nativeRegistry).toContain('registerPlugin("RevenueCatPurchase")');
+  expect(purchasePlugin).toContain("@PluginMethod\n    fun preparePackage");
+  expect(purchasePlugin).toContain("@PluginMethod\n    fun assertConfigured");
+  expect(purchasePlugin).toContain("@PluginMethod\n    fun purchasePackage");
+  expect(purchasePlugin).toContain(
+    "preparedPackages.replace(packageId, prepared)",
+  );
+  expect(purchasePlugin).toContain("preparedPackages.clear()");
+  expect(purchasePlugin).toContain(
+    "preparedPackages.consume(packageId, productId)",
+  );
+  expect(purchasePlugin).toContain(
+    "(oldProductIdentifier == null) != (replacementName == null)",
+  );
+  expect(purchasePlugin).toContain("purchaseClient.getOfferings(");
+  expect(purchasePlugin).toContain(
+    "Purchases.sharedInstance.getOfferings(callback)",
+  );
+  expect(purchasePlugin).toContain("Purchases.sharedInstance.purchase(");
+  expect(purchasePlugin).toContain(
+    "StoreReplacementMode.CHARGE_PRORATED_PRICE",
+  );
+  expect(capacitorReplacementModes).toEqual(EXPECTED_ANDROID_REPLACEMENT_MODES);
+  expect(kotlinReplacementModes).toEqual(EXPECTED_ANDROID_REPLACEMENT_MODES);
+  expect(purchasePlugin).toContain(
+    'JSObject().put("userCancelled", userCancelled)',
+  );
+  expect(purchasePlugin).toContain('"activeEntitlementIds"');
 });

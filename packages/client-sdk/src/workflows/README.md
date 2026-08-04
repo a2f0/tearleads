@@ -12,7 +12,7 @@ coordination, but they must stay React-free and product-UI-free.
 | `containers` | Platform runtime | Container mutation planning, remote container operations (create/share/move/revoke/rekey), and KEK-history recovery: `rebuildKeyringEntriesFromLog` walks the kek-log bridge chain, `recoverKeyringEntryFromWraps` recovers a severed epoch from the caller's retained envelope, and `rekeyRemoteContainer` with `keyringEntriesOverride` seals the repaired keyring. A group-addressed envelope sealed to a rotated principal key epoch is opened by walking that principal's signed policy history; hosts supply the reader through the `PrincipalPolicyHistoryFetcher` contract, and omitting it leaves such envelopes unopened rather than failing the recovery. |
 | `documents` | Platform runtime | Document creation, persistence, sync, projection keys, document link-set helpers, local orphan/blob maintenance, and the discard-to-shell escape hatch for documents whose queued writes can no longer sync. |
 | `container-contents` | Platform query and runtime | Container tree projections, container metadata documents, document discovery, document links, identity-wide pending-write diagnostics, compact attribution diagnostics, lazy paginated attribution ranges, and sync-state helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |
-| `organizations` | Platform organization administration | Transactional local directory, group-summary, group-membership, grant, policy-head, user-detail, and separately reconciled durable data-usage projections; opaque feed cursors; exact-head history from verified principal-policy storage; ID-only user membership mutations; verified principal-policy mutation helpers; organization-scoped system-container slot helpers; sync-billing reads; direct Stripe checkout; and verified, explicitly organization-scoped native-subscription claims after an App Store or Play restore. Org Manager screens and labels belong in `packages/app`. |
+| `organizations` | Platform organization administration | Transactional local directory, group-summary, group-membership, grant, policy-head, user-detail, and separately reconciled durable data-usage projections; opaque feed cursors; exact-head history from verified principal-policy storage; ID-only user membership mutations; verified principal-policy mutation helpers; organization-scoped system-container slot helpers; sync-billing reads; direct Stripe checkout; and verified, explicitly organization-scoped native-subscription claims invoked by the atomic `PurchasesCapability.moveNativeSubscription` flow. Org Manager screens and labels belong in `packages/app`. |
 | `principals` | Platform runtime | Principal-policy cache and verification support routed through the durable trusted-user-identity gateway. |
 | `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
 | `sync` | Platform runtime | Shared sync coordinator helpers. |
@@ -22,6 +22,10 @@ The `sync` facade exposes read-only coordinator snapshots through
 `subscribeToDomainSyncCoordinator(...)`. Host diagnostics and product UI may use
 those snapshots to show lane status, request/run/error counts, and last action
 timestamps without reaching into coordinator internals or owning sync policy.
+
+Provider-neutral purchase errors live in `client/purchaseErrors.ts`, outside the
+organization workflow facade; callers can distinguish retryable identity races
+from provider stalls that require an app restart.
 
 Workflow code consumes the resolved `runtime.state.online` value. Host-level
 network detection and any manual online/offline override policy belongs to the

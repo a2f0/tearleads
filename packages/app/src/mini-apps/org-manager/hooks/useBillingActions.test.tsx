@@ -1,9 +1,12 @@
-import { afterEach, expect, mock, test } from "bun:test";
-import type {
-  PurchasesCapability,
-  SyncPurchaseResult,
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
+import {
+  PurchaseAlreadyOwnedError,
+  PurchaseIdentityPendingError,
+  PurchaseProviderStalledError,
+  type PurchasesCapability,
+  PurchasesUnavailableError,
+  type SyncPurchaseResult,
 } from "@tearleads/client-sdk";
-import { PurchaseAlreadyOwnedError } from "@tearleads/client-sdk";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import {
   createPurchases,
@@ -14,31 +17,68 @@ import { ORG_MANAGER_LABELS } from "../labels";
 
 afterEach(() => cleanup());
 
-test("identifies the buyer before loading subscription options", async () => {
-  const calls: string[] = [];
-  const purchases: PurchasesCapability = {
-    bindOrganization: mock(() => Promise.resolve()),
-    isAvailable: true,
-    nativeStore: "test_store",
-    identify: mock(() => {
-      calls.push("identify");
-      return Promise.resolve();
+test.each<[string, Error, string, boolean]>([
+  [
+    "identity pending",
+    new PurchaseIdentityPendingError(),
+    ORG_MANAGER_LABELS.billingIdentityPending,
+    false,
+  ],
+  [
+    "provider stalled",
+    new PurchaseProviderStalledError(),
+    ORG_MANAGER_LABELS.billingProviderStalled,
+    true,
+  ],
+  [
+    "native bridge unavailable",
+    new PurchasesUnavailableError(),
+    ORG_MANAGER_LABELS.billingNativeCheckoutUnavailable,
+    true,
+  ],
+  [
+    "native bridge unregistered",
+    Object.assign(new PurchasesUnavailableError(), {
+      code: "bridge-unregistered",
     }),
-    reset: mock(() => Promise.resolve()),
-    listSyncOptions: mock(() => {
-      calls.push("listSyncOptions");
-      return Promise.resolve([OPTION]);
-    }),
-    purchaseSync: mock(() => Promise.resolve({ syncEntitlementActive: true })),
-    restore: mock(() => Promise.resolve({ syncEntitlementActive: true })),
-    hasActiveSyncEntitlement: mock(() => Promise.resolve(false)),
-  };
+    ORG_MANAGER_LABELS.billingNativeCheckoutUnregistered,
+    false,
+  ],
+])("%s billing readiness gives actionable guidance", async (_case, error, label, shouldLog) => {
+  const consoleError = spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const purchases: PurchasesCapability = {
+      ...createPurchases({ syncEntitlementActive: false }),
+      purchaseSync: mock(() =>
+        Promise.reject(error),
+      ) as PurchasesCapability["purchaseSync"],
+    };
+    const { result } = renderBillingActions({ purchases });
+    await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
-  const { result } = renderBillingActions({ purchases });
-
-  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
-  expect(calls).toEqual(["identify", "listSyncOptions"]);
-  expect(purchases.identify).toHaveBeenCalledWith({ userId: "user-1" });
+    await act(async () => {
+      await result.current.subscribe(OPTION);
+    });
+    await waitFor(() => expect(result.current.busy).toBe(null));
+    expect(result.current.actionError).toBe(label);
+    if (error instanceof PurchasesUnavailableError) {
+      expect(result.current.canSubscribe).toBe(true);
+      expect(result.current.options).toEqual([OPTION]);
+    }
+    if (shouldLog) {
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to complete the organization sync purchase:",
+        error,
+      );
+    } else {
+      expect(consoleError).not.toHaveBeenCalledWith(
+        "Failed to complete the organization sync purchase:",
+        error,
+      );
+    }
+  } finally {
+    consoleError.mockRestore();
+  }
 });
 
 test("does not identify or offer native purchases for a custom organization", async () => {
@@ -116,7 +156,7 @@ test("ignores an old organization's action callbacks after a switch", async () =
 
   expect(startTrial).not.toHaveBeenCalled();
   expect(purchases.purchaseSync).not.toHaveBeenCalled();
-  expect(purchases.restore).not.toHaveBeenCalled();
+  expect(purchases.moveNativeSubscription).not.toHaveBeenCalled();
   expect(result.current.busy).toBe(null);
   expect(result.current.actionError).toBe(null);
   expect(result.current.activationPending).toBe(false);
@@ -134,11 +174,11 @@ test("restores and claims a native subscription only after confirmation", async 
 
   act(() => result.current.requestSubscriptionMove());
   expect(result.current.subscriptionMoveOpen).toBe(true);
-  expect(purchases.restore).not.toHaveBeenCalled();
+  expect(purchases.moveNativeSubscription).not.toHaveBeenCalled();
 
   act(() => result.current.confirmSubscriptionMove());
   await waitFor(() => expect(result.current.busy).toBeNull());
-  expect(purchases.restore).toHaveBeenCalledWith();
+  expect(purchases.moveNativeSubscription).toHaveBeenCalledTimes(1);
   expect(claimNativeSubscription).toHaveBeenCalledWith("test_store");
   expect(purchases.bindOrganization).toHaveBeenCalledWith({
     organizationId: "org-1",

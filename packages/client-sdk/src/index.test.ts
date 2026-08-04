@@ -101,6 +101,8 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "PurchaseAbortedError",
   "PurchaseAlreadyOwnedError",
   "PurchaseCancelledError",
+  "PurchaseIdentityPendingError",
+  "PurchaseProviderStalledError",
   "PurchasesUnavailableError",
   "ROSTER_PROFILE_DOCUMENT_KIND",
   "SyncBillingGate",

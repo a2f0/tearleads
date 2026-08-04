@@ -31,7 +31,13 @@ import {
   useNativeSubscriptionMove,
   useSubscribeAction,
 } from "../billing/useSubscribeAction";
+import {
+  type BillingOptionsState,
+  billingOptionsErrorLabel,
+  emptyOptionsState,
+} from "./useBillingOptions";
 import { useBillingUpdateSettlement } from "./useBillingUpdateSettlement";
+import { useResolvedBillingOptions } from "./useResolvedBillingOptions";
 
 export interface BillingActions {
   readonly purchaseAvailable: boolean;
@@ -43,24 +49,19 @@ export interface BillingActions {
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
   readonly busy: BillingBusyAction | null;
   readonly actionError: string | null;
+  readonly actionErrorIsOptionsError: boolean;
+  readonly optionsRetryAvailable: boolean;
   readonly activationPending: boolean;
   readonly subscriptionMoveOpen: boolean;
   readonly startTrial: () => void;
   readonly subscribe: (option: SyncSubscriptionOption) => void;
   readonly cancelCheckout: () => void;
+  readonly retryOptions: () => void;
   /** Starts the webhook-settlement poll after an embedded checkout succeeds. */
   readonly markActivationPending: () => void;
   readonly requestSubscriptionMove: () => void;
   readonly dismissSubscriptionMove: () => void;
   readonly confirmSubscriptionMove: () => void;
-}
-
-interface BillingOptionsState extends BillingActionScope {
-  readonly options: ReadonlyArray<SyncSubscriptionOption>;
-}
-
-function emptyOptionsState(scope: BillingActionScope): BillingOptionsState {
-  return { ...scope, options: [] };
 }
 
 function useActionStateUpdater(
@@ -83,53 +84,6 @@ function useActionStateUpdater(
     },
     [scopeRef, setActionState],
   );
-}
-
-function useBillingOptions(
-  canSubscribe: boolean,
-  currentScope: BillingActionScope,
-  purchases: PurchasesCapability,
-  scopeRef: BillingScopeRef,
-  setOptionsState: Dispatch<SetStateAction<BillingOptionsState>>,
-  userId: string | null,
-): void {
-  useEffect(() => {
-    const scope = currentScope;
-    if (!scopeMatches(scopeRef.current, scope)) {
-      return;
-    }
-    setOptionsState(emptyOptionsState(scope));
-    if (!canSubscribe || userId === null) {
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        await purchases.identify({ userId });
-        if (cancelled || !scopeMatches(scopeRef.current, scope)) {
-          return;
-        }
-        const next = await purchases.listSyncOptions();
-        if (!cancelled && scopeMatches(scopeRef.current, scope)) {
-          setOptionsState({ ...scope, options: next });
-        }
-      } catch {
-        if (!cancelled && scopeMatches(scopeRef.current, scope)) {
-          setOptionsState(emptyOptionsState(scope));
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    canSubscribe,
-    currentScope,
-    purchases,
-    scopeRef,
-    setOptionsState,
-    userId,
-  ]);
 }
 
 function useStartTrialAction(
@@ -195,6 +149,7 @@ function useCheckoutCancellation(
  */
 function usePurchaseActions(input: {
   canSubscribe: boolean;
+  checkoutEligible: boolean;
   checkoutHostRef?: RefObject<HTMLElement | null> | undefined;
   currentScope: BillingActionScope;
   organizationId: string;
@@ -216,7 +171,7 @@ function usePurchaseActions(input: {
     input.purchases.supportsEmbeddedCheckout === true,
     input.organizationId,
     input.userId,
-    input.canSubscribe,
+    input.checkoutEligible,
   );
   const subscribe = useSubscribeAction({
     canSubscribe: input.canSubscribe,
@@ -240,27 +195,6 @@ function usePurchaseActions(input: {
     markActivationPending,
     startTrial,
     subscribe,
-  };
-}
-
-/**
- * Whether the live scope still matches the caller's inputs, and whether the
- * held action state belongs to it. Both gate every value the hook returns, so
- * a stale scope reports neutral rather than another org's state.
- */
-function resolveScopeMatches(input: {
-  actionState: BillingActionState;
-  currentScope: BillingActionScope;
-  organizationId: string;
-  userId: string | null;
-}): { scopeMatchesInputs: boolean; actionStateMatches: boolean } {
-  const scopeMatchesInputs =
-    input.currentScope.organizationId === input.organizationId &&
-    input.currentScope.userId === input.userId;
-  return {
-    scopeMatchesInputs,
-    actionStateMatches:
-      scopeMatchesInputs && scopeMatches(input.actionState, input.currentScope),
   };
 }
 
@@ -348,6 +282,8 @@ function useBillingActionState(
 interface UseBillingActionsInput {
   /** Backoff schedule for post-purchase billing re-reads; injectable for tests. */
   activationPollDelaysMs?: readonly number[];
+  /** Stable backoff schedule for transient identity reads; injectable for tests. */
+  optionsRetryDelaysMs?: readonly number[];
   billingIsActive: boolean;
   billingPendingSeatCount: number | null;
   billingSeatCount: number | null;
@@ -369,9 +305,17 @@ function projectBillingActions(input: {
   readonly actions: ReturnType<typeof usePurchaseActions>;
   readonly canSubscribe: boolean;
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
+  readonly optionsErrorKind: BillingOptionsState["errorKind"];
   readonly purchases: PurchasesCapability;
+  readonly retryOptions: () => void;
   readonly subscriptionMove: ReturnType<typeof useNativeSubscriptionMove>;
 }): BillingActions {
+  const busy = input.actionStateMatches ? input.actionState.busy : null;
+  const optionsError =
+    busy === null ? billingOptionsErrorLabel(input.optionsErrorKind) : null;
+  const scopedActionError = input.actionStateMatches
+    ? input.actionState.actionError
+    : null;
   return {
     purchaseAvailable: input.purchases.isAvailable,
     canSubscribe: input.canSubscribe,
@@ -380,16 +324,18 @@ function projectBillingActions(input: {
       ? input.actionState.checkoutActive
       : false,
     options: input.options,
-    busy: input.actionStateMatches ? input.actionState.busy : null,
-    actionError: input.actionStateMatches
-      ? input.actionState.actionError
-      : null,
+    busy,
+    actionError: scopedActionError ?? optionsError,
+    actionErrorIsOptionsError:
+      scopedActionError === null && optionsError !== null,
+    optionsRetryAvailable: busy === null && input.optionsErrorKind !== null,
     activationPending:
       input.actionStateMatches && input.actionState.activationPending,
     subscriptionMoveOpen: input.subscriptionMove.open,
     startTrial: input.actions.startTrial,
     subscribe: input.actions.subscribe,
     cancelCheckout: input.actions.cancelCheckout,
+    retryOptions: input.retryOptions,
     markActivationPending: input.actions.markActivationPending,
     requestSubscriptionMove: input.subscriptionMove.request,
     dismissSubscriptionMove: input.subscriptionMove.dismiss,
@@ -411,17 +357,16 @@ export function useBillingActions({
   checkoutHostRef,
   isOrgAdmin,
   nativePurchaseAllowed = true,
+  optionsRetryDelaysMs,
   organizationId,
   refresh,
   startTrial: startTrialRequest,
   userId,
 }: UseBillingActionsInput): BillingActions {
   const purchases = usePurchases();
+  const hasBuyer = userId !== null;
   const canSubscribe =
-    isOrgAdmin &&
-    nativePurchaseAllowed &&
-    purchases.isAvailable &&
-    userId !== null;
+    isOrgAdmin && nativePurchaseAllowed && purchases.isAvailable && hasBuyer;
   const {
     actionState,
     currentScope,
@@ -439,16 +384,27 @@ export function useBillingActions({
     updateActionState,
     userId,
   });
-  useBillingOptions(
+  const {
+    actionStateMatches,
+    optionsErrorKind,
+    optionsMatch,
+    purchaseCanSubscribe,
+    retryOptions,
+  } = useResolvedBillingOptions({
+    actionState,
     canSubscribe,
     currentScope,
+    optionsRetryDelaysMs,
+    optionsState,
+    organizationId,
     purchases,
     scopeRef,
     setOptionsState,
     userId,
-  );
+  });
   const actions = usePurchaseActions({
-    canSubscribe,
+    canSubscribe: purchaseCanSubscribe,
+    checkoutEligible: canSubscribe,
     checkoutHostRef,
     currentScope,
     organizationId,
@@ -459,13 +415,6 @@ export function useBillingActions({
     updateActionState,
     userId,
     onAlreadyOwned: subscriptionMove.request,
-  });
-
-  const { scopeMatchesInputs, actionStateMatches } = resolveScopeMatches({
-    actionState,
-    currentScope,
-    organizationId,
-    userId,
   });
   const activationSettlement = useBillingUpdateSettlement({
     actionState,
@@ -483,18 +432,15 @@ export function useBillingActions({
     activationPollDelaysMs,
     activationSettlement.expire,
   );
-  const options =
-    scopeMatchesInputs && scopeMatches(optionsState, currentScope)
-      ? optionsState.options
-      : [];
-
   return projectBillingActions({
     actionState,
     actionStateMatches,
     actions,
-    canSubscribe,
-    options,
+    canSubscribe: purchaseCanSubscribe,
+    options: optionsMatch ? optionsState.options : [],
+    optionsErrorKind,
     purchases,
+    retryOptions,
     subscriptionMove,
   });
 }

@@ -78,6 +78,34 @@ repositories {
     }
 }
 
+def revenueCatExpectedVersions = [
+    'purchases': rootProject.ext.revenueCatPurchasesVersion,
+    'purchases-hybrid-common': rootProject.ext.revenueCatHybridCommonVersion,
+]
+configurations.matching { configuration ->
+    configuration.name.endsWith('CompileClasspath') ||
+        configuration.name.endsWith('RuntimeClasspath')
+}.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'com.revenuecat.purchases') {
+            def expectedVersion = revenueCatExpectedVersions[details.requested.name]
+            def requestedVersion = details.requested.version
+            if (expectedVersion != null && requestedVersion == null) {
+                details.useVersion(expectedVersion)
+                details.because(
+                    'RevenueCat native bridges share one pinned SDK singleton'
+                )
+            } else if (expectedVersion != null && requestedVersion != expectedVersion) {
+                throw new GradleException(
+                    "RevenueCat ${details.requested.name} ${requestedVersion} " +
+                    "does not match the pinned ${expectedVersion} in " +
+                    "android/variables.gradle"
+                )
+            }
+        }
+    }
+}
+
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
@@ -86,7 +114,13 @@ dependencies {
     implementation project(':capacitor-android')
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+    // The first-party purchase bridge imports the native SDK directly. Keep
+    // this pin aligned with purchases-hybrid-common from the Capacitor plugin;
+    // the resolution guard above pins platform-managed requests and rejects
+    // explicit conflicting transitive pins.
+    implementation "com.revenuecat.purchases:purchases:${rootProject.ext.revenueCatPurchasesVersion}"
     testImplementation "junit:junit:$junitVersion"
+    testImplementation 'org.json:json:20250517'
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

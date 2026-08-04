@@ -139,6 +139,23 @@ bun run --filter=app-web dev
   not re-enable the embedded adapter without the same server-authoritative tier
   contract.
 
+## Provider deadlines
+
+Provider setup, identity, checkout preparation, and ordinary calls have
+30-second deadlines. Native restore and checkout allow ten minutes for store
+authentication or reconnection. A lost callback requires an app restart; its
+eventual arrival clears the block.
+
+`PurchaseIdentityPendingError` means a call timed out before reaching the
+provider, including while queued behind checkout or restore; retry after that
+flow settles. `PurchaseProviderStalledError` means active provider work exceeded
+its deadline; restart the app. Timed-out provider work stays serialized and may
+still take effect.
+
+A native-move server claim has its own 30-second deadline. A timeout releases
+the queue and gets billing-server-specific retry guidance. HTTP may still
+succeed without the RevenueCat binding; retrying safely completes both steps.
+
 ## RevenueCat webhook (server)
 
 RevenueCat posts subscription events to `POST {api}/billing/revenuecat/webhook`

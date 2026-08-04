@@ -88,6 +88,9 @@ export interface BillingViewProps {
   readonly busy: BillingBusyAction | null;
   readonly activationPending: boolean;
   readonly actionError: string | null;
+  /** Whether actionError came from loading the native purchase options. */
+  readonly actionErrorIsOptionsError: boolean;
+  readonly optionsRetryAvailable: boolean;
   readonly onStartTrial: () => void;
   readonly onSubscribe: (option: SyncSubscriptionOption) => void;
   /**
@@ -98,6 +101,7 @@ export interface BillingViewProps {
    */
   readonly onCancelCheckout?: () => void;
   readonly onRestore: () => void;
+  readonly onRetryOptions: () => void;
   readonly onRefresh: () => void;
 }
 
@@ -198,6 +202,23 @@ function BillingManageButton({
   );
 }
 
+function visibleBillingActionError(
+  props: Pick<
+    BillingViewProps,
+    | "actionError"
+    | "actionErrorIsOptionsError"
+    | "optionsRetryAvailable"
+    | "purchaseAvailable"
+    | "purchaseSectionHidden"
+  >,
+): string | null {
+  if (!props.actionError) return null;
+  if (!props.actionErrorIsOptionsError) return props.actionError;
+  return props.purchaseAvailable && !props.purchaseSectionHidden
+    ? props.actionError
+    : null;
+}
+
 /**
  * The purchase slot: the provider-hosted subscribe list, or nothing when the
  * direct card checkout is the path (it mounts below this view), or the
@@ -267,6 +288,7 @@ function BillingAdminActions({
     props.checkoutHostRef,
     props.onCancelCheckout,
   );
+  const actionError = visibleBillingActionError(props);
   return (
     <MiniAppSection>
       {view.status === "local" ? (
@@ -290,6 +312,16 @@ function BillingAdminActions({
       />
 
       <MiniAppActions>
+        {props.optionsRetryAvailable &&
+        props.purchaseAvailable &&
+        !props.purchaseSectionHidden ? (
+          <MiniAppButton
+            disabled={props.busy !== null}
+            onClick={props.onRetryOptions}
+          >
+            {ORG_MANAGER_LABELS.billingRetryOptions}
+          </MiniAppButton>
+        ) : null}
         {props.restoreAvailable ? (
           <MiniAppButton
             disabled={props.busy !== null}
@@ -316,8 +348,8 @@ function BillingAdminActions({
           {ORG_MANAGER_LABELS.billingActivationPending}
         </MiniAppStatus>
       ) : null}
-      {props.actionError ? (
-        <MiniAppStatus tone="error">{props.actionError}</MiniAppStatus>
+      {actionError ? (
+        <MiniAppStatus tone="error">{actionError}</MiniAppStatus>
       ) : null}
       {props.error ? (
         <MiniAppStatus tone="error">{props.error}</MiniAppStatus>

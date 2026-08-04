@@ -4,6 +4,8 @@ import {
   PurchaseAbortedError,
   PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
+  PurchaseProviderStalledError,
+  PurchasesUnavailableError,
 } from "@tearleads/client-sdk";
 import {
   clearEnv,
@@ -11,6 +13,7 @@ import {
   fixture,
   nativePackage,
   purchaseSync,
+  resetCachedPurchases,
   resetFixture,
   setEnv,
 } from "../tests/capacitorPurchasesTestKit";
@@ -42,12 +45,16 @@ test("configures the key belonging to the running platform", async () => {
     { apiKey: "ios-key", appUserID: "user-1" },
   ]);
 
+  // Switching native platforms represents a new app process. Clear the
+  // process-scoped singleton before simulating that second launch.
+  resetCachedPurchases();
   fixture.configureCalls = [];
   fixture.platform = "android";
   await createCapacitorPurchases().identify({ userId: "user-1" });
   expect(fixture.configureCalls).toEqual([
     { apiKey: "android-key", appUserID: "user-1" },
   ]);
+  expect(fixture.nativeConfigurationChecks).toBe(0);
 });
 
 test("maps RevenueCat public keys and platforms to the claim store", () => {
@@ -55,9 +62,11 @@ test("maps RevenueCat public keys and platforms to the claim store", () => {
   fixture.platform = "ios";
   expect(createCapacitorPurchases().nativeStore).toBe("test_store");
 
+  resetCachedPurchases();
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "appl_project_key");
   expect(createCapacitorPurchases().nativeStore).toBe("app_store");
 
+  resetCachedPurchases();
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "goog_project_key");
   fixture.platform = "android";
   expect(createCapacitorPurchases().nativeStore).toBe("play_store");
@@ -73,16 +82,56 @@ test("configures onto the known buyer rather than an anonymous customer", async 
   expect(fixture.configureCalls).toEqual([
     { apiKey: "ios-key", appUserID: "user-1" },
   ]);
+  expect(fixture.logInCalls).toEqual([]);
+});
+
+test("logs in when the configured app changes to another buyer", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  const purchases = createCapacitorPurchases();
+
+  await purchases.identify({ userId: "user-1" });
+  await purchases.identify({ userId: "user-2" });
+
+  expect(fixture.configureCalls).toEqual([
+    { apiKey: "ios-key", appUserID: "user-1" },
+  ]);
+  expect(fixture.logInCalls).toEqual(["user-2"]);
 });
 
 test("configures without a buyer when the sdk has not identified one", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
 
-  // restore()/hasActiveSyncEntitlement() can be the first call the capability
-  // sees; the plugin must not receive an explicit undefined appUserID.
-  await createCapacitorPurchases().restore();
+  // Entitlement observation can be the first call the capability sees; the
+  // plugin must not receive an explicit undefined appUserID.
+  await createCapacitorPurchases().hasActiveSyncEntitlement();
 
   expect(fixture.configureCalls).toEqual([{ apiKey: "ios-key" }]);
+});
+
+test("reset is idempotent when RevenueCat is already anonymous", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  fixture.logOutRejection = { code: "22" };
+  const purchases = createCapacitorPurchases();
+
+  await purchases.reset();
+  expect(fixture.logOutCalls).toBe(1);
+  expect(await purchases.hasActiveSyncEntitlement()).toBe(true);
+});
+
+test("reset preserves a genuine RevenueCat log-out failure", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  const providerError = { code: "2", message: "Store unavailable" };
+  fixture.logOutRejection = providerError;
+
+  const error = await createCapacitorPurchases()
+    .reset()
+    .then(
+      () => null,
+      (rejection: unknown) => rejection,
+    );
+  expect(error).toBeInstanceOf(Error);
+  expect(error).toMatchObject(providerError);
+  expect((error as Error).cause).toBe(providerError);
 });
 
 test("lists the current offering's packages as sync options", async () => {
@@ -120,14 +169,18 @@ test("binds the purchase to the organization before presenting the sheet", async
   expect(result.syncEntitlementActive).toBe(true);
 });
 
-test("keeps Android purchases on RevenueCat's official Capacitor bridge", async () => {
+test("bounds a stalled Android offerings read before opening Play", async () => {
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
   fixture.platform = "android";
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.offeringsPromise = new Promise(() => {});
 
-  await purchaseSync();
-
-  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+  await expect(
+    createCapacitorPurchases({ operationTimeoutMs: 5 }).purchaseSync({
+      organizationId: "org-1",
+      packageId: "monthly",
+    }),
+  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
+  expect(fixture.purchaseCalls).toEqual([]);
   expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
@@ -151,16 +204,15 @@ test("an Android tier upgrade charges the prorated price difference", async () =
     packageId: "team_5",
   });
 
-  expect(fixture.purchaseCalls).toEqual([
+  expect(fixture.nativePurchaseCalls).toEqual([
     {
       identifier: "team_5",
-      storeProductChangeInfo: {
-        oldProductIdentifier: "sync_solo_monthly",
-        replacementMode: "CHARGE_PRORATED_PRICE",
-      },
+      oldProductIdentifier: "sync_solo_monthly",
+      productId: "sync_team_5_monthly:monthly",
+      replacementMode: "CHARGE_PRORATED_PRICE",
     },
   ]);
-  expect(fixture.nativePurchaseCalls).toEqual([]);
+  expect(fixture.purchaseCalls).toEqual([]);
 });
 
 test("an Android tier downgrade waits for the next renewal", async () => {
@@ -183,16 +235,15 @@ test("an Android tier downgrade waits for the next renewal", async () => {
     packageId: "team_5",
   });
 
-  expect(fixture.purchaseCalls).toEqual([
+  expect(fixture.nativePurchaseCalls).toEqual([
     {
       identifier: "team_5",
-      storeProductChangeInfo: {
-        oldProductIdentifier: "sync_team_10_monthly",
-        replacementMode: "DEFERRED",
-      },
+      oldProductIdentifier: "sync_team_10_monthly",
+      productId: "sync_team_5_monthly:monthly",
+      replacementMode: "DEFERRED",
     },
   ]);
-  expect(fixture.nativePurchaseCalls).toEqual([]);
+  expect(fixture.purchaseCalls).toEqual([]);
 });
 
 test("an iOS tier change lets the subscription group determine timing", async () => {
@@ -283,22 +334,27 @@ test("rejects a stale package whose product is not a configured tier", async () 
   expect(fixture.purchaseCalls).toEqual([]);
 });
 
-test("falls back when the diagnostic iOS bridge cannot validate", async () => {
+test("fails closed when the native bridge cannot validate", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
-  fixture.nativePurchaseRejection = {
+  const bridgeError = {
     code: "bridge-invalid",
     message: "RevenueCat purchase failed",
     data: { userCancelled: false },
   };
+  fixture.nativePurchaseRejection = bridgeError;
 
-  const result = await purchaseSync();
+  const error = await purchaseSync().catch((reason: unknown) => reason);
+  expect(error).toBeInstanceOf(PurchasesUnavailableError);
+  expect(error).toMatchObject({
+    cause: bridgeError,
+    code: "bridge-invalid",
+  });
 
   expect(fixture.nativePurchaseCalls).toEqual([
     { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
   ]);
-  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
-  expect(result.syncEntitlementActive).toBe(true);
+  expect(fixture.purchaseCalls).toEqual([]);
 });
 
 test("rejects a package the current offering does not contain", async () => {
@@ -317,7 +373,7 @@ test("treats a dismissed store sheet as a cancellation, not a failure", async ()
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
   // Match the first-party Swift plugin's CAPPluginCall.reject payload rather
   // than the official bridge's PurchasesError serialization.
-  fixture.purchaseRejection = {
+  fixture.nativePurchaseRejection = {
     code: "1",
     message: "RevenueCat purchase failed",
     data: { userCancelled: true },
@@ -334,17 +390,20 @@ test("normalizes cancellation from the Android RevenueCat bridge", async () => {
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
   fixture.platform = "android";
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
-  fixture.purchaseRejection = { code: "1" };
+  fixture.nativePurchaseRejection = { code: "1" };
 
   await expect(purchaseSync()).rejects.toBeInstanceOf(PurchaseCancelledError);
-  expect(fixture.purchaseCalls).toEqual([{ identifier: "monthly" }]);
+  expect(fixture.nativePurchaseCalls).toEqual([
+    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+  ]);
+  expect(fixture.purchaseCalls).toEqual([]);
 });
 
 test("normalizes an already-owned Android product into subscription recovery", async () => {
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
   fixture.platform = "android";
   fixture.packages = [nativePackage("monthly", "sync_solo_monthly:monthly")];
-  fixture.purchaseRejection = { code: "6" };
+  fixture.nativePurchaseRejection = { code: "6" };
 
   await expect(purchaseSync()).rejects.toBeInstanceOf(
     PurchaseAlreadyOwnedError,
@@ -357,7 +416,7 @@ test("normalizes iOS receipt-ownership conflicts into subscription recovery", as
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
 
   for (const code of ["6", "7", "13"]) {
-    fixture.purchaseRejection = { code };
+    fixture.nativePurchaseRejection = { code };
     await expect(purchaseSync()).rejects.toBeInstanceOf(
       PurchaseAlreadyOwnedError,
     );
@@ -367,7 +426,7 @@ test("normalizes iOS receipt-ownership conflicts into subscription recovery", as
 test("propagates a genuine store failure unchanged", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
-  fixture.purchaseRejection = {
+  fixture.nativePurchaseRejection = {
     code: "2",
     message: "There was a problem with the store.",
   };
@@ -426,15 +485,4 @@ test("prefers the pre-sheet abort over an unknown package", async () => {
   await expect(
     purchaseSync("annual", controller.signal),
   ).rejects.toBeInstanceOf(PurchaseAbortedError);
-});
-
-test("restores prior purchases through the native bridge", async () => {
-  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  const purchases = createCapacitorPurchases();
-
-  await purchases.restore();
-
-  // Restore must configure the SDK first; a restore on a fresh install is the
-  // first call the capability sees.
-  expect(fixture.configureCalls).toEqual([{ apiKey: "ios-key" }]);
 });

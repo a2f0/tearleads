@@ -8,9 +8,9 @@ on:
 permissions:
   contents: read
 
-# TEMPORARY: build and Terraform jobs remain paused to avoid spending Actions
-# credits. The lint job runs automatically so generated contracts and bounded
-# protocol models cannot drift on push or pull requests.
+# TEMPORARY: broad build and Terraform jobs remain manually dispatched to
+# conserve Actions credits. Lint stays automatic, as do the path-scoped native
+# purchase bridge compiles because those first-party bridges have no fallback.
 
 jobs:
   lint:

@@ -290,6 +290,7 @@ export function createWebPurchases(): PurchasesCapability {
   return createRevenueCatPurchases(createWebRevenueCatBackend(), {
     apiKey,
     nativeStore: null,
+    restorePurchasesUsesCheckoutTimeout: false,
     // RevenueCat remains configured so existing entitlements can be observed,
     // but web purchases must use our direct Stripe checkout: only that path
     // selects the server-authoritative fixed tier in Stripe.

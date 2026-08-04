@@ -200,6 +200,7 @@ function BillingPanelSubscriptionControls(input: {
   >;
 }) {
   const { actions, billing, direct } = input;
+  const managementError = input.subscriptionManagement.error;
   const nativePurchaseAvailable =
     actions.purchaseAvailable &&
     input.nativePurchaseAllowed &&
@@ -209,7 +210,10 @@ function BillingPanelSubscriptionControls(input: {
   return (
     <>
       <BillingView
-        actionError={input.subscriptionManagement.error ?? actions.actionError}
+        actionError={managementError ?? actions.actionError}
+        actionErrorIsOptionsError={
+          managementError === null && actions.actionErrorIsOptionsError
+        }
         activationPending={actions.activationPending}
         busy={direct.checkoutActive ? "checkout" : actions.busy}
         canSubscribe={actions.canSubscribe}
@@ -233,9 +237,11 @@ function BillingPanelSubscriptionControls(input: {
         onManageSubscription={input.subscriptionManagement.open}
         onRefresh={input.onRefresh}
         onRestore={actions.requestSubscriptionMove}
+        onRetryOptions={actions.retryOptions}
         onStartTrial={actions.startTrial}
         onSubscribe={actions.subscribe}
         options={actions.options}
+        optionsRetryAvailable={actions.optionsRetryAvailable}
         purchaseAvailable={nativePurchaseAvailable}
         purchaseSectionHidden={purchaseSectionHidden}
         restoreAvailable={

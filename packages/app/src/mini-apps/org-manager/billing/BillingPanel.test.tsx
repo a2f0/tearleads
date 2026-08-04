@@ -115,7 +115,6 @@ function purchases(isAvailable: boolean) {
         },
       ]),
     purchaseSync: () => new Promise(() => undefined),
-    restore: () => Promise.resolve({ syncEntitlementActive: true }),
     hasActiveSyncEntitlement: () => Promise.resolve(false),
   } as never;
 }
