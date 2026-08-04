@@ -70,20 +70,42 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // This is the worst case on purpose. Adding an admin who is already in the
 // directory — the normal path, since importing a user seeds Members — skips the
 // first mutation entirely and stays near the old cost.
+//
+// 66 -> 71 for the group-grant re-share. A rotation leaves every container
+// wrapped to that group pinned to the superseded epoch, so a member who joins
+// afterwards cannot decrypt them; the sweep re-wraps them to the committed
+// head.
+//
+// The whole increase is confirmation, not writes: two read-model GETs to
+// establish that the rotation actually landed before touching anything, and
+// two parent-lane queries from listing the granted containers. The share count
+// is unchanged at two, because the root container the root coordinator already
+// repaired on this same mutation is skipped by an isCurrent check rather than
+// re-shared — which is the property worth watching here. A pull is also
+// skipped entirely when the rotation is already visible locally, so the common
+// path costs less than this worst case.
+//
+// The sweep is deliberately fire-and-forget — the policy write is already
+// durable, so it must not be able to fail the mutation — which means its reads
+// may or may not land inside the window this test measures. The
+// writer-projection bound is 3 rather than 2 to cover both, since the budget is
+// an upper bound and a count that varies by timing is not evidence of a
+// regression. A genuine regression still shows up as extra shares or policy
+// PUTs, which stay pinned exactly.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 66,
+  total: 71,
   byRequest: {
     "GET /containers": 0,
-    "POST /containers/parent-lanes/query": 11,
+    "POST /containers/parent-lanes/query": 13,
     "GET /principals/group/:groupId/policy": 10,
     "GET /containers/:containerId/documents": 9,
     "GET /documents/:documentId/writer-projection": 11,
     "POST /documents/:documentId/sync": 12,
     "GET /auth/user-identity/:userId": 2,
-    "GET /organizations/:organizationId/read-model": 2,
+    "GET /organizations/:organizationId/read-model": 4,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
     "GET /organizations/:organizationId/groups/:groupId/members": 1,
-    "GET /containers/:containerId/writer-projection": 2,
+    "GET /containers/:containerId/writer-projection": 3,
     "GET /organizations/:organizationId/directory": 0,
     "GET /organizations/:organizationId/groups": 0,
     "GET /organizations/:organizationId/data-usage": 0,

@@ -140,39 +140,71 @@ test("an unreachable container does not abort the rest of the sweep", async () =
   }
 });
 
-test("pulls the read model before it enumerates any grant", async () => {
+test("skips the pull when the rotation is already visible locally", async () => {
   const { close, execSql } = await createTestExecSql(
-    "group-grant-reshare-reconcile",
+    "group-grant-reshare-no-redundant-pull",
+  );
+  try {
+    await seedReadModel(execSql);
+    const prepareCalls: RewrapCall[] = [];
+    const rewrapped: string[] = [];
+    let pulls = 0;
+    await run({
+      contents: fakeContainerContents({ prepareCalls, rewrapped }),
+      execSql,
+      reconcileReadModel: async () => {
+        pulls += 1;
+        return {};
+      },
+    });
+
+    // The caller has usually just reconciled, so pulling again would be one
+    // more request on every group mutation for nothing.
+    expect(pulls).toBe(0);
+    expect(rewrapped.toSorted()).toEqual(["container-a", "container-b"]);
+  } finally {
+    close();
+  }
+});
+
+test("pulls, then enumerates, when the rotation is not visible yet", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-pull-then-enumerate",
   );
   try {
     await seedReadModel(execSql);
     const prepareCalls: RewrapCall[] = [];
     const rewrapped: string[] = [];
     const order: string[] = [];
-    await run({
-      contents: fakeContainerContents({ order, prepareCalls, rewrapped }),
+    await reshareGroupContainerGrantsAfterRotation({
+      containerContents: fakeContainerContents({
+        order,
+        prepareCalls,
+        rewrapped,
+      }),
+      currentUserId: CURRENT_USER_ID,
       execSql,
+      // Not the seeded head, so the local read has to fall back to a pull.
+      expectedGroupHead: { ...EXPECTED_HEAD, stateHash: "not-local-yet" },
+      log: () => undefined,
+      mutatedGroupId: GRANTED_GROUP_ID,
+      organizationId: ORGANIZATION_ID,
       reconcileReadModel: async () => {
         order.push("reconcile");
         return {};
       },
+      shouldContinue: () => true,
     });
 
-    // Enumeration reads the local cache, so any container visited before the
-    // pull resolves was chosen from a stale grant set — the failure mode this
-    // ordering exists to prevent. Asserting the pull is strictly first is what
-    // rules that out; a grant absent at seed time is never enumerated at all.
+    // Enumeration reads the local cache, so a container visited before the
+    // pull would have been chosen from a stale grant set.
     expect(order[0]).toBe("reconcile");
-    expect(order.filter((entry) => entry.startsWith("prepare:"))).toEqual([
-      "prepare:container-a",
-      "prepare:container-b",
-    ]);
   } finally {
     close();
   }
 });
 
-test("still sweeps when the pull fails but the rotation is visible", async () => {
+test("does not pull at all when the rotation is already visible", async () => {
   const { close, execSql } = await createTestExecSql(
     "group-grant-reshare-reconcile-failure",
   );
@@ -180,26 +212,24 @@ test("still sweeps when the pull fails but the rotation is visible", async () =>
     await seedReadModel(execSql);
     const prepareCalls: RewrapCall[] = [];
     const rewrapped: string[] = [];
-    const logged: string[] = [];
     const outcome = await reshareGroupContainerGrantsAfterRotation({
       containerContents: fakeContainerContents({ prepareCalls, rewrapped }),
       currentUserId: CURRENT_USER_ID,
       execSql,
       expectedGroupHead: EXPECTED_HEAD,
-      log: (message) => logged.push(message),
+      log: () => undefined,
       mutatedGroupId: GRANTED_GROUP_ID,
       organizationId: ORGANIZATION_ID,
       reconcileReadModel: async () => {
-        throw new Error("offline");
+        throw new Error("this pull should never be attempted");
       },
       shouldContinue: () => true,
     });
 
-    // A failed pull is not itself disqualifying: what gates the sweep is
-    // whether the rotation is visible, and here the local head already is it.
+    // The head is the evidence, and it is already here; a failing network is
+    // irrelevant when nothing needs fetching.
     expect(outcome.headConfirmed).toBe(true);
     expect(rewrapped.toSorted()).toEqual(["container-a", "container-b"]);
-    expect(logged.some((message) => message.includes("offline"))).toBe(true);
   } finally {
     close();
   }

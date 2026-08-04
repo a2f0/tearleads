@@ -181,40 +181,49 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   // enumeration sees the server's current grant set.
   // The head is captured BEFORE the policy write, and the sweep also runs when
   // the mutation rejects, so a definitively failed commit would otherwise
-  // re-wrap every cached container to an epoch that never existed. The pull's
-  // own return value cannot settle this either: it can hand back retained cache
-  // on a failed fetch, which would read as fresh. So confirm the rotation the
-  // only way that is self-evidencing — the group's head in the pulled read
-  // model must actually be the committed one.
-  try {
-    // The return value is deliberately NOT read as a freshness signal. A failed
-    // reconciliation can resolve with the retained local projection rather than
-    // undefined, so a defined result does not prove the pull reached the
-    // server. The head check below is the evidence that actually holds.
-    await input.reconcileReadModel();
-  } catch (error) {
-    rethrowKeyingVerificationError(error);
-    input.log(
-      `Organizations: group grant re-share read-model pull failed for group ${input.mutatedGroupId}: ${error instanceof Error ? error.message : String(error)}`,
-    );
+  // re-wrap every cached container to an epoch that never existed. Confirm the
+  // rotation first: the group's head in the read model must be the committed
+  // one.
+  //
+  // Read locally before pulling. The caller has usually just reconciled, so the
+  // rotation is already visible and a second pull would be one more request on
+  // every group mutation for nothing. The pull is the fallback for when it is
+  // not, which is also the only case where its cost buys anything.
+  const readHead = () =>
+    loadLocalOrganizationPolicyReference({
+      currentUserId: input.currentUserId,
+      execSql: input.execSql,
+      organizationId: input.organizationId,
+      principalId: input.mutatedGroupId,
+      principalType: "group",
+    });
+
+  let head = await readHead();
+  if (head?.stateHash !== input.expectedGroupHead.stateHash) {
+    try {
+      // The return value is deliberately NOT read as a freshness signal. A
+      // failed reconciliation can resolve with the retained local projection
+      // rather than undefined, so a defined result does not prove the pull
+      // reached the server. The head re-read below is the evidence that holds.
+      await input.reconcileReadModel();
+    } catch (error) {
+      rethrowKeyingVerificationError(error);
+      input.log(
+        `Organizations: group grant re-share read-model pull failed for group ${input.mutatedGroupId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    // The reconcile can span a switch or a logout. Anything issued after that
+    // would be this organization's repair travelling through another scope's
+    // runtime, so re-check before reading or writing anything.
+    if (!input.shouldContinue()) {
+      return {
+        complete: false,
+        headConfirmed: false,
+        unresolvedContainerIds: [],
+      };
+    }
+    head = await readHead();
   }
-  // The reconcile above can span a switch or a logout. Anything issued after
-  // that would be this organization's repair travelling through another
-  // scope's runtime, so re-check before reading or writing anything.
-  if (!input.shouldContinue()) {
-    return {
-      complete: false,
-      headConfirmed: false,
-      unresolvedContainerIds: [],
-    };
-  }
-  const head = await loadLocalOrganizationPolicyReference({
-    currentUserId: input.currentUserId,
-    execSql: input.execSql,
-    organizationId: input.organizationId,
-    principalId: input.mutatedGroupId,
-    principalType: "group",
-  });
   if (head?.stateHash !== input.expectedGroupHead.stateHash) {
     // Either the commit did not land or the pull is stale. Both mean this
     // device cannot yet tell which containers need repair, and sweeping on a
