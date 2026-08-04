@@ -31,6 +31,7 @@ export const fixture: {
   nativePreparePromise: Promise<void> | null;
   onNativePrepare: (() => void) | null;
   customerInfo: unknown;
+  restorePromise: Promise<{ customerInfo: unknown }> | null;
   nativePurchaseResult: { activeEntitlementIds?: unknown } | null;
   onGetCustomerInfo: (() => void) | null;
   onGetOfferings: (() => void) | null;
@@ -56,6 +57,7 @@ export const fixture: {
   nativePreparePromise: null,
   onNativePrepare: null,
   customerInfo: { entitlements: { active: { sync: {} } } },
+  restorePromise: null,
   nativePurchaseResult: null,
   onGetCustomerInfo: null,
   onGetOfferings: null,
@@ -133,31 +135,33 @@ function nativePurchaseResult(input: NativePurchaseInput) {
   return Promise.resolve({ activeEntitlementIds: activeEntitlementIds() });
 }
 
+const nativePurchasePlugin = {
+  preparePackage: ({
+    packageId,
+    productId,
+  }: {
+    packageId: string;
+    productId: string;
+  }) => {
+    fixture.nativePrepareCalls.push({
+      identifier: packageId,
+      productId,
+    });
+    fixture.onNativePrepare?.();
+    if (fixture.nativePreparePromise !== null) {
+      return fixture.nativePreparePromise;
+    }
+    return fixture.nativePrepareRejection === null
+      ? Promise.resolve()
+      : Promise.reject(fixture.nativePrepareRejection);
+  },
+  purchasePackage: nativePurchaseResult,
+};
+
 mock.module("../src/capacitorRevenueCatRuntime", () => ({
   getCachedCapacitorPurchases: () => fixture.cachedPurchases,
   getRevenueCatPlatform: () => fixture.platform,
-  getNativeRevenueCatPurchase: () => ({
-    preparePackage: ({
-      packageId,
-      productId,
-    }: {
-      packageId: string;
-      productId: string;
-    }) => {
-      fixture.nativePrepareCalls.push({
-        identifier: packageId,
-        productId,
-      });
-      fixture.onNativePrepare?.();
-      if (fixture.nativePreparePromise !== null) {
-        return fixture.nativePreparePromise;
-      }
-      return fixture.nativePrepareRejection === null
-        ? Promise.resolve()
-        : Promise.reject(fixture.nativePrepareRejection);
-    },
-    purchasePackage: nativePurchaseResult,
-  }),
+  getNativeRevenueCatPurchase: () => nativePurchasePlugin,
   setCachedCapacitorPurchases: (cached: unknown) => {
     fixture.cachedPurchases = cached;
   },
@@ -226,6 +230,7 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
       return Promise.resolve({ customerInfo: fixture.customerInfo });
     },
     restorePurchases: () =>
+      fixture.restorePromise ??
       Promise.resolve({ customerInfo: fixture.customerInfo }),
   },
 }));
@@ -277,6 +282,7 @@ export function resetFixture(): void {
   fixture.nativePreparePromise = null;
   fixture.onNativePrepare = null;
   fixture.customerInfo = { entitlements: { active: { sync: {} } } };
+  fixture.restorePromise = null;
   fixture.nativePurchaseResult = null;
   fixture.onGetCustomerInfo = null;
   fixture.onGetOfferings = null;

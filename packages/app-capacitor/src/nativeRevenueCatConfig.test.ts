@@ -218,6 +218,9 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(mainActivity).toContain(
     "registerPlugin(RevenueCatPurchasePlugin.class)",
   );
+  expect(
+    mainActivity.indexOf("registerPlugin(RevenueCatPurchasePlugin.class)"),
+  ).toBeLessThan(mainActivity.indexOf("super.onCreate(savedInstanceState)"));
   expect(appBuild).toMatch(
     /implementation "com\.revenuecat\.purchases:purchases:\$\{rootProject\.ext\.revenueCatPurchasesVersion\}"/,
   );

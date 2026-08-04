@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   copyRevenueCatError,
+  normalizeRevenueCatError,
   RevenueCatOperationTimeoutError,
 } from "./revenueCatErrors";
 
@@ -33,5 +34,24 @@ test("unknown subclasses are wrapped without fabricating private slots", () => {
     cause: source,
     message: "provider failed",
     name: "Error",
+  });
+});
+
+test("provider error copies preserve native diagnostics", () => {
+  const source = normalizeRevenueCatError({
+    code: "13",
+    message: "Receipt belongs to another buyer",
+    storeError: { code: 7, domain: "SKErrorDomain" },
+    userCancelled: false,
+  });
+
+  const copy = copyRevenueCatError(source);
+
+  expect(copy).not.toBe(source);
+  expect(copy).toMatchObject({
+    code: "13",
+    message: "Receipt belongs to another buyer",
+    storeError: { code: 7, domain: "SKErrorDomain" },
+    userCancelled: false,
   });
 });

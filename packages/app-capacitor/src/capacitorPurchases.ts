@@ -309,11 +309,6 @@ export function createCapacitorPurchases(input?: {
     cached.platform === platform &&
     cached.syncEntitlementId === syncEntitlementId
   ) {
-    if (cached.operationTimeoutMs !== operationTimeoutMs) {
-      throw new Error(
-        "RevenueCat is already configured with a different operation timeout",
-      );
-    }
     return cached.capability;
   }
   const capability = createRevenueCatPurchases(capacitorRevenueCatBackend, {

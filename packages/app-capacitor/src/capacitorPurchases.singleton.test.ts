@@ -47,17 +47,40 @@ test("factory instances share native checkout identity serialization", async () 
   await firstPurchase;
 });
 
-test("factory rejects an incompatible operation timeout", () => {
+test("factory keeps its first valid operation timeout without crashing", () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   const firstCapability = createCapacitorPurchases({ operationTimeoutMs: 5 });
 
   expect(() => createCapacitorPurchases({ operationTimeoutMs: 0 })).toThrow(
     "RevenueCat operation timeout must be a positive finite number",
   );
-  expect(() => createCapacitorPurchases({ operationTimeoutMs: 10 })).toThrow(
-    "already configured with a different operation timeout",
+  expect(createCapacitorPurchases({ operationTimeoutMs: 10 })).toBe(
+    firstCapability,
   );
   expect(createCapacitorPurchases({ operationTimeoutMs: 5 })).toBe(
     firstCapability,
   );
+});
+
+test("an iOS Test Store restore remains buyer paced", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "test_ios-key");
+  const restoreResult = createDeferred<{ customerInfo: unknown }>();
+  fixture.restorePromise = restoreResult.promise;
+  const restoring = createCapacitorPurchases({
+    operationTimeoutMs: 5,
+  }).restore();
+
+  const earlyOutcome = await Promise.race([
+    restoring.then(
+      () => "settled",
+      () => "settled",
+    ),
+    new Promise<"pending">((resolve) =>
+      setTimeout(() => resolve("pending"), 20),
+    ),
+  ]);
+
+  expect(earlyOutcome).toBe("pending");
+  restoreResult.resolve({ customerInfo: fixture.customerInfo });
+  await expect(restoring).resolves.toEqual({ syncEntitlementActive: true });
 });

@@ -88,6 +88,9 @@ export function copyRevenueCatError(source: Error): Error {
     if (source.restartRequired) copy.markRestartRequired();
     return copy;
   }
+  if (source instanceof RevenueCatProviderError) {
+    return new RevenueCatProviderError(source.message, source);
+  }
   const copy = new Error(source.message, { cause: source });
   copy.name = source.name;
   return copy;
