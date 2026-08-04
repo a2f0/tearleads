@@ -159,10 +159,12 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   // on a failed fetch, which would read as fresh. So confirm the rotation the
   // only way that is self-evidencing — the group's head in the pulled read
   // model must actually be the committed one.
-  let pulled = false;
   try {
-    // A decline (offline, wrong org) resolves undefined rather than throwing.
-    pulled = (await input.reconcileReadModel()) !== undefined;
+    // The return value is deliberately NOT read as a freshness signal. A failed
+    // reconciliation can resolve with the retained local projection rather than
+    // undefined, so a defined result does not prove the pull reached the
+    // server. The head check below is the evidence that actually holds.
+    await input.reconcileReadModel();
   } catch (error) {
     rethrowKeyingVerificationError(error);
     input.log(
@@ -183,10 +185,6 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
     return {
       complete: false,
       headConfirmed: false,
-      // Only a pull that actually landed is evidence the rotation is absent.
-      // Counting a failed or declined pull would let a long outage read as a
-      // mutation that never committed, abandoning a real rotation.
-      headKnownAbsent: pulled,
       unresolvedContainerIds: [],
     };
   }

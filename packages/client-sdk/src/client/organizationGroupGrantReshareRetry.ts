@@ -4,13 +4,6 @@ import { isKeyingVerificationError } from "../data/keyingProjectionVerification/
 const INITIAL_RETRY_DELAY_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 60_000;
 /**
- * How many pulls may fail to show the rotation before the sweep concludes it
- * never committed. Bounded because an uncommitted mutation's head will never
- * appear, so retrying it is retrying nothing; the repair phase below stays
- * unbounded because there a later attempt genuinely can succeed.
- */
-const MAX_HEAD_CONFIRMATION_ATTEMPTS = 5;
-/**
  * How many attempts may run at the delay ceiling before the sweep stops.
  *
  * Retrying until success is right for a transient outage but wrong for a
@@ -47,8 +40,6 @@ export interface GroupGrantReshareOutcome {
   readonly complete: boolean;
   /** The pulled read model shows the group actually at the committed head. */
   readonly headConfirmed: boolean;
-  /** A pull that landed did not show the rotation, so it never committed. */
-  readonly headKnownAbsent?: boolean;
   /** Every container still stale is one this signer may not re-wrap. */
   readonly onlyUnauthorizedRemains?: boolean;
   /** Containers left stale: unresolvable, or a re-wrap that did not apply. */
@@ -85,11 +76,8 @@ export async function runSweepWithRetry(input: {
       );
       return;
     }
-    if (attempt.outcome && budget.recordOutcome(attempt.outcome)) {
-      input.log(
-        `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; the rotation never appeared, so the mutation did not commit`,
-      );
-      return;
+    if (attempt.outcome) {
+      budget.recordOutcome(attempt.outcome);
     }
     await new Promise<void>((resolve) => {
       input.scheduleRetry(resolve, budget.nextDelayMs());
@@ -111,14 +99,15 @@ export async function runSweepWithRetry(input: {
 /**
  * Loop bookkeeping: pacing, the two give-up conditions, and what stayed broken.
  *
- * Held apart from the loop so each termination rule reads on its own — they
- * answer different questions. The confirmation count asks whether the rotation
- * ever committed; the ceiling count asks whether this device can ever apply the
- * repair at all.
+ * Held apart from the loop so the pacing and the give-up rule each read on
+ * their own. There is a single give-up rule: attempts spent at the delay
+ * ceiling. An unconfirmed rotation and an unrepairable container are not told
+ * apart, because neither can be distinguished from a transient failure — a
+ * failed pull can resolve with retained cache, and the share path turns an
+ * authorization refusal into a null result rather than a status.
  */
 function createRetryBudget() {
   let delayMs = INITIAL_RETRY_DELAY_MS;
-  let unconfirmedAttempts = 0;
   let attemptsAtCeiling = 0;
   let unresolved: readonly string[] = [];
 
@@ -134,17 +123,10 @@ function createRetryBudget() {
       delayMs = Math.min(current * 2, MAX_RETRY_DELAY_MS);
       return current;
     },
-    /** True when the rotation is now known never to have committed. */
     recordOutcome: (outcome: GroupGrantReshareOutcome) => {
       if (outcome.headConfirmed) {
         unresolved = outcome.unresolvedContainerIds;
-        return false;
       }
-      // A pull that never landed teaches nothing, so it must not burn the
-      // confirmation budget — otherwise an outage longer than the budget
-      // abandons a rotation that did commit.
-      unconfirmedAttempts += outcome.headKnownAbsent ? 1 : 0;
-      return unconfirmedAttempts >= MAX_HEAD_CONFIRMATION_ATTEMPTS;
     },
   };
 }
