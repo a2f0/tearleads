@@ -1,21 +1,6 @@
-name: iOS Purchase Bridge
+name: Native Purchase Bridges
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/ios-purchase-bridge.yml"
-      - "bun.lock"
-      - "package.json"
-      - "packages/app-capacitor/**"
-      - "packages/app/src/mini-apps/org-manager/billing/**"
-      - "packages/app/src/mini-apps/org-manager/hooks/useBillingActions*"
-      - "packages/app/src/mini-apps/org-manager/hooks/useBillingOptions*"
-      - "packages/app/src/mini-apps/org-manager/hooks/useResolvedBillingOptions*"
-      - "packages/app/src/mini-apps/org-manager/labels.ts"
-      - "packages/app/src/providers/purchases/**"
-      - "packages/client-sdk/src/client/purchase*"
-      - "packages/client-sdk/src/client/revenueCat*"
-      - "packages/validators/src/billing/**"
   workflow_dispatch:
 
 permissions:
@@ -26,7 +11,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  compile:
+  android:
+    name: Android purchase bridge
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Android build tooling
+        uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          version: 2026.6.12
+          install_args: java gradle
+          cache: true
+
+      - name: Compile and test Android purchase bridge
+        working-directory: packages/app-capacitor/android
+        run: mise exec -- gradle :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
+
+  ios:
     name: iOS purchase bridge
     runs-on: macos-15
     timeout-minutes: 30
@@ -42,6 +47,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: bun run build:packages
 
       - name: Build Capacitor web assets
         working-directory: packages/app-capacitor

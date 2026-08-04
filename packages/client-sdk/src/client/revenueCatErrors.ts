@@ -124,8 +124,9 @@ export function withRevenueCatOperationTimeout<T>(input: {
   readonly onTimeout?: (error: RevenueCatOperationTimeoutError) => void;
   readonly timeoutMs: number;
 }): Promise<T> {
-  // The native bridge exposes no cancellation primitive. The deadline releases
-  // this caller, while the underlying operation stays serialized until it ends.
+  // The deadline releases this caller. Code wrapping a non-cancellable native
+  // operation is responsible for keeping that operation serialized until it
+  // actually settles.
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {

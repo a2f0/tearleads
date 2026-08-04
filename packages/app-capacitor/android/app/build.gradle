@@ -93,7 +93,7 @@ configurations.configureEach {
                 throw new GradleException(
                     "RevenueCat ${details.requested.name} ${requestedVersion} " +
                     "does not match the pinned ${expectedVersion} in " +
-                    "android/variables.gradle",
+                    "android/variables.gradle"
                 )
             }
         }

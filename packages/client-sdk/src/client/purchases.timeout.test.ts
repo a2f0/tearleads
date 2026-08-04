@@ -235,42 +235,39 @@ test("an Android native move bounds only the Play restore phase", async () => {
   expect(claimAttempts).toBe(0);
 });
 
-test("an Android native move excludes the server claim from its deadline", async () => {
+test("a native move gives the server claim its own deadline", async () => {
+  const backend = createBackend();
+  backend.restorePurchases = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 35));
+    return { activeEntitlementIds: ["sync"] };
+  };
+  const capability = purchases(backend);
+
+  await capability.moveNativeSubscription({
+    claim: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 35));
+      return true;
+    },
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+});
+
+test("a timed-out server claim releases the provider queue", async () => {
   const backend = createBackend();
   backend.restorePurchases = async () => ({
     activeEntitlementIds: ["sync"],
   });
-  let finishClaim = (_accepted: boolean) => {};
-  let markClaimStarted = () => {};
-  const claimStarted = new Promise<void>((resolve) => {
-    markClaimStarted = resolve;
-  });
   const capability = purchases(backend);
-  let settled = false;
-  const moving = capability
-    .moveNativeSubscription({
-      claim: () => {
-        markClaimStarted();
-        return new Promise<boolean>((resolve) => {
-          finishClaim = resolve;
-        });
-      },
+
+  await expect(
+    capability.moveNativeSubscription({
+      claim: () => new Promise(() => {}),
       organizationId: "org-1",
       userId: "user-1",
-    })
-    .then(
-      () => null,
-      (error: unknown) => error,
-    )
-    .finally(() => {
-      settled = true;
-    });
-
-  await claimStarted;
-  await new Promise((resolve) => setTimeout(resolve, 60));
-  expect(settled).toBe(false);
-  finishClaim(true);
-  expect(await moving).toBeNull();
+    }),
+  ).rejects.toBeInstanceOf(PurchaseIdentityPendingError);
+  expect(await capability.hasActiveSyncEntitlement()).toBe(false);
 });
 
 test("a native move bounds RevenueCat binding after the server claim", async () => {

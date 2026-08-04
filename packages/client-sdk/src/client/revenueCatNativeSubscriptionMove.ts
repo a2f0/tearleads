@@ -1,5 +1,9 @@
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import { PurchasesUnavailableError } from "./purchaseErrors";
+import {
+  revenueCatOperationTimeoutMs,
+  withRevenueCatOperationTimeout,
+} from "./revenueCatErrors";
 import type { RevenueCatIdentityCoordinator } from "./revenueCatIdentityTypes";
 import { normalizeRevenueCatIdentityError } from "./revenueCatPurchaseErrorNormalization";
 
@@ -12,6 +16,7 @@ interface NativeSubscriptionMoveBackend {
 
 interface NativeSubscriptionMoveConfig {
   readonly nativeStore: NativeSubscriptionStore | null;
+  readonly operationTimeoutMs?: number;
   readonly purchasesEnabled?: boolean;
   readonly restorePurchasesBuyerPaced: boolean;
   readonly syncEntitlementId: string;
@@ -22,6 +27,7 @@ function moveRevenueCatNativeSubscription(input: {
   readonly attributeKey: string;
   readonly backend: NativeSubscriptionMoveBackend;
   readonly claim: (store: NativeSubscriptionStore) => Promise<boolean>;
+  readonly claimTimeoutMs: number;
   readonly entitlementId: string;
   readonly identity: RevenueCatIdentityCoordinator;
   readonly organizationId: string;
@@ -48,7 +54,12 @@ function moveRevenueCatNativeSubscription(input: {
       ) {
         throw new Error("The restored receipt has no sync entitlement");
       }
-      if (!(await input.claim(input.store))) {
+      const claimAccepted = await withRevenueCatOperationTimeout({
+        operation: () => input.claim(input.store),
+        operationName: "native subscription claim",
+        timeoutMs: input.claimTimeoutMs,
+      });
+      if (!claimAccepted) {
         throw new Error("The server did not accept the native subscription");
       }
       await providerPhase.run(
@@ -75,6 +86,9 @@ export function nativeMove(
   readonly organizationId: string;
   readonly userId: string;
 }) => Promise<void> {
+  const claimTimeoutMs = revenueCatOperationTimeoutMs(
+    config.operationTimeoutMs,
+  );
   return async (request) => {
     if (config.purchasesEnabled === false || !config.nativeStore) {
       throw new PurchasesUnavailableError();
@@ -82,6 +96,7 @@ export function nativeMove(
     await moveRevenueCatNativeSubscription({
       attributeKey,
       backend,
+      claimTimeoutMs,
       entitlementId: config.syncEntitlementId,
       identity,
       restorePurchasesBuyerPaced: config.restorePurchasesBuyerPaced,
