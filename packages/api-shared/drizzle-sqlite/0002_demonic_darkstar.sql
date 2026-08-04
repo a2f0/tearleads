@@ -1,0 +1,1 @@
+ALTER TABLE `revenuecat_webhook_events` ADD `store` text;

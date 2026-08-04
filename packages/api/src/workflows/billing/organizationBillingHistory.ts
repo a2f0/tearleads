@@ -7,9 +7,12 @@ import {
   organizationBillingSeatEvents,
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import type { OrganizationBillingHistoryEvent } from "../../billing/organizationBilling";
+import { isRevenueCatGrantEventType } from "../../billing/revenuecatWebhook";
 import { requireDirectOrganizationAccess } from "../organizations/access";
+import { isRecognizedNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 
 /** Newest merged events returned to a client; older audit rows stay durable. */
 const BILLING_HISTORY_EVENT_LIMIT = 50;
@@ -37,6 +40,7 @@ async function loadLifecycleHistory(
       outcome: revenuecatWebhookEvents.outcome,
       occurredAt: revenuecatWebhookEvents.eventTimestamp,
       productId: revenuecatWebhookEvents.productId,
+      store: revenuecatWebhookEvents.store,
       transactionId: revenuecatWebhookEvents.transactionId,
       periodStartsAt: revenuecatWebhookEvents.purchasedAt,
       periodEndsAt: revenuecatWebhookEvents.expirationAt,
@@ -197,6 +201,15 @@ function projectLifecycleHistory(
 ): OrganizationBillingHistoryEvent[] {
   return rows.map((row) => {
     const seat = seatsByProviderEventId.get(row.providerEventId);
+    // RevenueCat lifecycle events don't carry a trustworthy charged total.
+    // Successful grants can still use the monthly catalog's capacity and USD
+    // list price; revocations and ignored events must not imply entitlement.
+    const tier =
+      row.outcome === "applied" &&
+      isRevenueCatGrantEventType(row.eventType) &&
+      isRecognizedNativeRevenueCatStore(row.store)
+        ? getSyncBillingTierForNativeProduct(row.productId)
+        : null;
     return {
       id: row.id,
       category: "lifecycle",
@@ -214,14 +227,14 @@ function projectLifecycleHistory(
       invoiceId: null,
       subscriptionId: null,
       billingReason: null,
-      seatCount: seat?.seatCount ?? null,
+      seatCount: seat?.seatCount ?? tier?.seatLimit ?? null,
       seatDelta: seat?.seatDelta ?? null,
       activeSeatCount: seat?.activeSeatCount ?? null,
       priceId: null,
-      unitAmount: null,
-      currency: null,
-      interval: null,
-      intervalCount: null,
+      unitAmount: tier?.monthlyPriceUsdCents ?? null,
+      currency: tier ? "usd" : null,
+      interval: tier ? "month" : null,
+      intervalCount: tier ? 1 : null,
       totalAmount: null,
       periodStartsAt: seat?.periodStartsAt ?? row.periodStartsAt,
       periodEndsAt: seat?.periodEndsAt ?? row.periodEndsAt,

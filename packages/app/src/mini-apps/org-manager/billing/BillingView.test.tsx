@@ -159,7 +159,7 @@ test("an active subscription shows licensed capacity and the period end date", (
   ).toBeDefined();
 });
 
-test("a trialing organization shows the trial end date, not licensed seats", () => {
+test("a trialing organization shows the trial end date and top-tier capacity", () => {
   const trialEndsAtMs = Date.parse("2026-07-25T12:00:00Z");
   const view = render(
     <BillingView
@@ -171,7 +171,7 @@ test("a trialing organization shows the trial end date, not licensed seats", () 
           isTrialing: true,
           trialDaysRemaining: 5,
           trialEndsAtMs,
-          seatCount: 2,
+          seatCount: 10,
         }),
       })}
     />,
@@ -181,8 +181,7 @@ test("a trialing organization shows the trial end date, not licensed seats", () 
       getOrgManagerTrialEndsLabel(formatMiniAppDate(trialEndsAtMs)),
     ),
   ).toBeDefined();
-  // A free trial is not billed, so no licensed-capacity label appears.
-  expect(view.queryByText(/licensed seat/)).toBeNull();
+  expect(view.getByText("10 licensed seats")).toBeDefined();
 });
 
 test("a local organization shows no seats or period date", () => {

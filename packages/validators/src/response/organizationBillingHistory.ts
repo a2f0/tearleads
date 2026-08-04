@@ -26,9 +26,10 @@ export type OrganizationBillingHistoryProvider =
 
 /**
  * One durable billing event in an organization's history, newest first.
- * Monetary values use the currency's minor unit exactly as the provider
- * reports them. Nullable fields are explicit so every category has one stable
- * wire shape.
+ * Provider monetary values use the currency's minor unit exactly as reported.
+ * A recognized native grant may instead expose its canonical monthly USD list
+ * price through `unitAmount`; `totalAmount` remains null without a provider-paid
+ * total. Nullable fields are explicit so every category has one stable shape.
  */
 export interface OrganizationBillingHistoryEntry {
   id: string;
