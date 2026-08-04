@@ -45,12 +45,20 @@ test("rejects a package whose identity changes after preparation", async () => {
     Object.assign(aPackage, { identifier: "changed" });
   };
 
-  await expect(
-    createCapacitorPurchases().purchaseSync({
+  const error = await createCapacitorPurchases()
+    .purchaseSync({
       organizationId: "org-1",
       packageId: "monthly",
-    }),
-  ).rejects.toThrow("Purchase package was not prepared: monthly");
+    })
+    .catch((reason: unknown) => reason);
+  expect(error).toBeInstanceOf(PurchasesUnavailableError);
+  expect(error).toMatchObject({
+    cause: {
+      code: "bridge-invalid",
+      message: "Purchase package was not prepared: monthly",
+    },
+    code: "bridge-invalid",
+  });
   expect(fixture.nativePrepareCalls).toHaveLength(1);
   expect(fixture.nativePurchaseCalls).toEqual([]);
 });

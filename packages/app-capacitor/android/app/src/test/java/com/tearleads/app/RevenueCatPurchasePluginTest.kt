@@ -17,6 +17,8 @@ import com.revenuecat.purchases.PeriodType
 import com.revenuecat.purchases.PresentedOfferingContext
 import com.revenuecat.purchases.ProductType
 import com.revenuecat.purchases.PurchaseParams
+import com.revenuecat.purchases.PurchasesError
+import com.revenuecat.purchases.PurchasesErrorCode
 import com.revenuecat.purchases.Store
 import com.revenuecat.purchases.VerificationResult
 import com.revenuecat.purchases.interfaces.PurchaseCallback
@@ -48,11 +50,13 @@ class RevenueCatPurchasePluginTest {
         data,
     ) {
         var rejectionCode: String? = null
+        var rejectionData: JSObject? = null
         var resolution: JSObject? = null
         var resolved = false
 
         override fun reject(message: String?, code: String?, data: JSObject?) {
             rejectionCode = code
+            rejectionData = data
         }
 
         override fun resolve(data: JSObject?) {
@@ -67,11 +71,16 @@ class RevenueCatPurchasePluginTest {
 
     private class RecordingPurchaseClient(
         private val offerings: Offerings,
+        private val offeringsError: PurchasesError? = null,
     ) : RevenueCatPurchaseClient {
         var purchaseParams: PurchaseParams? = null
         private var purchaseCallback: PurchaseCallback? = null
 
         override fun getOfferings(callback: ReceiveOfferingsCallback) {
+            offeringsError?.let {
+                callback.onError(it)
+                return
+            }
             callback.onReceived(offerings)
         }
 
@@ -85,6 +94,10 @@ class RevenueCatPurchasePluginTest {
                 storeTransaction(),
                 customerInfo,
             )
+        }
+
+        fun fail(error: PurchasesError, userCancelled: Boolean) {
+            requireNotNull(purchaseCallback).onError(error, userCancelled)
         }
     }
 
@@ -357,6 +370,68 @@ class RevenueCatPurchasePluginTest {
 
         assertEquals("bridge-invalid", call.rejectionCode)
         assertNull(cache.consume("team", "team-product") { it.product.id })
+    }
+
+    @Test
+    fun preparationForwardsRevenueCatOfferingErrors() {
+        val error = PurchasesError(PurchasesErrorCode.NetworkError, "offline")
+        val purchaseClient = RecordingPurchaseClient(
+            Offerings(null, emptyMap()),
+            error,
+        )
+        val plugin = RevenueCatPurchasePlugin(
+            PreparedPackageCache(),
+            { true },
+            { Activity() },
+            purchaseClient,
+        )
+        val call = prepareCall()
+
+        plugin.preparePackage(call)
+
+        assertEquals(error.code.code.toString(), call.rejectionCode)
+        assertEquals(false, call.rejectionData?.get("userCancelled"))
+    }
+
+    @Test
+    fun purchaseForwardsRevenueCatErrorsAndCancellationState() {
+        val prepared = fakePackage("team", "team-product")
+        val offering = Offering(
+            "current",
+            "Test offering",
+            emptyMap(),
+            listOf(prepared),
+        )
+        val offerings = Offerings(
+            offering,
+            mapOf(offering.identifier to offering),
+        )
+        val outcomes = listOf(
+            PurchasesErrorCode.StoreProblemError to false,
+            PurchasesErrorCode.PurchaseCancelledError to true,
+        )
+
+        outcomes.forEach { (code, userCancelled) ->
+            val purchaseClient = RecordingPurchaseClient(offerings)
+            val plugin = RevenueCatPurchasePlugin(
+                PreparedPackageCache(),
+                { true },
+                { Activity() },
+                purchaseClient,
+            )
+            val purchase = purchaseCall()
+            plugin.preparePackage(prepareCall())
+            plugin.purchasePackage(purchase)
+
+            val error = PurchasesError(code, "purchase failed")
+            purchaseClient.fail(error, userCancelled)
+
+            assertEquals(error.code.code.toString(), purchase.rejectionCode)
+            assertEquals(
+                userCancelled,
+                purchase.rejectionData?.get("userCancelled"),
+            )
+        }
     }
 
     @Test

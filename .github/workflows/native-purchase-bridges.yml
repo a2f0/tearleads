@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - ".github/workflows/native-purchase-bridges.yml"
+      - "bun.lock"
+      - "package.json"
       - "packages/app-capacitor/android/**"
       - "packages/app-capacitor/capacitor.config.ts"
       - "packages/app-capacitor/ios/**"
@@ -13,6 +15,8 @@ on:
       - main
     paths:
       - ".github/workflows/native-purchase-bridges.yml"
+      - "bun.lock"
+      - "package.json"
       - "packages/app-capacitor/android/**"
       - "packages/app-capacitor/capacitor.config.ts"
       - "packages/app-capacitor/ios/**"

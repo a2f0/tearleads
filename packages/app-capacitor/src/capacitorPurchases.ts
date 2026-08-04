@@ -273,7 +273,12 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
       !(preparedPurchase instanceof CapacitorPreparedPurchase) ||
       preparedPurchase.aPackage.identifier !== packageId
     ) {
-      throw new Error(`Purchase package was not prepared: ${packageId}`);
+      throw new NativePurchaseBridgeUnavailableError(
+        Object.assign(
+          new Error(`Purchase package was not prepared: ${packageId}`),
+          { code: "bridge-invalid" },
+        ),
+      );
     }
     try {
       return await purchaseCapacitorRevenueCatPackage(
