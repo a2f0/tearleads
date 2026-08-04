@@ -30,7 +30,7 @@ import {
   createOrganizationDataUsageCoordinator,
   type OrganizationDataUsageCoordinator,
 } from "./organizationDataUsage";
-import { scheduleGroupGrantReshareAfterRotation } from "./organizationGroupGrantReshare";
+import { withGroupGrantReshareAfterRotation } from "./organizationGroupGrantReshare";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import { reshareOrganizationMetadataAfterGroupChange } from "./organizationMetadataReshare";
 import {
@@ -274,24 +274,33 @@ class OrganizationsService implements Organizations {
       });
     let memberGroupId: string | null = null;
     let committedGroupHead: ReferencedPrincipalHead | null = null;
-    const bundle = await recoverOrganizationRootRewrapAfterMutationFailure({
-      logError: runtime.util.logError,
-      mutation: addOrganizationGroupUser({
-        afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
-        apiClient: runtime.apiClient,
-        beforePolicyCommit: (head, authority) => {
-          preparedRootRewrap.setExpectedGroupPolicyHead(head);
-          committedGroupHead = head;
-          memberGroupId = authority.memberGroupId;
-        },
-        currentUserSecretKey,
-        execSql: runtime.infra.execSql,
-        groupId: input.groupId,
-        resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-        targetUserId: input.targetUserId,
-        ...signingContext,
+    const bundle = await withGroupGrantReshareAfterRotation({
+      containerContents: this.containerContents,
+      mutatedGroupId: input.groupId,
+      readExpectedGroupHead: () => committedGroupHead,
+      reconcileReadModel: () =>
+        this.readModelCoordinator.reconcileAfterMutation(),
+      runtime,
+      signingContext,
+      mutation: recoverOrganizationRootRewrapAfterMutationFailure({
+        logError: runtime.util.logError,
+        mutation: addOrganizationGroupUser({
+          afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
+          apiClient: runtime.apiClient,
+          beforePolicyCommit: (head, authority) => {
+            preparedRootRewrap.setExpectedGroupPolicyHead(head);
+            committedGroupHead = head;
+            memberGroupId = authority.memberGroupId;
+          },
+          currentUserSecretKey,
+          execSql: runtime.infra.execSql,
+          groupId: input.groupId,
+          resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+          targetUserId: input.targetUserId,
+          ...signingContext,
+        }),
+        prepared: preparedRootRewrap,
       }),
-      prepared: preparedRootRewrap,
     });
     if (memberGroupId) {
       void this.metadataReshareCoordinator.reshareAfterGroupChange({
@@ -300,13 +309,6 @@ class OrganizationsService implements Organizations {
         organizationId: signingContext.organizationId,
       });
     }
-    scheduleGroupGrantReshareAfterRotation({
-      containerContents: this.containerContents,
-      expectedGroupHead: committedGroupHead,
-      mutatedGroupId: input.groupId,
-      runtime,
-      signingContext,
-    });
     return bundle;
   }
 
@@ -521,23 +523,32 @@ class OrganizationsService implements Organizations {
       });
     let memberGroupId: string | null = null;
     let committedGroupHead: ReferencedPrincipalHead | null = null;
-    const bundle = await recoverOrganizationRootRewrapAfterMutationFailure({
-      logError: runtime.util.logError,
-      mutation: removeOrganizationGroupUser({
-        afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
-        apiClient: runtime.apiClient,
-        beforePolicyCommit: (head, authority) => {
-          preparedRootRewrap.setExpectedGroupPolicyHead(head);
-          committedGroupHead = head;
-          memberGroupId = authority.memberGroupId;
-        },
-        execSql: runtime.infra.execSql,
-        groupId: input.groupId,
-        removedUserId: input.removedUserId,
-        resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-        ...signingContext,
+    const bundle = await withGroupGrantReshareAfterRotation({
+      containerContents: this.containerContents,
+      mutatedGroupId: input.groupId,
+      readExpectedGroupHead: () => committedGroupHead,
+      reconcileReadModel: () =>
+        this.readModelCoordinator.reconcileAfterMutation(),
+      runtime,
+      signingContext,
+      mutation: recoverOrganizationRootRewrapAfterMutationFailure({
+        logError: runtime.util.logError,
+        mutation: removeOrganizationGroupUser({
+          afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
+          apiClient: runtime.apiClient,
+          beforePolicyCommit: (head, authority) => {
+            preparedRootRewrap.setExpectedGroupPolicyHead(head);
+            committedGroupHead = head;
+            memberGroupId = authority.memberGroupId;
+          },
+          execSql: runtime.infra.execSql,
+          groupId: input.groupId,
+          removedUserId: input.removedUserId,
+          resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+          ...signingContext,
+        }),
+        prepared: preparedRootRewrap,
       }),
-      prepared: preparedRootRewrap,
     });
     if (memberGroupId) {
       void this.metadataReshareCoordinator.reshareAfterGroupChange({
@@ -546,13 +557,6 @@ class OrganizationsService implements Organizations {
         organizationId: signingContext.organizationId,
       });
     }
-    scheduleGroupGrantReshareAfterRotation({
-      containerContents: this.containerContents,
-      expectedGroupHead: committedGroupHead,
-      mutatedGroupId: input.groupId,
-      runtime,
-      signingContext,
-    });
     return bundle;
   }
 

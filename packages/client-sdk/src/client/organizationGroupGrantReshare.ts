@@ -8,17 +8,54 @@ import type { InternalWorkflowRuntimeInput } from "./workflowRuntime";
 type ContainerTree = ReturnType<ContainerContents["openTree"]>;
 
 /**
- * Start the sweep for a group mutation that has already committed.
+ * Run a group policy mutation and sweep its grants once the head is known.
+ *
+ * The sweep is scheduled from `finally`, not from the success path. A mutation
+ * can reject *after* its policy write commits — an ambiguous response, a failed
+ * root re-wrap reconciliation, a cache write — and
+ * `recoverOrganizationRootRewrapAfterMutationFailure` deliberately rethrows the
+ * original error in exactly that case. The group has still rotated, so every
+ * container wrapped to it is still stale; skipping the sweep on the throwing
+ * path would strand precisely the rotations that most need repairing. The
+ * captured head is the signal that the commit happened: absent it, the guard in
+ * `scheduleGroupGrantReshareAfterRotation` makes this a no-op.
+ */
+export async function withGroupGrantReshareAfterRotation<T>(input: {
+  containerContents: ContainerContents;
+  mutatedGroupId: string;
+  mutation: Promise<T>;
+  readExpectedGroupHead: () => ReferencedPrincipalHead | null;
+  reconcileReadModel: () => Promise<unknown>;
+  runtime: InternalWorkflowRuntimeInput;
+  signingContext: { organizationId: string; signerUserId: string };
+}): Promise<T> {
+  try {
+    return await input.mutation;
+  } finally {
+    scheduleGroupGrantReshareAfterRotation({
+      containerContents: input.containerContents,
+      expectedGroupHead: input.readExpectedGroupHead(),
+      mutatedGroupId: input.mutatedGroupId,
+      reconcileReadModel: input.reconcileReadModel,
+      runtime: input.runtime,
+      signingContext: input.signingContext,
+    });
+  }
+}
+
+/**
+ * Start the sweep for a group mutation whose policy write has committed.
  *
  * Fire-and-forget by design: the policy write is durable by this point, so a
  * container that cannot be repaired now must not surface as a failure of the
  * mutation itself. The sweep is idempotent, so the next mutation on the same
  * group repairs whatever this pass missed.
  */
-export function scheduleGroupGrantReshareAfterRotation(input: {
+function scheduleGroupGrantReshareAfterRotation(input: {
   containerContents: ContainerContents;
   expectedGroupHead: ReferencedPrincipalHead | null;
   mutatedGroupId: string;
+  reconcileReadModel: () => Promise<unknown>;
   runtime: InternalWorkflowRuntimeInput;
   signingContext: { organizationId: string; signerUserId: string };
 }): void {
@@ -33,6 +70,7 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
     log: (message) => input.runtime.util.log(message),
     mutatedGroupId: input.mutatedGroupId,
     organizationId: input.signingContext.organizationId,
+    reconcileReadModel: input.reconcileReadModel,
   }).catch((error: unknown) => {
     input.runtime.util.logError(
       `Organizations: group grant re-share failed for group ${input.mutatedGroupId}`,
@@ -78,7 +116,23 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   log: (message: string) => void;
   mutatedGroupId: string;
   organizationId: string;
+  reconcileReadModel: () => Promise<unknown>;
 }): Promise<void> {
+  // The read model is a local cache. A grant created since the last reconcile
+  // is absent from it, and a container missing from the candidate list is never
+  // visited — the silent staleness this sweep exists to prevent. Pull first so
+  // enumeration sees the server's current grant set.
+  try {
+    await input.reconcileReadModel();
+  } catch (error) {
+    rethrowKeyingVerificationError(error);
+    // Offline or a failed pull: sweep the cached grants rather than nothing. A
+    // grant this view omits is repaired by the next mutation on the group.
+    input.log(
+      `Organizations: group grant re-share swept a stale read model for group ${input.mutatedGroupId}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
   const granted = await loadLocalOrganizationGroupContainers({
     currentUserId: input.currentUserId,
     execSql: input.execSql,
@@ -128,7 +182,16 @@ async function reshareOneGrantedContainer(input: {
       input.accessLevel,
       { requireExistingGrant: true },
     );
-    if (!prepared || prepared.status === "not-granted") {
+    if (!prepared) {
+      // Distinct from "not-granted": the container could not be resolved at
+      // all, so its grant is neither confirmed nor refuted and it stays stale.
+      // A silent return here would read as a clean sweep.
+      input.log(
+        `Organizations: group grant re-share was unavailable for container ${input.containerId} in org ${input.organizationId}`,
+      );
+      return;
+    }
+    if (prepared.status === "not-granted") {
       return;
     }
     if (
