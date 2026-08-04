@@ -13,9 +13,9 @@ import { freeTrialLifecycleSourceId } from "../billing/organizationTrialLifecycl
 export type InitialOrganizationBilling = "local" | "trial";
 
 export interface CreatedInitialOrganizationBilling {
+  readonly createdAt: Date;
   readonly sourceId: string | null;
   readonly trialEndsAt: Date | null;
-  readonly trialStartedAt: Date | null;
 }
 
 function createInitialOrganizationBillingFields(
@@ -55,11 +55,11 @@ export async function createInitialOrganizationBillingRow(
     updatedAt: now,
   });
   return {
+    createdAt: now,
     sourceId:
       fields.trialEndsAt === null
         ? null
         : freeTrialLifecycleSourceId(organizationId, fields.trialEndsAt),
     trialEndsAt: fields.trialEndsAt,
-    trialStartedAt: fields.trialEndsAt === null ? null : now,
   };
 }

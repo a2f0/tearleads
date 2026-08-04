@@ -40,6 +40,7 @@ export async function syncInitialRosterAndBillingSeats(input: {
   const trialSourceId = input.initialBilling.sourceId;
   await reconcileOrganizationBillingSeats({
     executor: input.tx,
+    now: input.initialBilling.createdAt,
     organizationId: input.organizationId,
     source:
       trialSourceId === null
@@ -56,17 +57,13 @@ export async function syncInitialRosterAndBillingSeats(input: {
             sourceType: "billing_transition",
           },
   });
-  if (
-    trialSourceId !== null &&
-    input.initialBilling.trialStartedAt !== null &&
-    input.initialBilling.trialEndsAt !== null
-  ) {
+  if (trialSourceId !== null && input.initialBilling.trialEndsAt !== null) {
     await recordFreeTrialInitialized({
       executor: input.tx,
       organizationId: input.organizationId,
       sourceId: trialSourceId,
       trialEndsAt: input.initialBilling.trialEndsAt,
-      trialStartedAt: input.initialBilling.trialStartedAt,
+      trialStartedAt: input.initialBilling.createdAt,
     });
   }
 }
