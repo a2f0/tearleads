@@ -7,10 +7,19 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
     let identifier = "RevenueCatPurchasePlugin"
     let jsName = "RevenueCatPurchase"
     let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "assertConfigured", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "preparePackage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchasePackage", returnType: CAPPluginReturnPromise)
     ]
     @MainActor private var preparedPackages: [String: Package] = [:]
+
+    @objc func assertConfigured(_ call: CAPPluginCall) {
+        guard Purchases.isConfigured else {
+            Self.rejectBridgeValidation(call)
+            return
+        }
+        call.resolve()
+    }
 
     @objc func preparePackage(_ call: CAPPluginCall) {
         Task { @MainActor in

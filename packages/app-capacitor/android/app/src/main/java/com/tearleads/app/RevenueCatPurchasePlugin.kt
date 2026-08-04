@@ -110,6 +110,15 @@ class RevenueCatPurchasePlugin internal constructor(
     )
 
     @PluginMethod
+    fun assertConfigured(call: PluginCall) {
+        if (!purchasesConfigured()) {
+            rejectBridgeValidation(call)
+            return
+        }
+        call.resolve()
+    }
+
+    @PluginMethod
     fun preparePackage(call: PluginCall) {
         preparedPackages.clear()
         if (!purchasesConfigured()) {

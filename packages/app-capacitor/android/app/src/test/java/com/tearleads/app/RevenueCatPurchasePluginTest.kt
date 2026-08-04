@@ -263,6 +263,10 @@ class RevenueCatPurchasePluginTest {
         )
         assertNotNull(plugin.getConstructor())
         assertTrue(
+            plugin.getDeclaredMethod("assertConfigured", PluginCall::class.java)
+                .isAnnotationPresent(PluginMethod::class.java),
+        )
+        assertTrue(
             plugin.getDeclaredMethod("preparePackage", PluginCall::class.java)
                 .isAnnotationPresent(PluginMethod::class.java),
         )
@@ -281,12 +285,24 @@ class RevenueCatPurchasePluginTest {
         )
         val prepare = RecordingPluginCall("preparePackage")
         val purchase = RecordingPluginCall("purchasePackage")
+        val configuration = RecordingPluginCall("assertConfigured")
 
+        plugin.assertConfigured(configuration)
         plugin.preparePackage(prepare)
         plugin.purchasePackage(purchase)
 
+        assertEquals("bridge-invalid", configuration.rejectionCode)
         assertEquals("bridge-invalid", prepare.rejectionCode)
         assertEquals("bridge-invalid", purchase.rejectionCode)
+    }
+
+    @Test
+    fun configurationAssertionResolvesForTheSharedRevenueCatInstance() {
+        val call = RecordingPluginCall("assertConfigured")
+
+        configuredPlugin().assertConfigured(call)
+
+        assertTrue(call.resolved)
     }
 
     @Test

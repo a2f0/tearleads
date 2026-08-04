@@ -290,6 +290,33 @@ test("billing actions pause option retries and hide their stale error", async ()
   expect(purchases.listSyncOptions).toHaveBeenCalledTimes(2);
 });
 
+test("revoking purchase eligibility clears options during a native action", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  let finishRestore = (_value: SyncPurchaseResult) => {};
+  purchases.restore = mock(
+    () =>
+      new Promise<SyncPurchaseResult>((resolve) => {
+        finishRestore = resolve;
+      }),
+  );
+  const { result, rerender } = renderBillingActions({ purchases });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => result.current.confirmSubscriptionMove());
+  await waitFor(() => expect(result.current.busy).toBe("restore"));
+  rerender({
+    billingIsActive: false,
+    isOrgAdmin: false,
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+
+  await waitFor(() => expect(result.current.options).toEqual([]));
+  expect(result.current.canSubscribe).toBe(false);
+  finishRestore({ syncEntitlementActive: true });
+  await waitFor(() => expect(result.current.busy).toBeNull());
+});
+
 test("billing actions do not reset an exhausted options retry budget", async () => {
   const purchases = createPurchases({ syncEntitlementActive: false });
   purchases.identify = mock(() =>

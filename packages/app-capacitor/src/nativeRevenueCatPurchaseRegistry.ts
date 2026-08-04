@@ -1,4 +1,5 @@
 export interface NativeRevenueCatPurchasePlugin {
+  assertConfigured(): Promise<void>;
   preparePackage(options: {
     packageId: string;
     productId: string;

@@ -5,6 +5,8 @@ export const fixture: {
   cachedPurchases: unknown;
   platform: string;
   configureCalls: { apiKey: string; appUserID?: string }[];
+  nativeConfigurationChecks: number;
+  nativeConfigurationRejection: unknown;
   logInCalls: string[];
   logOutCalls: number;
   logOutRejection: unknown;
@@ -42,6 +44,8 @@ export const fixture: {
   cachedPurchases: undefined,
   platform: "ios",
   configureCalls: [],
+  nativeConfigurationChecks: 0,
+  nativeConfigurationRejection: null,
   logInCalls: [],
   logOutCalls: 0,
   logOutRejection: null,
@@ -136,6 +140,12 @@ function nativePurchaseResult(input: NativePurchaseInput) {
 }
 
 const nativePurchasePlugin = {
+  assertConfigured: () => {
+    fixture.nativeConfigurationChecks += 1;
+    return fixture.nativeConfigurationRejection === null
+      ? Promise.resolve()
+      : Promise.reject(fixture.nativeConfigurationRejection);
+  },
   preparePackage: ({
     packageId,
     productId,
@@ -267,6 +277,8 @@ export function resetFixture(): void {
   fixture.cachedPurchases = undefined;
   fixture.platform = "ios";
   fixture.configureCalls = [];
+  fixture.nativeConfigurationChecks = 0;
+  fixture.nativeConfigurationRejection = null;
   fixture.logInCalls = [];
   fixture.logOutCalls = 0;
   fixture.logOutRejection = null;

@@ -70,6 +70,11 @@ test("iOS project registers the RevenueCat purchase plugin contract", async () =
   );
   expect(purchasePlugin).toContain('let jsName = "RevenueCatPurchase"');
   expect(purchasePlugin).toContain(
+    'CAPPluginMethod(name: "assertConfigured", returnType: CAPPluginReturnPromise)',
+  );
+  expect(purchasePlugin).toContain("@objc func assertConfigured");
+  expect(purchasePlugin).toContain("guard Purchases.isConfigured else");
+  expect(purchasePlugin).toContain(
     "nativeError.domain == ErrorCode.errorDomain",
   );
   expect(purchasePlugin).toContain("Self.reject(call, error: error)");
@@ -235,6 +240,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(runtime).toContain("createNativeRevenueCatPurchaseRegistry");
   expect(nativeRegistry).toContain('registerPlugin("RevenueCatPurchase")');
   expect(purchasePlugin).toContain("@PluginMethod\n    fun preparePackage");
+  expect(purchasePlugin).toContain("@PluginMethod\n    fun assertConfigured");
   expect(purchasePlugin).toContain("@PluginMethod\n    fun purchasePackage");
   expect(purchasePlugin).toContain(
     "preparedPackages.replace(packageId, prepared)",

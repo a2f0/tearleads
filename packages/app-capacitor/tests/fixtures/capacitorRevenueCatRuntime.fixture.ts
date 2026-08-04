@@ -2,6 +2,7 @@ import { mock } from "bun:test";
 
 const registrationNames: string[] = [];
 const nativePlugin = {
+  assertConfigured: () => Promise.resolve(),
   preparePackage: () => Promise.resolve(),
   purchasePackage: () => Promise.resolve({ activeEntitlementIds: [] }),
 };

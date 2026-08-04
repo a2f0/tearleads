@@ -118,11 +118,11 @@ export function useBillingOptions(input: UseBillingOptionsInput): () => void {
     const scope = input.currentScope;
     const userId = input.userId;
     if (!scopeMatches(input.scopeRef.current, scope)) return;
-    if (!input.actionIdle) return;
     if (!input.canSubscribe || userId === null) {
       input.setOptionsState(emptyOptionsState(scope));
       return;
     }
+    if (!input.actionIdle) return;
     let retryBudget = retryBudgetRef.current;
     if (
       retryBudget === null ||

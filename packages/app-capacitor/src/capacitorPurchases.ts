@@ -23,6 +23,7 @@ import {
 } from "./capacitorRevenueCatPurchase";
 import {
   getCachedCapacitorPurchases,
+  getNativeRevenueCatPurchase,
   getRevenueCatPlatform,
   setCachedCapacitorPurchases,
 } from "./capacitorRevenueCatRuntime";
@@ -216,6 +217,10 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
       apiKey,
       ...(appUserId === undefined ? {} : { appUserID: appUserId }),
     });
+    // The official configuration bridge and our bounded purchase bridge must
+    // observe the same native RevenueCat singleton. Assert that invariant on
+    // every fresh configuration before any identity or store work can begin.
+    await getNativeRevenueCatPurchase().assertConfigured();
   },
   async logIn({ appUserId }) {
     await Purchases.logIn({ appUserID: appUserId });
