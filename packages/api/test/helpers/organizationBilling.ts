@@ -16,15 +16,20 @@ import { eq } from "drizzle-orm";
 export async function setTestOrganizationBillingExpiredTrial(
   organizationId: string,
 ): Promise<void> {
+  const now = new Date();
+  const trialEndsAt = new Date(now.getTime() - 60_000);
   await db
     .update(organizationBilling)
     .set({
       status: "trialing",
-      trialEndsAt: new Date(Date.now() - 60_000),
+      trialEndsAt,
+      trialExpiryAttemptCount: 0,
+      trialExpiryLastError: null,
+      trialExpiryNextAttemptAt: trialEndsAt,
       seatCount: 0,
       disabledAt: null,
       purgeAfter: null,
-      updatedAt: new Date(),
+      updatedAt: now,
     })
     .where(eq(organizationBilling.organizationId, organizationId));
 }
@@ -50,6 +55,9 @@ export async function setTestOrganizationBillingLocal(
     .set({
       status: "local",
       trialEndsAt: null,
+      trialExpiryAttemptCount: 0,
+      trialExpiryLastError: null,
+      trialExpiryNextAttemptAt: null,
       seatCount: 0,
       disabledAt: null,
       purgeAfter: null,

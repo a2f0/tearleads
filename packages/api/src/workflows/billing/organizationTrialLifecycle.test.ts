@@ -17,6 +17,7 @@ import {
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "../../billing/organizationBilling";
 import { routeApp } from "../../routeApp";
 import {
+  MAX_TRIAL_EXPIRY_ATTEMPTS,
   runExpireOrganizationTrialsWorkflow,
   runExpireOrganizationTrialWorkflow,
 } from "./organizationTrialLifecycle";
@@ -133,6 +134,48 @@ test("trial inception and expiration remain durable user-facing lifecycle events
   expect(assignmentEvent?.sourcePrincipalId).not.toBeNull();
 });
 
+test("expiration stays paired with inception when the deadline is corrected", async () => {
+  const organizationId = await registerAndAuthenticate(createTestUser());
+  const [trial] = await db
+    .select({ trialEndsAt: organizationBilling.trialEndsAt })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  invariant(trial?.trialEndsAt, "expected provisioned trial");
+  const correctedTrialEndsAt = new Date(trial.trialEndsAt.getTime() + 60_000);
+  await db
+    .update(organizationBilling)
+    .set({
+      trialEndsAt: correctedTrialEndsAt,
+      trialExpiryNextAttemptAt: correctedTrialEndsAt,
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  expect(
+    await runExpireOrganizationTrialWorkflow(
+      db,
+      organizationId,
+      new Date(correctedTrialEndsAt.getTime() + 1),
+    ),
+  ).toBe(true);
+  const lifecycle = await db
+    .select({
+      eventType: organizationBillingLifecycleEvents.eventType,
+      occurredAt: organizationBillingLifecycleEvents.occurredAt,
+      sourceId: organizationBillingLifecycleEvents.sourceId,
+    })
+    .from(organizationBillingLifecycleEvents)
+    .where(
+      eq(organizationBillingLifecycleEvents.organizationId, organizationId),
+    )
+    .orderBy(asc(organizationBillingLifecycleEvents.occurredAt));
+  expect(lifecycle).toHaveLength(2);
+  expect(lifecycle[1]).toMatchObject({
+    eventType: "free_trial_expired",
+    occurredAt: correctedTrialEndsAt,
+    sourceId: lifecycle[0]?.sourceId,
+  });
+});
+
 test("trial expiration fails closed when its durable inception is missing", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
@@ -209,10 +252,18 @@ test("trial sweep backs off failures without starving later expirations", async 
   const errorSpy = spyOn(console, "error").mockImplementation(() => {});
   try {
     expect(
-      await runExpireOrganizationTrialsWorkflow(db, { limit: 2, now }),
+      await runExpireOrganizationTrialsWorkflow(db, {
+        limit: 2,
+        now,
+        organizationIds,
+      }),
     ).toEqual({ examined: 2, expired: 1, failed: 1 });
     expect(
-      await runExpireOrganizationTrialsWorkflow(db, { limit: 2, now }),
+      await runExpireOrganizationTrialsWorkflow(db, {
+        limit: 2,
+        now,
+        organizationIds,
+      }),
     ).toEqual({ examined: 1, expired: 1, failed: 0 });
   } finally {
     errorSpy.mockRestore();
@@ -246,4 +297,58 @@ test("trial sweep backs off failures without starving later expirations", async 
       "disabled",
     );
   }
+});
+
+test("trial sweep dead-letters a repeatedly invalid lifecycle", async () => {
+  const organizationId = await registerAndAuthenticate(createTestUser());
+  const [trial] = await db
+    .select({ trialEndsAt: organizationBilling.trialEndsAt })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  invariant(trial?.trialEndsAt, "expected provisioned trial");
+  const now = new Date(trial.trialEndsAt.getTime() + 1);
+  await db
+    .delete(organizationBillingLifecycleEvents)
+    .where(
+      eq(organizationBillingLifecycleEvents.organizationId, organizationId),
+    );
+  await db
+    .update(organizationBilling)
+    .set({
+      trialExpiryAttemptCount: MAX_TRIAL_EXPIRY_ATTEMPTS - 1,
+      trialExpiryNextAttemptAt: now,
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+  try {
+    expect(
+      await runExpireOrganizationTrialsWorkflow(db, {
+        now,
+        organizationIds: [organizationId],
+      }),
+    ).toEqual({ examined: 1, expired: 0, failed: 1 });
+    expect(
+      await runExpireOrganizationTrialsWorkflow(db, {
+        now,
+        organizationIds: [organizationId],
+      }),
+    ).toEqual({ examined: 0, expired: 0, failed: 0 });
+  } finally {
+    errorSpy.mockRestore();
+  }
+
+  const [billing] = await db
+    .select({
+      attemptCount: organizationBilling.trialExpiryAttemptCount,
+      lastError: organizationBilling.trialExpiryLastError,
+      nextAttemptAt: organizationBilling.trialExpiryNextAttemptAt,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(billing).toEqual({
+    attemptCount: MAX_TRIAL_EXPIRY_ATTEMPTS,
+    lastError: "Expired free trial has no initialization event",
+    nextAttemptAt: null,
+  });
 });

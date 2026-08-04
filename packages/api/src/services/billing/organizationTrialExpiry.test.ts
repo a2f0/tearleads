@@ -20,6 +20,7 @@ test("trial expiry service clamps a non-positive batch limit", async () => {
     await expireOrganizationTrials(createServiceTestRuntime(), {
       limit: 0,
       now: new Date(trial.trialEndsAt.getTime() + 1),
+      organizationIds: [organizationId],
     }),
   ).toEqual({ examined: 1, expired: 1, failed: 0 });
 });

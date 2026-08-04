@@ -152,6 +152,9 @@ interface RevenueCatGrantFields {
   currentPeriodStartsAt: Date | null;
   currentPeriodEndsAt: Date | null;
   trialEndsAt: null;
+  trialExpiryAttemptCount: 0;
+  trialExpiryLastError: null;
+  trialExpiryNextAttemptAt: null;
   disabledAt: null;
   purgeAfter: null;
   seatCount: number;
@@ -404,6 +407,9 @@ function classifyRevenueCatGrant(
       currentPeriodStartsAt: timestampMsToDate(event.purchased_at_ms),
       currentPeriodEndsAt: timestampMsToDate(event.expiration_at_ms),
       trialEndsAt: null,
+      trialExpiryAttemptCount: 0,
+      trialExpiryLastError: null,
+      trialExpiryNextAttemptAt: null,
       disabledAt: null,
       purgeAfter: null,
       seatCount,

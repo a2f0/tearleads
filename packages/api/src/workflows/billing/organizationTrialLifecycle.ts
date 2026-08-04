@@ -8,12 +8,13 @@ import {
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
 } from "@tearleads/api-shared/schema";
-import { and, asc, eq, isNull, lte } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, lte, or } from "drizzle-orm";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "../../billing/organizationBilling";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 
 const DEFAULT_EXPIRY_LIMIT = 100;
 const MAX_EXPIRY_RETRY_MS = 60 * 60 * 1000;
+export const MAX_TRIAL_EXPIRY_ATTEMPTS = 8;
 
 function nextExpiryRetryAt(now: Date, attemptCount: number): Date {
   const delayMs = Math.min(MAX_EXPIRY_RETRY_MS, 2 ** attemptCount * 1000);
@@ -54,10 +55,10 @@ export async function recordFreeTrialInitialized(input: {
         eq(organizationBillingSeatEvents.organizationId, input.organizationId),
         eq(organizationBillingSeatEvents.sourceType, "billing_transition"),
         eq(organizationBillingSeatEvents.sourceId, input.sourceId),
-        eq(
-          organizationBillingSeatEvents.eventType,
+        inArray(organizationBillingSeatEvents.eventType, [
           "licensed_seat_count_initialized",
-        ),
+          "licensed_seat_count_increased",
+        ]),
       ),
     )
     .limit(1);
@@ -120,15 +121,14 @@ async function loadExpiringTrial(
     : null;
 }
 
-async function loadTrialPeriodStart(input: {
+async function loadTrialPeriod(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
-  readonly sourceId: string;
-  readonly trialEndsAt: Date;
-}): Promise<Date> {
+}): Promise<{ readonly sourceId: string; readonly startsAt: Date }> {
   const [initialized] = await input.executor
     .select({
       periodStartsAt: organizationBillingLifecycleEvents.periodStartsAt,
+      sourceId: organizationBillingLifecycleEvents.sourceId,
     })
     .from(organizationBillingLifecycleEvents)
     .where(
@@ -141,14 +141,20 @@ async function loadTrialPeriodStart(input: {
           organizationBillingLifecycleEvents.eventType,
           "free_trial_initialized",
         ),
-        eq(organizationBillingLifecycleEvents.sourceId, input.sourceId),
       ),
+    )
+    .orderBy(
+      desc(organizationBillingLifecycleEvents.occurredAt),
+      desc(organizationBillingLifecycleEvents.createdAt),
     )
     .limit(1);
   if (!initialized) {
     throw new Error("Expired free trial has no initialization event");
   }
-  return initialized.periodStartsAt;
+  return {
+    sourceId: initialized.sourceId,
+    startsAt: initialized.periodStartsAt,
+  };
 }
 
 async function disableTrial(input: {
@@ -230,7 +236,7 @@ async function releaseTrialAssignments(input: {
       activeSeatCount: 0,
       billingPeriodEndsAt: input.trialEndsAt,
       billingPeriodStartsAt: input.periodStartsAt,
-      createdAt: input.trialEndsAt,
+      createdAt: input.now,
       eventType: "seat_released" as const,
       licensedSeatCount: 0,
       organizationId: input.organizationId,
@@ -252,15 +258,9 @@ export async function runExpireOrganizationTrialWorkflow(
     if (!billing) {
       return false;
     }
-    const sourceId = freeTrialLifecycleSourceId(
-      organizationId,
-      billing.trialEndsAt,
-    );
-    const periodStartsAt = await loadTrialPeriodStart({
+    const period = await loadTrialPeriod({
       executor: tx,
       organizationId,
-      sourceId,
-      trialEndsAt: billing.trialEndsAt,
     });
     const disabled = await disableTrial({
       executor: tx,
@@ -275,8 +275,8 @@ export async function runExpireOrganizationTrialWorkflow(
       executor: tx,
       now,
       organizationId,
-      periodStartsAt,
-      sourceId,
+      periodStartsAt: period.startsAt,
+      sourceId: period.sourceId,
       trialEndsAt: billing.trialEndsAt,
     });
     await tx
@@ -289,9 +289,9 @@ export async function runExpireOrganizationTrialWorkflow(
         occurredAt: billing.trialEndsAt,
         organizationId,
         periodEndsAt: billing.trialEndsAt,
-        periodStartsAt,
+        periodStartsAt: period.startsAt,
         quantityDelta: -billing.seatCount,
-        sourceId,
+        sourceId: period.sourceId,
       })
       .onConflictDoNothing({
         target: [
@@ -304,7 +304,7 @@ export async function runExpireOrganizationTrialWorkflow(
   });
 }
 
-interface ExpireOrganizationTrialsSummary {
+export interface ExpireOrganizationTrialsSummary {
   readonly examined: number;
   readonly expired: number;
   readonly failed: number;
@@ -328,7 +328,14 @@ async function deferFailedTrialExpiry(input: {
           eq(organizationBilling.organizationId, input.organizationId),
           eq(organizationBilling.status, "trialing"),
           lte(organizationBilling.trialEndsAt, input.now),
-          lte(organizationBilling.trialExpiryNextAttemptAt, input.now),
+          lt(
+            organizationBilling.trialExpiryAttemptCount,
+            MAX_TRIAL_EXPIRY_ATTEMPTS,
+          ),
+          or(
+            isNull(organizationBilling.trialExpiryNextAttemptAt),
+            lte(organizationBilling.trialExpiryNextAttemptAt, input.now),
+          ),
         ),
       )
       .limit(1);
@@ -338,13 +345,19 @@ async function deferFailedTrialExpiry(input: {
     if (!current?.trialEndsAt) {
       return;
     }
-    const attemptCount = current.attemptCount + 1;
+    const attemptCount = Math.min(
+      current.attemptCount + 1,
+      MAX_TRIAL_EXPIRY_ATTEMPTS,
+    );
     await tx
       .update(organizationBilling)
       .set({
         trialExpiryAttemptCount: attemptCount,
         trialExpiryLastError: expiryErrorMessage(input.error),
-        trialExpiryNextAttemptAt: nextExpiryRetryAt(input.now, attemptCount),
+        trialExpiryNextAttemptAt:
+          attemptCount >= MAX_TRIAL_EXPIRY_ATTEMPTS
+            ? null
+            : nextExpiryRetryAt(input.now, attemptCount),
         updatedAt: input.now,
       })
       .where(
@@ -352,7 +365,14 @@ async function deferFailedTrialExpiry(input: {
           eq(organizationBilling.organizationId, input.organizationId),
           eq(organizationBilling.status, "trialing"),
           eq(organizationBilling.trialEndsAt, current.trialEndsAt),
-          lte(organizationBilling.trialExpiryNextAttemptAt, input.now),
+          lt(
+            organizationBilling.trialExpiryAttemptCount,
+            MAX_TRIAL_EXPIRY_ATTEMPTS,
+          ),
+          or(
+            isNull(organizationBilling.trialExpiryNextAttemptAt),
+            lte(organizationBilling.trialExpiryNextAttemptAt, input.now),
+          ),
         ),
       );
   });
@@ -364,10 +384,13 @@ async function deferFailedTrialExpiry(input: {
  */
 export async function runExpireOrganizationTrialsWorkflow(
   db: ApiDatabase,
-  options: { readonly limit?: number; readonly now?: Date } = {},
+  options: ExpireOrganizationTrialsOptions = {},
 ): Promise<ExpireOrganizationTrialsSummary> {
   const limit = Math.max(1, options.limit ?? DEFAULT_EXPIRY_LIMIT);
   const now = options.now ?? new Date();
+  if (options.organizationIds?.length === 0) {
+    return { examined: 0, expired: 0, failed: 0 };
+  }
   const candidates = await db
     .select({ organizationId: organizationBilling.organizationId })
     .from(organizationBilling)
@@ -375,7 +398,17 @@ export async function runExpireOrganizationTrialsWorkflow(
       and(
         eq(organizationBilling.status, "trialing"),
         lte(organizationBilling.trialEndsAt, now),
-        lte(organizationBilling.trialExpiryNextAttemptAt, now),
+        lt(
+          organizationBilling.trialExpiryAttemptCount,
+          MAX_TRIAL_EXPIRY_ATTEMPTS,
+        ),
+        or(
+          isNull(organizationBilling.trialExpiryNextAttemptAt),
+          lte(organizationBilling.trialExpiryNextAttemptAt, now),
+        ),
+        options.organizationIds
+          ? inArray(organizationBilling.organizationId, options.organizationIds)
+          : undefined,
       ),
     )
     .orderBy(
@@ -420,4 +453,11 @@ export async function runExpireOrganizationTrialsWorkflow(
     }
   }
   return { examined: candidates.length, expired, failed };
+}
+
+export interface ExpireOrganizationTrialsOptions {
+  readonly limit?: number;
+  readonly now?: Date;
+  /** Optional target set for bounded operational recovery and deterministic tests. */
+  readonly organizationIds?: readonly string[];
 }

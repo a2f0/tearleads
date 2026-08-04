@@ -15,14 +15,32 @@ function readLimit(args: readonly string[]): number | undefined {
   return Number.isSafeInteger(value) && value > 0 ? value : undefined;
 }
 
+async function runMaintenancePhase<T>(
+  name: string,
+  run: () => Promise<T>,
+): Promise<T | null> {
+  try {
+    return await run();
+  } catch (error) {
+    console.error(`${name} failed:`, error);
+    process.exitCode = 1;
+    return null;
+  }
+}
+
 try {
   const limit = readLimit(process.argv.slice(2));
   const runtime = getDefaultApiServiceRuntime();
   const options = limit === undefined ? {} : { limit };
-  const trialExpiry = await expireOrganizationTrials(runtime, options);
-  const stripeSeatSync = await runStripeSeatSynchronization(runtime, options);
+  const trialExpiry = await runMaintenancePhase("Free-trial expiry", () =>
+    expireOrganizationTrials(runtime, options),
+  );
+  const stripeSeatSync = await runMaintenancePhase(
+    "Stripe seat synchronization",
+    () => runStripeSeatSynchronization(runtime, options),
+  );
   console.log(JSON.stringify({ stripeSeatSync, trialExpiry }));
-  if (stripeSeatSync.failed > 0 || trialExpiry.failed > 0) {
+  if ((stripeSeatSync?.failed ?? 0) > 0 || (trialExpiry?.failed ?? 0) > 0) {
     process.exitCode = 1;
   }
 } catch (error) {
