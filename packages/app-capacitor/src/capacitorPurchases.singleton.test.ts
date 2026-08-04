@@ -47,22 +47,25 @@ test("factory instances share native checkout identity serialization", async () 
   await firstPurchase;
 });
 
-test("factory caches capabilities by their operation timeout", () => {
+test("factory keeps its native singleton configuration immutable", () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   const firstCapability = createCapacitorPurchases({ operationTimeoutMs: 5 });
 
   expect(() => createCapacitorPurchases({ operationTimeoutMs: 0 })).toThrow(
     "RevenueCat operation timeout must be a positive finite number",
   );
-  expect(createCapacitorPurchases({ operationTimeoutMs: 10 })).not.toBe(
+  expect(() => createCapacitorPurchases({ operationTimeoutMs: 10 })).toThrow(
+    "Capacitor purchases were already initialized with different configuration",
+  );
+  expect(createCapacitorPurchases({ operationTimeoutMs: 5 })).toBe(
     firstCapability,
   );
-  const matchingCapability = createCapacitorPurchases({
-    operationTimeoutMs: 5,
-  });
-  expect(createCapacitorPurchases({ operationTimeoutMs: 5 })).toBe(
-    matchingCapability,
-  );
+});
+
+test("web preview ignores native-only timeout configuration", () => {
+  const purchases = createCapacitorPurchases({ operationTimeoutMs: 0 });
+
+  expect(purchases.isAvailable).toBe(false);
 });
 
 test("an iOS Test Store restore remains buyer paced", async () => {

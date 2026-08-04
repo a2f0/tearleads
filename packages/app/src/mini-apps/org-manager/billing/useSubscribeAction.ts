@@ -299,12 +299,23 @@ function reportUnexpectedPurchaseError(error: unknown): void {
   console.error("Failed to complete the organization sync purchase:", error);
 }
 
+function isUnregisteredPurchaseBridge(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "bridge-unregistered"
+  );
+}
+
 function purchaseErrorLabel(error: unknown): string {
   if (error instanceof PurchaseIdentityPendingError) {
     return ORG_MANAGER_LABELS.billingIdentityPending;
   }
   if (error instanceof PurchasesUnavailableError) {
-    return ORG_MANAGER_LABELS.billingNativeCheckoutUnavailable;
+    return isUnregisteredPurchaseBridge(error)
+      ? ORG_MANAGER_LABELS.billingNativeCheckoutUnregistered
+      : ORG_MANAGER_LABELS.billingNativeCheckoutUnavailable;
   }
   return error instanceof PurchaseProviderStalledError
     ? ORG_MANAGER_LABELS.billingProviderStalled

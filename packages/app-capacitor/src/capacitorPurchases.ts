@@ -165,13 +165,12 @@ function isAnonymousLogOut(error: unknown): boolean {
   );
 }
 
-function isUnavailableNativePurchaseBridge(error: unknown): boolean {
+function hasNativePurchaseBridgeCode(error: unknown, code: string): boolean {
   return (
     typeof error === "object" &&
     error !== null &&
     "code" in error &&
-    (error.code === "bridge-invalid" ||
-      error.code === ExceptionCode.Unimplemented)
+    error.code === code
   );
 }
 
@@ -186,6 +185,26 @@ class NativePurchaseBridgeUnavailableError extends PurchasesUnavailableError {
   }
 }
 
+class NativePurchaseBridgeUnregisteredError extends PurchasesUnavailableError {
+  readonly code = "bridge-unregistered";
+
+  constructor(cause: unknown) {
+    super("This app build does not contain the native purchase bridge", {
+      cause,
+    });
+    this.name = "NativePurchaseBridgeUnregisteredError";
+  }
+}
+
+function normalizeNativePurchaseBridgeError(error: unknown): void {
+  if (hasNativePurchaseBridgeCode(error, ExceptionCode.Unimplemented)) {
+    throw new NativePurchaseBridgeUnregisteredError(error);
+  }
+  if (hasNativePurchaseBridgeCode(error, "bridge-invalid")) {
+    throw new NativePurchaseBridgeUnavailableError(error);
+  }
+}
+
 function normalizeCapacitorPurchaseError(error: unknown): never {
   if (isUserCancelledPurchase(error)) {
     throw new PurchaseCancelledError();
@@ -193,9 +212,7 @@ function normalizeCapacitorPurchaseError(error: unknown): never {
   if (isAlreadyOwnedPurchase(error)) {
     throw new PurchaseAlreadyOwnedError();
   }
-  if (isUnavailableNativePurchaseBridge(error)) {
-    throw new NativePurchaseBridgeUnavailableError(error);
-  }
+  normalizeNativePurchaseBridgeError(error);
   throw error;
 }
 
@@ -204,9 +221,7 @@ function normalizeCapacitorPreparationError(
   abortSignal: AbortSignal | undefined,
 ): never {
   if (abortSignal?.aborted) throw new PurchaseAbortedError();
-  if (isUnavailableNativePurchaseBridge(error)) {
-    throw new NativePurchaseBridgeUnavailableError(error);
-  }
+  normalizeNativePurchaseBridgeError(error);
   throw error;
 }
 
@@ -310,23 +325,28 @@ export function createCapacitorPurchases(input?: {
   readonly operationTimeoutMs?: number;
 }): PurchasesCapability {
   const operationTimeoutMs = input?.operationTimeoutMs;
-  validateOperationTimeoutMs(operationTimeoutMs);
   const platform = getRevenueCatPlatform();
   const apiKey = readPlatformApiKey();
   if (!apiKey) {
     return createUnavailablePurchases();
   }
+  validateOperationTimeoutMs(operationTimeoutMs);
   const syncEntitlementId =
     readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
     DEFAULT_SYNC_ENTITLEMENT_ID;
   const cached = getCachedCapacitorPurchases();
-  if (
-    cached?.apiKey === apiKey &&
-    cached.operationTimeoutMs === operationTimeoutMs &&
-    cached.platform === platform &&
-    cached.syncEntitlementId === syncEntitlementId
-  ) {
-    return cached.capability;
+  if (cached) {
+    if (
+      cached.apiKey === apiKey &&
+      cached.operationTimeoutMs === operationTimeoutMs &&
+      cached.platform === platform &&
+      cached.syncEntitlementId === syncEntitlementId
+    ) {
+      return cached.capability;
+    }
+    throw new Error(
+      "Capacitor purchases were already initialized with different configuration",
+    );
   }
   const capability = createRevenueCatPurchases(capacitorRevenueCatBackend, {
     apiKey,

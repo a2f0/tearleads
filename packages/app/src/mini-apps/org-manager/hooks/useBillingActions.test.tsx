@@ -1,9 +1,12 @@
-import { afterEach, expect, mock, test } from "bun:test";
-import type {
-  PurchasesCapability,
-  SyncPurchaseResult,
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
+import {
+  PurchaseAlreadyOwnedError,
+  PurchaseIdentityPendingError,
+  PurchaseProviderStalledError,
+  type PurchasesCapability,
+  PurchasesUnavailableError,
+  type SyncPurchaseResult,
 } from "@tearleads/client-sdk";
-import { PurchaseAlreadyOwnedError } from "@tearleads/client-sdk";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import {
   createPurchases,
@@ -13,6 +16,70 @@ import {
 import { ORG_MANAGER_LABELS } from "../labels";
 
 afterEach(() => cleanup());
+
+test.each<[string, Error, string, boolean]>([
+  [
+    "identity pending",
+    new PurchaseIdentityPendingError(),
+    ORG_MANAGER_LABELS.billingIdentityPending,
+    false,
+  ],
+  [
+    "provider stalled",
+    new PurchaseProviderStalledError(),
+    ORG_MANAGER_LABELS.billingProviderStalled,
+    true,
+  ],
+  [
+    "native bridge unavailable",
+    new PurchasesUnavailableError(),
+    ORG_MANAGER_LABELS.billingNativeCheckoutUnavailable,
+    true,
+  ],
+  [
+    "native bridge unregistered",
+    Object.assign(new PurchasesUnavailableError(), {
+      code: "bridge-unregistered",
+    }),
+    ORG_MANAGER_LABELS.billingNativeCheckoutUnregistered,
+    true,
+  ],
+])("%s billing readiness gives actionable guidance", async (_case, error, label, shouldLog) => {
+  const consoleError = spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const purchases: PurchasesCapability = {
+      ...createPurchases({ syncEntitlementActive: false }),
+      purchaseSync: mock(() =>
+        Promise.reject(error),
+      ) as PurchasesCapability["purchaseSync"],
+    };
+    const { result } = renderBillingActions({ purchases });
+    await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+    await act(async () => {
+      await result.current.subscribe(OPTION);
+    });
+    await waitFor(() => expect(result.current.busy).toBe(null));
+    expect(result.current.actionError).toBe(label);
+    if (error instanceof PurchasesUnavailableError) {
+      expect(result.current.canSubscribe).toBe(true);
+      expect(result.current.options).toEqual([OPTION]);
+    }
+    if (shouldLog) {
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to complete the organization sync purchase:",
+        error,
+      );
+    } else {
+      expect(consoleError).not.toHaveBeenCalledWith(
+        "Failed to complete the organization sync purchase:",
+        error,
+      );
+    }
+  } finally {
+    consoleError.mockRestore();
+  }
+});
 
 test("does not identify or offer native purchases for a custom organization", async () => {
   const purchases = createPurchases({ syncEntitlementActive: true });

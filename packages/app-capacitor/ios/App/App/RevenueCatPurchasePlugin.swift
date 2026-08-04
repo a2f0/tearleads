@@ -54,26 +54,25 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func purchasePackage(_ call: CAPPluginCall) {
-        guard Purchases.isConfigured else {
-            Self.rejectBridgeValidation(call)
-            return
-        }
-        guard let packageId = call.getString("packageId"), !packageId.isEmpty else {
-            Self.rejectBridgeValidation(call)
-            return
-        }
-        guard let productId = call.getString("productId"), !productId.isEmpty else {
-            Self.rejectBridgeValidation(call)
-            return
-        }
-
         Task { @MainActor in
+            guard Purchases.isConfigured else {
+                self.rejectPreparedPackage(call)
+                return
+            }
+            guard let packageId = call.getString("packageId"), !packageId.isEmpty else {
+                self.rejectPreparedPackage(call)
+                return
+            }
+            guard let productId = call.getString("productId"), !productId.isEmpty else {
+                self.rejectPreparedPackage(call)
+                return
+            }
             do {
                 guard let package = self.preparedPackages.consume(
                     packageId: packageId,
                     productId: productId
                 ) else {
-                    Self.rejectBridgeValidation(call)
+                    self.rejectPreparedPackage(call)
                     return
                 }
 
@@ -93,6 +92,11 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
                 Self.reject(call, error: error)
             }
         }
+    }
+
+    @MainActor private func rejectPreparedPackage(_ call: CAPPluginCall) {
+        preparedPackages.clear()
+        Self.rejectBridgeValidation(call)
     }
 
     private static func reject(_ call: CAPPluginCall, error: Error) {

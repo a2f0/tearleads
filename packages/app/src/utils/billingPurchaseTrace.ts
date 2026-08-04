@@ -55,6 +55,7 @@ const PURCHASE_FAILURE_CODES: ReadonlyArray<readonly [string, string]> = [
   ["35", "offline"],
   ["42", "test-store-simulated-purchase"],
   ["bridge-invalid", "bridge-invalid"],
+  ["bridge-unregistered", "bridge-unregistered"],
   ["native-error", "native-bridge"],
 ];
 

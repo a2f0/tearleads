@@ -19,12 +19,13 @@ test("formats purchase lifecycle stages as clipboard-safe telemetry", () => {
     formatBillingPurchaseSuccess(true, true),
     formatBillingPurchaseFailure({ code: "5" }, true),
     formatBillingPurchaseFailure({ code: "bridge-invalid" }),
+    formatBillingPurchaseFailure({ code: "bridge-unregistered" }),
   ];
 
   for (const line of lines) {
     expect(BILLING_PURCHASE_TRACE_PATTERN.test(line)).toBe(true);
   }
-  expect(lines.at(-1)).toContain("code=bridge-invalid");
+  expect(lines.at(-1)).toContain("code=bridge-unregistered");
 });
 
 test("extracts native codes from the iOS Capacitor error shape", () => {

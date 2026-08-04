@@ -257,6 +257,12 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
     .map((match) => match[1])
     .sort();
   const capacitorReplacementModes = installedCapacitorReplacementModes();
+  const nativePurchasesVersionByHybridCommon = new Map([
+    ["18.18.0", "10.11.0"],
+  ]);
+  const expectedPurchasesVersion =
+    nativePurchasesVersionByHybridCommon.get(hybridCommonVersion) ??
+    `unsupported hybrid common version: ${hybridCommonVersion}`;
 
   expect(mainActivity).toContain(
     "registerPlugin(RevenueCatPurchasePlugin.class)",
@@ -271,7 +277,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(appBuild).toContain("requestedVersion == null");
   expect(appBuild).toContain("details.useVersion(expectedVersion)");
   expect(appBuild).toContain("requestedVersion != expectedVersion");
-  expect(purchasesVersion).toMatch(/^\d+\.\d+\.\d+$/);
+  expect(purchasesVersion).toBe(expectedPurchasesVersion);
   expect(hybridCommonVersion).toBe(pluginHybridCommonVersion);
   expect(purchasePlugin).toContain(
     '@CapacitorPlugin(name = "RevenueCatPurchase")',

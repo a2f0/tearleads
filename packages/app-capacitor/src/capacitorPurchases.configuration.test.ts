@@ -9,7 +9,10 @@ import {
 
 afterEach(resetFixture);
 
-for (const nativeCode of ["bridge-invalid", "UNIMPLEMENTED"] as const) {
+for (const [nativeCode, normalizedCode] of [
+  ["bridge-invalid", "bridge-invalid"],
+  ["UNIMPLEMENTED", "bridge-unregistered"],
+] as const) {
   test(`a ${nativeCode} purchase bridge blocks checkout but not entitlement reads`, async () => {
     setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
     fixture.nativeConfigurationRejection = {
@@ -34,6 +37,6 @@ for (const nativeCode of ["bridge-invalid", "UNIMPLEMENTED"] as const) {
     ]);
     expect(fixture.nativeConfigurationChecks).toBe(1);
     expect(error).toBeInstanceOf(PurchasesUnavailableError);
-    expect(error).toMatchObject({ code: "bridge-invalid" });
+    expect(error).toMatchObject({ code: normalizedCode });
   });
 }
