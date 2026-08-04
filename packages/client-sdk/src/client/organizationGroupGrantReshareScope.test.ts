@@ -278,3 +278,70 @@ test("stops mid-loop when the scope changes between containers", async () => {
     close();
   }
 });
+
+test("a rejected rotation does not cancel a committed one's repair", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-rejected-supersede",
+  );
+  try {
+    await seedReadModel(execSql);
+    const log: string[] = [];
+    const runtime = fakeRuntime(log);
+    runtime.infra.execSql = execSql as never;
+    const committedAttempts: number[] = [];
+    const rejectedAttempts: number[] = [];
+
+    // The committed rotation: its head is the one the read model carries.
+    scheduleGroupGrantReshareAfterRotation({
+      containerContents: fakeContainerContents({
+        prepareCalls: [],
+        rewrapped: [],
+        throwForContainerIds: new Set(["container-a", "container-b"]),
+      }),
+      expectedGroupHead: EXPECTED_HEAD,
+      mutatedGroupId: GRANTED_GROUP_ID,
+      reconcileReadModel: async () => ({}),
+      runtime: runtime as never,
+      scheduleRetry: (retry, delayMs) => {
+        committedAttempts.push(delayMs);
+        setTimeout(retry, 1);
+      },
+      shouldContinue: () => true,
+      signingContext: {
+        organizationId: ORGANIZATION_ID,
+        signerUserId: CURRENT_USER_ID,
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const beforeRejected = committedAttempts.length;
+
+    // A second mutation captures its head before the policy write, then the
+    // write rejects — so this head never lands anywhere.
+    scheduleGroupGrantReshareAfterRotation({
+      containerContents: fakeContainerContents({
+        prepareCalls: [],
+        rewrapped: [],
+      }),
+      expectedGroupHead: { ...EXPECTED_HEAD, stateHash: "never-committed" },
+      mutatedGroupId: GRANTED_GROUP_ID,
+      reconcileReadModel: async () => ({}),
+      runtime: runtime as never,
+      scheduleRetry: (retry, delayMs) => {
+        rejectedAttempts.push(delayMs);
+        setTimeout(retry, 1);
+      },
+      shouldContinue: () => rejectedAttempts.length < 4,
+      signingContext: {
+        organizationId: ORGANIZATION_ID,
+        signerUserId: CURRENT_USER_ID,
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    // Superseding on schedule rather than on confirmation would let a mutation
+    // that never committed cancel the repair of one that did.
+    expect(committedAttempts.length).toBeGreaterThan(beforeRejected);
+  } finally {
+    close();
+  }
+});

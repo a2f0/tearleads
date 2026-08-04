@@ -84,24 +84,34 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
       execSql: input.runtime.infra.execSql,
       expectedGroupHead: head,
       log: (message) => input.runtime.util.log(message),
+      onHeadConfirmed: supersedePredecessor,
       mutatedGroupId: input.mutatedGroupId,
       organizationId: input.signingContext.organizationId,
       reconcileReadModel: input.reconcileReadModel,
       shouldContinue,
     });
 
-  // A second rotation on the same group supersedes the first: without this the
-  // superseded loop keeps reconciling and re-listing for its whole window,
-  // repairing toward a head that is no longer current.
+  // A second rotation on the same group supersedes the first, so the superseded
+  // loop stops reconciling and re-listing toward a head that is no longer
+  // current. It is deposed only once THIS sweep confirms its own rotation
+  // landed: the head is captured before the policy write, so a mutation that
+  // then rejects would otherwise cancel the repair of an earlier rotation that
+  // did commit.
   const sweepKey = `${input.signingContext.organizationId}:${input.mutatedGroupId}`;
-  const superseded = activeSweeps.get(sweepKey);
-  superseded?.cancel();
+  const predecessor = activeSweeps.get(sweepKey);
   const cancellation = { cancelled: false };
-  activeSweeps.set(sweepKey, {
+  const entry = {
     cancel: () => {
       cancellation.cancelled = true;
     },
-  });
+  };
+  const supersedePredecessor = () => {
+    if (activeSweeps.get(sweepKey) === entry) {
+      return;
+    }
+    predecessor?.cancel();
+    activeSweeps.set(sweepKey, entry);
+  };
 
   void runSweepWithRetry({
     log: (message) => input.runtime.util.log(message),
@@ -112,13 +122,9 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
     shouldContinue: () => !cancellation.cancelled && shouldContinue(),
     sweep,
   }).finally(() => {
-    if (activeSweeps.get(sweepKey)?.cancel === undefined) {
-      return;
+    if (activeSweeps.get(sweepKey) === entry && !cancellation.cancelled) {
+      activeSweeps.delete(sweepKey);
     }
-    if (cancellation.cancelled) {
-      return;
-    }
-    activeSweeps.delete(sweepKey);
   });
 }
 
@@ -172,6 +178,7 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   log: (message: string) => void;
   mutatedGroupId: string;
   organizationId: string;
+  onHeadConfirmed?: (() => void) | undefined;
   reconcileReadModel: () => Promise<unknown>;
   shouldContinue: () => boolean;
 }): Promise<GroupGrantReshareOutcome> {
@@ -189,14 +196,7 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   // rotation is already visible and a second pull would be one more request on
   // every group mutation for nothing. The pull is the fallback for when it is
   // not, which is also the only case where its cost buys anything.
-  const readHead = () =>
-    loadLocalOrganizationPolicyReference({
-      currentUserId: input.currentUserId,
-      execSql: input.execSql,
-      organizationId: input.organizationId,
-      principalId: input.mutatedGroupId,
-      principalType: "group",
-    });
+  const readHead = () => readGroupHead(input);
 
   let head = await readHead();
   if (head?.stateHash !== input.expectedGroupHead.stateHash) {
@@ -234,6 +234,8 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
       unresolvedContainerIds: [],
     };
   }
+
+  input.onHeadConfirmed?.();
 
   const granted = await loadLocalOrganizationGroupContainers({
     currentUserId: input.currentUserId,
@@ -286,6 +288,7 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
       onUnauthorized: (containerId) =>
         unauthorizedContainerIds.add(containerId),
       organizationId: input.organizationId,
+      shouldContinue: input.shouldContinue,
       tree,
     });
     if (!repaired) {
@@ -302,6 +305,21 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
       unresolvedContainerIds.every((id) => unauthorizedContainerIds.has(id)),
     unresolvedContainerIds,
   };
+}
+
+function readGroupHead(input: {
+  currentUserId: string;
+  execSql: ExecSql;
+  mutatedGroupId: string;
+  organizationId: string;
+}) {
+  return loadLocalOrganizationPolicyReference({
+    currentUserId: input.currentUserId,
+    execSql: input.execSql,
+    organizationId: input.organizationId,
+    principalId: input.mutatedGroupId,
+    principalType: "group",
+  });
 }
 
 /**
@@ -321,6 +339,7 @@ async function reshareOneGrantedContainer(input: {
   mutatedGroupId: string;
   onUnauthorized: (containerId: string) => void;
   organizationId: string;
+  shouldContinue: () => boolean;
   tree: ContainerTree;
 }): Promise<boolean> {
   try {
@@ -352,6 +371,12 @@ async function reshareOneGrantedContainer(input: {
       )
     ) {
       return true;
+    }
+    if (!input.shouldContinue()) {
+      // Preparation and the currentness check are both awaited, so the scope
+      // can change under them. A write issued now would be this organization's
+      // repair travelling through another scope's runtime.
+      return false;
     }
     if (!(await prepared.rewrap())) {
       input.log(
