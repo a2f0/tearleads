@@ -55,3 +55,27 @@ test("provider error copies preserve native diagnostics", () => {
     userCancelled: false,
   });
 });
+
+test("provider error copies preserve nested Capacitor diagnostics", () => {
+  const data = {
+    storeError: { code: 509, domain: "ASDErrorDomain" },
+    underlyingErrorMessage: "ASDErrorDomain Code=509",
+    userCancelled: false,
+  };
+  const source = normalizeRevenueCatError({
+    code: "2",
+    data,
+    message: "Store problem",
+  });
+
+  const copy = copyRevenueCatError(source);
+
+  expect(copy).not.toBe(source);
+  expect(copy).toMatchObject({
+    code: "2",
+    data,
+    storeError: data.storeError,
+    underlyingErrorMessage: data.underlyingErrorMessage,
+    userCancelled: false,
+  });
+});

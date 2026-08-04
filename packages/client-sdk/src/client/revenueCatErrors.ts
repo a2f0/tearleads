@@ -37,6 +37,7 @@ export class RevenueCatCheckoutAbandonedError extends Error {
 
 class RevenueCatProviderError extends Error {
   readonly code: unknown;
+  readonly data: unknown;
   readonly storeError: unknown;
   readonly underlyingErrorMessage: unknown;
   readonly userCancelled: unknown;
@@ -44,6 +45,7 @@ class RevenueCatProviderError extends Error {
   constructor(message: string, source: object) {
     super(message, { cause: source });
     this.name = "RevenueCatProviderError";
+    this.data = readSourceField(source, "data");
     this.code = readDiagnosticField(source, "code");
     this.storeError = readDiagnosticField(source, "storeError");
     this.underlyingErrorMessage = readDiagnosticField(
@@ -55,7 +57,20 @@ class RevenueCatProviderError extends Error {
 }
 
 function readDiagnosticField(source: object, field: string): unknown {
+  return (
+    readSourceField(source, field) ??
+    readNestedSourceField(readSourceField(source, "data"), field)
+  );
+}
+
+function readSourceField(source: object, field: string): unknown {
   return field in source ? Reflect.get(source, field) : undefined;
+}
+
+function readNestedSourceField(source: unknown, field: string): unknown {
+  return typeof source === "object" && source !== null
+    ? readSourceField(source, field)
+    : undefined;
 }
 
 export function normalizeRevenueCatError(source: unknown): Error {

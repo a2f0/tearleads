@@ -1,4 +1,4 @@
-import { expect, mock, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { STORE_REPLACEMENT_MODE } from "@revenuecat/purchases-capacitor";
 import type { PurchasesCapability } from "@tearleads/client-sdk";
 import {
@@ -6,25 +6,21 @@ import {
   setCachedCapacitorPurchases,
 } from "./capacitorPurchasesCache";
 import { nativeProductChangeInput } from "./capacitorRevenueCatPurchase";
-import { createNativeRevenueCatPurchaseRegistry } from "./nativeRevenueCatPurchaseRegistry";
 
-const nativePlugin = {
-  preparePackage: mock(() => Promise.resolve()),
-  purchasePackage: mock(() => Promise.resolve({ activeEntitlementIds: [] })),
-};
+test("production runtime selects the platform and registers once", async () => {
+  const fixturePath = `${import.meta.dir}/../tests/fixtures/capacitorRevenueCatRuntime.fixture.ts`;
+  const child = Bun.spawn([process.execPath, fixturePath], {
+    cwd: import.meta.dir,
+    stderr: "pipe",
+    stdout: "ignore",
+  });
+  const [exitCode, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+  ]);
 
-test("registers and caches the first-party native purchase plugin", () => {
-  const registrationNames: string[] = [];
-  const getNativeRevenueCatPurchase = createNativeRevenueCatPurchaseRegistry(
-    (name) => {
-      registrationNames.push(name);
-      return nativePlugin;
-    },
-  );
-
-  expect(getNativeRevenueCatPurchase()).toBe(nativePlugin);
-  expect(getNativeRevenueCatPurchase()).toBe(nativePlugin);
-  expect(registrationNames).toEqual(["RevenueCatPurchase"]);
+  expect(stderr).toBe("");
+  expect(exitCode).toBe(0);
 });
 
 test("stores and clears the production capability singleton", () => {

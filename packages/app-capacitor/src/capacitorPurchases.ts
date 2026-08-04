@@ -306,6 +306,7 @@ export function createCapacitorPurchases(input?: {
   const cached = getCachedCapacitorPurchases();
   if (
     cached?.apiKey === apiKey &&
+    cached.operationTimeoutMs === operationTimeoutMs &&
     cached.platform === platform &&
     cached.syncEntitlementId === syncEntitlementId
   ) {

@@ -47,18 +47,21 @@ test("factory instances share native checkout identity serialization", async () 
   await firstPurchase;
 });
 
-test("factory keeps its first valid operation timeout without crashing", () => {
+test("factory caches capabilities by their operation timeout", () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   const firstCapability = createCapacitorPurchases({ operationTimeoutMs: 5 });
 
   expect(() => createCapacitorPurchases({ operationTimeoutMs: 0 })).toThrow(
     "RevenueCat operation timeout must be a positive finite number",
   );
-  expect(createCapacitorPurchases({ operationTimeoutMs: 10 })).toBe(
+  expect(createCapacitorPurchases({ operationTimeoutMs: 10 })).not.toBe(
     firstCapability,
   );
+  const matchingCapability = createCapacitorPurchases({
+    operationTimeoutMs: 5,
+  });
   expect(createCapacitorPurchases({ operationTimeoutMs: 5 })).toBe(
-    firstCapability,
+    matchingCapability,
   );
 });
 

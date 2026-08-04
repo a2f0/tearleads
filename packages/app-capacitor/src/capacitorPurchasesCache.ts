@@ -1,6 +1,6 @@
 import type { PurchasesCapability } from "@tearleads/client-sdk";
 
-export interface CachedCapacitorPurchases {
+interface CachedCapacitorPurchases {
   readonly apiKey: string;
   readonly capability: PurchasesCapability;
   readonly operationTimeoutMs: number | undefined;
