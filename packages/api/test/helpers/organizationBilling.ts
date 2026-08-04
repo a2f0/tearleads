@@ -1,5 +1,10 @@
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling } from "@tearleads/api-shared/schema";
+import {
+  organizationBilling,
+  organizationBillingLifecycleEvents,
+  organizationBillingSeatAssignments,
+  organizationBillingSeatEvents,
+} from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 
 /**
@@ -27,6 +32,19 @@ export async function setTestOrganizationBillingExpiredTrial(
 export async function setTestOrganizationBillingLocal(
   organizationId: string,
 ): Promise<void> {
+  await db
+    .delete(organizationBillingLifecycleEvents)
+    .where(
+      eq(organizationBillingLifecycleEvents.organizationId, organizationId),
+    );
+  await db
+    .delete(organizationBillingSeatAssignments)
+    .where(
+      eq(organizationBillingSeatAssignments.organizationId, organizationId),
+    );
+  await db
+    .delete(organizationBillingSeatEvents)
+    .where(eq(organizationBillingSeatEvents.organizationId, organizationId));
   await db
     .update(organizationBilling)
     .set({

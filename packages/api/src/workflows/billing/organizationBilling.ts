@@ -24,6 +24,10 @@ import { OrganizationManagerError } from "../organizations/errors";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import {
+  freeTrialLifecycleSourceId,
+  recordFreeTrialInitialized,
+} from "./organizationTrialLifecycle";
+import {
   hasActiveStripeBinding,
   hasStripeBindingIdentity,
 } from "./stripeBindingPolicy";
@@ -216,14 +220,25 @@ async function startOrganizationTrialInTransaction(input: {
     return loadOrganizationBilling(input.executor, input.organizationId);
   }
 
+  const sourceId = freeTrialLifecycleSourceId(
+    input.organizationId,
+    trialEndsAt,
+  );
   await reconcileOrganizationBillingSeats({
     executor: input.executor,
     now: input.now,
     organizationId: input.organizationId,
     source: {
-      sourceId: `trial:${input.organizationId}:${trialEndsAt.toISOString()}`,
+      sourceId,
       sourceType: "billing_transition",
     },
+  });
+  await recordFreeTrialInitialized({
+    executor: input.executor,
+    organizationId: input.organizationId,
+    sourceId,
+    trialEndsAt,
+    trialStartedAt: input.now,
   });
 
   return loadOrganizationBilling(input.executor, input.organizationId);

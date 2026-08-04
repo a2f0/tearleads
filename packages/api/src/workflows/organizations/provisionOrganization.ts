@@ -55,7 +55,7 @@ import { toPrincipalPolicyError } from "../principals/shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";
 import { wasOrganizationGroupDeleted } from "./groupTombstone";
 import {
-  createInitialOrganizationBillingRow,
+  createInitialOrganizationBillingRow as createBilling,
   type InitialOrganizationBilling,
 } from "./initialBilling";
 import {
@@ -172,7 +172,7 @@ async function createOrganizationRow(
   return org;
 }
 
-async function createRootContainer(
+async function createRoot(
   tx: DatabaseTransaction,
   rootContainerId: string,
   organizationId: string,
@@ -1181,12 +1181,12 @@ export async function provisionOrganizationInTransaction(
     organizationId: input.organizationId,
     name: options.organizationName,
   });
-  await createInitialOrganizationBillingRow(tx, org.id, options.initialBilling);
-  const container = await createRootContainer(
+  const initialBilling = await createBilling(
     tx,
-    input.rootContainerId,
     org.id,
+    options.initialBilling,
   );
+  const container = await createRoot(tx, input.rootContainerId, org.id);
   await options.onOrganizationRootCreated?.(org.id);
   await createInitialAdminGroup(tx, input, org.id);
   await createInitialMemberGroup(tx, input, org.id);
@@ -1197,6 +1197,7 @@ export async function provisionOrganizationInTransaction(
   );
   await storeInitialOrganizationPolicy(tx, input);
   await syncInitialRosterAndBillingSeats({
+    initialBilling,
     initialMemberGroupStateHash,
     organizationId: org.id,
     provisioning: input,

@@ -1,6 +1,8 @@
-// Out-of-process Stripe seat reconciliation. The systemd timer runs this every
-// minute; DB leases and Stripe idempotency also make manual overlapping runs safe.
+// Out-of-process billing maintenance. The existing systemd timer runs this
+// every minute: due free trials are persisted before Stripe seat reconciliation.
+// Row locks, DB predicates, and Stripe idempotency make overlaps safe.
 import { closeApiDatabase } from "@tearleads/api-shared/postgres";
+import { expireOrganizationTrials } from "../src/services/billing/organizationTrialExpiry";
 import { runStripeSeatSynchronization } from "../src/services/billing/stripeSeatSync";
 import { getDefaultApiServiceRuntime } from "../src/services/runtime";
 
@@ -15,16 +17,16 @@ function readLimit(args: readonly string[]): number | undefined {
 
 try {
   const limit = readLimit(process.argv.slice(2));
-  const summary = await runStripeSeatSynchronization(
-    getDefaultApiServiceRuntime(),
-    limit === undefined ? {} : { limit },
-  );
-  console.log(JSON.stringify(summary));
-  if (summary.failed > 0) {
+  const runtime = getDefaultApiServiceRuntime();
+  const options = limit === undefined ? {} : { limit };
+  const trialExpiry = await expireOrganizationTrials(runtime, options);
+  const stripeSeatSync = await runStripeSeatSynchronization(runtime, options);
+  console.log(JSON.stringify({ stripeSeatSync, trialExpiry }));
+  if (stripeSeatSync.failed > 0 || trialExpiry.failed > 0) {
     process.exitCode = 1;
   }
 } catch (error) {
-  console.error("Stripe seat synchronization failed:", error);
+  console.error("Billing maintenance failed:", error);
   process.exitCode = 1;
 } finally {
   await closeApiDatabase();

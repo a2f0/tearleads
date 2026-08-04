@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling } from "@tearleads/api-shared/schema";
+import {
+  organizationBilling,
+  organizationBillingLifecycleEvents,
+} from "@tearleads/api-shared/schema";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -39,4 +42,25 @@ test("POST /auth/register starts the personal organization on a sync trial", asy
   expect(billing.seatCount).toBe(10);
   invariant(billing.trialEndsAt, "expected trialEndsAt to be set");
   expect(billing.trialEndsAt.getTime()).toBeGreaterThan(startedAt);
+
+  const [initialized] = await db
+    .select()
+    .from(organizationBillingLifecycleEvents)
+    .where(
+      eq(
+        organizationBillingLifecycleEvents.organizationId,
+        body.organizationId,
+      ),
+    );
+  invariant(initialized, "expected free-trial lifecycle event");
+  expect(initialized).toMatchObject({
+    activeSeatCount: 1,
+    eventType: "free_trial_initialized",
+    licensedSeatCount: 10,
+    quantityDelta: 10,
+  });
+  expect(initialized.periodEndsAt).toEqual(billing.trialEndsAt);
+  expect(initialized.periodStartsAt.getTime()).toBeGreaterThanOrEqual(
+    startedAt,
+  );
 });

@@ -315,6 +315,8 @@ const ORG_MANAGER_BILLING_EVENT_LABELS: Readonly<Record<string, string>> = {
   TRANSFER_IN: "Subscription moved here",
   TRANSFER_OUT: "Subscription moved away",
   UNCANCELLATION: "Resumed",
+  free_trial_expired: "Free trial expired",
+  free_trial_initialized: "Free trial initialized",
   licensed_seat_count_increased: "Licensed seats increased",
   licensed_seat_count_initialized: "Licensed seats initialized",
   licensed_seat_count_reset: "Licensed seats reset",

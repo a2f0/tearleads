@@ -1,6 +1,7 @@
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBillingInvoiceEvents,
+  organizationBillingLifecycleEvents,
   organizationBillingSeatEvents,
   revenuecatWebhookEvents,
   users,
@@ -34,6 +35,11 @@ export async function clearBillingHistory(
   await db
     .delete(organizationBillingInvoiceEvents)
     .where(eq(organizationBillingInvoiceEvents.organizationId, organizationId));
+  await db
+    .delete(organizationBillingLifecycleEvents)
+    .where(
+      eq(organizationBillingLifecycleEvents.organizationId, organizationId),
+    );
   await db
     .delete(organizationBillingSeatEvents)
     .where(eq(organizationBillingSeatEvents.organizationId, organizationId));

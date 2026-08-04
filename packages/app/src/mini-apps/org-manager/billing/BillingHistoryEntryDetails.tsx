@@ -61,14 +61,17 @@ function getBillingReasonLabel(reason: string): string {
 }
 
 function getPeriodLabel(entry: OrganizationBillingHistoryEntry): string | null {
+  const periodKind = entry.eventType.startsWith("free_trial_")
+    ? "Trial period"
+    : "Billing period";
   if (entry.periodStartsAt !== null && entry.periodEndsAt !== null) {
-    return `Billing period: ${formatMiniAppDate(entry.periodStartsAt)} – ${formatMiniAppDate(entry.periodEndsAt)}`;
+    return `${periodKind}: ${formatMiniAppDate(entry.periodStartsAt)} – ${formatMiniAppDate(entry.periodEndsAt)}`;
   }
   if (entry.periodStartsAt !== null) {
-    return `Billing period starts: ${formatMiniAppDate(entry.periodStartsAt)}`;
+    return `${periodKind} starts: ${formatMiniAppDate(entry.periodStartsAt)}`;
   }
   if (entry.periodEndsAt !== null) {
-    return `Billing period ends: ${formatMiniAppDate(entry.periodEndsAt)}`;
+    return `${periodKind} ends: ${formatMiniAppDate(entry.periodEndsAt)}`;
   }
   return null;
 }
@@ -134,6 +137,12 @@ function LifecycleAvailability({
 }) {
   if (entry.category !== "lifecycle") {
     return null;
+  }
+  if (entry.eventType === "free_trial_initialized") {
+    return <Detail>Free trial access granted at no charge</Detail>;
+  }
+  if (entry.eventType === "free_trial_expired") {
+    return <Detail>Free trial ended and sync was disabled</Detail>;
   }
   if (entry.unitAmount !== null) {
     return entry.totalAmount === null ? (

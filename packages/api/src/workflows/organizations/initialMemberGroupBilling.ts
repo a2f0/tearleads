@@ -1,7 +1,9 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
 import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats";
+import { recordFreeTrialInitialized } from "../billing/organizationTrialLifecycle";
 import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";
+import type { CreatedInitialOrganizationBilling } from "./initialBilling";
 import { syncOrganizationRosterFromMemberReachability } from "./roster";
 
 export async function storeInitialMemberGroupPolicy(
@@ -23,6 +25,7 @@ export async function storeInitialMemberGroupPolicy(
 }
 
 export async function syncInitialRosterAndBillingSeats(input: {
+  readonly initialBilling: CreatedInitialOrganizationBilling;
   readonly initialMemberGroupStateHash: string;
   readonly organizationId: string;
   readonly provisioning: OrganizationProvisioningRequest;
@@ -34,14 +37,31 @@ export async function syncInitialRosterAndBillingSeats(input: {
     memberGroupId: input.provisioning.initialMemberGroup.groupId,
     organizationId: input.organizationId,
   });
+  const trialSourceId = input.initialBilling.sourceId;
   await reconcileOrganizationBillingSeats({
     executor: input.tx,
     organizationId: input.organizationId,
-    source: {
-      sourceId: input.initialMemberGroupStateHash,
-      sourcePrincipalId: input.provisioning.initialMemberGroup.groupId,
-      sourcePrincipalType: "group",
-      sourceType: "principal_state",
-    },
+    source:
+      trialSourceId === null
+        ? {
+            sourceId: input.initialMemberGroupStateHash,
+            sourcePrincipalId: input.provisioning.initialMemberGroup.groupId,
+            sourcePrincipalType: "group",
+            sourceType: "principal_state",
+          }
+        : { sourceId: trialSourceId, sourceType: "billing_transition" },
   });
+  if (
+    trialSourceId !== null &&
+    input.initialBilling.trialStartedAt !== null &&
+    input.initialBilling.trialEndsAt !== null
+  ) {
+    await recordFreeTrialInitialized({
+      executor: input.tx,
+      organizationId: input.organizationId,
+      sourceId: trialSourceId,
+      trialEndsAt: input.initialBilling.trialEndsAt,
+      trialStartedAt: input.initialBilling.trialStartedAt,
+    });
+  }
 }
