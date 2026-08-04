@@ -82,6 +82,28 @@ test("trial inception and expiration remain durable user-facing lifecycle events
   expect(lifecycle[1]?.periodStartsAt).toEqual(lifecycle[0]?.periodStartsAt);
   expect(lifecycle[1]?.sourceId).toBe(lifecycle[0]?.sourceId);
 
+  const [capacityReset] = await db
+    .select({
+      eventType: organizationBillingSeatEvents.eventType,
+      licensedSeatCount: organizationBillingSeatEvents.licensedSeatCount,
+      quantityDelta: organizationBillingSeatEvents.quantityDelta,
+    })
+    .from(organizationBillingSeatEvents)
+    .where(
+      and(
+        eq(organizationBillingSeatEvents.organizationId, organizationId),
+        eq(
+          organizationBillingSeatEvents.eventType,
+          "licensed_seat_count_reset",
+        ),
+      ),
+    );
+  expect(capacityReset).toEqual({
+    eventType: "licensed_seat_count_reset",
+    licensedSeatCount: 0,
+    quantityDelta: -10,
+  });
+
   const assignments = await db
     .select({ releasedAt: organizationBillingSeatAssignments.releasedAt })
     .from(organizationBillingSeatAssignments)
@@ -256,14 +278,24 @@ test("trial sweep backs off failures without starving later expirations", async 
         now,
         organizationIds,
       }),
-    ).toEqual({ examined: 2, expired: 1, failed: 1 });
+    ).toEqual({
+      attentionRequired: 0,
+      examined: 2,
+      expired: 1,
+      failed: 1,
+    });
     expect(
       await runExpireOrganizationTrialsWorkflow(db, {
         limit: 2,
         now,
         organizationIds,
       }),
-    ).toEqual({ examined: 1, expired: 1, failed: 0 });
+    ).toEqual({
+      attentionRequired: 0,
+      examined: 1,
+      expired: 1,
+      failed: 0,
+    });
   } finally {
     errorSpy.mockRestore();
   }
@@ -326,13 +358,23 @@ test("trial sweep keeps retrying a repeatedly invalid lifecycle at the hourly ca
         now,
         organizationIds: [organizationId],
       }),
-    ).toEqual({ examined: 1, expired: 0, failed: 1 });
+    ).toEqual({
+      attentionRequired: 1,
+      examined: 1,
+      expired: 0,
+      failed: 1,
+    });
     expect(
       await runExpireOrganizationTrialsWorkflow(db, {
         now,
         organizationIds: [organizationId],
       }),
-    ).toEqual({ examined: 0, expired: 0, failed: 0 });
+    ).toEqual({
+      attentionRequired: 0,
+      examined: 0,
+      expired: 0,
+      failed: 0,
+    });
   } finally {
     errorSpy.mockRestore();
   }

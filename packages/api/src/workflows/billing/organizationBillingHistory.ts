@@ -314,7 +314,6 @@ function projectSeatHistory(
           (row.sourceType === "provider_event" &&
             lifecycleProviderEventIds.has(row.sourceId)) ||
           (row.sourceType === "billing_transition" &&
-            row.eventType === "licensed_seat_count_initialized" &&
             internalLifecycleSourceIds.has(row.sourceId))
         ),
     )

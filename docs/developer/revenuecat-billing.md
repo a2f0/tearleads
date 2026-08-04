@@ -313,14 +313,13 @@ temporarily unavailable.
 
 [`stripeSeatSync.ts`](../../packages/api/scripts/stripeSeatSync.ts) first
 persists due free-trial expirations, then drains durable Stripe capacity
-targets. Trial failures persist error and backoff state so one row cannot starve
-later expirations; retries begin at one minute, cap at one hour, and continue
-until the transition succeeds. The attempt count and last error remain visible
-for operators throughout. Paid activation clears any stale trial-expiry retry
-state. Stripe reconciliation
-validates the binding and period;
-leases, idempotency keys, retry backoff, and daily audits handle overlap,
-transient failure, and drift.
+targets. Trial failures persist error and backoff state without starving the
+batch. Retries start at one minute, cap at one hour, and continue until success.
+After eight attempts, the JSON summary flags the row; its count and error stay
+durable. Paid activation clears that retry state. Stripe reconciliation
+validates metadata, tier Price, item id, and period. The stored Price may lag a
+provider update whose database completion is retrying. Leases, stable
+idempotency keys, backoff, and daily audits handle overlap and drift.
 If Stripe has already advanced to a new billing period, the worker first
 rebinds that authoritative period and retries as a fresh claim, so an old-period
 high-water can never be applied after renewal. Only locally `active` billing
@@ -328,8 +327,10 @@ rows are claimed, and capacity growth is prorated only while Stripe reports the
 subscription `active` or `trialing`; a `past_due` subscription backs off without
 creating another charge.
 
-Greenfield invariant: reset pre-existing billing data; the schema baseline has
-no compatibility or trial-lifecycle backfill path.
+Greenfield invariant: recreate databases before deployment.
+Resetting billing rows is insufficient; the rewritten
+`0000_greenfield_baseline` is not a forward migration. No compatibility or
+lifecycle backfill path exists.
 
 The API build emits `packages/api/dist/tearleads-stripe-seat-sync`; the deploy
 scripts copy it to `/opt/tearleads/bin/tearleads-stripe-seat-sync`. Ansible

@@ -1,8 +1,11 @@
 # Billing History
 
-`GET /organizations/:id/billing/history` is admin-only and combines three
-durable record categories: RevenueCat lifecycle events, the internal
-licensed-seat ledger, and append-only Stripe paid-invoice snapshots.
+`GET /organizations/:id/billing/history` is admin-only and combines four
+durable record categories: RevenueCat lifecycle events, internal free-trial
+lifecycle events, the internal licensed-seat ledger, and append-only Stripe
+paid-invoice snapshots. Internal trial events preserve the initialized and
+expired 10-seat capacity snapshots without duplicating their correlated seat
+ledger rows.
 
 Stripe invoice totals preserve the provider's exact `amount_paid` in currency
 minor units. Tier capacity, plan price, recurring interval and interval count,
@@ -56,8 +59,7 @@ only the recorded provider amount is authoritative.
 
 ## Greenfield rollout
 
-The store-provenance migration deliberately does not infer or backfill old
-RevenueCat audit rows, and the top-tier trial change does not rewrite existing
-trial seat rows. Deploy this contract with a data reset. If legacy data is kept,
-rows without store provenance remain unenriched and existing trials retain
-their stored capacity until seat reconciliation runs.
+Destroy and recreate every environment database before deploying this schema.
+Both dialects intentionally contain one rewritten `0000_greenfield_baseline`;
+there is no forward migration, compatibility shim, or backfill for an existing
+database.

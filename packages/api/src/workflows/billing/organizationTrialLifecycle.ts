@@ -17,6 +17,7 @@ const MAX_EXPIRY_LIMIT = 1000;
 const MAX_EXPIRY_RETRY_MS = 60 * 60 * 1000;
 const EXPIRY_RETRY_BASE_MS = 60 * 1000;
 const MAX_EXPIRY_RETRY_EXPONENT = 6;
+const TRIAL_EXPIRY_ATTENTION_ATTEMPTS = 8;
 
 function nextExpiryRetryAt(now: Date, attemptCount: number): Date {
   const exponent = Math.min(
@@ -64,10 +65,10 @@ export async function recordFreeTrialInitialized(input: {
         eq(organizationBillingSeatEvents.organizationId, input.organizationId),
         eq(organizationBillingSeatEvents.sourceType, "billing_transition"),
         eq(organizationBillingSeatEvents.sourceId, input.sourceId),
-        inArray(organizationBillingSeatEvents.eventType, [
+        eq(
+          organizationBillingSeatEvents.eventType,
           "licensed_seat_count_initialized",
-          "licensed_seat_count_increased",
-        ]),
+        ),
       ),
     )
     .limit(1);
@@ -202,6 +203,7 @@ async function disableTrial(input: {
 
 async function releaseTrialAssignments(input: {
   readonly executor: DatabaseSession;
+  readonly licensedSeatCount: number;
   readonly now: Date;
   readonly organizationId: string;
   readonly periodStartsAt: Date;
@@ -220,28 +222,39 @@ async function releaseTrialAssignments(input: {
         isNull(organizationBillingSeatAssignments.releasedAt),
       ),
     );
-  if (assignments.length === 0) {
-    return;
-  }
-  await input.executor
-    .update(organizationBillingSeatAssignments)
-    .set({
-      releasedAt: input.trialEndsAt,
-      releaseSourceId: input.sourceId,
-      releaseSourceType: "billing_transition",
-      updatedAt: input.now,
-    })
-    .where(
-      and(
-        eq(
-          organizationBillingSeatAssignments.organizationId,
-          input.organizationId,
+  if (assignments.length > 0) {
+    await input.executor
+      .update(organizationBillingSeatAssignments)
+      .set({
+        releasedAt: input.trialEndsAt,
+        releaseSourceId: input.sourceId,
+        releaseSourceType: "billing_transition",
+        updatedAt: input.now,
+      })
+      .where(
+        and(
+          eq(
+            organizationBillingSeatAssignments.organizationId,
+            input.organizationId,
+          ),
+          isNull(organizationBillingSeatAssignments.releasedAt),
         ),
-        isNull(organizationBillingSeatAssignments.releasedAt),
-      ),
-    );
-  await input.executor.insert(organizationBillingSeatEvents).values(
-    assignments.map((assignment) => ({
+      );
+  }
+  await input.executor.insert(organizationBillingSeatEvents).values([
+    {
+      activeSeatCount: 0,
+      billingPeriodEndsAt: input.trialEndsAt,
+      billingPeriodStartsAt: input.periodStartsAt,
+      createdAt: input.now,
+      eventType: "licensed_seat_count_reset",
+      licensedSeatCount: 0,
+      organizationId: input.organizationId,
+      quantityDelta: -input.licensedSeatCount,
+      sourceId: input.sourceId,
+      sourceType: "billing_transition",
+    },
+    ...assignments.map((assignment) => ({
       activeSeatCount: 0,
       billingPeriodEndsAt: input.trialEndsAt,
       billingPeriodStartsAt: input.periodStartsAt,
@@ -254,7 +267,7 @@ async function releaseTrialAssignments(input: {
       sourceType: "billing_transition" as const,
       userId: assignment.userId,
     })),
-  );
+  ]);
 }
 
 export async function runExpireOrganizationTrialWorkflow(
@@ -282,6 +295,7 @@ export async function runExpireOrganizationTrialWorkflow(
     }
     await releaseTrialAssignments({
       executor: tx,
+      licensedSeatCount: billing.seatCount,
       now,
       organizationId,
       periodStartsAt: period.startsAt,
@@ -314,6 +328,7 @@ export async function runExpireOrganizationTrialWorkflow(
 }
 
 export interface ExpireOrganizationTrialsSummary {
+  readonly attentionRequired: number;
   readonly examined: number;
   readonly expired: number;
   readonly failed: number;
@@ -324,8 +339,8 @@ async function deferFailedTrialExpiry(input: {
   readonly error: unknown;
   readonly now: Date;
   readonly organizationId: string;
-}): Promise<void> {
-  await input.db.transaction(async (tx) => {
+}): Promise<number | null> {
+  return input.db.transaction(async (tx) => {
     const query = tx
       .select({
         attemptCount: organizationBilling.trialExpiryAttemptCount,
@@ -348,7 +363,7 @@ async function deferFailedTrialExpiry(input: {
       ? await query
       : await query.for("update", { of: organizationBilling });
     if (!current?.trialEndsAt) {
-      return;
+      return null;
     }
     const attemptCount = current.attemptCount + 1;
     await tx
@@ -370,6 +385,7 @@ async function deferFailedTrialExpiry(input: {
           ),
         ),
       );
+    return attemptCount;
   });
 }
 
@@ -391,7 +407,7 @@ export async function runExpireOrganizationTrialsWorkflow(
     limit <= 0 ||
     options.organizationIds?.length === 0
   ) {
-    return { examined: 0, expired: 0, failed: 0 };
+    return { attentionRequired: 0, examined: 0, expired: 0, failed: 0 };
   }
   const candidates = await db
     .select({ organizationId: organizationBilling.organizationId })
@@ -417,6 +433,7 @@ export async function runExpireOrganizationTrialsWorkflow(
 
   let expired = 0;
   let failed = 0;
+  let attentionRequired = 0;
   for (const candidate of candidates) {
     try {
       if (
@@ -430,8 +447,9 @@ export async function runExpireOrganizationTrialsWorkflow(
       }
     } catch (error) {
       failed += 1;
+      let attemptCount: number | null = null;
       try {
-        await deferFailedTrialExpiry({
+        attemptCount = await deferFailedTrialExpiry({
           db,
           error,
           now,
@@ -443,13 +461,22 @@ export async function runExpireOrganizationTrialsWorkflow(
           deferError,
         );
       }
+      if (
+        attemptCount !== null &&
+        attemptCount >= TRIAL_EXPIRY_ATTENTION_ATTEMPTS
+      ) {
+        attentionRequired += 1;
+        console.error(
+          `Free-trial expiry requires operator attention for organization ${candidate.organizationId} after ${attemptCount} attempts`,
+        );
+      }
       console.error(
         `Free-trial expiry failed for organization ${candidate.organizationId}:`,
         error,
       );
     }
   }
-  return { examined: candidates.length, expired, failed };
+  return { attentionRequired, examined: candidates.length, expired, failed };
 }
 
 export interface ExpireOrganizationTrialsOptions {
