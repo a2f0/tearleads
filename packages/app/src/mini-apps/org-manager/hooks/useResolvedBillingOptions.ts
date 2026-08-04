@@ -52,17 +52,18 @@ function resolveScopeMatches(input: UseResolvedBillingOptionsInput): {
 export function useResolvedBillingOptions(
   input: UseResolvedBillingOptionsInput,
 ): ResolvedBillingOptions {
-  const retryOptions = useBillingOptions(
-    !scopeMatches(input.actionState, input.currentScope) ||
+  const retryOptions = useBillingOptions({
+    actionIdle:
+      !scopeMatches(input.actionState, input.currentScope) ||
       input.actionState.busy === null,
-    input.canSubscribe,
-    input.currentScope,
-    input.purchases,
-    input.scopeRef,
-    input.setOptionsState,
-    input.userId,
-    input.optionsRetryDelaysMs,
-  );
+    canSubscribe: input.canSubscribe,
+    currentScope: input.currentScope,
+    purchases: input.purchases,
+    retryDelaysMs: input.optionsRetryDelaysMs,
+    scopeRef: input.scopeRef,
+    setOptionsState: input.setOptionsState,
+    userId: input.userId,
+  });
   const matches = resolveScopeMatches(input);
   const optionsErrorKind = matches.optionsMatch
     ? input.optionsState.errorKind

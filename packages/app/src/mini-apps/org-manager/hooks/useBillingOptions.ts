@@ -34,6 +34,17 @@ export type BillingOptionsErrorKind =
   | "unavailable"
   | null;
 
+interface UseBillingOptionsInput {
+  readonly actionIdle: boolean;
+  readonly canSubscribe: boolean;
+  readonly currentScope: BillingActionScope;
+  readonly purchases: PurchasesCapability;
+  readonly retryDelaysMs: readonly number[] | undefined;
+  readonly scopeRef: BillingScopeRef;
+  readonly setOptionsState: Dispatch<SetStateAction<BillingOptionsState>>;
+  readonly userId: string | null;
+}
+
 export function emptyOptionsState(
   scope: BillingActionScope,
 ): BillingOptionsState {
@@ -90,33 +101,25 @@ function scheduleOptionsRetry(
     : undefined;
 }
 
-export function useBillingOptions(
-  actionIdle: boolean,
-  canSubscribe: boolean,
-  currentScope: BillingActionScope,
-  purchases: PurchasesCapability,
-  scopeRef: BillingScopeRef,
-  setOptionsState: Dispatch<SetStateAction<BillingOptionsState>>,
-  userId: string | null,
-  retryDelaysMs: readonly number[] = OPTIONS_RETRY_DELAYS_MS,
-): () => void {
+export function useBillingOptions(input: UseBillingOptionsInput): () => void {
   // A hook instance uses one schedule; production uses the fixed module value.
-  const retryDelaysRef = useRef(retryDelaysMs);
+  const retryDelaysRef = useRef(input.retryDelaysMs ?? OPTIONS_RETRY_DELAYS_MS);
   const [loadGeneration, setLoadGeneration] = useState(0);
   const retryOptions = useCallback(() => {
     setLoadGeneration((current) => current + 1);
   }, []);
   useEffect(() => {
-    const scope = currentScope;
-    if (!scopeMatches(scopeRef.current, scope)) return;
-    if (!actionIdle) return;
-    if (!canSubscribe || userId === null) {
-      setOptionsState(emptyOptionsState(scope));
+    const scope = input.currentScope;
+    const userId = input.userId;
+    if (!scopeMatches(input.scopeRef.current, scope)) return;
+    if (!input.actionIdle) return;
+    if (!input.canSubscribe || userId === null) {
+      input.setOptionsState(emptyOptionsState(scope));
       return;
     }
     // Preserve a last-known-good catalog and its disabled/error state while a
     // same-scope manual retry is in flight. A changed scope still starts empty.
-    setOptionsState((current) =>
+    input.setOptionsState((current) =>
       scopeMatches(current, scope) ? current : emptyOptionsState(scope),
     );
     let cancelled = false;
@@ -132,11 +135,14 @@ export function useBillingOptions(
     };
     const load = async (): Promise<void> => {
       try {
-        const pendingIdentityError = await identifyBuyer(purchases, userId);
-        if (cancelled || !scopeMatches(scopeRef.current, scope)) return;
-        const next = await purchases.listSyncOptions();
-        if (!cancelled && scopeMatches(scopeRef.current, scope)) {
-          setOptionsState({
+        const pendingIdentityError = await identifyBuyer(
+          input.purchases,
+          userId,
+        );
+        if (cancelled || !scopeMatches(input.scopeRef.current, scope)) return;
+        const next = await input.purchases.listSyncOptions();
+        if (!cancelled && scopeMatches(input.scopeRef.current, scope)) {
+          input.setOptionsState({
             ...scope,
             errorKind: optionsErrorKind(pendingIdentityError),
             options: next,
@@ -144,8 +150,8 @@ export function useBillingOptions(
           if (pendingIdentityError) retry(pendingIdentityError);
         }
       } catch (error) {
-        if (!cancelled && scopeMatches(scopeRef.current, scope)) {
-          setOptionsState((current) => {
+        if (!cancelled && scopeMatches(input.scopeRef.current, scope)) {
+          input.setOptionsState((current) => {
             const scoped = scopeMatches(current, scope)
               ? current
               : emptyOptionsState(scope);
@@ -164,14 +170,14 @@ export function useBillingOptions(
       if (retryTimeout !== undefined) clearTimeout(retryTimeout);
     };
   }, [
-    actionIdle,
-    canSubscribe,
-    currentScope,
+    input.actionIdle,
+    input.canSubscribe,
+    input.currentScope,
+    input.purchases,
+    input.scopeRef,
+    input.setOptionsState,
+    input.userId,
     loadGeneration,
-    purchases,
-    scopeRef,
-    setOptionsState,
-    userId,
   ]);
   return retryOptions;
 }

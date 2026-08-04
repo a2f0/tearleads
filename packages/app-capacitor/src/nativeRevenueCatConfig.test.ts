@@ -95,6 +95,7 @@ test("iOS project registers the RevenueCat purchase plugin contract", async () =
   expect(purchasePlugin).toContain('"native-error"');
   expect(purchasePlugin).toContain('["userCancelled": userCancelled]');
   expect(purchasePlugin).toContain('data["storeError"] = storeError');
+  expect(purchasePlugin).toContain('"activeEntitlementIds"');
   expect(purchasePlugin).toContain(
     '["domain": candidate.domain, "code": candidate.code]',
   );
@@ -247,4 +248,5 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(purchasePlugin).toContain(
     'JSObject().put("userCancelled", userCancelled)',
   );
+  expect(purchasePlugin).toContain('"activeEntitlementIds"');
 });

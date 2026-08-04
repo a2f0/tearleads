@@ -49,6 +49,7 @@ export interface BillingActions {
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
   readonly busy: BillingBusyAction | null;
   readonly actionError: string | null;
+  readonly actionErrorIsOptionsError: boolean;
   readonly optionsRetryAvailable: boolean;
   readonly activationPending: boolean;
   readonly subscriptionMoveOpen: boolean;
@@ -312,6 +313,9 @@ function projectBillingActions(input: {
   const busy = input.actionStateMatches ? input.actionState.busy : null;
   const optionsError =
     busy === null ? billingOptionsErrorLabel(input.optionsErrorKind) : null;
+  const scopedActionError = input.actionStateMatches
+    ? input.actionState.actionError
+    : null;
   return {
     purchaseAvailable: input.purchases.isAvailable,
     canSubscribe: input.canSubscribe,
@@ -321,9 +325,9 @@ function projectBillingActions(input: {
       : false,
     options: input.options,
     busy,
-    actionError: input.actionStateMatches
-      ? (input.actionState.actionError ?? optionsError)
-      : optionsError,
+    actionError: scopedActionError ?? optionsError,
+    actionErrorIsOptionsError:
+      scopedActionError === null && optionsError !== null,
     optionsRetryAvailable: busy === null && input.optionsErrorKind !== null,
     activationPending:
       input.actionStateMatches && input.actionState.activationPending,

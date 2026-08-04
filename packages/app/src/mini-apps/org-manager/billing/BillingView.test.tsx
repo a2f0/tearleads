@@ -50,6 +50,7 @@ function props(overrides: Partial<BillingViewProps>): BillingViewProps {
     busy: null,
     activationPending: false,
     actionError: null,
+    actionErrorIsOptionsError: false,
     optionsRetryAvailable: false,
     onManageSubscription: () => undefined,
     onStartTrial: () => undefined,
@@ -448,7 +449,6 @@ test("clicking the Cancel button dismisses the embedded checkout", () => {
 
 test("unmounting the checkout host dismisses the purchase", () => {
   // Any path that removes the host must cancel the purchase riding in it —
-  // here the buyer's admin role is revoked mid-purchase.
   let cancelled = 0;
   const shared = {
     purchaseAvailable: true,

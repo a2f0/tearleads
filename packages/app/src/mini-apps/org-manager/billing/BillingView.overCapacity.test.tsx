@@ -68,6 +68,7 @@ const PROPS: BillingViewProps = {
   busy: null,
   activationPending: false,
   actionError: null,
+  actionErrorIsOptionsError: false,
   optionsRetryAvailable: false,
   onManageSubscription: () => undefined,
   onStartTrial: () => undefined,

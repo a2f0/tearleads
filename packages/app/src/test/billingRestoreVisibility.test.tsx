@@ -11,6 +11,7 @@ afterEach(() => cleanup());
 function props(overrides: Partial<BillingViewProps> = {}): BillingViewProps {
   return {
     actionError: null,
+    actionErrorIsOptionsError: false,
     activationPending: false,
     busy: null,
     canSubscribe: false,

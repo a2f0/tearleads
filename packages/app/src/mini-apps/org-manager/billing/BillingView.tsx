@@ -88,6 +88,8 @@ export interface BillingViewProps {
   readonly busy: BillingBusyAction | null;
   readonly activationPending: boolean;
   readonly actionError: string | null;
+  /** Whether actionError came from loading the native purchase options. */
+  readonly actionErrorIsOptionsError: boolean;
   readonly optionsRetryAvailable: boolean;
   readonly onStartTrial: () => void;
   readonly onSubscribe: (option: SyncSubscriptionOption) => void;
@@ -204,13 +206,14 @@ function visibleBillingActionError(
   props: Pick<
     BillingViewProps,
     | "actionError"
+    | "actionErrorIsOptionsError"
     | "optionsRetryAvailable"
     | "purchaseAvailable"
     | "purchaseSectionHidden"
   >,
 ): string | null {
   if (!props.actionError) return null;
-  if (!props.optionsRetryAvailable) return props.actionError;
+  if (!props.actionErrorIsOptionsError) return props.actionError;
   return props.purchaseAvailable && !props.purchaseSectionHidden
     ? props.actionError
     : null;

@@ -36,6 +36,7 @@ function props(onRetryOptions: () => void): BillingViewProps {
     busy: null,
     activationPending: false,
     actionError: ORG_MANAGER_LABELS.billingIdentityPending,
+    actionErrorIsOptionsError: true,
     optionsRetryAvailable: true,
     onManageSubscription: () => undefined,
     onStartTrial: () => undefined,
@@ -93,4 +94,20 @@ test("hidden native options hide their orphaned retry guidance", () => {
       name: ORG_MANAGER_LABELS.billingRetryOptions,
     }),
   ).toBeNull();
+});
+
+test("hidden native options retain unrelated action errors", () => {
+  const view = render(
+    <BillingView
+      {...props(() => undefined)}
+      actionError={ORG_MANAGER_LABELS.billingManageSubscriptionFailed}
+      actionErrorIsOptionsError={false}
+      directCheckoutAvailable
+      purchaseAvailable={false}
+    />,
+  );
+
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.billingManageSubscriptionFailed),
+  ).toBeDefined();
 });

@@ -110,7 +110,7 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
     // The first-party purchase bridge imports the native SDK directly. Keep
     // this pin aligned with purchases-hybrid-common from the Capacitor plugin;
-    // the resolution guard above fails the build if either transitive moves.
+    // the resolution guard above rejects explicit conflicting transitive pins.
     implementation "com.revenuecat.purchases:purchases:${rootProject.ext.revenueCatPurchasesVersion}"
     testImplementation "junit:junit:$junitVersion"
     testImplementation 'org.json:json:20250517'

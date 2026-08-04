@@ -1,6 +1,10 @@
 name: Native Purchase Bridges
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/native-purchase-bridges.yml"
+      - "packages/app-capacitor/**"
   workflow_dispatch:
 
 permissions:
@@ -35,12 +39,16 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Test native purchase bridge contracts
+        run: bun test packages/app-capacitor/src/nativeRevenueCatConfig.test.ts
+
       - name: Compile and test Android purchase bridge
         working-directory: packages/app-capacitor/android
         run: mise exec -- gradle :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
 
   ios:
     name: iOS purchase bridge
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: macos-15
     timeout-minutes: 30
 
