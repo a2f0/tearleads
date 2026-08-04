@@ -12,6 +12,7 @@ import { and, desc, eq, inArray, or } from "drizzle-orm";
 import type { OrganizationBillingHistoryEvent } from "../../billing/organizationBilling";
 import { isRevenueCatGrantEventType } from "../../billing/revenuecatWebhook";
 import { requireDirectOrganizationAccess } from "../organizations/access";
+import { isRecognizedNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 
 /** Newest merged events returned to a client; older audit rows stay durable. */
 const BILLING_HISTORY_EVENT_LIMIT = 50;
@@ -39,6 +40,7 @@ async function loadLifecycleHistory(
       outcome: revenuecatWebhookEvents.outcome,
       occurredAt: revenuecatWebhookEvents.eventTimestamp,
       productId: revenuecatWebhookEvents.productId,
+      store: revenuecatWebhookEvents.store,
       transactionId: revenuecatWebhookEvents.transactionId,
       periodStartsAt: revenuecatWebhookEvents.purchasedAt,
       periodEndsAt: revenuecatWebhookEvents.expirationAt,
@@ -203,7 +205,9 @@ function projectLifecycleHistory(
     // Successful grants can still use the monthly catalog's capacity and USD
     // list price; revocations and ignored events must not imply entitlement.
     const tier =
-      row.outcome === "applied" && isRevenueCatGrantEventType(row.eventType)
+      row.outcome === "applied" &&
+      isRevenueCatGrantEventType(row.eventType) &&
+      isRecognizedNativeRevenueCatStore(row.store)
         ? getSyncBillingTierForNativeProduct(row.productId)
         : null;
     return {

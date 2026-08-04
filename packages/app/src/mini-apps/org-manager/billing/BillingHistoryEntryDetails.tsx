@@ -132,15 +132,12 @@ function LifecycleAvailability({
 }: {
   readonly entry: OrganizationBillingHistoryEntry;
 }) {
-  if (
-    entry.category !== "lifecycle" ||
-    (entry.totalAmount !== null && entry.unitAmount !== null)
-  ) {
+  if (entry.category !== "lifecycle") {
     return null;
   }
   return (
     <>
-      {entry.totalAmount === null ? (
+      {entry.unitAmount !== null ? (
         <Detail>Paid total unavailable</Detail>
       ) : null}
       {entry.unitAmount === null ? (

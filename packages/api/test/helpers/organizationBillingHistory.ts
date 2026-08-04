@@ -54,6 +54,7 @@ export async function insertWebhookEvent(input: {
   periodEndsAt?: Date | null;
   periodStartsAt?: Date | null;
   productId?: string | null;
+  store?: string | null;
   transactionId?: string | null;
 }): Promise<void> {
   await db.insert(revenuecatWebhookEvents).values({
@@ -62,6 +63,7 @@ export async function insertWebhookEvent(input: {
     eventType: input.eventType,
     appUserId: input.appUserId,
     productId: input.productId ?? null,
+    store: input.store ?? null,
     transactionId: input.transactionId ?? null,
     originalTransactionId: null,
     organizationId: input.organizationId,

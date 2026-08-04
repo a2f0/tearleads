@@ -34,6 +34,7 @@ test("an org admin reads meaningful mixed billing history newest-first", async (
     organizationId,
     outcome: "applied",
     productId: "sync_team_10_monthly_staging:monthly",
+    store: "PLAY_STORE",
     transactionId: "transaction-1",
     periodStartsAt,
     periodEndsAt,
@@ -262,6 +263,7 @@ test("a lifecycle event is enriched beyond the recent seat window", async () => 
     organizationId,
     outcome: "applied",
     productId: "sync_team_10_monthly_staging:monthly",
+    store: "PLAY_STORE",
   });
 
   const response = await routeApp.request(

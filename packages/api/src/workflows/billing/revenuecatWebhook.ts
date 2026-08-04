@@ -261,6 +261,7 @@ async function claimRevenueCatEvent(input: {
       eventType: input.event.type,
       appUserId: input.event.app_user_id,
       productId: resolveRevenueCatRecordedProductId(input.event),
+      store: input.event.store ?? null,
       transactionId: input.event.transaction_id ?? null,
       originalTransactionId: input.event.original_transaction_id ?? null,
       organizationId: input.organizationId,

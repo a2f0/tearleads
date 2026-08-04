@@ -215,7 +215,6 @@ test("a lifecycle seat snapshot names unavailable cost data", () => {
   );
 
   expect(view.getByText("4 licensed seats")).toBeDefined();
-  expect(view.getByText("Paid total unavailable")).toBeDefined();
   expect(view.getByText("Plan price unavailable for this event")).toBeDefined();
 });
 
@@ -368,7 +367,7 @@ test("entries with unavailable billing facts omit empty detail rows", () => {
   expect(
     view.getByText("Seat and plan price unavailable for this event"),
   ).toBeDefined();
-  expect(view.getByText("Paid total unavailable")).toBeDefined();
+  expect(view.queryByText("Paid total unavailable")).toBeNull();
 });
 
 test("shows the empty state on both tabs when there are no events", () => {
