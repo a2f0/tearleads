@@ -383,6 +383,7 @@ test("a lifecycle event is enriched beyond the recent seat window", async () => 
     id: lifecycleId,
     organizationId,
     outcome: "applied",
+    productId: "sync_team_10_monthly_staging:monthly",
   });
 
   const response = await routeApp.request(
@@ -397,6 +398,8 @@ test("a lifecycle event is enriched beyond the recent seat window", async () => 
   expect(history.entries).toHaveLength(50);
   expect(history.entries[0]).toMatchObject({
     id: lifecycleId,
+    productId: "sync_team_10_monthly_staging:monthly",
+    // The durable snapshot wins over the catalog's ten-seat tier in history.
     seatCount: 7,
     seatDelta: 2,
     activeSeatCount: 6,

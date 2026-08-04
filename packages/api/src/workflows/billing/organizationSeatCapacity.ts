@@ -13,6 +13,24 @@ interface BillingSeatCapacity {
   readonly status: OrganizationBillingStatus;
 }
 
+function assertRosterWithinLargestTier(
+  activeSeatCount: number,
+  previousActiveSeatCount?: number,
+): void {
+  if (
+    activeSeatCount <= getLargestSyncBillingTier().seatLimit ||
+    (previousActiveSeatCount !== undefined &&
+      activeSeatCount <= previousActiveSeatCount)
+  ) {
+    return;
+  }
+  throw new OrganizationManagerError(
+    "The organization exceeds the maximum subscription tier of 10 members",
+    409,
+    BILLING_ERROR_CODES.rosterOverCapacity,
+  );
+}
+
 function canonicalTierSeatCount(
   activeSeatCount: number,
   previousActiveSeatCount?: number,
@@ -21,16 +39,7 @@ function canonicalTierSeatCount(
   if (tier) {
     return tier.seatLimit;
   }
-  if (
-    previousActiveSeatCount === undefined ||
-    activeSeatCount > previousActiveSeatCount
-  ) {
-    throw new OrganizationManagerError(
-      "The organization exceeds the maximum subscription tier of 10 members",
-      409,
-      BILLING_ERROR_CODES.rosterOverCapacity,
-    );
-  }
+  assertRosterWithinLargestTier(activeSeatCount, previousActiveSeatCount);
   return getLargestSyncBillingTier().seatLimit;
 }
 
@@ -43,7 +52,7 @@ export function requiredLicensedSeatCount(
     return activeSeatCount;
   }
   if (billing.status === "trialing") {
-    canonicalTierSeatCount(activeSeatCount, previousActiveSeatCount);
+    assertRosterWithinLargestTier(activeSeatCount, previousActiveSeatCount);
     return getLargestSyncBillingTier().seatLimit;
   }
   const nativeTier = billing.hasStripeSubscription

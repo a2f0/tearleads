@@ -215,9 +215,8 @@ test("a lifecycle seat snapshot names unavailable cost data", () => {
   );
 
   expect(view.getByText("4 licensed seats")).toBeDefined();
-  expect(
-    view.getByText("Cost details unavailable for this event"),
-  ).toBeDefined();
+  expect(view.getByText("Paid total unavailable")).toBeDefined();
+  expect(view.getByText("Plan price unavailable for this event")).toBeDefined();
 });
 
 test("a native lifecycle event shows its fixed tier capacity and price", () => {
@@ -240,8 +239,8 @@ test("a native lifecycle event shows its fixed tier capacity and price", () => {
   );
 
   expect(view.getByText("10 licensed seats")).toBeDefined();
-  expect(view.getByText("Plan price: $20.00/month")).toBeDefined();
-  expect(view.queryByText(/details unavailable/)).toBeNull();
+  expect(view.getByText("USD list price: $20.00/month")).toBeDefined();
+  expect(view.getByText("Paid total unavailable")).toBeDefined();
 });
 
 test("activity preserves a provider-reported zero paid total", () => {
@@ -367,8 +366,9 @@ test("entries with unavailable billing facts omit empty detail rows", () => {
   expect(view.queryByText(/^Plan price:/)).toBeNull();
   expect(view.queryByText(/licensed seat/)).toBeNull();
   expect(
-    view.getByText("Seat and cost details unavailable for this event"),
+    view.getByText("Seat and plan price unavailable for this event"),
   ).toBeDefined();
+  expect(view.getByText("Paid total unavailable")).toBeDefined();
 });
 
 test("shows the empty state on both tabs when there are no events", () => {

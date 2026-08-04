@@ -134,17 +134,23 @@ function LifecycleAvailability({
 }) {
   if (
     entry.category !== "lifecycle" ||
-    entry.totalAmount !== null ||
-    entry.unitAmount !== null
+    (entry.totalAmount !== null && entry.unitAmount !== null)
   ) {
     return null;
   }
   return (
-    <Detail>
-      {entry.seatCount === null
-        ? "Seat and cost details unavailable for this event"
-        : "Cost details unavailable for this event"}
-    </Detail>
+    <>
+      {entry.totalAmount === null ? (
+        <Detail>Paid total unavailable</Detail>
+      ) : null}
+      {entry.unitAmount === null ? (
+        <Detail>
+          {entry.seatCount === null
+            ? "Seat and plan price unavailable for this event"
+            : "Plan price unavailable for this event"}
+        </Detail>
+      ) : null}
+    </>
   );
 }
 
@@ -162,7 +168,7 @@ function LifecyclePrice({
     entry.interval,
     entry.intervalCount,
   );
-  return rate ? <Detail>{`Plan price: ${rate}`}</Detail> : null;
+  return rate ? <Detail>{`USD list price: ${rate}`}</Detail> : null;
 }
 
 function AuditFields({

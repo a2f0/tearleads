@@ -218,7 +218,7 @@ function projectLifecycleHistory(
       invoiceId: null,
       subscriptionId: null,
       billingReason: null,
-      seatCount: tier?.seatLimit ?? seat?.seatCount ?? null,
+      seatCount: seat?.seatCount ?? tier?.seatLimit ?? null,
       seatDelta: seat?.seatDelta ?? null,
       activeSeatCount: seat?.activeSeatCount ?? null,
       priceId: null,
