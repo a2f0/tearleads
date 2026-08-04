@@ -166,6 +166,7 @@ export function fakeContainerContents(input: {
   forbiddenContainerIds?: ReadonlySet<string>;
   integrityFailureContainerIds?: ReadonlySet<string>;
   notGrantedContainerIds?: ReadonlySet<string>;
+  onPrepare?: () => void;
   onRefresh?: () => void;
   order?: string[];
   prepareCalls: RewrapCall[];
@@ -196,6 +197,7 @@ export function fakeContainerContents(input: {
           requireExistingGrant: options?.requireExistingGrant,
         });
         input.order?.push(`prepare:${containerId}`);
+        input.onPrepare?.();
         if (input.integrityFailureContainerIds?.has(containerId)) {
           throw makeKeyingVerificationError(containerId);
         }

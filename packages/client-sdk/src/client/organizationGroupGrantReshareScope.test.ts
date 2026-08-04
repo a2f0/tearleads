@@ -190,3 +190,91 @@ test("does not re-list after the scope changes during the backoff", async () => 
     close();
   }
 });
+
+test("a later rotation supersedes the sweep already running", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-supersede",
+  );
+  try {
+    await seedReadModel(execSql);
+    const log: string[] = [];
+    const runtime = fakeRuntime(log);
+    runtime.infra.execSql = execSql as never;
+    const firstAttempts: number[] = [];
+    const secondAttempts: number[] = [];
+    const args = (attempts: number[]) => ({
+      containerContents: fakeContainerContents({
+        prepareCalls: [],
+        rewrapped: [],
+        throwForContainerIds: new Set(["container-a", "container-b"]),
+      }),
+      expectedGroupHead: EXPECTED_HEAD,
+      mutatedGroupId: GRANTED_GROUP_ID,
+      reconcileReadModel: async () => ({}),
+      runtime: runtime as never,
+      scheduleRetry: (retry: () => void, delayMs: number) => {
+        attempts.push(delayMs);
+        setTimeout(retry, 1);
+      },
+      shouldContinue: () => true,
+      signingContext: {
+        organizationId: ORGANIZATION_ID,
+        signerUserId: CURRENT_USER_ID,
+      },
+    });
+
+    scheduleGroupGrantReshareAfterRotation(args(firstAttempts));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const firstAtSupersede = firstAttempts.length;
+    scheduleGroupGrantReshareAfterRotation(args(secondAttempts));
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    // Without coalescing the superseded loop keeps reconciling and re-listing
+    // for its whole window, repairing toward a head that is no longer current.
+    expect(firstAttempts.length).toBeLessThanOrEqual(firstAtSupersede + 1);
+    expect(secondAttempts.length).toBeGreaterThan(0);
+  } finally {
+    close();
+  }
+});
+
+test("stops mid-loop when the scope changes between containers", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-switch-mid-loop",
+  );
+  try {
+    await seedReadModel(execSql);
+    const log: string[] = [];
+    const runtime = fakeRuntime(log);
+    runtime.infra.execSql = execSql as never;
+    const rewrapped: string[] = [];
+    let active = true;
+    scheduleGroupGrantReshareAfterRotation({
+      containerContents: fakeContainerContents({
+        onPrepare: () => {
+          // The switch lands after the first container is handled.
+          active = false;
+        },
+        prepareCalls: [],
+        rewrapped,
+      }),
+      expectedGroupHead: EXPECTED_HEAD,
+      mutatedGroupId: GRANTED_GROUP_ID,
+      reconcileReadModel: async () => ({}),
+      runtime: runtime as never,
+      scheduleRetry: () => undefined,
+      shouldContinue: () => active,
+      signingContext: {
+        organizationId: ORGANIZATION_ID,
+        signerUserId: CURRENT_USER_ID,
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    // A write issued after the switch would be this organization's repair
+    // travelling through another scope's runtime.
+    expect(rewrapped.length).toBeLessThan(2);
+  } finally {
+    close();
+  }
+});

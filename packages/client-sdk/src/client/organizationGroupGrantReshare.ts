@@ -75,6 +75,7 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
   if (!input.expectedGroupHead || input.runtime.infra.dbStatus !== "ready") {
     return;
   }
+  const shouldContinue = input.shouldContinue ?? (() => true);
   const head = input.expectedGroupHead;
   const sweep = () =>
     reshareGroupContainerGrantsAfterRotation({
@@ -86,7 +87,21 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
       mutatedGroupId: input.mutatedGroupId,
       organizationId: input.signingContext.organizationId,
       reconcileReadModel: input.reconcileReadModel,
+      shouldContinue,
     });
+
+  // A second rotation on the same group supersedes the first: without this the
+  // superseded loop keeps reconciling and re-listing for its whole window,
+  // repairing toward a head that is no longer current.
+  const sweepKey = `${input.signingContext.organizationId}:${input.mutatedGroupId}`;
+  const superseded = activeSweeps.get(sweepKey);
+  superseded?.cancel();
+  const cancellation = { cancelled: false };
+  activeSweeps.set(sweepKey, {
+    cancel: () => {
+      cancellation.cancelled = true;
+    },
+  });
 
   void runSweepWithRetry({
     log: (message) => input.runtime.util.log(message),
@@ -94,10 +109,21 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
     mutatedGroupId: input.mutatedGroupId,
     refresh: () => input.containerContents.openTree().refresh(),
     scheduleRetry: input.scheduleRetry ?? defaultScheduleRetry,
-    shouldContinue: input.shouldContinue ?? (() => true),
+    shouldContinue: () => !cancellation.cancelled && shouldContinue(),
     sweep,
+  }).finally(() => {
+    if (activeSweeps.get(sweepKey)?.cancel === undefined) {
+      return;
+    }
+    if (cancellation.cancelled) {
+      return;
+    }
+    activeSweeps.delete(sweepKey);
   });
 }
+
+/** In-flight sweeps by `organizationId:groupId`, so a rotation supersedes. */
+const activeSweeps = new Map<string, { cancel: () => void }>();
 
 function defaultScheduleRetry(retry: () => void, delayMs: number): void {
   setTimeout(retry, delayMs);
@@ -147,6 +173,7 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   mutatedGroupId: string;
   organizationId: string;
   reconcileReadModel: () => Promise<unknown>;
+  shouldContinue: () => boolean;
 }): Promise<GroupGrantReshareOutcome> {
   // The read model is a local cache. A grant created since the last reconcile
   // is absent from it, and a container missing from the candidate list is never
@@ -170,6 +197,16 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
     input.log(
       `Organizations: group grant re-share read-model pull failed for group ${input.mutatedGroupId}: ${error instanceof Error ? error.message : String(error)}`,
     );
+  }
+  // The reconcile above can span a switch or a logout. Anything issued after
+  // that would be this organization's repair travelling through another
+  // scope's runtime, so re-check before reading or writing anything.
+  if (!input.shouldContinue()) {
+    return {
+      complete: false,
+      headConfirmed: false,
+      unresolvedContainerIds: [],
+    };
   }
   const head = await loadLocalOrganizationPolicyReference({
     currentUserId: input.currentUserId,
@@ -217,6 +254,20 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   const unresolvedContainerIds: string[] = [];
   const unauthorizedContainerIds = new Set<string>();
   for (const container of granted.containers) {
+    if (!input.shouldContinue()) {
+      // A switch mid-loop: stop before issuing another write. What is left
+      // stays unresolved, which is what keeps the outcome honest.
+      return {
+        complete: false,
+        headConfirmed: true,
+        unresolvedContainerIds: [
+          ...unresolvedContainerIds,
+          ...granted.containers
+            .slice(granted.containers.indexOf(container))
+            .map((pending) => pending.containerId),
+        ],
+      };
+    }
     const repaired = await reshareOneGrantedContainer({
       accessLevel: container.accessLevel,
       containerId: container.containerId,

@@ -27,6 +27,7 @@ async function run(input: {
     mutatedGroupId: GRANTED_GROUP_ID,
     organizationId: ORGANIZATION_ID,
     reconcileReadModel: input.reconcileReadModel ?? (async () => ({})),
+    shouldContinue: () => true,
   });
 }
 
@@ -127,6 +128,7 @@ test("an unreachable container does not abort the rest of the sweep", async () =
       mutatedGroupId: GRANTED_GROUP_ID,
       organizationId: ORGANIZATION_ID,
       reconcileReadModel: async () => ({}),
+      shouldContinue: () => true,
     });
 
     expect(rewrapped).toEqual(["container-b"]);
@@ -190,6 +192,7 @@ test("still sweeps when the pull fails but the rotation is visible", async () =>
       reconcileReadModel: async () => {
         throw new Error("offline");
       },
+      shouldContinue: () => true,
     });
 
     // A failed pull is not itself disqualifying: what gates the sweep is
@@ -220,6 +223,7 @@ test("does not sweep when the rotation never appears", async () => {
       mutatedGroupId: GRANTED_GROUP_ID,
       organizationId: ORGANIZATION_ID,
       reconcileReadModel: async () => ({}),
+      shouldContinue: () => true,
     });
 
     // The head is captured before the policy write and the sweep also runs on
@@ -250,6 +254,7 @@ test("logs a container whose preparation is unavailable", async () => {
       mutatedGroupId: GRANTED_GROUP_ID,
       organizationId: ORGANIZATION_ID,
       reconcileReadModel: async () => ({}),
+      shouldContinue: () => true,
     });
 
     // Unavailable is not "not-granted": the grant is neither confirmed nor
@@ -281,6 +286,7 @@ test("a forbidden container does not strand the ones after it", async () => {
       mutatedGroupId: GRANTED_GROUP_ID,
       organizationId: ORGANIZATION_ID,
       reconcileReadModel: async () => ({}),
+      shouldContinue: () => true,
     });
 
     // Aborting on the first 403 would strand container-b, which this same
@@ -315,6 +321,7 @@ test("an unreadable group is never reported as a completed sweep", async () => {
       mutatedGroupId: "group-with-no-readable-projection",
       organizationId: ORGANIZATION_ID,
       reconcileReadModel: async () => ({}),
+      shouldContinue: () => true,
     });
 
     // Reporting complete would retire the sweep on the very race it exists to
