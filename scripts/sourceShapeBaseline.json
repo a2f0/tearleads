@@ -270,8 +270,8 @@
       "bytes": 17807
     },
     "packages/client-sdk/src/client/organizations.ts": {
-      "lines": 586,
-      "bytes": 19667
+      "lines": 617,
+      "bytes": 20478
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 1032,
@@ -454,8 +454,8 @@
       "bytes": 33792
     },
     "scripts/subsystems.ts": {
-      "lines": 734,
-      "bytes": 27040
+      "lines": 737,
+      "bytes": 27226
     },
     "packages/validators/src/response/organizationReadModel.test.ts": {
       "lines": 502,
