@@ -42,7 +42,7 @@ test.each<[string, Error, string, boolean]>([
       code: "bridge-unregistered",
     }),
     ORG_MANAGER_LABELS.billingNativeCheckoutUnregistered,
-    true,
+    false,
   ],
 ])("%s billing readiness gives actionable guidance", async (_case, error, label, shouldLog) => {
   const consoleError = spyOn(console, "error").mockImplementation(() => {});

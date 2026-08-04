@@ -1,4 +1,3 @@
-import { ExceptionCode } from "@capacitor/core";
 import {
   PURCHASES_ERROR_CODE,
   Purchases,
@@ -19,6 +18,8 @@ import {
 import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import {
   fromCapacitorCustomerInfo,
+  type NativeProductChangeInput,
+  nativeProductChangeInput,
   prepareCapacitorRevenueCatPackage,
   purchaseCapacitorRevenueCatPackage,
 } from "./capacitorRevenueCatPurchase";
@@ -30,6 +31,7 @@ import {
 } from "./capacitorRevenueCatRuntime";
 
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
+const CAPACITOR_UNIMPLEMENTED_CODE = "UNIMPLEMENTED";
 
 function toRevenueCatPackage(entry: PurchasesPackage): RevenueCatPackage {
   return {
@@ -88,9 +90,7 @@ async function androidProductChangeOptions(targetProductId: string) {
 class CapacitorPreparedPurchase {
   constructor(
     readonly aPackage: PurchasesPackage,
-    readonly productChangeOptions: Awaited<
-      ReturnType<typeof androidProductChangeOptions>
-    >,
+    readonly productChange: NativeProductChangeInput | undefined,
   ) {}
 }
 
@@ -119,9 +119,12 @@ async function prepareCapacitorPurchase(input: {
   const productChangeOptions =
     await androidProductChangeOptions(productIdentifier);
   if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
+  const productChange = nativeProductChangeInput(
+    productChangeOptions.storeProductChangeInfo,
+  );
   await prepareCapacitorRevenueCatPackage(aPackage);
   if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
-  return new CapacitorPreparedPurchase(aPackage, productChangeOptions);
+  return new CapacitorPreparedPurchase(aPackage, productChange);
 }
 
 /**
@@ -197,7 +200,7 @@ class NativePurchaseBridgeUnregisteredError extends PurchasesUnavailableError {
 }
 
 function normalizeNativePurchaseBridgeError(error: unknown): void {
-  if (hasNativePurchaseBridgeCode(error, ExceptionCode.Unimplemented)) {
+  if (hasNativePurchaseBridgeCode(error, CAPACITOR_UNIMPLEMENTED_CODE)) {
     throw new NativePurchaseBridgeUnregisteredError(error);
   }
   if (hasNativePurchaseBridgeCode(error, "bridge-invalid")) {
@@ -275,7 +278,7 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
     try {
       return await purchaseCapacitorRevenueCatPackage(
         preparedPurchase.aPackage,
-        preparedPurchase.productChangeOptions,
+        preparedPurchase.productChange,
       );
     } catch (error) {
       normalizeCapacitorPurchaseError(error);
@@ -325,12 +328,12 @@ export function createCapacitorPurchases(input?: {
   readonly operationTimeoutMs?: number;
 }): PurchasesCapability {
   const operationTimeoutMs = input?.operationTimeoutMs;
+  validateOperationTimeoutMs(operationTimeoutMs);
   const platform = getRevenueCatPlatform();
   const apiKey = readPlatformApiKey();
   if (!apiKey) {
     return createUnavailablePurchases();
   }
-  validateOperationTimeoutMs(operationTimeoutMs);
   const syncEntitlementId =
     readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
     DEFAULT_SYNC_ENTITLEMENT_ID;
@@ -355,7 +358,7 @@ export function createCapacitorPurchases(input?: {
       : platform === "ios"
         ? "app_store"
         : "play_store",
-    restorePurchasesBuyerPaced: platform === "ios",
+    restorePurchasesUsesCheckoutTimeout: true,
     syncEntitlementId,
     ...(operationTimeoutMs === undefined ? {} : { operationTimeoutMs }),
   });

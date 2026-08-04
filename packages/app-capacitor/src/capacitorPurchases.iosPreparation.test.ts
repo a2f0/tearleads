@@ -10,7 +10,7 @@ import {
 
 afterEach(resetFixture);
 
-test("bounds the iOS diagnostic lookup before opening StoreKit", async () => {
+test("bounds iOS package preparation before opening StoreKit", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.platform = "ios";
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];

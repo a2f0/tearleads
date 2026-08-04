@@ -18,7 +18,7 @@ interface NativeSubscriptionMoveConfig {
   readonly nativeStore: NativeSubscriptionStore | null;
   readonly operationTimeoutMs?: number;
   readonly purchasesEnabled?: boolean;
-  readonly restorePurchasesBuyerPaced: boolean;
+  readonly restorePurchasesUsesCheckoutTimeout: boolean;
   readonly syncEntitlementId: string;
 }
 
@@ -31,7 +31,7 @@ function moveRevenueCatNativeSubscription(input: {
   readonly entitlementId: string;
   readonly identity: RevenueCatIdentityCoordinator;
   readonly organizationId: string;
-  readonly restorePurchasesBuyerPaced: boolean;
+  readonly restorePurchasesUsesCheckoutTimeout: boolean;
   readonly store: NativeSubscriptionStore;
   readonly userId: string;
 }): Promise<void> {
@@ -44,8 +44,10 @@ function moveRevenueCatNativeSubscription(input: {
       const info = await providerPhase.run(
         () => input.backend.restorePurchases(),
         {
-          ...(input.restorePurchasesBuyerPaced ? { buyerPaced: true } : {}),
           operationName: "restore",
+          ...(input.restorePurchasesUsesCheckoutTimeout
+            ? { usesCheckoutSettlementTimeout: true }
+            : {}),
         },
       );
       if (
@@ -99,7 +101,8 @@ export function nativeMove(
       claimTimeoutMs,
       entitlementId: config.syncEntitlementId,
       identity,
-      restorePurchasesBuyerPaced: config.restorePurchasesBuyerPaced,
+      restorePurchasesUsesCheckoutTimeout:
+        config.restorePurchasesUsesCheckoutTimeout,
       ...request,
       store: config.nativeStore,
     }).catch(normalizeRevenueCatIdentityError);

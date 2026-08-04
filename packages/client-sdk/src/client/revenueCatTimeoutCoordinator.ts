@@ -19,7 +19,7 @@ export class RevenueCatTimeoutCoordinator {
 
   constructor(
     private readonly timeoutMs: number,
-    private readonly buyerPacedTimeoutMs: number,
+    private readonly checkoutSettlementTimeoutMs: number,
   ) {}
 
   get identityMutationActive(): boolean {
@@ -158,7 +158,7 @@ export class RevenueCatTimeoutCoordinator {
     );
   }
 
-  withBuyerPacedTimeout<T>(
+  withCheckoutSettlementTimeout<T>(
     operation: Promise<T>,
     operationName: string,
     onTimeout?: (error: RevenueCatOperationTimeoutError) => void,
@@ -168,7 +168,7 @@ export class RevenueCatTimeoutCoordinator {
       `${operationName} settlement`,
       () => true,
       onTimeout,
-      this.buyerPacedTimeoutMs,
+      this.checkoutSettlementTimeoutMs,
     );
   }
 

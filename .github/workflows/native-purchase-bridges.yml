@@ -4,13 +4,19 @@ on:
   pull_request:
     paths:
       - ".github/workflows/native-purchase-bridges.yml"
-      - "packages/app-capacitor/**"
+      - "packages/app-capacitor/android/**"
+      - "packages/app-capacitor/capacitor.config.ts"
+      - "packages/app-capacitor/ios/**"
+      - "packages/app-capacitor/package.json"
   push:
     branches:
       - main
     paths:
       - ".github/workflows/native-purchase-bridges.yml"
-      - "packages/app-capacitor/**"
+      - "packages/app-capacitor/android/**"
+      - "packages/app-capacitor/capacitor.config.ts"
+      - "packages/app-capacitor/ios/**"
+      - "packages/app-capacitor/package.json"
   workflow_dispatch:
 
 permissions:

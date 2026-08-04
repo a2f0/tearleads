@@ -28,6 +28,10 @@ interface ProviderEnqueueReservation {
   readonly release: () => void;
 }
 
+function usesLongTimeout<T>(input: RevenueCatProviderOperation<T>): boolean {
+  return input.usesCheckoutSettlementTimeout === true;
+}
+
 class RevenueCatIdentityCoordinatorState
   implements RevenueCatIdentityCoordinator
 {
@@ -372,9 +376,8 @@ class RevenueCatIdentityCoordinatorState
       if (requiresKnownIdentity && identityBeforeOperation) {
         dependencies.push(identityBeforeOperation);
       }
-      if (providerEnqueuesBeforeOperation) {
+      if (providerEnqueuesBeforeOperation)
         dependencies.push(providerEnqueuesBeforeOperation);
-      }
       return dependencies.length > 0
         ? Promise.all(dependencies).then(schedule)
         : schedule();
@@ -399,7 +402,7 @@ class RevenueCatIdentityCoordinatorState
         }
       : undefined;
     return settleRevenueCatProviderOperation({
-      buyerPaced: providerInput.buyerPaced === true,
+      usesCheckoutSettlementTimeout: usesLongTimeout(providerInput),
       onPreparationTimeout: abandonPreparation,
       ...(abandonProvider ? { onProviderTimeout: abandonProvider } : {}),
       operation,

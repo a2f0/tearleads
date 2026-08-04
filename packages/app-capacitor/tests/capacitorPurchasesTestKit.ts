@@ -273,8 +273,12 @@ export function clearEnv() {
   }
 }
 
-export function resetFixture(): void {
+export function resetCachedPurchases(): void {
   fixture.cachedPurchases = undefined;
+}
+
+export function resetFixture(): void {
+  resetCachedPurchases();
   fixture.platform = "ios";
   fixture.configureCalls = [];
   fixture.nativeConfigurationChecks = 0;

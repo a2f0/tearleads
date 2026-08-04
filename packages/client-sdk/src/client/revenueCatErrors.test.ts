@@ -38,16 +38,18 @@ test("unknown subclasses are wrapped without fabricating private slots", () => {
 });
 
 test("provider error copies preserve native diagnostics", () => {
-  const source = normalizeRevenueCatError({
+  const providerError = {
     code: "13",
     message: "Receipt belongs to another buyer",
     storeError: { code: 7, domain: "SKErrorDomain" },
     userCancelled: false,
-  });
+  };
+  const source = normalizeRevenueCatError(providerError);
 
   const copy = copyRevenueCatError(source);
 
   expect(copy).not.toBe(source);
+  expect(copy.cause).toBe(providerError);
   expect(copy).toMatchObject({
     code: "13",
     message: "Receipt belongs to another buyer",

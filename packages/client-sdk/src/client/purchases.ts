@@ -172,13 +172,12 @@ export interface RevenueCatPurchasesConfig {
   /** Store represented by this SDK key; null for Web Billing. */
   readonly nativeStore: NativeSubscriptionStore | null;
   /**
-   * Whether restore may present buyer-controlled authentication UI. This is a
-   * platform property, not a key/store property: an iOS Test Store key still
-   * uses Apple's buyer-paced restore flow.
+   * Whether restore uses the longer checkout-settlement deadline. Native
+   * restores may wait for store authentication or billing-service reconnects.
    */
-  readonly restorePurchasesBuyerPaced: boolean;
+  readonly restorePurchasesUsesCheckoutTimeout: boolean;
   /**
-   * Recovery deadline after native checkout or buyer-paced restore begins.
+   * Recovery deadline after native checkout or a long-running restore begins.
    * Defaults to ten minutes so normal buyer interaction remains unhurried while
    * a lost native callback eventually surfaces restart guidance.
    */
@@ -268,17 +267,19 @@ function requirePurchasesEnabled(enabled: boolean): void {
 }
 
 function runRevenueCatCustomerOperation<T>(input: {
-  readonly buyerPaced?: boolean;
   readonly identity: RevenueCatIdentityCoordinator;
   readonly operation: () => Promise<T>;
   readonly operationName: string;
+  readonly usesCheckoutSettlementTimeout?: boolean;
   readonly waitForCheckout?: boolean;
 }): Promise<T> {
   return input.identity
     .runProviderOperation({
-      ...(input.buyerPaced ? { buyerPaced: true } : {}),
       operation: input.operation,
       operationName: input.operationName,
+      ...(input.usesCheckoutSettlementTimeout
+        ? { usesCheckoutSettlementTimeout: true }
+        : {}),
       ...(input.waitForCheckout ? { waitForCheckout: true } : {}),
     })
     .catch(normalizeRevenueCatIdentityError);
@@ -371,13 +372,11 @@ export function createRevenueCatPurchases(
     async restore() {
       requirePurchasesEnabled(purchasesEnabled);
       const info = await runRevenueCatCustomerOperation({
-        // App Store restore may show buyer-controlled Apple sign-in UI. Google
-        // Play restore has no equivalent sheet, so bound it like any other
-        // bridge call instead of leaving an Android spinner up forever.
-        buyerPaced: config.restorePurchasesBuyerPaced,
         identity,
         operation: () => backend.restorePurchases(),
         operationName: "restore",
+        usesCheckoutSettlementTimeout:
+          config.restorePurchasesUsesCheckoutTimeout,
         waitForCheckout: true,
       });
       return {

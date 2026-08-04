@@ -2,7 +2,6 @@ import type { RevenueCatProviderPhaseCoordinator } from "./revenueCatProviderPha
 import type { RevenueCatTimeoutCoordinator } from "./revenueCatTimeoutCoordinator";
 
 interface RevenueCatProviderSettlementInput<T> {
-  readonly buyerPaced: boolean;
   readonly onPreparationTimeout: () => void;
   readonly onProviderTimeout?: () => void;
   readonly operation: Promise<T>;
@@ -11,6 +10,7 @@ interface RevenueCatProviderSettlementInput<T> {
   readonly providerPhase: RevenueCatProviderPhaseCoordinator | undefined;
   readonly providerStarted: () => boolean;
   readonly timeouts: RevenueCatTimeoutCoordinator;
+  readonly usesCheckoutSettlementTimeout: boolean;
 }
 
 /** Applies a deadline to preflight/provider work without timing the server tail. */
@@ -18,7 +18,7 @@ export function settleRevenueCatProviderOperation<T>(
   input: RevenueCatProviderSettlementInput<T>,
 ): Promise<T> {
   const { timeouts } = input;
-  if (input.buyerPaced) {
+  if (input.usesCheckoutSettlementTimeout) {
     void input.operation.catch(() => undefined);
     return timeouts
       .withProviderTimeout(
@@ -28,7 +28,7 @@ export function settleRevenueCatProviderOperation<T>(
         input.onPreparationTimeout,
       )
       .then(() =>
-        timeouts.withBuyerPacedTimeout(
+        timeouts.withCheckoutSettlementTimeout(
           input.operation,
           input.operationName,
           input.onProviderTimeout,

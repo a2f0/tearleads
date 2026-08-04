@@ -294,11 +294,6 @@ function handleExpectedPurchaseError(input: {
   return false;
 }
 
-function reportUnexpectedPurchaseError(error: unknown): void {
-  if (error instanceof PurchaseIdentityPendingError) return;
-  console.error("Failed to complete the organization sync purchase:", error);
-}
-
 function isUnregisteredPurchaseBridge(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -306,6 +301,16 @@ function isUnregisteredPurchaseBridge(error: unknown): boolean {
     "code" in error &&
     error.code === "bridge-unregistered"
   );
+}
+
+function reportUnexpectedPurchaseError(error: unknown): void {
+  if (
+    error instanceof PurchaseIdentityPendingError ||
+    isUnregisteredPurchaseBridge(error)
+  ) {
+    return;
+  }
+  console.error("Failed to complete the organization sync purchase:", error);
 }
 
 function purchaseErrorLabel(error: unknown): string {

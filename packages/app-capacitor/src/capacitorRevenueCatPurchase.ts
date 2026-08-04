@@ -11,9 +11,14 @@ type NativePurchaseChangeOptions = Pick<
   "storeProductChangeInfo"
 >;
 
+export interface NativeProductChangeInput {
+  readonly oldProductIdentifier: string;
+  readonly replacementMode: string;
+}
+
 export function nativeProductChangeInput(
   change: NativePurchaseChangeOptions["storeProductChangeInfo"],
-): { oldProductIdentifier: string; replacementMode: string } | undefined {
+): NativeProductChangeInput | undefined {
   if (change == null) return undefined;
   if (!change.oldProductIdentifier || change.replacementMode === undefined) {
     throw new Error("Android product changes require both store fields");
@@ -68,9 +73,8 @@ function normalizeActiveEntitlementIds(value: unknown): string[] {
  */
 export async function purchaseCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
-  options: NativePurchaseChangeOptions = {},
+  change?: NativeProductChangeInput,
 ): Promise<RevenueCatCustomerInfo> {
-  const change = nativeProductChangeInput(options.storeProductChangeInfo);
   const result = await getNativeRevenueCatPurchase().purchasePackage({
     ...nativePackageInput(aPackage),
     ...(change ?? {}),

@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { STORE_REPLACEMENT_MODE } from "@revenuecat/purchases-capacitor";
 import {
   PurchaseAbortedError,
   PurchaseAlreadyOwnedError,
@@ -33,6 +34,59 @@ test("purchases Android packages through the bounded native bridge", async () =>
     { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
   ]);
   expect(fixture.purchaseCalls).toEqual([]);
+});
+
+test("rejects a package whose identity changes after preparation", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  const aPackage = nativePackage("monthly", "com.tearleads.sync.monthly");
+  fixture.packages = [aPackage];
+  fixture.onNativePrepare = () => {
+    Object.assign(aPackage, { identifier: "changed" });
+  };
+
+  await expect(
+    createCapacitorPurchases().purchaseSync({
+      organizationId: "org-1",
+      packageId: "monthly",
+    }),
+  ).rejects.toThrow("Purchase package was not prepared: monthly");
+  expect(fixture.nativePrepareCalls).toHaveLength(1);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
+});
+
+test("rejects an incomplete Play product change before preparation", async () => {
+  setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
+  fixture.platform = "android";
+  fixture.packages = [nativePackage("team_5", "sync_team_5_monthly:monthly")];
+  fixture.customerInfo = {
+    entitlements: {
+      active: {
+        sync: {
+          productIdentifier: "sync_solo_monthly:monthly",
+          store: "PLAY_STORE",
+        },
+      },
+    },
+  };
+  const replacementMode = STORE_REPLACEMENT_MODE.CHARGE_PRORATED_PRICE;
+  Reflect.set(STORE_REPLACEMENT_MODE, "CHARGE_PRORATED_PRICE", undefined);
+  try {
+    await expect(
+      createCapacitorPurchases().purchaseSync({
+        organizationId: "org-1",
+        packageId: "team_5",
+      }),
+    ).rejects.toThrow("Android product changes require both store fields");
+  } finally {
+    Reflect.set(
+      STORE_REPLACEMENT_MODE,
+      "CHARGE_PRORATED_PRICE",
+      replacementMode,
+    );
+  }
+  expect(fixture.nativePrepareCalls).toEqual([]);
+  expect(fixture.nativePurchaseCalls).toEqual([]);
 });
 
 test("bounds Android native preparation before opening Play", async () => {

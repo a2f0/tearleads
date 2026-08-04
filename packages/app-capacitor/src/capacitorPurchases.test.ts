@@ -13,6 +13,7 @@ import {
   fixture,
   nativePackage,
   purchaseSync,
+  resetCachedPurchases,
   resetFixture,
   setEnv,
 } from "../tests/capacitorPurchasesTestKit";
@@ -46,7 +47,7 @@ test("configures the key belonging to the running platform", async () => {
 
   // Switching native platforms represents a new app process. Clear the
   // process-scoped singleton before simulating that second launch.
-  fixture.cachedPurchases = undefined;
+  resetCachedPurchases();
   fixture.configureCalls = [];
   fixture.platform = "android";
   await createCapacitorPurchases().identify({ userId: "user-1" });
@@ -61,11 +62,11 @@ test("maps RevenueCat public keys and platforms to the claim store", () => {
   fixture.platform = "ios";
   expect(createCapacitorPurchases().nativeStore).toBe("test_store");
 
-  fixture.cachedPurchases = undefined;
+  resetCachedPurchases();
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "appl_project_key");
   expect(createCapacitorPurchases().nativeStore).toBe("app_store");
 
-  fixture.cachedPurchases = undefined;
+  resetCachedPurchases();
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "goog_project_key");
   fixture.platform = "android";
   expect(createCapacitorPurchases().nativeStore).toBe("play_store");

@@ -39,7 +39,7 @@ function purchases(backend: RevenueCatBackend) {
   return createRevenueCatPurchases(backend, {
     apiKey: "key",
     nativeStore: "test_store",
-    restorePurchasesBuyerPaced: false,
+    restorePurchasesUsesCheckoutTimeout: false,
     syncEntitlementId: "sync",
   });
 }

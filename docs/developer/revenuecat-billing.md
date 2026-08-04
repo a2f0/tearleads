@@ -141,10 +141,10 @@ bun run --filter=app-web dev
 
 ## Provider deadlines
 
-Provider setup, identity, checkout preparation, Play restore, and ordinary calls
-have independent 30-second deadlines. App Store restore and native checkout stay
-buyer-paced, but a lost callback surfaces restart guidance after ten minutes;
-the block clears if the callback later arrives.
+Provider setup, identity, checkout preparation, and ordinary calls have
+30-second deadlines. Native restore and checkout allow ten minutes
+for StoreKit authentication or Play Billing reconnection; a lost callback then
+surfaces restart guidance, and the block clears if that callback later arrives.
 
 `PurchaseIdentityPendingError` means a call timed out before reaching the
 provider, including while queued behind checkout or restore; retry after that

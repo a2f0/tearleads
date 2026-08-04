@@ -2,8 +2,8 @@ import type { RevenueCatOperationTimeoutError } from "./revenueCatErrors";
 import type { RevenueCatTimeoutCoordinator } from "./revenueCatTimeoutCoordinator";
 
 interface RevenueCatProviderPhaseInput {
-  readonly buyerPaced?: boolean;
   readonly operationName: string;
+  readonly usesCheckoutSettlementTimeout?: boolean;
 }
 
 export interface RevenueCatProviderPhaseControl {
@@ -38,8 +38,8 @@ export class RevenueCatProviderPhaseCoordinator
         timeoutError = error;
         this.rejectTimedOut(error);
       };
-      return await (input.buyerPaced
-        ? this.timeouts.withBuyerPacedTimeout(
+      return await (input.usesCheckoutSettlementTimeout
+        ? this.timeouts.withCheckoutSettlementTimeout(
             pending,
             input.operationName,
             onTimeout,

@@ -42,8 +42,8 @@ class RevenueCatProviderError extends Error {
   readonly underlyingErrorMessage: unknown;
   readonly userCancelled: unknown;
 
-  constructor(message: string, source: object) {
-    super(message, { cause: source });
+  constructor(message: string, source: object, cause: unknown = source) {
+    super(message, { cause });
     this.name = "RevenueCatProviderError";
     this.data = readSourceField(source, "data");
     this.code = readDiagnosticField(source, "code");
@@ -104,7 +104,7 @@ export function copyRevenueCatError(source: Error): Error {
     return copy;
   }
   if (source instanceof RevenueCatProviderError) {
-    return new RevenueCatProviderError(source.message, source);
+    return new RevenueCatProviderError(source.message, source, source.cause);
   }
   const copy = new Error(source.message, { cause: source });
   copy.name = source.name;

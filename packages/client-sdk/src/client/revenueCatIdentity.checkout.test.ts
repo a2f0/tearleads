@@ -122,7 +122,7 @@ test("a restore waits only for identity changes pending at reservation", async (
   await firstLoginStarted.promise;
 
   const restoring = identity.runProviderOperation({
-    buyerPaced: true,
+    usesCheckoutSettlementTimeout: true,
     operation: async () => {
       backend.calls.push("restore");
       restoreStarted.resolve();
@@ -234,7 +234,7 @@ test("a queued provider stall eventually promotes restart guidance", async () =>
   const identity = coordinator(backend, 5);
   await identity.identify("user-1");
   const restoring = identity.runProviderOperation({
-    buyerPaced: true,
+    usesCheckoutSettlementTimeout: true,
     operation: async () => {
       restoreStarted.resolve();
       await restore.promise;

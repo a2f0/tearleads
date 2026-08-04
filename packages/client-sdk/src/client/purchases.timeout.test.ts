@@ -30,13 +30,13 @@ function createBackend(): RevenueCatBackend {
 function purchases(
   backend: RevenueCatBackend,
   nativeStore: "app_store" | "play_store" | "test_store" = "play_store",
-  restorePurchasesBuyerPaced = nativeStore === "app_store",
+  restorePurchasesUsesCheckoutTimeout = true,
 ) {
   return createRevenueCatPurchases(backend, {
     apiKey: "key",
     nativeStore,
     operationTimeoutMs: 50,
-    restorePurchasesBuyerPaced,
+    restorePurchasesUsesCheckoutTimeout,
     syncEntitlementId: "sync",
   });
 }
@@ -97,7 +97,7 @@ test("a lost native checkout callback surfaces restart guidance", async () => {
     checkoutSettlementTimeoutMs: 5,
     nativeStore: "play_store",
     operationTimeoutMs: 50,
-    restorePurchasesBuyerPaced: false,
+    restorePurchasesUsesCheckoutTimeout: false,
     syncEntitlementId: "sync",
   });
 
@@ -121,7 +121,7 @@ test("a native checkout that settles after its deadline restores billing", async
     checkoutSettlementTimeoutMs: 5,
     nativeStore: "play_store",
     operationTimeoutMs: 50,
-    restorePurchasesBuyerPaced: false,
+    restorePurchasesUsesCheckoutTimeout: false,
     syncEntitlementId: "sync",
   });
 
@@ -203,7 +203,7 @@ test("a lost buyer-paced restore callback eventually requires restart", async ()
     checkoutSettlementTimeoutMs: 5,
     nativeStore: "app_store",
     operationTimeoutMs: 50,
-    restorePurchasesBuyerPaced: true,
+    restorePurchasesUsesCheckoutTimeout: true,
     syncEntitlementId: "sync",
   });
 
@@ -218,10 +218,42 @@ test("a lost buyer-paced restore callback eventually requires restart", async ()
 test("Android restore exposes a terminal error when the bridge stalls", async () => {
   const backend = createBackend();
   backend.restorePurchases = () => new Promise(() => {});
+  const capability = createRevenueCatPurchases(backend, {
+    apiKey: "key",
+    checkoutSettlementTimeoutMs: 5,
+    nativeStore: "play_store",
+    operationTimeoutMs: 50,
+    restorePurchasesUsesCheckoutTimeout: true,
+    syncEntitlementId: "sync",
+  });
 
-  await expect(purchases(backend).restore()).rejects.toBeInstanceOf(
+  await expect(capability.restore()).rejects.toBeInstanceOf(
     PurchaseProviderStalledError,
   );
+});
+
+test("an Android native move gives Play reconnect the checkout deadline", async () => {
+  const backend = createBackend();
+  backend.restorePurchases = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    return { activeEntitlementIds: ["sync"] };
+  };
+  const capability = createRevenueCatPurchases(backend, {
+    apiKey: "key",
+    checkoutSettlementTimeoutMs: 50,
+    nativeStore: "play_store",
+    operationTimeoutMs: 5,
+    restorePurchasesUsesCheckoutTimeout: true,
+    syncEntitlementId: "sync",
+  });
+
+  await expect(
+    capability.moveNativeSubscription({
+      claim: async () => true,
+      organizationId: "org-1",
+      userId: "user-1",
+    }),
+  ).resolves.toBeUndefined();
 });
 
 test("an Android native move bounds only the Play restore phase", async () => {
@@ -232,7 +264,14 @@ test("an Android native move bounds only the Play restore phase", async () => {
       finishRestore = () => resolve({ activeEntitlementIds: ["sync"] });
     });
   let claimAttempts = 0;
-  const capability = purchases(backend);
+  const capability = createRevenueCatPurchases(backend, {
+    apiKey: "key",
+    checkoutSettlementTimeoutMs: 5,
+    nativeStore: "play_store",
+    operationTimeoutMs: 50,
+    restorePurchasesUsesCheckoutTimeout: true,
+    syncEntitlementId: "sync",
+  });
 
   await expect(
     capability.moveNativeSubscription({
@@ -360,7 +399,7 @@ test("a lost iOS native move callback eventually requires restart", async () => 
     checkoutSettlementTimeoutMs: 5,
     nativeStore: "app_store",
     operationTimeoutMs: 50,
-    restorePurchasesBuyerPaced: true,
+    restorePurchasesUsesCheckoutTimeout: true,
     syncEntitlementId: "sync",
   });
 

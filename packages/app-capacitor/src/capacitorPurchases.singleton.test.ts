@@ -62,10 +62,10 @@ test("factory keeps its native singleton configuration immutable", () => {
   );
 });
 
-test("web preview ignores native-only timeout configuration", () => {
-  const purchases = createCapacitorPurchases({ operationTimeoutMs: 0 });
-
-  expect(purchases.isAvailable).toBe(false);
+test("web preview validates timeout configuration consistently", () => {
+  expect(() => createCapacitorPurchases({ operationTimeoutMs: 0 })).toThrow(
+    "RevenueCat operation timeout must be a positive finite number",
+  );
 });
 
 test("an iOS Test Store restore remains buyer paced", async () => {

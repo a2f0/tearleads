@@ -87,7 +87,7 @@ function createDeferred() {
 const CONFIG = {
   apiKey: "key",
   nativeStore: "test_store" as const,
-  restorePurchasesBuyerPaced: false,
+  restorePurchasesUsesCheckoutTimeout: false,
   syncEntitlementId: "sync",
 };
 
