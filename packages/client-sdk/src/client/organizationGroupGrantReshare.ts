@@ -372,10 +372,9 @@ async function reshareOneGrantedContainer(input: {
 }
 
 function isAuthorizationFailure(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    (error as { status?: unknown }).status === 403
-  );
+  if (typeof error !== "object" || error === null || !("status" in error)) {
+    return false;
+  }
+  const { status } = error;
+  return status === 403;
 }
