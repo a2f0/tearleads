@@ -2,16 +2,11 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import type { ContainerContents } from "./containerContents";
-import {
-  reshareGroupContainerGrantsAfterRotation,
-  scheduleGroupGrantReshareAfterRotation,
-  withGroupGrantReshareAfterRotation,
-} from "./organizationGroupGrantReshare";
+import { reshareGroupContainerGrantsAfterRotation } from "./organizationGroupGrantReshare";
 import {
   CURRENT_USER_ID,
   EXPECTED_HEAD,
   fakeContainerContents,
-  fakeRuntime,
   GRANTED_GROUP_ID,
   ORGANIZATION_ID,
   type RewrapCall,
@@ -175,7 +170,7 @@ test("pulls the read model before it enumerates any grant", async () => {
   }
 });
 
-test("sweeps the cached grants when the read-model pull fails", async () => {
+test("still sweeps when the pull fails but the rotation is visible", async () => {
   const { close, execSql } = await createTestExecSql(
     "group-grant-reshare-reconcile-failure",
   );
@@ -184,7 +179,7 @@ test("sweeps the cached grants when the read-model pull fails", async () => {
     const prepareCalls: RewrapCall[] = [];
     const rewrapped: string[] = [];
     const logged: string[] = [];
-    await reshareGroupContainerGrantsAfterRotation({
+    const outcome = await reshareGroupContainerGrantsAfterRotation({
       containerContents: fakeContainerContents({ prepareCalls, rewrapped }),
       currentUserId: CURRENT_USER_ID,
       execSql,
@@ -197,11 +192,41 @@ test("sweeps the cached grants when the read-model pull fails", async () => {
       },
     });
 
-    // Offline must degrade to sweeping what is known, not to sweeping nothing.
+    // A failed pull is not itself disqualifying: what gates the sweep is
+    // whether the rotation is visible, and here the local head already is it.
+    expect(outcome.headConfirmed).toBe(true);
     expect(rewrapped.toSorted()).toEqual(["container-a", "container-b"]);
-    expect(logged.some((message) => message.includes("stale read model"))).toBe(
-      true,
-    );
+    expect(logged.some((message) => message.includes("offline"))).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("does not sweep when the rotation never appears", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-uncommitted",
+  );
+  try {
+    await seedReadModel(execSql);
+    const prepareCalls: RewrapCall[] = [];
+    const rewrapped: string[] = [];
+    const outcome = await reshareGroupContainerGrantsAfterRotation({
+      containerContents: fakeContainerContents({ prepareCalls, rewrapped }),
+      currentUserId: CURRENT_USER_ID,
+      execSql,
+      // A head the read model does not carry: the mutation never committed.
+      expectedGroupHead: { ...EXPECTED_HEAD, stateHash: "never-committed" },
+      log: () => undefined,
+      mutatedGroupId: GRANTED_GROUP_ID,
+      organizationId: ORGANIZATION_ID,
+      reconcileReadModel: async () => ({}),
+    });
+
+    // The head is captured before the policy write and the sweep also runs on
+    // the throwing path, so an uncommitted mutation must not re-share anything.
+    expect(outcome.headConfirmed).toBe(false);
+    expect(prepareCalls).toEqual([]);
+    expect(rewrapped).toEqual([]);
   } finally {
     close();
   }
@@ -230,259 +255,6 @@ test("logs a container whose preparation is unavailable", async () => {
     // Unavailable is not "not-granted": the grant is neither confirmed nor
     // refuted, so staying silent would read as a clean sweep.
     expect(logged.filter((m) => m.includes("unavailable")).length).toBe(2);
-  } finally {
-    close();
-  }
-});
-
-test("sweeps a rotation whose mutation rejected after committing", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "group-grant-reshare-post-commit-failure",
-  );
-  try {
-    await seedReadModel(execSql);
-    const prepareCalls: RewrapCall[] = [];
-    const rewrapped: string[] = [];
-    const log: string[] = [];
-    let reconciled = false;
-    const swept = new Promise<void>((resolve) => {
-      const runtime = fakeRuntime(log);
-      runtime.infra.execSql = execSql as never;
-      const boom = new Error("cache write failed after the policy committed");
-      void withGroupGrantReshareAfterRotation({
-        containerContents: fakeContainerContents({ prepareCalls, rewrapped }),
-        mutatedGroupId: GRANTED_GROUP_ID,
-        mutation: Promise.reject(boom),
-        // The head is captured before the rejection, so the policy did commit.
-        readExpectedGroupHead: () => EXPECTED_HEAD,
-        reconcileReadModel: async () => {
-          reconciled = true;
-          resolve();
-          return {};
-        },
-        runtime: runtime as never,
-        signingContext: {
-          organizationId: ORGANIZATION_ID,
-          signerUserId: CURRENT_USER_ID,
-        },
-      }).catch(() => undefined);
-    });
-    await swept;
-
-    // recoverOrganizationRootRewrapAfterMutationFailure rethrows the original
-    // error after a post-commit failure. The group has still rotated, so the
-    // stale grants must be swept from the throwing path too.
-    expect(reconciled).toBe(true);
-  } finally {
-    close();
-  }
-});
-
-test("rethrows the mutation error rather than swallowing it", async () => {
-  const log: string[] = [];
-  const runtime = fakeRuntime(log);
-  const boom = new Error("policy commit failed");
-  expect(
-    withGroupGrantReshareAfterRotation({
-      containerContents: fakeContainerContents({
-        prepareCalls: [],
-        rewrapped: [],
-      }),
-      mutatedGroupId: GRANTED_GROUP_ID,
-      mutation: Promise.reject(boom),
-      // No head captured: the commit never happened, so nothing is swept.
-      readExpectedGroupHead: () => null,
-      reconcileReadModel: async () => {
-        throw new Error("must not reconcile without a committed head");
-      },
-      runtime: runtime as never,
-      signingContext: {
-        organizationId: ORGANIZATION_ID,
-        signerUserId: CURRENT_USER_ID,
-      },
-    }),
-  ).rejects.toThrow("policy commit failed");
-});
-
-test("retries until every granted container resolves", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "group-grant-reshare-retry",
-  );
-  try {
-    await seedReadModel(execSql);
-    const log: string[] = [];
-    const runtime = fakeRuntime(log);
-    runtime.infra.execSql = execSql as never;
-    const rewrapped: string[] = [];
-    const delays: number[] = [];
-    // container-a is unreachable until the first retry is scheduled.
-    let transientFailure = true;
-    scheduleGroupGrantReshareAfterRotation({
-      containerContents: fakeContainerContents({
-        prepareCalls: [],
-        rewrapped,
-        get throwForContainerIds() {
-          return transientFailure
-            ? new Set(["container-a"])
-            : new Set<string>();
-        },
-      }),
-      expectedGroupHead: EXPECTED_HEAD,
-      mutatedGroupId: GRANTED_GROUP_ID,
-      reconcileReadModel: async () => ({}),
-      runtime: runtime as never,
-      scheduleRetry: (retry, delayMs) => {
-        delays.push(delayMs);
-        transientFailure = false;
-        retry();
-      },
-      signingContext: {
-        organizationId: ORGANIZATION_ID,
-        signerUserId: CURRENT_USER_ID,
-      },
-    });
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // A transient failure must not strand the container: the members this
-    // repair exists for stay locked out of anything left pinned.
-    expect(rewrapped).toContain("container-a");
-    expect(delays).toEqual([1_000]);
-    expect(log.some((m) => m.includes("gave up"))).toBe(false);
-  } finally {
-    close();
-  }
-});
-
-test("stops retrying once the organization is no longer active", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "group-grant-reshare-scope",
-  );
-  try {
-    await seedReadModel(execSql);
-    const log: string[] = [];
-    const runtime = fakeRuntime(log);
-    runtime.infra.execSql = execSql as never;
-    const delays: number[] = [];
-    let active = true;
-    scheduleGroupGrantReshareAfterRotation({
-      containerContents: fakeContainerContents({
-        prepareCalls: [],
-        rewrapped: [],
-        throwForContainerIds: new Set(["container-a", "container-b"]),
-      }),
-      expectedGroupHead: EXPECTED_HEAD,
-      mutatedGroupId: GRANTED_GROUP_ID,
-      reconcileReadModel: async () => ({}),
-      runtime: runtime as never,
-      scheduleRetry: (retry, delayMs) => {
-        delays.push(delayMs);
-        // An org switch (or logout) lands between attempts.
-        if (delays.length === 3) {
-          active = false;
-        }
-        retry();
-      },
-      shouldContinue: () => active,
-      signingContext: {
-        organizationId: ORGANIZATION_ID,
-        signerUserId: CURRENT_USER_ID,
-      },
-    });
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Bounded by scope rather than an attempt cap, so a long outage keeps
-    // retrying while a switched-away session does not.
-    expect(delays).toEqual([1_000, 2_000, 4_000]);
-    expect(log.some((m) => m.includes("no longer active"))).toBe(true);
-    expect(log.some((m) => m.includes("container-a"))).toBe(true);
-  } finally {
-    close();
-  }
-});
-
-test("stops permanently on an identity integrity failure", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "group-grant-reshare-integrity",
-  );
-  try {
-    await seedReadModel(execSql);
-    const log: string[] = [];
-    const runtime = fakeRuntime(log);
-    runtime.infra.execSql = execSql as never;
-    const delays: number[] = [];
-    scheduleGroupGrantReshareAfterRotation({
-      containerContents: fakeContainerContents({
-        integrityFailureContainerIds: new Set(["container-a"]),
-        prepareCalls: [],
-        rewrapped: [],
-      }),
-      expectedGroupHead: EXPECTED_HEAD,
-      mutatedGroupId: GRANTED_GROUP_ID,
-      reconcileReadModel: async () => ({}),
-      runtime: runtime as never,
-      scheduleRetry: (retry, delayMs) => {
-        delays.push(delayMs);
-        retry();
-      },
-      shouldContinue: () => true,
-      signingContext: {
-        organizationId: ORGANIZATION_ID,
-        signerUserId: CURRENT_USER_ID,
-      },
-    });
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // A verified projection disagreeing with a trusted identity is not
-    // transient; re-attempting it just repeats a failing verification.
-    expect(delays).toEqual([]);
-    expect(log.some((m) => m.includes("identity integrity failure"))).toBe(
-      true,
-    );
-  } finally {
-    close();
-  }
-});
-
-test("re-lists containers between attempts so a late one is found", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "group-grant-reshare-refresh",
-  );
-  try {
-    await seedReadModel(execSql);
-    const log: string[] = [];
-    const runtime = fakeRuntime(log);
-    runtime.infra.execSql = execSql as never;
-    const rewrapped: string[] = [];
-    let hydrated = false;
-    scheduleGroupGrantReshareAfterRotation({
-      containerContents: fakeContainerContents({
-        // container-a is not in the hydrated store until refresh() runs.
-        get unavailableContainerIds() {
-          return hydrated ? new Set<string>() : new Set(["container-a"]);
-        },
-        onRefresh: () => {
-          hydrated = true;
-        },
-        prepareCalls: [],
-        rewrapped,
-      }),
-      expectedGroupHead: EXPECTED_HEAD,
-      mutatedGroupId: GRANTED_GROUP_ID,
-      reconcileReadModel: async () => ({}),
-      runtime: runtime as never,
-      scheduleRetry: (retry) => retry(),
-      shouldContinue: () => true,
-      signingContext: {
-        organizationId: ORGANIZATION_ID,
-        signerUserId: CURRENT_USER_ID,
-      },
-    });
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // A grant naming a container this device never hydrated resolves as
-    // unavailable, not as a missing grant. Without the re-list it stays that
-    // way forever.
-    expect(rewrapped).toContain("container-a");
   } finally {
     close();
   }

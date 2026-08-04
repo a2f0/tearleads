@@ -282,9 +282,14 @@ class OrganizationsService implements Organizations {
         this.readModelCoordinator.reconcileAfterMutation(
           signingContext.organizationId,
         ),
-      shouldContinue: () =>
-        this.runtimeService.workflowInput().auth.organizationId ===
-        signingContext.organizationId,
+      shouldContinue: () => {
+        const live = this.runtimeService.workflowInput();
+        return (
+          live.auth.organizationId === signingContext.organizationId &&
+          live.auth.userId === signingContext.signerUserId &&
+          live.state.domainScope === runtime.state.domainScope
+        );
+      },
       runtime,
       signingContext,
       mutation: recoverOrganizationRootRewrapAfterMutationFailure({
@@ -536,9 +541,14 @@ class OrganizationsService implements Organizations {
         this.readModelCoordinator.reconcileAfterMutation(
           signingContext.organizationId,
         ),
-      shouldContinue: () =>
-        this.runtimeService.workflowInput().auth.organizationId ===
-        signingContext.organizationId,
+      shouldContinue: () => {
+        const live = this.runtimeService.workflowInput();
+        return (
+          live.auth.organizationId === signingContext.organizationId &&
+          live.auth.userId === signingContext.signerUserId &&
+          live.state.domainScope === runtime.state.domainScope
+        );
+      },
       runtime,
       signingContext,
       mutation: recoverOrganizationRootRewrapAfterMutationFailure({

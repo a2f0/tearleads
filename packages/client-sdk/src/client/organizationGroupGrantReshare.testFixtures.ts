@@ -168,6 +168,7 @@ export function fakeContainerContents(input: {
   onRefresh?: () => void;
   order?: string[];
   prepareCalls: RewrapCall[];
+  refreshIntegrityFailure?: boolean;
   rewrapped: string[];
   throwForContainerIds?: ReadonlySet<string>;
   unavailableContainerIds?: ReadonlySet<string>;
@@ -175,6 +176,9 @@ export function fakeContainerContents(input: {
   return {
     openTree: () => ({
       refresh: async () => {
+        if (input.refreshIntegrityFailure) {
+          throw makeKeyingVerificationError("refresh");
+        }
         input.onRefresh?.();
         return true;
       },

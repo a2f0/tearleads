@@ -4,7 +4,10 @@ import {
   rethrowKeyingVerificationError,
 } from "../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
-import { loadLocalOrganizationGroupContainers } from "../workflows/organizations/localReadModelDetails";
+import {
+  loadLocalOrganizationGroupContainers,
+  loadLocalOrganizationPolicyReference,
+} from "../workflows/organizations/localReadModelDetails";
 import type { ContainerContents } from "./containerContents";
 import type { InternalWorkflowRuntimeInput } from "./workflowRuntime";
 
@@ -13,10 +16,19 @@ type ContainerTree = ReturnType<ContainerContents["openTree"]>;
 /** Retry pacing mirrors the root re-share coordinator. */
 const INITIAL_RETRY_DELAY_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 60_000;
+/**
+ * How many pulls may fail to show the rotation before the sweep concludes it
+ * never committed. Bounded because an uncommitted mutation's head will never
+ * appear, so retrying it is retrying nothing; the repair phase below stays
+ * unbounded because there a later attempt genuinely can succeed.
+ */
+const MAX_HEAD_CONFIRMATION_ATTEMPTS = 5;
 
 interface GroupGrantReshareOutcome {
-  /** Every granted container was resolved against a freshly pulled read model. */
+  /** Every granted container was resolved against a confirmed rotation. */
   readonly complete: boolean;
+  /** The pulled read model shows the group actually at the committed head. */
+  readonly headConfirmed: boolean;
   /** Containers left stale: unresolvable, or a re-wrap that did not apply. */
   readonly unresolvedContainerIds: readonly string[];
 }
@@ -139,44 +151,104 @@ async function runSweepWithRetry(input: {
 }): Promise<void> {
   let delayMs = INITIAL_RETRY_DELAY_MS;
   let unresolved: readonly string[] = [];
+  let unconfirmedAttempts = 0;
   while (input.shouldContinue()) {
-    let outcome: GroupGrantReshareOutcome | null = null;
-    try {
-      outcome = await input.sweep();
-    } catch (error) {
-      if (isKeyingVerificationError(error)) {
-        input.logError(
-          `Organizations: group grant re-share stopped for group ${input.mutatedGroupId} after an identity integrity failure`,
-          error,
+    const attempt = await runOneSweepAttempt(input);
+    if (attempt.terminal) {
+      return;
+    }
+    if (attempt.outcome?.complete) {
+      return;
+    }
+    if (attempt.outcome && !attempt.outcome.headConfirmed) {
+      unconfirmedAttempts += 1;
+      if (unconfirmedAttempts >= MAX_HEAD_CONFIRMATION_ATTEMPTS) {
+        input.log(
+          `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; the rotation never appeared, so the mutation did not commit`,
         );
         return;
       }
-      input.logError(
-        `Organizations: group grant re-share failed for group ${input.mutatedGroupId}`,
-        error,
-      );
+    } else if (attempt.outcome) {
+      unresolved = attempt.outcome.unresolvedContainerIds;
     }
-    if (outcome?.complete) {
-      return;
-    }
-    unresolved = outcome?.unresolvedContainerIds ?? unresolved;
     await new Promise<void>((resolve) => {
       input.scheduleRetry(resolve, delayMs);
     });
     delayMs = Math.min(delayMs * 2, MAX_RETRY_DELAY_MS);
-    // A grant can name a container this device has never hydrated, which
-    // resolves as unavailable rather than as a missing grant. Re-listing is
-    // what lets a later attempt see it, exactly as the root and metadata
-    // re-shares do before giving up on a node.
-    try {
-      await input.refresh();
-    } catch (error) {
-      rethrowKeyingVerificationError(error);
+    if (await relistFailedTerminally(input)) {
+      return;
     }
   }
   input.log(
     `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; the organization is no longer active. Unresolved: ${unresolved.length ? unresolved.join(", ") : "none recorded"}`,
   );
+}
+
+/**
+ * One sweep, with an identity integrity failure reported as terminal.
+ *
+ * A verified projection disagreeing with a trusted identity is not transient,
+ * so re-attempting it just repeats a failing verification — the root and
+ * metadata coordinators stop on it for the same reason.
+ */
+async function runOneSweepAttempt(input: {
+  logError: (message: string, cause?: unknown) => void;
+  mutatedGroupId: string;
+  sweep: () => Promise<GroupGrantReshareOutcome>;
+}): Promise<{
+  outcome: GroupGrantReshareOutcome | null;
+  terminal: boolean;
+}> {
+  try {
+    return { outcome: await input.sweep(), terminal: false };
+  } catch (error) {
+    if (isKeyingVerificationError(error)) {
+      input.logError(
+        `Organizations: group grant re-share stopped for group ${input.mutatedGroupId} after an identity integrity failure`,
+        error,
+      );
+      return { outcome: null, terminal: true };
+    }
+    input.logError(
+      `Organizations: group grant re-share failed for group ${input.mutatedGroupId}`,
+      error,
+    );
+    return { outcome: null, terminal: false };
+  }
+}
+
+/**
+ * Re-list containers between attempts, reporting whether that failed fatally.
+ *
+ * A grant can name a container this device has never hydrated, which resolves
+ * as unavailable rather than as a missing grant; re-listing is what lets a
+ * later attempt see it, exactly as the root and metadata re-shares do. The
+ * error is handled rather than rethrown because the caller discards this
+ * promise with `void`, so a throw would surface as an unhandled rejection
+ * instead of being reported anywhere.
+ */
+async function relistFailedTerminally(input: {
+  log: (message: string) => void;
+  logError: (message: string, cause?: unknown) => void;
+  mutatedGroupId: string;
+  refresh: () => Promise<unknown>;
+}): Promise<boolean> {
+  try {
+    await input.refresh();
+    return false;
+  } catch (error) {
+    if (isKeyingVerificationError(error)) {
+      input.logError(
+        `Organizations: group grant re-share stopped for group ${input.mutatedGroupId} after an identity integrity failure while re-listing containers`,
+        error,
+      );
+      return true;
+    }
+    input.log(
+      `Organizations: group grant re-share could not re-list containers for group ${input.mutatedGroupId}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return false;
+  }
 }
 
 /**
@@ -222,25 +294,37 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   // is absent from it, and a container missing from the candidate list is never
   // visited — the silent staleness this sweep exists to prevent. Pull first so
   // enumeration sees the server's current grant set.
-  // reconcileAfterMutation resolves `undefined` when it declines to run —
-  // offline, unauthenticated, or a different org — rather than throwing. Reading
-  // that as a successful pull is what would let a stale cache pass for a fresh
-  // one, so both the decline and the throw are treated as "not reconciled".
-  let reconciled = false;
+  // The head is captured BEFORE the policy write, and the sweep also runs when
+  // the mutation rejects, so a definitively failed commit would otherwise
+  // re-wrap every cached container to an epoch that never existed. The pull's
+  // own return value cannot settle this either: it can hand back retained cache
+  // on a failed fetch, which would read as fresh. So confirm the rotation the
+  // only way that is self-evidencing — the group's head in the pulled read
+  // model must actually be the committed one.
   try {
-    reconciled = (await input.reconcileReadModel()) !== undefined;
+    await input.reconcileReadModel();
   } catch (error) {
     rethrowKeyingVerificationError(error);
     input.log(
       `Organizations: group grant re-share read-model pull failed for group ${input.mutatedGroupId}: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-  if (!reconciled) {
-    // Sweep the cached grants rather than nothing, but report it as incomplete
-    // so the caller retries: a grant this view omits was never even visited.
-    input.log(
-      `Organizations: group grant re-share swept a stale read model for group ${input.mutatedGroupId}`,
-    );
+  const head = await loadLocalOrganizationPolicyReference({
+    currentUserId: input.currentUserId,
+    execSql: input.execSql,
+    organizationId: input.organizationId,
+    principalId: input.mutatedGroupId,
+    principalType: "group",
+  });
+  if (head?.stateHash !== input.expectedGroupHead.stateHash) {
+    // Either the commit did not land or the pull is stale. Both mean this
+    // device cannot yet tell which containers need repair, and sweeping on a
+    // guess would re-share every one of them to the wrong epoch.
+    return {
+      complete: false,
+      headConfirmed: false,
+      unresolvedContainerIds: [],
+    };
   }
 
   const granted = await loadLocalOrganizationGroupContainers({
@@ -250,7 +334,7 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
     organizationId: input.organizationId,
   });
   if (!granted || granted.containers.length === 0) {
-    return { complete: reconciled, unresolvedContainerIds: [] };
+    return { complete: true, headConfirmed: true, unresolvedContainerIds: [] };
   }
 
   const tree = input.containerContents.openTree();
@@ -270,7 +354,8 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
     }
   }
   return {
-    complete: reconciled && unresolvedContainerIds.length === 0,
+    complete: unresolvedContainerIds.length === 0,
+    headConfirmed: true,
     unresolvedContainerIds,
   };
 }
