@@ -164,6 +164,9 @@ interface RevenueCatRevokeFields {
   status: OrganizationBillingStatus;
   disabledAt: Date;
   purgeAfter: Date;
+  trialExpiryAttemptCount: 0;
+  trialExpiryLastError: null;
+  trialExpiryNextAttemptAt: null;
 }
 
 interface RevenueCatScheduleFields {
@@ -461,6 +464,9 @@ export function classifyRevenueCatEvent(
         status: "disabled",
         disabledAt: now,
         purgeAfter: new Date(now.getTime() + LAPSED_BILLING_PURGE_GRACE_MS),
+        trialExpiryAttemptCount: 0,
+        trialExpiryLastError: null,
+        trialExpiryNextAttemptAt: null,
       },
     };
   }

@@ -151,6 +151,11 @@ test("an expiration event classifies as a revoke that disables sync", () => {
   expect(transition.fields.purgeAfter).toEqual(
     new Date(now.getTime() + LAPSED_BILLING_PURGE_GRACE_MS),
   );
+  expect(transition.fields).toMatchObject({
+    trialExpiryAttemptCount: 0,
+    trialExpiryLastError: null,
+    trialExpiryNextAttemptAt: null,
+  });
 });
 
 test("a cancellation is ignored because the entitlement stays active", () => {

@@ -194,7 +194,7 @@ async function disableTrial(input: {
       and(
         eq(organizationBilling.organizationId, input.organizationId),
         eq(organizationBilling.status, "trialing"),
-        lte(organizationBilling.trialEndsAt, input.now),
+        eq(organizationBilling.trialEndsAt, input.trialEndsAt),
       ),
     )
     .returning({ organizationId: organizationBilling.organizationId });

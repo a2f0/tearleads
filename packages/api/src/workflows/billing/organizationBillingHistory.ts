@@ -23,6 +23,7 @@ const LICENSED_SEAT_EVENT_TYPES = [
   "licensed_seat_count_increased",
   "licensed_seat_count_reset",
 ] as const;
+const LICENSED_SEAT_EVENT_TYPE_SET = new Set<string>(LICENSED_SEAT_EVENT_TYPES);
 
 const LIFECYCLE_SEAT_CORRELATION_LIMIT =
   BILLING_HISTORY_EVENT_LIMIT * LICENSED_SEAT_EVENT_TYPES.length;
@@ -314,7 +315,8 @@ function projectSeatHistory(
           (row.sourceType === "provider_event" &&
             lifecycleProviderEventIds.has(row.sourceId)) ||
           (row.sourceType === "billing_transition" &&
-            internalLifecycleSourceIds.has(row.sourceId))
+            internalLifecycleSourceIds.has(row.sourceId) &&
+            LICENSED_SEAT_EVENT_TYPE_SET.has(row.eventType))
         ),
     )
     .map((row) => ({

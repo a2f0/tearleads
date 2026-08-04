@@ -99,15 +99,17 @@ async function runMigrations(): Promise<void> {
   process.env[apiDatabaseEnvKey] ??= "postgres";
 
   const migrationsFolder = await materializeEmbeddedMigrations();
-  const { closeApiDatabase, initializeApiDatabase } = await import(
+  const { closeApiDatabase, db, initializeApiDatabase } = await import(
     "@tearleads/api-shared/postgres"
   );
+  const { assertCurrentApiSchema } = await import("./assertCurrentSchema");
 
   try {
     console.log("Running API database migrations...");
     await initializeApiDatabase(
       migrationsFolder ? { migrationsFolder } : undefined,
     );
+    await assertCurrentApiSchema(db);
     console.log("API database migrations complete.");
   } catch (error) {
     await cleanupApiDatabase(closeApiDatabase, migrationsFolder);

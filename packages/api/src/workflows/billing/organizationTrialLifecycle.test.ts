@@ -14,7 +14,10 @@ import {
   billingAuthHeader,
   registerAndAuthenticate,
 } from "../../../test/helpers/organizationBillingHistory";
-import { LAPSED_BILLING_PURGE_GRACE_MS } from "../../billing/organizationBilling";
+import {
+  LAPSED_BILLING_PURGE_GRACE_MS,
+  organizationCanSync,
+} from "../../billing/organizationBilling";
 import { routeApp } from "../../routeApp";
 import {
   runExpireOrganizationTrialsWorkflow,
@@ -220,10 +223,18 @@ test("trial expiration fails closed when its durable inception is missing", asyn
   ).rejects.toThrow("Expired free trial has no initialization event");
 
   const [billing] = await db
-    .select({ status: organizationBilling.status })
+    .select({
+      currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
+      status: organizationBilling.status,
+      trialEndsAt: organizationBilling.trialEndsAt,
+    })
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId));
   expect(billing?.status).toBe("trialing");
+  invariant(billing, "expected poison-pill billing row");
+  expect(
+    organizationCanSync(billing, new Date(trial.trialEndsAt.getTime() + 1)),
+  ).toBe(false);
   await db
     .update(organizationBilling)
     .set({

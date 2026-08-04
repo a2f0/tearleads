@@ -14,7 +14,6 @@ export type InitialOrganizationBilling = "local" | "trial";
 
 export interface CreatedInitialOrganizationBilling {
   readonly sourceId: string | null;
-  readonly status: OrganizationBillingStatus;
   readonly trialEndsAt: Date | null;
   readonly trialStartedAt: Date | null;
 }
@@ -60,7 +59,6 @@ export async function createInitialOrganizationBillingRow(
       fields.trialEndsAt === null
         ? null
         : freeTrialLifecycleSourceId(organizationId, fields.trialEndsAt),
-    status: fields.status,
     trialEndsAt: fields.trialEndsAt,
     trialStartedAt: fields.trialEndsAt === null ? null : now,
   };

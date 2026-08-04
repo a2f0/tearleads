@@ -6,6 +6,8 @@ lifecycle events, the internal licensed-seat ledger, and append-only Stripe
 paid-invoice snapshots. Internal trial events preserve the initialized and
 expired 10-seat capacity snapshots without duplicating their correlated seat
 ledger rows.
+Per-user assignment and release rows remain durable in the seat-event table but
+are intentionally excluded from this capacity-focused admin summary.
 
 Stripe invoice totals preserve the provider's exact `amount_paid` in currency
 minor units. Tier capacity, plan price, recurring interval and interval count,
