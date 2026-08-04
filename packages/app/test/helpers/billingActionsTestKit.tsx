@@ -60,8 +60,7 @@ export function createPurchases(
       async (
         input: Parameters<PurchasesCapability["moveNativeSubscription"]>[0],
       ) => {
-        const restored = await purchases.restore();
-        if (!restored.syncEntitlementActive) {
+        if (!purchaseResult.syncEntitlementActive) {
           throw new Error("The restored receipt has no sync entitlement");
         }
         if (!(await input.claim("test_store"))) {
@@ -73,7 +72,6 @@ export function createPurchases(
       },
     ),
     purchaseSync: mock(() => Promise.resolve(purchaseResult)),
-    restore: mock(() => Promise.resolve({ syncEntitlementActive: true })),
     hasActiveSyncEntitlement: mock(() => Promise.resolve(false)),
   };
   return purchases;

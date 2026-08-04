@@ -68,16 +68,34 @@ test("web preview validates timeout configuration consistently", () => {
   );
 });
 
-test("an iOS Test Store restore remains buyer paced", async () => {
+test("moves prior purchases atomically through the native bridge", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  const purchases = createCapacitorPurchases();
+  await purchases.moveNativeSubscription({
+    claim: () => Promise.resolve(true),
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+  expect(fixture.configureCalls).toEqual([
+    { apiKey: "ios-key", appUserID: "user-1" },
+  ]);
+  expect(fixture.attributeCalls).toContainEqual({ orgId: "org-1" });
+});
+
+test("an iOS Test Store native move remains buyer paced", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "test_ios-key");
   const restoreResult = createDeferred<{ customerInfo: unknown }>();
   fixture.restorePromise = restoreResult.promise;
-  const restoring = createCapacitorPurchases({
+  const moving = createCapacitorPurchases({
     operationTimeoutMs: 5,
-  }).restore();
+  }).moveNativeSubscription({
+    claim: () => Promise.resolve(true),
+    organizationId: "org-1",
+    userId: "user-1",
+  });
 
   const earlyOutcome = await Promise.race([
-    restoring.then(
+    moving.then(
       () => "settled",
       () => "settled",
     ),
@@ -88,5 +106,5 @@ test("an iOS Test Store restore remains buyer paced", async () => {
 
   expect(earlyOutcome).toBe("pending");
   restoreResult.resolve({ customerInfo: fixture.customerInfo });
-  await expect(restoring).resolves.toEqual({ syncEntitlementActive: true });
+  await expect(moving).resolves.toBeUndefined();
 });

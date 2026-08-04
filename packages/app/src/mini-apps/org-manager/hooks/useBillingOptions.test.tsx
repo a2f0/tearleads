@@ -35,7 +35,6 @@ test("identifies the buyer before loading subscription options", async () => {
       return Promise.resolve([OPTION]);
     }),
     purchaseSync: mock(() => Promise.resolve({ syncEntitlementActive: true })),
-    restore: mock(() => Promise.resolve({ syncEntitlementActive: true })),
     hasActiveSyncEntitlement: mock(() => Promise.resolve(false)),
   };
 
@@ -258,12 +257,9 @@ test("billing actions pause option retries and hide their stale error", async ()
       ? Promise.reject(new PurchaseIdentityPendingError())
       : Promise.resolve();
   });
-  let finishRestore = (_value: SyncPurchaseResult) => {};
-  purchases.restore = mock(
-    () =>
-      new Promise<SyncPurchaseResult>((resolve) => {
-        finishRestore = resolve;
-      }),
+  let finishMove = () => {};
+  purchases.moveNativeSubscription = mock(
+    () => new Promise<void>((resolve) => (finishMove = resolve)),
   );
   const { result } = renderBillingActions({
     optionsRetryDelaysMs: [200],
@@ -284,7 +280,7 @@ test("billing actions pause option retries and hide their stale error", async ()
   expect(purchases.identify).toHaveBeenCalledTimes(1);
   expect(purchases.listSyncOptions).toHaveBeenCalledTimes(1);
 
-  finishRestore({ syncEntitlementActive: true });
+  finishMove();
   await waitFor(() => expect(result.current.busy).toBeNull());
   await waitFor(() => expect(purchases.identify).toHaveBeenCalledTimes(2));
   expect(purchases.listSyncOptions).toHaveBeenCalledTimes(2);
@@ -292,12 +288,9 @@ test("billing actions pause option retries and hide their stale error", async ()
 
 test("revoking purchase eligibility clears options during a native action", async () => {
   const purchases = createPurchases({ syncEntitlementActive: true });
-  let finishRestore = (_value: SyncPurchaseResult) => {};
-  purchases.restore = mock(
-    () =>
-      new Promise<SyncPurchaseResult>((resolve) => {
-        finishRestore = resolve;
-      }),
+  let finishMove = () => {};
+  purchases.moveNativeSubscription = mock(
+    () => new Promise<void>((resolve) => (finishMove = resolve)),
   );
   const { result, rerender } = renderBillingActions({ purchases });
   await waitFor(() => expect(result.current.options).toEqual([OPTION]));
@@ -313,7 +306,7 @@ test("revoking purchase eligibility clears options during a native action", asyn
 
   await waitFor(() => expect(result.current.options).toEqual([]));
   expect(result.current.canSubscribe).toBe(false);
-  finishRestore({ syncEntitlementActive: true });
+  finishMove();
   await waitFor(() => expect(result.current.busy).toBeNull());
 });
 
@@ -322,12 +315,9 @@ test("billing actions do not reset an exhausted options retry budget", async () 
   purchases.identify = mock(() =>
     Promise.reject(new PurchaseIdentityPendingError()),
   );
-  let finishRestore = (_value: SyncPurchaseResult) => {};
-  purchases.restore = mock(
-    () =>
-      new Promise<SyncPurchaseResult>((resolve) => {
-        finishRestore = resolve;
-      }),
+  let finishMove = () => {};
+  purchases.moveNativeSubscription = mock(
+    () => new Promise<void>((resolve) => (finishMove = resolve)),
   );
   const { result } = renderBillingActions({
     optionsRetryDelaysMs: [100],
@@ -337,7 +327,7 @@ test("billing actions do not reset an exhausted options retry budget", async () 
 
   act(() => result.current.confirmSubscriptionMove());
   await waitFor(() => expect(result.current.busy).toBe("restore"));
-  finishRestore({ syncEntitlementActive: true });
+  finishMove();
   await waitFor(() => expect(result.current.busy).toBeNull());
   await waitFor(() => expect(purchases.identify).toHaveBeenCalledTimes(2));
   await act(() => new Promise((resolve) => setTimeout(resolve, 120)));

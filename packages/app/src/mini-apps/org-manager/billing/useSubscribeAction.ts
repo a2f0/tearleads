@@ -51,6 +51,14 @@ function nativeSubscriptionClaimErrorLabel(error: unknown): string {
   if (error instanceof PurchaseIdentityPendingError) {
     return ORG_MANAGER_LABELS.billingIdentityPending;
   }
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "native-claim-timeout"
+  ) {
+    return ORG_MANAGER_LABELS.nativeClaimTimedOut;
+  }
   if (typeof error !== "object" || error === null || !("status" in error)) {
     return ORG_MANAGER_LABELS.failedRestorePurchases;
   }

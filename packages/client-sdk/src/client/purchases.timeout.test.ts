@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import {
   createRevenueCatPurchases,
-  PurchaseIdentityPendingError,
   PurchaseProviderStalledError,
   type RevenueCatBackend,
 } from "./purchases";
@@ -163,75 +162,6 @@ test("organization binding exposes a terminal provider timeout", async () => {
   ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
 });
 
-test("iOS Test Store restore stays buyer-paced beyond the deadline", async () => {
-  const backend = createBackend();
-  let finishRestore = () => {};
-  let markRestoreStarted = () => {};
-  const restoreStarted = new Promise<void>((resolve) => {
-    markRestoreStarted = resolve;
-  });
-  const restoreReady = new Promise<void>((resolve) => {
-    finishRestore = resolve;
-  });
-  backend.restorePurchases = async () => {
-    markRestoreStarted();
-    await restoreReady;
-    return { activeEntitlementIds: ["sync"] };
-  };
-  const capability = purchases(backend, "test_store", true);
-  let settled = false;
-  const restoring = capability.restore().then(() => {
-    settled = true;
-  });
-
-  await restoreStarted;
-  await expect(capability.hasActiveSyncEntitlement()).rejects.toBeInstanceOf(
-    PurchaseIdentityPendingError,
-  );
-  expect(settled).toBe(false);
-  finishRestore();
-  await restoring;
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  expect(await capability.hasActiveSyncEntitlement()).toBe(false);
-});
-
-test("a lost buyer-paced restore callback eventually requires restart", async () => {
-  const backend = createBackend();
-  backend.restorePurchases = () => new Promise(() => {});
-  const capability = createRevenueCatPurchases(backend, {
-    apiKey: "key",
-    checkoutSettlementTimeoutMs: 5,
-    nativeStore: "app_store",
-    operationTimeoutMs: 50,
-    restorePurchasesUsesCheckoutTimeout: true,
-    syncEntitlementId: "sync",
-  });
-
-  await expect(capability.restore()).rejects.toBeInstanceOf(
-    PurchaseProviderStalledError,
-  );
-  await expect(
-    capability.identify({ userId: "user-2" }),
-  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
-});
-
-test("Android restore exposes a terminal error when the bridge stalls", async () => {
-  const backend = createBackend();
-  backend.restorePurchases = () => new Promise(() => {});
-  const capability = createRevenueCatPurchases(backend, {
-    apiKey: "key",
-    checkoutSettlementTimeoutMs: 5,
-    nativeStore: "play_store",
-    operationTimeoutMs: 50,
-    restorePurchasesUsesCheckoutTimeout: true,
-    syncEntitlementId: "sync",
-  });
-
-  await expect(capability.restore()).rejects.toBeInstanceOf(
-    PurchaseProviderStalledError,
-  );
-});
-
 test("an Android native move gives Play reconnect the checkout deadline", async () => {
   const backend = createBackend();
   backend.restorePurchases = async () => {
@@ -312,7 +242,7 @@ test("a native move gives the server claim its own deadline", async () => {
   });
 });
 
-test("a timed-out server claim releases the provider queue", async () => {
+test("a timed-out server claim reports its phase and releases the provider queue", async () => {
   const backend = createBackend();
   backend.restorePurchases = async () => ({
     activeEntitlementIds: ["sync"],
@@ -325,7 +255,10 @@ test("a timed-out server claim releases the provider queue", async () => {
       organizationId: "org-1",
       userId: "user-1",
     }),
-  ).rejects.toBeInstanceOf(PurchaseIdentityPendingError);
+  ).rejects.toMatchObject({
+    code: "native-claim-timeout",
+    name: "NativeSubscriptionClaimTimeoutError",
+  });
   expect(await capability.hasActiveSyncEntitlement()).toBe(false);
 });
 
@@ -413,74 +346,6 @@ test("a lost iOS native move callback eventually requires restart", async () => 
   await expect(capability.hasActiveSyncEntitlement()).rejects.toBeInstanceOf(
     PurchaseProviderStalledError,
   );
-});
-
-test("identity queued behind buyer-paced restore stays retryable", async () => {
-  const backend = createBackend();
-  let finishRestore = () => {};
-  let markRestoreStarted = () => {};
-  const restoreStarted = new Promise<void>((resolve) => {
-    markRestoreStarted = resolve;
-  });
-  const restoreReady = new Promise<void>((resolve) => {
-    finishRestore = resolve;
-  });
-  backend.restorePurchases = async () => {
-    markRestoreStarted();
-    await restoreReady;
-    return { activeEntitlementIds: ["sync"] };
-  };
-  const capability = purchases(backend, "app_store");
-  await capability.identify({ userId: "user-1" });
-  const restoring = capability.restore();
-  await restoreStarted;
-
-  await expect(
-    capability.identify({ userId: "user-2" }),
-  ).rejects.toBeInstanceOf(PurchaseIdentityPendingError);
-  finishRestore();
-  await restoring;
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  await capability.identify({ userId: "user-2" });
-});
-
-test("restore bounds identity settlement before opening store UI", async () => {
-  const backend = createBackend();
-  let restoreStarts = 0;
-  backend.logIn = () => new Promise(() => {});
-  backend.restorePurchases = async () => {
-    restoreStarts += 1;
-    return { activeEntitlementIds: ["sync"] };
-  };
-  const capability = purchases(backend);
-  await capability.listSyncOptions();
-  const identifying = capability
-    .identify({ userId: "user-1" })
-    .catch((error: unknown) => error);
-  const restoring = capability.restore().catch((error: unknown) => error);
-
-  const [identifyError, restoreError] = await Promise.all([
-    identifying,
-    restoring,
-  ]);
-  expect(identifyError).toBeInstanceOf(PurchaseProviderStalledError);
-  expect(restoreError).toBeInstanceOf(PurchaseProviderStalledError);
-  expect(restoreStarts).toBe(0);
-});
-
-test("restore bounds stalled configuration before opening store UI", async () => {
-  const backend = createBackend();
-  let restoreStarts = 0;
-  backend.configure = () => new Promise(() => {});
-  backend.restorePurchases = async () => {
-    restoreStarts += 1;
-    return { activeEntitlementIds: ["sync"] };
-  };
-
-  await expect(purchases(backend).restore()).rejects.toBeInstanceOf(
-    PurchaseProviderStalledError,
-  );
-  expect(restoreStarts).toBe(0);
 });
 
 test("plain configuration errors retain bounded diagnostics", async () => {

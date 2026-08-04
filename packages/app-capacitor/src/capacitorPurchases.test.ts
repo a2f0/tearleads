@@ -101,9 +101,9 @@ test("logs in when the configured app changes to another buyer", async () => {
 test("configures without a buyer when the sdk has not identified one", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
 
-  // restore()/hasActiveSyncEntitlement() can be the first call the capability
-  // sees; the plugin must not receive an explicit undefined appUserID.
-  await createCapacitorPurchases().restore();
+  // Entitlement observation can be the first call the capability sees; the
+  // plugin must not receive an explicit undefined appUserID.
+  await createCapacitorPurchases().hasActiveSyncEntitlement();
 
   expect(fixture.configureCalls).toEqual([{ apiKey: "ios-key" }]);
 });
@@ -485,15 +485,4 @@ test("prefers the pre-sheet abort over an unknown package", async () => {
   await expect(
     purchaseSync("annual", controller.signal),
   ).rejects.toBeInstanceOf(PurchaseAbortedError);
-});
-
-test("restores prior purchases through the native bridge", async () => {
-  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  const purchases = createCapacitorPurchases();
-
-  await purchases.restore();
-
-  // Restore must configure the SDK first; a restore on a fresh install is the
-  // first call the capability sees.
-  expect(fixture.configureCalls).toEqual([{ apiKey: "ios-key" }]);
 });

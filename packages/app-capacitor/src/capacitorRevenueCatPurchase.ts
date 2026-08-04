@@ -11,9 +11,15 @@ type NativePurchaseChangeOptions = Pick<
   "storeProductChangeInfo"
 >;
 
+type NativeReplacementMode = NonNullable<
+  NonNullable<
+    NativePurchaseChangeOptions["storeProductChangeInfo"]
+  >["replacementMode"]
+>;
+
 export interface NativeProductChangeInput {
   readonly oldProductIdentifier: string;
-  readonly replacementMode: string;
+  readonly replacementMode: NativeReplacementMode;
 }
 
 export function nativeProductChangeInput(

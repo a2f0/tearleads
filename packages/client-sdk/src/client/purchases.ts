@@ -99,8 +99,6 @@ export interface PurchasesCapability {
     checkoutHost?: HTMLElement;
     abortSignal?: AbortSignal;
   }): Promise<SyncPurchaseResult>;
-  /** Restore prior purchases from the signed-in native store account. */
-  restore(): Promise<SyncPurchaseResult>;
   /** Publish a server-accepted personal-org binding for later lifecycle events. */
   bindOrganization(input: { organizationId: string }): Promise<void>;
   /** Atomically restore, server-claim, and bind a native receipt for one buyer. */
@@ -270,17 +268,11 @@ function runRevenueCatCustomerOperation<T>(input: {
   readonly identity: RevenueCatIdentityCoordinator;
   readonly operation: () => Promise<T>;
   readonly operationName: string;
-  readonly usesCheckoutSettlementTimeout?: boolean;
-  readonly waitForCheckout?: boolean;
 }): Promise<T> {
   return input.identity
     .runProviderOperation({
       operation: input.operation,
       operationName: input.operationName,
-      ...(input.usesCheckoutSettlementTimeout
-        ? { usesCheckoutSettlementTimeout: true }
-        : {}),
-      ...(input.waitForCheckout ? { waitForCheckout: true } : {}),
     })
     .catch(normalizeRevenueCatIdentityError);
 }
@@ -369,23 +361,6 @@ export function createRevenueCatPurchases(
         ),
       };
     },
-    async restore() {
-      requirePurchasesEnabled(purchasesEnabled);
-      const info = await runRevenueCatCustomerOperation({
-        identity,
-        operation: () => backend.restorePurchases(),
-        operationName: "restore",
-        usesCheckoutSettlementTimeout:
-          config.restorePurchasesUsesCheckoutTimeout,
-        waitForCheckout: true,
-      });
-      return {
-        syncEntitlementActive: holdsSyncEntitlement(
-          info,
-          config.syncEntitlementId,
-        ),
-      };
-    },
     async bindOrganization(input) {
       requirePurchasesEnabled(purchasesEnabled);
       await identity
@@ -432,9 +407,6 @@ export function createUnavailablePurchases(): PurchasesCapability {
     },
     purchaseSync() {
       return Promise.reject(new PurchasesUnavailableError());
-    },
-    restore() {
-      return Promise.resolve({ syncEntitlementActive: false });
     },
     bindOrganization() {
       return Promise.reject(new PurchasesUnavailableError());

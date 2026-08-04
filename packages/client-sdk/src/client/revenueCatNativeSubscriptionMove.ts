@@ -1,6 +1,7 @@
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import { PurchasesUnavailableError } from "./purchaseErrors";
 import {
+  RevenueCatOperationTimeoutError,
   revenueCatOperationTimeoutMs,
   withRevenueCatOperationTimeout,
 } from "./revenueCatErrors";
@@ -20,6 +21,21 @@ interface NativeSubscriptionMoveConfig {
   readonly purchasesEnabled?: boolean;
   readonly restorePurchasesUsesCheckoutTimeout: boolean;
   readonly syncEntitlementId: string;
+}
+
+class NativeSubscriptionClaimTimeoutError extends Error {
+  readonly code = "native-claim-timeout";
+
+  constructor(cause: RevenueCatOperationTimeoutError) {
+    super("Native subscription claim timed out", { cause });
+    this.name = "NativeSubscriptionClaimTimeoutError";
+  }
+}
+
+function normalizeClaimError(error: unknown): never {
+  throw error instanceof RevenueCatOperationTimeoutError
+    ? new NativeSubscriptionClaimTimeoutError(error)
+    : error;
 }
 
 /** Restores, server-claims, and binds one receipt without releasing its buyer. */
@@ -60,7 +76,7 @@ function moveRevenueCatNativeSubscription(input: {
         operation: () => input.claim(input.store),
         operationName: "native subscription claim",
         timeoutMs: input.claimTimeoutMs,
-      });
+      }).catch(normalizeClaimError);
       if (!claimAccepted) {
         throw new Error("The server did not accept the native subscription");
       }

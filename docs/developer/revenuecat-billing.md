@@ -142,9 +142,9 @@ bun run --filter=app-web dev
 ## Provider deadlines
 
 Provider setup, identity, checkout preparation, and ordinary calls have
-30-second deadlines. Native restore and checkout allow ten minutes
-for StoreKit authentication or Play Billing reconnection; a lost callback then
-surfaces restart guidance, and the block clears if that callback later arrives.
+30-second deadlines. Native restore and checkout allow ten minutes for store
+authentication or reconnection. A lost callback requires an app restart; its
+eventual arrival clears the block.
 
 `PurchaseIdentityPendingError` means a call timed out before reaching the
 provider, including while queued behind checkout or restore; retry after that
@@ -152,10 +152,9 @@ flow settles. `PurchaseProviderStalledError` means active provider work exceeded
 its deadline; restart the app. Timed-out provider work stays serialized and may
 still take effect.
 
-A native-move server claim has a separate 30-second deadline. On timeout the
-queue is released, though HTTP may still succeed without the
-RevenueCat organization binding. Retrying is safe and completes the idempotent
-claim and binding.
+A native-move server claim has its own 30-second deadline. A timeout releases
+the queue and gets billing-server-specific retry guidance. HTTP may still
+succeed without the RevenueCat binding; retrying safely completes both steps.
 
 ## RevenueCat webhook (server)
 

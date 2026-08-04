@@ -156,7 +156,7 @@ test("ignores an old organization's action callbacks after a switch", async () =
 
   expect(startTrial).not.toHaveBeenCalled();
   expect(purchases.purchaseSync).not.toHaveBeenCalled();
-  expect(purchases.restore).not.toHaveBeenCalled();
+  expect(purchases.moveNativeSubscription).not.toHaveBeenCalled();
   expect(result.current.busy).toBe(null);
   expect(result.current.actionError).toBe(null);
   expect(result.current.activationPending).toBe(false);
@@ -174,11 +174,11 @@ test("restores and claims a native subscription only after confirmation", async 
 
   act(() => result.current.requestSubscriptionMove());
   expect(result.current.subscriptionMoveOpen).toBe(true);
-  expect(purchases.restore).not.toHaveBeenCalled();
+  expect(purchases.moveNativeSubscription).not.toHaveBeenCalled();
 
   act(() => result.current.confirmSubscriptionMove());
   await waitFor(() => expect(result.current.busy).toBeNull());
-  expect(purchases.restore).toHaveBeenCalledWith();
+  expect(purchases.moveNativeSubscription).toHaveBeenCalledTimes(1);
   expect(claimNativeSubscription).toHaveBeenCalledWith("test_store");
   expect(purchases.bindOrganization).toHaveBeenCalledWith({
     organizationId: "org-1",

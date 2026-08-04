@@ -50,6 +50,6 @@ test("forwards Android product-change fields atomically", () => {
     }),
   ).toEqual({
     oldProductIdentifier: "sync_solo_monthly",
-    replacementMode: "CHARGE_PRORATED_PRICE",
+    replacementMode: STORE_REPLACEMENT_MODE.CHARGE_PRORATED_PRICE,
   });
 });

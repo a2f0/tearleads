@@ -125,45 +125,6 @@ test("organization binding stays ahead of a later identity change", async () => 
   );
 });
 
-test("restore waits for the active checkout", async () => {
-  const fixture = createFixture();
-  const { purchases } = fixture;
-  await purchases.identify({ userId: "user-1" });
-  const checkout = purchases.purchaseSync({
-    organizationId: "org-1",
-    packageId: "monthly",
-  });
-  await fixture.checkoutStarted.promise;
-
-  const restoring = purchases.restore();
-  await Promise.resolve();
-  expect(fixture.calls).not.toContain("restorePurchases");
-
-  fixture.checkout.resolve();
-  await Promise.all([checkout, restoring]);
-  expect(fixture.calls).toContain("restorePurchases");
-});
-
-test("restore stays ahead of a later identity change", async () => {
-  const fixture = createFixture();
-  const { purchases } = fixture;
-  await purchases.identify({ userId: "user-1" });
-  const checkout = purchases.purchaseSync({
-    organizationId: "org-1",
-    packageId: "monthly",
-  });
-  await fixture.checkoutStarted.promise;
-
-  const restoring = purchases.restore();
-  const identifying = purchases.identify({ userId: "user-2" });
-  fixture.checkout.resolve();
-  await Promise.all([checkout, restoring, identifying]);
-
-  expect(fixture.calls.indexOf("restorePurchases")).toBeLessThan(
-    fixture.calls.indexOf("logIn:user-2"),
-  );
-});
-
 test("native move holds its buyer through claim and binding", async () => {
   const fixture = createFixture();
   const claim = createDeferred();

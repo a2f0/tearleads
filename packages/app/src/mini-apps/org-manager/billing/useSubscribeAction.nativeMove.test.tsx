@@ -3,6 +3,7 @@ import {
   PurchaseIdentityPendingError,
   PurchaseProviderStalledError,
   type PurchasesCapability,
+  type SyncPurchaseResult,
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
@@ -24,8 +25,10 @@ const SCOPE: BillingActionScope = {
 
 afterEach(cleanup);
 
+type RestoreReceipt = () => Promise<SyncPurchaseResult>;
+
 function purchases(
-  restore: PurchasesCapability["restore"],
+  restoreReceipt: RestoreReceipt,
   bindOrganization: PurchasesCapability["bindOrganization"] = () =>
     Promise.resolve(),
 ): PurchasesCapability {
@@ -36,7 +39,7 @@ function purchases(
     async moveNativeSubscription(
       input: Parameters<PurchasesCapability["moveNativeSubscription"]>[0],
     ) {
-      const restored = await restore();
+      const restored = await restoreReceipt();
       if (!restored.syncEntitlementActive) {
         throw new Error("The restored receipt has no sync entitlement");
       }
@@ -46,14 +49,13 @@ function purchases(
       await bindOrganization({ organizationId: input.organizationId });
     },
     nativeStore: "play_store",
-    restore,
   } as never;
 }
 
 function setup(input: {
   readonly bindOrganization?: PurchasesCapability["bindOrganization"];
   readonly claim: () => Promise<boolean>;
-  readonly restore: PurchasesCapability["restore"];
+  readonly restore: RestoreReceipt;
 }) {
   let state: BillingActionState = emptyActionState(SCOPE);
   const updateActionState: UpdateActionState = (_scope, update) => {
@@ -111,6 +113,25 @@ test("restore asks the buyer to retry while identity is settling", async () => {
   await waitFor(() =>
     expect(flow.state().actionError).toBe(
       ORG_MANAGER_LABELS.billingIdentityPending,
+    ),
+  );
+});
+
+test("restore reports a server claim timeout separately from identity", async () => {
+  const flow = setup({
+    claim: () => Promise.resolve(true),
+    restore: () =>
+      Promise.reject(
+        Object.assign(new Error("claim timed out"), {
+          code: "native-claim-timeout",
+        }),
+      ),
+  });
+  startMove(flow.view);
+
+  await waitFor(() =>
+    expect(flow.state().actionError).toBe(
+      ORG_MANAGER_LABELS.nativeClaimTimedOut,
     ),
   );
 });

@@ -125,6 +125,8 @@ export const ORG_MANAGER_LABELS = {
     "This subscription cannot be moved here. Cancel any existing web subscription and try again.",
   nativeClaimNotFound:
     "No active native subscription was found for this store account.",
+  nativeClaimTimedOut:
+    "The billing server did not respond. Check your connection and try Restore again.",
   nativeClaimPending:
     "The purchase was restored, but verification is still pending. Try Restore again shortly.",
   failedSubscribe: "Purchase failed.",

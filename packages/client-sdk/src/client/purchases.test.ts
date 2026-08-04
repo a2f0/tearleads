@@ -407,47 +407,6 @@ test("hasActiveSyncEntitlement reflects the current customer entitlements", asyn
   expect(await withoutSync.hasActiveSyncEntitlement()).toBe(false);
 });
 
-test("restore leaves org attribution unchanged until the server accepts it", async () => {
-  const backend = createFakeBackend({ entitlementsNow: ["sync"] });
-  const purchases = createRevenueCatPurchases(backend, CONFIG);
-
-  const result = await purchases.restore();
-
-  expect(result).toEqual({ syncEntitlementActive: true });
-  expect(backend.attributes).toEqual({});
-  expect(backend.calls).not.toContain("setAttributes");
-
-  await purchases.bindOrganization({ organizationId: "org-new" });
-  expect(backend.attributes).toEqual({ orgId: "org-new" });
-  expect(backend.calls.indexOf("setAttributes")).toBeGreaterThan(
-    backend.calls.indexOf("restorePurchases"),
-  );
-  expect(purchases.nativeStore).toBe("test_store");
-});
-
-test("restore waits for a queued identity transition", async () => {
-  const backend = createFakeBackend();
-  const login = createDeferred();
-  const loginStarted = createDeferred();
-  backend.logIn = async (input) => {
-    backend.calls.push(`logIn:${input.appUserId}`);
-    loginStarted.resolve();
-    await login.promise;
-  };
-  const purchases = createRevenueCatPurchases(backend, CONFIG);
-  await purchases.listSyncOptions();
-  const identifying = purchases.identify({ userId: "user-1" });
-  await loginStarted.promise;
-
-  const restoring = purchases.restore();
-  await Promise.resolve();
-  expect(backend.calls).not.toContain("restorePurchases");
-
-  login.resolve();
-  await Promise.all([identifying, restoring]);
-  expect(backend.calls).toContain("restorePurchases");
-});
-
 test("observation-only RevenueCat disables purchases but preserves entitlement reads", async () => {
   const backend = createFakeBackend({ entitlementsNow: ["sync"] });
   const purchases = createRevenueCatPurchases(backend, {
@@ -462,9 +421,6 @@ test("observation-only RevenueCat disables purchases but preserves entitlement r
   await expect(
     purchases.purchaseSync({ organizationId: "org-1", packageId: "monthly" }),
   ).rejects.toBeInstanceOf(PurchasesUnavailableError);
-  await expect(purchases.restore()).rejects.toBeInstanceOf(
-    PurchasesUnavailableError,
-  );
   await expect(
     purchases.bindOrganization({ organizationId: "org-1" }),
   ).rejects.toBeInstanceOf(PurchasesUnavailableError);
