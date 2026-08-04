@@ -259,3 +259,37 @@ test("logs a container whose preparation is unavailable", async () => {
     close();
   }
 });
+
+test("a forbidden container does not strand the ones after it", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-partial-authorization",
+  );
+  try {
+    await seedReadModel(execSql);
+    const rewrapped: string[] = [];
+    const logged: string[] = [];
+    const outcome = await reshareGroupContainerGrantsAfterRotation({
+      containerContents: fakeContainerContents({
+        forbiddenContainerIds: new Set(["container-a"]),
+        prepareCalls: [],
+        rewrapped,
+      }),
+      currentUserId: CURRENT_USER_ID,
+      execSql,
+      expectedGroupHead: EXPECTED_HEAD,
+      log: (message) => logged.push(message),
+      mutatedGroupId: GRANTED_GROUP_ID,
+      organizationId: ORGANIZATION_ID,
+      reconcileReadModel: async () => ({}),
+    });
+
+    // Aborting on the first 403 would strand container-b, which this same
+    // signer is perfectly able to repair.
+    expect(rewrapped).toEqual(["container-b"]);
+    expect(outcome.unresolvedContainerIds).toEqual(["container-a"]);
+    expect(outcome.onlyUnauthorizedRemains).toBe(true);
+    expect(logged.some((m) => m.includes("not permitted"))).toBe(true);
+  } finally {
+    close();
+  }
+});

@@ -8,7 +8,6 @@ import {
 import type { ContainerContents } from "./containerContents";
 import {
   type GroupGrantReshareOutcome,
-  GroupGrantReshareUnauthorizedError,
   runSweepWithRetry,
 } from "./organizationGroupGrantReshareRetry";
 import type { InternalWorkflowRuntimeInput } from "./workflowRuntime";
@@ -204,6 +203,7 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
 
   const tree = input.containerContents.openTree();
   const unresolvedContainerIds: string[] = [];
+  const unauthorizedContainerIds = new Set<string>();
   for (const container of granted.containers) {
     const repaired = await reshareOneGrantedContainer({
       accessLevel: container.accessLevel,
@@ -211,6 +211,8 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
       expectedGroupHead: input.expectedGroupHead,
       log: input.log,
       mutatedGroupId: input.mutatedGroupId,
+      onUnauthorized: (containerId) =>
+        unauthorizedContainerIds.add(containerId),
       organizationId: input.organizationId,
       tree,
     });
@@ -221,6 +223,11 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   return {
     complete: unresolvedContainerIds.length === 0,
     headConfirmed: true,
+    // Nothing left but containers this signer may not touch: retrying cannot
+    // change that, and an admin who can read them repairs them later.
+    onlyUnauthorizedRemains:
+      unresolvedContainerIds.length > 0 &&
+      unresolvedContainerIds.every((id) => unauthorizedContainerIds.has(id)),
     unresolvedContainerIds,
   };
 }
@@ -240,6 +247,7 @@ async function reshareOneGrantedContainer(input: {
   expectedGroupHead: ReferencedPrincipalHead;
   log: (message: string) => void;
   mutatedGroupId: string;
+  onUnauthorized: (containerId: string) => void;
   organizationId: string;
   tree: ContainerTree;
 }): Promise<boolean> {
@@ -283,10 +291,15 @@ async function reshareOneGrantedContainer(input: {
   } catch (error) {
     rethrowKeyingVerificationError(error);
     if (isAuthorizationFailure(error)) {
-      // A direct group admin may rotate membership without holding container
-      // access. They cannot produce this wrap at all, so retrying is retrying
-      // a 403 forever; an admin who can read the container repairs it instead.
-      throw new GroupGrantReshareUnauthorizedError(input.containerId);
+      // A direct group admin may rotate membership without holding access to
+      // every granted container. Aborting here would strand the containers
+      // further down the list that this same signer CAN repair, so record it
+      // and keep sweeping; the caller decides when to stop.
+      input.log(
+        `Organizations: group grant re-share is not permitted for container ${input.containerId} in org ${input.organizationId}`,
+      );
+      input.onUnauthorized(input.containerId);
+      return false;
     }
     input.log(
       `Organizations: best-effort group grant re-share skipped for container ${input.containerId} in org ${input.organizationId}: ${error instanceof Error ? error.message : String(error)}`,

@@ -49,15 +49,10 @@ export interface GroupGrantReshareOutcome {
   readonly headConfirmed: boolean;
   /** A pull that landed did not show the rotation, so it never committed. */
   readonly headKnownAbsent?: boolean;
+  /** Every container still stale is one this signer may not re-wrap. */
+  readonly onlyUnauthorizedRemains?: boolean;
   /** Containers left stale: unresolvable, or a re-wrap that did not apply. */
   readonly unresolvedContainerIds: readonly string[];
-}
-
-export class GroupGrantReshareUnauthorizedError extends Error {
-  constructor(containerId: string) {
-    super(`not authorized to re-wrap container ${containerId}`);
-    this.name = "GroupGrantReshareUnauthorizedError";
-  }
 }
 
 export async function runSweepWithRetry(input: {
@@ -84,6 +79,12 @@ export async function runSweepWithRetry(input: {
     if (attempt.outcome?.complete) {
       return;
     }
+    if (attempt.outcome?.onlyUnauthorizedRemains) {
+      input.log(
+        `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; this signer may not re-wrap the containers still pinned: ${attempt.outcome.unresolvedContainerIds.join(", ")}`,
+      );
+      return;
+    }
     if (attempt.outcome && budget.recordOutcome(attempt.outcome)) {
       input.log(
         `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; the rotation never appeared, so the mutation did not commit`,
@@ -93,6 +94,11 @@ export async function runSweepWithRetry(input: {
     await new Promise<void>((resolve) => {
       input.scheduleRetry(resolve, budget.nextDelayMs());
     });
+    // Re-check before touching anything: the scope can change while the timer
+    // is pending, and re-listing then would refresh the org just switched to.
+    if (!input.shouldContinue()) {
+      break;
+    }
     if (await relistFailedTerminally(input)) {
       return;
     }
@@ -161,13 +167,6 @@ async function runOneSweepAttempt(input: {
   try {
     return { outcome: await input.sweep(), terminal: false };
   } catch (error) {
-    if (error instanceof GroupGrantReshareUnauthorizedError) {
-      input.logError(
-        `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; this signer cannot re-wrap the granted containers`,
-        error,
-      );
-      return { outcome: null, terminal: true };
-    }
     if (isKeyingVerificationError(error)) {
       input.logError(
         `Organizations: group grant re-share stopped for group ${input.mutatedGroupId} after an identity integrity failure`,

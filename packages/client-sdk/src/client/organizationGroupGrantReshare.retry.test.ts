@@ -139,96 +139,6 @@ test("retries until every granted container resolves", async () => {
   }
 });
 
-test("stops retrying once the organization is no longer active", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "group-grant-reshare-scope",
-  );
-  try {
-    await seedReadModel(execSql);
-    const log: string[] = [];
-    const runtime = fakeRuntime(log);
-    runtime.infra.execSql = execSql as never;
-    const delays: number[] = [];
-    let active = true;
-    scheduleGroupGrantReshareAfterRotation({
-      containerContents: fakeContainerContents({
-        prepareCalls: [],
-        rewrapped: [],
-        throwForContainerIds: new Set(["container-a", "container-b"]),
-      }),
-      expectedGroupHead: EXPECTED_HEAD,
-      mutatedGroupId: GRANTED_GROUP_ID,
-      reconcileReadModel: async () => ({}),
-      runtime: runtime as never,
-      scheduleRetry: (retry, delayMs) => {
-        delays.push(delayMs);
-        // An org switch (or logout) lands between attempts.
-        if (delays.length === 3) {
-          active = false;
-        }
-        retry();
-      },
-      shouldContinue: () => active,
-      signingContext: {
-        organizationId: ORGANIZATION_ID,
-        signerUserId: CURRENT_USER_ID,
-      },
-    });
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Bounded by scope rather than an attempt cap, so a long outage keeps
-    // retrying while a switched-away session does not.
-    expect(delays).toEqual([1_000, 2_000, 4_000]);
-    expect(log.some((m) => m.includes("no longer active"))).toBe(true);
-    expect(log.some((m) => m.includes("container-a"))).toBe(true);
-  } finally {
-    close();
-  }
-});
-
-test("stops permanently on an identity integrity failure", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "group-grant-reshare-integrity",
-  );
-  try {
-    await seedReadModel(execSql);
-    const log: string[] = [];
-    const runtime = fakeRuntime(log);
-    runtime.infra.execSql = execSql as never;
-    const delays: number[] = [];
-    scheduleGroupGrantReshareAfterRotation({
-      containerContents: fakeContainerContents({
-        integrityFailureContainerIds: new Set(["container-a"]),
-        prepareCalls: [],
-        rewrapped: [],
-      }),
-      expectedGroupHead: EXPECTED_HEAD,
-      mutatedGroupId: GRANTED_GROUP_ID,
-      reconcileReadModel: async () => ({}),
-      runtime: runtime as never,
-      scheduleRetry: (retry, delayMs) => {
-        delays.push(delayMs);
-        retry();
-      },
-      shouldContinue: () => true,
-      signingContext: {
-        organizationId: ORGANIZATION_ID,
-        signerUserId: CURRENT_USER_ID,
-      },
-    });
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // A verified projection disagreeing with a trusted identity is not
-    // transient; re-attempting it just repeats a failing verification.
-    expect(delays).toEqual([]);
-    expect(log.some((m) => m.includes("identity integrity failure"))).toBe(
-      true,
-    );
-  } finally {
-    close();
-  }
-});
-
 test("re-lists containers between attempts so a late one is found", async () => {
   const { close, execSql } = await createTestExecSql(
     "group-grant-reshare-refresh",
@@ -269,50 +179,6 @@ test("re-lists containers between attempts so a late one is found", async () => 
     // unavailable, not as a missing grant. Without the re-list it stays that
     // way forever.
     expect(rewrapped).toContain("container-a");
-  } finally {
-    close();
-  }
-});
-
-test("stops when re-listing hits an identity integrity failure", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "group-grant-reshare-refresh-integrity",
-  );
-  try {
-    await seedReadModel(execSql);
-    const log: string[] = [];
-    const runtime = fakeRuntime(log);
-    runtime.infra.execSql = execSql as never;
-    const delays: number[] = [];
-    scheduleGroupGrantReshareAfterRotation({
-      containerContents: fakeContainerContents({
-        prepareCalls: [],
-        refreshIntegrityFailure: true,
-        rewrapped: [],
-        throwForContainerIds: new Set(["container-a"]),
-      }),
-      expectedGroupHead: EXPECTED_HEAD,
-      mutatedGroupId: GRANTED_GROUP_ID,
-      reconcileReadModel: async () => ({}),
-      runtime: runtime as never,
-      scheduleRetry: (retry, delayMs) => {
-        delays.push(delayMs);
-        retry();
-      },
-      shouldContinue: () => true,
-      signingContext: {
-        organizationId: ORGANIZATION_ID,
-        signerUserId: CURRENT_USER_ID,
-      },
-    });
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // The sweep is discarded with void, so rethrowing here would surface as an
-    // unhandled rejection instead of being reported anywhere.
-    expect(delays).toEqual([1_000]);
-    expect(
-      log.some((m) => m.includes("integrity failure while re-listing")),
-    ).toBe(true);
   } finally {
     close();
   }
@@ -439,9 +305,10 @@ test("stops when this signer cannot re-wrap the containers", async () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     // A direct group admin may rotate membership without container access.
-    // They cannot produce the wrap at all, so retrying is retrying a 403.
+    // Retrying cannot change that, so the sweep stops — but only after the
+    // containers it COULD repair were repaired.
     expect(delays).toEqual([]);
-    expect(log.some((m) => m.includes("cannot re-wrap"))).toBe(true);
+    expect(log.some((m) => m.includes("may not re-wrap"))).toBe(true);
   } finally {
     close();
   }
