@@ -55,7 +55,7 @@ import { toPrincipalPolicyError } from "../principals/shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";
 import { wasOrganizationGroupDeleted } from "./groupTombstone";
 import {
-  createInitialOrganizationBillingRow as createBilling,
+  createInitialOrganizationBillingRow,
   type InitialOrganizationBilling,
 } from "./initialBilling";
 import {
@@ -172,7 +172,7 @@ async function createOrganizationRow(
   return org;
 }
 
-async function createRoot(
+async function createRootContainer(
   tx: DatabaseTransaction,
   rootContainerId: string,
   organizationId: string,
@@ -1157,22 +1157,11 @@ export function validateOrganizationProvisioningInput(
   );
 }
 
-/**
- * Bootstraps a fresh organization from the client-signed provisioning
- * artifacts, inside the caller's transaction: the organization row + initial
- * billing, the root container and its verified access manifest/KEK state, the
- * admin/member group policies, the initial roster, builtin grants, and the
- * optional roster/organization profile documents. The founding admin
- * (`input.userId`) must already exist by the time roster sync runs — pass
- * `options.onOrganizationRootCreated` to create it (registration) or ensure it
- * exists beforehand (additional organization).
- */
-export async function provisionOrganizationInTransaction(
+async function provisionOrganizationAuthorityAndBilling(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
-  signer: OrganizationProvisioningSigner,
   options: ProvisionOrganizationOptions,
-): Promise<ProvisionedOrganization> {
+): Promise<{ organizationId: string; rootContainerId: string }> {
   await lockProvisioningOrganizationPrincipalId(tx, input);
   await lockProvisioningGroupPrincipalIds(tx, input);
   const org = await createOrganizationRow(tx, {
@@ -1181,12 +1170,16 @@ export async function provisionOrganizationInTransaction(
     organizationId: input.organizationId,
     name: options.organizationName,
   });
-  const initialBilling = await createBilling(
+  const initialBilling = await createInitialOrganizationBillingRow(
     tx,
     org.id,
     options.initialBilling,
   );
-  const container = await createRoot(tx, input.rootContainerId, org.id);
+  const container = await createRootContainer(
+    tx,
+    input.rootContainerId,
+    org.id,
+  );
   await options.onOrganizationRootCreated?.(org.id);
   await createInitialAdminGroup(tx, input, org.id);
   await createInitialMemberGroup(tx, input, org.id);
@@ -1203,8 +1196,29 @@ export async function provisionOrganizationInTransaction(
     provisioning: input,
     tx,
   });
+  return { organizationId: org.id, rootContainerId: container.id };
+}
+
+/**
+ * Bootstraps a fresh organization from the client-signed provisioning
+ * artifacts, inside the caller's transaction: the organization row + initial
+ * billing, the root container and its verified access manifest/KEK state, the
+ * admin/member group policies, the initial roster, builtin grants, and the
+ * optional roster/organization profile documents. The founding admin
+ * (`input.userId`) must already exist by the time roster sync runs — pass
+ * `options.onOrganizationRootCreated` to create it (registration) or ensure it
+ * exists beforehand (additional organization).
+ */
+export async function provisionOrganizationInTransaction(
+  tx: DatabaseTransaction,
+  input: OrganizationProvisioningRequest,
+  signer: OrganizationProvisioningSigner,
+  options: ProvisionOrganizationOptions,
+): Promise<ProvisionedOrganization> {
+  const { organizationId, rootContainerId } =
+    await provisionOrganizationAuthorityAndBilling(tx, input, options);
   const rootMetadata = await storeInitialRootContainer(tx, input, signer);
-  await createInitialBuiltinGrants(tx, input, org.id);
+  await createInitialBuiltinGrants(tx, input, organizationId);
   const rootMetadataDocument = await createInitialRootMetadataDocument(
     tx,
     input,
@@ -1237,8 +1251,8 @@ export async function provisionOrganizationInTransaction(
     signer,
   );
   return {
-    organizationId: org.id,
-    rootContainerId: container.id,
+    organizationId,
+    rootContainerId,
     rootMetadataAccessEpoch: rootMetadata.metadataAccessEpoch,
     rootMetadataAccessStateHash: rootMetadata.metadataAccessStateHash,
     rootMetadataDocumentId: rootMetadata.metadataDocumentId,

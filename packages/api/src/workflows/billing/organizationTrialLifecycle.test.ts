@@ -1,13 +1,14 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingLifecycleEvents,
   organizationBillingSeatAssignments,
+  organizationBillingSeatEvents,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { isOrganizationBillingHistoryResponse } from "@tearleads/validators/response";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import {
   billingAuthHeader,
@@ -15,7 +16,10 @@ import {
 } from "../../../test/helpers/organizationBillingHistory";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "../../billing/organizationBilling";
 import { routeApp } from "../../routeApp";
-import { runExpireOrganizationTrialWorkflow } from "./organizationTrialLifecycle";
+import {
+  runExpireOrganizationTrialsWorkflow,
+  runExpireOrganizationTrialWorkflow,
+} from "./organizationTrialLifecycle";
 
 test("trial inception and expiration remain durable user-facing lifecycle events", async () => {
   const admin = createTestUser();
@@ -45,6 +49,9 @@ test("trial inception and expiration remain durable user-facing lifecycle events
     seatPeriodKey: null,
     status: "disabled",
     trialEndsAt: null,
+    trialExpiryAttemptCount: 0,
+    trialExpiryLastError: null,
+    trialExpiryNextAttemptAt: null,
   });
   expect(billing.purgeAfter).toEqual(
     new Date(trial.trialEndsAt.getTime() + LAPSED_BILLING_PURGE_GRACE_MS),
@@ -93,17 +100,37 @@ test("trial inception and expiration remain durable user-facing lifecycle events
     isOrganizationBillingHistoryResponse(history),
     "expected billing history response",
   );
-  expect(history.entries.map((entry) => entry.eventType)).toEqual([
+  expect(history.entries.map((entry) => entry.eventType).sort()).toEqual([
     "free_trial_expired",
     "free_trial_initialized",
   ]);
-  expect(history.entries[1]).toMatchObject({
+  const initializedHistory = history.entries.find(
+    (entry) => entry.eventType === "free_trial_initialized",
+  );
+  expect(initializedHistory).toMatchObject({
     activeSeatCount: 1,
     category: "lifecycle",
     provider: "internal",
     seatCount: 10,
     seatDelta: 10,
   });
+
+  const [assignmentEvent] = await db
+    .select({
+      sourcePrincipalId: organizationBillingSeatEvents.sourcePrincipalId,
+      sourcePrincipalType: organizationBillingSeatEvents.sourcePrincipalType,
+    })
+    .from(organizationBillingSeatEvents)
+    .where(
+      and(
+        eq(organizationBillingSeatEvents.organizationId, organizationId),
+        eq(organizationBillingSeatEvents.eventType, "seat_assigned"),
+      ),
+    );
+  expect(assignmentEvent).toMatchObject({
+    sourcePrincipalType: "group",
+  });
+  expect(assignmentEvent?.sourcePrincipalId).not.toBeNull();
 });
 
 test("trial expiration fails closed when its durable inception is missing", async () => {
@@ -133,4 +160,90 @@ test("trial expiration fails closed when its durable inception is missing", asyn
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId));
   expect(billing?.status).toBe("trialing");
+  await db
+    .update(organizationBilling)
+    .set({
+      status: "local",
+      trialEndsAt: null,
+      trialExpiryNextAttemptAt: null,
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+});
+
+test("trial sweep backs off failures without starving later expirations", async () => {
+  const organizationIds: string[] = [];
+  for (let index = 0; index < 3; index += 1) {
+    organizationIds.push(await registerAndAuthenticate(createTestUser()));
+  }
+  const trials = await db
+    .select({
+      organizationId: organizationBilling.organizationId,
+      trialEndsAt: organizationBilling.trialEndsAt,
+    })
+    .from(organizationBilling)
+    .where(inArray(organizationBilling.organizationId, organizationIds));
+  expect(trials).toHaveLength(3);
+  const ordered = trials
+    .map((trial) => {
+      invariant(trial.trialEndsAt, "expected provisioned trial");
+      return { ...trial, trialEndsAt: trial.trialEndsAt };
+    })
+    .sort(
+      (left, right) =>
+        left.trialEndsAt.getTime() - right.trialEndsAt.getTime() ||
+        left.organizationId.localeCompare(right.organizationId),
+    );
+  const failing = ordered[0];
+  invariant(failing, "expected first trial");
+  await db
+    .delete(organizationBillingLifecycleEvents)
+    .where(
+      eq(
+        organizationBillingLifecycleEvents.organizationId,
+        failing.organizationId,
+      ),
+    );
+  const now = new Date(
+    Math.max(...ordered.map((trial) => trial.trialEndsAt.getTime())) + 1,
+  );
+  const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+  try {
+    expect(
+      await runExpireOrganizationTrialsWorkflow(db, { limit: 2, now }),
+    ).toEqual({ examined: 2, expired: 1, failed: 1 });
+    expect(
+      await runExpireOrganizationTrialsWorkflow(db, { limit: 2, now }),
+    ).toEqual({ examined: 1, expired: 1, failed: 0 });
+  } finally {
+    errorSpy.mockRestore();
+  }
+
+  const billingRows = await db
+    .select({
+      organizationId: organizationBilling.organizationId,
+      status: organizationBilling.status,
+      trialExpiryAttemptCount: organizationBilling.trialExpiryAttemptCount,
+      trialExpiryLastError: organizationBilling.trialExpiryLastError,
+      trialExpiryNextAttemptAt: organizationBilling.trialExpiryNextAttemptAt,
+    })
+    .from(organizationBilling)
+    .where(inArray(organizationBilling.organizationId, organizationIds));
+  const byOrganizationId = new Map(
+    billingRows.map((row) => [row.organizationId, row]),
+  );
+  expect(byOrganizationId.get(failing.organizationId)).toMatchObject({
+    status: "trialing",
+    trialExpiryAttemptCount: 1,
+    trialExpiryLastError: "Expired free trial has no initialization event",
+  });
+  expect(
+    byOrganizationId
+      .get(failing.organizationId)
+      ?.trialExpiryNextAttemptAt?.getTime(),
+  ).toBeGreaterThan(now.getTime());
+  for (const expired of ordered.slice(1)) {
+    expect(byOrganizationId.get(expired.organizationId)?.status).toBe(
+      "disabled",
+    );
+  }
 });

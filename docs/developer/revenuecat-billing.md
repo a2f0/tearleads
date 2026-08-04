@@ -309,15 +309,14 @@ Roster writes only enqueue an absolute desired state in
 roster transaction open. This keeps access changes durable even when Stripe is
 temporarily unavailable.
 
-## Stripe seat synchronization worker
+## Billing maintenance worker
 
-[`stripeSeatSync.ts`](../../packages/api/scripts/stripeSeatSync.ts) drains the
-durable capacity targets. It validates subscription metadata, a recognized tier
-Price, item id, and period against Stripe. The stored Price may lag a provider
-update whose database completion is retrying. Database leases prevent two
-workers from owning the same row, stable
-idempotency keys make a retried prorated increase safe, failures back off, and a
-daily audit rechecks otherwise-settled subscriptions for drift.
+[`stripeSeatSync.ts`](../../packages/api/scripts/stripeSeatSync.ts) first
+persists due free-trial expirations, then drains durable Stripe capacity
+targets. Trial failures persist error and backoff state so one row cannot starve
+later expirations. Stripe reconciliation validates the binding and period;
+leases, idempotency keys, retry backoff, and daily audits handle overlap,
+transient failure, and drift.
 If Stripe has already advanced to a new billing period, the worker first
 rebinds that authoritative period and retries as a fresh claim, so an old-period
 high-water can never be applied after renewal. Only locally `active` billing
@@ -325,18 +324,15 @@ rows are claimed, and capacity growth is prorated only while Stripe reports the
 subscription `active` or `trialing`; a `past_due` subscription backs off without
 creating another charge.
 
-This rollout is greenfield and assumes no live legacy per-seat Stripe
-subscriptions or billing rows. Before enabling a legacy deployment, rebind each
-Stripe item and stored `providerProductId` to a configured tier Price.
+Greenfield invariant: reset pre-existing billing data; the schema baseline has
+no compatibility or trial-lifecycle backfill path.
 
 The API build emits `packages/api/dist/tearleads-stripe-seat-sync`; the deploy
 scripts copy it to `/opt/tearleads/bin/tearleads-stripe-seat-sync`. Ansible
-installs `tearleads-stripe-seat-sync.service` and a persistent systemd timer
-that runs every minute; each timer run processes at most 100 due organizations
-and writes a JSON `{attempted, failed, synced}` summary to the journal. The API
-deploy scripts also run the database migration, but the first rollout must run
-the server Ansible playbook to install/enable the timer and render its
-`/etc/tearleads/api.env` configuration.
+installs `tearleads-stripe-seat-sync.service` and its one-minute timer. Each run
+processes up to 100 trials plus 100 Stripe targets and journals
+`{stripeSeatSync, trialExpiry}`. API deploys run migrations; the first rollout
+must run server Ansible to install the timer and render `/etc/tearleads/api.env`.
 
 Operational checks:
 

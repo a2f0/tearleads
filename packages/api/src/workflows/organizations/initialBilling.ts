@@ -50,6 +50,9 @@ export async function createInitialOrganizationBillingRow(
             ...fields,
           })
         : null,
+    trialExpiryAttemptCount: 0,
+    trialExpiryLastError: null,
+    trialExpiryNextAttemptAt: fields.trialEndsAt,
     updatedAt: now,
   });
   return {

@@ -13,6 +13,19 @@ import { LAPSED_BILLING_PURGE_GRACE_MS } from "../../billing/organizationBilling
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 
 const DEFAULT_EXPIRY_LIMIT = 100;
+const MAX_EXPIRY_RETRY_MS = 60 * 60 * 1000;
+
+function nextExpiryRetryAt(now: Date, attemptCount: number): Date {
+  const delayMs = Math.min(MAX_EXPIRY_RETRY_MS, 2 ** attemptCount * 1000);
+  return new Date(now.getTime() + delayMs);
+}
+
+function expiryErrorMessage(error: unknown): string {
+  return (error instanceof Error ? error.message : String(error)).slice(
+    0,
+    1000,
+  );
+}
 
 export function freeTrialLifecycleSourceId(
   organizationId: string,
@@ -156,6 +169,9 @@ async function disableTrial(input: {
       seatPeriodKey: null,
       status: "disabled",
       trialEndsAt: null,
+      trialExpiryAttemptCount: 0,
+      trialExpiryLastError: null,
+      trialExpiryNextAttemptAt: null,
       updatedAt: input.now,
     })
     .where(
@@ -263,18 +279,27 @@ export async function runExpireOrganizationTrialWorkflow(
       sourceId,
       trialEndsAt: billing.trialEndsAt,
     });
-    await tx.insert(organizationBillingLifecycleEvents).values({
-      activeSeatCount: 0,
-      createdAt: now,
-      eventType: "free_trial_expired",
-      licensedSeatCount: 0,
-      occurredAt: billing.trialEndsAt,
-      organizationId,
-      periodEndsAt: billing.trialEndsAt,
-      periodStartsAt,
-      quantityDelta: -billing.seatCount,
-      sourceId,
-    });
+    await tx
+      .insert(organizationBillingLifecycleEvents)
+      .values({
+        activeSeatCount: 0,
+        createdAt: now,
+        eventType: "free_trial_expired",
+        licensedSeatCount: 0,
+        occurredAt: billing.trialEndsAt,
+        organizationId,
+        periodEndsAt: billing.trialEndsAt,
+        periodStartsAt,
+        quantityDelta: -billing.seatCount,
+        sourceId,
+      })
+      .onConflictDoNothing({
+        target: [
+          organizationBillingLifecycleEvents.organizationId,
+          organizationBillingLifecycleEvents.eventType,
+          organizationBillingLifecycleEvents.sourceId,
+        ],
+      });
     return true;
   });
 }
@@ -285,12 +310,63 @@ interface ExpireOrganizationTrialsSummary {
   readonly failed: number;
 }
 
-/** Persists due trial expirations; safe to overlap because each row is locked. */
+async function deferFailedTrialExpiry(input: {
+  readonly db: ApiDatabase;
+  readonly error: unknown;
+  readonly now: Date;
+  readonly organizationId: string;
+}): Promise<void> {
+  await input.db.transaction(async (tx) => {
+    const query = tx
+      .select({
+        attemptCount: organizationBilling.trialExpiryAttemptCount,
+        trialEndsAt: organizationBilling.trialEndsAt,
+      })
+      .from(organizationBilling)
+      .where(
+        and(
+          eq(organizationBilling.organizationId, input.organizationId),
+          eq(organizationBilling.status, "trialing"),
+          lte(organizationBilling.trialEndsAt, input.now),
+          lte(organizationBilling.trialExpiryNextAttemptAt, input.now),
+        ),
+      )
+      .limit(1);
+    const [current] = isSqliteApiDatabase()
+      ? await query
+      : await query.for("update", { of: organizationBilling });
+    if (!current?.trialEndsAt) {
+      return;
+    }
+    const attemptCount = current.attemptCount + 1;
+    await tx
+      .update(organizationBilling)
+      .set({
+        trialExpiryAttemptCount: attemptCount,
+        trialExpiryLastError: expiryErrorMessage(input.error),
+        trialExpiryNextAttemptAt: nextExpiryRetryAt(input.now, attemptCount),
+        updatedAt: input.now,
+      })
+      .where(
+        and(
+          eq(organizationBilling.organizationId, input.organizationId),
+          eq(organizationBilling.status, "trialing"),
+          eq(organizationBilling.trialEndsAt, current.trialEndsAt),
+          lte(organizationBilling.trialExpiryNextAttemptAt, input.now),
+        ),
+      );
+  });
+}
+
+/**
+ * Persists due trial expirations. Conditional updates make overlapping sweeps
+ * safe on every database; PostgreSQL additionally locks each selected row.
+ */
 export async function runExpireOrganizationTrialsWorkflow(
   db: ApiDatabase,
   options: { readonly limit?: number; readonly now?: Date } = {},
 ): Promise<ExpireOrganizationTrialsSummary> {
-  const limit = options.limit ?? DEFAULT_EXPIRY_LIMIT;
+  const limit = Math.max(1, options.limit ?? DEFAULT_EXPIRY_LIMIT);
   const now = options.now ?? new Date();
   const candidates = await db
     .select({ organizationId: organizationBilling.organizationId })
@@ -299,9 +375,11 @@ export async function runExpireOrganizationTrialsWorkflow(
       and(
         eq(organizationBilling.status, "trialing"),
         lte(organizationBilling.trialEndsAt, now),
+        lte(organizationBilling.trialExpiryNextAttemptAt, now),
       ),
     )
     .orderBy(
+      asc(organizationBilling.trialExpiryNextAttemptAt),
       asc(organizationBilling.trialEndsAt),
       asc(organizationBilling.organizationId),
     )
@@ -322,6 +400,19 @@ export async function runExpireOrganizationTrialsWorkflow(
       }
     } catch (error) {
       failed += 1;
+      try {
+        await deferFailedTrialExpiry({
+          db,
+          error,
+          now,
+          organizationId: candidate.organizationId,
+        });
+      } catch (deferError) {
+        console.error(
+          `Free-trial expiry backoff failed for organization ${candidate.organizationId}:`,
+          deferError,
+        );
+      }
       console.error(
         `Free-trial expiry failed for organization ${candidate.organizationId}:`,
         error,

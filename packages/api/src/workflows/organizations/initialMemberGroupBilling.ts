@@ -49,7 +49,12 @@ export async function syncInitialRosterAndBillingSeats(input: {
             sourcePrincipalType: "group",
             sourceType: "principal_state",
           }
-        : { sourceId: trialSourceId, sourceType: "billing_transition" },
+        : {
+            sourceId: trialSourceId,
+            sourcePrincipalId: input.provisioning.initialMemberGroup.groupId,
+            sourcePrincipalType: "group",
+            sourceType: "billing_transition",
+          },
   });
   if (
     trialSourceId !== null &&

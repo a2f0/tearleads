@@ -1,5 +1,5 @@
 {
-  "id": "c5ef0cc1-e4bb-462a-9499-494d3bbaca64",
+  "id": "f538b31e-2289-47af-b959-21b191f24488",
   "prevId": "946d52b5-46de-4f29-bdaf-0edcbdd0ea5d",
   "version": "7",
   "dialect": "postgresql",
@@ -4262,6 +4262,25 @@
           "primaryKey": false,
           "notNull": false
         },
+        "trial_expiry_next_attempt_at": {
+          "name": "trial_expiry_next_attempt_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trial_expiry_attempt_count": {
+          "name": "trial_expiry_attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "trial_expiry_last_error": {
+          "name": "trial_expiry_last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "provider": {
           "name": "provider",
           "type": "text",
@@ -4419,6 +4438,12 @@
           "columns": [
             {
               "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "trial_expiry_next_attempt_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -4624,6 +4649,136 @@
         },
         "organization_billing_invoice_events_org_occurred_idx": {
           "name": "organization_billing_invoice_events_org_occurred_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.organization_billing_lifecycle_events": {
+      "name": "organization_billing_lifecycle_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "licensed_seat_count": {
+          "name": "licensed_seat_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity_delta": {
+          "name": "quantity_delta",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active_seat_count": {
+          "name": "active_seat_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "period_starts_at": {
+          "name": "period_starts_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "period_ends_at": {
+          "name": "period_ends_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "organization_billing_lifecycle_events_source_idx": {
+          "name": "organization_billing_lifecycle_events_source_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "event_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "organization_billing_lifecycle_events_org_occurred_idx": {
+          "name": "organization_billing_lifecycle_events_org_occurred_idx",
           "columns": [
             {
               "expression": "organization_id",

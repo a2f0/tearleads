@@ -207,7 +207,15 @@ async function startOrganizationTrialInTransaction(input: {
   });
   const [updated] = await input.executor
     .update(organizationBilling)
-    .set({ status, trialEndsAt, seatPeriodKey, updatedAt: input.now })
+    .set({
+      status,
+      trialEndsAt,
+      seatPeriodKey,
+      trialExpiryAttemptCount: 0,
+      trialExpiryLastError: null,
+      trialExpiryNextAttemptAt: trialEndsAt,
+      updatedAt: input.now,
+    })
     .where(
       and(
         eq(organizationBilling.organizationId, input.organizationId),

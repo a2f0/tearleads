@@ -61,9 +61,11 @@ function getBillingReasonLabel(reason: string): string {
 }
 
 function getPeriodLabel(entry: OrganizationBillingHistoryEntry): string | null {
-  const periodKind = entry.eventType.startsWith("free_trial_")
-    ? "Trial period"
-    : "Billing period";
+  const isFreeTrial =
+    entry.provider === "internal" &&
+    (entry.eventType === "free_trial_initialized" ||
+      entry.eventType === "free_trial_expired");
+  const periodKind = isFreeTrial ? "Trial period" : "Billing period";
   if (entry.periodStartsAt !== null && entry.periodEndsAt !== null) {
     return `${periodKind}: ${formatMiniAppDate(entry.periodStartsAt)} – ${formatMiniAppDate(entry.periodEndsAt)}`;
   }

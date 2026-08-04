@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a96e1ab2-72c6-4624-965e-2ed803e6fcab",
+  "id": "8a6a230d-30ca-4c39-b34b-07270aa3b514",
   "prevId": "001c6f53-394c-40fa-8ce7-f6e1ec24a69e",
   "tables": {
     "access_event_dependency_projection": {
@@ -3012,6 +3012,28 @@
           "notNull": false,
           "autoincrement": false
         },
+        "trial_expiry_next_attempt_at": {
+          "name": "trial_expiry_next_attempt_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "trial_expiry_attempt_count": {
+          "name": "trial_expiry_attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "trial_expiry_last_error": {
+          "name": "trial_expiry_last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "provider": {
           "name": "provider",
           "type": "text",
@@ -3178,7 +3200,12 @@
         },
         "organization_billing_trial_expiry_idx": {
           "name": "organization_billing_trial_expiry_idx",
-          "columns": ["status", "trial_ends_at", "organization_id"],
+          "columns": [
+            "status",
+            "trial_expiry_next_attempt_at",
+            "trial_ends_at",
+            "organization_id"
+          ],
           "isUnique": false
         },
         "organization_billing_purge_candidates_idx": {
@@ -3334,6 +3361,105 @@
         },
         "organization_billing_invoice_events_org_occurred_idx": {
           "name": "organization_billing_invoice_events_org_occurred_idx",
+          "columns": ["organization_id", "occurred_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "organization_billing_lifecycle_events": {
+      "name": "organization_billing_lifecycle_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "licensed_seat_count": {
+          "name": "licensed_seat_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "quantity_delta": {
+          "name": "quantity_delta",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active_seat_count": {
+          "name": "active_seat_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "period_starts_at": {
+          "name": "period_starts_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "period_ends_at": {
+          "name": "period_ends_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        }
+      },
+      "indexes": {
+        "organization_billing_lifecycle_events_source_idx": {
+          "name": "organization_billing_lifecycle_events_source_idx",
+          "columns": ["organization_id", "event_type", "source_id"],
+          "isUnique": true
+        },
+        "organization_billing_lifecycle_events_org_occurred_idx": {
+          "name": "organization_billing_lifecycle_events_org_occurred_idx",
           "columns": ["organization_id", "occurred_at"],
           "isUnique": false
         }

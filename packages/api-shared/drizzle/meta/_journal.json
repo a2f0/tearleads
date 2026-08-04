@@ -22,13 +22,6 @@
       "when": 1785842742816,
       "tag": "0002_mighty_argent",
       "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1785851377002,
-      "tag": "0003_purple_proteus",
-      "breakpoints": true
     }
   ]
 }

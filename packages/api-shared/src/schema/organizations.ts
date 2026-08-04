@@ -123,6 +123,8 @@ export const organizationRosterEntries = pgTable(
  * - `status`: Sync-billing lifecycle. `local` (free, on-device only), `trialing`
  *   and `active` can sync; `past_due`, `disabled`, `deleting`, `purged` cannot.
  * - `trialEndsAt`: When the free trial ends. Null unless `status` is `trialing`.
+ * - `trialExpiry*`: Durable retry state for the out-of-process trial-expiry
+ *   sweep. A failed row backs off so it cannot starve later due trials.
  * - `provider`: Payment provider backing an `active` subscription (RevenueCat).
  *   Null while `local`/`trialing`.
  * - `providerCustomerId`: Provider-side customer id (RevenueCat App User ID) that
@@ -159,6 +161,11 @@ export const organizationBilling = pgTable(
       .default("local")
       .notNull(),
     trialEndsAt: timestamp("trial_ends_at"),
+    trialExpiryNextAttemptAt: timestamp("trial_expiry_next_attempt_at"),
+    trialExpiryAttemptCount: integer("trial_expiry_attempt_count")
+      .default(0)
+      .notNull(),
+    trialExpiryLastError: text("trial_expiry_last_error"),
     provider: text("provider").$type<OrganizationBillingProvider>(),
     providerCustomerId: text("provider_customer_id"),
     providerSubscriptionId: text("provider_subscription_id"),
@@ -188,6 +195,7 @@ export const organizationBilling = pgTable(
     uniqueIndex("organization_billing_org_idx").on(table.organizationId),
     index("organization_billing_trial_expiry_idx").on(
       table.status,
+      table.trialExpiryNextAttemptAt,
       table.trialEndsAt,
       table.organizationId,
     ),
