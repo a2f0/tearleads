@@ -10,6 +10,7 @@ import {
 import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import type { OrganizationBillingHistoryEvent } from "../../billing/organizationBilling";
+import { isRevenueCatGrantEventType } from "../../billing/revenuecatWebhook";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 
 /** Newest merged events returned to a client; older audit rows stay durable. */
@@ -199,8 +200,12 @@ function projectLifecycleHistory(
   return rows.map((row) => {
     const seat = seatsByProviderEventId.get(row.providerEventId);
     // RevenueCat lifecycle events don't carry a trustworthy charged total.
-    // The fixed catalog still supplies the plan's capacity and USD list price.
-    const tier = getSyncBillingTierForNativeProduct(row.productId);
+    // Successful grants can still use the monthly catalog's capacity and USD
+    // list price; revocations and ignored events must not imply entitlement.
+    const tier =
+      row.outcome === "applied" && isRevenueCatGrantEventType(row.eventType)
+        ? getSyncBillingTierForNativeProduct(row.productId)
+        : null;
     return {
       id: row.id,
       category: "lifecycle",

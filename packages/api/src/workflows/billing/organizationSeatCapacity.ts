@@ -17,10 +17,13 @@ function assertRosterWithinLargestTier(
   activeSeatCount: number,
   previousActiveSeatCount?: number,
 ): void {
+  const activeSeatCountIsValid =
+    Number.isSafeInteger(activeSeatCount) && activeSeatCount >= 0;
   if (
-    activeSeatCount <= getLargestSyncBillingTier().seatLimit ||
-    (previousActiveSeatCount !== undefined &&
-      activeSeatCount <= previousActiveSeatCount)
+    activeSeatCountIsValid &&
+    (activeSeatCount <= getLargestSyncBillingTier().seatLimit ||
+      (previousActiveSeatCount !== undefined &&
+        activeSeatCount <= previousActiveSeatCount))
   ) {
     return;
   }

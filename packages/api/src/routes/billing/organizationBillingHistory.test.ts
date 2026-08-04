@@ -1,139 +1,17 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import {
-  organizationBillingInvoiceEvents,
-  organizationBillingSeatEvents,
-  revenuecatWebhookEvents,
-  users,
-} from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import { isOrganizationBillingHistoryResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  billingAuthHeader as authHeader,
+  clearBillingHistory,
+  insertInvoiceEvent,
+  insertSeatEvent,
+  insertWebhookEvent,
+  registerAndAuthenticate,
+} from "../../../test/helpers/organizationBillingHistory";
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
-import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-
-async function registerAndAuthenticate(user: TestUser): Promise<string> {
-  await registerUser(user);
-  await authenticate(user);
-
-  const [row] = await db
-    .select({ organizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, user.userId));
-
-  invariant(row, "expected registered user row");
-  return row.organizationId;
-}
-
-function authHeader(user: TestUser): { Authorization: string } {
-  return { Authorization: `Bearer ${user.token}` };
-}
-
-async function clearBillingHistory(organizationId: string): Promise<void> {
-  await db
-    .delete(organizationBillingInvoiceEvents)
-    .where(eq(organizationBillingInvoiceEvents.organizationId, organizationId));
-  await db
-    .delete(organizationBillingSeatEvents)
-    .where(eq(organizationBillingSeatEvents.organizationId, organizationId));
-  await db
-    .delete(revenuecatWebhookEvents)
-    .where(eq(revenuecatWebhookEvents.organizationId, organizationId));
-}
-
-/** Inserts one audit row like the webhook workflow records after processing. */
-async function insertWebhookEvent(input: {
-  appUserId: string;
-  eventTimestamp: Date;
-  eventId?: string;
-  eventType: string;
-  id?: string;
-  organizationId: string;
-  outcome: "applied" | "ignored";
-  periodEndsAt?: Date | null;
-  periodStartsAt?: Date | null;
-  productId?: string | null;
-  transactionId?: string | null;
-}): Promise<void> {
-  await db.insert(revenuecatWebhookEvents).values({
-    id: input.id,
-    eventId: input.eventId ?? crypto.randomUUID(),
-    eventType: input.eventType,
-    appUserId: input.appUserId,
-    productId: input.productId ?? null,
-    transactionId: input.transactionId ?? null,
-    originalTransactionId: null,
-    organizationId: input.organizationId,
-    outcome: input.outcome,
-    eventTimestamp: input.eventTimestamp,
-    purchasedAt: input.periodStartsAt ?? null,
-    expirationAt: input.periodEndsAt ?? null,
-  });
-}
-
-async function insertSeatEvent(input: {
-  activeSeatCount: number;
-  createdAt: Date;
-  eventType:
-    | "seat_assigned"
-    | "licensed_seat_count_initialized"
-    | "licensed_seat_count_increased"
-    | "licensed_seat_count_reset";
-  id?: string;
-  organizationId: string;
-  periodEndsAt?: Date | null;
-  periodStartsAt?: Date | null;
-  seatCount: number;
-  seatDelta: number;
-  sourceId: string;
-  sourceType: "provider_event" | "principal_state";
-}): Promise<void> {
-  await db.insert(organizationBillingSeatEvents).values({
-    id: input.id,
-    activeSeatCount: input.activeSeatCount,
-    billingPeriodEndsAt: input.periodEndsAt ?? null,
-    billingPeriodStartsAt: input.periodStartsAt ?? null,
-    createdAt: input.createdAt,
-    eventType: input.eventType,
-    licensedSeatCount: input.seatCount,
-    organizationId: input.organizationId,
-    quantityDelta: input.seatDelta,
-    sourceId: input.sourceId,
-    sourceType: input.sourceType,
-  });
-}
-
-async function insertInvoiceEvent(input: {
-  id?: string;
-  invoiceId: string;
-  occurredAt: Date;
-  organizationId: string;
-  periodEndsAt?: Date | null;
-  periodStartsAt?: Date | null;
-  seatCount: number;
-}): Promise<void> {
-  await db.insert(organizationBillingInvoiceEvents).values({
-    id: input.id,
-    billingReason: "subscription_cycle",
-    currency: "usd",
-    interval: "month",
-    intervalCount: 3,
-    invoiceId: input.invoiceId,
-    occurredAt: input.occurredAt,
-    organizationId: input.organizationId,
-    periodEndsAt: input.periodEndsAt ?? null,
-    periodStartsAt: input.periodStartsAt ?? null,
-    priceId: "price_monthly",
-    providerEventId: `evt_${input.invoiceId}`,
-    seatCount: input.seatCount,
-    subscriptionId: "sub_1",
-    totalAmount: input.seatCount * 1_200,
-    unitAmount: 1_200,
-  });
-}
 
 test("an org admin reads meaningful mixed billing history newest-first", async () => {
   const admin = createTestUser();
