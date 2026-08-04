@@ -345,3 +345,54 @@ test("a rejected rotation does not cancel a committed one's repair", async () =>
     close();
   }
 });
+
+test("three overlapping rotations leave only the newest running", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-three-way",
+  );
+  try {
+    await seedReadModel(execSql);
+    const log: string[] = [];
+    const runtime = fakeRuntime(log);
+    runtime.infra.execSql = execSql as never;
+    const attempts: number[][] = [[], [], []];
+    const start = (index: number) =>
+      scheduleGroupGrantReshareAfterRotation({
+        containerContents: fakeContainerContents({
+          prepareCalls: [],
+          rewrapped: [],
+          throwForContainerIds: new Set(["container-a", "container-b"]),
+        }),
+        expectedGroupHead: EXPECTED_HEAD,
+        mutatedGroupId: GRANTED_GROUP_ID,
+        reconcileReadModel: async () => ({}),
+        runtime: runtime as never,
+        scheduleRetry: (retry, delayMs) => {
+          attempts[index]?.push(delayMs);
+          setTimeout(retry, 1);
+        },
+        shouldContinue: () => true,
+        signingContext: {
+          organizationId: ORGANIZATION_ID,
+          signerUserId: CURRENT_USER_ID,
+        },
+      });
+
+    start(0);
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    start(1);
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    start(2);
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    const settled = attempts.map((entry) => entry.length);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    // Cancelling a predecessor captured at schedule time would leave the sweep
+    // actually running untouched once a third rotation lands.
+    expect(attempts[0]?.length).toBe(settled[0]);
+    expect(attempts[1]?.length).toBe(settled[1]);
+    expect(attempts[2]?.length).toBeGreaterThan(settled[2] ?? 0);
+  } finally {
+    close();
+  }
+});

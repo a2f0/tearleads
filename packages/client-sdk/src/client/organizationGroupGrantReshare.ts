@@ -98,7 +98,6 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
   // then rejects would otherwise cancel the repair of an earlier rotation that
   // did commit.
   const sweepKey = `${input.signingContext.organizationId}:${input.mutatedGroupId}`;
-  const predecessor = activeSweeps.get(sweepKey);
   const cancellation = { cancelled: false };
   const entry = {
     cancel: () => {
@@ -106,10 +105,15 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
     },
   };
   const supersedePredecessor = () => {
-    if (activeSweeps.get(sweepKey) === entry) {
+    // Resolve the incumbent HERE, not at schedule time. With three overlapping
+    // rotations the entry captured when this one was scheduled may already have
+    // been replaced, and cancelling that stale snapshot would leave the sweep
+    // actually running untouched.
+    const incumbent = activeSweeps.get(sweepKey);
+    if (incumbent === entry) {
       return;
     }
-    predecessor?.cancel();
+    incumbent?.cancel();
     activeSweeps.set(sweepKey, entry);
   };
 
