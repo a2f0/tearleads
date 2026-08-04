@@ -387,3 +387,65 @@ test("a container envelope sealed to a historical group key is opened end to end
   expect(recovered).not.toBeNull();
   expect(Array.from(recovered ?? [])).toEqual(Array.from(containerKey));
 });
+
+test("a member who joined after the epoch cannot recover it", async () => {
+  const founder = generateKemSeedAndKeyPair();
+  const joiner = generateKemSeedAndKeyPair();
+  const epochOne = generateKemSeedAndKeyPair();
+  const epochTwo = generateKemSeedAndKeyPair();
+  const historicalSecret = crypto.getRandomValues(new Uint8Array(32));
+  const currentSecret = crypto.getRandomValues(new Uint8Array(32));
+
+  // Version 1 is the epoch a container envelope was sealed to, and only the
+  // founder held an envelope then. Version 2 is the rotation that admitted the
+  // joiner, so the joiner's envelope exists ONLY at the current epoch.
+  const genesis = await stateAt({
+    prevStateHash: null,
+    publicKey: epochOne.publicKey,
+    version: 1,
+  });
+  // The real history response carries only the REQUESTER's envelopes, so a
+  // joiner would see version 1 with none at all. Serving the founder's here is
+  // deliberately more generous than production: the joiner still recovers
+  // nothing, which shows the failure is the absent derivation path rather than
+  // what the server chose to send.
+  const history = pageOf([
+    {
+      state: await stateAt({
+        prevStateHash: genesis.stateHash,
+        publicKey: epochTwo.publicKey,
+        version: 2,
+      }),
+      memberEnvelopes: [
+        await memberEnvelopeFor({
+          principalSecret: currentSecret,
+          publicKey: joiner.publicKey,
+        }),
+      ],
+    },
+    {
+      state: genesis,
+      memberEnvelopes: [
+        await memberEnvelopeFor({
+          principalSecret: historicalSecret,
+          publicKey: founder.publicKey,
+        }),
+      ],
+    },
+  ]);
+  const walk = (secretKey: Uint8Array) =>
+    resolveHistoricalPrincipalKey({
+      fetchHistory: async () => history,
+      keyFingerprint: genesis.keyFingerprint,
+      principalId: PRINCIPAL_ID,
+      principalType: "group",
+      secretKey,
+    });
+
+  // The founder proves the walk itself reaches version 1 across this history.
+  expect(Array.from((await walk(founder.secretKey)) ?? [])).toEqual(
+    Array.from(historicalSecret),
+  );
+  // The joiner is a current member of the same group and still gets nothing.
+  expect(await walk(joiner.secretKey)).toBeNull();
+});
