@@ -32,18 +32,24 @@ export class RevenueCatProviderPhaseCoordinator
     input: RevenueCatProviderPhaseInput,
   ): Promise<T> {
     const pending = Promise.resolve().then(operation);
-    if (input.buyerPaced) return pending;
     let timeoutError: RevenueCatOperationTimeoutError | undefined;
     try {
-      return await this.timeouts.withProviderTimeout(
-        pending,
-        input.operationName,
-        () => true,
-        (error) => {
-          timeoutError = error;
-          this.rejectTimedOut(error);
-        },
-      );
+      const onTimeout = (error: RevenueCatOperationTimeoutError) => {
+        timeoutError = error;
+        this.rejectTimedOut(error);
+      };
+      return await (input.buyerPaced
+        ? this.timeouts.withBuyerPacedTimeout(
+            pending,
+            input.operationName,
+            onTimeout,
+          )
+        : this.timeouts.withProviderTimeout(
+            pending,
+            input.operationName,
+            () => true,
+            onTimeout,
+          ));
     } catch (error) {
       // The caller gets the timeout through `timedOut`; keep this serialized
       // operation held until the native bridge actually settles.

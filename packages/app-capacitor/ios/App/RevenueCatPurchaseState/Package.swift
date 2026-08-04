@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 5.9
 
 import PackageDescription
 
@@ -20,5 +20,6 @@ let package = Package(
             name: "RevenueCatPurchaseStateTests",
             dependencies: ["RevenueCatPurchaseState"]
         )
-    ]
+    ],
+    swiftLanguageVersions: [.v5]
 )

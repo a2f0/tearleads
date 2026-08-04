@@ -156,12 +156,14 @@ class RevenueCatPurchasePlugin internal constructor(
     @PluginMethod
     fun purchasePackage(call: PluginCall) {
         if (!purchasesConfigured()) {
+            preparedPackages.clear()
             rejectBridgeValidation(call)
             return
         }
         val packageId = call.getString("packageId")
         val productId = call.getString("productId")
         if (packageId.isNullOrEmpty() || productId.isNullOrEmpty()) {
+            preparedPackages.clear()
             rejectBridgeValidation(call)
             return
         }
@@ -180,6 +182,7 @@ class RevenueCatPurchasePlugin internal constructor(
             it.product.id
         }
         if (prepared == null) {
+            preparedPackages.clear()
             rejectBridgeValidation(call)
             return
         }
@@ -189,6 +192,7 @@ class RevenueCatPurchasePlugin internal constructor(
             activityProvider.invoke()
         }
         if (activity == null) {
+            preparedPackages.clear()
             rejectBridgeValidation(call)
             return
         }

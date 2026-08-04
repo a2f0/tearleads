@@ -352,6 +352,30 @@ test("an iOS native move leaves StoreKit restore buyer-paced", async () => {
   await moving;
 });
 
+test("a lost iOS native move callback eventually requires restart", async () => {
+  const backend = createBackend();
+  backend.restorePurchases = () => new Promise(() => {});
+  const capability = createRevenueCatPurchases(backend, {
+    apiKey: "key",
+    checkoutSettlementTimeoutMs: 5,
+    nativeStore: "app_store",
+    operationTimeoutMs: 50,
+    restorePurchasesBuyerPaced: true,
+    syncEntitlementId: "sync",
+  });
+
+  await expect(
+    capability.moveNativeSubscription({
+      claim: async () => true,
+      organizationId: "org-1",
+      userId: "user-1",
+    }),
+  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
+  await expect(capability.hasActiveSyncEntitlement()).rejects.toBeInstanceOf(
+    PurchaseProviderStalledError,
+  );
+});
+
 test("identity queued behind buyer-paced restore stays retryable", async () => {
   const backend = createBackend();
   let finishRestore = () => {};

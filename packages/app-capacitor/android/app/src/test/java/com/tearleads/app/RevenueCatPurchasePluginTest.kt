@@ -356,6 +356,7 @@ class RevenueCatPurchasePluginTest {
         configuredPlugin(cache).purchasePackage(call)
 
         assertEquals("bridge-invalid", call.rejectionCode)
+        assertNull(cache.consume("team", "team-product") { it.product.id })
     }
 
     @Test
