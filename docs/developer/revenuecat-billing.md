@@ -141,19 +141,21 @@ bun run --filter=app-web dev
 
 ## Provider deadlines
 
-Setup, identity, checkout preparation, and ordinary calls have a 30-second
-deadline. Native checkout is buyer-paced, but its wait has a 10-minute recovery
-deadline. It fails closed with restart guidance until callback or restart; a
-late callback clears the block. Restore bounds preflight. App Store restore is
-unbounded for buyer sign-in; Play has no buyer sheet and keeps the ordinary
-deadline.
+Provider setup, identity, checkout preparation, Play restore, and ordinary calls
+have independent 30-second deadlines. App Store restore is unbounded for buyer
+sign-in. Native checkout is buyer-paced but recovers after ten minutes; until a
+late callback clears the block, callers get restart guidance.
 
 `PurchaseIdentityPendingError` means a call timed out before reaching the
-provider, including while queued behind checkout or buyer-paced restore; retry
-after that flow settles. `PurchaseProviderStalledError` means active setup,
-identity, or bridge work exceeded its deadline; restart the app. Timed-out work
-stays serialized and may still take effect. Buyer changes wait for checkout to
-settle, and re-identifying the current buyer is otherwise a no-op.
+provider, including while queued behind checkout or restore; retry after that
+flow settles. `PurchaseProviderStalledError` means active provider work exceeded
+its deadline; restart the app. Timed-out provider work stays serialized and may
+still take effect.
+
+A native-move server claim has a separate 30-second deadline. On timeout the
+queue is released, though HTTP may still succeed without the
+RevenueCat organization binding. Retrying is safe and completes the idempotent
+claim and binding.
 
 ## RevenueCat webhook (server)
 
