@@ -80,11 +80,28 @@ internal fun findRevenueCatPackage(
     it.identifier == packageId && it.product.id == productId
 }
 
+internal interface RevenueCatPurchaseClient {
+    fun getOfferings(callback: ReceiveOfferingsCallback)
+
+    fun purchase(params: PurchaseParams, callback: PurchaseCallback)
+}
+
+private object SharedRevenueCatPurchaseClient : RevenueCatPurchaseClient {
+    override fun getOfferings(callback: ReceiveOfferingsCallback) {
+        Purchases.sharedInstance.getOfferings(callback)
+    }
+
+    override fun purchase(params: PurchaseParams, callback: PurchaseCallback) {
+        Purchases.sharedInstance.purchase(params, callback)
+    }
+}
+
 @CapacitorPlugin(name = "RevenueCatPurchase")
 class RevenueCatPurchasePlugin internal constructor(
     private val preparedPackages: PreparedPackageCache<Package>,
     private val purchasesConfigured: () -> Boolean,
     private val activityProvider: (() -> Activity?)?,
+    private val purchaseClient: RevenueCatPurchaseClient = SharedRevenueCatPurchaseClient,
 ) : Plugin() {
     constructor() : this(
         PreparedPackageCache(),
@@ -106,7 +123,7 @@ class RevenueCatPurchasePlugin internal constructor(
             return
         }
 
-        Purchases.sharedInstance.getOfferings(object : ReceiveOfferingsCallback {
+        purchaseClient.getOfferings(object : ReceiveOfferingsCallback {
             override fun onReceived(offerings: com.revenuecat.purchases.Offerings) {
                 val prepared = findRevenueCatPackage(
                     offerings.current?.availablePackages.orEmpty(),
@@ -169,7 +186,7 @@ class RevenueCatPurchasePlugin internal constructor(
         val builder = PurchaseParams.Builder(activity, prepared)
         productChange.oldProductIdentifier?.let(builder::oldProductId)
         productChange.replacementMode?.let(builder::replacementMode)
-        Purchases.sharedInstance.purchase(
+        purchaseClient.purchase(
             builder.build(),
             object : PurchaseCallback {
                 override fun onCompleted(

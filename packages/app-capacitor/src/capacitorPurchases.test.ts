@@ -330,15 +330,19 @@ test("rejects a stale package whose product is not a configured tier", async () 
 test("fails closed when the native bridge cannot validate", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
-  fixture.nativePurchaseRejection = {
+  const bridgeError = {
     code: "bridge-invalid",
     message: "RevenueCat purchase failed",
     data: { userCancelled: false },
   };
+  fixture.nativePurchaseRejection = bridgeError;
 
-  await expect(purchaseSync()).rejects.toBeInstanceOf(
-    PurchasesUnavailableError,
-  );
+  const error = await purchaseSync().catch((reason: unknown) => reason);
+  expect(error).toBeInstanceOf(PurchasesUnavailableError);
+  expect(error).toMatchObject({
+    cause: bridgeError,
+    code: "bridge-invalid",
+  });
 
   expect(fixture.nativePurchaseCalls).toEqual([
     { identifier: "monthly", productId: "com.tearleads.sync.monthly" },

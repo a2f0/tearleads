@@ -246,8 +246,11 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(purchasePlugin).toContain(
     "(oldProductIdentifier == null) != (replacementName == null)",
   );
+  expect(purchasePlugin).toContain("purchaseClient.getOfferings(");
+  expect(purchasePlugin).toContain(
+    "Purchases.sharedInstance.getOfferings(callback)",
+  );
   expect(purchasePlugin).toContain("Purchases.sharedInstance.purchase(");
-  expect(purchasePlugin.match(/\.getOfferings\(/g) ?? []).toHaveLength(1);
   expect(purchasePlugin).toContain(
     "StoreReplacementMode.CHARGE_PRORATED_PRICE",
   );

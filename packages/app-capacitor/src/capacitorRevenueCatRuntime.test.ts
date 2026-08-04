@@ -40,9 +40,9 @@ test("stores and clears the production capability singleton", () => {
 });
 
 test("forwards Android product-change fields atomically", () => {
-  expect(
+  expect(() =>
     nativeProductChangeInput({ oldProductIdentifier: "sync_solo_monthly" }),
-  ).toBeUndefined();
+  ).toThrow("Android product changes require both store fields");
   expect(
     nativeProductChangeInput({
       oldProductIdentifier: "sync_solo_monthly",

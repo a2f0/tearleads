@@ -14,12 +14,14 @@ type NativePurchaseChangeOptions = Pick<
 export function nativeProductChangeInput(
   change: NativePurchaseChangeOptions["storeProductChangeInfo"],
 ): { oldProductIdentifier: string; replacementMode: string } | undefined {
-  return change?.replacementMode === undefined
-    ? undefined
-    : {
-        oldProductIdentifier: change.oldProductIdentifier,
-        replacementMode: change.replacementMode,
-      };
+  if (change == null) return undefined;
+  if (!change.oldProductIdentifier || change.replacementMode === undefined) {
+    throw new Error("Android product changes require both store fields");
+  }
+  return {
+    oldProductIdentifier: change.oldProductIdentifier,
+    replacementMode: change.replacementMode,
+  };
 }
 
 function nativePackageInput(aPackage: PurchasesPackage) {

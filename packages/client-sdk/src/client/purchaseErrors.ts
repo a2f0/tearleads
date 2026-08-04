@@ -1,7 +1,10 @@
 /** Thrown when a purchase is attempted without a purchases provider. */
 export class PurchasesUnavailableError extends Error {
-  constructor(message = "Purchases are not available on this platform") {
-    super(message);
+  constructor(
+    message = "Purchases are not available on this platform",
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
     this.name = "PurchasesUnavailableError";
   }
 }

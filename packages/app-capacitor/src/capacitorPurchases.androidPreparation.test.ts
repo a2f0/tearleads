@@ -77,18 +77,24 @@ test("fails closed when Android package preparation cannot validate", async () =
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
   fixture.platform = "android";
   fixture.packages = [nativePackage("monthly", "sync_solo_monthly:monthly")];
-  fixture.nativePrepareRejection = {
+  const bridgeError = {
     code: "bridge-invalid",
     message: "RevenueCat purchase failed",
     data: { userCancelled: false },
   };
+  fixture.nativePrepareRejection = bridgeError;
 
-  await expect(
-    createCapacitorPurchases().purchaseSync({
+  const error = await createCapacitorPurchases()
+    .purchaseSync({
       organizationId: "org-1",
       packageId: "monthly",
-    }),
-  ).rejects.toBeInstanceOf(PurchasesUnavailableError);
+    })
+    .catch((reason: unknown) => reason);
+  expect(error).toBeInstanceOf(PurchasesUnavailableError);
+  expect(error).toMatchObject({
+    cause: bridgeError,
+    code: "bridge-invalid",
+  });
   expect(fixture.nativePrepareCalls).toEqual([
     { identifier: "monthly", productId: "sync_solo_monthly:monthly" },
   ]);

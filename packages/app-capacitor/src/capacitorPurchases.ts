@@ -166,6 +166,17 @@ function isInvalidNativePurchaseBridge(error: unknown): boolean {
   );
 }
 
+class NativePurchaseBridgeUnavailableError extends PurchasesUnavailableError {
+  readonly code = "bridge-invalid";
+
+  constructor(cause: unknown) {
+    super("The native purchase bridge could not validate this package", {
+      cause,
+    });
+    this.name = "NativePurchaseBridgeUnavailableError";
+  }
+}
+
 function normalizeCapacitorPurchaseError(error: unknown): never {
   if (isUserCancelledPurchase(error)) {
     throw new PurchaseCancelledError();
@@ -174,9 +185,7 @@ function normalizeCapacitorPurchaseError(error: unknown): never {
     throw new PurchaseAlreadyOwnedError();
   }
   if (isInvalidNativePurchaseBridge(error)) {
-    throw new PurchasesUnavailableError(
-      "The native purchase bridge could not validate this package",
-    );
+    throw new NativePurchaseBridgeUnavailableError(error);
   }
   throw error;
 }
@@ -187,9 +196,7 @@ function normalizeCapacitorPreparationError(
 ): never {
   if (abortSignal?.aborted) throw new PurchaseAbortedError();
   if (isInvalidNativePurchaseBridge(error)) {
-    throw new PurchasesUnavailableError(
-      "The native purchase bridge could not validate this package",
-    );
+    throw new NativePurchaseBridgeUnavailableError(error);
   }
   throw error;
 }
