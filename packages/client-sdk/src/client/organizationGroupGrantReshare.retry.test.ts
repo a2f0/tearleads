@@ -37,22 +37,28 @@ test("sweeps a rotation whose mutation rejected after committing", async () => {
         readExpectedGroupHead: () => EXPECTED_HEAD,
         reconcileReadModel: async () => {
           reconciled = true;
-          resolve();
           return {};
         },
+        scheduleRetry: () => undefined,
+        shouldContinue: () => true,
         runtime: runtime as never,
         signingContext: {
           organizationId: ORGANIZATION_ID,
           signerUserId: CURRENT_USER_ID,
         },
-      }).catch(() => undefined);
+      })
+        .catch(() => undefined)
+        .finally(() => resolve());
     });
     await swept;
+    await new Promise((settle) => setTimeout(settle, 50));
 
     // recoverOrganizationRootRewrapAfterMutationFailure rethrows the original
     // error after a post-commit failure. The group has still rotated, so the
-    // stale grants must be swept from the throwing path too.
+    // stale grants must be swept from the throwing path too — and the assertion
+    // is on the repair landing, not merely on the sweep having started.
     expect(reconciled).toBe(true);
+    expect(rewrapped.toSorted()).toEqual(["container-a", "container-b"]);
   } finally {
     close();
   }
@@ -436,6 +442,50 @@ test("stops when this signer cannot re-wrap the containers", async () => {
     // They cannot produce the wrap at all, so retrying is retrying a 403.
     expect(delays).toEqual([]);
     expect(log.some((m) => m.includes("cannot re-wrap"))).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("gives up once retries have sat at the ceiling", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-ceiling",
+  );
+  try {
+    await seedReadModel(execSql);
+    const log: string[] = [];
+    const runtime = fakeRuntime(log);
+    runtime.infra.execSql = execSql as never;
+    let attempts = 0;
+    scheduleGroupGrantReshareAfterRotation({
+      containerContents: fakeContainerContents({
+        prepareCalls: [],
+        rewrapped: [],
+        throwForContainerIds: new Set(["container-a", "container-b"]),
+      }),
+      expectedGroupHead: EXPECTED_HEAD,
+      mutatedGroupId: GRANTED_GROUP_ID,
+      reconcileReadModel: async () => ({}),
+      runtime: runtime as never,
+      scheduleRetry: (retry) => {
+        attempts += 1;
+        retry();
+      },
+      shouldContinue: () => true,
+      signingContext: {
+        organizationId: ORGANIZATION_ID,
+        signerUserId: CURRENT_USER_ID,
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // A signer who may rotate the group but cannot re-wrap its containers
+    // surfaces as an ordinary unapplied re-wrap, because the share path turns
+    // an authorization failure into a null result rather than a status. The
+    // window is what stops that from retrying forever.
+    expect(attempts).toBeLessThan(60);
+    expect(log.some((m) => m.includes("gave up"))).toBe(true);
+    expect(log.some((m) => m.includes("container-a"))).toBe(true);
   } finally {
     close();
   }

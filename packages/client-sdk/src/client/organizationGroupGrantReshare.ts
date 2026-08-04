@@ -1,39 +1,19 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import {
-  isKeyingVerificationError,
-  rethrowKeyingVerificationError,
-} from "../data/keyingProjectionVerification/error";
+import { rethrowKeyingVerificationError } from "../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
   loadLocalOrganizationGroupContainers,
   loadLocalOrganizationPolicyReference,
 } from "../workflows/organizations/localReadModelDetails";
 import type { ContainerContents } from "./containerContents";
+import {
+  type GroupGrantReshareOutcome,
+  GroupGrantReshareUnauthorizedError,
+  runSweepWithRetry,
+} from "./organizationGroupGrantReshareRetry";
 import type { InternalWorkflowRuntimeInput } from "./workflowRuntime";
 
 type ContainerTree = ReturnType<ContainerContents["openTree"]>;
-
-/** Retry pacing mirrors the root re-share coordinator. */
-const INITIAL_RETRY_DELAY_MS = 1_000;
-const MAX_RETRY_DELAY_MS = 60_000;
-/**
- * How many pulls may fail to show the rotation before the sweep concludes it
- * never committed. Bounded because an uncommitted mutation's head will never
- * appear, so retrying it is retrying nothing; the repair phase below stays
- * unbounded because there a later attempt genuinely can succeed.
- */
-const MAX_HEAD_CONFIRMATION_ATTEMPTS = 5;
-
-interface GroupGrantReshareOutcome {
-  /** Every granted container was resolved against a confirmed rotation. */
-  readonly complete: boolean;
-  /** The pulled read model shows the group actually at the committed head. */
-  readonly headConfirmed: boolean;
-  /** A pull that landed did not show the rotation, so it never committed. */
-  readonly headKnownAbsent?: boolean;
-  /** Containers left stale: unresolvable, or a re-wrap that did not apply. */
-  readonly unresolvedContainerIds: readonly string[];
-}
 
 /**
  * Run a group policy mutation and sweep its grants once the head is known.
@@ -122,145 +102,6 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
 
 function defaultScheduleRetry(retry: () => void, delayMs: number): void {
   setTimeout(retry, delayMs);
-}
-
-/**
- * Re-run the sweep until it reports completion, backing off between attempts.
- *
- * An incomplete sweep leaves containers pinned to the superseded epoch, so the
- * members this repair exists for stay locked out of them. A single best-effort
- * pass would strand exactly the transient cases a later attempt resolves — a
- * container not yet hydrated, a read-model pull that declined while offline —
- * and a fixed attempt cap would strand any outage longer than the cap. Pacing,
- * the 60s ceiling, and retrying until success mirror the root re-share
- * coordinator.
- *
- * Two things end it. An identity integrity failure is terminal, as it is for
- * the root and metadata coordinators: a verified projection disagreeing with a
- * trusted identity is not transient, and re-attempting it just repeats a
- * failing verification. Otherwise the caller's `shouldContinue` stops the loop
- * once the session leaves the organization, so a switch or a logout cannot
- * leave a sweep retrying against a scope that is no longer active.
- */
-async function runSweepWithRetry(input: {
-  log: (message: string) => void;
-  logError: (message: string, cause?: unknown) => void;
-  mutatedGroupId: string;
-  refresh: () => Promise<unknown>;
-  scheduleRetry: (retry: () => void, delayMs: number) => void;
-  shouldContinue: () => boolean;
-  sweep: () => Promise<GroupGrantReshareOutcome>;
-}): Promise<void> {
-  let delayMs = INITIAL_RETRY_DELAY_MS;
-  let unresolved: readonly string[] = [];
-  let unconfirmedAttempts = 0;
-  while (input.shouldContinue()) {
-    const attempt = await runOneSweepAttempt(input);
-    if (attempt.terminal) {
-      return;
-    }
-    if (attempt.outcome?.complete) {
-      return;
-    }
-    if (attempt.outcome && !attempt.outcome.headConfirmed) {
-      // A pull that never landed teaches nothing, so it must not burn the
-      // confirmation budget — otherwise an outage longer than the budget
-      // abandons a rotation that did commit.
-      unconfirmedAttempts += attempt.outcome.headKnownAbsent ? 1 : 0;
-      if (unconfirmedAttempts >= MAX_HEAD_CONFIRMATION_ATTEMPTS) {
-        input.log(
-          `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; the rotation never appeared, so the mutation did not commit`,
-        );
-        return;
-      }
-    } else if (attempt.outcome) {
-      unresolved = attempt.outcome.unresolvedContainerIds;
-    }
-    await new Promise<void>((resolve) => {
-      input.scheduleRetry(resolve, delayMs);
-    });
-    delayMs = Math.min(delayMs * 2, MAX_RETRY_DELAY_MS);
-    if (await relistFailedTerminally(input)) {
-      return;
-    }
-  }
-  input.log(
-    `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; the organization is no longer active. Unresolved: ${unresolved.length ? unresolved.join(", ") : "none recorded"}`,
-  );
-}
-
-/**
- * One sweep, with an identity integrity failure reported as terminal.
- *
- * A verified projection disagreeing with a trusted identity is not transient,
- * so re-attempting it just repeats a failing verification — the root and
- * metadata coordinators stop on it for the same reason.
- */
-async function runOneSweepAttempt(input: {
-  logError: (message: string, cause?: unknown) => void;
-  mutatedGroupId: string;
-  sweep: () => Promise<GroupGrantReshareOutcome>;
-}): Promise<{
-  outcome: GroupGrantReshareOutcome | null;
-  terminal: boolean;
-}> {
-  try {
-    return { outcome: await input.sweep(), terminal: false };
-  } catch (error) {
-    if (error instanceof GroupGrantReshareUnauthorizedError) {
-      input.logError(
-        `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; this signer cannot re-wrap the granted containers`,
-        error,
-      );
-      return { outcome: null, terminal: true };
-    }
-    if (isKeyingVerificationError(error)) {
-      input.logError(
-        `Organizations: group grant re-share stopped for group ${input.mutatedGroupId} after an identity integrity failure`,
-        error,
-      );
-      return { outcome: null, terminal: true };
-    }
-    input.logError(
-      `Organizations: group grant re-share failed for group ${input.mutatedGroupId}`,
-      error,
-    );
-    return { outcome: null, terminal: false };
-  }
-}
-
-/**
- * Re-list containers between attempts, reporting whether that failed fatally.
- *
- * A grant can name a container this device has never hydrated, which resolves
- * as unavailable rather than as a missing grant; re-listing is what lets a
- * later attempt see it, exactly as the root and metadata re-shares do. The
- * error is handled rather than rethrown because the caller discards this
- * promise with `void`, so a throw would surface as an unhandled rejection
- * instead of being reported anywhere.
- */
-async function relistFailedTerminally(input: {
-  log: (message: string) => void;
-  logError: (message: string, cause?: unknown) => void;
-  mutatedGroupId: string;
-  refresh: () => Promise<unknown>;
-}): Promise<boolean> {
-  try {
-    await input.refresh();
-    return false;
-  } catch (error) {
-    if (isKeyingVerificationError(error)) {
-      input.logError(
-        `Organizations: group grant re-share stopped for group ${input.mutatedGroupId} after an identity integrity failure while re-listing containers`,
-        error,
-      );
-      return true;
-    }
-    input.log(
-      `Organizations: group grant re-share could not re-list containers for group ${input.mutatedGroupId}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    return false;
-  }
 }
 
 /**
@@ -451,13 +292,6 @@ async function reshareOneGrantedContainer(input: {
       `Organizations: best-effort group grant re-share skipped for container ${input.containerId} in org ${input.organizationId}: ${error instanceof Error ? error.message : String(error)}`,
     );
     return false;
-  }
-}
-
-class GroupGrantReshareUnauthorizedError extends Error {
-  constructor(containerId: string) {
-    super(`not authorized to re-wrap container ${containerId}`);
-    this.name = "GroupGrantReshareUnauthorizedError";
   }
 }
 

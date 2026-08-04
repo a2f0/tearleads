@@ -278,6 +278,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/client/organizationReadModels.ts`,
       `${sdk}/client/organizationGroupGrantReshare.ts`,
       `${sdk}/client/organizationGroupGrantReshare.testFixtures.ts`,
+      `${sdk}/client/organizationGroupGrantReshareRetry.ts`,
       `${sdk}/client/organizationMetadataReshare.ts`,
       `${sdk}/client/organizationMetadataReshareCoordinator.ts`,
       `${sdk}/client/organizationRootReshare.ts`,
