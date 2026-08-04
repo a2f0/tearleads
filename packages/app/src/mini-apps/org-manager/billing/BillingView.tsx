@@ -145,11 +145,10 @@ function resolveBillingPeriodLabel(
 }
 
 function BillingSummary({ view }: { view: OrganizationBillingView }) {
-  // `seatCount` is licensed capacity for this paid period, not the number of
-  // members currently occupying those seats. A free trial is not billed, and
-  // a local org has neither licensed seats nor a period date.
+  // `seatCount` is licensed capacity, not the number of members currently
+  // occupying those seats. The free trial grants the largest fixed tier.
   const seatsLabel =
-    view.isActive && view.seatCount > 0
+    (view.isActive || view.isTrialing) && view.seatCount > 0
       ? getOrgManagerSeatsLabel(view.seatCount)
       : null;
   const periodLabel = resolveBillingPeriodLabel(view);

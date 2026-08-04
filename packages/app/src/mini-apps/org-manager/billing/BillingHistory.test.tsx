@@ -215,9 +215,31 @@ test("a lifecycle seat snapshot names unavailable cost data", () => {
   );
 
   expect(view.getByText("4 licensed seats")).toBeDefined();
-  expect(
-    view.getByText("Cost details unavailable for this event"),
-  ).toBeDefined();
+  expect(view.getByText("Plan price unavailable for this event")).toBeDefined();
+});
+
+test("a native lifecycle event shows its fixed tier capacity and price", () => {
+  const view = render(
+    <BillingHistory
+      entries={[
+        entry({
+          id: "team-10-purchase",
+          productId: "sync_team_10_monthly_staging:monthly",
+          seatCount: 10,
+          unitAmount: 2_000,
+          currency: "usd",
+          interval: "month",
+          intervalCount: 1,
+        }),
+      ]}
+      error={null}
+      loading={false}
+    />,
+  );
+
+  expect(view.getByText("10 licensed seats")).toBeDefined();
+  expect(view.getByText("USD list price: $20.00/month")).toBeDefined();
+  expect(view.getByText("Paid total unavailable")).toBeDefined();
 });
 
 test("activity preserves a provider-reported zero paid total", () => {
@@ -343,8 +365,9 @@ test("entries with unavailable billing facts omit empty detail rows", () => {
   expect(view.queryByText(/^Plan price:/)).toBeNull();
   expect(view.queryByText(/licensed seat/)).toBeNull();
   expect(
-    view.getByText("Seat and cost details unavailable for this event"),
+    view.getByText("Seat and plan price unavailable for this event"),
   ).toBeDefined();
+  expect(view.queryByText("Paid total unavailable")).toBeNull();
 });
 
 test("shows the empty state on both tabs when there are no events", () => {

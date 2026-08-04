@@ -121,7 +121,7 @@ test("an org admin reads local billing and starts a trial", async () => {
   );
   expect(trialing.status).toBe("trialing");
   expect(trialing.trialEndsAt).not.toBeNull();
-  expect(trialing.seatCount).toBe(1);
+  expect(trialing.seatCount).toBe(10);
 
   // Starting the trial again is idempotent, not an error.
   const trialAgain = await routeApp.request(

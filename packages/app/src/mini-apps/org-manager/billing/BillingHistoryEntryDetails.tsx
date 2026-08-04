@@ -132,20 +132,38 @@ function LifecycleAvailability({
 }: {
   readonly entry: OrganizationBillingHistoryEntry;
 }) {
-  if (
-    entry.category !== "lifecycle" ||
-    entry.totalAmount !== null ||
-    entry.unitAmount !== null
-  ) {
+  if (entry.category !== "lifecycle") {
     return null;
+  }
+  if (entry.unitAmount !== null) {
+    return entry.totalAmount === null ? (
+      <Detail>Paid total unavailable</Detail>
+    ) : null;
   }
   return (
     <Detail>
       {entry.seatCount === null
-        ? "Seat and cost details unavailable for this event"
-        : "Cost details unavailable for this event"}
+        ? "Seat and plan price unavailable for this event"
+        : "Plan price unavailable for this event"}
     </Detail>
   );
+}
+
+function LifecyclePrice({
+  entry,
+}: {
+  readonly entry: OrganizationBillingHistoryEntry;
+}) {
+  if (entry.category !== "lifecycle") {
+    return null;
+  }
+  const rate = formatPrice(
+    entry.unitAmount,
+    entry.currency,
+    entry.interval,
+    entry.intervalCount,
+  );
+  return rate ? <Detail>{`USD list price: ${rate}`}</Detail> : null;
 }
 
 function AuditFields({
@@ -193,6 +211,7 @@ export function BillingHistoryEntryDetails({
       {entry.category === "seat" ? (
         <Detail>Cost unavailable for this seat event</Detail>
       ) : null}
+      <LifecyclePrice entry={entry} />
       <LifecycleAvailability entry={entry} />
       {period ? <Detail>{period}</Detail> : null}
       {includeAuditFields ? <AuditFields entry={entry} /> : null}
