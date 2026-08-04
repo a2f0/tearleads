@@ -17,7 +17,6 @@ import {
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "../../billing/organizationBilling";
 import { routeApp } from "../../routeApp";
 import {
-  MAX_TRIAL_EXPIRY_ATTEMPTS,
   runExpireOrganizationTrialsWorkflow,
   runExpireOrganizationTrialWorkflow,
 } from "./organizationTrialLifecycle";
@@ -299,7 +298,7 @@ test("trial sweep backs off failures without starving later expirations", async 
   }
 });
 
-test("trial sweep dead-letters a repeatedly invalid lifecycle", async () => {
+test("trial sweep keeps retrying a repeatedly invalid lifecycle at the hourly cap", async () => {
   const organizationId = await registerAndAuthenticate(createTestUser());
   const [trial] = await db
     .select({ trialEndsAt: organizationBilling.trialEndsAt })
@@ -315,7 +314,7 @@ test("trial sweep dead-letters a repeatedly invalid lifecycle", async () => {
   await db
     .update(organizationBilling)
     .set({
-      trialExpiryAttemptCount: MAX_TRIAL_EXPIRY_ATTEMPTS - 1,
+      trialExpiryAttemptCount: 20,
       trialExpiryNextAttemptAt: now,
     })
     .where(eq(organizationBilling.organizationId, organizationId));
@@ -347,8 +346,8 @@ test("trial sweep dead-letters a repeatedly invalid lifecycle", async () => {
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId));
   expect(billing).toEqual({
-    attemptCount: MAX_TRIAL_EXPIRY_ATTEMPTS,
+    attemptCount: 21,
     lastError: "Expired free trial has no initialization event",
-    nextAttemptAt: null,
+    nextAttemptAt: new Date(now.getTime() + 60 * 60 * 1000),
   });
 });

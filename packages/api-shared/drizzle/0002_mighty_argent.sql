@@ -1,1 +1,0 @@
-ALTER TABLE "revenuecat_webhook_events" ADD COLUMN "store" text;

@@ -314,9 +314,10 @@ temporarily unavailable.
 [`stripeSeatSync.ts`](../../packages/api/scripts/stripeSeatSync.ts) first
 persists due free-trial expirations, then drains durable Stripe capacity
 targets. Trial failures persist error and backoff state so one row cannot starve
-later expirations; after eight failed attempts the attempt count and last error
-remain as a terminal operator-visible record and automatic retries stop. Paid
-activation clears any stale trial-expiry retry state. Stripe reconciliation
+later expirations; retries begin at one minute, cap at one hour, and continue
+until the transition succeeds. The attempt count and last error remain visible
+for operators throughout. Paid activation clears any stale trial-expiry retry
+state. Stripe reconciliation
 validates the binding and period;
 leases, idempotency keys, retry backoff, and daily audits handle overlap,
 transient failure, and drift.

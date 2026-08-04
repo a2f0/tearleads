@@ -195,8 +195,8 @@ export const organizationBilling = pgTable(
     uniqueIndex("organization_billing_org_idx").on(table.organizationId),
     index("organization_billing_trial_expiry_idx").on(
       table.status,
-      table.trialExpiryNextAttemptAt,
       table.trialEndsAt,
+      table.trialExpiryNextAttemptAt,
       table.organizationId,
     ),
     index("organization_billing_purge_candidates_idx").on(

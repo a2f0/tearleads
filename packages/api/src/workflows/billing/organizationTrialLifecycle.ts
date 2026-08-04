@@ -8,16 +8,25 @@ import {
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
 } from "@tearleads/api-shared/schema";
-import { and, asc, desc, eq, inArray, isNull, lt, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "../../billing/organizationBilling";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 
 const DEFAULT_EXPIRY_LIMIT = 100;
+const MAX_EXPIRY_LIMIT = 1000;
 const MAX_EXPIRY_RETRY_MS = 60 * 60 * 1000;
-export const MAX_TRIAL_EXPIRY_ATTEMPTS = 8;
+const EXPIRY_RETRY_BASE_MS = 60 * 1000;
+const MAX_EXPIRY_RETRY_EXPONENT = 6;
 
 function nextExpiryRetryAt(now: Date, attemptCount: number): Date {
-  const delayMs = Math.min(MAX_EXPIRY_RETRY_MS, 2 ** attemptCount * 1000);
+  const exponent = Math.min(
+    Math.max(attemptCount - 1, 0),
+    MAX_EXPIRY_RETRY_EXPONENT,
+  );
+  const delayMs = Math.min(
+    MAX_EXPIRY_RETRY_MS,
+    2 ** exponent * EXPIRY_RETRY_BASE_MS,
+  );
   return new Date(now.getTime() + delayMs);
 }
 
@@ -328,10 +337,6 @@ async function deferFailedTrialExpiry(input: {
           eq(organizationBilling.organizationId, input.organizationId),
           eq(organizationBilling.status, "trialing"),
           lte(organizationBilling.trialEndsAt, input.now),
-          lt(
-            organizationBilling.trialExpiryAttemptCount,
-            MAX_TRIAL_EXPIRY_ATTEMPTS,
-          ),
           or(
             isNull(organizationBilling.trialExpiryNextAttemptAt),
             lte(organizationBilling.trialExpiryNextAttemptAt, input.now),
@@ -345,19 +350,13 @@ async function deferFailedTrialExpiry(input: {
     if (!current?.trialEndsAt) {
       return;
     }
-    const attemptCount = Math.min(
-      current.attemptCount + 1,
-      MAX_TRIAL_EXPIRY_ATTEMPTS,
-    );
+    const attemptCount = current.attemptCount + 1;
     await tx
       .update(organizationBilling)
       .set({
         trialExpiryAttemptCount: attemptCount,
         trialExpiryLastError: expiryErrorMessage(input.error),
-        trialExpiryNextAttemptAt:
-          attemptCount >= MAX_TRIAL_EXPIRY_ATTEMPTS
-            ? null
-            : nextExpiryRetryAt(input.now, attemptCount),
+        trialExpiryNextAttemptAt: nextExpiryRetryAt(input.now, attemptCount),
         updatedAt: input.now,
       })
       .where(
@@ -365,10 +364,6 @@ async function deferFailedTrialExpiry(input: {
           eq(organizationBilling.organizationId, input.organizationId),
           eq(organizationBilling.status, "trialing"),
           eq(organizationBilling.trialEndsAt, current.trialEndsAt),
-          lt(
-            organizationBilling.trialExpiryAttemptCount,
-            MAX_TRIAL_EXPIRY_ATTEMPTS,
-          ),
           or(
             isNull(organizationBilling.trialExpiryNextAttemptAt),
             lte(organizationBilling.trialExpiryNextAttemptAt, input.now),
@@ -386,9 +381,16 @@ export async function runExpireOrganizationTrialsWorkflow(
   db: ApiDatabase,
   options: ExpireOrganizationTrialsOptions = {},
 ): Promise<ExpireOrganizationTrialsSummary> {
-  const limit = Math.max(1, options.limit ?? DEFAULT_EXPIRY_LIMIT);
+  const limit = Math.min(
+    MAX_EXPIRY_LIMIT,
+    Math.floor(options.limit ?? DEFAULT_EXPIRY_LIMIT),
+  );
   const now = options.now ?? new Date();
-  if (options.organizationIds?.length === 0) {
+  if (
+    !Number.isFinite(limit) ||
+    limit <= 0 ||
+    options.organizationIds?.length === 0
+  ) {
     return { examined: 0, expired: 0, failed: 0 };
   }
   const candidates = await db
@@ -398,10 +400,6 @@ export async function runExpireOrganizationTrialsWorkflow(
       and(
         eq(organizationBilling.status, "trialing"),
         lte(organizationBilling.trialEndsAt, now),
-        lt(
-          organizationBilling.trialExpiryAttemptCount,
-          MAX_TRIAL_EXPIRY_ATTEMPTS,
-        ),
         or(
           isNull(organizationBilling.trialExpiryNextAttemptAt),
           lte(organizationBilling.trialExpiryNextAttemptAt, now),
@@ -412,7 +410,6 @@ export async function runExpireOrganizationTrialsWorkflow(
       ),
     )
     .orderBy(
-      asc(organizationBilling.trialExpiryNextAttemptAt),
       asc(organizationBilling.trialEndsAt),
       asc(organizationBilling.organizationId),
     )

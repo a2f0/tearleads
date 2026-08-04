@@ -8,20 +8,6 @@
       "when": 1785531723938,
       "tag": "0000_greenfield_baseline",
       "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1785673093265,
-      "tag": "0001_wooden_mauler",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1785842742816,
-      "tag": "0002_mighty_argent",
-      "breakpoints": true
     }
   ]
 }

@@ -8,7 +8,7 @@ import { registerAndAuthenticate } from "../../../test/helpers/organizationBilli
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { expireOrganizationTrials } from "./organizationTrialExpiry";
 
-test("trial expiry service clamps a non-positive batch limit", async () => {
+test("trial expiry service treats a non-positive batch limit as a no-op", async () => {
   const organizationId = await registerAndAuthenticate(createTestUser());
   const [trial] = await db
     .select({ trialEndsAt: organizationBilling.trialEndsAt })
@@ -22,5 +22,5 @@ test("trial expiry service clamps a non-positive batch limit", async () => {
       now: new Date(trial.trialEndsAt.getTime() + 1),
       organizationIds: [organizationId],
     }),
-  ).toEqual({ examined: 1, expired: 1, failed: 0 });
+  ).toEqual({ examined: 0, expired: 0, failed: 0 });
 });
