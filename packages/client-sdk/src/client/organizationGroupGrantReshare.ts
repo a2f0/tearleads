@@ -203,6 +203,18 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
     }
     head = await readHead();
   }
+  if (head && head.version > input.expectedGroupHead.version) {
+    // A newer rotation has already landed, so this sweep is superseded and its
+    // head will never be current again. Stop rather than retry the full window
+    // against a head that cannot come back — the newer rotation's own sweep
+    // owns these containers now. Checking the observed version needs no
+    // cross-sweep coordination, which is what makes this safe where cancelling
+    // a sibling sweep was not.
+    input.log(
+      `Organizations: group grant re-share for group ${input.mutatedGroupId} is superseded by version ${head.version}`,
+    );
+    return { complete: true, headConfirmed: true, unresolvedContainerIds: [] };
+  }
   if (head?.stateHash !== input.expectedGroupHead.stateHash) {
     // Either the commit did not land or the pull is stale. Both mean this
     // device cannot yet tell which containers need repair, and sweeping on a

@@ -365,3 +365,40 @@ test("an unreadable group is never reported as a completed sweep", async () => {
     close();
   }
 });
+
+test("a superseded sweep stops instead of retrying its window", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-superseded",
+  );
+  try {
+    await seedReadModel(execSql);
+    const prepareCalls: RewrapCall[] = [];
+    const rewrapped: string[] = [];
+    const logged: string[] = [];
+    const outcome = await reshareGroupContainerGrantsAfterRotation({
+      containerContents: fakeContainerContents({ prepareCalls, rewrapped }),
+      currentUserId: CURRENT_USER_ID,
+      execSql,
+      // An older rotation than the one the read model now carries.
+      expectedGroupHead: {
+        ...EXPECTED_HEAD,
+        stateHash: "older-rotation",
+        version: EXPECTED_HEAD.version - 1,
+      },
+      log: (message) => logged.push(message),
+      mutatedGroupId: GRANTED_GROUP_ID,
+      organizationId: ORGANIZATION_ID,
+      reconcileReadModel: async () => ({}),
+      shouldContinue: () => true,
+    });
+
+    // This head can never become current again, so retrying the full window
+    // would be pure request amplification. The newer rotation's own sweep owns
+    // these containers.
+    expect(outcome.complete).toBe(true);
+    expect(prepareCalls).toEqual([]);
+    expect(logged.some((m) => m.includes("superseded"))).toBe(true);
+  } finally {
+    close();
+  }
+});
