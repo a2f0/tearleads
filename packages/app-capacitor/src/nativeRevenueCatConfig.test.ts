@@ -45,25 +45,53 @@ function installedCapacitorReplacementModes(): string[] {
   return modes.sort();
 }
 
-test("iOS project registers the RevenueCat purchase plugin contract", async () => {
-  const [project, bridgeController, purchasePlugin, billingPurchaseTrace] =
-    await Promise.all([
-      Bun.file(
-        resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
-      ).text(),
-      Bun.file(
-        resolve(packageRoot, "ios/App/App/BridgeViewController.swift"),
-      ).text(),
-      Bun.file(
-        resolve(packageRoot, "ios/App/App/RevenueCatPurchasePlugin.swift"),
-      ).text(),
-      Bun.file(
-        resolve(packageRoot, "../app/src/utils/billingPurchaseTrace.ts"),
-      ).text(),
-    ]);
+test("iOS project registers and tests the RevenueCat purchase plugin contract", async () => {
+  const [
+    project,
+    bridgeController,
+    purchasePlugin,
+    preparedStore,
+    preparedStoreTests,
+    nativeWorkflow,
+    billingPurchaseTrace,
+  ] = await Promise.all([
+    Bun.file(
+      resolve(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
+    ).text(),
+    Bun.file(
+      resolve(packageRoot, "ios/App/App/BridgeViewController.swift"),
+    ).text(),
+    Bun.file(
+      resolve(packageRoot, "ios/App/App/RevenueCatPurchasePlugin.swift"),
+    ).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "ios/App/RevenueCatPurchaseState/Sources/RevenueCatPurchaseState/RevenueCatPreparedPackageStore.swift",
+      ),
+    ).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "ios/App/RevenueCatPurchaseState/Tests/RevenueCatPurchaseStateTests/RevenueCatPreparedPackageStoreTests.swift",
+      ),
+    ).text(),
+    Bun.file(
+      resolve(
+        packageRoot,
+        "../../.github/workflows/native-purchase-bridges.yml",
+      ),
+    ).text(),
+    Bun.file(
+      resolve(packageRoot, "../app/src/utils/billingPurchaseTrace.ts"),
+    ).text(),
+  ]);
 
   expect(project).toMatch(
     /Begin PBXSourcesBuildPhase[\s\S]*RevenueCatPurchasePlugin\.swift in Sources[\s\S]*End PBXSourcesBuildPhase/,
+  );
+  expect(project).toMatch(
+    /Begin PBXSourcesBuildPhase[\s\S]*RevenueCatPreparedPackageStore\.swift in Sources[\s\S]*End PBXSourcesBuildPhase/,
   );
   expect(bridgeController).toContain(
     "bridge?.registerPluginInstance(RevenueCatPurchasePlugin())",
@@ -79,7 +107,7 @@ test("iOS project registers the RevenueCat purchase plugin contract", async () =
   );
   expect(purchasePlugin).toContain("Self.reject(call, error: error)");
   expect(purchasePlugin).toContain(
-    "package.storeProduct.productIdentifier == productId",
+    "candidateProductId: package.storeProduct.productIdentifier",
   );
   expect(purchasePlugin).toContain(
     'CAPPluginMethod(name: "preparePackage", returnType: CAPPluginReturnPromise)',
@@ -87,11 +115,21 @@ test("iOS project registers the RevenueCat purchase plugin contract", async () =
   expect(purchasePlugin).toContain(
     'CAPPluginMethod(name: "purchasePackage", returnType: CAPPluginReturnPromise)',
   );
-  expect(purchasePlugin).toContain(
-    "preparedPackages.removeValue(forKey: packageId)",
+  expect(purchasePlugin).toContain("preparedPackages.consume(");
+  expect(purchasePlugin).toContain("preparedPackages.clear()");
+  expect(preparedStore).toContain("entries.removeValue(forKey: packageId)");
+  expect(preparedStore).toContain("entries.removeAll(keepingCapacity: true)");
+  expect(preparedStoreTests).toContain(
+    "testConsumesOnlyTheExactPackageAndProductOnce",
   );
-  expect(purchasePlugin).toContain(
-    "preparedPackages.removeAll(keepingCapacity: true)",
+  expect(preparedStoreTests).toContain(
+    "testPreparationRequiresTheExactPackageAndProductIdentity",
+  );
+  expect(preparedStoreTests).toContain(
+    "testASecondPreparationReplacesEveryStalePackage",
+  );
+  expect(nativeWorkflow).toContain(
+    "swift test --package-path ios/App/RevenueCatPurchaseState",
   );
   expect(purchasePlugin).toContain(
     "candidate.userInfo[NSUnderlyingErrorKey] as? NSError",

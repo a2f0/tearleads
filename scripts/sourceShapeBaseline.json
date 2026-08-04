@@ -201,6 +201,10 @@
       "lines": 1211,
       "bytes": 40919
     },
+    "packages/app-capacitor/ios/App/App.xcodeproj/project.pbxproj": {
+      "lines": 494,
+      "bytes": 20521
+    },
     "packages/app/src/mini-apps/explorer/ExplorerTree.test.tsx": {
       "lines": 677,
       "bytes": 19682

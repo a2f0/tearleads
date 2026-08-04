@@ -11,7 +11,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "preparePackage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "purchasePackage", returnType: CAPPluginReturnPromise)
     ]
-    @MainActor private var preparedPackages: [String: Package] = [:]
+    @MainActor private let preparedPackages = RevenueCatPreparedPackageStore<Package>()
 
     @objc func assertConfigured(_ call: CAPPluginCall) {
         guard Purchases.isConfigured else {
@@ -23,7 +23,7 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func preparePackage(_ call: CAPPluginCall) {
         Task { @MainActor in
-            self.preparedPackages.removeAll(keepingCapacity: true)
+            self.preparedPackages.clear()
             guard Purchases.isConfigured else {
                 Self.rejectBridgeValidation(call)
                 return
@@ -36,11 +36,16 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
             do {
                 let offerings = try await Purchases.shared.offerings()
                 guard let package = offerings.current?.package(identifier: packageId),
-                      package.storeProduct.productIdentifier == productId else {
+                      self.preparedPackages.replaceIfExact(
+                          requestedPackageId: packageId,
+                          requestedProductId: productId,
+                          candidatePackageId: package.identifier,
+                          candidateProductId: package.storeProduct.productIdentifier,
+                          value: package
+                      ) else {
                     Self.rejectBridgeValidation(call)
                     return
                 }
-                self.preparedPackages[packageId] = package
                 call.resolve()
             } catch {
                 Self.reject(call, error: error)
@@ -64,8 +69,10 @@ final class RevenueCatPurchasePlugin: CAPPlugin, CAPBridgedPlugin {
 
         Task { @MainActor in
             do {
-                guard let package = self.preparedPackages.removeValue(forKey: packageId),
-                      package.storeProduct.productIdentifier == productId else {
+                guard let package = self.preparedPackages.consume(
+                    packageId: packageId,
+                    productId: productId
+                ) else {
                     Self.rejectBridgeValidation(call)
                     return
                 }

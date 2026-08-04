@@ -14,6 +14,7 @@
 		A21D60A52E3C18A1001DA001 /* BridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21D60A42E3C18A1001DA001 /* BridgeViewController.swift */; };
 		A21D60A72E3C18A1001DA001 /* SubscriptionManagementPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21D60A62E3C18A1001DA001 /* SubscriptionManagementPlugin.swift */; };
 		A21D60A92E3C18A1001DA001 /* RevenueCatPurchasePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21D60A82E3C18A1001DA001 /* RevenueCatPurchasePlugin.swift */; };
+		A21D60AE2E3C18A1001DA001 /* RevenueCatPreparedPackageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21D60AD2E3C18A1001DA001 /* RevenueCatPreparedPackageStore.swift */; };
 		A21D60AC2E3C18A1001DA001 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = A21D60AB2E3C18A1001DA001 /* RevenueCat */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
@@ -29,6 +30,7 @@
 		A21D60A42E3C18A1001DA001 /* BridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeViewController.swift; sourceTree = "<group>"; };
 		A21D60A62E3C18A1001DA001 /* SubscriptionManagementPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManagementPlugin.swift; sourceTree = "<group>"; };
 		A21D60A82E3C18A1001DA001 /* RevenueCatPurchasePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevenueCatPurchasePlugin.swift; sourceTree = "<group>"; };
+		A21D60AD2E3C18A1001DA001 /* RevenueCatPreparedPackageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RevenueCatPreparedPackageStore.swift; path = ../RevenueCatPurchaseState/Sources/RevenueCatPurchaseState/RevenueCatPreparedPackageStore.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -74,6 +76,7 @@
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				A21D60A42E3C18A1001DA001 /* BridgeViewController.swift */,
 				A21D60A82E3C18A1001DA001 /* RevenueCatPurchasePlugin.swift */,
+				A21D60AD2E3C18A1001DA001 /* RevenueCatPreparedPackageStore.swift */,
 				A21D60A62E3C18A1001DA001 /* SubscriptionManagementPlugin.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
@@ -176,6 +179,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				A21D60A52E3C18A1001DA001 /* BridgeViewController.swift in Sources */,
 				A21D60A92E3C18A1001DA001 /* RevenueCatPurchasePlugin.swift in Sources */,
+				A21D60AE2E3C18A1001DA001 /* RevenueCatPreparedPackageStore.swift in Sources */,
 				A21D60A72E3C18A1001DA001 /* SubscriptionManagementPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

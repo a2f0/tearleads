@@ -82,7 +82,10 @@ def revenueCatExpectedVersions = [
     'purchases': rootProject.ext.revenueCatPurchasesVersion,
     'purchases-hybrid-common': rootProject.ext.revenueCatHybridCommonVersion,
 ]
-configurations.configureEach {
+configurations.matching { configuration ->
+    configuration.name.endsWith('CompileClasspath') ||
+        configuration.name.endsWith('RuntimeClasspath')
+}.configureEach {
     resolutionStrategy.eachDependency { details ->
         if (details.requested.group == 'com.revenuecat.purchases') {
             def expectedVersion = revenueCatExpectedVersions[details.requested.name]
