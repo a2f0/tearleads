@@ -1,6 +1,8 @@
-// Out-of-process Stripe seat reconciliation. The systemd timer runs this every
-// minute; DB leases and Stripe idempotency also make manual overlapping runs safe.
+// Out-of-process billing maintenance. The existing systemd timer runs this
+// every minute: due free trials are persisted before Stripe seat reconciliation.
+// Row locks, DB predicates, and Stripe idempotency make overlaps safe.
 import { closeApiDatabase } from "@tearleads/api-shared/postgres";
+import { expireOrganizationTrials } from "../src/services/billing/organizationTrialExpiry";
 import { runStripeSeatSynchronization } from "../src/services/billing/stripeSeatSync";
 import { getDefaultApiServiceRuntime } from "../src/services/runtime";
 
@@ -13,18 +15,36 @@ function readLimit(args: readonly string[]): number | undefined {
   return Number.isSafeInteger(value) && value > 0 ? value : undefined;
 }
 
+async function runMaintenancePhase<T>(
+  name: string,
+  run: () => Promise<T>,
+): Promise<T | null> {
+  try {
+    return await run();
+  } catch (error) {
+    console.error(`${name} failed:`, error);
+    process.exitCode = 1;
+    return null;
+  }
+}
+
 try {
   const limit = readLimit(process.argv.slice(2));
-  const summary = await runStripeSeatSynchronization(
-    getDefaultApiServiceRuntime(),
-    limit === undefined ? {} : { limit },
+  const runtime = getDefaultApiServiceRuntime();
+  const options = limit === undefined ? {} : { limit };
+  const trialExpiry = await runMaintenancePhase("Free-trial expiry", () =>
+    expireOrganizationTrials(runtime, options),
   );
-  console.log(JSON.stringify(summary));
-  if (summary.failed > 0) {
+  const stripeSeatSync = await runMaintenancePhase(
+    "Stripe seat synchronization",
+    () => runStripeSeatSynchronization(runtime, options),
+  );
+  console.log(JSON.stringify({ stripeSeatSync, trialExpiry }));
+  if ((stripeSeatSync?.failed ?? 0) > 0 || (trialExpiry?.failed ?? 0) > 0) {
     process.exitCode = 1;
   }
 } catch (error) {
-  console.error("Stripe seat synchronization failed:", error);
+  console.error("Billing maintenance failed:", error);
   process.exitCode = 1;
 } finally {
   await closeApiDatabase();

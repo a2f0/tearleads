@@ -231,6 +231,9 @@ async function activateNewOwner(input: {
       seatPeriodKey,
       status: "active",
       trialEndsAt: null,
+      trialExpiryAttemptCount: 0,
+      trialExpiryLastError: null,
+      trialExpiryNextAttemptAt: null,
       updatedAt: input.now,
     })
     .where(eq(organizationBilling.organizationId, input.organizationId));

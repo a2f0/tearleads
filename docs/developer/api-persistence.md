@@ -13,7 +13,9 @@ Use `API_DATABASE` to select the database adapter:
   applied at startup.
 
 Each dialect keeps a single greenfield baseline migration. Pre-reset databases
-are not upgraded; reset and provision a fresh database instead.
+are not upgraded; reset and provision a fresh database instead. The deployment
+migration command verifies required baseline tables and columns after Drizzle
+runs, and fails before the API restarts when an old database was not reset.
 
 When `NODE_ENV=production`, `API_DATABASE` must be set explicitly.
 

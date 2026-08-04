@@ -8,17 +8,25 @@ import {
   createTrialBillingFields,
   organizationSeatPeriodKey,
 } from "../../billing/organizationBilling";
+import { freeTrialLifecycleSourceId } from "../billing/organizationTrialLifecycle";
 
 export type InitialOrganizationBilling = "local" | "trial";
 
+export interface CreatedInitialOrganizationBilling {
+  readonly createdAt: Date;
+  readonly sourceId: string | null;
+  readonly trialEndsAt: Date | null;
+}
+
 function createInitialOrganizationBillingFields(
   initialBilling: InitialOrganizationBilling,
+  now: Date,
 ): {
   readonly status: OrganizationBillingStatus;
   readonly trialEndsAt: Date | null;
 } {
   return initialBilling === "trial"
-    ? createTrialBillingFields()
+    ? createTrialBillingFields(now)
     : createLocalBillingFields();
 }
 
@@ -26,9 +34,11 @@ export async function createInitialOrganizationBillingRow(
   executor: DatabaseSession,
   organizationId: string,
   initialBilling: InitialOrganizationBilling,
-): Promise<void> {
-  const fields = createInitialOrganizationBillingFields(initialBilling);
+): Promise<CreatedInitialOrganizationBilling> {
+  const now = new Date();
+  const fields = createInitialOrganizationBillingFields(initialBilling, now);
   await executor.insert(organizationBilling).values({
+    createdAt: now,
     organizationId,
     ...fields,
     seatPeriodKey:
@@ -39,5 +49,17 @@ export async function createInitialOrganizationBillingRow(
             ...fields,
           })
         : null,
+    trialExpiryAttemptCount: 0,
+    trialExpiryLastError: null,
+    trialExpiryNextAttemptAt: fields.trialEndsAt,
+    updatedAt: now,
   });
+  return {
+    createdAt: now,
+    sourceId:
+      fields.trialEndsAt === null
+        ? null
+        : freeTrialLifecycleSourceId(organizationId, fields.trialEndsAt),
+    trialEndsAt: fields.trialEndsAt,
+  };
 }

@@ -1157,6 +1157,48 @@ export function validateOrganizationProvisioningInput(
   );
 }
 
+async function provisionOrganizationAuthorityAndBilling(
+  tx: DatabaseTransaction,
+  input: OrganizationProvisioningRequest,
+  options: ProvisionOrganizationOptions,
+): Promise<{ organizationId: string; rootContainerId: string }> {
+  await lockProvisioningOrganizationPrincipalId(tx, input);
+  await lockProvisioningGroupPrincipalIds(tx, input);
+  const org = await createOrganizationRow(tx, {
+    adminGroupId: input.initialAdminGroup.groupId,
+    memberGroupId: input.initialMemberGroup.groupId,
+    organizationId: input.organizationId,
+    name: options.organizationName,
+  });
+  const initialBilling = await createInitialOrganizationBillingRow(
+    tx,
+    org.id,
+    options.initialBilling,
+  );
+  const container = await createRootContainer(
+    tx,
+    input.rootContainerId,
+    org.id,
+  );
+  await options.onOrganizationRootCreated?.(org.id);
+  await createInitialAdminGroup(tx, input, org.id);
+  await createInitialMemberGroup(tx, input, org.id);
+  await storeInitialAdminGroupPolicy(tx, input);
+  const initialMemberGroupStateHash = await storeInitialMemberGroupPolicy(
+    tx,
+    input,
+  );
+  await storeInitialOrganizationPolicy(tx, input);
+  await syncInitialRosterAndBillingSeats({
+    initialBilling,
+    initialMemberGroupStateHash,
+    organizationId: org.id,
+    provisioning: input,
+    tx,
+  });
+  return { organizationId: org.id, rootContainerId: container.id };
+}
+
 /**
  * Bootstraps a fresh organization from the client-signed provisioning
  * artifacts, inside the caller's transaction: the organization row + initial
@@ -1173,37 +1215,10 @@ export async function provisionOrganizationInTransaction(
   signer: OrganizationProvisioningSigner,
   options: ProvisionOrganizationOptions,
 ): Promise<ProvisionedOrganization> {
-  await lockProvisioningOrganizationPrincipalId(tx, input);
-  await lockProvisioningGroupPrincipalIds(tx, input);
-  const org = await createOrganizationRow(tx, {
-    adminGroupId: input.initialAdminGroup.groupId,
-    memberGroupId: input.initialMemberGroup.groupId,
-    organizationId: input.organizationId,
-    name: options.organizationName,
-  });
-  await createInitialOrganizationBillingRow(tx, org.id, options.initialBilling);
-  const container = await createRootContainer(
-    tx,
-    input.rootContainerId,
-    org.id,
-  );
-  await options.onOrganizationRootCreated?.(org.id);
-  await createInitialAdminGroup(tx, input, org.id);
-  await createInitialMemberGroup(tx, input, org.id);
-  await storeInitialAdminGroupPolicy(tx, input);
-  const initialMemberGroupStateHash = await storeInitialMemberGroupPolicy(
-    tx,
-    input,
-  );
-  await storeInitialOrganizationPolicy(tx, input);
-  await syncInitialRosterAndBillingSeats({
-    initialMemberGroupStateHash,
-    organizationId: org.id,
-    provisioning: input,
-    tx,
-  });
+  const { organizationId, rootContainerId } =
+    await provisionOrganizationAuthorityAndBilling(tx, input, options);
   const rootMetadata = await storeInitialRootContainer(tx, input, signer);
-  await createInitialBuiltinGrants(tx, input, org.id);
+  await createInitialBuiltinGrants(tx, input, organizationId);
   const rootMetadataDocument = await createInitialRootMetadataDocument(
     tx,
     input,
@@ -1236,8 +1251,8 @@ export async function provisionOrganizationInTransaction(
     signer,
   );
   return {
-    organizationId: org.id,
-    rootContainerId: container.id,
+    organizationId,
+    rootContainerId,
     rootMetadataAccessEpoch: rootMetadata.metadataAccessEpoch,
     rootMetadataAccessStateHash: rootMetadata.metadataAccessStateHash,
     rootMetadataDocumentId: rootMetadata.metadataDocumentId,

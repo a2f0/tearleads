@@ -400,6 +400,9 @@ CREATE TABLE "organization_billing" (
 	"organization_id" uuid NOT NULL,
 	"status" text DEFAULT 'local' NOT NULL,
 	"trial_ends_at" timestamp,
+	"trial_expiry_next_attempt_at" timestamp,
+	"trial_expiry_attempt_count" integer DEFAULT 0 NOT NULL,
+	"trial_expiry_last_error" text,
 	"provider" text,
 	"provider_customer_id" text,
 	"provider_subscription_id" text,
@@ -440,6 +443,20 @@ CREATE TABLE "organization_billing_invoice_events" (
 	"total_amount" bigint NOT NULL,
 	"period_starts_at" timestamp,
 	"period_ends_at" timestamp,
+	"occurred_at" timestamp NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "organization_billing_lifecycle_events" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"event_type" text NOT NULL,
+	"source_id" text NOT NULL,
+	"licensed_seat_count" integer NOT NULL,
+	"quantity_delta" integer NOT NULL,
+	"active_seat_count" integer NOT NULL,
+	"period_starts_at" timestamp NOT NULL,
+	"period_ends_at" timestamp NOT NULL,
 	"occurred_at" timestamp NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
@@ -626,9 +643,11 @@ CREATE TABLE "revenuecat_webhook_events" (
 	"event_type" text NOT NULL,
 	"app_user_id" text NOT NULL,
 	"product_id" text,
+	"store" text,
 	"transaction_id" text,
 	"original_transaction_id" text,
 	"organization_id" uuid,
+	"source_organization_id" uuid,
 	"outcome" text NOT NULL,
 	"event_timestamp" timestamp NOT NULL,
 	"purchased_at" timestamp,
@@ -746,10 +765,13 @@ CREATE INDEX "document_updates_document_sequence_idx" ON "document_updates" USIN
 CREATE INDEX "documents_updated_at_id_idx" ON "documents" USING btree ("updated_at","id");--> statement-breakpoint
 CREATE INDEX "groups_organization_name_idx" ON "groups" USING btree ("organization_id","name","id");--> statement-breakpoint
 CREATE UNIQUE INDEX "organization_billing_org_idx" ON "organization_billing" USING btree ("organization_id");--> statement-breakpoint
-CREATE INDEX "organization_billing_trial_expiry_idx" ON "organization_billing" USING btree ("status","trial_ends_at","organization_id");--> statement-breakpoint
+CREATE INDEX "organization_billing_trial_expiry_idx" ON "organization_billing" USING btree ("status","trial_ends_at","trial_expiry_next_attempt_at","organization_id");--> statement-breakpoint
 CREATE INDEX "organization_billing_purge_candidates_idx" ON "organization_billing" USING btree ("status","purge_after","purge_started_at","organization_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "organization_billing_provider_subscription_idx" ON "organization_billing" USING btree ("provider_subscription_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "organization_billing_invoice_events_invoice_idx" ON "organization_billing_invoice_events" USING btree ("invoice_id");--> statement-breakpoint
 CREATE INDEX "organization_billing_invoice_events_org_occurred_idx" ON "organization_billing_invoice_events" USING btree ("organization_id","occurred_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "organization_billing_lifecycle_events_source_idx" ON "organization_billing_lifecycle_events" USING btree ("organization_id","event_type","source_id");--> statement-breakpoint
+CREATE INDEX "organization_billing_lifecycle_events_org_occurred_idx" ON "organization_billing_lifecycle_events" USING btree ("organization_id","occurred_at");--> statement-breakpoint
 CREATE INDEX "organization_billing_seat_assignments_org_open_idx" ON "organization_billing_seat_assignments" USING btree ("organization_id","released_at");--> statement-breakpoint
 CREATE INDEX "organization_billing_seat_assignments_org_user_idx" ON "organization_billing_seat_assignments" USING btree ("organization_id","user_id","released_at");--> statement-breakpoint
 CREATE INDEX "organization_billing_seat_assignments_org_period_idx" ON "organization_billing_seat_assignments" USING btree ("organization_id","billing_period_starts_at","billing_period_ends_at");--> statement-breakpoint
@@ -780,4 +802,5 @@ CREATE INDEX "principal_states_principal_idx" ON "principal_states" USING btree 
 CREATE UNIQUE INDEX "principal_states_principal_version_idx" ON "principal_states" USING btree ("principal_type","principal_id","version");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_states_principal_state_hash_idx" ON "principal_states" USING btree ("principal_type","principal_id","state_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "revenuecat_webhook_events_event_id_idx" ON "revenuecat_webhook_events" USING btree ("event_id");--> statement-breakpoint
-CREATE INDEX "revenuecat_webhook_events_org_idx" ON "revenuecat_webhook_events" USING btree ("organization_id");
+CREATE INDEX "revenuecat_webhook_events_org_idx" ON "revenuecat_webhook_events" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "revenuecat_webhook_events_source_org_idx" ON "revenuecat_webhook_events" USING btree ("source_organization_id");

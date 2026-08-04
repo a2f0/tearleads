@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import {
   organizationBillingInvoiceEvents,
+  organizationBillingLifecycleEvents,
   organizationBillingSeatEvents,
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
@@ -22,6 +23,7 @@ const LICENSED_SEAT_EVENT_TYPES = [
   "licensed_seat_count_increased",
   "licensed_seat_count_reset",
 ] as const;
+const LICENSED_SEAT_EVENT_TYPE_SET = new Set<string>(LICENSED_SEAT_EVENT_TYPES);
 
 const LIFECYCLE_SEAT_CORRELATION_LIMIT =
   BILLING_HISTORY_EVENT_LIMIT * LICENSED_SEAT_EVENT_TYPES.length;
@@ -62,6 +64,9 @@ async function loadLifecycleHistory(
 type LifecycleHistoryRow = Awaited<
   ReturnType<typeof loadLifecycleHistory>
 >[number];
+type InternalLifecycleHistoryRow = Awaited<
+  ReturnType<typeof loadInternalLifecycleHistory>
+>[number];
 type SeatHistoryRow = Awaited<ReturnType<typeof loadSeatHistory>>[number];
 type InvoiceHistoryRow = Awaited<ReturnType<typeof loadInvoiceHistory>>[number];
 
@@ -95,6 +100,33 @@ async function loadSeatHistory(
     .orderBy(
       desc(organizationBillingSeatEvents.createdAt),
       desc(organizationBillingSeatEvents.id),
+    )
+    .limit(BILLING_HISTORY_EVENT_LIMIT);
+}
+
+async function loadInternalLifecycleHistory(
+  executor: DatabaseSession,
+  organizationId: string,
+) {
+  return executor
+    .select({
+      activeSeatCount: organizationBillingLifecycleEvents.activeSeatCount,
+      eventType: organizationBillingLifecycleEvents.eventType,
+      id: organizationBillingLifecycleEvents.id,
+      licensedSeatCount: organizationBillingLifecycleEvents.licensedSeatCount,
+      occurredAt: organizationBillingLifecycleEvents.occurredAt,
+      periodEndsAt: organizationBillingLifecycleEvents.periodEndsAt,
+      periodStartsAt: organizationBillingLifecycleEvents.periodStartsAt,
+      quantityDelta: organizationBillingLifecycleEvents.quantityDelta,
+      sourceId: organizationBillingLifecycleEvents.sourceId,
+    })
+    .from(organizationBillingLifecycleEvents)
+    .where(
+      eq(organizationBillingLifecycleEvents.organizationId, organizationId),
+    )
+    .orderBy(
+      desc(organizationBillingLifecycleEvents.occurredAt),
+      desc(organizationBillingLifecycleEvents.id),
     )
     .limit(BILLING_HISTORY_EVENT_LIMIT);
 }
@@ -242,15 +274,50 @@ function projectLifecycleHistory(
   });
 }
 
+function projectInternalLifecycleHistory(
+  rows: readonly InternalLifecycleHistoryRow[],
+): OrganizationBillingHistoryEvent[] {
+  return rows.map((row) => ({
+    id: row.id,
+    category: "lifecycle",
+    provider: "internal",
+    eventType: row.eventType,
+    outcome: "applied",
+    eventTimestamp: row.occurredAt,
+    productId: null,
+    transactionId: null,
+    invoiceId: null,
+    subscriptionId: null,
+    billingReason: null,
+    seatCount: row.licensedSeatCount,
+    seatDelta: row.quantityDelta,
+    activeSeatCount: row.activeSeatCount,
+    priceId: null,
+    unitAmount: null,
+    currency: null,
+    interval: null,
+    intervalCount: null,
+    totalAmount: null,
+    periodStartsAt: row.periodStartsAt,
+    periodEndsAt: row.periodEndsAt,
+  }));
+}
+
 function projectSeatHistory(
   rows: readonly SeatHistoryRow[],
   lifecycleProviderEventIds: ReadonlySet<string>,
+  internalLifecycleSourceIds: ReadonlySet<string>,
 ): OrganizationBillingHistoryEvent[] {
   return rows
     .filter(
       (row) =>
-        row.sourceType !== "provider_event" ||
-        !lifecycleProviderEventIds.has(row.sourceId),
+        !(
+          (row.sourceType === "provider_event" &&
+            lifecycleProviderEventIds.has(row.sourceId)) ||
+          (row.sourceType === "billing_transition" &&
+            internalLifecycleSourceIds.has(row.sourceId) &&
+            LICENSED_SEAT_EVENT_TYPE_SET.has(row.eventType))
+        ),
     )
     .map((row) => ({
       id: row.id,
@@ -326,10 +393,17 @@ export async function runGetOrganizationBillingHistoryWorkflow(
     });
 
     const lifecycleRows = await loadLifecycleHistory(tx, organizationId);
+    const internalLifecycleRows = await loadInternalLifecycleHistory(
+      tx,
+      organizationId,
+    );
     const seatRows = await loadSeatHistory(tx, organizationId);
     const invoiceRows = await loadInvoiceHistory(tx, organizationId);
     const lifecycleProviderEventIds = new Set(
       lifecycleRows.map((row) => row.providerEventId),
+    );
+    const internalLifecycleSourceIds = new Set(
+      internalLifecycleRows.map((row) => row.sourceId),
     );
     const lifecycleSeatRows = await loadLifecycleSeatHistory(
       tx,
@@ -342,10 +416,22 @@ export async function runGetOrganizationBillingHistoryWorkflow(
       seatsByProviderEventId,
       organizationId,
     );
-    const seatEvents = projectSeatHistory(seatRows, lifecycleProviderEventIds);
+    const internalLifecycleEvents = projectInternalLifecycleHistory(
+      internalLifecycleRows,
+    );
+    const seatEvents = projectSeatHistory(
+      seatRows,
+      lifecycleProviderEventIds,
+      internalLifecycleSourceIds,
+    );
     const invoiceEvents = projectInvoiceHistory(invoiceRows);
 
-    return [...lifecycleEvents, ...seatEvents, ...invoiceEvents]
+    return [
+      ...lifecycleEvents,
+      ...internalLifecycleEvents,
+      ...seatEvents,
+      ...invoiceEvents,
+    ]
       .sort(compareHistoryEvents)
       .slice(0, BILLING_HISTORY_EVENT_LIMIT);
   });

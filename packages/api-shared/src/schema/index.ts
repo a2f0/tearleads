@@ -42,6 +42,10 @@ export {
   organizationBillingInvoiceEvents,
 } from "./organizationBillingInvoiceEvents";
 export {
+  type OrganizationBillingLifecycleEventType,
+  organizationBillingLifecycleEvents,
+} from "./organizationBillingLifecycleEvents";
+export {
   organizationReadModelChanges,
   organizationReadModelHeads,
 } from "./organizationReadModels";

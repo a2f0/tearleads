@@ -1,7 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationBillingHistoryEntry } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
+import {
+  formatMiniAppDate,
+  formatMiniAppDateTime,
+} from "../../../utils/formatMiniAppDate";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingHistory } from "./BillingHistory";
 
@@ -216,6 +219,59 @@ test("a lifecycle seat snapshot names unavailable cost data", () => {
 
   expect(view.getByText("4 licensed seats")).toBeDefined();
   expect(view.getByText("Plan price unavailable for this event")).toBeDefined();
+});
+
+test("free-trial lifecycle activity explains capacity, cost, and expiration", () => {
+  const periodStartsAt = "2026-07-01T12:00:00.000Z";
+  const periodEndsAt = "2026-07-08T12:00:00.000Z";
+  const view = render(
+    <BillingHistory
+      entries={[
+        entry({
+          activeSeatCount: 0,
+          eventType: "free_trial_expired",
+          id: "trial-expired",
+          occurredAt: periodEndsAt,
+          periodEndsAt,
+          periodStartsAt,
+          provider: "internal",
+          seatCount: 0,
+          seatDelta: -10,
+        }),
+        entry({
+          activeSeatCount: 1,
+          eventType: "free_trial_initialized",
+          id: "trial-initialized",
+          periodEndsAt,
+          periodStartsAt,
+          provider: "internal",
+          seatCount: 10,
+          seatDelta: 10,
+        }),
+      ]}
+      error={null}
+      loading={false}
+    />,
+  );
+
+  expect(view.getByText("Free trial initialized")).toBeDefined();
+  expect(view.getByText("Free trial expired")).toBeDefined();
+  expect(view.getByText("10 licensed seats")).toBeDefined();
+  expect(view.getByText("0 licensed seats")).toBeDefined();
+  expect(view.getByText("Licensed seat change: +10")).toBeDefined();
+  expect(view.getByText("Licensed seat change: -10")).toBeDefined();
+  expect(
+    view.getByText("Free trial access granted at no charge"),
+  ).toBeDefined();
+  expect(
+    view.getByText("Free trial ended and sync was disabled"),
+  ).toBeDefined();
+  expect(
+    view.getAllByText(
+      `Trial period: ${formatMiniAppDate(periodStartsAt)} – ${formatMiniAppDate(periodEndsAt)}`,
+    ),
+  ).toHaveLength(2);
+  expect(view.queryByText("Plan price unavailable for this event")).toBeNull();
 });
 
 test("a native lifecycle event shows its fixed tier capacity and price", () => {

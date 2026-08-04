@@ -497,6 +497,9 @@ CREATE TABLE `organization_billing` (
 	`organization_id` text NOT NULL,
 	`status` text DEFAULT 'local' NOT NULL,
 	`trial_ends_at` integer,
+	`trial_expiry_next_attempt_at` integer,
+	`trial_expiry_attempt_count` integer DEFAULT 0 NOT NULL,
+	`trial_expiry_last_error` text,
 	`provider` text,
 	`provider_customer_id` text,
 	`provider_subscription_id` text,
@@ -522,8 +525,9 @@ CREATE TABLE `organization_billing` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `organization_billing_org_idx` ON `organization_billing` (`organization_id`);--> statement-breakpoint
-CREATE INDEX `organization_billing_trial_expiry_idx` ON `organization_billing` (`status`,`trial_ends_at`,`organization_id`);--> statement-breakpoint
+CREATE INDEX `organization_billing_trial_expiry_idx` ON `organization_billing` (`status`,`trial_ends_at`,`trial_expiry_next_attempt_at`,`organization_id`);--> statement-breakpoint
 CREATE INDEX `organization_billing_purge_candidates_idx` ON `organization_billing` (`status`,`purge_after`,`purge_started_at`,`organization_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `organization_billing_provider_subscription_idx` ON `organization_billing` (`provider_subscription_id`);--> statement-breakpoint
 CREATE TABLE `organization_billing_invoice_events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`organization_id` text NOT NULL,
@@ -546,6 +550,22 @@ CREATE TABLE `organization_billing_invoice_events` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `organization_billing_invoice_events_invoice_idx` ON `organization_billing_invoice_events` (`invoice_id`);--> statement-breakpoint
 CREATE INDEX `organization_billing_invoice_events_org_occurred_idx` ON `organization_billing_invoice_events` (`organization_id`,`occurred_at`);--> statement-breakpoint
+CREATE TABLE `organization_billing_lifecycle_events` (
+	`id` text PRIMARY KEY NOT NULL,
+	`organization_id` text NOT NULL,
+	`event_type` text NOT NULL,
+	`source_id` text NOT NULL,
+	`licensed_seat_count` integer NOT NULL,
+	`quantity_delta` integer NOT NULL,
+	`active_seat_count` integer NOT NULL,
+	`period_starts_at` integer NOT NULL,
+	`period_ends_at` integer NOT NULL,
+	`occurred_at` integer NOT NULL,
+	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `organization_billing_lifecycle_events_source_idx` ON `organization_billing_lifecycle_events` (`organization_id`,`event_type`,`source_id`);--> statement-breakpoint
+CREATE INDEX `organization_billing_lifecycle_events_org_occurred_idx` ON `organization_billing_lifecycle_events` (`organization_id`,`occurred_at`);--> statement-breakpoint
 CREATE TABLE `organization_billing_seat_assignments` (
 	`id` text PRIMARY KEY NOT NULL,
 	`organization_id` text NOT NULL,
@@ -757,9 +777,11 @@ CREATE TABLE `revenuecat_webhook_events` (
 	`event_type` text NOT NULL,
 	`app_user_id` text NOT NULL,
 	`product_id` text,
+	`store` text,
 	`transaction_id` text,
 	`original_transaction_id` text,
 	`organization_id` text,
+	`source_organization_id` text,
 	`outcome` text NOT NULL,
 	`event_timestamp` integer NOT NULL,
 	`purchased_at` integer,
@@ -769,6 +791,7 @@ CREATE TABLE `revenuecat_webhook_events` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `revenuecat_webhook_events_event_id_idx` ON `revenuecat_webhook_events` (`event_id`);--> statement-breakpoint
 CREATE INDEX `revenuecat_webhook_events_org_idx` ON `revenuecat_webhook_events` (`organization_id`);--> statement-breakpoint
+CREATE INDEX `revenuecat_webhook_events_source_org_idx` ON `revenuecat_webhook_events` (`source_organization_id`);--> statement-breakpoint
 CREATE TABLE `users` (
 	`id` text PRIMARY KEY NOT NULL,
 	`fingerprint` text NOT NULL,

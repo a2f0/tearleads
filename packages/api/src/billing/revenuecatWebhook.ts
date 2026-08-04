@@ -152,6 +152,9 @@ interface RevenueCatGrantFields {
   currentPeriodStartsAt: Date | null;
   currentPeriodEndsAt: Date | null;
   trialEndsAt: null;
+  trialExpiryAttemptCount: 0;
+  trialExpiryLastError: null;
+  trialExpiryNextAttemptAt: null;
   disabledAt: null;
   purgeAfter: null;
   seatCount: number;
@@ -161,6 +164,9 @@ interface RevenueCatRevokeFields {
   status: OrganizationBillingStatus;
   disabledAt: Date;
   purgeAfter: Date;
+  trialExpiryAttemptCount: 0;
+  trialExpiryLastError: null;
+  trialExpiryNextAttemptAt: null;
 }
 
 interface RevenueCatScheduleFields {
@@ -404,6 +410,9 @@ function classifyRevenueCatGrant(
       currentPeriodStartsAt: timestampMsToDate(event.purchased_at_ms),
       currentPeriodEndsAt: timestampMsToDate(event.expiration_at_ms),
       trialEndsAt: null,
+      trialExpiryAttemptCount: 0,
+      trialExpiryLastError: null,
+      trialExpiryNextAttemptAt: null,
       disabledAt: null,
       purgeAfter: null,
       seatCount,
@@ -455,6 +464,9 @@ export function classifyRevenueCatEvent(
         status: "disabled",
         disabledAt: now,
         purgeAfter: new Date(now.getTime() + LAPSED_BILLING_PURGE_GRACE_MS),
+        trialExpiryAttemptCount: 0,
+        trialExpiryLastError: null,
+        trialExpiryNextAttemptAt: null,
       },
     };
   }

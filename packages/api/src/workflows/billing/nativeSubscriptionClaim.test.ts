@@ -48,6 +48,14 @@ test("atomically moves a native subscription between personal organizations", as
   await db
     .update(organizationBilling)
     .set({
+      trialExpiryAttemptCount: 3,
+      trialExpiryLastError: "transient trial expiry failure",
+      trialExpiryNextAttemptAt: new Date("2030-01-01T00:00:00Z"),
+    })
+    .where(eq(organizationBilling.organizationId, destination.organizationId));
+  await db
+    .update(organizationBilling)
+    .set({
       provider: "revenuecat",
       providerCustomerId: previous.user.userId,
       providerProductId: "sync_team_5_monthly:monthly",
@@ -99,6 +107,9 @@ test("atomically moves a native subscription between personal organizations", as
       providerSubscriptionId: organizationBilling.providerSubscriptionId,
       seatCount: organizationBilling.seatCount,
       status: organizationBilling.status,
+      trialExpiryAttemptCount: organizationBilling.trialExpiryAttemptCount,
+      trialExpiryLastError: organizationBilling.trialExpiryLastError,
+      trialExpiryNextAttemptAt: organizationBilling.trialExpiryNextAttemptAt,
     })
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, destination.organizationId));
@@ -108,6 +119,9 @@ test("atomically moves a native subscription between personal organizations", as
     providerSubscriptionId: nativeSubscription.subscriptionId,
     seatCount: 5,
     status: "active",
+    trialExpiryAttemptCount: 0,
+    trialExpiryLastError: null,
+    trialExpiryNextAttemptAt: null,
   });
   const [audit] = await db
     .select({
