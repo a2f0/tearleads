@@ -47,6 +47,22 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Build workspace packages
+        run: bun run build:packages
+
+      - name: Build Capacitor web assets
+        working-directory: packages/app-capacitor
+        env:
+          VITE_API_BASE_URL: https://api.tearleads.de
+        run: bun run build
+
+      - name: Synchronize Android project
+        working-directory: packages/app-capacitor
+        env:
+          CAPACITOR_BUILD_CONFIGURATION: Release-Staging
+          NATIVE_RELEASE_TIER: staging
+        run: bunx cap sync android
+
       - name: Compile and test Android purchase bridge
         working-directory: packages/app-capacitor/android
         run: mise exec -- gradle :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon

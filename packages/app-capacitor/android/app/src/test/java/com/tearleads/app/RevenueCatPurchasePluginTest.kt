@@ -316,6 +316,8 @@ class RevenueCatPurchasePluginTest {
 
     @Test
     fun purchaseEntryPointRejectsMalformedProductChanges() {
+        val cache = PreparedPackageCache<Package>()
+        cache.replace("team", fakePackage("team", "team-product"))
         val calls = listOf(
             purchaseCall(packageId = null),
             purchaseCall(productId = null),
@@ -324,11 +326,12 @@ class RevenueCatPurchasePluginTest {
             purchaseCall(oldProductIdentifier = "", replacementMode = "DEFERRED"),
             purchaseCall(oldProductIdentifier = "solo", replacementMode = "UNKNOWN"),
         )
-        val plugin = configuredPlugin()
+        val plugin = configuredPlugin(cache)
 
         calls.forEach(plugin::purchasePackage)
 
         assertTrue(calls.all { it.rejectionCode == "bridge-invalid" })
+        assertNull(cache.consume("team", "team-product") { it.product.id })
     }
 
     @Test

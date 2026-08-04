@@ -230,7 +230,8 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
     /implementation "com\.revenuecat\.purchases:purchases:\$\{rootProject\.ext\.revenueCatPurchasesVersion\}"/,
   );
   expect(appBuild).toContain("resolutionStrategy.eachDependency");
-  expect(appBuild).toContain("requestedVersion != null");
+  expect(appBuild).toContain("requestedVersion == null");
+  expect(appBuild).toContain("details.useVersion(expectedVersion)");
   expect(appBuild).toContain("requestedVersion != expectedVersion");
   expect(purchasesVersion).toMatch(/^\d+\.\d+\.\d+$/);
   expect(hybridCommonVersion).toBe(pluginHybridCommonVersion);

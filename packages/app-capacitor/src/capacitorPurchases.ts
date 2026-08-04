@@ -1,3 +1,4 @@
+import { ExceptionCode } from "@capacitor/core";
 import {
   PURCHASES_ERROR_CODE,
   Purchases,
@@ -164,12 +165,13 @@ function isAnonymousLogOut(error: unknown): boolean {
   );
 }
 
-function isInvalidNativePurchaseBridge(error: unknown): boolean {
+function isUnavailableNativePurchaseBridge(error: unknown): boolean {
   return (
     typeof error === "object" &&
     error !== null &&
     "code" in error &&
-    error.code === "bridge-invalid"
+    (error.code === "bridge-invalid" ||
+      error.code === ExceptionCode.Unimplemented)
   );
 }
 
@@ -191,7 +193,7 @@ function normalizeCapacitorPurchaseError(error: unknown): never {
   if (isAlreadyOwnedPurchase(error)) {
     throw new PurchaseAlreadyOwnedError();
   }
-  if (isInvalidNativePurchaseBridge(error)) {
+  if (isUnavailableNativePurchaseBridge(error)) {
     throw new NativePurchaseBridgeUnavailableError(error);
   }
   throw error;
@@ -202,7 +204,7 @@ function normalizeCapacitorPreparationError(
   abortSignal: AbortSignal | undefined,
 ): never {
   if (abortSignal?.aborted) throw new PurchaseAbortedError();
-  if (isInvalidNativePurchaseBridge(error)) {
+  if (isUnavailableNativePurchaseBridge(error)) {
     throw new NativePurchaseBridgeUnavailableError(error);
   }
   throw error;

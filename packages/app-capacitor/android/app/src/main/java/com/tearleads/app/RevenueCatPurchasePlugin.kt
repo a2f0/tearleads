@@ -172,6 +172,7 @@ class RevenueCatPurchasePlugin internal constructor(
             replacementName,
         )
         if (productChange == null) {
+            preparedPackages.clear()
             rejectBridgeValidation(call)
             return
         }
