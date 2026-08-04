@@ -61,6 +61,16 @@ export async function withGroupGrantReshareAfterRotation<T>(input: {
  * container that cannot be repaired now must not surface as a failure of the
  * mutation itself. The sweep is idempotent, so the next mutation on the same
  * group repairs whatever this pass missed.
+ *
+ * Overlapping rotations are deliberately NOT coalesced. A superseded sweep is
+ * doing redundant work, never wrong work: the re-wrap targets the group's live
+ * current policy, fetched at call time, not the head this sweep was scheduled
+ * with. Cancelling one is therefore an optimisation, and the cancellation
+ * scheme it needs — resolving the incumbent, deciding when a head is confirmed
+ * enough to depose it, not letting a rejected mutation cancel a committed one's
+ * repair — produced a race in three consecutive reviews. Wasting some
+ * background requests until a superseded sweep's window expires is the cheaper
+ * failure.
  */
 export function scheduleGroupGrantReshareAfterRotation(input: {
   containerContents: ContainerContents;
@@ -84,38 +94,11 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
       execSql: input.runtime.infra.execSql,
       expectedGroupHead: head,
       log: (message) => input.runtime.util.log(message),
-      onHeadConfirmed: supersedePredecessor,
       mutatedGroupId: input.mutatedGroupId,
       organizationId: input.signingContext.organizationId,
       reconcileReadModel: input.reconcileReadModel,
       shouldContinue,
     });
-
-  // A second rotation on the same group supersedes the first, so the superseded
-  // loop stops reconciling and re-listing toward a head that is no longer
-  // current. It is deposed only once THIS sweep confirms its own rotation
-  // landed: the head is captured before the policy write, so a mutation that
-  // then rejects would otherwise cancel the repair of an earlier rotation that
-  // did commit.
-  const sweepKey = `${input.signingContext.organizationId}:${input.mutatedGroupId}`;
-  const cancellation = { cancelled: false };
-  const entry = {
-    cancel: () => {
-      cancellation.cancelled = true;
-    },
-  };
-  const supersedePredecessor = () => {
-    // Resolve the incumbent HERE, not at schedule time. With three overlapping
-    // rotations the entry captured when this one was scheduled may already have
-    // been replaced, and cancelling that stale snapshot would leave the sweep
-    // actually running untouched.
-    const incumbent = activeSweeps.get(sweepKey);
-    if (incumbent === entry) {
-      return;
-    }
-    incumbent?.cancel();
-    activeSweeps.set(sweepKey, entry);
-  };
 
   void runSweepWithRetry({
     log: (message) => input.runtime.util.log(message),
@@ -123,17 +106,10 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
     mutatedGroupId: input.mutatedGroupId,
     refresh: () => input.containerContents.openTree().refresh(),
     scheduleRetry: input.scheduleRetry ?? defaultScheduleRetry,
-    shouldContinue: () => !cancellation.cancelled && shouldContinue(),
+    shouldContinue,
     sweep,
-  }).finally(() => {
-    if (activeSweeps.get(sweepKey) === entry && !cancellation.cancelled) {
-      activeSweeps.delete(sweepKey);
-    }
   });
 }
-
-/** In-flight sweeps by `organizationId:groupId`, so a rotation supersedes. */
-const activeSweeps = new Map<string, { cancel: () => void }>();
 
 function defaultScheduleRetry(retry: () => void, delayMs: number): void {
   setTimeout(retry, delayMs);
@@ -182,7 +158,6 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   log: (message: string) => void;
   mutatedGroupId: string;
   organizationId: string;
-  onHeadConfirmed?: (() => void) | undefined;
   reconcileReadModel: () => Promise<unknown>;
   shouldContinue: () => boolean;
 }): Promise<GroupGrantReshareOutcome> {
@@ -238,8 +213,6 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
       unresolvedContainerIds: [],
     };
   }
-
-  input.onHeadConfirmed?.();
 
   const granted = await loadLocalOrganizationGroupContainers({
     currentUserId: input.currentUserId,
