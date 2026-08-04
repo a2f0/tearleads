@@ -29,6 +29,8 @@ interface GroupGrantReshareOutcome {
   readonly complete: boolean;
   /** The pulled read model shows the group actually at the committed head. */
   readonly headConfirmed: boolean;
+  /** A pull that landed did not show the rotation, so it never committed. */
+  readonly headKnownAbsent?: boolean;
   /** Containers left stale: unresolvable, or a re-wrap that did not apply. */
   readonly unresolvedContainerIds: readonly string[];
 }
@@ -161,7 +163,10 @@ async function runSweepWithRetry(input: {
       return;
     }
     if (attempt.outcome && !attempt.outcome.headConfirmed) {
-      unconfirmedAttempts += 1;
+      // A pull that never landed teaches nothing, so it must not burn the
+      // confirmation budget — otherwise an outage longer than the budget
+      // abandons a rotation that did commit.
+      unconfirmedAttempts += attempt.outcome.headKnownAbsent ? 1 : 0;
       if (unconfirmedAttempts >= MAX_HEAD_CONFIRMATION_ATTEMPTS) {
         input.log(
           `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; the rotation never appeared, so the mutation did not commit`,
@@ -202,6 +207,13 @@ async function runOneSweepAttempt(input: {
   try {
     return { outcome: await input.sweep(), terminal: false };
   } catch (error) {
+    if (error instanceof GroupGrantReshareUnauthorizedError) {
+      input.logError(
+        `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; this signer cannot re-wrap the granted containers`,
+        error,
+      );
+      return { outcome: null, terminal: true };
+    }
     if (isKeyingVerificationError(error)) {
       input.logError(
         `Organizations: group grant re-share stopped for group ${input.mutatedGroupId} after an identity integrity failure`,
@@ -279,6 +291,12 @@ async function relistFailedTerminally(input: {
  * Containers already carrying the committed head are skipped via `isCurrent`,
  * so the root container repaired by the root coordinator on the same mutation
  * does not get re-shared twice.
+ *
+ * Scope: candidates come from the mutated group's own organization read model,
+ * so a grant held in a DIFFERENT organization is not enumerated here. Whether
+ * the access plane permits such a grant at all was not established; this is the
+ * same scope the reserved-principal re-shares already work within, not a
+ * narrowing of it.
  */
 export async function reshareGroupContainerGrantsAfterRotation(input: {
   containerContents: ContainerContents;
@@ -301,8 +319,10 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
   // on a failed fetch, which would read as fresh. So confirm the rotation the
   // only way that is self-evidencing — the group's head in the pulled read
   // model must actually be the committed one.
+  let pulled = false;
   try {
-    await input.reconcileReadModel();
+    // A decline (offline, wrong org) resolves undefined rather than throwing.
+    pulled = (await input.reconcileReadModel()) !== undefined;
   } catch (error) {
     rethrowKeyingVerificationError(error);
     input.log(
@@ -323,6 +343,10 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
     return {
       complete: false,
       headConfirmed: false,
+      // Only a pull that actually landed is evidence the rotation is absent.
+      // Counting a failed or declined pull would let a long outage read as a
+      // mutation that never committed, abandoning a real rotation.
+      headKnownAbsent: pulled,
       unresolvedContainerIds: [],
     };
   }
@@ -417,9 +441,31 @@ async function reshareOneGrantedContainer(input: {
     return true;
   } catch (error) {
     rethrowKeyingVerificationError(error);
+    if (isAuthorizationFailure(error)) {
+      // A direct group admin may rotate membership without holding container
+      // access. They cannot produce this wrap at all, so retrying is retrying
+      // a 403 forever; an admin who can read the container repairs it instead.
+      throw new GroupGrantReshareUnauthorizedError(input.containerId);
+    }
     input.log(
       `Organizations: best-effort group grant re-share skipped for container ${input.containerId} in org ${input.organizationId}: ${error instanceof Error ? error.message : String(error)}`,
     );
     return false;
   }
+}
+
+class GroupGrantReshareUnauthorizedError extends Error {
+  constructor(containerId: string) {
+    super(`not authorized to re-wrap container ${containerId}`);
+    this.name = "GroupGrantReshareUnauthorizedError";
+  }
+}
+
+function isAuthorizationFailure(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    (error as { status?: unknown }).status === 403
+  );
 }

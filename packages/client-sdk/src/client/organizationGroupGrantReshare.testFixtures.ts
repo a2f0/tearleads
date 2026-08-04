@@ -163,6 +163,7 @@ export interface RewrapCall {
 
 export function fakeContainerContents(input: {
   currentContainerIds?: ReadonlySet<string>;
+  forbiddenContainerIds?: ReadonlySet<string>;
   integrityFailureContainerIds?: ReadonlySet<string>;
   notGrantedContainerIds?: ReadonlySet<string>;
   onRefresh?: () => void;
@@ -197,6 +198,9 @@ export function fakeContainerContents(input: {
         input.order?.push(`prepare:${containerId}`);
         if (input.integrityFailureContainerIds?.has(containerId)) {
           throw makeKeyingVerificationError(containerId);
+        }
+        if (input.forbiddenContainerIds?.has(containerId)) {
+          throw Object.assign(new Error("forbidden"), { status: 403 });
         }
         if (input.unavailableContainerIds?.has(containerId)) {
           return null;

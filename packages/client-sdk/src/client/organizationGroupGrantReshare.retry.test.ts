@@ -351,3 +351,92 @@ test("gives up confirming a rotation that never committed", async () => {
     close();
   }
 });
+
+test("keeps confirming across an outage that never lands a pull", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-outage",
+  );
+  try {
+    await seedReadModel(execSql);
+    const log: string[] = [];
+    const runtime = fakeRuntime(log);
+    runtime.infra.execSql = execSql as never;
+    const delays: number[] = [];
+    let offline = true;
+    scheduleGroupGrantReshareAfterRotation({
+      containerContents: fakeContainerContents({
+        prepareCalls: [],
+        rewrapped: [],
+      }),
+      // A head the seeded read model does not carry yet.
+      expectedGroupHead: { ...EXPECTED_HEAD, stateHash: "arrives-late" },
+      mutatedGroupId: GRANTED_GROUP_ID,
+      // Declines while offline, exactly as reconcileAfterMutation does.
+      reconcileReadModel: async () => (offline ? undefined : {}),
+      runtime: runtime as never,
+      scheduleRetry: (retry, delayMs) => {
+        delays.push(delayMs);
+        // Ten failed pulls: more than the confirmation budget of 5.
+        if (delays.length === 10) {
+          offline = false;
+        }
+        retry();
+      },
+      shouldContinue: () => delays.length < 20,
+      signingContext: {
+        organizationId: ORGANIZATION_ID,
+        signerUserId: CURRENT_USER_ID,
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    // A pull that never landed teaches nothing about whether the rotation
+    // committed, so it must not burn the confirmation budget — otherwise a
+    // long outage permanently abandons a rotation that did commit.
+    expect(delays.length).toBeGreaterThan(10);
+    expect(log.some((m) => m.includes("did not commit"))).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("stops when this signer cannot re-wrap the containers", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-unauthorized",
+  );
+  try {
+    await seedReadModel(execSql);
+    const log: string[] = [];
+    const runtime = fakeRuntime(log);
+    runtime.infra.execSql = execSql as never;
+    const delays: number[] = [];
+    scheduleGroupGrantReshareAfterRotation({
+      containerContents: fakeContainerContents({
+        forbiddenContainerIds: new Set(["container-a"]),
+        prepareCalls: [],
+        rewrapped: [],
+      }),
+      expectedGroupHead: EXPECTED_HEAD,
+      mutatedGroupId: GRANTED_GROUP_ID,
+      reconcileReadModel: async () => ({}),
+      runtime: runtime as never,
+      scheduleRetry: (retry, delayMs) => {
+        delays.push(delayMs);
+        retry();
+      },
+      shouldContinue: () => true,
+      signingContext: {
+        organizationId: ORGANIZATION_ID,
+        signerUserId: CURRENT_USER_ID,
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // A direct group admin may rotate membership without container access.
+    // They cannot produce the wrap at all, so retrying is retrying a 403.
+    expect(delays).toEqual([]);
+    expect(log.some((m) => m.includes("cannot re-wrap"))).toBe(true);
+  } finally {
+    close();
+  }
+});
