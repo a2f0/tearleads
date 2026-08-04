@@ -220,6 +220,30 @@ test("a lifecycle seat snapshot names unavailable cost data", () => {
   ).toBeDefined();
 });
 
+test("a native lifecycle event shows its fixed tier capacity and price", () => {
+  const view = render(
+    <BillingHistory
+      entries={[
+        entry({
+          id: "team-10-purchase",
+          productId: "sync_team_10_monthly_staging:monthly",
+          seatCount: 10,
+          unitAmount: 2_000,
+          currency: "usd",
+          interval: "month",
+          intervalCount: 1,
+        }),
+      ]}
+      error={null}
+      loading={false}
+    />,
+  );
+
+  expect(view.getByText("10 licensed seats")).toBeDefined();
+  expect(view.getByText("Plan price: $20.00/month")).toBeDefined();
+  expect(view.queryByText(/details unavailable/)).toBeNull();
+});
+
 test("activity preserves a provider-reported zero paid total", () => {
   const view = render(
     <BillingHistory

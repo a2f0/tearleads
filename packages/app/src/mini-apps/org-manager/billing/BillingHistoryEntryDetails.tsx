@@ -148,6 +148,23 @@ function LifecycleAvailability({
   );
 }
 
+function LifecyclePrice({
+  entry,
+}: {
+  readonly entry: OrganizationBillingHistoryEntry;
+}) {
+  if (entry.category !== "lifecycle") {
+    return null;
+  }
+  const rate = formatPrice(
+    entry.unitAmount,
+    entry.currency,
+    entry.interval,
+    entry.intervalCount,
+  );
+  return rate ? <Detail>{`Plan price: ${rate}`}</Detail> : null;
+}
+
 function AuditFields({
   entry,
 }: {
@@ -193,6 +210,7 @@ export function BillingHistoryEntryDetails({
       {entry.category === "seat" ? (
         <Detail>Cost unavailable for this seat event</Detail>
       ) : null}
+      <LifecyclePrice entry={entry} />
       <LifecycleAvailability entry={entry} />
       {period ? <Detail>{period}</Detail> : null}
       {includeAuditFields ? <AuditFields entry={entry} /> : null}

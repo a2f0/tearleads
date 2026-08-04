@@ -36,7 +36,7 @@ test("POST /auth/register starts the personal organization on a sync trial", asy
 
   invariant(billing, "expected personal organization billing row");
   expect(billing.status).toBe("trialing");
-  expect(billing.seatCount).toBe(1);
+  expect(billing.seatCount).toBe(10);
   invariant(billing.trialEndsAt, "expected trialEndsAt to be set");
   expect(billing.trialEndsAt.getTime()).toBeGreaterThan(startedAt);
 });

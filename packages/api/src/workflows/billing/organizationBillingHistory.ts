@@ -7,6 +7,7 @@ import {
   organizationBillingSeatEvents,
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import type { OrganizationBillingHistoryEvent } from "../../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "../organizations/access";
@@ -197,6 +198,9 @@ function projectLifecycleHistory(
 ): OrganizationBillingHistoryEvent[] {
   return rows.map((row) => {
     const seat = seatsByProviderEventId.get(row.providerEventId);
+    // RevenueCat lifecycle events don't carry a trustworthy charged total.
+    // The fixed catalog still supplies the plan's capacity and USD list price.
+    const tier = getSyncBillingTierForNativeProduct(row.productId);
     return {
       id: row.id,
       category: "lifecycle",
@@ -214,14 +218,14 @@ function projectLifecycleHistory(
       invoiceId: null,
       subscriptionId: null,
       billingReason: null,
-      seatCount: seat?.seatCount ?? null,
+      seatCount: tier?.seatLimit ?? seat?.seatCount ?? null,
       seatDelta: seat?.seatDelta ?? null,
       activeSeatCount: seat?.activeSeatCount ?? null,
       priceId: null,
-      unitAmount: null,
-      currency: null,
-      interval: null,
-      intervalCount: null,
+      unitAmount: tier?.monthlyPriceUsdCents ?? null,
+      currency: tier ? "usd" : null,
+      interval: tier ? "month" : null,
+      intervalCount: tier ? 1 : null,
       totalAmount: null,
       periodStartsAt: seat?.periodStartsAt ?? row.periodStartsAt,
       periodEndsAt: seat?.periodEndsAt ?? row.periodEndsAt,

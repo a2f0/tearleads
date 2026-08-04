@@ -15,8 +15,13 @@ function billing(input: {
   };
 }
 
-test("a trial uses canonical tiers and cannot grow past ten members", () => {
-  expect(requiredLicensedSeatCount(billing({ status: "trialing" }), 2)).toBe(5);
+test("a trial grants the largest tier and cannot grow past ten members", () => {
+  expect(requiredLicensedSeatCount(billing({ status: "trialing" }), 1)).toBe(
+    10,
+  );
+  expect(requiredLicensedSeatCount(billing({ status: "trialing" }), 6)).toBe(
+    10,
+  );
   expect(() =>
     requiredLicensedSeatCount(billing({ status: "trialing" }), 11, 10),
   ).toThrow("exceeds the maximum subscription tier");

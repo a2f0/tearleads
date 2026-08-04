@@ -43,7 +43,8 @@ export function requiredLicensedSeatCount(
     return activeSeatCount;
   }
   if (billing.status === "trialing") {
-    return canonicalTierSeatCount(activeSeatCount, previousActiveSeatCount);
+    canonicalTierSeatCount(activeSeatCount, previousActiveSeatCount);
+    return getLargestSyncBillingTier().seatLimit;
   }
   const nativeTier = billing.hasStripeSubscription
     ? null
