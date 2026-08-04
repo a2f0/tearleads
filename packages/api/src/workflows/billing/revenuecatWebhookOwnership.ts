@@ -55,7 +55,7 @@ async function ignoreLifecycleEventForMovedSubscription(input: {
         originalTransactionId: input.event.original_transaction_id ?? null,
         outcome: "ignored",
         productId: resolveRevenueCatRecordedProductId(input.event),
-        store: input.event.store ?? null,
+        store: input.event.store?.toUpperCase() ?? null,
         purchasedAt:
           input.event.purchased_at_ms == null
             ? null

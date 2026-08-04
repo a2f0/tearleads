@@ -19,7 +19,7 @@ export async function runRecordIgnoredRevenueCatTransferWorkflow(input: {
         eventType: "TRANSFER",
         organizationId: input.organizationId,
         outcome: "ignored",
-        store: input.event.store ?? null,
+        store: input.event.store?.toUpperCase() ?? null,
       })
       .onConflictDoNothing({ target: revenuecatWebhookEvents.eventId })
       .returning({ id: revenuecatWebhookEvents.id });

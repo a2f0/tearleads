@@ -135,19 +135,17 @@ function LifecycleAvailability({
   if (entry.category !== "lifecycle") {
     return null;
   }
+  if (entry.unitAmount !== null) {
+    return entry.totalAmount === null ? (
+      <Detail>Paid total unavailable</Detail>
+    ) : null;
+  }
   return (
-    <>
-      {entry.unitAmount !== null ? (
-        <Detail>Paid total unavailable</Detail>
-      ) : null}
-      {entry.unitAmount === null ? (
-        <Detail>
-          {entry.seatCount === null
-            ? "Seat and plan price unavailable for this event"
-            : "Plan price unavailable for this event"}
-        </Detail>
-      ) : null}
-    </>
+    <Detail>
+      {entry.seatCount === null
+        ? "Seat and plan price unavailable for this event"
+        : "Plan price unavailable for this event"}
+    </Detail>
   );
 }
 

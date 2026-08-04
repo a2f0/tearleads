@@ -406,7 +406,7 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
           organizationId: input.organizationId,
           outcome: "applied",
           productId: input.subscription.productId,
-          store: input.subscription.store,
+          store: input.subscription.store.toUpperCase(),
           purchasedAt: input.subscription.currentPeriodStartsAt,
           transactionId: input.subscription.subscriptionId,
           originalTransactionId: input.subscription.subscriptionId,

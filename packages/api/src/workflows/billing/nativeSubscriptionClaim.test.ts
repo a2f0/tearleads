@@ -113,12 +113,14 @@ test("atomically moves a native subscription between personal organizations", as
     .select({
       organizationId: revenuecatWebhookEvents.organizationId,
       sourceOrganizationId: revenuecatWebhookEvents.sourceOrganizationId,
+      store: revenuecatWebhookEvents.store,
     })
     .from(revenuecatWebhookEvents)
     .where(eq(revenuecatWebhookEvents.eventId, eventId));
   expect(audit).toEqual({
     organizationId: destination.organizationId,
     sourceOrganizationId: previous.organizationId,
+    store: "PLAY_STORE",
   });
   const previousHistory = await runGetOrganizationBillingHistoryWorkflow(
     db,

@@ -18,8 +18,9 @@ import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "./columns";
  *   buyer's global user id.
  * - `productId`: Provider product reported by RevenueCat, when present; for a
  *   `PRODUCT_CHANGE`, this stores RevenueCat's destination `new_product_id`.
- * - `store`: RevenueCat store that originated the event. This distinguishes
- *   device-store purchases from promotional and Stripe audit events.
+ * - `store`: Uppercase RevenueCat store that originated the event. This
+ *   distinguishes device-store purchases from promotional and Stripe audit
+ *   events.
  * - `transactionId` / `originalTransactionId`: Provider transaction ids used to
  *   correlate the applied billing row back to RevenueCat/store history.
  * - `organizationId`: Organization the event was applied to, resolved from the

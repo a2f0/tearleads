@@ -26,10 +26,20 @@ authoritative subscription binding without fabricating an audit row; an id-less
 renewal is acknowledged without changing the renewal baseline.
 
 Fields unavailable from the provider, or not applicable to a category, stay
-`null` instead of being reconstructed. Incomplete paid-invoice deliveries are
-retried when creation or renewal fulfillment depends on them. Other billing
-reasons preserve an exact total-only snapshot when their signed invoice-level
-facts are available, without paginating a potentially large line history.
+`null` instead of being reconstructed, with one narrow exception: an applied
+RevenueCat grant from the App Store, Play Store, or RevenueCat Test Store may
+resolve its fixed tier from the recorded product id. That projection supplies
+the tier's seat capacity and canonical monthly USD list price. It never
+reconstructs a paid total, because taxes, store pricing, discounts, and credits
+remain provider facts. Revocations, ignored events, promotional grants,
+Stripe-originated events, unknown products, and rows without recognized store
+provenance remain unenriched. A durable seat-ledger snapshot takes precedence
+over catalog capacity when one exists.
+
+Incomplete paid-invoice deliveries are retried when creation or renewal
+fulfillment depends on them. Other billing reasons preserve an exact total-only
+snapshot when their signed invoice-level facts are available, without
+paginating a potentially large line history.
 If those core facts are absent but the invoice id is present, one pinned
 resolution attempt recovers them; a definitive 404 is acknowledged, while
 transient provider failures remain retryable.
@@ -43,3 +53,11 @@ RevenueCat fulfillment to finish after a downstream partial failure.
 Never derive an invoice total from seats multiplied by unit price. The paid
 total can include prorations, taxes, discounts, credits, and other adjustments;
 only the recorded provider amount is authoritative.
+
+## Greenfield rollout
+
+The store-provenance migration deliberately does not infer or backfill old
+RevenueCat audit rows, and the top-tier trial change does not rewrite existing
+trial seat rows. Deploy this contract with a data reset. If legacy data is kept,
+rows without store provenance remain unenriched and existing trials retain
+their stored capacity until seat reconciliation runs.
