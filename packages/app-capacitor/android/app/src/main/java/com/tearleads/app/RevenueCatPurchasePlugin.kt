@@ -1,5 +1,6 @@
 package com.tearleads.app
 
+import android.app.Activity
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -51,14 +52,50 @@ internal fun revenueCatReplacementMode(name: String?): StoreReplacementMode? = w
     else -> null
 }
 
+internal data class RevenueCatProductChange(
+    val oldProductIdentifier: String?,
+    val replacementMode: StoreReplacementMode?,
+)
+
+internal fun revenueCatProductChange(
+    oldProductIdentifier: String?,
+    replacementName: String?,
+): RevenueCatProductChange? {
+    if (
+        (oldProductIdentifier == null) != (replacementName == null) ||
+        oldProductIdentifier?.isEmpty() == true
+    ) {
+        return null
+    }
+    val replacementMode = revenueCatReplacementMode(replacementName)
+    if (replacementName != null && replacementMode == null) return null
+    return RevenueCatProductChange(oldProductIdentifier, replacementMode)
+}
+
+internal fun findRevenueCatPackage(
+    packages: List<Package>,
+    packageId: String,
+    productId: String,
+): Package? = packages.firstOrNull {
+    it.identifier == packageId && it.product.id == productId
+}
+
 @CapacitorPlugin(name = "RevenueCatPurchase")
-class RevenueCatPurchasePlugin : Plugin() {
-    private val preparedPackages = PreparedPackageCache<Package>()
+class RevenueCatPurchasePlugin internal constructor(
+    private val preparedPackages: PreparedPackageCache<Package>,
+    private val purchasesConfigured: () -> Boolean,
+    private val activityProvider: (() -> Activity?)?,
+) : Plugin() {
+    constructor() : this(
+        PreparedPackageCache(),
+        { Purchases.isConfigured },
+        null,
+    )
 
     @PluginMethod
     fun preparePackage(call: PluginCall) {
         preparedPackages.clear()
-        if (!Purchases.isConfigured) {
+        if (!purchasesConfigured()) {
             rejectBridgeValidation(call)
             return
         }
@@ -71,9 +108,11 @@ class RevenueCatPurchasePlugin : Plugin() {
 
         Purchases.sharedInstance.getOfferings(object : ReceiveOfferingsCallback {
             override fun onReceived(offerings: com.revenuecat.purchases.Offerings) {
-                val prepared = offerings.current?.availablePackages?.firstOrNull {
-                    it.identifier == packageId && it.product.id == productId
-                }
+                val prepared = findRevenueCatPackage(
+                    offerings.current?.availablePackages.orEmpty(),
+                    packageId,
+                    productId,
+                )
                 if (prepared == null) {
                     rejectBridgeValidation(call)
                     return
@@ -90,7 +129,7 @@ class RevenueCatPurchasePlugin : Plugin() {
 
     @PluginMethod
     fun purchasePackage(call: PluginCall) {
-        if (!Purchases.isConfigured) {
+        if (!purchasesConfigured()) {
             rejectBridgeValidation(call)
             return
         }
@@ -102,15 +141,11 @@ class RevenueCatPurchasePlugin : Plugin() {
         }
         val oldProductIdentifier = call.getString("oldProductIdentifier")
         val replacementName = call.getString("replacementMode")
-        if (
-            (oldProductIdentifier == null) != (replacementName == null) ||
-            oldProductIdentifier?.isEmpty() == true
-        ) {
-            rejectBridgeValidation(call)
-            return
-        }
-        val replacementMode = revenueCatReplacementMode(replacementName)
-        if (replacementName != null && replacementMode == null) {
+        val productChange = revenueCatProductChange(
+            oldProductIdentifier,
+            replacementName,
+        )
+        if (productChange == null) {
             rejectBridgeValidation(call)
             return
         }
@@ -121,15 +156,19 @@ class RevenueCatPurchasePlugin : Plugin() {
             rejectBridgeValidation(call)
             return
         }
-        val activity = bridge.activity
+        val activity = if (activityProvider == null) {
+            bridge.activity
+        } else {
+            activityProvider.invoke()
+        }
         if (activity == null) {
             rejectBridgeValidation(call)
             return
         }
 
         val builder = PurchaseParams.Builder(activity, prepared)
-        oldProductIdentifier?.let(builder::oldProductId)
-        replacementMode?.let(builder::replacementMode)
+        productChange.oldProductIdentifier?.let(builder::oldProductId)
+        productChange.replacementMode?.let(builder::replacementMode)
         Purchases.sharedInstance.purchase(
             builder.build(),
             object : PurchaseCallback {

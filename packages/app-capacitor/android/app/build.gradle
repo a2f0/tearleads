@@ -113,6 +113,7 @@ dependencies {
     // the resolution guard above fails the build if either transitive moves.
     implementation "com.revenuecat.purchases:purchases:${rootProject.ext.revenueCatPurchasesVersion}"
     testImplementation "junit:junit:$junitVersion"
+    testImplementation 'org.json:json:20250517'
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

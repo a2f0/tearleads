@@ -362,7 +362,7 @@ test("treats a dismissed store sheet as a cancellation, not a failure", async ()
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
   // Match the first-party Swift plugin's CAPPluginCall.reject payload rather
   // than the official bridge's PurchasesError serialization.
-  fixture.purchaseRejection = {
+  fixture.nativePurchaseRejection = {
     code: "1",
     message: "RevenueCat purchase failed",
     data: { userCancelled: true },
@@ -379,7 +379,7 @@ test("normalizes cancellation from the Android RevenueCat bridge", async () => {
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
   fixture.platform = "android";
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
-  fixture.purchaseRejection = { code: "1" };
+  fixture.nativePurchaseRejection = { code: "1" };
 
   await expect(purchaseSync()).rejects.toBeInstanceOf(PurchaseCancelledError);
   expect(fixture.nativePurchaseCalls).toEqual([
@@ -392,7 +392,7 @@ test("normalizes an already-owned Android product into subscription recovery", a
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
   fixture.platform = "android";
   fixture.packages = [nativePackage("monthly", "sync_solo_monthly:monthly")];
-  fixture.purchaseRejection = { code: "6" };
+  fixture.nativePurchaseRejection = { code: "6" };
 
   await expect(purchaseSync()).rejects.toBeInstanceOf(
     PurchaseAlreadyOwnedError,
@@ -405,7 +405,7 @@ test("normalizes iOS receipt-ownership conflicts into subscription recovery", as
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
 
   for (const code of ["6", "7", "13"]) {
-    fixture.purchaseRejection = { code };
+    fixture.nativePurchaseRejection = { code };
     await expect(purchaseSync()).rejects.toBeInstanceOf(
       PurchaseAlreadyOwnedError,
     );
@@ -415,7 +415,7 @@ test("normalizes iOS receipt-ownership conflicts into subscription recovery", as
 test("propagates a genuine store failure unchanged", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
-  fixture.purchaseRejection = {
+  fixture.nativePurchaseRejection = {
     code: "2",
     message: "There was a problem with the store.",
   };

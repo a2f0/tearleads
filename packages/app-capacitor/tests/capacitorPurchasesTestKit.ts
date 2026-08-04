@@ -24,12 +24,12 @@ export const fixture: {
   }[];
   attributeCalls: Record<string, string | null>[];
   packages: PurchasesPackage[];
-  purchaseRejection: unknown;
   nativePurchaseRejection: unknown;
   nativePurchasePromise: Promise<{ activeEntitlementIds?: unknown }> | null;
   onNativePurchase: (() => void) | null;
   nativePrepareRejection: unknown;
   nativePreparePromise: Promise<void> | null;
+  onNativePrepare: (() => void) | null;
   customerInfo: unknown;
   nativePurchaseResult: { activeEntitlementIds?: unknown } | null;
   onGetCustomerInfo: (() => void) | null;
@@ -49,12 +49,12 @@ export const fixture: {
   nativePurchaseCalls: [],
   attributeCalls: [],
   packages: [],
-  purchaseRejection: null,
   nativePurchaseRejection: null,
   nativePurchasePromise: null,
   onNativePurchase: null,
   nativePrepareRejection: null,
   nativePreparePromise: null,
+  onNativePrepare: null,
   customerInfo: { entitlements: { active: { sync: {} } } },
   nativePurchaseResult: null,
   onGetCustomerInfo: null,
@@ -127,9 +127,6 @@ function nativePurchaseResult(input: NativePurchaseInput) {
   if (fixture.nativePurchasePromise !== null) {
     return fixture.nativePurchasePromise;
   }
-  if (fixture.purchaseRejection !== null) {
-    return Promise.reject(fixture.purchaseRejection);
-  }
   if (fixture.nativePurchaseResult !== null) {
     return Promise.resolve(fixture.nativePurchaseResult);
   }
@@ -151,6 +148,7 @@ mock.module("../src/capacitorRevenueCatRuntime", () => ({
         identifier: packageId,
         productId,
       });
+      fixture.onNativePrepare?.();
       if (fixture.nativePreparePromise !== null) {
         return fixture.nativePreparePromise;
       }
@@ -221,9 +219,6 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
           ? { storeProductChangeInfo: options.storeProductChangeInfo }
           : {}),
       });
-      if (fixture.purchaseRejection !== null) {
-        return Promise.reject(fixture.purchaseRejection);
-      }
       return Promise.resolve({ customerInfo: fixture.customerInfo });
     },
     getCustomerInfo: () => {
@@ -275,12 +270,12 @@ export function resetFixture(): void {
   fixture.nativePurchaseCalls = [];
   fixture.attributeCalls = [];
   fixture.packages = [];
-  fixture.purchaseRejection = null;
   fixture.nativePurchaseRejection = null;
   fixture.nativePurchasePromise = null;
   fixture.onNativePurchase = null;
   fixture.nativePrepareRejection = null;
   fixture.nativePreparePromise = null;
+  fixture.onNativePrepare = null;
   fixture.customerInfo = { entitlements: { active: { sync: {} } } };
   fixture.nativePurchaseResult = null;
   fixture.onGetCustomerInfo = null;

@@ -75,3 +75,22 @@ test("billing options without a retryable failure hide the retry action", () => 
     }),
   ).toBeNull();
 });
+
+test("hidden native options hide their orphaned retry guidance", () => {
+  const view = render(
+    <BillingView
+      {...props(() => undefined)}
+      directCheckoutAvailable
+      purchaseAvailable={false}
+    />,
+  );
+
+  expect(
+    view.queryByText(ORG_MANAGER_LABELS.billingIdentityPending),
+  ).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: ORG_MANAGER_LABELS.billingRetryOptions,
+    }),
+  ).toBeNull();
+});

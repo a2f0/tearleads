@@ -181,6 +181,19 @@ function normalizeCapacitorPurchaseError(error: unknown): never {
   throw error;
 }
 
+function normalizeCapacitorPreparationError(
+  error: unknown,
+  abortSignal: AbortSignal | undefined,
+): never {
+  if (abortSignal?.aborted) throw new PurchaseAbortedError();
+  if (isInvalidNativePurchaseBridge(error)) {
+    throw new PurchasesUnavailableError(
+      "The native purchase bridge could not validate this package",
+    );
+  }
+  throw error;
+}
+
 /**
  * Adapts the native `@revenuecat/purchases-capacitor` plugin to the client-sdk
  * {@link RevenueCatBackend}. Only the normalized surface the sdk consumes is
@@ -216,8 +229,8 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
     return (await currentPackages()).map(toRevenueCatPackage);
   },
   async preparePurchasePackage(input) {
-    return prepareCapacitorPurchase(input).catch(
-      normalizeCapacitorPurchaseError,
+    return prepareCapacitorPurchase(input).catch((error: unknown) =>
+      normalizeCapacitorPreparationError(error, input.abortSignal),
     );
   },
   async purchasePackage({ abortSignal, packageId, preparedPurchase }) {
