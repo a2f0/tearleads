@@ -195,6 +195,26 @@ test("iOS Test Store restore stays buyer-paced beyond the deadline", async () =>
   expect(await capability.hasActiveSyncEntitlement()).toBe(false);
 });
 
+test("a lost buyer-paced restore callback eventually requires restart", async () => {
+  const backend = createBackend();
+  backend.restorePurchases = () => new Promise(() => {});
+  const capability = createRevenueCatPurchases(backend, {
+    apiKey: "key",
+    checkoutSettlementTimeoutMs: 5,
+    nativeStore: "app_store",
+    operationTimeoutMs: 50,
+    restorePurchasesBuyerPaced: true,
+    syncEntitlementId: "sync",
+  });
+
+  await expect(capability.restore()).rejects.toBeInstanceOf(
+    PurchaseProviderStalledError,
+  );
+  await expect(
+    capability.identify({ userId: "user-2" }),
+  ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
+});
+
 test("Android restore exposes a terminal error when the bridge stalls", async () => {
   const backend = createBackend();
   backend.restorePurchases = () => new Promise(() => {});

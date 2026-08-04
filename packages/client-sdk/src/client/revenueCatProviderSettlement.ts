@@ -27,7 +27,13 @@ export function settleRevenueCatProviderOperation<T>(
         () => timeouts.identityMutationActive,
         input.onPreparationTimeout,
       )
-      .then(() => input.operation);
+      .then(() =>
+        timeouts.withBuyerPacedTimeout(
+          input.operation,
+          input.operationName,
+          input.onProviderTimeout,
+        ),
+      );
   }
   const providerPhase = input.providerPhase;
   if (providerPhase) {

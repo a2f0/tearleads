@@ -17,7 +17,10 @@ export class RevenueCatTimeoutCoordinator {
     | undefined;
   private wedgedIdentityError: RevenueCatOperationTimeoutError | undefined;
 
-  constructor(private readonly timeoutMs: number) {}
+  constructor(
+    private readonly timeoutMs: number,
+    private readonly buyerPacedTimeoutMs: number,
+  ) {}
 
   get identityMutationActive(): boolean {
     return this.identityMutationInFlight;
@@ -125,6 +128,7 @@ export class RevenueCatTimeoutCoordinator {
     operationName: string,
     hasStarted: () => boolean,
     onTimeout?: (error: RevenueCatOperationTimeoutError) => void,
+    timeoutMs = this.timeoutMs,
   ): Promise<T> {
     let timeoutError: RevenueCatOperationTimeoutError | undefined;
     const clearWedge = () => {
@@ -137,28 +141,48 @@ export class RevenueCatTimeoutCoordinator {
       }
     };
     void operation.then(clearWedge, clearWedge);
-    return this.withTimeout(operation, operationName, (error) => {
-      timeoutError = error;
-      if (hasStarted()) {
-        error.markRestartRequired();
-        this.wedgedIdentityError = error;
-      } else {
-        this.pendingProviderTimeoutError = error;
-      }
-      onTimeout?.(error);
-    });
+    return this.withTimeout(
+      operation,
+      operationName,
+      (error) => {
+        timeoutError = error;
+        if (hasStarted()) {
+          error.markRestartRequired();
+          this.wedgedIdentityError = error;
+        } else {
+          this.pendingProviderTimeoutError = error;
+        }
+        onTimeout?.(error);
+      },
+      timeoutMs,
+    );
+  }
+
+  withBuyerPacedTimeout<T>(
+    operation: Promise<T>,
+    operationName: string,
+    onTimeout?: (error: RevenueCatOperationTimeoutError) => void,
+  ): Promise<T> {
+    return this.withProviderTimeout(
+      operation,
+      `${operationName} settlement`,
+      () => true,
+      onTimeout,
+      this.buyerPacedTimeoutMs,
+    );
   }
 
   private withTimeout<T>(
     operation: Promise<T>,
     operationName: string,
     onTimeout?: (error: RevenueCatOperationTimeoutError) => void,
+    timeoutMs = this.timeoutMs,
   ): Promise<T> {
     return withRevenueCatOperationTimeout({
       operation: () => operation,
       operationName,
       ...(onTimeout ? { onTimeout } : {}),
-      timeoutMs: this.timeoutMs,
+      timeoutMs,
     });
   }
 

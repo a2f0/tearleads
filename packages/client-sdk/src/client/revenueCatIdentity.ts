@@ -43,7 +43,10 @@ class RevenueCatIdentityCoordinatorState
   private readonly timeouts: RevenueCatTimeoutCoordinator;
 
   constructor(private readonly input: RevenueCatIdentityCoordinatorInput) {
-    this.timeouts = new RevenueCatTimeoutCoordinator(input.timeoutMs);
+    this.timeouts = new RevenueCatTimeoutCoordinator(
+      input.timeoutMs,
+      input.checkoutSettlementTimeoutMs,
+    );
   }
 
   private startConfiguration(appUserId?: string): Promise<void> {
@@ -379,9 +382,8 @@ class RevenueCatIdentityCoordinatorState
     const operation = reservation
       ? reservation.ready.then(scheduleAfterIdentity)
       : scheduleAfterIdentity();
-    if (reservation) {
+    if (reservation)
       void operation.then(reservation.gate.release, reservation.gate.release);
-    }
     const abandonPreparation = () => {
       abandoned = true;
       enqueueReservation?.release();

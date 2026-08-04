@@ -178,9 +178,9 @@ export interface RevenueCatPurchasesConfig {
    */
   readonly restorePurchasesBuyerPaced: boolean;
   /**
-   * Recovery deadline after native checkout presentation. Defaults to ten
-   * minutes so normal buyer interaction remains unhurried while a lost native
-   * callback eventually releases identity serialization with restart guidance.
+   * Recovery deadline after native checkout or buyer-paced restore begins.
+   * Defaults to ten minutes so normal buyer interaction remains unhurried while
+   * a lost native callback eventually surfaces restart guidance.
    */
   readonly checkoutSettlementTimeoutMs?: number;
   /**

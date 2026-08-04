@@ -105,15 +105,14 @@ export function useNativeSubscriptionMove(
       actionError: null,
       busy: "restore",
     }));
-    const move = restoreClaimAndBindNativeSubscription({
-      claimNativeSubscription,
-      purchases,
-      scope,
-      userId,
-    });
     void (async () => {
       try {
-        await move;
+        await restoreClaimAndBindNativeSubscription({
+          claimNativeSubscription,
+          purchases,
+          scope,
+          userId,
+        });
         if (scopeMatches(scopeRef.current, scope)) await refresh();
       } catch (error) {
         logError(formatBillingPurchaseFailure(error, false));
