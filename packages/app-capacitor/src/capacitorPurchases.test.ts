@@ -50,7 +50,7 @@ test("configures the key belonging to the running platform", async () => {
   expect(fixture.configureCalls).toEqual([
     { apiKey: "android-key", appUserID: "user-1" },
   ]);
-  expect(fixture.nativeConfigurationChecks).toBe(2);
+  expect(fixture.nativeConfigurationChecks).toBe(0);
 });
 
 test("maps RevenueCat public keys and platforms to the claim store", () => {

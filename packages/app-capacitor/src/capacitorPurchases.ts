@@ -98,6 +98,12 @@ async function prepareCapacitorPurchase(input: {
   readonly packageId: string;
 }): Promise<CapacitorPreparedPurchase> {
   if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
+  // The official configuration bridge and our bounded purchase bridge must
+  // observe the same native RevenueCat singleton. Assert the invariant only
+  // at the purchase boundary so official entitlement and restore reads remain
+  // available even when this first-party bridge cannot be registered.
+  await getNativeRevenueCatPurchase().assertConfigured();
+  if (input.abortSignal?.aborted) throw new PurchaseAbortedError();
   const aPackage = (await currentPackages()).find(
     (entry) => entry?.identifier === input.packageId,
   );
@@ -217,10 +223,6 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
       apiKey,
       ...(appUserId === undefined ? {} : { appUserID: appUserId }),
     });
-    // The official configuration bridge and our bounded purchase bridge must
-    // observe the same native RevenueCat singleton. Assert that invariant on
-    // every fresh configuration before any identity or store work can begin.
-    await getNativeRevenueCatPurchase().assertConfigured();
   },
   async logIn({ appUserId }) {
     await Purchases.logIn({ appUserID: appUserId });
