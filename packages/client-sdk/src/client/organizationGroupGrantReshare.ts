@@ -195,7 +195,21 @@ export async function reshareGroupContainerGrantsAfterRotation(input: {
     groupId: input.mutatedGroupId,
     organizationId: input.organizationId,
   });
-  if (!granted || granted.containers.length === 0) {
+  if (!granted) {
+    // null is not "no grants": the projection is denied, reset, or otherwise
+    // unreadable. Reporting complete here would retire the sweep on the very
+    // race it exists to survive, leaving the grants stale with nothing left to
+    // repair them.
+    input.log(
+      `Organizations: group grant re-share could not read the grant projection for group ${input.mutatedGroupId} in org ${input.organizationId}`,
+    );
+    return {
+      complete: false,
+      headConfirmed: true,
+      unresolvedContainerIds: [],
+    };
+  }
+  if (granted.containers.length === 0) {
     return { complete: true, headConfirmed: true, unresolvedContainerIds: [] };
   }
 

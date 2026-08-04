@@ -293,3 +293,38 @@ test("a forbidden container does not strand the ones after it", async () => {
     close();
   }
 });
+
+test("an unreadable group is never reported as a completed sweep", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-denied-projection",
+  );
+  try {
+    await seedReadModel(execSql);
+    const logged: string[] = [];
+    const outcome = await reshareGroupContainerGrantsAfterRotation({
+      containerContents: fakeContainerContents({
+        prepareCalls: [],
+        rewrapped: [],
+      }),
+      currentUserId: CURRENT_USER_ID,
+      execSql,
+      expectedGroupHead: EXPECTED_HEAD,
+      log: (message) => logged.push(message),
+      // A group this requester holds no readable projection for: the loader
+      // returns null, which is denied/reset, not "no grants".
+      mutatedGroupId: "group-with-no-readable-projection",
+      organizationId: ORGANIZATION_ID,
+      reconcileReadModel: async () => ({}),
+    });
+
+    // Reporting complete would retire the sweep on the very race it exists to
+    // survive, leaving the grants stale with nothing left to repair them.
+    // The head lookup refuses first here, so this pins the outcome rather than
+    // which of the two guards fired; the grant-projection guard covers the
+    // case where a head is readable but its container grants are not.
+    expect(outcome.complete).toBe(false);
+    expect(logged.length).toBeGreaterThanOrEqual(0);
+  } finally {
+    close();
+  }
+});

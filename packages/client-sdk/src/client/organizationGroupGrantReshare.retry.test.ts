@@ -15,7 +15,7 @@ import {
   seedReadModel,
 } from "./organizationGroupGrantReshare.testFixtures";
 
-test("keeps retrying a rotation it cannot yet confirm", async () => {
+test("does not abandon a rotation it cannot yet confirm", async () => {
   const { close, execSql } = await createTestExecSql(
     "group-grant-reshare-unconfirmed",
   );
@@ -26,28 +26,22 @@ test("keeps retrying a rotation it cannot yet confirm", async () => {
     runtime.infra.execSql = execSql as never;
     const rewrapped: string[] = [];
     const delays: number[] = [];
-    // The rotation is invisible until the read model catches up.
-    let visibleHead = { ...EXPECTED_HEAD, stateHash: "arrives-late" };
     scheduleGroupGrantReshareAfterRotation({
       containerContents: fakeContainerContents({
         prepareCalls: [],
         rewrapped,
       }),
-      expectedGroupHead: visibleHead,
+      // A head the read model does not carry, standing in for a rotation this
+      // device cannot yet see.
+      expectedGroupHead: { ...EXPECTED_HEAD, stateHash: "not-yet-visible" },
       mutatedGroupId: GRANTED_GROUP_ID,
-      reconcileReadModel: async () => {
-        // After several failed pulls the real head finally lands.
-        if (delays.length >= 8) {
-          visibleHead = EXPECTED_HEAD;
-        }
-        return {};
-      },
+      reconcileReadModel: async () => ({}),
       runtime: runtime as never,
       scheduleRetry: (retry, delayMs) => {
         delays.push(delayMs);
         retry();
       },
-      shouldContinue: () => delays.length < 12 && rewrapped.length === 0,
+      shouldContinue: () => delays.length < 12,
       signingContext: {
         organizationId: ORGANIZATION_ID,
         signerUserId: CURRENT_USER_ID,
@@ -55,11 +49,12 @@ test("keeps retrying a rotation it cannot yet confirm", async () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 150));
 
-    // A pull can resolve with retained cache rather than a fresh response, so
-    // "the head is not here yet" never proves the rotation did not commit.
-    // Bounding on that would abandon a real rotation during an outage; only
-    // the ceiling window gives up.
-    expect(delays.length).toBeGreaterThan(5);
+    // A pull can resolve with the retained local projection rather than a
+    // fresh response, so "the head is not here yet" never proves the rotation
+    // did not commit. The old five-attempt confirmation budget would have
+    // abandoned it here; only the ceiling window may now give up.
+    expect(delays.length).toBe(12);
+    expect(rewrapped).toEqual([]);
   } finally {
     close();
   }
