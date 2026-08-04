@@ -145,6 +145,15 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
   };
 }
 
+function makeKeyingVerificationError(containerId: string): Error {
+  const error = new Error(
+    `keying verification failed for container ${containerId}`,
+  );
+  // isKeyingVerificationError accepts either the crypto class or this name.
+  error.name = "KeyingVerificationError";
+  return error;
+}
+
 export interface RewrapCall {
   accessLevel: string;
   containerId: string;
@@ -154,14 +163,21 @@ export interface RewrapCall {
 
 export function fakeContainerContents(input: {
   currentContainerIds?: ReadonlySet<string>;
+  integrityFailureContainerIds?: ReadonlySet<string>;
   notGrantedContainerIds?: ReadonlySet<string>;
+  onRefresh?: () => void;
   order?: string[];
   prepareCalls: RewrapCall[];
   rewrapped: string[];
   throwForContainerIds?: ReadonlySet<string>;
+  unavailableContainerIds?: ReadonlySet<string>;
 }): ContainerContents {
   return {
     openTree: () => ({
+      refresh: async () => {
+        input.onRefresh?.();
+        return true;
+      },
       prepareGroupRewrap: async (
         containerId: string,
         groupId: string,
@@ -175,6 +191,12 @@ export function fakeContainerContents(input: {
           requireExistingGrant: options?.requireExistingGrant,
         });
         input.order?.push(`prepare:${containerId}`);
+        if (input.integrityFailureContainerIds?.has(containerId)) {
+          throw makeKeyingVerificationError(containerId);
+        }
+        if (input.unavailableContainerIds?.has(containerId)) {
+          return null;
+        }
         if (input.throwForContainerIds?.has(containerId)) {
           throw new Error(`container ${containerId} is unavailable`);
         }

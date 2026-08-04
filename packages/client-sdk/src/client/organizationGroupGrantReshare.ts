@@ -1,5 +1,8 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { rethrowKeyingVerificationError } from "../data/keyingProjectionVerification/error";
+import {
+  isKeyingVerificationError,
+  rethrowKeyingVerificationError,
+} from "../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import { loadLocalOrganizationGroupContainers } from "../workflows/organizations/localReadModelDetails";
 import type { ContainerContents } from "./containerContents";
@@ -10,7 +13,6 @@ type ContainerTree = ReturnType<ContainerContents["openTree"]>;
 /** Retry pacing mirrors the root re-share coordinator. */
 const INITIAL_RETRY_DELAY_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 60_000;
-const MAX_RETRY_ATTEMPTS = 6;
 
 interface GroupGrantReshareOutcome {
   /** Every granted container was resolved against a freshly pulled read model. */
@@ -40,6 +42,7 @@ export async function withGroupGrantReshareAfterRotation<T>(input: {
   reconcileReadModel: () => Promise<unknown>;
   runtime: InternalWorkflowRuntimeInput;
   scheduleRetry?: ((retry: () => void, delayMs: number) => void) | undefined;
+  shouldContinue?: (() => boolean) | undefined;
   signingContext: { organizationId: string; signerUserId: string };
 }): Promise<T> {
   try {
@@ -52,6 +55,7 @@ export async function withGroupGrantReshareAfterRotation<T>(input: {
       reconcileReadModel: input.reconcileReadModel,
       runtime: input.runtime,
       ...(input.scheduleRetry ? { scheduleRetry: input.scheduleRetry } : {}),
+      ...(input.shouldContinue ? { shouldContinue: input.shouldContinue } : {}),
       signingContext: input.signingContext,
     });
   }
@@ -72,6 +76,7 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
   reconcileReadModel: () => Promise<unknown>;
   runtime: InternalWorkflowRuntimeInput;
   scheduleRetry?: ((retry: () => void, delayMs: number) => void) | undefined;
+  shouldContinue?: (() => boolean) | undefined;
   signingContext: { organizationId: string; signerUserId: string };
 }): void {
   if (!input.expectedGroupHead || input.runtime.infra.dbStatus !== "ready") {
@@ -91,10 +96,12 @@ export function scheduleGroupGrantReshareAfterRotation(input: {
     });
 
   void runSweepWithRetry({
-    logError: (message, cause) => input.runtime.util.logError(message, cause),
     log: (message) => input.runtime.util.log(message),
+    logError: (message, cause) => input.runtime.util.logError(message, cause),
     mutatedGroupId: input.mutatedGroupId,
+    refresh: () => input.containerContents.openTree().refresh(),
     scheduleRetry: input.scheduleRetry ?? defaultScheduleRetry,
+    shouldContinue: input.shouldContinue ?? (() => true),
     sweep,
   });
 }
@@ -107,25 +114,43 @@ function defaultScheduleRetry(retry: () => void, delayMs: number): void {
  * Re-run the sweep until it reports completion, backing off between attempts.
  *
  * An incomplete sweep leaves containers pinned to the superseded epoch, so the
- * members this repair exists for stay locked out of them. One best-effort pass
- * would strand exactly the transient cases — a container not yet hydrated, a
- * read-model pull that declined while offline — that a later attempt resolves.
- * Pacing and the 60s ceiling mirror the root re-share coordinator; the attempt
- * cap bounds a permanently unreachable container instead of retrying forever.
+ * members this repair exists for stay locked out of them. A single best-effort
+ * pass would strand exactly the transient cases a later attempt resolves — a
+ * container not yet hydrated, a read-model pull that declined while offline —
+ * and a fixed attempt cap would strand any outage longer than the cap. Pacing,
+ * the 60s ceiling, and retrying until success mirror the root re-share
+ * coordinator.
+ *
+ * Two things end it. An identity integrity failure is terminal, as it is for
+ * the root and metadata coordinators: a verified projection disagreeing with a
+ * trusted identity is not transient, and re-attempting it just repeats a
+ * failing verification. Otherwise the caller's `shouldContinue` stops the loop
+ * once the session leaves the organization, so a switch or a logout cannot
+ * leave a sweep retrying against a scope that is no longer active.
  */
 async function runSweepWithRetry(input: {
   log: (message: string) => void;
   logError: (message: string, cause?: unknown) => void;
   mutatedGroupId: string;
+  refresh: () => Promise<unknown>;
   scheduleRetry: (retry: () => void, delayMs: number) => void;
+  shouldContinue: () => boolean;
   sweep: () => Promise<GroupGrantReshareOutcome>;
 }): Promise<void> {
   let delayMs = INITIAL_RETRY_DELAY_MS;
-  for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt += 1) {
+  let unresolved: readonly string[] = [];
+  while (input.shouldContinue()) {
     let outcome: GroupGrantReshareOutcome | null = null;
     try {
       outcome = await input.sweep();
     } catch (error) {
+      if (isKeyingVerificationError(error)) {
+        input.logError(
+          `Organizations: group grant re-share stopped for group ${input.mutatedGroupId} after an identity integrity failure`,
+          error,
+        );
+        return;
+      }
       input.logError(
         `Organizations: group grant re-share failed for group ${input.mutatedGroupId}`,
         error,
@@ -134,17 +159,24 @@ async function runSweepWithRetry(input: {
     if (outcome?.complete) {
       return;
     }
-    if (attempt === MAX_RETRY_ATTEMPTS) {
-      input.log(
-        `Organizations: group grant re-share gave up for group ${input.mutatedGroupId} after ${attempt} attempts; unresolved: ${outcome?.unresolvedContainerIds.join(", ") ?? "unknown"}`,
-      );
-      return;
-    }
+    unresolved = outcome?.unresolvedContainerIds ?? unresolved;
     await new Promise<void>((resolve) => {
       input.scheduleRetry(resolve, delayMs);
     });
     delayMs = Math.min(delayMs * 2, MAX_RETRY_DELAY_MS);
+    // A grant can name a container this device has never hydrated, which
+    // resolves as unavailable rather than as a missing grant. Re-listing is
+    // what lets a later attempt see it, exactly as the root and metadata
+    // re-shares do before giving up on a node.
+    try {
+      await input.refresh();
+    } catch (error) {
+      rethrowKeyingVerificationError(error);
+    }
   }
+  input.log(
+    `Organizations: group grant re-share stopped for group ${input.mutatedGroupId}; the organization is no longer active. Unresolved: ${unresolved.length ? unresolved.join(", ") : "none recorded"}`,
+  );
 }
 
 /**

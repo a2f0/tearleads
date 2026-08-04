@@ -279,7 +279,12 @@ class OrganizationsService implements Organizations {
       mutatedGroupId: input.groupId,
       readExpectedGroupHead: () => committedGroupHead,
       reconcileReadModel: () =>
-        this.readModelCoordinator.reconcileAfterMutation(),
+        this.readModelCoordinator.reconcileAfterMutation(
+          signingContext.organizationId,
+        ),
+      shouldContinue: () =>
+        this.runtimeService.workflowInput().auth.organizationId ===
+        signingContext.organizationId,
       runtime,
       signingContext,
       mutation: recoverOrganizationRootRewrapAfterMutationFailure({
@@ -528,7 +533,12 @@ class OrganizationsService implements Organizations {
       mutatedGroupId: input.groupId,
       readExpectedGroupHead: () => committedGroupHead,
       reconcileReadModel: () =>
-        this.readModelCoordinator.reconcileAfterMutation(),
+        this.readModelCoordinator.reconcileAfterMutation(
+          signingContext.organizationId,
+        ),
+      shouldContinue: () =>
+        this.runtimeService.workflowInput().auth.organizationId ===
+        signingContext.organizationId,
       runtime,
       signingContext,
       mutation: recoverOrganizationRootRewrapAfterMutationFailure({

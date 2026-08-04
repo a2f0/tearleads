@@ -353,9 +353,9 @@ test("retries until every granted container resolves", async () => {
   }
 });
 
-test("gives up and reports the containers left pinned", async () => {
+test("stops retrying once the organization is no longer active", async () => {
   const { close, execSql } = await createTestExecSql(
-    "group-grant-reshare-give-up",
+    "group-grant-reshare-scope",
   );
   try {
     await seedReadModel(execSql);
@@ -363,6 +363,7 @@ test("gives up and reports the containers left pinned", async () => {
     const runtime = fakeRuntime(log);
     runtime.infra.execSql = execSql as never;
     const delays: number[] = [];
+    let active = true;
     scheduleGroupGrantReshareAfterRotation({
       containerContents: fakeContainerContents({
         prepareCalls: [],
@@ -375,8 +376,13 @@ test("gives up and reports the containers left pinned", async () => {
       runtime: runtime as never,
       scheduleRetry: (retry, delayMs) => {
         delays.push(delayMs);
+        // An org switch (or logout) lands between attempts.
+        if (delays.length === 3) {
+          active = false;
+        }
         retry();
       },
+      shouldContinue: () => active,
       signingContext: {
         organizationId: ORGANIZATION_ID,
         signerUserId: CURRENT_USER_ID,
@@ -384,11 +390,99 @@ test("gives up and reports the containers left pinned", async () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Bounded, and it says what stayed broken rather than falling silent.
-    expect(delays.length).toBe(5);
-    expect(delays.at(-1)).toBe(16_000);
-    expect(log.some((m) => m.includes("gave up"))).toBe(true);
+    // Bounded by scope rather than an attempt cap, so a long outage keeps
+    // retrying while a switched-away session does not.
+    expect(delays).toEqual([1_000, 2_000, 4_000]);
+    expect(log.some((m) => m.includes("no longer active"))).toBe(true);
     expect(log.some((m) => m.includes("container-a"))).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("stops permanently on an identity integrity failure", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-integrity",
+  );
+  try {
+    await seedReadModel(execSql);
+    const log: string[] = [];
+    const runtime = fakeRuntime(log);
+    runtime.infra.execSql = execSql as never;
+    const delays: number[] = [];
+    scheduleGroupGrantReshareAfterRotation({
+      containerContents: fakeContainerContents({
+        integrityFailureContainerIds: new Set(["container-a"]),
+        prepareCalls: [],
+        rewrapped: [],
+      }),
+      expectedGroupHead: EXPECTED_HEAD,
+      mutatedGroupId: GRANTED_GROUP_ID,
+      reconcileReadModel: async () => ({}),
+      runtime: runtime as never,
+      scheduleRetry: (retry, delayMs) => {
+        delays.push(delayMs);
+        retry();
+      },
+      shouldContinue: () => true,
+      signingContext: {
+        organizationId: ORGANIZATION_ID,
+        signerUserId: CURRENT_USER_ID,
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // A verified projection disagreeing with a trusted identity is not
+    // transient; re-attempting it just repeats a failing verification.
+    expect(delays).toEqual([]);
+    expect(log.some((m) => m.includes("identity integrity failure"))).toBe(
+      true,
+    );
+  } finally {
+    close();
+  }
+});
+
+test("re-lists containers between attempts so a late one is found", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-grant-reshare-refresh",
+  );
+  try {
+    await seedReadModel(execSql);
+    const log: string[] = [];
+    const runtime = fakeRuntime(log);
+    runtime.infra.execSql = execSql as never;
+    const rewrapped: string[] = [];
+    let hydrated = false;
+    scheduleGroupGrantReshareAfterRotation({
+      containerContents: fakeContainerContents({
+        // container-a is not in the hydrated store until refresh() runs.
+        get unavailableContainerIds() {
+          return hydrated ? new Set<string>() : new Set(["container-a"]);
+        },
+        onRefresh: () => {
+          hydrated = true;
+        },
+        prepareCalls: [],
+        rewrapped,
+      }),
+      expectedGroupHead: EXPECTED_HEAD,
+      mutatedGroupId: GRANTED_GROUP_ID,
+      reconcileReadModel: async () => ({}),
+      runtime: runtime as never,
+      scheduleRetry: (retry) => retry(),
+      shouldContinue: () => true,
+      signingContext: {
+        organizationId: ORGANIZATION_ID,
+        signerUserId: CURRENT_USER_ID,
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // A grant naming a container this device never hydrated resolves as
+    // unavailable, not as a missing grant. Without the re-list it stays that
+    // way forever.
+    expect(rewrapped).toContain("container-a");
   } finally {
     close();
   }
