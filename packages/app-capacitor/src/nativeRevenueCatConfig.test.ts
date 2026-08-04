@@ -156,6 +156,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   const [
     appBuild,
     mainActivity,
+    nativeRegistry,
     purchasePlugin,
     revenueCatPluginBuild,
     runtime,
@@ -167,6 +168,9 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
         packageRoot,
         "android/app/src/main/java/com/tearleads/app/MainActivity.java",
       ),
+    ).text(),
+    Bun.file(
+      resolve(packageRoot, "src/nativeRevenueCatPurchaseRegistry.ts"),
     ).text(),
     Bun.file(
       resolve(
@@ -225,7 +229,8 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
   expect(purchasePlugin).toContain(
     '@CapacitorPlugin(name = "RevenueCatPurchase")',
   );
-  expect(runtime).toContain('"RevenueCatPurchase"');
+  expect(runtime).toContain("createNativeRevenueCatPurchaseRegistry");
+  expect(nativeRegistry).toContain('registerPlugin("RevenueCatPurchase")');
   expect(purchasePlugin).toContain("@PluginMethod\n    fun preparePackage");
   expect(purchasePlugin).toContain("@PluginMethod\n    fun purchasePackage");
   expect(purchasePlugin).toContain(

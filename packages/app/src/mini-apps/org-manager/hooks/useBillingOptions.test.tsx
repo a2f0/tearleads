@@ -290,6 +290,34 @@ test("billing actions pause option retries and hide their stale error", async ()
   expect(purchases.listSyncOptions).toHaveBeenCalledTimes(2);
 });
 
+test("billing actions do not reset an exhausted options retry budget", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: false });
+  purchases.identify = mock(() =>
+    Promise.reject(new PurchaseIdentityPendingError()),
+  );
+  let finishRestore = (_value: SyncPurchaseResult) => {};
+  purchases.restore = mock(
+    () =>
+      new Promise<SyncPurchaseResult>((resolve) => {
+        finishRestore = resolve;
+      }),
+  );
+  const { result } = renderBillingActions({
+    optionsRetryDelaysMs: [100],
+    purchases,
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => result.current.confirmSubscriptionMove());
+  await waitFor(() => expect(result.current.busy).toBe("restore"));
+  finishRestore({ syncEntitlementActive: true });
+  await waitFor(() => expect(result.current.busy).toBeNull());
+  await waitFor(() => expect(purchases.identify).toHaveBeenCalledTimes(2));
+  await act(() => new Promise((resolve) => setTimeout(resolve, 120)));
+
+  expect(purchases.identify).toHaveBeenCalledTimes(2);
+});
+
 test("a billing action does not hide an exhausted options error", async () => {
   const purchases = createPurchases({ syncEntitlementActive: false });
   purchases.listSyncOptions = mock(() =>

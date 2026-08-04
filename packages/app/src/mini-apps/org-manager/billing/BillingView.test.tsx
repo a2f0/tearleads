@@ -448,7 +448,7 @@ test("clicking the Cancel button dismisses the embedded checkout", () => {
 });
 
 test("unmounting the checkout host dismisses the purchase", () => {
-  // Any path that removes the host must cancel the purchase riding in it —
+  // Any path that removes the host must cancel its in-flight purchase.
   let cancelled = 0;
   const shared = {
     purchaseAvailable: true,

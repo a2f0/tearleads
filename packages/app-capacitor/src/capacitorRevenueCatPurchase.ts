@@ -11,6 +11,17 @@ type NativePurchaseChangeOptions = Pick<
   "storeProductChangeInfo"
 >;
 
+export function nativeProductChangeInput(
+  change: NativePurchaseChangeOptions["storeProductChangeInfo"],
+): { oldProductIdentifier: string; replacementMode: string } | undefined {
+  return change?.replacementMode === undefined
+    ? undefined
+    : {
+        oldProductIdentifier: change.oldProductIdentifier,
+        replacementMode: change.replacementMode,
+      };
+}
+
 function nativePackageInput(aPackage: PurchasesPackage) {
   return {
     packageId: aPackage?.identifier ?? "",
@@ -57,17 +68,10 @@ export async function purchaseCapacitorRevenueCatPackage(
   aPackage: PurchasesPackage,
   options: NativePurchaseChangeOptions = {},
 ): Promise<RevenueCatCustomerInfo> {
-  const change = options.storeProductChangeInfo;
+  const change = nativeProductChangeInput(options.storeProductChangeInfo);
   const result = await getNativeRevenueCatPurchase().purchasePackage({
     ...nativePackageInput(aPackage),
-    ...(change == null
-      ? {}
-      : {
-          oldProductIdentifier: change.oldProductIdentifier,
-          ...(change.replacementMode === undefined
-            ? {}
-            : { replacementMode: change.replacementMode }),
-        }),
+    ...(change ?? {}),
   });
   return fromActiveEntitlementIds(
     normalizeActiveEntitlementIds(result?.activeEntitlementIds),

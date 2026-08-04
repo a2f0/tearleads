@@ -45,6 +45,11 @@ interface UseBillingOptionsInput {
   readonly userId: string | null;
 }
 
+interface OptionsRetryBudget extends BillingActionScope {
+  readonly loadGeneration: number;
+  nextDelayIndex: number;
+}
+
 export function emptyOptionsState(
   scope: BillingActionScope,
 ): BillingOptionsState {
@@ -104,6 +109,7 @@ function scheduleOptionsRetry(
 export function useBillingOptions(input: UseBillingOptionsInput): () => void {
   // A hook instance uses one schedule; production uses the fixed module value.
   const retryDelaysRef = useRef(input.retryDelaysMs ?? OPTIONS_RETRY_DELAYS_MS);
+  const retryBudgetRef = useRef<OptionsRetryBudget>(null);
   const [loadGeneration, setLoadGeneration] = useState(0);
   const retryOptions = useCallback(() => {
     setLoadGeneration((current) => current + 1);
@@ -117,21 +123,29 @@ export function useBillingOptions(input: UseBillingOptionsInput): () => void {
       input.setOptionsState(emptyOptionsState(scope));
       return;
     }
+    let retryBudget = retryBudgetRef.current;
+    if (
+      retryBudget === null ||
+      retryBudget.loadGeneration !== loadGeneration ||
+      !scopeMatches(retryBudget, scope)
+    ) {
+      retryBudget = { ...scope, loadGeneration, nextDelayIndex: 0 };
+      retryBudgetRef.current = retryBudget;
+    }
     // Preserve a last-known-good catalog and its disabled/error state while a
     // same-scope manual retry is in flight. A changed scope still starts empty.
     input.setOptionsState((current) =>
       scopeMatches(current, scope) ? current : emptyOptionsState(scope),
     );
     let cancelled = false;
-    let retryIndex = 0;
     let retryTimeout: ReturnType<typeof setTimeout> | undefined;
     const retry = (error: unknown): void => {
       retryTimeout = scheduleOptionsRetry(
         error,
-        retryDelaysRef.current[retryIndex],
+        retryDelaysRef.current[retryBudget.nextDelayIndex],
         load,
       );
-      if (retryTimeout !== undefined) retryIndex += 1;
+      if (retryTimeout !== undefined) retryBudget.nextDelayIndex += 1;
     };
     const load = async (): Promise<void> => {
       try {

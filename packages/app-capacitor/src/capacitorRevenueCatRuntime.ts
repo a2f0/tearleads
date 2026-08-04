@@ -1,5 +1,9 @@
 import { Capacitor } from "@capacitor/core";
 import type { PurchasesCapability } from "@tearleads/client-sdk";
+import {
+  createNativeRevenueCatPurchaseRegistry,
+  type NativeRevenueCatPurchasePlugin,
+} from "./nativeRevenueCatPurchaseRegistry";
 
 interface CachedCapacitorPurchases {
   readonly apiKey: string;
@@ -9,25 +13,14 @@ interface CachedCapacitorPurchases {
   readonly syncEntitlementId: string;
 }
 
-interface NativeRevenueCatPurchasePlugin {
-  preparePackage(options: {
-    packageId: string;
-    productId: string;
-  }): Promise<void>;
-  purchasePackage(options: {
-    oldProductIdentifier?: string;
-    packageId: string;
-    productId: string;
-    replacementMode?: string;
-  }): Promise<{ activeEntitlementIds?: unknown }>;
-}
-
 export function getRevenueCatPlatform(): string {
   return Capacitor.getPlatform();
 }
 
-let nativeRevenueCatPurchase: NativeRevenueCatPurchasePlugin | undefined;
 let cachedCapacitorPurchases: CachedCapacitorPurchases | undefined;
+const resolveNativeRevenueCatPurchase = createNativeRevenueCatPurchaseRegistry(
+  (name) => Capacitor.registerPlugin<NativeRevenueCatPurchasePlugin>(name),
+);
 
 export function getCachedCapacitorPurchases():
   | CachedCapacitorPurchases
@@ -42,9 +35,5 @@ export function setCachedCapacitorPurchases(
 }
 
 export function getNativeRevenueCatPurchase(): NativeRevenueCatPurchasePlugin {
-  nativeRevenueCatPurchase ??=
-    Capacitor.registerPlugin<NativeRevenueCatPurchasePlugin>(
-      "RevenueCatPurchase",
-    );
-  return nativeRevenueCatPurchase;
+  return resolveNativeRevenueCatPurchase();
 }

@@ -48,7 +48,6 @@ jobs:
 
   ios:
     name: iOS purchase bridge
-    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: macos-15
     timeout-minutes: 30
 
