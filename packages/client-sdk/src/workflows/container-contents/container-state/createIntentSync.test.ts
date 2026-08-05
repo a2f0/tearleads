@@ -281,9 +281,12 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     expect(syncedIntents).toEqual([]);
 
     // Hydration discovers the committed container and populates its remote
-    // metadata state; the next pass marks the pending intent synced.
+    // metadata state (both the record and the container row — see
+    // upsertRemoteContainerState); the next pass marks the pending intent
+    // synced.
     childState.record.documentId = `metadata-${childContainerId}`;
     childState.record.accessStateHash = `access-${childContainerId}`;
+    childState.container.metadataDocumentId = `metadata-${childContainerId}`;
 
     const secondCreated = await syncPendingContainerCreateIntents({
       host,
@@ -299,4 +302,103 @@ test("container create sync defers a lost-response conflict and heals on hydrati
   } finally {
     close();
   }
+});
+
+test("container create sync keeps an intent pending while the container row lacks its metadata document id", async () => {
+  const execSql: ExecSql = async () => [];
+  const intent: ContainerCreateIntentRecord = {
+    containerId: "child",
+    createdAt: "2026-07-15T00:00:00.000Z",
+    id: "create-child",
+    intentType: "container.create",
+    lastAttemptedAt: null,
+    lastError: null,
+    parentContainerId: "parent",
+    remoteContainerId: null,
+    remoteMetadataAccessStateHash: null,
+    remoteMetadataDocumentId: null,
+    syncStatus: "pending",
+    updatedAt: "2026-07-15T00:00:00.000Z",
+  };
+  const syncedIntents: string[] = [];
+  const persistence: ContainerCreateIntentSyncState["persistence"] = {
+    ...defaultContainerContentsPersistence,
+    listPendingCreateIntents: async () => [intent],
+    markCreateIntentSynced: async (_execSql, input) => {
+      syncedIntents.push(input.containerId);
+    },
+    recordCreateIntentError: async () => {
+      throw new Error("unexpected intent error");
+    },
+  };
+  // The dormant-metadata re-attach window (access_revoked, sync-edge-cases row
+  // 4) leaves the metadata record remote-backed while the container row does
+  // not yet point at its metadata document. That torn state must not read as
+  // "already synced": moveIntentSync in the same pass still treats the
+  // container as local-only, so marking here would strand the move.
+  const childState = containerState({
+    id: "child",
+    parentId: "parent",
+    synced: true,
+  });
+  childState.container.metadataDocumentId = "";
+  const state: ContainerCreateIntentSyncState = {
+    containersById: new Map([
+      ["child", childState],
+      [
+        "parent",
+        containerState({ id: "parent", parentId: "root", synced: true }),
+      ],
+    ]),
+    persistence,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      apiClient: {} as ContainerCreateIntentSyncState["runtime"]["apiClient"],
+      auth: {
+        isAuthenticated: true,
+        organizationId: "organization",
+        userId: "user",
+      },
+      crypto: {
+        encapsulationKeyPair: {
+          secretKey: new Uint8Array(32),
+        } as ContainerCreateIntentSyncState["runtime"]["crypto"]["encapsulationKeyPair"],
+        signingFingerprint: "signing-fingerprint",
+        signingKeyPair: {
+          signingPrivateKey: new Uint8Array(32),
+        } as ContainerCreateIntentSyncState["runtime"]["crypto"]["signingKeyPair"],
+      },
+      infra: {
+        blobStore:
+          {} as ContainerCreateIntentSyncState["runtime"]["infra"]["blobStore"],
+        dbStatus: "ready",
+        documentProjectors:
+          {} as ContainerCreateIntentSyncState["runtime"]["infra"]["documentProjectors"],
+        execSql,
+      },
+      resolveTrustedUserIdentity: async () => null,
+      state: {
+        containerId: "root",
+        domainScope: createDomainScope(),
+        events: [],
+        online: true,
+      },
+      util: {
+        log: () => {},
+      },
+    },
+  };
+
+  const created = await syncPendingContainerCreateIntents({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("unexpected persist");
+      },
+    },
+    isRemoteSyncBlocked: () => true,
+    state,
+  });
+
+  expect(created).toBe(0);
+  expect(syncedIntents).toEqual([]);
 });
