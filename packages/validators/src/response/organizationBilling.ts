@@ -74,6 +74,9 @@ function isSeatCount(value: unknown): value is number {
 export function isOrganizationBillingResponse(
   value: unknown,
 ): value is OrganizationBillingResponse {
+  // This greenfield contract is deliberately flag-day strict: the server and
+  // clients ship the assigned-seat fields together. Missing-field fallbacks
+  // would preserve a wire format that has never been released.
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "organizationId") &&
@@ -119,6 +122,8 @@ export interface PaymentRequiredErrorResponse {
 export function isPaymentRequiredErrorResponse(
   value: unknown,
 ): value is PaymentRequiredErrorResponse {
+  // Keep the reason mandatory for the same flag-day contract: a caller must be
+  // able to distinguish an inactive organization from an unassigned user.
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "error") &&
