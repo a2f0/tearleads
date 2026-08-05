@@ -26,11 +26,7 @@ export {
   isSerializedKeyEnvelopeArray,
   type SerializedKeyEnvelope,
 } from "./keyEnvelope";
-export {
-  MAX_PRINCIPAL_STATE_VERSION,
-  PRINCIPAL_POLICY_HISTORY_ENVELOPES_PER_STATE_LIMIT,
-  PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT,
-} from "./principalPolicyHistoryWire";
+export { MAX_PRINCIPAL_STATE_VERSION } from "./principalStateWire";
 export {
   hasArrayProperty,
   hasBooleanProperty,
