@@ -103,6 +103,14 @@ function createReadModelHintMiddleware(
   };
 }
 
+function organizationSyncErrorBody(error: OrganizationSyncDisabledError) {
+  return {
+    error: error.message,
+    organizationId: error.organizationId,
+    reason: error.reason,
+  };
+}
+
 export function createRouteApp(
   overrides: RouteAppOverrides,
   options: RouteAppOptions = {},
@@ -182,15 +190,11 @@ export function createRouteApp(
     }),
   );
 
-  // Sync writes that target an organization which cannot sync throw
-  // OrganizationSyncDisabledError deep in their workflows; surface it uniformly
-  // as 402 rather than letting it fall through to a 500.
+  // Sync writes blocked by organization entitlement or the caller's stable seat
+  // throw deep in their workflows; surface both uniformly as 402 responses.
   routeApp.onError((error, c) => {
     if (error instanceof OrganizationSyncDisabledError) {
-      return c.json(
-        { error: error.message, organizationId: error.organizationId },
-        402,
-      );
+      return c.json(organizationSyncErrorBody(error), 402);
     }
     if (error instanceof HTTPException) {
       return error.getResponse();

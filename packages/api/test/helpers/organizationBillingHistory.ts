@@ -87,6 +87,7 @@ export async function insertSeatEvent(input: {
     | "seat_assigned"
     | "licensed_seat_count_initialized"
     | "licensed_seat_count_increased"
+    | "licensed_seat_count_decreased"
     | "licensed_seat_count_reset";
   id?: string;
   organizationId: string;

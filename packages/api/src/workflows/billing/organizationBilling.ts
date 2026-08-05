@@ -25,10 +25,8 @@ import {
   type OrganizationBillingRow,
   resolveOrganizationBilling,
 } from "./organizationBillingState";
-import {
-  loadOrganizationBillingSeatUsage,
-  reconcileOrganizationBillingSeats,
-} from "./organizationSeats";
+import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import { loadOrganizationBillingSeatUsage } from "./organizationSeatUsage";
 import {
   freeTrialLifecycleSourceId,
   recordFreeTrialInitialized,

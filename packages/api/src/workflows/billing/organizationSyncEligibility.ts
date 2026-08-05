@@ -21,10 +21,9 @@ export class OrganizationSyncDisabledError extends Error {
 }
 
 /** Guards a sync write by both organization entitlement and user assignment. */
-export async function assertOrganizationCanSync(
+export async function assertOrganizationIsSyncEntitled(
   executor: DatabaseSession,
   organizationId: string,
-  userId: string,
   now: Date = new Date(),
 ): Promise<void> {
   const billing = await resolveOrganizationBilling(
@@ -35,6 +34,16 @@ export async function assertOrganizationCanSync(
   if (!organizationCanSync(billing, now)) {
     throw new OrganizationSyncDisabledError(organizationId, "billing_inactive");
   }
+}
+
+/** Guards a content sync write by entitlement and the caller's stable seat. */
+export async function assertOrganizationCanSync(
+  executor: DatabaseSession,
+  organizationId: string,
+  userId: string,
+  now: Date = new Date(),
+): Promise<void> {
+  await assertOrganizationIsSyncEntitled(executor, organizationId, now);
   const [assignment] = await executor
     .select({ id: organizationBillingSeatAssignments.id })
     .from(organizationBillingSeatAssignments)

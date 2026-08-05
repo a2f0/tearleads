@@ -15,6 +15,7 @@ export type OrganizationBillingSeatEventType =
   | "seat_released"
   | "licensed_seat_count_initialized"
   | "licensed_seat_count_increased"
+  | "licensed_seat_count_decreased"
   | "licensed_seat_count_reset";
 export type OrganizationBillingStatus =
   | "local"

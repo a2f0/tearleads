@@ -16,7 +16,7 @@ import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentK
 import { readCurrentCommitLsn } from "../../../documents/commitLsn";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { selectServedSyncUpdateEntries } from "../../../documents/documentSyncBaselineRedirect";
-import { assertOrganizationCanSync as assertCanSync } from "../../billing/organizationSyncEligibility";
+import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import { DocumentMutationError, toMutationError } from "./errors";
@@ -170,6 +170,16 @@ function syncAuthorizingContainerIds(request: DocumentSyncRequest): string[] {
   );
 }
 
+async function assertDocumentSyncAllowed(
+  input: {
+    readonly tx: DatabaseTransaction;
+    readonly userId: string;
+  },
+  organizationId: string,
+): Promise<void> {
+  await assertOrganizationCanSync(input.tx, organizationId, input.userId);
+}
+
 async function syncDocumentTransaction(input: {
   readonly documentId: string;
   readonly enforceSyncEligibility: boolean;
@@ -220,7 +230,7 @@ async function syncDocumentTransaction(input: {
     input.enforceSyncEligibility &&
     (hasOutgoingUpdates || hasContainerRekeys)
   ) {
-    await assertCanSync(input.tx, currentTargets.organizationId, input.userId);
+    await assertDocumentSyncAllowed(input, currentTargets.organizationId);
   }
   const writeAuthorization = await verifySyncWriteAuthorizationProof({
     currentTargets,

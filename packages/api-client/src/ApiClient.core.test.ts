@@ -494,7 +494,11 @@ testApiClient(
     server.use(
       http.get(`${apiBaseUrl}/auth/user-identity/:userId`, () =>
         HttpResponse.json(
-          { error: "Organization cannot sync", organizationId: "org-42" },
+          {
+            error: "Organization cannot sync",
+            organizationId: "org-42",
+            reason: "billing_inactive",
+          },
           { status: 402, statusText: "Payment Required" },
         ),
       ),

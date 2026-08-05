@@ -78,6 +78,9 @@ test("billing history labels cover invoice and licensed-seat events", () => {
   expect(
     getOrgManagerBillingEventLabel("licensed_seat_count_initialized"),
   ).toBe("Licensed seats initialized");
+  expect(getOrgManagerBillingEventLabel("licensed_seat_count_decreased")).toBe(
+    "Licensed seats decreased",
+  );
   expect(getOrgManagerBillingEventLabel("licensed_seat_count_increased")).toBe(
     "Licensed seats increased",
   );

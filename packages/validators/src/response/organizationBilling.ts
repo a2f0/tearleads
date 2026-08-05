@@ -107,12 +107,13 @@ export function isOrganizationBillingResponse(
 
 /**
  * The HTTP 402 body a sync write returns when its target organization cannot
- * sync (billing is `local`/lapsed). Carries the `organizationId` so the client
- * can route the user to that org's billing.
+ * sync. Carries the target organization and whether billing or the caller's
+ * seat assignment blocked the write.
  */
 export interface PaymentRequiredErrorResponse {
   error: string;
   organizationId: string;
+  reason: "billing_inactive" | "sync_seat_unassigned";
 }
 
 export function isPaymentRequiredErrorResponse(
@@ -121,6 +122,9 @@ export function isPaymentRequiredErrorResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "error") &&
-    hasStringProperty(value, "organizationId")
+    hasStringProperty(value, "organizationId") &&
+    hasStringProperty(value, "reason") &&
+    (value.reason === "billing_inactive" ||
+      value.reason === "sync_seat_unassigned")
   );
 }

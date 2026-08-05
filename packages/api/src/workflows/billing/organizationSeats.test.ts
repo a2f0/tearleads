@@ -11,10 +11,8 @@ import {
 } from "@tearleads/api-shared/schema";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
-import {
-  loadOrganizationBillingSeatUsage,
-  reconcileOrganizationBillingSeats,
-} from "./organizationSeats";
+import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import { loadOrganizationBillingSeatUsage } from "./organizationSeatUsage";
 import { assertOrganizationCanSync } from "./organizationSyncEligibility";
 
 const PERIOD_START = new Date("2026-07-01T00:00:00.000Z");

@@ -21,6 +21,7 @@ const BILLING_HISTORY_EVENT_LIMIT = 50;
 const LICENSED_SEAT_EVENT_TYPES = [
   "licensed_seat_count_initialized",
   "licensed_seat_count_increased",
+  "licensed_seat_count_decreased",
   "licensed_seat_count_reset",
 ] as const;
 const LICENSED_SEAT_EVENT_TYPE_SET = new Set<string>(LICENSED_SEAT_EVENT_TYPES);

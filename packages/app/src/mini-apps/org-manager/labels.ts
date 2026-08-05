@@ -90,7 +90,7 @@ export const ORG_MANAGER_LABELS = {
     "This organization is local-only. Subscribe to sync it across devices.",
   billingSyncOn: "Sync is on for this organization.",
   billingSyncSeatUnavailable:
-    "This user can't sync because every licensed seat is in use.",
+    "You can't sync because every licensed seat is in use.",
   billingTitle: "Sync billing",
   billingTrialing: "Free trial",
   billingTrialUnavailable: "The free trial is no longer available.",
@@ -320,6 +320,7 @@ const ORG_MANAGER_BILLING_EVENT_LABELS: Readonly<Record<string, string>> = {
   UNCANCELLATION: "Resumed",
   free_trial_expired: "Free trial expired",
   free_trial_initialized: "Free trial initialized",
+  licensed_seat_count_decreased: "Licensed seats decreased",
   licensed_seat_count_increased: "Licensed seats increased",
   licensed_seat_count_initialized: "Licensed seats initialized",
   licensed_seat_count_reset: "Licensed seats reset",

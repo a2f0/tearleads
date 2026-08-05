@@ -11,7 +11,7 @@ import {
   addEffectiveOrganizationMember,
   registerAndAuthenticate,
 } from "../../../test/helpers/revenuecatWebhook";
-import { loadOrganizationBillingSeatUsage } from "./organizationSeats";
+import { loadOrganizationBillingSeatUsage } from "./organizationSeatUsage";
 import {
   type RevenueCatWebhookOutcome,
   runRevenueCatWebhookWorkflow,

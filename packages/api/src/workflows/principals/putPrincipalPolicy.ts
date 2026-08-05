@@ -33,7 +33,7 @@ import {
   assertManagedPrincipalRosterMembership,
   assertOrganizationAdminsRosterMembership,
 } from "./managedPrincipalRosterMembership";
-import { assertPrincipalOrganizationCanSync } from "./organizationSync";
+import { assertPrincipalOrganizationIsSyncEntitled } from "./organizationSync";
 import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
 import {
   assertPolicyAuthorityConstraints,
@@ -453,11 +453,10 @@ export async function runPutPrincipalPolicyWorkflow(
       );
       // Gate after authorization so an unauthorized signer still gets the
       // authorization error, not a billing error.
-      await assertPrincipalOrganizationCanSync(
+      await assertPrincipalOrganizationIsSyncEntitled(
         tx,
         input.state.principalType,
         input.state.principalId,
-        input.requesterUserId,
       );
       const isExactReplay = previousState?.stateHash === nextState.stateHash;
       if (isExactReplay) {

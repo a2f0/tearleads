@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { requiredLicensedSeatCount } from "./organizationSeatCapacity";
+import {
+  licensedSeatCountChangeEventType,
+  requiredLicensedSeatCount,
+} from "./organizationSeatCapacity";
 
 function billing(input: {
   readonly seatCount?: number;
@@ -21,4 +24,16 @@ test("an active subscription keeps its purchased capacity", () => {
   expect(requiredLicensedSeatCount(billing({ seatCount: 1 }))).toBe(1);
   expect(requiredLicensedSeatCount(billing({ seatCount: 5 }))).toBe(5);
   expect(requiredLicensedSeatCount(billing({ seatCount: 10 }))).toBe(10);
+});
+
+test("licensed capacity changes retain their audit meaning", () => {
+  expect(licensedSeatCountChangeEventType(0, 10)).toBe(
+    "licensed_seat_count_initialized",
+  );
+  expect(licensedSeatCountChangeEventType(1, 5)).toBe(
+    "licensed_seat_count_increased",
+  );
+  expect(licensedSeatCountChangeEventType(10, 5)).toBe(
+    "licensed_seat_count_decreased",
+  );
 });

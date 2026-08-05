@@ -46,7 +46,13 @@ export async function loadOrganizationBilling(
   return row;
 }
 
-/** Returns an in-memory disabled view when an entitlement period has lapsed. */
+/**
+ * Loads billing and returns an in-memory `disabled` view when an entitlement
+ * period has lapsed. This is deliberately a pure read: container-access
+ * projection and the billing GET route call it inside read transactions, where
+ * an attempted write would poison a PostgreSQL read-replica transaction. The
+ * background billing sweep owns the durable disabled transition and purge.
+ */
 export async function resolveOrganizationBilling(
   executor: DatabaseSession,
   organizationId: string,
