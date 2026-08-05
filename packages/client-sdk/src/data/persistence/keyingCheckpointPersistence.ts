@@ -10,8 +10,121 @@ import {
   keyingCheckpointTables,
   principalPolicyCheckpoints,
 } from "../sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteDatabase,
+  type ClientSQLiteTransaction,
+  getClientSQLitePersistenceRuntime,
+} from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+
+type CheckpointHandle = ClientSQLiteDatabase | ClientSQLiteTransaction;
+
+type AccessManifestCheckpointIdentity = Pick<
+  AccessManifestCheckpoint,
+  "objectKind" | "organizationId" | "objectId"
+>;
+
+type PrincipalPolicyCheckpointIdentity = Pick<
+  PrincipalPolicyCheckpoint,
+  "principalType" | "principalId"
+>;
+
+/** One key format per checkpoint identity, shared by every batch validator. */
+export function accessManifestObjectKey(
+  identity: AccessManifestCheckpointIdentity,
+): string {
+  return JSON.stringify([
+    identity.objectKind,
+    identity.organizationId,
+    identity.objectId,
+  ]);
+}
+
+export function principalPolicyKey(
+  identity: PrincipalPolicyCheckpointIdentity,
+): string {
+  return JSON.stringify([identity.principalType, identity.principalId]);
+}
+
+export async function loadAccessManifestCheckpointRow(
+  handle: CheckpointHandle,
+  identity: AccessManifestCheckpointIdentity,
+): Promise<Pick<AccessManifestCheckpoint, "epoch" | "manifestHash"> | null> {
+  const rows = await handle
+    .select({
+      epoch: accessManifestCheckpoints.epoch,
+      manifestHash: accessManifestCheckpoints.manifestHash,
+    })
+    .from(accessManifestCheckpoints)
+    .where(
+      and(
+        eq(accessManifestCheckpoints.objectKind, identity.objectKind),
+        eq(accessManifestCheckpoints.organizationId, identity.organizationId),
+        eq(accessManifestCheckpoints.objectId, identity.objectId),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function loadPrincipalPolicyCheckpointRow(
+  handle: CheckpointHandle,
+  identity: PrincipalPolicyCheckpointIdentity,
+): Promise<Pick<PrincipalPolicyCheckpoint, "version" | "stateHash"> | null> {
+  const rows = await handle
+    .select({
+      version: principalPolicyCheckpoints.version,
+      stateHash: principalPolicyCheckpoints.stateHash,
+    })
+    .from(principalPolicyCheckpoints)
+    .where(
+      and(
+        eq(principalPolicyCheckpoints.principalType, identity.principalType),
+        eq(principalPolicyCheckpoints.principalId, identity.principalId),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function upsertAccessManifestCheckpointInTransaction(
+  tx: ClientSQLiteTransaction,
+  checkpoint: AccessManifestCheckpoint,
+  updatedAt: string,
+): Promise<void> {
+  const row = { ...checkpoint, updatedAt };
+  await tx
+    .insert(accessManifestCheckpoints)
+    .values(row)
+    .onConflictDoUpdate({
+      target: [
+        accessManifestCheckpoints.objectKind,
+        accessManifestCheckpoints.organizationId,
+        accessManifestCheckpoints.objectId,
+      ],
+      set: row,
+    })
+    .run();
+}
+
+export async function upsertPrincipalPolicyCheckpointInTransaction(
+  tx: ClientSQLiteTransaction,
+  checkpoint: PrincipalPolicyCheckpoint,
+  updatedAt: string,
+): Promise<void> {
+  const row = { ...checkpoint, updatedAt };
+  await tx
+    .insert(principalPolicyCheckpoints)
+    .values(row)
+    .onConflictDoUpdate({
+      target: [
+        principalPolicyCheckpoints.principalType,
+        principalPolicyCheckpoints.principalId,
+      ],
+      set: row,
+    })
+    .run();
+}
 
 function isAccessObjectKind(value: string): value is AccessObjectKind {
   return value === "blob" || value === "container" || value === "document";
@@ -36,36 +149,16 @@ export async function loadAccessManifestCheckpoint(
 ): Promise<AccessManifestCheckpoint | null> {
   await ensureKeyingCheckpointTables(execSql);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const rows = await db
-    .select({
-      objectKind: accessManifestCheckpoints.objectKind,
-      organizationId: accessManifestCheckpoints.organizationId,
-      objectId: accessManifestCheckpoints.objectId,
-      epoch: accessManifestCheckpoints.epoch,
-      manifestHash: accessManifestCheckpoints.manifestHash,
-    })
-    .from(accessManifestCheckpoints)
-    .where(
-      and(
-        eq(accessManifestCheckpoints.objectKind, objectKind),
-        eq(accessManifestCheckpoints.organizationId, organizationId),
-        eq(accessManifestCheckpoints.objectId, objectId),
-      ),
-    )
-    .limit(1);
-
-  const row = rows[0];
-  if (!row || !isAccessObjectKind(row.objectKind)) {
+  if (!isAccessObjectKind(objectKind)) {
     return null;
   }
+  const row = await loadAccessManifestCheckpointRow(db, {
+    objectKind,
+    organizationId,
+    objectId,
+  });
 
-  return {
-    objectKind: row.objectKind,
-    objectId: row.objectId,
-    organizationId: row.organizationId,
-    epoch: row.epoch,
-    manifestHash: row.manifestHash,
-  };
+  return row ? { objectKind, objectId, organizationId, ...row } : null;
 }
 
 export async function loadPrincipalPolicyCheckpoint(
@@ -75,31 +168,13 @@ export async function loadPrincipalPolicyCheckpoint(
 ): Promise<PrincipalPolicyCheckpoint | null> {
   await ensureKeyingCheckpointTables(execSql);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const rows = await db
-    .select({
-      principalType: principalPolicyCheckpoints.principalType,
-      principalId: principalPolicyCheckpoints.principalId,
-      version: principalPolicyCheckpoints.version,
-      stateHash: principalPolicyCheckpoints.stateHash,
-    })
-    .from(principalPolicyCheckpoints)
-    .where(
-      and(
-        eq(principalPolicyCheckpoints.principalType, principalType),
-        eq(principalPolicyCheckpoints.principalId, principalId),
-      ),
-    )
-    .limit(1);
-
-  const row = rows[0];
-  if (!row || !isManagedPrincipalKind(row.principalType)) {
+  if (!isManagedPrincipalKind(principalType)) {
     return null;
   }
+  const row = await loadPrincipalPolicyCheckpointRow(db, {
+    principalType,
+    principalId,
+  });
 
-  return {
-    principalType: row.principalType,
-    principalId: row.principalId,
-    version: row.version,
-    stateHash: row.stateHash,
-  };
+  return row ? { principalType, principalId, ...row } : null;
 }

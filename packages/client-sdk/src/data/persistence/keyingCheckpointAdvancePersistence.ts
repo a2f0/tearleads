@@ -6,11 +6,8 @@ import {
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { and, eq } from "drizzle-orm";
 import {
-  accessManifestCheckpoints,
   keyingCheckpointTables,
-  principalPolicyCheckpoints,
   principalPolicyTables,
 } from "../sqlite/schema";
 import {
@@ -18,6 +15,14 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import {
+  accessManifestObjectKey,
+  loadAccessManifestCheckpointRow,
+  loadPrincipalPolicyCheckpointRow,
+  principalPolicyKey,
+  upsertAccessManifestCheckpointInTransaction,
+  upsertPrincipalPolicyCheckpointInTransaction,
+} from "./keyingCheckpointPersistence";
 import {
   assertPrincipalPolicyBundleStoredInTransaction,
   writePrincipalPolicyBundleInTransaction,
@@ -38,41 +43,14 @@ interface PendingAccessCheckpoint {
   readonly checkpoint: AnyVerifiedAccessManifest["checkpoint"];
 }
 
-function accessObjectKey(
-  checkpoint: AnyVerifiedAccessManifest["checkpoint"],
-): string {
-  return JSON.stringify([
-    checkpoint.objectKind,
-    checkpoint.organizationId,
-    checkpoint.objectId,
-  ]);
-}
-
-function principalKey(policy: VerifiedPrincipalPolicy): string {
-  return JSON.stringify([policy.principalType, policy.principalId]);
-}
+const accessObjectKey = accessManifestObjectKey;
+const principalKey = principalPolicyKey;
 
 async function loadAccessCheckpoint(
   tx: ClientSQLiteTransaction,
   head: AnyVerifiedAccessManifest,
 ) {
-  const { objectKind, organizationId, objectId } = head.checkpoint;
-  const rows = await tx
-    .select({
-      epoch: accessManifestCheckpoints.epoch,
-      manifestHash: accessManifestCheckpoints.manifestHash,
-    })
-    .from(accessManifestCheckpoints)
-    .where(
-      and(
-        eq(accessManifestCheckpoints.objectKind, objectKind),
-        eq(accessManifestCheckpoints.organizationId, organizationId),
-        eq(accessManifestCheckpoints.objectId, objectId),
-      ),
-    )
-    .limit(1);
-  const row = rows[0];
-
+  const row = await loadAccessManifestCheckpointRow(tx, head.checkpoint);
   return row ? { ...head.checkpoint, ...row } : null;
 }
 
@@ -80,21 +58,7 @@ async function loadPolicyCheckpoint(
   tx: ClientSQLiteTransaction,
   policy: VerifiedPrincipalPolicy,
 ) {
-  const rows = await tx
-    .select({
-      version: principalPolicyCheckpoints.version,
-      stateHash: principalPolicyCheckpoints.stateHash,
-    })
-    .from(principalPolicyCheckpoints)
-    .where(
-      and(
-        eq(principalPolicyCheckpoints.principalType, policy.principalType),
-        eq(principalPolicyCheckpoints.principalId, policy.principalId),
-      ),
-    )
-    .limit(1);
-  const row = rows[0];
-
+  const row = await loadPrincipalPolicyCheckpointRow(tx, policy);
   return row
     ? {
         principalType: policy.principalType,
@@ -268,19 +232,11 @@ async function writeAccessCheckpoints(
   updatedAt: string,
 ): Promise<void> {
   for (const { checkpoint } of pending.values()) {
-    const row = { ...checkpoint, updatedAt };
-    await tx
-      .insert(accessManifestCheckpoints)
-      .values(row)
-      .onConflictDoUpdate({
-        target: [
-          accessManifestCheckpoints.objectKind,
-          accessManifestCheckpoints.organizationId,
-          accessManifestCheckpoints.objectId,
-        ],
-        set: row,
-      })
-      .run();
+    await upsertAccessManifestCheckpointInTransaction(
+      tx,
+      checkpoint,
+      updatedAt,
+    );
   }
 }
 
@@ -290,18 +246,11 @@ async function writePolicyCheckpoints(
   updatedAt: string,
 ): Promise<void> {
   for (const policy of pending.values()) {
-    const row = { ...policy.checkpoint, updatedAt };
-    await tx
-      .insert(principalPolicyCheckpoints)
-      .values(row)
-      .onConflictDoUpdate({
-        target: [
-          principalPolicyCheckpoints.principalType,
-          principalPolicyCheckpoints.principalId,
-        ],
-        set: row,
-      })
-      .run();
+    await upsertPrincipalPolicyCheckpointInTransaction(
+      tx,
+      policy.checkpoint,
+      updatedAt,
+    );
   }
 }
 

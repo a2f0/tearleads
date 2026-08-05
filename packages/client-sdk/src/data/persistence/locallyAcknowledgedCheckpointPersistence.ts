@@ -9,11 +9,8 @@ import {
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { and, eq } from "drizzle-orm";
 import {
-  accessManifestCheckpoints,
   keyingCheckpointTables,
-  principalPolicyCheckpoints,
   principalPolicyTables,
 } from "../sqlite/schema";
 import {
@@ -21,6 +18,14 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import {
+  accessManifestObjectKey,
+  loadAccessManifestCheckpointRow,
+  loadPrincipalPolicyCheckpointRow,
+  principalPolicyKey,
+  upsertAccessManifestCheckpointInTransaction,
+  upsertPrincipalPolicyCheckpointInTransaction,
+} from "./keyingCheckpointPersistence";
 import {
   retainPrincipalPolicyBundleInTransaction,
   writePrincipalPolicyBundleInTransaction,
@@ -45,33 +50,13 @@ export function locallyAuthoredAccessManifestHead(plan: {
   };
 }
 
-function objectKey(checkpoint: AccessManifestCheckpoint): string {
-  return JSON.stringify([
-    checkpoint.objectKind,
-    checkpoint.organizationId,
-    checkpoint.objectId,
-  ]);
-}
+const objectKey = accessManifestObjectKey;
 
 async function loadCheckpoint(
   tx: ClientSQLiteTransaction,
   checkpoint: AccessManifestCheckpoint,
 ): Promise<AccessManifestCheckpoint | null> {
-  const [row] = await tx
-    .select({
-      epoch: accessManifestCheckpoints.epoch,
-      manifestHash: accessManifestCheckpoints.manifestHash,
-    })
-    .from(accessManifestCheckpoints)
-    .where(
-      and(
-        eq(accessManifestCheckpoints.objectKind, checkpoint.objectKind),
-        eq(accessManifestCheckpoints.organizationId, checkpoint.organizationId),
-        eq(accessManifestCheckpoints.objectId, checkpoint.objectId),
-      ),
-    )
-    .limit(1);
-
+  const row = await loadAccessManifestCheckpointRow(tx, checkpoint);
   return row ? { ...checkpoint, ...row } : null;
 }
 
@@ -124,19 +109,11 @@ async function writeAcknowledgedHeads(
   updatedAt: string,
 ): Promise<void> {
   for (const checkpoint of pending.values()) {
-    const row = { ...checkpoint, updatedAt };
-    await tx
-      .insert(accessManifestCheckpoints)
-      .values(row)
-      .onConflictDoUpdate({
-        target: [
-          accessManifestCheckpoints.objectKind,
-          accessManifestCheckpoints.organizationId,
-          accessManifestCheckpoints.objectId,
-        ],
-        set: row,
-      })
-      .run();
+    await upsertAccessManifestCheckpointInTransaction(
+      tx,
+      checkpoint,
+      updatedAt,
+    );
   }
 }
 
@@ -165,19 +142,7 @@ async function loadAcknowledgedPolicyCheckpoint(
   tx: ClientSQLiteTransaction,
   policy: VerifiedPrincipalPolicy,
 ): Promise<PrincipalPolicyCheckpoint | null> {
-  const [row] = await tx
-    .select({
-      stateHash: principalPolicyCheckpoints.stateHash,
-      version: principalPolicyCheckpoints.version,
-    })
-    .from(principalPolicyCheckpoints)
-    .where(
-      and(
-        eq(principalPolicyCheckpoints.principalType, policy.principalType),
-        eq(principalPolicyCheckpoints.principalId, policy.principalId),
-      ),
-    )
-    .limit(1);
+  const row = await loadPrincipalPolicyCheckpointRow(tx, policy);
   return row ? { ...policy.checkpoint, ...row } : null;
 }
 
@@ -214,7 +179,7 @@ function assertUniqueAcknowledgedPolicies(
 ): void {
   const seen = new Set<string>();
   for (const { policy } of entries) {
-    const key = JSON.stringify([policy.principalType, policy.principalId]);
+    const key = principalPolicyKey(policy);
     if (seen.has(key)) {
       throw new KeyingVerificationError(
         "duplicate_entry",
@@ -263,18 +228,11 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
         }
       }
       for (const { policy } of input.entries) {
-        const row = { ...policy.checkpoint, updatedAt: input.updatedAt };
-        await tx
-          .insert(principalPolicyCheckpoints)
-          .values(row)
-          .onConflictDoUpdate({
-            target: [
-              principalPolicyCheckpoints.principalType,
-              principalPolicyCheckpoints.principalId,
-            ],
-            set: row,
-          })
-          .run();
+        await upsertPrincipalPolicyCheckpointInTransaction(
+          tx,
+          policy.checkpoint,
+          input.updatedAt,
+        );
       }
     },
     { behavior: "immediate" },
