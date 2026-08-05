@@ -1,12 +1,12 @@
-import {
-  KeyingVerificationError,
-  type PrincipalPolicyCheckpoint,
-  type VerifiedPrincipalPolicy,
+import type {
+  PrincipalPolicyCheckpoint,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
+import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
@@ -183,12 +183,6 @@ function signerPublicKeyLoadErrorMessage(
       return "signer key fingerprint does not match state signer";
     case "not-found":
       return "failed to fetch signer key";
-  }
-}
-
-function rethrowKeyingVerificationError(error: unknown): void {
-  if (error instanceof KeyingVerificationError) {
-    throw error;
   }
 }
 
