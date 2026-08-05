@@ -8,6 +8,10 @@ const buildNumbersScript = resolve(
   "../../../scripts/getCurrentAppStoreBuildNumbers.sh",
 );
 
+function environmentValue(name: string) {
+  return process.env[name];
+}
+
 interface StubbedRun {
   readonly exitCode: number;
   readonly stdout: string;
@@ -46,7 +50,7 @@ async function runWithStubbedBun(
         ...process.env,
         APP_STORE_LIVE: "",
         APP_STORE_BUILD_NUMBERS_TEST_LOG: logPath,
-        PATH: `${temporaryDirectory}:${process.env.PATH ?? ""}`,
+        PATH: `${temporaryDirectory}:${environmentValue("PATH") ?? ""}`,
         ...options.environment,
       },
       stdout: "pipe",
