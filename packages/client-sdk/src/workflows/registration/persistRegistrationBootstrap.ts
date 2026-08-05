@@ -16,7 +16,6 @@ import {
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
   DOCUMENTS_APP_KIND,
-  type StoredDocumentRecord,
   sqlDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
 import {
@@ -366,43 +365,18 @@ async function persistOrganizationProfileDocumentBootstrap(
     return;
   }
 
-  const doc = await createDocument(await getScopedPeerSeed(DOCUMENTS_APP_KIND));
-  importUpdates(doc, [organizationProfileDocument.initialUpdate]);
-  await seedBootstrapHistoryCheckpoint(
-    execSql,
-    organizationProfileDocument.localId,
-    doc,
-  );
-
-  const documentState = organizationProfileDocument.documentState;
-  const document: StoredDocumentRecord = {
+  await persistInitialDocumentBootstrap(execSql, {
     accessEpoch: organizationProfileDocument.accessEpoch,
     accessStateHash: organizationProfileDocument.accessStateHash,
     containerId: organizationProfileDocument.containerId,
     documentId: organizationProfileDocument.documentId,
     documentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
-    id: organizationProfileDocument.localId,
-    lastCommitLsn: null,
-    snapshotEndVersion: encodeVersionVector(doc),
-    text: "",
-    title: "Organization Profile",
-    contentKeyBundle: documentState.contentKeyBundle ?? null,
-    documentKekTargets: documentState.documentKekTargets ?? null,
-    documentManifestBundle: documentState.documentManifestBundle ?? null,
-  };
-
-  await sqlDocumentsPersistence.saveDocument(execSql, document);
-  if (!organizationProfileDocument.initialUpdateCommitted) {
-    const initialUpdate = createPendingUpdateFields(
-      organizationProfileDocument.initialUpdate,
-    );
-    if (initialUpdate) {
-      await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
-        localId: organizationProfileDocument.localId,
-        ...initialUpdate,
-      });
-    }
-  }
+    documentProjectors: input.documentProjectors,
+    documentState: organizationProfileDocument.documentState,
+    initialUpdate: organizationProfileDocument.initialUpdate,
+    initialUpdateCommitted: organizationProfileDocument.initialUpdateCommitted,
+    localId: organizationProfileDocument.localId,
+  });
 }
 
 async function seedBootstrapHistoryCheckpoint(
