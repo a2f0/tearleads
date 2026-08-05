@@ -396,3 +396,55 @@ test("createOrganization submits nothing once the identity is stale", async () =
     close();
   }
 });
+
+test("createOrganization persists nothing when the identity goes stale in-flight", async () => {
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const { close, execSql } = await createTestExecSql(
+    "organizations-create-organization-inflight-stale-test",
+  );
+  let captured: CreateOrganizationRequest | null = null;
+  // Call 1 passes the pre-create check and call 2 the pre-persist check; the
+  // identity is replaced while persistence waits for the mutation queue, so
+  // the in-mutex currency check (call 3+) sees it stale.
+  let identityProbes = 0;
+
+  try {
+    const response = await createOrganization({
+      apiClient: {
+        createOrganization: async (request) => {
+          captured = request;
+          return respondToOrganizationProvisioning(request);
+        },
+      },
+      dbClient: createClient(execSql),
+      encapsulationKeyPair,
+      isIdentityCurrent: () => {
+        identityProbes += 1;
+        return identityProbes <= 2;
+      },
+      signingKeyPair,
+      userId: crypto.randomUUID(),
+    });
+
+    // The remote organization exists, but no stale bootstrap row may reach
+    // the local database the replacement identity now owns.
+    expect(response).not.toBeNull();
+    const request = expectCapturedRequest(captured);
+    await expect(
+      sqlContainerContentsPersistence.containerExists(
+        execSql,
+        request.rootContainerId,
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      loadPrincipalPolicyBundle(
+        execSql,
+        "organization",
+        request.organizationId,
+      ),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});

@@ -41,6 +41,8 @@ import { persistRegistrationPrincipalPolicies } from "./registrationPrincipalPol
 
 export interface RegistrationBootstrapInput {
   acknowledgedAccessHeads: readonly LocallyAcknowledgedAccessManifestHead[];
+  /** Checked inside the mutation queue claim; false skips every write. */
+  canStartDurableMutation?: (() => boolean) | undefined;
   containerId: string;
   initialAdminGroupPolicy: PrincipalPolicyBundleResponse;
   initialMemberGroupPolicy: PrincipalPolicyBundleResponse;
@@ -483,6 +485,13 @@ async function persistRegistrationBootstrapFromExecSql(
   input: RegistrationBootstrapInput,
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    // In-mutex currency check, adjacent to the serialized-mutation claim
+    // (see persistDocumentState): the identity can be replaced while this
+    // persist waits for the queue, and its bootstrap must not be written
+    // through a client the replacement closed or renewed.
+    if (input.canStartDurableMutation && !input.canStartDurableMutation()) {
+      return;
+    }
     await sqlContainerContentsPersistence.ensureSchema(lockedExecSql);
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
     await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({

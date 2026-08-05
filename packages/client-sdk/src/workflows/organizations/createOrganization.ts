@@ -124,6 +124,7 @@ export async function createOrganization(
   input.log?.(`Organization created (${response.organizationId})`);
   await persistOrganizationProvisioningState({
     bootstrap: artifacts.bootstrap,
+    canStartDurableMutation: input.isIdentityCurrent,
     containerId: rootContainerId,
     dbClient: input.dbClient,
     documentProjectors: input.documentProjectors,
