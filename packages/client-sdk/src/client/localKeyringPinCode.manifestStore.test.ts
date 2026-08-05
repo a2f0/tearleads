@@ -5,6 +5,7 @@ import {
 } from "../../test/helpers/localKeyringFakes";
 import {
   createBrowserLocalKeyringManifestStore,
+  createLocalStorageLocalKeyringManifestStore,
   type LocalKeyringScope,
 } from "./localKeyring";
 import { createPinCodeBrowserLocalKeyring } from "./localKeyringPinCode";
@@ -28,6 +29,13 @@ test("PIN browser keyring round-trips an explicit manifest storage", async () =>
   const session =
     await createPinCodeBrowserLocalKeyring(options).getOrCreateSession(scope);
   expect(session.manifest.rootKeyEnvelope.provider).toBe("pin-code");
+
+  // The manifest must live in the explicit storage, not the IndexedDB
+  // fallback: read it back through a store bound to that storage alone.
+  const stored = await createLocalStorageLocalKeyringManifestStore({
+    storage: manifestStorage,
+  }).loadManifest(scope);
+  expect(stored?.rootKeyEnvelope.provider).toBe("pin-code");
 
   const reopened =
     await createPinCodeBrowserLocalKeyring(options).loadSession(scope);
