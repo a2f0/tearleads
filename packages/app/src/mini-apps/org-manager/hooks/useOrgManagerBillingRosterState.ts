@@ -32,6 +32,9 @@ export function useOrgManagerBillingRosterState(
       ? Math.min(activeRosterMemberCount, billing.view.seatCount)
       : null;
   const activeRosterUserIdSet = new Set(activeRosterUserIds ?? []);
+  // The API reconciles assignments in the same transaction as Members policy
+  // changes, so settled billing must fill every available licensed seat with an
+  // active roster user. A mismatch means this read predates that transaction.
   const seatAssignmentsAreStale =
     assignedUserIds !== null &&
     expectedAssignedSeatCount !== null &&

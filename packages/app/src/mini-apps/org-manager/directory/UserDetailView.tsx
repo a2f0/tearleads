@@ -189,10 +189,13 @@ export function UserDetailView({
           >
             {detail.user.status === "disabled"
               ? ORG_MANAGER_LABELS.disabled
-              : syncSeatAssigned === false
-                ? ORG_MANAGER_LABELS.syncSeatUnavailable
-                : formatMiniAppDate(detail.user.joinedAt)}
+              : formatMiniAppDate(detail.user.joinedAt)}
           </span>
+          {detail.user.status === "active" && syncSeatAssigned === false && (
+            <span className="org-manager-detail-status">
+              {ORG_MANAGER_LABELS.syncSeatUnavailable}
+            </span>
+          )}
           {renderRosterProfileEditor && canEditRosterProfile && (
             <MiniAppButton
               onClick={() =>

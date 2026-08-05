@@ -2,7 +2,10 @@ import type {
   OrganizationBillingSeatEventType,
   OrganizationBillingStatus,
 } from "@tearleads/api-shared/schema";
-import { getLargestSyncBillingTier } from "@tearleads/validators/billing";
+import {
+  getLargestSyncBillingTier,
+  getSyncBillingTierForSeatCount,
+} from "@tearleads/validators/billing";
 
 interface BillingSeatCapacity {
   readonly seatCount: number;
@@ -11,9 +14,16 @@ interface BillingSeatCapacity {
 
 export function requiredLicensedSeatCount(
   billing: BillingSeatCapacity,
+  activeMemberCount: number,
 ): number {
   if (billing.status === "trialing") {
     return getLargestSyncBillingTier().seatLimit;
+  }
+  if (billing.status === "active" && billing.seatCount === 0) {
+    return (
+      getSyncBillingTierForSeatCount(Math.max(1, activeMemberCount)) ??
+      getLargestSyncBillingTier()
+    ).seatLimit;
   }
   return billing.seatCount;
 }

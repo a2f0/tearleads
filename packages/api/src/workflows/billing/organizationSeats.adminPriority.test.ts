@@ -96,6 +96,65 @@ test("fresh seat capacity assigns an active administrator before other members",
         isNull(organizationBillingSeatAssignments.releasedAt),
       ),
     );
-  expect(assignments).toHaveLength(10);
-  expect(assignments.map(({ userId }) => userId)).toContain(adminUserId);
+  expect(assignments.map(({ userId }) => userId).sort()).toEqual(
+    [adminUserId, ...otherUserIds.toSorted().slice(0, 9)].sort(),
+  );
+});
+
+test("an active zero-capacity row initializes and assigns a fixed tier", async () => {
+  const organizationId = crypto.randomUUID();
+  const adminGroupId = crypto.randomUUID();
+  const memberGroupId = crypto.randomUUID();
+  const adminUserId = crypto.randomUUID();
+  const memberUserId = crypto.randomUUID();
+  await db.insert(organizations).values({
+    id: organizationId,
+    adminGroupId,
+    memberGroupId,
+    name: "Active capacity initialization organization",
+  });
+  await db.insert(organizationBilling).values({
+    organizationId,
+    status: "active",
+    currentPeriodStartsAt: NOW,
+    currentPeriodEndsAt: PERIOD_END,
+    seatCount: 0,
+  });
+  await insertGroupState({
+    groupId: memberGroupId,
+    signerUserId: adminUserId,
+    stateHash: "active-zero-members",
+    userIds: [adminUserId, memberUserId],
+  });
+  await insertGroupState({
+    groupId: adminGroupId,
+    signerUserId: adminUserId,
+    stateHash: "active-zero-admins",
+    userIds: [adminUserId],
+  });
+
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    source: { sourceId: "active-zero", sourceType: "provider_event" },
+  });
+
+  const [billing] = await db
+    .select({ seatCount: organizationBilling.seatCount })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  const assignments = await db
+    .select({ userId: organizationBillingSeatAssignments.userId })
+    .from(organizationBillingSeatAssignments)
+    .where(
+      and(
+        eq(organizationBillingSeatAssignments.organizationId, organizationId),
+        isNull(organizationBillingSeatAssignments.releasedAt),
+      ),
+    );
+  expect(billing?.seatCount).toBe(5);
+  expect(assignments.map(({ userId }) => userId).sort()).toEqual(
+    [adminUserId, memberUserId].sort(),
+  );
 });

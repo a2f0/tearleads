@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationUserDetail } from "@tearleads/client-sdk";
 import { cleanup, render } from "@testing-library/react";
+import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { UserDetailView } from "./UserDetailView";
 
@@ -62,4 +63,19 @@ test("org manager roster detail renders no inline back button", () => {
     view.queryByRole("button", { name: ORG_MANAGER_LABELS.back }),
   ).toBeNull();
   expect(view.getByText(ORG_MANAGER_LABELS.disabled)).toBeTruthy();
+});
+
+test("a seatless active user keeps the joined date beside the sync warning", () => {
+  const view = renderUserDetailView({
+    detail: {
+      ...detail,
+      user: { ...rosterUser, disabledAt: null, status: "active" },
+    },
+    syncSeatAssigned: false,
+  });
+
+  expect(
+    view.getAllByText(formatMiniAppDate(rosterUser.joinedAt)),
+  ).toHaveLength(2);
+  expect(view.getByText(ORG_MANAGER_LABELS.syncSeatUnavailable)).toBeTruthy();
 });

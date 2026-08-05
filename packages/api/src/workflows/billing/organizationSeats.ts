@@ -413,7 +413,10 @@ export async function reconcileOrganizationBillingSeats(input: {
     executor: input.executor,
     groupId: billing.adminGroupId,
   });
-  const requiredSeatCount = requiredLicensedSeatCount(billing);
+  const requiredSeatCount = requiredLicensedSeatCount(
+    billing,
+    activeUserIds.length,
+  );
   const openAssignments = await listOpenSeatAssignments({
     executor: input.executor,
     organizationId: input.organizationId,
