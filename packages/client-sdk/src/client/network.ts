@@ -1,3 +1,4 @@
+import { createListenerSet } from "./listenerSet";
 export type NetworkListener = (online: boolean) => void;
 export type NetworkMode = "automatic" | "online" | "offline";
 
@@ -94,7 +95,7 @@ function resolveOnline(mode: NetworkMode, detectedOnline: boolean): boolean {
 }
 
 export class Network {
-  private readonly listeners = new Set<NetworkListener>();
+  private readonly listeners = createListenerSet<[boolean]>();
   private detectedOnlineValue: boolean;
   private modeValue: NetworkMode = "automatic";
   private connectivityAuthoritativeValue = false;
@@ -123,7 +124,7 @@ export class Network {
 
     this.detectedOnlineValue = online;
     if (this.online !== previousOnline) {
-      this.notifyListeners();
+      this.listeners.notify(this.online);
     }
   }
 
@@ -133,7 +134,7 @@ export class Network {
     }
 
     this.modeValue = mode;
-    this.notifyListeners();
+    this.listeners.notify(this.online);
   }
 
   /**
@@ -166,21 +167,6 @@ export class Network {
     this.setOnline(online);
   }
 
-  private notifyListeners(): void {
-    const online = this.online;
-    for (const listener of this.listeners) {
-      try {
-        listener(online);
-      } catch {
-        // Keep one subscriber failure from blocking later subscribers.
-      }
-    }
-  }
-
-  subscribe = (listener: NetworkListener): (() => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
+  subscribe = (listener: NetworkListener): (() => void) =>
+    this.listeners.subscribe(listener);
 }

@@ -3,6 +3,7 @@ import {
   type ExecSql,
   type ExecSqlClientLike,
 } from "../data/sqlite/sqlSchema";
+import { createListenerSet } from "./listenerSet";
 
 export type DatabaseStatus = "idle" | "ready" | "error" | "terminated";
 
@@ -23,7 +24,7 @@ export interface DatabaseOptions {
 }
 
 export class Database {
-  private readonly listeners = new Set<DatabaseListener>();
+  private readonly listeners = createListenerSet();
   private snapshotValue: DatabaseSnapshot = {
     client: null,
     execSql: null,
@@ -113,22 +114,8 @@ export class Database {
     this.configure({ ...options, execSql });
   }
 
-  subscribe = (listener: DatabaseListener): (() => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
-
-  private notifyListeners(): void {
-    for (const listener of this.listeners) {
-      try {
-        listener();
-      } catch {
-        // Keep one subscriber failure from blocking later subscribers.
-      }
-    }
-  }
+  subscribe = (listener: DatabaseListener): (() => void) =>
+    this.listeners.subscribe(listener);
 
   private setSnapshot(next: DatabaseSnapshot): void {
     const previous = this.snapshotValue;
@@ -142,6 +129,6 @@ export class Database {
     }
 
     this.snapshotValue = next;
-    this.notifyListeners();
+    this.listeners.notify();
   }
 }

@@ -1,3 +1,4 @@
+import { createListenerSet } from "./listenerSet";
 export interface EventsSnapshot {
   connected: boolean;
   events: ReadonlyArray<unknown>;
@@ -8,7 +9,7 @@ export type EventsListener = () => void;
 export class Events {
   private connectedValue = false;
   private connectionGenerationValue = 0;
-  private readonly listeners = new Set<EventsListener>();
+  private readonly listeners = createListenerSet();
   private snapshotValue: EventsSnapshot;
 
   constructor(
@@ -71,25 +72,11 @@ export class Events {
     this.updateSnapshot(events);
   }
 
-  subscribe = (listener: EventsListener): (() => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
-
-  private notifyListeners(): void {
-    for (const listener of this.listeners) {
-      try {
-        listener();
-      } catch {
-        // Keep one subscriber failure from blocking later subscribers.
-      }
-    }
-  }
+  subscribe = (listener: EventsListener): (() => void) =>
+    this.listeners.subscribe(listener);
 
   private updateSnapshot(events: ReadonlyArray<unknown>): void {
     this.snapshotValue = { connected: this.connectedValue, events };
-    this.notifyListeners();
+    this.listeners.notify();
   }
 }
