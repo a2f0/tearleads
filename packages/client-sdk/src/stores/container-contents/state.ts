@@ -128,7 +128,13 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.initializePromise = null;
   state.localContainerRefreshPromise = null;
   state.localContainersNeedRefresh = false;
+  // Accepted-echo suppression state must not survive a reset: after a
+  // database loss the tree rehydrates from remote, and a retained id would
+  // suppress the next matching remote update signal. Mirrors
+  // clearDocumentStoreState in the document store lane.
+  state.locallyAcceptedMetadataUpdateIds = new Set();
   state.metadataDocumentIdsNeedingSync = new Set();
+  state.metadataSyncSignalSeqById = new Map();
   state.remoteHydrationPromise = null;
   state.rootLaneHydrated = false;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
