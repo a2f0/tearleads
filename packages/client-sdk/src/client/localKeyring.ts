@@ -40,7 +40,6 @@ export { assertNonEmptyString, copyBytes } from "./localKeyring/primitives";
 export {
   canonicalLocalSecretContext,
   localKeyringScopeKey,
-  localSecretContext,
   normalizeLocalKeyringScope,
 } from "./localKeyring/scope";
 export { createLocalKeyring } from "./localKeyring/service";
