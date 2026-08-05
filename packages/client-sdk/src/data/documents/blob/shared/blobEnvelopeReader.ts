@@ -7,7 +7,7 @@ import { base64ToBytes } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import {
   assertOnlyRecordKeys,
-  readRecordNumber,
+  readRecordPositiveInteger,
   readRecordString,
 } from "../../shared/readers";
 import {
@@ -104,7 +104,11 @@ function normalizeHeader(value: Record<string, unknown>): {
   if (format !== BLOB_ENCRYPTED_BYTES_FORMAT) {
     throw new Error("Blob encrypted bytes format is invalid");
   }
-  const version = readRecordNumber(value, "version", "Blob encrypted bytes");
+  const version = readRecordPositiveInteger(
+    value,
+    "version",
+    "Blob encrypted bytes",
+  );
   if (version !== BLOB_ENCRYPTED_BYTES_VERSION) {
     throw new Error(
       `Blob encrypted bytes version ${version} is invalid; expected ${BLOB_ENCRYPTED_BYTES_VERSION}`,
@@ -119,12 +123,12 @@ function normalizeHeader(value: Record<string, unknown>): {
     throw new Error("Blob encrypted bytes suite is invalid");
   }
   const byteLength = readPlaintextByteLength(value);
-  const chunkCount = readRecordNumber(
+  const chunkCount = readRecordPositiveInteger(
     value,
     "chunkCount",
     "Blob encrypted bytes",
   );
-  const chunkSize = readRecordNumber(
+  const chunkSize = readRecordPositiveInteger(
     value,
     "chunkSize",
     "Blob encrypted bytes",
@@ -141,7 +145,7 @@ function normalizeHeader(value: Record<string, unknown>): {
       byteLength,
       chunkCount,
       chunkSize,
-      contentKeyEpoch: readRecordNumber(
+      contentKeyEpoch: readRecordPositiveInteger(
         value,
         "contentKeyEpoch",
         "Blob encrypted bytes",

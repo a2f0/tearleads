@@ -422,6 +422,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/client/listenerSet.ts`,
       `${sdk}/client/logger.ts`,
       `${sdk}/data/errorMessage.ts`,
+      `${sdk}/data/recordReaders.ts`,
       `${sdk}/index.ts`,
       `${sdk}/workflows/runtimeInput.ts`,
     ],

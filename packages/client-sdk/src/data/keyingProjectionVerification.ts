@@ -43,7 +43,7 @@ import {
   readDocumentAccessEventBody,
   readRecordNullableString,
   readRecordString,
-  readRecordValue,
+  readRequiredRecordValue,
 } from "./keyingProjectionVerification/readers";
 import type {
   PrincipalPolicyCache,
@@ -138,11 +138,15 @@ async function verifyAccessEventBundle(input: {
     `${input.label} event bundle`,
   );
   const event = readAccessEvent(
-    readRecordValue(eventBundle, "event", `${input.label} event bundle`),
+    readRequiredRecordValue(
+      eventBundle,
+      "event",
+      `${input.label} event bundle`,
+    ),
     `${input.label} signed event`,
   );
   const body = readCanonicalJson(
-    readRecordValue(eventBundle, "body", `${input.label} event bundle`),
+    readRequiredRecordValue(eventBundle, "body", `${input.label} event bundle`),
     `${input.label} event body`,
   );
   const userKey = await input.resolveUserKey(event.signerUserId);

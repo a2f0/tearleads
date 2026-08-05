@@ -18,7 +18,7 @@ import {
   normalizeContainerKeyWrap,
   readManifestContainerId,
   readRecordNullableString,
-  readRecordNumber,
+  readRecordPositiveInteger,
   readRecordString,
 } from "./readers";
 import type { UnwrappedContainerKek } from "./types";
@@ -46,8 +46,11 @@ function assertProjectionKekMatchesPath(
       kek.containerKeyEpochId ||
     readRecordString(kek.keyEpoch, "containerId", projectionKekLabel(index)) !==
       kek.containerId ||
-    readRecordNumber(kek.keyEpoch, "keyEpoch", projectionKekLabel(index)) !==
-      kek.containerKeyEpoch ||
+    readRecordPositiveInteger(
+      kek.keyEpoch,
+      "keyEpoch",
+      projectionKekLabel(index),
+    ) !== kek.containerKeyEpoch ||
     readRecordNullableString(
       kek.keyEpoch,
       "parentContainerKeyEpochId",

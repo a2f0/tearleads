@@ -446,8 +446,8 @@
       "bytes": 33792
     },
     "scripts/subsystems.ts": {
-      "lines": 738,
-      "bytes": 27067
+      "lines": 739,
+      "bytes": 27105
     },
     "packages/validators/src/response/organizationReadModel.test.ts": {
       "lines": 502,

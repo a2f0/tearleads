@@ -5,83 +5,21 @@ import {
   computeAccessManifestHash,
   type DocumentLinkSetManifestState,
   deriveDocumentLinkSetManifest,
-  serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import {
-  readCanonicalJson,
+  canonicalKeyingJsonString,
   readCanonicalRecord,
 } from "../../keyingCanonicalJson";
-
-function readRecordValue(
-  record: Record<string, unknown>,
-  key: string,
-): unknown {
-  return record[key];
-}
-
-function readRecordString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): string {
-  const value = record[key];
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string`);
-  }
-  return value;
-}
-
-function readRecordInteger(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): number {
-  const value = record[key];
-  if (typeof value !== "number" || !Number.isInteger(value)) {
-    throw new Error(`${label}.${key} must be an integer`);
-  }
-  return value;
-}
-
-function readRecordNumber(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): number {
-  const value = record[key];
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new Error(`${label}.${key} must be a positive integer`);
-  }
-  return value;
-}
-
-function readRecordNullableString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): string | null {
-  const value = record[key];
-  if (value === null) {
-    return null;
-  }
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string or null`);
-  }
-  return value;
-}
-
-function readStringArray(value: unknown, label: string): string[] {
-  if (
-    !Array.isArray(value) ||
-    value.some((entry) => typeof entry !== "string" || entry.length === 0)
-  ) {
-    throw new Error(`${label} must be a string array`);
-  }
-
-  return [...value];
-}
+import {
+  readRecordInteger,
+  readRecordNullableString,
+  readRecordPositiveInteger,
+  readRecordString,
+  readRecordValue,
+  readStringArray,
+} from "../../recordReaders";
 
 function isAccessEventType(value: unknown): value is AccessEvent["eventType"] {
   return (
@@ -168,7 +106,7 @@ function readAccessManifest(value: unknown, label: string): AccessManifest {
     objectKind,
     objectId: readRecordString(record, "objectId", label),
     organizationId: readRecordString(record, "organizationId", label),
-    epoch: readRecordNumber(record, "epoch", label),
+    epoch: readRecordPositiveInteger(record, "epoch", label),
     previousManifestHash: readRecordNullableString(
       record,
       "previousManifestHash",
@@ -195,12 +133,12 @@ function readAccessManifest(value: unknown, label: string): AccessManifest {
           "principalId",
           `${label}.referencedPrincipalHeads[${index}]`,
         ),
-        version: readRecordNumber(
+        version: readRecordPositiveInteger(
           headRecord,
           "version",
           `${label}.referencedPrincipalHeads[${index}]`,
         ),
-        keyEpoch: readRecordNumber(
+        keyEpoch: readRecordPositiveInteger(
           headRecord,
           "keyEpoch",
           `${label}.referencedPrincipalHeads[${index}]`,
@@ -234,7 +172,7 @@ function readDocumentLinkSetManifestState(
     version: 1,
     documentId: readRecordString(record, "documentId", label),
     organizationId: readRecordString(record, "organizationId", label),
-    epoch: readRecordNumber(record, "epoch", label),
+    epoch: readRecordPositiveInteger(record, "epoch", label),
     previousManifestHash: readRecordNullableString(
       record,
       "previousManifestHash",
@@ -248,7 +186,7 @@ function readDocumentLinkSetManifestState(
   };
 }
 
-function serializeCanonical(value: unknown, label: string): string {
+export function serializeCanonical(value: unknown, label: string): string {
   if (
     value === undefined ||
     typeof value === "function" ||
@@ -257,9 +195,7 @@ function serializeCanonical(value: unknown, label: string): string {
     throw new Error(`Document create response ${label} is invalid`);
   }
 
-  return serializeKeyingCanonicalJson(
-    readCanonicalJson(value, `Document create response ${label}`),
-  );
+  return canonicalKeyingJsonString(value, `Document create response ${label}`);
 }
 
 export async function assertDocumentManifestBundleConsistent(input: {

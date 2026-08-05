@@ -14,7 +14,7 @@ import {
 } from "@tearleads/validators/response";
 import { parseWalLsn } from "@tearleads/validators/util";
 import {
-  readRecordNumber,
+  readRecordPositiveInteger,
   readRecordString,
   readWriteHeader,
   serializeCanonical,
@@ -286,7 +286,7 @@ function documentSyncManifestEpoch(plan: DocumentSyncPlan): number {
     throw new Error("Document sync manifest state is invalid");
   }
 
-  return readRecordNumber(
+  return readRecordPositiveInteger(
     plan.documentManifest.state,
     "epoch",
     "Document sync manifest state",
