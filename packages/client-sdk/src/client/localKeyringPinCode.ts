@@ -5,13 +5,12 @@ import {
   assertWrappedLocalSecretEnvelope,
   type BrowserLocalKeyringOptions,
   copyBytes,
-  createBrowserLocalKeyringManifestStore,
   createIndexedDbWrappingKeyKeystore,
   createLocalKeyring,
-  createLocalStorageLocalKeyringManifestStore,
   type LocalKeyring,
   type LocalKeyringScope,
   normalizeLocalKeyringScope,
+  resolveBrowserLocalKeyringManifestStore,
   type UnwrapLocalSecretInput,
   WRAPPED_LOCAL_SECRET_FORMAT,
   type WrapLocalSecretInput,
@@ -248,20 +247,7 @@ export function createPinCodeBrowserLocalKeyring(
       pinCode: options.pinCode,
       provider: options.pinCodeProvider,
     }),
-    // Use the same manifest backend as the non-PIN browser keyring and the lock
-    // provider, so a PIN-wrapped manifest is written where every reader looks for
-    // it (IndexedDB when available, else localStorage).
-    manifestStore:
-      options.manifestStore ??
-      (options.manifestStorage
-        ? createLocalStorageLocalKeyringManifestStore({
-            prefix: options.manifestStoragePrefix,
-            storage: options.manifestStorage,
-          })
-        : createBrowserLocalKeyringManifestStore({
-            indexedDB: options.indexedDB,
-            prefix: options.manifestStoragePrefix,
-          })),
+    manifestStore: resolveBrowserLocalKeyringManifestStore(options),
     now: options.now,
   });
 }

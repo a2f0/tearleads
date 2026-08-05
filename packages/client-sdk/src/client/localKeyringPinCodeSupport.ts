@@ -1,13 +1,13 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   assertWrappedLocalSecretEnvelope,
   canonicalLocalSecretContext,
   copyBytes,
   type LocalSecretContext,
-  localSecretContext,
-  type NormalizedLocalKeyringScope,
-  normalizeLocalKeyringScope,
+  readObject,
+  readString,
+  readVersion1,
+  readWrappedLocalSecretEnvelope,
   WRAPPED_LOCAL_SECRET_FORMAT,
   type WrappedLocalSecretEnvelope,
   type WrappingKeyHandle,
@@ -45,104 +45,26 @@ function randomSalt(): Uint8Array<ArrayBuffer> {
   return crypto.getRandomValues(new Uint8Array(PIN_CODE_SALT_BYTES));
 }
 
-function readRecord(value: unknown, label: string): Record<string, unknown> {
-  if (!isPlainObject(value)) {
-    throw new Error(`${label} must be an object.`);
-  }
-
-  return value;
-}
-
-function readString(
-  value: Record<string, unknown>,
-  key: string,
-  label: string,
-): string {
-  const field = value[key];
-  if (typeof field !== "string" || field.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string.`);
-  }
-
-  return field;
-}
-
-function readExactString<const ExpectedValue extends string>(
-  value: Record<string, unknown>,
-  key: string,
-  label: string,
-  expectedValue: ExpectedValue,
-): ExpectedValue {
-  const field = readString(value, key, label);
-  if (field !== expectedValue) {
-    throw new Error(`${label}.${key} must be ${expectedValue}.`);
-  }
-
-  return expectedValue;
-}
-
-function readOptionalString(
-  value: Record<string, unknown>,
-  key: string,
-  label: string,
-): string | undefined {
-  const field = value[key];
-  if (field === undefined) {
-    return undefined;
-  }
-  if (typeof field !== "string" || field.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string.`);
-  }
-
-  return field;
-}
-
-function readNullableString(
-  value: Record<string, unknown>,
-  key: string,
-  label: string,
-): string | null {
-  const field = value[key];
-  if (field === null) {
-    return null;
-  }
-  if (typeof field !== "string" || field.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string or null.`);
-  }
-
-  return field;
-}
-
 function readPositiveInteger(
-  value: Record<string, unknown>,
+  value: ReadonlyMap<string, unknown>,
   key: string,
-  label: string,
 ): number {
-  const field = value[key];
+  const field = value.get(key);
   if (typeof field !== "number" || !Number.isInteger(field) || field <= 0) {
-    throw new Error(`${label}.${key} must be a positive integer.`);
+    throw new Error(`${key} must be a positive integer.`);
   }
 
   return field;
 }
 
-function readVersion1(value: Record<string, unknown>, label: string): 1 {
-  if (Reflect.get(value, "version") !== 1) {
-    throw new Error(`${label}.version must be 1.`);
-  }
-
-  return 1;
-}
-
-function readBase64Bytes(
-  value: Record<string, unknown>,
-  key: string,
+function base64BytesFromString(
+  encoded: string,
   label: string,
 ): Uint8Array<ArrayBuffer> {
-  const encoded = readString(value, key, label);
   try {
     return copyBytes(base64ToBytes(encoded));
   } catch {
-    throw new Error(`${label}.${key} must be base64.`);
+    throw new Error(`${label} must be base64.`);
   }
 }
 
@@ -159,53 +81,15 @@ export function normalizeKdfIterations(iterations: number | undefined): number {
   return iterations;
 }
 
-function readLocalKeyringScope(
-  value: unknown,
-  label: string,
-): NormalizedLocalKeyringScope {
-  const scope = readRecord(value, label);
-  return normalizeLocalKeyringScope({
-    accountId: readNullableString(scope, "accountId", label),
-    namespace: readString(scope, "namespace", label),
-    signingFingerprint: readNullableString(scope, "signingFingerprint", label),
-  });
-}
-
-function readLocalSecretContext(value: unknown): LocalSecretContext {
-  const context = readRecord(value, "Wrapped local secret context");
-  return localSecretContext(
-    readLocalKeyringScope(
-      Reflect.get(context, "scope"),
-      "Wrapped local secret context.scope",
-    ),
-    readString(context, "purpose", "Wrapped local secret context"),
-  );
-}
-
 function parseWrappedLocalSecretEnvelope(
   value: unknown,
 ): WrappedLocalSecretEnvelope {
-  const parsedValue: unknown =
-    typeof value === "string" ? JSON.parse(value) : value;
-  const envelope = readRecord(parsedValue, "Wrapped local secret envelope");
-  const parsed = {
-    algorithm: readString(envelope, "algorithm", "Wrapped local secret"),
-    ciphertext: readString(envelope, "ciphertext", "Wrapped local secret"),
-    context: readLocalSecretContext(Reflect.get(envelope, "context")),
-    format: readExactString(
-      envelope,
-      "format",
-      "Wrapped local secret",
-      WRAPPED_LOCAL_SECRET_FORMAT,
-    ),
-    iv: readOptionalString(envelope, "iv", "Wrapped local secret"),
-    keyId: readString(envelope, "keyId", "Wrapped local secret"),
-    provider: readString(envelope, "provider", "Wrapped local secret"),
-    version: readVersion1(envelope, "Wrapped local secret"),
-    wrappedAt: readString(envelope, "wrappedAt", "Wrapped local secret"),
-  } satisfies WrappedLocalSecretEnvelope;
-  assertWrappedLocalSecretEnvelope(parsed);
-  return parsed;
+  // The keyring's envelope reader is the single parser for this wire format;
+  // a second hand-rolled parser here would be a drift hazard between what a
+  // PIN unlock accepts and what the manifest path accepts.
+  return readWrappedLocalSecretEnvelope(
+    typeof value === "string" ? JSON.parse(value) : value,
+  );
 }
 
 export function parseWrappedLocalSecretEnvelopeBytes(
@@ -224,46 +108,26 @@ export function serializeWrappedLocalSecretEnvelope(
 function readPinCodeWrappingKeyMetadata(
   value: unknown,
 ): PinCodeWrappingKeyMetadata {
-  const metadata = readRecord(value, "PIN code wrapping key metadata");
-  if (
-    readString(metadata, "format", "PIN code wrapping key metadata") !==
-    PIN_CODE_WRAPPING_KEY_FORMAT
-  ) {
+  const metadata = readObject(value, "PIN code wrapping key metadata");
+  if (readString(metadata, "format") !== PIN_CODE_WRAPPING_KEY_FORMAT) {
     throw new Error("PIN code wrapping key format is unsupported.");
   }
-  if (
-    readString(metadata, "kdf", "PIN code wrapping key metadata") !==
-    "pbkdf2-sha256"
-  ) {
+  if (readString(metadata, "kdf") !== "pbkdf2-sha256") {
     throw new Error("PIN code wrapping key derivation is unsupported.");
   }
-  if (
-    readBase64Bytes(metadata, "salt", "PIN code wrapping key metadata")
-      .byteLength === 0
-  ) {
+  const salt = readString(metadata, "salt");
+  if (base64BytesFromString(salt, "salt").byteLength === 0) {
     throw new Error("PIN code wrapping key salt must be non-empty.");
   }
 
   return {
     format: PIN_CODE_WRAPPING_KEY_FORMAT,
-    innerKeyId: readString(
-      metadata,
-      "innerKeyId",
-      "PIN code wrapping key metadata",
-    ),
-    innerProvider: readString(
-      metadata,
-      "innerProvider",
-      "PIN code wrapping key metadata",
-    ),
-    iterations: readPositiveInteger(
-      metadata,
-      "iterations",
-      "PIN code wrapping key metadata",
-    ),
+    innerKeyId: readString(metadata, "innerKeyId"),
+    innerProvider: readString(metadata, "innerProvider"),
+    iterations: readPositiveInteger(metadata, "iterations"),
     kdf: "pbkdf2-sha256",
-    salt: readString(metadata, "salt", "PIN code wrapping key metadata"),
-    version: readVersion1(metadata, "PIN code wrapping key metadata"),
+    salt,
+    version: readVersion1(metadata),
   };
 }
 
@@ -358,11 +222,7 @@ export async function derivePinCodeWrappingKey(input: {
         hash: "SHA-256",
         iterations: input.metadata.iterations,
         name: "PBKDF2",
-        salt: readBase64Bytes(
-          { salt: input.metadata.salt },
-          "salt",
-          "PIN code wrapping key metadata",
-        ),
+        salt: base64BytesFromString(input.metadata.salt, "salt"),
       },
       material,
       { length: 256, name: "AES-GCM" },

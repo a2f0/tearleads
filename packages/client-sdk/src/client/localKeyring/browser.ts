@@ -52,6 +52,32 @@ export function createBrowserLocalKeyringManifestStore(
   });
 }
 
+/**
+ * Selects the browser manifest backend (IndexedDB when available, else
+ * localStorage). Every browser-family keyring — including the PIN-code
+ * variant — must resolve through this one helper so a manifest is always
+ * written where every reader looks for it.
+ */
+export function resolveBrowserLocalKeyringManifestStore(options: {
+  readonly indexedDB?: IDBFactory | undefined;
+  readonly manifestStorage?: LocalKeyringManifestStorage | undefined;
+  readonly manifestStoragePrefix?: string | undefined;
+  readonly manifestStore?: LocalKeyringManifestStore | undefined;
+}): LocalKeyringManifestStore {
+  return (
+    options.manifestStore ??
+    (options.manifestStorage
+      ? createLocalStorageLocalKeyringManifestStore({
+          prefix: options.manifestStoragePrefix,
+          storage: options.manifestStorage,
+        })
+      : createBrowserLocalKeyringManifestStore({
+          indexedDB: options.indexedDB,
+          prefix: options.manifestStoragePrefix,
+        }))
+  );
+}
+
 export function createBrowserLocalKeyring(
   options: BrowserLocalKeyringOptions = {},
 ): LocalKeyring {
@@ -63,17 +89,7 @@ export function createBrowserLocalKeyring(
       objectStoreName: options.objectStoreName,
       provider: options.provider,
     }),
-    manifestStore:
-      options.manifestStore ??
-      (options.manifestStorage
-        ? createLocalStorageLocalKeyringManifestStore({
-            prefix: options.manifestStoragePrefix,
-            storage: options.manifestStorage,
-          })
-        : createBrowserLocalKeyringManifestStore({
-            indexedDB: options.indexedDB,
-            prefix: options.manifestStoragePrefix,
-          })),
+    manifestStore: resolveBrowserLocalKeyringManifestStore(options),
     now: options.now,
   });
 }
