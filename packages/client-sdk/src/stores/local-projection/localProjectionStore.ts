@@ -1,3 +1,4 @@
+import { didRegainSyncPrerequisites } from "../../data/sync/syncPrerequisites";
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflows/container-contents/projectionView";
 import { isReconcilableContainerNode } from "../container-contents/reconcilableContainer";
 import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
@@ -290,7 +291,7 @@ export function createLocalProjectionStore(input: {
       // ready (e.g. first DB attach) so first paint reflects cached contents.
       if (
         !markHydratedIfReady(state) &&
-        didRegainRemotePrerequisites(previousRuntime, runtime) &&
+        didRegainSyncPrerequisites(previousRuntime, runtime) &&
         state.containerStore.getSnapshot().ready
       ) {
         notifyReconcile(state, {
@@ -309,14 +310,4 @@ export function createLocalProjectionStore(input: {
     },
     getContainerStore: () => state.containerStore,
   };
-}
-
-function didRegainRemotePrerequisites(
-  previous: ContainerContentsStoreRuntime,
-  next: ContainerContentsStoreRuntime,
-): boolean {
-  const becameAuthenticated =
-    !previous.auth.isAuthenticated && next.auth.isAuthenticated;
-  const cameOnline = !previous.state.online && next.state.online;
-  return becameAuthenticated || cameOnline;
 }
