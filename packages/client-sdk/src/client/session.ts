@@ -345,7 +345,8 @@ class SessionService implements Session {
       return null;
     }
 
-    const signingKeyPair = this.dependencies.identity.signingKeyPair;
+    const identitySnapshot = this.dependencies.identity.snapshot;
+    const signingKeyPair = identitySnapshot.signingKeyPair;
     if (!signingKeyPair) {
       this.dependencies.log(
         "Create organization skipped: signing key is unavailable",
@@ -353,8 +354,7 @@ class SessionService implements Session {
       return null;
     }
 
-    const encapsulationKeyPair =
-      this.dependencies.identity.encapsulationKeyPair;
+    const encapsulationKeyPair = identitySnapshot.encapsulationKeyPair;
     if (!encapsulationKeyPair) {
       this.dependencies.log(
         "Create organization skipped: encapsulation key is unavailable",
@@ -389,6 +389,10 @@ class SessionService implements Session {
     } catch (error: unknown) {
       this.dependencies.logError("Organization creation failed", error);
       throw error;
+    }
+
+    if (this.dependencies.identity.snapshot !== identitySnapshot) {
+      return null;
     }
 
     if (!response) {
