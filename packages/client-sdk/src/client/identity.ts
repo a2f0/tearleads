@@ -11,6 +11,7 @@ import {
   type IdentityKeyPackage,
   parseIdentityKeyPackage,
 } from "./identityKeyPackage";
+import { createListenerSet } from "./listenerSet";
 
 export interface IdentityOptions {
   encapsulationKeyPair?: EncapsulationKeyPair | null | undefined;
@@ -80,7 +81,7 @@ export function createIdentity(
 
 class IdentityService implements Identity {
   private encapsulationKeyPairValue: EncapsulationKeyPair | null;
-  private readonly listeners = new Set<IdentityListener>();
+  private readonly listeners = createListenerSet();
   private seedPhraseValue: string | null;
   private signingFingerprintValue: string | null;
   private signingKeyPairValue: SigningKeyPair | null;
@@ -222,12 +223,8 @@ class IdentityService implements Identity {
     return this.snapshot;
   }
 
-  subscribe = (listener: IdentityListener): (() => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
+  subscribe = (listener: IdentityListener): (() => void) =>
+    this.listeners.subscribe(listener);
 
   private createSnapshot(): IdentitySnapshot {
     return {
@@ -262,16 +259,6 @@ class IdentityService implements Identity {
     }
   }
 
-  private notifyListeners(): void {
-    for (const listener of this.listeners) {
-      try {
-        listener();
-      } catch {
-        // Keep one subscriber failure from blocking later subscribers.
-      }
-    }
-  }
-
   private publishSnapshot(): void {
     const nextSnapshot = this.createSnapshot();
     const previousSnapshot = this.snapshotValue;
@@ -287,6 +274,6 @@ class IdentityService implements Identity {
 
     this.snapshotValue = nextSnapshot;
     this.onIdentityChanged(nextSnapshot.signingFingerprint);
-    this.notifyListeners();
+    this.listeners.notify();
   }
 }

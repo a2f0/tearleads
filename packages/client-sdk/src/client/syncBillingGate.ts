@@ -1,3 +1,4 @@
+import { createListenerSet } from "./listenerSet";
 export type SyncBillingGateListener = (organizationId: string | null) => void;
 
 /**
@@ -8,7 +9,7 @@ export type SyncBillingGateListener = (organizationId: string | null) => void;
  */
 export class SyncBillingGate {
   private readonly blockedOrganizationIds = new Set<string>();
-  private readonly listeners = new Set<SyncBillingGateListener>();
+  private readonly listeners = createListenerSet<[string | null]>();
   private readonly unknownBlockExemptOrganizationIds = new Set<string>();
   private hasUnknownOrganizationBlock = false;
   private lastBlockedOrganizationIdValue: string | null | undefined;
@@ -82,7 +83,7 @@ export class SyncBillingGate {
       this.unknownBlockExemptOrganizationIds.delete(organizationId);
     }
     this.lastBlockedOrganizationIdValue = organizationId;
-    this.notifyListeners(organizationId);
+    this.listeners.notify(organizationId);
   }
 
   /**
@@ -124,20 +125,6 @@ export class SyncBillingGate {
     ).at(-1);
   }
 
-  private notifyListeners(organizationId: string | null): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(organizationId);
-      } catch {
-        // Keep one subscriber failure from blocking later subscribers.
-      }
-    }
-  }
-
-  subscribe = (listener: SyncBillingGateListener): (() => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
+  subscribe = (listener: SyncBillingGateListener): (() => void) =>
+    this.listeners.subscribe(listener);
 }

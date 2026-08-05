@@ -21,6 +21,7 @@ import type { Blobs } from "./blobs";
 import type { Database } from "./database";
 import type { Events } from "./events";
 import type { Identity } from "./identity";
+import { createListenerSet } from "./listenerSet";
 import type { Network } from "./network";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
 import type { Session } from "./sessionTypes";
@@ -122,17 +123,11 @@ export function createRuntime(
 }
 
 function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
-  const listeners = new Set<RuntimeListener>();
+  const listeners = createListenerSet();
   let version = 0;
   const notifyListeners = () => {
     version += 1;
-    for (const listener of listeners) {
-      try {
-        listener();
-      } catch {
-        // Keep one subscriber failure from blocking later subscribers.
-      }
-    }
+    listeners.notify();
   };
 
   dependencies.database.subscribe(notifyListeners);
@@ -147,10 +142,7 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
       return version;
     },
     subscribe(listener: RuntimeListener): () => void {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
+      return listeners.subscribe(listener);
     },
   };
 }

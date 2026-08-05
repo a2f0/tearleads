@@ -12,6 +12,7 @@ import {
 } from "../workflows/sync";
 import type { Database } from "./database";
 import type { Identity } from "./identity";
+import { createListenerSet } from "./listenerSet";
 import {
   requireRegistrationIdentityPinner,
   requireUserIdentityAvailable,
@@ -48,7 +49,7 @@ export function createSession(dependencies: SessionDependencies): Session {
 }
 
 class SessionService implements Session {
-  private readonly listeners = new Set<SessionListener>();
+  private readonly listeners = createListenerSet();
   private syncEnabledValue = true;
   private snapshotValue: SessionSnapshot = {
     authToken: null,
@@ -447,29 +448,15 @@ class SessionService implements Session {
       return;
     }
     this.syncEnabledValue = enabled;
-    this.notifyListeners();
+    this.listeners.notify();
   }
 
   setUserId(userId: string | null): void {
     this.setSnapshot({ ...this.snapshotValue, userId });
   }
 
-  subscribe = (listener: SessionListener): (() => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
-
-  private notifyListeners(): void {
-    for (const listener of this.listeners) {
-      try {
-        listener();
-      } catch {
-        // Keep one subscriber failure from blocking later subscribers.
-      }
-    }
-  }
+  subscribe = (listener: SessionListener): (() => void) =>
+    this.listeners.subscribe(listener);
 
   private setSnapshot(next: SessionSnapshot): void {
     const previous = this.snapshotValue;
@@ -489,6 +476,6 @@ class SessionService implements Session {
     }
 
     this.snapshotValue = next;
-    this.notifyListeners();
+    this.listeners.notify();
   }
 }
