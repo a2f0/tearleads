@@ -19,12 +19,12 @@ import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 
 type CheckpointHandle = ClientSQLiteDatabase | ClientSQLiteTransaction;
 
-export type AccessManifestCheckpointIdentity = Pick<
+type AccessManifestCheckpointIdentity = Pick<
   AccessManifestCheckpoint,
   "objectKind" | "organizationId" | "objectId"
 >;
 
-export type PrincipalPolicyCheckpointIdentity = Pick<
+type PrincipalPolicyCheckpointIdentity = Pick<
   PrincipalPolicyCheckpoint,
   "principalType" | "principalId"
 >;
