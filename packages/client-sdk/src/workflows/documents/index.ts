@@ -17,6 +17,7 @@ export {
   clearDocumentSyncFailure,
   recordDocumentSyncFailure,
 } from "../../data/sqlite/documentPersistence";
+export type { ExecSql } from "../../data/sqlite/sqlSchema";
 export { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 export {
   didRegainSyncPrerequisites,

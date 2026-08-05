@@ -34,40 +34,12 @@ export function documentRevalidationFailureHandler(
   state: DocumentStoreState,
   generation?: DocumentStoreSyncGeneration,
 ) {
-  return async (failure: {
-    readonly message: string;
-    readonly status: number | null;
-  }) => {
-    if (failure.status === 403) {
-      return;
-    }
-
-    // The generation recheck runs INSIDE the serialized mutation (like the
-    // attachment failure path): a teardown (discard/reset) that wins the
-    // ordering deletes this document's rows first and invalidates the
-    // generation, so a stale handler can never resurrect an orphan
-    // failure-only queue row afterwards.
-    await runSerializedSqlMutation(
-      generation?.execSql ?? state.runtime.infra.execSql,
-      async (lockedExecSql) => {
-        if (
-          generation &&
-          !isDocumentStoreSyncGenerationCurrent(state, generation)
-        ) {
-          return;
-        }
-        await recordDocumentSyncFailure(
-          lockedExecSql,
-          { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
-          {
-            attemptedAt: new Date().toISOString(),
-            message: describeDocumentRevalidationFailure(failure),
-            status: failure.status,
-          },
-        );
-      },
-    );
-  };
+  return documentSyncFailureHandler({
+    describeFailure: describeDocumentRevalidationFailure,
+    generation,
+    state,
+    suppressForbidden: true,
+  });
 }
 
 /**
@@ -80,14 +52,38 @@ export function documentTerminalSubmitFailureHandler(
   state: DocumentStoreState,
   generation?: DocumentStoreSyncGeneration,
 ) {
+  return documentSyncFailureHandler({
+    describeFailure: describeDocumentSyncSubmitFailure,
+    generation,
+    state,
+  });
+}
+
+/**
+ * The generation recheck runs INSIDE the serialized mutation (like the
+ * attachment failure path): a teardown (discard/reset) that wins the ordering
+ * deletes this document's rows first and invalidates the generation, so a
+ * stale handler can never resurrect a deleted or orphan failure row
+ * afterwards.
+ */
+function documentSyncFailureHandler(input: {
+  describeFailure: (failure: {
+    readonly message: string;
+    readonly status: number | null;
+  }) => string;
+  generation: DocumentStoreSyncGeneration | undefined;
+  state: DocumentStoreState;
+  suppressForbidden?: boolean;
+}) {
+  const { generation, state } = input;
   return async (failure: {
     readonly message: string;
     readonly status: number | null;
   }) => {
-    // The generation recheck runs INSIDE the serialized mutation (like the
-    // revalidation handler): a teardown that wins the ordering deletes this
-    // document's rows first and invalidates the generation, so a stale
-    // handler can never resurrect a deleted failure row afterwards.
+    if (input.suppressForbidden && failure.status === 403) {
+      return;
+    }
+
     await runSerializedSqlMutation(
       generation?.execSql ?? state.runtime.infra.execSql,
       async (lockedExecSql) => {
@@ -102,7 +98,7 @@ export function documentTerminalSubmitFailureHandler(
           { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
           {
             attemptedAt: new Date().toISOString(),
-            message: describeDocumentSyncSubmitFailure(failure),
+            message: input.describeFailure(failure),
             status: failure.status,
           },
         );
@@ -260,15 +256,13 @@ export async function ensureRemoteDocument(
       preserveSnapshotStructuredFields: true,
       preserveSnapshotText: true,
     };
-    const persisted = generation
-      ? await persistDocument(
-          state,
-          currentDoc,
-          persistPatch,
-          persistOptions,
-          generation,
-        )
-      : await persistDocument(state, currentDoc, persistPatch, persistOptions);
+    const persisted = await persistDocument(
+      state,
+      currentDoc,
+      persistPatch,
+      persistOptions,
+      generation,
+    );
     return persisted?.record ?? state.record ?? nextRecord;
   });
 }
