@@ -7,3 +7,11 @@ export interface DocumentAttributionInterval {
   writerKeyFingerprint: string;
   authorityKind: "direct" | "baseline";
 }
+
+/** One key per signing identity: NUL cannot appear in either field. */
+export function signingIdentityKey(identity: {
+  readonly writerUserId: string;
+  readonly writerKeyFingerprint: string;
+}): string {
+  return `${identity.writerUserId}\u0000${identity.writerKeyFingerprint}`;
+}

@@ -9,6 +9,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
+import { getLatestTimestamp } from "../../latestTimestamp";
 import type { ContainerDocumentTombstoneInput } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
 import {
@@ -16,21 +17,6 @@ import {
   documentSummarySelection,
   mapDocumentSummary,
 } from "./documentProjectionRows";
-
-function getLatestTimestamp(
-  left: string | undefined,
-  right: string | undefined,
-): string {
-  if (!left) {
-    return right ?? new Date().toISOString();
-  }
-
-  if (!right) {
-    return left;
-  }
-
-  return left.localeCompare(right) >= 0 ? left : right;
-}
 
 function dedupeContainerDocumentTombstones(
   tombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,

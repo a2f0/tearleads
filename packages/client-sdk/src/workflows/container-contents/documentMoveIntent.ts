@@ -1,5 +1,6 @@
 import type { DocumentSummary } from "../../data/documentSummary";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
+import { uniqueSortedStrings } from "../../data/documents/shared/readers";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { defaultDocumentsPersistence } from "../documents";
 import {
@@ -13,10 +14,6 @@ import type {
   DocumentStructuralMutationRuntime,
   SetLinkedContainerIdsForDocument,
 } from "./documentStructureTypes";
-
-function uniqueSortedStrings(values: ReadonlyArray<string>): string[] {
-  return Array.from(new Set(values)).sort();
-}
 
 async function resolveOptimisticDocumentMoveLinks(input: {
   currentContainerId: string | null;

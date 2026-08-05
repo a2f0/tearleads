@@ -248,7 +248,11 @@ export const subsystems: readonly Subsystem[] = [
     responsibility:
       "Client-side container CRUD/share workflow operations and the local container persistence shape.",
     seam: "workflows/containers",
-    paths: [`${sdk}/workflows/containers/`, `${sdk}/data/containers/`],
+    paths: [
+      `${sdk}/workflows/containers/`,
+      `${sdk}/data/containers/`,
+      `${sdk}/data/containerSystemSlotFormat.ts`,
+    ],
   },
   {
     name: "Client Blob Storage",
