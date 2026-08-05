@@ -11,6 +11,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   CreateOrganizationGroupRequest,
   ProvisionedDocumentRequest,
@@ -404,24 +405,58 @@ export async function buildOrganizationProvisioningArtifacts(
   };
 }
 
-async function buildInitialRosterProfileBootstrap(input: {
+interface ProvisionedChildContainerCore {
+  containerId: string;
+  containerMetadataDocument: Awaited<
+    ReturnType<typeof buildMaterializedDocumentCreatePlan>
+  >;
+  containerMetadataInitialUpdate: Uint8Array;
+  containerPlan: InitialSystemContainerCreatePlan;
+  containerProjection: ReturnType<
+    typeof childContainerWriterProjectionFromCreatePlan
+  >;
+  containerRequest: {
+    systemSlot: ContainerSystemSlot;
+    container: InitialSystemContainerCreatePlan["plan"]["request"];
+    initialMetadataSync: Awaited<
+      ReturnType<typeof buildInitialDocumentSyncRequest>
+    >;
+    metadataDocument: Awaited<
+      ReturnType<typeof buildMaterializedDocumentCreatePlan>
+    >["plan"]["request"];
+  };
+  knownContainerKeks: ReadonlyMap<string, Uint8Array>;
+  systemSlot: ContainerSystemSlot;
+}
+
+/**
+ * The shared spine of every provisioned system child container: mint the
+ * container and its metadata document under root, project the writer view,
+ * and assemble the create request. Callers differ only in slot derivation,
+ * display metadata, authorizing policies, an optional managed read grant, and
+ * what they attach afterwards (roster/org profile documents).
+ */
+async function buildProvisionedChildContainerCore(input: {
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
-  encapsulationPublicKey: Uint8Array;
-  initialAdminGroup: CreateOrganizationGroupRequest;
-  rosterProfileNickname?: string | undefined;
+  icon: string | null;
+  managedPrincipalGrant?: Parameters<
+    typeof buildContainerCreatePlan
+  >[0]["managedPrincipalGrant"];
+  name: string;
+  principalPolicies: Parameters<
+    typeof buildContainerCreatePlan
+  >[0]["principalPolicies"];
   rootContainer: InitialRootContainerCreatePlan;
   rootContainerProjection: InitialRootContainerProjection;
+  systemSlot: ContainerSystemSlot;
   targetSecretKey: Uint8Array;
-}): Promise<InitialRosterProfileBootstrap> {
+}): Promise<ProvisionedChildContainerCore> {
   const containerId = crypto.randomUUID();
-  const systemSlot = await deriveOrganizationRosterProfileContainerSystemSlot({
-    organizationId: input.author.organizationId,
-  });
   const { initialUpdate } = await createInitializedContainerMetadataDocument(
     containerId,
     {
-      icon: null,
-      name: ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+      icon: input.icon,
+      name: input.name,
     },
   );
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
@@ -431,14 +466,13 @@ async function buildInitialRosterProfileBootstrap(input: {
       author: input.author,
       containerId,
       containerKey,
+      ...(input.managedPrincipalGrant
+        ? { managedPrincipalGrant: input.managedPrincipalGrant }
+        : {}),
       metadataDocumentId: containerId,
       parentKekMaterial: input.rootContainer.containerKey,
       parentProjection: input.rootContainerProjection,
-      principalPolicies: [
-        await verifiedPrincipalPolicyFromInitialGroupRequest(
-          input.initialAdminGroup,
-        ),
-      ],
+      principalPolicies: input.principalPolicies,
     }),
   };
   const containerProjection = childContainerWriterProjectionFromCreatePlan({
@@ -462,29 +496,66 @@ async function buildInitialRosterProfileBootstrap(input: {
     initialUpdate,
     materializedDocument: containerMetadataDocument,
   });
-  const { profile, rosterProfileDocument } = await buildInitialRosterProfile({
-    author: input.author,
-    containerProjection,
-    encapsulationPublicKey: input.encapsulationPublicKey,
-    knownContainerKeks,
-    rosterProfileNickname: input.rosterProfileNickname,
-    targetSecretKey: input.targetSecretKey,
-  });
   return {
     containerId,
     containerMetadataDocument,
     containerMetadataInitialUpdate: initialUpdate,
     containerPlan,
+    containerProjection,
     containerRequest: {
-      systemSlot,
+      systemSlot: input.systemSlot,
       container: containerPlan.plan.request,
       initialMetadataSync,
       metadataDocument: containerMetadataDocument.plan.request,
     },
+    knownContainerKeks,
+    systemSlot: input.systemSlot,
+  };
+}
+
+async function buildInitialRosterProfileBootstrap(input: {
+  author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
+  encapsulationPublicKey: Uint8Array;
+  initialAdminGroup: CreateOrganizationGroupRequest;
+  rosterProfileNickname?: string | undefined;
+  rootContainer: InitialRootContainerCreatePlan;
+  rootContainerProjection: InitialRootContainerProjection;
+  targetSecretKey: Uint8Array;
+}): Promise<InitialRosterProfileBootstrap> {
+  const core = await buildProvisionedChildContainerCore({
+    author: input.author,
+    icon: null,
+    name: ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+    principalPolicies: [
+      await verifiedPrincipalPolicyFromInitialGroupRequest(
+        input.initialAdminGroup,
+      ),
+    ],
+    rootContainer: input.rootContainer,
+    rootContainerProjection: input.rootContainerProjection,
+    systemSlot: await deriveOrganizationRosterProfileContainerSystemSlot({
+      organizationId: input.author.organizationId,
+    }),
+    targetSecretKey: input.targetSecretKey,
+  });
+  const { profile, rosterProfileDocument } = await buildInitialRosterProfile({
+    author: input.author,
+    containerProjection: core.containerProjection,
+    encapsulationPublicKey: input.encapsulationPublicKey,
+    knownContainerKeks: core.knownContainerKeks,
+    rosterProfileNickname: input.rosterProfileNickname,
+    targetSecretKey: input.targetSecretKey,
+  });
+  return {
+    containerId: core.containerId,
+    containerMetadataDocument: core.containerMetadataDocument,
+    containerMetadataInitialUpdate: core.containerMetadataInitialUpdate,
+    containerPlan: core.containerPlan,
+    containerRequest: core.containerRequest,
     profileDocument: rosterProfileDocument,
     profileDocumentInitialUpdate: profile.initialUpdate,
     profileDocumentRequest: profile.request,
-    systemSlot,
+    systemSlot: core.systemSlot,
   };
 }
 
@@ -521,70 +592,32 @@ async function buildInitialSystemContainerBootstrap(input: {
   spec: ProvisionedSystemContainerSpec;
   targetSecretKey: Uint8Array;
 }): Promise<InitialSystemContainerBootstrap> {
-  const containerId = crypto.randomUUID();
-  const systemSlot = await deriveContainerSystemSlot({
-    definition: input.spec.slotDefinition,
-    secretKey: input.signingPrivateKey,
-  });
-  const { initialUpdate } = await createInitializedContainerMetadataDocument(
-    containerId,
-    {
-      icon: input.spec.icon,
-      name: input.spec.name,
-    },
-  );
-  const containerKey = crypto.getRandomValues(new Uint8Array(32));
-  const containerPlan: InitialSystemContainerCreatePlan = {
-    containerKey,
-    plan: await buildContainerCreatePlan({
-      author: input.author,
-      containerId,
-      containerKey,
-      metadataDocumentId: containerId,
-      parentKekMaterial: input.rootContainer.containerKey,
-      parentProjection: input.rootContainerProjection,
-      principalPolicies: [
-        await verifiedPrincipalPolicyFromInitialGroupRequest(
-          input.initialAdminGroup,
-        ),
-      ],
-    }),
-  };
-  const containerProjection = childContainerWriterProjectionFromCreatePlan({
-    materializedPlan: containerPlan,
-    parentProjection: input.rootContainerProjection,
-  });
-  const knownContainerKeks = new Map([
-    [containerPlan.plan.containerKeyEpochId, containerPlan.containerKey],
-  ]);
-  const containerMetadataDocument = await buildMaterializedDocumentCreatePlan({
+  const core = await buildProvisionedChildContainerCore({
     author: input.author,
-    containerProjection,
-    documentId: containerPlan.plan.metadataDocumentId,
-    knownContainerKeks,
-    targetSecretKey: input.targetSecretKey,
-    trustedLocalProjection: true,
-  });
-  const initialMetadataSync = await buildInitialDocumentSyncRequest({
-    author: input.author,
-    containerProjection,
-    initialUpdate,
-    materializedDocument: containerMetadataDocument,
-  });
-  return {
-    containerId,
-    containerMetadataDocument,
-    containerMetadataInitialUpdate: initialUpdate,
-    containerPlan,
-    containerRequest: {
-      systemSlot,
-      container: containerPlan.plan.request,
-      initialMetadataSync,
-      metadataDocument: containerMetadataDocument.plan.request,
-    },
     icon: input.spec.icon,
     name: input.spec.name,
-    systemSlot,
+    principalPolicies: [
+      await verifiedPrincipalPolicyFromInitialGroupRequest(
+        input.initialAdminGroup,
+      ),
+    ],
+    rootContainer: input.rootContainer,
+    rootContainerProjection: input.rootContainerProjection,
+    systemSlot: await deriveContainerSystemSlot({
+      definition: input.spec.slotDefinition,
+      secretKey: input.signingPrivateKey,
+    }),
+    targetSecretKey: input.targetSecretKey,
+  });
+  return {
+    containerId: core.containerId,
+    containerMetadataDocument: core.containerMetadataDocument,
+    containerMetadataInitialUpdate: core.containerMetadataInitialUpdate,
+    containerPlan: core.containerPlan,
+    containerRequest: core.containerRequest,
+    icon: input.spec.icon,
+    name: input.spec.name,
+    systemSlot: core.systemSlot,
   };
 }
 
@@ -648,88 +681,49 @@ async function buildInitialOrganizationProfile(input: {
 async function buildInitialOrganizationMetadataBootstrap(
   input: InitialOrganizationMetadataBootstrapInput,
 ): Promise<InitialOrganizationMetadataBootstrap> {
-  const containerId = crypto.randomUUID();
-  const systemSlot = await deriveOrganizationMetadataContainerSystemSlot({
-    organizationId: input.author.organizationId,
-  });
-  const { initialUpdate } = await createInitializedContainerMetadataDocument(
-    containerId,
-    {
-      icon: null,
-      name: ORGANIZATION_METADATA_CONTAINER_NAME,
-    },
-  );
-  const containerKey = crypto.getRandomValues(new Uint8Array(32));
-  const containerPlan: InitialSystemContainerCreatePlan = {
-    containerKey,
-    plan: await buildContainerCreatePlan({
-      author: input.author,
-      containerId,
-      containerKey,
-      managedPrincipalGrant: {
-        accessLevel: "read",
-        principalEncapsulationPublicKey:
-          input.initialMemberGroup.initialGroupPolicy.state
-            .encapsulationPublicKey,
-        principalHead: await referencedPrincipalHeadFromInitialGroupRequest(
-          input.initialMemberGroup,
-        ),
-      },
-      metadataDocumentId: containerId,
-      parentKekMaterial: input.rootContainer.containerKey,
-      parentProjection: input.rootContainerProjection,
-      // Admins justify the parent write; Members justify the read grant.
-      principalPolicies: await Promise.all([
-        verifiedPrincipalPolicyFromInitialGroupRequest(input.initialAdminGroup),
-        verifiedPrincipalPolicyFromInitialGroupRequest(
-          input.initialMemberGroup,
-        ),
-      ]),
-    }),
-  };
-  const containerProjection = childContainerWriterProjectionFromCreatePlan({
-    materializedPlan: containerPlan,
-    parentProjection: input.rootContainerProjection,
-  });
-  const knownContainerKeks = new Map([
-    [containerPlan.plan.containerKeyEpochId, containerPlan.containerKey],
-  ]);
-  const containerMetadataDocument = await buildMaterializedDocumentCreatePlan({
+  const core = await buildProvisionedChildContainerCore({
     author: input.author,
-    containerProjection,
-    documentId: containerPlan.plan.metadataDocumentId,
-    knownContainerKeks,
+    icon: null,
+    managedPrincipalGrant: {
+      accessLevel: "read",
+      principalEncapsulationPublicKey:
+        input.initialMemberGroup.initialGroupPolicy.state
+          .encapsulationPublicKey,
+      principalHead: await referencedPrincipalHeadFromInitialGroupRequest(
+        input.initialMemberGroup,
+      ),
+    },
+    name: ORGANIZATION_METADATA_CONTAINER_NAME,
+    // Admins justify the parent write; Members justify the read grant.
+    principalPolicies: await Promise.all([
+      verifiedPrincipalPolicyFromInitialGroupRequest(input.initialAdminGroup),
+      verifiedPrincipalPolicyFromInitialGroupRequest(input.initialMemberGroup),
+    ]),
+    rootContainer: input.rootContainer,
+    rootContainerProjection: input.rootContainerProjection,
+    systemSlot: await deriveOrganizationMetadataContainerSystemSlot({
+      organizationId: input.author.organizationId,
+    }),
     targetSecretKey: input.targetSecretKey,
-    trustedLocalProjection: true,
   });
   const { organizationProfileDocument, profile } =
     await buildInitialOrganizationProfile({
       author: input.author,
-      containerProjection,
-      knownContainerKeks,
+      containerProjection: core.containerProjection,
+      knownContainerKeks: core.knownContainerKeks,
       organizationProfileName: input.organizationProfileName,
       targetSecretKey: input.targetSecretKey,
     });
   return {
-    containerId,
-    containerMetadataDocument,
-    containerMetadataInitialUpdate: initialUpdate,
-    containerPlan,
-    containerRequest: {
-      systemSlot,
-      container: containerPlan.plan.request,
-      initialMetadataSync: await buildInitialDocumentSyncRequest({
-        author: input.author,
-        containerProjection,
-        initialUpdate,
-        materializedDocument: containerMetadataDocument,
-      }),
-      metadataDocument: containerMetadataDocument.plan.request,
-    },
+    containerId: core.containerId,
+    containerMetadataDocument: core.containerMetadataDocument,
+    containerMetadataInitialUpdate: core.containerMetadataInitialUpdate,
+    containerPlan: core.containerPlan,
+    containerRequest: core.containerRequest,
     organizationProfileDocument,
     organizationProfileDocumentRequest: profile.request,
     organizationProfileSnapshot: profile.snapshot,
-    systemSlot,
+    systemSlot: core.systemSlot,
   };
 }
 
