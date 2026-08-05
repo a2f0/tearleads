@@ -1,3 +1,4 @@
+import { errorMessage } from "../../data/errorMessage";
 import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
   type DocumentMoveIntentRecord,
@@ -323,7 +324,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     return "moved";
   } catch (error: unknown) {
     rethrowKeyingVerificationError(error);
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     await recordPendingDocumentMoveIntentError({
       documentId: intent.documentId,
       message: `Failed to sync document move: ${message}`,

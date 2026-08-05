@@ -6,6 +6,7 @@ import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
+import { errorMessage } from "../../data/errorMessage";
 import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
@@ -387,8 +388,7 @@ export async function cacheReferencedPrincipalPolicies({
           );
         } catch (error) {
           rethrowKeyingVerificationError(error);
-          const message =
-            error instanceof Error ? error.message : String(error);
+          const message = errorMessage(error);
           log?.(
             `Principal policy cache: failed to store ${getReferencedPrincipalKey(reference)}: ${message}`,
           );
@@ -397,7 +397,7 @@ export async function cacheReferencedPrincipalPolicies({
     );
   } catch (error) {
     rethrowKeyingVerificationError(error);
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     log?.(`Principal policy cache: failed to initialize cache: ${message}`);
   }
 }
@@ -441,8 +441,7 @@ export async function cachePrincipalPolicyBundles({
           });
         } catch (error) {
           rethrowKeyingVerificationError(error);
-          const message =
-            error instanceof Error ? error.message : String(error);
+          const message = errorMessage(error);
           log?.(
             `Principal policy cache: failed to store ${getBundlePrincipalKey(bundle)}: ${message}`,
           );
@@ -451,7 +450,7 @@ export async function cachePrincipalPolicyBundles({
     );
   } catch (error) {
     rethrowKeyingVerificationError(error);
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     log?.(`Principal policy cache: failed to initialize cache: ${message}`);
   }
 }

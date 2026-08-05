@@ -5,6 +5,7 @@ import {
   type SigningKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
+import { errorMessage } from "../data/errorMessage";
 import {
   createIdentityKeyPackage,
   type IdentityKeyPackage,
@@ -255,7 +256,7 @@ class IdentityService implements Identity {
         userId: this.runtimeHooks.getUserId?.() ?? null,
       };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       this.log(`Root container bootstrap failed: ${message}`);
       throw error;
     }

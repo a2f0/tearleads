@@ -1,3 +1,4 @@
+import { errorMessage } from "../../data/errorMessage";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
@@ -120,9 +121,7 @@ export function refreshLocalContainerStates(input: {
     .catch((error: unknown) => {
       state.localContainersNeedRefresh = true;
       state.runtime.util.log(
-        `Failed to refresh local container states: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Failed to refresh local container states: ${errorMessage(error)}`,
       );
     })
     .finally(() => {

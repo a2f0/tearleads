@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/crypto";
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import { errorMessage } from "../../errorMessage";
 import {
   type PrincipalPolicyCache,
   verifyDocumentWriterProjection,
@@ -16,7 +17,6 @@ import {
 } from "./projectionTargets";
 import {
   assertDocumentManifestBundleConsistent,
-  errorMessage,
   normalizeDocumentKekTargetResponse,
   sortDocumentTargets,
   targetEnvelopeReference,

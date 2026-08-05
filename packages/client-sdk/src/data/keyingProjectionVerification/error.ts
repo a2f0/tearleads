@@ -1,4 +1,5 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { errorMessage } from "../errorMessage";
 
 /**
  * Preserve identity and projection verification failures across workflow
@@ -29,6 +30,6 @@ export function throwKeyingVerificationErrorWithContext(
       `${context}: ${error.message}`,
     );
   }
-  const message = error instanceof Error ? error.message : String(error);
+  const message = errorMessage(error);
   throw new Error(`${context}: ${message}`);
 }
