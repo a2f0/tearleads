@@ -70,11 +70,20 @@ function stripeFractionDigits(currencyCode: string): number {
   return STRIPE_ZERO_DECIMAL_CURRENCIES.has(currencyCode) ? 0 : 2;
 }
 
+function isoFractionDigits(currencyCode: string): number {
+  return (
+    new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currencyCode,
+    }).resolvedOptions().maximumFractionDigits ?? 2
+  );
+}
+
 function formatKnownCurrency(
   minorAmount: number,
   currencyCode: string,
+  fractionDigits: number,
 ): string {
-  const fractionDigits = stripeFractionDigits(currencyCode);
   const formatter = new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: currencyCode,
@@ -99,21 +108,34 @@ export function formatBillingAmount(
   if (!isKnownCurrency(currencyCode)) {
     return `${minorAmount} ${currencyCode} minor units`;
   }
-  return formatKnownCurrency(minorAmount, currencyCode);
+  return formatKnownCurrency(
+    minorAmount,
+    currencyCode,
+    stripeFractionDigits(currencyCode),
+  );
 }
 
 /** Formats the exact paid total reported by the provider. */
 export function formatTotalAmount(
   totalAmount: number | null,
   currency: string | null,
+  provider: "internal" | "revenuecat" | "stripe",
 ): string {
   if (!isValidMinorAmount(totalAmount)) {
     return "";
   }
-  if (normalizeCurrency(currency) === null) {
+  const currencyCode = normalizeCurrency(currency);
+  if (currencyCode === null) {
     return `${totalAmount} minor units (currency unavailable)`;
   }
-  return formatBillingAmount(totalAmount, currency);
+  if (!isKnownCurrency(currencyCode)) {
+    return `${totalAmount} ${currencyCode} minor units`;
+  }
+  const fractionDigits =
+    provider === "revenuecat"
+      ? isoFractionDigits(currencyCode)
+      : stripeFractionDigits(currencyCode);
+  return formatKnownCurrency(totalAmount, currencyCode, fractionDigits);
 }
 
 /** Formats a recurring fixed-tier price reported in Stripe API minor units. */

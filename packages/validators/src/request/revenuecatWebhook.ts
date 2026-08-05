@@ -53,6 +53,11 @@ export interface RevenueCatSubscriberAttribute {
  *   must read it to keep a tester's free purchase from provisioning real
  *   billing. Optional because RevenueCat has not always sent it and a missing
  *   value must not fail the request; the server treats absent as production.
+ * - `currency` / `price_in_purchased_currency`: The store transaction's ISO
+ *   currency and decimal amount as reported by RevenueCat. They are optional
+ *   because RevenueCat documents financial fields as nullable on some events.
+ * - `period_type`: Whether the transaction is a trial, intro, normal,
+ *   promotional, or prepaid period.
  * - `metadata`: Developer-defined metadata RevenueCat attaches to Web Billing
  *   transactions. The client stamps `orgId` here too; unlike the customer-level
  *   subscriber attribute this is immutable per purchase, so it is the preferred
@@ -72,6 +77,9 @@ export interface RevenueCatWebhookEvent {
   entitlement_ids?: string[];
   store?: string | null;
   environment?: string | null;
+  currency?: string | null;
+  price_in_purchased_currency?: number | null;
+  period_type?: string | null;
   subscriber_attributes?: Record<string, RevenueCatSubscriberAttribute>;
   metadata?: Record<string, string | number | boolean | null> | null;
 }
@@ -179,6 +187,18 @@ function isAbsentOrNullableString(
   );
 }
 
+function isAbsentOrNullableFiniteNumber(
+  value: Record<string, unknown>,
+  key: string,
+): boolean {
+  const candidate = value[key];
+  return (
+    candidate === undefined ||
+    candidate === null ||
+    (typeof candidate === "number" && Number.isFinite(candidate))
+  );
+}
+
 function isAbsentOrSubscriberAttributeMap(
   value: Record<string, unknown>,
   key: string,
@@ -231,6 +251,9 @@ function isRevenueCatWebhookEvent(
     isAbsentOrStringArray(value, "entitlement_ids") &&
     isAbsentOrNullableString(value, "store") &&
     isAbsentOrNullableString(value, "environment") &&
+    isAbsentOrNullableString(value, "currency") &&
+    isAbsentOrNullableFiniteNumber(value, "price_in_purchased_currency") &&
+    isAbsentOrNullableString(value, "period_type") &&
     isAbsentOrSubscriberAttributeMap(value, "subscriber_attributes") &&
     isAbsentOrNullableMetadataMap(value, "metadata")
   );

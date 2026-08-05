@@ -8,6 +8,7 @@ const ENTRY = {
   id: "event-1",
   category: "lifecycle",
   provider: "revenuecat",
+  environment: null,
   eventType: "INITIAL_PURCHASE",
   outcome: "applied",
   occurredAt: "2026-07-01T00:00:00.000Z",
@@ -25,6 +26,7 @@ const ENTRY = {
   interval: null,
   intervalCount: null,
   totalAmount: null,
+  totalCurrency: null,
   periodStartsAt: "2026-07-01T00:00:00.000Z",
   periodEndsAt: "2026-08-01T00:00:00.000Z",
 };
@@ -130,6 +132,7 @@ test("isOrganizationBillingHistoryEntry accepts lifecycle, seat, and invoice met
       interval: "month",
       intervalCount: 3,
       totalAmount: 4_800,
+      totalCurrency: "usd",
     }),
   ).toBe(true);
 });
@@ -151,6 +154,20 @@ test("isOrganizationBillingHistoryEntry requires nullable snapshot fields", () =
   ).toBe(false);
   expect(
     isOrganizationBillingHistoryEntry({ ...ENTRY, billingReason: 1 }),
+  ).toBe(false);
+  const { totalCurrency: _totalCurrency, ...withoutTotalCurrency } = ENTRY;
+  expect(isOrganizationBillingHistoryEntry(withoutTotalCurrency)).toBe(false);
+});
+
+test("isOrganizationBillingHistoryEntry validates billing environments", () => {
+  expect(
+    isOrganizationBillingHistoryEntry({ ...ENTRY, environment: "sandbox" }),
+  ).toBe(true);
+  expect(
+    isOrganizationBillingHistoryEntry({ ...ENTRY, environment: "production" }),
+  ).toBe(true);
+  expect(
+    isOrganizationBillingHistoryEntry({ ...ENTRY, environment: "test" }),
   ).toBe(false);
 });
 

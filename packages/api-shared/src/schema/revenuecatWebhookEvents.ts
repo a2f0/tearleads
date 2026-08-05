@@ -1,4 +1,12 @@
-import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "./columns";
+import {
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "./columns";
 
 /**
  * Processed RevenueCat webhook events, keyed by the provider event id.
@@ -21,6 +29,11 @@ import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "./columns";
  * - `store`: Uppercase RevenueCat store that originated the event. This
  *   distinguishes device-store purchases from promotional and Stripe audit
  *   events.
+ * - `environment`: Uppercase RevenueCat billing environment. Sandbox events
+ *   are retained for audit but never represented as real paid totals.
+ * - `currency` / `priceInPurchasedCurrencyMinor`: The provider-reported store
+ *   transaction price, normalized to the ISO currency's minor unit.
+ * - `periodType`: RevenueCat's uppercase transaction period classification.
  * - `transactionId` / `originalTransactionId`: Provider transaction ids used to
  *   correlate the applied billing row back to RevenueCat/store history.
  * - `organizationId`: Organization the event was applied to, resolved from the
@@ -44,6 +57,10 @@ export const revenuecatWebhookEvents = pgTable(
     appUserId: text("app_user_id").notNull(),
     productId: text("product_id"),
     store: text("store"),
+    environment: text("environment"),
+    currency: text("currency"),
+    priceInPurchasedCurrencyMinor: integer("price_in_purchased_currency_minor"),
+    periodType: text("period_type"),
     transactionId: text("transaction_id"),
     originalTransactionId: text("original_transaction_id"),
     organizationId: uuid("organization_id"),

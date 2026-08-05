@@ -109,6 +109,29 @@ test("accepts the environment field as string, null, or absent", () => {
   expect(isRevenueCatWebhookRequest(webhook({ environment: 1 }))).toBe(false);
 });
 
+test("accepts nullable RevenueCat purchased-currency financial fields", () => {
+  expect(
+    isRevenueCatWebhookRequest(
+      webhook({
+        currency: "USD",
+        period_type: "NORMAL",
+        price_in_purchased_currency: 19.99,
+      }),
+    ),
+  ).toBe(true);
+  expect(
+    isRevenueCatWebhookRequest(
+      webhook({ currency: null, price_in_purchased_currency: null }),
+    ),
+  ).toBe(true);
+  expect(
+    isRevenueCatWebhookRequest(
+      webhook({ price_in_purchased_currency: Number.NaN }),
+    ),
+  ).toBe(false);
+  expect(isRevenueCatWebhookRequest(webhook({ period_type: 1 }))).toBe(false);
+});
+
 test("accepts RevenueCat transfer events without an app user id", () => {
   const transfer = {
     api_version: "1.0",

@@ -17,6 +17,7 @@ function entry(
     id: "history-entry",
     category: "lifecycle",
     provider: "revenuecat",
+    environment: null,
     eventType: "INITIAL_PURCHASE",
     outcome: "applied",
     occurredAt: "2026-07-01T12:00:00.000Z",
@@ -34,6 +35,7 @@ function entry(
     interval: null,
     intervalCount: null,
     totalAmount: null,
+    totalCurrency: null,
     periodStartsAt: null,
     periodEndsAt: null,
     ...overrides,
@@ -162,6 +164,7 @@ test("activity reports licensed seats, rate, and the exact provider-paid total",
           // The provider's prorated total is authoritative. 3 x $4.99 would
           // be $14.97, so the UI must not derive or replace this value.
           totalAmount: 842,
+          totalCurrency: "usd",
           periodStartsAt: "2026-07-20T12:00:00.000Z",
           periodEndsAt: "2026-08-01T12:00:00.000Z",
         }),
@@ -295,7 +298,7 @@ test("a native lifecycle event shows its fixed tier capacity and price", () => {
 
   expect(view.getByText("10 licensed seats")).toBeDefined();
   expect(view.getByText("USD list price: $20.00/month")).toBeDefined();
-  expect(view.getByText("Paid total unavailable")).toBeDefined();
+  expect(view.queryByText("Paid total unavailable")).toBeNull();
 });
 
 test("activity preserves a provider-reported zero paid total", () => {
@@ -309,6 +312,7 @@ test("activity preserves a provider-reported zero paid total", () => {
           eventType: "INVOICE_PAID",
           currency: "usd",
           totalAmount: 0,
+          totalCurrency: "usd",
         }),
       ]}
       error={null}
@@ -338,6 +342,7 @@ test("events expose provider details and raw billing identifiers", () => {
           interval: "month",
           intervalCount: 1,
           totalAmount: 842,
+          totalCurrency: "usd",
         }),
       ]}
       error={null}
@@ -378,7 +383,7 @@ test("invoice activity names unavailable financial facts", () => {
     />,
   );
 
-  expect(view.getByText("Paid total unavailable")).toBeDefined();
+  expect(view.queryByText("Paid total unavailable")).toBeNull();
   expect(view.getByText("Licensed seat count unavailable")).toBeDefined();
   expect(view.getByText("Plan price unavailable")).toBeDefined();
 });
@@ -395,6 +400,7 @@ test("a proration-only invoice keeps its exact total without inventing seat fact
           billingReason: "subscription_update",
           currency: "usd",
           totalAmount: 317,
+          totalCurrency: "usd",
         }),
       ]}
       error={null}

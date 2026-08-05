@@ -9,6 +9,7 @@ import {
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
+import { resolveRevenueCatFinancialAuditFields } from "../../billing/revenuecatFinancials";
 import {
   BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,
   BOUND_REVENUECAT_TIER_REQUIRED_REASON,
@@ -238,6 +239,7 @@ async function claimRevenueCatEvent(input: {
   readonly ignoredReason: string | null;
   readonly organizationId: string | null;
 }): Promise<boolean> {
+  const financials = resolveRevenueCatFinancialAuditFields(input.event);
   const [claimed] = await input.executor
     .insert(revenuecatWebhookEvents)
     .values({
@@ -246,6 +248,7 @@ async function claimRevenueCatEvent(input: {
       appUserId: input.event.app_user_id,
       productId: resolveRevenueCatRecordedProductId(input.event),
       store: input.event.store?.toUpperCase() ?? null,
+      ...financials,
       transactionId: input.event.transaction_id ?? null,
       originalTransactionId: input.event.original_transaction_id ?? null,
       organizationId: input.organizationId,

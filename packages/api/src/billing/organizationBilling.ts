@@ -125,6 +125,7 @@ export interface OrganizationBillingHistoryEvent {
   readonly id: string;
   readonly category: "lifecycle" | "seat" | "invoice";
   readonly provider: "revenuecat" | "stripe" | "internal";
+  readonly environment: "sandbox" | "production" | null;
   readonly eventType: string;
   readonly outcome: string;
   readonly eventTimestamp: Date;
@@ -142,6 +143,7 @@ export interface OrganizationBillingHistoryEvent {
   readonly interval: string | null;
   readonly intervalCount: number | null;
   readonly totalAmount: number | null;
+  readonly totalCurrency: string | null;
   readonly periodStartsAt: Date | null;
   readonly periodEndsAt: Date | null;
 }
@@ -156,6 +158,7 @@ export function serializeOrganizationBillingHistory(
       id: event.id,
       category: event.category,
       provider: event.provider,
+      environment: event.environment,
       eventType: event.eventType,
       // Audit writers only record `applied`/`ignored`; anything else is
       // surfaced as `ignored` rather than making the history unreadable.
@@ -175,6 +178,7 @@ export function serializeOrganizationBillingHistory(
       interval: event.interval,
       intervalCount: event.intervalCount,
       totalAmount: event.totalAmount,
+      totalCurrency: event.totalCurrency,
       periodStartsAt: event.periodStartsAt?.toISOString() ?? null,
       periodEndsAt: event.periodEndsAt?.toISOString() ?? null,
     })),

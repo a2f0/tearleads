@@ -18,13 +18,17 @@ export const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface WebhookEventInput {
   appUserId: string;
+  currency?: string | null;
   entitlementIds?: string[];
   eventId?: string;
   eventTimestampMs?: number;
+  environment?: string | null;
   expirationAtMs?: number | null;
   originalTransactionId?: string | null;
   organizationId: string;
   productId?: string | null;
+  periodType?: string | null;
+  priceInPurchasedCurrency?: number | null;
   purchasedAtMs?: number | null;
   store?: string;
   transactionId?: string | null;
@@ -77,8 +81,10 @@ export function revenuecatWebhookBody(input: WebhookEventInput): string {
     api_version: "1.0",
     event: {
       app_user_id: input.appUserId,
+      currency: input.currency,
       entitlement_ids: input.entitlementIds ?? ["sync"],
       event_timestamp_ms: input.eventTimestampMs ?? Date.now(),
+      environment: input.environment,
       expiration_at_ms:
         input.expirationAtMs === undefined
           ? Date.now() + THIRTY_DAYS_MS
@@ -86,6 +92,8 @@ export function revenuecatWebhookBody(input: WebhookEventInput): string {
       id: input.eventId ?? crypto.randomUUID(),
       original_transaction_id: input.originalTransactionId,
       product_id: input.productId ?? "sync_monthly",
+      period_type: input.periodType,
+      price_in_purchased_currency: input.priceInPurchasedCurrency,
       purchased_at_ms: input.purchasedAtMs,
       store: input.store,
       subscriber_attributes: { orgId: { value: input.organizationId } },
