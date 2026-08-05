@@ -1,5 +1,5 @@
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname, extname, join } from "node:path";
+import { dirname, join } from "node:path";
 
 async function listOutputFiles(dirPath: string): Promise<string[]> {
   const entries = await readdir(dirPath, { withFileTypes: true });
@@ -34,7 +34,11 @@ async function resolveRelativeModuleSpecifier(
   filePath: string,
   specifier: string,
 ): Promise<string> {
-  if (!specifier.startsWith(".") || extname(specifier)) {
+  // Only an explicit .js suffix marks a specifier as already resolved. An
+  // extname() check would also skip dotted basenames like
+  // "./service.testFixtures" (extname returns ".testFixtures"), leaving an
+  // extensionless — and therefore unresolvable — ESM import in dist.
+  if (!specifier.startsWith(".") || specifier.endsWith(".js")) {
     return specifier;
   }
 
@@ -75,7 +79,9 @@ async function rewriteStaticSpecifiers(filePath: string): Promise<void> {
   }
 }
 
-const distPath = join(import.meta.dir, "..", "dist");
+// An explicit argument retargets the rewrite so tests can run it against a
+// fixture directory; the build always runs it against dist.
+const distPath = process.argv[2] ?? join(import.meta.dir, "..", "dist");
 const outputFiles = await listOutputFiles(distPath);
 
 await Promise.all(outputFiles.map(rewriteStaticSpecifiers));

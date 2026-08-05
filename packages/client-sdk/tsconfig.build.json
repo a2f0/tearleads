@@ -10,5 +10,12 @@
     "tsBuildInfoFile": "tsconfig.build.tsbuildinfo"
   },
   "include": ["src"],
-  "exclude": ["dist", "src/**/*.test.ts", "src/**/*.test.tsx", "test"]
+  "exclude": [
+    "dist",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.testFixtures.ts",
+    "src/**/*.testUtils.ts",
+    "test"
+  ]
 }
