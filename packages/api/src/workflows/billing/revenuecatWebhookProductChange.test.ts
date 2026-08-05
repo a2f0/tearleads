@@ -470,6 +470,6 @@ test("a promotional product-less renewal reuses its bound product", async () => 
   ).toMatchObject({ organizationId, status: "applied" });
   expect(await readTier(organizationId)).toEqual({
     providerProductId: "promotional:sync_team_5_monthly",
-    seatCount: 1,
+    seatCount: 5,
   });
 });

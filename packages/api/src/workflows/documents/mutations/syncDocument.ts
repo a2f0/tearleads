@@ -16,7 +16,7 @@ import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentK
 import { readCurrentCommitLsn } from "../../../documents/commitLsn";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { selectServedSyncUpdateEntries } from "../../../documents/documentSyncBaselineRedirect";
-import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { assertOrganizationCanSync as assertCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import { DocumentMutationError, toMutationError } from "./errors";
@@ -220,7 +220,7 @@ async function syncDocumentTransaction(input: {
     input.enforceSyncEligibility &&
     (hasOutgoingUpdates || hasContainerRekeys)
   ) {
-    await assertOrganizationCanSync(input.tx, currentTargets.organizationId);
+    await assertCanSync(input.tx, currentTargets.organizationId, input.userId);
   }
   const writeAuthorization = await verifySyncWriteAuthorizationProof({
     currentTargets,

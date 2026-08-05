@@ -61,6 +61,9 @@ function organizationDataUsageResponse() {
 function organizationBillingResponse(): OrganizationBillingResponse {
   return {
     activeMemberCount: 1,
+    assignedSeatCount: 1,
+    assignedUserIds: ["user-1"],
+    currentUserHasSyncSeat: true,
     currentPeriodEndsAt: null,
     currentPeriodStartsAt: null,
     disabledAt: null,

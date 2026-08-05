@@ -164,7 +164,6 @@ export async function syncOrganizationRosterFromMemberReachability(input: {
   readonly organizationId: string;
 }): Promise<{
   readonly changedUserIds: string[];
-  readonly previousActiveSeatCount: number;
 }> {
   const reachableUserIds = await listUsersReachableFromCurrentGroup({
     executor: input.executor,
@@ -204,10 +203,7 @@ export async function syncOrganizationRosterFromMemberReachability(input: {
     input.organizationId,
     changedUserIds,
   );
-  return {
-    changedUserIds,
-    previousActiveSeatCount: previousActiveEntries.length,
-  };
+  return { changedUserIds };
 }
 
 export async function isOrganizationProfileDocument(input: {

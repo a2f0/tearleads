@@ -9,7 +9,7 @@ import {
   organizationBillingStripeSeats,
   organizations,
 } from "@tearleads/api-shared/schema";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import {
   organizationCanSync,
   organizationSeatPeriodKey,
@@ -45,8 +45,15 @@ interface BillingSeatState {
 }
 
 interface OpenSeatAssignment {
+  readonly assignedAt: Date;
   readonly id: string;
   readonly userId: string;
+}
+
+interface OrganizationBillingSeatUsage {
+  readonly assignedSeatCount: number;
+  readonly assignedUserIds: readonly string[];
+  readonly currentUserHasSyncSeat: boolean;
 }
 
 function buildSeatEvent(input: {
@@ -132,6 +139,7 @@ async function listOpenSeatAssignments(input: {
 }): Promise<OpenSeatAssignment[]> {
   return input.executor
     .select({
+      assignedAt: organizationBillingSeatAssignments.assignedAt,
       id: organizationBillingSeatAssignments.id,
       userId: organizationBillingSeatAssignments.userId,
     })
@@ -144,7 +152,29 @@ async function listOpenSeatAssignments(input: {
         ),
         isNull(organizationBillingSeatAssignments.releasedAt),
       ),
+    )
+    .orderBy(
+      asc(organizationBillingSeatAssignments.assignedAt),
+      asc(organizationBillingSeatAssignments.userId),
     );
+}
+
+export async function loadOrganizationBillingSeatUsage(input: {
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+  readonly sessionUserId: string;
+}): Promise<OrganizationBillingSeatUsage> {
+  const assignedUserIds = (
+    await listOpenSeatAssignments({
+      executor: input.executor,
+      organizationId: input.organizationId,
+    })
+  ).map((assignment) => assignment.userId);
+  return {
+    assignedSeatCount: assignedUserIds.length,
+    assignedUserIds,
+    currentUserHasSyncSeat: assignedUserIds.includes(input.sessionUserId),
+  };
 }
 
 async function insertSeatEvents(
@@ -285,20 +315,27 @@ async function rotateOpenAssignmentsToBillingPeriod(input: {
   readonly openAssignments: readonly OpenSeatAssignment[];
   readonly source: BillingSeatSource;
   readonly periodChanged: boolean;
-  readonly requiredSeatCount: number;
 }): Promise<{
   readonly currentAssignments: readonly OpenSeatAssignment[];
-  readonly licensedSeatCount: number;
+  readonly preferredUserIds: readonly string[];
 }> {
   if (!input.periodChanged) {
     return {
       currentAssignments: input.openAssignments,
-      licensedSeatCount: input.billing.seatCount,
+      preferredUserIds: [...input.activeUserIds].sort(),
     };
   }
 
+  const activeUserIdSet = new Set(input.activeUserIds);
+  const previouslyAssignedActiveUserIds = input.openAssignments
+    .filter((assignment) => activeUserIdSet.has(assignment.userId))
+    .map((assignment) => assignment.userId);
+  const previouslyAssignedActiveUserIdSet = new Set(
+    previouslyAssignedActiveUserIds,
+  );
+
   await releaseAssignments({
-    activeSeatCount: 0,
+    activeSeatCount: input.activeUserIds.length,
     assignments: input.openAssignments,
     billing: input.billing,
     events: input.events,
@@ -308,19 +345,15 @@ async function rotateOpenAssignmentsToBillingPeriod(input: {
     source: input.source,
   });
 
-  const licensedSeatCount = input.requiredSeatCount;
-  await updateLicensedSeatCount({
-    activeSeatCount: input.activeUserIds.length,
-    billing: input.billing,
-    eventType: "licensed_seat_count_reset",
-    events: input.events,
-    executor: input.executor,
-    nextSeatCount: licensedSeatCount,
-    now: input.now,
-    source: input.source,
-  });
-
-  return { currentAssignments: [], licensedSeatCount };
+  return {
+    currentAssignments: [],
+    preferredUserIds: [
+      ...previouslyAssignedActiveUserIds,
+      ...input.activeUserIds
+        .filter((userId) => !previouslyAssignedActiveUserIdSet.has(userId))
+        .sort(),
+    ],
+  };
 }
 
 async function reconcileSeatAssignments(input: {
@@ -331,16 +364,24 @@ async function reconcileSeatAssignments(input: {
   readonly executor: DatabaseSession;
   readonly licensedSeatCount: number;
   readonly now: Date;
+  readonly preferredUserIds: readonly string[];
   readonly source: BillingSeatSource;
 }): Promise<void> {
   const activeUserIdSet = new Set(input.activeUserIds);
-  const currentUserIds = new Set(
-    input.currentAssignments.map((assignment) => assignment.userId),
+  const activeAssignments = input.currentAssignments.filter((assignment) =>
+    activeUserIdSet.has(assignment.userId),
+  );
+  const retainedAssignments = activeAssignments.slice(
+    0,
+    input.licensedSeatCount,
+  );
+  const retainedUserIds = new Set(
+    retainedAssignments.map((assignment) => assignment.userId),
   );
   await releaseAssignments({
     activeSeatCount: input.activeUserIds.length,
     assignments: input.currentAssignments.filter(
-      (assignment) => !activeUserIdSet.has(assignment.userId),
+      (assignment) => !retainedUserIds.has(assignment.userId),
     ),
     billing: input.billing,
     events: input.events,
@@ -350,6 +391,10 @@ async function reconcileSeatAssignments(input: {
     source: input.source,
   });
 
+  const availableSeatCount = Math.max(
+    0,
+    input.licensedSeatCount - retainedAssignments.length,
+  );
   await assignSeats({
     activeSeatCount: input.activeUserIds.length,
     billing: input.billing,
@@ -358,58 +403,19 @@ async function reconcileSeatAssignments(input: {
     licensedSeatCount: input.licensedSeatCount,
     now: input.now,
     source: input.source,
-    userIds: input.activeUserIds.filter(
-      (userId) => !currentUserIds.has(userId),
-    ),
+    userIds: input.preferredUserIds
+      .filter(
+        (userId) => activeUserIdSet.has(userId) && !retainedUserIds.has(userId),
+      )
+      .slice(0, availableSeatCount),
   });
 }
 
-async function reconcileLicensedCapacity(input: {
-  readonly activeUserIds: readonly string[];
-  readonly billing: BillingSeatState;
-  readonly events: SeatEventInsert[];
-  readonly executor: DatabaseSession;
-  readonly licensedSeatCount: number;
-  readonly now: Date;
-  readonly openAssignments: readonly OpenSeatAssignment[];
-  readonly requiredSeatCount: number;
-  readonly source: BillingSeatSource;
-}): Promise<void> {
-  const shouldInitialize =
-    input.billing.seatCount === 0 &&
-    input.openAssignments.length === 0 &&
-    input.requiredSeatCount > 0;
-  const eventType = shouldInitialize
-    ? "licensed_seat_count_initialized"
-    : "licensed_seat_count_increased";
-  if (!shouldInitialize && input.requiredSeatCount <= input.licensedSeatCount) {
-    return;
-  }
-
-  await updateLicensedSeatCount({
-    activeSeatCount: input.activeUserIds.length,
-    billing: input.billing,
-    eventType,
-    events: input.events,
-    executor: input.executor,
-    nextSeatCount: input.requiredSeatCount,
-    now: input.now,
-    source: input.source,
-  });
-}
-
-/**
- * Reconciles organization seat accounting against the current effective Members
- * group. Seats can be transferred within the billing period: removing a member
- * releases their assignment, and adding a replacement consumes the released
- * capacity before increasing the licensed seat count.
- */
+/** Reconciles stable assignments against roster membership and licensed capacity. */
 export async function reconcileOrganizationBillingSeats(input: {
   readonly executor: DatabaseSession;
   readonly now?: Date;
   readonly organizationId: string;
-  /** Active roster size immediately before the mutation being reconciled. */
-  readonly previousActiveSeatCount?: number;
   readonly source: BillingSeatSource;
 }): Promise<void> {
   const now = input.now ?? new Date();
@@ -425,21 +431,26 @@ export async function reconcileOrganizationBillingSeats(input: {
     executor: input.executor,
     groupId: billing.memberGroupId,
   });
-  // Validate fixed native capacity before changing assignments. Stripe-funded
-  // organizations upgrade through the durable provider outbox below; native
-  // organizations must first complete a store product change.
-  const requiredSeatCount = requiredLicensedSeatCount(
-    billing,
-    activeUserIds.length,
-    input.previousActiveSeatCount,
-  );
+  const requiredSeatCount = requiredLicensedSeatCount(billing);
   const openAssignments = await listOpenSeatAssignments({
     executor: input.executor,
     organizationId: input.organizationId,
   });
   const nextSeatPeriodKey = organizationSeatPeriodKey(billing);
   const events: SeatEventInsert[] = [];
-  const { currentAssignments, licensedSeatCount } =
+  if (requiredSeatCount !== billing.seatCount) {
+    await updateLicensedSeatCount({
+      activeSeatCount: activeUserIds.length,
+      billing,
+      eventType: "licensed_seat_count_initialized",
+      events,
+      executor: input.executor,
+      nextSeatCount: requiredSeatCount,
+      now,
+      source: input.source,
+    });
+  }
+  const { currentAssignments, preferredUserIds } =
     await rotateOpenAssignmentsToBillingPeriod({
       activeUserIds,
       billing,
@@ -452,7 +463,6 @@ export async function reconcileOrganizationBillingSeats(input: {
       periodChanged:
         billing.seatPeriodKey !== null &&
         billing.seatPeriodKey !== nextSeatPeriodKey,
-      requiredSeatCount,
       source: input.source,
     });
 
@@ -462,19 +472,9 @@ export async function reconcileOrganizationBillingSeats(input: {
     currentAssignments,
     events,
     executor: input.executor,
-    licensedSeatCount,
+    licensedSeatCount: requiredSeatCount,
     now,
-    source: input.source,
-  });
-  await reconcileLicensedCapacity({
-    activeUserIds,
-    billing,
-    events,
-    executor: input.executor,
-    licensedSeatCount,
-    now,
-    openAssignments,
-    requiredSeatCount,
+    preferredUserIds,
     source: input.source,
   });
 
@@ -483,10 +483,9 @@ export async function reconcileOrganizationBillingSeats(input: {
     .set({ seatPeriodKey: nextSeatPeriodKey, updatedAt: now })
     .where(eq(organizationBilling.organizationId, input.organizationId));
   await reconcileOrganizationStripeSeatState({
-    activeSeatCount: activeUserIds.length,
     executor: input.executor,
     hasStripeSubscription: billing.hasStripeSubscription,
-    licensedSeatCount,
+    licensedSeatCount: requiredSeatCount,
     now,
     organizationId: input.organizationId,
     providerProductId: billing.providerProductId,

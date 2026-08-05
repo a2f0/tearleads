@@ -19,6 +19,7 @@ import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import {
   getOrgManagerBillingStatusLabel,
   getOrgManagerPeriodEndsLabel,
+  getOrgManagerSeatsInUseLabel,
   getOrgManagerSeatsLabel,
   getOrgManagerTrialDaysLabel,
   getOrgManagerTrialEndsLabel,
@@ -144,15 +145,46 @@ function resolveBillingPeriodLabel(
   return null;
 }
 
-function BillingSummary({ view }: { view: OrganizationBillingView }) {
+function resolveBillingSyncLabel(view: OrganizationBillingView): string {
+  if (view.canSync) return ORG_MANAGER_LABELS.billingSyncOn;
+  if (view.syncSeatUnavailable) {
+    return ORG_MANAGER_LABELS.billingSyncSeatUnavailable;
+  }
+  return ORG_MANAGER_LABELS.billingSyncOff;
+}
+
+function BillingSeatSummary({ view }: { view: OrganizationBillingView }) {
   // `seatCount` is licensed capacity, not the number of members currently
   // occupying those seats. The free trial grants the largest fixed tier.
-  const seatsLabel =
-    (view.isActive || view.isTrialing) && view.seatCount > 0
-      ? getOrgManagerSeatsLabel(view.seatCount)
-      : null;
+  const showsSeats = (view.isActive || view.isTrialing) && view.seatCount > 0;
   const periodLabel = resolveBillingPeriodLabel(view);
+  if (!showsSeats && !periodLabel) return null;
 
+  return (
+    <MiniAppRow density="roomy">
+      <MiniAppRowStack>
+        {showsSeats ? (
+          <>
+            <MiniAppRowText>
+              {getOrgManagerSeatsInUseLabel(
+                view.assignedSeatCount,
+                view.seatCount,
+              )}
+            </MiniAppRowText>
+            <MiniAppRowText muted>
+              {getOrgManagerSeatsLabel(view.seatCount)}
+            </MiniAppRowText>
+          </>
+        ) : null}
+        {periodLabel ? (
+          <MiniAppRowText muted>{periodLabel}</MiniAppRowText>
+        ) : null}
+      </MiniAppRowStack>
+    </MiniAppRow>
+  );
+}
+
+function BillingSummary({ view }: { view: OrganizationBillingView }) {
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
@@ -161,11 +193,7 @@ function BillingSummary({ view }: { view: OrganizationBillingView }) {
       <MiniAppRow density="roomy">
         <MiniAppRowStack>
           <strong>{getOrgManagerBillingStatusLabel(view.status)}</strong>
-          <MiniAppRowText muted>
-            {view.canSync
-              ? ORG_MANAGER_LABELS.billingSyncOn
-              : ORG_MANAGER_LABELS.billingSyncOff}
-          </MiniAppRowText>
+          <MiniAppRowText muted>{resolveBillingSyncLabel(view)}</MiniAppRowText>
         </MiniAppRowStack>
         {view.isTrialing && view.trialDaysRemaining !== null ? (
           <strong>
@@ -173,16 +201,7 @@ function BillingSummary({ view }: { view: OrganizationBillingView }) {
           </strong>
         ) : null}
       </MiniAppRow>
-      {seatsLabel || periodLabel ? (
-        <MiniAppRow density="roomy">
-          <MiniAppRowStack>
-            {seatsLabel ? <MiniAppRowText>{seatsLabel}</MiniAppRowText> : null}
-            {periodLabel ? (
-              <MiniAppRowText muted>{periodLabel}</MiniAppRowText>
-            ) : null}
-          </MiniAppRowStack>
-        </MiniAppRow>
-      ) : null}
+      <BillingSeatSummary view={view} />
     </MiniAppSection>
   );
 }

@@ -94,19 +94,27 @@ export function organizationCanSync(
 
 export function serializeOrganizationBilling(
   billing: OrganizationBilling,
-  activeMemberCount: number,
-  pendingSeatCount: number | null,
+  usage: {
+    readonly activeMemberCount: number;
+    readonly assignedSeatCount: number;
+    readonly assignedUserIds: readonly string[];
+    readonly currentUserHasSyncSeat: boolean;
+    readonly pendingSeatCount: number | null;
+  },
 ): OrganizationBillingResponse {
   return {
     organizationId: billing.organizationId,
-    activeMemberCount,
+    activeMemberCount: usage.activeMemberCount,
+    assignedSeatCount: usage.assignedSeatCount,
+    assignedUserIds: [...usage.assignedUserIds],
+    currentUserHasSyncSeat: usage.currentUserHasSyncSeat,
     status: billing.status,
     trialEndsAt: billing.trialEndsAt?.toISOString() ?? null,
     provider: billing.provider,
     currentPeriodStartsAt: billing.currentPeriodStartsAt?.toISOString() ?? null,
     currentPeriodEndsAt: billing.currentPeriodEndsAt?.toISOString() ?? null,
     seatCount: billing.seatCount,
-    pendingSeatCount,
+    pendingSeatCount: usage.pendingSeatCount,
     disabledAt: billing.disabledAt?.toISOString() ?? null,
     purgeAfter: billing.purgeAfter?.toISOString() ?? null,
   };

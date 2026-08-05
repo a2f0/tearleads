@@ -17,6 +17,9 @@ export function billingFixture(
   return {
     billing: {
       activeMemberCount: 1,
+      assignedSeatCount: canSync ? 1 : 0,
+      assignedUserIds: canSync ? ["user-1"] : [],
+      currentUserHasSyncSeat: canSync,
       currentPeriodEndsAt: isActive ? "2030-02-01T00:00:00.000Z" : null,
       currentPeriodStartsAt: isActive ? "2030-01-01T00:00:00.000Z" : null,
       disabledAt: null,
@@ -30,6 +33,8 @@ export function billingFixture(
     },
     view: {
       canSync,
+      assignedSeatCount: canSync ? 1 : 0,
+      currentUserHasSyncSeat: canSync,
       currentPeriodEndsAtMs: isActive ? Date.UTC(2030, 1, 1) : null,
       currentPeriodStartsAtMs: isActive ? Date.UTC(2030, 0, 1) : null,
       isActive,
@@ -38,6 +43,7 @@ export function billingFixture(
       needsAttention: false,
       pendingSeatCount: null,
       seatCount,
+      syncSeatUnavailable: false,
       status,
       trialDaysRemaining: isTrialing ? 7 : null,
       trialEndsAtMs: isTrialing ? Date.UTC(2030, 0, 8) : null,

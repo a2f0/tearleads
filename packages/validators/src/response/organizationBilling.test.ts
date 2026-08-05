@@ -7,6 +7,9 @@ import {
 const BILLING_RESPONSE = {
   organizationId: "org-1",
   activeMemberCount: 2,
+  assignedSeatCount: 2,
+  assignedUserIds: ["user-1", "user-2"],
+  currentUserHasSyncSeat: true,
   status: "active",
   trialEndsAt: null,
   provider: "revenuecat",
@@ -53,6 +56,27 @@ test("isOrganizationBillingResponse requires an active member count", () => {
   const { activeMemberCount: _activeMemberCount, ...missing } =
     BILLING_RESPONSE;
   expect(isOrganizationBillingResponse(missing)).toBe(false);
+});
+
+test("isOrganizationBillingResponse validates assigned seat usage", () => {
+  expect(
+    isOrganizationBillingResponse({
+      ...BILLING_RESPONSE,
+      assignedSeatCount: 1,
+    }),
+  ).toBe(false);
+  expect(
+    isOrganizationBillingResponse({
+      ...BILLING_RESPONSE,
+      assignedUserIds: ["user-1", 2],
+    }),
+  ).toBe(false);
+  expect(
+    isOrganizationBillingResponse({
+      ...BILLING_RESPONSE,
+      currentUserHasSyncSeat: null,
+    }),
+  ).toBe(false);
 });
 
 test("isPaymentRequiredErrorResponse accepts a 402 body with error and org id", () => {

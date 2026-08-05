@@ -25,6 +25,9 @@ function billing(
   return {
     organizationId: "org-1",
     activeMemberCount: 1,
+    assignedSeatCount: 1,
+    assignedUserIds: ["user-1"],
+    currentUserHasSyncSeat: true,
     status: "trialing",
     trialEndsAt: new Date(Date.now() + 3 * DAY_MS).toISOString(),
     provider: null,

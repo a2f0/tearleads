@@ -58,7 +58,6 @@ interface RosterSyncResult {
   readonly changedRosterUserIds: string[];
   readonly memberGroupId: string;
   readonly organizationId: string;
-  readonly previousActiveSeatCount: number;
 }
 
 function policyTargetChanged(): PrincipalPolicyError {
@@ -141,7 +140,7 @@ async function syncRosterForStoredPrincipalState(input: {
     return null;
   }
 
-  const { changedUserIds: changedRosterUserIds, previousActiveSeatCount } =
+  const { changedUserIds: changedRosterUserIds } =
     await syncOrganizationRosterFromMemberReachability({
       disabledByUserId: input.request.state.signerUserId,
       executor: input.tx,
@@ -169,7 +168,6 @@ async function syncRosterForStoredPrincipalState(input: {
   return {
     ...rosterSyncTarget,
     changedRosterUserIds,
-    previousActiveSeatCount,
   };
 }
 
@@ -389,7 +387,6 @@ async function applyPrincipalPolicyTransitionEffects(input: {
     await reconcileOrganizationBillingSeats({
       executor: input.tx,
       organizationId: rosterSyncTarget.organizationId,
-      previousActiveSeatCount: rosterSyncTarget.previousActiveSeatCount,
       source: {
         sourceId: input.nextState.stateHash,
         sourcePrincipalId: input.policy.expectedPrincipalId,
@@ -460,6 +457,7 @@ export async function runPutPrincipalPolicyWorkflow(
         tx,
         input.state.principalType,
         input.state.principalId,
+        input.requesterUserId,
       );
       const isExactReplay = previousState?.stateHash === nextState.stateHash;
       if (isExactReplay) {

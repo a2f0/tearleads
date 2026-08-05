@@ -43,6 +43,7 @@ export function DirectoryView({
   selectUser,
   setSelectedProfileDisplayName = () => undefined,
   setImportUserIdDraft = () => undefined,
+  syncSeatUserIds = null,
 }: {
   canImportRosterUser?: boolean | undefined;
   canUpdateSelectedRosterEntry?: boolean | undefined;
@@ -71,6 +72,7 @@ export function DirectoryView({
     | ((displayName: string | null) => void)
     | undefined;
   setImportUserIdDraft?: ((userId: string) => void) | undefined;
+  syncSeatUserIds?: ReadonlySet<string> | null | undefined;
 }) {
   const importUserDialog = (
     <ImportRosterUserDialog
@@ -105,6 +107,7 @@ export function DirectoryView({
           profileDisplayNamesByUserId={profileDisplayNamesByUserId}
           selectedUserId={selectedUserId}
           selectUser={selectUser}
+          syncSeatUserIds={syncSeatUserIds}
         />
         {importUserDialog}
       </>
@@ -133,6 +136,11 @@ export function DirectoryView({
               : null
           }
           selectedUserId={selectedUserId}
+          syncSeatAssigned={
+            detail?.user.status === "active" && syncSeatUserIds !== null
+              ? syncSeatUserIds.has(detail.user.userId)
+              : null
+          }
         />
       </section>
       {importUserDialog}

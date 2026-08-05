@@ -15,7 +15,6 @@ import {
 } from "../../components/window/WindowMenuContext";
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
-import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { BillingPanel } from "./billing/BillingPanel";
 import { DataUsageView } from "./billing/DataUsageView";
@@ -26,6 +25,7 @@ import { RosterProfileEditor } from "./directory/RosterProfileEditor";
 import { GrantsView } from "./grants/GrantsView";
 import { RevokeGrantConfirmationDialog } from "./grants/RevokeGrantConfirmationDialog";
 import { GroupsView } from "./groups/GroupsView";
+import { useOrgManagerBillingRosterState } from "./hooks/useOrgManagerBillingRosterState";
 import {
   type OrgManagerModel,
   useOrgManagerModel,
@@ -64,10 +64,12 @@ function OrgManagerDirectoryContent({
   model,
   renderProfileEditor,
   revokeGrant,
+  syncSeatUserIds,
 }: {
   model: OrgManagerModel;
   renderProfileEditor: ReturnType<typeof renderRosterProfileEditor>;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
+  syncSeatUserIds: ReadonlySet<string> | null;
 }) {
   return (
     <DirectoryView
@@ -100,6 +102,7 @@ function OrgManagerDirectoryContent({
       selectUser={model.selectUser}
       setSelectedProfileDisplayName={model.setSelectedProfileDisplayName}
       setImportUserIdDraft={model.setImportUserIdDraft}
+      syncSeatUserIds={syncSeatUserIds}
     />
   );
 }
@@ -113,9 +116,8 @@ function OrgManagerContent({
   organizationId: string;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
-  const billing = useOrganizationBilling();
-  const billingMatchesOrganization =
-    billing.billing?.organizationId === organizationId;
+  const { billing, billingMatchesOrganization, syncSeatUserIds } =
+    useOrgManagerBillingRosterState(model, organizationId);
   const renderProfileEditor = useMemo(
     () => renderRosterProfileEditor(organizationId),
     [organizationId],
@@ -127,6 +129,7 @@ function OrgManagerContent({
         model={model}
         renderProfileEditor={renderProfileEditor}
         revokeGrant={revokeGrant}
+        syncSeatUserIds={syncSeatUserIds}
       />
     );
   }

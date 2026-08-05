@@ -3,7 +3,7 @@ import { containers } from "@tearleads/api-shared/schema";
 import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
 import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
-import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { createDocumentWithExecutor } from "../../documents/mutations/createDocument";
 import { DocumentMutationError } from "../../documents/mutations/errors";
 import { createContainer } from "./createContainer";
@@ -138,7 +138,11 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
           })
         : container;
 
-      await assertOrganizationCanSync(tx, nextContainer.organizationId);
+      await assertOrganizationCanSync(
+        tx,
+        nextContainer.organizationId,
+        input.userId,
+      );
 
       return { container: nextContainer, metadataDocument };
     });

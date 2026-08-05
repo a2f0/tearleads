@@ -155,7 +155,7 @@ async function bindBlobAttachmentTransaction(
     executor: tx,
     request: input.request,
   });
-  await assertAttachmentOrganizationCanSync(tx, proof);
+  await assertAttachmentOrganizationCanSync(tx, proof, input.userId);
   await lockBindAuthorizingContainersForShare(proof, tx);
   const activeBinding = await requireSingleActiveAttachmentBindingForSlot({
     documentId: bindBody.documentId,

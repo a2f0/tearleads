@@ -32,6 +32,7 @@ function props(overrides: Partial<BillingViewProps> = {}): BillingViewProps {
     restoreAvailable: true,
     view: {
       canSync: true,
+      assignedSeatCount: 1,
       currentPeriodEndsAtMs: null,
       currentPeriodStartsAtMs: null,
       isActive: true,
@@ -40,6 +41,8 @@ function props(overrides: Partial<BillingViewProps> = {}): BillingViewProps {
       needsAttention: false,
       pendingSeatCount: null,
       seatCount: 1,
+      currentUserHasSyncSeat: true,
+      syncSeatUnavailable: false,
       status: "active",
       trialDaysRemaining: null,
       trialEndsAtMs: null,

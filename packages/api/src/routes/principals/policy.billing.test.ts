@@ -2,11 +2,12 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
+  organizationBillingSeatAssignments,
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -20,7 +21,7 @@ import {
 } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 
-test("a native tier capacity conflict is returned as a policy 409", async () => {
+test("a native tier accepts an over-capacity member without assigning a sync seat", async () => {
   const admin = createTestUser();
   const member = createTestUser();
   await registerUser(admin);
@@ -93,11 +94,7 @@ test("a native tier capacity conflict is returned as a policy 409", async () => 
     },
   );
 
-  expect(response.status).toBe(409);
-  expect(await response.json()).toEqual({
-    code: "billing_native_tier_upgrade_required",
-    error: "Upgrade the subscription before adding more than 1 member",
-  });
+  expect(response.status).toBe(200);
   const [rosterEntry] = await db
     .select({ userId: organizationRosterEntries.userId })
     .from(organizationRosterEntries)
@@ -107,5 +104,17 @@ test("a native tier capacity conflict is returned as a policy 409", async () => 
         eq(organizationRosterEntries.userId, member.userId),
       ),
     );
-  expect(rosterEntry).toBeUndefined();
+  expect(rosterEntry?.userId).toBe(member.userId);
+  const assignments = await db
+    .select({ userId: organizationBillingSeatAssignments.userId })
+    .from(organizationBillingSeatAssignments)
+    .where(
+      and(
+        eq(organizationBillingSeatAssignments.organizationId, organizationId),
+        isNull(organizationBillingSeatAssignments.releasedAt),
+      ),
+    );
+  expect(assignments.map((assignment) => assignment.userId)).toEqual([
+    admin.userId,
+  ]);
 });

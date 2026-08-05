@@ -11,6 +11,7 @@ import {
   addEffectiveOrganizationMember,
   registerAndAuthenticate,
 } from "../../../test/helpers/revenuecatWebhook";
+import { loadOrganizationBillingSeatUsage } from "./organizationSeats";
 import {
   type RevenueCatWebhookOutcome,
   runRevenueCatWebhookWorkflow,
@@ -388,7 +389,7 @@ test("a new unknown Stripe price retries with an operator alert", async () => {
   errorSpy.mockRestore();
 });
 
-test("an oversized Stripe grant renews without reconciling seats", async () => {
+test("an oversized Stripe grant renews while bounding assignments", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   for (let index = 0; index < 10; index += 1) {
@@ -450,8 +451,16 @@ test("an oversized Stripe grant renews without reconciling seats", async () => {
     .where(eq(revenuecatWebhookEvents.eventId, eventId));
   expect(claimed).toBeDefined();
   expect(await readBillingStatus(organizationId)).toBe("active");
-  expect(errorSpy).toHaveBeenCalledWith(
-    `RevenueCat paid grant ${eventId} requires attention: Stripe subscription cannot cover more than 10 active members`,
-  );
+  expect(
+    await loadOrganizationBillingSeatUsage({
+      executor: db,
+      organizationId,
+      sessionUserId: admin.userId,
+    }),
+  ).toMatchObject({
+    assignedSeatCount: 10,
+    currentUserHasSyncSeat: true,
+  });
+  expect(errorSpy).not.toHaveBeenCalled();
   errorSpy.mockRestore();
 });

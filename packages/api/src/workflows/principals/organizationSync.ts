@@ -2,7 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { groups } from "@tearleads/api-shared/schema";
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { assertOrganizationCanSync } from "../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 
 /**
  * Gates a principal-state sync write against the owning organization's billing.
@@ -14,9 +14,10 @@ export async function assertPrincipalOrganizationCanSync(
   executor: DatabaseSession,
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
+  userId: string,
 ): Promise<void> {
   if (principalType === "organization") {
-    await assertOrganizationCanSync(executor, principalId);
+    await assertOrganizationCanSync(executor, principalId, userId);
     return;
   }
 
@@ -26,6 +27,6 @@ export async function assertPrincipalOrganizationCanSync(
     .where(eq(groups.id, principalId))
     .limit(1);
   if (group?.organizationId) {
-    await assertOrganizationCanSync(executor, group.organizationId);
+    await assertOrganizationCanSync(executor, group.organizationId, userId);
   }
 }

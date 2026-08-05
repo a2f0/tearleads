@@ -21,7 +21,7 @@ import {
   resolveCommittedOrganizationReadModelChanges,
 } from "./services/organizations/readModelNotifications";
 import type { ApiServiceRuntime } from "./services/runtime";
-import { OrganizationSyncDisabledError } from "./workflows/billing/organizationBilling";
+import { OrganizationSyncDisabledError } from "./workflows/billing/organizationSyncEligibility";
 import { collectOrganizationReadModelChanges } from "./workflows/organizations/readModelChanges";
 
 interface RouteAppOptions {

@@ -1,5 +1,7 @@
 import { isPlainObject } from "../isPlainObject";
 import {
+  hasArrayProperty,
+  hasBooleanProperty,
   hasNullableNumberProperty,
   hasNullableStringProperty,
   hasNumberProperty,
@@ -24,11 +26,15 @@ export type OrganizationBillingProvider = "revenuecat";
  * trialing, `currentPeriodStartsAt`/`currentPeriodEndsAt` while a paid
  * subscription is active, and `seatCount` tracks licensed seats in that paid
  * period. `activeMemberCount` is the server-authoritative signed Members-group
- * count used to choose the smallest tier that can cover the organization.
+ * count used by the plan switcher; assigned seat fields expose the stable
+ * per-user subset that may sync within the licensed capacity.
  */
 export interface OrganizationBillingResponse {
   organizationId: string;
   activeMemberCount: number;
+  assignedSeatCount: number;
+  assignedUserIds: string[];
+  currentUserHasSyncSeat: boolean;
   status: OrganizationBillingStatus;
   trialEndsAt: string | null;
   provider: OrganizationBillingProvider | null;
@@ -73,6 +79,14 @@ export function isOrganizationBillingResponse(
     hasStringProperty(value, "organizationId") &&
     hasNumberProperty(value, "activeMemberCount") &&
     isSeatCount(value.activeMemberCount) &&
+    hasNumberProperty(value, "assignedSeatCount") &&
+    isSeatCount(value.assignedSeatCount) &&
+    hasArrayProperty(value, "assignedUserIds") &&
+    value.assignedUserIds.every(
+      (userId) => typeof userId === "string" && userId.length > 0,
+    ) &&
+    value.assignedSeatCount === value.assignedUserIds.length &&
+    hasBooleanProperty(value, "currentUserHasSyncSeat") &&
     hasStringProperty(value, "status") &&
     isOrganizationBillingStatus(value.status) &&
     hasNullableStringProperty(value, "trialEndsAt") &&
