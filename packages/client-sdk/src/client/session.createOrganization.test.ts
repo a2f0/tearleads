@@ -11,9 +11,13 @@ import { Database } from "./database";
 import { createIdentity, type Identity } from "./identity";
 import { createSession } from "./session";
 
-function createSqlClient(execSql: ExecSql): ExecSqlClientLike {
+function createSqlClient(
+  execSql: ExecSql,
+  onExec?: () => void,
+): ExecSqlClientLike {
   return {
     async exec({ bind, rowMode, sql }) {
+      onExec?.();
       return {
         rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
       };
@@ -32,6 +36,7 @@ function createHarness(input: {
   execSql: ExecSql;
   databaseId: string;
   onCreateOrganization?: () => Promise<void>;
+  onExec?: () => void;
 }) {
   const api = {
     createOrganization: async (
@@ -52,7 +57,7 @@ function createHarness(input: {
   const session = createSession({
     api,
     database: new Database({
-      client: createSqlClient(input.execSql),
+      client: createSqlClient(input.execSql, input.onExec),
       id: input.databaseId,
     }),
     identity,
@@ -90,25 +95,36 @@ test("createOrganization discards the result after the identity changes", async 
   const { close, execSql } = await createTestExecSql(
     "session-create-organization-race-test",
   );
+  let switched = false;
   let switchIdentity = async () => undefined;
+  let persistenceWritesAfterSwitch = 0;
   const { identity, session } = createHarness({
     databaseId: "create-organization-race-test-db",
     execSql,
     onCreateOrganization: () => switchIdentity(),
+    onExec: () => {
+      if (switched) {
+        persistenceWritesAfterSwitch += 1;
+      }
+    },
   });
 
   try {
     await setGeneratedIdentity(identity);
     session.setContext({ userId: crypto.randomUUID() });
-    // The identity is replaced while the provisioning request is in flight;
-    // the organization was created under keys that no longer describe the
-    // active identity, so the caller must not receive it. Mirrors the
-    // registerIdentity transition test.
+    // The identity is replaced while the provisioning request is in flight.
+    // The organization was created under keys that no longer describe the
+    // active identity, so the caller must not receive it — and the workflow
+    // must not run local persistence, whose captured database client an
+    // identity switch closes or renews. Mirrors the registerIdentity
+    // transition test.
     switchIdentity = async () => {
       await setGeneratedIdentity(identity);
+      switched = true;
     };
 
     await expect(session.createOrganization()).resolves.toBeNull();
+    expect(persistenceWritesAfterSwitch).toBe(0);
   } finally {
     close();
   }

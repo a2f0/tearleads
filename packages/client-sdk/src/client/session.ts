@@ -346,18 +346,10 @@ class SessionService implements Session {
     }
 
     const identitySnapshot = this.dependencies.identity.snapshot;
-    const signingKeyPair = identitySnapshot.signingKeyPair;
-    if (!signingKeyPair) {
+    const { encapsulationKeyPair, signingKeyPair } = identitySnapshot;
+    if (!signingKeyPair || !encapsulationKeyPair) {
       this.dependencies.log(
-        "Create organization skipped: signing key is unavailable",
-      );
-      return null;
-    }
-
-    const encapsulationKeyPair = identitySnapshot.encapsulationKeyPair;
-    if (!encapsulationKeyPair) {
-      this.dependencies.log(
-        "Create organization skipped: encapsulation key is unavailable",
+        "Create organization skipped: identity keys are unavailable",
       );
       return null;
     }
@@ -377,6 +369,8 @@ class SessionService implements Session {
         dbClient,
         documentProjectors: this.dependencies.documentProjectors,
         encapsulationKeyPair,
+        isIdentityCurrent: () =>
+          this.dependencies.identity.snapshot === identitySnapshot,
         log: this.dependencies.log,
         logError: this.dependencies.logError,
         organizationProfileName: options?.organizationProfileName,
