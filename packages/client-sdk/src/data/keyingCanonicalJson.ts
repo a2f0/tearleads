@@ -1,4 +1,5 @@
 import type { KeyingCanonicalJson } from "@tearleads/crypto";
+import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 
 interface CanonicalJsonFrame {
@@ -103,4 +104,16 @@ export function readCanonicalRecords(
   return values.map((value, index) =>
     readCanonicalRecord(value, `${label}[${index}]`),
   );
+}
+
+/**
+ * Canonicalize-then-serialize, the one string form every keying equality
+ * check compares. Both halves are shared already; composing them per-file
+ * invited the composition itself to drift.
+ */
+export function canonicalKeyingJsonString(
+  value: unknown,
+  label: string,
+): string {
+  return serializeKeyingCanonicalJson(readCanonicalJson(value, label));
 }

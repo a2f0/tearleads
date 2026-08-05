@@ -1,30 +1,19 @@
 import {
   KeyingVerificationError,
   normalizePrincipalProjectionMembers,
-  serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { readCanonicalJson } from "../keyingCanonicalJson";
-
-interface StoredPrincipalPolicyBundleJson {
-  readonly currentMemberEnvelopesJson: string;
-  readonly currentPayloadJson: string;
-  readonly currentProjectionJson: string;
-  readonly currentStateJson: string;
-  readonly previousStatesJson: string;
-}
+import { canonicalKeyingJsonString } from "../keyingCanonicalJson";
+import {
+  type StoredPrincipalPolicyBundleJson,
+  storedPrincipalPolicyBundleFromJson,
+} from "./storedPrincipalPolicyBundle";
 
 function parseBundle(
   row: StoredPrincipalPolicyBundleJson,
 ): PrincipalPolicyBundleResponse {
-  const bundle = {
-    currentMemberEnvelopes: JSON.parse(row.currentMemberEnvelopesJson),
-    currentPayload: JSON.parse(row.currentPayloadJson),
-    currentProjection: JSON.parse(row.currentProjectionJson),
-    currentState: JSON.parse(row.currentStateJson),
-    previousStates: JSON.parse(row.previousStatesJson),
-  };
+  const bundle = storedPrincipalPolicyBundleFromJson(row);
   if (!isPrincipalPolicyBundleResponse(bundle)) {
     throw new Error("Stored principal policy bundle is invalid");
   }
@@ -32,8 +21,9 @@ function parseBundle(
 }
 
 function canonical(value: unknown): string {
-  return serializeKeyingCanonicalJson(
-    readCanonicalJson(value, "principal policy bundle security content"),
+  return canonicalKeyingJsonString(
+    value,
+    "principal policy bundle security content",
   );
 }
 

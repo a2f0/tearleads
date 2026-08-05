@@ -3,7 +3,6 @@ import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   KeyingVerificationError,
-  serializeKeyingCanonicalJson,
   toFingerprint,
   type VerifiedContainerAccessManifest,
   type VerifiedContainerKekState,
@@ -19,7 +18,11 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { readCanonicalJson, readCanonicalRecord } from "./keyingCanonicalJson";
+import {
+  canonicalKeyingJsonString,
+  readCanonicalJson,
+  readCanonicalRecord,
+} from "./keyingCanonicalJson";
 import {
   commitProjectionCheckpoints,
   createProjectionCheckpointContext,
@@ -86,18 +89,14 @@ export function requireProjectionUserKeyResolver(
   };
 }
 
-function canonicalString(value: unknown, label: string): string {
-  return serializeKeyingCanonicalJson(readCanonicalJson(value, label));
-}
-
 function assertCanonicalEqual(input: {
   readonly actual: unknown;
   readonly expected: unknown;
   readonly label: string;
 }): void {
   if (
-    canonicalString(input.actual, `${input.label} actual`) !==
-    canonicalString(input.expected, `${input.label} expected`)
+    canonicalKeyingJsonString(input.actual, `${input.label} actual`) !==
+    canonicalKeyingJsonString(input.expected, `${input.label} expected`)
   ) {
     throw new Error(`${input.label} mismatch`);
   }
@@ -115,8 +114,8 @@ function addBundleByHash(
   }
 
   if (
-    canonicalString(existing, `${label} existing`) !==
-    canonicalString(bundle, `${label} duplicate`)
+    canonicalKeyingJsonString(existing, `${label} existing`) !==
+    canonicalKeyingJsonString(bundle, `${label} duplicate`)
   ) {
     throw new Error(
       `Writer projection has equivocal manifest bundle ${bundle.manifestHash}`,

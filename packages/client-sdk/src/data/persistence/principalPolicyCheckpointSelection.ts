@@ -3,12 +3,12 @@ import type {
   PrincipalPolicyCheckpoint,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import {
-  KeyingVerificationError,
-  verifyPrincipalPolicyCheckpoint,
-} from "@tearleads/crypto";
+import { verifyPrincipalPolicyCheckpoint } from "@tearleads/crypto";
 import type { ExecSql } from "../sqlite/sqlSchema";
-import { loadPrincipalPolicyCheckpoint } from "./keyingCheckpointPersistence";
+import {
+  assertPrincipalPolicyCheckpointShape,
+  loadPrincipalPolicyCheckpoint,
+} from "./keyingCheckpointPersistence";
 
 export function principalPolicyHeadMeetsCheckpoint(
   head: { readonly stateHash: string; readonly version: number },
@@ -29,25 +29,7 @@ export function verifiedPrincipalPolicyMeetsCheckpoint(
   if (!checkpoint) {
     return true;
   }
-  if (
-    checkpoint.principalType !== policy.principalType ||
-    checkpoint.principalId !== policy.principalId
-  ) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      "principal policy checkpoint belongs to another principal",
-    );
-  }
-  if (
-    !Number.isInteger(checkpoint.version) ||
-    checkpoint.version < 1 ||
-    checkpoint.stateHash.length === 0
-  ) {
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      "principal policy checkpoint is malformed",
-    );
-  }
+  assertPrincipalPolicyCheckpointShape(checkpoint, policy);
   if (policy.version < checkpoint.version) {
     return false;
   }

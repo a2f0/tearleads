@@ -23,6 +23,7 @@ import type { ExecSql } from "../sqlite/sqlSchema";
 import { assertSameHeadPrincipalPolicyBundle } from "./principalPolicyBundleIntegrity";
 import { ensurePrincipalPolicyTables } from "./principalPolicyPersistence";
 import { applyPrincipalPolicyReferenceCheckpoint } from "./principalPolicyReferenceCheckpoint";
+import { storedPrincipalPolicyBundleFromJson } from "./storedPrincipalPolicyBundle";
 
 interface SelectedPrincipalPolicyRow {
   readonly currentMemberEnvelopesJson: string;
@@ -114,13 +115,7 @@ function parseBoundBundle(
 ): PrincipalPolicyBundleResponse {
   let bundle: unknown;
   try {
-    bundle = {
-      currentMemberEnvelopes: JSON.parse(row.currentMemberEnvelopesJson),
-      currentPayload: JSON.parse(row.currentPayloadJson),
-      currentProjection: JSON.parse(row.currentProjectionJson),
-      currentState: JSON.parse(row.currentStateJson),
-      previousStates: JSON.parse(row.previousStatesJson),
-    };
+    bundle = storedPrincipalPolicyBundleFromJson(row);
   } catch {
     throw new KeyingVerificationError(
       "invalid_shape",

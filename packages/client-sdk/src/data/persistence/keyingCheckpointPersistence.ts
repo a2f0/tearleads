@@ -4,6 +4,7 @@ import type {
   ManagedPrincipalKind,
   PrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
 import {
   accessManifestCheckpoints,
@@ -177,4 +178,33 @@ export async function loadPrincipalPolicyCheckpoint(
   });
 
   return row ? { principalType, principalId, ...row } : null;
+}
+/**
+ * The shared shape/ownership guard every checkpoint comparison runs before
+ * trusting a durable pin: the pin must belong to the compared principal and
+ * carry a well-formed version and hash.
+ */
+export function assertPrincipalPolicyCheckpointShape(
+  checkpoint: PrincipalPolicyCheckpoint,
+  head: PrincipalPolicyCheckpointIdentity,
+): void {
+  if (
+    checkpoint.principalType !== head.principalType ||
+    checkpoint.principalId !== head.principalId
+  ) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "principal policy checkpoint belongs to another principal",
+    );
+  }
+  if (
+    !Number.isInteger(checkpoint.version) ||
+    checkpoint.version < 1 ||
+    checkpoint.stateHash.length === 0
+  ) {
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "principal policy checkpoint is malformed",
+    );
+  }
 }
