@@ -30,10 +30,7 @@ import {
   signContainerMutationEvent,
 } from "../../../data/containers/shared/events";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
-import {
-  principalPolicyRequestRecord,
-  uniquePrincipalPolicies,
-} from "../../../data/containers/shared/principalPolicies";
+import { uniquePrincipalPolicies } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
   getParentKekForTarget,
@@ -49,10 +46,7 @@ import type {
 } from "../../../data/containers/shared/types";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
-import {
-  readCanonicalRecord,
-  readCanonicalRecords,
-} from "../../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   type ProjectionUserKeyResolver,
@@ -61,6 +55,7 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { sealRotationKeyring } from "./moveRotation";
+import { containerMutationRequestCore } from "./mutationRequestCore";
 import {
   type ContainerRevokeSubject,
   deriveContainerRevokeManifest,
@@ -83,27 +78,16 @@ function buildContainerRevokeRequest(input: {
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
   return {
-    event: readCanonicalRecord(input.event, "Container revoke event"),
-    body: readCanonicalRecord(input.body, "Container revoke body"),
-    expectedManifestHash: input.manifestHash,
-    manifest: readCanonicalRecord(input.manifest, "Container revoke manifest"),
+    ...containerMutationRequestCore("revoke", input),
     previousManifest: input.previousManifest,
     previousContainerPath: input.previousProjection.path.map(
       asContainerManifestBundle,
     ),
-    principalPolicies: readCanonicalRecords(
-      input.principalPolicies.map((policy) =>
-        principalPolicyRequestRecord(policy),
-      ),
-      "Container revoke principal policies",
-    ),
-    keyEpoch: readCanonicalRecord(input.keyEpoch, "Container revoke key epoch"),
     predecessorBridge: readCanonicalRecord(
       input.predecessorBridge,
       "Container revoke predecessor bridge",
     ),
     keyring: readCanonicalRecord(input.keyring, "Container revoke keyring"),
-    wraps: readCanonicalRecords(input.wraps, "Container revoke wraps"),
     parentKekState:
       input.parentKek === null
         ? null
@@ -111,10 +95,6 @@ function buildContainerRevokeRequest(input: {
             input.parentKek,
             "Container revoke parent KEK state",
           ),
-    userRecipientKeys: readCanonicalRecords(
-      input.userRecipientKeys,
-      "Container revoke user recipient keys",
-    ),
   };
 }
 

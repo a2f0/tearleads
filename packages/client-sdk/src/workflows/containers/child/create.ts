@@ -23,7 +23,6 @@ import {
   signContainerCreateEvent,
 } from "../../../data/containers/shared/events";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
-import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
   getParentCreateContext,
@@ -62,6 +61,7 @@ import {
   repairContainerCreateFailure,
   submitRemoteContainerCreate,
 } from "./createSubmission";
+import { containerMutationRequestCore } from "./mutationRequestCore";
 
 function assertContainerCreatePlanInput(input: {
   containerKey: Uint8Array;
@@ -91,29 +91,20 @@ function buildContainerCreateRequest(input: {
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
   return {
-    event: readCanonicalRecord(input.event, "Container create event"),
-    body: readCanonicalRecord(input.body, "Container create body"),
-    expectedManifestHash: input.manifestHash,
-    manifest: readCanonicalRecord(input.manifest, "Container create manifest"),
+    ...containerMutationRequestCore("create", {
+      ...input,
+      userRecipientKeys: [],
+    }),
     previousManifest: null,
     parentContainerPath: input.parentProjection.path.map(
       asContainerManifestBundle,
     ),
-    principalPolicies: readCanonicalRecords(
-      input.principalPolicies.map((policy) =>
-        principalPolicyRequestRecord(policy),
-      ),
-      "Container create principal policies",
-    ),
-    keyEpoch: readCanonicalRecord(input.keyEpoch, "Container create key epoch"),
     predecessorBridge: null,
     keyring: null,
-    wraps: readCanonicalRecords(input.wraps, "Container create wraps"),
     parentKekState: readCanonicalRecord(
       input.parentKek,
       "Container create parent KEK state",
     ),
-    userRecipientKeys: [],
   };
 }
 
