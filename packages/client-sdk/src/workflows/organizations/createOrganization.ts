@@ -24,10 +24,11 @@ export interface CreateOrganizationInput {
   encapsulationKeyPair: EncapsulationKeyPair;
   /**
    * Returns false once the identity that supplied the key pairs is no longer
-   * active. Checked after the remote create and before local persistence:
-   * an identity switch closes or renews the captured database client, so
-   * persisting would write another identity's bootstrap — or throw — after
-   * the org already exists remotely. The caller discards the result.
+   * active. Checked before the remote create (so a stale request is never
+   * submitted) and again before local persistence: an identity switch closes
+   * or renews the captured database client, so persisting would write another
+   * identity's bootstrap — or throw — after the org already exists remotely.
+   * The caller discards the result.
    */
   isIdentityCurrent?: (() => boolean) | undefined;
   log?: ((message: string) => void) | undefined;
@@ -100,6 +101,13 @@ export async function createOrganization(
       (systemContainer) => systemContainer.containerRequest,
     ),
   };
+
+  if (input.isIdentityCurrent && !input.isIdentityCurrent()) {
+    input.log?.(
+      "Organization creation aborted: identity changed while building artifacts",
+    );
+    return null;
+  }
 
   const response = await input.apiClient.createOrganization(request);
   if (!response) {
