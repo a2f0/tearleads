@@ -23,6 +23,7 @@ import {
   defaultDocumentsPersistence,
   deleteLocalDocumentAttachment,
   deletePendingDocumentAttachment,
+  type ExecSql,
   enqueuePendingDocumentUpdate,
   type LocalAttachmentRecord,
   listPendingDocumentUpdates,
@@ -175,15 +176,13 @@ export async function persistDocument(
   options: SaveDocumentRecordOptions = {},
   expectedGeneration?: DocumentStoreSyncGeneration,
 ): Promise<PersistedDocumentRecord | null> {
-  const persistedRecord = expectedGeneration
-    ? await saveDocumentRecord(
-        state,
-        currentDoc,
-        patch,
-        options,
-        expectedGeneration,
-      )
-    : await saveDocumentRecord(state, currentDoc, patch, options);
+  const persistedRecord = await saveDocumentRecord(
+    state,
+    currentDoc,
+    patch,
+    options,
+    expectedGeneration,
+  );
   if (!persistedRecord) return null;
   if (expectedGeneration && !isSyncGenerationCurrent(state, expectedGeneration))
     return null;
@@ -336,47 +335,55 @@ export function advancePendingBaseVersion(
   state.pendingBaseVersion = encodeVersionVector(doc);
 }
 
-export async function enqueuePendingUpdate(
+/**
+ * Runs a durable write either ungated — no generation: the caller serializes
+ * with teardown via the write-chain drain, and the persistence implementation
+ * may legitimately park inside the write WITHOUT holding the global mutation
+ * mutex — or inside the serialized mutation with an in-mutex currency check:
+ * a teardown (reset/discard) that already ran was ordered strictly before the
+ * mutation claim and invalidated the generation, so a stale caller can no
+ * longer slip its write in after the teardown's wipe; a write that wins the
+ * ordering instead lands before the teardown and is wiped by it. Returns
+ * whether the write ran.
+ */
+async function withGenerationGuardedMutation(
   state: DocumentStoreState,
-  update: Uint8Array,
-  sourceVersionVector?: string | null,
-  expectedGeneration?: DocumentStoreSyncGeneration,
-) {
-  // Ungated callers (the mutation write chain) call straight through: they
-  // serialize with teardown via the write-chain drain, and the persistence
-  // implementation may legitimately park inside this call (the typing path
-  // relies on parking WITHOUT holding the global mutation mutex).
+  expectedGeneration: DocumentStoreSyncGeneration | undefined,
+  write: (execSql: ExecSql) => Promise<void>,
+): Promise<boolean> {
   if (!expectedGeneration) {
-    await enqueuePendingDocumentUpdate({
-      execSql: state.runtime.infra.execSql,
-      localId: state.localId,
-      persistence: state.persistence,
-      ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
-      update,
-    });
-    return;
+    await write(state.runtime.infra.execSql);
+    return true;
   }
 
-  // With a generation, the currency check runs INSIDE the serialized
-  // mutation: a teardown (reset/discard) that already ran was ordered
-  // strictly before this block and invalidated the generation, so a stale
-  // caller can no longer slip its row in after the teardown's wipe; a write
-  // that wins the ordering instead lands before the teardown and is wiped
-  // by it.
+  let ran = false;
   await runSerializedSqlMutation(
     state.runtime.infra.execSql,
     async (lockedExecSql) => {
       if (!isSyncGenerationCurrent(state, expectedGeneration)) {
         return;
       }
-      await enqueuePendingDocumentUpdate({
-        execSql: lockedExecSql,
-        localId: state.localId,
-        persistence: state.persistence,
-        ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
-        update,
-      });
+      await write(lockedExecSql);
+      ran = true;
     },
+  );
+  return ran;
+}
+
+export async function enqueuePendingUpdate(
+  state: DocumentStoreState,
+  update: Uint8Array,
+  sourceVersionVector?: string | null,
+  expectedGeneration?: DocumentStoreSyncGeneration,
+) {
+  await withGenerationGuardedMutation(state, expectedGeneration, (execSql) =>
+    enqueuePendingDocumentUpdate({
+      execSql,
+      localId: state.localId,
+      persistence: state.persistence,
+      ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
+      update,
+    }),
   );
 }
 
@@ -386,34 +393,17 @@ export async function deletePendingAttachment(
   storageKey: string,
   expectedGeneration?: DocumentStoreSyncGeneration,
 ) {
-  if (!expectedGeneration) {
-    await deletePendingDocumentAttachment({
-      execSql: state.runtime.infra.execSql,
+  // After a REFUSED discard the reset store keeps its rows, and a stale pass
+  // racing that reset must not delete state the refusal deliberately
+  // preserved.
+  await withGenerationGuardedMutation(state, expectedGeneration, (execSql) =>
+    deletePendingDocumentAttachment({
+      execSql,
       localId: state.localId,
       persistence: state.persistence,
       slotId,
       storageKey,
-    });
-    return;
-  }
-
-  // In-mutex currency check (see enqueuePendingUpdate): after a REFUSED
-  // discard the reset store keeps its rows, and a stale pass racing that
-  // reset must not delete state the refusal deliberately preserved.
-  await runSerializedSqlMutation(
-    state.runtime.infra.execSql,
-    async (lockedExecSql) => {
-      if (!isSyncGenerationCurrent(state, expectedGeneration)) {
-        return;
-      }
-      await deletePendingDocumentAttachment({
-        execSql: lockedExecSql,
-        localId: state.localId,
-        persistence: state.persistence,
-        slotId,
-        storageKey,
-      });
-    },
+    }),
   );
 }
 
@@ -475,35 +465,18 @@ export async function saveLocalAttachmentRecords(
     return;
   }
 
-  // The currency check runs INSIDE the serialized mutation (see
-  // enqueuePendingUpdate): these rows are upserts, and a stale writer racing
-  // a teardown must never re-insert what the teardown just removed. Callers
-  // without a generation call straight through, keeping the persistence
-  // implementation free to park without holding the global mutation mutex.
-  let saved = false;
-  if (!expectedGeneration) {
-    await saveLocalDocumentAttachments({
-      attachments: withLocalAttachmentDetachState(attachments, currentDoc),
-      execSql: state.runtime.infra.execSql,
-      persistence: state.persistence,
-    });
-    saved = true;
-  } else {
-    await runSerializedSqlMutation(
-      state.runtime.infra.execSql,
-      async (lockedExecSql) => {
-        if (!isSyncGenerationCurrent(state, expectedGeneration)) {
-          return;
-        }
-        await saveLocalDocumentAttachments({
-          attachments: withLocalAttachmentDetachState(attachments, currentDoc),
-          execSql: lockedExecSql,
-          persistence: state.persistence,
-        });
-        saved = true;
-      },
-    );
-  }
+  // These rows are upserts, and a stale writer racing a teardown must never
+  // re-insert what the teardown just removed.
+  const saved = await withGenerationGuardedMutation(
+    state,
+    expectedGeneration,
+    (execSql) =>
+      saveLocalDocumentAttachments({
+        attachments: withLocalAttachmentDetachState(attachments, currentDoc),
+        execSql,
+        persistence: state.persistence,
+      }),
+  );
   if (
     !saved ||
     (expectedGeneration && !isSyncGenerationCurrent(state, expectedGeneration))
@@ -565,30 +538,14 @@ export async function savePendingAttachmentUpload(
   pendingAttachment: PendingAttachmentRecord,
   expectedGeneration?: DocumentStoreSyncGeneration,
 ): Promise<void> {
-  if (!expectedGeneration) {
-    await savePendingDocumentAttachment({
+  // This row is an upsert, and a stale resume racing a teardown must never
+  // re-insert the pending row the teardown just removed.
+  await withGenerationGuardedMutation(state, expectedGeneration, (execSql) =>
+    savePendingDocumentAttachment({
       attachment: pendingAttachment,
-      execSql: state.runtime.infra.execSql,
+      execSql,
       persistence: state.persistence,
-    });
-    return;
-  }
-
-  // In-mutex currency check (see enqueuePendingUpdate): this row is an
-  // upsert, and a stale resume racing a teardown must never re-insert the
-  // pending row the teardown just removed.
-  await runSerializedSqlMutation(
-    state.runtime.infra.execSql,
-    async (lockedExecSql) => {
-      if (!isSyncGenerationCurrent(state, expectedGeneration)) {
-        return;
-      }
-      await savePendingDocumentAttachment({
-        attachment: pendingAttachment,
-        execSql: lockedExecSql,
-        persistence: state.persistence,
-      });
-    },
+    }),
   );
 }
 
