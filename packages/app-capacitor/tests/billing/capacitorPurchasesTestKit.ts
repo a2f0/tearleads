@@ -1,4 +1,5 @@
 import { mock } from "bun:test";
+import { resolve } from "node:path";
 import type { PurchasesPackage } from "@revenuecat/purchases-capacitor";
 
 export const fixture: {
@@ -168,14 +169,17 @@ const nativePurchasePlugin = {
   purchasePackage: nativePurchaseResult,
 };
 
-mock.module("../src/capacitorRevenueCatRuntime", () => ({
-  getCachedCapacitorPurchases: () => fixture.cachedPurchases,
-  getRevenueCatPlatform: () => fixture.platform,
-  getNativeRevenueCatPurchase: () => nativePurchasePlugin,
-  setCachedCapacitorPurchases: (cached: unknown) => {
-    fixture.cachedPurchases = cached;
-  },
-}));
+mock.module(
+  resolve(import.meta.dir, "../../src/billing/capacitorRevenueCatRuntime.ts"),
+  () => ({
+    getCachedCapacitorPurchases: () => fixture.cachedPurchases,
+    getRevenueCatPlatform: () => fixture.platform,
+    getNativeRevenueCatPurchase: () => nativePurchasePlugin,
+    setCachedCapacitorPurchases: (cached: unknown) => {
+      fixture.cachedPurchases = cached;
+    },
+  }),
+);
 
 mock.module("@revenuecat/purchases-capacitor", () => ({
   PURCHASES_ERROR_CODE: {
@@ -246,7 +250,7 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
 }));
 
 export const { createCapacitorPurchases } = await import(
-  "../src/capacitorPurchases"
+  "../../src/billing/capacitorPurchases"
 );
 
 export function purchaseSync(packageId = "monthly", abortSignal?: AbortSignal) {

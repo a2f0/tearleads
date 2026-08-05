@@ -8,7 +8,7 @@ import {
 import { nativeProductChangeInput } from "./capacitorRevenueCatPurchase";
 
 test("production runtime selects the platform and registers once", async () => {
-  const fixturePath = `${import.meta.dir}/../tests/fixtures/capacitorRevenueCatRuntime.fixture.ts`;
+  const fixturePath = `${import.meta.dir}/../../tests/fixtures/capacitorRevenueCatRuntime.fixture.ts`;
   const child = Bun.spawn([process.execPath, fixturePath], {
     cwd: import.meta.dir,
     stderr: "pipe",

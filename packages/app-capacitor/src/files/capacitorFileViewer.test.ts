@@ -31,8 +31,11 @@ const fixture: {
   writeCalls: [],
 };
 
+const registerPlugin = () => ({});
+
 mock.module("@capacitor/core", () => ({
-  Capacitor: { getPlatform: () => fixture.platform },
+  Capacitor: { getPlatform: () => fixture.platform, registerPlugin },
+  registerPlugin,
 }));
 
 mock.module("@capacitor/file-viewer", () => ({

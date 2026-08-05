@@ -11,15 +11,15 @@ import {
   resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
-import { subscribeCapacitorConnectionRefresh } from "./capacitorConnectionRefresh";
-import { createCapacitorFileSaver } from "./capacitorFileSaver";
-import { createCapacitorFileViewer } from "./capacitorFileViewer";
-import { subscribeCapacitorKeyboardVisibility } from "./capacitorKeyboardVisibility";
-import { createCapacitorNetworkStatus } from "./capacitorNetworkStatus";
-import { createCapacitorPurchases } from "./capacitorPurchases";
-import { createCapacitorScanner } from "./capacitorScanner";
-import { openCapacitorSubscriptionManagement } from "./capacitorSubscriptionManagement";
-import { syncStatusBarWithTheme } from "./statusBar";
+import { createCapacitorPurchases } from "./billing/capacitorPurchases";
+import { openCapacitorSubscriptionManagement } from "./billing/capacitorSubscriptionManagement";
+import { subscribeCapacitorConnectionRefresh } from "./device/capacitorConnectionRefresh";
+import { subscribeCapacitorKeyboardVisibility } from "./device/capacitorKeyboardVisibility";
+import { createCapacitorNetworkStatus } from "./device/capacitorNetworkStatus";
+import { createCapacitorScanner } from "./device/capacitorScanner";
+import { syncStatusBarWithTheme } from "./device/statusBar";
+import { createCapacitorFileSaver } from "./files/capacitorFileSaver";
+import { createCapacitorFileViewer } from "./files/capacitorFileViewer";
 
 function createCapacitorSQLiteRuntime() {
   const workerUrl = "./worker.js";

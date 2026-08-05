@@ -19,12 +19,16 @@ const fixture: {
   removed: 0,
 };
 
+const registerPlugin = () => ({});
+
 mock.module("@capacitor/core", () => ({
   Capacitor: {
     isNativePlatform: () => fixture.nativePlatform,
     isPluginAvailable: () => fixture.pluginAvailable,
     getPlatform: () => "android",
+    registerPlugin,
   },
+  registerPlugin,
 }));
 
 mock.module("@capacitor/network", () => ({

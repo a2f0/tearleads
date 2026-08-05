@@ -88,7 +88,7 @@ const baseConfig = {
       },
     },
     "packages/app-capacitor": {
-      entry: ["scripts/buildWorker.ts", "src/databaseWorker.ts"],
+      entry: ["scripts/buildWorker.ts"],
       project: ["scripts/**/*.ts", "src/**/*.{ts,tsx}"],
       ignoreDependencies: capacitorNativePluginDependencies,
     },

@@ -19,7 +19,7 @@ higher-capacity products are **Upgrade**, lower-capacity products are
 **Downgrade**, and a store-announced destination remains **Updating** or
 **Scheduled** until the effective lifecycle event arrives.
 
-[`capacitorPurchases.ts`](../../packages/app-capacitor/src/capacitorPurchases.ts)
+[`capacitorPurchases.ts`](../../packages/app-capacitor/src/billing/capacitorPurchases.ts)
 adapts `@revenuecat/purchases-capacitor` to the shared `RevenueCatBackend`. What
 is specific to the native bridge, as opposed to the web one:
 
