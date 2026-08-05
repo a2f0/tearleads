@@ -3,10 +3,12 @@ import { acknowledgeContainerMutation } from "../../../data/containers/shared/mu
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 /**
- * The shared tail of every remote child-container mutation: submit the plan,
- * bail on a refused response, and acknowledge the committed mutation before
- * handing the result back. Routing every operation through this helper is
- * what guarantees a mutation can never return unacknowledged.
+ * The shared tail of the plain remote child-container mutations (user share,
+ * rekey, revoke, move): submit the plan, bail on a refused response, and
+ * acknowledge the committed mutation before handing the result back. Create
+ * and the group-share variant own their tails deliberately — create's
+ * submission handles the lost-response conflict, and group share caches the
+ * rotated policy only after the acknowledge.
  */
 export async function submitAcknowledgedContainerMutation<
   TPlan extends Parameters<typeof acknowledgeContainerMutation>[0]["plan"],
