@@ -1,5 +1,5 @@
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname, extname, join } from "node:path";
+import { dirname, join } from "node:path";
 
 async function listOutputFiles(dirPath: string): Promise<string[]> {
   const entries = await readdir(dirPath, { withFileTypes: true });
@@ -34,7 +34,11 @@ async function resolveRelativeModuleSpecifier(
   filePath: string,
   specifier: string,
 ): Promise<string> {
-  if (!specifier.startsWith(".") || extname(specifier)) {
+  // Only an explicit .js suffix marks a specifier as already resolved. An
+  // extname() check would also skip dotted basenames like
+  // "./service.testFixtures" (extname returns ".testFixtures"), leaving an
+  // extensionless — and therefore unresolvable — ESM import in dist.
+  if (!specifier.startsWith(".") || specifier.endsWith(".js")) {
     return specifier;
   }
 
