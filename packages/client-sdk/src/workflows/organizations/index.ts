@@ -63,6 +63,7 @@ export {
   buildInitialMemberGroupPolicyRequest,
   createOrganizationGroup,
   removeOrganizationGroupUser,
+  rotateOrganizationGroupForAccessSetShrink,
 } from "./principalPolicy";
 export {
   buildOrganizationGroupPolicyHistory,

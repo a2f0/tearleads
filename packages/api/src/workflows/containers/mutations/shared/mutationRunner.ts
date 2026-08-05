@@ -113,6 +113,36 @@ interface VerifiedMutationArtifacts {
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
 }
 
+function assertGroupGrantRevocationIsAtomic(
+  context: ContainerMutationContext,
+  artifacts: VerifiedMutationArtifacts,
+): void {
+  if (!artifacts.previousManifest) {
+    return;
+  }
+  const currentGrantKeys = new Set(
+    artifacts.manifest.state.directGrants.map(
+      (grant) => `${grant.subjectType}:${grant.subjectId}`,
+    ),
+  );
+  const removedGroupGrants =
+    artifacts.previousManifest.state.directGrants.filter(
+      (grant) =>
+        grant.subjectType === "group" &&
+        !currentGrantKeys.has(`${grant.subjectType}:${grant.subjectId}`),
+    );
+  if (
+    removedGroupGrants.some(
+      (grant) => grant.subjectId !== context.revokingGroupPrincipalId,
+    )
+  ) {
+    throw new ContainerMutationError(
+      "Group grants must be revoked atomically with principal rotation",
+      409,
+    );
+  }
+}
+
 interface PrelockedContainerMutationBatchScope {
   readonly groupIds: ReadonlySet<string>;
   readonly organizationIds: ReadonlySet<string>;
@@ -215,6 +245,7 @@ async function deriveVerifiedBatchScope(
 ): Promise<PrelockedContainerMutationBatchScope> {
   const preflightContext: ContainerMutationContext = {
     executor: context.executor,
+    revokingGroupPrincipalId: context.revokingGroupPrincipalId,
     manifestHeadByContainerId: new Map(),
     writerProjectionContext: createContainerWriterProjectionContext(
       context.executor,
@@ -228,6 +259,7 @@ async function deriveVerifiedBatchScope(
       ...input,
       executor: context.executor,
     });
+    assertGroupGrantRevocationIsAtomic(preflightContext, artifacts);
     await assertMutationHeadCanAdvance(preflightContext, artifacts.manifest);
     organizationIds.add(artifacts.manifest.state.organizationId);
     for (const groupId of containerGroupReferenceIds(artifacts.manifest)) {
@@ -344,8 +376,13 @@ export async function mutateContainerWithExecutor(
   // so a concurrently revoked writer cannot commit stale authorization.
   context.manifestHeadByContainerId.clear();
   const artifacts = await verifyMutationArtifacts(context, input);
+  assertGroupGrantRevocationIsAtomic(context, artifacts);
   if (prelockedBatchScope) {
     assertMutationWithinPrelockedScope(prelockedBatchScope, artifacts.manifest);
+    await assertVerifiedContainerGroupReferencesExist({
+      executor: context.executor,
+      manifest: artifacts.manifest,
+    });
   } else if (artifacts.manifest.state.organizationId !== organizationId) {
     throw new ContainerMutationError("Container organization mismatch", 409);
   }

@@ -7,6 +7,7 @@ import {
   verifyAccessManifest,
 } from "./accessEvent";
 import { computeKeyingDomainHash } from "./canonical";
+import { normalizeContainerRekeyAccessEventBody } from "./containerAccessRekeyBody";
 import {
   assertExactKeys,
   normalizeContainerAccessLevel,
@@ -553,40 +554,6 @@ function normalizeContainerRevokeAccessEventBody(
     subjectType: normalizeContainerGrantSubjectType(
       record.subjectType,
       "container.revoke event body",
-    ),
-  };
-}
-
-function normalizeContainerRekeyAccessEventBody(
-  value: KeyingCanonicalJson,
-): ContainerRekeyAccessEventBody {
-  const record = assertExactKeys(
-    value,
-    [
-      "containerKeyEpochId",
-      "eventType",
-      "keyringHash",
-      "predecessorBridgeHash",
-    ],
-    "container.rekey event body",
-  );
-
-  return {
-    eventType: "container.rekey",
-    containerKeyEpochId: readString(
-      record,
-      "containerKeyEpochId",
-      "container.rekey event body",
-    ),
-    keyringHash: readHashString(
-      record,
-      "keyringHash",
-      "container.rekey event body",
-    ),
-    predecessorBridgeHash: readHashString(
-      record,
-      "predecessorBridgeHash",
-      "container.rekey event body",
     ),
   };
 }
@@ -1178,7 +1145,9 @@ function deriveContainerRekeyManifestState(
     ...previous.nextBase,
     containerKeyEpochId: body.containerKeyEpochId,
     directGrants: previous.previousState.directGrants,
-    referencedPrincipalHeads: previous.previousState.referencedPrincipalHeads,
+    referencedPrincipalHeads:
+      body.referencedPrincipalHeads ??
+      previous.previousState.referencedPrincipalHeads,
   });
 }
 

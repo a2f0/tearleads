@@ -4,7 +4,6 @@ import {
   accessManifestHeads,
   containerSyncTombstones,
   containers,
-  organizations,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
@@ -17,12 +16,12 @@ import {
   readContainerParentLanePage,
   requestContainerParentLanes,
 } from "../../test/helpers/containerParentLaneQuery";
+import { addUserToAdminGroup } from "../../test/helpers/organizationAdmin";
 import {
   addOrganizationMember,
   getDefaultOrganizationId,
 } from "../../test/helpers/organizationMembership";
 import { registerUser } from "../../test/helpers/registerUser";
-import { getCurrentPrincipalState } from "../access/read/principalStateStore";
 import { pruneRegainedAccessTombstones } from "./regainedAccessTombstones";
 
 const STALE_TOMBSTONE_AT = new Date("2026-12-31T00:00:00.000Z");
@@ -148,32 +147,18 @@ test("pruned lane pages stop serving the stale tombstone", async () => {
   );
 });
 
-test("policy member re-add prunes tombstones through the route", async () => {
+test("policy access gain prunes tombstones through the route", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
   const member = createTestUser();
   await registerUser(member);
   const organizationId = await getDefaultOrganizationId(actor.userId);
+  await addOrganizationMember({ actor, member, organizationId });
 
-  // A child container granted to the organization's Members GROUP: the
-  // member cannot read it before the re-add, and the policy PUT is what
-  // restores their access — the true group-restore shape. The candidate
-  // scoping also requires this: the prune only considers containers the
-  // changed principal's grants can affect.
-  const [organization] = await db
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  const memberGroupId = organization?.memberGroupId;
-  if (!memberGroupId) {
-    throw new Error("expected organization Members group");
-  }
-  const groupState = await getCurrentPrincipalState("group", memberGroupId, db);
-  if (!groupState) {
-    throw new Error("expected Members group state");
-  }
+  // The root is granted to the organization's Admins group. Adding the user
+  // to that group rematerializes the root grant in the same policy PUT and
+  // restores inherited access to the child subtree.
   const rootHead = await db
     .select({ manifestHash: accessManifestHeads.manifestHash })
     .from(accessManifestHeads)
@@ -192,28 +177,11 @@ test("policy member re-add prunes tombstones through the route", async () => {
   });
   const childManifestHash = await storeChildContainerAccessManifest({
     childContainerId,
-    directGrants: [
-      {
-        accessLevel: "read",
-        subjectId: memberGroupId,
-        subjectType: "group",
-      },
-    ],
     metadataDocumentId: crypto.randomUUID(),
     organizationId,
     owner: actor,
     parentContainerId: actor.rootContainerId,
     parentManifestHash,
-    referencedPrincipalHeads: [
-      {
-        keyEpoch: groupState.keyEpoch,
-        keyFingerprint: groupState.keyFingerprint,
-        principalId: memberGroupId,
-        principalType: "group",
-        stateHash: groupState.stateHash,
-        version: groupState.version,
-      },
-    ],
   });
 
   // A grandchild with its OWN stale tombstone (from a separate earlier
@@ -256,7 +224,7 @@ test("policy member re-add prunes tombstones through the route", async () => {
     },
   ]);
 
-  await addOrganizationMember({ actor, member, organizationId });
+  await addUserToAdminGroup({ actor, member, organizationId });
 
   const remaining = await db
     .select({ id: containerSyncTombstones.id })

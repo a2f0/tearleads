@@ -350,13 +350,16 @@ manifests and verified principal policies, not from projection rows. A client
 that accepts projection rows as authority can still be tricked into encrypting
 to the wrong recipient set.
 
-### Revocation Is Not Retroactive Without Rotation
+### Principal Changes And Their Containers Commit Atomically
 
-Removing a member from a signed projection does not erase keys the member
-already learned. Confidentiality after removal depends on rotating the
-principal key and rewrapping subsequent object keys to the new epoch. Policy
-validation therefore requires a membership-shrinking transition to advance the
-key epoch and change its encapsulation key.
+Removing a member does not erase learned keys. Group membership shrink rotates
+the principal and granted containers, leaving old keys no forward bridge. The
+client authors the artifacts; the API atomically rejects incomplete batches.
+A cold client needs only current policy and container state. Group grant revoke
+rotates the group and its remaining grants; standalone group revokes are
+rejected, while grant-level `read`/`write`/`admin` remains unchanged.
+Cross-organization organization grants remain supported, but organization
+successors with stale container references fail closed.
 
 ### Transparency Requires A Pinned View Or Witnessing
 
@@ -457,18 +460,17 @@ Result: not reliably detected without prior trust in the identity key binding.
  crypto membership.
 - Unsigned group or organization membership rows are not sufficient to create
  managed-principal crypto recipients.
-- Principal state transitions must be signed by an admin from the previous
- signed projection, except the initial state, whose signer must be admin in the
- initial projection.
-- Org-scoped successor states may also be signed by a user reachable through
- the organization's reserved `Admins` group.
+- Organization-scoped group management is authorized through the reserved
+ `Admins` group. A direct group admin has no separate server-side management
+ authority unless that user is also an organization admin.
 - Organization membership is verified from the reserved `Members` group, not
  from mutable roster rows or product roles on the organization principal.
 - Principal policy bundles fetched by the app are verified before caching and
  skipped on validation failure.
 - Principal member envelopes must match the active direct signed projection.
-- Post-removal confidentiality requires principal key rotation; policy
- validation enforces a new key epoch and encapsulation key on shrink.
+- Group membership and access shrink rotate affected KEKs atomically; stale
+ group-grant references and organization successors with stale references are
+ rejected.
 - Signed access manifests are the authority for object grant and document-link
  state used by key derivation.
 - Object writes commit to the verified access manifest hash and derived target

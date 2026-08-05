@@ -52,6 +52,11 @@ export type CurrentAccessManifestHead = Awaited<
 
 export interface ContainerMutationContext {
   readonly executor: DatabaseTransaction;
+  /**
+   * Group grant removal is an access-set shrink and is only valid while the
+   * same transaction advances that group's key epoch.
+   */
+  readonly revokingGroupPrincipalId?: string | undefined;
   readonly manifestHeadByContainerId: Map<string, CurrentAccessManifestHead>;
   // Shared only with hash/id-addressed projection loaders during this write
   // transaction. Current-by-container lookups can become stale after a mutation

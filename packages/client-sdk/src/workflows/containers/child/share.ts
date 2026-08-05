@@ -406,7 +406,7 @@ async function collectContainerSharePrincipalPolicies(input: {
 }
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Container share planning keeps the cryptographic transition in one auditable sequence.
-async function buildMaterializedContainerSharePlan(input: {
+export async function buildMaterializedContainerSharePlan(input: {
   accessLevel: ContainerAccessLevel;
   author: ContainerMutationAuthor;
   eventId?: string | undefined;

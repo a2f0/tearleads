@@ -2,6 +2,7 @@ import type {
   ContainerKekKeyring,
   ContainerKekKeyringEntry,
   ContainerRekeyAccessEventBody,
+  ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
@@ -53,6 +54,10 @@ import {
   sealRotationKeyring,
   verifyKeyringEntriesForSeal,
 } from "./moveRotation";
+import {
+  refreshedPrincipalPolicies,
+  refreshedPrincipalReferences,
+} from "./rekeyPrincipalRefresh";
 import { collectContainerRevokePrincipalPolicies } from "./revoke";
 import { buildContainerRotationWraps } from "./rotationWraps";
 
@@ -129,6 +134,7 @@ async function deriveRekeyManifestArtifacts(input: {
   >;
   previousProjection: ContainerWriterProjectionResponse;
   previousState: ReturnType<typeof readContainerState>;
+  referencedPrincipalHeads: readonly ReferencedPrincipalHead[];
   signedAt: string | undefined;
   target: ReturnType<typeof getTargetContainerContext>;
 }) {
@@ -139,6 +145,7 @@ async function deriveRekeyManifestArtifacts(input: {
     predecessorBridgeHash: await computeContainerKekPredecessorBridgeHash(
       input.predecessorBridge,
     ),
+    referencedPrincipalHeads: [...input.referencedPrincipalHeads],
   };
   const { event, eventHash } = await signContainerMutationEvent({
     author: input.author,
@@ -157,6 +164,7 @@ async function deriveRekeyManifestArtifacts(input: {
     previousManifestHash: input.target.manifest.manifestHash,
     eventHash,
     containerKeyEpochId: input.containerKeyEpochId,
+    referencedPrincipalHeads: [...input.referencedPrincipalHeads],
   };
   const manifest = await deriveContainerAccessManifest(state);
   const manifestHash = await computeAccessManifestHash(manifest);
@@ -184,6 +192,7 @@ interface RekeyPlanInput {
   execSql: ExecSql;
   keyringEntriesOverride?: readonly ContainerKekKeyringEntry[] | undefined;
   previousProjection: ContainerWriterProjectionResponse;
+  replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
@@ -228,7 +237,23 @@ async function resolveRekeyContext(input: RekeyPlanInput): Promise<{
   };
 }
 
-async function buildMaterializedContainerRekeyPlan(
+async function collectRekeyPrincipalPolicies(
+  input: RekeyPlanInput,
+  resolveUserKey: ProjectionUserKeyResolver,
+): Promise<VerifiedPrincipalPolicy[]> {
+  const previousPolicies = await collectContainerRevokePrincipalPolicies({
+    execSql: input.execSql,
+    previousProjection: input.previousProjection,
+    resolveUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
+  return refreshedPrincipalPolicies({
+    previousPolicies,
+    replacementPrincipalPolicy: input.replacementPrincipalPolicy,
+  });
+}
+
+export async function buildMaterializedContainerRekeyPlan(
   input: RekeyPlanInput,
 ): Promise<MaterializedContainerRekeyPlan> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
@@ -254,6 +279,14 @@ async function buildMaterializedContainerRekeyPlan(
       previousContainerId: previousState.containerId,
       targetKek: target.kek,
     });
+  const principalPolicies = await collectRekeyPrincipalPolicies(
+    input,
+    resolveProjectionUserKey,
+  );
+  const referencedPrincipalHeads = refreshedPrincipalReferences({
+    previousState,
+    replacementPrincipalPolicy: input.replacementPrincipalPolicy,
+  });
   const { body, event, eventHash, keyEpoch, manifest, manifestHash, state } =
     await deriveRekeyManifestArtifacts({
       author: input.author,
@@ -264,15 +297,10 @@ async function buildMaterializedContainerRekeyPlan(
       predecessorBridge,
       previousProjection: input.previousProjection,
       previousState,
+      referencedPrincipalHeads,
       signedAt: input.signedAt,
       target,
     });
-  const principalPolicies = await collectContainerRevokePrincipalPolicies({
-    execSql: input.execSql,
-    previousProjection: input.previousProjection,
-    resolveUserKey: resolveProjectionUserKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  });
   const { userRecipientKeys, wraps } = await buildContainerRotationWraps({
     containerKey,
     containerKeyEpochId,

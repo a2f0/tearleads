@@ -70,8 +70,8 @@
       "bytes": 27100
     },
     "docs/security-guarantees.md": {
-      "lines": 491,
-      "bytes": 25360
+      "lines": 493,
+      "bytes": 25581
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
@@ -371,7 +371,7 @@
     },
     "packages/client-sdk/src/workflows/containers/child/share.ts": {
       "lines": 726,
-      "bytes": 24304
+      "bytes": 24311
     },
     "packages/client-sdk/src/workflows/documents/linkSet.ts": {
       "lines": 604,
@@ -406,12 +406,12 @@
       "bytes": 40297
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
-      "lines": 745,
-      "bytes": 23225
+      "lines": 748,
+      "bytes": 23438
     },
     "packages/crypto/src/keying/containerAccess.ts": {
-      "lines": 1323,
-      "bytes": 38024
+      "lines": 1332,
+      "bytes": 38333
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 650,
@@ -442,8 +442,8 @@
       "bytes": 30430
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1104,
-      "bytes": 33981
+      "lines": 1105,
+      "bytes": 34036
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,

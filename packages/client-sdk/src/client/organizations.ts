@@ -1,9 +1,10 @@
 import type {
   ContainerGrantSubjectType,
-  ReferencedPrincipalHead,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
+import { resolveDocumentCreateAuthor } from "../workflows/documents";
 import {
   addOrganizationGroupUser,
   cancelStripeSubscription,
@@ -20,35 +21,24 @@ import {
   loadStripeCheckoutOptions,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
+  rotateOrganizationGroupForAccessSetShrink,
   startOrganizationTrial,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "../workflows/organizations";
+import { buildPrincipalContainerRematerializationBatch } from "../workflows/organizations/principalContainerRematerialization";
 import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type { ContainerContents } from "./containerContents";
 import {
   createOrganizationDataUsageCoordinator,
   type OrganizationDataUsageCoordinator,
 } from "./organizationDataUsage";
-import { withGroupGrantReshareAfterRotation } from "./organizationGroupGrantReshare";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
-import { reshareOrganizationMetadataAfterGroupChange } from "./organizationMetadataReshare";
-import {
-  createOrganizationMetadataReshareCoordinator,
-  type OrganizationMetadataReshareCoordinator,
-} from "./organizationMetadataReshareCoordinator";
+import { syncOrganizationMetadataProfile } from "./organizationMetadataProfileSync";
 import {
   createOrganizationReadModelCoordinator,
   type OrganizationReadModelCoordinator,
 } from "./organizationReadModels";
-import {
-  prepareOrganizationRootRewrapForGroup,
-  recoverOrganizationRootRewrapAfterMutationFailure,
-} from "./organizationRootReshare";
-import {
-  createOrganizationRootReshareCoordinator,
-  type OrganizationRootReshareCoordinator,
-} from "./organizationRootReshareCoordinator";
 import {
   authenticatedOrganizationId,
   runForAuthenticatedOrganization,
@@ -191,7 +181,10 @@ export interface Organizations {
   ) => ReturnType<typeof removeOrganizationGroupUser>;
   revokeGrant: (
     grant: OrganizationGrantRef,
-  ) => ReturnType<typeof revokeOrganizationContainerGrant>;
+  ) => Promise<
+    | Awaited<ReturnType<typeof revokeOrganizationContainerGrant>>
+    | Awaited<ReturnType<typeof rotateOrganizationGroupForAccessSetShrink>>
+  >;
   startTrial: () => ReturnType<typeof startOrganizationTrial>;
 }
 
@@ -234,9 +227,7 @@ export function createOrganizations(
 
 class OrganizationsService implements Organizations {
   private readonly dataUsageCoordinator: OrganizationDataUsageCoordinator;
-  private readonly metadataReshareCoordinator: OrganizationMetadataReshareCoordinator;
   private readonly readModelCoordinator: OrganizationReadModelCoordinator;
-  private readonly rootReshareCoordinator: OrganizationRootReshareCoordinator;
 
   constructor(
     private readonly runtimeService: InternalRuntime,
@@ -248,18 +239,48 @@ class OrganizationsService implements Organizations {
     this.readModelCoordinator = createOrganizationReadModelCoordinator(
       this.runtimeService,
     );
-    this.metadataReshareCoordinator =
-      createOrganizationMetadataReshareCoordinator({
-        containerContents,
-        // Resolve the logger per call so it tracks the current runtime.
-        log: (message) => this.runtimeService.workflowInput().util.log(message),
-        reshare: reshareOrganizationMetadataAfterGroupChange,
-      });
-    this.rootReshareCoordinator = createOrganizationRootReshareCoordinator({
-      containerContents,
-      logError: (message, cause) =>
-        this.runtimeService.workflowInput().util.logError(message, cause),
-      prepare: prepareOrganizationRootRewrapForGroup,
+  }
+
+  private async preparePrincipalContainerMutations(input: {
+    readonly groupId: string;
+    readonly nextPolicy: VerifiedPrincipalPolicy;
+    readonly revokedContainerId?: string | undefined;
+    readonly runtime: InternalWorkflowRuntimeInput;
+    readonly signingContext: OrganizationSigningContext;
+  }) {
+    const reconciled = await this.readModelCoordinator.reconcile(
+      input.signingContext.organizationId,
+    );
+    if (reconciled === undefined) {
+      throw new Error(
+        "Organization grants could not be reconciled before the group mutation",
+      );
+    }
+    const granted = await this.readModelCoordinator.loadLocalGroupContainers(
+      input.groupId,
+      input.signingContext.organizationId,
+    );
+    const author = resolveDocumentCreateAuthor(input.runtime);
+    const targetSecretKey =
+      input.runtime.crypto.encapsulationKeyPair?.secretKey;
+    if (!granted || !author || !targetSecretKey) {
+      throw new Error(
+        "Organization container rematerialization context is unavailable",
+      );
+    }
+    return buildPrincipalContainerRematerializationBatch({
+      apiClient: input.runtime.apiClient,
+      author,
+      execSql: input.runtime.infra.execSql,
+      grants: granted.containers,
+      groupId: input.groupId,
+      nextPolicy: input.nextPolicy,
+      revokedContainerId: input.revokedContainerId,
+      resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+      targetSecretKey,
+      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+        input.runtime,
+      ),
     });
   }
 
@@ -267,58 +288,37 @@ class OrganizationsService implements Organizations {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
     const currentUserSecretKey = requireEncapsulationKeyPair(runtime).secretKey;
-    const preparedRootRewrap =
-      await this.rootReshareCoordinator.prepareForGroupMutation({
-        mutatedGroupId: input.groupId,
-        organizationId: signingContext.organizationId,
-      });
     let memberGroupId: string | null = null;
-    let committedGroupHead: ReferencedPrincipalHead | null = null;
-    const bundle = await withGroupGrantReshareAfterRotation({
-      containerContents: this.containerContents,
-      mutatedGroupId: input.groupId,
-      readExpectedGroupHead: () => committedGroupHead,
-      reconcileReadModel: () =>
-        this.readModelCoordinator.reconcileAfterMutation(
-          signingContext.organizationId,
-        ),
-      shouldContinue: () => {
-        const live = this.runtimeService.workflowInput();
-        return (
-          live.auth.organizationId === signingContext.organizationId &&
-          live.auth.userId === signingContext.signerUserId &&
-          live.state.domainScope === runtime.state.domainScope
-        );
+    const bundle = await addOrganizationGroupUser({
+      afterPolicyCommitBeforeCache: async () => {},
+      apiClient: runtime.apiClient,
+      beforePolicyCommit: (_head, authority) => {
+        memberGroupId = authority.memberGroupId;
       },
-      runtime,
-      signingContext,
-      mutation: recoverOrganizationRootRewrapAfterMutationFailure({
-        logError: runtime.util.logError,
-        mutation: addOrganizationGroupUser({
-          afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
-          apiClient: runtime.apiClient,
-          beforePolicyCommit: (head, authority) => {
-            preparedRootRewrap.setExpectedGroupPolicyHead(head);
-            committedGroupHead = head;
-            memberGroupId = authority.memberGroupId;
-          },
-          currentUserSecretKey,
-          execSql: runtime.infra.execSql,
+      currentUserSecretKey,
+      execSql: runtime.infra.execSql,
+      groupId: input.groupId,
+      prepareContainerMutations: ({ nextPolicy }) =>
+        this.preparePrincipalContainerMutations({
           groupId: input.groupId,
-          resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-          targetUserId: input.targetUserId,
-          ...signingContext,
+          nextPolicy,
+          runtime,
+          signingContext,
         }),
-        prepared: preparedRootRewrap,
-      }),
+      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+      targetUserId: input.targetUserId,
+      ...signingContext,
     });
-    if (memberGroupId) {
-      void this.metadataReshareCoordinator.reshareAfterGroupChange({
-        memberGroupId,
-        mutatedGroupId: input.groupId,
+    if (input.groupId === memberGroupId) {
+      await syncOrganizationMetadataProfile({
+        containerContents: this.containerContents,
+        log: runtime.util.log,
         organizationId: signingContext.organizationId,
       });
     }
+    await this.readModelCoordinator.reconcileAfterMutation(
+      signingContext.organizationId,
+    );
     return bundle;
   }
 
@@ -364,9 +364,8 @@ class OrganizationsService implements Organizations {
 
   loadBillingForOrganization(organizationId: string) {
     // Gated on an authenticated session rather than on the target being the
-    // active org — the point of this read is the orgs the active-org billing
-    // snapshot cannot cover. The server still enforces membership, so an org
-    // the caller cannot reach resolves to `null`.
+    // active org. The server still enforces membership, so an org the caller
+    // cannot reach resolves to `null`.
     return runForOrganization(
       this.runtimeService,
       organizationId,
@@ -526,57 +525,36 @@ class OrganizationsService implements Organizations {
   async removeUserFromGroup(input: RemoveOrganizationGroupUserInput) {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
-    const preparedRootRewrap =
-      await this.rootReshareCoordinator.prepareForGroupMutation({
-        mutatedGroupId: input.groupId,
-        organizationId: signingContext.organizationId,
-      });
     let memberGroupId: string | null = null;
-    let committedGroupHead: ReferencedPrincipalHead | null = null;
-    const bundle = await withGroupGrantReshareAfterRotation({
-      containerContents: this.containerContents,
-      mutatedGroupId: input.groupId,
-      readExpectedGroupHead: () => committedGroupHead,
-      reconcileReadModel: () =>
-        this.readModelCoordinator.reconcileAfterMutation(
-          signingContext.organizationId,
-        ),
-      shouldContinue: () => {
-        const live = this.runtimeService.workflowInput();
-        return (
-          live.auth.organizationId === signingContext.organizationId &&
-          live.auth.userId === signingContext.signerUserId &&
-          live.state.domainScope === runtime.state.domainScope
-        );
+    const bundle = await removeOrganizationGroupUser({
+      afterPolicyCommitBeforeCache: async () => {},
+      apiClient: runtime.apiClient,
+      beforePolicyCommit: (_head, authority) => {
+        memberGroupId = authority.memberGroupId;
       },
-      runtime,
-      signingContext,
-      mutation: recoverOrganizationRootRewrapAfterMutationFailure({
-        logError: runtime.util.logError,
-        mutation: removeOrganizationGroupUser({
-          afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
-          apiClient: runtime.apiClient,
-          beforePolicyCommit: (head, authority) => {
-            preparedRootRewrap.setExpectedGroupPolicyHead(head);
-            committedGroupHead = head;
-            memberGroupId = authority.memberGroupId;
-          },
-          execSql: runtime.infra.execSql,
+      execSql: runtime.infra.execSql,
+      groupId: input.groupId,
+      prepareContainerMutations: ({ nextPolicy }) =>
+        this.preparePrincipalContainerMutations({
           groupId: input.groupId,
-          removedUserId: input.removedUserId,
-          resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-          ...signingContext,
+          nextPolicy,
+          runtime,
+          signingContext,
         }),
-        prepared: preparedRootRewrap,
-      }),
+      removedUserId: input.removedUserId,
+      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+      ...signingContext,
     });
-    if (memberGroupId) {
-      void this.metadataReshareCoordinator.reshareAfterGroupChange({
-        memberGroupId,
-        mutatedGroupId: input.groupId,
+    if (input.groupId === memberGroupId) {
+      await syncOrganizationMetadataProfile({
+        containerContents: this.containerContents,
+        log: runtime.util.log,
         organizationId: signingContext.organizationId,
       });
     }
+    await this.readModelCoordinator.reconcileAfterMutation(
+      signingContext.organizationId,
+    );
     return bundle;
   }
 
@@ -586,6 +564,28 @@ class OrganizationsService implements Organizations {
     const encapsulationKeyPair = requireEncapsulationKeyPair(runtime);
     if (runtime.infra.dbStatus !== "ready") {
       throw new Error("Organization local database is unavailable");
+    }
+
+    if (grant.subjectType === "group") {
+      const response = await rotateOrganizationGroupForAccessSetShrink({
+        apiClient: runtime.apiClient,
+        execSql: runtime.infra.execSql,
+        groupId: grant.subjectId,
+        prepareContainerMutations: ({ nextPolicy }) =>
+          this.preparePrincipalContainerMutations({
+            groupId: grant.subjectId,
+            nextPolicy,
+            revokedContainerId: grant.containerId,
+            runtime,
+            signingContext,
+          }),
+        resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+        ...signingContext,
+      });
+      await this.readModelCoordinator.reconcileAfterMutation(
+        signingContext.organizationId,
+      );
+      return response;
     }
 
     const response = await revokeOrganizationContainerGrant({

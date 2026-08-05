@@ -1,6 +1,6 @@
 import type { BillingErrorCode } from "@tearleads/validators/billing";
 
-type OrganizationManagerErrorStatus = 400 | 403 | 404 | 409;
+type OrganizationManagerErrorStatus = 400 | 403 | 404 | 409 | 503;
 
 export class OrganizationManagerError extends Error {
   constructor(

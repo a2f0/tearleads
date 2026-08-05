@@ -8,6 +8,10 @@ import {
   isUuidV4String,
   MAX_PRINCIPAL_STATE_VERSION,
 } from "../util";
+import {
+  type ContainerMutationRequest,
+  isContainerMutationRequest,
+} from "./container";
 
 export interface PrincipalProjectionMemberRequest {
   userId: string;
@@ -55,6 +59,7 @@ export interface PutPrincipalPolicyRequest {
   encryptedPayload: PrincipalStateEncryptedPayloadRequest;
   projection: PrincipalProjectionMemberRequest[];
   memberEnvelopes: PrincipalMemberEnvelopeRequest[];
+  containerMutations?: ContainerMutationRequest[];
 }
 
 export interface PrincipalMemberEnvelopeRequest {
@@ -171,6 +176,9 @@ function isPrincipalMemberEnvelopeRequest(
 export function isPutPrincipalPolicyRequest(
   value: unknown,
 ): value is PutPrincipalPolicyRequest {
+  const containerMutations = isPlainObject(value)
+    ? Reflect.get(value, "containerMutations")
+    : undefined;
   return (
     isPlainObject(value) &&
     hasObjectProperty(value, "state") &&
@@ -180,6 +188,9 @@ export function isPutPrincipalPolicyRequest(
     hasArrayProperty(value, "projection") &&
     value.projection.every(isPrincipalProjectionMemberRequest) &&
     hasArrayProperty(value, "memberEnvelopes") &&
-    value.memberEnvelopes.every(isPrincipalMemberEnvelopeRequest)
+    value.memberEnvelopes.every(isPrincipalMemberEnvelopeRequest) &&
+    (containerMutations === undefined ||
+      (Array.isArray(containerMutations) &&
+        containerMutations.every(isContainerMutationRequest)))
   );
 }

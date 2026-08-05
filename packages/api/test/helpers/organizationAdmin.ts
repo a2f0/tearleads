@@ -3,7 +3,9 @@ import { db } from "@tearleads/api-shared/postgres";
 import { organizations } from "@tearleads/api-shared/schema";
 import type { createTestUser, TestUser } from "@tearleads/bob-and-alice";
 import {
+  computePrincipalStateHash,
   generateKemSeedAndKeyPair,
+  makeVerifiedPrincipalPolicy,
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
@@ -15,6 +17,8 @@ import {
   listCurrentPrincipalProjectionMembers,
 } from "../../src/access/read/principalStateStore";
 import { routeApp } from "../../src/routeApp";
+import { buildRootContainerRekeyMutation } from "./containerRekey";
+import { bootstrapRoot } from "./keyingWriterProjectionKit";
 import { addOrganizationMember } from "./organizationMembership";
 import {
   signPrincipalStateBundle,
@@ -71,11 +75,11 @@ async function ensureOrganizationMember(input: {
   await addOrganizationMember(input);
 }
 
-export async function addUserToAdminGroup(input: {
+export async function prepareUserForAdminGroup(input: {
   actor: ReturnType<typeof createTestUser>;
   member: TestUser;
   organizationId: string;
-}): Promise<string> {
+}) {
   await ensureOrganizationMember(input);
 
   const [organization] = await db
@@ -142,23 +146,72 @@ export async function addUserToAdminGroup(input: {
     signingPrivateKey: input.actor.signing.signingPrivateKey,
     memberEnvelopes,
   });
+  const stateHash = await computePrincipalStateHash(signedState.state);
+  const root = await bootstrapRoot(input.actor);
+  const currentPolicy = root.principalPolicies.find(
+    (policy) => policy.principalId === organization.adminGroupId,
+  );
+  invariant(currentPolicy, "expected current Admins policy");
+  const nextState = {
+    ...signedState.state,
+    stateHash,
+    createdAt: signedState.state.signedAt,
+  };
+  const nextPolicy = makeVerifiedPrincipalPolicy({
+    principalType: nextState.principalType,
+    principalId: nextState.principalId,
+    version: nextState.version,
+    keyEpoch: nextState.keyEpoch,
+    stateHash,
+    state: nextState,
+    projection: signedState.projection,
+    history: [
+      { state: currentPolicy.state, projection: currentPolicy.projection },
+      { state: nextState, projection: signedState.projection },
+    ],
+    checkpoint: {
+      principalType: nextState.principalType,
+      principalId: nextState.principalId,
+      version: nextState.version,
+      stateHash,
+    },
+  });
+  const rootRekey = await buildRootContainerRekeyMutation({
+    previous: root,
+    replacementPrincipalPolicy: nextPolicy,
+    signer: input.actor,
+  });
+
+  return {
+    adminGroupId: organization.adminGroupId,
+    request: {
+      state: signedState.state,
+      encryptedPayload: signedState.encryptedPayload,
+      projection: signedState.projection,
+      memberEnvelopes: signedState.memberEnvelopes,
+      containerMutations: [rootRekey.request],
+    },
+  };
+}
+
+export async function addUserToAdminGroup(input: {
+  actor: ReturnType<typeof createTestUser>;
+  member: TestUser;
+  organizationId: string;
+}): Promise<string> {
+  const prepared = await prepareUserForAdminGroup(input);
 
   const response = await routeApp.request(
-    `/principals/group/${organization.adminGroupId}/policy`,
+    `/principals/group/${prepared.adminGroupId}/policy`,
     {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${input.actor.token}`,
       },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
+      body: JSON.stringify(prepared.request),
     },
   );
   expect(response.status).toBe(200);
-  return organization.adminGroupId;
+  return prepared.adminGroupId;
 }

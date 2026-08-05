@@ -1,29 +1,21 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { organizations, users } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
-  type PrincipalProjectionMember,
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
-import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
+import { prepareUserForAdminGroup } from "../../../test/helpers/organizationAdmin";
+import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import {
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
 } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
-import {
-  getCurrentPrincipalState,
-  listCurrentPrincipalProjectionMembers,
-} from "../../access/read/principalStateStore";
 import { createRouteApp } from "../../routeApp";
 
 // Sign a complete minimal group policy whose only member is the signing user,
@@ -71,72 +63,11 @@ async function signAdminsAccessGain(
   actor: ReturnType<typeof createTestUser>,
   member: ReturnType<typeof createTestUser>,
 ) {
-  const [organization] = await db
-    .select({
-      adminGroupId: organizations.adminGroupId,
-      organizationId: organizations.id,
-    })
-    .from(users)
-    .innerJoin(organizations, eq(organizations.id, users.defaultOrganizationId))
-    .where(eq(users.id, actor.userId))
-    .limit(1);
-  invariant(organization, "expected actor's default organization");
-
-  // Members before Admins, the order production uses: an Admins member must
-  // already be an active organization member now that Admins is no longer
-  // reachable through Members by nesting.
-  await addOrganizationMember({
+  return prepareUserForAdminGroup({
     actor,
     member,
-    organizationId: organization.organizationId,
+    organizationId: await getDefaultOrganizationId(actor.userId),
   });
-
-  const currentState = await getCurrentPrincipalState(
-    "group",
-    organization.adminGroupId,
-    db,
-  );
-  invariant(currentState, "expected provisioned Admins policy");
-  const currentProjection = await listCurrentPrincipalProjectionMembers(
-    "group",
-    organization.adminGroupId,
-    db,
-  );
-  const projection: PrincipalProjectionMember[] = [
-    ...currentProjection.map((projectionMember) => ({
-      userId: projectionMember.userId,
-      role: projectionMember.role,
-    })),
-    {
-      userId: member.userId,
-      role: "admin",
-    },
-  ];
-  const groupKem = generateKemSeedAndKeyPair();
-  const { memberEnvelopes, stateMembers } =
-    await createPrincipalMemberEnvelopes({
-      principalSecretKey: groupKem.secretKey,
-      projection,
-    });
-  const signedState = await signPrincipalStateBundle({
-    principalType: "group",
-    principalId: organization.adminGroupId,
-    version: currentState.version + 1,
-    prevStateHash: currentState.stateHash,
-    keyEpoch: currentState.keyEpoch + 1,
-    encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
-    keyFingerprint: await toFingerprint(groupKem.publicKey),
-    members: stateMembers,
-    projection,
-    payloadCiphertext: JSON.stringify({ members: projection }),
-    signedAt: "2026-04-08T16:00:00.000Z",
-    signerUserId: actor.userId,
-    signerUserKeyFingerprint: actor.fingerprint,
-    signingPrivateKey: actor.signing.signingPrivateKey,
-    memberEnvelopes,
-  });
-
-  return { adminGroupId: organization.adminGroupId, signedState };
 }
 
 function sharedWithYouUserIds(
@@ -191,10 +122,7 @@ test("PUT granted Admins access notifies only the newly reachable user", async (
   const member = createTestUser();
   await registerUser(member);
 
-  const { adminGroupId, signedState } = await signAdminsAccessGain(
-    actor,
-    member,
-  );
+  const { adminGroupId, request } = await signAdminsAccessGain(actor, member);
   const publishedEvents: Array<Record<string, unknown>> = [];
   const app = createRouteApp({
     publish: async (event) => {
@@ -210,12 +138,7 @@ test("PUT granted Admins access notifies only the newly reachable user", async (
         "Content-Type": "application/json",
         Authorization: `Bearer ${actor.token}`,
       },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
+      body: JSON.stringify(request),
     },
   );
 
@@ -232,10 +155,7 @@ test("PUT granted access still succeeds when shared_with_you publish throws", as
   const member = createTestUser();
   await registerUser(member);
 
-  const { adminGroupId, signedState } = await signAdminsAccessGain(
-    actor,
-    member,
-  );
+  const { adminGroupId, request } = await signAdminsAccessGain(actor, member);
 
   const app = createRouteApp({
     publish: async () => {
@@ -251,12 +171,7 @@ test("PUT granted access still succeeds when shared_with_you publish throws", as
         "Content-Type": "application/json",
         Authorization: `Bearer ${actor.token}`,
       },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
+      body: JSON.stringify(request),
     },
   );
   expect(putPolicyResponse.status).toBe(200);
@@ -272,6 +187,6 @@ test("PUT granted access still succeeds when shared_with_you publish throws", as
       left.userId.localeCompare(right.userId),
     );
   expect(sortByMemberId(storedPolicy.currentMemberEnvelopes.envelopes)).toEqual(
-    sortByMemberId(signedState.memberEnvelopes),
+    sortByMemberId(request.memberEnvelopes),
   );
 });

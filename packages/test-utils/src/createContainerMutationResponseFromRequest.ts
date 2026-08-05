@@ -129,7 +129,11 @@ function deriveMutationState(input: {
       parentManifestHash: body.parentManifestHash,
     };
   }
-  return { ...base, containerKeyEpochId: body.containerKeyEpochId };
+  return {
+    ...base,
+    containerKeyEpochId: body.containerKeyEpochId,
+    referencedPrincipalHeads: [...body.referencedPrincipalHeads],
+  };
 }
 
 export async function createContainerMutationResponseFromRequest(

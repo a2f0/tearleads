@@ -18,12 +18,16 @@ export {
   createRemoteContainer,
 } from "./child/create";
 export { moveRemoteContainer } from "./child/move";
-export { rekeyRemoteContainer } from "./child/rekey";
+export {
+  buildMaterializedContainerRekeyPlan,
+  rekeyRemoteContainer,
+} from "./child/rekey";
 export {
   buildMaterializedContainerRevokePlan,
   revokeRemoteContainer,
 } from "./child/revoke";
 export {
+  buildMaterializedContainerSharePlan,
   shareRemoteContainer,
   shareRemoteContainerWithGroup,
 } from "./child/share";
