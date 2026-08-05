@@ -2,25 +2,15 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import { groups, organizations } from "@tearleads/api-shared/schema";
-import { computePrincipalStateHash } from "@tearleads/crypto";
-import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
-  listCurrentPrincipalProjectionMembers,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats";
+import { toMutationError } from "../containers/mutations/errors";
 import { OrganizationManagerError } from "../organizations/errors";
-import { wasOrganizationGroupDeleted } from "../organizations/groupTombstone";
-import { isCurrentOrganizationAdminAuthority } from "../organizations/principalPolicyExternalAuthority";
-import {
-  appendOrganizationReadModelChangeInTransaction,
-  lockOrganizationReadModelHeadForUpdateInTransaction,
-  lockOrganizationReadModelHeadInTransaction,
-} from "../organizations/readModelChanges";
+import { appendOrganizationReadModelChangeInTransaction } from "../organizations/readModelChanges";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
 import { pruneRegainedAccessTombstones } from "../regainedAccessTombstones";
 import { listPrincipalPolicyAccessGainNotificationUserIds } from "./accessGainNotifications";
@@ -29,25 +19,26 @@ import {
   persistPrincipalPolicyAccessLossTombstones,
 } from "./accessLossTombstones";
 import { getPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
+import { lockGroupReferenceExclusiveInTransaction } from "./groupReferenceLock";
 import {
   assertManagedPrincipalRosterMembership,
   assertOrganizationAdminsRosterMembership,
 } from "./managedPrincipalRosterMembership";
 import { assertPrincipalOrganizationIsSyncEntitled } from "./organizationSync";
+import { applyPrincipalContainerRematerializations } from "./principalContainerRematerialization";
 import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
+import { assertPolicyAuthorityConstraints } from "./principalPolicyAuthorityConstraints";
 import {
-  assertPolicyAuthorityConstraints,
-  type OrganizationPolicyTarget,
-} from "./principalPolicyAuthorityConstraints";
+  isOrgAdminAuthorizedPrincipalPolicySigner,
+  loadRosterSyncTargetForPrincipal,
+  lockOrganizationReadModelForPolicyMutation,
+  type PutPrincipalPolicyInput,
+} from "./principalPolicyMutationAuthorization";
 import { listUserIdsReachableFromPrincipalState } from "./principalStateReachability";
 import { PrincipalPolicyError, toPrincipalPolicyError } from "./shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "./storeVerifiedPrincipalPolicy";
 
-export interface PutPrincipalPolicyInput extends PutPrincipalPolicyRequest {
-  expectedPrincipalId: string;
-  expectedPrincipalType: "group" | "organization";
-  requesterUserId: string;
-}
+export type { PutPrincipalPolicyInput } from "./principalPolicyMutationAuthorization";
 
 export interface PutPrincipalPolicyResult {
   readonly policy: PrincipalPolicyBundleResponse;
@@ -58,74 +49,6 @@ interface RosterSyncResult {
   readonly changedRosterUserIds: string[];
   readonly memberGroupId: string;
   readonly organizationId: string;
-}
-
-function policyTargetChanged(): PrincipalPolicyError {
-  return new PrincipalPolicyError(
-    "Organization policy target changed during mutation",
-    409,
-  );
-}
-
-async function isOrgAdminAuthorizedPrincipalPolicySigner(
-  tx: DatabaseTransaction,
-  input: PutPrincipalPolicyInput,
-  signerUserId: string,
-): Promise<boolean> {
-  if (input.expectedPrincipalType === "organization") {
-    return false;
-  }
-
-  const [group] = await tx
-    .select({
-      adminGroupId: organizations.adminGroupId,
-      organizationId: organizations.id,
-    })
-    .from(groups)
-    .innerJoin(organizations, eq(organizations.id, groups.organizationId))
-    .where(eq(groups.id, input.expectedPrincipalId))
-    .limit(1);
-
-  if (!group) {
-    return false;
-  }
-
-  return isCurrentOrganizationAdminAuthority({
-    executor: tx,
-    organizationId: group.organizationId,
-    signerUserId,
-    submittedAuthority: input.state.externalAuthority,
-  });
-}
-
-async function loadRosterSyncTargetForPrincipal(input: {
-  readonly input: PutPrincipalPolicyInput;
-  readonly tx: DatabaseTransaction;
-}): Promise<OrganizationPolicyTarget | null> {
-  if (input.input.expectedPrincipalType === "organization") {
-    const [organization] = await input.tx
-      .select({
-        organizationId: organizations.id,
-        memberGroupId: organizations.memberGroupId,
-      })
-      .from(organizations)
-      .where(eq(organizations.id, input.input.expectedPrincipalId))
-      .limit(1);
-
-    return organization ?? null;
-  }
-
-  const [organization] = await input.tx
-    .select({
-      organizationId: organizations.id,
-      memberGroupId: organizations.memberGroupId,
-    })
-    .from(groups)
-    .innerJoin(organizations, eq(organizations.id, groups.organizationId))
-    .where(eq(groups.id, input.input.expectedPrincipalId))
-    .limit(1);
-
-  return organization ?? null;
 }
 
 async function syncRosterForStoredPrincipalState(input: {
@@ -247,90 +170,88 @@ function assertPutPrincipalPolicyRouteBinding(
   }
 }
 
-async function lockOrganizationReadModelForPolicyMutation(
+async function putPrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
-): Promise<OrganizationPolicyTarget | null> {
-  const target = await loadRosterSyncTargetForPrincipal({ input, tx });
-  if (!target) {
-    if (
-      input.expectedPrincipalType === "group" &&
-      (await wasOrganizationGroupDeleted({
+): Promise<PutPrincipalPolicyResult> {
+  await lockPolicyPrincipalMutation(tx, input);
+  await lockOrganizationReadModelForPolicyMutation(tx, input);
+  await assertPolicyAuthorityConstraints(tx, input);
+  const previousState = await getCurrentPrincipalState(
+    input.state.principalType,
+    input.state.principalId,
+    tx,
+  );
+  const previousReachableUserIds = previousState
+    ? await listUserIdsReachableFromPrincipalState({
         executor: tx,
-        groupId: input.expectedPrincipalId,
-      }))
-    ) {
-      throw new PrincipalPolicyError(
-        "Deleted organization group policies cannot be replayed",
-        409,
-      );
-    }
-    return null;
-  }
-  const currentState = await getCurrentPrincipalState(
-    input.expectedPrincipalType,
-    input.expectedPrincipalId,
+        state: previousState,
+      })
+    : [];
+  const nextState = await storeVerifiedPrincipalPolicyInTransaction(
+    {
+      state: input.state,
+      encryptedPayload: input.encryptedPayload,
+      projection: input.projection,
+      memberEnvelopes: input.memberEnvelopes,
+    },
     tx,
+    {
+      authorizeExternalAdminSigner: (authorization) =>
+        isOrgAdminAuthorizedPrincipalPolicySigner(
+          tx,
+          input,
+          authorization.signerUserId,
+        ),
+    },
   );
-  const submittedStateHash = await computePrincipalStateHash(input.state);
-  const isExactReplay = currentState?.stateHash === submittedStateHash;
-  if (isExactReplay) {
-    const lockedHead = await lockOrganizationReadModelHeadInTransaction(
-      tx,
-      target.organizationId,
-    );
-    const lockedTarget = await loadRosterSyncTargetForPrincipal({ input, tx });
-    const lockedState = await getCurrentPrincipalState(
-      input.expectedPrincipalType,
-      input.expectedPrincipalId,
-      tx,
-    );
-    if (
-      !lockedTarget ||
-      lockedHead === null ||
-      lockedTarget.organizationId !== target.organizationId ||
-      lockedState?.stateHash !== submittedStateHash
-    ) {
-      throw policyTargetChanged();
-    }
-    return lockedTarget;
-  }
-  const authorizationProjection = currentState
-    ? await listCurrentPrincipalProjectionMembers(
-        input.expectedPrincipalType,
-        input.expectedPrincipalId,
-        tx,
-      )
-    : input.projection;
-  const isDirectAdmin = authorizationProjection.some(
-    (member) =>
-      member.userId === input.state.signerUserId && member.role === "admin",
-  );
-  const isOrganizationAdmin =
-    !isDirectAdmin &&
-    (await isOrgAdminAuthorizedPrincipalPolicySigner(
-      tx,
-      input,
-      input.state.signerUserId,
-    ));
-  if (!isDirectAdmin && !isOrganizationAdmin) {
-    throw new PrincipalPolicyError(
-      "Principal state signer must be an admin",
-      403,
-    );
-  }
-  const headLocked = await lockOrganizationReadModelHeadForUpdateInTransaction(
+  // Gate after authorization so an unauthorized signer still gets the
+  // authorization error, not a billing error.
+  await assertPrincipalOrganizationIsSyncEntitled(
     tx,
-    target.organizationId,
+    input.state.principalType,
+    input.state.principalId,
   );
-  if (!headLocked) {
-    throw new Error("Organization read-model cursor head is missing");
+  const applyRematerializations = () =>
+    applyPrincipalContainerRematerializations({
+      executor: tx,
+      fingerprint: input.state.signerUserKeyFingerprint,
+      nextHead: {
+        principalType: nextState.principalType,
+        principalId: nextState.principalId,
+        version: nextState.version,
+        keyEpoch: nextState.keyEpoch,
+        stateHash: nextState.stateHash,
+        keyFingerprint: nextState.keyFingerprint,
+      },
+      previousKeyEpoch: previousState?.keyEpoch ?? null,
+      requests: input.containerMutations,
+      userId: input.requesterUserId,
+    });
+  if (previousState?.stateHash === nextState.stateHash) {
+    await applyRematerializations();
+    return {
+      policy: await getPrincipalPolicyForStateWithExecutor(tx, nextState),
+      sharedWithYouUserIds: [],
+    };
   }
-  const lockedTarget = await loadRosterSyncTargetForPrincipal({ input, tx });
-  if (!lockedTarget || lockedTarget.organizationId !== target.organizationId) {
-    throw policyTargetChanged();
-  }
-  return lockedTarget;
+  const currentReachableUserIds = await listUserIdsReachableFromPrincipalState({
+    executor: tx,
+    state: nextState,
+  });
+  const sharedWithYouUserIds = await applyPrincipalPolicyTransitionEffects({
+    currentReachableUserIds,
+    nextState,
+    policy: input,
+    previousReachableUserIds,
+    previousState,
+    tx,
+  });
+  await applyRematerializations();
+  return {
+    policy: await getPrincipalPolicyForStateWithExecutor(tx, nextState),
+    sharedWithYouUserIds,
+  };
 }
 
 async function lockPolicyPrincipalMutation(
@@ -342,6 +263,15 @@ async function lockPolicyPrincipalMutation(
     input.expectedPrincipalType,
     input.expectedPrincipalId,
   );
+  if (input.expectedPrincipalType === "group") {
+    // Container grants take the corresponding shared lock. Holding it
+    // exclusively makes the dependent-grant set stable until the policy and
+    // every required rematerialization commit together.
+    await lockGroupReferenceExclusiveInTransaction(
+      tx,
+      input.expectedPrincipalId,
+    );
+  }
 }
 
 async function applyPrincipalPolicyTransitionEffects(input: {
@@ -417,73 +347,17 @@ export async function runPutPrincipalPolicyWorkflow(
   assertPutPrincipalPolicyRouteBinding(input);
 
   try {
-    return await db.transaction(async (tx) => {
-      await lockPolicyPrincipalMutation(tx, input);
-      // Still locks the org read model; its target is no longer needed now
-      // that group-scope validation is gone.
-      await lockOrganizationReadModelForPolicyMutation(tx, input);
-      await assertPolicyAuthorityConstraints(tx, input);
-      const previousState = await getCurrentPrincipalState(
-        input.state.principalType,
-        input.state.principalId,
-        tx,
-      );
-      const previousReachableUserIds = previousState
-        ? await listUserIdsReachableFromPrincipalState({
-            executor: tx,
-            state: previousState,
-          })
-        : [];
-      const nextState = await storeVerifiedPrincipalPolicyInTransaction(
-        {
-          state: input.state,
-          encryptedPayload: input.encryptedPayload,
-          projection: input.projection,
-          memberEnvelopes: input.memberEnvelopes,
-        },
-        tx,
-        {
-          authorizeExternalAdminSigner: (authorization) =>
-            isOrgAdminAuthorizedPrincipalPolicySigner(
-              tx,
-              input,
-              authorization.signerUserId,
-            ),
-        },
-      );
-      // Gate after authorization so an unauthorized signer still gets the
-      // authorization error, not a billing error.
-      await assertPrincipalOrganizationIsSyncEntitled(
-        tx,
-        input.state.principalType,
-        input.state.principalId,
-      );
-      const isExactReplay = previousState?.stateHash === nextState.stateHash;
-      if (isExactReplay) {
-        return {
-          policy: await getPrincipalPolicyForStateWithExecutor(tx, nextState),
-          sharedWithYouUserIds: [],
-        };
-      }
-      const currentReachableUserIds =
-        await listUserIdsReachableFromPrincipalState({
-          executor: tx,
-          state: nextState,
-        });
-      const sharedWithYouUserIds = await applyPrincipalPolicyTransitionEffects({
-        currentReachableUserIds,
-        nextState,
-        policy: input,
-        previousReachableUserIds,
-        previousState,
-        tx,
-      });
-      return {
-        policy: await getPrincipalPolicyForStateWithExecutor(tx, nextState),
-        sharedWithYouUserIds,
-      };
-    });
+    return await db.transaction((tx) =>
+      putPrincipalPolicyInTransaction(tx, input),
+    );
   } catch (error) {
+    const containerMutationError = toMutationError(error);
+    if (containerMutationError) {
+      throw new PrincipalPolicyError(
+        containerMutationError.message,
+        containerMutationError.status,
+      );
+    }
     if (error instanceof OrganizationManagerError) {
       throw new PrincipalPolicyError(error.message, error.status, error.code);
     }

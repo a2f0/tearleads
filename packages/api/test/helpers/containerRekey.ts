@@ -17,6 +17,7 @@ import {
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
   deriveContainerAccessManifest,
+  derivePrincipalRecipientKeyEpochId,
   signAccessEvent,
   verifyContainerKekState,
   verifySignedAccessEvent,
@@ -162,6 +163,7 @@ export function appendUnexpectedUserWrapToRekey(
 
 export async function buildRootContainerRekeyMutation(input: {
   readonly previous: ContainerRekeyFixture;
+  readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
   readonly signer: TestUser;
 }): Promise<BuiltContainerRekeyMutation> {
   const previous = asVerifiedContainerManifest(input.previous.bundle);
@@ -197,12 +199,29 @@ export async function buildRootContainerRekeyMutation(input: {
       keyMaterial: retiringKey,
     },
   ];
+  const replacementPolicy = input.replacementPrincipalPolicy;
+  const referencedPrincipalHeads = replacementPolicy
+    ? previous.state.referencedPrincipalHeads.map((head) =>
+        head.principalType === replacementPolicy.principalType &&
+        head.principalId === replacementPolicy.principalId
+          ? {
+              principalType: replacementPolicy.principalType,
+              principalId: replacementPolicy.principalId,
+              version: replacementPolicy.version,
+              keyEpoch: replacementPolicy.keyEpoch,
+              stateHash: replacementPolicy.stateHash,
+              keyFingerprint: replacementPolicy.state.keyFingerprint,
+            }
+          : head,
+      )
+    : previous.state.referencedPrincipalHeads;
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId,
     keyringHash: await computeContainerKekKeyringHash(keyring),
     predecessorBridgeHash:
       await computeContainerKekPredecessorBridgeHash(predecessorBridge),
+    referencedPrincipalHeads,
   };
   const event = await createSignedContainerRekeyEvent({
     body,
@@ -215,6 +234,7 @@ export async function buildRootContainerRekeyMutation(input: {
     previousManifestHash: previous.manifestHash,
     eventHash: event.eventHash,
     containerKeyEpochId,
+    referencedPrincipalHeads,
   };
   const manifest = await deriveContainerAccessManifest(state);
   const manifestHash = await computeAccessManifestHash(manifest);
@@ -232,11 +252,40 @@ export async function buildRootContainerRekeyMutation(input: {
   const userRecipientKeys = userRecipientKeysFromKekState(
     input.previous.kekState,
   );
-  const principalPolicies = input.previous.principalPolicies ?? [];
+  const principalPolicies = replacementPolicy
+    ? [
+        ...(input.previous.principalPolicies ?? []).filter(
+          (policy) =>
+            policy.principalType !== replacementPolicy.principalType ||
+            policy.principalId !== replacementPolicy.principalId,
+        ),
+        replacementPolicy,
+      ]
+    : (input.previous.principalPolicies ?? []);
+  const recipientTargets = replacementPolicy
+    ? input.previous.kekState.recipientTargets.map((target) =>
+        target.recipientKind === replacementPolicy.principalType &&
+        target.recipientId === replacementPolicy.principalId
+          ? {
+              recipientKind: replacementPolicy.principalType,
+              recipientId: replacementPolicy.principalId,
+              recipientKeyEpochId: derivePrincipalRecipientKeyEpochId({
+                principalType: replacementPolicy.principalType,
+                principalId: replacementPolicy.principalId,
+                version: replacementPolicy.version,
+                keyEpoch: replacementPolicy.keyEpoch,
+                stateHash: replacementPolicy.stateHash,
+                keyFingerprint: replacementPolicy.state.keyFingerprint,
+              }),
+              recipientKeyFingerprint: replacementPolicy.state.keyFingerprint,
+            }
+          : target,
+      )
+    : input.previous.kekState.recipientTargets;
   const wraps = createRecipientKeyWraps({
     containerKeyEpochId,
     manifestHash,
-    recipientTargets: input.previous.kekState.recipientTargets,
+    recipientTargets,
   });
   const verifiedKekState = await verifyContainerKekState({
     containerManifest: asVerifiedContainerManifest(bundle),

@@ -188,6 +188,7 @@ test("remove group user bridges committed policy writes before caching the rotat
         expect(calls).toEqual([
           "read-previous",
           "bind-head",
+          "prepare-containers",
           "put-policy",
           "bridge",
         ]);
@@ -247,6 +248,22 @@ test("remove group user bridges committed policy writes before caching the rotat
       execSql,
       groupId,
       organizationId,
+      prepareContainerMutations: async ({ nextPolicy }) => {
+        calls.push("prepare-containers");
+        if (!boundHead) {
+          throw new Error("Expected the policy head before container planning");
+        }
+        expect(nextPolicy.stateHash).toBe(boundHead.stateHash);
+        expect(nextPolicy.keyEpoch).toBe(
+          previousPolicy.currentState.keyEpoch + 1,
+        );
+        expect(calls).toEqual([
+          "read-previous",
+          "bind-head",
+          "prepare-containers",
+        ]);
+        return [];
+      },
       removedUserId,
       resolveTrustedUserIdentity,
       signerUserId,
@@ -257,6 +274,7 @@ test("remove group user bridges committed policy writes before caching the rotat
     expect(calls).toEqual([
       "read-previous",
       "bind-head",
+      "prepare-containers",
       "put-policy",
       "bridge",
       "read-current",

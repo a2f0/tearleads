@@ -45,6 +45,7 @@ import {
   deriveDocumentLinkSetManifest,
   derivePrincipalRecipientKeyEpochId,
   generateKemSeedAndKeyPair,
+  makeVerifiedPrincipalPolicy,
   signAccessEvent,
   toFingerprint,
   verifyContainerKekState,
@@ -83,11 +84,16 @@ import {
   requestSingleContainerParentLane as listContainersForUser,
   readContainerParentLanePage as readLanePage,
 } from "../../../test/helpers/containerParentLaneQuery";
+import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import {
   setTestOrganizationBillingExpiredTrial,
   setTestOrganizationBillingLocal,
 } from "../../../test/helpers/organizationBilling";
 import * as grants from "../../../test/helpers/organizationGrantChanges";
+import {
+  addOrganizationMember,
+  getDefaultOrganizationId,
+} from "../../../test/helpers/organizationMembership";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import {
@@ -299,11 +305,16 @@ async function verifyKekState(input: {
 
 async function putGroupPrincipalPolicy(input: {
   readonly actor: TestUser;
+  readonly containerMutations?: readonly ContainerMutationRequest[];
   readonly keyEpoch?: number;
   readonly members?: readonly PrincipalStateMember[];
   readonly prevStateHash?: string | null;
   readonly principalId: string;
   readonly principalKem?: ReturnType<typeof generateKemSeedAndKeyPair>;
+  readonly prepareContainerMutations?: (input: {
+    readonly policy: VerifiedPrincipalPolicy;
+    readonly reference: ReferencedPrincipalHead;
+  }) => Promise<readonly ContainerMutationRequest[]>;
   readonly projection?: readonly PrincipalProjectionMember[];
   readonly signedAt?: string;
   readonly version?: number;
@@ -343,14 +354,69 @@ async function putGroupPrincipalPolicy(input: {
     signingPrivateKey: input.actor.signing.signingPrivateKey,
     memberEnvelopes,
   });
+  const stateHash = await computePrincipalStateHash(signedState.state);
+  const isInitialState =
+    signedState.state.version === 1 && signedState.state.prevStateHash === null;
+  let preparedContainerMutations = input.containerMutations;
+  if (input.prepareContainerMutations) {
+    invariant(
+      !isInitialState,
+      "initial groups have no grants to rematerialize",
+    );
+    invariant(
+      !input.containerMutations,
+      "provide either container mutations or a mutation preparer",
+    );
+    const currentPolicy = await loadVerifiedPrincipalPolicy(
+      db,
+      "group",
+      input.principalId,
+    );
+    const nextState = {
+      ...signedState.state,
+      stateHash,
+      createdAt: signedState.state.signedAt,
+    };
+    const nextPolicy = makeVerifiedPrincipalPolicy({
+      principalType: nextState.principalType,
+      principalId: nextState.principalId,
+      version: nextState.version,
+      keyEpoch: nextState.keyEpoch,
+      stateHash,
+      state: nextState,
+      projection: signedState.projection,
+      history: [
+        { state: currentPolicy.state, projection: currentPolicy.projection },
+        { state: nextState, projection: signedState.projection },
+      ],
+      checkpoint: {
+        principalType: nextState.principalType,
+        principalId: nextState.principalId,
+        version: nextState.version,
+        stateHash,
+      },
+    });
+    preparedContainerMutations = await input.prepareContainerMutations({
+      policy: nextPolicy,
+      reference: {
+        principalType: nextPolicy.principalType,
+        principalId: nextPolicy.principalId,
+        version: nextPolicy.version,
+        keyEpoch: nextPolicy.keyEpoch,
+        stateHash: nextPolicy.stateHash,
+        keyFingerprint: nextPolicy.state.keyFingerprint,
+      },
+    });
+  }
   const policyRequest = {
     state: signedState.state,
     encryptedPayload: signedState.encryptedPayload,
     projection: signedState.projection,
     memberEnvelopes: signedState.memberEnvelopes,
+    ...(preparedContainerMutations
+      ? { containerMutations: [...preparedContainerMutations] }
+      : {}),
   };
-  const isInitialState =
-    signedState.state.version === 1 && signedState.state.prevStateHash === null;
   let response: Response;
   if (isInitialState) {
     const [actor] = await db
@@ -389,7 +455,6 @@ async function putGroupPrincipalPolicy(input: {
   }
 
   expect(response.status).toBe(200);
-  const stateHash = await computePrincipalStateHash(signedState.state);
   const policy = await loadVerifiedPrincipalPolicy(
     db,
     "group",
@@ -2053,6 +2118,19 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
     prevStateHash: initialGroup.stateHash,
     principalId: groupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
+    prepareContainerMutations: async ({ policy }) => [
+      await buildRekeyRequest({
+        parentKekState: root.kekState,
+        previous: accessManifestFromResponse(secondGroupShared),
+        previousContainerPath: [
+          root.bundle,
+          accessManifestFromResponse(secondGroupShared),
+        ],
+        previousKekState: kekStateFromResponse(secondGroupShared),
+        replacementPrincipalPolicy: policy,
+        signer: owner,
+      }),
+    ],
     signedAt: "2026-04-30T00:01:00.000Z",
     version: 2,
   });
@@ -2179,7 +2257,7 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
   ]);
 });
 
-test("POST /containers/:containerId/share re-wraps a built-in grant without changing its access level", async () => {
+test("Admins rotation rekeys its built-in grant without changing access", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -2200,39 +2278,29 @@ test("POST /containers/:containerId/share re-wraps a built-in grant without chan
     prevStateHash: adminPolicy.stateHash,
     principalId: adminPolicy.principalId,
     principalKem: generateKemSeedAndKeyPair(),
+    prepareContainerMutations: async ({ policy }) => [
+      (
+        await buildRootContainerRekeyMutation({
+          previous: root,
+          replacementPrincipalPolicy: policy,
+          signer: owner,
+        })
+      ).request,
+    ],
     signedAt: "2026-04-30T00:00:30.000Z",
     version: adminPolicy.version + 1,
   });
-  const request = await buildGroupGrantRequest({
-    accessLevel: "admin",
-    parentKekState: null,
-    previous: root.bundle,
-    previousContainerPath: [root.bundle],
-    previousKekState: root.kekState,
-    principalPolicy: rotatedAdminGroup.policy,
-    principalReference: rotatedAdminGroup.reference,
-    signer: owner,
-  });
-
-  const reshared = await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${rootManifest.state.containerId}/share`,
-      request,
-      token: owner.token,
-    }),
-  );
-  const resharedManifest = asVerifiedContainerManifest(
-    accessManifestFromResponse(reshared),
-  );
+  const reshared = await bootstrapRoot(owner);
+  const resharedManifest = asVerifiedContainerManifest(reshared.bundle);
 
   expect(resharedManifest.state.directGrants).toContainEqual(adminGrant);
   expect(resharedManifest.state.referencedPrincipalHeads).toEqual([
     rotatedAdminGroup.reference,
   ]);
-  expect(reshared.containerKek.containerKeyEpochId).toBe(
+  expect(reshared.kekState.containerKeyEpochId).not.toBe(
     root.kekState.containerKeyEpochId,
   );
-  expect(reshared.containerKek.recipientTargets).toEqual([
+  expect(reshared.kekState.recipientTargets).toEqual([
     {
       recipientKind: "group",
       recipientId: adminGrant.subjectId,
@@ -2318,13 +2386,13 @@ test("POST /containers/:containerId/revoke rejects built-in grants", async () =>
     token: owner.token,
   });
 
-  expect(response.status).toBe(403);
+  expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
-    error: "Built-in container grant cannot be revoked or change access level",
+    error: "Group grants must be revoked atomically with principal rotation",
   });
 });
 
-test("POST /containers/:containerId/revoke emits tombstones for removed group grant members", async () => {
+test("group grant revoke requires and commits with principal rotation", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const recipient = createTestUser();
@@ -2386,13 +2454,32 @@ test("POST /containers/:containerId/revoke emits tombstones for removed group gr
     signer: owner,
   });
 
-  await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/revoke`,
-      request: revokeRequest,
-      token: owner.token,
-    }),
-  );
+  const response = await postMutation({
+    path: `/containers/${created.containerId}/revoke`,
+    request: revokeRequest,
+    token: owner.token,
+  });
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Group grants must be revoked atomically with principal rotation",
+  });
+
+  revokeRequest.principalPolicies = (
+    revokeRequest.principalPolicies ?? []
+  ).filter((policy) => Reflect.get(policy, "principalId") !== groupPrincipalId);
+  await putGroupPrincipalPolicy({
+    actor: owner,
+    containerMutations: [revokeRequest],
+    keyEpoch: group.policy.keyEpoch + 1,
+    members: group.policy.projection.map((member) => ({
+      userId: member.userId,
+    })),
+    prevStateHash: group.policy.stateHash,
+    principalId: groupPrincipalId,
+    projection: [...group.policy.projection],
+    version: group.policy.version + 1,
+  });
 
   const recipientDeltaResponse = await listRootContainers({
     token: recipient.token,
@@ -2412,25 +2499,6 @@ test("POST /containers/:containerId/revoke emits tombstones for removed group gr
       updatedAt: expect.any(String),
     },
   ]);
-  expect(recipientDelta.nextWatermark).toEqual({
-    id: created.containerId,
-    updatedAt: firstTombstone(recipientDelta).updatedAt,
-  });
-
-  const recipientParentLaneResponse = await listContainersForUser({
-    parentId: root.kekState.containerId,
-    token: recipient.token,
-  });
-  expect(recipientParentLaneResponse.status).toBe(200);
-  expect(
-    (await readLanePage(recipientParentLaneResponse)).tombstones,
-  ).toContainEqual({
-    containerId: created.containerId,
-    depth: 1,
-    parentId: root.kekState.containerId,
-    reason: "access_revoked",
-    updatedAt: firstTombstone(recipientDelta).updatedAt,
-  });
 });
 
 test("PUT /principals/group/:principalId/policy emits tombstones for removed group members", async () => {
@@ -2461,7 +2529,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
     principalReference: group.reference,
     signer: owner,
   });
-  await expectMutationSuccess(
+  const shared = await expectMutationSuccess(
     await postMutation({
       path: `/containers/${created.containerId}/share`,
       request: groupGrantRequest,
@@ -2489,6 +2557,19 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
     prevStateHash: group.stateHash,
     principalId: groupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
+    prepareContainerMutations: async ({ policy }) => [
+      await buildRekeyRequest({
+        parentKekState: root.kekState,
+        previous: accessManifestFromResponse(shared),
+        previousContainerPath: [
+          root.bundle,
+          accessManifestFromResponse(shared),
+        ],
+        previousKekState: kekStateFromResponse(shared),
+        replacementPrincipalPolicy: policy,
+        signer: owner,
+      }),
+    ],
     signedAt: "2026-04-30T00:02:00.000Z",
     version: 2,
   });
@@ -2579,7 +2660,7 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
     signer: owner,
     userRecipientKeys: [recipientKey],
   });
-  await expectMutationSuccess(
+  const groupShared = await expectMutationSuccess(
     await postMutation({
       path: `/containers/${created.containerId}/share`,
       request: groupGrantRequest,
@@ -2607,6 +2688,19 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
     prevStateHash: group.stateHash,
     principalId: groupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
+    prepareContainerMutations: async ({ policy }) => [
+      await buildRekeyRequest({
+        parentKekState: root.kekState,
+        previous: accessManifestFromResponse(groupShared),
+        previousContainerPath: [
+          root.bundle,
+          accessManifestFromResponse(groupShared),
+        ],
+        previousKekState: kekStateFromResponse(groupShared),
+        replacementPrincipalPolicy: policy,
+        signer: owner,
+      }),
+    ],
     signedAt: "2026-04-30T00:03:00.000Z",
     version: 2,
   });
@@ -2618,7 +2712,16 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
   expect(recipientDeltaResponse.status).toBe(200);
   const recipientDelta = await readLanePage(recipientDeltaResponse);
   expect(recipientDelta.tombstones).toEqual([]);
-  expect(recipientDelta.nextWatermark).toEqual(recipientBaseline.nextWatermark);
+  expect(
+    recipientDelta.items.map((container: { id: string }) => container.id),
+  ).toContain(created.containerId);
+  expect(recipientDelta.nextWatermark).toEqual({
+    id: created.containerId,
+    updatedAt: expect.any(String),
+  });
+  expect(recipientDelta.nextWatermark).not.toEqual(
+    recipientBaseline.nextWatermark,
+  );
 });
 
 test("POST /containers/:containerId/revoke skips tombstones while access remains inherited", async () => {
@@ -3237,8 +3340,13 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
 
   const recipientKey = await userRecipientKey(recipient);
   const groupPrincipalId = crypto.randomUUID();
+  await addOrganizationMember({
+    actor: owner,
+    member: groupMember,
+    organizationId: await getDefaultOrganizationId(owner.userId),
+  });
   const group = await putGroupPrincipalPolicy({
-    actor: groupMember,
+    actor: owner,
     members: [{ userId: groupMember.userId }],
     principalId: groupPrincipalId,
   });
@@ -3319,7 +3427,7 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
         containerId: groupSharedChild.containerId,
         parentId: root.kekState.containerId,
         reason: "deleted",
-        rootDiscoveryVisible: false,
+        rootDiscoveryVisible: true,
         userId: owner.userId,
       },
       {

@@ -4,6 +4,7 @@ import {
   computeContainerKekRecipientTargetHash,
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
+  makeVerifiedPrincipalPolicy,
   signPrincipalState,
   toFingerprint,
   wrapDekForRecipients,
@@ -33,6 +34,7 @@ import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
 } from "../root/create";
+import { buildMaterializedContainerRekeyPlan } from "./rekey";
 import { shareRemoteContainerWithGroup } from "./share";
 
 const ADMIN_GROUP_ID = "admins-group";
@@ -303,5 +305,155 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
     ).toEqual(Array.from(containerKey));
   } finally {
     close();
+  }
+});
+
+test("Admins rotation rekeys the root and a fresh current member opens all epochs", async () => {
+  const { author, signingPublicKey } = await createAuthor({
+    organizationId: ORGANIZATION_ID,
+    userId: USER_ID,
+  });
+  const memberKem = generateKemSeedAndKeyPair();
+  const initialAdminGroup = await buildInitialGroupPolicyRequest({
+    creatorEncapsulationKeyPair: memberKem,
+    groupId: ADMIN_GROUP_ID,
+    name: "Admins",
+    signerUserId: USER_ID,
+    signingFingerprint: author.signerKeyFingerprint,
+    signingKeyPair: {
+      signingPrivateKey: author.signerPrivateKey,
+      signingPublicKey,
+    },
+  });
+  const epochOnePolicy =
+    await policyBundleFromInitialRequest(initialAdminGroup);
+  const epochTwoPolicy = await createAdminPolicyBundle({
+    author,
+    groupKem: generateKemSeedAndKeyPair(),
+    memberPublicKey: memberKem.publicKey,
+    previousBundle: epochOnePolicy,
+    signedAt: new Date(
+      Date.parse(epochOnePolicy.currentState.signedAt) + 1_000,
+    ).toISOString(),
+  });
+  const nextState = epochTwoPolicy.currentState;
+  const nextPolicy = makeVerifiedPrincipalPolicy({
+    principalType: nextState.principalType,
+    principalId: nextState.principalId,
+    version: nextState.version,
+    keyEpoch: nextState.keyEpoch,
+    stateHash: nextState.stateHash,
+    state: nextState,
+    projection: epochTwoPolicy.currentProjection,
+    history: [
+      {
+        state: epochOnePolicy.currentState,
+        projection: epochOnePolicy.currentProjection,
+      },
+      { state: nextState, projection: epochTwoPolicy.currentProjection },
+    ],
+    checkpoint: {
+      principalType: nextState.principalType,
+      principalId: nextState.principalId,
+      version: nextState.version,
+      stateHash: nextState.stateHash,
+    },
+  });
+  const originalContainerKey = crypto.getRandomValues(new Uint8Array(32));
+  const root = await buildRootContainerCreatePlan({
+    adminGroup: initialAdminGroup,
+    author,
+    containerId: ROOT_CONTAINER_ID,
+    containerKey: originalContainerKey,
+    metadataDocumentId: "root-metadata-document",
+    recipientEncapsulationPublicKey: memberKem.publicKey,
+    signedAt: SIGNED_AT,
+  });
+  const initialProjection = rootContainerWriterProjectionFromCreatePlan(
+    root.plan,
+  );
+  const initialManifest = initialProjection.path[0];
+  const initialKek = initialProjection.containerKeks[0];
+  if (!initialManifest || !initialKek) {
+    throw new Error("Expected initial root projection");
+  }
+  const resolveUserIdentity = async (userId: string) =>
+    userId === USER_ID
+      ? createTestTrustedUserIdentity({
+          encapsulationPublicKey: memberKem.publicKey,
+          signingKeyFingerprint: author.signerKeyFingerprint,
+          signingPublicKey,
+          userId,
+        })
+      : null;
+  const warmDatabase = await createTestExecSql(
+    "container-rekey-admin-group-warm",
+  );
+  const coldDatabase = await createTestExecSql(
+    "container-rekey-admin-group-cold",
+  );
+
+  try {
+    await ensurePrincipalPolicyTables(warmDatabase.execSql);
+    await savePrincipalPolicyBundle(
+      warmDatabase.execSql,
+      epochOnePolicy,
+      "2026-04-28T12:00:30.000Z",
+    );
+    const rekeyed = await buildMaterializedContainerRekeyPlan({
+      author,
+      execSql: warmDatabase.execSql,
+      previousProjection: initialProjection,
+      replacementPrincipalPolicy: nextPolicy,
+      resolveProjectionUserKey: resolveUserIdentity,
+      signedAt: "2026-04-28T12:02:00.000Z",
+      targetSecretKey: memberKem.secretKey,
+    });
+    const response = await createMutationResponseFromRequest(
+      rekeyed.plan.request,
+      initialKek,
+    );
+    const coldProjection: ContainerWriterProjectionResponse = {
+      containerId: ROOT_CONTAINER_ID,
+      organizationId: ORGANIZATION_ID,
+      path: [response.accessManifest],
+      containerKeks: [
+        {
+          ...response.containerKek,
+          containerManifestHistory: [initialManifest],
+        },
+      ],
+    };
+
+    await ensurePrincipalPolicyTables(coldDatabase.execSql);
+    await savePrincipalPolicyBundle(
+      coldDatabase.execSql,
+      epochTwoPolicy,
+      "2026-04-28T12:02:30.000Z",
+    );
+    const coldKeks = await unwrapContainerKekPath({
+      execSql: coldDatabase.execSql,
+      projection: coldProjection,
+      resolveProjectionUserKey: resolveUserIdentity,
+      secretKey: memberKem.secretKey,
+    });
+
+    expect(
+      Array.from(coldKeks.get(rekeyed.plan.containerKeyEpochId) ?? []),
+    ).toEqual(Array.from(rekeyed.containerKey));
+    expect(
+      Array.from(coldKeks.get(initialKek.containerKeyEpochId) ?? []),
+    ).toEqual(Array.from(originalContainerKey));
+    expect(response.referencedPrincipalHeads).toContainEqual({
+      principalType: nextPolicy.principalType,
+      principalId: nextPolicy.principalId,
+      version: nextPolicy.version,
+      keyEpoch: nextPolicy.keyEpoch,
+      stateHash: nextPolicy.stateHash,
+      keyFingerprint: nextPolicy.state.keyFingerprint,
+    });
+  } finally {
+    warmDatabase.close();
+    coldDatabase.close();
   }
 });

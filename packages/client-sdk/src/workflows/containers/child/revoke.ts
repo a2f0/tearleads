@@ -224,6 +224,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
   eventId?: string | undefined;
   execSql: ExecSql;
   previousProjection: ContainerWriterProjectionResponse;
+  replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
   revokedSubject: ContainerRevokeSubject;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
@@ -319,6 +320,22 @@ export async function buildMaterializedContainerRevokePlan(input: {
     resolveUserKey: resolveProjectionUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  const replacementPrincipalPolicy = input.replacementPrincipalPolicy;
+  if (
+    replacementPrincipalPolicy &&
+    (replacementPrincipalPolicy.principalType !==
+      input.revokedSubject.subjectType ||
+      replacementPrincipalPolicy.principalId !== input.revokedSubject.subjectId)
+  ) {
+    throw new Error("Container revoke replacement principal does not match");
+  }
+  const currentPrincipalPolicies = replacementPrincipalPolicy
+    ? principalPolicies.filter(
+        (policy) =>
+          policy.principalType !== replacementPrincipalPolicy.principalType ||
+          policy.principalId !== replacementPrincipalPolicy.principalId,
+      )
+    : principalPolicies;
   const { userRecipientKeys, wraps } = await buildContainerRotationWraps({
     containerKey,
     containerKeyEpochId,
@@ -326,7 +343,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
     operationLabel: "Container revoke",
     parentKek,
     parentKekMaterial,
-    principalPolicies,
+    principalPolicies: currentPrincipalPolicies,
     resolveUserKey: resolveProjectionUserKey,
     state,
   });
@@ -346,7 +363,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
     predecessorBridge,
     previousManifest: asContainerManifestBundle(target.manifest),
     previousProjection: input.previousProjection,
-    principalPolicies,
+    principalPolicies: currentPrincipalPolicies,
     state,
     userRecipientKeys,
     wraps,

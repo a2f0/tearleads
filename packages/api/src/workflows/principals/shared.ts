@@ -18,7 +18,7 @@ import type {
 export class PrincipalPolicyError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 403 | 404 | 409,
+    readonly status: 400 | 403 | 404 | 409 | 503,
     readonly code?: BillingErrorCode,
   ) {
     super(message);

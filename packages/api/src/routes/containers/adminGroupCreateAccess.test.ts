@@ -8,7 +8,6 @@ import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
   KeyingCanonicalJson,
-  PrincipalProjectionMember,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
@@ -17,35 +16,26 @@ import type {
 import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
-  computePrincipalStateHash,
   deriveContainerAccessManifest,
-  generateKemSeedAndKeyPair,
   signAccessEvent,
-  toFingerprint,
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import {
   isContainerMutationResponse,
-  isPrincipalPolicyBundleResponse,
   isPrincipalPolicyStaleErrorResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
-import {
-  addOrganizationMember,
-  getDefaultOrganizationId,
-} from "../../../test/helpers/organizationMembership";
-import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
+import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
+import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
-import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
@@ -157,77 +147,12 @@ async function bootstrapRoot(owner: TestUser): Promise<RootFixture> {
 async function advanceAdminPolicy(input: {
   readonly owner: TestUser;
   readonly peer: TestUser;
-  readonly policy: VerifiedPrincipalPolicy;
 }): Promise<void> {
-  // Members before Admins, the order production uses: without nesting, an
-  // Admins member must already be an active organization member.
-  await addOrganizationMember({
+  await addUserToAdminGroup({
     actor: input.owner,
     member: input.peer,
     organizationId: await getDefaultOrganizationId(input.owner.userId),
   });
-
-  const principalKem = generateKemSeedAndKeyPair();
-  const projection: PrincipalProjectionMember[] = [
-    {
-      userId: input.owner.userId,
-      role: "admin",
-    },
-    {
-      userId: input.peer.userId,
-      role: "admin",
-    },
-  ];
-  const { memberEnvelopes, stateMembers } =
-    await createPrincipalMemberEnvelopes({
-      principalSecretKey: principalKem.secretKey,
-      projection,
-    });
-  const signedState = await signPrincipalStateBundle({
-    principalType: "group",
-    principalId: input.policy.principalId,
-    version: input.policy.version + 1,
-    prevStateHash: input.policy.stateHash,
-    keyEpoch: input.policy.keyEpoch + 1,
-    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-    keyFingerprint: await toFingerprint(principalKem.publicKey),
-    members: stateMembers,
-    projection,
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify({ members: projection })),
-    ),
-    signedAt: "2026-06-21T12:00:00.000Z",
-    signerUserId: input.owner.userId,
-    signerUserKeyFingerprint: input.owner.fingerprint,
-    signingPrivateKey: input.owner.signing.signingPrivateKey,
-    memberEnvelopes,
-  });
-  const response = await routeApp.request(
-    `/principals/group/${input.policy.principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${input.owner.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
-
-  expect(response.status).toBe(200);
-  const body = await response.json();
-  invariant(
-    isPrincipalPolicyBundleResponse(body),
-    "expected principal policy bundle response",
-  );
-  expect(body.currentState.stateHash).toBe(
-    await computePrincipalStateHash(signedState.state),
-  );
 }
 
 async function createSignedContainerEvent(input: {
@@ -422,13 +347,9 @@ test("POST /containers accepts owner create after Admins policy advances", async
   const peer = createTestUser();
   await registerAndAuthenticate(owner);
   await registerAndAuthenticate(peer);
-  const root = await bootstrapRoot(owner);
 
-  await advanceAdminPolicy({
-    owner,
-    peer,
-    policy: root.adminPolicy,
-  });
+  await advanceAdminPolicy({ owner, peer });
+  const root = await bootstrapRoot(owner);
 
   const containerId = crypto.randomUUID();
   const response = await routeApp.request("/containers", {
@@ -458,13 +379,10 @@ test("POST /containers returns current Admins policy when submitted policy is st
   const peer = createTestUser();
   await registerAndAuthenticate(owner);
   await registerAndAuthenticate(peer);
-  const root = await bootstrapRoot(owner);
+  const staleRoot = await bootstrapRoot(owner);
 
-  await advanceAdminPolicy({
-    owner,
-    peer,
-    policy: root.adminPolicy,
-  });
+  await advanceAdminPolicy({ owner, peer });
+  const currentRoot = await bootstrapRoot(owner);
 
   const response = await routeApp.request("/containers", {
     method: "POST",
@@ -475,9 +393,9 @@ test("POST /containers returns current Admins policy when submitted policy is st
     body: JSON.stringify(
       await buildChildCreateRequest({
         containerId: crypto.randomUUID(),
-        parent: root.bundle,
-        parentKekState: root.kekState,
-        principalPolicies: [root.adminPolicy],
+        parent: currentRoot.bundle,
+        parentKekState: currentRoot.kekState,
+        principalPolicies: [staleRoot.adminPolicy],
         signer: owner,
       }),
     ),
@@ -492,9 +410,9 @@ test("POST /containers returns current Admins policy when submitted policy is st
   expect(body.error).toBe("Principal policy is stale");
   expect(body.principalPolicies).toHaveLength(1);
   expect(body.principalPolicies[0]?.currentState.principalId).toBe(
-    root.adminPolicy.principalId,
+    staleRoot.adminPolicy.principalId,
   );
   expect(body.principalPolicies[0]?.currentState.version).toBe(
-    root.adminPolicy.version + 1,
+    currentRoot.adminPolicy.version,
   );
 }, 10_000);

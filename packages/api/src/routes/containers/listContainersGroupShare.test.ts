@@ -59,7 +59,7 @@ test("root parent lane surfaces the owner root after an admin-group add", async 
   ).toContain(owner.rootContainerId);
 });
 
-test("root parent lane resume keeps its watermark scoped", async () => {
+test("root parent lane resume sees admin-group rematerialization", async () => {
   const owner = createTestUser();
   const peer = createTestUser();
 
@@ -75,9 +75,8 @@ test("root parent lane resume keeps its watermark scoped", async () => {
     .limit(1);
   invariant(ownerRow, "expected owner user row");
 
-  // A warm-cache peer keeps a root-lane watermark from a prior sync. Joining a
-  // group does not bump the owner root container's updatedAt, so the resume
-  // query (updatedAt, id) > (watermark) filters the newly granted root out.
+  // A warm-cache peer keeps a root-lane watermark from a prior sync. The
+  // compound Admins rotation must advance the owner root container beyond it.
   const [ownerRootRow] = await db
     .select({ updatedAt: containers.updatedAt })
     .from(containers)
@@ -100,13 +99,13 @@ test("root parent lane resume keeps its watermark scoped", async () => {
     freshBody.items.map((container: { id: string }) => container.id),
   ).toContain(owner.rootContainerId);
 
-  // Resuming from the stale watermark, the refresh re-probe returns nothing new
-  // and the share never appears — the real-app symptom.
+  // Resuming from the stale watermark returns the rematerialized root, so the
+  // peer does not need another user's later write to discover the grant.
   const resumeBody = await listRootContainerPage(peer.token, {
     id: crypto.randomUUID(),
     updatedAt: staleWatermarkUpdatedAt,
   });
   expect(
     resumeBody.items.map((container: { id: string }) => container.id),
-  ).not.toContain(owner.rootContainerId);
+  ).toContain(owner.rootContainerId);
 });

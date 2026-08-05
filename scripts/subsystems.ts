@@ -267,7 +267,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Organization Read Models",
     package: "client-sdk",
     responsibility:
-      "Org directory/groups/grants/usage/user-detail read models, roster/profile mutations, and reserved-grant rewrap orchestration for the client.",
+      "Org directory/groups/grants/usage/user-detail read models, roster/profile mutations, and atomic principal-container rematerialization for the client.",
     seam: "tearleads.organizations facade; workflows/organizations",
     paths: [
       `${sdk}/workflows/organizations/`,
@@ -276,13 +276,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/client/organizationGroupPresentation.ts`,
       `${sdk}/client/organizationDataUsage.ts`,
       `${sdk}/client/organizationReadModels.ts`,
-      `${sdk}/client/organizationGroupGrantReshare.ts`,
-      `${sdk}/client/organizationGroupGrantReshare.testFixtures.ts`,
-      `${sdk}/client/organizationGroupGrantReshareRetry.ts`,
-      `${sdk}/client/organizationMetadataReshare.ts`,
-      `${sdk}/client/organizationMetadataReshareCoordinator.ts`,
-      `${sdk}/client/organizationRootReshare.ts`,
-      `${sdk}/client/organizationRootReshareCoordinator.ts`,
+      `${sdk}/client/organizationMetadataProfileSync.ts`,
     ],
   },
   {

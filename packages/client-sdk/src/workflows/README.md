@@ -99,9 +99,12 @@ before rereading local history; raw responses are never rendered. Group
 containers repaint independently from the local grants lane. State-hash and
 member-count checks prevent torn local views, but do not make presentation rows
 authoritative. `isSelf` is derived from the active user, while `isOrgAdmin` is
-requester-scoped and UI-only; mutations derive authority from verified writer
-projections and signed policies. Root and metadata key rewraps test verified
-existing grants, never read-model grant IDs, group IDs, or memberships.
+requester-scoped and UI-only. Group mutations are authorized through the
+verified reserved `Admins` policy. Before committing a principal rotation, the
+client derives the complete container batch from verified writer projections;
+the API atomically rejects any transition that leaves a stale principal pin.
+Metadata profile upload remains a separate idempotent content sync and never
+changes grants.
 
 Name SDK facades after the platform state they expose. Product names can stay
 in app providers and components that adapt those platform facades into a UI.

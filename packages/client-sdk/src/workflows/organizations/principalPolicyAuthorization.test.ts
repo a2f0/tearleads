@@ -166,7 +166,7 @@ test("local admin projections cannot authorize a group membership mutation", asy
         signingKeyPair: attemptedSignerKeys,
         targetUserId: crypto.randomUUID(),
       }),
-    ).rejects.toThrow("Group admin membership is required");
+    ).rejects.toThrow("Organization admin authority is required");
     expect(calls).toEqual({
       adminPolicy: 1,
       beforeCommit: 0,
@@ -417,7 +417,7 @@ test("a verified Admins member absent from organization policy can mutate anothe
         signingKeyPair: signerKeys,
         targetUserId: crypto.randomUUID(),
       }),
-    ).rejects.toThrow("Group admin membership is required");
+    ).rejects.toThrow("Organization admin authority is required");
     expect(policyPutCount).toBe(committedPutCount);
   } finally {
     close();

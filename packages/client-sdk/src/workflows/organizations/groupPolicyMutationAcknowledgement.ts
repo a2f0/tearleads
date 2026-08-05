@@ -218,6 +218,44 @@ export async function acknowledgeGroupPolicyState(input: {
   });
 }
 
+/**
+ * Materialize the locally signed successor before submission so dependent
+ * container mutations can wrap to the exact head that will commit with it.
+ * The server still performs the authoritative signature, transition, and
+ * authorization checks inside the combined transaction.
+ */
+export async function prepareAuthoredGroupPolicy(input: {
+  readonly currentPolicy: PrincipalPolicyBundleResponse;
+  readonly expectedHead: ReferencedPrincipalHead;
+  readonly request: PutPrincipalPolicyRequest;
+}): Promise<VerifiedPrincipalPolicy> {
+  await assertPolicyRequestCommitments(input.request);
+  const previous = input.currentPolicy.currentState;
+  const state = input.request.state;
+  if (
+    state.principalType !== input.expectedHead.principalType ||
+    state.principalId !== input.expectedHead.principalId ||
+    state.version !== input.expectedHead.version ||
+    state.keyEpoch !== input.expectedHead.keyEpoch ||
+    state.keyFingerprint !== input.expectedHead.keyFingerprint ||
+    state.principalType !== previous.principalType ||
+    state.principalId !== previous.principalId ||
+    state.version !== previous.version + 1 ||
+    state.prevStateHash !== previous.stateHash
+  ) {
+    throw new Error("Authored group policy successor is inconsistent");
+  }
+  return verifiedPolicy({
+    currentPolicy: input.currentPolicy,
+    projection: input.request.projection,
+    state: {
+      ...state,
+      stateHash: input.expectedHead.stateHash,
+      createdAt: state.signedAt,
+    },
+  });
+}
+
 export async function acknowledgeInitialGroupPolicy(input: {
   readonly organizationId: string;
   readonly request: CreateOrganizationGroupRequest;

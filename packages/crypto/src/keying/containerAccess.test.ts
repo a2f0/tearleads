@@ -237,6 +237,7 @@ test("verifyContainerAccessManifest accepts writer rekeys without grant changes"
     containerKeyEpochId: "container-key-epoch-2",
     keyringHash: KEYRING_HASH,
     predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
+    referencedPrincipalHeads: previous.state.referencedPrincipalHeads,
   };
   const event = await createVerifiedContainerAccessEvent({
     body,
@@ -295,6 +296,7 @@ test("verifyContainerAccessManifest rejects rekeys that change grants", async ()
     containerKeyEpochId: "container-key-epoch-2",
     keyringHash: KEYRING_HASH,
     predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
+    referencedPrincipalHeads: previous.state.referencedPrincipalHeads,
   };
   const event = await createVerifiedContainerAccessEvent({
     body,
@@ -352,6 +354,7 @@ test("verifyContainerAccessManifest rejects rekeys that reuse the current KEK ep
     containerKeyEpochId: previous.state.containerKeyEpochId ?? "",
     keyringHash: KEYRING_HASH,
     predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
+    referencedPrincipalHeads: previous.state.referencedPrincipalHeads,
   };
   const event = await createVerifiedContainerAccessEvent({
     body,

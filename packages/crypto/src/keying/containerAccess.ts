@@ -567,9 +567,17 @@ function normalizeContainerRekeyAccessEventBody(
       "eventType",
       "keyringHash",
       "predecessorBridgeHash",
+      "referencedPrincipalHeads",
     ],
     "container.rekey event body",
   );
+  const referencedPrincipalHeads = record.referencedPrincipalHeads;
+  if (!Array.isArray(referencedPrincipalHeads)) {
+    throwVerification(
+      "invalid_shape",
+      "container.rekey event body.referencedPrincipalHeads must be an array",
+    );
+  }
 
   return {
     eventType: "container.rekey",
@@ -587,6 +595,9 @@ function normalizeContainerRekeyAccessEventBody(
       record,
       "predecessorBridgeHash",
       "container.rekey event body",
+    ),
+    referencedPrincipalHeads: normalizeReferencedPrincipalHeads(
+      referencedPrincipalHeads,
     ),
   };
 }
@@ -1178,7 +1189,7 @@ function deriveContainerRekeyManifestState(
     ...previous.nextBase,
     containerKeyEpochId: body.containerKeyEpochId,
     directGrants: previous.previousState.directGrants,
-    referencedPrincipalHeads: previous.previousState.referencedPrincipalHeads,
+    referencedPrincipalHeads: body.referencedPrincipalHeads,
   });
 }
 

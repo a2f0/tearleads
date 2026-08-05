@@ -62,6 +62,12 @@ Group and organization grants require referenced signed principal heads.
 Managed-principal access fails closed when the referenced policy state or member
 envelopes are missing or stale.
 
+Organization grants remain valid cross-organization sharing subjects. Group
+grants stay within their owning organization so the reserved `Admins` actor can
+always materialize every required rekey during a group rotation. The grant's
+`read`, `write`, or `admin` level is separate from authority to manage the
+principal itself.
+
 Organizations also carry two reserved group pointers:
 
 - `adminGroupId` points to the reserved `Admins` group. Users reachable through

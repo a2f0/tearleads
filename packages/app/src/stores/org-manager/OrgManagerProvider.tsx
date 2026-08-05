@@ -90,7 +90,7 @@ interface OrgManagerContextValue {
   ) => Promise<PrincipalPolicyBundleResponse>;
   revokeGrant: (
     grant: OrganizationGrantRef,
-  ) => Promise<ContainerMutationResponse>;
+  ) => Promise<ContainerMutationResponse | PrincipalPolicyBundleResponse>;
   updateRosterEntry: (
     userId: string,
     profileDocumentId: string | null,

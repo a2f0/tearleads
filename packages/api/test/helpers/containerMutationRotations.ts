@@ -31,6 +31,7 @@ import {
   createContainerKeyEpoch,
   createContainerKeyWrap,
 } from "./containerKeying";
+import { refreshContainerMutationPrincipal } from "./containerMutationPrincipalRefresh";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
 
 function asVerifiedContainerManifest(
@@ -252,12 +253,24 @@ export async function buildRekeyRequest(input: {
   readonly previous: AccessManifestBundleWire;
   readonly previousContainerPath: readonly AccessManifestBundleWire[];
   readonly previousKekState: VerifiedContainerKekState;
+  readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
   const previous = asVerifiedContainerManifest(input.previous);
-  const principalPolicies = await loadPrincipalPoliciesForContainerPaths([
-    input.previousContainerPath,
-  ]);
+  const currentPrincipalPolicies = await loadPrincipalPoliciesForContainerPaths(
+    [input.previousContainerPath],
+  );
+  const {
+    principalPolicies,
+    recipientTargets,
+    referencedPrincipalHeads,
+    userRecipientKeys,
+  } = refreshContainerMutationPrincipal({
+    currentPrincipalPolicies,
+    currentRecipientTargets: input.previousKekState.recipientTargets,
+    currentReferencedPrincipalHeads: previous.state.referencedPrincipalHeads,
+    replacementPrincipalPolicy: input.replacementPrincipalPolicy,
+  });
   const containerKeyEpochId = await createTestContainerKekId(
     previous.state.containerId,
     input.previousKekState.containerKeyEpoch + 1,
@@ -279,6 +292,7 @@ export async function buildRekeyRequest(input: {
     keyringHash,
     predecessorBridgeHash:
       await computeContainerKekPredecessorBridgeHash(predecessorBridge),
+    referencedPrincipalHeads,
   };
   const event = await createSignedContainerEvent({
     body,
@@ -299,6 +313,7 @@ export async function buildRekeyRequest(input: {
       previousManifestHash: input.previous.manifestHash,
       eventHash: event.eventHash,
       containerKeyEpochId,
+      referencedPrincipalHeads,
     },
     event,
   );
@@ -308,17 +323,16 @@ export async function buildRekeyRequest(input: {
     manifest: bundle,
     parentKekState: input.parentKekState,
   });
-  const wraps = [
+  const wraps = recipientTargets.map((target) =>
     createContainerKeyWrap({
       containerKeyEpochId,
-      recipientKind: "container",
-      recipientId: input.parentKekState.containerId,
-      recipientKeyEpochId: input.parentKekState.containerKeyEpochId,
-      recipientKeyFingerprint: input.parentKekState.keyEpochHash,
+      recipientKind: target.recipientKind,
+      recipientId: target.recipientId,
+      recipientKeyEpochId: target.recipientKeyEpochId,
+      recipientKeyFingerprint: target.recipientKeyFingerprint,
       wrapManifestHash: bundle.manifestHash,
     }),
-  ];
-
+  );
   return {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
@@ -335,7 +349,10 @@ export async function buildRekeyRequest(input: {
     predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     wraps: wraps as unknown as Record<string, unknown>[],
     parentKekState: input.parentKekState as unknown as Record<string, unknown>,
-    userRecipientKeys: [],
+    userRecipientKeys: userRecipientKeys as unknown as Record<
+      string,
+      unknown
+    >[],
   };
 }
 

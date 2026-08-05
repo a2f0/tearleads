@@ -38,7 +38,7 @@ test("verified container grants reject missing groups after locking references",
   });
 });
 
-test("verified container grants may reference a group from another organization", async () => {
+test("verified container grants reject a group from another organization", async () => {
   const groupId = crypto.randomUUID();
   const groupOrganizationId = crypto.randomUUID();
   await db.insert(groups).values({
@@ -56,6 +56,32 @@ test("verified container grants may reference a group from another organization"
           organizationId: crypto.randomUUID(),
         }),
       }),
+    ),
+  ).rejects.toMatchObject({
+    message: "Container group grants must stay within the organization",
+    status: 409,
+  });
+});
+
+test("verified container grants preserve cross-organization organization grants", async () => {
+  const containerOrganizationId = crypto.randomUUID();
+  const recipientOrganizationId = crypto.randomUUID();
+  const manifest = {
+    state: {
+      organizationId: containerOrganizationId,
+      directGrants: [
+        {
+          accessLevel: "read",
+          subjectId: recipientOrganizationId,
+          subjectType: "organization",
+        },
+      ],
+    },
+  } as VerifiedContainerAccessManifest;
+
+  await expect(
+    db.transaction((executor) =>
+      assertVerifiedContainerGroupReferencesExist({ executor, manifest }),
     ),
   ).resolves.toBeUndefined();
 });

@@ -198,6 +198,7 @@ export interface ContainerRekeyAccessEventBody {
   containerKeyEpochId: string;
   keyringHash: string;
   predecessorBridgeHash: string;
+  referencedPrincipalHeads: ReferencedPrincipalHead[];
 }
 
 export interface ContainerMoveAccessEventBody

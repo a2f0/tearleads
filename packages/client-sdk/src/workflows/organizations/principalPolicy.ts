@@ -8,10 +8,12 @@ import {
   type SigningKeyPair,
   toFingerprint,
   unwrapDek,
+  type VerifiedPrincipalPolicy,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
+  ContainerMutationRequest,
   CreateOrganizationGroupRequest,
   PrincipalProjectionMemberRequest,
   PutPrincipalPolicyRequest,
@@ -49,6 +51,7 @@ import {
   acknowledgeInitialGroupPolicy,
   assertGroupPolicyBundleMatchesAcknowledgement,
   assertGroupPolicyEnvelopesMatchAcknowledgement,
+  prepareAuthoredGroupPolicy,
 } from "./groupPolicyMutationAcknowledgement";
 import {
   assertPrincipalPolicyCurrentStateMatchesHead,
@@ -242,6 +245,9 @@ async function loadGroupPolicyMutationContext(input: {
   const isOrganizationAdminsGroup = adminPolicy.adminGroupId === input.groupId;
   const currentOrgAdminUserIds = adminPolicy.signerUserIds;
   const externalAuthority = adminPolicy.externalAuthority;
+  if (!currentOrgAdminUserIds.includes(input.signerUserId)) {
+    throw new Error("Organization admin authority is required");
+  }
   const verified = isOrganizationAdminsGroup
     ? await verifyGroupPolicy({
         currentPolicy,
@@ -518,6 +524,53 @@ export async function buildRemoveGroupUserPolicyRequest(
   });
 }
 
+export async function buildGroupAccessSetShrinkPolicyRequest(
+  input: BuildGroupMembershipMutationInput & {
+    readonly currentUsers: ReadonlyArray<TrustedUserIdentity>;
+  },
+): Promise<GroupPolicyMutationRequest> {
+  await verifyGroupPolicy({
+    currentPolicy: input.currentPolicy,
+    ...(input.externalAuthority
+      ? { externalAuthority: input.externalAuthority }
+      : {}),
+    localPolicyCheckpoint: input.localPolicyCheckpoint ?? null,
+    signerPublicKeys: input.currentPolicySignerPublicKeys,
+  });
+  requireSignerCanManageGroup(
+    input.currentPolicy,
+    input.currentOrgAdminUserIds ?? [],
+    input.signerUserId,
+  );
+
+  const groupKem = generateKemSeedAndKeyPair();
+  const projection = [...input.currentPolicy.currentProjection];
+  const memberEnvelopes = await rewrapProjectionMemberEnvelopes({
+    projection,
+    secretKey: groupKem.secretKey,
+    users: input.currentUsers,
+  });
+  return signedGroupPolicyRequest({
+    currentPolicy: input.currentPolicy,
+    encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
+    externalAuthority: isDirectGroupAdmin(
+      input.currentPolicy,
+      input.signerUserId,
+    )
+      ? null
+      : requireExternalAuthority(input.externalAuthority).currentHead,
+    keyEpoch: input.currentPolicy.currentState.keyEpoch + 1,
+    keyFingerprint: await toFingerprint(groupKem.publicKey),
+    memberEnvelopes,
+    principalId: input.currentPolicy.currentState.principalId,
+    projection,
+    signedAt: new Date().toISOString(),
+    signerUserId: input.signerUserId,
+    signingFingerprint: input.signingFingerprint,
+    signingKeyPair: input.signingKeyPair,
+  });
+}
+
 export async function createOrganizationGroup(input: {
   readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
@@ -608,6 +661,11 @@ export async function addOrganizationGroupUser(input: {
       readonly memberGroupId: string;
     },
   ) => void;
+  readonly prepareContainerMutations?:
+    | ((input: {
+        readonly nextPolicy: VerifiedPrincipalPolicy;
+      }) => Promise<ContainerMutationRequest[]>)
+    | undefined;
 }): Promise<PrincipalPolicyBundleResponse> {
   const policyContext = await loadGroupPolicyMutationContext({
     apiClient: input.apiClient,
@@ -647,6 +705,15 @@ export async function addOrganizationGroupUser(input: {
     adminGroupId: policyContext.adminGroupId,
     memberGroupId: policyContext.memberGroupId,
   });
+  if (input.prepareContainerMutations) {
+    request.containerMutations = await input.prepareContainerMutations({
+      nextPolicy: await prepareAuthoredGroupPolicy({
+        currentPolicy: policyContext.currentPolicy,
+        expectedHead,
+        request,
+      }),
+    });
+  }
   const acknowledgedBundle = await commitGroupPolicyMutation({
     apiClient: input.apiClient,
     currentPolicy: policyContext.currentPolicy,
@@ -691,6 +758,11 @@ export async function removeOrganizationGroupUser(input: {
       readonly memberGroupId: string;
     },
   ) => void;
+  readonly prepareContainerMutations?:
+    | ((input: {
+        readonly nextPolicy: VerifiedPrincipalPolicy;
+      }) => Promise<ContainerMutationRequest[]>)
+    | undefined;
 }): Promise<PrincipalPolicyBundleResponse> {
   const policyContext = await loadGroupPolicyMutationContext({
     apiClient: input.apiClient,
@@ -727,6 +799,15 @@ export async function removeOrganizationGroupUser(input: {
     adminGroupId: policyContext.adminGroupId,
     memberGroupId: policyContext.memberGroupId,
   });
+  if (input.prepareContainerMutations) {
+    request.containerMutations = await input.prepareContainerMutations({
+      nextPolicy: await prepareAuthoredGroupPolicy({
+        currentPolicy: policyContext.currentPolicy,
+        expectedHead,
+        request,
+      }),
+    });
+  }
   const acknowledgedBundle = await commitGroupPolicyMutation({
     apiClient: input.apiClient,
     currentPolicy: policyContext.currentPolicy,
@@ -736,6 +817,76 @@ export async function removeOrganizationGroupUser(input: {
     request,
   });
   await input.afterPolicyCommitBeforeCache();
+  return cacheGroupPolicy({
+    acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
+    apiClient: input.apiClient,
+    execSql: input.execSql,
+    expectedCurrentHead: expectedHead,
+    externalAuthority: policyContext.externalAuthority,
+    groupId: input.groupId,
+    localPolicyCheckpoint: {
+      principalId: expectedHead.principalId,
+      principalType: expectedHead.principalType,
+      stateHash: expectedHead.stateHash,
+      version: expectedHead.version,
+    },
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
+}
+
+/**
+ * A group losing a container grant rotates its own key in the same request as
+ * that container revoke and the rekeys of all remaining grants. This prevents
+ * a later member from using the group's still-current key to open a retained
+ * wrap from before the revoke.
+ */
+export async function rotateOrganizationGroupForAccessSetShrink(input: {
+  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly execSql: ExecSql;
+  readonly groupId: string;
+  readonly organizationId: string;
+  readonly prepareContainerMutations: (input: {
+    readonly nextPolicy: VerifiedPrincipalPolicy;
+  }) => Promise<ContainerMutationRequest[]>;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly signerUserId: string;
+  readonly signingFingerprint: string;
+  readonly signingKeyPair: SigningKeyPair;
+}): Promise<PrincipalPolicyBundleResponse> {
+  const policyContext = await loadGroupPolicyMutationContext({
+    apiClient: input.apiClient,
+    execSql: input.execSql,
+    groupId: input.groupId,
+    organizationId: input.organizationId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    signerUserId: input.signerUserId,
+    signingFingerprint: input.signingFingerprint,
+    signingKeyPair: input.signingKeyPair,
+  });
+  const currentUsers = await resolveRequiredUserIdentities({
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    userIds: projectionUserIds(policyContext.currentPolicy.currentProjection),
+  });
+  const request = await buildGroupAccessSetShrinkPolicyRequest({
+    ...policyContext,
+    currentUsers,
+  });
+  const expectedHead = await groupPolicyMutationHead(request);
+  request.containerMutations = await input.prepareContainerMutations({
+    nextPolicy: await prepareAuthoredGroupPolicy({
+      currentPolicy: policyContext.currentPolicy,
+      expectedHead,
+      request,
+    }),
+  });
+  const acknowledgedBundle = await commitGroupPolicyMutation({
+    apiClient: input.apiClient,
+    currentPolicy: policyContext.currentPolicy,
+    execSql: input.execSql,
+    expectedHead,
+    groupId: input.groupId,
+    request,
+  });
   return cacheGroupPolicy({
     acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
     apiClient: input.apiClient,

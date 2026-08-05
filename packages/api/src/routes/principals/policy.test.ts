@@ -253,10 +253,6 @@ test("PUT /principals/:principalType/:principalId/policy syncs org roster from M
 });
 
 test("PUT /principals/:principalType/:principalId/policy rejects Admins users who are not organization members", async () => {
-  // Nesting used to make this structural: Members contained Admins, so an admin
-  // was reachable from Members and therefore always on the roster. Without it,
-  // a direct PUT could seat an admin who belongs to no organization — absent
-  // from the directory, and uncounted by billing, which bills Members alone.
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
@@ -816,16 +812,20 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
     organizationId,
     name: "Operators",
   });
+  const externalAuthority =
+    await getCurrentOrganizationAdminAuthority(organizationId);
 
   const principalKem = generateKemSeedAndKeyPair();
   const initialState = await createSignedPrincipalState({
     principalType: "group",
     principalId: groupId,
     principalKem,
-    members: [{ userId: groupAdmin.userId }],
-    signerUserId: groupAdmin.userId,
-    signerUserKeyFingerprint: groupAdmin.fingerprint,
-    signingPrivateKey: groupAdmin.signing.signingPrivateKey,
+    members: [],
+    projection: [],
+    externalAuthority,
+    signerUserId: orgAdmin.userId,
+    signerUserKeyFingerprint: orgAdmin.fingerprint,
+    signingPrivateKey: orgAdmin.signing.signingPrivateKey,
   });
   const initialResponse = await routeApp.request(
     `/principals/group/${groupId}/policy`,
@@ -833,7 +833,7 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${groupAdmin.token}`,
+        Authorization: `Bearer ${orgAdmin.token}`,
       },
       body: JSON.stringify({
         state: initialState.state,
@@ -850,11 +850,11 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
     "expected initial principal policy bundle response",
   );
   const initialStoredState = initialStoredPolicy.currentState;
-  const externalAuthority =
-    await getCurrentOrganizationAdminAuthority(organizationId);
-
   const successorProjection = [
-    ...initialState.projection,
+    {
+      userId: groupAdmin.userId,
+      role: "admin" as const,
+    },
     {
       userId: orgAdmin.userId,
       role: "member" as const,

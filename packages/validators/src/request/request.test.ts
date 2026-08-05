@@ -165,6 +165,15 @@ test("isPutPrincipalPolicyRequest", () => {
 
   expect(isPutPrincipalPolicyRequest(request)).toBe(true);
   expect(
+    isPutPrincipalPolicyRequest({ ...request, containerMutations: [] }),
+  ).toBe(true);
+  expect(
+    isPutPrincipalPolicyRequest({
+      ...request,
+      containerMutations: [{ event: null }],
+    }),
+  ).toBe(false);
+  expect(
     isPutPrincipalPolicyRequest({
       ...request,
       state: { ...request.state, principalType: "team" },

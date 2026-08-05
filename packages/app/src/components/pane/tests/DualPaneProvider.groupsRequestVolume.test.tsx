@@ -58,44 +58,14 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   },
 };
 
-// Adding a brand-new person as an admin is two signed mutations now, 41 -> 66.
-//
-// Nesting made it one: Members contained Admins, so an Admins add implicitly
-// made the user a Member. Without it, an admin who is not already a Member has
-// to be written into Members first — the server rejects an Admins policy naming
-// a non-member, because such an admin would sit on no roster and on no invoice.
-// Each mutation carries its own settle, so the counts roughly double: two policy
-// PUTs, two container shares, two rounds of policy fetches and document syncs.
-//
-// This is the worst case on purpose. Adding an admin who is already in the
-// directory — the normal path, since importing a user seeds Members — skips the
-// first mutation entirely and stays near the old cost.
-//
-// 66 -> 71 for the group-grant re-share. A rotation leaves every container
-// wrapped to that group pinned to the superseded epoch, so a member who joins
-// afterwards cannot decrypt them; the sweep re-wraps them to the committed
-// head.
-//
-// 71 -> 72 for billing reconciliation. This worst-case path first enrolls the
-// peer in Members, so the roster has gained a billed member and the seat view
-// performs one authoritative refresh after the directory catches up.
-//
-// The whole increase is confirmation, not writes: two read-model GETs to
-// establish that the rotation actually landed before touching anything, and
-// two parent-lane queries from listing the granted containers. The share count
-// is unchanged at two, because the root container the root coordinator already
-// repaired on this same mutation is skipped by an isCurrent check rather than
-// re-shared — which is the property worth watching here. A pull is also
-// skipped entirely when the rotation is already visible locally, so the common
-// path costs less than this worst case.
-//
-// The sweep is deliberately fire-and-forget — the policy write is already
-// durable, so it must not be able to fail the mutation — which means its reads
-// may or may not land inside the window this test measures. The
-// writer-projection bound is 3 rather than 2 to cover both, since the budget is
-// an upper bound and a count that varies by timing is not evidence of a
-// regression. A genuine regression still shows up as extra shares or policy
-// PUTs, which stay pinned exactly.
+// Adding a brand-new admin requires two signed mutations: Members first, then
+// Admins. The Members mutation establishes the roster and causes one billing
+// refresh. Each policy PUT carries its dependent root rematerialization in the
+// same transaction. Those container changes advance the organization feed, so
+// the two active panes may consume three cursor positions each. The six
+// read-model GETs are confirmation traffic; standalone share POSTs stay pinned
+// at zero because a separately committed repair would reintroduce the recovery
+// gap this flow is meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   total: 72,
   byRequest: {
@@ -106,7 +76,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /documents/:documentId/writer-projection": 11,
     "POST /documents/:documentId/sync": 12,
     "GET /auth/user-identity/:userId": 2,
-    "GET /organizations/:organizationId/read-model": 4,
+    "GET /organizations/:organizationId/read-model": 6,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
     "GET /organizations/:organizationId/groups/:groupId/members": 1,
     "GET /containers/:containerId/writer-projection": 3,
@@ -116,7 +86,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/grants": 0,
     "GET /organizations/:organizationId/billing": 1,
     "GET /principals/organization/:organizationId/policy": 2,
-    "POST /containers/:containerId/share": 2,
+    "POST /containers/:containerId/share": 0,
     "PUT /principals/group/:groupId/policy": 2,
   },
 };
