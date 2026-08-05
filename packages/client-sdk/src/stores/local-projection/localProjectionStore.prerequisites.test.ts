@@ -111,3 +111,57 @@ test("regaining the encapsulation key pair raises prerequisites-regained", async
     close();
   }
 });
+
+test("a prerequisite regain before tree readiness is latched until hydration", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-projection-key-pair-latched-signal-test",
+  );
+  const domainScope = {} as DomainScope;
+
+  try {
+    let ready = false;
+    let emitContainerStore = () => {};
+    const containerStore = {
+      getSnapshot: () => ({ nodes: [cachedRoot], ready }),
+      subscribe: (listener: () => void) => {
+        emitContainerStore = listener;
+        return () => {
+          emitContainerStore = () => {};
+        };
+      },
+      updateRuntime: () => {},
+    } as unknown as ContainerContentsStore;
+
+    const withoutKeyPair = createRuntime({ domainScope, execSql });
+    const store = createLocalProjectionStore({
+      containerStore,
+      runtime: withoutKeyPair,
+    });
+    const signals: string[] = [];
+    store.onReconcileSignal((signal) => {
+      signals.push(signal.reason);
+    });
+
+    // The key pair arrives while the container tree is still loading. The
+    // regain must not be dropped: its reset-and-backfill runs after hydration.
+    store.updateRuntime(withoutKeyPair);
+    store.updateRuntime(
+      createRuntime({
+        domainScope,
+        encapsulationKeyPair: {
+          publicKey: Uint8Array.from([1]),
+          secretKey: Uint8Array.from([2]),
+        } as ContainerContentsStoreRuntime["crypto"]["encapsulationKeyPair"],
+        execSql,
+      }),
+    );
+    expect(signals).toEqual([]);
+
+    ready = true;
+    emitContainerStore();
+
+    expect(signals).toEqual(["hydrated", "prerequisites-regained"]);
+  } finally {
+    close();
+  }
+});
