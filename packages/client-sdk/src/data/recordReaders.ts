@@ -76,9 +76,13 @@ export function readRecordPositiveInteger(
 }
 
 export function readStringArray(value: unknown, label: string): string[] {
+  // Array.from materializes holes as undefined; a bare `some` skips them,
+  // which let a sparse array pass as string[].
   if (
     !Array.isArray(value) ||
-    value.some((entry) => typeof entry !== "string" || entry.length === 0)
+    Array.from(value).some(
+      (entry) => typeof entry !== "string" || entry.length === 0,
+    )
   ) {
     throw new Error(`${label} must be a string array`);
   }

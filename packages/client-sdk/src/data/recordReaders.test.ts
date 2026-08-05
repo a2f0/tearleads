@@ -79,4 +79,12 @@ test("readStringArray validates entries and returns an independent copy", () => 
       "Payload must be a string array",
     );
   }
+
+  // A sparse array's holes are skipped by a bare `some`; they must reject.
+  const sparse = new Array<string>(3);
+  sparse[0] = "a";
+  sparse[2] = "b";
+  expect(() => readStringArray(sparse, "Payload")).toThrow(
+    "Payload must be a string array",
+  );
 });
