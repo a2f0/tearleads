@@ -24,17 +24,22 @@ export type OrganizationBillingHistoryProvider =
   | "stripe"
   | "internal";
 
+/** RevenueCat billing environment associated with a lifecycle audit row. */
+export type OrganizationBillingHistoryEnvironment = "sandbox" | "production";
+
 /**
  * One durable billing event in an organization's history, newest first.
  * Provider monetary values use the currency's minor unit exactly as reported.
  * A recognized native grant may instead expose its canonical monthly USD list
- * price through `unitAmount`; `totalAmount` remains null without a provider-paid
- * total. Nullable fields are explicit so every category has one stable shape.
+ * price through `unitAmount`; its purchased-currency transaction uses the
+ * distinct `totalAmount` / `totalCurrency` pair. Nullable fields are explicit
+ * so every category has one stable shape.
  */
 export interface OrganizationBillingHistoryEntry {
   id: string;
   category: OrganizationBillingHistoryCategory;
   provider: OrganizationBillingHistoryProvider;
+  environment: OrganizationBillingHistoryEnvironment | null;
   eventType: string;
   outcome: OrganizationBillingHistoryOutcome;
   occurredAt: string;
@@ -52,6 +57,7 @@ export interface OrganizationBillingHistoryEntry {
   interval: string | null;
   intervalCount: number | null;
   totalAmount: number | null;
+  totalCurrency: string | null;
   periodStartsAt: string | null;
   periodEndsAt: string | null;
 }
@@ -77,6 +83,19 @@ function isOrganizationBillingHistoryProvider(
   value: unknown,
 ): value is OrganizationBillingHistoryProvider {
   return value === "revenuecat" || value === "stripe" || value === "internal";
+}
+
+function isNullableOrganizationBillingHistoryEnvironment(
+  value: unknown,
+): value is OrganizationBillingHistoryEnvironment | null {
+  return value === null || value === "sandbox" || value === "production";
+}
+
+function hasNullableOrganizationBillingHistoryEnvironmentProperty(
+  value: Record<string, unknown>,
+  key: string,
+): boolean {
+  return isNullableOrganizationBillingHistoryEnvironment(value[key]);
 }
 
 function hasNullableSafeIntegerProperty(
@@ -126,6 +145,10 @@ export function isOrganizationBillingHistoryEntry(
     isOrganizationBillingHistoryCategory(value.category) &&
     hasStringProperty(value, "provider") &&
     isOrganizationBillingHistoryProvider(value.provider) &&
+    hasNullableOrganizationBillingHistoryEnvironmentProperty(
+      value,
+      "environment",
+    ) &&
     hasStringProperty(value, "eventType") &&
     hasStringProperty(value, "outcome") &&
     isOrganizationBillingHistoryOutcome(value.outcome) &&
@@ -144,6 +167,7 @@ export function isOrganizationBillingHistoryEntry(
     hasNullableStringProperty(value, "interval") &&
     hasNullablePositiveSafeIntegerProperty(value, "intervalCount") &&
     hasNullableNonNegativeSafeIntegerProperty(value, "totalAmount") &&
+    hasNullableStringProperty(value, "totalCurrency") &&
     hasNullableStringProperty(value, "periodStartsAt") &&
     hasNullableStringProperty(value, "periodEndsAt")
   );

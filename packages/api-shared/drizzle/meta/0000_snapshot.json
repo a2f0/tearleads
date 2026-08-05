@@ -6549,6 +6549,30 @@
           "primaryKey": false,
           "notNull": false
         },
+        "environment": {
+          "name": "environment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_in_purchased_currency_minor": {
+          "name": "price_in_purchased_currency_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "period_type": {
+          "name": "period_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "transaction_id": {
           "name": "transaction_id",
           "type": "text",

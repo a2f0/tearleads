@@ -9,6 +9,12 @@ interface BillingHistoryEntryDetailsProps {
   readonly includeAuditFields?: boolean;
 }
 
+const REVENUECAT_CHARGE_EVENT_TYPES = new Set([
+  "INITIAL_PURCHASE",
+  "NON_RENEWING_PURCHASE",
+  "RENEWAL",
+]);
+
 function getSignedCount(count: number): string {
   return count >= 0 ? `+${count}` : String(count);
 }
@@ -103,7 +109,11 @@ function InvoiceFacts({
   if (entry.category !== "invoice") {
     return null;
   }
-  const paidTotal = formatTotalAmount(entry.totalAmount, entry.currency);
+  const paidTotal = formatTotalAmount(
+    entry.totalAmount,
+    entry.totalCurrency,
+    entry.provider,
+  );
   const rate = formatPrice(
     entry.unitAmount,
     entry.currency,
@@ -112,9 +122,7 @@ function InvoiceFacts({
   );
   return (
     <>
-      <Detail>
-        {paidTotal ? `Paid: ${paidTotal}` : "Paid total unavailable"}
-      </Detail>
+      {paidTotal ? <Detail>{`Paid: ${paidTotal}`}</Detail> : null}
       {entry.billingReason !== null ? (
         <Detail>{`Invoice reason: ${getBillingReasonLabel(entry.billingReason)}`}</Detail>
       ) : null}
@@ -143,9 +151,7 @@ function LifecycleAvailability({
     return <Detail>Free trial ended and sync was disabled</Detail>;
   }
   if (entry.unitAmount !== null) {
-    return entry.totalAmount === null ? (
-      <Detail>Paid total unavailable</Detail>
-    ) : null;
+    return null;
   }
   return (
     <Detail>
@@ -154,6 +160,30 @@ function LifecycleAvailability({
         : "Plan price unavailable for this event"}
     </Detail>
   );
+}
+
+function LifecyclePayment({
+  entry,
+}: {
+  readonly entry: OrganizationBillingHistoryEntry;
+}) {
+  if (entry.category !== "lifecycle") {
+    return null;
+  }
+  const paidTotal = formatTotalAmount(
+    entry.totalAmount,
+    entry.totalCurrency,
+    entry.provider,
+  );
+  if (paidTotal) {
+    return <Detail>{`Paid: ${paidTotal}`}</Detail>;
+  }
+  return entry.provider === "revenuecat" &&
+    entry.environment === "sandbox" &&
+    entry.outcome === "applied" &&
+    REVENUECAT_CHARGE_EVENT_TYPES.has(entry.eventType) ? (
+    <Detail>Sandbox transaction — no real charge</Detail>
+  ) : null;
 }
 
 function LifecyclePrice({
@@ -182,6 +212,9 @@ function AuditFields({
     <>
       <Detail>{`Category: ${getCategoryLabel(entry.category)}`}</Detail>
       <Detail>{`Provider: ${getProviderLabel(entry.provider)}`}</Detail>
+      {entry.environment !== null ? (
+        <Detail>{`Environment: ${entry.environment === "sandbox" ? "Sandbox" : "Production"}`}</Detail>
+      ) : null}
       <Detail>{`Outcome: ${entry.outcome}`}</Detail>
       <RawIdentifier label="Product ID" value={entry.productId} />
       <RawIdentifier label="Price ID" value={entry.priceId} />
@@ -215,6 +248,7 @@ export function BillingHistoryEntryDetails({
       {entry.category === "seat" ? (
         <Detail>Cost unavailable for this seat event</Detail>
       ) : null}
+      <LifecyclePayment entry={entry} />
       <LifecyclePrice entry={entry} />
       <LifecycleAvailability entry={entry} />
       {period ? <Detail>{period}</Detail> : null}

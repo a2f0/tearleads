@@ -9,6 +9,7 @@ import {
   isNativeSubscriptionMoveConflict,
   isProviderSubscriptionOwnershipConflict,
 } from "../../billing/databaseErrors";
+import { resolveRevenueCatFinancialAuditFields } from "../../billing/revenuecatFinancials";
 import {
   type RevenueCatBillingTransition,
   resolveRevenueCatRecordedProductId,
@@ -40,6 +41,7 @@ async function ignoreLifecycleEventForMovedSubscription(input: {
     console.warn(
       `RevenueCat event ${input.event.id} ignored: subscription ${input.subscriptionId} moved from ${input.organizationId} to ${owner.organizationId}`,
     );
+    const financials = resolveRevenueCatFinancialAuditFields(input.event);
     const [claimed] = await tx
       .insert(revenuecatWebhookEvents)
       .values({
@@ -56,6 +58,7 @@ async function ignoreLifecycleEventForMovedSubscription(input: {
         outcome: "ignored",
         productId: resolveRevenueCatRecordedProductId(input.event),
         store: input.event.store?.toUpperCase() ?? null,
+        ...financials,
         purchasedAt:
           input.event.purchased_at_ms == null
             ? null

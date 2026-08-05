@@ -54,12 +54,16 @@ export async function insertWebhookEvent(input: {
   eventTimestamp: Date;
   eventId?: string;
   eventType: string;
+  environment?: string | null;
+  currency?: string | null;
   id?: string;
   organizationId: string;
   outcome: "applied" | "ignored";
   periodEndsAt?: Date | null;
   periodStartsAt?: Date | null;
   productId?: string | null;
+  priceInPurchasedCurrencyMinor?: number | null;
+  periodType?: string | null;
   store?: string | null;
   transactionId?: string | null;
 }): Promise<void> {
@@ -68,12 +72,16 @@ export async function insertWebhookEvent(input: {
     eventId: input.eventId ?? crypto.randomUUID(),
     eventType: input.eventType,
     appUserId: input.appUserId,
+    currency: input.currency ?? null,
+    environment: input.environment ?? null,
     productId: input.productId ?? null,
     store: input.store ?? null,
     transactionId: input.transactionId ?? null,
     originalTransactionId: null,
     organizationId: input.organizationId,
     outcome: input.outcome,
+    periodType: input.periodType ?? null,
+    priceInPurchasedCurrencyMinor: input.priceInPurchasedCurrencyMinor ?? null,
     eventTimestamp: input.eventTimestamp,
     purchasedAt: input.periodStartsAt ?? null,
     expirationAt: input.periodEndsAt ?? null,

@@ -34,12 +34,15 @@ Fields unavailable from the provider, or not applicable to a category, stay
 `null` instead of being reconstructed, with one narrow exception: an applied
 RevenueCat grant from the App Store, Play Store, or RevenueCat Test Store may
 resolve its fixed tier from the recorded product id. That projection supplies
-the tier's seat capacity and canonical monthly USD list price. It never
-reconstructs a paid total, because taxes, store pricing, discounts, and credits
-remain provider facts. Revocations, ignored events, promotional grants,
-Stripe-originated events, unknown products, and rows without recognized store
-provenance remain unenriched. A durable seat-ledger snapshot takes precedence
-over catalog capacity when one exists.
+the tier's seat capacity and canonical monthly USD list price. RevenueCat's
+separate purchased-currency price is persisted from the webhook and exposed as
+the paid total only for an applied production `INITIAL_PURCHASE`, `RENEWAL`, or
+`NON_RENEWING_PURCHASE` outside a trial period. Sandbox and trial prices never
+imply a real payment, and missing transaction facts produce no unavailable-total
+row in the UI. Revocations, ignored events, promotional grants, Stripe-originated
+events, unknown products, and rows without recognized store provenance remain
+unenriched. A durable seat-ledger snapshot takes precedence over catalog
+capacity when one exists.
 
 Incomplete paid-invoice deliveries are retried when creation or renewal
 fulfillment depends on them. Other billing reasons preserve an exact total-only

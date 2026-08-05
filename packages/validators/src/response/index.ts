@@ -173,6 +173,7 @@ export {
   isOrganizationBillingHistoryResponse,
   type OrganizationBillingHistoryCategory,
   type OrganizationBillingHistoryEntry,
+  type OrganizationBillingHistoryEnvironment,
   type OrganizationBillingHistoryOutcome,
   type OrganizationBillingHistoryProvider,
   type OrganizationBillingHistoryResponse,

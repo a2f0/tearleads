@@ -131,3 +131,58 @@ test("catalog facts require an applied recognized grant", async () => {
     intervalCount: null,
   });
 });
+
+test("sandbox and trial lifecycle events never imply a paid total", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await clearBillingHistory(organizationId);
+  const base = Date.parse("2026-07-05T00:00:00.000Z");
+
+  await insertWebhookEvent({
+    appUserId: admin.userId,
+    currency: "USD",
+    environment: "SANDBOX",
+    eventTimestamp: new Date(base),
+    eventType: "INITIAL_PURCHASE",
+    organizationId,
+    outcome: "applied",
+    periodType: "NORMAL",
+    priceInPurchasedCurrencyMinor: 2_000,
+    productId: "sync_team_10_monthly_staging:monthly",
+    store: "PLAY_STORE",
+  });
+  await insertWebhookEvent({
+    appUserId: admin.userId,
+    currency: "USD",
+    environment: "PRODUCTION",
+    eventTimestamp: new Date(base + 1_000),
+    eventType: "RENEWAL",
+    organizationId,
+    outcome: "applied",
+    periodType: "TRIAL",
+    priceInPurchasedCurrencyMinor: 0,
+    productId: "sync_team_10_monthly_staging:monthly",
+    store: "APP_STORE",
+  });
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/history`,
+    { headers: billingAuthHeader(admin) },
+  );
+  const history = await response.json();
+  invariant(
+    isOrganizationBillingHistoryResponse(history),
+    "expected billing history response",
+  );
+  expect(history.entries).toHaveLength(2);
+  expect(history.entries[0]).toMatchObject({
+    environment: "production",
+    totalAmount: null,
+    totalCurrency: null,
+  });
+  expect(history.entries[1]).toMatchObject({
+    environment: "sandbox",
+    totalAmount: null,
+    totalCurrency: null,
+  });
+});

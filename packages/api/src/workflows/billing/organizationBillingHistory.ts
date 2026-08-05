@@ -25,6 +25,11 @@ const LICENSED_SEAT_EVENT_TYPES = [
   "licensed_seat_count_reset",
 ] as const;
 const LICENSED_SEAT_EVENT_TYPE_SET = new Set<string>(LICENSED_SEAT_EVENT_TYPES);
+const REVENUECAT_CHARGE_EVENT_TYPES = new Set([
+  "INITIAL_PURCHASE",
+  "NON_RENEWING_PURCHASE",
+  "RENEWAL",
+]);
 
 const LIFECYCLE_SEAT_CORRELATION_LIMIT =
   BILLING_HISTORY_EVENT_LIMIT * LICENSED_SEAT_EVENT_TYPES.length;
@@ -44,6 +49,10 @@ async function loadLifecycleHistory(
       occurredAt: revenuecatWebhookEvents.eventTimestamp,
       productId: revenuecatWebhookEvents.productId,
       store: revenuecatWebhookEvents.store,
+      environment: revenuecatWebhookEvents.environment,
+      periodType: revenuecatWebhookEvents.periodType,
+      purchasedCurrency: revenuecatWebhookEvents.currency,
+      purchasedAmount: revenuecatWebhookEvents.priceInPurchasedCurrencyMinor,
       transactionId: revenuecatWebhookEvents.transactionId,
       periodStartsAt: revenuecatWebhookEvents.purchasedAt,
       periodEndsAt: revenuecatWebhookEvents.expirationAt,
@@ -227,6 +236,49 @@ function correlatedSeatRows(
   return result;
 }
 
+function normalizeRevenueCatEnvironment(
+  environment: string | null,
+): "sandbox" | "production" | null {
+  switch (environment?.toUpperCase()) {
+    case "SANDBOX":
+      return "sandbox";
+    case "PRODUCTION":
+      return "production";
+    default:
+      return null;
+  }
+}
+
+function resolveRevenueCatPaidTotal(
+  row: LifecycleHistoryRow,
+): { amount: number; currency: string } | null {
+  if (
+    !(
+      row.outcome === "applied" &&
+      row.environment?.toUpperCase() === "PRODUCTION" &&
+      row.periodType?.toUpperCase() !== "TRIAL" &&
+      REVENUECAT_CHARGE_EVENT_TYPES.has(row.eventType) &&
+      isRecognizedNativeRevenueCatStore(row.store) &&
+      row.purchasedCurrency !== null &&
+      row.purchasedAmount !== null &&
+      row.purchasedAmount >= 0
+    )
+  ) {
+    return null;
+  }
+  return { amount: row.purchasedAmount, currency: row.purchasedCurrency };
+}
+
+function projectRevenueCatEventType(
+  row: LifecycleHistoryRow,
+  organizationId: string,
+): string {
+  if (row.eventType !== "TRANSFER") return row.eventType;
+  return row.sourceOrganizationId === organizationId
+    ? "TRANSFER_OUT"
+    : "TRANSFER_IN";
+}
+
 function projectLifecycleHistory(
   rows: readonly LifecycleHistoryRow[],
   seatsByProviderEventId: ReadonlyMap<string, SeatHistoryRow>,
@@ -234,9 +286,10 @@ function projectLifecycleHistory(
 ): OrganizationBillingHistoryEvent[] {
   return rows.map((row) => {
     const seat = seatsByProviderEventId.get(row.providerEventId);
-    // RevenueCat lifecycle events don't carry a trustworthy charged total.
-    // Successful grants can still use the monthly catalog's capacity and USD
-    // list price; revocations and ignored events must not imply entitlement.
+    const paidTotal = resolveRevenueCatPaidTotal(row);
+    // Successful grants use the monthly catalog's capacity and USD list price.
+    // A separate paid total is exposed only for a production charge event with
+    // RevenueCat's purchased-currency transaction price.
     const tier =
       row.outcome === "applied" &&
       isRevenueCatGrantEventType(row.eventType) &&
@@ -247,12 +300,8 @@ function projectLifecycleHistory(
       id: row.id,
       category: "lifecycle",
       provider: "revenuecat",
-      eventType:
-        row.eventType === "TRANSFER"
-          ? row.sourceOrganizationId === organizationId
-            ? "TRANSFER_OUT"
-            : "TRANSFER_IN"
-          : row.eventType,
+      environment: normalizeRevenueCatEnvironment(row.environment),
+      eventType: projectRevenueCatEventType(row, organizationId),
       outcome: row.outcome,
       eventTimestamp: row.occurredAt,
       productId: row.productId,
@@ -268,7 +317,8 @@ function projectLifecycleHistory(
       currency: tier ? "usd" : null,
       interval: tier ? "month" : null,
       intervalCount: tier ? 1 : null,
-      totalAmount: null,
+      totalAmount: paidTotal?.amount ?? null,
+      totalCurrency: paidTotal?.currency ?? null,
       periodStartsAt: seat?.periodStartsAt ?? row.periodStartsAt,
       periodEndsAt: seat?.periodEndsAt ?? row.periodEndsAt,
     };
@@ -282,6 +332,7 @@ function projectInternalLifecycleHistory(
     id: row.id,
     category: "lifecycle",
     provider: "internal",
+    environment: null,
     eventType: row.eventType,
     outcome: "applied",
     eventTimestamp: row.occurredAt,
@@ -299,6 +350,7 @@ function projectInternalLifecycleHistory(
     interval: null,
     intervalCount: null,
     totalAmount: null,
+    totalCurrency: null,
     periodStartsAt: row.periodStartsAt,
     periodEndsAt: row.periodEndsAt,
   }));
@@ -324,6 +376,7 @@ function projectSeatHistory(
       id: row.id,
       category: "seat",
       provider: "internal",
+      environment: null,
       eventType: row.eventType,
       outcome: "applied",
       eventTimestamp: row.occurredAt,
@@ -341,6 +394,7 @@ function projectSeatHistory(
       interval: null,
       intervalCount: null,
       totalAmount: null,
+      totalCurrency: null,
       periodStartsAt: row.periodStartsAt,
       periodEndsAt: row.periodEndsAt,
     }));
@@ -353,6 +407,7 @@ function projectInvoiceHistory(
     id: row.id,
     category: "invoice",
     provider: "stripe",
+    environment: null,
     eventType: "INVOICE_PAID",
     outcome: "applied",
     eventTimestamp: row.occurredAt,
@@ -370,6 +425,7 @@ function projectInvoiceHistory(
     interval: row.interval,
     intervalCount: row.intervalCount,
     totalAmount: row.totalAmount,
+    totalCurrency: row.currency,
     periodStartsAt: row.periodStartsAt,
     periodEndsAt: row.periodEndsAt,
   }));
