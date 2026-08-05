@@ -28,6 +28,22 @@ export function referencedPrincipalPolicyKey(
   ]);
 }
 
+/**
+ * Dedupes references by their exact head identity, keyed with
+ * {@link referencedPrincipalPolicyKey} so every consumer agrees on what
+ * "the same reference" means. Later duplicates win, preserving each
+ * caller's original last-wins behavior.
+ */
+export function dedupeReferencedPrincipalStates<
+  TReference extends ReferencedPrincipalHead,
+>(references: ReadonlyArray<TReference>): TReference[] {
+  const referencesByState = new Map<string, TReference>();
+  for (const reference of references) {
+    referencesByState.set(referencedPrincipalPolicyKey(reference), reference);
+  }
+  return Array.from(referencesByState.values());
+}
+
 export function principalPolicyCacheForVerifiedPolicies(
   policies: readonly VerifiedPrincipalPolicy[],
 ): Map<string, VerifiedPrincipalPolicy> {

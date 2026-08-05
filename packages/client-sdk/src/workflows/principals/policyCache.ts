@@ -8,6 +8,7 @@ import type {
 } from "@tearleads/validators/response";
 import { errorMessage } from "../../data/errorMessage";
 import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
+import { dedupeReferencedPrincipalStates } from "../../data/keyingProjectionVerification/principalPolicyCache";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
@@ -20,7 +21,6 @@ import {
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
 } from "./externalAdminPolicy";
-import { dedupeReferencedPrincipalStates } from "./policyCacheReferences";
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,

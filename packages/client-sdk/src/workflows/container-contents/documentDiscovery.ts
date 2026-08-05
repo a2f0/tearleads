@@ -1,5 +1,6 @@
 import type { DocumentSummary } from "../../data/documentSummary";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
+import { dedupeReferencedPrincipalStates } from "../../data/keyingProjectionVerification/principalPolicyCache";
 import {
   listAllContainerDocuments,
   listContainerDocumentsFromApi,
@@ -7,7 +8,6 @@ import {
 import {
   collectDiscoveredDocumentInputs,
   getApplicableDocumentTombstones,
-  uniqueReferencedPrincipalStates,
 } from "./documentDiscoveryInputs";
 import type {
   ContainerDocumentDiscoveryApi,
@@ -255,7 +255,7 @@ export async function discoverContainerDocuments({
   }
 
   await cacheReferencedPrincipalPolicies?.(
-    uniqueReferencedPrincipalStates(
+    dedupeReferencedPrincipalStates(
       listedDocuments.items.flatMap(
         (document) => document.referencedPrincipals,
       ),
@@ -332,7 +332,7 @@ export async function discoverAllContainerDocuments({
     listContainerDocuments,
   });
   await cacheReferencedPrincipalPolicies?.(
-    uniqueReferencedPrincipalStates(
+    dedupeReferencedPrincipalStates(
       listedDocumentsByContainer.flatMap(
         ({ listedDocuments }) =>
           listedDocuments?.items.flatMap(

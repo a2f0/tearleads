@@ -2,6 +2,7 @@ import { mergeVersionVectors, satisfiesVersionVector } from "@tearleads/loro";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { PendingWriteQueueObjectKind } from "../pendingWritesTypes";
 import type { PendingWriteCandidate } from "./aggregation";
+import { readString } from "./rowReaders";
 
 // Deliberately never loads document content: the diagnostic listing runs
 // repeatedly while sync drains, and materializing every content blob would
@@ -71,11 +72,6 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
       )
     )
 `;
-
-function readString(row: Record<string, unknown>, key: string): string | null {
-  const value = row[key];
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
 
 function hasUncoveredTail(input: {
   currentVersion: string;

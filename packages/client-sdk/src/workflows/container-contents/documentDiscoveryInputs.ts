@@ -1,44 +1,15 @@
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import {
   maxEffectiveAccessLevel,
   normalizeEffectiveAccessLevel,
 } from "../../data/accessLevel";
 import type { DiscoveredDocumentInput } from "../../data/documentSummary";
+import { uniqueSortedStrings } from "../../data/documents/shared/readers";
 import type {
   ContainerDocumentTombstone,
   ListedContainerDocument,
   ListedContainerDocuments,
   ListedContainerDocumentsLane,
 } from "./documentDiscoveryTypes";
-
-function getReferencedPrincipalStateKey(
-  reference: ReferencedPrincipalStateResponse,
-): string {
-  return JSON.stringify([
-    reference.principalType,
-    reference.principalId,
-    reference.version,
-    reference.keyEpoch,
-    reference.keyFingerprint,
-    reference.stateHash,
-  ]);
-}
-
-export function uniqueReferencedPrincipalStates(
-  references: ReadonlyArray<ReferencedPrincipalStateResponse>,
-): ReferencedPrincipalStateResponse[] {
-  const referencesByState = new Map<string, ReferencedPrincipalStateResponse>();
-
-  for (const reference of references) {
-    referencesByState.set(getReferencedPrincipalStateKey(reference), reference);
-  }
-
-  return Array.from(referencesByState.values());
-}
-
-function uniqueSortedStrings(values: Iterable<string>): string[] {
-  return Array.from(new Set(values)).sort();
-}
 
 function mergeDiscoveredDocumentInputs(
   current: DiscoveredDocumentInput,

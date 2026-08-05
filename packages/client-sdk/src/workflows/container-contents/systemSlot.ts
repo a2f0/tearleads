@@ -1,7 +1,6 @@
-import { bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { formatContainerSystemSlot } from "../../data/containerSystemSlotFormat";
 
-const CONTAINER_SYSTEM_SLOT_PREFIX = "sys_v1_";
 const CONTAINER_SYSTEM_SLOT_HMAC_ALGORITHM = {
   hash: "SHA-256",
   name: "HMAC",
@@ -12,13 +11,6 @@ export interface ContainerSystemSlotDefinition {
   readonly projectorId?: string | undefined;
   readonly slotId: string;
   readonly version: number;
-}
-
-function toBase64Url(bytes: Uint8Array): string {
-  return bytesToBase64(bytes)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
 }
 
 function systemSlotDerivationLabel(
@@ -49,7 +41,5 @@ export async function deriveContainerSystemSlot(input: {
     new TextEncoder().encode(systemSlotDerivationLabel(input.definition)),
   );
 
-  return `${CONTAINER_SYSTEM_SLOT_PREFIX}${toBase64Url(
-    new Uint8Array(digest),
-  )}`;
+  return formatContainerSystemSlot(new Uint8Array(digest));
 }
