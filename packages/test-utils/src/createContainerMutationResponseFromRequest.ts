@@ -5,6 +5,7 @@ import {
   type ContainerDirectGrant,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
+  type ContainerRekeyAccessEventBody,
   computeAccessEventHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
@@ -132,10 +133,20 @@ function deriveMutationState(input: {
   return {
     ...base,
     containerKeyEpochId: body.containerKeyEpochId,
-    referencedPrincipalHeads: body.referencedPrincipalHeads
-      ? [...body.referencedPrincipalHeads]
-      : previous.referencedPrincipalHeads,
+    referencedPrincipalHeads: rekeyReferencedPrincipalHeads(body, previous),
   };
+}
+
+// A rekey may omit referencedPrincipalHeads, in which case the previous
+// manifest's heads carry forward unchanged; an explicit list — including an
+// empty one — is authoritative.
+export function rekeyReferencedPrincipalHeads(
+  body: ContainerRekeyAccessEventBody,
+  previous: ContainerAccessManifestState,
+): ReferencedPrincipalHead[] {
+  return body.referencedPrincipalHeads
+    ? [...body.referencedPrincipalHeads]
+    : previous.referencedPrincipalHeads;
 }
 
 export async function createContainerMutationResponseFromRequest(

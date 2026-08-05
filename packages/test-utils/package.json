@@ -6,6 +6,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "bun test src"
+  },
   "dependencies": {
     "@tearleads/api-client": "workspace:*",
     "@tearleads/crypto": "workspace:*",
