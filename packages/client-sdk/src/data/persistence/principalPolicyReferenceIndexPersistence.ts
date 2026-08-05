@@ -1,18 +1,12 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
+import { principalPolicyBundleStates } from "../principalPolicyStates";
 import { principalPolicyBundleReferences } from "../sqlite/schema";
 import type { ClientSQLiteTransaction } from "../sqlite/sqlitePersistenceRuntime";
 
 type PrincipalPolicyReferenceRow =
   typeof principalPolicyBundleReferences.$inferInsert;
-
-function bundleStates(bundle: PrincipalPolicyBundleResponse) {
-  return [
-    ...bundle.previousStates.map(({ state }) => state),
-    bundle.currentState,
-  ];
-}
 
 function exactReferenceWhere(row: PrincipalPolicyReferenceRow) {
   return and(
@@ -57,7 +51,7 @@ export async function indexPrincipalPolicyBundleInTransaction(
   bundle: PrincipalPolicyBundleResponse,
 ): Promise<void> {
   const head = bundle.currentState;
-  for (const state of bundleStates(bundle)) {
+  for (const state of principalPolicyBundleStates(bundle)) {
     if (
       state.principalType !== head.principalType ||
       state.principalId !== head.principalId

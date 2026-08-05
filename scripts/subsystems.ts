@@ -397,6 +397,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/data/keyingProjectionVerification/`,
       `${sdk}/data/keyingProjectionVerification.ts`,
+      `${sdk}/data/principalPolicyStates.ts`,
       `${sdk}/data/keyingCanonicalJson.ts`,
       `${sdk}/data/accessLevel.ts`,
       `${sdk}/data/stableUuid.ts`,

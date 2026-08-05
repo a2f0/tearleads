@@ -3,13 +3,7 @@ import {
   type PrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-
-function bundleStates(bundle: PrincipalPolicyBundleResponse) {
-  return [
-    ...bundle.previousStates.map(({ state }) => state),
-    bundle.currentState,
-  ];
-}
+import { principalPolicyBundleStates } from "../principalPolicyStates";
 
 export function applyPrincipalPolicyReferenceCheckpoint(
   bundle: PrincipalPolicyBundleResponse,
@@ -49,7 +43,7 @@ export function applyPrincipalPolicyReferenceCheckpoint(
     }
     return bundle;
   }
-  const checkpointStates = bundleStates(bundle).filter(
+  const checkpointStates = principalPolicyBundleStates(bundle).filter(
     (state) => state.version === checkpoint.version,
   );
   if (checkpointStates.length === 0) {
