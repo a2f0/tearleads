@@ -101,15 +101,14 @@ function buildMoveKeyEpoch(input: {
   manifestHash: string;
   source: ReturnType<typeof getTargetContainerContext>;
 }) {
-  const keyEpoch = buildContainerCreateKeyEpoch({
+  return buildContainerCreateKeyEpoch({
     containerId: readContainerState(input.source.manifest).containerId,
     containerKeyEpochId: input.containerKeyEpochId,
     eventHash: input.eventHash,
+    keyEpoch: input.source.kek.containerKeyEpoch + 1,
     manifestHash: input.manifestHash,
     parentContainerKeyEpochId: input.destinationParent.kek.containerKeyEpochId,
   });
-  keyEpoch.keyEpoch = input.source.kek.containerKeyEpoch + 1;
-  return keyEpoch;
 }
 
 export async function buildMoveRotationWithBody(input: {

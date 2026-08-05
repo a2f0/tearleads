@@ -66,6 +66,7 @@ import {
   type TrustedUserIdentityResolver,
 } from "../../../data/trustedUserIdentity";
 import { containerMutationRequestCore } from "./mutationRequestCore";
+import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
 import {
   type ContainerManagedPrincipalShareApi,
   loadVerifiedGroupSharePrincipalPolicy,
@@ -582,25 +583,16 @@ export async function shareRemoteContainer(input: {
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
-  const response = await input.apiClient.shareContainer(
-    input.containerId,
-    materializedPlan.plan.request,
-  );
-  if (!response) {
-    return null;
-  }
-
-  await acknowledgeContainerMutation({
+  return submitAcknowledgedContainerMutation({
+    containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
-    response,
+    submit: () =>
+      input.apiClient.shareContainer(
+        input.containerId,
+        materializedPlan.plan.request,
+      ),
   });
-
-  return {
-    containerKey: materializedPlan.containerKey,
-    plan: materializedPlan.plan,
-    response,
-  };
 }
 
 export async function shareRemoteContainerWithGroup(input: {

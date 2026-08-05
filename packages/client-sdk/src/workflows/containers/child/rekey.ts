@@ -23,7 +23,6 @@ import {
   resolveContainerKekEpochId,
   signContainerMutationEvent,
 } from "../../../data/containers/shared/events";
-import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import {
   asContainerManifestBundle,
   getParentKekForTarget,
@@ -51,6 +50,7 @@ import {
   verifyKeyringEntriesForSeal,
 } from "./moveRotation";
 import { containerMutationRequestCore } from "./mutationRequestCore";
+import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
 import {
   refreshedPrincipalPolicies,
   refreshedPrincipalReferences,
@@ -169,10 +169,10 @@ async function deriveRekeyManifestArtifacts(input: {
     containerId: input.previousState.containerId,
     containerKeyEpochId: input.containerKeyEpochId,
     eventHash,
+    keyEpoch: input.target.kek.containerKeyEpoch + 1,
     manifestHash,
     parentContainerKeyEpochId: input.parentKek?.containerKeyEpochId ?? null,
   });
-  keyEpoch.keyEpoch = input.target.kek.containerKeyEpoch + 1;
   return { body, event, eventHash, keyEpoch, manifest, manifestHash, state };
 }
 
@@ -424,23 +424,14 @@ export async function rekeyRemoteContainer(input: {
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
-  const response = await input.apiClient.rekeyContainer(
-    input.containerId,
-    materializedPlan.plan.request,
-  );
-  if (!response) {
-    return null;
-  }
-
-  await acknowledgeContainerMutation({
+  return submitAcknowledgedContainerMutation({
+    containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
-    response,
+    submit: () =>
+      input.apiClient.rekeyContainer(
+        input.containerId,
+        materializedPlan.plan.request,
+      ),
   });
-
-  return {
-    containerKey: materializedPlan.containerKey,
-    plan: materializedPlan.plan,
-    response,
-  };
 }

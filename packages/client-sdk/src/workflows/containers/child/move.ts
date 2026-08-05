@@ -19,7 +19,6 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import {
   asContainerManifestBundle,
   getTargetContainerContext,
@@ -48,6 +47,7 @@ import {
 } from "./moveArtifacts";
 import { buildContainerMoveWraps } from "./moveWraps";
 import { containerMutationRequestCore } from "./mutationRequestCore";
+import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
 
 function buildContainerMoveRequest(input: {
   body: ContainerMoveAccessEventBody;
@@ -360,23 +360,14 @@ export async function moveRemoteContainer(input: {
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
-  const response = await input.apiClient.moveContainer(
-    input.containerId,
-    materializedPlan.plan.request,
-  );
-  if (!response) {
-    return null;
-  }
-
-  await acknowledgeContainerMutation({
+  return submitAcknowledgedContainerMutation({
+    containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
-    response,
+    submit: () =>
+      input.apiClient.moveContainer(
+        input.containerId,
+        materializedPlan.plan.request,
+      ),
   });
-
-  return {
-    containerKey: materializedPlan.containerKey,
-    plan: materializedPlan.plan,
-    response,
-  };
 }

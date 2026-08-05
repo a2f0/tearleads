@@ -29,7 +29,6 @@ import {
   resolveContainerKekEpochId,
   signContainerMutationEvent,
 } from "../../../data/containers/shared/events";
-import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import { uniquePrincipalPolicies } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
@@ -56,6 +55,7 @@ import {
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { sealRotationKeyring } from "./moveRotation";
 import { containerMutationRequestCore } from "./mutationRequestCore";
+import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
 import {
   type ContainerRevokeSubject,
   deriveContainerRevokeManifest,
@@ -290,10 +290,10 @@ export async function buildMaterializedContainerRevokePlan(input: {
     containerId: previousState.containerId,
     containerKeyEpochId,
     eventHash,
+    keyEpoch: nextContainerKeyEpoch,
     manifestHash,
     parentContainerKeyEpochId: parentKek?.containerKeyEpochId ?? null,
   });
-  keyEpoch.keyEpoch = nextContainerKeyEpoch;
   const principalPolicies = await collectContainerRevokePrincipalPolicies({
     execSql: input.execSql,
     previousProjection: input.previousProjection,
@@ -388,23 +388,14 @@ export async function revokeRemoteContainer(input: {
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
-  const response = await input.apiClient.revokeContainer(
-    input.containerId,
-    materializedPlan.plan.request,
-  );
-  if (!response) {
-    return null;
-  }
-
-  await acknowledgeContainerMutation({
+  return submitAcknowledgedContainerMutation({
+    containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
-    response,
+    submit: () =>
+      input.apiClient.revokeContainer(
+        input.containerId,
+        materializedPlan.plan.request,
+      ),
   });
-
-  return {
-    containerKey: materializedPlan.containerKey,
-    plan: materializedPlan.plan,
-    response,
-  };
 }
