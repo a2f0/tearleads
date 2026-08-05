@@ -1,5 +1,5 @@
-import { didRegainSyncPrerequisites } from "../../data/sync/syncPrerequisites";
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflows/container-contents/projectionView";
+import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
 import { isReconcilableContainerNode } from "../container-contents/reconcilableContainer";
 import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import type { ContainerContentsStore } from "../container-contents/types";
