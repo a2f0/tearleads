@@ -116,7 +116,8 @@ contains only the current projection schema; pre-reset databases must be
 discarded rather than upgraded.
 
 There is no translation, dual-read period, or legacy directory, group,
-membership, grants, group-container, user-detail, or raw policy-history fallback.
+membership, grants, group-container, user-detail, or raw principal-policy-table
+fallback.
 
 ## Snapshot and delta contract
 

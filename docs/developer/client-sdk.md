@@ -488,24 +488,11 @@ reconstructs history from the `GET /containers/:id/kek-log` bridge log, and
 `recoverKeyringEntryFromWraps` recovers a bridge-severed epoch from the caller's
 retained recipient envelope.
 
-A retained envelope addressed to a GROUP names the group key epoch it was
-sealed to, so after a group key rotation current policy no longer holds the key
-that opens it. `recoverKeyringEntryFromWraps` accepts an optional
-`fetchPrincipalPolicyHistory` reader, typed as the exported
-`PrincipalPolicyHistoryFetcher`, which walks the principal's signed state chain
-back to that epoch. Hosts adapt it from the API client:
-
-```ts
-const fetchPrincipalPolicyHistory: PrincipalPolicyHistoryFetcher = (input) =>
-  apiClient.getPrincipalPolicyHistory(input.principalType, input.principalId, {
-    ...(input.beforeVersion === undefined
-      ? {}
-      : { beforeVersion: input.beforeVersion }),
-  });
-```
-
-Omitting it is safe: group-addressed envelopes sealed to a rotated epoch simply
-stay unopened, and every other anchor is tried as before. See
+Principal rotations and membership changes rematerialize every retained group
+grant against the new current principal head in the same transaction. As a
+result, `recoverKeyringEntryFromWraps` resolves group-addressed anchors through
+current verified principal policies and does not need a historical-principal
+reader. See
 [keying-design.md](../keying-design.md#container-key-epoch-database-row) for the
 artifact model these operate on.
 

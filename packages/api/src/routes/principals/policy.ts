@@ -1,44 +1,17 @@
 import { isPutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type {
-  PrincipalPolicyBundleResponse,
-  PrincipalPolicyHistoryResponse,
-} from "@tearleads/validators/response";
-import {
-  isUuidV4String,
-  MAX_PRINCIPAL_STATE_VERSION,
-} from "@tearleads/validators/util";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { isUuidV4String } from "@tearleads/validators/util";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
 import { getCurrentPrincipalPolicy } from "../../services/principals/getCurrentPrincipalPolicy";
-import { getPrincipalPolicyHistory } from "../../services/principals/getPrincipalPolicyHistory";
 import { putPrincipalPolicy } from "../../services/principals/putPrincipalPolicy";
 import {
   PrincipalPolicyError,
   parseManagedPrincipalType,
 } from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
-
-/**
- * A malformed cursor reads as "from the newest state", never as an error.
- *
- * Values above `MAX_PRINCIPAL_STATE_VERSION` are out of domain and rejected
- * here rather than passed down: a safe integer can still exceed PostgreSQL's
- * `integer` column range, which would surface as a 500 on what is really a
- * malformed request.
- */
-function readBeforeVersion(value: string | undefined): number | null {
-  if (value === undefined) {
-    return null;
-  }
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) &&
-    parsed > 0 &&
-    parsed <= MAX_PRINCIPAL_STATE_VERSION
-    ? parsed
-    : null;
-}
 
 interface PrincipalPolicyRouteDeps {
   readonly publish: (event: Record<string, unknown>) => Promise<void>;
@@ -143,39 +116,6 @@ export function createPrincipalPolicyRoute({
             principalParams.principalType,
             principalParams.principalId,
           ),
-        );
-      } catch (error) {
-        const response = toPrincipalPolicyErrorResponse(error);
-        if (response) {
-          return response;
-        }
-
-        throw error;
-      }
-    },
-  );
-
-  principalPolicyRoute.get(
-    "/principals/:principalType/:principalId/policy-history",
-    requireAuth,
-    async (c) => {
-      const principalParams = getPrincipalRouteParams({
-        principalType: c.req.param("principalType"),
-        principalId: c.req.param("principalId"),
-      });
-
-      if (!principalParams) {
-        return c.json({ error: "Invalid principal route" }, 400);
-      }
-
-      try {
-        return c.json<PrincipalPolicyHistoryResponse>(
-          await getPrincipalPolicyHistory(runtime, {
-            beforeVersion: readBeforeVersion(c.req.query("beforeVersion")),
-            principalId: principalParams.principalId,
-            principalType: principalParams.principalType,
-            userId: c.get("session").userId,
-          }),
         );
       } catch (error) {
         const response = toPrincipalPolicyErrorResponse(error);

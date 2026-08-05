@@ -64,6 +64,9 @@ export async function rewrapProjectionMemberEnvelopes(input: {
   readonly users: ReadonlyArray<TrustedUserIdentity>;
 }): Promise<PrincipalMemberEnvelopeRequest[]> {
   const recipients = toRekeyRecipientEntries(input);
+  if (recipients.length === 0) {
+    return [];
+  }
   const wrappedRecipients = await wrapDekForRecipients(
     input.secretKey,
     recipients.map((recipient) => recipient.encapsulationPublicKey),

@@ -61,7 +61,6 @@ import {
   isOrganizationProfileResponse,
   isOrganizationReadModelResponse,
   isPrincipalPolicyBundleResponse,
-  isPrincipalPolicyHistoryResponse,
   isRegistrationResponse,
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
@@ -1062,23 +1061,6 @@ export class ApiClient {
     return this.request(
       `/containers/${pathSegment(containerId)}/kek-log${suffix}`,
       isContainerKekLogResponse,
-      "GET",
-    );
-  }
-
-  getPrincipalPolicyHistory(
-    principalType: "group" | "organization",
-    principalId: string,
-    options: { readonly beforeVersion?: number } = {},
-  ) {
-    const query = new URLSearchParams();
-    if (options.beforeVersion !== undefined) {
-      query.set("beforeVersion", String(options.beforeVersion));
-    }
-    const suffix = query.size > 0 ? `?${query.toString()}` : "";
-    return this.request(
-      `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/policy-history${suffix}`,
-      isPrincipalPolicyHistoryResponse,
       "GET",
     );
   }

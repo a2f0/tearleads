@@ -10,10 +10,6 @@ import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerKekLogEpochResponse } from "@tearleads/validators/response";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import {
-  openPrincipalWrapsThroughHistory,
-  type PrincipalPolicyHistoryFetcher,
-} from "./historicalPrincipalKeys";
 import { normalizeContainerKeyWrap } from "./readers";
 
 /**
@@ -265,12 +261,11 @@ async function unwrapWrapsWithCurrentPolicies(input: {
  *
  * Scope bound: a direct user envelope is recoverable from identity keys
  * alone, so a pristine client anchors on it. A group- or organization-
- * addressed envelope additionally requires the principal SECRET key for the
- * key epoch it was addressed to, which resolves only through principal
- * policy bundles the client can reach; after a principal key rotation a
- * pristine client cannot reach the older ones, and this fails closed with
+ * addressed envelope additionally requires the current principal secret key.
+ * Principal rotation rematerializes every retained container grant against
+ * the new principal head, so a current reader never needs an older principal
+ * key to use this recovery path. Unreachable principal keys fail closed with
  * `HistoricalWrapUnavailableError` rather than appearing to be corruption.
- * Serving historical principal-policy states is tracked separately.
  */
 export async function recoverKeyringEntryFromWraps(input: {
   containerId: string;
@@ -287,12 +282,6 @@ export async function recoverKeyringEntryFromWraps(input: {
    * epoch first (recursively, through the parent's own log) and pass it here.
    */
   parentKeysByEpochId?: ReadonlyMap<string, Uint8Array> | undefined;
-  /**
-   * Fetches a principal's signed policy history. Supplied by callers that can
-   * reach the API; without it, a principal envelope addressed to a key epoch
-   * the requester no longer holds stays unopenable, exactly as before.
-   */
-  fetchPrincipalPolicyHistory?: PrincipalPolicyHistoryFetcher | undefined;
   /**
    * The requester's user id. Direct user envelopes are matched against it, so
    * another member's envelope is never mistaken for an anchor — attempting it
@@ -345,21 +334,7 @@ export async function recoverKeyringEntryFromWraps(input: {
   if (keyMaterial === null) {
     const principal = await attemptCommitted(principalWraps);
     keyMaterial = principal.key;
-    // Current policy could not open any principal envelope. Each one names the
-    // principal AND the key epoch it was sealed to, so the principal's own
-    // signed history can still supply that epoch's key — the case a member
-    // removed after the wrap was written, or a client that joined after a
-    // group key rotation, otherwise fails on.
-    keyMaterial ??= await openPrincipalWrapsThroughHistory({
-      containerKeyEpoch: input.epoch.containerKeyEpoch,
-      containerKeyEpochId: input.epoch.containerKeyEpochId,
-      containerId: input.containerId,
-      ...(input.fetchPrincipalPolicyHistory
-        ? { fetchHistory: input.fetchPrincipalPolicyHistory }
-        : {}),
-      principalWraps,
-      secretKey: input.secretKey,
-    });
+    // Preserve the current-policy failure in case no inherited anchor opens.
     principalFailure = principal.failure;
   }
   // The inherited-only path: a parent-container envelope opens under the
@@ -411,7 +386,6 @@ export async function recoverKeyringEntryFromWraps(input: {
  */
 
 export { fetchContainerKekLog } from "./containerKekLogFetch";
-export type { PrincipalPolicyHistoryFetcher } from "./historicalPrincipalKeys";
 export type {
   AggregatedContainerKekLog,
   KeyringRebuildResult,
