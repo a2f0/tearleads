@@ -1,3 +1,4 @@
+import { errorMessage } from "../data/errorMessage";
 import { getOrganizationProfileDocumentLocalId } from "../workflows/organizations/organizationProfile";
 import { deriveOrganizationMetadataContainerSystemSlot } from "../workflows/organizations/rosterProfileContainer";
 import type { ContainerContents } from "./containerContents";
@@ -41,7 +42,7 @@ export async function syncOrganizationMetadataProfile(input: {
     });
   } catch (error) {
     input.log(
-      `Organizations: best-effort org metadata profile sync failed for org ${input.organizationId}: ${error instanceof Error ? error.message : String(error)}`,
+      `Organizations: best-effort org metadata profile sync failed for org ${input.organizationId}: ${errorMessage(error)}`,
     );
   }
 }

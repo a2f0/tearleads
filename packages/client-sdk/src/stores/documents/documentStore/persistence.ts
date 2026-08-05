@@ -14,6 +14,7 @@ import {
   type DocumentProjectorRegistry,
   projectStoredDocumentState,
 } from "../../../data/documents/documentKinds";
+import { errorMessage } from "../../../data/errorMessage";
 
 import {
   DOCUMENT_HISTORY_COMPACTION_MAX_BYTES,
@@ -205,7 +206,7 @@ export async function persistDocument(
     await maybeCompactDocumentHistory(state, currentDoc);
   } catch (error) {
     state.runtime.util.log(
-      `Documents: history compaction skipped: ${error instanceof Error ? error.message : String(error)}`,
+      `Documents: history compaction skipped: ${errorMessage(error)}`,
     );
   }
   return persistedRecord;

@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../data/errorMessage";
 import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { RemoteContainer } from "../remoteHydration";
@@ -203,7 +204,7 @@ async function trySyncPendingContainerMoveIntent(
     return "moved";
   } catch (error: unknown) {
     rethrowKeyingVerificationError(error);
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     await recordPendingMoveIntentError({
       containerId: intent.containerId,
       message: `Failed to sync container move: ${message}`,

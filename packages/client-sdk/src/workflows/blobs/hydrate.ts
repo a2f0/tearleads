@@ -7,6 +7,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../data/blobContracts";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
+import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { decryptDocumentAttachmentBlob } from "./decrypt";
@@ -111,9 +112,9 @@ async function loadDocumentAttachmentBlob(
     encryptedBytes = await readBlobStreamBytes(blob);
   } catch (error) {
     log?.(
-      `${logPrefix}: blob ${binding.blobId} failed to stream during hydration: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      `${logPrefix}: blob ${binding.blobId} failed to stream during hydration: ${errorMessage(
+        error,
+      )}`,
     );
     return null;
   }

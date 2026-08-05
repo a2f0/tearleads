@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../data/errorMessage";
 import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
@@ -138,7 +139,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     // failure) can throw. Record the error for this one intent and keep it
     // pending so the next pass retries it, rather than aborting the whole sweep
     // and stranding every other pending create.
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     await state.persistence.recordCreateIntentError(
       state.runtime.infra.execSql,
       intent.containerId,
@@ -186,8 +187,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
       runtime: state.runtime,
     }).then(
       (deleted) => (deleted ? null : "the server rejected the delete"),
-      (error: unknown) =>
-        error instanceof Error ? error.message : String(error),
+      (error: unknown) => errorMessage(error),
     );
     if (discardFailure !== null) {
       state.runtime.util.log(

@@ -1,3 +1,4 @@
+import { errorMessage } from "../../data/errorMessage";
 import {
   acknowledgeDocumentOrphanBlobReclaim,
   deleteOrphanedDocumentSideRows,
@@ -183,7 +184,7 @@ export function reclaimDocumentOrphanBlobs(
       shouldContinue = hasMore;
     })
     .catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       runtime.util.log(`Documents: orphan maintenance failed: ${message}`);
     })
     .finally(() => {

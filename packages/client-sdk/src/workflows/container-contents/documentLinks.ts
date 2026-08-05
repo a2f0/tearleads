@@ -1,4 +1,5 @@
 import { readLinkedContainerIdsFromDocumentManifest } from "../../data/documents/shared/projection";
+import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
@@ -247,7 +248,7 @@ export async function relinkRemoteContainerDocument(input: {
     return result;
   } catch (error) {
     rethrowKeyingVerificationError(error);
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     runtime.util.log(
       `Container contents: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${message}`,
     );
@@ -301,7 +302,7 @@ export async function purgeRemoteContainerDocument(input: {
   } catch (error) {
     rethrowKeyingVerificationError(error);
     runtime.util.log(
-      `Container contents: failed to purge note ${noteId} (document ${documentId}): ${error instanceof Error ? error.message : String(error)}`,
+      `Container contents: failed to purge note ${noteId} (document ${documentId}): ${errorMessage(error)}`,
     );
     return null;
   }
@@ -341,7 +342,7 @@ export async function purgeLocalContainerDocument(input: {
     };
   } catch (error) {
     runtime.util.log(
-      `Container contents: failed to purge local-only note ${noteId}: ${error instanceof Error ? error.message : String(error)}`,
+      `Container contents: failed to purge local-only note ${noteId}: ${errorMessage(error)}`,
     );
     return null;
   }

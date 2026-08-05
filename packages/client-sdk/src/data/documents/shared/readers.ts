@@ -130,10 +130,6 @@ export function sortDocumentTargets<T extends DocumentContentKeyTarget>(
   return sortTargets(targets, targetKey);
 }
 
-export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 export function describeDocumentTargetKek(
   target: DocumentContentKeyTarget,
 ): string {
