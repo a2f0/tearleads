@@ -6,7 +6,9 @@ import {
   generateKemSeedAndKeyPair,
   makeVerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { buildPrincipalGrantRefreshRequest } from "../../../test/helpers/containerGrantRefresh";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import {
   asVerifiedContainerManifest,
@@ -18,7 +20,7 @@ import { getCurrentContainerKeyEpoch } from "../../access/read/containerKekStore
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 
-async function prepareRotation() {
+async function prepareRotation(input: { rotateKey?: boolean } = {}) {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -27,14 +29,21 @@ async function prepareRotation() {
   if (!currentPolicy) {
     throw new Error("Expected the root Admins policy");
   }
-  const principalKem = generateKemSeedAndKeyPair();
+  const rotatesKey = input.rotateKey ?? true;
+  const generatedPrincipalKem = generateKemSeedAndKeyPair();
+  const principalKem = rotatesKey
+    ? generatedPrincipalKem
+    : {
+        publicKey: base64ToBytes(currentPolicy.state.encapsulationPublicKey),
+        secretKey: generatedPrincipalKem.secretKey,
+      };
   const signed = await createSignedPrincipalState({
     principalType: currentPolicy.principalType,
     principalId: currentPolicy.principalId,
     principalKem,
     version: currentPolicy.version + 1,
     prevStateHash: currentPolicy.stateHash,
-    keyEpoch: currentPolicy.keyEpoch + 1,
+    keyEpoch: currentPolicy.keyEpoch + (rotatesKey ? 1 : 0),
     members: currentPolicy.projection.map((member) => ({
       userId: member.userId,
     })),
@@ -68,11 +77,24 @@ async function prepareRotation() {
       stateHash,
     },
   });
-  const rootRekey = await buildRootContainerRekeyMutation({
-    previous: root,
-    replacementPrincipalPolicy: nextPolicy,
-    signer: owner,
-  });
+  const rootRekey = rotatesKey
+    ? await buildRootContainerRekeyMutation({
+        previous: root,
+        replacementPrincipalPolicy: nextPolicy,
+        signer: owner,
+      })
+    : {
+        bundle: root.bundle,
+        request: await buildPrincipalGrantRefreshRequest({
+          parentKekState: null,
+          previous: root.bundle,
+          previousContainerPath: [root.bundle],
+          previousKekState: root.kekState,
+          replacementPrincipalPolicy: nextPolicy,
+          signer: owner,
+        }),
+        kekState: root.kekState,
+      };
   return { currentPolicy, nextPolicy, owner, root, rootRekey, signed };
 }
 
@@ -135,6 +157,38 @@ test("policy rotation and dependent container rekey commit atomically", async ()
     stateHash: prepared.nextPolicy.stateHash,
     keyFingerprint: prepared.nextPolicy.state.keyFingerprint,
   });
+}, 15_000);
+
+test("an exact compound policy replay is idempotent", async () => {
+  const prepared = await prepareRotation();
+  expect((await putPolicy(prepared)).status).toBe(200);
+  const committedKek = await getCurrentContainerKeyEpoch(
+    prepared.root.kekState.containerId,
+    db,
+  );
+
+  expect((await putPolicy(prepared)).status).toBe(200);
+  expect(
+    (await getCurrentContainerKeyEpoch(prepared.root.kekState.containerId, db))
+      ?.id,
+  ).toBe(committedKek?.id);
+}, 15_000);
+
+test("same-key-epoch policy successors refresh grants without rekeying", async () => {
+  const prepared = await prepareRotation({ rotateKey: false });
+  const previousKek = await getCurrentContainerKeyEpoch(
+    prepared.root.kekState.containerId,
+    db,
+  );
+
+  expect(Reflect.get(prepared.rootRekey.request.event, "eventType")).toBe(
+    "container.grant",
+  );
+  expect((await putPolicy(prepared)).status).toBe(200);
+  expect(
+    (await getCurrentContainerKeyEpoch(prepared.root.kekState.containerId, db))
+      ?.id,
+  ).toBe(previousKek?.id);
 }, 15_000);
 
 test("a missing dependent mutation rolls back the principal rotation", async () => {

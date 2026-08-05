@@ -34,13 +34,13 @@ import {
 import { refreshContainerMutationPrincipal } from "./containerMutationPrincipalRefresh";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
 
-function asVerifiedContainerManifest(
+export function asVerifiedContainerManifest(
   bundle: AccessManifestBundleWire,
 ): VerifiedContainerAccessManifest {
   return bundle as unknown as VerifiedContainerAccessManifest;
 }
 
-async function createSignedContainerEvent(input: {
+export async function createSignedContainerEvent(input: {
   readonly body: ContainerAccessEventBody;
   readonly dependencyManifestHashes?: readonly string[];
   readonly objectId: string;
@@ -81,7 +81,7 @@ async function createSignedContainerEvent(input: {
   return verifiedEvent.value;
 }
 
-async function createManifestBundle(
+export async function createManifestBundle(
   state: ContainerAccessManifestState,
   event: VerifiedAccessEvent,
 ): Promise<AccessManifestBundleWire> {
@@ -104,7 +104,7 @@ function principalPolicyKey(policy: VerifiedPrincipalPolicy): string {
   ].join(":");
 }
 
-async function loadPrincipalPoliciesForContainerPaths(
+export async function loadPrincipalPoliciesForContainerPaths(
   paths: readonly (readonly AccessManifestBundleWire[])[],
 ): Promise<VerifiedPrincipalPolicy[]> {
   const principalPolicies = await Promise.all(

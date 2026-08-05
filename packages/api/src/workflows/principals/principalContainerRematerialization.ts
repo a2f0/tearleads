@@ -183,9 +183,15 @@ function rematerializationInputs(input: {
   const requiredByContainerId = new Map(
     input.required.map((entry) => [entry.containerId, entry] as const),
   );
-  if (input.requests.length !== requiredByContainerId.size) {
+  if (input.requests.length < requiredByContainerId.size) {
     throw new PrincipalPolicyError(
       "Principal policy must rematerialize every stale container grant",
+      409,
+    );
+  }
+  if (input.requests.length > requiredByContainerId.size) {
+    throw new PrincipalPolicyError(
+      "Principal policy contains unexpected container rematerializations",
       409,
     );
   }
@@ -226,6 +232,7 @@ function rematerializationInputs(input: {
 export async function applyPrincipalContainerRematerializations(input: {
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
+  readonly isExactReplay: boolean;
   readonly nextHead: ReferencedPrincipalHead;
   readonly previousKeyEpoch: number | null;
   readonly requests?: readonly ContainerMutationRequest[] | undefined;
@@ -235,6 +242,24 @@ export async function applyPrincipalContainerRematerializations(input: {
     executor: input.executor,
     nextHead: input.nextHead,
   });
+  if (input.isExactReplay && required.length === 0) {
+    return;
+  }
+  if (input.nextHead.principalType === "organization") {
+    if (required.length > 0) {
+      throw new PrincipalPolicyError(
+        "Organization principal changes with existing container grants are not supported",
+        409,
+      );
+    }
+    if ((input.requests?.length ?? 0) > 0) {
+      throw new PrincipalPolicyError(
+        "Organization principal policies cannot include container rematerializations",
+        409,
+      );
+    }
+    return;
+  }
   const mutationInputs = rematerializationInputs({
     fingerprint: input.fingerprint,
     nextHead: input.nextHead,

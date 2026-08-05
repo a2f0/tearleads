@@ -7,6 +7,17 @@ export function sortGroupReferenceIds(groupIds: readonly string[]): string[] {
   return [...new Set(groupIds)].sort();
 }
 
+async function deriveLockKeys(
+  scope: string,
+): Promise<readonly [number, number]> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(scope),
+  );
+  const lockKeys = new DataView(digest);
+  return [lockKeys.getInt32(0, false), lockKeys.getInt32(4, false)];
+}
+
 export async function deriveGroupReferenceLockKeys(
   groupId: string,
 ): Promise<readonly [number, number]> {
@@ -14,12 +25,19 @@ export async function deriveGroupReferenceLockKeys(
   if (!/^[\da-f]{32}$/iu.test(normalizedId)) {
     throw new Error("Group reference id is not a UUID");
   }
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(`group-reference:${normalizedId.toLowerCase()}`),
+  return deriveLockKeys(`group-reference:${normalizedId.toLowerCase()}`);
+}
+
+export async function lockGroupPolicyRematerializationInTransaction(
+  tx: DatabaseTransaction,
+): Promise<void> {
+  if (isSqliteApiDatabase()) return;
+  const [firstKey, secondKey] = await deriveLockKeys(
+    "group-reference:policy-rematerialization",
   );
-  const lockKeys = new DataView(digest);
-  return [lockKeys.getInt32(0, false), lockKeys.getInt32(4, false)];
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(${firstKey}, ${secondKey})`,
+  );
 }
 
 async function lockGroupReferenceInTransaction(

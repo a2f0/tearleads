@@ -1,26 +1,18 @@
 import { expect, test } from "bun:test";
 import {
-  buildPrincipalStateSigningInput,
   computeContainerKekRecipientTargetHash,
-  computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   makeVerifiedPrincipalPolicy,
-  signPrincipalState,
-  toFingerprint,
-  wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import type {
-  ContainerWriterProjectionResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createAuthor,
   createMutationResponseFromRequest,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
+import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
 import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKekPath";
@@ -42,96 +34,6 @@ const ORGANIZATION_ID = "organization-1";
 const ROOT_CONTAINER_ID = "root-container";
 const USER_ID = "remaining-admin";
 
-type TestAuthor = Awaited<ReturnType<typeof createAuthor>>["author"];
-
-async function createAdminPolicyBundle(input: {
-  author: TestAuthor;
-  groupKem: ReturnType<typeof generateKemSeedAndKeyPair>;
-  memberPublicKey: Uint8Array;
-  previousBundle?: PrincipalPolicyBundleResponse | undefined;
-  signedAt: string;
-}): Promise<PrincipalPolicyBundleResponse> {
-  const previousState = input.previousBundle?.currentState ?? null;
-  const version = (previousState?.version ?? 0) + 1;
-  const keyEpoch = (previousState?.keyEpoch ?? 0) + 1;
-  const projection = [
-    {
-      userId: USER_ID,
-      role: "admin" as const,
-    },
-  ];
-  const payloadCiphertext = `admins-payload-${version}`;
-  const [wrappedMember] = await wrapDekForRecipients(input.groupKem.secretKey, [
-    input.memberPublicKey,
-  ]);
-  if (!wrappedMember) {
-    throw new Error("Expected Admins member envelope");
-  }
-  const memberEnvelopes = [
-    {
-      userId: USER_ID,
-      memberKeyFingerprint: wrappedMember.keyFingerprint,
-      kemCipherText: bytesToBase64(wrappedMember.kemCipherText),
-      wrappedKey: bytesToBase64(wrappedMember.wrappedKey),
-    },
-  ];
-  const state = await signPrincipalState(
-    await buildPrincipalStateSigningInput({
-      principalType: "group",
-      principalId: ADMIN_GROUP_ID,
-      version,
-      prevStateHash: previousState?.stateHash ?? null,
-      keyEpoch,
-      encapsulationPublicKey: bytesToBase64(input.groupKem.publicKey),
-      keyFingerprint: await toFingerprint(input.groupKem.publicKey),
-      members: [{ userId: USER_ID }],
-      memberEnvelopes,
-      projection,
-      payloadCiphertext,
-      externalAuthority: null,
-      signedAt: input.signedAt,
-      signerUserId: USER_ID,
-      signerUserKeyFingerprint: input.author.signerKeyFingerprint,
-    }),
-    input.author.signerPrivateKey,
-  );
-  const stateHash = await computePrincipalStateHash(state);
-
-  return {
-    currentState: {
-      ...state,
-      stateHash,
-      createdAt: input.signedAt,
-    },
-    currentPayload: {
-      principalType: "group",
-      principalId: ADMIN_GROUP_ID,
-      stateHash,
-      cipherSuite: "aes-256-gcm",
-      ciphertext: payloadCiphertext,
-      ciphertextHash: state.payloadCiphertextHash,
-      createdAt: input.signedAt,
-    },
-    currentProjection: projection,
-    currentMemberEnvelopes: {
-      principalType: "group",
-      principalId: ADMIN_GROUP_ID,
-      stateHash,
-      epoch: keyEpoch,
-      envelopes: memberEnvelopes,
-    },
-    previousStates: input.previousBundle
-      ? [
-          ...input.previousBundle.previousStates,
-          {
-            state: input.previousBundle.currentState,
-            projection: input.previousBundle.currentProjection,
-          },
-        ]
-      : [],
-  };
-}
-
 test("same-level Admins re-wrap survives a group rotation and cold root unwrap", async () => {
   const { author, signingPublicKey } = await createAuthor({
     organizationId: ORGANIZATION_ID,
@@ -152,14 +54,16 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
   const epochOnePolicy =
     await policyBundleFromInitialRequest(initialAdminGroup);
   const epochTwoGroupKem = generateKemSeedAndKeyPair();
-  const epochTwoPolicy = await createAdminPolicyBundle({
+  const epochTwoPolicy = await createSuccessorGroupPolicyBundle({
     author,
+    groupId: ADMIN_GROUP_ID,
     groupKem: epochTwoGroupKem,
     memberPublicKey: memberKem.publicKey,
     previousBundle: epochOnePolicy,
     signedAt: new Date(
       Date.parse(epochOnePolicy.currentState.signedAt) + 1_000,
     ).toISOString(),
+    userId: USER_ID,
   });
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
   const root = await buildRootContainerCreatePlan({
@@ -327,14 +231,16 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
   });
   const epochOnePolicy =
     await policyBundleFromInitialRequest(initialAdminGroup);
-  const epochTwoPolicy = await createAdminPolicyBundle({
+  const epochTwoPolicy = await createSuccessorGroupPolicyBundle({
     author,
+    groupId: ADMIN_GROUP_ID,
     groupKem: generateKemSeedAndKeyPair(),
     memberPublicKey: memberKem.publicKey,
     previousBundle: epochOnePolicy,
     signedAt: new Date(
       Date.parse(epochOnePolicy.currentState.signedAt) + 1_000,
     ).toISOString(),
+    userId: USER_ID,
   });
   const nextState = epochTwoPolicy.currentState;
   const nextPolicy = makeVerifiedPrincipalPolicy({

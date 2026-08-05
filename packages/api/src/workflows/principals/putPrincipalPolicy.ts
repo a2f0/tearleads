@@ -19,7 +19,10 @@ import {
   persistPrincipalPolicyAccessLossTombstones,
 } from "./accessLossTombstones";
 import { getPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
-import { lockGroupReferenceExclusiveInTransaction } from "./groupReferenceLock";
+import {
+  lockGroupPolicyRematerializationInTransaction,
+  lockGroupReferenceExclusiveInTransaction,
+} from "./groupReferenceLock";
 import {
   assertManagedPrincipalRosterMembership,
   assertOrganizationAdminsRosterMembership,
@@ -216,6 +219,7 @@ async function putPrincipalPolicyInTransaction(
     applyPrincipalContainerRematerializations({
       executor: tx,
       fingerprint: input.state.signerUserKeyFingerprint,
+      isExactReplay: previousState?.stateHash === nextState.stateHash,
       nextHead: {
         principalType: nextState.principalType,
         principalId: nextState.principalId,
@@ -264,6 +268,10 @@ async function lockPolicyPrincipalMutation(
     input.expectedPrincipalId,
   );
   if (input.expectedPrincipalType === "group") {
+    // Two group successors may each rematerialize a container that references
+    // the other group. Serialize these compound transitions before either one
+    // takes its own exclusive reference lock, avoiding a shared-lock cycle.
+    await lockGroupPolicyRematerializationInTransaction(tx);
     // Container grants take the corresponding shared lock. Holding it
     // exclusively makes the dependent-grant set stable until the policy and
     // every required rematerialization commit together.

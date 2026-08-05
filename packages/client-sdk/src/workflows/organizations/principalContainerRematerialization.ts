@@ -108,6 +108,14 @@ async function loadGrantedContainerContext(
 export async function buildPrincipalContainerRematerializationBatch(
   input: PrincipalContainerRematerializationInput,
 ): Promise<ContainerMutationRequest[]> {
+  if (
+    input.revokedContainerId &&
+    !input.grants.some(
+      (grant) => grant.containerId === input.revokedContainerId,
+    )
+  ) {
+    throw new Error("Revoked container is not granted to the group");
+  }
   const resolveProjectionUserKey = createProjectionUserKeyResolver({
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
@@ -168,14 +176,6 @@ export async function buildPrincipalContainerRematerializationBatch(
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     requests.push(planned.plan.request);
-  }
-  if (
-    input.revokedContainerId &&
-    !input.grants.some(
-      (grant) => grant.containerId === input.revokedContainerId,
-    )
-  ) {
-    throw new Error("Revoked container is not granted to the group");
   }
   return requests;
 }

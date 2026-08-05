@@ -352,14 +352,14 @@ to the wrong recipient set.
 
 ### Principal Changes And Their Containers Commit Atomically
 
-Removing a member from a signed projection does not erase keys the member
-learned. Membership shrink rotates the principal and rekeys every granted
-container, leaving removed members with an old KEK and no forward bridge.
-The client authors the encrypted artifacts; the API atomically rejects missing
-or invalid rematerializations. A cold client needs only current policy and
-container state, never another client repair. A group grant revoke likewise
-rotates that group and rekeys its remaining grants. Standalone group revokes
-are rejected; grant-level `read`/`write`/`admin` remains unchanged.
+Removing a member does not erase learned keys. Group membership shrink rotates
+the principal and granted containers, leaving old keys no forward bridge. The
+client authors the artifacts; the API atomically rejects incomplete batches.
+A cold client needs only current policy and container state. Group grant revoke
+rotates the group and its remaining grants; standalone group revokes are
+rejected, while grant-level `read`/`write`/`admin` remains unchanged.
+Cross-organization organization grants remain supported, but organization
+successors with stale container references fail closed.
 
 ### Transparency Requires A Pinned View Or Witnessing
 
@@ -468,9 +468,9 @@ Result: not reliably detected without prior trust in the identity key binding.
 - Principal policy bundles fetched by the app are verified before caching and
  skipped on validation failure.
 - Principal member envelopes must match the active direct signed projection.
-- Membership and access-set shrink rotate the principal and affected container
- KEKs atomically; the API rejects transitions that leave a current grant pinned
- to an older principal head.
+- Group membership and access shrink rotate affected KEKs atomically; stale
+ group-grant references and organization successors with stale references are
+ rejected.
 - Signed access manifests are the authority for object grant and document-link
  state used by key derivation.
 - Object writes commit to the verified access manifest hash and derived target
