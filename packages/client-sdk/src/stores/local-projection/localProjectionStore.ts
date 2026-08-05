@@ -1,4 +1,5 @@
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflows/container-contents/projectionView";
+import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
 import { isReconcilableContainerNode } from "../container-contents/reconcilableContainer";
 import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import type { ContainerContentsStore } from "../container-contents/types";
@@ -52,6 +53,13 @@ interface LocalProjectionStoreState {
   containerStore: ContainerContentsStore;
   hydratedContainerSummaries: boolean;
   listeners: Set<() => void>;
+  /**
+   * A sync-prerequisite regain (auth, connectivity, or key pair) that arrived
+   * before the container tree was ready. The signal's reset-and-backfill must
+   * not be lost to startup ordering, so it is latched here and flushed once
+   * hydration completes.
+   */
+  pendingPrerequisitesRegained: boolean;
   reconcileListeners: Set<LocalProjectionReconcileListener>;
   runtime: ContainerContentsStoreRuntime;
   snapshot: LocalProjectionSnapshot;
@@ -168,6 +176,23 @@ function markHydratedIfReady(state: LocalProjectionStoreState): boolean {
   return true;
 }
 
+function flushPendingPrerequisitesRegained(
+  state: LocalProjectionStoreState,
+): void {
+  if (
+    !state.pendingPrerequisitesRegained ||
+    !state.hydratedContainerSummaries ||
+    !state.containerStore.getSnapshot().ready
+  ) {
+    return;
+  }
+  state.pendingPrerequisitesRegained = false;
+  notifyReconcile(state, {
+    reason: "prerequisites-regained",
+    activeContainerId: state.activeContainerId,
+  });
+}
+
 function hasRemoteBackedContainerMembershipGrowth(
   previous: LocalProjectionSnapshot["containers"],
   next: LocalProjectionSnapshot["containers"],
@@ -206,6 +231,7 @@ export function createLocalProjectionStore(input: {
     containerStore: input.containerStore,
     hydratedContainerSummaries: false,
     listeners: new Set(),
+    pendingPrerequisitesRegained: false,
     reconcileListeners: new Set(),
     runtime: input.runtime,
     snapshot: EMPTY_SNAPSHOT,
@@ -219,6 +245,10 @@ export function createLocalProjectionStore(input: {
     const previousContainers = state.snapshot.containers;
     const didMarkHydrated = markHydratedIfReady(state);
     emit(state);
+    // Flush only after emit has recomputed the snapshot: the backfill the
+    // signal triggers enumerates known containers from getSnapshot(), so
+    // flushing earlier would run it over the stale pre-hydration list.
+    flushPendingPrerequisitesRegained(state);
     // Authentication can schedule the initial idle backfill before the
     // asynchronous remote tree crawl discovers this identity's real root and
     // system children. Re-arm backfill after those remotely-listable ids become
@@ -278,6 +308,13 @@ export function createLocalProjectionStore(input: {
       state.runtime = runtime;
       state.containerStore.updateRuntime(runtime);
 
+      // Latch before the readiness checks so a regain that arrives while the
+      // database or container tree is still warming up is flushed after
+      // hydration instead of being lost to startup ordering.
+      if (didRegainSyncPrerequisites(previousRuntime, runtime)) {
+        state.pendingPrerequisitesRegained = true;
+      }
+
       if (runtime.infra.dbStatus !== "ready") {
         resetSummaryCache(state.cache);
         state.summaryLoadByContainerId.clear();
@@ -288,18 +325,10 @@ export function createLocalProjectionStore(input: {
 
       // Reload the active container's summaries when the local store becomes
       // ready (e.g. first DB attach) so first paint reflects cached contents.
-      if (
-        !markHydratedIfReady(state) &&
-        didRegainRemotePrerequisites(previousRuntime, runtime) &&
-        state.containerStore.getSnapshot().ready
-      ) {
-        notifyReconcile(state, {
-          reason: "prerequisites-regained",
-          activeContainerId: state.activeContainerId,
-        });
-      }
-
+      markHydratedIfReady(state);
       emit(state);
+      // After emit, so the triggered backfill reads the refreshed snapshot.
+      flushPendingPrerequisitesRegained(state);
     },
     onReconcileSignal: (listener) => {
       state.reconcileListeners.add(listener);
@@ -309,14 +338,4 @@ export function createLocalProjectionStore(input: {
     },
     getContainerStore: () => state.containerStore,
   };
-}
-
-function didRegainRemotePrerequisites(
-  previous: ContainerContentsStoreRuntime,
-  next: ContainerContentsStoreRuntime,
-): boolean {
-  const becameAuthenticated =
-    !previous.auth.isAuthenticated && next.auth.isAuthenticated;
-  const cameOnline = !previous.state.online && next.state.online;
-  return becameAuthenticated || cameOnline;
 }
