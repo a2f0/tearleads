@@ -79,7 +79,9 @@ async function rewriteStaticSpecifiers(filePath: string): Promise<void> {
   }
 }
 
-const distPath = join(import.meta.dir, "..", "dist");
+// An explicit argument retargets the rewrite so tests can run it against a
+// fixture directory; the build always runs it against dist.
+const distPath = process.argv[2] ?? join(import.meta.dir, "..", "dist");
 const outputFiles = await listOutputFiles(distPath);
 
 await Promise.all(outputFiles.map(rewriteStaticSpecifiers));
