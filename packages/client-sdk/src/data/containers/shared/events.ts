@@ -187,13 +187,15 @@ export function buildContainerCreateKeyEpoch(input: {
   containerId: string;
   containerKeyEpochId: string;
   eventHash: string;
+  /** Defaults to the creation epoch; rotations pass their next epoch. */
+  keyEpoch?: number | undefined;
   manifestHash: string;
   parentContainerKeyEpochId: string | null;
 }): ContainerKeyEpoch {
   return {
     id: input.containerKeyEpochId,
     containerId: input.containerId,
-    keyEpoch: 1,
+    keyEpoch: input.keyEpoch ?? 1,
     accessManifestHash: input.manifestHash,
     parentContainerKeyEpochId: input.parentContainerKeyEpochId,
     createdByEventHash: input.eventHash,
