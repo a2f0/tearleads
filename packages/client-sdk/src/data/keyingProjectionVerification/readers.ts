@@ -1,3 +1,9 @@
+export {
+  readRecordNullableString,
+  readRecordString,
+  readRequiredRecordValue,
+} from "../recordReaders";
+
 import type {
   AccessEvent,
   AccessManifest,
@@ -8,67 +14,13 @@ import type {
   DocumentUnlinkAccessEventBody,
 } from "@tearleads/crypto";
 import { readCanonicalRecord } from "../keyingCanonicalJson";
-
-export function readRecordString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): string {
-  const value = record[key];
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string`);
-  }
-  return value;
-}
-
-export function readRecordNullableString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): string | null {
-  const value = record[key];
-  if (value === null) {
-    return null;
-  }
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string or null`);
-  }
-  return value;
-}
-
-function readRecordPositiveInteger(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): number {
-  const value = record[key];
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new Error(`${label}.${key} must be a positive integer`);
-  }
-  return value;
-}
-
-export function readRecordValue(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): unknown {
-  if (!Object.hasOwn(record, key)) {
-    throw new Error(`${label}.${key} is missing`);
-  }
-  return record[key];
-}
-
-function readStringArray(value: unknown, label: string): string[] {
-  if (
-    !Array.isArray(value) ||
-    value.some((entry) => typeof entry !== "string" || entry.length === 0)
-  ) {
-    throw new Error(`${label} must be a string array`);
-  }
-
-  return [...value];
-}
+import {
+  readRecordNullableString,
+  readRecordPositiveInteger,
+  readRecordString,
+  readRequiredRecordValue,
+  readStringArray,
+} from "../recordReaders";
 
 function isAccessEventType(value: unknown): value is AccessEvent["eventType"] {
   return (
@@ -103,8 +55,8 @@ function isRecipientKind(
 
 export function readAccessEvent(value: unknown, label: string): AccessEvent {
   const record = readCanonicalRecord(value, label);
-  const eventType = readRecordValue(record, "eventType", label);
-  const objectKind = readRecordValue(record, "objectKind", label);
+  const eventType = readRequiredRecordValue(record, "eventType", label);
+  const objectKind = readRequiredRecordValue(record, "objectKind", label);
   if (!isAccessEventType(eventType)) {
     throw new Error(`${label}.eventType is invalid`);
   }
@@ -128,7 +80,7 @@ export function readAccessEvent(value: unknown, label: string): AccessEvent {
       label,
     ),
     dependencyManifestHashes: readStringArray(
-      readRecordValue(record, "dependencyManifestHashes", label),
+      readRequiredRecordValue(record, "dependencyManifestHashes", label),
       `${label}.dependencyManifestHashes`,
     ),
     bodyHash: readRecordString(record, "bodyHash", label),
@@ -149,14 +101,14 @@ export function readAccessManifest(
   label: string,
 ): AccessManifest {
   const record = readCanonicalRecord(value, label);
-  const objectKind = readRecordValue(record, "objectKind", label);
+  const objectKind = readRequiredRecordValue(record, "objectKind", label);
   if (!isAccessObjectKind(objectKind)) {
     throw new Error(`${label}.objectKind is invalid`);
   }
   if (readRecordPositiveInteger(record, "version", label) !== 1) {
     throw new Error(`${label}.version must be 1`);
   }
-  const referencedPrincipalHeads = readRecordValue(
+  const referencedPrincipalHeads = readRequiredRecordValue(
     record,
     "referencedPrincipalHeads",
     label,
@@ -184,7 +136,7 @@ export function readAccessManifest(
         head,
         `${label}.referencedPrincipalHeads[${index}]`,
       );
-      const principalType = readRecordValue(
+      const principalType = readRequiredRecordValue(
         headRecord,
         "principalType",
         `${label}.referencedPrincipalHeads[${index}]`,
@@ -257,7 +209,7 @@ export function readContainerKeyWrap(
   label: string,
 ): ContainerKeyWrap {
   const record = readCanonicalRecord(value, label);
-  const recipientKind = readRecordValue(record, "recipientKind", label);
+  const recipientKind = readRequiredRecordValue(record, "recipientKind", label);
   if (!isRecipientKind(recipientKind)) {
     throw new Error(`${label}.recipientKind is invalid`);
   }
@@ -283,7 +235,7 @@ export function readContainerKekRecipientTarget(
   label: string,
 ): ContainerKekRecipientTarget {
   const record = readCanonicalRecord(value, label);
-  const recipientKind = readRecordValue(record, "recipientKind", label);
+  const recipientKind = readRequiredRecordValue(record, "recipientKind", label);
   if (!isRecipientKind(recipientKind)) {
     throw new Error(`${label}.recipientKind is invalid`);
   }
@@ -305,7 +257,7 @@ export function readDocumentAccessEventBody(
   label: string,
 ): DocumentLinkAccessEventBody | DocumentUnlinkAccessEventBody {
   const record = readCanonicalRecord(value, label);
-  const eventType = readRecordValue(record, "eventType", label);
+  const eventType = readRequiredRecordValue(record, "eventType", label);
   if (eventType !== "document.link" && eventType !== "document.unlink") {
     throw new Error(`${label}.eventType is invalid`);
   }

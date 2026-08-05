@@ -7,52 +7,12 @@ import type {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { readCanonicalRecord } from "../../keyingCanonicalJson";
-
-function readRecordValue(
-  record: Record<string, unknown>,
-  key: string,
-): unknown {
-  return Reflect.get(record, key);
-}
-
-function readRecordString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): string {
-  const value = readRecordValue(record, key);
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string`);
-  }
-  return value;
-}
-
-function readRecordNullableString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): string | null {
-  const value = readRecordValue(record, key);
-  if (value === null) {
-    return null;
-  }
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string or null`);
-  }
-  return value;
-}
-
-function readRecordPositiveInteger(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): number {
-  const value = readRecordValue(record, key);
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new Error(`${label}.${key} must be a positive integer`);
-  }
-  return value;
-}
+import {
+  readRecordNullableString,
+  readRecordPositiveInteger,
+  readRecordString,
+  readRecordValue,
+} from "../../recordReaders";
 
 function readRecordVersion(
   record: Record<string, unknown>,

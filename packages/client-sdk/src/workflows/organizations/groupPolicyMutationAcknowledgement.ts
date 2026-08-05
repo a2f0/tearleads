@@ -6,7 +6,6 @@ import {
   makeVerifiedPrincipalPolicy,
   normalizePrincipalProjectionMembers,
   type ReferencedPrincipalHead,
-  serializeKeyingCanonicalJson,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
@@ -20,18 +19,14 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { readCanonicalJson } from "../../data/keyingCanonicalJson";
-
-function canonical(value: unknown, label: string): string {
-  return serializeKeyingCanonicalJson(readCanonicalJson(value, label));
-}
+import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
 
 function sortedEnvelopes(
   envelopes: readonly PrincipalMemberEnvelopeRequest[],
 ): PrincipalMemberEnvelopeRequest[] {
   return [...envelopes].sort((left, right) =>
-    canonical(left, "principal member envelope").localeCompare(
-      canonical(right, "principal member envelope"),
+    canonicalKeyingJsonString(left, "principal member envelope").localeCompare(
+      canonicalKeyingJsonString(right, "principal member envelope"),
     ),
   );
 }
@@ -45,8 +40,14 @@ export function assertGroupPolicyEnvelopesMatchAcknowledgement(
     envelopes: sortedEnvelopes(value.envelopes),
   });
   if (
-    canonical(normalized(expected), "acknowledged group member envelopes") !==
-    canonical(normalized(observed), "observed group member envelopes")
+    canonicalKeyingJsonString(
+      normalized(expected),
+      "acknowledged group member envelopes",
+    ) !==
+    canonicalKeyingJsonString(
+      normalized(observed),
+      "observed group member envelopes",
+    )
   ) {
     throw new Error("Group member envelopes changed after acknowledgement");
   }
@@ -87,21 +88,27 @@ export function assertGroupPolicyBundleMatchesAcknowledgement(input: {
   };
 
   if (
-    canonical(observedPayload, "stored group policy payload") !==
-      canonical(expectedPayload, "authored group policy payload") ||
-    canonical(
+    canonicalKeyingJsonString(
+      observedPayload,
+      "stored group policy payload",
+    ) !==
+      canonicalKeyingJsonString(
+        expectedPayload,
+        "authored group policy payload",
+      ) ||
+    canonicalKeyingJsonString(
       normalizePrincipalProjectionMembers(input.response.currentProjection),
       "stored group policy projection",
     ) !==
-      canonical(
+      canonicalKeyingJsonString(
         normalizePrincipalProjectionMembers(input.request.projection),
         "authored group policy projection",
       ) ||
-    canonical(
+    canonicalKeyingJsonString(
       normalizedHistory(input.response.previousStates),
       "stored group policy history",
     ) !==
-      canonical(
+      canonicalKeyingJsonString(
         normalizedHistory(expectedPreviousStates),
         "expected group policy history",
       )
@@ -206,8 +213,11 @@ export async function acknowledgeGroupPolicyState(input: {
     input.response.principalId !== previous.principalId ||
     input.response.version !== previous.version + 1 ||
     input.response.prevStateHash !== previous.stateHash ||
-    canonical(responseState, "stored group policy state") !==
-      canonical(input.request.state, "authored group policy state")
+    canonicalKeyingJsonString(responseState, "stored group policy state") !==
+      canonicalKeyingJsonString(
+        input.request.state,
+        "authored group policy state",
+      )
   ) {
     throw new Error("Group policy state acknowledgement mismatch");
   }

@@ -2,7 +2,7 @@ import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObj
 import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
-  readRecordNumber,
+  readRecordPositiveInteger,
   readRecordString,
   sortTargets,
 } from "../../shared/readers";
@@ -73,7 +73,7 @@ export function normalizeDocumentTarget(
       "containerKeyEpochId",
       "Document KEK target",
     ),
-    containerKeyEpoch: readRecordNumber(
+    containerKeyEpoch: readRecordPositiveInteger(
       value,
       "containerKeyEpoch",
       "Document KEK target",
@@ -114,6 +114,10 @@ export function readBlobKekTarget(
       label,
     ),
     containerKeyEpochId: readRecordString(value, "containerKeyEpochId", label),
-    containerKeyEpoch: readRecordNumber(value, "containerKeyEpoch", label),
+    containerKeyEpoch: readRecordPositiveInteger(
+      value,
+      "containerKeyEpoch",
+      label,
+    ),
   };
 }

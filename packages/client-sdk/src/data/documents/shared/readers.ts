@@ -1,8 +1,13 @@
+export {
+  readRecordNullableString,
+  readRecordPositiveInteger,
+  readRecordString,
+} from "../../recordReaders";
+
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   type ContainerKeyWrap,
   type DocumentContentKeyTarget,
-  serializeKeyingCanonicalJson,
   type WriteHeader,
 } from "@tearleads/crypto";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
@@ -11,43 +16,18 @@ import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
+import { readCanonicalRecord } from "../../keyingCanonicalJson";
 import {
-  readCanonicalJson,
-  readCanonicalRecord,
-} from "../../keyingCanonicalJson";
+  readRecordInteger,
+  readRecordPositiveInteger,
+  readRecordString,
+  readRecordValue,
+} from "../../recordReaders";
 
-export { assertDocumentManifestBundleConsistent } from "./manifestBundleReaders";
-
-export function readRecordString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): string {
-  const value = record[key];
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string`);
-  }
-  return value;
-}
-
-function readRecordValue(
-  record: Record<string, unknown>,
-  key: string,
-): unknown {
-  return record[key];
-}
-
-function readRecordInteger(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): number {
-  const value = record[key];
-  if (typeof value !== "number" || !Number.isInteger(value)) {
-    throw new Error(`${label}.${key} must be an integer`);
-  }
-  return value;
-}
+export {
+  assertDocumentManifestBundleConsistent,
+  serializeCanonical,
+} from "./manifestBundleReaders";
 
 function isContentObjectKind(
   value: unknown,
@@ -75,7 +55,11 @@ export function readWriteHeader(value: unknown, label: string): WriteHeader {
     objectKind,
     objectId: readRecordString(record, "objectId", label),
     accessManifestHash: readRecordString(record, "accessManifestHash", label),
-    contentKeyEpoch: readRecordNumber(record, "contentKeyEpoch", label),
+    contentKeyEpoch: readRecordPositiveInteger(
+      record,
+      "contentKeyEpoch",
+      label,
+    ),
     targetHash: readRecordString(record, "targetHash", label),
     encryptionSuite,
     contentRecordId: readRecordString(record, "contentRecordId", label),
@@ -138,33 +122,6 @@ export function describeDocumentTargetKek(
 
 export function uniqueSortedStrings(values: readonly string[]): string[] {
   return [...new Set(values)].sort();
-}
-
-export function readRecordNumber(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): number {
-  const value = record[key];
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new Error(`${label}.${key} must be a positive integer`);
-  }
-  return value;
-}
-
-export function readRecordNullableString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-): string | null {
-  const value = record[key];
-  if (value === null) {
-    return null;
-  }
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string or null`);
-  }
-  return value;
 }
 
 export function asWebCryptoBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
@@ -271,7 +228,11 @@ function readDocumentTarget(
       label,
     ),
     containerKeyEpochId: readRecordString(value, "containerKeyEpochId", label),
-    containerKeyEpoch: readRecordNumber(value, "containerKeyEpoch", label),
+    containerKeyEpoch: readRecordPositiveInteger(
+      value,
+      "containerKeyEpoch",
+      label,
+    ),
   };
 }
 
@@ -301,18 +262,4 @@ export function targetEnvelopeReference(
 
 export function serializeState(value: unknown): string {
   return JSON.stringify(value);
-}
-
-export function serializeCanonical(value: unknown, label: string): string {
-  if (
-    value === undefined ||
-    typeof value === "function" ||
-    typeof value === "symbol"
-  ) {
-    throw new Error(`Document create response ${label} is invalid`);
-  }
-
-  return serializeKeyingCanonicalJson(
-    readCanonicalJson(value, `Document create response ${label}`),
-  );
 }

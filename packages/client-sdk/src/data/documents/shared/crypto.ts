@@ -24,7 +24,7 @@ import { assertDocumentUpdatePlaintextHash } from "./plaintextHash";
 import {
   assertOnlyRecordKeys,
   asWebCryptoBytes,
-  readRecordNumber,
+  readRecordPositiveInteger,
   readRecordString,
   readWriteHeader,
 } from "./readers";
@@ -173,7 +173,7 @@ function parseDocumentEncryptedUpdate(
   ) {
     throw new Error("Document encrypted update format is invalid");
   }
-  const version = readRecordNumber(
+  const version = readRecordPositiveInteger(
     value,
     "version",
     "Document encrypted update",
@@ -199,7 +199,7 @@ function parseDocumentEncryptedUpdate(
     ciphertext: base64ToBytes(
       readRecordString(value, "ciphertext", "Document encrypted update"),
     ),
-    contentKeyEpoch: readRecordNumber(
+    contentKeyEpoch: readRecordPositiveInteger(
       value,
       "contentKeyEpoch",
       "Document encrypted update",
