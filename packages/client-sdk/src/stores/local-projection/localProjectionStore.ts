@@ -244,8 +244,11 @@ export function createLocalProjectionStore(input: {
   input.containerStore.subscribe(() => {
     const previousContainers = state.snapshot.containers;
     const didMarkHydrated = markHydratedIfReady(state);
-    flushPendingPrerequisitesRegained(state);
     emit(state);
+    // Flush only after emit has recomputed the snapshot: the backfill the
+    // signal triggers enumerates known containers from getSnapshot(), so
+    // flushing earlier would run it over the stale pre-hydration list.
+    flushPendingPrerequisitesRegained(state);
     // Authentication can schedule the initial idle backfill before the
     // asynchronous remote tree crawl discovers this identity's real root and
     // system children. Re-arm backfill after those remotely-listable ids become
@@ -323,9 +326,9 @@ export function createLocalProjectionStore(input: {
       // Reload the active container's summaries when the local store becomes
       // ready (e.g. first DB attach) so first paint reflects cached contents.
       markHydratedIfReady(state);
-      flushPendingPrerequisitesRegained(state);
-
       emit(state);
+      // After emit, so the triggered backfill reads the refreshed snapshot.
+      flushPendingPrerequisitesRegained(state);
     },
     onReconcileSignal: (listener) => {
       state.reconcileListeners.add(listener);

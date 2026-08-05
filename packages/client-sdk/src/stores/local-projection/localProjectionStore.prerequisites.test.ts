@@ -120,9 +120,10 @@ test("a prerequisite regain before tree readiness is latched until hydration", a
 
   try {
     let ready = false;
+    let nodes: ContainerNode[] = [];
     let emitContainerStore = () => {};
     const containerStore = {
-      getSnapshot: () => ({ nodes: [cachedRoot], ready }),
+      getSnapshot: () => ({ nodes, ready }),
       subscribe: (listener: () => void) => {
         emitContainerStore = listener;
         return () => {
@@ -138,8 +139,16 @@ test("a prerequisite regain before tree readiness is latched until hydration", a
       runtime: withoutKeyPair,
     });
     const signals: string[] = [];
+    const containerIdsAtRegain: string[][] = [];
     store.onReconcileSignal((signal) => {
       signals.push(signal.reason);
+      if (signal.reason === "prerequisites-regained") {
+        // The backfill this signal triggers enumerates containers from the
+        // snapshot synchronously; it must already see the hydrated tree.
+        containerIdsAtRegain.push(
+          store.getSnapshot().containers.map((node) => node.id),
+        );
+      }
     });
 
     // The key pair arrives while the container tree is still loading. The
@@ -158,9 +167,11 @@ test("a prerequisite regain before tree readiness is latched until hydration", a
     expect(signals).toEqual([]);
 
     ready = true;
+    nodes = [cachedRoot];
     emitContainerStore();
 
     expect(signals).toEqual(["hydrated", "prerequisites-regained"]);
+    expect(containerIdsAtRegain).toEqual([["cached-root"]]);
   } finally {
     close();
   }
