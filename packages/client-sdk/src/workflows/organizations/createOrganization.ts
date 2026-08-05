@@ -22,6 +22,15 @@ export interface CreateOrganizationInput {
   dbClient: ExecSqlClientLike;
   documentProjectors?: DocumentProjectorRegistryInput | undefined;
   encapsulationKeyPair: EncapsulationKeyPair;
+  /**
+   * Returns false once the identity that supplied the key pairs is no longer
+   * active. Checked before the remote create (so a stale request is never
+   * submitted) and again before local persistence: an identity switch closes
+   * or renews the captured database client, so persisting would write another
+   * identity's bootstrap — or throw — after the org already exists remotely.
+   * The caller discards the result.
+   */
+  isIdentityCurrent?: (() => boolean) | undefined;
   log?: ((message: string) => void) | undefined;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
   /** Overrides the seeded organization profile name; see registration. */
@@ -93,14 +102,29 @@ export async function createOrganization(
     ),
   };
 
+  if (input.isIdentityCurrent && !input.isIdentityCurrent()) {
+    input.log?.(
+      "Organization creation aborted: identity changed while building artifacts",
+    );
+    return null;
+  }
+
   const response = await input.apiClient.createOrganization(request);
   if (!response) {
+    return null;
+  }
+
+  if (input.isIdentityCurrent && !input.isIdentityCurrent()) {
+    input.log?.(
+      "Organization creation discarded: identity changed while provisioning",
+    );
     return null;
   }
 
   input.log?.(`Organization created (${response.organizationId})`);
   await persistOrganizationProvisioningState({
     bootstrap: artifacts.bootstrap,
+    canStartDurableMutation: input.isIdentityCurrent,
     containerId: rootContainerId,
     dbClient: input.dbClient,
     documentProjectors: input.documentProjectors,

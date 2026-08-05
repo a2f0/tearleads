@@ -28,6 +28,8 @@ type PersistOrganizationProvisioningStateInput = Pick<
   | "rosterProfileBootstrap"
   | "systemContainerBootstraps"
 > & {
+  /** Forwarded to the bootstrap persist's in-mutex currency check. */
+  readonly canStartDurableMutation?: (() => boolean) | undefined;
   readonly containerId: string;
   readonly dbClient: ExecSqlClientLike;
   readonly documentProjectors?: DocumentProjectorRegistryInput | undefined;
@@ -226,6 +228,7 @@ export async function persistOrganizationProvisioningState(
     const artifacts = await buildProvisioningPersistenceArtifacts(input);
     await persistRegistrationBootstrap(input.dbClient, {
       acknowledgedAccessHeads: artifacts.acknowledgedAccessHeads,
+      canStartDurableMutation: input.canStartDurableMutation,
       containerId: input.containerId,
       documentProjectors: input.documentProjectors,
       initialAdminGroupPolicy: artifacts.initialAdminGroupPolicy,
