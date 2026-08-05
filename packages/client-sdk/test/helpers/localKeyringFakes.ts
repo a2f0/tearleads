@@ -171,7 +171,7 @@ function createFakeIndexedDbDatabase(
   } as unknown as IDBDatabase;
 }
 
-export interface FakeIndexedDbOptions {
+interface FakeIndexedDbOptions {
   readonly failOpenCount?: number | undefined;
   /**
    * Reject `add`s of records that carry a live CryptoKey, the way WKWebView
