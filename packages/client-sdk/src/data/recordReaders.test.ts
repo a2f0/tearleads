@@ -87,4 +87,19 @@ test("readStringArray validates entries and returns an independent copy", () => 
   expect(() => readStringArray(sparse, "Payload")).toThrow(
     "Payload must be a string array",
   );
+
+  // The validated copy is the returned copy: a stateful iterator that yields
+  // clean strings once and garbage afterwards cannot poison the result.
+  let pass = 0;
+  class ShiftyArray extends Array<string> {
+    override [Symbol.iterator]() {
+      pass += 1;
+      return (pass === 1 ? ["clean"] : [42 as unknown as string])[
+        Symbol.iterator
+      ]();
+    }
+  }
+  const shifty = new ShiftyArray();
+  shifty.push("clean");
+  expect(readStringArray(shifty, "Payload")).toEqual(["clean"]);
 });
