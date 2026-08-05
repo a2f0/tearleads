@@ -265,10 +265,6 @@
       "lines": 1001,
       "bytes": 31624
     },
-    "packages/client-sdk/src/client/localKeyring.test.ts": {
-      "lines": 530,
-      "bytes": 17807
-    },
     "packages/client-sdk/src/client/organizations.ts": {
       "lines": 617,
       "bytes": 20478

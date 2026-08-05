@@ -10,15 +10,22 @@ export {
   createBrowserLocalKeyring,
   createBrowserLocalKeyringManifestStore,
   createWebViewLocalKeyring,
+  resolveBrowserLocalKeyringManifestStore,
 } from "./localKeyring/browser";
 export {
   assertEnvelopeContextMatches,
   assertWrappedLocalSecretEnvelope,
+  readWrappedLocalSecretEnvelope,
 } from "./localKeyring/envelope";
 export type { IndexedDbWrappingKeyKeystoreOptions } from "./localKeyring/indexedDbKeystore";
 export { createIndexedDbWrappingKeyKeystore } from "./localKeyring/indexedDbKeystore";
 export type { IndexedDbLocalKeyringManifestStoreOptions } from "./localKeyring/indexedDbManifestStore";
 export { createIndexedDbLocalKeyringManifestStore } from "./localKeyring/indexedDbManifestStore";
+export {
+  readObject,
+  readString,
+  readVersion1,
+} from "./localKeyring/jsonReaders";
 export type { LocalStorageLocalKeyringManifestStoreOptions } from "./localKeyring/localStorageManifestStore";
 export { createLocalStorageLocalKeyringManifestStore } from "./localKeyring/localStorageManifestStore";
 export {
@@ -33,7 +40,6 @@ export { assertNonEmptyString, copyBytes } from "./localKeyring/primitives";
 export {
   canonicalLocalSecretContext,
   localKeyringScopeKey,
-  localSecretContext,
   normalizeLocalKeyringScope,
 } from "./localKeyring/scope";
 export { createLocalKeyring } from "./localKeyring/service";
