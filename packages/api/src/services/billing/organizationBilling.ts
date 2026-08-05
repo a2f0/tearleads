@@ -44,11 +44,7 @@ export async function getOrganizationBilling(
     organizationId,
     sessionUserId,
   );
-  return serializeOrganizationBilling(
-    result.billing,
-    result.activeMemberCount,
-    result.pendingSeatCount,
-  );
+  return serializeOrganizationBilling(result.billing, result);
 }
 
 export async function getOrganizationBillingHistory(
@@ -167,11 +163,10 @@ export async function startOrganizationTrial(
     organizationId,
     sessionUserId,
   );
-  return serializeOrganizationBilling(
-    result.billing,
-    result.activeMemberCount,
-    null,
-  );
+  return serializeOrganizationBilling(result.billing, {
+    ...result,
+    pendingSeatCount: null,
+  });
 }
 
 /**

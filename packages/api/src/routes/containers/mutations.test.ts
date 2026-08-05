@@ -12,6 +12,7 @@ import {
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documents,
+  organizationBilling,
   organizations,
   users,
 } from "@tearleads/api-shared/schema";
@@ -1250,8 +1251,60 @@ test("POST /containers is rejected with 402 when the organization cannot sync", 
     token: owner.token,
   });
   expect(response.status).toBe(402);
+  await expect(response.json()).resolves.toEqual({
+    error: "Organization sync is not active",
+    organizationId: ownerRow.organizationId,
+    reason: "billing_inactive",
+  });
 
   // The mutation rolled back: no new container was persisted.
+  const containerRows = await db
+    .select({ id: containers.id })
+    .from(containers)
+    .where(eq(containers.id, containerId));
+  expect(containerRows).toHaveLength(0);
+});
+
+test("POST /containers rejects an active organization user without a sync seat", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+
+  const [ownerRow] = await db
+    .select({ organizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, owner.userId));
+  invariant(ownerRow, "expected registered owner row");
+  await setTestOrganizationBillingLocal(ownerRow.organizationId);
+  await db
+    .update(organizationBilling)
+    .set({
+      currentPeriodEndsAt: new Date("2099-01-01T00:00:00.000Z"),
+      currentPeriodStartsAt: new Date("2098-12-01T00:00:00.000Z"),
+      seatCount: 1,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, ownerRow.organizationId));
+
+  const containerId = crypto.randomUUID();
+  const request = await buildCreateRequest({
+    containerId,
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const response = await postMutation({
+    path: "/containers",
+    request,
+    token: owner.token,
+  });
+  expect(response.status).toBe(402);
+  await expect(response.json()).resolves.toEqual({
+    error: "No sync seat is assigned to this user",
+    organizationId: ownerRow.organizationId,
+    reason: "sync_seat_unassigned",
+  });
+
   const containerRows = await db
     .select({ id: containers.id })
     .from(containers)

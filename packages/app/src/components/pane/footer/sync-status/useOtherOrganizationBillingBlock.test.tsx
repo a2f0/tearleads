@@ -16,6 +16,9 @@ function billing(
   return {
     organizationId,
     activeMemberCount: 1,
+    assignedSeatCount: 1,
+    assignedUserIds: ["user-1"],
+    currentUserHasSyncSeat: true,
     status,
     trialEndsAt: null,
     provider: null,

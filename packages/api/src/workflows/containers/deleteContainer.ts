@@ -11,7 +11,7 @@ import type { ContainerDeleteResponse } from "@tearleads/validators/response";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { lockAccessManifestHeadsForUpdate } from "../../access/read/accessManifestStore";
 import { uuidValue } from "../../utils/sqlDialect";
-import { assertOrganizationCanSync } from "../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { teardownContainerMetadataDocument } from "../documents/mutations/purgeDocument";
 import {
   appendOrganizationReadModelChangeInTransaction,
@@ -240,7 +240,7 @@ async function deleteContainerWithExecutor(input: {
     executor: input.executor,
     path: access.verifiedPath,
   });
-  await assertOrganizationCanSync(input.executor, organizationId);
+  await assertOrganizationCanSync(input.executor, organizationId, input.userId);
   const rootDiscoveryUserIds = new Set(
     visibleUserIds.userIdsByContainerId.get(targetManifest.state.containerId) ??
       [],

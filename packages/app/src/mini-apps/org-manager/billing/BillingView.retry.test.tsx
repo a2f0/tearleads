@@ -17,6 +17,9 @@ const VIEW: OrganizationBillingView = {
   currentPeriodStartsAtMs: null,
   currentPeriodEndsAtMs: null,
   seatCount: 0,
+  assignedSeatCount: 0,
+  currentUserHasSyncSeat: false,
+  syncSeatUnavailable: false,
   pendingSeatCount: null,
   needsAttention: false,
 };

@@ -14,15 +14,19 @@ import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billin
 import { and, desc, eq, gt, gte, inArray } from "drizzle-orm";
 import {
   createTrialBillingFields,
-  LAPSED_BILLING_PURGE_GRACE_MS,
   type OrganizationBilling,
-  organizationCanSync,
   organizationSeatPeriodKey,
 } from "../../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
+import {
+  loadOrganizationBilling,
+  type OrganizationBillingRow,
+  resolveOrganizationBilling,
+} from "./organizationBillingState";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import { loadOrganizationBillingSeatUsage } from "./organizationSeatUsage";
 import {
   freeTrialLifecycleSourceId,
   recordFreeTrialInitialized,
@@ -31,138 +35,6 @@ import {
   hasActiveStripeBinding,
   hasStripeBindingIdentity,
 } from "./stripeBindingPolicy";
-
-const BILLING_ROW_COLUMNS = {
-  organizationId: organizationBilling.organizationId,
-  status: organizationBilling.status,
-  trialEndsAt: organizationBilling.trialEndsAt,
-  provider: organizationBilling.provider,
-  providerCustomerId: organizationBilling.providerCustomerId,
-  currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
-  currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
-  seatCount: organizationBilling.seatCount,
-  providerProductId: organizationBilling.providerProductId,
-  disabledAt: organizationBilling.disabledAt,
-  purgeAfter: organizationBilling.purgeAfter,
-};
-
-type OrganizationBillingRow = OrganizationBilling & {
-  readonly providerCustomerId: string | null;
-  readonly providerProductId: string | null;
-};
-
-async function loadOrganizationBilling(
-  executor: DatabaseSession,
-  organizationId: string,
-): Promise<OrganizationBillingRow> {
-  const [row] = await executor
-    .select(BILLING_ROW_COLUMNS)
-    .from(organizationBilling)
-    .where(eq(organizationBilling.organizationId, organizationId))
-    .limit(1);
-
-  if (!row) {
-    throw new OrganizationManagerError("Organization billing not found", 404);
-  }
-
-  return row;
-}
-
-/**
- * Loads an organization's billing and returns an in-memory `disabled` view of a
- * lapsed billing period. When a `trialing` organization's `trialEndsAt` or an
- * `active` organization's `currentPeriodEndsAt` has passed, the returned
- * billing reports `disabled` (with a computed `disabledAt` and `purgeAfter`
- * grace deadline) WITHOUT persisting the transition.
- *
- * This is deliberately a pure read. It runs inside read transactions — the
- * shared container-access projection (`resolveContainerAccessProjection`) and
- * the GET billing endpoint — so it must not write: a write here would be a
- * write-on-read and, on a PostgreSQL read replica, a failed `UPDATE` poisons the
- * surrounding transaction (a JS `try/catch` cannot recover an aborted pg tx).
- * The sync gate stays correct regardless because {@link organizationCanSync}
- * also evaluates trial expiry in-memory; persisting the `disabled`/`purgeAfter`
- * transition (and the eventual purge) is the job of the background billing
- * sweep tracked separately.
- */
-async function resolveOrganizationBilling(
-  executor: DatabaseSession,
-  organizationId: string,
-  now: Date = new Date(),
-): Promise<OrganizationBillingRow> {
-  const billing = await loadOrganizationBilling(executor, organizationId);
-  const disabledAt =
-    billing.status === "trialing" &&
-    billing.trialEndsAt !== null &&
-    billing.trialEndsAt <= now
-      ? billing.trialEndsAt
-      : billing.status === "active" &&
-          billing.currentPeriodEndsAt !== null &&
-          billing.currentPeriodEndsAt <= now
-        ? billing.currentPeriodEndsAt
-        : null;
-  if (disabledAt === null) {
-    return billing;
-  }
-
-  const purgeAfter = new Date(
-    disabledAt.getTime() + LAPSED_BILLING_PURGE_GRACE_MS,
-  );
-  return { ...billing, status: "disabled", disabledAt, purgeAfter };
-}
-
-/**
- * Resolves billing and reports whether the organization may currently sync.
- * Sync choke points use this to gate one organization's server sync.
- */
-async function resolveOrganizationSyncEligibility(
-  executor: DatabaseSession,
-  organizationId: string,
-  now: Date = new Date(),
-): Promise<{ billing: OrganizationBilling; canSync: boolean }> {
-  const billing = await resolveOrganizationBilling(
-    executor,
-    organizationId,
-    now,
-  );
-  return { billing, canSync: organizationCanSync(billing, now) };
-}
-
-/**
- * Thrown when a sync operation targets an organization that cannot sync (its
- * billing is `local`/lapsed). Maps to HTTP 402 so the client can route to an
- * upgrade/enable-sync flow. Caught centrally by the route app error handler.
- */
-export class OrganizationSyncDisabledError extends Error {
-  readonly status = 402 as const;
-
-  constructor(readonly organizationId: string) {
-    super("Organization sync is not active");
-    this.name = "OrganizationSyncDisabledError";
-  }
-}
-
-/**
- * Guards a sync write against the target organization's billing. Call at the
- * public sync workflow boundary once the authoritative `organizationId` is
- * known (registration's own bootstrap calls the lower-level handlers directly,
- * so it is intentionally not gated here). Throws {@link
- * OrganizationSyncDisabledError} (402) when the organization cannot sync.
- */
-export async function assertOrganizationCanSync(
-  executor: DatabaseSession,
-  organizationId: string,
-  now: Date = new Date(),
-): Promise<void> {
-  const { canSync } = await resolveOrganizationSyncEligibility(
-    executor,
-    organizationId,
-    now,
-  );
-  if (!canSync) {
-    throw new OrganizationSyncDisabledError(organizationId);
-  }
-}
 
 /**
  * Starts an organization's free sync trial. Admin-only. A `local` organization
@@ -222,7 +94,7 @@ async function startOrganizationTrialInTransaction(input: {
         eq(organizationBilling.status, "local"),
       ),
     )
-    .returning(BILLING_ROW_COLUMNS);
+    .returning({ organizationId: organizationBilling.organizationId });
 
   if (!updated) {
     return loadOrganizationBilling(input.executor, input.organizationId);
@@ -259,7 +131,10 @@ export async function runGetOrganizationBillingWorkflow(
   now: Date = new Date(),
 ): Promise<{
   readonly activeMemberCount: number;
+  readonly assignedSeatCount: number;
+  readonly assignedUserIds: readonly string[];
   readonly billing: OrganizationBilling;
+  readonly currentUserHasSyncSeat: boolean;
   readonly pendingSeatCount: number | null;
 }> {
   return db.transaction(async (tx) => {
@@ -278,7 +153,12 @@ export async function runGetOrganizationBillingWorkflow(
       organizationId,
       billing,
     );
-    return { activeMemberCount, billing, pendingSeatCount };
+    const seatUsage = await loadOrganizationBillingSeatUsage({
+      executor: tx,
+      organizationId,
+      sessionUserId,
+    });
+    return { activeMemberCount, billing, pendingSeatCount, ...seatUsage };
   });
 }
 
@@ -469,7 +349,10 @@ export async function runStartOrganizationTrialWorkflow(
   now: Date = new Date(),
 ): Promise<{
   readonly activeMemberCount: number;
+  readonly assignedSeatCount: number;
+  readonly assignedUserIds: readonly string[];
   readonly billing: OrganizationBilling;
+  readonly currentUserHasSyncSeat: boolean;
 }> {
   return db.transaction(async (tx) => {
     const billing = await startOrganizationTrialInTransaction({
@@ -482,6 +365,11 @@ export async function runStartOrganizationTrialWorkflow(
       tx,
       organizationId,
     );
-    return { activeMemberCount, billing };
+    const seatUsage = await loadOrganizationBillingSeatUsage({
+      executor: tx,
+      organizationId,
+      sessionUserId,
+    });
+    return { activeMemberCount, billing, ...seatUsage };
   });
 }

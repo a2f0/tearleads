@@ -23,6 +23,9 @@ function billing(
 ): OrganizationBilling {
   return {
     activeMemberCount: 1,
+    assignedSeatCount: 1,
+    assignedUserIds: ["user-1"],
+    currentUserHasSyncSeat: true,
     organizationId: "org-1",
     status: "local",
     trialEndsAt: null,
@@ -61,6 +64,24 @@ test("projects a pending native plan change", () => {
     NOW_MS,
   );
   expect(view.pendingSeatCount).toBe(1);
+});
+
+test("an active organization remains blocked for a user without a sync seat", () => {
+  const view = resolveOrganizationBillingView(
+    billing({
+      assignedSeatCount: 5,
+      assignedUserIds: ["user-1", "user-2", "user-3", "user-4", "user-5"],
+      currentPeriodEndsAt: iso(DAY_MS),
+      currentUserHasSyncSeat: false,
+      seatCount: 5,
+      status: "active",
+    }),
+    NOW_MS,
+  );
+  expect(view.isActive).toBe(true);
+  expect(view.canSync).toBe(false);
+  expect(view.syncSeatUnavailable).toBe(true);
+  expect(view.needsAttention).toBe(true);
 });
 
 test("an active, unexpired trial can sync and reports days remaining", () => {

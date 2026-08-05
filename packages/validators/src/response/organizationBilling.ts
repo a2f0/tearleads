@@ -1,5 +1,7 @@
 import { isPlainObject } from "../isPlainObject";
 import {
+  hasArrayProperty,
+  hasBooleanProperty,
   hasNullableNumberProperty,
   hasNullableStringProperty,
   hasNumberProperty,
@@ -24,11 +26,15 @@ export type OrganizationBillingProvider = "revenuecat";
  * trialing, `currentPeriodStartsAt`/`currentPeriodEndsAt` while a paid
  * subscription is active, and `seatCount` tracks licensed seats in that paid
  * period. `activeMemberCount` is the server-authoritative signed Members-group
- * count used to choose the smallest tier that can cover the organization.
+ * count used by the plan switcher; assigned seat fields expose the stable
+ * per-user subset that may sync within the licensed capacity.
  */
 export interface OrganizationBillingResponse {
   organizationId: string;
   activeMemberCount: number;
+  assignedSeatCount: number;
+  assignedUserIds: string[];
+  currentUserHasSyncSeat: boolean;
   status: OrganizationBillingStatus;
   trialEndsAt: string | null;
   provider: OrganizationBillingProvider | null;
@@ -68,11 +74,22 @@ function isSeatCount(value: unknown): value is number {
 export function isOrganizationBillingResponse(
   value: unknown,
 ): value is OrganizationBillingResponse {
+  // This greenfield contract is deliberately flag-day strict: the server and
+  // clients ship the assigned-seat fields together. Missing-field fallbacks
+  // would preserve a wire format that has never been released.
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "organizationId") &&
     hasNumberProperty(value, "activeMemberCount") &&
     isSeatCount(value.activeMemberCount) &&
+    hasNumberProperty(value, "assignedSeatCount") &&
+    isSeatCount(value.assignedSeatCount) &&
+    hasArrayProperty(value, "assignedUserIds") &&
+    value.assignedUserIds.every(
+      (userId) => typeof userId === "string" && userId.length > 0,
+    ) &&
+    value.assignedSeatCount === value.assignedUserIds.length &&
+    hasBooleanProperty(value, "currentUserHasSyncSeat") &&
     hasStringProperty(value, "status") &&
     isOrganizationBillingStatus(value.status) &&
     hasNullableStringProperty(value, "trialEndsAt") &&
@@ -93,20 +110,26 @@ export function isOrganizationBillingResponse(
 
 /**
  * The HTTP 402 body a sync write returns when its target organization cannot
- * sync (billing is `local`/lapsed). Carries the `organizationId` so the client
- * can route the user to that org's billing.
+ * sync. Carries the target organization and whether billing or the caller's
+ * seat assignment blocked the write.
  */
 export interface PaymentRequiredErrorResponse {
   error: string;
   organizationId: string;
+  reason: "billing_inactive" | "sync_seat_unassigned";
 }
 
 export function isPaymentRequiredErrorResponse(
   value: unknown,
 ): value is PaymentRequiredErrorResponse {
+  // Keep the reason mandatory for the same flag-day contract: a caller must be
+  // able to distinguish an inactive organization from an unassigned user.
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "error") &&
-    hasStringProperty(value, "organizationId")
+    hasStringProperty(value, "organizationId") &&
+    hasStringProperty(value, "reason") &&
+    (value.reason === "billing_inactive" ||
+      value.reason === "sync_seat_unassigned")
   );
 }

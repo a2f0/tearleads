@@ -3,7 +3,7 @@ import { organizationRosterEntries } from "@tearleads/api-shared/schema";
 import type { UpdateOrganizationRosterEntryRequest } from "@tearleads/validators/request";
 import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import { and, eq, isNotNull, isNull, ne, or } from "drizzle-orm";
-import { assertOrganizationCanSync } from "../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { OrganizationManagerError } from "./errors";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
@@ -28,7 +28,7 @@ export async function runUpdateOrganizationRosterEntryWorkflow(
       tx,
       userId: sessionUserId,
     });
-    await assertOrganizationCanSync(tx, organizationId);
+    await assertOrganizationCanSync(tx, organizationId, sessionUserId);
 
     const currentEntry = await loadOrganizationRosterEntry({
       executor: tx,

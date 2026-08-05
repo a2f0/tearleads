@@ -76,6 +76,10 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // afterwards cannot decrypt them; the sweep re-wraps them to the committed
 // head.
 //
+// 71 -> 72 for billing reconciliation. This worst-case path first enrolls the
+// peer in Members, so the roster has gained a billed member and the seat view
+// performs one authoritative refresh after the directory catches up.
+//
 // The whole increase is confirmation, not writes: two read-model GETs to
 // establish that the rotation actually landed before touching anything, and
 // two parent-lane queries from listing the granted containers. The share count
@@ -93,7 +97,7 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // regression. A genuine regression still shows up as extra shares or policy
 // PUTs, which stay pinned exactly.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 71,
+  total: 72,
   byRequest: {
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 13,
@@ -110,6 +114,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/groups": 0,
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
+    "GET /organizations/:organizationId/billing": 1,
     "GET /principals/organization/:organizationId/policy": 2,
     "POST /containers/:containerId/share": 2,
     "PUT /principals/group/:groupId/policy": 2,

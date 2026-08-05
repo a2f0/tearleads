@@ -4,7 +4,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { assertOrganizationCanSync } from "../../../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../../../billing/organizationSyncEligibility";
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../../organizations/readModelChanges";
 import { lockAndFindMissingGroupReferencesInTransaction } from "../../../principals/groupReferenceLock";
 import { createContainerWriterProjectionContext } from "../../writerProjection";
@@ -64,12 +64,13 @@ async function assertMutationOrganizationCanSync(
   context: ContainerMutationContext,
   eventType: MutateContainerWithExecutorInput["expectedEventType"],
   organizationId: string,
+  userId: string,
 ): Promise<void> {
   if (eventType === "container.create") {
     return;
   }
 
-  await assertOrganizationCanSync(context.executor, organizationId);
+  await assertOrganizationCanSync(context.executor, organizationId, userId);
 }
 
 async function loadPreviousContainerManifest(
@@ -367,6 +368,7 @@ export async function mutateContainerWithExecutor(
     context,
     input.expectedEventType,
     artifacts.manifest.state.organizationId,
+    input.userId,
   );
 
   return persistVerifiedMutation(

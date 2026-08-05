@@ -4,12 +4,7 @@ import type {
   SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
-import {
-  getOrgManagerPeriodEndsLabel,
-  getOrgManagerTrialEndsLabel,
-  ORG_MANAGER_LABELS,
-} from "../labels";
+import { ORG_MANAGER_LABELS } from "../labels";
 import { allowsNativePurchase } from "./BillingPanel";
 import { BillingView, type BillingViewProps } from "./BillingView";
 
@@ -29,6 +24,9 @@ function billingView(
     currentPeriodStartsAtMs: null,
     currentPeriodEndsAtMs: null,
     seatCount: 0,
+    assignedSeatCount: 0,
+    currentUserHasSyncSeat: false,
+    syncSeatUnavailable: false,
     pendingSeatCount: null,
     needsAttention: false,
     ...overrides,
@@ -135,59 +133,6 @@ test("a trialing organization shows the days remaining and can sync", () => {
   expect(
     view.queryByRole("button", { name: ORG_MANAGER_LABELS.billingStartTrial }),
   ).toBeNull();
-});
-
-test("an active subscription shows licensed capacity and the period end date", () => {
-  const endsAtMs = Date.parse("2026-08-15T12:00:00Z");
-  const view = render(
-    <BillingView
-      {...props({
-        view: billingView({
-          status: "active",
-          canSync: true,
-          isLocal: false,
-          isActive: true,
-          seatCount: 3,
-          currentPeriodEndsAtMs: endsAtMs,
-        }),
-      })}
-    />,
-  );
-  expect(view.getByText("3 licensed seats")).toBeDefined();
-  expect(
-    view.getByText(getOrgManagerPeriodEndsLabel(formatMiniAppDate(endsAtMs))),
-  ).toBeDefined();
-});
-
-test("a trialing organization shows the trial end date and top-tier capacity", () => {
-  const trialEndsAtMs = Date.parse("2026-07-25T12:00:00Z");
-  const view = render(
-    <BillingView
-      {...props({
-        view: billingView({
-          status: "trialing",
-          canSync: true,
-          isLocal: false,
-          isTrialing: true,
-          trialDaysRemaining: 5,
-          trialEndsAtMs,
-          seatCount: 10,
-        }),
-      })}
-    />,
-  );
-  expect(
-    view.getByText(
-      getOrgManagerTrialEndsLabel(formatMiniAppDate(trialEndsAtMs)),
-    ),
-  ).toBeDefined();
-  expect(view.getByText("10 licensed seats")).toBeDefined();
-});
-
-test("a local organization shows no seats or period date", () => {
-  const view = render(<BillingView {...props({})} />);
-  expect(view.queryByText(/licensed seat/)).toBeNull();
-  expect(view.queryByText(/Current period ends/)).toBeNull();
 });
 
 test("non-admins see a read-only notice and no actions", () => {

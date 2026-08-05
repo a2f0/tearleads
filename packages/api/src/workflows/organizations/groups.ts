@@ -18,7 +18,7 @@ import {
   getCurrentPrincipalStates,
   listCurrentPrincipalProjectionMembers,
 } from "../../access/read/principalStateStore";
-import { assertOrganizationCanSync } from "../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { lockGroupReferenceExclusiveInTransaction } from "../principals/groupReferenceLock";
 import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
 import { requireDirectOrganizationAccess } from "./access";
@@ -95,7 +95,7 @@ export async function runDeleteOrganizationGroupWorkflow(
       tx,
       userId: sessionUserId,
     });
-    await assertOrganizationCanSync(tx, organizationId);
+    await assertOrganizationCanSync(tx, organizationId, sessionUserId);
     await requireDeletableOrganizationGroup({
       executor: tx,
       groupId,

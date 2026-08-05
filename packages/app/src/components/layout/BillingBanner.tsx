@@ -4,10 +4,11 @@ import { useOrganizationBilling } from "../../providers/billing/BillingProvider"
 import { BILLING_LABELS } from "../../providers/billing/billingLabels";
 import "./BillingBanner.css";
 
-function needsAttentionMessage(
-  status: OrganizationBillingView["status"],
-): string {
-  switch (status) {
+function needsAttentionMessage(view: OrganizationBillingView): string {
+  if (view.syncSeatUnavailable) {
+    return BILLING_LABELS.bannerSyncSeatUnavailable;
+  }
+  switch (view.status) {
     case "past_due":
       return BILLING_LABELS.bannerPastDue;
     case "deleting":
@@ -36,7 +37,7 @@ export function BillingBannerView({
 
   return (
     <div className="billing-banner billing-banner--warning" role="alert">
-      {needsAttentionMessage(view.status)}
+      {needsAttentionMessage(view)}
     </div>
   );
 }

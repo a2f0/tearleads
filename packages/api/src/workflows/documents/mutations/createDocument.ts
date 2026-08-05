@@ -7,7 +7,7 @@ import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
-import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { DocumentMutationError, toMutationError } from "./errors";
 import {
@@ -44,7 +44,7 @@ export async function runCreateDocumentWorkflow(
         created.id,
         tx,
       );
-      await assertOrganizationCanSync(tx, organizationId);
+      await assertOrganizationCanSync(tx, organizationId, input.userId);
       return created;
     });
   } catch (error) {

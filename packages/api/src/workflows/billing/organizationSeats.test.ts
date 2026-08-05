@@ -12,6 +12,8 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+import { loadOrganizationBillingSeatUsage } from "./organizationSeatUsage";
+import { assertOrganizationCanSync } from "./organizationSyncEligibility";
 
 const PERIOD_START = new Date("2026-07-01T00:00:00.000Z");
 const PERIOD_END = new Date("2026-08-01T00:00:00.000Z");
@@ -34,6 +36,7 @@ async function createBillableOrganization(): Promise<{
     status: "active",
     currentPeriodStartsAt: PERIOD_START,
     currentPeriodEndsAt: PERIOD_END,
+    seatCount: 1,
   });
   return { memberGroupId, organizationId };
 }
@@ -112,7 +115,7 @@ async function readSeatEventTypes(organizationId: string): Promise<string[]> {
   return rows.map((row) => row.eventType);
 }
 
-test("seat accounting reuses released seats and only increases concurrent capacity", async () => {
+test("seat accounting reuses released seats without growing purchased capacity", async () => {
   const { memberGroupId, organizationId } = await createBillableOrganization();
   const userA = crypto.randomUUID();
   const userB = crypto.randomUUID();
@@ -163,16 +166,14 @@ test("seat accounting reuses released seats and only increases concurrent capaci
     organizationId,
     source: { sourceId: "state-3", sourceType: "principal_state" },
   });
-  expect(await readSeatCount(organizationId)).toBe(5);
-  expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
-    [userB, userC].sort(),
-  );
-  expect(await readSeatEventTypes(organizationId)).toContain(
+  expect(await readSeatCount(organizationId)).toBe(1);
+  expect(await readOpenAssignmentUserIds(organizationId)).toEqual([userB]);
+  expect(await readSeatEventTypes(organizationId)).not.toContain(
     "licensed_seat_count_increased",
   );
 });
 
-test("an empty roster resets capacity when the explicit billing period changes", async () => {
+test("an empty roster retains purchased capacity across billing periods", async () => {
   const { memberGroupId, organizationId } = await createBillableOrganization();
   const userId = crypto.randomUUID();
   await insertMemberGroupState({
@@ -285,13 +286,13 @@ test("an active Stripe org with an empty roster retains the Solo floor", async (
   });
 });
 
-test("a migrated row initializes its period key without losing paid capacity", async () => {
+test("initializing a period key preserves purchased capacity", async () => {
   const { memberGroupId, organizationId } = await createBillableOrganization();
   const userA = crypto.randomUUID();
   const userB = crypto.randomUUID();
   await db
     .update(organizationBilling)
-    .set({ seatCount: 3, seatPeriodKey: null })
+    .set({ seatCount: 5, seatPeriodKey: null })
     .where(eq(organizationBilling.organizationId, organizationId));
   await insertMemberGroupState({
     groupId: memberGroupId,
@@ -322,17 +323,22 @@ test("a migrated row initializes its period key without losing paid capacity", a
   });
 });
 
-test("an over-capacity native roster can stay level and shrink", async () => {
+test("an over-capacity roster preserves the historic seats and bounds the new user", async () => {
   const { memberGroupId, organizationId } = await createBillableOrganization();
-  const userA = crypto.randomUUID();
-  const userB = crypto.randomUUID();
-  const userC = crypto.randomUUID();
+  const historicUserIds = [
+    crypto.randomUUID(),
+    crypto.randomUUID(),
+    crypto.randomUUID(),
+    crypto.randomUUID(),
+    crypto.randomUUID(),
+  ] as const;
+  const sixthUserId = crypto.randomUUID();
   await db
     .update(organizationBilling)
     .set({
       provider: "revenuecat",
-      providerProductId: "sync_solo_monthly",
-      seatCount: 1,
+      providerProductId: "sync_team_5_monthly",
+      seatCount: 5,
     })
     .where(eq(organizationBilling.organizationId, organizationId));
   await db.insert(organizationBillingStripeSeats).values({
@@ -343,9 +349,9 @@ test("an over-capacity native roster can stay level and shrink", async () => {
   });
   await insertMemberGroupState({
     groupId: memberGroupId,
-    signerUserId: userA,
+    signerUserId: historicUserIds[0],
     stateHash: "native-over-capacity-state-1",
-    userIds: [userA, userB, userC],
+    userIds: historicUserIds,
     version: 1,
   });
 
@@ -353,36 +359,78 @@ test("an over-capacity native roster can stay level and shrink", async () => {
     executor: db,
     now: NOW,
     organizationId,
-    previousActiveSeatCount: 3,
     source: {
       sourceId: "native-over-capacity-state-1",
       sourceType: "principal_state",
     },
   });
-  expect(await readOpenAssignmentUserIds(organizationId)).toHaveLength(3);
-
+  expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
+    [...historicUserIds].sort(),
+  );
   await insertMemberGroupState({
     groupId: memberGroupId,
-    signerUserId: userA,
+    signerUserId: historicUserIds[0],
     stateHash: "native-over-capacity-state-2",
-    userIds: [userA, userB],
+    userIds: [...historicUserIds, sixthUserId],
     version: 2,
   });
   await reconcileOrganizationBillingSeats({
     executor: db,
     now: NOW,
     organizationId,
-    previousActiveSeatCount: 3,
     source: {
       sourceId: "native-over-capacity-state-2",
       sourceType: "principal_state",
     },
   });
 
-  expect(await readSeatCount(organizationId)).toBe(1);
+  expect(await readSeatCount(organizationId)).toBe(5);
   expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
-    [userA, userB].sort(),
+    [...historicUserIds].sort(),
   );
+  for (const userId of historicUserIds) {
+    await expect(
+      assertOrganizationCanSync(db, organizationId, userId, NOW),
+    ).resolves.toBeUndefined();
+  }
+  await expect(
+    assertOrganizationCanSync(db, organizationId, sixthUserId, NOW),
+  ).rejects.toThrow("No sync seat is assigned");
+  expect(
+    await loadOrganizationBillingSeatUsage({
+      executor: db,
+      organizationId,
+      sessionUserId: sixthUserId,
+    }),
+  ).toEqual({
+    assignedSeatCount: 5,
+    assignedUserIds: [...historicUserIds].sort(),
+    currentUserHasSyncSeat: false,
+  });
+
+  const remainingHistoricUserIds = historicUserIds.slice(1);
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: historicUserIds[1],
+    stateHash: "native-over-capacity-state-3",
+    userIds: [...remainingHistoricUserIds, sixthUserId],
+    version: 3,
+  });
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    source: {
+      sourceId: "native-over-capacity-state-3",
+      sourceType: "principal_state",
+    },
+  });
+  expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
+    [...remainingHistoricUserIds, sixthUserId].sort(),
+  );
+  await expect(
+    assertOrganizationCanSync(db, organizationId, sixthUserId, NOW),
+  ).resolves.toBeUndefined();
 });
 
 test("seats count the Members group's own members and nobody else's", async () => {

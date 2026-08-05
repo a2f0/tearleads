@@ -21,10 +21,7 @@ import {
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
-import {
-  resolveBoundRevenueCatTransition,
-  resolveRevenueCatGrantCapacity,
-} from "./revenuecatGrantCapacity";
+import { resolveBoundRevenueCatTransition } from "./revenuecatGrantCapacity";
 import { resolveNativeStripeConflictReason } from "./revenuecatProviderConflict";
 import {
   type ImmutableStripeStoreOrgResolution,
@@ -95,29 +92,16 @@ async function resolveGrantApplicationDisposition(input: {
           store: input.event.store,
         })
       : null;
-  const capacity =
-    input.organizationId && nativeStripeConflict === null
-      ? await resolveRevenueCatGrantCapacity({
-          event: input.event,
-          executor: input.executor,
-          organizationId: input.organizationId,
-          transition: input.transition,
-        })
-      : { kind: "within_capacity" as const };
-  const capacityWarning =
-    capacity.kind === "apply_without_reconciliation" ? capacity.reason : null;
   return {
     deleteStripeBinding: false,
     ignoredReason: null,
     kind: "continue",
     preserveStripeBinding: nativeStripeConflict !== null,
     skipSeatReconciliation:
-      input.skipSeatReconciliation ||
-      nativeStripeConflict !== null ||
-      capacity.kind === "apply_without_reconciliation",
+      input.skipSeatReconciliation || nativeStripeConflict !== null,
     transition: input.transition,
     warning:
-      [input.warning, nativeStripeConflict, capacityWarning]
+      [input.warning, nativeStripeConflict]
         .filter((reason): reason is string => reason !== null)
         .join("; ") || null,
   };

@@ -9,7 +9,7 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
 } from "@tearleads/validators/request";
-import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {
   assertCurrentContainerPathRefGroups,
@@ -95,10 +95,12 @@ export async function verifyAttachmentAuthorizationProof(input: {
 export async function assertAttachmentOrganizationCanSync(
   executor: DatabaseTransaction,
   proof: AttachmentAuthorizationProof,
+  userId: string,
 ): Promise<void> {
   await assertOrganizationCanSync(
     executor,
     proof.documentManifest.state.organizationId,
+    userId,
   );
 }
 

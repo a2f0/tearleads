@@ -6,7 +6,7 @@ import { groups as groupsTable } from "@tearleads/api-shared/schema";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import type { OrganizationGroupSummaryResponse } from "@tearleads/validators/response";
 import { getCurrentPrincipalState } from "../../../access/read/principalStateStore";
-import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { assertManagedPrincipalRosterMembership } from "../../principals/managedPrincipalRosterMembership";
 import { lockPrincipalMutationInTransaction } from "../../principals/principalMutationLock";
 import {
@@ -60,7 +60,11 @@ async function prepareOrganizationGroupCreation(input: {
     tx: input.tx,
     userId: input.sessionUserId,
   });
-  await assertOrganizationCanSync(input.tx, input.organizationId);
+  await assertOrganizationCanSync(
+    input.tx,
+    input.organizationId,
+    input.sessionUserId,
+  );
   if (
     await wasOrganizationGroupDeleted({
       executor: input.tx,

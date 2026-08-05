@@ -1,6 +1,6 @@
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { createContainerWriterProjectionContext } from "../writerProjection";
 import { ContainerMutationError, toMutationError } from "./errors";
 import { rekeyContainer } from "./rekeyContainer";
@@ -57,7 +57,11 @@ export async function applyContainerRekeys(input: {
       request,
       userId: input.userId,
     });
-    await assertOrganizationCanSync(input.executor, response.organizationId);
+    await assertOrganizationCanSync(
+      input.executor,
+      response.organizationId,
+      input.userId,
+    );
   }
 }
 
@@ -73,7 +77,11 @@ export async function runContainerMutationWorkflow(
       });
       // Public mutation boundary (registration bootstraps its own org via the
       // lower-level handlers directly, so it is not gated here).
-      await assertOrganizationCanSync(tx, response.organizationId);
+      await assertOrganizationCanSync(
+        tx,
+        response.organizationId,
+        input.userId,
+      );
       return response;
     });
   } catch (error) {

@@ -164,6 +164,7 @@ test("lapsed organizations can read organization data but cannot change org prof
   expect(await writeResponse.json()).toEqual({
     error: "Organization sync is not active",
     organizationId,
+    reason: "billing_inactive",
   });
 });
 
@@ -220,5 +221,6 @@ test("lapsed organizations can pull document sync but cannot push updates", asyn
   expect(await writeResponse.json()).toEqual({
     error: "Organization sync is not active",
     organizationId,
+    reason: "billing_inactive",
   });
 }, 10_000);

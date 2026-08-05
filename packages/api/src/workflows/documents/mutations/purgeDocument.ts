@@ -13,7 +13,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { lockAccessManifestHeadsForUpdate } from "../../../access/read/accessManifestStore";
-import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import {
   ContainerWriterProjectionError,
   resolveContainerAccessProjection,
@@ -266,7 +266,7 @@ async function purgeDocumentWithExecutor(input: {
     executor: input.executor,
     userId: input.userId,
   });
-  await assertOrganizationCanSync(input.executor, organizationId);
+  await assertOrganizationCanSync(input.executor, organizationId, input.userId);
 
   const orphanedBlobIds = await resolveOrphanedBlobIds({
     documentId: input.documentId,

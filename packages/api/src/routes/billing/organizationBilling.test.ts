@@ -137,7 +137,7 @@ test("an org admin reads local billing and starts a trial", async () => {
   expect(stillTrialing.status).toBe("trialing");
 });
 
-test("a free trial cannot start above the largest fixed tier", async () => {
+test("a free trial bounds an oversized roster to ten sync seats", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   await setTestOrganizationBillingLocal(organizationId);
@@ -150,11 +150,18 @@ test("a free trial cannot start above the largest fixed tier", async () => {
     { headers: authHeader(admin), method: "POST" },
   );
 
-  expect(response.status).toBe(409);
-  expect(await response.json()).toEqual({
-    code: "billing_roster_over_capacity",
-    error:
-      "The organization exceeds the maximum subscription tier of 10 members",
+  expect(response.status).toBe(200);
+  const billing = await response.json();
+  invariant(
+    isOrganizationBillingResponse(billing),
+    "expected billing response",
+  );
+  expect(billing).toMatchObject({
+    activeMemberCount: 11,
+    assignedSeatCount: 10,
+    currentUserHasSyncSeat: true,
+    seatCount: 10,
+    status: "trialing",
   });
 });
 

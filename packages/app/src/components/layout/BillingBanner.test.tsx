@@ -26,6 +26,9 @@ function view(
     currentPeriodStartsAtMs: null,
     currentPeriodEndsAtMs: null,
     seatCount: 0,
+    assignedSeatCount: 0,
+    currentUserHasSyncSeat: false,
+    syncSeatUnavailable: false,
     pendingSeatCount: null,
     needsAttention: false,
     ...overrides,
@@ -127,6 +130,23 @@ test("warns when sync is disabled", () => {
     />,
   );
   expect(getByRole("alert").textContent).toContain("Sync is paused");
+});
+
+test("explains when the current user has no licensed sync seat", () => {
+  const { getByRole } = render(
+    <BillingBannerView
+      view={view({
+        status: "active",
+        isLocal: false,
+        isActive: true,
+        needsAttention: true,
+        syncSeatUnavailable: true,
+      })}
+    />,
+  );
+  expect(getByRole("alert").textContent).toContain(
+    "all licensed seats are in use",
+  );
 });
 
 test("warns with the past-due message", () => {

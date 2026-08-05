@@ -187,6 +187,10 @@ export interface OrganizationBillingView {
   readonly currentPeriodStartsAtMs: number | null;
   readonly currentPeriodEndsAtMs: number | null;
   readonly seatCount: number;
+  readonly assignedSeatCount: number;
+  readonly currentUserHasSyncSeat: boolean;
+  /** The organization is entitled to sync, but this identity has no assigned seat. */
+  readonly syncSeatUnavailable: boolean;
   /** Native destination tier announced by the store but not effective yet. */
   readonly pendingSeatCount: number | null;
   /** Sync is expected but currently off (lapsed/disabled/past_due) — prompt to fix. */
@@ -222,7 +226,8 @@ export function resolveOrganizationBillingView(
     billing.status === "trialing" &&
     trialEndsAtMs !== null &&
     trialEndsAtMs > nowMs;
-  const canSync = isActive || isTrialing;
+  const organizationCanSync = isActive || isTrialing;
+  const canSync = organizationCanSync && billing.currentUserHasSyncSeat;
   const isLocal = billing.status === "local";
 
   const trialDaysRemaining =
@@ -241,6 +246,9 @@ export function resolveOrganizationBillingView(
     currentPeriodStartsAtMs,
     currentPeriodEndsAtMs,
     seatCount: billing.seatCount,
+    assignedSeatCount: billing.assignedSeatCount,
+    currentUserHasSyncSeat: billing.currentUserHasSyncSeat,
+    syncSeatUnavailable: organizationCanSync && !billing.currentUserHasSyncSeat,
     pendingSeatCount: billing.pendingSeatCount,
     needsAttention: !isLocal && !canSync,
   };

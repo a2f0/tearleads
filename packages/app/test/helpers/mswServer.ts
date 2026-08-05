@@ -237,6 +237,9 @@ const server = setupServer(
       return HttpResponse.json<OrganizationBillingResponse>({
         organizationId: params.organizationId,
         activeMemberCount: 1,
+        assignedSeatCount: 1,
+        assignedUserIds: ["user-1"],
+        currentUserHasSyncSeat: true,
         status: "trialing",
         trialEndsAt: "2099-01-01T00:00:00.000Z",
         provider: null,

@@ -103,6 +103,7 @@ export function UserDetailView({
   renderRosterProfileEditor,
   revokeGrant,
   selectedUserId,
+  syncSeatAssigned = null,
   mutating,
 }: {
   canEditRosterProfile: boolean;
@@ -118,6 +119,7 @@ export function UserDetailView({
   renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
+  syncSeatAssigned?: boolean | null | undefined;
 }) {
   const [isRosterProfileEditing, setIsRosterProfileEditing] = useState(false);
 
@@ -189,6 +191,11 @@ export function UserDetailView({
               ? ORG_MANAGER_LABELS.disabled
               : formatMiniAppDate(detail.user.joinedAt)}
           </span>
+          {detail.user.status === "active" && syncSeatAssigned === false && (
+            <span className="org-manager-detail-status">
+              {ORG_MANAGER_LABELS.syncSeatUnavailable}
+            </span>
+          )}
           {renderRosterProfileEditor && canEditRosterProfile && (
             <MiniAppButton
               onClick={() =>

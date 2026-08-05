@@ -47,6 +47,17 @@ export type RosterUserContextMenuHandler = (
 
 type DirectoryTableColumnId = "user" | "status" | "joined";
 
+function getDirectoryUserStatusLabel(
+  user: OrganizationDirectoryUser,
+  syncSeatUserIds: ReadonlySet<string> | null,
+): string {
+  if (user.status === "disabled") return ORG_MANAGER_LABELS.disabled;
+  if (syncSeatUserIds !== null && !syncSeatUserIds.has(user.userId)) {
+    return ORG_MANAGER_LABELS.syncSeatUnavailable;
+  }
+  return ORG_MANAGER_LABELS.active;
+}
+
 const DIRECTORY_TABLE_COLUMN_IDS: ReadonlyArray<DirectoryTableColumnId> = [
   "user",
   "status",
@@ -117,10 +128,11 @@ function renderDirectoryUserCell(
   columnId: DirectoryTableColumnId,
   params: {
     profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
+    syncSeatUserIds: ReadonlySet<string> | null;
     user: OrganizationDirectoryUser;
   },
 ): ReactNode {
-  const { profileDisplayNamesByUserId, user } = params;
+  const { profileDisplayNamesByUserId, syncSeatUserIds, user } = params;
   switch (columnId) {
     case "user":
       return (
@@ -134,9 +146,7 @@ function renderDirectoryUserCell(
       return (
         <MiniAppTableCell key="status">
           <MiniAppTableText>
-            {user.status === "disabled"
-              ? ORG_MANAGER_LABELS.disabled
-              : ORG_MANAGER_LABELS.active}
+            {getDirectoryUserStatusLabel(user, syncSeatUserIds)}
           </MiniAppTableText>
         </MiniAppTableCell>
       );
@@ -155,10 +165,11 @@ function getDirectoryCompactField(
   columnId: DirectoryTableColumnId,
   params: {
     profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
+    syncSeatUserIds: ReadonlySet<string> | null;
     user: OrganizationDirectoryUser;
   },
 ): MiniAppCompactTableField {
-  const { profileDisplayNamesByUserId, user } = params;
+  const { profileDisplayNamesByUserId, syncSeatUserIds, user } = params;
   switch (columnId) {
     case "user":
       return {
@@ -171,10 +182,7 @@ function getDirectoryCompactField(
       return {
         id: columnId,
         label: DIRECTORY_COLUMN_LABELS[columnId],
-        text:
-          user.status === "disabled"
-            ? ORG_MANAGER_LABELS.disabled
-            : ORG_MANAGER_LABELS.active,
+        text: getDirectoryUserStatusLabel(user, syncSeatUserIds),
       };
     case "joined":
       return {
@@ -278,6 +286,7 @@ function DirectoryUserRow({
   selectedUserId,
   selectUser,
   showActions,
+  syncSeatUserIds,
   user,
   visibleColumnIds,
 }: {
@@ -287,6 +296,7 @@ function DirectoryUserRow({
   selectedUserId?: string | null | undefined;
   selectUser?: ((userId: string) => void) | undefined;
   showActions: boolean;
+  syncSeatUserIds: ReadonlySet<string> | null;
   user: OrganizationDirectoryUser;
   visibleColumnIds: ReadonlyArray<DirectoryTableColumnId>;
 }) {
@@ -295,6 +305,7 @@ function DirectoryUserRow({
   const compactFields = visibleColumnIds.map((columnId) =>
     getDirectoryCompactField(columnId, {
       profileDisplayNamesByUserId,
+      syncSeatUserIds,
       user,
     }),
   );
@@ -328,6 +339,7 @@ function DirectoryUserRow({
         visibleColumnIds.map((columnId) =>
           renderDirectoryUserCell(columnId, {
             profileDisplayNamesByUserId,
+            syncSeatUserIds,
             user,
           }),
         )
@@ -352,6 +364,7 @@ export function DirectoryTable({
   selectedUserId,
   openRosterUserContextMenu,
   selectUser,
+  syncSeatUserIds = null,
 }: {
   directory: OrganizationDirectory | null;
   // The roster is still being fetched (or has not been fetched yet), so an
@@ -361,6 +374,7 @@ export function DirectoryTable({
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   selectedUserId?: string | null;
   selectUser?: ((userId: string) => void) | undefined;
+  syncSeatUserIds?: ReadonlySet<string> | null | undefined;
 }) {
   const users = directory?.users ?? [];
   const virtualUsers = useMiniAppCompactTableRows({ rows: users });
@@ -414,6 +428,7 @@ export function DirectoryTable({
             selectedUserId={selectedUserId}
             selectUser={selectUser}
             showActions={showActions}
+            syncSeatUserIds={syncSeatUserIds}
             user={user}
             visibleColumnIds={visibleColumnIds}
           />
@@ -435,6 +450,7 @@ export function DirectoryListSection({
   profileDisplayNamesByUserId,
   selectedUserId,
   selectUser,
+  syncSeatUserIds = null,
 }: {
   directory: OrganizationDirectory;
   pending: boolean;
@@ -443,6 +459,7 @@ export function DirectoryListSection({
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
   selectedUserId: string | null;
   selectUser: (userId: string | null) => void;
+  syncSeatUserIds?: ReadonlySet<string> | null | undefined;
 }) {
   return (
     <section
@@ -466,6 +483,7 @@ export function DirectoryListSection({
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
         selectedUserId={selectedUserId}
         selectUser={selectUser}
+        syncSeatUserIds={syncSeatUserIds}
       />
     </section>
   );

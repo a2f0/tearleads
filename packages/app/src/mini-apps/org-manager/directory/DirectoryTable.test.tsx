@@ -380,3 +380,15 @@ test("a settled empty roster reports itself as unavailable", () => {
 
   expect(view.getByText(ORG_MANAGER_LABELS.directoryUnavailable)).toBeTruthy();
 });
+
+test("an active roster user without an assigned seat is marked as unable to sync", () => {
+  const view = render(
+    <DirectoryTable
+      directory={directory}
+      pending={false}
+      syncSeatUserIds={new Set()}
+    />,
+  );
+
+  expect(view.getByText(ORG_MANAGER_LABELS.syncSeatUnavailable)).toBeTruthy();
+});

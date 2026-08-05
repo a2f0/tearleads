@@ -1,11 +1,5 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { organizations } from "@tearleads/api-shared/schema";
-import {
-  getSyncBillingTierForNativeProduct,
-  getSyncBillingTierForSeatCount,
-} from "@tearleads/validators/billing";
+import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
-import { eq } from "drizzle-orm";
 import {
   APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
   BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,
@@ -17,19 +11,12 @@ import {
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
   UNKNOWN_REVENUECAT_PRODUCT_CHANGE_STORE_REASON,
 } from "../../billing/revenuecatWebhook";
-import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import {
   isNativeRevenueCatStore,
   isRecognizedNativeRevenueCatStore,
 } from "./revenuecatBuyerPolicy";
 import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
 
-type RevenueCatGrantCapacityDisposition =
-  | { readonly kind: "within_capacity" }
-  | { readonly kind: "apply_without_reconciliation"; readonly reason: string };
-
-const STRIPE_GRANT_EXCEEDS_CAPACITY_REASON =
-  "Stripe subscription cannot cover more than 10 active members";
 const PROMOTIONAL_PRODUCT_PREFIX = "promotional:";
 export const PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON =
   "Product change does not match a bound native subscription";
@@ -176,50 +163,4 @@ export function resolveBoundRevenueCatTransition(input: {
     });
   }
   return transition;
-}
-
-/**
- * Compares a paid grant with the authoritative signed Members projection.
- * Stripe state above the largest sellable tier is malformed and is claimed for
- * operator repair. A native under-tier purchase is still honored: app-store
- * purchase and roster mutation cannot share a transaction, so dropping the
- * paid grant would charge the customer without granting service.
- */
-export async function resolveRevenueCatGrantCapacity(input: {
-  readonly event: RevenueCatWebhookEvent;
-  readonly executor: DatabaseSession;
-  readonly organizationId: string;
-  readonly transition: RevenueCatBillingTransition;
-}): Promise<RevenueCatGrantCapacityDisposition> {
-  if (input.transition.kind !== "grant") {
-    return { kind: "within_capacity" };
-  }
-  const [organization] = await input.executor
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, input.organizationId))
-    .limit(1);
-  if (!organization) {
-    return { kind: "within_capacity" };
-  }
-  const activeUserIds = await listUsersReachableFromCurrentGroup({
-    executor: input.executor,
-    groupId: organization.memberGroupId,
-  });
-  if (input.event.store?.toUpperCase() === "STRIPE") {
-    return getSyncBillingTierForSeatCount(Math.max(1, activeUserIds.length))
-      ? { kind: "within_capacity" }
-      : {
-          kind: "apply_without_reconciliation",
-          reason: STRIPE_GRANT_EXCEEDS_CAPACITY_REASON,
-        };
-  }
-  if (activeUserIds.length <= input.transition.fields.seatCount) {
-    return { kind: "within_capacity" };
-  }
-  return {
-    kind: "apply_without_reconciliation",
-    reason:
-      "Native subscription tier does not cover the organization's active members",
-  };
 }

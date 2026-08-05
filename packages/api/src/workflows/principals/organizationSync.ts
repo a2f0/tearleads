@@ -2,21 +2,21 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { groups } from "@tearleads/api-shared/schema";
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { assertOrganizationCanSync } from "../billing/organizationBilling";
+import { assertOrganizationIsSyncEntitled } from "../billing/organizationSyncEligibility";
 
 /**
- * Gates a principal-state sync write against the owning organization's billing.
- * An `organization` principal's id is the organization itself; a `group`
- * principal resolves its organization via `groups.organizationId`. A group with
- * no organization (not org-scoped) has nothing to gate.
+ * Gates principal-state control-plane writes on organization entitlement, but
+ * not on the caller's content-sync seat. This leaves authorized admins able to
+ * remove a member and recover capacity. An `organization` principal's id is the
+ * organization itself; a `group` resolves through `groups.organizationId`.
  */
-export async function assertPrincipalOrganizationCanSync(
+export async function assertPrincipalOrganizationIsSyncEntitled(
   executor: DatabaseSession,
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
 ): Promise<void> {
   if (principalType === "organization") {
-    await assertOrganizationCanSync(executor, principalId);
+    await assertOrganizationIsSyncEntitled(executor, principalId);
     return;
   }
 
@@ -26,6 +26,6 @@ export async function assertPrincipalOrganizationCanSync(
     .where(eq(groups.id, principalId))
     .limit(1);
   if (group?.organizationId) {
-    await assertOrganizationCanSync(executor, group.organizationId);
+    await assertOrganizationIsSyncEntitled(executor, group.organizationId);
   }
 }

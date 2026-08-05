@@ -13,10 +13,6 @@ function getSignedCount(count: number): string {
   return count >= 0 ? `+${count}` : String(count);
 }
 
-function getActiveSeatCountLabel(count: number): string {
-  return `${count} active seat assignment${count === 1 ? "" : "s"}`;
-}
-
 function getProviderLabel(
   provider: OrganizationBillingHistoryEntry["provider"],
 ): string {
@@ -215,9 +211,6 @@ export function BillingHistoryEntryDetails({
       ) : null}
       {entry.seatDelta !== null ? (
         <Detail>{`Licensed seat change: ${getSignedCount(entry.seatDelta)}`}</Detail>
-      ) : null}
-      {entry.activeSeatCount !== null ? (
-        <Detail>{getActiveSeatCountLabel(entry.activeSeatCount)}</Detail>
       ) : null}
       {entry.category === "seat" ? (
         <Detail>Cost unavailable for this seat event</Detail>

@@ -182,7 +182,7 @@ test("activity reports licensed seats, rate, and the exact provider-paid total",
   ).toBeDefined();
 });
 
-test("activity reports signed seat changes and active assignments", () => {
+test("activity reports licensed seat changes without assignment counts", () => {
   const view = render(
     <BillingHistory
       entries={[
@@ -204,7 +204,7 @@ test("activity reports signed seat changes and active assignments", () => {
   expect(view.getByText("Licensed seats increased")).toBeDefined();
   expect(view.getByText("3 licensed seats")).toBeDefined();
   expect(view.getByText("Licensed seat change: +2")).toBeDefined();
-  expect(view.getByText("2 active seat assignments")).toBeDefined();
+  expect(view.queryByText(/active seat assignment/)).toBeNull();
   expect(view.getByText("Cost unavailable for this seat event")).toBeDefined();
 });
 

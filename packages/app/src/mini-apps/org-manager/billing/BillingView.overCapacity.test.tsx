@@ -4,7 +4,12 @@ import type {
   SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { ORG_MANAGER_LABELS } from "../labels";
+import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
+import {
+  getOrgManagerPeriodEndsLabel,
+  getOrgManagerTrialEndsLabel,
+  ORG_MANAGER_LABELS,
+} from "../labels";
 import { BillingView, type BillingViewProps } from "./BillingView";
 
 afterEach(() => cleanup());
@@ -50,11 +55,14 @@ const BASE_VIEW: OrganizationBillingView = {
   currentPeriodStartsAtMs: null,
   currentPeriodEndsAtMs: null,
   seatCount: 10,
+  assignedSeatCount: 10,
+  currentUserHasSyncSeat: true,
+  syncSeatUnavailable: false,
   pendingSeatCount: null,
   needsAttention: false,
 };
 
-const PROPS: BillingViewProps = {
+const PROPS: BillingViewProps & { readonly view: OrganizationBillingView } = {
   view: BASE_VIEW,
   loading: false,
   error: null,
@@ -90,7 +98,7 @@ test("native options explain when the roster exceeds every tier", () => {
 function activePlanProps(
   seatCount: number,
   pendingSeatCount: number | null,
-): BillingViewProps {
+): BillingViewProps & { readonly view: OrganizationBillingView } {
   return {
     ...PROPS,
     minimumSeatCount: 1,
@@ -207,4 +215,92 @@ test("a scheduled tier below the roster stays visible as a conflict", () => {
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(false);
+});
+
+test("an active subscription shows current seat usage and its period end", () => {
+  const endsAtMs = Date.parse("2026-08-15T12:00:00Z");
+  const base = activePlanProps(3, null);
+  const view = render(
+    <BillingView
+      {...base}
+      view={{
+        ...base.view,
+        assignedSeatCount: 2,
+        currentPeriodEndsAtMs: endsAtMs,
+      }}
+    />,
+  );
+
+  expect(view.getByText("2 of 3 seats in use")).toBeDefined();
+  expect(view.getByText("3 licensed seats")).toBeDefined();
+  expect(
+    view.getByText(getOrgManagerPeriodEndsLabel(formatMiniAppDate(endsAtMs))),
+  ).toBeDefined();
+});
+
+test("a trial shows top-tier capacity and current seat usage", () => {
+  const trialEndsAtMs = Date.parse("2026-08-09T12:00:00Z");
+  const view = render(
+    <BillingView
+      {...PROPS}
+      view={{
+        ...PROPS.view,
+        assignedSeatCount: 4,
+        trialEndsAtMs,
+      }}
+    />,
+  );
+
+  expect(view.getByText("4 of 10 seats in use")).toBeDefined();
+  expect(view.getByText("10 licensed seats")).toBeDefined();
+  expect(
+    view.getByText(
+      getOrgManagerTrialEndsLabel(formatMiniAppDate(trialEndsAtMs)),
+    ),
+  ).toBeDefined();
+});
+
+test("an active user without a seat sees the seat-specific sync state", () => {
+  const base = activePlanProps(5, null);
+  const view = render(
+    <BillingView
+      {...base}
+      view={{
+        ...base.view,
+        assignedSeatCount: 5,
+        canSync: false,
+        currentUserHasSyncSeat: false,
+        needsAttention: true,
+        syncSeatUnavailable: true,
+      }}
+    />,
+  );
+
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.billingSyncSeatUnavailable),
+  ).toBeDefined();
+});
+
+test("a local organization shows no seats or period date", () => {
+  const view = render(
+    <BillingView
+      {...PROPS}
+      view={{
+        ...BASE_VIEW,
+        assignedSeatCount: 0,
+        canSync: false,
+        currentUserHasSyncSeat: false,
+        isLocal: true,
+        isTrialing: false,
+        needsAttention: false,
+        seatCount: 0,
+        status: "local",
+        trialDaysRemaining: null,
+        trialEndsAtMs: null,
+      }}
+    />,
+  );
+
+  expect(view.queryByText(/licensed seat/)).toBeNull();
+  expect(view.queryByText(/Current period ends/)).toBeNull();
 });

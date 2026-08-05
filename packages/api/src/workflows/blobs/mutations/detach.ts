@@ -51,7 +51,7 @@ export async function runDetachBlobAttachmentWorkflow(
         executor: tx,
         request: input.request,
       });
-      await assertAttachmentOrganizationCanSync(tx, proof);
+      await assertAttachmentOrganizationCanSync(tx, proof, input.userId);
       const verifiedDetach = await verifyAttachmentDetachEvent({
         authorizingContainerPaths: proof.authorizingContainerPaths,
         body: readKeyingCanonicalJson(

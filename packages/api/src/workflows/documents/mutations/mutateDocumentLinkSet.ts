@@ -7,7 +7,7 @@ import type { DocumentLinkSetMutationResponse } from "@tearleads/validators/resp
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
-import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {
   appendAtomicRotationBaseline,
@@ -249,7 +249,7 @@ export async function runDocumentLinkSetMutationWorkflow(
         input.documentId,
         tx,
       );
-      await assertOrganizationCanSync(tx, organizationId);
+      await assertOrganizationCanSync(tx, organizationId, input.userId);
       return result;
     });
   } catch (error) {
