@@ -38,30 +38,34 @@ test("principal policy cache preserves trusted identity integrity failures", asy
   }
 });
 
-test("principal policy cache preserves cross-realm integrity failures", async () => {
+test("principal policy cache preserves foreign-instance integrity failures", async () => {
   const { close, execSql } = await createTestExecSql(
-    "principal-policy-cross-realm-identity-failure",
+    "principal-policy-foreign-instance-identity-failure",
   );
 
   try {
     const { bundle } = await createPrincipalPolicyBundle();
-    // A KeyingVerificationError raised in another module instance (e.g. a
-    // dist build loaded beside the source build) fails `instanceof` but keeps
-    // its name. It must still abort the cache pass instead of degrading to a
-    // logged skip.
-    const crossRealmError = new Error("signer identity changed");
-    crossRealmError.name = "KeyingVerificationError";
+    // A KeyingVerificationError raised by a duplicate module instance of
+    // @tearleads/crypto (e.g. a dist build loaded beside the source build)
+    // fails the `instanceof KeyingVerificationError` check while still being
+    // an `Error` with the class's name — the exact shape
+    // isKeyingVerificationError's name clause exists for. It must abort the
+    // cache pass instead of degrading to a logged skip. (An error from a
+    // different JS realm is out of scope: it fails `instanceof Error` too and
+    // is deliberately not matched.)
+    const foreignInstanceError = new Error("signer identity changed");
+    foreignInstanceError.name = "KeyingVerificationError";
 
     await expect(
       cacheReferencedPolicies({
         execSql,
         getCurrentPrincipalPolicy: async () => bundle,
         getUserIdentity: async () => {
-          throw crossRealmError;
+          throw foreignInstanceError;
         },
         references: [referencedPrincipalStateFromBundle(bundle)],
       }),
-    ).rejects.toBe(crossRealmError);
+    ).rejects.toBe(foreignInstanceError);
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toBeNull();
