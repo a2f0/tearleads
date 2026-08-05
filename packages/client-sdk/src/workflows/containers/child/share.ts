@@ -26,10 +26,7 @@ import type {
 } from "@tearleads/validators/response";
 import { signContainerMutationEvent } from "../../../data/containers/shared/events";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
-import {
-  principalPolicyRequestRecord,
-  uniquePrincipalPolicies,
-} from "../../../data/containers/shared/principalPolicies";
+import { uniquePrincipalPolicies } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
   getParentKekForTarget,
@@ -52,10 +49,7 @@ import type {
 } from "../../../data/containers/shared/types";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
-import {
-  readCanonicalRecord,
-  readCanonicalRecords,
-} from "../../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   type PrincipalPolicyCache,
@@ -71,6 +65,7 @@ import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../../../data/trustedUserIdentity";
+import { containerMutationRequestCore } from "./mutationRequestCore";
 import {
   type ContainerManagedPrincipalShareApi,
   loadVerifiedGroupSharePrincipalPolicy,
@@ -186,25 +181,14 @@ function buildContainerShareRequest(input: {
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
   return {
-    event: readCanonicalRecord(input.event, "Container share event"),
-    body: readCanonicalRecord(input.body, "Container share body"),
-    expectedManifestHash: input.manifestHash,
-    manifest: readCanonicalRecord(input.manifest, "Container share manifest"),
+    ...containerMutationRequestCore("share", input),
     previousManifest: input.previousManifest,
     previousContainerPath: input.previousProjection.path.map(
       asContainerManifestBundle,
     ),
     containerManifestHistory: [...input.containerManifestHistory],
-    principalPolicies: readCanonicalRecords(
-      input.principalPolicies.map((policy) =>
-        principalPolicyRequestRecord(policy),
-      ),
-      "Container share principal policies",
-    ),
-    keyEpoch: readCanonicalRecord(input.keyEpoch, "Container share key epoch"),
     predecessorBridge: null,
     keyring: null,
-    wraps: readCanonicalRecords(input.wraps, "Container share wraps"),
     parentKekState:
       input.parentKek === null
         ? null
@@ -212,10 +196,6 @@ function buildContainerShareRequest(input: {
             input.parentKek,
             "Container share parent KEK state",
           ),
-    userRecipientKeys: readCanonicalRecords(
-      input.userRecipientKeys,
-      "Container share user recipient keys",
-    ),
   };
 }
 

@@ -20,7 +20,6 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
-import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
   getTargetContainerContext,
@@ -36,10 +35,7 @@ import type {
 } from "../../../data/containers/shared/types";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
-import {
-  readCanonicalRecord,
-  readCanonicalRecords,
-} from "../../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
@@ -51,6 +47,7 @@ import {
   deriveMoveManifestArtifacts,
 } from "./moveArtifacts";
 import { buildContainerMoveWraps } from "./moveWraps";
+import { containerMutationRequestCore } from "./mutationRequestCore";
 
 function buildContainerMoveRequest(input: {
   body: ContainerMoveAccessEventBody;
@@ -69,10 +66,7 @@ function buildContainerMoveRequest(input: {
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
   return {
-    event: readCanonicalRecord(input.event, "Container move event"),
-    body: readCanonicalRecord(input.body, "Container move body"),
-    expectedManifestHash: input.manifestHash,
-    manifest: readCanonicalRecord(input.manifest, "Container move manifest"),
+    ...containerMutationRequestCore("move", input),
     previousManifest: input.previousManifest,
     previousContainerPath: input.previousProjection.path.map(
       asContainerManifestBundle,
@@ -80,26 +74,14 @@ function buildContainerMoveRequest(input: {
     destinationParentContainerPath: input.destinationParentProjection.path.map(
       asContainerManifestBundle,
     ),
-    principalPolicies: readCanonicalRecords(
-      input.principalPolicies.map((policy) =>
-        principalPolicyRequestRecord(policy),
-      ),
-      "Container move principal policies",
-    ),
-    keyEpoch: readCanonicalRecord(input.keyEpoch, "Container move key epoch"),
     predecessorBridge: readCanonicalRecord(
       input.predecessorBridge,
       "Container move predecessor bridge",
     ),
     keyring: readCanonicalRecord(input.keyring, "Container move keyring"),
-    wraps: readCanonicalRecords(input.wraps, "Container move wraps"),
     parentKekState: readCanonicalRecord(
       input.destinationParentKek,
       "Container move destination parent KEK state",
-    ),
-    userRecipientKeys: readCanonicalRecords(
-      input.userRecipientKeys,
-      "Container move user recipient keys",
     ),
   };
 }

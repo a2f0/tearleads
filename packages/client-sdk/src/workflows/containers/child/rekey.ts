@@ -24,7 +24,6 @@ import {
   signContainerMutationEvent,
 } from "../../../data/containers/shared/events";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
-import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
   getParentKekForTarget,
@@ -40,10 +39,7 @@ import type {
 } from "../../../data/containers/shared/types";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
-import {
-  readCanonicalRecord,
-  readCanonicalRecords,
-} from "../../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
@@ -54,6 +50,7 @@ import {
   sealRotationKeyring,
   verifyKeyringEntriesForSeal,
 } from "./moveRotation";
+import { containerMutationRequestCore } from "./mutationRequestCore";
 import {
   refreshedPrincipalPolicies,
   refreshedPrincipalReferences,
@@ -369,30 +366,16 @@ function buildContainerRekeyPlan(input: {
     manifestHash: input.manifestHash,
     previousManifest: input.previousManifest,
     request: {
-      event: readCanonicalRecord(input.event, "Container rekey event"),
-      body: readCanonicalRecord(input.body, "Container rekey body"),
-      expectedManifestHash: input.manifestHash,
-      manifest: readCanonicalRecord(input.manifest, "Container rekey manifest"),
+      ...containerMutationRequestCore("rekey", input),
       previousManifest: input.previousManifest,
       previousContainerPath: input.previousProjection.path.map(
         asContainerManifestBundle,
-      ),
-      principalPolicies: readCanonicalRecords(
-        input.principalPolicies.map((policy) =>
-          principalPolicyRequestRecord(policy),
-        ),
-        "Container rekey principal policies",
-      ),
-      keyEpoch: readCanonicalRecord(
-        input.keyEpoch,
-        "Container rekey key epoch",
       ),
       predecessorBridge: readCanonicalRecord(
         input.predecessorBridge,
         "Container rekey predecessor bridge",
       ),
       keyring: readCanonicalRecord(input.keyring, "Container rekey keyring"),
-      wraps: readCanonicalRecords(input.wraps, "Container rekey wraps"),
       parentKekState:
         input.parentKek === null
           ? null
@@ -400,10 +383,6 @@ function buildContainerRekeyPlan(input: {
               input.parentKek,
               "Container rekey parent KEK state",
             ),
-      userRecipientKeys: readCanonicalRecords(
-        input.userRecipientKeys,
-        "Container rekey user recipient keys",
-      ),
     },
     state: input.state,
     userRecipientKeys: input.userRecipientKeys,
