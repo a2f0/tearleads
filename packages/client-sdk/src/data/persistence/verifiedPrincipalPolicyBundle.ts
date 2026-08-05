@@ -4,15 +4,10 @@ import {
   KeyingVerificationError,
   normalizePrincipalProjectionMembers,
   PrincipalMemberEnvelopeValidationError,
-  serializeKeyingCanonicalJson,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { readCanonicalJson } from "../keyingCanonicalJson";
-
-function canonical(value: unknown, label: string): string {
-  return serializeKeyingCanonicalJson(readCanonicalJson(value, label));
-}
+import { canonicalKeyingJsonString } from "../keyingCanonicalJson";
 
 function bundleMismatch(message: string): never {
   throw new KeyingVerificationError("equivocation", message);
@@ -50,13 +45,19 @@ export async function assertBundleMatchesVerifiedPolicy(input: {
     bundleMismatch("Verified principal policy bundle head mismatch");
   }
   if (
-    canonical(bundle.currentState, "principal policy bundle state") !==
-      canonical(policy.state, "verified principal policy state") ||
-    canonical(
+    canonicalKeyingJsonString(
+      bundle.currentState,
+      "principal policy bundle state",
+    ) !==
+      canonicalKeyingJsonString(
+        policy.state,
+        "verified principal policy state",
+      ) ||
+    canonicalKeyingJsonString(
       normalizePrincipalProjectionMembers(bundle.currentProjection),
       "principal policy bundle projection",
     ) !==
-      canonical(
+      canonicalKeyingJsonString(
         normalizePrincipalProjectionMembers(policy.projection),
         "verified principal policy projection",
       )
@@ -77,8 +78,14 @@ export async function assertBundleMatchesVerifiedPolicy(input: {
     projection: normalizePrincipalProjectionMembers(entry.projection),
   }));
   if (
-    canonical(expectedChain, "principal policy bundle history") !==
-    canonical(verifiedHistory, "verified principal policy history")
+    canonicalKeyingJsonString(
+      expectedChain,
+      "principal policy bundle history",
+    ) !==
+    canonicalKeyingJsonString(
+      verifiedHistory,
+      "verified principal policy history",
+    )
   ) {
     bundleMismatch("Verified principal policy bundle history mismatch");
   }

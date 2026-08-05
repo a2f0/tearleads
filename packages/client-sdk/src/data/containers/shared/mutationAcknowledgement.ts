@@ -9,10 +9,9 @@ import {
   computeContainerKekKeyringHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
-  serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { readCanonicalJson } from "../../keyingCanonicalJson";
+import { canonicalKeyingJsonString } from "../../keyingCanonicalJson";
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   type LocallyAcknowledgedAccessManifestHead,
@@ -36,18 +35,14 @@ interface AuthoredContainerMutationHead {
   readonly wraps: readonly ContainerKeyWrap[];
 }
 
-function canonical(value: unknown, label: string): string {
-  return serializeKeyingCanonicalJson(readCanonicalJson(value, label));
-}
-
 function assertCanonicalMatch(input: {
   readonly actual: unknown;
   readonly expected: unknown;
   readonly label: string;
 }): void {
   if (
-    canonical(input.actual, `${input.label} response`) !==
-    canonical(input.expected, `${input.label} plan`)
+    canonicalKeyingJsonString(input.actual, `${input.label} response`) !==
+    canonicalKeyingJsonString(input.expected, `${input.label} plan`)
   ) {
     throw new Error(`Container mutation response ${input.label} mismatch`);
   }
@@ -64,15 +59,17 @@ function expectedRecipientTargets(
       recipientKind: wrap.recipientKind,
     }))
     .sort((left, right) =>
-      canonical(left, "recipient target").localeCompare(
-        canonical(right, "recipient target"),
+      canonicalKeyingJsonString(left, "recipient target").localeCompare(
+        canonicalKeyingJsonString(right, "recipient target"),
       ),
     );
 }
 
 function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
   return [...values].sort((left, right) =>
-    canonical(left, label).localeCompare(canonical(right, label)),
+    canonicalKeyingJsonString(left, label).localeCompare(
+      canonicalKeyingJsonString(right, label),
+    ),
   );
 }
 
@@ -204,8 +201,11 @@ async function assertResponseContent(
   const recipientTargets = expectedRecipientTargets(plan.wraps);
   const responseTargets = [...response.containerKek.recipientTargets].sort(
     (left, right) =>
-      canonical(left, "response recipient target").localeCompare(
-        canonical(right, "response recipient target"),
+      canonicalKeyingJsonString(
+        left,
+        "response recipient target",
+      ).localeCompare(
+        canonicalKeyingJsonString(right, "response recipient target"),
       ),
   );
   assertCanonicalMatch({

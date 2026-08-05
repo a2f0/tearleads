@@ -22,6 +22,7 @@ import {
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 import { assertSameHeadPrincipalPolicyBundle } from "./principalPolicyBundleIntegrity";
 import { indexPrincipalPolicyBundleInTransaction } from "./principalPolicyReferenceIndexPersistence";
+import { storedPrincipalPolicyBundleFromJson } from "./storedPrincipalPolicyBundle";
 import { assertBundleMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyBundle";
 
 interface PrincipalPolicyRow {
@@ -100,18 +101,7 @@ function parseStoredPrincipalPolicyHead(
 function parsePrincipalPolicyBundle(
   row: PrincipalPolicyRow,
 ): PrincipalPolicyBundleResponse {
-  const currentState = JSON.parse(row.currentStateJson);
-  const currentPayload = JSON.parse(row.currentPayloadJson);
-  const currentProjection = JSON.parse(row.currentProjectionJson);
-  const currentMemberEnvelopes = JSON.parse(row.currentMemberEnvelopesJson);
-  const previousStates = JSON.parse(row.previousStatesJson);
-  const bundle = {
-    currentState,
-    currentPayload,
-    currentProjection,
-    currentMemberEnvelopes,
-    previousStates,
-  };
+  const bundle = storedPrincipalPolicyBundleFromJson(row);
 
   if (!isPrincipalPolicyBundleResponse(bundle)) {
     throw new Error("Stored principal policy bundle is invalid");

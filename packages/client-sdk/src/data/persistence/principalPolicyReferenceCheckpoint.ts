@@ -4,6 +4,7 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { principalPolicyBundleStates } from "../principalPolicyStates";
+import { assertPrincipalPolicyCheckpointShape } from "./keyingCheckpointPersistence";
 
 export function applyPrincipalPolicyReferenceCheckpoint(
   bundle: PrincipalPolicyBundleResponse,
@@ -12,25 +13,7 @@ export function applyPrincipalPolicyReferenceCheckpoint(
   if (!checkpoint) {
     return bundle;
   }
-  if (
-    checkpoint.principalType !== bundle.currentState.principalType ||
-    checkpoint.principalId !== bundle.currentState.principalId
-  ) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      "principal policy checkpoint belongs to another principal",
-    );
-  }
-  if (
-    !Number.isInteger(checkpoint.version) ||
-    checkpoint.version < 1 ||
-    checkpoint.stateHash.length === 0
-  ) {
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      "principal policy checkpoint is malformed",
-    );
-  }
+  assertPrincipalPolicyCheckpointShape(checkpoint, bundle.currentState);
   if (bundle.currentState.version < checkpoint.version) {
     return null;
   }
