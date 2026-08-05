@@ -1,4 +1,7 @@
-import type { DocumentAttributionInterval } from "./editAttributionTypes";
+import {
+  type DocumentAttributionInterval,
+  signingIdentityKey,
+} from "./editAttributionTypes";
 
 interface OpIdAttribution {
   writerUserId: string;
@@ -51,13 +54,6 @@ export interface DocumentBlameRange {
 interface DocumentBlameSummary {
   characterBlame: DocumentCharacterBlameSummary;
   blameRanges: DocumentBlameRange[];
-}
-
-function signingIdentityKey(identity: {
-  readonly writerUserId: string;
-  readonly writerKeyFingerprint: string;
-}): string {
-  return `${identity.writerUserId}\u0000${identity.writerKeyFingerprint}`;
 }
 
 /** Build a sorted per-peer interval index and binary-search each op counter. */

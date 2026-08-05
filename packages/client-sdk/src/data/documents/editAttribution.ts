@@ -1,5 +1,8 @@
 import type { DocumentEditAttributionRangeResponse } from "@tearleads/validators/response";
-import type { DocumentAttributionInterval } from "./editAttributionTypes";
+import {
+  type DocumentAttributionInterval,
+  signingIdentityKey,
+} from "./editAttributionTypes";
 
 export {
   type DocumentBlameRange,
@@ -71,13 +74,6 @@ export function summarizeDocumentContributors(
       left.writerUserId.localeCompare(right.writerUserId) ||
       left.writerKeyFingerprint.localeCompare(right.writerKeyFingerprint),
   );
-}
-
-function signingIdentityKey(identity: {
-  readonly writerUserId: string;
-  readonly writerKeyFingerprint: string;
-}): string {
-  return `${identity.writerUserId}\u0000${identity.writerKeyFingerprint}`;
 }
 
 interface DocumentAttributionSegment {

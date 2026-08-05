@@ -1,14 +1,13 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { formatContainerSystemSlot } from "../../data/containerSystemSlotFormat";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   initializeStoredDocumentKind,
   writeStoredDocumentFields,
 } from "../../data/documents/documentKinds";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
-
-const CONTAINER_SYSTEM_SLOT_PREFIX = "sys_v1_";
 
 export const ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME = "Roster Profiles";
 export const ROSTER_PROFILE_DOCUMENT_KIND = "contact";
@@ -23,13 +22,6 @@ export const ORGANIZATION_METADATA_CONTAINER_NAME = "Organization Metadata";
 // not override it. The demo host passes each pane's peer-labeled self name
 // instead (e.g. "Peer 1 (You)").
 export const DEFAULT_ROSTER_PROFILE_SELF_NICKNAME = "You";
-
-function toBase64Url(bytes: Uint8Array): string {
-  return bytesToBase64(bytes)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-}
 
 async function deriveOrganizationSystemSlot(input: {
   readonly namespace: string;
@@ -46,9 +38,7 @@ async function deriveOrganizationSystemSlot(input: {
     ),
   );
 
-  return `${CONTAINER_SYSTEM_SLOT_PREFIX}${toBase64Url(
-    new Uint8Array(digest),
-  )}`;
+  return formatContainerSystemSlot(new Uint8Array(digest));
 }
 
 export function deriveOrganizationRosterProfileContainerSystemSlot(input: {

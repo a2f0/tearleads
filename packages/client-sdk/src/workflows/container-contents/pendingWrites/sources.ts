@@ -3,6 +3,7 @@ import type {
   PendingWriteCandidate,
   PendingWriteCandidateInclusion,
 } from "./aggregation";
+import { readNumber, readString } from "./rowReaders";
 
 const PENDING_WRITE_SOURCE_SQL = `
   WITH pending_update_groups AS (
@@ -365,16 +366,6 @@ const PENDING_WRITE_SOURCE_SQL = `
       OR container.local_updated_at > container.server_updated_at
     )
 `;
-
-function readString(row: Record<string, unknown>, key: string): string | null {
-  const value = row[key];
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-function readNumber(row: Record<string, unknown>, key: string): number {
-  const value = row[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
 
 function mapPendingWriteSourceRow(
   row: Record<string, unknown>,

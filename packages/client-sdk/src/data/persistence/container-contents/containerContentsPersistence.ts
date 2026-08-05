@@ -54,6 +54,7 @@ import {
   deleteContainerWatermarksInTransaction,
   sqlContainerSyncWatermarkPersistence,
 } from "../containers/containerSyncWatermarkPersistence";
+import { getLatestTimestamp } from "../latestTimestamp";
 import { reassignContainerDocumentsInTransaction } from "./containerDocumentReassignment";
 import {
   CONTAINER_METADATA_APP_KIND,
@@ -306,20 +307,6 @@ function getContainerMetadataScope(containerId: string) {
     appKind: CONTAINER_METADATA_APP_KIND,
     localId: containerId,
   };
-}
-
-function getLatestTimestamp(
-  left: string | null | undefined,
-  right: string | null | undefined,
-): string {
-  if (!left) {
-    return right ?? new Date().toISOString();
-  }
-  if (!right) {
-    return left;
-  }
-
-  return left.localeCompare(right) >= 0 ? left : right;
 }
 
 function parseCreateIntentSyncStatus(
