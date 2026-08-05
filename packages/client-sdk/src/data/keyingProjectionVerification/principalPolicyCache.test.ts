@@ -19,9 +19,9 @@ import {
   retainVerifiedPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../persistence/principalPolicyPersistence";
+import { principalPolicyBundleContainsReference } from "../principalPolicyStates";
 import {
   filterUncachedPrincipalPolicyReferences,
-  principalPolicyBundleContainsReference,
   referencedPrincipalPolicyKey,
 } from "./principalPolicyCache";
 

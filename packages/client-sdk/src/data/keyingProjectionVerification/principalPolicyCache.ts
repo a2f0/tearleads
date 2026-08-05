@@ -3,10 +3,10 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { verifiedPrincipalPolicyMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
+import { principalStateMatchesReference } from "../principalPolicyStates";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
 /**
@@ -69,44 +69,13 @@ export function principalPolicyCacheForVerifiedPolicies(
   return cache;
 }
 
-/** Flatten a bundle's previous + current states into one chain for matching. */
-export function principalPolicyBundleStates(
-  bundle: PrincipalPolicyBundleResponse,
-): PrincipalPolicyBundleResponse["currentState"][] {
-  return [
-    ...bundle.previousStates.map((entry) => entry.state),
-    bundle.currentState,
-  ];
-}
-
-export function principalPolicyBundleContainsReference(
-  bundle: PrincipalPolicyBundleResponse,
-  reference: ReferencedPrincipalHead,
-): boolean {
-  return principalPolicyBundleStates(bundle).some(
-    (state) =>
-      state.principalType === reference.principalType &&
-      state.principalId === reference.principalId &&
-      state.version === reference.version &&
-      state.keyEpoch === reference.keyEpoch &&
-      state.stateHash === reference.stateHash &&
-      state.keyFingerprint === reference.keyFingerprint,
-  );
-}
-
 export function verifiedPrincipalPolicyContainsReference(
   policy: VerifiedPrincipalPolicy,
   reference: ReferencedPrincipalHead,
 ): boolean {
   const states = policy.history?.map(({ state }) => state) ?? [policy.state];
-  return states.some(
-    (state) =>
-      state.principalType === reference.principalType &&
-      state.principalId === reference.principalId &&
-      state.version === reference.version &&
-      state.keyEpoch === reference.keyEpoch &&
-      state.stateHash === reference.stateHash &&
-      state.keyFingerprint === reference.keyFingerprint,
+  return states.some((state) =>
+    principalStateMatchesReference(state, reference),
   );
 }
 

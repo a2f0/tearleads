@@ -7,12 +7,10 @@ import {
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
-import {
-  principalPolicyBundleContainsReference,
-  principalPolicyCacheForVerifiedPolicies,
-} from "../../../data/keyingProjectionVerification/principalPolicyCache";
+import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicyCache";
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { principalPolicyBundleContainsReference } from "../../../data/principalPolicyStates";
 import { loadVerifiedGroupSharePrincipalPolicy } from "../../containers";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerState } from "../remoteHydration";

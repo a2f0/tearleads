@@ -10,6 +10,10 @@ import {
 } from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
 import {
+  principalPolicyBundleContainsReference,
+  principalPolicyBundleStates,
+} from "../principalPolicyStates";
+import {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
@@ -59,17 +63,10 @@ const retainedBundleSelection = {
   stateHash: principalPolicyBundleHistory.stateHash,
 };
 
-function policyBundleStates(bundle: PrincipalPolicyBundleResponse) {
-  return [
-    ...bundle.previousStates.map(({ state }) => state),
-    bundle.currentState,
-  ];
-}
-
 function assertUnambiguousBundleChain(
   bundle: PrincipalPolicyBundleResponse,
 ): void {
-  const states = policyBundleStates(bundle);
+  const states = principalPolicyBundleStates(bundle);
   if (states.length !== bundle.currentState.version) {
     throw new KeyingVerificationError(
       "missing_dependency",
@@ -155,21 +152,6 @@ function parseBoundBundle(
   return bundle;
 }
 
-function bundleContainsReference(
-  bundle: PrincipalPolicyBundleResponse,
-  reference: ReferencedPrincipalHead,
-): boolean {
-  return policyBundleStates(bundle).some(
-    (state) =>
-      state.principalType === reference.principalType &&
-      state.principalId === reference.principalId &&
-      state.version === reference.version &&
-      state.stateHash === reference.stateHash &&
-      state.keyEpoch === reference.keyEpoch &&
-      state.keyFingerprint === reference.keyFingerprint,
-  );
-}
-
 function assertIndexedBundle(
   bundle: PrincipalPolicyBundleResponse,
   indexed: IndexedBundleHead,
@@ -184,7 +166,7 @@ function assertIndexedBundle(
       "principal policy reference index conflicts with its bundle head",
     );
   }
-  if (!bundleContainsReference(bundle, reference)) {
+  if (!principalPolicyBundleContainsReference(bundle, reference)) {
     throw new KeyingVerificationError(
       "hash_mismatch",
       "indexed principal policy bundle does not contain the exact reference",
@@ -215,7 +197,7 @@ function assertCurrentDoesNotConflict(
   if (bundle.currentState.version < reference.version) {
     return;
   }
-  const stateAtReference = policyBundleStates(bundle).find(
+  const stateAtReference = principalPolicyBundleStates(bundle).find(
     (state) => state.version === reference.version,
   );
   if (!stateAtReference) {
@@ -411,7 +393,7 @@ function collectCandidates(
     if (indexed) {
       assertIndexedBundle(bundle, indexed, reference);
     }
-    if (bundleContainsReference(bundle, reference)) {
+    if (principalPolicyBundleContainsReference(bundle, reference)) {
       addCandidate(candidates, bundle, currentRow);
     } else {
       assertCurrentDoesNotConflict(bundle, reference);
@@ -422,7 +404,7 @@ function collectCandidates(
     const indexed = indexedByHash.get(row.stateHash);
     if (indexed) {
       assertIndexedBundle(bundle, indexed, reference);
-    } else if (!bundleContainsReference(bundle, reference)) {
+    } else if (!principalPolicyBundleContainsReference(bundle, reference)) {
       throw new KeyingVerificationError(
         "hash_mismatch",
         "stored principal policy bundle head does not match the exact reference",

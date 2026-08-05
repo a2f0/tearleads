@@ -21,13 +21,13 @@ import {
   verifyOrganizationAdminPolicy,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../principalPolicyAdminSigners";
+import { principalPolicyBundleStates } from "../principalPolicyStates";
 import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
 import {
   filterUncachedPrincipalPolicyReferences,
-  principalPolicyBundleStates,
   referencedPrincipalPolicyKey,
   verifiedPrincipalPolicyContainsReference,
 } from "./principalPolicyCache";
