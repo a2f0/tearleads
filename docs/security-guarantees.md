@@ -234,30 +234,26 @@ checked in `formal/container-keying/KeyringReachability.tla`. Supported
 clients generate fresh successor keys and round-trip both artifacts before
 sending a mutation.
 
-That recovery backstop is bounded by which envelopes the kek-log will serve,
-and by whether the requester can still resolve the principal key an envelope
-was addressed to. Three cases, materially different from one another:
+That recovery backstop is bounded by which envelopes the kek-log will serve.
+Principal key rotations and membership changes atomically rematerialize every
+retained group container grant against the new current principal head. The
+material cases are:
 
-- **Group key rotated, member still in the group.** The container envelope
-  names the group key epoch it was sealed to, and current policy holds only the
-  group's newest key. `GET /principals/:principalType/:principalId/policy-history`
-  serves the group's signed state chain, so the member walks back to the epoch
-  the envelope names and recovers that key. **Recoverable.**
-- **Member removed from the group.** The envelope and the state it was sealed
-  under both survive — a removal writes a NEW state rather than rewriting the
-  old one — but the kek-log will not serve the group's container wrap to a
-  requester the group no longer authorizes, so the client never receives the
-  envelope that policy history would let it open. **Not recoverable today**;
-  closing it needs tenure-aware scoping on the kek-log as well as on policy
-  history (issue #1948).
+- **Group key rotated, member still authorized.** The replacement container
+  wrap names the current group head, so a fresh client resolves it through the
+  current verified group policy. No historical principal key is required.
+  **Recoverable.**
+- **Member removed from the group.** The replacement wraps are not readable by
+  the removed user. **Not recoverable while unauthorized.**
+- **Member later re-added.** The user receives the current group key and the
+  retained container grant is rematerialized against the current head. A fresh
+  recovery-key login can therefore recover the still-granted container without
+  a repair action by another user. **Recoverable.**
 - **Group deleted.** `deleteOrganizationGroupRows` purges the group's states,
-  payloads, epoch keys, and member envelopes outright. The key material is gone
-  from the server, not merely withheld, so no history walk recovers it.
-  **Permanently unrecoverable from server state**, by design, and the reason
-  group deletion is a heavier operation than removing every member from a
-  group. This is a statement about recovery, not about erasure: a client that
-  had already resolved and cached that group key still holds it, and deletion
-  cannot reach into clients to remove what they fetched while access was live.
+  payloads, epoch keys, and member envelopes. The key material is gone from the
+  server, so a later recovery cannot reconstruct it. **Permanently unrecoverable
+  from server state**, by design. This is not a client-side erasure guarantee: a
+  client that cached the group key while authorized still holds that material.
 - **Anchor caps.** The per-epoch envelope cap and the principal-scope cap rank
   candidates by identity, not by whether the client can resolve them. A
   requester with a very wide principal set can be served envelopes they cannot

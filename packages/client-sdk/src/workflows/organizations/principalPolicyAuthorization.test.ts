@@ -385,6 +385,22 @@ test("a verified Admins member absent from organization policy can mutate anothe
     expect(adminPolicyReads).toBeGreaterThan(0);
     expect(organizationPolicyReads).toBeGreaterThan(0);
 
+    const emptiedGroup = await removeOrganizationGroupUser({
+      afterPolicyCommitBeforeCache: async () => {},
+      apiClient,
+      beforePolicyCommit: () => {},
+      execSql,
+      groupId,
+      organizationId,
+      removedUserId: targetUserId,
+      resolveTrustedUserIdentity: async (userId) =>
+        identities.get(userId) ?? null,
+      signerUserId,
+      signingFingerprint,
+      signingKeyPair: signerKeys,
+    });
+    expect(emptiedGroup.currentProjection).toEqual([]);
+
     await removeOrganizationGroupUser({
       afterPolicyCommitBeforeCache: async () => {},
       apiClient,

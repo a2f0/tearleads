@@ -493,7 +493,10 @@ export async function buildRemoveGroupUserPolicyRequest(
     throw new Error("User is not a group member");
   }
 
-  if (!hasAdmin(projection)) {
+  if (
+    hasAdmin(input.currentPolicy.currentProjection) &&
+    !hasAdmin(projection)
+  ) {
     throw new Error("Cannot remove the last group admin");
   }
 
