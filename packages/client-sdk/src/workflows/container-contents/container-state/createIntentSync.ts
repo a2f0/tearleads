@@ -1,5 +1,6 @@
 import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import type { ContainerState } from "../remoteHydration";
+import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { createRemoteContainer, deleteRemoteContainer } from "./remote";
 import type {
@@ -8,17 +9,6 @@ import type {
   ContainerCreateIntentSyncState,
   CreatedRemoteContainerState,
 } from "./types";
-
-function hasRemoteContainerMetadataState(
-  containerState: ContainerState,
-): boolean {
-  return (
-    typeof containerState.record.documentId === "string" &&
-    containerState.record.documentId.length > 0 &&
-    typeof containerState.record.accessStateHash === "string" &&
-    containerState.record.accessStateHash.length > 0
-  );
-}
 
 async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
   containerState: ContainerState;

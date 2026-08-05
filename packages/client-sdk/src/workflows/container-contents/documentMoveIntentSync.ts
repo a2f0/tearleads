@@ -16,6 +16,7 @@ import type {
 } from "./documentStructureTypes";
 import type { ContainerContentsProjectionUserKeyResolver } from "./projectionKeys";
 import type { ContainerState } from "./remoteHydration";
+import { hasRemoteContainerMetadataState } from "./remoteHydration/reconciliation";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 type DocumentMoveIntentReplayResult =
@@ -37,19 +38,6 @@ interface DocumentMoveIntentSyncState {
   containersById: ReadonlyMap<string, ContainerState>;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   runtime: ContainerContentsWorkflowRuntime;
-}
-
-function hasRemoteContainerMetadataState(
-  containerState: ContainerState,
-): boolean {
-  return (
-    typeof containerState.record.documentId === "string" &&
-    containerState.record.documentId.length > 0 &&
-    typeof containerState.record.accessStateHash === "string" &&
-    containerState.record.accessStateHash.length > 0 &&
-    typeof containerState.container.metadataDocumentId === "string" &&
-    containerState.container.metadataDocumentId.length > 0
-  );
 }
 
 async function recordPendingDocumentMoveIntentError(input: {
