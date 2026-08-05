@@ -6,7 +6,7 @@ import type {
 } from "../principalState";
 import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
 
-/** Security-boundary contracts for untrusted keying data and verified outputs. */
+/** Security-boundary contracts for untrusted key data and verified outputs. */
 type CanonicalJsonPrimitive = boolean | number | string | null;
 
 export type KeyingCanonicalJson =
@@ -198,7 +198,7 @@ export interface ContainerRekeyAccessEventBody {
   containerKeyEpochId: string;
   keyringHash: string;
   predecessorBridgeHash: string;
-  referencedPrincipalHeads: ReferencedPrincipalHead[];
+  referencedPrincipalHeads?: ReferencedPrincipalHead[];
 }
 
 export interface ContainerMoveAccessEventBody
