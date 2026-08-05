@@ -103,9 +103,9 @@ aliases for old receipts. New store products must use the fixed-tier stems.
 The app gates org sync on a single entitlement, **`sync`**
 (`DEFAULT_SYNC_ENTITLEMENT_ID` in
 [`webPurchases.ts`](../../packages/app-web/src/webPurchases.ts) and
-[`capacitorPurchases.ts`](../../packages/app-capacitor/src/capacitorPurchases.ts)).
-It can be overridden per target via `BUN_PUBLIC_REVENUECAT_SYNC_ENTITLEMENT` (web)
-or `VITE_REVENUECAT_SYNC_ENTITLEMENT` (capacitor); both default to `sync`.
+[`capacitorPurchases.ts`](../../packages/app-capacitor/src/billing/capacitorPurchases.ts)).
+Override it per target via `BUN_PUBLIC_REVENUECAT_SYNC_ENTITLEMENT` (web) or
+`VITE_REVENUECAT_SYNC_ENTITLEMENT` (capacitor); both default to `sync`.
 
 ## Public SDK keys (client)
 

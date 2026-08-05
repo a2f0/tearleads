@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
 
-const packageRoot = resolve(import.meta.dir, "..");
+const packageRoot = resolve(import.meta.dir, "../..");
 const EXPECTED_ANDROID_REPLACEMENT_MODES = [
   "CHARGE_FULL_PRICE",
   "CHARGE_PRORATED_PRICE",
@@ -213,7 +213,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
       ),
     ).text(),
     Bun.file(
-      resolve(packageRoot, "src/nativeRevenueCatPurchaseRegistry.ts"),
+      resolve(packageRoot, "src/billing/nativeRevenueCatPurchaseRegistry.ts"),
     ).text(),
     Bun.file(
       resolve(
@@ -227,7 +227,9 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
         "node_modules/@revenuecat/purchases-capacitor/android/build.gradle",
       ),
     ).text(),
-    Bun.file(resolve(packageRoot, "src/capacitorRevenueCatRuntime.ts")).text(),
+    Bun.file(
+      resolve(packageRoot, "src/billing/capacitorRevenueCatRuntime.ts"),
+    ).text(),
     Bun.file(resolve(packageRoot, "android/variables.gradle")).text(),
   ]);
 

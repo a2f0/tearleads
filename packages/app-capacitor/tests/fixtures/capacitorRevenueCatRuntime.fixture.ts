@@ -18,7 +18,7 @@ mock.module("@capacitor/core", () => ({
 }));
 
 const { getNativeRevenueCatPurchase, getRevenueCatPlatform } = await import(
-  "../../src/capacitorRevenueCatRuntime"
+  "../../src/billing/capacitorRevenueCatRuntime"
 );
 
 if (getRevenueCatPlatform() !== "android") {

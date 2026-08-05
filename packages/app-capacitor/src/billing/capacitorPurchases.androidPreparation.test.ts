@@ -13,7 +13,7 @@ import {
   nativePackage,
   resetFixture,
   setEnv,
-} from "../tests/capacitorPurchasesTestKit";
+} from "../../tests/billing/capacitorPurchasesTestKit";
 
 afterEach(resetFixture);
 

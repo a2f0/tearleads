@@ -76,10 +76,10 @@ touches a screen edge absorbs that edge's inset**:
 Vertical sizing uses `100dvh` (with a `100vh` fallback) so iOS Safari's
 collapsing toolbars never hide the bottom taskbar.
 
-On native, `packages/app-capacitor/src/statusBar.ts` syncs the status-bar style
-with the theme: the header band is dark in both themes, so icons are always
-light, and Android additionally paints the bar to match the header. It observes
-the same `<html data-theme>` attribute the CSS keys off.
+On native, `packages/app-capacitor/src/device/statusBar.ts` syncs the status-bar
+style with the theme: the header band is dark in both themes, so icons are
+always light, and Android additionally paints the bar to match the header. It
+observes the same `<html data-theme>` attribute the CSS keys off.
 
 ## Tokens and theming
 
