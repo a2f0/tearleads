@@ -1,9 +1,17 @@
 import { expect, test } from "bun:test";
-import type { DocumentSyncRequest } from "../request";
 import type {
+  ChallengeRequest,
+  DocumentSyncRequest,
+  VerifyRequest,
+} from "../request";
+import type {
+  ChallengeErrorResponse,
+  ChallengeResponse,
   DocumentNotFoundErrorResponse,
   DocumentSyncErrorResponse,
   DocumentSyncResponse,
+  VerifyFailureResponse,
+  VerifySuccessResponse,
 } from "../response";
 import { documentSyncOperation } from "./documentSync";
 import type {
@@ -71,6 +79,20 @@ type GeneratedStatusOnlyFailuresHaveNoContent =
   GeneratedResponses[GeneratedStatusOnlyFailure] extends { content?: never }
     ? true
     : false;
+type GeneratedChallengeOperation = operations["auth.challenge"];
+type GeneratedChallengeRequest =
+  GeneratedChallengeOperation["requestBody"]["content"]["application/json"];
+type GeneratedChallengeResponse =
+  GeneratedChallengeOperation["responses"][200]["content"]["application/json"];
+type GeneratedChallengeErrorResponse =
+  GeneratedChallengeOperation["responses"][400]["content"]["application/json"];
+type GeneratedVerifyOperation = operations["auth.verify"];
+type GeneratedVerifyRequest =
+  GeneratedVerifyOperation["requestBody"]["content"]["application/json"];
+type GeneratedVerifySuccessResponse =
+  GeneratedVerifyOperation["responses"][200]["content"]["application/json"];
+type GeneratedVerifyFailureResponse =
+  GeneratedVerifyOperation["responses"][401]["content"]["application/json"];
 type EmptyGeneratedComponents = {
   schemas: never;
   responses: never;
@@ -139,4 +161,58 @@ test("generated OpenAPI types match the document sync structural contract", () =
 
   expect(documentSyncOperation.method).toBe("POST");
   expect(documentSyncOperation.path).toBe("/documents/{documentId}/sync");
+});
+
+test("generated OpenAPI types match the auth structural contracts", () => {
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedChallengeRequest>,
+      NormalizeWireType<ChallengeRequest>
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedChallengeResponse>,
+      NormalizeWireType<ChallengeResponse>
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedChallengeErrorResponse>,
+      NormalizeWireType<ChallengeErrorResponse>
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedVerifyRequest>,
+      NormalizeWireType<VerifyRequest>
+    >
+  >();
+  assertType<
+    IsEqual<
+      Pick<
+        NormalizeWireType<GeneratedVerifySuccessResponse>,
+        "authenticated" | "organizationId" | "token" | "userId"
+      >,
+      Pick<
+        NormalizeWireType<VerifySuccessResponse>,
+        "authenticated" | "organizationId" | "token" | "userId"
+      >
+    >
+  >();
+  assertType<
+    IsEqual<
+      Pick<
+        NormalizeWireType<GeneratedVerifyFailureResponse>,
+        "authenticated" | "error"
+      >,
+      Pick<NormalizeWireType<VerifyFailureResponse>, "authenticated" | "error">
+    >
+  >();
+  assertType<
+    IsEqual<paths["/auth/challenge"]["post"], GeneratedChallengeOperation>
+  >();
+  assertType<
+    IsEqual<paths["/auth/verify"]["post"], GeneratedVerifyOperation>
+  >();
 });

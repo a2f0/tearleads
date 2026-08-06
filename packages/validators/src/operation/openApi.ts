@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import { toJsonSchemaProjection } from "../jsonSchema";
 import type { JsonOperation } from "./definition";
-import { documentSyncOperation } from "./documentSync";
+import { protocolOperations } from "./registry";
 
 const JSON_SCHEMA_DIALECT =
   "https://json-schema.org/draft/2020-12/schema" as const;
@@ -272,10 +272,8 @@ export function createOpenApiDocument(
   };
 }
 
-export const documentSyncOpenApiDocument = createOpenApiDocument([
-  documentSyncOperation,
-]);
+export const openApiDocument = createOpenApiDocument(protocolOperations);
 
-export function renderDocumentSyncOpenApi(): string {
-  return `${JSON.stringify(documentSyncOpenApiDocument, null, 2)}\n`;
+export function renderOpenApi(): string {
+  return `${JSON.stringify(openApiDocument, null, 2)}\n`;
 }

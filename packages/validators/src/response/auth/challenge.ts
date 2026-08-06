@@ -1,26 +1,28 @@
-import { isPlainObject } from "../../isPlainObject";
-import { hasStringProperty, isAuthChallengeHexString } from "../../util";
+import { z } from "zod";
+import { authChallengeHexStringSchema, loosePlainObject } from "../../schema";
 
-export interface ChallengeResponse {
-  challenge: string;
-}
+export const ChallengeResponseSchema = loosePlainObject({
+  challenge: authChallengeHexStringSchema,
+});
+
+export type ChallengeResponse = z.infer<typeof ChallengeResponseSchema>;
 
 export function isChallengeResponse(
   value: unknown,
 ): value is ChallengeResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "challenge") &&
-    isAuthChallengeHexString(value.challenge)
-  );
+  return ChallengeResponseSchema.safeParse(value).success;
 }
 
-export interface ChallengeErrorResponse {
-  error: string;
-}
+export const ChallengeErrorResponseSchema = loosePlainObject({
+  error: z.string(),
+});
+
+export type ChallengeErrorResponse = z.infer<
+  typeof ChallengeErrorResponseSchema
+>;
 
 export function isChallengeErrorResponse(
   value: unknown,
 ): value is ChallengeErrorResponse {
-  return isPlainObject(value) && hasStringProperty(value, "error");
+  return ChallengeErrorResponseSchema.safeParse(value).success;
 }

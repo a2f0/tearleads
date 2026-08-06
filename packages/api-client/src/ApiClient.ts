@@ -31,7 +31,6 @@ import {
   type DocumentWriterProjectionResponse,
   isBlobAttachmentBindResponse,
   isBlobAttachmentDetachResponse,
-  isChallengeResponse,
   isCompleteMultipartBlobStageResponse,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
@@ -68,7 +67,6 @@ import {
   isStripeCheckoutSessionResponse,
   isUploadMultipartBlobPartResponse,
   isUserIdentityResponse,
-  isVerifyResponse,
   type ListContainerDocumentsResponse,
   type ListContainerParentLanesResponse,
   type ListDocumentAttachmentsResponse,
@@ -94,6 +92,10 @@ import {
   normalizeApiBaseUrl,
   requestFailureKey,
 } from "./requestInternals";
+import {
+  challenge as authChallenge,
+  verify as authVerify,
+} from "./routes/auth/authenticate";
 import {
   getBlobBytes,
   type UploadMultipartBlobPartBytesRequest,
@@ -708,9 +710,9 @@ export class ApiClient {
 
   async authenticate(fingerprint: string, secretKey: Uint8Array) {
     const challenge = await this.request(
-      "/auth/challenge",
-      isChallengeResponse,
-      "POST",
+      authChallenge.path,
+      authChallenge.isResponse,
+      authChallenge.method,
       JSON.stringify({ fingerprint }),
       { retryOnSessionExpired: false },
     );
@@ -733,9 +735,9 @@ export class ApiClient {
       secretKey,
     );
     const response = await this.request(
-      "/auth/verify",
-      isVerifyResponse,
-      "POST",
+      authVerify.path,
+      authVerify.isResponse,
+      authVerify.method,
       JSON.stringify({ fingerprint, signature: Array.from(signed) }),
       { retryOnSessionExpired: false },
     );

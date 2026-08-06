@@ -1,4 +1,12 @@
 export {
+  challengeOperation,
+  isChallengeOperationRequest,
+  isChallengeOperationResponse,
+  isVerifyOperationRequest,
+  isVerifyOperationResponse,
+  verifyOperation,
+} from "./auth";
+export {
   defineJsonOperation,
   type JsonOperation,
   type JsonOperationMethod,
@@ -13,3 +21,4 @@ export {
   isDocumentSyncOperationRequest,
   isDocumentSyncOperationResponse,
 } from "./documentSync";
+export { protocolOperations } from "./registry";

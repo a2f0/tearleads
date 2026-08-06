@@ -1,6 +1,8 @@
 export {
   type ChallengeErrorResponse,
+  ChallengeErrorResponseSchema,
   type ChallengeResponse,
+  ChallengeResponseSchema,
   isChallengeErrorResponse,
   isChallengeResponse,
 } from "./challenge";
@@ -16,4 +18,11 @@ export {
   isUserIdentityResponse,
   type UserIdentityResponse,
 } from "./userIdentity";
-export { isVerifyResponse, type VerifyResponse } from "./verify";
+export {
+  isVerifyResponse,
+  type VerifyFailureResponse,
+  VerifyFailureResponseSchema,
+  type VerifyResponse,
+  type VerifySuccessResponse,
+  VerifySuccessResponseSchema,
+} from "./verify";

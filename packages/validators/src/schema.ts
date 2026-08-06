@@ -5,6 +5,51 @@ import {
   registerJsonSchemaView,
   toJsonSchema,
 } from "./jsonSchema";
+import {
+  AUTH_CHALLENGE_HEX_LENGTH,
+  isAuthChallengeHexString,
+  isByteArrayOfLength,
+  isSha256HexString,
+  SHA256_HEX_LENGTH,
+} from "./util";
+
+const LOWERCASE_HEX_PATTERN = "^[0-9a-f]+$";
+
+export const sha256HexStringSchema = registerJsonSchemaFragment(
+  z.custom<string>(isSha256HexString),
+  {
+    maxLength: SHA256_HEX_LENGTH,
+    minLength: SHA256_HEX_LENGTH,
+    pattern: LOWERCASE_HEX_PATTERN,
+    type: "string",
+  },
+);
+
+export const authChallengeHexStringSchema = registerJsonSchemaFragment(
+  z.custom<string>(isAuthChallengeHexString),
+  {
+    maxLength: AUTH_CHALLENGE_HEX_LENGTH,
+    minLength: AUTH_CHALLENGE_HEX_LENGTH,
+    pattern: LOWERCASE_HEX_PATTERN,
+    type: "string",
+  },
+);
+
+export function fixedLengthByteArraySchema(length: number) {
+  return registerJsonSchemaFragment(
+    z.custom<number[]>((value) => isByteArrayOfLength(value, length)),
+    {
+      items: {
+        maximum: 255,
+        minimum: 0,
+        type: "integer",
+      },
+      maxItems: length,
+      minItems: length,
+      type: "array",
+    },
+  );
+}
 
 export const plainObjectSchema = registerJsonSchemaView(
   z.custom<Record<string, unknown>>(isPlainObject),

@@ -1,27 +1,26 @@
-import { isChallengeRequest } from "@tearleads/validators/request";
+import {
+  challengeOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type {
   ChallengeErrorResponse,
   ChallengeResponse,
 } from "@tearleads/validators/response";
 import { Hono } from "hono";
-import { validator } from "hono/validator";
 import {
   CreateChallengeError,
   createChallenge,
 } from "../../services/auth/createChallenge";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
 
 export function createChallengeRoute(runtime: ApiServiceRuntime) {
   const challenge = new Hono();
 
-  challenge.post(
-    "/auth/challenge",
-    validator("json", (value, c) => {
-      if (!isChallengeRequest(value)) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-      return value;
-    }),
+  challenge.on(
+    challengeOperation.method,
+    operationRoutePath(challengeOperation),
+    jsonRequestValidator(challengeOperation.body),
     async (c) => {
       try {
         const result = await createChallenge(runtime, c.req.valid("json"));

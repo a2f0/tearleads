@@ -1,14 +1,12 @@
-import { isPlainObject } from "../../isPlainObject";
-import { hasStringProperty, isSha256HexString } from "../../util";
+import type { z } from "zod";
+import { loosePlainObject, sha256HexStringSchema } from "../../schema";
 
-export interface ChallengeRequest {
-  fingerprint: string;
-}
+export const ChallengeRequestSchema = loosePlainObject({
+  fingerprint: sha256HexStringSchema,
+});
+
+export type ChallengeRequest = z.infer<typeof ChallengeRequestSchema>;
 
 export function isChallengeRequest(value: unknown): value is ChallengeRequest {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "fingerprint") &&
-    isSha256HexString(value.fingerprint)
-  );
+  return ChallengeRequestSchema.safeParse(value).success;
 }

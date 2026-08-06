@@ -14,6 +14,7 @@ import {
   submitVerify,
 } from "../../../test/helpers/api";
 import { del } from "../../adapters/redis";
+import { routeApp } from "../../routeApp";
 
 const signingKeys = generateSigningSeedAndKeyPair();
 const kemKeys = generateKemSeedAndKeyPair();
@@ -90,4 +91,15 @@ test("challenge is consumed after use", async () => {
 
   const replay = await submitVerify(fingerprint, signature);
   expect(replay.status).toBe(401);
+});
+
+test("rejects malformed verify requests through the shared schema", async () => {
+  const res = await routeApp.request("/auth/verify", {
+    body: JSON.stringify({ fingerprint: "a".repeat(64), signature: [0] }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ error: "Invalid request" });
 });

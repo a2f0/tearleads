@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  ChallengeResponseSchema,
   isBlobAttachmentBindResponse,
   isBlobAttachmentDetachResponse,
   isChallengeErrorResponse,
@@ -45,7 +46,11 @@ test("isHealthResponse", () => {
 });
 
 test("isChallengeResponse", () => {
-  expect(isChallengeResponse({ challenge: VALID_CHALLENGE })).toBe(true);
+  const response = { challenge: VALID_CHALLENGE, extension: true };
+  const result = ChallengeResponseSchema.safeParse(response);
+  expect(result.success).toBe(true);
+  expect(result.success && result.data).toBe(response);
+  expect(isChallengeResponse(response)).toBe(true);
   expect(isChallengeResponse({ challenge: "hex" })).toBe(false);
   expect(isChallengeResponse({ challenge: 123 })).toBe(false);
   expect(isChallengeResponse({})).toBe(false);

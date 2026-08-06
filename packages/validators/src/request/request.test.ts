@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { MAX_INLINE_CONTAINER_REKEYS, ML_DSA87_SIGNATURE_BYTES } from "../util";
 import { isOptionalContainerMutationRequestArray } from "./container";
 import {
+  ChallengeRequestSchema,
   isChallengeRequest,
   isCompleteMultipartBlobStageRequest,
   isCreateOrganizationGroupRequest,
@@ -10,6 +11,7 @@ import {
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
   isVerifyRequest,
+  VerifyRequestSchema,
 } from "./index";
 
 const VALID_FINGERPRINT = "a".repeat(64);
@@ -57,7 +59,11 @@ test("isUpdateOrganizationProfileRequest", () => {
 });
 
 test("isChallengeRequest", () => {
-  expect(isChallengeRequest({ fingerprint: VALID_FINGERPRINT })).toBe(true);
+  const request = { fingerprint: VALID_FINGERPRINT, extension: true };
+  const result = ChallengeRequestSchema.safeParse(request);
+  expect(result.success).toBe(true);
+  expect(result.success && result.data).toBe(request);
+  expect(isChallengeRequest(request)).toBe(true);
   expect(isChallengeRequest({ fingerprint: "abc" })).toBe(false);
   expect(isChallengeRequest({ fingerprint: 123 })).toBe(false);
   expect(isChallengeRequest({})).toBe(false);
@@ -65,12 +71,15 @@ test("isChallengeRequest", () => {
 });
 
 test("isVerifyRequest", () => {
-  expect(
-    isVerifyRequest({
-      fingerprint: VALID_FINGERPRINT,
-      signature: VALID_SIGNATURE,
-    }),
-  ).toBe(true);
+  const request = {
+    extension: true,
+    fingerprint: VALID_FINGERPRINT,
+    signature: VALID_SIGNATURE,
+  };
+  const result = VerifyRequestSchema.safeParse(request);
+  expect(result.success).toBe(true);
+  expect(result.success && result.data).toBe(request);
+  expect(isVerifyRequest(request)).toBe(true);
   expect(isVerifyRequest({ fingerprint: "abc", signature: [1, 2] })).toBe(
     false,
   );
