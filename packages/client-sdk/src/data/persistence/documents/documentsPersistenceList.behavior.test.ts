@@ -5,7 +5,7 @@ import {
   sqlDocumentsPersistence,
 } from "./documentsPersistence";
 
-test("listDocumentsByContainerIds only returns notes for the requested containers", async () => {
+test("listDocumentsByContainerIdsOrDocumentIds scopes notes to the requested containers", async () => {
   const { close, execSql } = await createTestExecSql(
     "documents-persistence-list-behavior-test",
   );
