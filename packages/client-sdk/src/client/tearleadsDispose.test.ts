@@ -3,9 +3,9 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
-import { type Logger, Tearleads } from "./client";
-import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
-import { getOrCreateDomainSyncCoordinator } from "./data/sync/syncCoordinator";
+import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
+import { getOrCreateDomainSyncCoordinator } from "../data/sync/syncCoordinator";
+import { type Logger, Tearleads } from ".";
 
 const quietLogger: Required<Logger> = {
   log: () => undefined,
