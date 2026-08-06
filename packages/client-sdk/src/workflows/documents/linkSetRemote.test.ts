@@ -16,10 +16,8 @@ import {
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { persistedDocumentLinkSetMutationStateFromResponse } from "../../data/documents/shared/responses";
 import { buildMaterializedDocumentCreatePlan } from "./create";
-import {
-  buildMaterializedDocumentLinkSetMutationPlan,
-  relinkRemoteDocument,
-} from "./linkSet";
+import { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
+import { relinkRemoteDocument } from "./linkSetRemote";
 
 test("relinkRemoteDocument rejects unlink without reading projections when its rotation snapshot is missing", async () => {
   const { author } = await createAuthor();

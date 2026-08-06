@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DocumentLinkSetMutationApi } from "../../data/documents/shared/types";
-import { relinkRemoteDocument } from "./linkSet";
+import { relinkRemoteDocument } from "./linkSetRemote";
 
 // When both projection fetches fail, the reported failure must carry the
 // 403: any permission denial parks the move (row 7), so a non-403 document

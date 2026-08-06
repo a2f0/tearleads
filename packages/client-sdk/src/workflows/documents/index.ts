@@ -41,10 +41,8 @@ export {
   importDocumentHistoryTailUpdates,
   loadPersistedDocumentContent,
 } from "./historyContent";
-export {
-  buildMaterializedDocumentLinkSetMutationPlan,
-  relinkRemoteDocument,
-} from "./linkSet";
+export { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
+export { relinkRemoteDocument } from "./linkSetRemote";
 export { reclaimDocumentOrphanBlobs } from "./orphanBlobReclaims";
 export {
   type DiscardedDocumentShellResult,
