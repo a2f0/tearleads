@@ -5,6 +5,14 @@ for server writer projections. Files in this folder hold internal helpers for
 that facade.
 
 - `readers.ts` decodes canonical wire records into crypto verification inputs.
+- `bundleVerification.ts` owns the canonical-equality assert, bundle-map
+  helper, and signed access-event bundle verification shared by both halves.
+- `containerManifestVerification.ts` verifies container manifest bundles,
+  including parent-path resolution and previous-manifest checks.
+- `containerProjectionVerification.ts` verifies container KEK projections and
+  full container writer projections, and collects their principal policies.
+- `documentProjectionVerification.ts` verifies document manifest bundles and
+  document writer projections over their container paths.
 
 Keep exported verifier functions and types on `../keyingProjectionVerification.ts`
 so workflow and store layers do not import these internals directly.
