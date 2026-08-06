@@ -104,18 +104,11 @@ async function persistPendingAttachments(
         execSql: state.runtime.infra.execSql,
         persistence: state.persistence,
       });
-      await saveLocalAttachmentRecord(
-        state,
-        localAttachmentRecords[index] ?? {
-          blobId: null,
-          byteLength: pendingAttachment.byteLength,
-          detachedAt: null,
-          localId: state.localId,
-          mimeType: pendingAttachment.mimeType,
-          slotId: pendingAttachment.slotId,
-          storageKey: pendingAttachment.storageKey,
-        },
-      );
+      const localAttachmentRecord = localAttachmentRecords[index];
+      if (!localAttachmentRecord) {
+        continue;
+      }
+      await saveLocalAttachmentRecord(state, localAttachmentRecord);
     }
   } catch (error) {
     state.attachmentStorageKeyBySlotId = previousStorageKeys;
@@ -180,9 +173,8 @@ async function persistAttachedFiles(
   files: ReadonlyArray<DocumentAttachmentUpload>,
 ) {
   const currentDoc = state.doc;
-  const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
 
-  if (!currentDoc || !canAttachFiles(state) || !encapsulationKeyPair) {
+  if (!currentDoc || !canAttachFiles(state)) {
     state.runtime.util.log(
       "Documents: attachments require a local key package.",
     );
@@ -234,9 +226,8 @@ async function persistSlotAttachmentFile(
   file: DocumentAttachmentUpload,
 ) {
   const currentDoc = state.doc;
-  const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
 
-  if (!currentDoc || !canAttachFiles(state) || !encapsulationKeyPair) {
+  if (!currentDoc || !canAttachFiles(state)) {
     state.runtime.util.log(
       "Documents: slot attachments require a local key package.",
     );

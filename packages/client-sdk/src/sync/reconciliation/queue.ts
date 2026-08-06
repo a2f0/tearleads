@@ -18,7 +18,6 @@ export interface ReconcileQueue {
   enqueue: (containerId: string, priority: ReconcilePriority) => void;
   /** Take the next container to reconcile (active before idle), or null. */
   dequeue: () => string | null;
-  has: (containerId: string) => boolean;
   get size(): number;
   clear: () => void;
 }
@@ -49,7 +48,6 @@ export function createReconcileQueue(): ReconcileQueue {
       entriesByContainerId.set(containerId, { containerId, priority });
     },
     dequeue: () => takeByPriority("active") ?? takeByPriority("idle"),
-    has: (containerId) => entriesByContainerId.has(containerId),
     get size() {
       return entriesByContainerId.size;
     },
