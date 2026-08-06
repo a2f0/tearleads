@@ -301,10 +301,6 @@
       "lines": 579,
       "bytes": 16859
     },
-    "packages/client-sdk/src/data/sync/syncCoordinator.ts": {
-      "lines": 602,
-      "bytes": 20518
-    },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
       "bytes": 19608
