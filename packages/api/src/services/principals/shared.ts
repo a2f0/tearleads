@@ -1,4 +1,1 @@
-export {
-  PrincipalPolicyError,
-  parseManagedPrincipalType,
-} from "../../workflows/principals/shared";
+export { PrincipalPolicyError } from "../../workflows/principals/shared";

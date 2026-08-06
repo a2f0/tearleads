@@ -273,6 +273,22 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/principals/{principalType}/{principalId}/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["principals.policy.get"];
+        put: operations["principals.policy.update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 };
 export type webhooks = Record<string, never>;
 export type components = {
@@ -9695,6 +9711,630 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "principals.policy.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                principalId: string;
+                principalType: "group" | "organization";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        currentMemberEnvelopes: {
+                            envelopes: ({
+                                kemCipherText: string;
+                                memberKeyFingerprint: string;
+                                userId: string;
+                                wrappedKey: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            epoch: number;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        currentPayload: {
+                            /** @constant */
+                            cipherSuite: "aes-256-gcm";
+                            ciphertext: string;
+                            ciphertextHash: string;
+                            createdAt: string;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        currentProjection: ({
+                            /** @enum {string} */
+                            role: "member" | "admin";
+                            userId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        currentState: {
+                            createdAt: string;
+                            encapsulationPublicKey: string;
+                            externalAuthority: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @constant */
+                                principalType: "group";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            memberCount: number;
+                            memberEnvelopesRoot: string;
+                            /** @constant */
+                            membershipMode: "projection";
+                            membershipRoot: string;
+                            payloadCiphertextHash: string;
+                            prevStateHash: string | null;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            projectionRoot: string;
+                            signature: string;
+                            signedAt: string;
+                            signerUserId: string;
+                            signerUserKeyFingerprint: string;
+                            stateHash: string;
+                            version: number;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        previousStates: ({
+                            projection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            state: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "principals.policy.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                principalId: string;
+                principalType: "group" | "organization";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    containerMutations?: ({
+                        body: unknown;
+                        containerManifestHistory?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        destinationParentContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        event: {
+                            [key: string]: unknown;
+                        };
+                        expectedManifestHash: string;
+                        keyEpoch: {
+                            [key: string]: unknown;
+                        };
+                        keyring: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            iv: string;
+                            sealed: string;
+                            sealingSuite: string;
+                            /** @constant */
+                            version: 1;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        manifest: {
+                            [key: string]: unknown;
+                        };
+                        parentContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        parentKekState?: {
+                            [key: string]: unknown;
+                        } | null;
+                        predecessorBridge: {
+                            [key: string]: unknown;
+                        } | null;
+                        previousContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        previousManifest?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        principalPolicies: {
+                            [key: string]: unknown;
+                        }[];
+                        userRecipientKeys?: {
+                            [key: string]: unknown;
+                        }[];
+                        wraps: {
+                            [key: string]: unknown;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    })[];
+                    encryptedPayload: {
+                        /** @constant */
+                        cipherSuite: "aes-256-gcm";
+                        ciphertext: string;
+                        ciphertextHash: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    memberEnvelopes: ({
+                        kemCipherText: string;
+                        memberKeyFingerprint: string;
+                        userId: string;
+                        wrappedKey: string;
+                    } & {
+                        [key: string]: unknown;
+                    })[];
+                    projection: ({
+                        /** @enum {string} */
+                        role: "member" | "admin";
+                        userId: string;
+                    } & {
+                        [key: string]: unknown;
+                    })[];
+                    state: {
+                        encapsulationPublicKey: string;
+                        externalAuthority: ({
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            principalId: string;
+                            /** @constant */
+                            principalType: "group";
+                            stateHash: string;
+                            version: number;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        keyEpoch: number;
+                        keyFingerprint: string;
+                        memberCount: number;
+                        memberEnvelopesRoot: string;
+                        /** @constant */
+                        membershipMode: "projection";
+                        membershipRoot: string;
+                        payloadCiphertextHash: string;
+                        prevStateHash: string | null;
+                        principalId: string;
+                        /** @enum {string} */
+                        principalType: "group" | "organization";
+                        projectionRoot: string;
+                        signature: string;
+                        signedAt: string;
+                        signerUserId: string;
+                        signerUserKeyFingerprint: string;
+                        version: number;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        currentMemberEnvelopes: {
+                            envelopes: ({
+                                kemCipherText: string;
+                                memberKeyFingerprint: string;
+                                userId: string;
+                                wrappedKey: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            epoch: number;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        currentPayload: {
+                            /** @constant */
+                            cipherSuite: "aes-256-gcm";
+                            ciphertext: string;
+                            ciphertextHash: string;
+                            createdAt: string;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        currentProjection: ({
+                            /** @enum {string} */
+                            role: "member" | "admin";
+                            userId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        currentState: {
+                            createdAt: string;
+                            encapsulationPublicKey: string;
+                            externalAuthority: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @constant */
+                                principalType: "group";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            memberCount: number;
+                            memberEnvelopesRoot: string;
+                            /** @constant */
+                            membershipMode: "projection";
+                            membershipRoot: string;
+                            payloadCiphertextHash: string;
+                            prevStateHash: string | null;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            projectionRoot: string;
+                            signature: string;
+                            signedAt: string;
+                            signerUserId: string;
+                            signerUserKeyFingerprint: string;
+                            stateHash: string;
+                            version: number;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        previousStates: ({
+                            projection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            state: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;

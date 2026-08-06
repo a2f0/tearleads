@@ -1,11 +1,5 @@
-import type {
-  ManagedRecipientPrincipalType,
-  PrincipalStateExternalAuthority,
-} from "@tearleads/crypto";
-import {
-  isManagedRecipientPrincipalType,
-  PrincipalMemberEnvelopeValidationError,
-} from "@tearleads/crypto";
+import type { PrincipalStateExternalAuthority } from "@tearleads/crypto";
+import { PrincipalMemberEnvelopeValidationError } from "@tearleads/crypto";
 import type { BillingErrorCode } from "@tearleads/validators/billing";
 import type { PrincipalMemberEnvelopeRequest } from "@tearleads/validators/request";
 import type {
@@ -161,16 +155,6 @@ export function toPrincipalPolicyError(
   error: unknown,
 ): PrincipalPolicyError | null {
   return toPrincipalStateError(error) ?? toPrincipalMemberEnvelopeError(error);
-}
-
-export function parseManagedPrincipalType(
-  value: string,
-): ManagedRecipientPrincipalType | null {
-  if (!isManagedRecipientPrincipalType(value)) {
-    return null;
-  }
-
-  return value;
 }
 
 export function toPrincipalStateResponse(state: {
