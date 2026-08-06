@@ -73,6 +73,15 @@ export interface RegisterIdentityInput {
   containerId: string;
   dbClient: ExecSqlClientLike;
   documentProjectors?: DocumentProjectorRegistryInput | undefined;
+  /**
+   * Reports whether the identity that started this registration is still
+   * current. Forwarded to the bootstrap persist's in-mutex currency check,
+   * so an identity replaced while the persist waits for the mutation queue
+   * cannot write its bootstrap through a client the replacement owns.
+   */
+  isIdentityCurrent?: (() => boolean) | undefined;
+  /** @internal Forwarded to the bootstrap persist; test-only seam. */
+  onPersistQueued?: (() => void) | undefined;
   encapsulationKeyPair: EncapsulationKeyPair;
   log?: ((message: string) => void) | undefined;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
@@ -385,6 +394,8 @@ export async function registerIdentity(
   input.log?.(`Key registered (${response.userId})`);
   await persistOrganizationProvisioningState({
     bootstrap: artifacts.bootstrap,
+    canStartDurableMutation: input.isIdentityCurrent,
+    onPersistQueued: input.onPersistQueued,
     containerId: input.containerId,
     dbClient: input.dbClient,
     documentProjectors: input.documentProjectors,

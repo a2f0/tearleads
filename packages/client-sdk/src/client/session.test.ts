@@ -6,6 +6,8 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { respondToRegistration } from "../../test/helpers/organizationProvisioningResponder";
+import { sqlContainerContentsPersistence } from "../data/persistence/container-contents/containerContentsPersistence";
+import { loadPrincipalPolicyBundle } from "../data/persistence/principalPolicyPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../sqlite";
 import { Database } from "./database";
 import { createIdentity, type Identity } from "./identity";
@@ -153,8 +155,12 @@ describe("session", () => {
       "session-register-identity-transition-test",
     );
     let switchIdentity = async () => undefined;
+    let capturedRootContainerId: string | null = null;
+    let capturedOrganizationId: string | null = null;
     const api = createApi({
       registerUser: async (...args) => {
+        capturedOrganizationId = args[1];
+        capturedRootContainerId = args[2];
         const response = await respondToRegistration(args);
         await switchIdentity();
         return response;
@@ -186,6 +192,25 @@ describe("session", () => {
 
       await expect(session.registerIdentity()).resolves.toBeNull();
       expect(session.snapshot).toEqual(identityBContext);
+
+      // The replacement identity owns the local database now: the stale
+      // registration must not have written its bootstrap rows through it.
+      if (!capturedRootContainerId || !capturedOrganizationId) {
+        throw new Error("Expected captured registration request");
+      }
+      await expect(
+        sqlContainerContentsPersistence.containerExists(
+          execSql,
+          capturedRootContainerId,
+        ),
+      ).resolves.toBe(false);
+      await expect(
+        loadPrincipalPolicyBundle(
+          execSql,
+          "organization",
+          capturedOrganizationId,
+        ),
+      ).resolves.toBeNull();
     } finally {
       close();
     }

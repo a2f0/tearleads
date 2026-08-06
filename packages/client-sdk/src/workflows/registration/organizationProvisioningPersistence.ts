@@ -3,8 +3,9 @@ import type { OrganizationProvisioningResponse } from "@tearleads/validators/res
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import { createExecSql } from "../../data/sqlite/sqlSchema";
 import type { OrganizationProvisioningArtifacts } from "./organizationProvisioningArtifacts";
-import { persistRegistrationBootstrap } from "./persistRegistrationBootstrap";
+import { persistRegistrationBootstrapFromExecSql } from "./persistRegistrationBootstrap";
 import {
   buildOrganizationProfileBootstrapInput,
   buildRosterProfileBootstrapInput,
@@ -30,6 +31,8 @@ type PersistOrganizationProvisioningStateInput = Pick<
 > & {
   /** Forwarded to the bootstrap persist's in-mutex currency check. */
   readonly canStartDurableMutation?: (() => boolean) | undefined;
+  /** @internal Forwarded to the bootstrap persist; test-only seam. */
+  readonly onPersistQueued?: (() => void) | undefined;
   readonly containerId: string;
   readonly dbClient: ExecSqlClientLike;
   readonly documentProjectors?: DocumentProjectorRegistryInput | undefined;
@@ -40,7 +43,9 @@ type PersistOrganizationProvisioningStateInput = Pick<
   readonly response: OrganizationProvisioningResponse;
 };
 
-type PersistBootstrapInput = Parameters<typeof persistRegistrationBootstrap>[1];
+type PersistBootstrapInput = Parameters<
+  typeof persistRegistrationBootstrapFromExecSql
+>[1];
 
 function coreMetadataInitialUpdateCommitted(
   response: OrganizationProvisioningResponse,
@@ -226,55 +231,66 @@ export async function persistOrganizationProvisioningState(
 ): Promise<void> {
   try {
     const artifacts = await buildProvisioningPersistenceArtifacts(input);
-    await persistRegistrationBootstrap(input.dbClient, {
-      acknowledgedAccessHeads: artifacts.acknowledgedAccessHeads,
-      canStartDurableMutation: input.canStartDurableMutation,
-      containerId: input.containerId,
-      documentProjectors: input.documentProjectors,
-      initialAdminGroupPolicy: artifacts.initialAdminGroupPolicy,
-      initialMemberGroupPolicy: artifacts.initialMemberGroupPolicy,
-      initialOrganizationPolicy: artifacts.initialOrganizationPolicy,
-      organizationId: input.response.organizationId,
-      // The provisioning response does not expose the root container's own
-      // timestamps. Its metadata document is created in the same transaction,
-      // so its server timestamp is the acknowledged remote anchor for the
-      // locally persisted root row.
-      rootContainerServerTimestamp:
-        input.response.rootMetadataDocument.createdAt,
-      rootMetadataAccessEpoch: input.response.rootMetadataAccessEpoch,
-      rootMetadataAccessStateHash: input.response.rootMetadataAccessStateHash,
-      rootMetadataDocumentId: input.response.rootMetadataDocumentId,
-      rootMetadataInitialUpdate: input.bootstrap.initialUpdate,
-      rootMetadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
-        input.response,
-        input.rootMetadataDocumentRequest.initialSync.outgoingUpdates[0]?.id,
-      ),
-      rootMetadataSnapshot: bytesToBase64(input.bootstrap.initialUpdate),
-      rootMetadataState: persistedDocumentCreateStateFromResponse(
-        input.rootMetadataDocument.plan,
-        input.response.rootMetadataDocument,
-      ),
-      ...(artifacts.rosterProfileContainer
-        ? { rosterProfileContainer: artifacts.rosterProfileContainer }
-        : {}),
-      ...(artifacts.organizationMetadataContainer
-        ? {
-            organizationMetadataContainer:
-              artifacts.organizationMetadataContainer,
-          }
-        : {}),
-      ...(artifacts.organizationProfileDocument
-        ? { organizationProfileDocument: artifacts.organizationProfileDocument }
-        : {}),
-      ...(artifacts.rosterProfileDocument
-        ? { rosterProfileDocument: artifacts.rosterProfileDocument }
-        : {}),
-      ...(artifacts.systemContainers
-        ? { systemContainers: artifacts.systemContainers }
-        : {}),
-      userId: input.response.userId,
-    });
-    input.log?.("Local organization bootstrap persisted");
+    const persisted = await persistRegistrationBootstrapFromExecSql(
+      createExecSql(input.dbClient),
+      {
+        acknowledgedAccessHeads: artifacts.acknowledgedAccessHeads,
+        canStartDurableMutation: input.canStartDurableMutation,
+        onPersistQueued: input.onPersistQueued,
+        containerId: input.containerId,
+        documentProjectors: input.documentProjectors,
+        initialAdminGroupPolicy: artifacts.initialAdminGroupPolicy,
+        initialMemberGroupPolicy: artifacts.initialMemberGroupPolicy,
+        initialOrganizationPolicy: artifacts.initialOrganizationPolicy,
+        organizationId: input.response.organizationId,
+        // The provisioning response does not expose the root container's own
+        // timestamps. Its metadata document is created in the same transaction,
+        // so its server timestamp is the acknowledged remote anchor for the
+        // locally persisted root row.
+        rootContainerServerTimestamp:
+          input.response.rootMetadataDocument.createdAt,
+        rootMetadataAccessEpoch: input.response.rootMetadataAccessEpoch,
+        rootMetadataAccessStateHash: input.response.rootMetadataAccessStateHash,
+        rootMetadataDocumentId: input.response.rootMetadataDocumentId,
+        rootMetadataInitialUpdate: input.bootstrap.initialUpdate,
+        rootMetadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
+          input.response,
+          input.rootMetadataDocumentRequest.initialSync.outgoingUpdates[0]?.id,
+        ),
+        rootMetadataSnapshot: bytesToBase64(input.bootstrap.initialUpdate),
+        rootMetadataState: persistedDocumentCreateStateFromResponse(
+          input.rootMetadataDocument.plan,
+          input.response.rootMetadataDocument,
+        ),
+        ...(artifacts.rosterProfileContainer
+          ? { rosterProfileContainer: artifacts.rosterProfileContainer }
+          : {}),
+        ...(artifacts.organizationMetadataContainer
+          ? {
+              organizationMetadataContainer:
+                artifacts.organizationMetadataContainer,
+            }
+          : {}),
+        ...(artifacts.organizationProfileDocument
+          ? {
+              organizationProfileDocument:
+                artifacts.organizationProfileDocument,
+            }
+          : {}),
+        ...(artifacts.rosterProfileDocument
+          ? { rosterProfileDocument: artifacts.rosterProfileDocument }
+          : {}),
+        ...(artifacts.systemContainers
+          ? { systemContainers: artifacts.systemContainers }
+          : {}),
+        userId: input.response.userId,
+      },
+    );
+    input.log?.(
+      persisted
+        ? "Local organization bootstrap persisted"
+        : "Local organization bootstrap skipped: identity replaced",
+    );
   } catch (error: unknown) {
     if (input.logError) {
       input.logError("Failed to persist registration data", error);
