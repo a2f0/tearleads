@@ -349,10 +349,6 @@
       "lines": 726,
       "bytes": 24311
     },
-    "packages/client-sdk/src/workflows/documents/linkSet.ts": {
-      "lines": 604,
-      "bytes": 20313
-    },
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
       "lines": 1769,
       "bytes": 62568
