@@ -273,6 +273,38 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/documents/{documentId}/attribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["documents.attribution.get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{documentId}/attribution/ranges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["documents.attribution.ranges.list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{documentId}/sync": {
         parameters: {
             query?: never;
@@ -5884,6 +5916,291 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "documents.attribution.get": {
+        parameters: {
+            query?: never;
+            header?: {
+                "accept-encoding"?: string;
+                "if-none-match"?: string;
+            };
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    "cache-control": "private, no-cache";
+                    "content-encoding"?: string;
+                    "content-type": string;
+                    etag: string;
+                    vary: "Accept-Encoding";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        attributionRevision: number;
+                        documentId: string;
+                        segments: ({
+                            /** @enum {string} */
+                            authorityKind: "direct" | "baseline";
+                            endCounter: number;
+                            peerId: string;
+                            startCounter: number;
+                            writerKeyFingerprint: string;
+                            writerUserId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        truncated?: boolean;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Response without a declared body */
+            304: {
+                headers: {
+                    "cache-control": "private, no-cache";
+                    etag: string;
+                    vary: "Accept-Encoding";
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "documents.attribution.ranges.list": {
+        parameters: {
+            query?: {
+                cursor?: string;
+                expectedRevision?: number;
+                limit?: number;
+            };
+            header?: {
+                "accept-encoding"?: string;
+            };
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    "cache-control": "private, no-cache";
+                    "content-encoding"?: string;
+                    "content-type": string;
+                    vary: "Accept-Encoding";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": ({
+                        attributionRevision: number;
+                        documentId: string;
+                        /** @constant */
+                        hasMore: true;
+                        items: ({
+                            /** @enum {string} */
+                            authorityKind: "direct" | "baseline";
+                            endCounter: number;
+                            peerId: string;
+                            startCounter: number;
+                            updateId: string;
+                            writerKeyFingerprint: string;
+                            writerUserId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        nextCursor: string;
+                    } & {
+                        [key: string]: unknown;
+                    }) | ({
+                        attributionRevision: number;
+                        documentId: string;
+                        /** @constant */
+                        hasMore: false;
+                        items: ({
+                            /** @enum {string} */
+                            authorityKind: "direct" | "baseline";
+                            endCounter: number;
+                            peerId: string;
+                            startCounter: number;
+                            updateId: string;
+                            writerKeyFingerprint: string;
+                            writerUserId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        nextCursor: null;
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
             /** @description Failure JSON response */

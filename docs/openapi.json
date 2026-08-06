@@ -14618,6 +14618,699 @@
         ]
       }
     },
+    "/documents/{documentId}/attribution/ranges": {
+      "get": {
+        "operationId": "documents.attribution.ranges.list",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "expectedRevision",
+            "required": false,
+            "schema": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "style": "form"
+          },
+          {
+            "explode": false,
+            "in": "header",
+            "name": "accept-encoding",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attributionRevision": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "documentId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "items": {
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "authorityKind": {
+                                "type": "string",
+                                "enum": [
+                                  "direct",
+                                  "baseline"
+                                ]
+                              },
+                              "endCounter": {
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "peerId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "startCounter": {
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "writerKeyFingerprint": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "writerUserId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "updateId": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "authorityKind",
+                              "endCounter",
+                              "peerId",
+                              "startCounter",
+                              "writerKeyFingerprint",
+                              "writerUserId",
+                              "updateId"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "maxItems": 500,
+                          "type": "array"
+                        },
+                        "hasMore": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "nextCursor": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "attributionRevision",
+                        "documentId",
+                        "items",
+                        "hasMore",
+                        "nextCursor"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attributionRevision": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "documentId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "items": {
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "authorityKind": {
+                                "type": "string",
+                                "enum": [
+                                  "direct",
+                                  "baseline"
+                                ]
+                              },
+                              "endCounter": {
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "peerId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "startCounter": {
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "writerKeyFingerprint": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "writerUserId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "updateId": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "authorityKind",
+                              "endCounter",
+                              "peerId",
+                              "startCounter",
+                              "writerKeyFingerprint",
+                              "writerUserId",
+                              "updateId"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "maxItems": 500,
+                          "type": "array"
+                        },
+                        "hasMore": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "nextCursor": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "attributionRevision",
+                        "documentId",
+                        "items",
+                        "hasMore",
+                        "nextCursor"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Successful JSON response",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-cache"
+                }
+              },
+              "content-encoding": {
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "content-type": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "vary": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "Accept-Encoding"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "document attribution segment start counters are less than end counters",
+            "id": "response.document-attribution-counter-range"
+          }
+        ]
+      }
+    },
+    "/documents/{documentId}/attribution": {
+      "get": {
+        "operationId": "documents.attribution.get",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "header",
+            "name": "accept-encoding",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "header",
+            "name": "if-none-match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "attributionRevision": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "documentId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "segments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "authorityKind": {
+                            "type": "string",
+                            "enum": [
+                              "direct",
+                              "baseline"
+                            ]
+                          },
+                          "endCounter": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "peerId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "startCounter": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "writerKeyFingerprint": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "writerUserId": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "authorityKind",
+                          "endCounter",
+                          "peerId",
+                          "startCounter",
+                          "writerKeyFingerprint",
+                          "writerUserId"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "attributionRevision",
+                    "documentId",
+                    "segments"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-cache"
+                }
+              },
+              "content-encoding": {
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "content-type": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "etag": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "vary": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "Accept-Encoding"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Response without a declared body",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-cache"
+                }
+              },
+              "etag": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "vary": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "const": "Accept-Encoding"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "document attribution segment start counters are less than end counters",
+            "id": "response.document-attribution-counter-range"
+          }
+        ]
+      }
+    },
     "/documents/{documentId}/sync": {
       "post": {
         "operationId": "documents.sync",

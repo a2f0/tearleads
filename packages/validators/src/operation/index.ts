@@ -64,6 +64,20 @@ export {
   type RuntimeRefinement,
 } from "./definition";
 export {
+  type DocumentAttributionPathParams,
+  DocumentAttributionPathParamsSchema,
+  type DocumentAttributionRangesQuery,
+  DocumentAttributionRangesQuerySchema,
+  type DocumentAttributionRequestHeaders,
+  DocumentAttributionRequestHeadersSchema,
+  documentAttributionWireHeaderKeys,
+  documentAttributionWireHeaderNames,
+  getDocumentAttributionOperation,
+  isGetDocumentAttributionOperationResponse,
+  isListDocumentAttributionRangesOperationResponse,
+  listDocumentAttributionRangesOperation,
+} from "./documentAttribution";
+export {
   type DocumentSyncPathParams,
   DocumentSyncPathParamsSchema,
   documentSyncOperation,

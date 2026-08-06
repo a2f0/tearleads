@@ -99,6 +99,18 @@ export const nonNegativeIntegerSchema = registerJsonSchemaFragment(
   },
 );
 
+export const safeNonNegativeIntegerSchema = registerJsonSchemaFragment(
+  z.custom<number>(
+    (value) =>
+      typeof value === "number" && Number.isSafeInteger(value) && value >= 0,
+  ),
+  {
+    maximum: Number.MAX_SAFE_INTEGER,
+    minimum: 0,
+    type: "integer",
+  },
+);
+
 export function boundedPositiveIntegerSchema(maximum: number) {
   return registerJsonSchemaFragment(
     z.custom<number>(

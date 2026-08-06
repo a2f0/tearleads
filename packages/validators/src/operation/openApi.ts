@@ -221,16 +221,40 @@ function openApiContent(
   return { [mediaType]: { schema } };
 }
 
+function hasRegisteredResponseStatus(
+  status: number,
+  successResponses: ReadonlyMap<number, z.ZodType>,
+  emptySuccessStatuses: ReadonlySet<number>,
+  failureStatuses: ReadonlySet<number>,
+): boolean {
+  return (
+    successResponses.has(status) ||
+    emptySuccessStatuses.has(status) ||
+    failureStatuses.has(status)
+  );
+}
+
 function assertResponseMetadata(
   operation: HttpOperation,
   successResponses: ReadonlyMap<number, z.ZodType>,
+  emptySuccessStatuses: ReadonlySet<number>,
   failureStatuses: ReadonlySet<number>,
   failureResponses: ReadonlyMap<number, z.ZodType>,
 ): void {
   for (const status of successResponses.keys()) {
+    if (emptySuccessStatuses.has(status) || failureStatuses.has(status)) {
+      throw new Error(`${operation.id} declares status ${status} twice`);
+    }
+  }
+  for (const status of emptySuccessStatuses) {
     if (failureStatuses.has(status)) {
       throw new Error(`${operation.id} declares status ${status} twice`);
     }
+  }
+  if (
+    emptySuccessStatuses.size !== (operation.emptyResponseStatuses?.length ?? 0)
+  ) {
+    throw new Error(`${operation.id} repeats an empty response status`);
   }
   for (const status of failureResponses.keys()) {
     if (!failureStatuses.has(status)) {
@@ -249,8 +273,12 @@ function assertResponseMetadata(
   for (const status of Object.keys(operation.responseHeaders ?? {})) {
     const numericStatus = Number(status);
     if (
-      !successResponses.has(numericStatus) &&
-      !failureStatuses.has(numericStatus)
+      !hasRegisteredResponseStatus(
+        numericStatus,
+        successResponses,
+        emptySuccessStatuses,
+        failureStatuses,
+      )
     ) {
       throw new Error(
         `${operation.id} declares headers for unregistered response status ${status}`,
@@ -262,6 +290,7 @@ function assertResponseMetadata(
 function openApiResponse(
   operation: HttpOperation,
   status: number,
+  successful: boolean,
   successSchema: z.ZodType | undefined,
   failureSchema: z.ZodType | undefined,
   runtimeRefinementIds: Set<string>,
@@ -288,7 +317,7 @@ function openApiResponse(
       mediaType,
       openApiSchema(schema, runtimeRefinementIds),
     ),
-    description: responseDescription(successSchema !== undefined, mediaType),
+    description: responseDescription(successful, mediaType),
     ...(headers === undefined ? {} : { headers }),
   };
 }
@@ -303,6 +332,7 @@ function openApiResponses(
       schema,
     ]),
   );
+  const emptySuccessStatuses = new Set(operation.emptyResponseStatuses ?? []);
   const failureStatuses = new Set(operation.failureStatuses);
   const failureResponses = new Map(
     Object.entries(operation.failureResponses ?? {}).map(([status, schema]) => [
@@ -314,18 +344,24 @@ function openApiResponses(
   assertResponseMetadata(
     operation,
     successResponses,
+    emptySuccessStatuses,
     failureStatuses,
     failureResponses,
   );
 
-  const statuses = [...successResponses.keys(), ...failureStatuses].sort(
-    (left, right) => left - right,
-  );
+  const statuses = Array.from(
+    new Set([
+      ...successResponses.keys(),
+      ...emptySuccessStatuses,
+      ...failureStatuses,
+    ]),
+  ).sort((left, right) => left - right);
   const responses: Record<string, OpenApiResponse> = {};
   for (const status of statuses) {
     responses[String(status)] = openApiResponse(
       operation,
       status,
+      successResponses.has(status) || emptySuccessStatuses.has(status),
       successResponses.get(status),
       failureResponses.get(status),
       runtimeRefinementIds,

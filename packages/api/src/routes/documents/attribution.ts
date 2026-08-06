@@ -1,3 +1,10 @@
+import {
+  documentAttributionWireHeaderKeys,
+  documentAttributionWireHeaderNames,
+  getDocumentAttributionOperation,
+  listDocumentAttributionRangesOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type { ListDocumentEditAttributionRangesResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -10,6 +17,9 @@ import {
   prepareDocumentEditAttribution,
 } from "../../services/documents/documentEditAttribution";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { headersValidator } from "../../validators/headers";
+import { pathParamsValidator } from "../../validators/pathParams";
+import { queryParamsValidator } from "../../validators/queryParams";
 
 type LoadDocumentEditAttribution = typeof loadPreparedDocumentEditAttribution;
 type ListDocumentEditAttributionRanges =
@@ -24,28 +34,12 @@ interface DocumentAttributionRouteDeps {
   readonly runtime: ApiServiceRuntime;
 }
 
-function parseOptionalNonNegativeInteger(
-  field: "expected revision" | "range limit",
-  value: string | undefined,
-): number | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (!/^\d+$/u.test(value)) {
-    throw new DocumentEditAttributionError(
-      `Document attribution ${field} is invalid`,
-      400,
-    );
-  }
-
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed)) {
-    throw new DocumentEditAttributionError(
-      `Document attribution ${field} is invalid`,
-      400,
-    );
-  }
-  return parsed;
+interface ResolvedDocumentAttributionRouteDeps {
+  readonly loadAttribution: LoadDocumentEditAttribution;
+  readonly listAttributionRanges: ListDocumentEditAttributionRanges;
+  readonly prepareAttribution: PrepareDocumentEditAttribution;
+  readonly requireAuth: MiddlewareHandler<SessionEnv>;
+  readonly runtime: ApiServiceRuntime;
 }
 
 export function createDocumentAttributionEtag(
@@ -73,26 +67,25 @@ export function ifNoneMatchMatches(
   });
 }
 
-export function createDocumentAttributionRoute({
-  loadAttribution = loadPreparedDocumentEditAttribution,
-  listAttributionRanges = listDocumentEditAttributionRanges,
-  prepareAttribution = prepareDocumentEditAttribution,
-  requireAuth,
-  runtime,
-}: DocumentAttributionRouteDeps) {
-  const route = new Hono<SessionEnv>();
-  const compressAttribution = compress({ threshold: 1024 });
-
-  route.get(
-    "/documents/:documentId/attribution",
-    requireAuth,
+function registerCompactAttributionRoute(
+  route: Hono<SessionEnv>,
+  deps: ResolvedDocumentAttributionRouteDeps,
+  compressAttribution: MiddlewareHandler<SessionEnv>,
+): void {
+  route.on(
+    getDocumentAttributionOperation.method,
+    operationRoutePath(getDocumentAttributionOperation),
+    deps.requireAuth,
     compressAttribution,
+    pathParamsValidator(getDocumentAttributionOperation.params),
+    headersValidator(getDocumentAttributionOperation.headers),
     async (c) => {
-      const documentId = c.req.param("documentId");
+      const { documentId } = c.req.valid("param");
+      const headers = c.req.valid("header");
       const session = c.get("session");
 
       try {
-        const prepared = await prepareAttribution(runtime, {
+        const prepared = await deps.prepareAttribution(deps.runtime, {
           documentId,
           userId: session.userId,
         });
@@ -100,20 +93,31 @@ export function createDocumentAttributionRoute({
           prepared.attributionRevision,
           prepared.attributionScope,
         );
-        c.header("Cache-Control", "private, no-cache");
-        c.header("ETag", etag);
-        c.header("Vary", "Accept-Encoding");
-        if (ifNoneMatchMatches(c.req.header("If-None-Match"), etag)) {
+        c.header(
+          documentAttributionWireHeaderNames.cacheControl,
+          "private, no-cache",
+        );
+        c.header(documentAttributionWireHeaderNames.etag, etag);
+        c.header(documentAttributionWireHeaderNames.vary, "Accept-Encoding");
+        if (
+          ifNoneMatchMatches(
+            headers[documentAttributionWireHeaderKeys.ifNoneMatch],
+            etag,
+          )
+        ) {
           return c.body(null, 304);
         }
 
-        const body = await loadAttribution(runtime, prepared);
+        const body = await deps.loadAttribution(deps.runtime, prepared);
         etag = createDocumentAttributionEtag(
           body.attributionRevision,
           prepared.attributionScope,
         );
-        c.header("ETag", etag);
-        c.header("Content-Type", "application/json; charset=UTF-8");
+        c.header(documentAttributionWireHeaderNames.etag, etag);
+        c.header(
+          documentAttributionWireHeaderNames.contentType,
+          "application/json; charset=UTF-8",
+        );
         return c.body(body.json);
       } catch (error) {
         if (error instanceof DocumentEditAttributionError) {
@@ -124,34 +128,44 @@ export function createDocumentAttributionRoute({
       }
     },
   );
+}
 
-  route.get(
-    "/documents/:documentId/attribution/ranges",
-    requireAuth,
+function registerAttributionRangesRoute(
+  route: Hono<SessionEnv>,
+  deps: ResolvedDocumentAttributionRouteDeps,
+  compressAttribution: MiddlewareHandler<SessionEnv>,
+): void {
+  route.on(
+    listDocumentAttributionRangesOperation.method,
+    operationRoutePath(listDocumentAttributionRangesOperation),
+    deps.requireAuth,
     compressAttribution,
+    pathParamsValidator(listDocumentAttributionRangesOperation.params),
+    headersValidator(listDocumentAttributionRangesOperation.headers),
+    queryParamsValidator(
+      listDocumentAttributionRangesOperation.query,
+      (schemaMessage) => schemaMessage ?? "Invalid request",
+    ),
     async (c) => {
-      const documentId = c.req.param("documentId");
+      const { documentId } = c.req.valid("param");
       const session = c.get("session");
 
       try {
-        const cursor = c.req.query("cursor");
-        const expectedRevision = parseOptionalNonNegativeInteger(
-          "expected revision",
-          c.req.query("expectedRevision"),
-        );
-        const limit = parseOptionalNonNegativeInteger(
-          "range limit",
-          c.req.query("limit"),
-        );
-        const response = await listAttributionRanges(runtime, {
+        const { cursor, expectedRevision, limit } = c.req.valid("query");
+        const response = await deps.listAttributionRanges(deps.runtime, {
           ...(cursor === undefined ? {} : { cursor }),
           documentId,
-          ...(expectedRevision === undefined ? {} : { expectedRevision }),
-          ...(limit === undefined ? {} : { limit }),
+          ...(expectedRevision === undefined
+            ? {}
+            : { expectedRevision: Number(expectedRevision) }),
+          ...(limit === undefined ? {} : { limit: Number(limit) }),
           userId: session.userId,
         });
-        c.header("Cache-Control", "private, no-cache");
-        c.header("Vary", "Accept-Encoding");
+        c.header(
+          documentAttributionWireHeaderNames.cacheControl,
+          "private, no-cache",
+        );
+        c.header(documentAttributionWireHeaderNames.vary, "Accept-Encoding");
         return c.json<ListDocumentEditAttributionRangesResponse>(response);
       } catch (error) {
         if (error instanceof DocumentEditAttributionError) {
@@ -162,6 +176,27 @@ export function createDocumentAttributionRoute({
       }
     },
   );
+}
+
+export function createDocumentAttributionRoute({
+  loadAttribution = loadPreparedDocumentEditAttribution,
+  listAttributionRanges = listDocumentEditAttributionRanges,
+  prepareAttribution = prepareDocumentEditAttribution,
+  requireAuth,
+  runtime,
+}: DocumentAttributionRouteDeps) {
+  const route = new Hono<SessionEnv>();
+  const compressAttribution = compress({ threshold: 1024 });
+  const deps = {
+    loadAttribution,
+    listAttributionRanges,
+    prepareAttribution,
+    requireAuth,
+    runtime,
+  };
+
+  registerCompactAttributionRoute(route, deps, compressAttribution);
+  registerAttributionRangesRoute(route, deps, compressAttribution);
 
   return route;
 }
