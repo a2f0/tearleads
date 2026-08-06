@@ -2,7 +2,7 @@
  * Public seam for the on-device local keyring: a wrapped account-root secret in
  * a manifest, HKDF-derived per-purpose keys, and the pluggable
  * {@link WrappingKeyKeystore} / {@link LocalKeyringManifestStore} backends the
- * host platform supplies. Implementation lives in `./localKeyring/`; callers
+ * host platform supplies. Implementation lives beside this entry; callers
  * (including `./localKeyringPinCode`) import from here.
  */
 export type { BrowserLocalKeyringOptions } from "./browser";
