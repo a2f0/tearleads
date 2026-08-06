@@ -257,6 +257,22 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/containers/{containerId}/writer-projection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["containers.writerProjection.get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{documentId}/attachments": {
         parameters: {
             query?: never;
@@ -315,6 +331,22 @@ export type paths = {
         get?: never;
         put?: never;
         post: operations["documents.sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{documentId}/writer-projection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["documents.writerProjection.get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5871,6 +5903,182 @@ export interface operations {
             };
         };
     };
+    "containers.writerProjection.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                containerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        containerId: string;
+                        containerKeks: ({
+                            accessManifestHash: string;
+                            containerId: string;
+                            containerKeyEpoch: number;
+                            containerKeyEpochId: string;
+                            containerManifestHistory: ({
+                                event: {
+                                    body: unknown;
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    eventHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyEpochHash: string;
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            keyTargetHash: string;
+                            parentContainerKeyEpochId: string | null;
+                            recipientTargets: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        organizationId: string;
+                        path: ({
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     "documents.attachments.list": {
         parameters: {
             query?: never;
@@ -6610,6 +6818,304 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    "documents.writerProjection.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        authorizingContainerPaths: ({
+                            containerId: string;
+                            containerKeks: ({
+                                accessManifestHash: string;
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHistory: ({
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyEpochHash: string;
+                                keyring: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    iv: string;
+                                    sealed: string;
+                                    sealingSuite: string;
+                                    /** @constant */
+                                    version: 1;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                keyTargetHash: string;
+                                parentContainerKeyEpochId: string | null;
+                                recipientTargets: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            organizationId: string;
+                            path: ({
+                                event: {
+                                    body: unknown;
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    eventHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        contentKeyBundle: {
+                            contentKeyEpoch: number;
+                            documentId: string;
+                            linkSetManifestHash: string;
+                            targetHash: string;
+                            targets: ({
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHash: string;
+                                wrappedKey: string;
+                                wrappingMetadata: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        /** @constant */
+                        contentKeyBundleStale?: true;
+                        documentContainerManifestHistory: ({
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        documentId: string;
+                        documentKekTargets: {
+                            documentId: string;
+                            documentKeyTargetHash: string;
+                            linkedContainerKeyEpochIds: string[];
+                            linkedContainerManifestHashes: string[];
+                            linkSetManifestHash: string;
+                            targets: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        documentManifest: {
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        documentManifestContainerPaths: ({
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[][];
+                        documentManifestHistory: ({
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "document_not_found";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: ("document_projection_container_conflict" | "document_projection_container_unavailable" | "document_projection_content_key_bundle_missing" | "document_projection_head_missing" | "document_projection_kek_targets_unavailable" | "document_projection_state_invalid") | ("document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict");
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
     };

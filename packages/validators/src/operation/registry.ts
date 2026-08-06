@@ -42,6 +42,10 @@ import {
   getPrincipalPolicyOperation,
   putPrincipalPolicyOperation,
 } from "./principals";
+import {
+  getContainerWriterProjectionOperation,
+  getDocumentWriterProjectionOperation,
+} from "./writerProjections";
 
 export const protocolOperations = [
   getHealthOperation,
@@ -63,6 +67,8 @@ export const protocolOperations = [
   listDocumentAttachmentsOperation,
   getDocumentAttributionOperation,
   listDocumentAttributionRangesOperation,
+  getContainerWriterProjectionOperation,
+  getDocumentWriterProjectionOperation,
   createOrganizationOperation,
   getOrganizationDataUsageOperation,
   getOrganizationReadModelOperation,

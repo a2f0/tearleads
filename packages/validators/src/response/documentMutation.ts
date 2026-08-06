@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isPlainObject } from "../isPlainObject";
-import { loosePlainObject } from "../schema";
+import { arraySchema, loosePlainObject, nonEmptyArraySchema } from "../schema";
 import {
   type AccessManifestBundleWireResponse,
   AccessManifestBundleWireResponseSchema,
@@ -9,10 +9,7 @@ import {
   isAccessManifestBundleWireResponse,
   isStringArray,
 } from "../util";
-import {
-  type ContainerWriterProjectionResponse,
-  isContainerWriterProjectionResponse,
-} from "./container";
+import { ContainerWriterProjectionResponseSchema } from "./container";
 import {
   type DocumentContentKeyBundleResponse,
   DocumentContentKeyBundleResponseSchema,
@@ -60,25 +57,28 @@ export interface DocumentPurgeResponse {
   reclaimedBlobStorageKeys: string[];
 }
 
-export interface DocumentWriterProjectionResponse {
-  documentId: string;
-  documentManifest: AccessManifestBundleWireResponse;
-  documentManifestHistory: AccessManifestBundleWireResponse[];
-  documentManifestContainerPaths: AccessManifestBundleWireResponse[][];
-  documentContainerManifestHistory: AccessManifestBundleWireResponse[];
-  documentKekTargets: DocumentKekTargetsResponse;
-  contentKeyBundle: DocumentContentKeyBundleResponse;
-  /**
-   * Present (true) when the stored content-key bundle could not be carried
-   * forward to the current KEK targets — e.g. a revoke rotated a linked
-   * container's key epoch. The bundle is still served so a writer that spans
-   * the rotation can unwrap the content key via KEK history and heal the
-   * document by syncing a re-wrapped bundle at the next content-key epoch.
-   * documentKekTargets always describes the CURRENT targets.
-   */
-  contentKeyBundleStale?: true;
-  authorizingContainerPaths: ContainerWriterProjectionResponse[];
-}
+export const DocumentWriterProjectionResponseSchema = loosePlainObject({
+  authorizingContainerPaths: nonEmptyArraySchema(
+    ContainerWriterProjectionResponseSchema,
+  ),
+  contentKeyBundle: DocumentContentKeyBundleResponseSchema,
+  /** Present only when the stored content-key bundle targets stale KEKs. */
+  contentKeyBundleStale: z.literal(true).optional(),
+  documentContainerManifestHistory: arraySchema(
+    AccessManifestBundleWireResponseSchema,
+  ),
+  documentId: z.string(),
+  documentKekTargets: DocumentKekTargetsResponseSchema,
+  documentManifest: AccessManifestBundleWireResponseSchema,
+  documentManifestContainerPaths: arraySchema(
+    arraySchema(AccessManifestBundleWireResponseSchema),
+  ),
+  documentManifestHistory: arraySchema(AccessManifestBundleWireResponseSchema),
+});
+
+export type DocumentWriterProjectionResponse = z.infer<
+  typeof DocumentWriterProjectionResponseSchema
+>;
 
 /**
  * Derives the KEK-target summary that corresponds to a content-key bundle,
@@ -174,48 +174,5 @@ export function isDocumentSyncResponse(
 export function isDocumentWriterProjectionResponse(
   value: unknown,
 ): value is DocumentWriterProjectionResponse {
-  const documentManifest = isPlainObject(value)
-    ? Reflect.get(value, "documentManifest")
-    : undefined;
-  const documentKekTargets = isPlainObject(value)
-    ? Reflect.get(value, "documentKekTargets")
-    : undefined;
-  const contentKeyBundle = isPlainObject(value)
-    ? Reflect.get(value, "contentKeyBundle")
-    : undefined;
-  const documentManifestHistory = isPlainObject(value)
-    ? Reflect.get(value, "documentManifestHistory")
-    : undefined;
-  const documentManifestContainerPaths = isPlainObject(value)
-    ? Reflect.get(value, "documentManifestContainerPaths")
-    : undefined;
-  const documentContainerManifestHistory = isPlainObject(value)
-    ? Reflect.get(value, "documentContainerManifestHistory")
-    : undefined;
-  const contentKeyBundleStale = isPlainObject(value)
-    ? Reflect.get(value, "contentKeyBundleStale")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "documentId") &&
-    (contentKeyBundleStale === undefined || contentKeyBundleStale === true) &&
-    isAccessManifestBundleWireResponse(documentManifest) &&
-    Array.isArray(documentManifestHistory) &&
-    documentManifestHistory.every(isAccessManifestBundleWireResponse) &&
-    Array.isArray(documentManifestContainerPaths) &&
-    documentManifestContainerPaths.every(
-      (path) =>
-        Array.isArray(path) && path.every(isAccessManifestBundleWireResponse),
-    ) &&
-    Array.isArray(documentContainerManifestHistory) &&
-    documentContainerManifestHistory.every(
-      isAccessManifestBundleWireResponse,
-    ) &&
-    isDocumentKekTargetsResponse(documentKekTargets) &&
-    isDocumentContentKeyBundleResponse(contentKeyBundle) &&
-    hasArrayProperty(value, "authorizingContainerPaths") &&
-    value.authorizingContainerPaths.length > 0 &&
-    value.authorizingContainerPaths.every(isContainerWriterProjectionResponse)
-  );
+  return DocumentWriterProjectionResponseSchema.safeParse(value).success;
 }

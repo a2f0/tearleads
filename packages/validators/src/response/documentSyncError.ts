@@ -66,5 +66,27 @@ export const DOCUMENT_PROJECTION_ERROR_CODES = {
   stateInvalid: "document_projection_state_invalid",
 } as const;
 
-export type DocumentProjectionErrorCode =
-  (typeof DOCUMENT_PROJECTION_ERROR_CODES)[keyof typeof DOCUMENT_PROJECTION_ERROR_CODES];
+export const DocumentProjectionErrorCodeSchema = z.literal([
+  DOCUMENT_PROJECTION_ERROR_CODES.containerConflict,
+  DOCUMENT_PROJECTION_ERROR_CODES.containerUnavailable,
+  DOCUMENT_PROJECTION_ERROR_CODES.contentKeyBundleMissing,
+  DOCUMENT_PROJECTION_ERROR_CODES.headMissing,
+  DOCUMENT_PROJECTION_ERROR_CODES.kekTargetsUnavailable,
+  DOCUMENT_PROJECTION_ERROR_CODES.stateInvalid,
+]);
+
+export type DocumentProjectionErrorCode = z.infer<
+  typeof DocumentProjectionErrorCodeSchema
+>;
+
+export const DocumentWriterProjectionErrorResponseSchema = z.looseObject({
+  code: z.union([
+    DocumentProjectionErrorCodeSchema,
+    DocumentSyncErrorCodeSchema,
+  ]),
+  error: z.string().min(1),
+});
+
+export type DocumentWriterProjectionErrorResponse = z.infer<
+  typeof DocumentWriterProjectionErrorResponseSchema
+>;

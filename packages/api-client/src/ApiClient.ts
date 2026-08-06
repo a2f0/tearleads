@@ -32,11 +32,9 @@ import {
   isContainerDeleteResponse,
   isContainerKekLogResponse,
   isContainerMutationResponse,
-  isContainerWriterProjectionResponse,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeResponse,
-  isDocumentWriterProjectionResponse,
   isListContainerDocumentsResponse,
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
@@ -113,6 +111,10 @@ import {
   getPrincipalPolicy as principalPolicyGet,
   putPrincipalPolicy as principalPolicyPut,
 } from "./routes/principals/policy";
+import {
+  containerWriterProjection,
+  documentWriterProjection,
+} from "./routes/writerProjections";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import type {
   HttpMethod,
@@ -1033,9 +1035,9 @@ export class ApiClient {
       containerId,
       () =>
         this.request(
-          `/containers/${pathSegment(containerId)}/writer-projection`,
-          isContainerWriterProjectionResponse,
-          "GET",
+          containerWriterProjection.path(containerId),
+          containerWriterProjection.isResponse,
+          containerWriterProjection.method,
         ),
     );
   }
@@ -1077,8 +1079,8 @@ export class ApiClient {
       this.containerWriterProjectionRequestsByContainerId,
       this.containerWriterProjectionResultsInFlightByContainerId,
       containerId,
-      `/containers/${pathSegment(containerId)}/writer-projection`,
-      isContainerWriterProjectionResponse,
+      containerWriterProjection.path(containerId),
+      containerWriterProjection.isResponse,
       options,
     );
   }
@@ -1355,9 +1357,9 @@ export class ApiClient {
       documentId,
       () =>
         this.request(
-          `/documents/${pathSegment(documentId)}/writer-projection`,
-          isDocumentWriterProjectionResponse,
-          "GET",
+          documentWriterProjection.path(documentId),
+          documentWriterProjection.isResponse,
+          documentWriterProjection.method,
         ),
     );
   }
@@ -1381,8 +1383,8 @@ export class ApiClient {
       this.documentWriterProjectionRequestsByDocumentId,
       this.documentWriterProjectionResultsInFlightByDocumentId,
       documentId,
-      `/documents/${pathSegment(documentId)}/writer-projection`,
-      isDocumentWriterProjectionResponse,
+      documentWriterProjection.path(documentId),
+      documentWriterProjection.isResponse,
       options,
     );
   }

@@ -1,3 +1,7 @@
+import {
+  getContainerWriterProjectionOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -7,6 +11,7 @@ import {
   getContainerWriterProjection,
 } from "../../services/containers/writerProjection";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { pathParamsValidator } from "../../validators/pathParams";
 
 interface ContainerWriterProjectionRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -19,16 +24,19 @@ export function createContainerWriterProjectionRoute({
 }: ContainerWriterProjectionRouteDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.get(
-    "/containers/:containerId/writer-projection",
+  route.on(
+    getContainerWriterProjectionOperation.method,
+    operationRoutePath(getContainerWriterProjectionOperation),
     requireAuth,
+    pathParamsValidator(getContainerWriterProjectionOperation.params),
     async (c) => {
+      const { containerId } = c.req.valid("param");
       const session = c.get("session");
 
       try {
         return c.json<ContainerWriterProjectionResponse>(
           await getContainerWriterProjection(runtime, {
-            containerId: c.req.param("containerId"),
+            containerId,
             userId: session.userId,
           }),
         );

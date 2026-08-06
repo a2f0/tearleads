@@ -14379,6 +14379,402 @@
         ]
       }
     },
+    "/containers/{containerId}/writer-projection": {
+      "get": {
+        "operationId": "containers.writerProjection.get",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "containerId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "containerId": {
+                      "type": "string"
+                    },
+                    "containerKeks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accessManifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "containerId": {
+                            "type": "string"
+                          },
+                          "containerKeyEpoch": {
+                            "exclusiveMinimum": 0,
+                            "maximum": 1.7976931348623157e+308,
+                            "type": "integer"
+                          },
+                          "containerKeyEpochId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "containerManifestHistory": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "event": {
+                                  "type": "object",
+                                  "properties": {
+                                    "body": {},
+                                    "event": {
+                                      "type": "object",
+                                      "properties": {},
+                                      "additionalProperties": {}
+                                    },
+                                    "eventHash": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "body",
+                                    "event",
+                                    "eventHash"
+                                  ],
+                                  "additionalProperties": {}
+                                },
+                                "manifest": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "manifestHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "state": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "required": [
+                                "event",
+                                "manifest",
+                                "manifestHash",
+                                "state"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
+                          "keyEpoch": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          },
+                          "keyEpochHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "keyring": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "containerId": {
+                                    "type": "string"
+                                  },
+                                  "containerKeyEpochId": {
+                                    "type": "string"
+                                  },
+                                  "iv": {
+                                    "maxLength": 16,
+                                    "type": "string"
+                                  },
+                                  "sealed": {
+                                    "maxLength": 5592352,
+                                    "type": "string"
+                                  },
+                                  "sealingSuite": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "const": 1,
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "containerId",
+                                  "containerKeyEpochId",
+                                  "iv",
+                                  "sealed",
+                                  "sealingSuite",
+                                  "version"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "keyTargetHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "parentContainerKeyEpochId": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "recipientTargets": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            }
+                          },
+                          "wraps": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            }
+                          }
+                        },
+                        "required": [
+                          "accessManifestHash",
+                          "containerId",
+                          "containerKeyEpoch",
+                          "containerKeyEpochId",
+                          "containerManifestHistory",
+                          "keyEpoch",
+                          "keyEpochHash",
+                          "keyring",
+                          "keyTargetHash",
+                          "parentContainerKeyEpochId",
+                          "recipientTargets",
+                          "wraps"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event": {
+                            "type": "object",
+                            "properties": {
+                              "body": {},
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "eventHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "body",
+                              "event",
+                              "eventHash"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "manifest": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          },
+                          "manifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "state": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "event",
+                          "manifest",
+                          "manifestHash",
+                          "state"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "containerId",
+                    "containerKeks",
+                    "organizationId",
+                    "path"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "containerKeks must contain exactly one entry for every manifest in path",
+            "id": "response.container-writer-projection-path-kek-count"
+          },
+          {
+            "description": "a container response keyring is null exactly for container key epoch 1",
+            "id": "response.organization-provisioning-container-keyring"
+          }
+        ]
+      }
+    },
     "/documents/{documentId}/attachments": {
       "get": {
         "operationId": "documents.attachments.list",
@@ -16202,6 +16598,783 @@
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
             "id": "response.rotation-checkpoint-fields"
+          }
+        ]
+      }
+    },
+    "/documents/{documentId}/writer-projection": {
+      "get": {
+        "operationId": "documents.writerProjection.get",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "authorizingContainerPaths": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "containerId": {
+                            "type": "string"
+                          },
+                          "containerKeks": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "accessManifestHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerId": {
+                                  "type": "string"
+                                },
+                                "containerKeyEpoch": {
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 1.7976931348623157e+308,
+                                  "type": "integer"
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerManifestHistory": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "event": {
+                                        "type": "object",
+                                        "properties": {
+                                          "body": {},
+                                          "event": {
+                                            "type": "object",
+                                            "properties": {},
+                                            "additionalProperties": {}
+                                          },
+                                          "eventHash": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "body",
+                                          "event",
+                                          "eventHash"
+                                        ],
+                                        "additionalProperties": {}
+                                      },
+                                      "manifest": {
+                                        "type": "object",
+                                        "properties": {},
+                                        "additionalProperties": {}
+                                      },
+                                      "manifestHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "state": {
+                                        "type": "object",
+                                        "properties": {},
+                                        "additionalProperties": {}
+                                      }
+                                    },
+                                    "required": [
+                                      "event",
+                                      "manifest",
+                                      "manifestHash",
+                                      "state"
+                                    ],
+                                    "additionalProperties": {}
+                                  }
+                                },
+                                "keyEpoch": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "keyEpochHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyring": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "containerId": {
+                                          "type": "string"
+                                        },
+                                        "containerKeyEpochId": {
+                                          "type": "string"
+                                        },
+                                        "iv": {
+                                          "maxLength": 16,
+                                          "type": "string"
+                                        },
+                                        "sealed": {
+                                          "maxLength": 5592352,
+                                          "type": "string"
+                                        },
+                                        "sealingSuite": {
+                                          "type": "string"
+                                        },
+                                        "version": {
+                                          "const": 1,
+                                          "type": "number"
+                                        }
+                                      },
+                                      "required": [
+                                        "containerId",
+                                        "containerKeyEpochId",
+                                        "iv",
+                                        "sealed",
+                                        "sealingSuite",
+                                        "version"
+                                      ],
+                                      "additionalProperties": {}
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "keyTargetHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "parentContainerKeyEpochId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "recipientTargets": {
+                                  "minItems": 1,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  }
+                                },
+                                "wraps": {
+                                  "minItems": 1,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  }
+                                }
+                              },
+                              "required": [
+                                "accessManifestHash",
+                                "containerId",
+                                "containerKeyEpoch",
+                                "containerKeyEpochId",
+                                "containerManifestHistory",
+                                "keyEpoch",
+                                "keyEpochHash",
+                                "keyring",
+                                "keyTargetHash",
+                                "parentContainerKeyEpochId",
+                                "recipientTargets",
+                                "wraps"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
+                          "organizationId": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "event": {
+                                  "type": "object",
+                                  "properties": {
+                                    "body": {},
+                                    "event": {
+                                      "type": "object",
+                                      "properties": {},
+                                      "additionalProperties": {}
+                                    },
+                                    "eventHash": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  },
+                                  "required": [
+                                    "body",
+                                    "event",
+                                    "eventHash"
+                                  ],
+                                  "additionalProperties": {}
+                                },
+                                "manifest": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "manifestHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "state": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "required": [
+                                "event",
+                                "manifest",
+                                "manifestHash",
+                                "state"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          }
+                        },
+                        "required": [
+                          "containerId",
+                          "containerKeks",
+                          "organizationId",
+                          "path"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "contentKeyBundle": {
+                      "type": "object",
+                      "properties": {
+                        "contentKeyEpoch": {
+                          "exclusiveMinimum": 0,
+                          "maximum": 1.7976931348623157e+308,
+                          "type": "integer"
+                        },
+                        "documentId": {
+                          "type": "string"
+                        },
+                        "linkSetManifestHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "targetHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "targets": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "containerId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "containerKeyEpoch": {
+                                "exclusiveMinimum": 0,
+                                "maximum": 1.7976931348623157e+308,
+                                "type": "integer"
+                              },
+                              "containerKeyEpochId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "containerManifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "wrappedKey": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "wrappingMetadata": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "containerId",
+                              "containerKeyEpoch",
+                              "containerKeyEpochId",
+                              "containerManifestHash",
+                              "wrappedKey",
+                              "wrappingMetadata"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "required": [
+                        "contentKeyEpoch",
+                        "documentId",
+                        "linkSetManifestHash",
+                        "targetHash",
+                        "targets"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "contentKeyBundleStale": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "documentContainerManifestHistory": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event": {
+                            "type": "object",
+                            "properties": {
+                              "body": {},
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "eventHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "body",
+                              "event",
+                              "eventHash"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "manifest": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          },
+                          "manifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "state": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "event",
+                          "manifest",
+                          "manifestHash",
+                          "state"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "documentId": {
+                      "type": "string"
+                    },
+                    "documentKekTargets": {
+                      "type": "object",
+                      "properties": {
+                        "documentId": {
+                          "type": "string"
+                        },
+                        "documentKeyTargetHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "linkedContainerKeyEpochIds": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "linkedContainerManifestHashes": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "linkSetManifestHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "targets": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "required": [
+                        "documentId",
+                        "documentKeyTargetHash",
+                        "linkedContainerKeyEpochIds",
+                        "linkedContainerManifestHashes",
+                        "linkSetManifestHash",
+                        "targets"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "documentManifest": {
+                      "type": "object",
+                      "properties": {
+                        "event": {
+                          "type": "object",
+                          "properties": {
+                            "body": {},
+                            "event": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "eventHash": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "body",
+                            "event",
+                            "eventHash"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        "manifest": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        },
+                        "manifestHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "state": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "event",
+                        "manifest",
+                        "manifestHash",
+                        "state"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "documentManifestContainerPaths": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "event": {
+                              "type": "object",
+                              "properties": {
+                                "body": {},
+                                "event": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "eventHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "required": [
+                                "body",
+                                "event",
+                                "eventHash"
+                              ],
+                              "additionalProperties": {}
+                            },
+                            "manifest": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "manifestHash": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "state": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "event",
+                            "manifest",
+                            "manifestHash",
+                            "state"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      }
+                    },
+                    "documentManifestHistory": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event": {
+                            "type": "object",
+                            "properties": {
+                              "body": {},
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "eventHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "body",
+                              "event",
+                              "eventHash"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "manifest": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          },
+                          "manifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "state": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "event",
+                          "manifest",
+                          "manifestHash",
+                          "state"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "authorizingContainerPaths",
+                    "contentKeyBundle",
+                    "documentContainerManifestHistory",
+                    "documentId",
+                    "documentKekTargets",
+                    "documentManifest",
+                    "documentManifestContainerPaths",
+                    "documentManifestHistory"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "document_not_found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "document_projection_container_conflict",
+                            "document_projection_container_unavailable",
+                            "document_projection_content_key_bundle_missing",
+                            "document_projection_head_missing",
+                            "document_projection_kek_targets_unavailable",
+                            "document_projection_state_invalid"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "document_sync_conflict",
+                            "document_sync_state_stale",
+                            "document_sync_update_id_conflict"
+                          ]
+                        }
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "containerKeks must contain exactly one entry for every manifest in path",
+            "id": "response.container-writer-projection-path-kek-count"
+          },
+          {
+            "description": "a container response keyring is null exactly for container key epoch 1",
+            "id": "response.organization-provisioning-container-keyring"
           }
         ]
       }
