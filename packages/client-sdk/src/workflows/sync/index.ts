@@ -1,4 +1,7 @@
-export { createDomainScope, type DomainScope } from "../../data/domainScope";
+export {
+  createDomainScope,
+  type DomainScope,
+} from "../../data/domainScope";
 export type {
   DomainSyncCoordinator,
   DomainSyncSnapshot,

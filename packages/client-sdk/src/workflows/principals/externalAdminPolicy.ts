@@ -5,18 +5,18 @@ import {
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
+import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
-} from "../../data/organizationAuthorityDescriptor";
-import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
+} from "../../data/principals/organizationAuthorityDescriptor";
 import {
   organizationAdminExternalAuthority,
   organizationAdminSignerUserIds,
   principalPolicyReferenceFromBundle,
   verifyOrganizationAdminPolicy,
-} from "../../data/principalPolicyAdminSigners";
+} from "../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { collectPrincipalPolicySignerPublicKeys } from "./policyVerification";

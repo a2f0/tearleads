@@ -1,5 +1,5 @@
 import type { ContainerAccessLevel } from "@tearleads/crypto";
-import type { StoredDocumentKind } from "./documents/documentKinds";
+import type { StoredDocumentKind } from "./documentKinds";
 
 /** Non-empty because callers use this tuple to build SQL `NOT IN` clauses. */
 export const HIDDEN_DOCUMENT_SUMMARY_KINDS = [

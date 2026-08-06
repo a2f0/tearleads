@@ -1,13 +1,13 @@
 import { and, desc, eq, inArray, notInArray, or, type SQL } from "drizzle-orm";
 import {
-  type DiscoveredDocumentInput,
-  type DocumentSummary,
-  HIDDEN_DOCUMENT_SUMMARY_KINDS,
-} from "../../documentSummary";
-import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
   DEFAULT_DOCUMENT_KIND,
 } from "../../documents/documentConstants";
+import {
+  type DiscoveredDocumentInput,
+  type DocumentSummary,
+  HIDDEN_DOCUMENT_SUMMARY_KINDS,
+} from "../../documents/documentSummary";
 import { deleteDocumentHistory } from "../../sqlite/documentHistoryPersistence";
 import {
   clearDocumentSyncFailure,

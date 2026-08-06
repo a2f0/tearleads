@@ -2,7 +2,7 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
+import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import type {
   MaterializedDocumentSyncPlan,
   SyncRemoteDocumentResult,

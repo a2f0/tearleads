@@ -1,5 +1,5 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { createPendingUpdateFields } from "../../data/documentSync";
+import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
   type ContainerSyncLaneCheckRecord,

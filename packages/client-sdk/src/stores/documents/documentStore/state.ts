@@ -4,7 +4,6 @@ import {
   canWriteEffectiveAccessLevel,
   normalizeEffectiveAccessLevel,
 } from "../../../data/accessLevel";
-import type { DocumentSummary } from "../../../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
   type DocumentAttachment,
@@ -21,6 +20,7 @@ import {
   listDocumentRows,
   sameDocumentRows,
 } from "../../../data/documents/documentRowList";
+import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/types";
 import type { DomainScope } from "../../../data/domainScope";
 import {

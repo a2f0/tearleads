@@ -4,7 +4,7 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
+import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
 import {

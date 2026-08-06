@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "../../data/documentSummary";
+import type { DocumentSummary } from "../../data/documents/documentSummary";
 
 /**
  * In-memory cache of document summaries + container links for the local

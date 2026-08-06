@@ -1,5 +1,5 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { formatContainerSystemSlot } from "../../data/containerSystemSlotFormat";
+import { formatContainerSystemSlot } from "../../data/containers/containerSystemSlotFormat";
 
 const CONTAINER_SYSTEM_SLOT_HMAC_ALGORITHM = {
   hash: "SHA-256",

@@ -7,7 +7,7 @@ import type {
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
-} from "../../data/documentSummary";
+} from "../../data/documents/documentSummary";
 
 export interface ListedContainerDocument {
   createdAt: string;

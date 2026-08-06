@@ -1,12 +1,12 @@
 import type { ContainerAccessLevel } from "@tearleads/crypto";
 import type { BlobByteSourceInput } from "../../data/blobContracts";
-import type { DocumentSummary } from "../../data/documentSummary";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import type {
   DocumentFieldValidationIssue,
   StoredDocumentKind,
 } from "../../data/documents/documentKinds";
 import type { DocumentRow } from "../../data/documents/documentRowList";
+import type { DocumentSummary } from "../../data/documents/documentSummary";
 import type {
   DocumentsWorkflowRuntime,
   RelinkPersistedDocumentInput,

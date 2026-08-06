@@ -1,11 +1,11 @@
 import type {
-  DiscoveredDocumentInput,
-  DocumentSummary,
-} from "../../documentSummary";
-import type {
   DocumentProjectorRegistryInput,
   StoredDocumentKind,
 } from "../../documents/documentKinds";
+import type {
+  DiscoveredDocumentInput,
+  DocumentSummary,
+} from "../../documents/documentSummary";
 import type {
   DocumentRecord as BaseDocumentRecord,
   PendingUpdateFields,

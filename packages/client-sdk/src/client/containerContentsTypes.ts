@@ -1,6 +1,6 @@
 import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
-import type { DocumentSummary } from "../data/documentSummary";
 import type { StoredDocumentKind } from "../data/documents/documentKinds";
+import type { DocumentSummary } from "../data/documents/documentSummary";
 import type {
   ContainerContentsStore,
   ContainerContentsStoreOptions,

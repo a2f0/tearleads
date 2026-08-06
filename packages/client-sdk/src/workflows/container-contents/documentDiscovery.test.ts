@@ -6,7 +6,7 @@ import type {
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
-} from "../../data/documentSummary";
+} from "../../data/documents/documentSummary";
 import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
