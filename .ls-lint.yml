@@ -29,6 +29,11 @@ ls:
   packages/app/src/mini-apps/explorer/detail/*/*:
     .dir: exists:0
 
+  # detail/* keeps its four subject dirs above; every other explorer feature
+  # folder stays flat so files cannot dodge the cohort budgets.
+  packages/app/src/mini-apps/explorer/{context-menu,hooks,modal,model,purge-progress,shared,sidebar,toolbar}/*:
+    .dir: exists:0
+
   packages/app/src/mini-apps/identity-manager:
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-10
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
