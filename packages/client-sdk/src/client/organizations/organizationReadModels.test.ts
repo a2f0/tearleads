@@ -11,18 +11,18 @@ import {
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
   organizationReadModelUserId,
-} from "../../test/helpers/organizationReadModelProjectionFixtures";
-import { createPrincipalPolicyBundle } from "../../test/helpers/policyCacheFixtures";
-import { trustedUserIdentityFromResponse } from "../../test/helpers/trustedUserIdentity";
-import type { BlobStore } from "../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
-import { createDomainScope } from "../data/domainScope";
-import { applyOrganizationReadModelResponse } from "../data/persistence/organizations/organizationReadModelPersistence";
-import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
+} from "../../../test/helpers/organizationReadModelProjectionFixtures";
+import { createPrincipalPolicyBundle } from "../../../test/helpers/policyCacheFixtures";
+import { trustedUserIdentityFromResponse } from "../../../test/helpers/trustedUserIdentity";
+import type { BlobStore } from "../../data/blobContracts";
+import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { createDomainScope } from "../../data/domainScope";
+import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
-} from "./workflowRuntime";
+} from "../workflowRuntime";
+import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
 function projectedPolicyMember(
   member: PrincipalPolicyBundleResponse["currentProjection"][number],

@@ -11,7 +11,7 @@ import {
   WRAPPED_LOCAL_SECRET_FORMAT,
   type WrappedLocalSecretEnvelope,
   type WrappingKeyHandle,
-} from "./localKeyring";
+} from "./index";
 
 export type LocalKeyringPinCode = string | (() => Promise<string> | string);
 

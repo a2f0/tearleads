@@ -171,12 +171,12 @@ export type {
   LocalKeyringPinCode,
   PinCodeBrowserLocalKeyringOptions,
   PinCodeWrappingKeyKeystoreOptions,
-} from "./localKeyringPinCode";
+} from "./localKeyring/localKeyringPinCode";
 export {
   createPinCodeBrowserLocalKeyring,
   createPinCodeWrappingKeyKeystore,
   isPinCodeWrappedLocalSecretEnvelope,
-} from "./localKeyringPinCode";
+} from "./localKeyring/localKeyringPinCode";
 export type { Logger } from "./logger";
 export {
   createBrowserNetworkStatusSource,
@@ -223,7 +223,7 @@ export type {
   SessionRegistrationResult,
   SessionSnapshot,
   UserSession,
-} from "./sessionTypes";
+} from "./session/sessionTypes";
 export {
   SyncBillingGate,
   type SyncBillingGateListener,

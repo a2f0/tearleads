@@ -6,18 +6,18 @@ import {
   groupId,
   organizationId,
   principalPolicy,
-} from "../../test/helpers/organizationReadModelFixtures";
-import type { BlobStore } from "../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
-import { createDomainScope } from "../data/domainScope";
-import { unavailableExecSql } from "../data/sqlite/sqlSchema";
+} from "../../../test/helpers/organizationReadModelFixtures";
+import type { BlobStore } from "../../data/blobContracts";
+import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { createDomainScope } from "../../data/domainScope";
+import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import {
   buildOrganizationGroupPolicyHistory,
   type OrganizationGroupPolicyHistory,
-} from "../workflows/organizations";
+} from "../../workflows/organizations";
+import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
-import type { InternalWorkflowRuntimeInput } from "./workflowRuntime";
 
 const projectedMembers: OrganizationGroupMembersResponse = {
   organizationId,

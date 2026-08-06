@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { getOrganizationProfileDocumentLocalId } from "../workflows/organizations/organizationProfile";
-import { deriveOrganizationMetadataContainerSystemSlot } from "../workflows/organizations/rosterProfileContainer";
-import type { ContainerContents } from "./containerContents";
+import { getOrganizationProfileDocumentLocalId } from "../../workflows/organizations/organizationProfile";
+import { deriveOrganizationMetadataContainerSystemSlot } from "../../workflows/organizations/rosterProfileContainer";
+import type { ContainerContents } from "../containerContents";
 import { syncOrganizationMetadataProfile } from "./organizationMetadataProfileSync";
 
 const ORGANIZATION_ID = "org-1";

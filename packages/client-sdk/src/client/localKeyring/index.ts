@@ -5,48 +5,48 @@
  * host platform supplies. Implementation lives in `./localKeyring/`; callers
  * (including `./localKeyringPinCode`) import from here.
  */
-export type { BrowserLocalKeyringOptions } from "./localKeyring/browser";
+export type { BrowserLocalKeyringOptions } from "./browser";
 export {
   createBrowserLocalKeyring,
   createBrowserLocalKeyringManifestStore,
   createWebViewLocalKeyring,
   resolveBrowserLocalKeyringManifestStore,
-} from "./localKeyring/browser";
+} from "./browser";
 export {
   assertEnvelopeContextMatches,
   assertWrappedLocalSecretEnvelope,
   readWrappedLocalSecretEnvelope,
-} from "./localKeyring/envelope";
-export type { IndexedDbWrappingKeyKeystoreOptions } from "./localKeyring/indexedDbKeystore";
-export { createIndexedDbWrappingKeyKeystore } from "./localKeyring/indexedDbKeystore";
-export type { IndexedDbLocalKeyringManifestStoreOptions } from "./localKeyring/indexedDbManifestStore";
-export { createIndexedDbLocalKeyringManifestStore } from "./localKeyring/indexedDbManifestStore";
+} from "./envelope";
+export type { IndexedDbWrappingKeyKeystoreOptions } from "./indexedDbKeystore";
+export { createIndexedDbWrappingKeyKeystore } from "./indexedDbKeystore";
+export type { IndexedDbLocalKeyringManifestStoreOptions } from "./indexedDbManifestStore";
+export { createIndexedDbLocalKeyringManifestStore } from "./indexedDbManifestStore";
 export {
   readObject,
   readString,
   readVersion1,
-} from "./localKeyring/jsonReaders";
-export type { LocalStorageLocalKeyringManifestStoreOptions } from "./localKeyring/localStorageManifestStore";
-export { createLocalStorageLocalKeyringManifestStore } from "./localKeyring/localStorageManifestStore";
+} from "./jsonReaders";
+export type { LocalStorageLocalKeyringManifestStoreOptions } from "./localStorageManifestStore";
+export { createLocalStorageLocalKeyringManifestStore } from "./localStorageManifestStore";
 export {
   parseLocalKeyringManifest,
   serializeLocalKeyringManifest,
-} from "./localKeyring/manifest";
+} from "./manifest";
 export {
   createMemoryLocalKeyringManifestStore,
   createMemoryWrappingKeyKeystore,
-} from "./localKeyring/memory";
-export { assertNonEmptyString, copyBytes } from "./localKeyring/primitives";
+} from "./memory";
+export { assertNonEmptyString, copyBytes } from "./primitives";
 export {
   canonicalLocalSecretContext,
   localKeyringScopeKey,
   normalizeLocalKeyringScope,
-} from "./localKeyring/scope";
-export { createLocalKeyring } from "./localKeyring/service";
+} from "./scope";
+export { createLocalKeyring } from "./service";
 export {
   decodeLocalKeyringSqliteKey,
   encodeLocalKeyringSqliteKey,
-} from "./localKeyring/sqliteKey";
+} from "./sqliteKey";
 export type {
   LocalKeyPurpose,
   LocalKeyring,
@@ -66,8 +66,8 @@ export type {
   WrappingKeyHandle,
   WrappingKeyKeystore,
   WrappingKeyMaterialStorage,
-} from "./localKeyring/types";
+} from "./types";
 export {
   LOCAL_KEYRING_MANIFEST_FORMAT,
   WRAPPED_LOCAL_SECRET_FORMAT,
-} from "./localKeyring/types";
+} from "./types";

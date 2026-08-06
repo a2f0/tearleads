@@ -7,34 +7,34 @@ import {
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
   organizationReadModelUserId,
-} from "../../test/helpers/organizationReadModelProjectionFixtures";
-import type { BlobStore } from "../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
-import { createDomainScope } from "../data/domainScope";
-import { sqlDocumentMoveIntentPersistence } from "../data/persistence/container-contents/documentMoveIntentPersistence";
+} from "../../../test/helpers/organizationReadModelProjectionFixtures";
+import type { BlobStore } from "../../data/blobContracts";
+import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { createDomainScope } from "../../data/domainScope";
+import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   completeDormantMetadataSweepRequest,
   listDormantMetadataSweepRequests,
-} from "../data/persistence/container-contents/dormantMetadataSweep";
+} from "../../data/persistence/container-contents/dormantMetadataSweep";
 import {
   ensureDocumentTables,
   recordDocumentSyncFailure,
-} from "../data/sqlite/documentPersistence";
-import { containerTables } from "../data/sqlite/schema";
-import type { ExecSql } from "../data/sqlite/sqlSchema";
-import { ensureSqlTables } from "../data/sqlite/sqlSchema";
+} from "../../data/sqlite/documentPersistence";
+import { containerTables } from "../../data/sqlite/schema";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import {
   disposeDomainSyncCoordinator,
   getOrCreateDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
-} from "../data/sync/syncCoordinator";
-import { CONTAINER_CONTENTS_SYNC_LANE_KEY } from "../workflows/container-contents/syncLane";
-import { denyOrganizationPresentationAccess } from "../workflows/organizations/organizationPresentationAccessState";
-import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
+} from "../../data/sync/syncCoordinator";
+import { CONTAINER_CONTENTS_SYNC_LANE_KEY } from "../../workflows/container-contents/syncLane";
+import { denyOrganizationPresentationAccess } from "../../workflows/organizations/organizationPresentationAccessState";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
-} from "./workflowRuntime";
+} from "../workflowRuntime";
+import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
 function createRuntime(
   execSql: ExecSql,

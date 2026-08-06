@@ -6,11 +6,11 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { respondToRegistration } from "../../test/helpers/organizationProvisioningResponder";
-import type { ExecSql, ExecSqlClientLike } from "../sqlite";
-import { Database } from "./database";
-import { createIdentity } from "./identity";
-import { createSession } from "./session";
+import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
+import type { ExecSql, ExecSqlClientLike } from "../../sqlite";
+import { Database } from "../database";
+import { createIdentity } from "../identity";
+import { createSession } from "./index";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 

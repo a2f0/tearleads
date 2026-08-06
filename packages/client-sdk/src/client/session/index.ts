@@ -1,18 +1,18 @@
 import type { ApiClient } from "@tearleads/api-client";
-import type { DocumentProjectorRegistryInput } from "../data/documents/documentKinds";
-import { createOrganization as createOrganizationWorkflow } from "../workflows/organizations";
+import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
+import { createOrganization as createOrganizationWorkflow } from "../../workflows/organizations";
 import {
   bootstrapRootContainer,
   type ProvisionedSystemContainerSpec,
   registerIdentity as registerIdentityWorkflow,
-} from "../workflows/registration";
+} from "../../workflows/registration";
 import {
   type ClearRemoteSyncStateResult,
   clearRemoteSyncState as clearRemoteSyncStateWorkflow,
-} from "../workflows/sync";
-import type { Database } from "./database";
-import type { Identity } from "./identity";
-import { createListenerSet } from "./listenerSet";
+} from "../../workflows/sync";
+import type { Database } from "../database";
+import type { Identity } from "../identity";
+import { createListenerSet } from "../listenerSet";
 import {
   requireRegistrationIdentityPinner,
   requireUserIdentityAvailable,

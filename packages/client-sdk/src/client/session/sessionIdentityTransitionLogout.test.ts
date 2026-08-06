@@ -4,9 +4,9 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
-import { Database } from "./database";
-import { createIdentity } from "./identity";
-import { createSession } from "./session";
+import { Database } from "../database";
+import { createIdentity } from "../identity";
+import { createSession } from "./index";
 
 test("remote logout does not clear a session for a changed identity", async () => {
   let authToken: string | null = null;

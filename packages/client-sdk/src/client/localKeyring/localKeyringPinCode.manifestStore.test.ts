@@ -2,12 +2,12 @@ import { expect, test } from "bun:test";
 import {
   createFakeIndexedDb,
   createTestManifestStorage,
-} from "../../test/helpers/localKeyringFakes";
+} from "../../../test/helpers/localKeyringFakes";
 import {
   createBrowserLocalKeyringManifestStore,
   createLocalStorageLocalKeyringManifestStore,
   type LocalKeyringScope,
-} from "./localKeyring";
+} from "./index";
 import { createPinCodeBrowserLocalKeyring } from "./localKeyringPinCode";
 
 const scope: LocalKeyringScope = {

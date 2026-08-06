@@ -64,7 +64,7 @@ import type {
 import {
   createOrganizationReadModelCoordinator,
   type OrganizationReadModelCoordinator,
-} from "./organizationReadModels";
+} from "./organizations/organizationReadModels";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,

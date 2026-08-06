@@ -265,7 +265,7 @@
       "lines": 1001,
       "bytes": 31624
     },
-    "packages/client-sdk/src/client/organizations.ts": {
+    "packages/client-sdk/src/client/organizations/index.ts": {
       "lines": 617,
       "bytes": 20478
     },
@@ -369,21 +369,21 @@
       "lines": 555,
       "bytes": 19200
     },
-    "packages/validators/src/response/response.test.ts": {
-      "lines": 1159,
-      "bytes": 33792
-    },
     "packages/validators/src/operation/generatedOpenApi.ts": {
       "lines": 12149,
       "bytes": 520973
     },
-    "scripts/subsystems.ts": {
-      "lines": 743,
-      "bytes": 27268
-    },
     "packages/validators/src/response/organizationReadModel.test.ts": {
       "lines": 502,
       "bytes": 12271
+    },
+    "packages/validators/src/response/response.test.ts": {
+      "lines": 1159,
+      "bytes": 33792
+    },
+    "scripts/subsystems.ts": {
+      "lines": 743,
+      "bytes": 27268
     }
   },
   "categories": {

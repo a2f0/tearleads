@@ -1,4 +1,4 @@
-import type { ClearRemoteSyncStateResult } from "../workflows/sync";
+import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 
 export interface SessionContext {
   authToken?: string | null | undefined;

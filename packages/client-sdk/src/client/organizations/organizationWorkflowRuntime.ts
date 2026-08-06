@@ -1,7 +1,7 @@
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
-} from "./workflowRuntime";
+} from "../workflowRuntime";
 
 type OrganizationWorkflow<T> = (input: {
   readonly apiClient: InternalWorkflowRuntimeInput["apiClient"];

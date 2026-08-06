@@ -1,12 +1,12 @@
-import type { DomainScope } from "../data/domainScope";
-import { sqlDocumentMoveIntentPersistence } from "../data/persistence/container-contents/documentMoveIntentPersistence";
-import { requestDormantMetadataRestorationSweeps } from "../data/persistence/container-contents/dormantMetadataSweep";
-import { hasRecordedTerminalSyncFailures } from "../data/sqlite/documentPersistence";
+import type { DomainScope } from "../../data/domainScope";
+import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { requestDormantMetadataRestorationSweeps } from "../../data/persistence/container-contents/dormantMetadataSweep";
+import { hasRecordedTerminalSyncFailures } from "../../data/sqlite/documentPersistence";
 import {
   requestAllDomainSyncLanes,
   requestDomainSyncLane,
-} from "../data/sync/syncCoordinator";
-import { CONTAINER_CONTENTS_SYNC_LANE_KEY } from "../workflows/container-contents/syncLane";
+} from "../../data/sync/syncCoordinator";
+import { CONTAINER_CONTENTS_SYNC_LANE_KEY } from "../../workflows/container-contents/syncLane";
 import {
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationDirectoryAndGroups,
@@ -24,16 +24,16 @@ import {
   type OrganizationPolicyHistory,
   type OrganizationUserDetail,
   reconcileOrganizationDirectoryAndGroups,
-} from "../workflows/organizations";
+} from "../../workflows/organizations";
 import {
   organizationAccessScopeKey,
   wasOrganizationPresentationAccessDeniedByServer,
-} from "../workflows/organizations/organizationPresentationAccessState";
-import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
+} from "../../workflows/organizations/organizationPresentationAccessState";
+import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
-} from "./workflowRuntime";
+} from "../workflowRuntime";
 
 const coordinatorsByRuntime = new WeakMap<
   InternalRuntime,

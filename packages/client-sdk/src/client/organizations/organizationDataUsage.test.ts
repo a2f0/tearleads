@@ -5,18 +5,18 @@ import type { OrganizationDataUsageResponse } from "@tearleads/validators/respon
 import {
   dataUsage,
   organizationId,
-} from "../../test/helpers/organizationReadModelFixtures";
-import type { BlobStore } from "../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
-import { createDomainScope } from "../data/domainScope";
+} from "../../../test/helpers/organizationReadModelFixtures";
+import type { BlobStore } from "../../data/blobContracts";
+import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { createDomainScope } from "../../data/domainScope";
+import type {
+  InternalRuntime,
+  InternalWorkflowRuntimeInput,
+} from "../workflowRuntime";
 import {
   createOrganizationDataUsageCoordinator,
   type OrganizationDataUsageCoordinator,
 } from "./organizationDataUsage";
-import type {
-  InternalRuntime,
-  InternalWorkflowRuntimeInput,
-} from "./workflowRuntime";
 
 interface DataUsageTestRuntime {
   readonly coordinator: OrganizationDataUsageCoordinator;

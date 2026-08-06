@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { Tearleads } from "./Tearleads";
+import { Tearleads } from "../Tearleads";
 
 test("default organization is stable and distinct from active context", () => {
   const sdk = new Tearleads();
