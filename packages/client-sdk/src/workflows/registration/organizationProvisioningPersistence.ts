@@ -226,7 +226,7 @@ export async function persistOrganizationProvisioningState(
 ): Promise<void> {
   try {
     const artifacts = await buildProvisioningPersistenceArtifacts(input);
-    await persistRegistrationBootstrap(input.dbClient, {
+    const persisted = await persistRegistrationBootstrap(input.dbClient, {
       acknowledgedAccessHeads: artifacts.acknowledgedAccessHeads,
       canStartDurableMutation: input.canStartDurableMutation,
       containerId: input.containerId,
@@ -274,7 +274,11 @@ export async function persistOrganizationProvisioningState(
         : {}),
       userId: input.response.userId,
     });
-    input.log?.("Local organization bootstrap persisted");
+    input.log?.(
+      persisted
+        ? "Local organization bootstrap persisted"
+        : "Local organization bootstrap skipped: identity replaced",
+    );
   } catch (error: unknown) {
     if (input.logError) {
       input.logError("Failed to persist registration data", error);

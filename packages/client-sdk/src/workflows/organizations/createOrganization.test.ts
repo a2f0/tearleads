@@ -410,6 +410,7 @@ test("createOrganization persists nothing when the identity goes stale in-flight
   );
   let captured: CreateOrganizationRequest | null = null;
   let identityProbes = 0;
+  let releaseHold = () => {};
 
   try {
     const client = createClient(execSql);
@@ -418,7 +419,6 @@ test("createOrganization persists nothing when the identity goes stale in-flight
     // queue is busy, the identity is replaced while the persist waits, and
     // only the in-mutex currency check sees it stale.
     const workflowExecSql = createExecSql(client);
-    let releaseHold!: () => void;
     const held = new Promise<void>((resolve) => {
       releaseHold = resolve;
     });
@@ -450,9 +450,13 @@ test("createOrganization persists nothing when the identity goes stale in-flight
       userId: crypto.randomUUID(),
     });
 
-    // Both pre-persist probes must pass before the replacement lands, so the
-    // in-mutex check is the one that catches it.
+    // Both pre-persist probes must pass (bounded wait) before the
+    // replacement lands, so the in-mutex check is the one that catches it.
+    const deadline = Date.now() + 5_000;
     while (identityProbes < 2) {
+      if (Date.now() > deadline) {
+        throw new Error("Creation never reached the pre-persist check");
+      }
       await new Promise((resolve) => setTimeout(resolve, 1));
     }
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -488,6 +492,7 @@ test("createOrganization persists nothing when the identity goes stale in-flight
       ),
     ).resolves.toBeNull();
   } finally {
+    releaseHold();
     close();
   }
 });

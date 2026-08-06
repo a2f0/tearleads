@@ -63,13 +63,13 @@ test("registration persists nothing when the identity goes stale in-flight", asy
     },
   };
 
+  let releaseHold = () => {};
   try {
     const client = createClient(execSql);
     // Genuinely hold the mutation queue the bootstrap persist serializes on,
     // so the registration reaches the queue and waits behind a mutation that
     // is still running — the window the in-mutex currency check guards.
     const workflowExecSql = createExecSql(client);
-    let releaseHold!: () => void;
     const held = new Promise<void>((resolve) => {
       releaseHold = resolve;
     });
@@ -100,9 +100,14 @@ test("registration persists nothing when the identity goes stale in-flight", asy
       signingKeyPair,
     });
 
-    // Wait for the remote registration to complete; the only remaining step
-    // is the bootstrap persist, queued behind the held mutation.
+    // Wait (bounded) for the remote registration to complete; the only
+    // remaining step is the bootstrap persist, queued behind the held
+    // mutation.
+    const deadline = Date.now() + 5_000;
     while (capturedOrganizationId === null) {
+      if (Date.now() > deadline) {
+        throw new Error("Registration never reached the remote API");
+      }
       await new Promise((resolve) => setTimeout(resolve, 1));
     }
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -148,6 +153,7 @@ test("registration persists nothing when the identity goes stale in-flight", asy
       ),
     ).resolves.toBeNull();
   } finally {
+    releaseHold();
     close();
   }
 });
