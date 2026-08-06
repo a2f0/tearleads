@@ -9,6 +9,7 @@ import {
   webSocketTicketOperation,
 } from "./auth";
 import { documentSyncOperation } from "./documentSync";
+import { createOrganizationOperation } from "./organizations";
 
 export const protocolOperations = [
   challengeOperation,
@@ -19,5 +20,6 @@ export const protocolOperations = [
   userIdentityOperation,
   verifyOperation,
   webSocketTicketOperation,
+  createOrganizationOperation,
   documentSyncOperation,
 ] as const;

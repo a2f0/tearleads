@@ -145,6 +145,22 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["organizations.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 };
 export type webhooks = Record<string, never>;
 export type components = {
@@ -4663,6 +4679,3715 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    "organizations.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    initialAdminGroup: {
+                        groupId: string;
+                        initialGroupPolicy: {
+                            containerMutations?: ({
+                                body: unknown;
+                                containerManifestHistory?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                destinationParentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                expectedManifestHash: string;
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyring: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    iv: string;
+                                    sealed: string;
+                                    sealingSuite: string;
+                                    /** @constant */
+                                    version: 1;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                parentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                parentKekState?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                predecessorBridge: {
+                                    [key: string]: unknown;
+                                } | null;
+                                previousContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                previousManifest?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                principalPolicies: {
+                                    [key: string]: unknown;
+                                }[];
+                                userRecipientKeys?: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            encryptedPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            memberEnvelopes: ({
+                                kemCipherText: string;
+                                memberKeyFingerprint: string;
+                                userId: string;
+                                wrappedKey: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            projection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            state: {
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        name: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    initialMemberGroup: {
+                        groupId: string;
+                        initialGroupPolicy: {
+                            containerMutations?: ({
+                                body: unknown;
+                                containerManifestHistory?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                destinationParentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                expectedManifestHash: string;
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyring: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    iv: string;
+                                    sealed: string;
+                                    sealingSuite: string;
+                                    /** @constant */
+                                    version: 1;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                parentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                parentKekState?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                predecessorBridge: {
+                                    [key: string]: unknown;
+                                } | null;
+                                previousContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                previousManifest?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                principalPolicies: {
+                                    [key: string]: unknown;
+                                }[];
+                                userRecipientKeys?: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            encryptedPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            memberEnvelopes: ({
+                                kemCipherText: string;
+                                memberKeyFingerprint: string;
+                                userId: string;
+                                wrappedKey: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            projection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            state: {
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        name: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    initialOrganizationMetadataContainer?: {
+                        container: {
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        initialMetadataSync: {
+                            authorizingContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[][];
+                            containerRekeys?: ({
+                                body: unknown;
+                                containerManifestHistory?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                destinationParentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                expectedManifestHash: string;
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyring: {
+                                    [key: string]: unknown;
+                                } | null;
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                parentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                parentKekState?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                predecessorBridge: {
+                                    [key: string]: unknown;
+                                } | null;
+                                previousContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                previousManifest?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                principalPolicies: {
+                                    [key: string]: unknown;
+                                }[];
+                                userRecipientKeys?: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            contentKeyBundle?: {
+                                contentKeyEpoch: number;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            contentKeyEpoch: number;
+                            expectedLinkSetManifestHash: string;
+                            expectedTargetHash: string;
+                            localVersionVector: string | null;
+                            minLsn?: string;
+                            outgoingUpdates: ({
+                                /** @constant */
+                                checkpointKind?: "rotate_baseline";
+                                /** @constant */
+                                checkpointPayloadKind?: "full_history_snapshot";
+                                encryptedData: string;
+                                id: string;
+                                partialEndVersionVector: string;
+                                partialStartVersionVector: string;
+                                plaintextHash: string;
+                                sourceVersionVector?: string;
+                                writeHeader: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        metadataDocument: {
+                            authorizingContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[][];
+                            body: unknown;
+                            containerRekeys?: ({
+                                body: unknown;
+                                containerManifestHistory?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                destinationParentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                expectedManifestHash: string;
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyring: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    iv: string;
+                                    sealed: string;
+                                    sealingSuite: string;
+                                    /** @constant */
+                                    version: 1;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                parentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                parentKekState?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                predecessorBridge: {
+                                    [key: string]: unknown;
+                                } | null;
+                                previousContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                previousManifest?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                principalPolicies: {
+                                    [key: string]: unknown;
+                                }[];
+                                userRecipientKeys?: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            contentKeyBundle: {
+                                contentKeyEpoch: number;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            targetContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        systemSlot?: string | null;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    initialOrganizationPolicy: {
+                        containerMutations?: ({
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        encryptedPayload: {
+                            /** @constant */
+                            cipherSuite: "aes-256-gcm";
+                            ciphertext: string;
+                            ciphertextHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        memberEnvelopes: ({
+                            kemCipherText: string;
+                            memberKeyFingerprint: string;
+                            userId: string;
+                            wrappedKey: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        projection: ({
+                            /** @enum {string} */
+                            role: "member" | "admin";
+                            userId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        state: {
+                            encapsulationPublicKey: string;
+                            externalAuthority: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @constant */
+                                principalType: "group";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            memberCount: number;
+                            memberEnvelopesRoot: string;
+                            /** @constant */
+                            membershipMode: "projection";
+                            membershipRoot: string;
+                            payloadCiphertextHash: string;
+                            prevStateHash: string | null;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            projectionRoot: string;
+                            signature: string;
+                            signedAt: string;
+                            signerUserId: string;
+                            signerUserKeyFingerprint: string;
+                            version: number;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    initialOrganizationProfileDocument?: {
+                        authorizingContainerPathRefs?: ({
+                            containerId: string;
+                            manifestHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[][];
+                        body: unknown;
+                        containerRekeys?: ({
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        contentKeyBundle: {
+                            contentKeyEpoch: number;
+                            linkSetManifestHash: string;
+                            targetHash: string;
+                            targets: ({
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHash: string;
+                                wrappedKey: string;
+                                wrappingMetadata: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        event: {
+                            [key: string]: unknown;
+                        };
+                        expectedManifestHash: string;
+                        initialSync: {
+                            authorizingContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[][];
+                            containerRekeys?: ({
+                                body: unknown;
+                                containerManifestHistory?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                destinationParentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                expectedManifestHash: string;
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyring: {
+                                    [key: string]: unknown;
+                                } | null;
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                parentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                parentKekState?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                predecessorBridge: {
+                                    [key: string]: unknown;
+                                } | null;
+                                previousContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                previousManifest?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                principalPolicies: {
+                                    [key: string]: unknown;
+                                }[];
+                                userRecipientKeys?: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            contentKeyBundle?: {
+                                contentKeyEpoch: number;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            contentKeyEpoch: number;
+                            expectedLinkSetManifestHash: string;
+                            expectedTargetHash: string;
+                            localVersionVector: string | null;
+                            minLsn?: string;
+                            outgoingUpdates: ({
+                                /** @constant */
+                                checkpointKind?: "rotate_baseline";
+                                /** @constant */
+                                checkpointPayloadKind?: "full_history_snapshot";
+                                encryptedData: string;
+                                id: string;
+                                partialEndVersionVector: string;
+                                partialStartVersionVector: string;
+                                plaintextHash: string;
+                                sourceVersionVector?: string;
+                                writeHeader: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        manifest: {
+                            [key: string]: unknown;
+                        };
+                        previousManifest?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        targetContainerPathRefs?: ({
+                            containerId: string;
+                            manifestHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    initialRootContainer: {
+                        body: unknown;
+                        containerManifestHistory?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        destinationParentContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        event: {
+                            [key: string]: unknown;
+                        };
+                        expectedManifestHash: string;
+                        keyEpoch: {
+                            [key: string]: unknown;
+                        };
+                        keyring: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            iv: string;
+                            sealed: string;
+                            sealingSuite: string;
+                            /** @constant */
+                            version: 1;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        manifest: {
+                            [key: string]: unknown;
+                        };
+                        parentContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        parentKekState?: {
+                            [key: string]: unknown;
+                        } | null;
+                        predecessorBridge: {
+                            [key: string]: unknown;
+                        } | null;
+                        previousContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        previousManifest?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        principalPolicies: {
+                            [key: string]: unknown;
+                        }[];
+                        userRecipientKeys?: {
+                            [key: string]: unknown;
+                        }[];
+                        wraps: {
+                            [key: string]: unknown;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    initialRootMetadataDocument: {
+                        authorizingContainerPathRefs?: ({
+                            containerId: string;
+                            manifestHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[][];
+                        body: unknown;
+                        containerRekeys?: ({
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        contentKeyBundle: {
+                            contentKeyEpoch: number;
+                            linkSetManifestHash: string;
+                            targetHash: string;
+                            targets: ({
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHash: string;
+                                wrappedKey: string;
+                                wrappingMetadata: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        event: {
+                            [key: string]: unknown;
+                        };
+                        expectedManifestHash: string;
+                        initialSync: {
+                            authorizingContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[][];
+                            containerRekeys?: ({
+                                body: unknown;
+                                containerManifestHistory?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                destinationParentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                expectedManifestHash: string;
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyring: {
+                                    [key: string]: unknown;
+                                } | null;
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                parentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                parentKekState?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                predecessorBridge: {
+                                    [key: string]: unknown;
+                                } | null;
+                                previousContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                previousManifest?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                principalPolicies: {
+                                    [key: string]: unknown;
+                                }[];
+                                userRecipientKeys?: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            contentKeyBundle?: {
+                                contentKeyEpoch: number;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            contentKeyEpoch: number;
+                            expectedLinkSetManifestHash: string;
+                            expectedTargetHash: string;
+                            localVersionVector: string | null;
+                            minLsn?: string;
+                            outgoingUpdates: ({
+                                /** @constant */
+                                checkpointKind?: "rotate_baseline";
+                                /** @constant */
+                                checkpointPayloadKind?: "full_history_snapshot";
+                                encryptedData: string;
+                                id: string;
+                                partialEndVersionVector: string;
+                                partialStartVersionVector: string;
+                                plaintextHash: string;
+                                sourceVersionVector?: string;
+                                writeHeader: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        manifest: {
+                            [key: string]: unknown;
+                        };
+                        previousManifest?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        targetContainerPathRefs?: ({
+                            containerId: string;
+                            manifestHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    initialRosterProfileContainer?: {
+                        container: {
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        initialMetadataSync: {
+                            authorizingContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[][];
+                            containerRekeys?: ({
+                                body: unknown;
+                                containerManifestHistory?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                destinationParentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                expectedManifestHash: string;
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyring: {
+                                    [key: string]: unknown;
+                                } | null;
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                parentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                parentKekState?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                predecessorBridge: {
+                                    [key: string]: unknown;
+                                } | null;
+                                previousContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                previousManifest?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                principalPolicies: {
+                                    [key: string]: unknown;
+                                }[];
+                                userRecipientKeys?: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            contentKeyBundle?: {
+                                contentKeyEpoch: number;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            contentKeyEpoch: number;
+                            expectedLinkSetManifestHash: string;
+                            expectedTargetHash: string;
+                            localVersionVector: string | null;
+                            minLsn?: string;
+                            outgoingUpdates: ({
+                                /** @constant */
+                                checkpointKind?: "rotate_baseline";
+                                /** @constant */
+                                checkpointPayloadKind?: "full_history_snapshot";
+                                encryptedData: string;
+                                id: string;
+                                partialEndVersionVector: string;
+                                partialStartVersionVector: string;
+                                plaintextHash: string;
+                                sourceVersionVector?: string;
+                                writeHeader: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        metadataDocument: {
+                            authorizingContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[][];
+                            body: unknown;
+                            containerRekeys?: ({
+                                body: unknown;
+                                containerManifestHistory?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                destinationParentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                expectedManifestHash: string;
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyring: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    iv: string;
+                                    sealed: string;
+                                    sealingSuite: string;
+                                    /** @constant */
+                                    version: 1;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                parentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                parentKekState?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                predecessorBridge: {
+                                    [key: string]: unknown;
+                                } | null;
+                                previousContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                previousManifest?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                principalPolicies: {
+                                    [key: string]: unknown;
+                                }[];
+                                userRecipientKeys?: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            contentKeyBundle: {
+                                contentKeyEpoch: number;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            targetContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        systemSlot?: string | null;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    initialRosterProfileDocument?: {
+                        authorizingContainerPathRefs?: ({
+                            containerId: string;
+                            manifestHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[][];
+                        body: unknown;
+                        containerRekeys?: ({
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        contentKeyBundle: {
+                            contentKeyEpoch: number;
+                            linkSetManifestHash: string;
+                            targetHash: string;
+                            targets: ({
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHash: string;
+                                wrappedKey: string;
+                                wrappingMetadata: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        event: {
+                            [key: string]: unknown;
+                        };
+                        expectedManifestHash: string;
+                        initialSync: {
+                            authorizingContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[][];
+                            containerRekeys?: ({
+                                body: unknown;
+                                containerManifestHistory?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                destinationParentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                expectedManifestHash: string;
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyring: {
+                                    [key: string]: unknown;
+                                } | null;
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                parentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                parentKekState?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                predecessorBridge: {
+                                    [key: string]: unknown;
+                                } | null;
+                                previousContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                previousManifest?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                principalPolicies: {
+                                    [key: string]: unknown;
+                                }[];
+                                userRecipientKeys?: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            contentKeyBundle?: {
+                                contentKeyEpoch: number;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            contentKeyEpoch: number;
+                            expectedLinkSetManifestHash: string;
+                            expectedTargetHash: string;
+                            localVersionVector: string | null;
+                            minLsn?: string;
+                            outgoingUpdates: ({
+                                /** @constant */
+                                checkpointKind?: "rotate_baseline";
+                                /** @constant */
+                                checkpointPayloadKind?: "full_history_snapshot";
+                                encryptedData: string;
+                                id: string;
+                                partialEndVersionVector: string;
+                                partialStartVersionVector: string;
+                                plaintextHash: string;
+                                sourceVersionVector?: string;
+                                writeHeader: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        manifest: {
+                            [key: string]: unknown;
+                        };
+                        previousManifest?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        targetContainerPathRefs?: ({
+                            containerId: string;
+                            manifestHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    initialSystemContainers?: ({
+                        container: {
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        initialMetadataSync: {
+                            authorizingContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[][];
+                            containerRekeys?: ({
+                                body: unknown;
+                                containerManifestHistory?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                destinationParentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                expectedManifestHash: string;
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyring: {
+                                    [key: string]: unknown;
+                                } | null;
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                parentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                parentKekState?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                predecessorBridge: {
+                                    [key: string]: unknown;
+                                } | null;
+                                previousContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                previousManifest?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                principalPolicies: {
+                                    [key: string]: unknown;
+                                }[];
+                                userRecipientKeys?: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            contentKeyBundle?: {
+                                contentKeyEpoch: number;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            contentKeyEpoch: number;
+                            expectedLinkSetManifestHash: string;
+                            expectedTargetHash: string;
+                            localVersionVector: string | null;
+                            minLsn?: string;
+                            outgoingUpdates: ({
+                                /** @constant */
+                                checkpointKind?: "rotate_baseline";
+                                /** @constant */
+                                checkpointPayloadKind?: "full_history_snapshot";
+                                encryptedData: string;
+                                id: string;
+                                partialEndVersionVector: string;
+                                partialStartVersionVector: string;
+                                plaintextHash: string;
+                                sourceVersionVector?: string;
+                                writeHeader: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        metadataDocument: {
+                            authorizingContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[][];
+                            body: unknown;
+                            containerRekeys?: ({
+                                body: unknown;
+                                containerManifestHistory?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                destinationParentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                expectedManifestHash: string;
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyring: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    iv: string;
+                                    sealed: string;
+                                    sealingSuite: string;
+                                    /** @constant */
+                                    version: 1;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                parentContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                parentKekState?: {
+                                    [key: string]: unknown;
+                                } | null;
+                                predecessorBridge: {
+                                    [key: string]: unknown;
+                                } | null;
+                                previousContainerPath?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                previousManifest?: ({
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                principalPolicies: {
+                                    [key: string]: unknown;
+                                }[];
+                                userRecipientKeys?: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            contentKeyBundle: {
+                                contentKeyEpoch: number;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            targetContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        systemSlot?: string | null;
+                    } & {
+                        [key: string]: unknown;
+                    })[];
+                    organizationId: string;
+                    rootContainerId: string;
+                    userId: string;
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        committedCoreMetadataUpdateIds: string[];
+                        committedProfileUpdateIds: string[];
+                        organizationId: string;
+                        organizationMetadataContainer?: {
+                            container: {
+                                accessManifest: {
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                containerId: string;
+                                containerKek: {
+                                    accessManifestHash: string;
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHistory: ({
+                                        event: {
+                                            body: unknown;
+                                            event: {
+                                                [key: string]: unknown;
+                                            };
+                                            eventHash: string;
+                                        } & {
+                                            [key: string]: unknown;
+                                        };
+                                        manifest: {
+                                            [key: string]: unknown;
+                                        };
+                                        manifestHash: string;
+                                        state: {
+                                            [key: string]: unknown;
+                                        };
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                    keyEpoch: {
+                                        [key: string]: unknown;
+                                    };
+                                    keyEpochHash: string;
+                                    keyring: ({
+                                        containerId: string;
+                                        containerKeyEpochId: string;
+                                        iv: string;
+                                        sealed: string;
+                                        sealingSuite: string;
+                                        /** @constant */
+                                        version: 1;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    keyTargetHash: string;
+                                    parentContainerKeyEpochId: string | null;
+                                    recipientTargets: {
+                                        [key: string]: unknown;
+                                    }[];
+                                    wraps: {
+                                        [key: string]: unknown;
+                                    }[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                createdAt: string;
+                                manifestHead: {
+                                    epoch: number;
+                                    manifestHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                organizationId: string;
+                                parentId: string | null;
+                                referencedPrincipalHeads: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                systemSlot?: string | null;
+                                updatedAt: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            metadataDocument: {
+                                accessManifest: {
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                contentKeyBundle: {
+                                    contentKeyEpoch: number;
+                                    documentId: string;
+                                    linkSetManifestHash: string;
+                                    targetHash: string;
+                                    targets: ({
+                                        containerId: string;
+                                        containerKeyEpoch: number;
+                                        containerKeyEpochId: string;
+                                        containerManifestHash: string;
+                                        wrappedKey: string;
+                                        wrappingMetadata: {
+                                            [key: string]: unknown;
+                                        };
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                createdAt: string;
+                                documentKekTargets: {
+                                    documentId: string;
+                                    documentKeyTargetHash: string;
+                                    linkedContainerKeyEpochIds: string[];
+                                    linkedContainerManifestHashes: string[];
+                                    linkSetManifestHash: string;
+                                    targets: {
+                                        [key: string]: unknown;
+                                    }[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                id: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        organizationMetadataContainerId?: string;
+                        organizationProfileDocument?: {
+                            accessManifest: {
+                                event: {
+                                    body: unknown;
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    eventHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            contentKeyBundle: {
+                                contentKeyEpoch: number;
+                                documentId: string;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            createdAt: string;
+                            documentKekTargets: {
+                                documentId: string;
+                                documentKeyTargetHash: string;
+                                linkedContainerKeyEpochIds: string[];
+                                linkedContainerManifestHashes: string[];
+                                linkSetManifestHash: string;
+                                targets: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            id: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        organizationProfileDocumentId?: string;
+                        rootContainerId: string;
+                        rootMetadataAccessEpoch: number;
+                        rootMetadataAccessStateHash: string;
+                        rootMetadataDocument: {
+                            accessManifest: {
+                                event: {
+                                    body: unknown;
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    eventHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            contentKeyBundle: {
+                                contentKeyEpoch: number;
+                                documentId: string;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            createdAt: string;
+                            documentKekTargets: {
+                                documentId: string;
+                                documentKeyTargetHash: string;
+                                linkedContainerKeyEpochIds: string[];
+                                linkedContainerManifestHashes: string[];
+                                linkSetManifestHash: string;
+                                targets: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            id: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        rootMetadataDocumentId: string;
+                        rosterProfileContainer?: {
+                            container: {
+                                accessManifest: {
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                containerId: string;
+                                containerKek: {
+                                    accessManifestHash: string;
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHistory: ({
+                                        event: {
+                                            body: unknown;
+                                            event: {
+                                                [key: string]: unknown;
+                                            };
+                                            eventHash: string;
+                                        } & {
+                                            [key: string]: unknown;
+                                        };
+                                        manifest: {
+                                            [key: string]: unknown;
+                                        };
+                                        manifestHash: string;
+                                        state: {
+                                            [key: string]: unknown;
+                                        };
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                    keyEpoch: {
+                                        [key: string]: unknown;
+                                    };
+                                    keyEpochHash: string;
+                                    keyring: ({
+                                        containerId: string;
+                                        containerKeyEpochId: string;
+                                        iv: string;
+                                        sealed: string;
+                                        sealingSuite: string;
+                                        /** @constant */
+                                        version: 1;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    keyTargetHash: string;
+                                    parentContainerKeyEpochId: string | null;
+                                    recipientTargets: {
+                                        [key: string]: unknown;
+                                    }[];
+                                    wraps: {
+                                        [key: string]: unknown;
+                                    }[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                createdAt: string;
+                                manifestHead: {
+                                    epoch: number;
+                                    manifestHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                organizationId: string;
+                                parentId: string | null;
+                                referencedPrincipalHeads: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                systemSlot?: string | null;
+                                updatedAt: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            metadataDocument: {
+                                accessManifest: {
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                contentKeyBundle: {
+                                    contentKeyEpoch: number;
+                                    documentId: string;
+                                    linkSetManifestHash: string;
+                                    targetHash: string;
+                                    targets: ({
+                                        containerId: string;
+                                        containerKeyEpoch: number;
+                                        containerKeyEpochId: string;
+                                        containerManifestHash: string;
+                                        wrappedKey: string;
+                                        wrappingMetadata: {
+                                            [key: string]: unknown;
+                                        };
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                createdAt: string;
+                                documentKekTargets: {
+                                    documentId: string;
+                                    documentKeyTargetHash: string;
+                                    linkedContainerKeyEpochIds: string[];
+                                    linkedContainerManifestHashes: string[];
+                                    linkSetManifestHash: string;
+                                    targets: {
+                                        [key: string]: unknown;
+                                    }[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                id: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        rosterProfileContainerId?: string;
+                        rosterProfileDocument?: {
+                            accessManifest: {
+                                event: {
+                                    body: unknown;
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    eventHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            contentKeyBundle: {
+                                contentKeyEpoch: number;
+                                documentId: string;
+                                linkSetManifestHash: string;
+                                targetHash: string;
+                                targets: ({
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHash: string;
+                                    wrappedKey: string;
+                                    wrappingMetadata: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            createdAt: string;
+                            documentKekTargets: {
+                                documentId: string;
+                                documentKeyTargetHash: string;
+                                linkedContainerKeyEpochIds: string[];
+                                linkedContainerManifestHashes: string[];
+                                linkSetManifestHash: string;
+                                targets: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            id: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        rosterProfileDocumentId?: string;
+                        systemContainers: ({
+                            container: {
+                                accessManifest: {
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                containerId: string;
+                                containerKek: {
+                                    accessManifestHash: string;
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHistory: ({
+                                        event: {
+                                            body: unknown;
+                                            event: {
+                                                [key: string]: unknown;
+                                            };
+                                            eventHash: string;
+                                        } & {
+                                            [key: string]: unknown;
+                                        };
+                                        manifest: {
+                                            [key: string]: unknown;
+                                        };
+                                        manifestHash: string;
+                                        state: {
+                                            [key: string]: unknown;
+                                        };
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                    keyEpoch: {
+                                        [key: string]: unknown;
+                                    };
+                                    keyEpochHash: string;
+                                    keyring: ({
+                                        containerId: string;
+                                        containerKeyEpochId: string;
+                                        iv: string;
+                                        sealed: string;
+                                        sealingSuite: string;
+                                        /** @constant */
+                                        version: 1;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    keyTargetHash: string;
+                                    parentContainerKeyEpochId: string | null;
+                                    recipientTargets: {
+                                        [key: string]: unknown;
+                                    }[];
+                                    wraps: {
+                                        [key: string]: unknown;
+                                    }[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                createdAt: string;
+                                manifestHead: {
+                                    epoch: number;
+                                    manifestHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                organizationId: string;
+                                parentId: string | null;
+                                referencedPrincipalHeads: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                systemSlot?: string | null;
+                                updatedAt: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            metadataDocument: {
+                                accessManifest: {
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                contentKeyBundle: {
+                                    contentKeyEpoch: number;
+                                    documentId: string;
+                                    linkSetManifestHash: string;
+                                    targetHash: string;
+                                    targets: ({
+                                        containerId: string;
+                                        containerKeyEpoch: number;
+                                        containerKeyEpochId: string;
+                                        containerManifestHash: string;
+                                        wrappedKey: string;
+                                        wrappingMetadata: {
+                                            [key: string]: unknown;
+                                        };
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                createdAt: string;
+                                documentKekTargets: {
+                                    documentId: string;
+                                    documentKeyTargetHash: string;
+                                    linkedContainerKeyEpochIds: string[];
+                                    linkedContainerManifestHashes: string[];
+                                    linkSetManifestHash: string;
+                                    targets: {
+                                        [key: string]: unknown;
+                                    }[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                id: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        userId: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
     };

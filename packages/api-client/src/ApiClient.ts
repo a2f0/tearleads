@@ -37,7 +37,6 @@ import {
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,
   isCreateOrganizationGroupResponse,
-  isCreateOrganizationResponse,
   isDeleteOrganizationGroupResponse,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
@@ -105,6 +104,7 @@ import {
 import { containerDocsPath } from "./routes/containers/queryParams";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
 import { documentSync as sync } from "./routes/documents/sync";
+import { createOrganization as organizationCreate } from "./routes/organizations/create";
 import { organizationReadModelPath } from "./routes/organizations/readModelPath";
 import { pathSegment } from "./routes/path";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
@@ -697,9 +697,9 @@ export class ApiClient {
 
   createOrganization(request: CreateOrganizationRequest) {
     return this.request(
-      "/organizations",
-      isCreateOrganizationResponse,
-      "POST",
+      organizationCreate.path,
+      organizationCreate.isResponse,
+      organizationCreate.method,
       JSON.stringify(request),
     );
   }

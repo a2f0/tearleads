@@ -1,12 +1,15 @@
-import { isCreateOrganizationRequest } from "@tearleads/validators/request";
+import {
+  createOrganizationOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type { CreateOrganizationResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
-import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
 import {
   createOrganization,
   OrganizationProvisioningError,
 } from "../../services/organizations/createOrganization";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
 import type { OrganizationsRouterDeps } from "./shared";
 
 export function createOrganizationCreateRoute({
@@ -15,16 +18,11 @@ export function createOrganizationCreateRoute({
 }: OrganizationsRouterDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.post(
-    "/organizations",
+  route.on(
+    createOrganizationOperation.method,
+    operationRoutePath(createOrganizationOperation),
     requireAuth,
-    validator("json", (value, c) => {
-      if (!isCreateOrganizationRequest(value)) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-
-      return value;
-    }),
+    jsonRequestValidator(createOrganizationOperation.body),
     async (c) => {
       const session = c.get("session");
       try {
