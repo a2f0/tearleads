@@ -1,5 +1,5 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, or, type SQL } from "drizzle-orm";
 import {
   containerSyncLaneChecks,
   containerSyncWatermarks,
@@ -17,8 +17,8 @@ const CONTAINER_DOCUMENTS_LANE = "container_documents";
 const ROOT_CONTAINER_PARENT_LANE_ID = "root";
 const CONTAINER_PARENT_LANE_ID_PREFIX = "parent:";
 // Each lane predicate binds two values, so keep batches comfortably under
-// SQLite's variable limit when startup checks many cached parent lanes.
-const CHECK_RECORD_SELECT_BATCH_SIZE = 100;
+// SQLite's variable limit when a caller reads many lanes at once.
+const LANE_SELECT_BATCH_SIZE = 100;
 
 export type ContainerSyncWatermarkLane =
   | {
@@ -178,88 +178,93 @@ function uniqueLaneKeys(
   return laneKeys;
 }
 
-async function selectWatermarkRows(
-  execSql: ExecSql,
+// The ONE batched lane-select shape for this file: both row readers must
+// chunk, because a caller may pass unboundedly many lanes and each lane
+// predicate binds two variables.
+async function selectLaneRowsInBatches<TRow>(
   lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
-): Promise<SelectedContainerSyncWatermark[]> {
+  buildLanePredicate: (laneKey: {
+    laneId: string;
+    laneKind: string;
+  }) => SQL | undefined,
+  selectBatch: (whereClause: SQL) => Promise<TRow[]>,
+): Promise<TRow[]> {
   const laneKeys = uniqueLaneKeys(lanes);
-  if (laneKeys.length === 0) {
-    return [];
-  }
-
-  await ensureSqlTables(execSql, containerSyncWatermarkTables);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const lanePredicates = laneKeys.map(({ laneId, laneKind }) =>
-    and(
-      eq(containerSyncWatermarks.laneKind, laneKind),
-      eq(containerSyncWatermarks.laneId, laneId),
-    ),
-  );
-  const whereClause =
-    lanePredicates.length === 1 ? lanePredicates[0] : or(...lanePredicates);
-  if (!whereClause) {
-    return [];
-  }
-
-  const rows = await db
-    .select({
-      laneId: containerSyncWatermarks.laneId,
-      laneKind: containerSyncWatermarks.laneKind,
-      updatedAt: containerSyncWatermarks.updatedAt,
-      watermarkId: containerSyncWatermarks.watermarkId,
-      watermarkUpdatedAt: containerSyncWatermarks.watermarkUpdatedAt,
-    })
-    .from(containerSyncWatermarks)
-    .where(whereClause);
-
-  return rows;
-}
-
-async function selectCheckRows(
-  execSql: ExecSql,
-  lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
-): Promise<ContainerSyncLaneCheckRecord[]> {
-  const laneKeys = uniqueLaneKeys(lanes);
-  if (laneKeys.length === 0) {
-    return [];
-  }
-
-  await ensureSqlTables(execSql, containerSyncWatermarkTables);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const rows: ContainerSyncLaneCheckRecord[] = [];
+  const rows: TRow[] = [];
 
   for (
     let index = 0;
     index < laneKeys.length;
-    index += CHECK_RECORD_SELECT_BATCH_SIZE
+    index += LANE_SELECT_BATCH_SIZE
   ) {
     const lanePredicates = laneKeys
-      .slice(index, index + CHECK_RECORD_SELECT_BATCH_SIZE)
-      .map(({ laneId, laneKind }) =>
-        and(
-          eq(containerSyncLaneChecks.laneKind, laneKind),
-          eq(containerSyncLaneChecks.laneId, laneId),
-        ),
-      );
+      .slice(index, index + LANE_SELECT_BATCH_SIZE)
+      .map(buildLanePredicate)
+      .filter((predicate): predicate is SQL => predicate !== undefined);
     const whereClause =
       lanePredicates.length === 1 ? lanePredicates[0] : or(...lanePredicates);
     if (!whereClause) {
       continue;
     }
 
-    rows.push(
-      ...(await db
+    rows.push(...(await selectBatch(whereClause)));
+  }
+
+  return rows;
+}
+
+async function selectWatermarkRows(
+  execSql: ExecSql,
+  lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
+): Promise<SelectedContainerSyncWatermark[]> {
+  await ensureSqlTables(execSql, containerSyncWatermarkTables);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+
+  return selectLaneRowsInBatches(
+    lanes,
+    ({ laneId, laneKind }) =>
+      and(
+        eq(containerSyncWatermarks.laneKind, laneKind),
+        eq(containerSyncWatermarks.laneId, laneId),
+      ),
+    (whereClause) =>
+      db
+        .select({
+          laneId: containerSyncWatermarks.laneId,
+          laneKind: containerSyncWatermarks.laneKind,
+          updatedAt: containerSyncWatermarks.updatedAt,
+          watermarkId: containerSyncWatermarks.watermarkId,
+          watermarkUpdatedAt: containerSyncWatermarks.watermarkUpdatedAt,
+        })
+        .from(containerSyncWatermarks)
+        .where(whereClause),
+  );
+}
+
+async function selectCheckRows(
+  execSql: ExecSql,
+  lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
+): Promise<ContainerSyncLaneCheckRecord[]> {
+  await ensureSqlTables(execSql, containerSyncWatermarkTables);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+
+  return selectLaneRowsInBatches(
+    lanes,
+    ({ laneId, laneKind }) =>
+      and(
+        eq(containerSyncLaneChecks.laneKind, laneKind),
+        eq(containerSyncLaneChecks.laneId, laneId),
+      ),
+    (whereClause) =>
+      db
         .select({
           checkedAt: containerSyncLaneChecks.checkedAt,
           laneId: containerSyncLaneChecks.laneId,
           laneKind: containerSyncLaneChecks.laneKind,
         })
         .from(containerSyncLaneChecks)
-        .where(whereClause)),
-    );
-  }
-
-  return rows;
+        .where(whereClause),
+  );
 }
 
 export const sqlContainerSyncWatermarkPersistence = {
