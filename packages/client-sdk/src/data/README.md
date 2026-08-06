@@ -34,7 +34,8 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
   prerequisite checks. Workflows compose them; presentation should stay behind
   stores/providers. Runtime-idle helpers that need to observe sync activity
   should use the sync workflow facade instead of importing these internals.
-- Document summary contracts live in `documentSummary.ts` so presentation,
+- Document summary contracts live in `documents/documentSummary.ts` so
+  presentation,
   stores, workflows, and persistence can share document read-model shapes
   without importing document shared-helper internals.
 - Shared helpers and domain read-model contracts hold pure or mostly pure

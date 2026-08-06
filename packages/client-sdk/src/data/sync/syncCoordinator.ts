@@ -21,7 +21,7 @@ import { beginUploadLane } from "./uploadLane";
 
 export type { SyncIdleOptions } from "./coordinatorPump";
 // Re-exported here because lanes reach it as a shouldIgnoreError alongside the
-// rest of the coordinator surface; it lives in data/databaseUnavailable with the
+// rest of the coordinator surface; it lives beside this coordinator with the
 // error type it discriminates on.
 export { isDatabaseUnavailableError } from "./databaseUnavailable";
 export type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";
