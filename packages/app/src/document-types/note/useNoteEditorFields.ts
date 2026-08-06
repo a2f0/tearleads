@@ -230,7 +230,7 @@ function useNoteBlobPickAttachment(params: {
     containerId,
     errorMessage: "Failed to handle note blob attachment selection",
     localId,
-    setAttachment: appendPickedBlob,
+    replaceAttachment: appendPickedBlob,
     slotIds: NOTE_BLOB_PICK_SLOT_IDS,
   });
 

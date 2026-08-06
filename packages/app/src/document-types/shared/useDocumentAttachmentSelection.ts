@@ -9,9 +9,12 @@ import {
 
 export function useDocumentAttachmentSelection(params: {
   errorMessage: string;
-  setAttachment: (slotId: string, attachment: DocumentAttachmentUpload) => void;
+  replaceAttachment: (
+    slotId: string,
+    attachment: DocumentAttachmentUpload,
+  ) => void;
 }) {
-  const { errorMessage, setAttachment } = params;
+  const { errorMessage, replaceAttachment } = params;
   const { logError } = useLog();
 
   return useCallback(
@@ -26,27 +29,30 @@ export function useDocumentAttachmentSelection(params: {
           return;
         }
 
-        setAttachment(slotId, await readDocumentAttachmentUpload(file));
+        replaceAttachment(slotId, await readDocumentAttachmentUpload(file));
       } catch (error) {
         logError(errorMessage, error);
       }
     },
-    [errorMessage, logError, setAttachment],
+    [errorMessage, logError, replaceAttachment],
   );
 }
 
 export function useDocumentBlobAttachmentSelection(params: {
   blobStore: BlobStore;
   errorMessage: string;
-  setAttachment: (slotId: string, attachment: DocumentAttachmentUpload) => void;
+  replaceAttachment: (
+    slotId: string,
+    attachment: DocumentAttachmentUpload,
+  ) => void;
 }) {
-  const { blobStore, errorMessage, setAttachment } = params;
+  const { blobStore, errorMessage, replaceAttachment } = params;
   const { logError } = useLog();
 
   return useCallback(
     async (slotId: string, blob: BlobInfo) => {
       try {
-        setAttachment(
+        replaceAttachment(
           slotId,
           await readBlobDocumentAttachmentUpload({ blob, blobStore }),
         );
@@ -55,6 +61,6 @@ export function useDocumentBlobAttachmentSelection(params: {
         throw error;
       }
     },
-    [blobStore, errorMessage, logError, setAttachment],
+    [blobStore, errorMessage, logError, replaceAttachment],
   );
 }

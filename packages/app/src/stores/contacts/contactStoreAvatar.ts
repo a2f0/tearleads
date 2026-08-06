@@ -63,7 +63,7 @@ export function setContactAvatarInStore(
   return mutateContactAvatarFromRuntime(
     state,
     contactId,
-    (store) => store.setAttachment(CONTACT_AVATAR_SLOT_ID, upload),
+    (store) => store.replaceAttachment(CONTACT_AVATAR_SLOT_ID, upload),
     "Contacts: failed to set contact avatar.",
   );
 }

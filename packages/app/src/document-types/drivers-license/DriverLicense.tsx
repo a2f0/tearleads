@@ -140,7 +140,7 @@ export function DriverLicense(params: {
     canWrite,
     ready,
     removeAttachment,
-    setAttachment,
+    replaceAttachment,
     setStructuredFields,
     structuredFields,
   } = useDocument();
@@ -169,14 +169,14 @@ export function DriverLicense(params: {
   );
   const handleSelectedAttachment = useDocumentAttachmentSelection({
     errorMessage: "Failed to handle driver's license attachment selection",
-    setAttachment,
+    replaceAttachment,
   });
   const blobPicker = useBlobPickAttachment({
     blobStore,
     containerId: params.containerId,
     errorMessage: "Failed to handle driver's license blob attachment selection",
     localId: params.localId,
-    setAttachment,
+    replaceAttachment,
     slotIds: DRIVER_LICENSE_ATTACHMENT_SLOT_IDS,
   });
 

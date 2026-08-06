@@ -174,7 +174,7 @@ export function Passport(params: PassportProps) {
     canWrite,
     ready,
     removeAttachment,
-    setAttachment,
+    replaceAttachment,
     setStructuredFields,
     structuredFields,
   } = useDocument();
@@ -205,14 +205,14 @@ export function Passport(params: PassportProps) {
   );
   const handleSelectedAttachment = useDocumentAttachmentSelection({
     errorMessage: "Failed to handle passport attachment selection",
-    setAttachment,
+    replaceAttachment,
   });
   const blobPicker = useBlobPickAttachment({
     blobStore: infra.blobStore,
     containerId: params.containerId,
     errorMessage: "Failed to handle passport blob attachment selection",
     localId: params.localId,
-    setAttachment,
+    replaceAttachment,
     slotIds: PASSPORT_ATTACHMENT_SLOT_IDS,
   });
   return (

@@ -220,8 +220,6 @@ export function createDocumentStoreFacade(
     requestSync: () => targetStore.requestSync(),
     relink: (input) => targetStore.relink(input),
     rebindTo: (store) => connectTarget(store),
-    setAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
-      targetStore.setAttachment(slotId, file),
     setStructuredFields: (kind, patch, options) =>
       targetStore.setStructuredFields(kind, patch, options),
     setText: (value: string) => targetStore.setText(value),

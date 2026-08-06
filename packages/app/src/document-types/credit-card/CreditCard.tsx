@@ -254,7 +254,7 @@ export function CreditCard(params: CreditCardProps) {
     canWrite,
     ready,
     removeAttachment,
-    setAttachment,
+    replaceAttachment,
     setStructuredFields,
     structuredFields,
   } = useDocument();
@@ -286,14 +286,14 @@ export function CreditCard(params: CreditCardProps) {
   );
   const handleSelectedAttachment = useDocumentAttachmentSelection({
     errorMessage: "Failed to handle credit card attachment selection",
-    setAttachment,
+    replaceAttachment,
   });
   const blobPicker = useBlobPickAttachment({
     blobStore: infra.blobStore,
     containerId: params.containerId,
     errorMessage: "Failed to handle credit card blob attachment selection",
     localId: params.localId,
-    setAttachment,
+    replaceAttachment,
     slotIds: CREDIT_CARD_ATTACHMENT_SLOT_IDS,
   });
   return (

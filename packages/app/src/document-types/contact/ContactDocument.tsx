@@ -101,7 +101,7 @@ function ContactDocumentAvatar({
     canAttach,
     canWrite,
     removeAttachment,
-    setAttachment,
+    replaceAttachment,
   } = useDocument();
   const readOnly = useDocumentReadOnly();
   const { infra } = useTearleadsRuntime();
@@ -118,7 +118,9 @@ function ContactDocumentAvatar({
       canEdit={isEditing && canAttach && canWrite && !readOnly}
       displayName={displayName}
       hasAvatar={Boolean(avatar)}
-      onApplyAvatar={(upload) => setAttachment(CONTACT_AVATAR_SLOT_ID, upload)}
+      onApplyAvatar={(upload) =>
+        replaceAttachment(CONTACT_AVATAR_SLOT_ID, upload)
+      }
       onRemoveAvatar={() => removeAttachment(CONTACT_AVATAR_SLOT_ID)}
     />
   );

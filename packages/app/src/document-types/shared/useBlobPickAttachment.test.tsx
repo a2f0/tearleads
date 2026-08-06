@@ -52,7 +52,10 @@ function Harness(params: {
   containerId: string | null;
   onRequest: (request: DocumentBlobPickRequest) => void;
   picked: BlobInfo | null;
-  setAttachment: (slotId: string, attachment: DocumentAttachmentUpload) => void;
+  replaceAttachment: (
+    slotId: string,
+    attachment: DocumentAttachmentUpload,
+  ) => void;
 }) {
   // The provider hands the consumer a one-shot picked blob for the front slot.
   let consumed = false;
@@ -73,7 +76,7 @@ function Harness(params: {
       <DocumentBlobPickProvider value={value}>
         <SlotButton
           containerId={params.containerId}
-          setAttachment={params.setAttachment}
+          replaceAttachment={params.replaceAttachment}
         />
       </DocumentBlobPickProvider>
     </LogProvider>
@@ -82,14 +85,17 @@ function Harness(params: {
 
 function SlotButton(params: {
   containerId: string | null;
-  setAttachment: (slotId: string, attachment: DocumentAttachmentUpload) => void;
+  replaceAttachment: (
+    slotId: string,
+    attachment: DocumentAttachmentUpload,
+  ) => void;
 }) {
   const blobPicker = useBlobPickAttachment({
     blobStore: createBlobStore(SAMPLE_BYTES),
     containerId: params.containerId,
     errorMessage: "failed",
     localId: "local-1",
-    setAttachment: params.setAttachment,
+    replaceAttachment: params.replaceAttachment,
     slotIds: [...SLOT_IDS],
   });
 
@@ -117,7 +123,7 @@ test("requests a pick with the slot and applies a returned blob to it", async ()
       containerId="container-1"
       onRequest={(request) => requests.push(request)}
       picked={IMAGE_BLOB}
-      setAttachment={(slotId, attachment) =>
+      replaceAttachment={(slotId, attachment) =>
         attachments.push([slotId, attachment])
       }
     />,
@@ -157,7 +163,7 @@ test("hides the picker when the document has no container", () => {
       containerId={null}
       onRequest={() => undefined}
       picked={null}
-      setAttachment={() => undefined}
+      replaceAttachment={() => undefined}
     />,
   );
 
@@ -174,7 +180,7 @@ test("hides the picker when the container has no blobs to pick", async () => {
       containerId="container-1"
       onRequest={() => undefined}
       picked={null}
-      setAttachment={() => undefined}
+      replaceAttachment={() => undefined}
     />,
   );
 

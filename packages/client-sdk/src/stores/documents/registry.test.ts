@@ -46,7 +46,6 @@ function createStore(
     requestRemoteSync: onRemoteSync,
     requestSync: () => undefined,
     relink: async () => null,
-    setAttachment: () => undefined,
     setStructuredFields: async () => undefined,
     setText: async () => undefined,
     subscribe: () => () => undefined,

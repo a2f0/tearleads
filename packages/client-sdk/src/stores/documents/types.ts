@@ -63,7 +63,6 @@ export interface DocumentContextValue {
   relink: (input: DocumentStoreRelinkInput) => Promise<DocumentSummary | null>;
   removeAttachment: (slotId: string) => void;
   rows: ReadonlyArray<DocumentRow>;
-  setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   setStructuredFields: (
     kind: Exclude<StoredDocumentKind, "note">,
@@ -116,7 +115,6 @@ export interface DocumentStore {
   getSnapshot: () => DocumentSnapshot;
   removeAttachment: (slotId: string) => void;
   removeRow: RemoveDocumentRow;
-  setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   /** Pull remote document updates even when no websocket event marked it dirty. */
   requestRemoteSync: () => void;
