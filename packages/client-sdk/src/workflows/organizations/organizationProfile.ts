@@ -2,10 +2,9 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
-  type DocumentProjectorRegistry,
+  type DocumentProjectorDefinition,
   type DocumentProjectorRegistryInput,
   initializeStoredDocumentKind,
-  resolveDocumentProjectorRegistry,
   writeStoredDocumentFields,
 } from "../../data/documents/documentKinds";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
@@ -18,34 +17,71 @@ export const DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME = "Personal Org";
 // otherwise fall through to the registry's generic untitled form.
 const ORGANIZATION_PROFILE_FALLBACK_TITLE = "Organization Profile";
 
+// A projector definition carrying only the stable title: with no `project`
+// function the default projection path still runs, but the untitled lookup
+// resolves to this title instead of the generic humanized form.
+const organizationProfileFallbackDefinition: DocumentProjectorDefinition = {
+  kind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
+  label: "organization profile",
+  untitledTitle: ORGANIZATION_PROFILE_FALLBACK_TITLE,
+};
+
 /**
  * Give the org-profile document its stable fallback title on hosts that do
- * not register the projector for this kind. Hosts that DO register it keep
- * full control: the registry passes through untouched. The wrap overrides
- * projection (which stamps the stored title) and the untitled lookup, and
- * changes nothing for any other document kind.
+ * not register the projector for this kind — for every save path, not just
+ * bootstrap, so a later re-projection cannot overwrite the title with the
+ * generic untitled form. Hosts that DO register the projector keep full
+ * control: their input passes through untouched.
+ *
+ * Definition arrays (and an absent input) gain a title-only definition, so
+ * the resolved registry needs no wrapping. A prebuilt registry is wrapped by
+ * explicit per-method delegation — never by spreading, which would drop
+ * prototype-backed methods on class-implemented registries.
  */
 export function withOrganizationProfileFallbackTitle(
   documentProjectors: DocumentProjectorRegistryInput | undefined,
-): DocumentProjectorRegistry {
-  const registry = resolveDocumentProjectorRegistry(documentProjectors);
+): DocumentProjectorRegistryInput {
+  if (documentProjectors == null) {
+    return [organizationProfileFallbackDefinition];
+  }
+
+  if (!("getDefinition" in documentProjectors)) {
+    return documentProjectors.some(
+      (definition) => definition.kind === ORGANIZATION_PROFILE_DOCUMENT_KIND,
+    )
+      ? documentProjectors
+      : [...documentProjectors, organizationProfileFallbackDefinition];
+  }
+
+  const registry = documentProjectors;
   if (registry.getDefinition(ORGANIZATION_PROFILE_DOCUMENT_KIND)) {
     return registry;
   }
 
   return {
-    ...registry,
-    getUntitledDocumentTitle(kind) {
-      return kind === ORGANIZATION_PROFILE_DOCUMENT_KIND
+    getDefinition: (kind) =>
+      kind === ORGANIZATION_PROFILE_DOCUMENT_KIND
+        ? organizationProfileFallbackDefinition
+        : registry.getDefinition(kind),
+    getClientProjectionTables: () => registry.getClientProjectionTables(),
+    getStoredDocumentTypeLabel: (kind) =>
+      registry.getStoredDocumentTypeLabel(kind),
+    getUntitledDocumentTitle: (kind) =>
+      kind === ORGANIZATION_PROFILE_DOCUMENT_KIND
         ? ORGANIZATION_PROFILE_FALLBACK_TITLE
-        : registry.getUntitledDocumentTitle(kind);
-    },
-    projectStoredDocumentState(input) {
+        : registry.getUntitledDocumentTitle(kind),
+    initializeStoredDocumentKind: (doc, kind) =>
+      registry.initializeStoredDocumentKind(doc, kind),
+    projectStoredDocumentState: (input) => {
       const state = registry.projectStoredDocumentState(input);
       return input.documentKind === ORGANIZATION_PROFILE_DOCUMENT_KIND
         ? { ...state, title: ORGANIZATION_PROFILE_FALLBACK_TITLE }
         : state;
     },
+    deleteStoredDocumentClientProjection: (input) =>
+      registry.deleteStoredDocumentClientProjection(input),
+    saveStoredDocumentClientProjection: (input) =>
+      registry.saveStoredDocumentClientProjection(input),
   };
 }
 
