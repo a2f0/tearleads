@@ -6,10 +6,8 @@ import type {
   SyncWatermark,
 } from "@tearleads/validators/response";
 import {
-  isListContainerParentLanesResponse,
   isPaymentRequiredErrorResponse,
   isPrincipalPolicyStaleErrorResponse,
-  type ListContainerParentLanesResponse,
 } from "@tearleads/validators/response";
 import type { ListContainerDocumentsOptions, RequestBody } from "./types";
 
@@ -141,20 +139,6 @@ export function listContainerParentLanesRequestKey(
       parentId: lane.parentId,
       watermark: syncWatermarkRequestKey(lane.watermark),
     })),
-  );
-}
-
-export function isListContainerParentLanesResponseForRequest(
-  input: ListContainerParentLanesRequest,
-  value: unknown,
-): value is ListContainerParentLanesResponse {
-  if (!isListContainerParentLanesResponse(value)) {
-    return false;
-  }
-  const expectedLaneIds = new Set(input.lanes.map((lane) => lane.laneId));
-  return (
-    value.results.length === input.lanes.length &&
-    value.results.every((result) => expectedLaneIds.has(result.laneId))
   );
 }
 

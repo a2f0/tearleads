@@ -1,9 +1,6 @@
 import { z } from "zod";
-import {
-  type ContainerSystemSlot,
-  ContainerSystemSlotSchema,
-  isNullableContainerSystemSlot,
-} from "../containerSystemSlot";
+import { containerKekLogSingleKeyringRefinement } from "../containerReadRefinements";
+import { ContainerSystemSlotSchema } from "../containerSystemSlot";
 import { isPlainObject } from "../isPlainObject";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
@@ -12,6 +9,7 @@ import {
   loosePlainObject,
   nonEmptyArraySchema,
   nonEmptyStringSchema,
+  nonNegativeIntegerSchema,
   plainObjectSchema,
   positiveIntegerSchema,
 } from "../schema";
@@ -20,31 +18,19 @@ import {
   CONTAINER_KEK_LOG_PAGE_LIMIT,
   CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
   ContainerKekKeyringWireRecordSchema,
-  hasArrayProperty,
-  hasNullableStringProperty,
-  hasNumberProperty,
   hasStringProperty,
-  isContainerKekKeyringWireRecord,
-  isRecordArray,
 } from "../util";
 import { containerWriterProjectionPathKekCountRefinement } from "../writerProjectionRefinements";
-import {
-  type EffectiveAccessLevel,
-  isEffectiveAccessLevel,
-} from "./accessLevel";
-import {
-  isReferencedPrincipalStateResponse,
-  type ReferencedPrincipalStateResponse,
-  ReferencedPrincipalStateResponseSchema,
-} from "./principal";
-import { isSyncWatermark, type SyncWatermark } from "./syncWatermark";
+import { EffectiveAccessLevelSchema } from "./accessLevel";
+import { ReferencedPrincipalStateResponseSchema } from "./principal";
+import { SyncWatermarkSchema } from "./syncWatermark";
 
 /**
  * The container's sealed predecessor key history. Opening it under the
  * current KEK yields every retained historical KEK in one decrypt; the
  * bridge log behind it is served only by the rebuild read path.
  */
-export const ContainerKekKeyringWireResponseSchema =
+const ContainerKekKeyringWireResponseSchema =
   ContainerKekKeyringWireRecordSchema;
 
 export type ContainerKekKeyringWireResponse = z.infer<
@@ -81,97 +67,59 @@ export const ContainerKekResponseSchema = registerJsonSchemaRuntimeRefinements(
 
 export type ContainerKekResponse = z.infer<typeof ContainerKekResponseSchema>;
 
-function isContainerKekKeyringWireResponse(
-  value: unknown,
-): value is ContainerKekKeyringWireResponse {
-  return isContainerKekKeyringWireRecord(value);
-}
-
 /**
  * The append-only rotation log for one container: every epoch with its
  * write-once bridge and sealed keyring. This is the rebuild/repair read
  * path — hot reads use the projection keyring instead.
  */
-export interface ContainerKekLogEpochResponse {
-  accessManifestHash: string;
-  bridge: Record<string, unknown> | null;
-  containerKeyEpoch: number;
-  containerKeyEpochId: string;
-  keyring: ContainerKekKeyringWireResponse | null;
-  parentContainerKeyEpochId: string | null;
+export const ContainerKekLogEpochResponseSchema = loosePlainObject({
+  accessManifestHash: nonEmptyStringSchema,
+  bridge: plainObjectSchema.nullable(),
+  containerKeyEpoch: positiveIntegerSchema,
+  containerKeyEpochId: nonEmptyStringSchema,
+  keyring: ContainerKekKeyringWireResponseSchema.nullable(),
+  parentContainerKeyEpochId: z.string().nullable(),
   /**
-   * The epoch's retained recipient envelopes — the identity-key recovery
-   * backstop when a bridge below the current epoch is severed. Cross-epoch
-   * wraps are never deleted, so a member present at this epoch can recover
-   * its KEK from their own wrap independent of every later rotation.
+   * Retained recipient envelopes are the recovery backstop when a bridge is
+   * severed. The server and response guard apply this bound per epoch.
    */
-  wraps: Record<string, unknown>[];
-}
+  wraps: arraySchema(plainObjectSchema, CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT),
+});
 
-export interface ContainerKekLogResponse {
-  containerId: string;
-  epochs: ContainerKekLogEpochResponse[];
-  /** True when epochs above this page's last remain unserved. */
-  hasMore: boolean;
-}
+export type ContainerKekLogEpochResponse = z.infer<
+  typeof ContainerKekLogEpochResponseSchema
+>;
 
-function isContainerKekLogEpochResponse(
-  value: unknown,
-): value is ContainerKekLogEpochResponse {
-  const bridge = isPlainObject(value)
-    ? Reflect.get(value, "bridge")
-    : undefined;
-  const keyring = isPlainObject(value)
-    ? Reflect.get(value, "keyring")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "accessManifestHash") &&
-    value.accessManifestHash.length > 0 &&
-    Reflect.has(value, "bridge") &&
-    (bridge === null || isPlainObject(bridge)) &&
-    hasNumberProperty(value, "containerKeyEpoch") &&
-    Number.isInteger(value.containerKeyEpoch) &&
-    value.containerKeyEpoch > 0 &&
-    hasStringProperty(value, "containerKeyEpochId") &&
-    value.containerKeyEpochId.length > 0 &&
-    Reflect.has(value, "keyring") &&
-    (keyring === null || isContainerKekKeyringWireResponse(keyring)) &&
-    hasNullableStringProperty(value, "parentContainerKeyEpochId") &&
-    isRecordArray(Reflect.get(value, "wraps"))
+export const ContainerKekLogResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject({
+      containerId: nonEmptyStringSchema,
+      epochs: arraySchema(
+        ContainerKekLogEpochResponseSchema,
+        CONTAINER_KEK_LOG_PAGE_LIMIT,
+      ),
+      /** True when epochs above this page's last remain unserved. */
+      hasMore: z.boolean(),
+    }).superRefine(({ epochs }, context) => {
+      if (epochs.filter((epoch) => epoch.keyring !== null).length > 1) {
+        context.addIssue({
+          code: "custom",
+          message: "container KEK log pages contain at most one keyring",
+          path: ["epochs"],
+        });
+      }
+    }),
+    [containerKekLogSingleKeyringRefinement],
   );
-}
+
+export type ContainerKekLogResponse = z.infer<
+  typeof ContainerKekLogResponseSchema
+>;
 
 export function isContainerKekLogResponse(
   value: unknown,
 ): value is ContainerKekLogResponse {
-  const epochs = isPlainObject(value)
-    ? Reflect.get(value, "epochs")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "containerId") &&
-    value.containerId.length > 0 &&
-    typeof Reflect.get(value, "hasMore") === "boolean" &&
-    Array.isArray(epochs) &&
-    epochs.length <= CONTAINER_KEK_LOG_PAGE_LIMIT &&
-    epochs.every(isContainerKekLogEpochResponse) &&
-    // The same bounds the server applies, re-checked on the way in. A guard
-    // that accepted an unbounded page would let a hostile or buggy server
-    // hand back arbitrarily many envelopes and multi-megabyte keyrings, and
-    // the recovery walk would do the work before anything noticed.
-    epochs.every(
-      (epoch: ContainerKekLogEpochResponse) =>
-        epoch.wraps.length <= CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
-    ) &&
-    // At most one keyring per page: they are O(their epoch) bytes, so the
-    // endpoint serves exactly the one asked for.
-    epochs.filter(
-      (epoch: ContainerKekLogEpochResponse) => epoch.keyring !== null,
-    ).length <= 1
-  );
+  return ContainerKekLogResponseSchema.safeParse(value).success;
 }
 
 export const ContainerMutationResponseSchema = loosePlainObject({
@@ -226,103 +174,52 @@ export type ContainerWriterProjectionResponse = z.infer<
   typeof ContainerWriterProjectionResponseSchema
 >;
 
-export interface ContainerSummary {
-  systemSlot?: ContainerSystemSlot | null;
-  createdAt: string;
-  depth: number;
-  effectiveAccessLevel: EffectiveAccessLevel;
-  id: string;
-  organizationId: string;
-  parentId: string | null;
-  metadataDocumentId: string;
-  metadataAccessEpoch: number;
-  metadataAccessStateHash: string;
-  metadataReferencedPrincipals: ReferencedPrincipalStateResponse[];
-  updatedAt: string;
-}
+export const ContainerSummaryResponseSchema = loosePlainObject({
+  createdAt: z.string(),
+  depth: nonNegativeIntegerSchema,
+  effectiveAccessLevel: EffectiveAccessLevelSchema,
+  id: z.string(),
+  metadataAccessEpoch: z.number(),
+  metadataAccessStateHash: nonEmptyStringSchema,
+  metadataDocumentId: z.string(),
+  metadataReferencedPrincipals: arraySchema(
+    ReferencedPrincipalStateResponseSchema,
+  ),
+  organizationId: z.string(),
+  parentId: z.string().nullable(),
+  systemSlot: ContainerSystemSlotSchema.nullable().optional(),
+  updatedAt: z.string(),
+});
 
-export interface ContainerSyncTombstone {
-  containerId: string;
-  depth: number;
-  parentId: string | null;
-  reason: "access_revoked" | "deleted";
-  updatedAt: string;
-}
+export type ContainerSummary = z.infer<typeof ContainerSummaryResponseSchema>;
 
-export interface ListContainersResponse {
-  hasMore: boolean;
-  items: ContainerSummary[];
-  nextWatermark: SyncWatermark | null;
-  tombstones: ContainerSyncTombstone[];
-}
+export const ContainerSyncTombstoneResponseSchema = loosePlainObject({
+  containerId: z.string(),
+  depth: nonNegativeIntegerSchema,
+  parentId: z.string().nullable(),
+  reason: z.literal(["access_revoked", "deleted"]),
+  updatedAt: z.string(),
+});
 
-function isContainerSummary(value: unknown): value is ContainerSummary {
-  const metadataReferencedPrincipals = isPlainObject(value)
-    ? Reflect.get(value, "metadataReferencedPrincipals")
-    : undefined;
-  const metadataAccessStateHash = isPlainObject(value)
-    ? Reflect.get(value, "metadataAccessStateHash")
-    : undefined;
-  const systemSlot = isPlainObject(value)
-    ? Reflect.get(value, "systemSlot")
-    : undefined;
+export type ContainerSyncTombstone = z.infer<
+  typeof ContainerSyncTombstoneResponseSchema
+>;
 
-  return (
-    isPlainObject(value) &&
-    (systemSlot === undefined || isNullableContainerSystemSlot(systemSlot)) &&
-    hasStringProperty(value, "createdAt") &&
-    hasNumberProperty(value, "depth") &&
-    Number.isInteger(value.depth) &&
-    value.depth >= 0 &&
-    isEffectiveAccessLevel(Reflect.get(value, "effectiveAccessLevel")) &&
-    hasStringProperty(value, "id") &&
-    hasStringProperty(value, "organizationId") &&
-    hasNullableStringProperty(value, "parentId") &&
-    hasStringProperty(value, "metadataDocumentId") &&
-    hasNumberProperty(value, "metadataAccessEpoch") &&
-    typeof metadataAccessStateHash === "string" &&
-    metadataAccessStateHash.length > 0 &&
-    hasStringProperty(value, "updatedAt") &&
-    Array.isArray(metadataReferencedPrincipals) &&
-    metadataReferencedPrincipals.every(isReferencedPrincipalStateResponse)
-  );
-}
+export const ListContainersResponseSchema = loosePlainObject({
+  hasMore: z.boolean(),
+  items: arraySchema(ContainerSummaryResponseSchema),
+  nextWatermark: SyncWatermarkSchema.nullable(),
+  tombstones: arraySchema(ContainerSyncTombstoneResponseSchema),
+});
 
-function isContainerSyncTombstone(
-  value: unknown,
-): value is ContainerSyncTombstone {
-  const reason = isPlainObject(value)
-    ? Reflect.get(value, "reason")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "containerId") &&
-    hasNumberProperty(value, "depth") &&
-    Number.isInteger(value.depth) &&
-    value.depth >= 0 &&
-    hasNullableStringProperty(value, "parentId") &&
-    (reason === "access_revoked" || reason === "deleted") &&
-    hasStringProperty(value, "updatedAt")
-  );
-}
+export type ListContainersResponse = z.infer<
+  typeof ListContainersResponseSchema
+>;
 
 export function isListContainersResponse(
   value: unknown,
 ): value is ListContainersResponse {
-  const nextWatermark = isPlainObject(value)
-    ? Reflect.get(value, "nextWatermark")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    typeof Reflect.get(value, "hasMore") === "boolean" &&
-    hasArrayProperty(value, "items") &&
-    value.items.every(isContainerSummary) &&
-    (isSyncWatermark(nextWatermark) || nextWatermark === null) &&
-    hasArrayProperty(value, "tombstones") &&
-    value.tombstones.every(isContainerSyncTombstone)
-  );
+  return ListContainersResponseSchema.safeParse(value).success;
 }
 
 export function isContainerMutationResponse(

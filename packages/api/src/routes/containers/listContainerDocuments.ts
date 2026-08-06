@@ -1,3 +1,7 @@
+import {
+  listContainerDocumentsOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type { ListContainerDocumentsResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -7,7 +11,9 @@ import {
   listContainerDocuments,
 } from "../../services/containers/listContainerDocuments";
 import type { ApiServiceRuntime } from "../../services/runtime";
-import { parseOptionalInteger, parseOptionalWatermark } from "./queryParams";
+import { pathParamsValidator } from "../../validators/pathParams";
+import { queryParamsValidator } from "../../validators/queryParams";
+import { parseOptionalWatermark } from "./queryParams";
 
 interface ListContainerDocumentsRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -18,19 +24,27 @@ export function createListContainerDocumentsRoute({
   requireAuth,
   runtime,
 }: ListContainerDocumentsRouteDeps) {
-  const listContainerDocumentsRoute = new Hono();
+  const listContainerDocumentsRoute = new Hono<SessionEnv>();
 
-  listContainerDocumentsRoute.get(
-    "/containers/:containerId/documents",
+  listContainerDocumentsRoute.on(
+    listContainerDocumentsOperation.method,
+    operationRoutePath(listContainerDocumentsOperation),
     requireAuth,
+    pathParamsValidator(listContainerDocumentsOperation.params),
+    queryParamsValidator(
+      listContainerDocumentsOperation.query,
+      (schemaMessage) => schemaMessage ?? "Invalid request",
+    ),
     async (c) => {
       const session = c.get("session");
-      const containerId = c.req.param("containerId");
-      const limit = parseOptionalInteger(c.req.query("limit"));
-      const watermark = parseOptionalWatermark(
-        c.req.query("watermarkUpdatedAt"),
-        c.req.query("watermarkId"),
-      );
+      const { containerId } = c.req.valid("param");
+      const {
+        limit: limitValue,
+        watermarkId,
+        watermarkUpdatedAt,
+      } = c.req.valid("query");
+      const limit = limitValue === undefined ? undefined : Number(limitValue);
+      const watermark = parseOptionalWatermark(watermarkUpdatedAt, watermarkId);
 
       try {
         return c.json<ListContainerDocumentsResponse>(

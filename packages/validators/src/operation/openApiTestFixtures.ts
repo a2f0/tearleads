@@ -117,6 +117,72 @@ export function createContainerWriterProjectionResponse() {
   };
 }
 
+export function createContainerKekLogResponse() {
+  return {
+    containerId: "container-1",
+    epochs: [
+      {
+        accessManifestHash: "manifest-hash",
+        bridge: null,
+        containerKeyEpoch: 1,
+        containerKeyEpochId: "container-key-epoch-id",
+        keyring: null,
+        parentContainerKeyEpochId: null,
+        wraps: [],
+      },
+    ],
+    hasMore: false,
+  };
+}
+
+export function createContainerKekLogKeyring(containerKeyEpochId: string) {
+  return {
+    containerId: "container-1",
+    containerKeyEpochId,
+    iv: "iv",
+    sealed: "sealed",
+    sealingSuite: "test-suite",
+    version: 1,
+  };
+}
+
+export function createListContainerDocumentsResponse() {
+  return {
+    hasMore: false,
+    items: [],
+    nextWatermark: null,
+    tombstones: [],
+  };
+}
+
+export function createListContainerParentLanesRequest() {
+  return {
+    lanes: [
+      {
+        laneId: "root",
+        parentId: null,
+        watermark: null,
+      },
+    ],
+  };
+}
+
+export function createListContainerParentLanesResponse() {
+  return {
+    results: [
+      {
+        laneId: "root",
+        page: {
+          hasMore: false,
+          items: [],
+          nextWatermark: null,
+          tombstones: [],
+        },
+      },
+    ],
+  };
+}
+
 export function createDocumentWriterProjectionResponse() {
   return {
     authorizingContainerPaths: [createContainerWriterProjectionResponse()],

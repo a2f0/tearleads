@@ -5,7 +5,7 @@ distinct HTTP method and path exposed by `packages/api`. An endpoint is complete
 only when shared schemas own its request inputs, success response, documented
 error responses, API route validation, API-client metadata, and OpenAPI entry.
 
-Current coverage: **32 of 58 operations**.
+Current coverage: **35 of 58 operations**.
 
 ## Health
 
@@ -36,14 +36,14 @@ Current coverage: **32 of 58 operations**.
 
 - [ ] `POST /containers`
 - [ ] `DELETE /containers/:containerId`
-- [ ] `GET /containers/:containerId/documents`
-- [ ] `GET /containers/:containerId/kek-log`
+- [x] `GET /containers/:containerId/documents`
+- [x] `GET /containers/:containerId/kek-log`
 - [ ] `POST /containers/:containerId/move`
 - [ ] `POST /containers/:containerId/rekey`
 - [ ] `POST /containers/:containerId/revoke`
 - [ ] `POST /containers/:containerId/share`
 - [x] `GET /containers/:containerId/writer-projection`
-- [ ] `POST /containers/parent-lanes/query`
+- [x] `POST /containers/parent-lanes/query`
 - [ ] `POST /containers/with-metadata-document`
 
 ## Documents

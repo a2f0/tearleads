@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { documentAttributionCounterRangeRefinement } from "../documentAttributionRefinements";
-import { isPlainObject } from "../isPlainObject";
 import {
   registerJsonSchemaRuntimeRefinements,
   registerJsonSchemaView,
@@ -11,81 +10,45 @@ import {
   nonEmptyStringSchema,
   safeNonNegativeIntegerSchema,
 } from "../schema";
-import {
-  hasArrayProperty,
-  hasNumberProperty,
-  hasStringProperty,
-} from "../util";
-import {
-  type EffectiveAccessLevel,
-  isEffectiveAccessLevel,
-} from "./accessLevel";
-import {
-  isReferencedPrincipalStateResponse,
-  type ReferencedPrincipalStateResponse,
-} from "./principal";
-import { isSyncWatermark, type SyncWatermark } from "./syncWatermark";
+import { EffectiveAccessLevelSchema } from "./accessLevel";
+import { ReferencedPrincipalStateResponseSchema } from "./principal";
+import { SyncWatermarkSchema } from "./syncWatermark";
 
-export interface ContainerDocumentSummary {
-  createdAt: string;
-  currentAccessEpoch: number;
-  currentAccessStateHash: string;
-  effectiveAccessLevel: EffectiveAccessLevel;
-  id: string;
-  linkedContainerIds: string[];
-  referencedPrincipals: ReferencedPrincipalStateResponse[];
-  updatedAt: string;
-}
+export const ContainerDocumentSummaryResponseSchema = loosePlainObject({
+  createdAt: z.string(),
+  currentAccessEpoch: z.number(),
+  currentAccessStateHash: nonEmptyStringSchema,
+  effectiveAccessLevel: EffectiveAccessLevelSchema,
+  id: z.string(),
+  linkedContainerIds: arraySchema(z.string()),
+  referencedPrincipals: arraySchema(ReferencedPrincipalStateResponseSchema),
+  updatedAt: z.string(),
+});
 
-export interface ContainerDocumentSyncTombstone {
-  containerId: string;
-  documentId: string;
-  updatedAt: string;
-}
+export type ContainerDocumentSummary = z.infer<
+  typeof ContainerDocumentSummaryResponseSchema
+>;
 
-export interface ListContainerDocumentsResponse {
-  hasMore: boolean;
-  items: ContainerDocumentSummary[];
-  nextWatermark: SyncWatermark | null;
-  tombstones: ContainerDocumentSyncTombstone[];
-}
+export const ContainerDocumentSyncTombstoneResponseSchema = loosePlainObject({
+  containerId: z.string(),
+  documentId: z.string(),
+  updatedAt: z.string(),
+});
 
-function isContainerDocumentSummary(
-  value: unknown,
-): value is ContainerDocumentSummary {
-  const referencedPrincipals = isPlainObject(value)
-    ? Reflect.get(value, "referencedPrincipals")
-    : undefined;
-  const currentAccessStateHash = isPlainObject(value)
-    ? Reflect.get(value, "currentAccessStateHash")
-    : undefined;
+export type ContainerDocumentSyncTombstone = z.infer<
+  typeof ContainerDocumentSyncTombstoneResponseSchema
+>;
 
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "createdAt") &&
-    hasNumberProperty(value, "currentAccessEpoch") &&
-    typeof currentAccessStateHash === "string" &&
-    currentAccessStateHash.length > 0 &&
-    isEffectiveAccessLevel(Reflect.get(value, "effectiveAccessLevel")) &&
-    hasStringProperty(value, "id") &&
-    hasArrayProperty(value, "linkedContainerIds") &&
-    value.linkedContainerIds.every((entry) => typeof entry === "string") &&
-    hasStringProperty(value, "updatedAt") &&
-    Array.isArray(referencedPrincipals) &&
-    referencedPrincipals.every(isReferencedPrincipalStateResponse)
-  );
-}
+export const ListContainerDocumentsResponseSchema = loosePlainObject({
+  hasMore: z.boolean(),
+  items: arraySchema(ContainerDocumentSummaryResponseSchema),
+  nextWatermark: SyncWatermarkSchema.nullable(),
+  tombstones: arraySchema(ContainerDocumentSyncTombstoneResponseSchema),
+});
 
-function isContainerDocumentSyncTombstone(
-  value: unknown,
-): value is ContainerDocumentSyncTombstone {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "containerId") &&
-    hasStringProperty(value, "documentId") &&
-    hasStringProperty(value, "updatedAt")
-  );
-}
+export type ListContainerDocumentsResponse = z.infer<
+  typeof ListContainerDocumentsResponseSchema
+>;
 
 const DocumentEditAttributionSegmentShape = {
   authorityKind: z.literal(["direct", "baseline"]),
@@ -213,17 +176,5 @@ export function isListDocumentEditAttributionRangesResponse(
 export function isListContainerDocumentsResponse(
   value: unknown,
 ): value is ListContainerDocumentsResponse {
-  const nextWatermark = isPlainObject(value)
-    ? Reflect.get(value, "nextWatermark")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    typeof Reflect.get(value, "hasMore") === "boolean" &&
-    hasArrayProperty(value, "items") &&
-    value.items.every(isContainerDocumentSummary) &&
-    (isSyncWatermark(nextWatermark) || nextWatermark === null) &&
-    hasArrayProperty(value, "tombstones") &&
-    value.tombstones.every(isContainerDocumentSyncTombstone)
-  );
+  return ListContainerDocumentsResponseSchema.safeParse(value).success;
 }

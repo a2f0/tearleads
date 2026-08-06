@@ -4,6 +4,7 @@ export {
 } from "../util";
 export {
   type EffectiveAccessLevel,
+  EffectiveAccessLevelSchema,
   isEffectiveAccessLevel,
 } from "./accessLevel";
 export {
@@ -72,12 +73,16 @@ export {
   type ContainerDeleteResponse,
   type ContainerKekKeyringWireResponse,
   type ContainerKekLogEpochResponse,
+  ContainerKekLogEpochResponseSchema,
   type ContainerKekLogResponse,
+  ContainerKekLogResponseSchema,
   type ContainerKekResponse,
   type ContainerMutationResponse,
   ContainerMutationResponseSchema,
   type ContainerSummary,
+  ContainerSummaryResponseSchema,
   type ContainerSyncTombstone,
+  ContainerSyncTombstoneResponseSchema,
   type ContainerWriterProjectionResponse,
   ContainerWriterProjectionResponseSchema,
   isContainerDeleteResponse,
@@ -86,6 +91,7 @@ export {
   isContainerWriterProjectionResponse,
   isListContainersResponse,
   type ListContainersResponse,
+  ListContainersResponseSchema,
 } from "./container";
 export {
   type ContainerCreateWithMetadataDocumentResponse,
@@ -99,7 +105,9 @@ export {
 } from "./containerParentLanes";
 export {
   type ContainerDocumentSummary,
+  ContainerDocumentSummaryResponseSchema,
   type ContainerDocumentSyncTombstone,
+  ContainerDocumentSyncTombstoneResponseSchema,
   type DocumentEditAttributionRangeResponse,
   DocumentEditAttributionRangeResponseSchema,
   type DocumentEditAttributionResponse,
@@ -110,6 +118,7 @@ export {
   isListContainerDocumentsResponse,
   isListDocumentEditAttributionRangesResponse,
   type ListContainerDocumentsResponse,
+  ListContainerDocumentsResponseSchema,
   type ListDocumentEditAttributionRangesResponse,
   ListDocumentEditAttributionRangesResponseSchema,
 } from "./document";
@@ -320,4 +329,8 @@ export {
   type StripeCheckoutSessionResponse,
   type StripeSyncOptionResponse,
 } from "./stripeCheckout";
-export { isSyncWatermark, type SyncWatermark } from "./syncWatermark";
+export {
+  isSyncWatermark,
+  type SyncWatermark,
+  SyncWatermarkSchema,
+} from "./syncWatermark";
