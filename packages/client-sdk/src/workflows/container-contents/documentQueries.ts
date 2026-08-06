@@ -18,7 +18,6 @@ import {
 import { containerCreateIntentTables } from "../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import {
-  compareContainerContentsDocumentSummaries,
   mapContainerContentsDocumentSummaryRow,
   mapContainerContentsDocumentSyncStateRow,
   mapContainerDocumentSidebarRow,
@@ -40,9 +39,6 @@ import {
   listContainerContentsSqlIdBatches,
 } from "./documentQueries/sql";
 import type {
-  ContainerContentsContainerSubtreeState,
-  ContainerContentsDocumentRuntimeTarget,
-  ContainerContentsSharedDocumentSummaries,
   ContainerDocumentLinkInput,
   ContainerDocumentQueriesRuntime,
   ContainerDocumentSidebarWindow as ContainerDocumentSidebarWindowContract,
@@ -133,81 +129,6 @@ export interface ContainerDocumentQueries {
   upsertDiscoveredDocuments(
     inputs: ReadonlyArray<DiscoveredDocumentInput>,
   ): Promise<ReadonlyArray<DocumentSummary>>;
-}
-
-function addContainerContentsDocumentSummaries(
-  documentSummariesById: Map<string, DocumentSummary>,
-  documentSummaries: ReadonlyArray<DocumentSummary>,
-): void {
-  for (const documentSummary of documentSummaries) {
-    documentSummariesById.set(documentSummary.id, documentSummary);
-  }
-}
-
-async function listContainerContentsDocumentIdsByContainerIds(
-  execSql: ExecSql,
-  containerIds: ReadonlyArray<string>,
-): Promise<string[]> {
-  const documentIds = new Set<string>();
-
-  for (const containerIdBatch of listContainerContentsSqlIdBatches(
-    containerIds,
-  )) {
-    const batchDocumentIds =
-      await sqlDocumentContainerProjectionPersistence.listDocumentIdsByContainerIds(
-        execSql,
-        containerIdBatch,
-      );
-    for (const documentId of batchDocumentIds) {
-      documentIds.add(documentId);
-    }
-  }
-
-  return Array.from(documentIds).sort();
-}
-
-async function listContainerContentsDocumentSummariesByContainerIdsOrDocumentIds(
-  execSql: ExecSql,
-  input: {
-    containerIds: ReadonlyArray<string>;
-    documentIds: ReadonlyArray<string>;
-  },
-): Promise<DocumentSummary[]> {
-  const documentSummariesById = new Map<string, DocumentSummary>();
-
-  for (const containerIdBatch of listContainerContentsSqlIdBatches(
-    input.containerIds,
-  )) {
-    addContainerContentsDocumentSummaries(
-      documentSummariesById,
-      await sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
-        execSql,
-        {
-          containerIds: containerIdBatch,
-          documentIds: [],
-        },
-      ),
-    );
-  }
-
-  for (const documentIdBatch of listContainerContentsSqlIdBatches(
-    input.documentIds,
-  )) {
-    addContainerContentsDocumentSummaries(
-      documentSummariesById,
-      await sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
-        execSql,
-        {
-          containerIds: [],
-          documentIds: documentIdBatch,
-        },
-      ),
-    );
-  }
-
-  return Array.from(documentSummariesById.values()).sort(
-    compareContainerContentsDocumentSummaries,
-  );
 }
 
 async function listContainerItemWindow(
@@ -410,162 +331,6 @@ async function loadContainerContentsDocumentSyncState(
   }
 
   return mapContainerContentsDocumentSyncStateRow(row);
-}
-
-async function listContainerContentsDocumentsForContainerSubtree(
-  execSql: ExecSql,
-  containerIds: ReadonlyArray<string>,
-): Promise<ContainerContentsSharedDocumentSummaries> {
-  await sqlDocumentsPersistence.ensureSchema(execSql);
-  const linkedDocumentIds =
-    await listContainerContentsDocumentIdsByContainerIds(execSql, containerIds);
-  const documentSummaries =
-    await listContainerContentsDocumentSummariesByContainerIdsOrDocumentIds(
-      execSql,
-      {
-        containerIds,
-        documentIds: linkedDocumentIds,
-      },
-    );
-  const documentIds = Array.from(
-    new Set(
-      documentSummaries.flatMap((documentSummary) =>
-        documentSummary.documentId ? [documentSummary.documentId] : [],
-      ),
-    ),
-  );
-  const linkedContainerIdsByDocumentId =
-    await sqlDocumentContainerProjectionPersistence.listLinkedContainerIdsByDocumentIds(
-      execSql,
-      documentIds,
-    );
-
-  return { documentSummaries, linkedContainerIdsByDocumentId };
-}
-
-function listContainerContentsContainerSubtreeIds(
-  containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>,
-  rootContainerId: string,
-): string[] {
-  const childrenByParentId = new Map<string, string[]>();
-  for (const containerState of containersById.values()) {
-    const parentId = containerState.container.parentId;
-    if (parentId === null) {
-      continue;
-    }
-
-    const children = childrenByParentId.get(parentId);
-    if (children) {
-      children.push(containerState.container.id);
-    } else {
-      childrenByParentId.set(parentId, [containerState.container.id]);
-    }
-  }
-
-  const subtreeIds: string[] = [];
-  const stack = [rootContainerId];
-  const visited = new Set<string>();
-  while (stack.length > 0) {
-    const containerId = stack.pop();
-    if (containerId === undefined || visited.has(containerId)) {
-      continue;
-    }
-    visited.add(containerId);
-
-    if (containersById.has(containerId)) {
-      subtreeIds.push(containerId);
-    }
-
-    const children = childrenByParentId.get(containerId);
-    if (children) {
-      stack.push(...children);
-    }
-  }
-
-  return subtreeIds;
-}
-
-function resolveContainerContentsDocumentRuntimeContainerId(params: {
-  documentSummary: Pick<DocumentSummary, "containerId" | "documentId">;
-  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  sharedContainerIds: ReadonlySet<string>;
-}): string | null {
-  const {
-    documentSummary,
-    linkedContainerIdsByDocumentId,
-    sharedContainerIds,
-  } = params;
-  if (
-    documentSummary.containerId &&
-    sharedContainerIds.has(documentSummary.containerId)
-  ) {
-    return documentSummary.containerId;
-  }
-
-  if (!documentSummary.documentId) {
-    return null;
-  }
-
-  return (
-    linkedContainerIdsByDocumentId
-      .get(documentSummary.documentId)
-      ?.find((containerId) => sharedContainerIds.has(containerId)) ?? null
-  );
-}
-
-async function listDocumentRuntimeTargetsForContainerSubtree(input: {
-  containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>;
-  execSql: ExecSql;
-  rootContainerId: string;
-}): Promise<ContainerContentsDocumentRuntimeTarget[]> {
-  const { containersById, execSql, rootContainerId } = input;
-  const sharedContainerIds = new Set(
-    listContainerContentsContainerSubtreeIds(containersById, rootContainerId),
-  );
-  if (sharedContainerIds.size === 0) {
-    return [];
-  }
-
-  const { documentSummaries, linkedContainerIdsByDocumentId } =
-    await listContainerContentsDocumentsForContainerSubtree(
-      execSql,
-      Array.from(sharedContainerIds),
-    );
-
-  return documentSummaries.flatMap((documentSummary) => {
-    const runtimeContainerId =
-      resolveContainerContentsDocumentRuntimeContainerId({
-        documentSummary,
-        linkedContainerIdsByDocumentId,
-        sharedContainerIds,
-      });
-    if (!runtimeContainerId) {
-      return [];
-    }
-
-    return [
-      {
-        documentId: documentSummary.documentId,
-        localId: documentSummary.id,
-        runtimeContainerId,
-      },
-    ];
-  });
-}
-
-export function listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
-  runtime,
-  ...input
-}: Omit<
-  Parameters<typeof listDocumentRuntimeTargetsForContainerSubtree>[0],
-  "execSql"
-> & {
-  runtime: ContainerDocumentQueriesRuntime;
-}): ReturnType<typeof listDocumentRuntimeTargetsForContainerSubtree> {
-  return listDocumentRuntimeTargetsForContainerSubtree({
-    ...input,
-    execSql: runtime.infra.execSql,
-  });
 }
 
 async function listContainerContentsLinkedContainerIdsByDocumentIds(
