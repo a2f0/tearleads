@@ -12,6 +12,10 @@ import {
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
+import {
+  deletePendingAttachment,
+  saveLocalAttachmentRecord,
+} from "./attachmentPersistence";
 import { resolveAttachmentSourceUpload } from "./attachmentSourceUpload";
 import { uploadAttachmentWithWriterProjectionRetry } from "./attachmentUploadAttempt";
 import {
@@ -20,10 +24,6 @@ import {
   createAttachmentUploadLaneReporter,
 } from "./attachmentUploadLane";
 import type { AttachmentUploadResume } from "./attachmentUploadResume";
-import {
-  deletePendingAttachment,
-  saveLocalAttachmentRecord,
-} from "./persistence";
 import {
   type DocumentAttachmentBinding,
   type DocumentState,
@@ -155,9 +155,9 @@ export async function syncPendingAttachments(
     return { completed: false, nextRecord: currentRecord };
   }
 
-  // Only record the origination once a write actually landed: the server echoes
-  // a document_update_created for it, and this lets the reconciler skip
-  // re-discovering a delta we already have locally rather than cycling its lane
+  // Only record the origination once a write landed: the server echoes a
+  // document_update_created for it, and this lets the reconciler skip
+  // rediscovering a delta we already have locally rather than cycling its lane
   // per uploaded file. Marking here (not before the loop) avoids a dangling id
   // that would suppress the next genuine remote update if every upload failed.
   if (progress.uploadedAttachment) {

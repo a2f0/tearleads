@@ -14,7 +14,7 @@ import {
   type LocalAttachmentRecord,
   runSerializedDocumentBlobMutation,
 } from "../../../workflows/documents";
-import { saveLocalAttachmentRecords } from "./persistence";
+import { saveLocalAttachmentRecords } from "./attachmentPersistence";
 import type { DocumentState, DocumentStoreState } from "./state";
 import {
   type DocumentStoreSyncGeneration,
