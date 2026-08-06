@@ -157,7 +157,7 @@ test("picking a personal-org blob copies and re-encrypts it for the target organ
     blob: pickedBlob,
     blobStore,
   });
-  custom.store.setAttachment("front-image", pickedUpload);
+  custom.store.replaceAttachment("front-image", pickedUpload);
   const customAttachment = await waitForUploadedAttachment(custom);
 
   expect(customAttachment.blobId).not.toBe(personalAttachment.blobId);

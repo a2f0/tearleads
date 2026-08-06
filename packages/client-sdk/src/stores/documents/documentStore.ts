@@ -12,7 +12,6 @@ import {
   attachFilesToDocumentStore,
   removeAttachmentFromDocumentStore,
   replaceAttachmentInDocumentStore,
-  setAttachmentInDocumentStore,
 } from "./documentStore/attachments";
 import { discardDocumentStoreLocalState } from "./documentStore/discard";
 import {
@@ -182,8 +181,6 @@ function createBackingDocumentStore(
     removeAttachment: (slotId: string) =>
       removeAttachmentFromDocumentStore(state, scheduleSync, slotId),
     removeRow: (id) => removeRowFromDocumentStore(state, scheduleSync, id),
-    setAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
-      setAttachmentInDocumentStore(state, scheduleSync, slotId, file),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
     requestRemoteSync: () =>

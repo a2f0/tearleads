@@ -476,12 +476,3 @@ export async function replaceAttachmentInDocumentStore(
     });
   return state.writeChain;
 }
-
-export function setAttachmentInDocumentStore(
-  state: DocumentStoreState,
-  scheduleSync: () => void,
-  slotId: string,
-  file: DocumentAttachmentUpload,
-) {
-  return replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file);
-}

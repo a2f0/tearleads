@@ -153,12 +153,12 @@ async function seedFiles(
           file.kind === "drivers_license"
             ? resolveDriverLicenseSlotId(attachment.slot)
             : attachment.slot;
-        // setAttachment/attachFiles are typed void but return the write-chain
-        // promise at runtime; cast to Promise<void> so the await is explicit. A
-        // plain Promise.resolve() wrapper reads as redundant and invites a
-        // refactor that would drop the await and race the persistence.
-        await (store.setAttachment(slotId, upload) as unknown as Promise<void>);
+        await store.replaceAttachment(slotId, upload);
       } else {
+        // attachFiles is typed void but returns the write-chain promise at
+        // runtime; cast to Promise<void> so the await is explicit. A plain
+        // Promise.resolve() wrapper reads as redundant and invites a
+        // refactor that would drop the await and race the persistence.
         await (store.attachFiles([upload]) as unknown as Promise<void>);
       }
     }

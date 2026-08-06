@@ -16,9 +16,9 @@ export function useBlobPickAttachment(params: {
   containerId: string | null;
   errorMessage: string;
   localId: string;
-  setAttachment: Parameters<
+  replaceAttachment: Parameters<
     typeof useDocumentBlobAttachmentSelection
-  >[0]["setAttachment"];
+  >[0]["replaceAttachment"];
   slotIds: ReadonlyArray<string>;
 }): DocumentAttachmentBlobPickerConfig | undefined {
   const {
@@ -26,14 +26,14 @@ export function useBlobPickAttachment(params: {
     containerId,
     errorMessage,
     localId,
-    setAttachment,
+    replaceAttachment,
     slotIds,
   } = params;
   const blobPick = useDocumentBlobPick();
   const handleSelectedBlobAttachment = useDocumentBlobAttachmentSelection({
     blobStore,
     errorMessage,
-    setAttachment,
+    replaceAttachment,
   });
 
   const consumeBlobPick = blobPick?.consumeBlobPick;

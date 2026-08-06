@@ -147,7 +147,6 @@ export function useDocument(): DocumentContextValue {
       relink: store.relink,
       removeAttachment: store.removeAttachment,
       rows: snapshot.rows,
-      setAttachment: store.setAttachment,
       replaceAttachment: store.replaceAttachment,
       setStructuredFields: store.setStructuredFields,
       structuredFields: snapshot.structuredFields,

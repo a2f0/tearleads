@@ -112,7 +112,8 @@ accept a null container plus the active organization; use the indexed
 developing the SDK or a custom host.
 
 Document stores initialize automatically before mutating operations such as
-`setText(...)`, `setStructuredFields(...)`, `attachFiles(...)`, and
+`setText(...)`, `setStructuredFields(...)`, `attachFiles(...)`,
+`replaceAttachment(...)` — the one attachment-write API — and
 `relink(...)`. Call `ensureInitialized()` only when host code needs an explicit
 readiness probe without performing a mutation, for example before reading a
 ready snapshot or deciding whether to show an unavailable-storage state.
