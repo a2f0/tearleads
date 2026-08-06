@@ -94,10 +94,8 @@ export function registerDocumentStoreIdentity(
 
   const localStore = registry.storesByKey.get(localStoreKey);
   const documentStore = registry.storesByKey.get(documentStoreKey);
-  if (localStore && documentStore) {
-    documentStore.rebindTo(localStore);
-    registry.storesByKey.set(documentStoreKey, localStore);
-  } else if (localStore && !documentStore) {
+  if (localStore) {
+    documentStore?.rebindTo(localStore);
     registry.storesByKey.set(documentStoreKey, localStore);
   }
   registry.storesByKey.delete(localStoreKey);
