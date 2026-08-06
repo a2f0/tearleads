@@ -261,7 +261,7 @@
       "lines": 1023,
       "bytes": 30269
     },
-    "packages/client-sdk/src/Tearleads.test.ts": {
+    "packages/client-sdk/src/client/Tearleads.test.ts": {
       "lines": 1001,
       "bytes": 31624
     },

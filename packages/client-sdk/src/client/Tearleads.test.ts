@@ -5,15 +5,9 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import {
-  Database,
-  type Logger,
-  type SessionSnapshot,
-  Tearleads,
-} from "./client";
-import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
-import { loadContainers } from "./data/persistence/containers/containerPersistence";
-import type { DocumentProjectorDefinition } from "./documents";
+import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
+import { loadContainers } from "../data/persistence/containers/containerPersistence";
+import type { DocumentProjectorDefinition } from "../documents";
 import type {
   ExecSql,
   ExecSqlClientLike,
@@ -21,11 +15,12 @@ import type {
   SqlBind,
   SqlRow,
   SqlRowMode,
-} from "./sqlite";
+} from "../sqlite";
 import {
   defaultDocumentsPersistence,
   resolveDocumentCreateAuthor,
-} from "./workflows/documents";
+} from "../workflows/documents";
+import { Database, type Logger, type SessionSnapshot, Tearleads } from ".";
 
 const quietLogger: Required<Logger> = {
   log: () => undefined,
