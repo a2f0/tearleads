@@ -84,14 +84,6 @@ export class Database {
     });
   }
 
-  requireClient(operation = "This operation"): ExecSqlClientLike {
-    if (!this.snapshotValue.client) {
-      throw new Error(`${operation} requires a configured SQLite client.`);
-    }
-
-    return this.snapshotValue.client;
-  }
-
   requireExecSql(operation = "This operation"): ExecSql {
     if (!this.snapshotValue.execSql) {
       throw new Error(`${operation} requires a configured SQLite executor.`);

@@ -290,7 +290,6 @@ class OrganizationsService implements Organizations {
     const currentUserSecretKey = requireEncapsulationKeyPair(runtime).secretKey;
     let memberGroupId: string | null = null;
     const bundle = await addOrganizationGroupUser({
-      afterPolicyCommitBeforeCache: async () => {},
       apiClient: runtime.apiClient,
       beforePolicyCommit: (_head, authority) => {
         memberGroupId = authority.memberGroupId;
@@ -527,7 +526,6 @@ class OrganizationsService implements Organizations {
     const signingContext = requireSigningContext(runtime);
     let memberGroupId: string | null = null;
     const bundle = await removeOrganizationGroupUser({
-      afterPolicyCommitBeforeCache: async () => {},
       apiClient: runtime.apiClient,
       beforePolicyCommit: (_head, authority) => {
         memberGroupId = authority.memberGroupId;

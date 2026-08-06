@@ -646,7 +646,7 @@ export async function createOrganizationGroup(input: {
 }
 
 export async function addOrganizationGroupUser(input: {
-  readonly afterPolicyCommitBeforeCache: () => Promise<void>;
+  readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
   readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly currentUserSecretKey: Uint8Array;
   readonly execSql: ExecSql;
@@ -725,7 +725,7 @@ export async function addOrganizationGroupUser(input: {
     groupId: input.groupId,
     request,
   });
-  await input.afterPolicyCommitBeforeCache();
+  await input.afterPolicyCommitBeforeCache?.();
   return cacheGroupPolicy({
     acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
     apiClient: input.apiClient,
@@ -744,7 +744,7 @@ export async function addOrganizationGroupUser(input: {
 }
 
 export async function removeOrganizationGroupUser(input: {
-  readonly afterPolicyCommitBeforeCache: () => Promise<void>;
+  readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
   readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly execSql: ExecSql;
   readonly groupId: string;
@@ -819,7 +819,7 @@ export async function removeOrganizationGroupUser(input: {
     groupId: input.groupId,
     request,
   });
-  await input.afterPolicyCommitBeforeCache();
+  await input.afterPolicyCommitBeforeCache?.();
   return cacheGroupPolicy({
     acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
     apiClient: input.apiClient,
