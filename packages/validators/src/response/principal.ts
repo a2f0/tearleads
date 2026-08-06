@@ -1,75 +1,97 @@
 import { z } from "zod";
-import { isPlainObject } from "../isPlainObject";
-import { loosePlainObject } from "../schema";
+import { BILLING_ERROR_CODES } from "../billing";
 import {
-  hasArrayProperty,
-  hasNullableStringProperty,
-  hasNumberProperty,
-  hasObjectProperty,
-  hasStringProperty,
-} from "../util";
+  arraySchema,
+  loosePlainObject,
+  nonNegativeIntegerSchema,
+  positiveIntegerSchema,
+} from "../schema";
 
-export interface PrincipalStateResponse {
-  principalType: "group" | "organization";
-  principalId: string;
-  version: number;
-  prevStateHash: string | null;
-  keyEpoch: number;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-  membershipMode: "projection";
-  membershipRoot: string;
-  memberEnvelopesRoot: string;
-  projectionRoot: string;
-  payloadCiphertextHash: string;
-  memberCount: number;
-  externalAuthority: PrincipalStateExternalAuthorityResponse | null;
-  signedAt: string;
-  signerUserId: string;
-  signerUserKeyFingerprint: string;
-  signature: string;
-  stateHash: string;
-  createdAt: string;
-}
+export const PrincipalStateExternalAuthorityResponseSchema = loosePlainObject({
+  keyEpoch: positiveIntegerSchema,
+  keyFingerprint: z.string(),
+  principalId: z.string(),
+  principalType: z.literal("group"),
+  stateHash: z.string(),
+  version: positiveIntegerSchema,
+});
 
-export interface PrincipalStateExternalAuthorityResponse {
-  principalType: "group";
-  principalId: string;
-  version: number;
-  keyEpoch: number;
-  stateHash: string;
-  keyFingerprint: string;
-}
+export type PrincipalStateExternalAuthorityResponse = z.infer<
+  typeof PrincipalStateExternalAuthorityResponseSchema
+>;
 
-export interface PrincipalProjectionMemberResponse {
-  userId: string;
-  role: "member" | "admin";
-}
+export const PrincipalStateResponseSchema = loosePlainObject({
+  createdAt: z.string(),
+  encapsulationPublicKey: z.string(),
+  externalAuthority: PrincipalStateExternalAuthorityResponseSchema.nullable(),
+  keyEpoch: z.number(),
+  keyFingerprint: z.string(),
+  memberCount: nonNegativeIntegerSchema,
+  memberEnvelopesRoot: z.string(),
+  membershipMode: z.literal("projection"),
+  membershipRoot: z.string(),
+  payloadCiphertextHash: z.string(),
+  prevStateHash: z.string().nullable(),
+  principalId: z.string(),
+  principalType: z.literal(["group", "organization"]),
+  projectionRoot: z.string(),
+  signature: z.string(),
+  signedAt: z.string(),
+  signerUserId: z.string(),
+  signerUserKeyFingerprint: z.string(),
+  stateHash: z.string(),
+  version: z.number(),
+});
 
-export interface PrincipalStatePayloadResponse {
-  principalType: "group" | "organization";
-  principalId: string;
-  stateHash: string;
-  cipherSuite: "aes-256-gcm";
-  ciphertext: string;
-  ciphertextHash: string;
-  createdAt: string;
-}
+export type PrincipalStateResponse = z.infer<
+  typeof PrincipalStateResponseSchema
+>;
 
-export interface PrincipalMemberEnvelopeResponse {
-  userId: string;
-  memberKeyFingerprint: string;
-  kemCipherText: string;
-  wrappedKey: string;
-}
+export const PrincipalProjectionMemberResponseSchema = loosePlainObject({
+  role: z.literal(["member", "admin"]),
+  userId: z.string(),
+});
 
-export interface CurrentPrincipalMemberEnvelopesResponse {
-  principalType: "group" | "organization";
-  principalId: string;
-  stateHash: string;
-  epoch: number;
-  envelopes: PrincipalMemberEnvelopeResponse[];
-}
+export type PrincipalProjectionMemberResponse = z.infer<
+  typeof PrincipalProjectionMemberResponseSchema
+>;
+
+export const PrincipalStatePayloadResponseSchema = loosePlainObject({
+  cipherSuite: z.literal("aes-256-gcm"),
+  ciphertext: z.string(),
+  ciphertextHash: z.string(),
+  createdAt: z.string(),
+  principalId: z.string(),
+  principalType: z.literal(["group", "organization"]),
+  stateHash: z.string(),
+});
+
+export type PrincipalStatePayloadResponse = z.infer<
+  typeof PrincipalStatePayloadResponseSchema
+>;
+
+export const PrincipalMemberEnvelopeResponseSchema = loosePlainObject({
+  kemCipherText: z.string(),
+  memberKeyFingerprint: z.string(),
+  userId: z.string(),
+  wrappedKey: z.string(),
+});
+
+export type PrincipalMemberEnvelopeResponse = z.infer<
+  typeof PrincipalMemberEnvelopeResponseSchema
+>;
+
+export const CurrentPrincipalMemberEnvelopesResponseSchema = loosePlainObject({
+  envelopes: arraySchema(PrincipalMemberEnvelopeResponseSchema),
+  epoch: z.number(),
+  principalId: z.string(),
+  principalType: z.literal(["group", "organization"]),
+  stateHash: z.string(),
+});
+
+export type CurrentPrincipalMemberEnvelopesResponse = z.infer<
+  typeof CurrentPrincipalMemberEnvelopesResponseSchema
+>;
 
 export const ReferencedPrincipalStateResponseSchema = loosePlainObject({
   keyEpoch: z.number(),
@@ -84,137 +106,67 @@ export type ReferencedPrincipalStateResponse = z.infer<
   typeof ReferencedPrincipalStateResponseSchema
 >;
 
-export interface PrincipalPolicyStateChainEntryResponse {
-  state: PrincipalStateResponse;
-  projection: PrincipalProjectionMemberResponse[];
-}
+export const PrincipalPolicyStateChainEntryResponseSchema = loosePlainObject({
+  projection: arraySchema(PrincipalProjectionMemberResponseSchema),
+  state: PrincipalStateResponseSchema,
+});
 
-export interface PrincipalPolicyBundleResponse {
-  currentState: PrincipalStateResponse;
-  currentPayload: PrincipalStatePayloadResponse;
-  currentProjection: PrincipalProjectionMemberResponse[];
-  currentMemberEnvelopes: CurrentPrincipalMemberEnvelopesResponse;
-  previousStates: PrincipalPolicyStateChainEntryResponse[];
-}
+export type PrincipalPolicyStateChainEntryResponse = z.infer<
+  typeof PrincipalPolicyStateChainEntryResponseSchema
+>;
 
-export interface PrincipalPolicyStaleErrorResponse {
-  error: string;
-  code: "principal_policy_stale";
-  principalPolicies: PrincipalPolicyBundleResponse[];
-}
+export const PrincipalPolicyBundleResponseSchema = loosePlainObject({
+  currentMemberEnvelopes: CurrentPrincipalMemberEnvelopesResponseSchema,
+  currentPayload: PrincipalStatePayloadResponseSchema,
+  currentProjection: arraySchema(PrincipalProjectionMemberResponseSchema),
+  currentState: PrincipalStateResponseSchema,
+  previousStates: arraySchema(PrincipalPolicyStateChainEntryResponseSchema),
+});
 
-function isManagedPrincipalType(
-  value: string,
-): value is PrincipalStateResponse["principalType"] {
-  return value === "group" || value === "organization";
-}
+export type PrincipalPolicyBundleResponse = z.infer<
+  typeof PrincipalPolicyBundleResponseSchema
+>;
 
-function isProjectionRole(
-  value: string,
-): value is PrincipalProjectionMemberResponse["role"] {
-  return value === "member" || value === "admin";
-}
+const BillingErrorCodeSchema = z.literal([
+  BILLING_ERROR_CODES.checkoutNoActiveMembers,
+  BILLING_ERROR_CODES.rosterOverCapacity,
+]);
 
-function isPrincipalProjectionMemberResponse(
-  value: unknown,
-): value is PrincipalProjectionMemberResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "userId") &&
-    hasStringProperty(value, "role") &&
-    isProjectionRole(value.role)
-  );
-}
+export const PrincipalPolicyErrorResponseSchema = loosePlainObject({
+  code: BillingErrorCodeSchema.optional(),
+  error: z.string(),
+});
 
-function isPrincipalMemberEnvelopeResponse(
-  value: unknown,
-): value is PrincipalMemberEnvelopeResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "userId") &&
-    hasStringProperty(value, "memberKeyFingerprint") &&
-    hasStringProperty(value, "kemCipherText") &&
-    hasStringProperty(value, "wrappedKey")
-  );
-}
+export type PrincipalPolicyErrorResponse = z.infer<
+  typeof PrincipalPolicyErrorResponseSchema
+>;
+
+export const PrincipalPolicyStaleErrorResponseSchema = loosePlainObject({
+  code: z.literal("principal_policy_stale"),
+  error: z.string(),
+  principalPolicies: arraySchema(PrincipalPolicyBundleResponseSchema),
+});
+
+export type PrincipalPolicyStaleErrorResponse = z.infer<
+  typeof PrincipalPolicyStaleErrorResponseSchema
+>;
 
 export function isPrincipalStateResponse(
   value: unknown,
 ): value is PrincipalStateResponse {
-  const externalAuthority = isPlainObject(value)
-    ? Reflect.get(value, "externalAuthority")
-    : undefined;
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "principalType") &&
-    isManagedPrincipalType(value.principalType) &&
-    hasStringProperty(value, "principalId") &&
-    hasNumberProperty(value, "version") &&
-    hasNullableStringProperty(value, "prevStateHash") &&
-    hasNumberProperty(value, "keyEpoch") &&
-    hasStringProperty(value, "encapsulationPublicKey") &&
-    hasStringProperty(value, "keyFingerprint") &&
-    hasStringProperty(value, "membershipMode") &&
-    value.membershipMode === "projection" &&
-    hasStringProperty(value, "membershipRoot") &&
-    hasStringProperty(value, "memberEnvelopesRoot") &&
-    hasStringProperty(value, "projectionRoot") &&
-    hasStringProperty(value, "payloadCiphertextHash") &&
-    hasNumberProperty(value, "memberCount") &&
-    Number.isInteger(value.memberCount) &&
-    value.memberCount >= 0 &&
-    (externalAuthority === null ||
-      (isPlainObject(externalAuthority) &&
-        hasStringProperty(externalAuthority, "principalType") &&
-        externalAuthority.principalType === "group" &&
-        hasStringProperty(externalAuthority, "principalId") &&
-        hasNumberProperty(externalAuthority, "version") &&
-        Number.isInteger(externalAuthority.version) &&
-        externalAuthority.version > 0 &&
-        hasNumberProperty(externalAuthority, "keyEpoch") &&
-        Number.isInteger(externalAuthority.keyEpoch) &&
-        externalAuthority.keyEpoch > 0 &&
-        hasStringProperty(externalAuthority, "stateHash") &&
-        hasStringProperty(externalAuthority, "keyFingerprint"))) &&
-    hasStringProperty(value, "signedAt") &&
-    hasStringProperty(value, "signerUserId") &&
-    hasStringProperty(value, "signerUserKeyFingerprint") &&
-    hasStringProperty(value, "signature") &&
-    hasStringProperty(value, "stateHash") &&
-    hasStringProperty(value, "createdAt")
-  );
+  return PrincipalStateResponseSchema.safeParse(value).success;
 }
 
 export function isPrincipalStatePayloadResponse(
   value: unknown,
 ): value is PrincipalStatePayloadResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "principalType") &&
-    isManagedPrincipalType(value.principalType) &&
-    hasStringProperty(value, "principalId") &&
-    hasStringProperty(value, "stateHash") &&
-    hasStringProperty(value, "cipherSuite") &&
-    value.cipherSuite === "aes-256-gcm" &&
-    hasStringProperty(value, "ciphertext") &&
-    hasStringProperty(value, "ciphertextHash") &&
-    hasStringProperty(value, "createdAt")
-  );
+  return PrincipalStatePayloadResponseSchema.safeParse(value).success;
 }
 
 export function isCurrentPrincipalMemberEnvelopesResponse(
   value: unknown,
 ): value is CurrentPrincipalMemberEnvelopesResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "principalType") &&
-    isManagedPrincipalType(value.principalType) &&
-    hasStringProperty(value, "principalId") &&
-    hasStringProperty(value, "stateHash") &&
-    hasNumberProperty(value, "epoch") &&
-    hasArrayProperty(value, "envelopes") &&
-    value.envelopes.every(isPrincipalMemberEnvelopeResponse)
-  );
+  return CurrentPrincipalMemberEnvelopesResponseSchema.safeParse(value).success;
 }
 
 export function isReferencedPrincipalStateResponse(
@@ -226,42 +178,17 @@ export function isReferencedPrincipalStateResponse(
 export function isPrincipalPolicyStateChainEntryResponse(
   value: unknown,
 ): value is PrincipalPolicyStateChainEntryResponse {
-  return (
-    isPlainObject(value) &&
-    hasObjectProperty(value, "state") &&
-    isPrincipalStateResponse(value.state) &&
-    hasArrayProperty(value, "projection") &&
-    value.projection.every(isPrincipalProjectionMemberResponse)
-  );
+  return PrincipalPolicyStateChainEntryResponseSchema.safeParse(value).success;
 }
 
 export function isPrincipalPolicyBundleResponse(
   value: unknown,
 ): value is PrincipalPolicyBundleResponse {
-  return (
-    isPlainObject(value) &&
-    hasObjectProperty(value, "currentState") &&
-    isPrincipalStateResponse(value.currentState) &&
-    hasObjectProperty(value, "currentPayload") &&
-    isPrincipalStatePayloadResponse(value.currentPayload) &&
-    hasArrayProperty(value, "currentProjection") &&
-    value.currentProjection.every(isPrincipalProjectionMemberResponse) &&
-    hasObjectProperty(value, "currentMemberEnvelopes") &&
-    isCurrentPrincipalMemberEnvelopesResponse(value.currentMemberEnvelopes) &&
-    hasArrayProperty(value, "previousStates") &&
-    value.previousStates.every(isPrincipalPolicyStateChainEntryResponse)
-  );
+  return PrincipalPolicyBundleResponseSchema.safeParse(value).success;
 }
 
 export function isPrincipalPolicyStaleErrorResponse(
   value: unknown,
 ): value is PrincipalPolicyStaleErrorResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "error") &&
-    hasStringProperty(value, "code") &&
-    value.code === "principal_policy_stale" &&
-    hasArrayProperty(value, "principalPolicies") &&
-    value.principalPolicies.every(isPrincipalPolicyBundleResponse)
-  );
+  return PrincipalPolicyStaleErrorResponseSchema.safeParse(value).success;
 }

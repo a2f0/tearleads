@@ -63,4 +63,13 @@ export {
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
 } from "./organizations";
+export {
+  getPrincipalPolicyOperation,
+  isGetPrincipalPolicyOperationResponse,
+  isPutPrincipalPolicyOperationRequest,
+  isPutPrincipalPolicyOperationResponse,
+  type PrincipalPolicyPathParams,
+  PrincipalPolicyPathParamsSchema,
+  putPrincipalPolicyOperation,
+} from "./principals";
 export { protocolOperations } from "./registry";

@@ -19,6 +19,7 @@ import { ApiClient } from "./ApiClient";
 const dataUsageOrganizationId = "11111111-1111-4111-8111-111111111111";
 const organizationGroupId = "22222222-2222-4222-8222-222222222222";
 const organizationRosterUserId = "33333333-3333-4333-8333-333333333333";
+const principalPolicyId = "44444444-4444-4444-8444-444444444444";
 
 function organizationDataUsageResponse() {
   return {
@@ -128,16 +129,19 @@ testApiClient("coalesces only in-flight principal policy reads", async () => {
   );
 
   const client = new ApiClient(apiBaseUrl);
-  const first = client.getCurrentPrincipalPolicy("group", "group-1");
+  const first = client.getCurrentPrincipalPolicy("group", principalPolicyId);
   await firstRequestStarted.promise;
-  const concurrent = client.getCurrentPrincipalPolicy("group", "group-1");
+  const concurrent = client.getCurrentPrincipalPolicy(
+    "group",
+    principalPolicyId,
+  );
   finishFirstRequest.resolve();
   await expect(Promise.all([first, concurrent])).resolves.toEqual([
     bundle,
     bundle,
   ]);
   await expect(
-    client.getCurrentPrincipalPolicy("group", "group-1"),
+    client.getCurrentPrincipalPolicy("group", principalPolicyId),
   ).resolves.toEqual(bundle);
   expect(callCount).toBe(2);
 });
@@ -256,7 +260,11 @@ testApiClient(
       ),
     ).not.toBeNull();
     expect(
-      await client.putPrincipalPolicy("group", "group-1", policyRequest),
+      await client.putPrincipalPolicy(
+        "group",
+        principalPolicyId,
+        policyRequest,
+      ),
     ).not.toBeNull();
 
     expect(
@@ -298,7 +306,7 @@ testApiClient(
       },
       {
         body: JSON.stringify(policyRequest),
-        input: `${apiBaseUrl}/principals/group/group-1/policy`,
+        input: `${apiBaseUrl}/principals/group/${principalPolicyId}/policy`,
         method: "PUT",
       },
     ]);

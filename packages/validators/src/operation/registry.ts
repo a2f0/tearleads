@@ -19,6 +19,10 @@ import {
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
 } from "./organizations";
+import {
+  getPrincipalPolicyOperation,
+  putPrincipalPolicyOperation,
+} from "./principals";
 
 export const protocolOperations = [
   challengeOperation,
@@ -37,5 +41,7 @@ export const protocolOperations = [
   listOrganizationGroupMembersOperation,
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
+  getPrincipalPolicyOperation,
+  putPrincipalPolicyOperation,
   documentSyncOperation,
 ] as const;

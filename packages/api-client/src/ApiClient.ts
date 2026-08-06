@@ -48,7 +48,6 @@ import {
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
   isOrganizationBillingResponse,
-  isPrincipalPolicyBundleResponse,
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
@@ -106,6 +105,10 @@ import { updateOrganizationProfile as profileUpdate } from "./routes/organizatio
 import { getOrganizationReadModel as organizationReadModel } from "./routes/organizations/readModel";
 import { updateOrganizationRosterEntry as rosterUpdate } from "./routes/organizations/roster";
 import { pathSegment } from "./routes/path";
+import {
+  getPrincipalPolicy as principalPolicyGet,
+  putPrincipalPolicy as principalPolicyPut,
+} from "./routes/principals/policy";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import type {
   HttpMethod,
@@ -792,9 +795,9 @@ export class ApiClient {
       JSON.stringify([principalType, principalId]),
       () =>
         this.request(
-          `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/policy`,
-          isPrincipalPolicyBundleResponse,
-          "GET",
+          principalPolicyGet.path(principalType, principalId),
+          principalPolicyGet.isResponse,
+          principalPolicyGet.method,
         ),
     );
   }
@@ -807,9 +810,9 @@ export class ApiClient {
     const requestKey = JSON.stringify([principalType, principalId]);
     this.principalPolicyRequestsByKey.delete(requestKey);
     return this.request(
-      `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/policy`,
-      isPrincipalPolicyBundleResponse,
-      "PUT",
+      principalPolicyPut.path(principalType, principalId),
+      principalPolicyPut.isResponse,
+      principalPolicyPut.method,
       JSON.stringify(input),
     ).finally(() => {
       this.principalPolicyRequestsByKey.delete(requestKey);
