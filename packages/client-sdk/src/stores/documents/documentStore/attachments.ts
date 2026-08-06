@@ -19,16 +19,18 @@ import {
 } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
 import type { DocumentAttachmentUpload } from "../types";
-import { ensureDocumentStoreReady } from "./initialization";
 import {
-  advancePendingBaseVersion,
   deleteLocalAttachmentRecord,
-  enqueuePendingUpdate,
-  pendingDeltaSinceBase,
-  persistDocument,
   queuePendingAttachmentUpload,
   saveLocalAttachmentRecord,
   upsertPendingAttachments,
+} from "./attachmentPersistence";
+import { ensureDocumentStoreReady } from "./initialization";
+import {
+  advancePendingBaseVersion,
+  enqueuePendingUpdate,
+  pendingDeltaSinceBase,
+  persistDocument,
 } from "./persistence";
 import {
   canAttachFiles,

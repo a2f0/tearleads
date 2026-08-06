@@ -6,12 +6,12 @@ import {
 } from "../../../data/documents/documentContent";
 import type { LocalAttachmentRecord } from "../../../workflows/documents";
 import { reconcileLocalAttachmentDetachState } from "./attachmentDetachState";
+import { saveLocalAttachmentRecord } from "./attachmentPersistence";
 import {
   advancePendingBaseVersion,
   enqueuePendingUpdate,
   pendingDeltaSinceBase,
   persistDocument,
-  saveLocalAttachmentRecord,
 } from "./persistence";
 import type { DocumentState, DocumentStoreState } from "./state";
 import type { DocumentStoreSyncGeneration } from "./syncGeneration";
