@@ -15,9 +15,9 @@ import {
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
+import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
 import {
   addOrganizationGroupUser,
-  buildAddGroupUserPolicyRequest,
   buildInitialGroupPolicyRequest,
   removeOrganizationGroupUser,
 } from "./principalPolicy";

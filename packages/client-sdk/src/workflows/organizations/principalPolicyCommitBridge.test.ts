@@ -20,9 +20,9 @@ import {
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
 import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
+import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
 import {
   addOrganizationGroupUser,
-  buildAddGroupUserPolicyRequest,
   buildInitialGroupPolicyRequest,
   removeOrganizationGroupUser,
 } from "./principalPolicy";

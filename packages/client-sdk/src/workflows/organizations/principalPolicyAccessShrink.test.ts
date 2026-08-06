@@ -6,10 +6,8 @@ import {
 } from "@tearleads/crypto";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
-import {
-  buildGroupAccessSetShrinkPolicyRequest,
-  buildInitialGroupPolicyRequest,
-} from "./principalPolicy";
+import { buildGroupAccessSetShrinkPolicyRequest } from "./groupPolicyRequests";
+import { buildInitialGroupPolicyRequest } from "./principalPolicy";
 
 test("access-set shrink preserves membership while rotating the group key", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
