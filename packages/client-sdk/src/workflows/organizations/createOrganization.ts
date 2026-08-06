@@ -31,7 +31,7 @@ export interface CreateOrganizationInput {
    * The caller discards the result.
    */
   isIdentityCurrent?: (() => boolean) | undefined;
-  /** Forwarded to the bootstrap persist; see its onPersistQueued doc. */
+  /** @internal Forwarded to the bootstrap persist; test-only seam. */
   onPersistQueued?: (() => void) | undefined;
   log?: ((message: string) => void) | undefined;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;

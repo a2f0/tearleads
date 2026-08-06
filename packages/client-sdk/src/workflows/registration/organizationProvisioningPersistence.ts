@@ -31,7 +31,7 @@ type PersistOrganizationProvisioningStateInput = Pick<
 > & {
   /** Forwarded to the bootstrap persist's in-mutex currency check. */
   readonly canStartDurableMutation?: (() => boolean) | undefined;
-  /** Forwarded to the bootstrap persist; see its onPersistQueued doc. */
+  /** @internal Forwarded to the bootstrap persist; test-only seam. */
   readonly onPersistQueued?: (() => void) | undefined;
   readonly containerId: string;
   readonly dbClient: ExecSqlClientLike;

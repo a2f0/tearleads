@@ -80,7 +80,7 @@ export interface RegisterIdentityInput {
    * cannot write its bootstrap through a client the replacement owns.
    */
   isIdentityCurrent?: (() => boolean) | undefined;
-  /** Forwarded to the bootstrap persist; see its onPersistQueued doc. */
+  /** @internal Forwarded to the bootstrap persist; test-only seam. */
   onPersistQueued?: (() => void) | undefined;
   encapsulationKeyPair: EncapsulationKeyPair;
   log?: ((message: string) => void) | undefined;

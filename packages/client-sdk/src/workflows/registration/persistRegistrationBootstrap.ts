@@ -73,8 +73,8 @@ export interface RegistrationBootstrapInput {
   /** Checked inside the mutation queue claim; false skips every write. */
   canStartDurableMutation?: (() => boolean) | undefined;
   /**
-   * Invoked synchronously immediately before this persist joins the
-   * serialized mutation queue — no interleaving can separate the two. Lets
+   * @internal Test-only synchronization seam. Invoked synchronously
+   * immediately before this persist joins the serialized mutation queue — no interleaving can separate the two. Lets
    * identity-race tests deterministically place an identity replacement
    * inside the queue-wait window instead of sleeping.
    */
