@@ -28,9 +28,6 @@ import {
   type DocumentCreateResponse,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
-  isOrganizationBillingHistoryResponse,
-  isOrganizationBillingManagementUrlResponse,
-  isOrganizationBillingResponse,
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
@@ -109,6 +106,7 @@ import {
 } from "./routes/documents/mutations";
 import { documentSync as sync } from "./routes/documents/sync";
 import { getHealth as healthGet } from "./routes/health";
+import { organizationBilling } from "./routes/organizations/billing";
 import { createOrganization as organizationCreate } from "./routes/organizations/create";
 import { createOrganizationGroup as groupCreate } from "./routes/organizations/createGroup";
 import { getOrganizationDataUsage as organizationDataUsage } from "./routes/organizations/dataUsage";
@@ -864,25 +862,25 @@ export class ApiClient {
 
   getOrganizationBilling(organizationId: string) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/billing`,
-      isOrganizationBillingResponse,
-      "GET",
+      organizationBilling.get.path(organizationId),
+      organizationBilling.get.isResponse,
+      organizationBilling.get.method,
     );
   }
 
   getOrganizationBillingHistory(organizationId: string) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/billing/history`,
-      isOrganizationBillingHistoryResponse,
-      "GET",
+      organizationBilling.history.path(organizationId),
+      organizationBilling.history.isResponse,
+      organizationBilling.history.method,
     );
   }
 
   getOrganizationBillingManagementUrl(organizationId: string) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/billing/management-url`,
-      isOrganizationBillingManagementUrlResponse,
-      "GET",
+      organizationBilling.managementUrl.path(organizationId),
+      organizationBilling.managementUrl.isResponse,
+      organizationBilling.managementUrl.method,
     );
   }
 
@@ -891,9 +889,9 @@ export class ApiClient {
     store: NativeSubscriptionStore,
   ) {
     return this.makeRequestResult(
-      `/organizations/${pathSegment(organizationId)}/billing/native/${pathSegment(store)}/claim`,
-      isOrganizationBillingResponse,
-      "POST",
+      organizationBilling.nativeClaim.path(organizationId, store),
+      organizationBilling.nativeClaim.isResponse,
+      organizationBilling.nativeClaim.method,
       undefined,
       { reportErrors: false },
     );
@@ -959,9 +957,9 @@ export class ApiClient {
 
   startOrganizationTrial(organizationId: string) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/billing/trial`,
-      isOrganizationBillingResponse,
-      "POST",
+      organizationBilling.startTrial.path(organizationId),
+      organizationBilling.startTrial.isResponse,
+      organizationBilling.startTrial.method,
     );
   }
 

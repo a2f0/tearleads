@@ -1,4 +1,12 @@
-import { isNativeSubscriptionStore } from "@tearleads/validators/billing";
+import { NativeSubscriptionStoreSchema } from "@tearleads/validators/billing";
+import {
+  claimNativeOrganizationSubscriptionOperation,
+  getOrganizationBillingHistoryOperation,
+  getOrganizationBillingManagementUrlOperation,
+  getOrganizationBillingOperation,
+  operationRoutePath,
+  startOrganizationTrialOperation,
+} from "@tearleads/validators/operation";
 import { type Context, Hono } from "hono";
 import type { RevenueCatApiDeps } from "../../billing/revenueCatApi";
 import type { SessionEnv } from "../../middleware/session";
@@ -10,26 +18,23 @@ import {
   startOrganizationTrial,
 } from "../../services/billing/organizationBilling";
 import { OrganizationBillingProviderUnavailableError } from "../../services/billing/organizationBillingErrors";
+import { pathParamsValidator } from "../../validators/pathParams";
 import {
   type OrganizationsRouterDeps,
-  parseOrganizationId,
   toOrganizationManagerErrorResponse,
 } from "../organizations/shared";
 
 /**
- * Runs an organization-scoped billing handler: validates the `organizationId`,
- * invokes the service with it and the session user, then maps an
+ * Runs an organization-scoped billing handler with its boundary-validated
+ * `organizationId` and the session user, then maps an
  * `OrganizationManagerError` to its HTTP response and rethrows anything else to
  * the central error handler. Keeps each billing route a single delegation.
  */
 async function respondForOrganization<T extends object>(
   c: Context<SessionEnv>,
+  organizationId: string,
   handle: (organizationId: string, sessionUserId: string) => Promise<T>,
 ): Promise<Response> {
-  const organizationId = parseOrganizationId(c.req.param("organizationId"));
-  if (!organizationId) {
-    return c.json({ error: "Invalid organizationId" }, 400);
-  }
   try {
     return c.json(await handle(organizationId, c.get("session").userId));
   } catch (error) {
@@ -48,59 +53,108 @@ interface OrganizationBillingRouteDeps extends OrganizationsRouterDeps {
   readonly revenueCat?: RevenueCatApiDeps;
 }
 
-export function createOrganizationBillingRoute({
-  requireAuth,
-  revenueCat,
-  runtime,
-}: OrganizationBillingRouteDeps) {
-  const route = new Hono<SessionEnv>();
-
-  route.get("/organizations/:organizationId/billing", requireAuth, (c) =>
-    respondForOrganization(c, (organizationId, sessionUserId) =>
-      getOrganizationBilling(runtime, organizationId, sessionUserId),
+function registerOrganizationBillingReadRoutes(
+  route: Hono<SessionEnv>,
+  { requireAuth, runtime }: OrganizationBillingRouteDeps,
+) {
+  route.on(
+    getOrganizationBillingOperation.method,
+    operationRoutePath(getOrganizationBillingOperation),
+    requireAuth,
+    pathParamsValidator(
+      getOrganizationBillingOperation.params,
+      "Invalid organizationId",
     ),
-  );
-
-  route.get(
-    "/organizations/:organizationId/billing/history",
-    requireAuth,
-    (c) =>
-      respondForOrganization(c, (organizationId, sessionUserId) =>
-        getOrganizationBillingHistory(runtime, organizationId, sessionUserId),
-      ),
-  );
-
-  route.get(
-    "/organizations/:organizationId/billing/management-url",
-    requireAuth,
-    (c) =>
-      respondForOrganization(c, (organizationId, sessionUserId) =>
-        getOrganizationBillingManagementUrl(
-          runtime,
-          organizationId,
-          sessionUserId,
-        ),
-      ),
-  );
-
-  route.post("/organizations/:organizationId/billing/trial", requireAuth, (c) =>
-    respondForOrganization(c, (organizationId, sessionUserId) =>
-      startOrganizationTrial(runtime, organizationId, sessionUserId),
-    ),
-  );
-
-  route.post(
-    "/organizations/:organizationId/billing/native/:store/claim",
-    requireAuth,
     (c) => {
-      const store = c.req.param("store");
-      if (!isNativeSubscriptionStore(store)) {
-        return c.json({ error: "Invalid native subscription store" }, 400);
-      }
-      return respondForOrganization(c, (organizationId, sessionUserId) =>
+      const { organizationId } = c.req.valid("param");
+      return respondForOrganization(c, organizationId, (id, sessionUserId) =>
+        getOrganizationBilling(runtime, id, sessionUserId),
+      );
+    },
+  );
+
+  route.on(
+    getOrganizationBillingHistoryOperation.method,
+    operationRoutePath(getOrganizationBillingHistoryOperation),
+    requireAuth,
+    pathParamsValidator(
+      getOrganizationBillingHistoryOperation.params,
+      "Invalid organizationId",
+    ),
+    (c) => {
+      const { organizationId } = c.req.valid("param");
+      return respondForOrganization(c, organizationId, (id, sessionUserId) =>
+        getOrganizationBillingHistory(runtime, id, sessionUserId),
+      );
+    },
+  );
+
+  route.on(
+    getOrganizationBillingManagementUrlOperation.method,
+    operationRoutePath(getOrganizationBillingManagementUrlOperation),
+    requireAuth,
+    pathParamsValidator(
+      getOrganizationBillingManagementUrlOperation.params,
+      "Invalid organizationId",
+    ),
+    (c) => {
+      const { organizationId } = c.req.valid("param");
+      return respondForOrganization(c, organizationId, (id, sessionUserId) =>
+        getOrganizationBillingManagementUrl(runtime, id, sessionUserId),
+      );
+    },
+  );
+}
+
+function registerOrganizationTrialRoute(
+  route: Hono<SessionEnv>,
+  { requireAuth, runtime }: OrganizationBillingRouteDeps,
+) {
+  route.on(
+    startOrganizationTrialOperation.method,
+    operationRoutePath(startOrganizationTrialOperation),
+    requireAuth,
+    pathParamsValidator(
+      startOrganizationTrialOperation.params,
+      "Invalid organizationId",
+    ),
+    (c) => {
+      const { organizationId } = c.req.valid("param");
+      return respondForOrganization(c, organizationId, (id, sessionUserId) =>
+        startOrganizationTrial(runtime, id, sessionUserId),
+      );
+    },
+  );
+}
+
+function nativeClaimPathError(value: unknown): string {
+  const store =
+    typeof value === "object" && value !== null && "store" in value
+      ? value.store
+      : undefined;
+  return NativeSubscriptionStoreSchema.safeParse(store).success
+    ? "Invalid organizationId"
+    : "Invalid native subscription store";
+}
+
+function registerNativeSubscriptionClaimRoute(
+  route: Hono<SessionEnv>,
+  { requireAuth, revenueCat, runtime }: OrganizationBillingRouteDeps,
+) {
+  route.on(
+    claimNativeOrganizationSubscriptionOperation.method,
+    operationRoutePath(claimNativeOrganizationSubscriptionOperation),
+    requireAuth,
+    pathParamsValidator(
+      claimNativeOrganizationSubscriptionOperation.params,
+      nativeClaimPathError,
+    ),
+    (c) => {
+      const { organizationId, store } = c.req.valid("param");
+      return respondForOrganization(c, organizationId, (id, sessionUserId) =>
         claimNativeOrganizationSubscription(
           runtime,
-          organizationId,
+          id,
           sessionUserId,
           store,
           revenueCat,
@@ -108,6 +162,16 @@ export function createOrganizationBillingRoute({
       );
     },
   );
+}
+
+export function createOrganizationBillingRoute(
+  deps: OrganizationBillingRouteDeps,
+) {
+  const route = new Hono<SessionEnv>();
+
+  registerOrganizationBillingReadRoutes(route, deps);
+  registerOrganizationTrialRoute(route, deps);
+  registerNativeSubscriptionClaimRoute(route, deps);
 
   return route;
 }

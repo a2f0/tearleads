@@ -1,31 +1,61 @@
-import { isPlainObject } from "../isPlainObject";
+import { z } from "zod";
 import {
-  hasArrayProperty,
-  hasNullableStringProperty,
-  hasStringProperty,
-} from "../util";
+  arraySchema,
+  boundedPositiveIntegerSchema,
+  loosePlainObject,
+  safeIntegerSchema,
+  safeNonNegativeIntegerSchema,
+} from "../schema";
 
 /**
  * How the billing webhook dispositioned a lifecycle event: `applied` events
  * changed the organization's billing; `ignored` events were recorded only
  * (unhandled type, stale delivery, non-admin buyer, ...).
  */
-export type OrganizationBillingHistoryOutcome = "applied" | "ignored";
+export const OrganizationBillingHistoryOutcomeSchema = z.literal([
+  "applied",
+  "ignored",
+]);
+
+export type OrganizationBillingHistoryOutcome = z.infer<
+  typeof OrganizationBillingHistoryOutcomeSchema
+>;
 
 /** The billing concern represented by one history entry. */
-export type OrganizationBillingHistoryCategory =
-  | "lifecycle"
-  | "seat"
-  | "invoice";
+export const OrganizationBillingHistoryCategorySchema = z.literal([
+  "lifecycle",
+  "seat",
+  "invoice",
+]);
+
+export type OrganizationBillingHistoryCategory = z.infer<
+  typeof OrganizationBillingHistoryCategorySchema
+>;
 
 /** The system that supplied the durable history record. */
-export type OrganizationBillingHistoryProvider =
-  | "revenuecat"
-  | "stripe"
-  | "internal";
+export const OrganizationBillingHistoryProviderSchema = z.literal([
+  "revenuecat",
+  "stripe",
+  "internal",
+]);
+
+export type OrganizationBillingHistoryProvider = z.infer<
+  typeof OrganizationBillingHistoryProviderSchema
+>;
 
 /** RevenueCat billing environment associated with a lifecycle audit row. */
-export type OrganizationBillingHistoryEnvironment = "sandbox" | "production";
+export const OrganizationBillingHistoryEnvironmentSchema = z.literal([
+  "sandbox",
+  "production",
+]);
+
+export type OrganizationBillingHistoryEnvironment = z.infer<
+  typeof OrganizationBillingHistoryEnvironmentSchema
+>;
+
+const nullableStringSchema = z.string().nullable();
+const nullableSafeNonNegativeIntegerSchema =
+  safeNonNegativeIntegerSchema.nullable();
 
 /**
  * One durable billing event in an organization's history, newest first.
@@ -35,151 +65,56 @@ export type OrganizationBillingHistoryEnvironment = "sandbox" | "production";
  * distinct `totalAmount` / `totalCurrency` pair. Nullable fields are explicit
  * so every category has one stable shape.
  */
-export interface OrganizationBillingHistoryEntry {
-  id: string;
-  category: OrganizationBillingHistoryCategory;
-  provider: OrganizationBillingHistoryProvider;
-  environment: OrganizationBillingHistoryEnvironment | null;
-  eventType: string;
-  outcome: OrganizationBillingHistoryOutcome;
-  occurredAt: string;
-  productId: string | null;
-  transactionId: string | null;
-  invoiceId: string | null;
-  subscriptionId: string | null;
-  billingReason: string | null;
-  seatCount: number | null;
-  seatDelta: number | null;
-  activeSeatCount: number | null;
-  priceId: string | null;
-  unitAmount: number | null;
-  currency: string | null;
-  interval: string | null;
-  intervalCount: number | null;
-  totalAmount: number | null;
-  totalCurrency: string | null;
-  periodStartsAt: string | null;
-  periodEndsAt: string | null;
-}
+export const OrganizationBillingHistoryEntrySchema = loosePlainObject({
+  id: z.string(),
+  category: OrganizationBillingHistoryCategorySchema,
+  provider: OrganizationBillingHistoryProviderSchema,
+  environment: OrganizationBillingHistoryEnvironmentSchema.nullable(),
+  eventType: z.string(),
+  outcome: OrganizationBillingHistoryOutcomeSchema,
+  occurredAt: z.string(),
+  productId: nullableStringSchema,
+  transactionId: nullableStringSchema,
+  invoiceId: nullableStringSchema,
+  subscriptionId: nullableStringSchema,
+  billingReason: nullableStringSchema,
+  seatCount: nullableSafeNonNegativeIntegerSchema,
+  seatDelta: safeIntegerSchema.nullable(),
+  activeSeatCount: nullableSafeNonNegativeIntegerSchema,
+  priceId: nullableStringSchema,
+  unitAmount: nullableSafeNonNegativeIntegerSchema,
+  currency: nullableStringSchema,
+  interval: nullableStringSchema,
+  intervalCount: boundedPositiveIntegerSchema(
+    Number.MAX_SAFE_INTEGER,
+  ).nullable(),
+  totalAmount: nullableSafeNonNegativeIntegerSchema,
+  totalCurrency: nullableStringSchema,
+  periodStartsAt: nullableStringSchema,
+  periodEndsAt: nullableStringSchema,
+});
 
-export interface OrganizationBillingHistoryResponse {
-  organizationId: string;
-  entries: OrganizationBillingHistoryEntry[];
-}
+export type OrganizationBillingHistoryEntry = z.infer<
+  typeof OrganizationBillingHistoryEntrySchema
+>;
 
-function isOrganizationBillingHistoryOutcome(
-  value: unknown,
-): value is OrganizationBillingHistoryOutcome {
-  return value === "applied" || value === "ignored";
-}
+export const OrganizationBillingHistoryResponseSchema = loosePlainObject({
+  organizationId: z.string(),
+  entries: arraySchema(OrganizationBillingHistoryEntrySchema),
+});
 
-function isOrganizationBillingHistoryCategory(
-  value: unknown,
-): value is OrganizationBillingHistoryCategory {
-  return value === "lifecycle" || value === "seat" || value === "invoice";
-}
-
-function isOrganizationBillingHistoryProvider(
-  value: unknown,
-): value is OrganizationBillingHistoryProvider {
-  return value === "revenuecat" || value === "stripe" || value === "internal";
-}
-
-function isNullableOrganizationBillingHistoryEnvironment(
-  value: unknown,
-): value is OrganizationBillingHistoryEnvironment | null {
-  return value === null || value === "sandbox" || value === "production";
-}
-
-function hasNullableOrganizationBillingHistoryEnvironmentProperty(
-  value: Record<string, unknown>,
-  key: string,
-): boolean {
-  return isNullableOrganizationBillingHistoryEnvironment(value[key]);
-}
-
-function hasNullableSafeIntegerProperty(
-  value: Record<string, unknown>,
-  key: string,
-): boolean {
-  const property = value[key];
-  return (
-    property === null ||
-    (typeof property === "number" && Number.isSafeInteger(property))
-  );
-}
-
-function hasNullableNonNegativeSafeIntegerProperty(
-  value: Record<string, unknown>,
-  key: string,
-): boolean {
-  const property = value[key];
-  return (
-    property === null ||
-    (typeof property === "number" &&
-      Number.isSafeInteger(property) &&
-      property >= 0)
-  );
-}
-
-function hasNullablePositiveSafeIntegerProperty(
-  value: Record<string, unknown>,
-  key: string,
-): boolean {
-  const property = value[key];
-  return (
-    property === null ||
-    (typeof property === "number" &&
-      Number.isSafeInteger(property) &&
-      property > 0)
-  );
-}
+export type OrganizationBillingHistoryResponse = z.infer<
+  typeof OrganizationBillingHistoryResponseSchema
+>;
 
 export function isOrganizationBillingHistoryEntry(
   value: unknown,
 ): value is OrganizationBillingHistoryEntry {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "id") &&
-    hasStringProperty(value, "category") &&
-    isOrganizationBillingHistoryCategory(value.category) &&
-    hasStringProperty(value, "provider") &&
-    isOrganizationBillingHistoryProvider(value.provider) &&
-    hasNullableOrganizationBillingHistoryEnvironmentProperty(
-      value,
-      "environment",
-    ) &&
-    hasStringProperty(value, "eventType") &&
-    hasStringProperty(value, "outcome") &&
-    isOrganizationBillingHistoryOutcome(value.outcome) &&
-    hasStringProperty(value, "occurredAt") &&
-    hasNullableStringProperty(value, "productId") &&
-    hasNullableStringProperty(value, "transactionId") &&
-    hasNullableStringProperty(value, "invoiceId") &&
-    hasNullableStringProperty(value, "subscriptionId") &&
-    hasNullableStringProperty(value, "billingReason") &&
-    hasNullableNonNegativeSafeIntegerProperty(value, "seatCount") &&
-    hasNullableSafeIntegerProperty(value, "seatDelta") &&
-    hasNullableNonNegativeSafeIntegerProperty(value, "activeSeatCount") &&
-    hasNullableStringProperty(value, "priceId") &&
-    hasNullableNonNegativeSafeIntegerProperty(value, "unitAmount") &&
-    hasNullableStringProperty(value, "currency") &&
-    hasNullableStringProperty(value, "interval") &&
-    hasNullablePositiveSafeIntegerProperty(value, "intervalCount") &&
-    hasNullableNonNegativeSafeIntegerProperty(value, "totalAmount") &&
-    hasNullableStringProperty(value, "totalCurrency") &&
-    hasNullableStringProperty(value, "periodStartsAt") &&
-    hasNullableStringProperty(value, "periodEndsAt")
-  );
+  return OrganizationBillingHistoryEntrySchema.safeParse(value).success;
 }
 
 export function isOrganizationBillingHistoryResponse(
   value: unknown,
 ): value is OrganizationBillingHistoryResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "organizationId") &&
-    hasArrayProperty(value, "entries") &&
-    value.entries.every(isOrganizationBillingHistoryEntry)
-  );
+  return OrganizationBillingHistoryResponseSchema.safeParse(value).success;
 }

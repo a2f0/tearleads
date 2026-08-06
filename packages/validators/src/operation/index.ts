@@ -146,6 +146,22 @@ export {
   MultipartBlobStagePathParamsSchema,
 } from "./multipartBlobs";
 export {
+  claimNativeOrganizationSubscriptionOperation,
+  getOrganizationBillingHistoryOperation,
+  getOrganizationBillingManagementUrlOperation,
+  getOrganizationBillingOperation,
+  isClaimNativeOrganizationSubscriptionOperationResponse,
+  isGetOrganizationBillingHistoryOperationResponse,
+  isGetOrganizationBillingManagementUrlOperationResponse,
+  isGetOrganizationBillingOperationResponse,
+  isStartOrganizationTrialOperationResponse,
+  type OrganizationBillingNativeClaimPathParams,
+  OrganizationBillingNativeClaimPathParamsSchema,
+  type OrganizationBillingPathParams,
+  OrganizationBillingPathParamsSchema,
+  startOrganizationTrialOperation,
+} from "./organizationBilling";
+export {
   createOrganizationGroupOperation,
   createOrganizationOperation,
   deleteOrganizationGroupOperation,
