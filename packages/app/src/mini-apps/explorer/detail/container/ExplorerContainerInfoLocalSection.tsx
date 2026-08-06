@@ -8,14 +8,14 @@ import {
 } from "../../../../components/mini-app/MiniAppLayout";
 import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
+import { EXPLORER_LABELS } from "../../labels";
 import {
   getExplorerContainerIcon,
   SELECTABLE_CONTAINER_ICON_SLUGS,
   type SelectableContainerIconSlug,
   toSelectableContainerIconSlug,
   toStoredContainerIcon,
-} from "../../explorerContainerIcons";
-import { EXPLORER_LABELS } from "../../labels";
+} from "../../shared/explorerContainerIcons";
 
 const CONTAINER_ICON_OPTION_LABELS: Record<
   SelectableContainerIconSlug,

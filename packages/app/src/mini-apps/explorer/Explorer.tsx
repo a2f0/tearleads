@@ -39,8 +39,8 @@ import { useExplorerOrganizationPresentation } from "./hooks/useExplorerOrganiza
 import { EXPLORER_LABELS } from "./labels";
 import { ExplorerModalLayer } from "./modal/view";
 import { ExplorerPurgeProgressModal } from "./purge-progress/ExplorerPurgeProgressModal";
+import { useExplorerToolbarUpload } from "./toolbar/useExplorerToolbarUpload";
 import type { MiniAppWindowPosition } from "./types";
-import { useExplorerToolbarUpload } from "./useExplorerToolbarUpload";
 import "./Explorer.css";
 
 // Keep root-tree catch-up once per identity/database scope across responsive

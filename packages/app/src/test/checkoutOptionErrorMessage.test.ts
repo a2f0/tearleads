@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { BILLING_ERROR_CODES } from "@tearleads/validators/billing";
-import { checkoutOptionErrorMessage } from "../mini-apps/org-manager/billingCheckoutErrors";
+import { checkoutOptionErrorMessage } from "../mini-apps/org-manager/billing/billingCheckoutErrors";
 import { ORG_MANAGER_LABELS } from "../mini-apps/org-manager/labels";
 
 test("an oversized roster gets actionable checkout guidance", () => {

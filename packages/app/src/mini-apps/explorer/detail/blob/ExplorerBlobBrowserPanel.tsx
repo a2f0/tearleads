@@ -20,8 +20,8 @@ import {
   getContainerNameById,
   useBlobBrowserData,
 } from "../../../shared/blob-pick/blob-list/blobListState";
-import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
 import { EXPLORER_LABELS } from "../../labels";
+import { ExplorerSyncStateBadge } from "../../shared/ExplorerSyncStateBadge";
 import {
   BlobBrowserHeader,
   BlobBrowserRowContextMenu,

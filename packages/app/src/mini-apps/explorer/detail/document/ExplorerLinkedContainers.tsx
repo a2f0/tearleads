@@ -6,8 +6,6 @@ import {
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { MiniAppRow } from "../../../../components/mini-app/rows/MiniAppRow";
-import { canWriteContainerNode } from "../../containerRules";
-import { ExplorerContainerIcon } from "../../ExplorerContainerIcon";
 import {
   EXPLORER_LABELS,
   getExplorerActivateLinkedContainerError,
@@ -16,6 +14,8 @@ import {
   getExplorerMakeLinkedContainerActiveLabel,
   getExplorerOpenLinkedContainerLabel,
 } from "../../labels";
+import { canWriteContainerNode } from "../../model/containerRules";
+import { ExplorerContainerIcon } from "../../shared/ExplorerContainerIcon";
 
 interface LinkedContainerDetail {
   canWrite: boolean;

@@ -10,10 +10,10 @@ import { useWindowTitleBarAction } from "../../components/window/WindowMenuConte
 import { chromeOwnsRouteBackedDetailBack } from "../../navigation/routeBackedDetailBack";
 import { isExplorerOrphanedDocumentsId } from "../../stores/explorer/orphanedDocuments";
 import { NewContactIcon } from "../shared/newContactIcon";
-import { useExplorerHubToolbarActions } from "./ExplorerHubToolbarActions";
-import { getExplorerContainerToolbarVisibility } from "./explorerContainerToolbarVisibility";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
+import { useExplorerHubToolbarActions } from "./toolbar/ExplorerHubToolbarActions";
+import { getExplorerContainerToolbarVisibility } from "./toolbar/explorerContainerToolbarVisibility";
 
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
 

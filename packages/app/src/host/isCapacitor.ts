@@ -4,7 +4,7 @@
  * Declared rather than cast at the call site, so the read stays free of type
  * assertions (see scripts/lintPackageAssertions.ts), and declared inside this
  * imported module rather than in a standalone .d.ts for the reason given in
- * mini-apps/system-monitor/environmentSources.ts: the deployment targets compile
+ * mini-apps/system-monitor/environment/environmentSources.ts: the deployment targets compile
  * this package's sources directly, so a global .d.ts nothing imports would only
  * load in this package's own tsconfig program.
  *

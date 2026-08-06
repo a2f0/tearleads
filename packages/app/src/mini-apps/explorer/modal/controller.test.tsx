@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { createExplorerContainerRulesContext } from "../containerRules";
+import { createExplorerContainerRulesContext } from "../model/containerRules";
 import { useExplorerModalController } from "./controller";
 
 afterEach(() => cleanup());

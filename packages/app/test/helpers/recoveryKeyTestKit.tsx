@@ -9,7 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { IdentityManager } from "../../src/mini-apps/identity-manager/IdentityManager";
-import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../src/mini-apps/identity-manager/IdentityManagerRecoveryKeySection";
+import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../src/mini-apps/identity-manager/panels/IdentityManagerRecoveryKeySection";
 import {
   cleanupIdentityManagerTestEnvironment,
   createIdentityManagerHostConfig,

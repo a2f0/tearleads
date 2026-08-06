@@ -1,5 +1,5 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import { getDocumentByLocalId } from "../documentSummaries";
+import { getDocumentByLocalId } from "../model/documentSummaries";
 
 export function getDocumentInfoRouteFallbackSummary(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;

@@ -7,7 +7,7 @@ import { canMutateUnsyncedSelectedDocument } from "../../../stores/explorer/docu
 import {
   canMoveDocumentToContainerByRules,
   type ExplorerContainerRulesContext,
-} from "../containerRules";
+} from "../model/containerRules";
 
 export function canRecoverNullContainerDocument(
   document: DocumentSummary,

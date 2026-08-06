@@ -15,8 +15,8 @@ import {
   canWriteContainerNode,
   type ExplorerContainerRulesContext,
   hasContainerRules,
-} from "../containerRules";
-import { getMoveTargetOptions } from "../targetOptions";
+} from "../model/containerRules";
+import { getMoveTargetOptions } from "../model/targetOptions";
 
 export type ExplorerContextMenuTarget =
   | { kind: "container"; containerId: string }

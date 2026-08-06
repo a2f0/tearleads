@@ -1,7 +1,7 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { FormEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ExplorerContainerRulesContext } from "../containerRules";
+import type { ExplorerContainerRulesContext } from "../model/containerRules";
 import {
   createExplorerTargetLookups,
   getDocumentLinkedContainerIds,
@@ -9,7 +9,7 @@ import {
   getDocumentMoveTargetOptions,
   getMoveTargetOptions,
   type MoveTargetOption,
-} from "../targetOptions";
+} from "../model/targetOptions";
 import {
   type ExplorerModalSubmitParams,
   submitExplorerModalAction,

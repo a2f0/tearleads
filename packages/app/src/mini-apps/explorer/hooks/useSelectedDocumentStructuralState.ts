@@ -5,13 +5,13 @@ import type {
 } from "@tearleads/client-sdk";
 import { useCallback, useMemo, useRef } from "react";
 import { isExplorerDocumentContainerSelection } from "../../../stores/explorer/orphanedDocuments";
-import type { ExplorerContainerRulesContext } from "../containerRules";
+import type { ExplorerContainerRulesContext } from "../model/containerRules";
 import {
   createExplorerTargetLookups,
   getDocumentLinkedContainerIds,
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
-} from "../targetOptions";
+} from "../model/targetOptions";
 import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
 
 function useSelectedDocumentTargetOptions(params: {

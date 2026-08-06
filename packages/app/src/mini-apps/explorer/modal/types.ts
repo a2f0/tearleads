@@ -1,7 +1,7 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
-import type { ExplorerContainerRulesContext } from "../containerRules";
-import type { MoveTargetOption } from "../targetOptions";
+import type { ExplorerContainerRulesContext } from "../model/containerRules";
+import type { MoveTargetOption } from "../model/targetOptions";
 
 export type ExplorerModalState =
   | { mode: "create-child"; nodeId: string }

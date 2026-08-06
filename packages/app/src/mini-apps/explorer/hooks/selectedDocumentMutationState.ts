@@ -8,8 +8,8 @@ import {
   canWriteContainerNode,
   canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
-} from "../containerRules";
-import type { MoveTargetOption } from "../targetOptions";
+} from "../model/containerRules";
+import type { MoveTargetOption } from "../model/targetOptions";
 
 export function getSelectedDocumentMutationState(params: {
   appData: {

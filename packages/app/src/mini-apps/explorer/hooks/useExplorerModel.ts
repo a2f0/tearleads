@@ -23,8 +23,8 @@ import {
   canWriteContainerNode,
   createExplorerContainerRulesContext,
   hasContainerRules,
-} from "../containerRules";
-import { buildExplorerTree } from "../explorerTreeModel";
+} from "../model/containerRules";
+import { buildExplorerTree } from "../sidebar/explorerTreeModel";
 import type {
   ExplorerDocumentMutationAction,
   ExplorerModelExplorer,

@@ -15,9 +15,9 @@ import {
 } from "../../../../components/mini-app/MiniAppLayout";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../../stores/explorer/documentInfo";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
-import { canWriteDocumentSummary } from "../../containerRules";
 import { EXPLORER_LABELS } from "../../labels";
-import { getDocumentLinkedContainerIds } from "../../targetOptions";
+import { canWriteDocumentSummary } from "../../model/containerRules";
+import { getDocumentLinkedContainerIds } from "../../model/targetOptions";
 import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
 import { compactId } from "../compactId";
 import {

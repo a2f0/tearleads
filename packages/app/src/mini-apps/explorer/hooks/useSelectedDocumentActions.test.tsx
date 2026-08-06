@@ -7,7 +7,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
-import { createExplorerContainerRulesContext } from "../containerRules";
+import { createExplorerContainerRulesContext } from "../model/containerRules";
 import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
 
 afterEach(() => cleanup());

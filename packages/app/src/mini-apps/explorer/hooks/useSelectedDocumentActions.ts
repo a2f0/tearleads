@@ -22,8 +22,8 @@ import {
   canWriteContainerNode,
   canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
-} from "../containerRules";
-import { getDocumentByLocalId } from "../documentSummaries";
+} from "../model/containerRules";
+import { getDocumentByLocalId } from "../model/documentSummaries";
 import type { ExplorerDocumentMutationOptions } from "./explorerModelTypes";
 import {
   canMoveExplorerActionDocument,

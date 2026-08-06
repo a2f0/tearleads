@@ -5,7 +5,7 @@ import {
   explorerDocumentRouteContainerId,
   isExplorerDocumentContainerSelection,
 } from "../../../stores/explorer/orphanedDocuments";
-import { getDocumentByLocalId } from "../documentSummaries";
+import { getDocumentByLocalId } from "../model/documentSummaries";
 
 interface PendingSelectedDocument {
   containerId: string;
