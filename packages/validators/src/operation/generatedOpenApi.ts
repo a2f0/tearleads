@@ -177,6 +177,22 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/blobs/{blobId}/bytes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["blobs.bytes.get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/blobs/stages/multipart": {
         parameters: {
             query?: never;
@@ -219,6 +235,22 @@ export type paths = {
         get?: never;
         put?: never;
         post: operations["blobs.multipartStages.complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blobs/stages/multipart/{stageId}/parts/{partNumber}/bytes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["blobs.multipartStages.parts.upload"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5236,6 +5268,110 @@ export interface operations {
             };
         };
     };
+    "blobs.bytes.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                blobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful binary response */
+            200: {
+                headers: {
+                    "content-length"?: string;
+                    "x-tearleads-blob-byte-length"?: string;
+                    "x-tearleads-blob-id": string;
+                    "x-tearleads-blob-sha256": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     "blobs.multipartStages.initiate": {
         parameters: {
             query?: never;
@@ -5497,6 +5633,127 @@ export interface operations {
                         expiresAt: string;
                         sha256: string;
                         stageId: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "blobs.multipartStages.parts.upload": {
+        parameters: {
+            query?: never;
+            header: {
+                "x-tearleads-blob-part-byte-length": string;
+                "x-tearleads-blob-part-sha256": string;
+                "x-tearleads-blob-upload-id": string;
+            };
+            path: {
+                partNumber: number;
+                stageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        part: {
+                            byteLength: number;
+                            etag: string;
+                            partNumber: number;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        stageId: string;
+                        uploadId: string;
                     } & {
                         [key: string]: unknown;
                     };
@@ -5965,28 +6222,28 @@ export interface operations {
                     };
                 };
             };
-            /** @description Response without a declared JSON body */
+            /** @description Response without a declared body */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Response without a declared JSON body */
+            /** @description Response without a declared body */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Response without a declared JSON body */
+            /** @description Response without a declared body */
             402: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Response without a declared JSON body */
+            /** @description Response without a declared body */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6023,14 +6280,14 @@ export interface operations {
                     };
                 };
             };
-            /** @description Response without a declared JSON body */
+            /** @description Response without a declared body */
             500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Response without a declared JSON body */
+            /** @description Response without a declared body */
             503: {
                 headers: {
                     [name: string]: unknown;

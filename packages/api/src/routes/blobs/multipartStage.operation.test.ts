@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import {
+  blobWireHeaderNames,
   completeMultipartBlobStageOperation,
   getMultipartBlobStageOperation,
   initiateMultipartBlobStageOperation,
   operationRoutePath,
+  uploadMultipartBlobPartBytesOperation,
 } from "@tearleads/validators/operation";
 import type { MiddlewareHandler } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -26,6 +28,7 @@ test("multipart control routes register from shared operations", () => {
     initiateMultipartBlobStageOperation,
     getMultipartBlobStageOperation,
     completeMultipartBlobStageOperation,
+    uploadMultipartBlobPartBytesOperation,
   ]) {
     expect(route.routes).toContainEqual(
       expect.objectContaining({
@@ -48,6 +51,9 @@ test("multipart control routes authenticate before boundary parsing", async () =
     }),
     route.request("/blobs/stages/multipart/invalid", {
       method: getMultipartBlobStageOperation.method,
+    }),
+    route.request("/blobs/stages/multipart/invalid/parts/0/bytes", {
+      method: uploadMultipartBlobPartBytesOperation.method,
     }),
   ]);
 
@@ -86,8 +92,36 @@ test("multipart control routes reject invalid inputs at the boundary", async () 
       method: completeMultipartBlobStageOperation.method,
     },
   );
+  const uploadPath = await route.request(
+    "/blobs/stages/multipart/invalid/parts/1/bytes",
+    {
+      body: "bytes",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        [blobWireHeaderNames.partByteLength]: "5",
+        [blobWireHeaderNames.partSha256]: "a".repeat(64),
+        [blobWireHeaderNames.partUploadId]: "upload-1",
+      },
+      method: uploadMultipartBlobPartBytesOperation.method,
+    },
+  );
+  const uploadHeaders = await route.request(
+    `/blobs/stages/multipart/${stageId}/parts/1/bytes`,
+    {
+      body: "bytes",
+      headers: { "Content-Type": "application/octet-stream" },
+      method: uploadMultipartBlobPartBytesOperation.method,
+    },
+  );
 
-  for (const response of [initiate, status, completePath, completeBody]) {
+  for (const response of [
+    initiate,
+    status,
+    completePath,
+    completeBody,
+    uploadPath,
+    uploadHeaders,
+  ]) {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Invalid request" });
   }

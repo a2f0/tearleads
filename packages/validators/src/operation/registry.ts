@@ -13,6 +13,10 @@ import {
   verifyOperation,
   webSocketTicketOperation,
 } from "./auth";
+import {
+  getBlobBytesOperation,
+  uploadMultipartBlobPartBytesOperation,
+} from "./blobBytes";
 import { documentSyncOperation } from "./documentSync";
 import { getHealthOperation } from "./health";
 import {
@@ -45,11 +49,13 @@ export const protocolOperations = [
   userIdentityOperation,
   verifyOperation,
   webSocketTicketOperation,
+  getBlobBytesOperation,
   bindBlobAttachmentOperation,
   detachBlobAttachmentOperation,
   initiateMultipartBlobStageOperation,
   getMultipartBlobStageOperation,
   completeMultipartBlobStageOperation,
+  uploadMultipartBlobPartBytesOperation,
   listDocumentAttachmentsOperation,
   createOrganizationOperation,
   getOrganizationDataUsageOperation,

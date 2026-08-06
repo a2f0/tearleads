@@ -1,10 +1,11 @@
+import {
+  BlobBytesResponseHeadersSchema,
+  blobWireHeaderKeys,
+  blobWireHeaderNames,
+  getBlobBytesOperation,
+  operationRequestPath,
+} from "@tearleads/validators/operation";
 import type { ResponseRequestFn } from "../../types";
-import { pathSegment } from "../path";
-
-const BLOB_BYTES_BLOB_ID_HEADER = "X-Tearleads-Blob-Id";
-const BLOB_BYTES_BYTE_LENGTH_HEADER = "X-Tearleads-Blob-Byte-Length";
-const BLOB_BYTES_CONTENT_LENGTH_HEADER = "Content-Length";
-const BLOB_BYTES_SHA256_HEADER = "X-Tearleads-Blob-Sha256";
 
 export interface BlobBytesResponse {
   readonly blobId: string;
@@ -20,38 +21,13 @@ export interface UploadMultipartBlobPartBytesRequest {
   readonly uploadId: string;
 }
 
-const BLOB_BYTES_PATH_METHOD = "GET";
-
-function parseContentLength(value: string | null): number | null {
-  if (value === null || !/^\d+$/.test(value)) {
-    return null;
-  }
-
-  const byteLength = Number(value);
-  return Number.isSafeInteger(byteLength) ? byteLength : null;
-}
-
-function readBlobByteLength(response: Response): {
-  byteLength: number | null;
-  headerName: string;
-  missing: boolean;
-} {
-  const blobByteLength = response.headers.get(BLOB_BYTES_BYTE_LENGTH_HEADER);
-  if (blobByteLength !== null) {
-    return {
-      byteLength: parseContentLength(blobByteLength),
-      headerName: BLOB_BYTES_BYTE_LENGTH_HEADER,
-      missing: false,
-    };
-  }
-
-  const contentLength = response.headers.get(BLOB_BYTES_CONTENT_LENGTH_HEADER);
-  return {
-    byteLength: parseContentLength(contentLength),
-    headerName: BLOB_BYTES_CONTENT_LENGTH_HEADER,
-    missing: contentLength === null,
-  };
-}
+export const getBlobBytesRoute = {
+  method: getBlobBytesOperation.method,
+  path(blobId: string) {
+    return operationRequestPath(getBlobBytesOperation, { blobId });
+  },
+  responseHeaders: BlobBytesResponseHeadersSchema,
+};
 
 function reportMalformedBlobBytesResponse(
   request: ResponseRequestFn,
@@ -64,7 +40,7 @@ function reportMalformedBlobBytesResponse(
   request.reportFailure({
     kind: "shape",
     message: input.message,
-    method: BLOB_BYTES_PATH_METHOD,
+    method: getBlobBytesRoute.method,
     path: input.path,
     status: input.response.status,
     statusText: input.response.statusText,
@@ -77,22 +53,25 @@ async function loadBlobBytesResponse(
   request: ResponseRequestFn,
   blobId: string,
 ): Promise<BlobBytesResponse | null> {
-  const path = `/blobs/${pathSegment(blobId)}/bytes`;
-  const result = await request(path, BLOB_BYTES_PATH_METHOD);
+  const path = getBlobBytesRoute.path(blobId);
+  const result = await request(path, getBlobBytesRoute.method);
   if (!result.ok) {
     return null;
   }
 
   const response = result.data;
-  const responseBlobId = response.headers.get(BLOB_BYTES_BLOB_ID_HEADER);
-  const byteLengthHeader = readBlobByteLength(response);
-  const sha256 = response.headers.get(BLOB_BYTES_SHA256_HEADER);
+  const responseBlobId = response.headers.get(blobWireHeaderNames.blobId);
+  const blobByteLength = response.headers.get(
+    blobWireHeaderNames.blobByteLength,
+  );
+  const contentLength = response.headers.get(blobWireHeaderNames.contentLength);
+  const sha256 = response.headers.get(blobWireHeaderNames.blobSha256);
   const missingHeaders = [
-    responseBlobId ? null : BLOB_BYTES_BLOB_ID_HEADER,
-    byteLengthHeader.missing
-      ? `(${BLOB_BYTES_BYTE_LENGTH_HEADER} or ${BLOB_BYTES_CONTENT_LENGTH_HEADER})`
+    responseBlobId ? null : blobWireHeaderNames.blobId,
+    blobByteLength === null && contentLength === null
+      ? `(${blobWireHeaderNames.blobByteLength} or ${blobWireHeaderNames.contentLength})`
       : null,
-    sha256 ? null : BLOB_BYTES_SHA256_HEADER,
+    sha256 ? null : blobWireHeaderNames.blobSha256,
   ].filter((header): header is string => header !== null);
   if (missingHeaders.length > 0) {
     return reportMalformedBlobBytesResponse(request, {
@@ -101,22 +80,29 @@ async function loadBlobBytesResponse(
       response,
     });
   }
-  if (responseBlobId === null || sha256 === null) {
+  const parsedHeaders = getBlobBytesRoute.responseHeaders.safeParse({
+    [blobWireHeaderKeys.blobByteLength]: blobByteLength ?? undefined,
+    [blobWireHeaderKeys.blobId]: responseBlobId,
+    [blobWireHeaderKeys.blobSha256]: sha256,
+    [blobWireHeaderKeys.contentLength]:
+      blobByteLength === null ? (contentLength ?? undefined) : undefined,
+  });
+  if (!parsedHeaders.success) {
+    const invalidHeader =
+      blobByteLength === null
+        ? blobWireHeaderNames.contentLength
+        : blobWireHeaderNames.blobByteLength;
     return reportMalformedBlobBytesResponse(request, {
-      message: `Invalid response shape for ${path}: missing response metadata`,
+      message: `Invalid response shape for ${path}: invalid ${invalidHeader}`,
       path,
       response,
     });
   }
-
-  const byteLength = byteLengthHeader.byteLength;
-  if (byteLength === null) {
-    return reportMalformedBlobBytesResponse(request, {
-      message: `Invalid response shape for ${path}: invalid ${byteLengthHeader.headerName}`,
-      path,
-      response,
-    });
-  }
+  const headers = parsedHeaders.data;
+  const byteLength = Number(
+    headers[blobWireHeaderKeys.blobByteLength] ??
+      headers[blobWireHeaderKeys.contentLength],
+  );
 
   // On the browser / WKWebView-fetch path the body is streamed, so
   // `response.body` is a live ReadableStream. Under a native HTTP bridge
@@ -133,10 +119,10 @@ async function loadBlobBytesResponse(
     response.body ?? bufferedResponseBodyStream(await response.arrayBuffer());
 
   return {
-    blobId: responseBlobId,
+    blobId: headers[blobWireHeaderKeys.blobId],
     byteLength,
     encryptedBytes,
-    sha256,
+    sha256: headers[blobWireHeaderKeys.blobSha256],
   };
 }
 

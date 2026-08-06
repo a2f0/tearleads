@@ -1,3 +1,4 @@
+import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import { sha256Hex } from "../utils/sha256";
 
 export interface BlobObjectPart {
@@ -82,7 +83,7 @@ const MAX_S3_PART_NUMBER = 10_000;
 // size (see index.ts maxRequestBodySize), and the S3 store enforces it again on
 // the buffered bytes — together they replace the mid-read ceiling the old
 // streaming reader enforced, without the Bun native-stream defect.
-export const MAX_UPLOAD_PART_BYTES = 100 * 1024 * 1024;
+export const MAX_UPLOAD_PART_BYTES = MAX_MULTIPART_BLOB_PART_BYTES;
 
 export function blobObjectChunkToStream(
   bytes: Uint8Array,

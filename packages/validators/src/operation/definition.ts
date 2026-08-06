@@ -1,25 +1,46 @@
 import type { z } from "zod";
 import { isPlainObject } from "../isPlainObject";
 
-export type JsonOperationMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
+export type HttpOperationMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
+export type JsonOperationMethod = HttpOperationMethod;
+export type HttpOperationMediaType =
+  | "application/json"
+  | "application/octet-stream";
 
 export interface RuntimeRefinement {
   readonly description: string;
   readonly id: string;
 }
 
-export interface JsonOperation {
+export interface HttpOperation {
   readonly auth: "none" | "session";
   readonly body?: z.ZodType;
   readonly failureResponses?: Readonly<Record<number, z.ZodType>>;
   readonly failureStatuses: readonly number[];
+  readonly headers?: z.ZodType;
   readonly id: string;
-  readonly method: JsonOperationMethod;
+  readonly method: HttpOperationMethod;
   readonly params: z.ZodType;
   readonly path: `/${string}`;
   readonly query?: z.ZodType;
+  readonly requestMediaType?: HttpOperationMediaType;
+  readonly responseHeaders?: Readonly<Record<number, z.ZodType>>;
+  readonly responseMediaTypes?: Readonly<
+    Record<number, HttpOperationMediaType>
+  >;
   readonly responses: Readonly<Record<number, z.ZodType>>;
   readonly runtimeRefinements?: readonly RuntimeRefinement[];
+}
+
+export interface JsonOperation extends HttpOperation {
+  readonly requestMediaType?: "application/json";
+  readonly responseMediaTypes?: Readonly<Record<number, "application/json">>;
+}
+
+export function defineHttpOperation<const Operation extends HttpOperation>(
+  operation: Operation,
+): Operation {
+  return operation;
 }
 
 export function defineJsonOperation<const Operation extends JsonOperation>(
@@ -31,13 +52,13 @@ export function defineJsonOperation<const Operation extends JsonOperation>(
 const PATH_PARAMETER_PATTERN = /\{([^/{}]+)\}/g;
 
 export function operationRoutePath(
-  operation: Pick<JsonOperation, "path">,
+  operation: Pick<HttpOperation, "path">,
 ): string {
   return operation.path.replace(PATH_PARAMETER_PATTERN, ":$1");
 }
 
 export function operationRequestPath<
-  Operation extends Pick<JsonOperation, "id" | "params" | "path">,
+  Operation extends Pick<HttpOperation, "id" | "params" | "path">,
 >(operation: Operation, params: z.input<Operation["params"]>): string {
   const result = operation.params.safeParse(params);
   if (!result.success) {
@@ -62,7 +83,7 @@ export function operationRequestPath<
 
 export function operationRequestPathWithQuery<
   QuerySchema extends z.ZodType,
-  Operation extends Pick<JsonOperation, "id" | "params" | "path"> & {
+  Operation extends Pick<HttpOperation, "id" | "params" | "path"> & {
     readonly query: QuerySchema;
   },
 >(

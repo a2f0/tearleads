@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { toJsonSchemaProjection } from "../jsonSchema";
-import type { JsonOperation } from "./definition";
+import type { HttpOperation, HttpOperationMediaType } from "./definition";
 import { protocolOperations } from "./registry";
 
 const JSON_SCHEMA_DIALECT =
@@ -11,16 +11,21 @@ interface OpenApiMediaType {
   readonly schema: z.core.JSONSchema.BaseSchema;
 }
 
+type OpenApiContent = Readonly<
+  Partial<Record<HttpOperationMediaType, OpenApiMediaType>>
+>;
+
 interface OpenApiResponse {
-  readonly content?: Readonly<Record<"application/json", OpenApiMediaType>>;
+  readonly content?: OpenApiContent;
   readonly description: string;
+  readonly headers?: Readonly<Record<string, object>>;
 }
 
 interface OpenApiOperation {
   readonly operationId: string;
   readonly parameters: readonly object[];
   readonly requestBody?: {
-    readonly content: Readonly<Record<"application/json", OpenApiMediaType>>;
+    readonly content: OpenApiContent;
     readonly required: true;
   };
   readonly responses: Readonly<Record<string, OpenApiResponse>>;
@@ -68,7 +73,7 @@ function openApiSchema(
 }
 
 function openApiPathParameters(
-  operation: JsonOperation,
+  operation: HttpOperation,
   runtimeRefinementIds: Set<string>,
 ): object[] {
   const parameterSchema = openApiSchema(operation.params, runtimeRefinementIds);
@@ -115,7 +120,7 @@ function openApiPathParameters(
 }
 
 function openApiQueryParameters(
-  operation: JsonOperation,
+  operation: HttpOperation,
   runtimeRefinementIds: Set<string>,
 ): object[] {
   if (operation.query === undefined) {
@@ -143,8 +148,153 @@ function openApiQueryParameters(
   }));
 }
 
+function openApiHeaderParameters(
+  operation: HttpOperation,
+  runtimeRefinementIds: Set<string>,
+): object[] {
+  if (operation.headers === undefined) {
+    return [];
+  }
+
+  const parameterSchema = openApiSchema(
+    operation.headers,
+    runtimeRefinementIds,
+  );
+  if (
+    parameterSchema.type !== "object" ||
+    parameterSchema.properties === undefined
+  ) {
+    throw new Error(`${operation.id} headers must be an object schema`);
+  }
+
+  const requiredNames = new Set(parameterSchema.required ?? []);
+  return Object.entries(parameterSchema.properties).map(([name, schema]) => ({
+    explode: false,
+    in: "header",
+    name,
+    required: requiredNames.has(name),
+    schema,
+    style: "simple",
+  }));
+}
+
+function openApiResponseHeaders(
+  operation: HttpOperation,
+  status: number,
+  runtimeRefinementIds: Set<string>,
+): Readonly<Record<string, object>> | undefined {
+  const headerSchema = operation.responseHeaders?.[status];
+  if (headerSchema === undefined) {
+    return undefined;
+  }
+
+  const projected = openApiSchema(headerSchema, runtimeRefinementIds);
+  if (projected.type !== "object" || projected.properties === undefined) {
+    throw new Error(
+      `${operation.id} response ${status} headers must be an object schema`,
+    );
+  }
+
+  const requiredNames = new Set(projected.required ?? []);
+  return Object.fromEntries(
+    Object.entries(projected.properties).map(([name, schema]) => [
+      name,
+      { required: requiredNames.has(name), schema },
+    ]),
+  );
+}
+
+function responseDescription(
+  successful: boolean,
+  mediaType: HttpOperationMediaType,
+): string {
+  if (mediaType === "application/json") {
+    return successful ? "Successful JSON response" : "Failure JSON response";
+  }
+  return successful ? "Successful binary response" : "Failure binary response";
+}
+
+function openApiContent(
+  mediaType: HttpOperationMediaType,
+  schema: z.core.JSONSchema.BaseSchema,
+): OpenApiContent {
+  return { [mediaType]: { schema } };
+}
+
+function assertResponseMetadata(
+  operation: HttpOperation,
+  successResponses: ReadonlyMap<number, z.ZodType>,
+  failureStatuses: ReadonlySet<number>,
+  failureResponses: ReadonlyMap<number, z.ZodType>,
+): void {
+  for (const status of successResponses.keys()) {
+    if (failureStatuses.has(status)) {
+      throw new Error(`${operation.id} declares status ${status} twice`);
+    }
+  }
+  for (const status of failureResponses.keys()) {
+    if (!failureStatuses.has(status)) {
+      throw new Error(
+        `${operation.id} declares a body for unregistered failure status ${status}`,
+      );
+    }
+  }
+  for (const status of Object.keys(operation.responseMediaTypes ?? {})) {
+    if (!successResponses.has(Number(status))) {
+      throw new Error(
+        `${operation.id} declares a media type for unregistered response status ${status}`,
+      );
+    }
+  }
+  for (const status of Object.keys(operation.responseHeaders ?? {})) {
+    const numericStatus = Number(status);
+    if (
+      !successResponses.has(numericStatus) &&
+      !failureStatuses.has(numericStatus)
+    ) {
+      throw new Error(
+        `${operation.id} declares headers for unregistered response status ${status}`,
+      );
+    }
+  }
+}
+
+function openApiResponse(
+  operation: HttpOperation,
+  status: number,
+  successSchema: z.ZodType | undefined,
+  failureSchema: z.ZodType | undefined,
+  runtimeRefinementIds: Set<string>,
+): OpenApiResponse {
+  const schema = successSchema ?? failureSchema;
+  const mediaType =
+    successSchema === undefined
+      ? "application/json"
+      : (operation.responseMediaTypes?.[status] ?? "application/json");
+  const headers = openApiResponseHeaders(
+    operation,
+    status,
+    runtimeRefinementIds,
+  );
+  if (schema === undefined) {
+    return {
+      description: "Response without a declared body",
+      ...(headers === undefined ? {} : { headers }),
+    };
+  }
+
+  return {
+    content: openApiContent(
+      mediaType,
+      openApiSchema(schema, runtimeRefinementIds),
+    ),
+    description: responseDescription(successSchema !== undefined, mediaType),
+    ...(headers === undefined ? {} : { headers }),
+  };
+}
+
 function openApiResponses(
-  operation: JsonOperation,
+  operation: HttpOperation,
   runtimeRefinementIds: Set<string>,
 ): Record<string, OpenApiResponse> {
   const successResponses = new Map(
@@ -161,47 +311,32 @@ function openApiResponses(
     ]),
   );
 
-  for (const status of successResponses.keys()) {
-    if (failureStatuses.has(status)) {
-      throw new Error(`${operation.id} declares status ${status} twice`);
-    }
-  }
-  for (const status of failureResponses.keys()) {
-    if (!failureStatuses.has(status)) {
-      throw new Error(
-        `${operation.id} declares a body for unregistered failure status ${status}`,
-      );
-    }
-  }
+  assertResponseMetadata(
+    operation,
+    successResponses,
+    failureStatuses,
+    failureResponses,
+  );
 
   const statuses = [...successResponses.keys(), ...failureStatuses].sort(
     (left, right) => left - right,
   );
   const responses: Record<string, OpenApiResponse> = {};
   for (const status of statuses) {
-    const successSchema = successResponses.get(status);
-    const schema = successSchema ?? failureResponses.get(status);
-    responses[String(status)] =
-      schema === undefined
-        ? { description: "Response without a declared JSON body" }
-        : {
-            content: {
-              "application/json": {
-                schema: openApiSchema(schema, runtimeRefinementIds),
-              },
-            },
-            description:
-              successSchema === undefined
-                ? "Failure JSON response"
-                : "Successful JSON response",
-          };
+    responses[String(status)] = openApiResponse(
+      operation,
+      status,
+      successResponses.get(status),
+      failureResponses.get(status),
+      runtimeRefinementIds,
+    );
   }
 
   return responses;
 }
 
 function assertRuntimeRefinements(
-  operation: JsonOperation,
+  operation: HttpOperation,
   projectedIds: Set<string>,
 ): void {
   const declaredIds = new Set(
@@ -220,17 +355,19 @@ function assertRuntimeRefinements(
   }
 }
 
-function openApiOperation(operation: JsonOperation): OpenApiOperation {
+function openApiOperation(operation: HttpOperation): OpenApiOperation {
   const runtimeRefinementIds = new Set<string>();
   const parameters = [
     ...openApiPathParameters(operation, runtimeRefinementIds),
     ...openApiQueryParameters(operation, runtimeRefinementIds),
+    ...openApiHeaderParameters(operation, runtimeRefinementIds),
   ];
   const requestSchema =
     operation.body === undefined
       ? undefined
       : openApiSchema(operation.body, runtimeRefinementIds);
   const responses = openApiResponses(operation, runtimeRefinementIds);
+  const requestMediaType = operation.requestMediaType ?? "application/json";
   assertRuntimeRefinements(operation, runtimeRefinementIds);
 
   return {
@@ -240,9 +377,7 @@ function openApiOperation(operation: JsonOperation): OpenApiOperation {
       ? {}
       : {
           requestBody: {
-            content: {
-              "application/json": { schema: requestSchema },
-            },
+            content: openApiContent(requestMediaType, requestSchema),
             required: true as const,
           },
         }),
@@ -256,7 +391,7 @@ function openApiOperation(operation: JsonOperation): OpenApiOperation {
   };
 }
 
-function compareOperations(left: JsonOperation, right: JsonOperation): number {
+function compareOperations(left: HttpOperation, right: HttpOperation): number {
   const leftKey = `${left.path}:${left.method}:${left.id}`;
   const rightKey = `${right.path}:${right.method}:${right.id}`;
   if (leftKey < rightKey) {
@@ -269,7 +404,7 @@ function compareOperations(left: JsonOperation, right: JsonOperation): number {
 }
 
 export function createOpenApiDocument(
-  operations: readonly JsonOperation[],
+  operations: readonly HttpOperation[],
 ): OpenApiDocument {
   const paths: Record<string, Record<string, OpenApiOperation>> = {};
   const operationIds = new Set<string>();

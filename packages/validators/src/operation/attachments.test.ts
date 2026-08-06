@@ -120,12 +120,9 @@ test("attachment OpenAPI documents shared inputs and responses", () => {
 
   expect(bind.operationId).toBe("blobs.attachmentBindings.bind");
   expect(bind.parameters[0]).toMatchObject({ name: "blobId" });
-  expect(bind.requestBody.content["application/json"].schema.required).toEqual([
-    "authorizingContainerPathRefs",
-    "body",
-    "contentKeyBundle",
-    "event",
-  ]);
+  expect(bind.requestBody.content["application/json"]?.schema.required).toEqual(
+    ["authorizingContainerPathRefs", "body", "contentKeyBundle", "event"],
+  );
   expect(Object.keys(bind.responses)).toEqual([
     "200",
     "400",
