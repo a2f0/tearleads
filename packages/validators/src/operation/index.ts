@@ -51,6 +51,22 @@ export {
   uploadMultipartBlobPartBytesOperation,
 } from "./blobBytes";
 export {
+  type ContainerMutationPathParams,
+  ContainerMutationPathParamsSchema,
+  createContainerOperation,
+  createContainerWithMetadataDocumentOperation,
+  deleteContainerOperation,
+  isContainerMutationOperationRequest,
+  isContainerMutationOperationResponse,
+  isCreateContainerWithMetadataDocumentOperationRequest,
+  isCreateContainerWithMetadataDocumentOperationResponse,
+  isDeleteContainerOperationResponse,
+  moveContainerOperation,
+  rekeyContainerOperation,
+  revokeContainerOperation,
+  shareContainerOperation,
+} from "./containerMutations";
+export {
   type ContainerKekLogQuery,
   ContainerKekLogQuerySchema,
   type ContainerReadPathParams,

@@ -1,19 +1,27 @@
 import type { AccessEventType } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
-  type ContainerCreateWithMetadataDocumentRequest,
-  type ContainerMutationRequest,
-  isContainerCreateWithMetadataDocumentRequest,
-  isContainerMutationRequest,
+  type ContainerMutationPathParams,
+  createContainerOperation,
+  createContainerWithMetadataDocumentOperation,
+  deleteContainerOperation,
+  moveContainerOperation,
+  operationRoutePath,
+  rekeyContainerOperation,
+  revokeContainerOperation,
+  shareContainerOperation,
+} from "@tearleads/validators/operation";
+import type {
+  ContainerCreateWithMetadataDocumentRequest,
+  ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
   ContainerDeleteResponse,
   ContainerMutationResponse,
 } from "@tearleads/validators/response";
-import type { Context, MiddlewareHandler } from "hono";
+import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
 import {
   DeleteContainerError,
@@ -25,6 +33,8 @@ import {
   mutateContainer,
 } from "../../services/containers/mutations";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
+import { pathParamsValidator } from "../../validators/pathParams";
 
 interface ContainerMutationsRouteDeps {
   readonly publish: (event: Record<string, unknown>) => Promise<void>;
@@ -32,18 +42,20 @@ interface ContainerMutationsRouteDeps {
   readonly runtime: ApiServiceRuntime;
 }
 
-interface ErrorResponseBody {
-  readonly error: string;
-}
+type ContainerMutationOperation =
+  | typeof createContainerOperation
+  | typeof moveContainerOperation
+  | typeof rekeyContainerOperation
+  | typeof revokeContainerOperation
+  | typeof shareContainerOperation;
 
-interface JsonValidationContext {
-  json: (body: ErrorResponseBody, status: 400) => Response;
-}
+type ContainerMutationRouteParams =
+  | Record<string, never>
+  | ContainerMutationPathParams;
 
 interface AddContainerMutationRouteInput extends ContainerMutationsRouteDeps {
   readonly expectedEventType: AccessEventType;
-  readonly getExpectedContainerId?: (c: Context<SessionEnv>) => string;
-  readonly path: string;
+  readonly operation: ContainerMutationOperation;
   readonly route: Hono<SessionEnv>;
 }
 
@@ -214,28 +226,6 @@ export async function publishContainerMutationCreated(input: {
   }
 }
 
-function validateContainerMutationRequest(
-  value: unknown,
-  c: JsonValidationContext,
-) {
-  if (!isContainerMutationRequest(value)) {
-    return c.json({ error: "Invalid request" }, 400);
-  }
-
-  return value;
-}
-
-function validateContainerCreateWithMetadataDocumentRequest(
-  value: unknown,
-  c: JsonValidationContext,
-) {
-  if (!isContainerCreateWithMetadataDocumentRequest(value)) {
-    return c.json({ error: "Invalid request" }, 400);
-  }
-
-  return value;
-}
-
 function handleContainerMetadataCreateError(error: unknown) {
   if (error instanceof ContainerMutationError) {
     return {
@@ -249,30 +239,32 @@ function handleContainerMetadataCreateError(error: unknown) {
 
 function addContainerMutationRoute({
   expectedEventType,
-  getExpectedContainerId,
-  path,
+  operation,
   publish,
   requireAuth,
   route,
   runtime,
 }: AddContainerMutationRouteInput) {
-  route.post(
-    path,
+  route.on(
+    operation.method,
+    operationRoutePath(operation),
     requireAuth,
-    validator("json", validateContainerMutationRequest),
+    jsonRequestValidator(operation.body),
+    pathParamsValidator<ContainerMutationRouteParams>(operation.params),
     async (c) => {
       const session = c.get("session");
 
       try {
+        const params = c.req.valid("param");
         const request = c.req.valid("json");
+        const expectedContainerId =
+          "containerId" in params ? params.containerId : undefined;
         const response = await mutateContainer(runtime, {
           expectedEventType,
           fingerprint: session.fingerprint,
           request,
           userId: session.userId,
-          ...(getExpectedContainerId
-            ? { expectedContainerId: getExpectedContainerId(c) }
-            : {}),
+          ...(expectedContainerId === undefined ? {} : { expectedContainerId }),
         });
         await publishContainerMutationCreated({
           expectedEventType,
@@ -326,10 +318,11 @@ export function createContainerMutationsRoute({
   const route = new Hono<SessionEnv>();
   const routeDeps = { publish, requireAuth, route, runtime };
 
-  route.post(
-    "/containers/with-metadata-document",
+  route.on(
+    createContainerWithMetadataDocumentOperation.method,
+    operationRoutePath(createContainerWithMetadataDocumentOperation),
     requireAuth,
-    validator("json", validateContainerCreateWithMetadataDocumentRequest),
+    jsonRequestValidator(createContainerWithMetadataDocumentOperation.body),
     async (c) => {
       const session = c.get("session");
 
@@ -359,61 +352,64 @@ export function createContainerMutationsRoute({
   addContainerMutationRoute({
     ...routeDeps,
     expectedEventType: "container.create",
-    path: "/containers",
+    operation: createContainerOperation,
   });
   addContainerMutationRoute({
     ...routeDeps,
     expectedEventType: "container.grant",
-    getExpectedContainerId: (c) => c.req.param("containerId"),
-    path: "/containers/:containerId/share",
+    operation: shareContainerOperation,
   });
   addContainerMutationRoute({
     ...routeDeps,
     expectedEventType: "container.revoke",
-    getExpectedContainerId: (c) => c.req.param("containerId"),
-    path: "/containers/:containerId/revoke",
+    operation: revokeContainerOperation,
   });
   addContainerMutationRoute({
     ...routeDeps,
     expectedEventType: "container.rekey",
-    getExpectedContainerId: (c) => c.req.param("containerId"),
-    path: "/containers/:containerId/rekey",
+    operation: rekeyContainerOperation,
   });
   addContainerMutationRoute({
     ...routeDeps,
     expectedEventType: "container.move",
-    getExpectedContainerId: (c) => c.req.param("containerId"),
-    path: "/containers/:containerId/move",
+    operation: moveContainerOperation,
   });
-  route.delete("/containers/:containerId", requireAuth, async (c) => {
-    const session = c.get("session");
-    const containerId = c.req.param("containerId");
+  route.on(
+    deleteContainerOperation.method,
+    operationRoutePath(deleteContainerOperation),
+    requireAuth,
+    pathParamsValidator(deleteContainerOperation.params),
+    async (c) => {
+      const session = c.get("session");
+      const { containerId } = c.req.valid("param");
 
-    try {
-      const response = await deleteContainer(runtime, {
-        containerId,
-        userId: session.userId,
-      });
-      // The container is gone; interested sockets must resync (and drop it).
-      // Best-effort: the delete is already committed, so a publish failure must
-      // not turn it into a 500 (the missed resync is recovered by HTTP sync).
       try {
-        await publish({ type: "access_changed", containerId });
-      } catch (publishError) {
-        console.error(
-          "Failed to publish container delete access_changed:",
-          publishError,
-        );
-      }
-      return c.json<ContainerDeleteResponse>(response);
-    } catch (error) {
-      if (error instanceof DeleteContainerError) {
-        return c.json({ error: error.message }, error.status);
-      }
+        const response = await deleteContainer(runtime, {
+          containerId,
+          userId: session.userId,
+        });
+        // The container is gone; interested sockets must resync (and drop it).
+        // Best-effort: the delete is already committed, so a publish failure
+        // must not turn it into a 500 (the missed resync is recovered by HTTP
+        // sync).
+        try {
+          await publish({ type: "access_changed", containerId });
+        } catch (publishError) {
+          console.error(
+            "Failed to publish container delete access_changed:",
+            publishError,
+          );
+        }
+        return c.json<ContainerDeleteResponse>(response);
+      } catch (error) {
+        if (error instanceof DeleteContainerError) {
+          return c.json({ error: error.message }, error.status);
+        }
 
-      throw error;
-    }
-  });
+        throw error;
+      }
+    },
+  );
 
   return route;
 }

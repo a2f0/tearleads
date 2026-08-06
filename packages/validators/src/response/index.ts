@@ -71,6 +71,7 @@ export {
 } from "./blob";
 export {
   type ContainerDeleteResponse,
+  ContainerDeleteResponseSchema,
   type ContainerKekKeyringWireResponse,
   type ContainerKekLogEpochResponse,
   ContainerKekLogEpochResponseSchema,

@@ -33,6 +33,66 @@ export function createContainerMutation() {
   };
 }
 
+export function createContainerMutationResponse() {
+  return {
+    accessManifest: createAccessManifestBundle(),
+    containerId: "container-1",
+    containerKek: createContainerWriterProjectionResponse().containerKeks[0],
+    createdAt: "2026-08-06T00:00:00.000Z",
+    manifestHead: { epoch: 1, manifestHash: "manifest-hash" },
+    organizationId: "organization-1",
+    parentId: "parent-1",
+    referencedPrincipalHeads: [],
+    updatedAt: "2026-08-06T00:00:00.000Z",
+  };
+}
+
+export function createContainerDeleteResponse() {
+  return {
+    containerId: "container-1",
+    deletedAt: "2026-08-06T00:00:00.000Z",
+  };
+}
+
+export function createContainerWithMetadataDocumentRequest() {
+  return {
+    container: createContainerMutation(),
+    metadataDocument: {
+      body: { documentId: "document-1" },
+      contentKeyBundle: {
+        contentKeyEpoch: 1,
+        linkSetManifestHash: "document-manifest-hash",
+        targetHash: "target-hash",
+        targets: [],
+      },
+      event: { signature: "signed-event" },
+      expectedManifestHash: "document-manifest-hash",
+      manifest: { documentId: "document-1" },
+    },
+  };
+}
+
+export function createContainerWithMetadataDocumentResponse() {
+  const contentKeyBundle = createContentKeyBundleResponse();
+  return {
+    container: createContainerMutationResponse(),
+    metadataDocument: {
+      accessManifest: createAccessManifestBundle(),
+      contentKeyBundle,
+      createdAt: "2026-08-06T00:00:00.000Z",
+      documentKekTargets: {
+        documentId: "document-1",
+        documentKeyTargetHash: contentKeyBundle.targetHash,
+        linkedContainerKeyEpochIds: ["container-key-epoch-id"],
+        linkedContainerManifestHashes: ["manifest-hash"],
+        linkSetManifestHash: contentKeyBundle.linkSetManifestHash,
+        targets: [{ containerId: "container-1" }],
+      },
+      id: "document-1",
+    },
+  };
+}
+
 export function createSyncRequest() {
   return {
     authorizingContainerPathRefs: [

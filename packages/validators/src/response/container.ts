@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { containerKekLogSingleKeyringRefinement } from "../containerReadRefinements";
 import { ContainerSystemSlotSchema } from "../containerSystemSlot";
-import { isPlainObject } from "../isPlainObject";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
 import {
@@ -18,7 +17,6 @@ import {
   CONTAINER_KEK_LOG_PAGE_LIMIT,
   CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
   ContainerKekKeyringWireRecordSchema,
-  hasStringProperty,
 } from "../util";
 import { containerWriterProjectionPathKekCountRefinement } from "../writerProjectionRefinements";
 import { EffectiveAccessLevelSchema } from "./accessLevel";
@@ -142,10 +140,14 @@ export type ContainerMutationResponse = z.infer<
   typeof ContainerMutationResponseSchema
 >;
 
-export interface ContainerDeleteResponse {
-  containerId: string;
-  deletedAt: string;
-}
+export const ContainerDeleteResponseSchema = loosePlainObject({
+  containerId: z.string(),
+  deletedAt: z.string(),
+});
+
+export type ContainerDeleteResponse = z.infer<
+  typeof ContainerDeleteResponseSchema
+>;
 
 export const ContainerWriterProjectionResponseSchema =
   registerJsonSchemaRuntimeRefinements(
@@ -231,11 +233,7 @@ export function isContainerMutationResponse(
 export function isContainerDeleteResponse(
   value: unknown,
 ): value is ContainerDeleteResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "containerId") &&
-    hasStringProperty(value, "deletedAt")
-  );
+  return ContainerDeleteResponseSchema.safeParse(value).success;
 }
 
 export function isContainerWriterProjectionResponse(

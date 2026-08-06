@@ -18,6 +18,15 @@ import {
   uploadMultipartBlobPartBytesOperation,
 } from "./blobBytes";
 import {
+  createContainerOperation,
+  createContainerWithMetadataDocumentOperation,
+  deleteContainerOperation,
+  moveContainerOperation,
+  rekeyContainerOperation,
+  revokeContainerOperation,
+  shareContainerOperation,
+} from "./containerMutations";
+import {
   getContainerKekLogOperation,
   listContainerDocumentsOperation,
   listContainerParentLanesOperation,
@@ -75,6 +84,13 @@ export const protocolOperations = [
   getContainerKekLogOperation,
   listContainerDocumentsOperation,
   listContainerParentLanesOperation,
+  createContainerOperation,
+  createContainerWithMetadataDocumentOperation,
+  deleteContainerOperation,
+  moveContainerOperation,
+  rekeyContainerOperation,
+  revokeContainerOperation,
+  shareContainerOperation,
   getContainerWriterProjectionOperation,
   getDocumentWriterProjectionOperation,
   createOrganizationOperation,
