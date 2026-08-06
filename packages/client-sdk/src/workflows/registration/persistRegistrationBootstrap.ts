@@ -405,7 +405,7 @@ async function persistRosterProfileDocumentBootstrap(
  * (the identity was replaced while this persist waited for the queue), so
  * callers do not report a bootstrap that was never persisted.
  */
-async function persistRegistrationBootstrapFromExecSql(
+export async function persistRegistrationBootstrapFromExecSql(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
 ): Promise<boolean> {
@@ -442,6 +442,6 @@ async function persistRegistrationBootstrapFromExecSql(
 export async function persistRegistrationBootstrap(
   client: ExecSqlClientLike,
   input: RegistrationBootstrapInput,
-): Promise<boolean> {
-  return persistRegistrationBootstrapFromExecSql(createExecSql(client), input);
+): Promise<void> {
+  await persistRegistrationBootstrapFromExecSql(createExecSql(client), input);
 }
