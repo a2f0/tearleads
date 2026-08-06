@@ -21,10 +21,8 @@ import {
   assertGroupPolicyBundleMatchesAcknowledgement,
   assertGroupPolicyEnvelopesMatchAcknowledgement,
 } from "./groupPolicyMutationAcknowledgement";
-import {
-  buildAddGroupUserPolicyRequest,
-  buildInitialGroupPolicyRequest,
-} from "./principalPolicy";
+import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
+import { buildInitialGroupPolicyRequest } from "./principalPolicy";
 
 async function acknowledgementFixture() {
   const signingKeyPair = generateSigningSeedAndKeyPair();
