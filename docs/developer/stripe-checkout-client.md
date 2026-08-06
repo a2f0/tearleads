@@ -7,7 +7,7 @@ flow and can style it from its theme tokens.
 ## Platform seam and configuration
 
 - `DirectCheckoutCapability`
-  ([`directCheckout.ts`](../../packages/client-sdk/src/client/directCheckout.ts))
+  ([`directCheckout.ts`](../../packages/client-sdk/src/client/billing/directCheckout.ts))
   is injected through `AppHostConfig.createDirectCheckout`. The web shell
   supplies [`webDirectCheckout.ts`](../../packages/app-web/src/webDirectCheckout.ts);
   other shells use `createUnavailableDirectCheckout`, so shared UI gates on
