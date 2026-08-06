@@ -11,7 +11,8 @@ import {
   isByteArrayOfLength,
   isSha256HexString,
   SHA256_HEX_LENGTH,
-} from "./util";
+} from "./util/protocol";
+import { isUuidV4String, UUID_V4_PATTERN } from "./util/uuid";
 
 const LOWERCASE_HEX_PATTERN = "^[0-9a-f]+$";
 
@@ -31,6 +32,16 @@ export const authChallengeHexStringSchema = registerJsonSchemaFragment(
     maxLength: AUTH_CHALLENGE_HEX_LENGTH,
     minLength: AUTH_CHALLENGE_HEX_LENGTH,
     pattern: LOWERCASE_HEX_PATTERN,
+    type: "string",
+  },
+);
+
+export const uuidV4StringSchema = registerJsonSchemaFragment(
+  z.custom<string>(
+    (value) => typeof value === "string" && isUuidV4String(value),
+  ),
+  {
+    pattern: UUID_V4_PATTERN.source,
     type: "string",
   },
 );
@@ -65,7 +76,53 @@ export const positiveIntegerSchema = registerJsonSchemaFragment(
   },
 );
 
+export const nonNegativeIntegerSchema = registerJsonSchemaFragment(
+  z.custom<number>(
+    (value) =>
+      typeof value === "number" && Number.isInteger(value) && value >= 0,
+  ),
+  {
+    maximum: Number.MAX_VALUE,
+    minimum: 0,
+    type: "integer",
+  },
+);
+
+export function boundedPositiveIntegerSchema(maximum: number) {
+  return registerJsonSchemaFragment(
+    z.custom<number>(
+      (value) =>
+        typeof value === "number" &&
+        Number.isInteger(value) &&
+        value > 0 &&
+        value <= maximum,
+    ),
+    {
+      maximum,
+      minimum: 1,
+      type: "integer",
+    },
+  );
+}
+
+export const requiredUnknownSchema = registerJsonSchemaView(
+  z.custom<unknown>((value) => value !== undefined),
+  z.unknown(),
+);
+
 export const nonEmptyStringSchema = z.string().min(1);
+
+export function boundedStringSchema(maxLength: number) {
+  return registerJsonSchemaFragment(
+    z.custom<string>(
+      (value) => typeof value === "string" && value.length <= maxLength,
+    ),
+    {
+      maxLength,
+      type: "string",
+    },
+  );
+}
 
 /**
  * Validates array items without rebuilding the array. This preserves signed
@@ -130,11 +187,13 @@ export function nonEmptyArraySchema<ItemSchema extends z.ZodType>(
  * remain untouched. A separate structural view describes the JSON wire shape
  * for OpenAPI without changing the value returned by runtime validation.
  */
-export function loosePlainObject<Shape extends z.ZodRawShape>(shape: Shape) {
+export function loosePlainObject<Shape extends z.ZodRawShape>(
+  shape: Shape,
+): z.ZodType<z.output<z.ZodObject<Shape>>> {
   const shapeSchema = z.looseObject(shape);
 
   const runtimeSchema = registerJsonSchemaView(
-    z.custom<z.output<typeof shapeSchema>>(isPlainObject),
+    z.custom<z.output<z.ZodObject<Shape>>>((value) => isPlainObject(value)),
     shapeSchema,
   ).superRefine((value, context) => {
     const result = shapeSchema.safeParse(value);

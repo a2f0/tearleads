@@ -1,7 +1,10 @@
 export {
   type AccessEventBundleWireResponse,
+  AccessEventBundleWireResponseSchema,
   type AccessManifestBundleWire,
   type AccessManifestBundleWireResponse,
+  AccessManifestBundleWireResponseSchema,
+  AccessManifestBundleWireSchema,
   isAccessEventBundleWireResponse,
   isAccessManifestBundleWire,
   isAccessManifestBundleWireArray,
@@ -12,6 +15,7 @@ export {
   CONTAINER_KEK_LOG_PAGE_LIMIT,
   CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,
   CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
+  ContainerKekKeyringWireRecordSchema,
   isContainerKekKeyringWireRecord,
   MAX_CONTAINER_KEY_EPOCH,
   MAX_INLINE_CONTAINER_REKEYS,

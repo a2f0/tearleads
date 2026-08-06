@@ -1,14 +1,24 @@
+import type { z } from "zod";
 import { isPlainObject } from "../isPlainObject";
 import {
-  type AccessManifestBundleWire,
+  arraySchema,
+  loosePlainObject,
+  nonEmptyStringSchema,
+  plainObjectSchema,
+  requiredUnknownSchema,
+} from "../schema";
+import {
+  AccessManifestBundleWireSchema,
   hasStringProperty,
-  isAccessManifestBundleWire,
+  MAX_INLINE_CONTAINER_REKEYS,
 } from "../util";
 import {
   type ContainerMutationRequest,
+  ContainerMutationRequestSchema,
   isOptionalContainerMutationRequestArray,
 } from "./container";
 import {
+  ContainerManifestPathSchema,
   type ContainerManifestRef,
   ContainerManifestRefArrayArraySchema,
   type DocumentContentKeyBundleRequest,
@@ -33,20 +43,26 @@ export {
   DocumentSyncRequestSchema,
 } from "./documentSyncSchema";
 
-export interface DocumentCreateRequest {
-  event: Record<string, unknown>;
-  body: unknown;
-  expectedManifestHash: string;
-  manifest: Record<string, unknown>;
-  previousManifest?: AccessManifestBundleWire | null;
-  // Container access manifests authorizing the write, as hash references the
-  // server resolves from its own store (it already holds these committed
-  // containers — see ContainerManifestRef).
-  targetContainerPathRefs?: ContainerManifestRef[];
-  authorizingContainerPathRefs?: ContainerManifestRef[][];
-  containerRekeys?: ContainerMutationRequest[];
-  contentKeyBundle: DocumentContentKeyBundleRequest;
-}
+export const documentCreateRequestShape = {
+  authorizingContainerPathRefs: ContainerManifestRefArrayArraySchema.optional(),
+  body: requiredUnknownSchema,
+  containerRekeys: arraySchema(
+    ContainerMutationRequestSchema,
+    MAX_INLINE_CONTAINER_REKEYS,
+  ).optional(),
+  contentKeyBundle: DocumentContentKeyBundleRequestSchema,
+  event: plainObjectSchema,
+  expectedManifestHash: nonEmptyStringSchema,
+  manifest: plainObjectSchema,
+  previousManifest: AccessManifestBundleWireSchema.nullable().optional(),
+  targetContainerPathRefs: ContainerManifestPathSchema.optional(),
+} satisfies z.ZodRawShape;
+
+export const DocumentCreateRequestSchema = loosePlainObject(
+  documentCreateRequestShape,
+);
+
+export type DocumentCreateRequest = z.infer<typeof DocumentCreateRequestSchema>;
 
 export interface DocumentLinkSetMutationRequest {
   event: Record<string, unknown>;
@@ -108,45 +124,7 @@ function isDocumentOutgoingUpdate(
 export function isDocumentCreateRequest(
   value: unknown,
 ): value is DocumentCreateRequest {
-  const previousManifest = isPlainObject(value)
-    ? Reflect.get(value, "previousManifest")
-    : undefined;
-  const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
-  const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
-  const manifest = isPlainObject(value)
-    ? Reflect.get(value, "manifest")
-    : undefined;
-  const targetContainerPathRefs = isPlainObject(value)
-    ? Reflect.get(value, "targetContainerPathRefs")
-    : undefined;
-  const authorizingContainerPathRefs = isPlainObject(value)
-    ? Reflect.get(value, "authorizingContainerPathRefs")
-    : undefined;
-  const contentKeyBundle = isPlainObject(value)
-    ? Reflect.get(value, "contentKeyBundle")
-    : undefined;
-  const containerRekeys = isPlainObject(value)
-    ? Reflect.get(value, "containerRekeys")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isPlainObject(event) &&
-    Reflect.has(value, "body") &&
-    body !== undefined &&
-    hasStringProperty(value, "expectedManifestHash") &&
-    value.expectedManifestHash.length > 0 &&
-    isPlainObject(manifest) &&
-    (previousManifest === undefined ||
-      previousManifest === null ||
-      isAccessManifestBundleWire(previousManifest)) &&
-    (targetContainerPathRefs === undefined ||
-      isContainerManifestRefArray(targetContainerPathRefs)) &&
-    (authorizingContainerPathRefs === undefined ||
-      isContainerManifestRefArrayArray(authorizingContainerPathRefs)) &&
-    isOptionalContainerMutationRequestArray(containerRekeys) &&
-    isDocumentContentKeyBundleRequest(contentKeyBundle)
-  );
+  return DocumentCreateRequestSchema.safeParse(value).success;
 }
 
 export function isDocumentLinkSetMutationRequest(

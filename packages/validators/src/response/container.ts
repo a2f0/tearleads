@@ -1,10 +1,26 @@
-import type { ContainerSystemSlot } from "../containerSystemSlot";
-import { isNullableContainerSystemSlot } from "../containerSystemSlot";
+import { z } from "zod";
+import {
+  type ContainerSystemSlot,
+  ContainerSystemSlotSchema,
+  isNullableContainerSystemSlot,
+} from "../containerSystemSlot";
 import { isPlainObject } from "../isPlainObject";
+import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
+import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
+import {
+  arraySchema,
+  loosePlainObject,
+  nonEmptyArraySchema,
+  nonEmptyStringSchema,
+  plainObjectSchema,
+  positiveIntegerSchema,
+} from "../schema";
 import {
   type AccessManifestBundleWireResponse,
+  AccessManifestBundleWireResponseSchema,
   CONTAINER_KEK_LOG_PAGE_LIMIT,
   CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
+  ContainerKekKeyringWireRecordSchema,
   hasArrayProperty,
   hasNullableStringProperty,
   hasNumberProperty,
@@ -20,6 +36,7 @@ import {
 import {
   isReferencedPrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
+  ReferencedPrincipalStateResponseSchema,
 } from "./principal";
 import { isSyncWatermark, type SyncWatermark } from "./syncWatermark";
 
@@ -28,30 +45,42 @@ import { isSyncWatermark, type SyncWatermark } from "./syncWatermark";
  * current KEK yields every retained historical KEK in one decrypt; the
  * bridge log behind it is served only by the rebuild read path.
  */
-export interface ContainerKekKeyringWireResponse {
-  version: number;
-  sealingSuite: string;
-  containerId: string;
-  containerKeyEpochId: string;
-  iv: string;
-  sealed: string;
-}
+export const ContainerKekKeyringWireResponseSchema =
+  ContainerKekKeyringWireRecordSchema;
 
-export interface ContainerKekResponse {
-  containerId: string;
-  accessManifestHash: string;
-  containerKeyEpochId: string;
-  containerKeyEpoch: number;
-  /** Null exactly when `containerKeyEpoch` is 1. */
-  keyring: ContainerKekKeyringWireResponse | null;
-  keyEpoch: Record<string, unknown>;
-  keyEpochHash: string;
-  keyTargetHash: string;
-  parentContainerKeyEpochId: string | null;
-  containerManifestHistory: AccessManifestBundleWireResponse[];
-  recipientTargets: Record<string, unknown>[];
-  wraps: Record<string, unknown>[];
-}
+export type ContainerKekKeyringWireResponse = z.infer<
+  typeof ContainerKekKeyringWireResponseSchema
+>;
+
+const containerKekResponseShape = {
+  accessManifestHash: nonEmptyStringSchema,
+  containerId: z.string(),
+  containerKeyEpoch: positiveIntegerSchema,
+  containerKeyEpochId: nonEmptyStringSchema,
+  containerManifestHistory: arraySchema(AccessManifestBundleWireResponseSchema),
+  keyEpoch: plainObjectSchema,
+  keyEpochHash: nonEmptyStringSchema,
+  keyring: ContainerKekKeyringWireResponseSchema.nullable(),
+  keyTargetHash: nonEmptyStringSchema,
+  parentContainerKeyEpochId: z.string().nullable(),
+  recipientTargets: nonEmptyArraySchema(plainObjectSchema),
+  wraps: nonEmptyArraySchema(plainObjectSchema),
+};
+
+export const ContainerKekResponseSchema = registerJsonSchemaRuntimeRefinements(
+  loosePlainObject(containerKekResponseShape).superRefine((value, context) => {
+    if ((value.keyring === null) !== (value.containerKeyEpoch === 1)) {
+      context.addIssue({
+        code: "custom",
+        message: "container keyring must be null exactly at epoch 1",
+        path: ["keyring"],
+      });
+    }
+  }),
+  [organizationProvisioningContainerKeyringRefinement],
+);
+
+export type ContainerKekResponse = z.infer<typeof ContainerKekResponseSchema>;
 
 function isContainerKekKeyringWireResponse(
   value: unknown,
@@ -146,21 +175,25 @@ export function isContainerKekLogResponse(
   );
 }
 
-export interface ContainerMutationResponse {
-  systemSlot?: ContainerSystemSlot | null;
-  containerId: string;
-  createdAt: string;
-  organizationId: string;
-  parentId: string | null;
-  updatedAt: string;
-  manifestHead: {
-    epoch: number;
-    manifestHash: string;
-  };
-  accessManifest: AccessManifestBundleWireResponse;
-  containerKek: ContainerKekResponse;
-  referencedPrincipalHeads: ReferencedPrincipalStateResponse[];
-}
+export const ContainerMutationResponseSchema = loosePlainObject({
+  accessManifest: AccessManifestBundleWireResponseSchema,
+  containerId: z.string(),
+  containerKek: ContainerKekResponseSchema,
+  createdAt: z.string(),
+  manifestHead: loosePlainObject({
+    epoch: z.number(),
+    manifestHash: z.string(),
+  }),
+  organizationId: z.string(),
+  parentId: z.string().nullable(),
+  referencedPrincipalHeads: arraySchema(ReferencedPrincipalStateResponseSchema),
+  systemSlot: ContainerSystemSlotSchema.nullable().optional(),
+  updatedAt: z.string(),
+});
+
+export type ContainerMutationResponse = z.infer<
+  typeof ContainerMutationResponseSchema
+>;
 
 export interface ContainerDeleteResponse {
   containerId: string;
@@ -274,85 +307,13 @@ export function isListContainersResponse(
 }
 
 function isContainerKekResponse(value: unknown): value is ContainerKekResponse {
-  const keyEpoch = isPlainObject(value)
-    ? Reflect.get(value, "keyEpoch")
-    : undefined;
-  const containerManifestHistory = isPlainObject(value)
-    ? Reflect.get(value, "containerManifestHistory")
-    : undefined;
-  const recipientTargets = isPlainObject(value)
-    ? Reflect.get(value, "recipientTargets")
-    : undefined;
-  const wraps = isPlainObject(value) ? Reflect.get(value, "wraps") : undefined;
-  const keyring = isPlainObject(value)
-    ? Reflect.get(value, "keyring")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    Reflect.has(value, "keyring") &&
-    (keyring === null || isContainerKekKeyringWireResponse(keyring)) &&
-    // Null EXACTLY at epoch 1: that epoch has no history to seal, and every
-    // later one does. Accepting either shape at any epoch would let a
-    // history-bearing epoch answer with no keyring and read as "nothing to
-    // recover" rather than as the missing snapshot it is.
-    (keyring === null) ===
-      (hasNumberProperty(value, "containerKeyEpoch") &&
-        value.containerKeyEpoch === 1) &&
-    hasStringProperty(value, "containerId") &&
-    hasStringProperty(value, "accessManifestHash") &&
-    value.accessManifestHash.length > 0 &&
-    hasStringProperty(value, "containerKeyEpochId") &&
-    value.containerKeyEpochId.length > 0 &&
-    hasNumberProperty(value, "containerKeyEpoch") &&
-    Number.isInteger(value.containerKeyEpoch) &&
-    value.containerKeyEpoch > 0 &&
-    isPlainObject(keyEpoch) &&
-    hasStringProperty(value, "keyEpochHash") &&
-    value.keyEpochHash.length > 0 &&
-    hasStringProperty(value, "keyTargetHash") &&
-    value.keyTargetHash.length > 0 &&
-    hasNullableStringProperty(value, "parentContainerKeyEpochId") &&
-    Array.isArray(containerManifestHistory) &&
-    containerManifestHistory.every(isAccessManifestBundleWireResponse) &&
-    isRecordArray(recipientTargets) &&
-    recipientTargets.length > 0 &&
-    isRecordArray(wraps) &&
-    wraps.length > 0
-  );
+  return ContainerKekResponseSchema.safeParse(value).success;
 }
 
 export function isContainerMutationResponse(
   value: unknown,
 ): value is ContainerMutationResponse {
-  const manifestHead = isPlainObject(value)
-    ? Reflect.get(value, "manifestHead")
-    : undefined;
-  const accessManifest = isPlainObject(value)
-    ? Reflect.get(value, "accessManifest")
-    : undefined;
-  const containerKek = isPlainObject(value)
-    ? Reflect.get(value, "containerKek")
-    : undefined;
-  const referencedPrincipalHeads = isPlainObject(value)
-    ? Reflect.get(value, "referencedPrincipalHeads")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "containerId") &&
-    hasStringProperty(value, "createdAt") &&
-    hasStringProperty(value, "organizationId") &&
-    hasNullableStringProperty(value, "parentId") &&
-    hasStringProperty(value, "updatedAt") &&
-    isPlainObject(manifestHead) &&
-    hasNumberProperty(manifestHead, "epoch") &&
-    hasStringProperty(manifestHead, "manifestHash") &&
-    isAccessManifestBundleWireResponse(accessManifest) &&
-    isContainerKekResponse(containerKek) &&
-    Array.isArray(referencedPrincipalHeads) &&
-    referencedPrincipalHeads.every(isReferencedPrincipalStateResponse)
-  );
+  return ContainerMutationResponseSchema.safeParse(value).success;
 }
 
 export function isContainerDeleteResponse(

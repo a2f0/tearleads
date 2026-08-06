@@ -1,4 +1,6 @@
+import { z } from "zod";
 import { isPlainObject } from "../isPlainObject";
+import { loosePlainObject } from "../schema";
 import {
   hasArrayProperty,
   hasNullableStringProperty,
@@ -69,14 +71,18 @@ export interface CurrentPrincipalMemberEnvelopesResponse {
   envelopes: PrincipalMemberEnvelopeResponse[];
 }
 
-export interface ReferencedPrincipalStateResponse {
-  principalType: "group" | "organization";
-  principalId: string;
-  version: number;
-  keyEpoch: number;
-  stateHash: string;
-  keyFingerprint: string;
-}
+export const ReferencedPrincipalStateResponseSchema = loosePlainObject({
+  keyEpoch: z.number(),
+  keyFingerprint: z.string(),
+  principalId: z.string(),
+  principalType: z.literal(["group", "organization"]),
+  stateHash: z.string(),
+  version: z.number(),
+});
+
+export type ReferencedPrincipalStateResponse = z.infer<
+  typeof ReferencedPrincipalStateResponseSchema
+>;
 
 export interface PrincipalPolicyStateChainEntryResponse {
   state: PrincipalStateResponse;
@@ -214,16 +220,7 @@ export function isCurrentPrincipalMemberEnvelopesResponse(
 export function isReferencedPrincipalStateResponse(
   value: unknown,
 ): value is ReferencedPrincipalStateResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "principalType") &&
-    isManagedPrincipalType(value.principalType) &&
-    hasStringProperty(value, "principalId") &&
-    hasNumberProperty(value, "version") &&
-    hasNumberProperty(value, "keyEpoch") &&
-    hasStringProperty(value, "stateHash") &&
-    hasStringProperty(value, "keyFingerprint")
-  );
+  return ReferencedPrincipalStateResponseSchema.safeParse(value).success;
 }
 
 export function isPrincipalPolicyStateChainEntryResponse(

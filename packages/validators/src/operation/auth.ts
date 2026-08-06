@@ -1,8 +1,15 @@
 import { z } from "zod";
+import { documentSyncRequestRuntimeRefinements } from "../documentSyncRefinements";
+import {
+  organizationProvisioningRequestRuntimeRefinements,
+  organizationProvisioningResponseRuntimeRefinements,
+} from "../organizationProvisioningRefinements";
 import {
   ChallengeRequestSchema,
   isChallengeRequest,
+  isRegistrationRequest,
   isVerifyRequest,
+  RegistrationRequestSchema,
   VerifyRequestSchema,
 } from "../request";
 import {
@@ -13,10 +20,12 @@ import {
   isChallengeResponse,
   isDestroySessionResponse,
   isListSessionsResponse,
+  isRegistrationResponse,
   isUserIdentityResponse,
   isVerifyResponse,
   isWebSocketTicketResponse,
   ListSessionsResponseSchema,
+  RegistrationResponseSchema,
   UserIdentityResponseSchema,
   VerifyFailureResponseSchema,
   VerifySuccessResponseSchema,
@@ -68,6 +77,32 @@ export const verifyOperation = defineJsonOperation({
   responses: {
     200: VerifySuccessResponseSchema,
   },
+});
+
+export const registerOperation = defineJsonOperation({
+  auth: "none",
+  body: RegistrationRequestSchema,
+  failureResponses: {
+    400: ErrorResponseSchema,
+    403: ErrorResponseSchema,
+    404: ErrorResponseSchema,
+    409: ErrorResponseSchema,
+    500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
+  },
+  failureStatuses: [400, 403, 404, 409, 500, 503],
+  id: "auth.register",
+  method: "POST",
+  params: AuthPathParamsSchema,
+  path: "/auth/register",
+  responses: {
+    200: RegistrationResponseSchema,
+  },
+  runtimeRefinements: [
+    ...documentSyncRequestRuntimeRefinements,
+    ...organizationProvisioningRequestRuntimeRefinements,
+    ...organizationProvisioningResponseRuntimeRefinements,
+  ],
 });
 
 export const logoutOperation = defineJsonOperation({
@@ -155,6 +190,8 @@ export const userIdentityOperation = defineJsonOperation({
 
 export const isChallengeOperationRequest = isChallengeRequest;
 export const isChallengeOperationResponse = isChallengeResponse;
+export const isRegistrationOperationRequest = isRegistrationRequest;
+export const isRegistrationOperationResponse = isRegistrationResponse;
 export const isVerifyOperationRequest = isVerifyRequest;
 export const isVerifyOperationResponse = isVerifyResponse;
 export const isLogoutOperationResponse = isDestroySessionResponse;

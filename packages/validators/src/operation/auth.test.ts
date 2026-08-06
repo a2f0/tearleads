@@ -1,11 +1,16 @@
 import { expect, test } from "bun:test";
-import { ChallengeRequestSchema, VerifyRequestSchema } from "../request";
+import {
+  ChallengeRequestSchema,
+  RegistrationRequestSchema,
+  VerifyRequestSchema,
+} from "../request";
 import {
   ChallengeErrorResponseSchema,
   ChallengeResponseSchema,
   DestroySessionResponseSchema,
   ErrorResponseSchema,
   ListSessionsResponseSchema,
+  RegistrationResponseSchema,
   UserIdentityResponseSchema,
   VerifyFailureResponseSchema,
   VerifySuccessResponseSchema,
@@ -16,6 +21,7 @@ import {
   destroySessionOperation,
   listSessionsOperation,
   logoutOperation,
+  registerOperation,
   userIdentityOperation,
   verifyOperation,
   webSocketTicketOperation,
@@ -52,6 +58,24 @@ test("auth operations own their HTTP contract metadata", () => {
     401: VerifyFailureResponseSchema,
     404: VerifyFailureResponseSchema,
     500: ErrorResponseSchema,
+  });
+
+  expect(registerOperation).toMatchObject({
+    auth: "none",
+    body: RegistrationRequestSchema,
+    failureStatuses: [400, 403, 404, 409, 500, 503],
+    id: "auth.register",
+    method: "POST",
+    path: "/auth/register",
+    responses: { 200: RegistrationResponseSchema },
+  });
+  expect(registerOperation.failureResponses).toEqual({
+    400: ErrorResponseSchema,
+    403: ErrorResponseSchema,
+    404: ErrorResponseSchema,
+    409: ErrorResponseSchema,
+    500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
 });
 
@@ -116,6 +140,7 @@ test("auth operation paths are shared with validated parameters", () => {
   expect(operationRequestPath(challengeOperation, {})).toBe("/auth/challenge");
   expect(operationRoutePath(verifyOperation)).toBe("/auth/verify");
   expect(operationRequestPath(verifyOperation, {})).toBe("/auth/verify");
+  expect(operationRequestPath(registerOperation, {})).toBe("/auth/register");
   expect(operationRequestPath(logoutOperation, {})).toBe("/auth/logout");
   expect(operationRequestPath(listSessionsOperation, {})).toBe(
     "/auth/sessions",

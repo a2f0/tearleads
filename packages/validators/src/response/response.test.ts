@@ -1064,6 +1064,29 @@ test("isContainerWriterProjectionResponse", () => {
       containerKeks: [createContainerKekResponse({ containerKeyEpoch: 0 })],
     }),
   ).toBe(false);
+  expect(
+    isContainerWriterProjectionResponse({
+      ...validResponse,
+      containerKeks: [createContainerKekResponse({ containerKeyEpoch: 2 })],
+    }),
+  ).toBe(false);
+  expect(
+    isContainerWriterProjectionResponse({
+      ...validResponse,
+      containerKeks: [
+        createContainerKekResponse({
+          keyring: {
+            containerId: "container-id",
+            containerKeyEpochId: "container-key-epoch-id",
+            iv: "iv",
+            sealed: "sealed",
+            sealingSuite: "aes-256-gcm",
+            version: 1,
+          },
+        }),
+      ],
+    }),
+  ).toBe(false);
   expect(isContainerWriterProjectionResponse(null)).toBe(false);
 });
 

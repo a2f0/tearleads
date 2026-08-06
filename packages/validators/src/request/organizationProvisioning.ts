@@ -1,74 +1,102 @@
-import { isPlainObject } from "../isPlainObject";
-import { hasObjectProperty, hasStringProperty, isUuidV4String } from "../util";
+import type { z } from "zod";
+import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
-  type ContainerMutationRequest,
-  isContainerMutationRequest,
-} from "./container";
+  organizationProvisioningContainerSeedRefinement,
+  organizationProvisioningDocumentSeedRefinement,
+} from "../organizationProvisioningRefinements";
+import { arraySchema, loosePlainObject, uuidV4StringSchema } from "../schema";
+import { ContainerMutationRequestSchema } from "./container";
+import { containerCreateWithMetadataDocumentRequestShape } from "./containerMetadata";
 import {
-  type ContainerCreateWithMetadataDocumentRequest,
-  isContainerCreateWithMetadataDocumentRequest,
-} from "./containerMetadata";
-import {
-  type DocumentCreateRequest,
-  type DocumentSyncRequest,
-  isDocumentCreateRequest,
-  isDocumentSyncRequest,
+  DocumentSyncRequestSchema,
+  documentCreateRequestShape,
 } from "./document";
-import {
-  type CreateOrganizationGroupRequest,
-  isCreateOrganizationGroupRequest,
-} from "./organization";
-import {
-  isPutPrincipalPolicyRequest,
-  type PutPrincipalPolicyRequest,
-} from "./principal";
+import { CreateOrganizationGroupRequestSchema } from "./organization";
+import { PutPrincipalPolicyRequestSchema } from "./principal";
 
 /**
  * A built-in or app-owned system container whose encrypted initial metadata
  * body is committed in the same transaction as the organization and document
  * shell.
  */
-export interface ProvisionedSystemContainerRequest
-  extends ContainerCreateWithMetadataDocumentRequest {
-  initialMetadataSync: DocumentSyncRequest;
-}
+const provisionedSystemContainerRequestShape = {
+  ...containerCreateWithMetadataDocumentRequestShape,
+  initialMetadataSync: DocumentSyncRequestSchema,
+};
 
 /**
  * A document whose encrypted initial body is committed with its manifest in the
  * organization-provisioning transaction.
  */
-export interface ProvisionedDocumentRequest extends DocumentCreateRequest {
-  initialSync: DocumentSyncRequest;
-}
+const provisionedDocumentRequestShape = {
+  ...documentCreateRequestShape,
+  initialSync: DocumentSyncRequestSchema,
+};
+
+export const ProvisionedDocumentRequestSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject(provisionedDocumentRequestShape).superRefine(
+      (value, context) => {
+        if (!Array.isArray(value.initialSync?.outgoingUpdates)) {
+          return;
+        }
+        if (
+          value.initialSync.outgoingUpdates.length !== 1 ||
+          (value.initialSync.containerRekeys?.length ?? 0) !== 0
+        ) {
+          context.addIssue({
+            code: "custom",
+            message:
+              "provisioned document seed requires one update and no container rekeys",
+            path: ["initialSync"],
+          });
+        }
+      },
+    ),
+    [organizationProvisioningDocumentSeedRefinement],
+  );
+
+export type ProvisionedDocumentRequest = z.infer<
+  typeof ProvisionedDocumentRequestSchema
+>;
+
+export const ProvisionedSystemContainerRequestSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject(provisionedSystemContainerRequestShape).superRefine(
+      (value, context) => {
+        if (!Array.isArray(value.initialMetadataSync?.outgoingUpdates)) {
+          return;
+        }
+        if (
+          value.initialMetadataSync.outgoingUpdates.length !== 1 ||
+          (value.initialMetadataSync.containerRekeys?.length ?? 0) !== 0
+        ) {
+          context.addIssue({
+            code: "custom",
+            message:
+              "provisioned system-container metadata seed requires one update and no container rekeys",
+            path: ["initialMetadataSync"],
+          });
+        }
+      },
+    ),
+    [organizationProvisioningContainerSeedRefinement],
+  );
+
+export type ProvisionedSystemContainerRequest = z.infer<
+  typeof ProvisionedSystemContainerRequestSchema
+>;
 
 export function isProvisionedDocumentRequest(
   value: unknown,
 ): value is ProvisionedDocumentRequest {
-  const initialSync = isPlainObject(value)
-    ? Reflect.get(value, "initialSync")
-    : undefined;
-
-  return (
-    isDocumentCreateRequest(value) &&
-    isDocumentSyncRequest(initialSync) &&
-    initialSync.outgoingUpdates.length === 1 &&
-    (initialSync.containerRekeys?.length ?? 0) === 0
-  );
+  return ProvisionedDocumentRequestSchema.safeParse(value).success;
 }
 
 export function isProvisionedSystemContainerRequest(
   value: unknown,
 ): value is ProvisionedSystemContainerRequest {
-  const initialMetadataSync = isPlainObject(value)
-    ? Reflect.get(value, "initialMetadataSync")
-    : undefined;
-
-  return (
-    isContainerCreateWithMetadataDocumentRequest(value) &&
-    isDocumentSyncRequest(initialMetadataSync) &&
-    initialMetadataSync.outgoingUpdates.length === 1 &&
-    (initialMetadataSync.containerRekeys?.length ?? 0) === 0
-  );
+  return ProvisionedSystemContainerRequestSchema.safeParse(value).success;
 }
 
 /**
@@ -82,93 +110,39 @@ export function isProvisionedSystemContainerRequest(
  * material (see {@link RegistrationRequest}); creating an additional
  * organization reuses the caller's existing keys, so it needs only this base.
  */
-export interface OrganizationProvisioningRequest {
-  userId: string;
-  organizationId: string;
-  rootContainerId: string;
-  initialAdminGroup: CreateOrganizationGroupRequest;
-  initialMemberGroup: CreateOrganizationGroupRequest;
-  initialOrganizationPolicy: PutPrincipalPolicyRequest;
-  initialRootContainer: ContainerMutationRequest;
-  initialRootMetadataDocument: ProvisionedDocumentRequest;
-  initialRosterProfileContainer?: ProvisionedSystemContainerRequest | undefined;
-  initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined;
-  /**
-   * Dedicated container for org-wide public metadata, born with a read grant to
-   * the reserved Members group so every active roster member can decrypt it.
-   * The organization profile document (holding the display name) is linked here
-   * rather than into the Admins-scoped roster profile container, which also
-   * carries the founder's private roster PII.
-   */
-  initialOrganizationMetadataContainer?:
-    | ProvisionedSystemContainerRequest
-    | undefined;
-  initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined;
-  /**
-   * Additional app-owned system containers to provision atomically with the
-   * organization (e.g. a trash bin). Each is a child of the root born
-   * Admins-scoped and carries only its metadata document — no separate profile
-   * document. Their system slots are derived from the founder's signing key, so
-   * they are opaque to the server and unique per organization.
-   */
-  initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined;
-}
+export const organizationProvisioningRequestShape = {
+  initialAdminGroup: CreateOrganizationGroupRequestSchema,
+  initialMemberGroup: CreateOrganizationGroupRequestSchema,
+  initialOrganizationMetadataContainer:
+    ProvisionedSystemContainerRequestSchema.optional(),
+  initialOrganizationPolicy: PutPrincipalPolicyRequestSchema,
+  initialOrganizationProfileDocument:
+    ProvisionedDocumentRequestSchema.optional(),
+  initialRootContainer: ContainerMutationRequestSchema,
+  initialRootMetadataDocument: ProvisionedDocumentRequestSchema,
+  initialRosterProfileContainer:
+    ProvisionedSystemContainerRequestSchema.optional(),
+  initialRosterProfileDocument: ProvisionedDocumentRequestSchema.optional(),
+  initialSystemContainers: arraySchema(
+    ProvisionedSystemContainerRequestSchema,
+  ).optional(),
+  organizationId: uuidV4StringSchema,
+  rootContainerId: uuidV4StringSchema,
+  userId: uuidV4StringSchema,
+} satisfies z.ZodRawShape;
+
+export const OrganizationProvisioningRequestSchema = loosePlainObject(
+  organizationProvisioningRequestShape,
+);
+
+export type OrganizationProvisioningRequest = z.infer<
+  typeof OrganizationProvisioningRequestSchema
+>;
 
 export function isOrganizationProvisioningRequest(
   value: unknown,
 ): value is OrganizationProvisioningRequest {
-  const initialRootContainer = isPlainObject(value)
-    ? Reflect.get(value, "initialRootContainer")
-    : undefined;
-  const initialRootMetadataDocument = isPlainObject(value)
-    ? Reflect.get(value, "initialRootMetadataDocument")
-    : undefined;
-  const initialRosterProfileDocument = isPlainObject(value)
-    ? Reflect.get(value, "initialRosterProfileDocument")
-    : undefined;
-  const initialOrganizationProfileDocument = isPlainObject(value)
-    ? Reflect.get(value, "initialOrganizationProfileDocument")
-    : undefined;
-  const initialRosterProfileContainer = isPlainObject(value)
-    ? Reflect.get(value, "initialRosterProfileContainer")
-    : undefined;
-  const initialOrganizationMetadataContainer = isPlainObject(value)
-    ? Reflect.get(value, "initialOrganizationMetadataContainer")
-    : undefined;
-  const initialSystemContainers = isPlainObject(value)
-    ? Reflect.get(value, "initialSystemContainers")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "userId") &&
-    isUuidV4String(value.userId) &&
-    hasStringProperty(value, "organizationId") &&
-    isUuidV4String(value.organizationId) &&
-    hasStringProperty(value, "rootContainerId") &&
-    isUuidV4String(value.rootContainerId) &&
-    hasObjectProperty(value, "initialAdminGroup") &&
-    isCreateOrganizationGroupRequest(value.initialAdminGroup) &&
-    hasObjectProperty(value, "initialMemberGroup") &&
-    isCreateOrganizationGroupRequest(value.initialMemberGroup) &&
-    hasObjectProperty(value, "initialOrganizationPolicy") &&
-    isPutPrincipalPolicyRequest(value.initialOrganizationPolicy) &&
-    isContainerMutationRequest(initialRootContainer) &&
-    isProvisionedDocumentRequest(initialRootMetadataDocument) &&
-    (initialRosterProfileContainer === undefined ||
-      isProvisionedSystemContainerRequest(initialRosterProfileContainer)) &&
-    (initialRosterProfileDocument === undefined ||
-      isProvisionedDocumentRequest(initialRosterProfileDocument)) &&
-    (initialOrganizationMetadataContainer === undefined ||
-      isProvisionedSystemContainerRequest(
-        initialOrganizationMetadataContainer,
-      )) &&
-    (initialOrganizationProfileDocument === undefined ||
-      isProvisionedDocumentRequest(initialOrganizationProfileDocument)) &&
-    (initialSystemContainers === undefined ||
-      (Array.isArray(initialSystemContainers) &&
-        initialSystemContainers.every(isProvisionedSystemContainerRequest)))
-  );
+  return OrganizationProvisioningRequestSchema.safeParse(value).success;
 }
 
 /**

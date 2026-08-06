@@ -1,119 +1,66 @@
-import { isPlainObject } from "../isPlainObject";
+import { z } from "zod";
+import { registerJsonSchemaView } from "../jsonSchema";
 import {
-  type AccessManifestBundleWire,
-  hasStringProperty,
-  isAccessManifestBundleWire,
-  isContainerKekKeyringWireRecord,
-  isOptionalAccessManifestBundleWireArray,
-  isOptionalRecordArray,
-  isRecordArray,
+  arraySchema,
+  loosePlainObject,
+  nonEmptyStringSchema,
+  plainObjectSchema,
+  requiredUnknownSchema,
+} from "../schema";
+import {
+  AccessManifestBundleWireSchema,
+  ContainerKekKeyringWireRecordSchema,
   MAX_INLINE_CONTAINER_REKEYS,
 } from "../util";
 
-export interface ContainerMutationRequest {
-  event: Record<string, unknown>;
-  body: unknown;
-  expectedManifestHash: string;
-  manifest: Record<string, unknown>;
-  previousManifest?: AccessManifestBundleWire | null;
-  previousContainerPath?: AccessManifestBundleWire[];
-  parentContainerPath?: AccessManifestBundleWire[];
-  destinationParentContainerPath?: AccessManifestBundleWire[];
-  principalPolicies: Record<string, unknown>[];
-  keyEpoch: Record<string, unknown>;
-  predecessorBridge: Record<string, unknown> | null;
-  keyring: Record<string, unknown> | null;
-  wraps: Record<string, unknown>[];
-  containerManifestHistory?: AccessManifestBundleWire[];
-  parentKekState?: Record<string, unknown> | null;
-  userRecipientKeys?: Record<string, unknown>[];
-}
+const AccessManifestBundleWireArraySchema = arraySchema(
+  AccessManifestBundleWireSchema,
+);
 
-function isOptionalParentKekState(
-  value: unknown,
-): value is Record<string, unknown> | null | undefined {
-  return value === undefined || value === null || isPlainObject(value);
-}
+const ContainerMutationKeyringSchema = registerJsonSchemaView(
+  z.custom<Record<string, unknown>>(
+    (value) => ContainerKekKeyringWireRecordSchema.safeParse(value).success,
+  ),
+  ContainerKekKeyringWireRecordSchema,
+);
+
+export const ContainerMutationRequestSchema = loosePlainObject({
+  body: requiredUnknownSchema,
+  containerManifestHistory: AccessManifestBundleWireArraySchema.optional(),
+  destinationParentContainerPath:
+    AccessManifestBundleWireArraySchema.optional(),
+  event: plainObjectSchema,
+  expectedManifestHash: nonEmptyStringSchema,
+  keyEpoch: plainObjectSchema,
+  keyring: ContainerMutationKeyringSchema.nullable(),
+  manifest: plainObjectSchema,
+  parentContainerPath: AccessManifestBundleWireArraySchema.optional(),
+  parentKekState: plainObjectSchema.nullable().optional(),
+  predecessorBridge: plainObjectSchema.nullable(),
+  previousContainerPath: AccessManifestBundleWireArraySchema.optional(),
+  previousManifest: AccessManifestBundleWireSchema.nullable().optional(),
+  principalPolicies: arraySchema(plainObjectSchema),
+  userRecipientKeys: arraySchema(plainObjectSchema).optional(),
+  wraps: arraySchema(plainObjectSchema),
+});
+
+export type ContainerMutationRequest = z.infer<
+  typeof ContainerMutationRequestSchema
+>;
 
 export function isContainerMutationRequest(
   value: unknown,
 ): value is ContainerMutationRequest {
-  const previousManifest = isPlainObject(value)
-    ? Reflect.get(value, "previousManifest")
-    : undefined;
-  const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
-  const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
-  const manifest = isPlainObject(value)
-    ? Reflect.get(value, "manifest")
-    : undefined;
-  const previousContainerPath = isPlainObject(value)
-    ? Reflect.get(value, "previousContainerPath")
-    : undefined;
-  const parentContainerPath = isPlainObject(value)
-    ? Reflect.get(value, "parentContainerPath")
-    : undefined;
-  const destinationParentContainerPath = isPlainObject(value)
-    ? Reflect.get(value, "destinationParentContainerPath")
-    : undefined;
-  const principalPolicies = isPlainObject(value)
-    ? Reflect.get(value, "principalPolicies")
-    : undefined;
-  const keyEpoch = isPlainObject(value)
-    ? Reflect.get(value, "keyEpoch")
-    : undefined;
-  const predecessorBridge = isPlainObject(value)
-    ? Reflect.get(value, "predecessorBridge")
-    : undefined;
-  const keyring = isPlainObject(value)
-    ? Reflect.get(value, "keyring")
-    : undefined;
-  const wraps = isPlainObject(value) ? Reflect.get(value, "wraps") : undefined;
-  const containerManifestHistory = isPlainObject(value)
-    ? Reflect.get(value, "containerManifestHistory")
-    : undefined;
-  const parentKekState = isPlainObject(value)
-    ? Reflect.get(value, "parentKekState")
-    : undefined;
-  const userRecipientKeys = isPlainObject(value)
-    ? Reflect.get(value, "userRecipientKeys")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isPlainObject(event) &&
-    Reflect.has(value, "body") &&
-    body !== undefined &&
-    hasStringProperty(value, "expectedManifestHash") &&
-    value.expectedManifestHash.length > 0 &&
-    isPlainObject(manifest) &&
-    (previousManifest === undefined ||
-      previousManifest === null ||
-      isAccessManifestBundleWire(previousManifest)) &&
-    isOptionalAccessManifestBundleWireArray(previousContainerPath) &&
-    isOptionalAccessManifestBundleWireArray(parentContainerPath) &&
-    isOptionalAccessManifestBundleWireArray(destinationParentContainerPath) &&
-    isRecordArray(principalPolicies) &&
-    isPlainObject(keyEpoch) &&
-    Reflect.has(value, "predecessorBridge") &&
-    (predecessorBridge === null || isPlainObject(predecessorBridge)) &&
-    Reflect.has(value, "keyring") &&
-    (keyring === null || isContainerKekKeyringWireRecord(keyring)) &&
-    isRecordArray(wraps) &&
-    isOptionalAccessManifestBundleWireArray(containerManifestHistory) &&
-    isOptionalParentKekState(parentKekState) &&
-    isOptionalRecordArray(userRecipientKeys)
-  );
+  return ContainerMutationRequestSchema.safeParse(value).success;
 }
 
 export function isOptionalContainerMutationRequestArray(
   value: unknown,
 ): value is ContainerMutationRequest[] | undefined {
-  return (
-    value === undefined ||
-    // Each rotation carries a keyring sized by its epoch, so the batch is
-    // bounded: an unbounded array is an unbounded request body.
-    (Array.isArray(value) &&
-      value.length <= MAX_INLINE_CONTAINER_REKEYS &&
-      value.every(isContainerMutationRequest))
-  );
+  return arraySchema(
+    ContainerMutationRequestSchema,
+    MAX_INLINE_CONTAINER_REKEYS,
+  )
+    .optional()
+    .safeParse(value).success;
 }

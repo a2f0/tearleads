@@ -1,21 +1,24 @@
-import { isPlainObject } from "../isPlainObject";
-import { hasStringProperty, isAuthChallengeHexString } from "../util";
+import type { z } from "zod";
+import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
+import { organizationProvisioningCommittedUpdateIdsRefinement } from "../organizationProvisioningRefinements";
+import { authChallengeHexStringSchema, loosePlainObject } from "../schema";
 import {
-  isOrganizationProvisioningResponse,
-  type OrganizationProvisioningResponse,
+  addCommittedUpdateIdIssues,
+  organizationProvisioningResponseShape,
 } from "./organizationProvisioning";
 
-export interface RegistrationResponse extends OrganizationProvisioningResponse {
-  challenge: string;
-}
+export const RegistrationResponseSchema = registerJsonSchemaRuntimeRefinements(
+  loosePlainObject({
+    ...organizationProvisioningResponseShape,
+    challenge: authChallengeHexStringSchema,
+  }).superRefine(addCommittedUpdateIdIssues),
+  [organizationProvisioningCommittedUpdateIdsRefinement],
+);
+
+export type RegistrationResponse = z.infer<typeof RegistrationResponseSchema>;
 
 export function isRegistrationResponse(
   value: unknown,
 ): value is RegistrationResponse {
-  return (
-    isOrganizationProvisioningResponse(value) &&
-    isPlainObject(value) &&
-    hasStringProperty(value, "challenge") &&
-    isAuthChallengeHexString(value.challenge)
-  );
+  return RegistrationResponseSchema.safeParse(value).success;
 }

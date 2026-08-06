@@ -57,7 +57,6 @@ import {
   isOrganizationProfileResponse,
   isOrganizationReadModelResponse,
   isPrincipalPolicyBundleResponse,
-  isRegistrationResponse,
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
@@ -91,6 +90,7 @@ import {
   challenge as authChallenge,
   verify as authVerify,
 } from "./routes/auth/authenticate";
+import { register as authRegister } from "./routes/auth/register";
 import {
   destroySession as authDestroySession,
   listSessions as authListSessions,
@@ -672,9 +672,9 @@ export class ApiClient {
     initialSystemContainers?: RegistrationRequest["initialSystemContainers"],
   ) {
     return this.request(
-      "/auth/register",
-      isRegistrationResponse,
-      "POST",
+      authRegister.path,
+      authRegister.isResponse,
+      authRegister.method,
       JSON.stringify({
         userId,
         organizationId,

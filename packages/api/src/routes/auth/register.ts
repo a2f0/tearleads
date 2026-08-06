@@ -1,7 +1,9 @@
-import { isRegistrationRequest } from "@tearleads/validators/request";
+import {
+  operationRoutePath,
+  registerOperation,
+} from "@tearleads/validators/operation";
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
-import { validator } from "hono/validator";
 import { readRequestIpAddress } from "../../middleware/session";
 import {
   isDuplicateRegistrationFingerprintError,
@@ -9,18 +11,15 @@ import {
   registerUser,
 } from "../../services/auth/registration";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
 
 export function createRegisterRoute(runtime: ApiServiceRuntime) {
   const registerRoute = new Hono();
 
-  registerRoute.post(
-    "/auth/register",
-    validator("json", (value, c) => {
-      if (!isRegistrationRequest(value)) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-      return value;
-    }),
+  registerRoute.on(
+    registerOperation.method,
+    operationRoutePath(registerOperation),
+    jsonRequestValidator(registerOperation.body),
     async (c) => {
       try {
         return c.json<RegistrationResponse>(

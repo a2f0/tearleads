@@ -63,6 +63,7 @@ export {
   type ContainerKekLogResponse,
   type ContainerKekResponse,
   type ContainerMutationResponse,
+  ContainerMutationResponseSchema,
   type ContainerSummary,
   type ContainerSyncTombstone,
   type ContainerWriterProjectionResponse,
@@ -75,6 +76,7 @@ export {
 } from "./container";
 export {
   type ContainerCreateWithMetadataDocumentResponse,
+  ContainerCreateWithMetadataDocumentResponseSchema,
   isContainerCreateWithMetadataDocumentResponse,
 } from "./containerMetadata";
 export {
@@ -100,6 +102,7 @@ export {
   type DocumentContentKeyTargetEnvelopeResponse,
   DocumentContentKeyTargetEnvelopeResponseSchema,
   type DocumentCreateResponse,
+  DocumentCreateResponseSchema,
   type DocumentKekTargetsResponse,
   DocumentKekTargetsResponseSchema,
   type DocumentLinkSetMutationResponse,
@@ -215,6 +218,7 @@ export {
   isCreateOrganizationResponse,
   isOrganizationProvisioningResponse,
   type OrganizationProvisioningResponse,
+  OrganizationProvisioningResponseSchema,
 } from "./organizationProvisioning";
 export {
   isOrganizationReadModelResponse,
@@ -244,10 +248,12 @@ export {
   type PrincipalStatePayloadResponse,
   type PrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
+  ReferencedPrincipalStateResponseSchema,
 } from "./principal";
 export {
   isRegistrationResponse,
   type RegistrationResponse,
+  RegistrationResponseSchema,
 } from "./registration";
 export {
   isStripeCancelResponse,

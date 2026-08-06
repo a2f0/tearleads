@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   isRegistrationResponse,
   isVerifyResponse,
+  RegistrationResponseSchema,
   VerifyFailureResponseSchema,
   VerifySuccessResponseSchema,
 } from "./index";
@@ -63,6 +64,9 @@ test("isRegistrationResponse", () => {
     systemContainers: [],
     challenge: VALID_CHALLENGE,
   };
+  const responseResult = RegistrationResponseSchema.safeParse(response);
+  expect(responseResult.success).toBe(true);
+  expect(responseResult.success && responseResult.data).toBe(response);
   expect(isRegistrationResponse(response)).toBe(true);
   for (const key of [
     "committedCoreMetadataUpdateIds",
@@ -87,6 +91,13 @@ test("isRegistrationResponse", () => {
     isRegistrationResponse({
       ...response,
       committedCoreMetadataUpdateIds: ["not-an-update-id"],
+    }),
+  ).toBe(false);
+  const duplicateUpdateId = "550e8400-e29b-41d4-a716-446655440007";
+  expect(
+    isRegistrationResponse({
+      ...response,
+      committedCoreMetadataUpdateIds: [duplicateUpdateId, duplicateUpdateId],
     }),
   ).toBe(false);
   expect(

@@ -3,7 +3,7 @@ import {
   ML_DSA87_PUBLIC_KEY_BYTES,
   ML_KEM1024_PUBLIC_KEY_BYTES,
 } from "../util";
-import { isRegistrationRequest } from "./index";
+import { isRegistrationRequest, RegistrationRequestSchema } from "./index";
 import { createDocumentContentKeyBundle } from "./requestTestFixtures";
 
 const VALID_SIGNING_PUBLIC_KEY = Array.from(
@@ -161,7 +161,11 @@ test("isRegistrationRequest", () => {
     metadataDocument: baseDocument,
   };
 
-  expect(isRegistrationRequest(createValidRequest())).toBe(true);
+  const validRequest = createValidRequest();
+  const validResult = RegistrationRequestSchema.safeParse(validRequest);
+  expect(validResult.success).toBe(true);
+  expect(validResult.success && validResult.data).toBe(validRequest);
+  expect(isRegistrationRequest(validRequest)).toBe(true);
   expect(
     isRegistrationRequest(
       createValidRequest({
