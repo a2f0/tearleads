@@ -7,6 +7,31 @@ export {
   enqueueReconciliationForEvents,
   type ReconciliationService,
 } from "../sync/reconciliation";
+export {
+  createUnavailableDirectCheckout,
+  type DirectCheckoutAppearance,
+  type DirectCheckoutCapability,
+  type DirectCheckoutConfirmation,
+  type DirectCheckoutSession,
+  DirectCheckoutUnavailableError,
+} from "./billing/directCheckout";
+export {
+  createRevenueCatPurchases,
+  createUnavailablePurchases,
+  PurchaseAbortedError,
+  PurchaseAlreadyOwnedError,
+  PurchaseCancelledError,
+  PurchaseIdentityPendingError,
+  PurchaseProviderStalledError,
+  type PurchasesCapability,
+  PurchasesUnavailableError,
+  type RevenueCatBackend,
+  type RevenueCatCustomerInfo,
+  type RevenueCatPackage,
+  type RevenueCatPurchasesConfig,
+  type SyncPurchaseResult,
+  type SyncSubscriptionOption,
+} from "./billing/purchases";
 export { type BlobStoreFactory, Blobs } from "./blobs";
 export type {
   BlobInfo,
@@ -64,14 +89,6 @@ export {
   type DatabaseStatus,
 } from "./database";
 export type { DeviceFirst, LocalProjectionView } from "./deviceFirst";
-export {
-  createUnavailableDirectCheckout,
-  type DirectCheckoutAppearance,
-  type DirectCheckoutCapability,
-  type DirectCheckoutConfirmation,
-  type DirectCheckoutSession,
-  DirectCheckoutUnavailableError,
-} from "./directCheckout";
 export type {
   DocumentAttachmentStatus,
   DocumentAttachmentUpload,
@@ -197,23 +214,6 @@ export type {
   OrganizationUserDetail,
   RemoveOrganizationGroupUserInput,
 } from "./organizations";
-export {
-  createRevenueCatPurchases,
-  createUnavailablePurchases,
-  PurchaseAbortedError,
-  PurchaseAlreadyOwnedError,
-  PurchaseCancelledError,
-  PurchaseIdentityPendingError,
-  PurchaseProviderStalledError,
-  type PurchasesCapability,
-  PurchasesUnavailableError,
-  type RevenueCatBackend,
-  type RevenueCatCustomerInfo,
-  type RevenueCatPackage,
-  type RevenueCatPurchasesConfig,
-  type SyncPurchaseResult,
-  type SyncSubscriptionOption,
-} from "./purchases";
 export type {
   CreateOrganizationOptions,
   Session,
