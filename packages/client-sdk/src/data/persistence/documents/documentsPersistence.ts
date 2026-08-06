@@ -1,16 +1,4 @@
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  inArray,
-  isNull,
-  notInArray,
-  or,
-  type SQL,
-  sql,
-} from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, or, type SQL } from "drizzle-orm";
 import {
   type DiscoveredDocumentInput,
   type DocumentSummary,
@@ -20,24 +8,13 @@ import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
   DEFAULT_DOCUMENT_KIND,
 } from "../../documents/documentConstants";
-import {
-  appendDocumentHistoryUpdates,
-  deleteDocumentHistory,
-  listDocumentHistoryTailEntries,
-  loadDocumentHistoryRestoreState,
-  readDocumentHistoryTailSize,
-  replaceDocumentHistoryCheckpoint,
-} from "../../sqlite/documentHistoryPersistence";
+import { deleteDocumentHistory } from "../../sqlite/documentHistoryPersistence";
 import {
   clearDocumentSyncFailure,
-  deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
   deleteDocumentRecord,
-  enqueueDocumentPendingUpdateWithHistory,
   findLocalIdByDocumentId,
-  listDocumentPendingUpdates,
   loadDocumentRecord,
-  rekeyDocumentPendingUpdate,
 } from "../../sqlite/documentPersistence";
 import {
   documentAttachmentBlobProjection,
@@ -56,28 +33,18 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
-import {
-  buildPendingAttachmentRow,
-  mapLocalAttachmentRecord,
-  mapPendingAttachmentRecord,
-} from "./internal/attachmentRows";
 import { DOCUMENTS_APP_KIND } from "./internal/constants";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
 import { discardStoredDocumentToShell } from "./internal/discardDocument";
 import {
   documentSummaryJoin,
   documentSummarySelection,
-  getProjectionContainerId,
-  getProjectionDocumentKind,
-  getProjectionText,
-  getProjectionTitle,
   getProjectionUpdatedAt,
   mapDocumentSummary,
   toDocumentSummary,
 } from "./internal/documentProjectionRows";
 import {
   getDocumentScope,
-  hasDocumentRow,
   resolveDocumentSaveTimestamp,
   saveDocumentRows,
 } from "./internal/documentRows";
@@ -85,25 +52,19 @@ import {
   resolvePersistedAccessStateHash,
   resolvePersistedDocumentRuntimeState,
 } from "./internal/documentRuntimeState";
+import { listDocumentSummaries } from "./internal/documentSummaryQueries";
 import { ensureDocumentsSchema } from "./internal/ensureDocumentsSchema";
 import { queueDocumentAttachmentBlobReclaims } from "./internal/orphanSideRows";
 import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
+import { documentRowQueryPersistence } from "./internal/rowQueryPersistence";
+import { documentSyncQueuePersistence } from "./internal/syncQueuePersistence";
 import type {
   ContainerDocumentTombstoneInput,
   DiscardDocumentToShellResult,
-  DocumentSummaryList,
-  DocumentSummarySort,
   DocumentsPersistence,
-  ListDocumentSummariesInput,
   RelinkPersistedDocumentInput,
   StoredDocumentRecord,
 } from "./types";
-
-const DISCOVERED_DOCUMENT_PLACEHOLDER_TITLE = "Syncing document...";
-const DEFAULT_DOCUMENT_SUMMARY_SORT: DocumentSummarySort = {
-  direction: "desc",
-  key: "updated",
-};
 
 export { DOCUMENTS_APP_KIND } from "./internal/constants";
 export type {
@@ -119,110 +80,7 @@ export type {
   StoredDocumentRecord,
 } from "./types";
 
-function normalizeDocumentSummaryWindowValue(
-  value: number | undefined,
-): number {
-  if (value === undefined || !Number.isFinite(value)) {
-    return 0;
-  }
-
-  return Math.max(0, Math.trunc(value));
-}
-
-function normalizeDocumentSummarySort(
-  sort: DocumentSummarySort | undefined,
-): DocumentSummarySort {
-  if (
-    !sort ||
-    (sort.direction !== "asc" && sort.direction !== "desc") ||
-    !["kind", "title", "updated"].includes(sort.key)
-  ) {
-    return DEFAULT_DOCUMENT_SUMMARY_SORT;
-  }
-
-  return sort;
-}
-
-function getDocumentSummaryFilters(
-  input: ListDocumentSummariesInput,
-): SQL | undefined {
-  const conditions: SQL[] = [
-    notInArray(documentProjection.documentKind, [
-      ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
-    ]),
-  ];
-  if (input.documentKind) {
-    conditions.push(eq(documentProjection.documentKind, input.documentKind));
-  }
-
-  return and(...conditions);
-}
-
-function getDocumentSummaryOrderBy(
-  sort: DocumentSummarySort | undefined,
-): SQL[] {
-  const normalizedSort = normalizeDocumentSummarySort(sort);
-  const order =
-    normalizedSort.direction === "asc"
-      ? {
-          column: asc,
-        }
-      : {
-          column: desc,
-        };
-
-  switch (normalizedSort.key) {
-    case "kind":
-      return [
-        order.column(documentProjection.documentKind),
-        order.column(documentProjection.localId),
-      ];
-    case "title":
-      return [
-        order.column(sql`${documentProjection.title} COLLATE NOCASE`),
-        order.column(documentProjection.localId),
-      ];
-    case "updated":
-      return [
-        order.column(documentProjection.updatedAt),
-        order.column(documentProjection.localId),
-      ];
-  }
-}
-
-async function listDocumentSummaries(
-  execSql: ExecSql,
-  input: ListDocumentSummariesInput = {},
-): Promise<DocumentSummaryList> {
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const filters = getDocumentSummaryFilters(input);
-  const normalizedOffset = normalizeDocumentSummaryWindowValue(input.offset);
-  const normalizedLimit =
-    input.limit === undefined
-      ? null
-      : normalizeDocumentSummaryWindowValue(input.limit);
-  const totalCountRows = await db
-    .select({ totalCount: count() })
-    .from(documentProjection)
-    .where(filters);
-  const rowQuery = db
-    .select(documentSummarySelection)
-    .from(documentProjection)
-    .leftJoin(documents, documentSummaryJoin)
-    .where(filters)
-    .orderBy(...getDocumentSummaryOrderBy(input.sort));
-  const rows =
-    normalizedLimit === null
-      ? normalizedOffset === 0
-        ? await rowQuery
-        : await rowQuery.limit(-1).offset(normalizedOffset)
-      : await rowQuery.limit(normalizedLimit).offset(normalizedOffset);
-
-  return {
-    rows: rows.map(mapDocumentSummary),
-    totalCount: totalCountRows[0]?.totalCount ?? 0,
-  };
-}
+const DISCOVERED_DOCUMENT_PLACEHOLDER_TITLE = "Syncing document...";
 
 async function upsertDiscoveredDocumentWithExec(
   execSql: ExecSql,
@@ -416,102 +274,11 @@ export async function listDocumentsByContainerIdsOrDocumentIds(
 }
 
 export const sqlDocumentsPersistence: DocumentsPersistence = {
+  ...documentRowQueryPersistence,
+  ...documentSyncQueuePersistence,
   ensureSchema: ensureDocumentsSchema,
-  async listDocuments(execSql) {
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    const rows = await db
-      .select(documentSummarySelection)
-      .from(documentProjection)
-      .leftJoin(documents, documentSummaryJoin)
-      .where(
-        notInArray(documentProjection.documentKind, [
-          ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
-        ]),
-      )
-      .orderBy(
-        desc(documentProjection.updatedAt),
-        desc(documentProjection.localId),
-      );
-
-    return rows.map(mapDocumentSummary);
-  },
   listDocumentSummaries,
   listDocumentsByContainerIdsOrDocumentIds,
-  async findDocumentLocalIdsByContainerId(execSql, containerId) {
-    // Unlike `listDocumentsByContainerIdsOrDocumentIds`, this deliberately does
-    // NOT drop `HIDDEN_DOCUMENT_SUMMARY_KINDS` — it exists to reach the hidden
-    // `organization_profile` document by the container it is linked to, which is
-    // how a *foreign* org's display name is found on a member who synced the doc
-    // under its server documentId rather than the provisioner-only local alias.
-    // `documentProjection` is written and deleted in lockstep with the
-    // `documents` rows (all DOCUMENTS_APP_KIND), so filtering by containerId
-    // alone is sufficient — no join to `documents` is needed to select localId.
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    const rows = await db
-      .select({ localId: documentProjection.localId })
-      .from(documentProjection)
-      .where(eq(documentProjection.containerId, containerId))
-      .orderBy(
-        desc(documentProjection.updatedAt),
-        desc(documentProjection.localId),
-      );
-    return rows
-      .map((row) => row.localId)
-      .filter((localId): localId is string => localId !== null);
-  },
-  async hasDocument(execSql, localId) {
-    return hasDocumentRow(execSql, localId);
-  },
-  async loadDocument(execSql, localId) {
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    const [documentRecord, projectionRows] = await Promise.all([
-      loadDocumentRecord(execSql, getDocumentScope(localId)),
-      db
-        .select({
-          documentKind: documentProjection.documentKind,
-          text: documentProjectionText.text,
-          title: documentProjection.title,
-          containerId: documentProjection.containerId,
-        })
-        .from(documentProjection)
-        .leftJoin(
-          documentProjectionText,
-          eq(documentProjectionText.localId, documentProjection.localId),
-        )
-        .where(eq(documentProjection.localId, localId))
-        .limit(1),
-    ]);
-
-    if (!documentRecord) {
-      return null;
-    }
-
-    return {
-      ...documentRecord,
-      containerId: getProjectionContainerId(projectionRows[0]),
-      documentKind: getProjectionDocumentKind(projectionRows[0]),
-      text: getProjectionText(projectionRows[0]),
-      title: getProjectionTitle(projectionRows[0]),
-    };
-  },
-  async loadDocumentContainer(execSql, localId) {
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    // Select the row itself, not just its container, so an existing row with a
-    // null container is reported as `{ containerId: null }` while a missing row
-    // is reported as `undefined` — the caller relies on that distinction to know
-    // whether the projection has authoritative placement to defer to.
-    const projectionRows = await db
-      .select({ containerId: documentProjection.containerId })
-      .from(documentProjection)
-      .where(eq(documentProjection.localId, localId))
-      .limit(1);
-    const projectionRow = projectionRows[0];
-    if (!projectionRow) {
-      return undefined;
-    }
-
-    return { containerId: projectionRow.containerId };
-  },
   async saveDocument(execSql, document, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
       getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
@@ -665,226 +432,6 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
       return relinkPersistedDocumentWithExec(lockedExecSql, input);
-    });
-  },
-  async listPendingUpdates(execSql, localId) {
-    return listDocumentPendingUpdates(execSql, getDocumentScope(localId));
-  },
-  async rekeyPendingUpdate(execSql, id) {
-    return rekeyDocumentPendingUpdate(execSql, id);
-  },
-  async listPendingAttachments(execSql, localId) {
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    const rows = await db
-      .select({
-        localId: documentPendingAttachments.localId,
-        slotId: documentPendingAttachments.slotId,
-        name: documentPendingAttachments.name,
-        mimeType: documentPendingAttachments.mimeType,
-        storageKey: documentPendingAttachments.storageKey,
-        byteLength: documentPendingAttachments.byteLength,
-        uploadBlobId: documentPendingAttachments.uploadBlobId,
-        uploadContentKey: documentPendingAttachments.uploadContentKey,
-        uploadIv: documentPendingAttachments.uploadIv,
-        uploadContentKeyEpoch: documentPendingAttachments.uploadContentKeyEpoch,
-        uploadPartSize: documentPendingAttachments.uploadPartSize,
-        uploadPlaintextSha256: documentPendingAttachments.uploadPlaintextSha256,
-        uploadStageId: documentPendingAttachments.uploadStageId,
-      })
-      .from(documentPendingAttachments)
-      .where(eq(documentPendingAttachments.localId, localId))
-      .orderBy(
-        documentPendingAttachments.createdAt,
-        documentPendingAttachments.slotId,
-      );
-
-    return rows.map(mapPendingAttachmentRecord);
-  },
-  // Detached rows are included on purpose: they are the durable markers the
-  // next sync uses to detach the remote binding, so a restart has to restore
-  // them alongside the live slots.
-  async listLocalAttachments(execSql, localId) {
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    const rows = await db
-      .select({
-        localId: documentAttachmentBlobProjection.localId,
-        slotId: documentAttachmentBlobProjection.slotId,
-        blobId: documentAttachmentBlobProjection.blobId,
-        storageKey: documentAttachmentBlobProjection.storageKey,
-        mimeType: documentAttachmentBlobProjection.mimeType,
-        byteLength: documentAttachmentBlobProjection.byteLength,
-        detachedAt: documentAttachmentBlobProjection.detachedAt,
-      })
-      .from(documentAttachmentBlobProjection)
-      .where(eq(documentAttachmentBlobProjection.localId, localId));
-
-    return rows.map(mapLocalAttachmentRecord);
-  },
-  async appendHistoryUpdates(execSql, input) {
-    await appendDocumentHistoryUpdates(
-      execSql,
-      getDocumentScope(input.localId),
-      input.updates,
-      input.origin,
-    );
-  },
-  async loadHistoryRestoreState(execSql, localId) {
-    return loadDocumentHistoryRestoreState(execSql, getDocumentScope(localId));
-  },
-  async readHistoryTailSize(execSql, localId) {
-    return readDocumentHistoryTailSize(execSql, getDocumentScope(localId));
-  },
-  async listHistoryTailEntries(execSql, localId) {
-    return listDocumentHistoryTailEntries(execSql, getDocumentScope(localId));
-  },
-  async replaceHistoryCheckpoint(execSql, input) {
-    await replaceDocumentHistoryCheckpoint(
-      execSql,
-      getDocumentScope(input.localId),
-      {
-        coveredTailIds: input.coveredTailIds,
-        endVersionVector: input.endVersionVector,
-        ...(input.force === undefined ? {} : { force: input.force }),
-        snapshot: input.snapshot,
-        ...(input.stillCurrent === undefined
-          ? {}
-          : { stillCurrent: input.stillCurrent }),
-      },
-    );
-  },
-  async enqueuePendingUpdate(execSql, pendingUpdate) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await enqueueDocumentPendingUpdateWithHistory(
-        lockedExecSql,
-        getDocumentScope(pendingUpdate.localId),
-        pendingUpdate,
-      );
-    });
-  },
-  async saveLocalAttachment(execSql, attachment) {
-    const updatedAt = new Date().toISOString();
-
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      const attachmentRow = {
-        localId: attachment.localId,
-        slotId: attachment.slotId,
-        blobId: attachment.blobId,
-        storageKey: attachment.storageKey,
-        mimeType: attachment.mimeType,
-        byteLength: attachment.byteLength,
-        updatedAt,
-        // Written on every save so re-filling a slot clears a stale detach
-        // marker instead of inheriting it from the row it replaces.
-        detachedAt: attachment.detachedAt,
-      };
-      await db
-        .insert(documentAttachmentBlobProjection)
-        .values(attachmentRow)
-        .onConflictDoUpdate({
-          target: [
-            documentAttachmentBlobProjection.localId,
-            documentAttachmentBlobProjection.slotId,
-          ],
-          set: attachmentRow,
-        })
-        .run();
-    });
-  },
-  async deleteLocalAttachment(execSql, localId, slotId, storageKey) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .delete(documentAttachmentBlobProjection)
-        .where(
-          and(
-            eq(documentAttachmentBlobProjection.localId, localId),
-            eq(documentAttachmentBlobProjection.slotId, slotId),
-            eq(documentAttachmentBlobProjection.storageKey, storageKey),
-          ),
-        )
-        .run();
-    });
-  },
-  async markLocalAttachmentDetached(execSql, localId, slotId, storageKey) {
-    const detachedAt = new Date().toISOString();
-
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .update(documentAttachmentBlobProjection)
-        .set({ detachedAt })
-        .where(
-          and(
-            eq(documentAttachmentBlobProjection.localId, localId),
-            eq(documentAttachmentBlobProjection.slotId, slotId),
-            eq(documentAttachmentBlobProjection.storageKey, storageKey),
-            isNull(documentAttachmentBlobProjection.detachedAt),
-          ),
-        )
-        .run();
-    });
-  },
-  async savePendingAttachment(execSql, attachment) {
-    const createdAt = new Date().toISOString();
-
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      const attachmentRow = buildPendingAttachmentRow(attachment, createdAt);
-      await db
-        .insert(documentPendingAttachments)
-        .values(attachmentRow)
-        .onConflictDoUpdate({
-          target: [
-            documentPendingAttachments.localId,
-            documentPendingAttachments.slotId,
-          ],
-          set: {
-            name: attachmentRow.name,
-            mimeType: attachmentRow.mimeType,
-            storageKey: attachmentRow.storageKey,
-            byteLength: attachmentRow.byteLength,
-            uploadBlobId: attachmentRow.uploadBlobId,
-            uploadContentKey: attachmentRow.uploadContentKey,
-            uploadIv: attachmentRow.uploadIv,
-            uploadContentKeyEpoch: attachmentRow.uploadContentKeyEpoch,
-            uploadPartSize: attachmentRow.uploadPartSize,
-            uploadPlaintextSha256: attachmentRow.uploadPlaintextSha256,
-            uploadStageId: attachmentRow.uploadStageId,
-          },
-        })
-        .run();
-    });
-  },
-  async deletePendingUpdate(execSql, id) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await deleteDocumentPendingUpdate(lockedExecSql, id);
-    });
-  },
-  async deletePendingUpdates(execSql, localId) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await deleteDocumentPendingUpdates(
-        lockedExecSql,
-        getDocumentScope(localId),
-      );
-    });
-  },
-  async deletePendingAttachment(execSql, localId, slotId, storageKey) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .delete(documentPendingAttachments)
-        .where(
-          and(
-            eq(documentPendingAttachments.localId, localId),
-            eq(documentPendingAttachments.slotId, slotId),
-            eq(documentPendingAttachments.storageKey, storageKey),
-          ),
-        )
-        .run();
-    });
-  },
-  async deletePendingAttachments(execSql, localId) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .delete(documentPendingAttachments)
-        .where(eq(documentPendingAttachments.localId, localId))
-        .run();
     });
   },
 };
