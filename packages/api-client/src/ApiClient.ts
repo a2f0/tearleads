@@ -28,7 +28,6 @@ import {
   type DocumentCreateResponse,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
-  isCompleteMultipartBlobStageResponse,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
   isContainerKekLogResponse,
@@ -38,9 +37,7 @@ import {
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeResponse,
   isDocumentWriterProjectionResponse,
-  isInitiateMultipartBlobStageResponse,
   isListContainerDocumentsResponse,
-  isMultipartBlobStageStatusResponse,
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
   isOrganizationBillingResponse,
@@ -93,6 +90,11 @@ import {
   getBlobBytes,
   type UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
+import {
+  completeMultipartBlobStage as multipartComplete,
+  getMultipartBlobStage as multipartGet,
+  initiateMultipartBlobStage as multipartInitiate,
+} from "./routes/blobs/multipart";
 import { containerDocsPath } from "./routes/containers/queryParams";
 import { listDocumentAttachments as documentAttachmentsList } from "./routes/documents/attachments";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
@@ -1670,18 +1672,18 @@ export class ApiClient {
 
   initiateMultipartBlobStage(input: InitiateMultipartBlobStageRequest) {
     return this.request(
-      "/blobs/stages/multipart",
-      isInitiateMultipartBlobStageResponse,
-      "POST",
+      multipartInitiate.path,
+      multipartInitiate.isResponse,
+      multipartInitiate.method,
       JSON.stringify(input),
     );
   }
 
   getMultipartBlobStage(stageId: string) {
     return this.request(
-      `/blobs/stages/multipart/${pathSegment(stageId)}`,
-      isMultipartBlobStageStatusResponse,
-      "GET",
+      multipartGet.path(stageId),
+      multipartGet.isResponse,
+      multipartGet.method,
     );
   }
 
@@ -1727,9 +1729,9 @@ export class ApiClient {
     input: CompleteMultipartBlobStageRequest,
   ) {
     return this.request(
-      `/blobs/stages/multipart/${pathSegment(stageId)}/complete`,
-      isCompleteMultipartBlobStageResponse,
-      "POST",
+      multipartComplete.path(stageId),
+      multipartComplete.isResponse,
+      multipartComplete.method,
       JSON.stringify(input),
     );
   }

@@ -1,7 +1,9 @@
 import {
-  isCompleteMultipartBlobStageRequest,
-  isInitiateMultipartBlobStageRequest,
-} from "@tearleads/validators/request";
+  completeMultipartBlobStageOperation,
+  getMultipartBlobStageOperation,
+  initiateMultipartBlobStageOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type {
   CompleteMultipartBlobStageResponse,
   InitiateMultipartBlobStageResponse,
@@ -23,6 +25,8 @@ import {
 } from "../../services/blobs/multipartStage";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { isUuidString } from "../../utils/uuid";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
+import { pathParamsValidator } from "../../validators/pathParams";
 
 const BLOB_PART_BYTE_LENGTH_HEADER = "X-Tearleads-Blob-Part-Byte-Length";
 const BLOB_PART_SHA256_HEADER = "X-Tearleads-Blob-Part-Sha256";
@@ -49,16 +53,6 @@ function readStringProperty(value: unknown, key: string): string | null {
 
   const item = Reflect.get(value, key);
   return typeof item === "string" ? item : null;
-}
-
-function createRequestValidator<T>(isRequest: (value: unknown) => value is T) {
-  return (value: unknown, c: JsonValidationContext): T | Response => {
-    if (!isRequest(value)) {
-      return c.json({ error: "Invalid request" }, 400);
-    }
-
-    return value;
-  };
 }
 
 function parseSafePositiveInteger(value: string | null): number | null {
@@ -89,13 +83,11 @@ function registerInitiateRoute(
   route: Hono<SessionEnv>,
   { requireAuth, runtime }: MultipartBlobStageRouteDeps,
 ): void {
-  route.post(
-    "/blobs/stages/multipart",
+  route.on(
+    initiateMultipartBlobStageOperation.method,
+    operationRoutePath(initiateMultipartBlobStageOperation),
     requireAuth,
-    validator(
-      "json",
-      createRequestValidator(isInitiateMultipartBlobStageRequest),
-    ),
+    jsonRequestValidator(initiateMultipartBlobStageOperation.body),
     async (c) => {
       const session = c.get("session");
 
@@ -121,17 +113,11 @@ function registerStatusRoute(
   route: Hono<SessionEnv>,
   { requireAuth, runtime }: MultipartBlobStageRouteDeps,
 ): void {
-  route.get(
-    "/blobs/stages/multipart/:stageId",
+  route.on(
+    getMultipartBlobStageOperation.method,
+    operationRoutePath(getMultipartBlobStageOperation),
     requireAuth,
-    validator("param", (value, c) => {
-      const stageId = readStringProperty(value, "stageId");
-      if (stageId === null || !isUuidString(stageId)) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-
-      return { stageId };
-    }),
+    pathParamsValidator(getMultipartBlobStageOperation.params),
     async (c) => {
       const session = c.get("session");
       const { stageId } = c.req.valid("param");
@@ -218,21 +204,12 @@ function registerCompleteRoute(
   route: Hono<SessionEnv>,
   { requireAuth, runtime }: MultipartBlobStageRouteDeps,
 ): void {
-  route.post(
-    "/blobs/stages/multipart/:stageId/complete",
+  route.on(
+    completeMultipartBlobStageOperation.method,
+    operationRoutePath(completeMultipartBlobStageOperation),
     requireAuth,
-    validator("param", (value, c) => {
-      const stageId = readStringProperty(value, "stageId");
-      if (stageId === null || !isUuidString(stageId)) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-
-      return { stageId };
-    }),
-    validator(
-      "json",
-      createRequestValidator(isCompleteMultipartBlobStageRequest),
-    ),
+    pathParamsValidator(completeMultipartBlobStageOperation.params),
+    jsonRequestValidator(completeMultipartBlobStageOperation.body),
     async (c) => {
       const session = c.get("session");
       const { stageId } = c.req.valid("param");
