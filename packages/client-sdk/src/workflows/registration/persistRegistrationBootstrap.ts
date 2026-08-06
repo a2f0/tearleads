@@ -74,10 +74,11 @@ export interface RegistrationBootstrapInput {
   /** Checked inside the mutation queue claim; false skips every write. */
   canStartDurableMutation?: (() => boolean) | undefined;
   /**
-   * @internal Test-only synchronization seam. Invoked synchronously
-   * immediately before this persist joins the serialized mutation queue — no interleaving can separate the two. Lets
-   * identity-race tests deterministically place an identity replacement
-   * inside the queue-wait window instead of sleeping.
+   * @internal Test-only synchronization seam. Invoked synchronously,
+   * immediately before this persist joins the serialized mutation queue —
+   * no interleaving can separate the two. Lets identity-race tests
+   * deterministically place an identity replacement inside the queue-wait
+   * window instead of sleeping.
    */
   onPersistQueued?: (() => void) | undefined;
   containerId: string;
@@ -91,13 +92,7 @@ export interface RegistrationBootstrapInput {
   rootMetadataInitialUpdate: Uint8Array;
   rootMetadataInitialUpdateCommitted?: boolean | undefined;
   rootMetadataSnapshot: string;
-  rootMetadataState: Pick<
-    DocumentRecord,
-    | "documentId"
-    | "contentKeyBundle"
-    | "documentKekTargets"
-    | "documentManifestBundle"
-  >;
+  rootMetadataState: ProvisionedContainerBootstrapInput["metadataState"];
   rosterProfileContainer?: ProvisionedContainerBootstrapInput & {
     metadataInitialUpdate: Uint8Array;
     metadataInitialUpdateCommitted?: boolean | undefined;
@@ -214,54 +209,34 @@ async function persistRootContainerBootstrap(
   );
 }
 
-async function persistRosterProfileContainerBootstrap(
+// The ONE persist shape for the fixed-name child containers provisioned
+// with every organization (roster profile and organization metadata): save
+// the container under root, then queue its initial metadata update. The
+// founder persisting at provisioning reaches these containers as an admin
+// via root inheritance; a Members-only member syncing them later derives
+// their own read-level access from the group grant.
+async function persistNamedChildContainerBootstrap(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
+  container: RegistrationBootstrapInput["rosterProfileContainer"],
+  name: string,
 ): Promise<void> {
-  const rosterProfileContainer = input.rosterProfileContainer;
-  if (!rosterProfileContainer) {
+  if (!container) {
     return;
   }
 
   await persistProvisionedContainerBootstrap(execSql, {
-    container: rosterProfileContainer,
+    container,
     icon: null,
-    name: ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+    name,
     organizationId: input.organizationId,
     parentId: input.containerId,
   });
   await enqueueInitialContainerMetadataUpdate(
     execSql,
-    rosterProfileContainer.containerId,
-    rosterProfileContainer.metadataInitialUpdate,
-    rosterProfileContainer.metadataInitialUpdateCommitted,
-  );
-}
-
-async function persistOrganizationMetadataContainerBootstrap(
-  execSql: ExecSql,
-  input: RegistrationBootstrapInput,
-): Promise<void> {
-  const organizationMetadataContainer = input.organizationMetadataContainer;
-  if (!organizationMetadataContainer) {
-    return;
-  }
-
-  // The founder persisting at provisioning reaches this container as an
-  // admin via root inheritance; a Members-only member syncing it later
-  // derives their own read-level access from the group grant.
-  await persistProvisionedContainerBootstrap(execSql, {
-    container: organizationMetadataContainer,
-    icon: null,
-    name: ORGANIZATION_METADATA_CONTAINER_NAME,
-    organizationId: input.organizationId,
-    parentId: input.containerId,
-  });
-  await enqueueInitialContainerMetadataUpdate(
-    execSql,
-    organizationMetadataContainer.containerId,
-    organizationMetadataContainer.metadataInitialUpdate,
-    organizationMetadataContainer.metadataInitialUpdateCommitted,
+    container.containerId,
+    container.metadataInitialUpdate,
+    container.metadataInitialUpdateCommitted,
   );
 }
 
@@ -288,26 +263,23 @@ async function persistSystemContainersBootstrap(
   }
 }
 
-async function persistOrganizationProfileDocumentBootstrap(
+// The ONE persist shape for the provisioned profile documents (organization
+// profile and roster profile): the input carries exactly the bootstrap
+// fields, so only the document kind and the host's projectors join it.
+async function persistProfileDocumentBootstrap(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
+  profileDocument: ProvisionedProfileDocumentBootstrapInput | undefined,
+  documentKind: string,
 ): Promise<void> {
-  const organizationProfileDocument = input.organizationProfileDocument;
-  if (!organizationProfileDocument) {
+  if (!profileDocument) {
     return;
   }
 
   await persistInitialDocumentBootstrap(execSql, {
-    accessEpoch: organizationProfileDocument.accessEpoch,
-    accessStateHash: organizationProfileDocument.accessStateHash,
-    containerId: organizationProfileDocument.containerId,
-    documentId: organizationProfileDocument.documentId,
-    documentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
+    ...profileDocument,
+    documentKind,
     documentProjectors: input.documentProjectors,
-    documentState: organizationProfileDocument.documentState,
-    initialUpdate: organizationProfileDocument.initialUpdate,
-    initialUpdateCommitted: organizationProfileDocument.initialUpdateCommitted,
-    localId: organizationProfileDocument.localId,
   });
 }
 
@@ -383,29 +355,6 @@ async function persistInitialDocumentBootstrap(
   }
 }
 
-async function persistRosterProfileDocumentBootstrap(
-  execSql: ExecSql,
-  input: RegistrationBootstrapInput,
-): Promise<void> {
-  const rosterProfileDocument = input.rosterProfileDocument;
-  if (!rosterProfileDocument) {
-    return;
-  }
-
-  await persistInitialDocumentBootstrap(execSql, {
-    accessEpoch: rosterProfileDocument.accessEpoch,
-    accessStateHash: rosterProfileDocument.accessStateHash,
-    containerId: rosterProfileDocument.containerId,
-    documentId: rosterProfileDocument.documentId,
-    documentKind: ROSTER_PROFILE_DOCUMENT_KIND,
-    documentProjectors: input.documentProjectors,
-    documentState: rosterProfileDocument.documentState,
-    initialUpdate: rosterProfileDocument.initialUpdate,
-    initialUpdateCommitted: rosterProfileDocument.initialUpdateCommitted,
-    localId: rosterProfileDocument.localId,
-  });
-}
-
 /**
  * Persists the local root-container bootstrap created during successful
  * registration so container contents can initialize from SQLite on first
@@ -451,13 +400,30 @@ export async function persistRegistrationBootstrapFromExecSql(
           organization: input.initialOrganizationPolicy,
         });
         await persistRootContainerBootstrap(lockedExecSql, input);
-        await persistRosterProfileContainerBootstrap(lockedExecSql, input);
-        await persistRosterProfileDocumentBootstrap(lockedExecSql, input);
-        await persistOrganizationMetadataContainerBootstrap(
+        await persistNamedChildContainerBootstrap(
           lockedExecSql,
           input,
+          input.rosterProfileContainer,
+          ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
         );
-        await persistOrganizationProfileDocumentBootstrap(lockedExecSql, input);
+        await persistProfileDocumentBootstrap(
+          lockedExecSql,
+          input,
+          input.rosterProfileDocument,
+          ROSTER_PROFILE_DOCUMENT_KIND,
+        );
+        await persistNamedChildContainerBootstrap(
+          lockedExecSql,
+          input,
+          input.organizationMetadataContainer,
+          ORGANIZATION_METADATA_CONTAINER_NAME,
+        );
+        await persistProfileDocumentBootstrap(
+          lockedExecSql,
+          input,
+          input.organizationProfileDocument,
+          ORGANIZATION_PROFILE_DOCUMENT_KIND,
+        );
         await persistSystemContainersBootstrap(lockedExecSql, input);
       },
       () => !input.canStartDurableMutation || input.canStartDurableMutation(),
