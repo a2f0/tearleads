@@ -301,10 +301,6 @@
       "lines": 579,
       "bytes": 16859
     },
-    "packages/client-sdk/src/data/sync/syncCoordinator.ts": {
-      "lines": 602,
-      "bytes": 20518
-    },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
       "bytes": 19608
@@ -312,14 +308,6 @@
     "packages/client-sdk/src/stores/documents/documentStore/discard.test.ts": {
       "lines": 547,
       "bytes": 18887
-    },
-    "packages/client-sdk/src/stores/documents/documentStore/initialization.ts": {
-      "lines": 585,
-      "bytes": 20900
-    },
-    "packages/client-sdk/src/stores/documents/documentStore/persistence.ts": {
-      "lines": 639,
-      "bytes": 21053
     },
     "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
       "lines": 623,

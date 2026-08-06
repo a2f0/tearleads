@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { deleteLocalAttachmentRecord } from "./persistence";
+import { deleteLocalAttachmentRecord } from "./attachmentPersistence";
 import type { DocumentStoreState } from "./state";
 
 test("deleteLocalAttachmentRecord preserves a newer same-slot storage key", async () => {

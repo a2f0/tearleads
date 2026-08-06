@@ -13,13 +13,13 @@ import {
 } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentsRuntime } from "../types";
-import { discardDocumentStoreLocalState } from "./discard";
 import {
   deletePendingAttachment,
-  enqueuePendingUpdate,
   saveLocalAttachmentRecords,
   savePendingAttachmentUpload,
-} from "./persistence";
+} from "./attachmentPersistence";
+import { discardDocumentStoreLocalState } from "./discard";
+import { enqueuePendingUpdate } from "./persistence";
 import { createDocumentStoreState, type DocumentStoreState } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
@@ -112,8 +112,8 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     await saveSyncedDocumentRecord(execSql, localId, "remote-doc", "folder-a");
-    // The stuck shape this action exists for: a queued update the server
-    // conflicts forever, plus its recorded terminal failure.
+    // The stuck shape this action exists for: a queued update the
+    // server conflicts forever, plus its terminal failure.
     await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
       localId,
       partialEndVersionVector: "end",
@@ -136,16 +136,16 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
       true,
     );
 
-    // The document-kind client projection derives from the discarded content
-    // and is cleared with the same conversion (the caller's registry, not
-    // the app-kind-blind default, receives the delete).
+    // The document-kind client projection derives from the discarded
+    // content and is cleared with the same conversion (the caller's
+    // registry, not the app-kind-blind default, gets the delete).
     expect(projectionDeletes).toEqual([{ documentKind: "note", localId }]);
 
     const shell = await sqlDocumentsPersistence.loadDocument(execSql, localId);
-    // The record survives as the freshly-discovered-share shell: identity and
-    // placement kept (so priming's documents-row scan still finds it after a
-    // restart), content and key bundles cleared (so re-initialization
-    // hydrates the server copy instead of trusting discarded local state).
+    // The record survives as the freshly-discovered-share shell: identity
+    // and placement kept (so priming's documents-row scan still finds it
+    // after a restart), content and key bundles cleared (so
+    // re-initialization hydrates the server copy, not discarded state).
     expect(shell?.documentId).toBe("remote-doc");
     expect(shell?.containerId).toBe("folder-a");
     expect(shell?.title).toBe("Stuck note");
@@ -160,8 +160,8 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
       }),
     ).toEqual([]);
     expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
-    // The store was reset for re-initialization, not marked removed: the
-    // caller restarts hydration and the shell re-pulls.
+    // Reset for re-initialization, not marked removed: the caller
+    // restarts hydration and the shell re-pulls.
     expect(state.record).toBeNull();
     expect(state.initialized).toBe(false);
   } finally {

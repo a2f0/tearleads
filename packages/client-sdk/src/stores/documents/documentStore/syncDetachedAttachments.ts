@@ -4,7 +4,7 @@ import {
   type DocumentRecord,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
-import { deleteLocalAttachmentRecord } from "./persistence";
+import { deleteLocalAttachmentRecord } from "./attachmentPersistence";
 import type {
   DocumentAttachmentBinding,
   DocumentState,

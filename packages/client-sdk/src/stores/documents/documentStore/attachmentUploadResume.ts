@@ -5,7 +5,7 @@ import type {
   PendingAttachmentRecord,
   PendingAttachmentUploadIdentity,
 } from "../../../workflows/documents";
-import { savePendingAttachmentUpload } from "./persistence";
+import { savePendingAttachmentUpload } from "./attachmentPersistence";
 import type { DocumentStoreState } from "./state";
 import {
   type DocumentStoreSyncGeneration,
