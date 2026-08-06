@@ -110,6 +110,19 @@ export {
   listDocumentAttributionRangesOperation,
 } from "./documentAttribution";
 export {
+  createDocumentOperation,
+  type DocumentMutationPathParams,
+  DocumentMutationPathParamsSchema,
+  deleteDocumentOperation,
+  isCreateDocumentOperationRequest,
+  isCreateDocumentOperationResponse,
+  isDeleteDocumentOperationResponse,
+  isDocumentLinkSetMutationOperationRequest,
+  isDocumentLinkSetMutationOperationResponse,
+  linkDocumentOperation,
+  unlinkDocumentOperation,
+} from "./documentMutations";
+export {
   type DocumentSyncPathParams,
   DocumentSyncPathParamsSchema,
   documentSyncOperation,

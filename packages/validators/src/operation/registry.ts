@@ -35,6 +35,12 @@ import {
   getDocumentAttributionOperation,
   listDocumentAttributionRangesOperation,
 } from "./documentAttribution";
+import {
+  createDocumentOperation,
+  deleteDocumentOperation,
+  linkDocumentOperation,
+  unlinkDocumentOperation,
+} from "./documentMutations";
 import { documentSyncOperation } from "./documentSync";
 import { getHealthOperation } from "./health";
 import {
@@ -81,6 +87,10 @@ export const protocolOperations = [
   listDocumentAttachmentsOperation,
   getDocumentAttributionOperation,
   listDocumentAttributionRangesOperation,
+  createDocumentOperation,
+  deleteDocumentOperation,
+  linkDocumentOperation,
+  unlinkDocumentOperation,
   getContainerKekLogOperation,
   listContainerDocumentsOperation,
   listContainerParentLanesOperation,

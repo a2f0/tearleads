@@ -55,6 +55,7 @@ export {
   type DocumentCreateRequest,
   DocumentCreateRequestSchema,
   type DocumentLinkSetMutationRequest,
+  DocumentLinkSetMutationRequestSchema,
   type DocumentOutgoingUpdate,
   DocumentOutgoingUpdateSchema,
   type DocumentSyncRequest,

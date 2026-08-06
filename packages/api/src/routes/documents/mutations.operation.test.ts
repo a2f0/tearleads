@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import {
+  createDocumentOperation,
+  deleteDocumentOperation,
   documentSyncOperation,
+  linkDocumentOperation,
   operationRoutePath,
+  unlinkDocumentOperation,
 } from "@tearleads/validators/operation";
 import type { MiddlewareHandler } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -16,30 +20,66 @@ function createTestRoute(requireAuth: MiddlewareHandler<SessionEnv>) {
   });
 }
 
-test("document sync route is registered from the shared operation", () => {
+const documentOperations = [
+  createDocumentOperation,
+  deleteDocumentOperation,
+  documentSyncOperation,
+  linkDocumentOperation,
+  unlinkDocumentOperation,
+] as const;
+
+test("document mutation routes register from shared operations", () => {
   const route = createTestRoute((_c, next) => next());
 
-  expect(
-    route.routes.some(
-      ({ method, path }) =>
-        method === documentSyncOperation.method &&
-        path === operationRoutePath(documentSyncOperation),
-    ),
-  ).toBe(true);
+  for (const operation of documentOperations) {
+    expect(
+      route.routes.some(
+        ({ method, path }) =>
+          method === operation.method && path === operationRoutePath(operation),
+      ),
+    ).toBe(true);
+  }
 });
 
-test("document sync authenticates before validating the shared request body", async () => {
+test("document mutations authenticate before boundary parsing", async () => {
   const route = createTestRoute(async (c) =>
     c.json({ error: "Unauthorized" }, 401),
   );
-  const response = await route.request("/documents/document-1/sync", {
+  const response = await route.request("/documents/document-1/link", {
     body: "{}",
     headers: { "Content-Type": "application/json" },
-    method: documentSyncOperation.method,
+    method: linkDocumentOperation.method,
   });
 
   expect(response.status).toBe(401);
   expect(await response.json()).toEqual({ error: "Unauthorized" });
+});
+
+test("document mutations reject invalid bodies at the HTTP boundary", async () => {
+  const route = createTestRoute((_c, next) => next());
+  const requests = [
+    route.request("/documents", {
+      body: "{}",
+      headers: { "Content-Type": "application/json" },
+      method: createDocumentOperation.method,
+    }),
+    route.request("/documents/document-1/link", {
+      body: "{}",
+      headers: { "Content-Type": "application/json" },
+      method: linkDocumentOperation.method,
+    }),
+    route.request("/documents/document-1/unlink", {
+      body: "{}",
+      headers: { "Content-Type": "application/json" },
+      method: unlinkDocumentOperation.method,
+    }),
+  ];
+
+  for (const request of requests) {
+    const response = await request;
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid request" });
+  }
 });
 
 test("document sync preserves the invalid-request response", async () => {
@@ -54,12 +94,12 @@ test("document sync preserves the invalid-request response", async () => {
   expect(await response.json()).toEqual({ error: "Invalid request" });
 });
 
-test("document sync keeps malformed JSON as a status-only failure", async () => {
+test("document mutations preserve malformed JSON behavior", async () => {
   const route = createTestRoute((_c, next) => next());
-  const response = await route.request("/documents/document-1/sync", {
+  const response = await route.request("/documents", {
     body: "{",
     headers: { "Content-Type": "application/json" },
-    method: documentSyncOperation.method,
+    method: createDocumentOperation.method,
   });
 
   expect(response.status).toBe(400);

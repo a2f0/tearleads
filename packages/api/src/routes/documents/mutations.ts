@@ -1,14 +1,15 @@
 import {
+  createDocumentOperation,
+  deleteDocumentOperation,
   documentSyncOperation,
-  isDocumentSyncOperationRequest,
+  linkDocumentOperation,
   operationRoutePath,
+  unlinkDocumentOperation,
 } from "@tearleads/validators/operation";
-import {
-  type DocumentCreateRequest,
-  type DocumentLinkSetMutationRequest,
-  type DocumentSyncRequest,
-  isDocumentCreateRequest,
-  isDocumentLinkSetMutationRequest,
+import type {
+  DocumentCreateRequest,
+  DocumentLinkSetMutationRequest,
+  DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
@@ -22,7 +23,6 @@ import {
 } from "@tearleads/validators/response";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
 import {
   createDocument,
@@ -32,15 +32,13 @@ import {
   syncDocument,
 } from "../../services/documents/documentMutations";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
+import { pathParamsValidator } from "../../validators/pathParams";
 
 interface DocumentMutationsRouteDeps {
   readonly publish: (event: Record<string, unknown>) => Promise<void>;
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
-}
-
-interface JsonValidationContext {
-  json: (body: { readonly error: string }, status: 400) => Response;
 }
 
 type DocumentRouteContext = Context<SessionEnv>;
@@ -168,47 +166,6 @@ export async function publishDocumentPurgeEvent(input: {
   }
 }
 
-function validateDocumentCreateRequest(
-  value: unknown,
-  c: JsonValidationContext,
-) {
-  if (!isDocumentCreateRequest(value)) {
-    return c.json({ error: "Invalid request" }, 400);
-  }
-
-  return value;
-}
-
-function validateDocumentLinkSetMutationRequest(
-  value: unknown,
-  c: JsonValidationContext,
-) {
-  if (!isDocumentLinkSetMutationRequest(value)) {
-    return c.json({ error: "Invalid request" }, 400);
-  }
-
-  return value;
-}
-
-function validateDocumentSyncRequest(value: unknown, c: JsonValidationContext) {
-  if (!isDocumentSyncOperationRequest(value)) {
-    return c.json({ error: "Invalid request" }, 400);
-  }
-
-  return value;
-}
-
-function validateDocumentSyncPathParams(
-  value: Record<string, string>,
-  c: JsonValidationContext,
-) {
-  if (!documentSyncOperation.params.safeParse(value).success) {
-    return c.json({ error: "Invalid request" }, 400);
-  }
-
-  return value;
-}
-
 function handleDocumentMutationError(error: unknown) {
   if (error instanceof DocumentMutationError) {
     return { code: error.code, error: error.message, status: error.status };
@@ -241,13 +198,14 @@ async function respondWithDocumentCreate(
 async function respondWithDocumentLinkSetMutation(
   c: DocumentRouteContext,
   input: {
+    readonly documentId: string;
     readonly eventType: DocumentLinkSetEventType;
     readonly publish: DocumentMutationsRouteDeps["publish"];
     readonly request: DocumentLinkSetMutationRequest;
     readonly runtime: ApiServiceRuntime;
   },
 ) {
-  const documentId = c.req.param("documentId");
+  const { documentId } = input;
   const session = c.get("session");
 
   try {
@@ -289,12 +247,13 @@ async function respondWithDocumentLinkSetMutation(
 async function respondWithDocumentSync(
   c: DocumentRouteContext,
   input: {
+    readonly documentId: string;
     readonly publish: (event: Record<string, unknown>) => Promise<void>;
     readonly request: DocumentSyncRequest;
     readonly runtime: ApiServiceRuntime;
   },
 ) {
-  const documentId = c.req.param("documentId");
+  const { documentId } = input;
   const session = c.get("session");
 
   try {
@@ -356,11 +315,12 @@ async function respondWithDocumentSync(
 async function respondWithDocumentPurge(
   c: DocumentRouteContext,
   input: {
+    readonly documentId: string;
     readonly publish: DocumentMutationsRouteDeps["publish"];
     readonly runtime: ApiServiceRuntime;
   },
 ) {
-  const documentId = c.req.param("documentId");
+  const { documentId } = input;
   const session = c.get("session");
 
   try {
@@ -388,19 +348,23 @@ export function createDocumentMutationsRoute({
 }: DocumentMutationsRouteDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.post(
-    "/documents",
+  route.on(
+    createDocumentOperation.method,
+    operationRoutePath(createDocumentOperation),
     requireAuth,
-    validator("json", validateDocumentCreateRequest),
+    jsonRequestValidator(createDocumentOperation.body),
     (c) => respondWithDocumentCreate(c, runtime, c.req.valid("json")),
   );
 
-  route.post(
-    "/documents/:documentId/link",
+  route.on(
+    linkDocumentOperation.method,
+    operationRoutePath(linkDocumentOperation),
     requireAuth,
-    validator("json", validateDocumentLinkSetMutationRequest),
+    pathParamsValidator(linkDocumentOperation.params),
+    jsonRequestValidator(linkDocumentOperation.body),
     (c) =>
       respondWithDocumentLinkSetMutation(c, {
+        documentId: c.req.valid("param").documentId,
         eventType: "document.link",
         publish,
         request: c.req.valid("json"),
@@ -408,12 +372,15 @@ export function createDocumentMutationsRoute({
       }),
   );
 
-  route.post(
-    "/documents/:documentId/unlink",
+  route.on(
+    unlinkDocumentOperation.method,
+    operationRoutePath(unlinkDocumentOperation),
     requireAuth,
-    validator("json", validateDocumentLinkSetMutationRequest),
+    pathParamsValidator(unlinkDocumentOperation.params),
+    jsonRequestValidator(unlinkDocumentOperation.body),
     (c) =>
       respondWithDocumentLinkSetMutation(c, {
+        documentId: c.req.valid("param").documentId,
         eventType: "document.unlink",
         publish,
         request: c.req.valid("json"),
@@ -425,18 +392,28 @@ export function createDocumentMutationsRoute({
     documentSyncOperation.method,
     operationRoutePath(documentSyncOperation),
     requireAuth,
-    validator("param", validateDocumentSyncPathParams),
-    validator("json", validateDocumentSyncRequest),
+    pathParamsValidator(documentSyncOperation.params),
+    jsonRequestValidator(documentSyncOperation.body),
     (c) =>
       respondWithDocumentSync(c, {
+        documentId: c.req.valid("param").documentId,
         publish,
         request: c.req.valid("json"),
         runtime,
       }),
   );
 
-  route.delete("/documents/:documentId", requireAuth, (c) =>
-    respondWithDocumentPurge(c, { publish, runtime }),
+  route.on(
+    deleteDocumentOperation.method,
+    operationRoutePath(deleteDocumentOperation),
+    requireAuth,
+    pathParamsValidator(deleteDocumentOperation.params),
+    (c) =>
+      respondWithDocumentPurge(c, {
+        documentId: c.req.valid("param").documentId,
+        publish,
+        runtime,
+      }),
   );
 
   return route;
