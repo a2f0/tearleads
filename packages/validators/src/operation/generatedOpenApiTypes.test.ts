@@ -16,6 +16,7 @@ import type {
   DocumentSyncResponse,
   ErrorResponse,
   ListSessionsResponse,
+  OrganizationDataUsageResponse,
   RegistrationResponse,
   UserIdentityResponse,
   VerifyFailureResponse,
@@ -116,6 +117,14 @@ type GeneratedCreateOrganizationResponse =
   GeneratedCreateOrganizationOperation["responses"][200]["content"]["application/json"];
 type GeneratedCreateOrganizationErrorResponse =
   GeneratedCreateOrganizationOperation["responses"][400]["content"]["application/json"];
+type GeneratedOrganizationDataUsageOperation =
+  operations["organizations.dataUsage.get"];
+type GeneratedOrganizationDataUsagePathParams =
+  GeneratedOrganizationDataUsageOperation["parameters"]["path"];
+type GeneratedOrganizationDataUsageResponse =
+  GeneratedOrganizationDataUsageOperation["responses"][200]["content"]["application/json"];
+type GeneratedOrganizationDataUsageErrorResponse =
+  GeneratedOrganizationDataUsageOperation["responses"][400]["content"]["application/json"];
 type GeneratedLogoutOperation = operations["auth.logout"];
 type GeneratedLogoutResponse =
   GeneratedLogoutOperation["responses"][200]["content"]["application/json"];
@@ -361,6 +370,39 @@ test("generated OpenAPI types match the create organization contract", () => {
   assertType<
     IsEqual<
       NormalizeWireType<GeneratedCreateOrganizationErrorResponse>,
+      NormalizeWireType<ErrorResponse>
+    >
+  >();
+});
+
+test("generated OpenAPI types match the organization data usage contract", () => {
+  assertType<
+    IsEqual<
+      paths["/organizations/{organizationId}/data-usage"]["get"],
+      GeneratedOrganizationDataUsageOperation
+    >
+  >();
+  assertType<
+    IsAssignable<
+      GeneratedOrganizationDataUsagePathParams,
+      { organizationId: string }
+    >
+  >();
+  assertType<
+    IsAssignable<
+      { organizationId: string },
+      GeneratedOrganizationDataUsagePathParams
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedOrganizationDataUsageResponse>,
+      NormalizeWireType<OrganizationDataUsageResponse>
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedOrganizationDataUsageErrorResponse>,
       NormalizeWireType<ErrorResponse>
     >
   >();

@@ -16,6 +16,8 @@ import {
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
 
+const dataUsageOrganizationId = "11111111-1111-4111-8111-111111111111";
+
 function organizationDataUsageResponse() {
   return {
     organizationId: "org-1",
@@ -218,9 +220,9 @@ testApiClient(
     const groupRequest = createOrganizationGroupRequest();
     const policyRequest = createPrincipalPolicyRequest();
 
-    expect((await client.getOrganizationDataUsageResult("org-1")).ok).toBe(
-      true,
-    );
+    expect(
+      (await client.getOrganizationDataUsageResult(dataUsageOrganizationId)).ok,
+    ).toBe(true);
     expect(
       await client.updateOrganizationRosterEntry("org-1", "user-1", {
         profileDocumentId: null,
@@ -253,7 +255,7 @@ testApiClient(
     ).toEqual([
       {
         body: null,
-        input: `${apiBaseUrl}/organizations/org-1/data-usage`,
+        input: `${apiBaseUrl}/organizations/${dataUsageOrganizationId}/data-usage`,
         method: "GET",
       },
       {
@@ -309,9 +311,10 @@ testApiClient(
     );
 
     const client = new ApiClient(apiBaseUrl);
-    const forbidden = await client.getOrganizationDataUsageResult("org-1", {
-      reportErrors: false,
-    });
+    const forbidden = await client.getOrganizationDataUsageResult(
+      dataUsageOrganizationId,
+      { reportErrors: false },
+    );
     expect(forbidden).toMatchObject({
       kind: "http",
       ok: false,
@@ -319,9 +322,10 @@ testApiClient(
     });
 
     responseKind = "invalid";
-    const invalid = await client.getOrganizationDataUsageResult("org-1", {
-      reportErrors: false,
-    });
+    const invalid = await client.getOrganizationDataUsageResult(
+      dataUsageOrganizationId,
+      { reportErrors: false },
+    );
     expect(invalid).toMatchObject({
       kind: "shape",
       ok: false,

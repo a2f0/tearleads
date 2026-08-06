@@ -1,10 +1,14 @@
+import {
+  getOrganizationDataUsageOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import { getOrganizationDataUsage } from "../../services/organizations/orgManager";
+import { pathParamsValidator } from "../../validators/pathParams";
 import {
   type OrganizationsRouterDeps,
-  parseOrganizationId,
   toOrganizationManagerErrorResponse,
 } from "./shared";
 
@@ -14,14 +18,16 @@ export function createOrganizationDataUsageRoute({
 }: OrganizationsRouterDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.get(
-    "/organizations/:organizationId/data-usage",
+  route.on(
+    getOrganizationDataUsageOperation.method,
+    operationRoutePath(getOrganizationDataUsageOperation),
     requireAuth,
+    pathParamsValidator(
+      getOrganizationDataUsageOperation.params,
+      "Invalid organizationId",
+    ),
     async (c) => {
-      const organizationId = parseOrganizationId(c.req.param("organizationId"));
-      if (!organizationId) {
-        return c.json({ error: "Invalid organizationId" }, 400);
-      }
+      const { organizationId } = c.req.valid("param");
 
       try {
         return c.json<OrganizationDataUsageResponse>(
