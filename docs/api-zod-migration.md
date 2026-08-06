@@ -5,7 +5,7 @@ distinct HTTP method and path exposed by `packages/api`. An endpoint is complete
 only when shared schemas own its request inputs, success response, documented
 error responses, API route validation, API-client metadata, and OpenAPI entry.
 
-Current coverage: **46 of 58 operations**.
+Current coverage: **51 of 58 operations**.
 
 ## Health
 
@@ -62,16 +62,16 @@ Current coverage: **46 of 58 operations**.
 
 - [ ] `POST /billing/revenuecat/webhook`
 - [ ] `POST /billing/stripe/webhook`
-- [ ] `GET /organizations/:organizationId/billing`
-- [ ] `GET /organizations/:organizationId/billing/history`
-- [ ] `GET /organizations/:organizationId/billing/management-url`
-- [ ] `POST /organizations/:organizationId/billing/native/:store/claim`
+- [x] `GET /organizations/:organizationId/billing`
+- [x] `GET /organizations/:organizationId/billing/history`
+- [x] `GET /organizations/:organizationId/billing/management-url`
+- [x] `POST /organizations/:organizationId/billing/native/:store/claim`
 - [ ] `POST /organizations/:organizationId/billing/stripe/cancel`
 - [ ] `POST /organizations/:organizationId/billing/stripe/checkout`
 - [ ] `POST /organizations/:organizationId/billing/stripe/checkout-session`
 - [ ] `GET /organizations/:organizationId/billing/stripe/options`
 - [ ] `POST /organizations/:organizationId/billing/stripe/portal`
-- [ ] `POST /organizations/:organizationId/billing/trial`
+- [x] `POST /organizations/:organizationId/billing/trial`
 
 ## Organizations
 

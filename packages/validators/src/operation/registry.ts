@@ -49,6 +49,13 @@ import {
   initiateMultipartBlobStageOperation,
 } from "./multipartBlobs";
 import {
+  claimNativeOrganizationSubscriptionOperation,
+  getOrganizationBillingHistoryOperation,
+  getOrganizationBillingManagementUrlOperation,
+  getOrganizationBillingOperation,
+  startOrganizationTrialOperation,
+} from "./organizationBilling";
+import {
   createOrganizationGroupOperation,
   createOrganizationOperation,
   deleteOrganizationGroupOperation,
@@ -104,6 +111,11 @@ export const protocolOperations = [
   getContainerWriterProjectionOperation,
   getDocumentWriterProjectionOperation,
   createOrganizationOperation,
+  getOrganizationBillingOperation,
+  getOrganizationBillingHistoryOperation,
+  getOrganizationBillingManagementUrlOperation,
+  claimNativeOrganizationSubscriptionOperation,
+  startOrganizationTrialOperation,
   getOrganizationDataUsageOperation,
   getOrganizationReadModelOperation,
   createOrganizationGroupOperation,

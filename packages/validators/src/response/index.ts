@@ -238,23 +238,35 @@ export {
   isOrganizationBillingStatus,
   isPaymentRequiredErrorResponse,
   type OrganizationBillingProvider,
+  OrganizationBillingProviderSchema,
   type OrganizationBillingResponse,
+  OrganizationBillingResponseSchema,
   type OrganizationBillingStatus,
+  OrganizationBillingStatusSchema,
   type PaymentRequiredErrorResponse,
   PaymentRequiredErrorResponseSchema,
 } from "./organizationBilling";
 export {
   isOrganizationBillingHistoryResponse,
   type OrganizationBillingHistoryCategory,
+  OrganizationBillingHistoryCategorySchema,
   type OrganizationBillingHistoryEntry,
+  OrganizationBillingHistoryEntrySchema,
   type OrganizationBillingHistoryEnvironment,
+  OrganizationBillingHistoryEnvironmentSchema,
   type OrganizationBillingHistoryOutcome,
+  OrganizationBillingHistoryOutcomeSchema,
   type OrganizationBillingHistoryProvider,
+  OrganizationBillingHistoryProviderSchema,
   type OrganizationBillingHistoryResponse,
+  OrganizationBillingHistoryResponseSchema,
 } from "./organizationBillingHistory";
 export {
   isOrganizationBillingManagementUrlResponse,
   type OrganizationBillingManagementUrlResponse,
+  OrganizationBillingManagementUrlResponseSchema,
+  type OrganizationBillingSubscriptionSource,
+  OrganizationBillingSubscriptionSourceSchema,
 } from "./organizationBillingManagementUrl";
 export {
   isOrganizationDataUsageResponse,

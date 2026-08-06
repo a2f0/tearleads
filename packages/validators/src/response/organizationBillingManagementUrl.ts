@@ -1,11 +1,14 @@
-import { isPlainObject } from "../isPlainObject";
-import {
-  hasBooleanProperty,
-  hasNullableStringProperty,
-  hasStringProperty,
-} from "../util";
+import { z } from "zod";
+import { loosePlainObject } from "../schema";
 
-export type OrganizationBillingSubscriptionSource = "native" | "stripe";
+export const OrganizationBillingSubscriptionSourceSchema = z.literal([
+  "native",
+  "stripe",
+]);
+
+export type OrganizationBillingSubscriptionSource = z.infer<
+  typeof OrganizationBillingSubscriptionSourceSchema
+>;
 
 /**
  * The subscription-management URL for an organization's paid subscription. The
@@ -17,27 +20,21 @@ export type OrganizationBillingSubscriptionSource = "native" | "stripe";
  * provider-managed subscription, the provider exposes no management link, or
  * the lookup could not be completed.
  */
-export interface OrganizationBillingManagementUrlResponse {
+export const OrganizationBillingManagementUrlResponseSchema = loosePlainObject({
   /** Our API can cancel this Stripe subscription from any app surface. */
-  canCancelDirectly: boolean;
-  managementUrl: string | null;
+  canCancelDirectly: z.boolean(),
+  managementUrl: z.string().nullable(),
   /** Purchase system owning the current or lapsed subscription, when known. */
-  subscriptionSource: OrganizationBillingSubscriptionSource | null;
-}
+  subscriptionSource: OrganizationBillingSubscriptionSourceSchema.nullable(),
+});
+
+export type OrganizationBillingManagementUrlResponse = z.infer<
+  typeof OrganizationBillingManagementUrlResponseSchema
+>;
 
 export function isOrganizationBillingManagementUrlResponse(
   value: unknown,
 ): value is OrganizationBillingManagementUrlResponse {
-  if (!isPlainObject(value)) {
-    return false;
-  }
-  const { subscriptionSource } = value;
-  return (
-    hasBooleanProperty(value, "canCancelDirectly") &&
-    hasNullableStringProperty(value, "managementUrl") &&
-    (subscriptionSource === null ||
-      (hasStringProperty(value, "subscriptionSource") &&
-        (value.subscriptionSource === "native" ||
-          value.subscriptionSource === "stripe")))
-  );
+  return OrganizationBillingManagementUrlResponseSchema.safeParse(value)
+    .success;
 }

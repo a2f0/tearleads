@@ -10,12 +10,20 @@ interface PathParamsSchema<Output> {
 
 export function pathParamsValidator<Output>(
   schema: PathParamsSchema<Output>,
-  errorMessage = "Invalid request",
+  errorMessage: string | ((value: unknown) => string) = "Invalid request",
 ) {
   return validator("param", (value, c) => {
     const result = schema.safeParse(value);
     if (!result.success) {
-      return c.json({ error: errorMessage }, 400);
+      return c.json(
+        {
+          error:
+            typeof errorMessage === "string"
+              ? errorMessage
+              : errorMessage(value),
+        },
+        400,
+      );
     }
 
     return result.data;

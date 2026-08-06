@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export const BILLING_ERROR_CODES = {
   checkoutNoActiveMembers: "billing_checkout_no_active_members",
   rosterOverCapacity: "billing_roster_over_capacity",
@@ -13,13 +15,18 @@ export const NATIVE_SUBSCRIPTION_STORES = [
   "test_store",
 ] as const;
 
-export type NativeSubscriptionStore =
-  (typeof NATIVE_SUBSCRIPTION_STORES)[number];
+export const NativeSubscriptionStoreSchema = z.literal(
+  NATIVE_SUBSCRIPTION_STORES,
+);
+
+export type NativeSubscriptionStore = z.infer<
+  typeof NativeSubscriptionStoreSchema
+>;
 
 export function isNativeSubscriptionStore(
   value: unknown,
 ): value is NativeSubscriptionStore {
-  return NATIVE_SUBSCRIPTION_STORES.some((store) => store === value);
+  return NativeSubscriptionStoreSchema.safeParse(value).success;
 }
 
 /** Canonical fixed-cap subscription tiers shared by every billing provider. */

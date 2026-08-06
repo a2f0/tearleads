@@ -1,25 +1,33 @@
 import { z } from "zod";
-import { isPlainObject } from "../isPlainObject";
-import { loosePlainObject } from "../schema";
+import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
+import { organizationBillingAssignedSeatsRefinement } from "../organizationBillingRefinements";
 import {
-  hasArrayProperty,
-  hasBooleanProperty,
-  hasNullableNumberProperty,
-  hasNullableStringProperty,
-  hasNumberProperty,
-  hasStringProperty,
-} from "../util";
+  arraySchema,
+  boundedPositiveIntegerSchema,
+  loosePlainObject,
+  nonEmptyStringSchema,
+  safeNonNegativeIntegerSchema,
+} from "../schema";
 
-export type OrganizationBillingStatus =
-  | "local"
-  | "trialing"
-  | "active"
-  | "past_due"
-  | "disabled"
-  | "deleting"
-  | "purged";
+export const OrganizationBillingStatusSchema = z.literal([
+  "local",
+  "trialing",
+  "active",
+  "past_due",
+  "disabled",
+  "deleting",
+  "purged",
+]);
 
-export type OrganizationBillingProvider = "revenuecat";
+export type OrganizationBillingStatus = z.infer<
+  typeof OrganizationBillingStatusSchema
+>;
+
+export const OrganizationBillingProviderSchema = z.literal(["revenuecat"]);
+
+export type OrganizationBillingProvider = z.infer<
+  typeof OrganizationBillingProviderSchema
+>;
 
 /**
  * Per-organization sync-billing snapshot returned to the client. Sync is the one
@@ -31,46 +39,52 @@ export type OrganizationBillingProvider = "revenuecat";
  * count used by the plan switcher; assigned seat fields expose the stable
  * per-user subset that may sync within the licensed capacity.
  */
-export interface OrganizationBillingResponse {
-  organizationId: string;
-  activeMemberCount: number;
-  assignedSeatCount: number;
-  assignedUserIds: string[];
-  currentUserHasSyncSeat: boolean;
-  status: OrganizationBillingStatus;
-  trialEndsAt: string | null;
-  provider: OrganizationBillingProvider | null;
-  currentPeriodStartsAt: string | null;
-  currentPeriodEndsAt: string | null;
-  seatCount: number;
-  /** Destination native tier while the store has scheduled but not effected a change. */
-  pendingSeatCount: number | null;
-  disabledAt: string | null;
-  purgeAfter: string | null;
-}
+export const OrganizationBillingResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject({
+      organizationId: z.string(),
+      activeMemberCount: safeNonNegativeIntegerSchema,
+      assignedSeatCount: safeNonNegativeIntegerSchema,
+      assignedUserIds: arraySchema(nonEmptyStringSchema),
+      currentUserHasSyncSeat: z.boolean(),
+      status: OrganizationBillingStatusSchema,
+      trialEndsAt: z.string().nullable(),
+      provider: OrganizationBillingProviderSchema.nullable(),
+      currentPeriodStartsAt: z.string().nullable(),
+      currentPeriodEndsAt: z.string().nullable(),
+      seatCount: safeNonNegativeIntegerSchema,
+      /** Destination native tier while the store has scheduled but not effected a change. */
+      pendingSeatCount: boundedPositiveIntegerSchema(
+        Number.MAX_SAFE_INTEGER,
+      ).nullable(),
+      disabledAt: z.string().nullable(),
+      purgeAfter: z.string().nullable(),
+    }).superRefine((value, context) => {
+      if (value.assignedSeatCount !== value.assignedUserIds.length) {
+        context.addIssue({
+          code: "custom",
+          message: "assignedSeatCount must match assignedUserIds length",
+          path: ["assignedSeatCount"],
+        });
+      }
+    }),
+    [organizationBillingAssignedSeatsRefinement],
+  );
+
+export type OrganizationBillingResponse = z.infer<
+  typeof OrganizationBillingResponseSchema
+>;
 
 export function isOrganizationBillingStatus(
   value: unknown,
 ): value is OrganizationBillingStatus {
-  return (
-    value === "local" ||
-    value === "trialing" ||
-    value === "active" ||
-    value === "past_due" ||
-    value === "disabled" ||
-    value === "deleting" ||
-    value === "purged"
-  );
+  return OrganizationBillingStatusSchema.safeParse(value).success;
 }
 
 export function isOrganizationBillingProvider(
   value: unknown,
 ): value is OrganizationBillingProvider {
-  return value === "revenuecat";
-}
-
-function isSeatCount(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+  return OrganizationBillingProviderSchema.safeParse(value).success;
 }
 
 export function isOrganizationBillingResponse(
@@ -79,35 +93,7 @@ export function isOrganizationBillingResponse(
   // This greenfield contract is deliberately flag-day strict: the server and
   // clients ship the assigned-seat fields together. Missing-field fallbacks
   // would preserve a wire format that has never been released.
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "organizationId") &&
-    hasNumberProperty(value, "activeMemberCount") &&
-    isSeatCount(value.activeMemberCount) &&
-    hasNumberProperty(value, "assignedSeatCount") &&
-    isSeatCount(value.assignedSeatCount) &&
-    hasArrayProperty(value, "assignedUserIds") &&
-    value.assignedUserIds.every(
-      (userId) => typeof userId === "string" && userId.length > 0,
-    ) &&
-    value.assignedSeatCount === value.assignedUserIds.length &&
-    hasBooleanProperty(value, "currentUserHasSyncSeat") &&
-    hasStringProperty(value, "status") &&
-    isOrganizationBillingStatus(value.status) &&
-    hasNullableStringProperty(value, "trialEndsAt") &&
-    hasNullableStringProperty(value, "provider") &&
-    (value.provider === null ||
-      isOrganizationBillingProvider(value.provider)) &&
-    hasNullableStringProperty(value, "currentPeriodStartsAt") &&
-    hasNullableStringProperty(value, "currentPeriodEndsAt") &&
-    hasNumberProperty(value, "seatCount") &&
-    isSeatCount(value.seatCount) &&
-    hasNullableNumberProperty(value, "pendingSeatCount") &&
-    (value.pendingSeatCount === null ||
-      (isSeatCount(value.pendingSeatCount) && value.pendingSeatCount > 0)) &&
-    hasNullableStringProperty(value, "disabledAt") &&
-    hasNullableStringProperty(value, "purgeAfter")
-  );
+  return OrganizationBillingResponseSchema.safeParse(value).success;
 }
 
 /**
