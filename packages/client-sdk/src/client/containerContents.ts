@@ -460,18 +460,7 @@ function createContainerContentsDiscoveryRuntime(
 function createContainerDocumentDiscoveryPersistence(
   runtime: ContainerContentsWorkflowRuntime,
 ): ContainerDocumentDiscoveryPersistence {
-  const queries = createContainerDocumentQueriesFromRuntime(runtime);
-
-  return {
-    applyContainerDocumentTombstones: (tombstones) =>
-      queries.applyContainerDocumentTombstones(tombstones),
-    loadContainerDocumentWatermark: (containerId) =>
-      queries.loadContainerDocumentWatermark(containerId),
-    replaceDocumentLinksBatch: (inputs) =>
-      queries.replaceDocumentLinksBatch(inputs),
-    saveContainerDocumentWatermark: (containerId, watermark) =>
-      queries.saveContainerDocumentWatermark(containerId, watermark),
-    upsertDiscoveredDocuments: (inputs) =>
-      queries.upsertDiscoveredDocuments(inputs),
-  };
+  // The queries object is a plain record of closures and the persistence
+  // contract is a structural Pick of it; no per-method forwarding needed.
+  return createContainerDocumentQueriesFromRuntime(runtime);
 }

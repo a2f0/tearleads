@@ -882,10 +882,7 @@ type PersistedReadOnlyDocumentSyncResult =
       result: SyncRemoteDocumentResult | null;
     }
   | {
-      kind: "retry_with_projection";
-    }
-  | {
-      kind: "skipped";
+      kind: "not_completed";
     };
 
 interface ReadOnlyDocumentSyncCompletionInput {
@@ -991,7 +988,7 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
   );
   return freshResult
     ? { kind: "completed", result: freshResult }
-    : { kind: "retry_with_projection" };
+    : { kind: "not_completed" };
 }
 
 async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
@@ -1020,7 +1017,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
     plan = null;
   }
   if (!plan) {
-    return { kind: "skipped" };
+    return { kind: "not_completed" };
   }
 
   const submitted = await submitDocumentSync({
@@ -1048,7 +1045,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
         documentId: input.documentId,
         status: submitted.status,
       });
-      return { kind: "retry_with_projection" };
+      return { kind: "not_completed" };
     }
 
     traceSubmitFailed(input.onSyncTrace, {
@@ -1088,7 +1085,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
       },
     };
   } catch {
-    return { kind: "retry_with_projection" };
+    return { kind: "not_completed" };
   }
 }
 

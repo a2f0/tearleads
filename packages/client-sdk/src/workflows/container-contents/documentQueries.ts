@@ -604,13 +604,6 @@ async function listContainerContentsLinkedContainerIdsByDocumentIds(
   return linkedContainerIdsByDocumentId;
 }
 
-function applyStoredContainerDocumentTombstones(
-  execSql: ExecSql,
-  tombstones: ReadonlyArray<ContainerDocumentTombstone>,
-): Promise<ReadonlyArray<DocumentSummary>> {
-  return applyPersistedContainerDocumentTombstones(execSql, tombstones);
-}
-
 function loadContainerContentsContainerDocumentWatermark(
   execSql: ExecSql,
   containerId: string,
@@ -618,16 +611,6 @@ function loadContainerContentsContainerDocumentWatermark(
   return sqlContainerSyncWatermarkPersistence.loadWatermark(
     execSql,
     containerContentsSyncLane(containerId),
-  );
-}
-
-function replaceDocumentLinksBatch(
-  execSql: ExecSql,
-  inputs: ReadonlyArray<ContainerDocumentLinkInput>,
-): Promise<void> {
-  return sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-    execSql,
-    inputs,
   );
 }
 
@@ -643,19 +626,13 @@ function saveContainerDocumentWatermark(
   );
 }
 
-function upsertDiscoveredContainerContentsDocuments(
-  execSql: ExecSql,
-  inputs: ReadonlyArray<DiscoveredDocumentInput>,
-): Promise<ReadonlyArray<DocumentSummary>> {
-  return upsertDiscoveredDocuments(execSql, inputs);
-}
-
-function createContainerDocumentQueries(
-  execSql: ExecSql,
+export function createContainerDocumentQueriesFromRuntime(
+  runtime: ContainerDocumentQueriesRuntime,
 ): ContainerDocumentQueries {
+  const execSql = runtime.infra.execSql;
   return {
     applyContainerDocumentTombstones(tombstones) {
-      return applyStoredContainerDocumentTombstones(execSql, tombstones);
+      return applyPersistedContainerDocumentTombstones(execSql, tombstones);
     },
     hasOrphanedDocuments({ currentOrganizationId }) {
       return hasOrphanedDocuments(execSql, currentOrganizationId);
@@ -698,19 +675,16 @@ function createContainerDocumentQueries(
       return resetPendingWriteRetryState(execSql, input);
     },
     replaceDocumentLinksBatch(inputs) {
-      return replaceDocumentLinksBatch(execSql, inputs);
+      return sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+        execSql,
+        inputs,
+      );
     },
     saveContainerDocumentWatermark(containerId, watermark) {
       return saveContainerDocumentWatermark(execSql, containerId, watermark);
     },
     upsertDiscoveredDocuments(inputs) {
-      return upsertDiscoveredContainerContentsDocuments(execSql, inputs);
+      return upsertDiscoveredDocuments(execSql, inputs);
     },
   };
-}
-
-export function createContainerDocumentQueriesFromRuntime(
-  runtime: ContainerDocumentQueriesRuntime,
-): ContainerDocumentQueries {
-  return createContainerDocumentQueries(runtime.infra.execSql);
 }
