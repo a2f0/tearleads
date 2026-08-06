@@ -1,31 +1,21 @@
-import { isPlainObject } from "../isPlainObject";
-import {
-  type ContainerMutationResponse,
-  isContainerMutationResponse,
-} from "./container";
-import {
-  type DocumentCreateResponse,
-  isDocumentCreateResponse,
-} from "./documentMutation";
+import type { z } from "zod";
+import { loosePlainObject } from "../schema";
+import { ContainerMutationResponseSchema } from "./container";
+import { DocumentCreateResponseSchema } from "./documentMutation";
 
-export interface ContainerCreateWithMetadataDocumentResponse {
-  container: ContainerMutationResponse;
-  metadataDocument: DocumentCreateResponse;
-}
+export const ContainerCreateWithMetadataDocumentResponseSchema =
+  loosePlainObject({
+    container: ContainerMutationResponseSchema,
+    metadataDocument: DocumentCreateResponseSchema,
+  });
+
+export type ContainerCreateWithMetadataDocumentResponse = z.infer<
+  typeof ContainerCreateWithMetadataDocumentResponseSchema
+>;
 
 export function isContainerCreateWithMetadataDocumentResponse(
   value: unknown,
 ): value is ContainerCreateWithMetadataDocumentResponse {
-  const container = isPlainObject(value)
-    ? Reflect.get(value, "container")
-    : undefined;
-  const metadataDocument = isPlainObject(value)
-    ? Reflect.get(value, "metadataDocument")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isContainerMutationResponse(container) &&
-    isDocumentCreateResponse(metadataDocument)
-  );
+  return ContainerCreateWithMetadataDocumentResponseSchema.safeParse(value)
+    .success;
 }

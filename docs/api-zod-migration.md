@@ -5,7 +5,7 @@ distinct HTTP method and path exposed by `packages/api`. An endpoint is complete
 only when shared schemas own its request inputs, success response, documented
 error responses, API route validation, API-client metadata, and OpenAPI entry.
 
-Current coverage: **8 of 58 operations**.
+Current coverage: **9 of 58 operations**.
 
 ## Health
 
@@ -15,7 +15,7 @@ Current coverage: **8 of 58 operations**.
 
 - [x] `POST /auth/challenge`
 - [x] `POST /auth/logout`
-- [ ] `POST /auth/register`
+- [x] `POST /auth/register`
 - [x] `GET /auth/sessions`
 - [x] `DELETE /auth/sessions/:sessionId`
 - [x] `GET /auth/user-identity/:userId`

@@ -23,13 +23,15 @@ import {
   nonEmptyStringSchema,
   plainObjectSchema,
   positiveIntegerSchema,
+  requiredUnknownSchema,
 } from "../schema";
+import { AccessManifestBundleWireSchema } from "../util/accessManifestBundle";
 import { MAX_INLINE_CONTAINER_REKEYS } from "../util/containerKekKeyringWire";
 import { isUuidV4String, UUID_V4_PATTERN } from "../util/uuid";
 import { isWalLsnString, WAL_LSN_PATTERN } from "../util/walLsn";
 import {
   type ContainerMutationRequest,
-  isContainerMutationRequest,
+  ContainerMutationRequestSchema,
 } from "./container";
 
 /**
@@ -47,7 +49,7 @@ export const ContainerManifestRefSchema = loosePlainObject({
 
 export type ContainerManifestRef = z.infer<typeof ContainerManifestRefSchema>;
 
-const ContainerManifestPathSchema = nonEmptyArraySchema(
+export const ContainerManifestPathSchema = nonEmptyArraySchema(
   ContainerManifestRefSchema,
 );
 
@@ -113,39 +115,36 @@ export type DocumentOutgoingUpdate = z.infer<
   typeof DocumentOutgoingUpdateSchema
 >;
 
-const AccessManifestBundleWireViewSchema = loosePlainObject({
-  event: plainObjectSchema,
-  manifest: plainObjectSchema,
-  manifestHash: nonEmptyStringSchema,
-  state: plainObjectSchema,
-});
-
-const ContainerMutationRequestViewSchema = loosePlainObject({
-  body: z.unknown(),
-  containerManifestHistory: z
-    .array(AccessManifestBundleWireViewSchema)
-    .optional(),
-  destinationParentContainerPath: z
-    .array(AccessManifestBundleWireViewSchema)
-    .optional(),
-  event: plainObjectSchema,
-  expectedManifestHash: nonEmptyStringSchema,
-  keyEpoch: plainObjectSchema,
-  keyring: plainObjectSchema.nullable(),
-  manifest: plainObjectSchema,
-  parentContainerPath: z.array(AccessManifestBundleWireViewSchema).optional(),
-  parentKekState: plainObjectSchema.nullable().optional(),
-  predecessorBridge: plainObjectSchema.nullable(),
-  previousContainerPath: z.array(AccessManifestBundleWireViewSchema).optional(),
-  previousManifest: AccessManifestBundleWireViewSchema.nullable().optional(),
-  principalPolicies: z.array(plainObjectSchema),
-  userRecipientKeys: z.array(plainObjectSchema).optional(),
-  wraps: z.array(plainObjectSchema),
-});
-
-const ContainerMutationRequestSchema = registerJsonSchemaView(
-  z.custom<ContainerMutationRequest>(isContainerMutationRequest),
-  ContainerMutationRequestViewSchema,
+// Document sync published container keyrings as opaque records before the
+// canonical container-mutation schema described their fields. Keep that one
+// existing OpenAPI view stable while runtime validation delegates to the shared
+// schema used by newer operations.
+const DocumentSyncContainerMutationRequestSchema = registerJsonSchemaView(
+  z.custom<ContainerMutationRequest>(
+    (value) => ContainerMutationRequestSchema.safeParse(value).success,
+  ),
+  z.looseObject({
+    body: requiredUnknownSchema,
+    containerManifestHistory: z
+      .array(AccessManifestBundleWireSchema)
+      .optional(),
+    destinationParentContainerPath: z
+      .array(AccessManifestBundleWireSchema)
+      .optional(),
+    event: plainObjectSchema,
+    expectedManifestHash: nonEmptyStringSchema,
+    keyEpoch: plainObjectSchema,
+    keyring: plainObjectSchema.nullable(),
+    manifest: plainObjectSchema,
+    parentContainerPath: z.array(AccessManifestBundleWireSchema).optional(),
+    parentKekState: plainObjectSchema.nullable().optional(),
+    predecessorBridge: plainObjectSchema.nullable(),
+    previousContainerPath: z.array(AccessManifestBundleWireSchema).optional(),
+    previousManifest: AccessManifestBundleWireSchema.nullable().optional(),
+    principalPolicies: z.array(plainObjectSchema),
+    userRecipientKeys: z.array(plainObjectSchema).optional(),
+    wraps: z.array(plainObjectSchema),
+  }),
 );
 
 const WalLsnSchema = registerJsonSchemaFragment(
@@ -160,7 +159,7 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     // Each rotation carries a keyring sized by its epoch, so the batch is
     // bounded here as well as in the runtime guard.
     containerRekeys: arraySchema(
-      ContainerMutationRequestSchema,
+      DocumentSyncContainerMutationRequestSchema,
       MAX_INLINE_CONTAINER_REKEYS,
     ).optional(),
     contentKeyBundle: DocumentContentKeyBundleRequestSchema.optional(),

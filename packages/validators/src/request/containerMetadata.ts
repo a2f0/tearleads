@@ -1,38 +1,25 @@
-import type { ContainerSystemSlot } from "../containerSystemSlot";
-import { isNullableContainerSystemSlot } from "../containerSystemSlot";
-import { isPlainObject } from "../isPlainObject";
-import {
-  type ContainerMutationRequest,
-  isContainerMutationRequest,
-} from "./container";
-import {
-  type DocumentCreateRequest,
-  isDocumentCreateRequest,
-} from "./document";
+import type { z } from "zod";
+import { ContainerSystemSlotSchema } from "../containerSystemSlot";
+import { loosePlainObject } from "../schema";
+import { ContainerMutationRequestSchema } from "./container";
+import { DocumentCreateRequestSchema } from "./document";
 
-export interface ContainerCreateWithMetadataDocumentRequest {
-  systemSlot?: ContainerSystemSlot | null;
-  container: ContainerMutationRequest;
-  metadataDocument: DocumentCreateRequest;
-}
+export const containerCreateWithMetadataDocumentRequestShape = {
+  container: ContainerMutationRequestSchema,
+  metadataDocument: DocumentCreateRequestSchema,
+  systemSlot: ContainerSystemSlotSchema.nullable().optional(),
+};
+
+export const ContainerCreateWithMetadataDocumentRequestSchema =
+  loosePlainObject(containerCreateWithMetadataDocumentRequestShape);
+
+export type ContainerCreateWithMetadataDocumentRequest = z.infer<
+  typeof ContainerCreateWithMetadataDocumentRequestSchema
+>;
 
 export function isContainerCreateWithMetadataDocumentRequest(
   value: unknown,
 ): value is ContainerCreateWithMetadataDocumentRequest {
-  const container = isPlainObject(value)
-    ? Reflect.get(value, "container")
-    : undefined;
-  const metadataDocument = isPlainObject(value)
-    ? Reflect.get(value, "metadataDocument")
-    : undefined;
-  const systemSlot = isPlainObject(value)
-    ? Reflect.get(value, "systemSlot")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    (systemSlot === undefined || isNullableContainerSystemSlot(systemSlot)) &&
-    isContainerMutationRequest(container) &&
-    isDocumentCreateRequest(metadataDocument)
-  );
+  return ContainerCreateWithMetadataDocumentRequestSchema.safeParse(value)
+    .success;
 }

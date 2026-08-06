@@ -1,57 +1,53 @@
-import { isPlainObject } from "../isPlainObject";
-import { hasNonEmptyStringProperty } from "./properties";
+import type { z } from "zod";
+import {
+  loosePlainObject,
+  nonEmptyStringSchema,
+  plainObjectSchema,
+  requiredUnknownSchema,
+} from "../schema";
 
-export interface AccessManifestBundleWire {
-  event: Record<string, unknown>;
-  manifest: Record<string, unknown>;
-  manifestHash: string;
-  state: Record<string, unknown>;
-}
+export const AccessManifestBundleWireSchema = loosePlainObject({
+  event: plainObjectSchema,
+  manifest: plainObjectSchema,
+  manifestHash: nonEmptyStringSchema,
+  state: plainObjectSchema,
+});
 
-export interface AccessEventBundleWireResponse extends Record<string, unknown> {
-  body: unknown;
-  event: Record<string, unknown>;
-  eventHash: string;
-}
+export type AccessManifestBundleWire = z.infer<
+  typeof AccessManifestBundleWireSchema
+>;
 
-export interface AccessManifestBundleWireResponse
-  extends AccessManifestBundleWire {
-  event: AccessEventBundleWireResponse;
-}
+export const AccessEventBundleWireResponseSchema = loosePlainObject({
+  body: requiredUnknownSchema,
+  event: plainObjectSchema,
+  eventHash: nonEmptyStringSchema,
+});
+
+export type AccessEventBundleWireResponse = z.infer<
+  typeof AccessEventBundleWireResponseSchema
+>;
+
+export const AccessManifestBundleWireResponseSchema = loosePlainObject({
+  event: AccessEventBundleWireResponseSchema,
+  manifest: plainObjectSchema,
+  manifestHash: nonEmptyStringSchema,
+  state: plainObjectSchema,
+});
+
+export type AccessManifestBundleWireResponse = z.infer<
+  typeof AccessManifestBundleWireResponseSchema
+>;
 
 export function isAccessEventBundleWireResponse(
   value: unknown,
 ): value is AccessEventBundleWireResponse {
-  const signedEvent = isPlainObject(value)
-    ? Reflect.get(value, "event")
-    : undefined;
-  const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isPlainObject(signedEvent) &&
-    Reflect.has(value, "body") &&
-    body !== undefined &&
-    hasNonEmptyStringProperty(value, "eventHash")
-  );
+  return AccessEventBundleWireResponseSchema.safeParse(value).success;
 }
 
 export function isAccessManifestBundleWire(
   value: unknown,
 ): value is AccessManifestBundleWire {
-  const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
-  const manifest = isPlainObject(value)
-    ? Reflect.get(value, "manifest")
-    : undefined;
-  const state = isPlainObject(value) ? Reflect.get(value, "state") : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isPlainObject(event) &&
-    isPlainObject(manifest) &&
-    hasNonEmptyStringProperty(value, "manifestHash") &&
-    isPlainObject(state)
-  );
+  return AccessManifestBundleWireSchema.safeParse(value).success;
 }
 
 export function isAccessManifestBundleWireArray(
@@ -69,17 +65,5 @@ export function isOptionalAccessManifestBundleWireArray(
 export function isAccessManifestBundleWireResponse(
   value: unknown,
 ): value is AccessManifestBundleWireResponse {
-  const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
-  const manifest = isPlainObject(value)
-    ? Reflect.get(value, "manifest")
-    : undefined;
-  const state = isPlainObject(value) ? Reflect.get(value, "state") : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isAccessEventBundleWireResponse(event) &&
-    isPlainObject(manifest) &&
-    hasNonEmptyStringProperty(value, "manifestHash") &&
-    isPlainObject(state)
-  );
+  return AccessManifestBundleWireResponseSchema.safeParse(value).success;
 }

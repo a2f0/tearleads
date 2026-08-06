@@ -1,32 +1,23 @@
-import { isPlainObject } from "../isPlainObject";
+import type { z } from "zod";
+import { fixedLengthByteArraySchema, loosePlainObject } from "../schema";
 import {
-  hasArrayProperty,
-  isByteArrayOfLength,
   ML_DSA87_PUBLIC_KEY_BYTES,
   ML_KEM1024_PUBLIC_KEY_BYTES,
 } from "../util";
-import {
-  isOrganizationProvisioningRequest,
-  type OrganizationProvisioningRequest,
-} from "./organizationProvisioning";
+import { organizationProvisioningRequestShape } from "./organizationProvisioning";
 
-export interface RegistrationRequest extends OrganizationProvisioningRequest {
-  signingPublicKey: number[];
-  encapsulationPublicKey: number[];
-}
+export const RegistrationRequestSchema = loosePlainObject({
+  ...organizationProvisioningRequestShape,
+  encapsulationPublicKey: fixedLengthByteArraySchema(
+    ML_KEM1024_PUBLIC_KEY_BYTES,
+  ),
+  signingPublicKey: fixedLengthByteArraySchema(ML_DSA87_PUBLIC_KEY_BYTES),
+});
+
+export type RegistrationRequest = z.infer<typeof RegistrationRequestSchema>;
 
 export function isRegistrationRequest(
   value: unknown,
 ): value is RegistrationRequest {
-  return (
-    isOrganizationProvisioningRequest(value) &&
-    isPlainObject(value) &&
-    hasArrayProperty(value, "signingPublicKey") &&
-    isByteArrayOfLength(value.signingPublicKey, ML_DSA87_PUBLIC_KEY_BYTES) &&
-    hasArrayProperty(value, "encapsulationPublicKey") &&
-    isByteArrayOfLength(
-      value.encapsulationPublicKey,
-      ML_KEM1024_PUBLIC_KEY_BYTES,
-    )
-  );
+  return RegistrationRequestSchema.safeParse(value).success;
 }

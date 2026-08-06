@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type {
   ChallengeRequest,
   DocumentSyncRequest,
+  RegistrationRequest,
   VerifyRequest,
 } from "../request";
 import type {
@@ -13,6 +14,7 @@ import type {
   DocumentSyncResponse,
   ErrorResponse,
   ListSessionsResponse,
+  RegistrationResponse,
   UserIdentityResponse,
   VerifyFailureResponse,
   VerifySuccessResponse,
@@ -98,6 +100,13 @@ type GeneratedVerifySuccessResponse =
   GeneratedVerifyOperation["responses"][200]["content"]["application/json"];
 type GeneratedVerifyFailureResponse =
   GeneratedVerifyOperation["responses"][401]["content"]["application/json"];
+type GeneratedRegisterOperation = operations["auth.register"];
+type GeneratedRegistrationRequest =
+  GeneratedRegisterOperation["requestBody"]["content"]["application/json"];
+type GeneratedRegistrationResponse =
+  GeneratedRegisterOperation["responses"][200]["content"]["application/json"];
+type GeneratedRegistrationErrorResponse =
+  GeneratedRegisterOperation["responses"][409]["content"]["application/json"];
 type GeneratedLogoutOperation = operations["auth.logout"];
 type GeneratedLogoutResponse =
   GeneratedLogoutOperation["responses"][200]["content"]["application/json"];
@@ -240,6 +249,19 @@ test("generated OpenAPI types match the auth structural contracts", () => {
   >();
   assertType<
     IsEqual<paths["/auth/verify"]["post"], GeneratedVerifyOperation>
+  >();
+  assertType<IsAssignable<GeneratedRegistrationRequest, RegistrationRequest>>();
+  assertType<
+    IsAssignable<GeneratedRegistrationResponse, RegistrationResponse>
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedRegistrationErrorResponse>,
+      NormalizeWireType<ErrorResponse>
+    >
+  >();
+  assertType<
+    IsEqual<paths["/auth/register"]["post"], GeneratedRegisterOperation>
   >();
 
   assertType<IsAssignable<GeneratedLogoutOperation, { requestBody?: never }>>();

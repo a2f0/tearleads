@@ -1,6 +1,9 @@
+import { z } from "zod";
 import { isPlainObject } from "../isPlainObject";
+import { loosePlainObject } from "../schema";
 import {
   type AccessManifestBundleWireResponse,
+  AccessManifestBundleWireResponseSchema,
   hasArrayProperty,
   hasStringProperty,
   isAccessManifestBundleWireResponse,
@@ -32,13 +35,17 @@ export {
   DocumentSyncUpdateResponseSchema,
 } from "./documentSyncSchema";
 
-export interface DocumentCreateResponse {
-  id: string;
-  createdAt: string;
-  accessManifest: AccessManifestBundleWireResponse;
-  contentKeyBundle: DocumentContentKeyBundleResponse;
-  documentKekTargets: DocumentKekTargetsResponse;
-}
+export const DocumentCreateResponseSchema = loosePlainObject({
+  accessManifest: AccessManifestBundleWireResponseSchema,
+  contentKeyBundle: DocumentContentKeyBundleResponseSchema,
+  createdAt: z.string(),
+  documentKekTargets: DocumentKekTargetsResponseSchema,
+  id: z.string(),
+});
+
+export type DocumentCreateResponse = z.infer<
+  typeof DocumentCreateResponseSchema
+>;
 
 export interface DocumentLinkSetMutationResponse {
   id: string;
@@ -119,24 +126,7 @@ export function isDocumentContentKeyBundleResponse(
 export function isDocumentCreateResponse(
   value: unknown,
 ): value is DocumentCreateResponse {
-  const accessManifest = isPlainObject(value)
-    ? Reflect.get(value, "accessManifest")
-    : undefined;
-  const contentKeyBundle = isPlainObject(value)
-    ? Reflect.get(value, "contentKeyBundle")
-    : undefined;
-  const documentKekTargets = isPlainObject(value)
-    ? Reflect.get(value, "documentKekTargets")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "id") &&
-    hasStringProperty(value, "createdAt") &&
-    isAccessManifestBundleWireResponse(accessManifest) &&
-    isDocumentContentKeyBundleResponse(contentKeyBundle) &&
-    isDocumentKekTargetsResponse(documentKekTargets)
-  );
+  return DocumentCreateResponseSchema.safeParse(value).success;
 }
 
 export function isDocumentLinkSetMutationResponse(

@@ -1,3 +1,7 @@
+import { z } from "zod";
+import { registerJsonSchemaFragment } from "../jsonSchema";
+import { boundedStringSchema, loosePlainObject } from "../schema";
+
 /**
  * Shared wire arithmetic for sealed container KEK keyrings.
  *
@@ -31,6 +35,19 @@ export const MAX_SEALED_CONTAINER_KEK_KEYRING_BASE64_LENGTH = base64Length(
 );
 
 const AES_GCM_IV_BASE64_LENGTH = base64Length(12);
+const ContainerKekKeyringVersionSchema = registerJsonSchemaFragment(
+  z.custom<number>((value) => value === 1),
+  { const: 1, type: "number" },
+);
+
+export const ContainerKekKeyringWireRecordSchema = loosePlainObject({
+  containerId: z.string(),
+  containerKeyEpochId: z.string(),
+  iv: boundedStringSchema(AES_GCM_IV_BASE64_LENGTH),
+  sealed: boundedStringSchema(MAX_SEALED_CONTAINER_KEK_KEYRING_BASE64_LENGTH),
+  sealingSuite: z.string(),
+  version: ContainerKekKeyringVersionSchema,
+});
 
 /**
  * Structural bound applied before any allocation-heavy or cryptographic work.
@@ -41,21 +58,7 @@ const AES_GCM_IV_BASE64_LENGTH = base64Length(12);
 export function isContainerKekKeyringWireRecord(
   value: unknown,
 ): value is Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-  const iv = Reflect.get(value, "iv");
-  const sealed = Reflect.get(value, "sealed");
-  return (
-    typeof iv === "string" &&
-    iv.length <= AES_GCM_IV_BASE64_LENGTH &&
-    typeof sealed === "string" &&
-    sealed.length <= MAX_SEALED_CONTAINER_KEK_KEYRING_BASE64_LENGTH &&
-    typeof Reflect.get(value, "containerId") === "string" &&
-    typeof Reflect.get(value, "containerKeyEpochId") === "string" &&
-    typeof Reflect.get(value, "sealingSuite") === "string" &&
-    Reflect.get(value, "version") === 1
-  );
+  return ContainerKekKeyringWireRecordSchema.safeParse(value).success;
 }
 
 /**

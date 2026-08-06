@@ -1,20 +1,31 @@
+import { z } from "zod";
 import { isPlainObject } from "../isPlainObject";
 import {
-  hasNullableStringProperty,
-  hasObjectProperty,
-  hasStringProperty,
-  isUuidV4String,
-} from "../util";
-import {
-  isPutPrincipalPolicyRequest,
-  type PutPrincipalPolicyRequest,
-} from "./principal";
+  registerJsonSchemaRuntimeRefinements,
+  registerJsonSchemaView,
+} from "../jsonSchema";
+import { organizationProvisioningGroupNameRefinement } from "../organizationProvisioningRefinements";
+import { loosePlainObject, uuidV4StringSchema } from "../schema";
+import { hasNullableStringProperty, isUuidV4String } from "../util";
+import { PutPrincipalPolicyRequestSchema } from "./principal";
 
-export interface CreateOrganizationGroupRequest {
-  groupId: string;
-  name: string;
-  initialGroupPolicy: PutPrincipalPolicyRequest;
-}
+const NonBlankGroupNameSchema = registerJsonSchemaRuntimeRefinements(
+  registerJsonSchemaView(
+    z.string().refine((value) => value.trim().length > 0),
+    z.string().min(1),
+  ),
+  [organizationProvisioningGroupNameRefinement],
+);
+
+export const CreateOrganizationGroupRequestSchema = loosePlainObject({
+  groupId: uuidV4StringSchema,
+  initialGroupPolicy: PutPrincipalPolicyRequestSchema,
+  name: NonBlankGroupNameSchema,
+});
+
+export type CreateOrganizationGroupRequest = z.infer<
+  typeof CreateOrganizationGroupRequestSchema
+>;
 
 export interface UpdateOrganizationRosterEntryRequest {
   profileDocumentId: string | null;
@@ -27,15 +38,7 @@ export interface UpdateOrganizationProfileRequest {
 export function isCreateOrganizationGroupRequest(
   value: unknown,
 ): value is CreateOrganizationGroupRequest {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "groupId") &&
-    isUuidV4String(value.groupId) &&
-    hasStringProperty(value, "name") &&
-    value.name.trim().length > 0 &&
-    hasObjectProperty(value, "initialGroupPolicy") &&
-    isPutPrincipalPolicyRequest(value.initialGroupPolicy)
-  );
+  return CreateOrganizationGroupRequestSchema.safeParse(value).success;
 }
 
 export function isUpdateOrganizationRosterEntryRequest(

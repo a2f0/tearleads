@@ -23,10 +23,12 @@ export {
 } from "./blob";
 export {
   type ContainerMutationRequest,
+  ContainerMutationRequestSchema,
   isContainerMutationRequest,
 } from "./container";
 export {
   type ContainerCreateWithMetadataDocumentRequest,
+  ContainerCreateWithMetadataDocumentRequestSchema,
   isContainerCreateWithMetadataDocumentRequest,
 } from "./containerMetadata";
 export {
@@ -43,6 +45,7 @@ export {
   type DocumentContentKeyTargetEnvelope,
   DocumentContentKeyTargetEnvelopeSchema,
   type DocumentCreateRequest,
+  DocumentCreateRequestSchema,
   type DocumentLinkSetMutationRequest,
   type DocumentOutgoingUpdate,
   DocumentOutgoingUpdateSchema,
@@ -56,6 +59,7 @@ export {
 } from "./document";
 export {
   type CreateOrganizationGroupRequest,
+  CreateOrganizationGroupRequestSchema,
   isCreateOrganizationGroupRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
@@ -69,8 +73,11 @@ export {
   isProvisionedDocumentRequest,
   isProvisionedSystemContainerRequest,
   type OrganizationProvisioningRequest,
+  OrganizationProvisioningRequestSchema,
   type ProvisionedDocumentRequest,
+  ProvisionedDocumentRequestSchema,
   type ProvisionedSystemContainerRequest,
+  ProvisionedSystemContainerRequestSchema,
 } from "./organizationProvisioning";
 export {
   isPutPrincipalPolicyRequest,
@@ -79,10 +86,12 @@ export {
   type PrincipalStateEncryptedPayloadRequest,
   type PrincipalStateRequest,
   type PutPrincipalPolicyRequest,
+  PutPrincipalPolicyRequestSchema,
 } from "./principal";
 export {
   isRegistrationRequest,
   type RegistrationRequest,
+  RegistrationRequestSchema,
 } from "./registration";
 export {
   isRevenueCatTransferWebhookEvent,
