@@ -177,6 +177,86 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{organizationId}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["organizations.groups.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/groups/{groupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["organizations.groups.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/groups/{groupId}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["organizations.groups.members.list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["organizations.profile.update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/roster/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["organizations.roster.update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 };
 export type webhooks = Record<string, never>;
 export type components = {
@@ -8467,6 +8547,806 @@ export interface operations {
                 content: {
                     "application/json": {
                         error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "organizations.groups.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    groupId: string;
+                    initialGroupPolicy: {
+                        containerMutations?: ({
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        encryptedPayload: {
+                            /** @constant */
+                            cipherSuite: "aes-256-gcm";
+                            ciphertext: string;
+                            ciphertextHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        memberEnvelopes: ({
+                            kemCipherText: string;
+                            memberKeyFingerprint: string;
+                            userId: string;
+                            wrappedKey: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        projection: ({
+                            /** @enum {string} */
+                            role: "member" | "admin";
+                            userId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        state: {
+                            encapsulationPublicKey: string;
+                            externalAuthority: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @constant */
+                                principalType: "group";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            memberCount: number;
+                            memberEnvelopesRoot: string;
+                            /** @constant */
+                            membershipMode: "projection";
+                            membershipRoot: string;
+                            payloadCiphertextHash: string;
+                            prevStateHash: string | null;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            projectionRoot: string;
+                            signature: string;
+                            signedAt: string;
+                            signerUserId: string;
+                            signerUserKeyFingerprint: string;
+                            version: number;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    name: string;
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        createdAt: string;
+                        currentState: ({
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            memberCount: number;
+                            stateHash: string;
+                            version: number;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        groupId: string;
+                        isBuiltin: boolean;
+                        name: string;
+                        organizationId: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                        organizationId: string;
+                        /** @enum {string} */
+                        reason: "billing_inactive" | "sync_seat_unassigned";
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "organizations.groups.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        deleted: true;
+                        groupId: string;
+                        organizationId: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                        organizationId: string;
+                        /** @enum {string} */
+                        reason: "billing_inactive" | "sync_seat_unassigned";
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "organizations.groups.members.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groupId: string;
+                        members: ({
+                            encapsulationKeyFingerprint: string | null;
+                            encapsulationPublicKey: string | null;
+                            /** @enum {string} */
+                            role: "member" | "admin";
+                            signingKeyFingerprint: string | null;
+                            signingPublicKey: string | null;
+                            userId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        organizationId: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "organizations.profile.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    profileDocumentId: string | null;
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        organizationId: string;
+                        profileDocumentId: string | null;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                        organizationId: string;
+                        /** @enum {string} */
+                        reason: "billing_inactive" | "sync_seat_unassigned";
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "organizations.roster.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    profileDocumentId: string | null;
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        createdAt: string;
+                        disabledAt: string | null;
+                        disabledByUserId: string | null;
+                        encapsulationKeyFingerprint: string;
+                        encapsulationPublicKey: string;
+                        isSelf: boolean;
+                        joinedAt: string;
+                        profileDocumentId: string | null;
+                        signingKeyFingerprint: string;
+                        signingPublicKey: string;
+                        /** @enum {string} */
+                        status: "active" | "disabled";
+                        updatedAt: string;
+                        userId: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                        organizationId: string;
+                        /** @enum {string} */
+                        reason: "billing_inactive" | "sync_seat_unassigned";
                     } & {
                         [key: string]: unknown;
                     };

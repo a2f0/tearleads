@@ -1,12 +1,10 @@
 import { z } from "zod";
-import { isPlainObject } from "../isPlainObject";
 import {
   registerJsonSchemaRuntimeRefinements,
   registerJsonSchemaView,
 } from "../jsonSchema";
 import { organizationProvisioningGroupNameRefinement } from "../organizationProvisioningRefinements";
 import { loosePlainObject, uuidV4StringSchema } from "../schema";
-import { hasNullableStringProperty, isUuidV4String } from "../util";
 import { PutPrincipalPolicyRequestSchema } from "./principal";
 
 const NonBlankGroupNameSchema = registerJsonSchemaRuntimeRefinements(
@@ -27,13 +25,21 @@ export type CreateOrganizationGroupRequest = z.infer<
   typeof CreateOrganizationGroupRequestSchema
 >;
 
-export interface UpdateOrganizationRosterEntryRequest {
-  profileDocumentId: string | null;
-}
+export const UpdateOrganizationRosterEntryRequestSchema = loosePlainObject({
+  profileDocumentId: uuidV4StringSchema.nullable(),
+});
 
-export interface UpdateOrganizationProfileRequest {
-  profileDocumentId: string | null;
-}
+export type UpdateOrganizationRosterEntryRequest = z.infer<
+  typeof UpdateOrganizationRosterEntryRequestSchema
+>;
+
+export const UpdateOrganizationProfileRequestSchema = loosePlainObject({
+  profileDocumentId: uuidV4StringSchema.nullable(),
+});
+
+export type UpdateOrganizationProfileRequest = z.infer<
+  typeof UpdateOrganizationProfileRequestSchema
+>;
 
 export function isCreateOrganizationGroupRequest(
   value: unknown,
@@ -44,21 +50,11 @@ export function isCreateOrganizationGroupRequest(
 export function isUpdateOrganizationRosterEntryRequest(
   value: unknown,
 ): value is UpdateOrganizationRosterEntryRequest {
-  return (
-    isPlainObject(value) &&
-    hasNullableStringProperty(value, "profileDocumentId") &&
-    (value.profileDocumentId === null ||
-      isUuidV4String(value.profileDocumentId))
-  );
+  return UpdateOrganizationRosterEntryRequestSchema.safeParse(value).success;
 }
 
 export function isUpdateOrganizationProfileRequest(
   value: unknown,
 ): value is UpdateOrganizationProfileRequest {
-  return (
-    isPlainObject(value) &&
-    hasNullableStringProperty(value, "profileDocumentId") &&
-    (value.profileDocumentId === null ||
-      isUuidV4String(value.profileDocumentId))
-  );
+  return UpdateOrganizationProfileRequestSchema.safeParse(value).success;
 }

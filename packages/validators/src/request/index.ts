@@ -64,7 +64,9 @@ export {
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
   type UpdateOrganizationProfileRequest,
+  UpdateOrganizationProfileRequestSchema,
   type UpdateOrganizationRosterEntryRequest,
+  UpdateOrganizationRosterEntryRequestSchema,
 } from "./organization";
 export {
   type CreateOrganizationRequest,

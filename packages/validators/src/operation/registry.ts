@@ -10,8 +10,13 @@ import {
 } from "./auth";
 import { documentSyncOperation } from "./documentSync";
 import {
+  createOrganizationGroupOperation,
   createOrganizationOperation,
+  deleteOrganizationGroupOperation,
   getOrganizationDataUsageOperation,
+  listOrganizationGroupMembersOperation,
+  updateOrganizationProfileOperation,
+  updateOrganizationRosterEntryOperation,
 } from "./organizations";
 
 export const protocolOperations = [
@@ -25,5 +30,10 @@ export const protocolOperations = [
   webSocketTicketOperation,
   createOrganizationOperation,
   getOrganizationDataUsageOperation,
+  createOrganizationGroupOperation,
+  deleteOrganizationGroupOperation,
+  listOrganizationGroupMembersOperation,
+  updateOrganizationProfileOperation,
+  updateOrganizationRosterEntryOperation,
   documentSyncOperation,
 ] as const;

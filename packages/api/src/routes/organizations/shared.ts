@@ -36,11 +36,3 @@ export function toOrganizationManagerErrorResponse(
 export function parseOrganizationId(value: string): string | null {
   return isUuidV4String(value) ? value : null;
 }
-
-export function parseGroupId(value: string): string | null {
-  return isUuidV4String(value) ? value : null;
-}
-
-export function parseUserId(value: string): string | null {
-  return isUuidV4String(value) ? value : null;
-}

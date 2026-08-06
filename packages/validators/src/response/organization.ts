@@ -1,411 +1,328 @@
-import { isPlainObject } from "../isPlainObject";
+import { z } from "zod";
 import {
-  hasArrayProperty,
-  hasBooleanProperty,
-  hasNullableStringProperty,
-  hasNumberProperty,
-  hasObjectProperty,
-  hasStringProperty,
-} from "../util";
+  arraySchema,
+  loosePlainObject,
+  nonEmptyStringSchema,
+  nonNegativeIntegerSchema,
+  positiveIntegerSchema,
+} from "../schema";
 
-export type OrganizationRole = "member" | "admin";
-export type OrganizationRosterStatus = "active" | "disabled";
+const OrganizationRoleSchema = z.literal(["member", "admin"]);
+const OrganizationRosterStatusSchema = z.literal(["active", "disabled"]);
+const OrganizationGroupContainerAccessLevelSchema = z.literal([
+  "admin",
+  "read",
+  "write",
+]);
+const OrganizationContainerGrantSubjectTypeSchema = z.literal([
+  "group",
+  "organization",
+  "user",
+]);
 
-export interface OrganizationDirectoryUserResponse {
-  userId: string;
-  signingKeyFingerprint: string;
-  signingPublicKey: string;
-  encapsulationPublicKey: string;
-  encapsulationKeyFingerprint: string;
-  createdAt: string;
-  isSelf: boolean;
-  status: OrganizationRosterStatus;
-  profileDocumentId: string | null;
-  joinedAt: string;
-  updatedAt: string;
-  disabledAt: string | null;
-  disabledByUserId: string | null;
-}
+export type OrganizationRole = z.infer<typeof OrganizationRoleSchema>;
+export type OrganizationRosterStatus = z.infer<
+  typeof OrganizationRosterStatusSchema
+>;
+export type OrganizationGroupContainerAccessLevel = z.infer<
+  typeof OrganizationGroupContainerAccessLevelSchema
+>;
+export type OrganizationContainerGrantSubjectType = z.infer<
+  typeof OrganizationContainerGrantSubjectTypeSchema
+>;
 
-export interface OrganizationDirectoryResponse {
-  organizationId: string;
-  profileDocumentId: string | null;
-  currentUser: {
-    isOrgAdmin: boolean;
-  };
-  users: OrganizationDirectoryUserResponse[];
-}
+export const OrganizationDirectoryUserResponseSchema = loosePlainObject({
+  createdAt: z.string(),
+  disabledAt: z.string().nullable(),
+  disabledByUserId: z.string().nullable(),
+  encapsulationKeyFingerprint: z.string(),
+  encapsulationPublicKey: z.string(),
+  isSelf: z.boolean(),
+  joinedAt: z.string(),
+  profileDocumentId: z.string().nullable(),
+  signingKeyFingerprint: z.string(),
+  signingPublicKey: z.string(),
+  status: OrganizationRosterStatusSchema,
+  updatedAt: z.string(),
+  userId: z.string(),
+});
 
-export interface OrganizationProfileResponse {
-  organizationId: string;
-  profileDocumentId: string | null;
-}
+export type OrganizationDirectoryUserResponse = z.infer<
+  typeof OrganizationDirectoryUserResponseSchema
+>;
 
-export interface OrganizationGroupCurrentStateResponse {
-  stateHash: string;
-  version: number;
-  keyEpoch: number;
-  keyFingerprint: string;
-  memberCount: number;
-}
+const OrganizationDirectoryCurrentUserResponseSchema = loosePlainObject({
+  isOrgAdmin: z.boolean(),
+});
 
-export interface OrganizationGroupSummaryResponse {
-  groupId: string;
-  organizationId: string;
-  name: string;
-  createdAt: string;
-  isBuiltin: boolean;
-  currentState: OrganizationGroupCurrentStateResponse | null;
-}
+export const OrganizationDirectoryResponseSchema = loosePlainObject({
+  currentUser: OrganizationDirectoryCurrentUserResponseSchema,
+  organizationId: z.string(),
+  profileDocumentId: z.string().nullable(),
+  users: arraySchema(OrganizationDirectoryUserResponseSchema),
+});
 
-export interface DeleteOrganizationGroupResponse {
-  deleted: true;
-  groupId: string;
-  organizationId: string;
-}
+export type OrganizationDirectoryResponse = z.infer<
+  typeof OrganizationDirectoryResponseSchema
+>;
 
-export interface ListOrganizationGroupsResponse {
-  organizationId: string;
-  memberGroupId: string;
-  groups: OrganizationGroupSummaryResponse[];
-}
+export const OrganizationProfileResponseSchema = loosePlainObject({
+  organizationId: z.string(),
+  profileDocumentId: z.string().nullable(),
+});
 
-export interface OrganizationGroupMemberResponse {
-  userId: string;
-  role: OrganizationRole;
-  signingKeyFingerprint: string | null;
-  signingPublicKey: string | null;
-  encapsulationPublicKey: string | null;
-  encapsulationKeyFingerprint: string | null;
-}
+export type OrganizationProfileResponse = z.infer<
+  typeof OrganizationProfileResponseSchema
+>;
 
-export interface OrganizationGroupMembersResponse {
-  organizationId: string;
-  groupId: string;
-  members: OrganizationGroupMemberResponse[];
-}
+export const OrganizationGroupCurrentStateResponseSchema = loosePlainObject({
+  keyEpoch: positiveIntegerSchema,
+  keyFingerprint: nonEmptyStringSchema,
+  memberCount: nonNegativeIntegerSchema,
+  stateHash: z.string(),
+  version: positiveIntegerSchema,
+});
 
-export type OrganizationGroupContainerAccessLevel = "admin" | "read" | "write";
-export type OrganizationContainerGrantSubjectType =
-  | "group"
-  | "organization"
-  | "user";
+export type OrganizationGroupCurrentStateResponse = z.infer<
+  typeof OrganizationGroupCurrentStateResponseSchema
+>;
 
-export interface OrganizationGroupContainerResponse {
-  accessLevel: OrganizationGroupContainerAccessLevel;
-  containerId: string;
-  createdAt: string;
-  depth: number;
-  isBuiltin: boolean;
-  metadataAccessEpoch: number;
-  metadataAccessStateHash: string;
-  metadataDocumentId: string | null;
-  parentId: string | null;
-  updatedAt: string;
-}
+export const OrganizationGroupSummaryResponseSchema = loosePlainObject({
+  createdAt: z.string(),
+  currentState: OrganizationGroupCurrentStateResponseSchema.nullable(),
+  groupId: z.string(),
+  isBuiltin: z.boolean(),
+  name: z.string(),
+  organizationId: z.string(),
+});
 
-export interface OrganizationGroupContainersResponse {
-  organizationId: string;
-  groupId: string;
-  containers: OrganizationGroupContainerResponse[];
-}
+export type OrganizationGroupSummaryResponse = z.infer<
+  typeof OrganizationGroupSummaryResponseSchema
+>;
 
-export interface OrganizationContainerGrantResponse
-  extends OrganizationGroupContainerResponse {
-  subjectType: OrganizationContainerGrantSubjectType;
-  subjectId: string;
-  userId: string | null;
-  signingKeyFingerprint: string | null;
-  groupId: string | null;
-  groupName: string | null;
-  organizationName: string | null;
-}
+export const DeleteOrganizationGroupResponseSchema = loosePlainObject({
+  deleted: z.literal(true),
+  groupId: z.string(),
+  organizationId: z.string(),
+});
 
-export interface OrganizationContainerGrantsResponse {
-  organizationId: string;
-  grants: OrganizationContainerGrantResponse[];
-}
+export type DeleteOrganizationGroupResponse = z.infer<
+  typeof DeleteOrganizationGroupResponseSchema
+>;
 
-export interface OrganizationUserDetailGrantsResponse {
-  directGrants: OrganizationContainerGrantResponse[];
-  groupGrants: OrganizationContainerGrantResponse[];
-  organizationGrants: OrganizationContainerGrantResponse[];
-}
+export const ListOrganizationGroupsResponseSchema = loosePlainObject({
+  groups: arraySchema(OrganizationGroupSummaryResponseSchema),
+  memberGroupId: z.string(),
+  organizationId: z.string(),
+});
 
-export interface OrganizationUserDetailResponse {
-  organizationId: string;
-  user: OrganizationDirectoryUserResponse;
-  groups: OrganizationGroupSummaryResponse[];
-  grants: OrganizationUserDetailGrantsResponse;
-}
+export type ListOrganizationGroupsResponse = z.infer<
+  typeof ListOrganizationGroupsResponseSchema
+>;
 
-function isOrganizationRole(value: string): value is OrganizationRole {
-  return value === "member" || value === "admin";
-}
+export const OrganizationGroupMemberResponseSchema = loosePlainObject({
+  encapsulationKeyFingerprint: z.string().nullable(),
+  encapsulationPublicKey: z.string().nullable(),
+  role: OrganizationRoleSchema,
+  signingKeyFingerprint: z.string().nullable(),
+  signingPublicKey: z.string().nullable(),
+  userId: z.string(),
+});
 
-function isOrganizationRosterStatus(
-  value: string,
-): value is OrganizationRosterStatus {
-  return value === "active" || value === "disabled";
-}
+export type OrganizationGroupMemberResponse = z.infer<
+  typeof OrganizationGroupMemberResponseSchema
+>;
+
+export const OrganizationGroupMembersResponseSchema = loosePlainObject({
+  groupId: z.string(),
+  members: arraySchema(OrganizationGroupMemberResponseSchema),
+  organizationId: z.string(),
+});
+
+export type OrganizationGroupMembersResponse = z.infer<
+  typeof OrganizationGroupMembersResponseSchema
+>;
+
+const OrganizationGroupContainerResponseShape = {
+  accessLevel: OrganizationGroupContainerAccessLevelSchema,
+  containerId: z.string(),
+  createdAt: z.string(),
+  depth: nonNegativeIntegerSchema,
+  isBuiltin: z.boolean(),
+  metadataAccessEpoch: positiveIntegerSchema,
+  metadataAccessStateHash: nonEmptyStringSchema,
+  metadataDocumentId: z.string().nullable(),
+  parentId: z.string().nullable(),
+  updatedAt: z.string(),
+};
+
+export const OrganizationGroupContainerResponseSchema = loosePlainObject(
+  OrganizationGroupContainerResponseShape,
+);
+
+export type OrganizationGroupContainerResponse = z.infer<
+  typeof OrganizationGroupContainerResponseSchema
+>;
+
+export const OrganizationGroupContainersResponseSchema = loosePlainObject({
+  containers: arraySchema(OrganizationGroupContainerResponseSchema),
+  groupId: z.string(),
+  organizationId: z.string(),
+});
+
+export type OrganizationGroupContainersResponse = z.infer<
+  typeof OrganizationGroupContainersResponseSchema
+>;
+
+export const OrganizationContainerGrantResponseSchema = loosePlainObject({
+  ...OrganizationGroupContainerResponseShape,
+  groupId: z.string().nullable(),
+  groupName: z.string().nullable(),
+  organizationName: z.string().nullable(),
+  signingKeyFingerprint: z.string().nullable(),
+  subjectId: z.string(),
+  subjectType: OrganizationContainerGrantSubjectTypeSchema,
+  userId: z.string().nullable(),
+});
+
+export type OrganizationContainerGrantResponse = z.infer<
+  typeof OrganizationContainerGrantResponseSchema
+>;
+
+export const OrganizationContainerGrantsResponseSchema = loosePlainObject({
+  grants: arraySchema(OrganizationContainerGrantResponseSchema),
+  organizationId: z.string(),
+});
+
+export type OrganizationContainerGrantsResponse = z.infer<
+  typeof OrganizationContainerGrantsResponseSchema
+>;
+
+export const OrganizationUserDetailGrantsResponseSchema = loosePlainObject({
+  directGrants: arraySchema(OrganizationContainerGrantResponseSchema),
+  groupGrants: arraySchema(OrganizationContainerGrantResponseSchema),
+  organizationGrants: arraySchema(OrganizationContainerGrantResponseSchema),
+});
+
+export type OrganizationUserDetailGrantsResponse = z.infer<
+  typeof OrganizationUserDetailGrantsResponseSchema
+>;
+
+export const OrganizationUserDetailResponseSchema = loosePlainObject({
+  grants: OrganizationUserDetailGrantsResponseSchema,
+  groups: arraySchema(OrganizationGroupSummaryResponseSchema),
+  organizationId: z.string(),
+  user: OrganizationDirectoryUserResponseSchema,
+});
+
+export type OrganizationUserDetailResponse = z.infer<
+  typeof OrganizationUserDetailResponseSchema
+>;
 
 export function isOrganizationGroupContainerAccessLevel(
   value: string,
 ): value is OrganizationGroupContainerAccessLevel {
-  return value === "admin" || value === "read" || value === "write";
+  return OrganizationGroupContainerAccessLevelSchema.safeParse(value).success;
 }
 
 export function isOrganizationContainerGrantSubjectType(
   value: string,
 ): value is OrganizationContainerGrantSubjectType {
-  return value === "group" || value === "organization" || value === "user";
+  return OrganizationContainerGrantSubjectTypeSchema.safeParse(value).success;
 }
 
 export function isOrganizationDirectoryUserResponse(
   value: unknown,
 ): value is OrganizationDirectoryUserResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "userId") &&
-    hasStringProperty(value, "signingKeyFingerprint") &&
-    hasStringProperty(value, "signingPublicKey") &&
-    hasStringProperty(value, "encapsulationPublicKey") &&
-    hasStringProperty(value, "encapsulationKeyFingerprint") &&
-    hasStringProperty(value, "createdAt") &&
-    hasBooleanProperty(value, "isSelf") &&
-    hasStringProperty(value, "status") &&
-    isOrganizationRosterStatus(value.status) &&
-    hasNullableStringProperty(value, "profileDocumentId") &&
-    hasStringProperty(value, "joinedAt") &&
-    hasStringProperty(value, "updatedAt") &&
-    hasNullableStringProperty(value, "disabledAt") &&
-    hasNullableStringProperty(value, "disabledByUserId")
-  );
-}
-
-function isOrganizationDirectoryCurrentUserResponse(
-  value: unknown,
-): value is OrganizationDirectoryResponse["currentUser"] {
-  return isPlainObject(value) && hasBooleanProperty(value, "isOrgAdmin");
+  return OrganizationDirectoryUserResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationDirectoryResponse(
   value: unknown,
 ): value is OrganizationDirectoryResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "organizationId") &&
-    hasNullableStringProperty(value, "profileDocumentId") &&
-    hasObjectProperty(value, "currentUser") &&
-    isOrganizationDirectoryCurrentUserResponse(value.currentUser) &&
-    hasArrayProperty(value, "users") &&
-    value.users.every(isOrganizationDirectoryUserResponse)
-  );
+  return OrganizationDirectoryResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationProfileResponse(
   value: unknown,
 ): value is OrganizationProfileResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "organizationId") &&
-    hasNullableStringProperty(value, "profileDocumentId")
-  );
+  return OrganizationProfileResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationGroupCurrentStateResponse(
   value: unknown,
 ): value is OrganizationGroupCurrentStateResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "stateHash") &&
-    hasNumberProperty(value, "version") &&
-    Number.isInteger(value.version) &&
-    value.version > 0 &&
-    hasNumberProperty(value, "keyEpoch") &&
-    Number.isInteger(value.keyEpoch) &&
-    value.keyEpoch > 0 &&
-    hasStringProperty(value, "keyFingerprint") &&
-    value.keyFingerprint.length > 0 &&
-    isNonNegativeIntegerProperty(value, "memberCount")
-  );
+  return OrganizationGroupCurrentStateResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationGroupSummaryResponse(
   value: unknown,
 ): value is OrganizationGroupSummaryResponse {
-  const currentState = isPlainObject(value)
-    ? Reflect.get(value, "currentState")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "groupId") &&
-    hasStringProperty(value, "organizationId") &&
-    hasStringProperty(value, "name") &&
-    hasStringProperty(value, "createdAt") &&
-    hasBooleanProperty(value, "isBuiltin") &&
-    (currentState === null ||
-      isOrganizationGroupCurrentStateResponse(currentState))
-  );
+  return OrganizationGroupSummaryResponseSchema.safeParse(value).success;
 }
 
 export function isListOrganizationGroupsResponse(
   value: unknown,
 ): value is ListOrganizationGroupsResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "organizationId") &&
-    hasStringProperty(value, "memberGroupId") &&
-    hasArrayProperty(value, "groups") &&
-    value.groups.every(isOrganizationGroupSummaryResponse)
-  );
+  return ListOrganizationGroupsResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationGroupMemberResponse(
   value: unknown,
 ): value is OrganizationGroupMemberResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "userId") &&
-    hasStringProperty(value, "role") &&
-    isOrganizationRole(value.role) &&
-    hasNullableStringProperty(value, "signingKeyFingerprint") &&
-    hasNullableStringProperty(value, "signingPublicKey") &&
-    hasNullableStringProperty(value, "encapsulationPublicKey") &&
-    hasNullableStringProperty(value, "encapsulationKeyFingerprint")
-  );
+  return OrganizationGroupMemberResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationGroupMembersResponse(
   value: unknown,
 ): value is OrganizationGroupMembersResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "organizationId") &&
-    hasStringProperty(value, "groupId") &&
-    hasArrayProperty(value, "members") &&
-    value.members.every(isOrganizationGroupMemberResponse)
-  );
+  return OrganizationGroupMembersResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationGroupContainerResponse(
   value: unknown,
 ): value is OrganizationGroupContainerResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "accessLevel") &&
-    isOrganizationGroupContainerAccessLevel(value.accessLevel) &&
-    hasStringProperty(value, "containerId") &&
-    hasStringProperty(value, "createdAt") &&
-    hasNumberProperty(value, "depth") &&
-    Number.isInteger(value.depth) &&
-    value.depth >= 0 &&
-    hasBooleanProperty(value, "isBuiltin") &&
-    hasNumberProperty(value, "metadataAccessEpoch") &&
-    Number.isInteger(value.metadataAccessEpoch) &&
-    value.metadataAccessEpoch > 0 &&
-    hasStringProperty(value, "metadataAccessStateHash") &&
-    value.metadataAccessStateHash.length > 0 &&
-    hasNullableStringProperty(value, "metadataDocumentId") &&
-    hasNullableStringProperty(value, "parentId") &&
-    hasStringProperty(value, "updatedAt")
-  );
+  return OrganizationGroupContainerResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationGroupContainersResponse(
   value: unknown,
 ): value is OrganizationGroupContainersResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "organizationId") &&
-    hasStringProperty(value, "groupId") &&
-    hasArrayProperty(value, "containers") &&
-    value.containers.every(isOrganizationGroupContainerResponse)
-  );
+  return OrganizationGroupContainersResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationContainerGrantResponse(
   value: unknown,
 ): value is OrganizationContainerGrantResponse {
-  return (
-    isPlainObject(value) &&
-    isOrganizationGroupContainerResponse(value) &&
-    hasStringProperty(value, "subjectType") &&
-    isOrganizationContainerGrantSubjectType(value.subjectType) &&
-    hasStringProperty(value, "subjectId") &&
-    hasNullableStringProperty(value, "userId") &&
-    hasNullableStringProperty(value, "signingKeyFingerprint") &&
-    hasNullableStringProperty(value, "groupId") &&
-    hasNullableStringProperty(value, "groupName") &&
-    hasNullableStringProperty(value, "organizationName")
-  );
+  return OrganizationContainerGrantResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationContainerGrantsResponse(
   value: unknown,
 ): value is OrganizationContainerGrantsResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "organizationId") &&
-    hasArrayProperty(value, "grants") &&
-    value.grants.every(isOrganizationContainerGrantResponse)
-  );
-}
-
-function isNonNegativeIntegerProperty(
-  value: Record<string, unknown>,
-  key: string,
-): boolean {
-  const property = Reflect.get(value, key);
-
-  return (
-    typeof property === "number" && Number.isInteger(property) && property >= 0
-  );
+  return OrganizationContainerGrantsResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationUserDetailGrantsResponse(
   value: unknown,
 ): value is OrganizationUserDetailGrantsResponse {
-  return (
-    isPlainObject(value) &&
-    hasArrayProperty(value, "directGrants") &&
-    value.directGrants.every(isOrganizationContainerGrantResponse) &&
-    hasArrayProperty(value, "groupGrants") &&
-    value.groupGrants.every(isOrganizationContainerGrantResponse) &&
-    hasArrayProperty(value, "organizationGrants") &&
-    value.organizationGrants.every(isOrganizationContainerGrantResponse)
-  );
+  return OrganizationUserDetailGrantsResponseSchema.safeParse(value).success;
 }
 
 export function isOrganizationUserDetailResponse(
   value: unknown,
 ): value is OrganizationUserDetailResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "organizationId") &&
-    hasObjectProperty(value, "user") &&
-    isOrganizationDirectoryUserResponse(value.user) &&
-    hasArrayProperty(value, "groups") &&
-    value.groups.every(isOrganizationGroupSummaryResponse) &&
-    hasObjectProperty(value, "grants") &&
-    isOrganizationUserDetailGrantsResponse(value.grants)
-  );
+  return OrganizationUserDetailResponseSchema.safeParse(value).success;
 }
 
 export function isCreateOrganizationGroupResponse(
   value: unknown,
 ): value is OrganizationGroupSummaryResponse {
-  return isOrganizationGroupSummaryResponse(value);
+  return OrganizationGroupSummaryResponseSchema.safeParse(value).success;
 }
 
 export function isDeleteOrganizationGroupResponse(
   value: unknown,
 ): value is DeleteOrganizationGroupResponse {
-  return (
-    isPlainObject(value) &&
-    Reflect.get(value, "deleted") === true &&
-    hasStringProperty(value, "groupId") &&
-    hasStringProperty(value, "organizationId")
-  );
+  return DeleteOrganizationGroupResponseSchema.safeParse(value).success;
 }
