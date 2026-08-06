@@ -39,6 +39,35 @@ import {
 import { enqueueInitialContainerMetadataUpdate } from "./registrationBootstrapPendingUpdates";
 import { persistRegistrationPrincipalPolicies } from "./registrationPrincipalPolicyPersistence";
 
+interface ProvisionedContainerBootstrapInput {
+  accessEpoch: number;
+  accessStateHash: string;
+  containerId: string;
+  createdAt: string;
+  metadataDocumentId: string;
+  metadataSnapshot: string;
+  metadataState: Pick<
+    DocumentRecord,
+    | "documentId"
+    | "contentKeyBundle"
+    | "documentKekTargets"
+    | "documentManifestBundle"
+  >;
+  systemSlot: ContainerSystemSlot;
+  updatedAt: string;
+}
+
+interface ProvisionedProfileDocumentBootstrapInput {
+  accessEpoch: number;
+  accessStateHash: string;
+  containerId: string;
+  documentId: string;
+  documentState: ProvisionedContainerBootstrapInput["metadataState"];
+  initialUpdate: Uint8Array;
+  initialUpdateCommitted: boolean;
+  localId: string;
+}
+
 export interface RegistrationBootstrapInput {
   acknowledgedAccessHeads: readonly LocallyAcknowledgedAccessManifestHead[];
   /** Checked inside the mutation queue claim; false skips every write. */
@@ -61,103 +90,77 @@ export interface RegistrationBootstrapInput {
     | "documentKekTargets"
     | "documentManifestBundle"
   >;
-  rosterProfileContainer?: {
-    accessEpoch: number;
-    accessStateHash: string;
-    containerId: string;
-    createdAt: string;
-    metadataDocumentId: string;
+  rosterProfileContainer?: ProvisionedContainerBootstrapInput & {
     metadataInitialUpdate: Uint8Array;
     metadataInitialUpdateCommitted?: boolean | undefined;
-    metadataSnapshot: string;
-    metadataState: Pick<
-      DocumentRecord,
-      | "documentId"
-      | "contentKeyBundle"
-      | "documentKekTargets"
-      | "documentManifestBundle"
-    >;
-    systemSlot: ContainerSystemSlot;
-    updatedAt: string;
   };
-  organizationMetadataContainer?: {
-    accessEpoch: number;
-    accessStateHash: string;
-    containerId: string;
-    createdAt: string;
-    metadataDocumentId: string;
+  organizationMetadataContainer?: ProvisionedContainerBootstrapInput & {
     metadataInitialUpdate: Uint8Array;
     metadataInitialUpdateCommitted?: boolean | undefined;
-    metadataSnapshot: string;
-    metadataState: Pick<
-      DocumentRecord,
-      | "documentId"
-      | "contentKeyBundle"
-      | "documentKekTargets"
-      | "documentManifestBundle"
-    >;
-    systemSlot: ContainerSystemSlot;
-    updatedAt: string;
   };
-  organizationProfileDocument?: {
-    accessEpoch: number;
-    accessStateHash: string;
-    containerId: string;
-    documentId: string;
-    documentState: Pick<
-      DocumentRecord,
-      | "documentId"
-      | "contentKeyBundle"
-      | "documentKekTargets"
-      | "documentManifestBundle"
-    >;
-    initialUpdate: Uint8Array;
-    initialUpdateCommitted: boolean;
-    localId: string;
-  };
-  rosterProfileDocument?: {
-    accessEpoch: number;
-    accessStateHash: string;
-    containerId: string;
-    documentId: string;
-    documentState: Pick<
-      DocumentRecord,
-      | "documentId"
-      | "contentKeyBundle"
-      | "documentKekTargets"
-      | "documentManifestBundle"
-    >;
-    initialUpdate: Uint8Array;
-    initialUpdateCommitted: boolean;
-    localId: string;
-  };
+  organizationProfileDocument?: ProvisionedProfileDocumentBootstrapInput;
+  rosterProfileDocument?: ProvisionedProfileDocumentBootstrapInput;
   // Additional app-owned system containers provisioned with the organization
   // (e.g. a trash bin). Each carries its own display name and icon (unlike the
   // roster/organization-metadata containers, whose names are fixed), since the
   // caller declares them.
-  systemContainers?: Array<{
-    accessEpoch: number;
-    accessStateHash: string;
-    containerId: string;
-    createdAt: string;
-    icon: string | null;
-    metadataDocumentId: string;
-    metadataSnapshot: string;
-    metadataState: Pick<
-      DocumentRecord,
-      | "documentId"
-      | "contentKeyBundle"
-      | "documentKekTargets"
-      | "documentManifestBundle"
-    >;
-    name: string;
-    systemSlot: ContainerSystemSlot;
-    updatedAt: string;
-  }>;
+  systemContainers?: Array<
+    ProvisionedContainerBootstrapInput & {
+      icon: string | null;
+      name: string;
+    }
+  >;
   documentProjectors?: DocumentProjectorRegistryInput | undefined;
   organizationId: string;
   userId: string;
 }
+async function persistProvisionedContainerBootstrap(
+  execSql: ExecSql,
+  input: {
+    container: ProvisionedContainerBootstrapInput;
+    icon: string | null;
+    name: string;
+    organizationId: string;
+    parentId: string;
+  },
+): Promise<void> {
+  const { container } = input;
+  const metadataState = container.metadataState;
+  const record: ContainerMetadataRecord = {
+    accessEpoch: container.accessEpoch,
+    accessStateHash: container.accessStateHash,
+    documentId: container.metadataDocumentId,
+    id: container.containerId,
+    lastCommitLsn: null,
+    metadataUpdates: container.metadataSnapshot,
+    snapshotEndVersion: "",
+    contentKeyBundle: metadataState.contentKeyBundle ?? null,
+    documentKekTargets: metadataState.documentKekTargets ?? null,
+    documentManifestBundle: metadataState.documentManifestBundle ?? null,
+  };
+  await sqlContainerContentsPersistence.saveContainer(
+    execSql,
+    {
+      id: container.containerId,
+      effectiveAccessLevel: "admin",
+      organizationId: input.organizationId,
+      parentId: input.parentId,
+      metadataDocumentId: container.metadataDocumentId,
+      systemSlot: container.systemSlot,
+      name: input.name,
+      icon: input.icon,
+    },
+    record,
+    {
+      localUpdatedAt: container.updatedAt,
+      serverTimestamps: {
+        createdAt: container.createdAt,
+        updatedAt: container.updatedAt,
+      },
+    },
+  );
+}
+
 async function persistRootContainerBootstrap(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
@@ -212,40 +215,13 @@ async function persistRosterProfileContainerBootstrap(
     return;
   }
 
-  const metadataState = rosterProfileContainer.metadataState;
-  const rosterProfileRecord: ContainerMetadataRecord = {
-    accessEpoch: rosterProfileContainer.accessEpoch,
-    accessStateHash: rosterProfileContainer.accessStateHash,
-    documentId: rosterProfileContainer.metadataDocumentId,
-    id: rosterProfileContainer.containerId,
-    lastCommitLsn: null,
-    metadataUpdates: rosterProfileContainer.metadataSnapshot,
-    snapshotEndVersion: "",
-    contentKeyBundle: metadataState.contentKeyBundle ?? null,
-    documentKekTargets: metadataState.documentKekTargets ?? null,
-    documentManifestBundle: metadataState.documentManifestBundle ?? null,
-  };
-  await sqlContainerContentsPersistence.saveContainer(
-    execSql,
-    {
-      id: rosterProfileContainer.containerId,
-      effectiveAccessLevel: "admin",
-      organizationId: input.organizationId,
-      parentId: input.containerId,
-      metadataDocumentId: rosterProfileContainer.metadataDocumentId,
-      systemSlot: rosterProfileContainer.systemSlot,
-      name: ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
-      icon: null,
-    },
-    rosterProfileRecord,
-    {
-      localUpdatedAt: rosterProfileContainer.updatedAt,
-      serverTimestamps: {
-        createdAt: rosterProfileContainer.createdAt,
-        updatedAt: rosterProfileContainer.updatedAt,
-      },
-    },
-  );
+  await persistProvisionedContainerBootstrap(execSql, {
+    container: rosterProfileContainer,
+    icon: null,
+    name: ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+    organizationId: input.organizationId,
+    parentId: input.containerId,
+  });
   await enqueueInitialContainerMetadataUpdate(
     execSql,
     rosterProfileContainer.containerId,
@@ -263,43 +239,16 @@ async function persistOrganizationMetadataContainerBootstrap(
     return;
   }
 
-  const metadataState = organizationMetadataContainer.metadataState;
-  const metadataRecord: ContainerMetadataRecord = {
-    accessEpoch: organizationMetadataContainer.accessEpoch,
-    accessStateHash: organizationMetadataContainer.accessStateHash,
-    documentId: organizationMetadataContainer.metadataDocumentId,
-    id: organizationMetadataContainer.containerId,
-    lastCommitLsn: null,
-    metadataUpdates: organizationMetadataContainer.metadataSnapshot,
-    snapshotEndVersion: "",
-    contentKeyBundle: metadataState.contentKeyBundle ?? null,
-    documentKekTargets: metadataState.documentKekTargets ?? null,
-    documentManifestBundle: metadataState.documentManifestBundle ?? null,
-  };
-  await sqlContainerContentsPersistence.saveContainer(
-    execSql,
-    {
-      id: organizationMetadataContainer.containerId,
-      // The founder persisting at provisioning reaches this container as an
-      // admin via root inheritance; a Members-only member syncing it later
-      // derives their own read-level access from the group grant.
-      effectiveAccessLevel: "admin",
-      organizationId: input.organizationId,
-      parentId: input.containerId,
-      metadataDocumentId: organizationMetadataContainer.metadataDocumentId,
-      systemSlot: organizationMetadataContainer.systemSlot,
-      name: ORGANIZATION_METADATA_CONTAINER_NAME,
-      icon: null,
-    },
-    metadataRecord,
-    {
-      localUpdatedAt: organizationMetadataContainer.updatedAt,
-      serverTimestamps: {
-        createdAt: organizationMetadataContainer.createdAt,
-        updatedAt: organizationMetadataContainer.updatedAt,
-      },
-    },
-  );
+  // The founder persisting at provisioning reaches this container as an
+  // admin via root inheritance; a Members-only member syncing it later
+  // derives their own read-level access from the group grant.
+  await persistProvisionedContainerBootstrap(execSql, {
+    container: organizationMetadataContainer,
+    icon: null,
+    name: ORGANIZATION_METADATA_CONTAINER_NAME,
+    organizationId: input.organizationId,
+    parentId: input.containerId,
+  });
   await enqueueInitialContainerMetadataUpdate(
     execSql,
     organizationMetadataContainer.containerId,
@@ -318,40 +267,13 @@ async function persistSystemContainersBootstrap(
   }
 
   for (const systemContainer of systemContainers) {
-    const metadataState = systemContainer.metadataState;
-    const record: ContainerMetadataRecord = {
-      accessEpoch: systemContainer.accessEpoch,
-      accessStateHash: systemContainer.accessStateHash,
-      documentId: systemContainer.metadataDocumentId,
-      id: systemContainer.containerId,
-      lastCommitLsn: null,
-      metadataUpdates: systemContainer.metadataSnapshot,
-      snapshotEndVersion: "",
-      contentKeyBundle: metadataState.contentKeyBundle ?? null,
-      documentKekTargets: metadataState.documentKekTargets ?? null,
-      documentManifestBundle: metadataState.documentManifestBundle ?? null,
-    };
-    await sqlContainerContentsPersistence.saveContainer(
-      execSql,
-      {
-        id: systemContainer.containerId,
-        effectiveAccessLevel: "admin",
-        organizationId: input.organizationId,
-        parentId: input.containerId,
-        metadataDocumentId: systemContainer.metadataDocumentId,
-        systemSlot: systemContainer.systemSlot,
-        name: systemContainer.name,
-        icon: systemContainer.icon,
-      },
-      record,
-      {
-        localUpdatedAt: systemContainer.updatedAt,
-        serverTimestamps: {
-          createdAt: systemContainer.createdAt,
-          updatedAt: systemContainer.updatedAt,
-        },
-      },
-    );
+    await persistProvisionedContainerBootstrap(execSql, {
+      container: systemContainer,
+      icon: systemContainer.icon,
+      name: systemContainer.name,
+      organizationId: input.organizationId,
+      parentId: input.containerId,
+    });
     // Provisioned system-container metadata is already committed remotely in
     // the organization transaction. Persist the initialized snapshot locally,
     // but do not queue a duplicate write with a second update id.
