@@ -12,8 +12,7 @@ import type {
   RelinkPersistedDocumentInput,
 } from "../../workflows/documents";
 
-const DEFAULT_LOCAL_DOCUMENT_ID = "default";
-export const DEFAULT_DOCUMENT_ID = DEFAULT_LOCAL_DOCUMENT_ID;
+export const DEFAULT_DOCUMENT_ID = "default";
 
 export type DocumentsRuntime = DocumentsWorkflowRuntime;
 export type DocumentStructuredFieldPatch = Readonly<

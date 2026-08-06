@@ -535,10 +535,7 @@ async function runScheduledSyncLoop(state: DocumentStoreState) {
   setDocumentSyncing(state, true);
 
   try {
-    const shouldContinue = await runScheduledSyncIteration(state);
-    if (!shouldContinue) {
-      return;
-    }
+    await runScheduledSyncIteration(state);
   } finally {
     if (
       syncingGeneration &&
