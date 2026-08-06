@@ -239,21 +239,14 @@ export {
 export {
   isOrganizationReadModelResponse,
   type OrganizationReadModelDeltaResponse,
-  OrganizationReadModelDeltaResponseSchema,
   type OrganizationReadModelDirectoryResponse,
-  OrganizationReadModelDirectoryResponseSchema,
   type OrganizationReadModelGrantsResponse,
-  OrganizationReadModelGrantsResponseSchema,
   type OrganizationReadModelGroupMembershipResponse,
-  OrganizationReadModelGroupMembershipResponseSchema,
   type OrganizationReadModelGroupMembershipsResponse,
-  OrganizationReadModelGroupMembershipsResponseSchema,
   type OrganizationReadModelOrganizationPolicyResponse,
-  OrganizationReadModelOrganizationPolicyResponseSchema,
   type OrganizationReadModelResponse,
   OrganizationReadModelResponseSchema,
   type OrganizationReadModelSnapshotResponse,
-  OrganizationReadModelSnapshotResponseSchema,
 } from "./organizationReadModel";
 export {
   type CurrentPrincipalMemberEnvelopesResponse,
