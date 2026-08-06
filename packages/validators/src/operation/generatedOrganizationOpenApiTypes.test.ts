@@ -10,6 +10,7 @@ import type {
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
   OrganizationProfileResponse,
+  OrganizationReadModelResponse,
   PaymentRequiredErrorResponse,
 } from "../response";
 import type { operations, paths } from "./generatedOpenApi";
@@ -58,6 +59,10 @@ type DeleteGroupResponse =
 type GroupMembersOperation = operations["organizations.groups.members.list"];
 type GroupMembersResponse =
   GroupMembersOperation["responses"][200]["content"]["application/json"];
+type ReadModelOperation = operations["organizations.readModel.get"];
+type ReadModelQuery = NonNullable<ReadModelOperation["parameters"]["query"]>;
+type ReadModelResponse =
+  ReadModelOperation["responses"][200]["content"]["application/json"];
 type UpdateProfileOperation = operations["organizations.profile.update"];
 type UpdateProfileRequest =
   UpdateProfileOperation["requestBody"]["content"]["application/json"];
@@ -116,6 +121,19 @@ test("generated OpenAPI types match organization management contracts", () => {
     IsEqual<
       NormalizeWireType<GroupMembersResponse>,
       NormalizeWireType<OrganizationGroupMembersResponse>
+    >
+  >();
+  assertType<
+    IsEqual<
+      paths["/organizations/{organizationId}/read-model"]["get"],
+      ReadModelOperation
+    >
+  >();
+  assertType<IsAssignable<ReadModelQuery, { cursor?: string }>>();
+  assertType<
+    IsEqual<
+      NormalizeWireType<ReadModelResponse>,
+      NormalizeWireType<OrganizationReadModelResponse>
     >
   >();
   assertType<

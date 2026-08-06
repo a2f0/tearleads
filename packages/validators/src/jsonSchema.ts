@@ -39,6 +39,7 @@ const supportedJsonWireSchemaTypes = new Set([
   "optional",
   "string",
   "unknown",
+  "union",
 ]);
 const forbiddenJsonWireSchemaTypes = new Set([
   "catch",

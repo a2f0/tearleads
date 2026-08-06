@@ -241,6 +241,22 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{organizationId}/read-model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["organizations.readModel.get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{organizationId}/roster/{userId}": {
         parameters: {
             query?: never;
@@ -9218,6 +9234,300 @@ export interface operations {
                         organizationId: string;
                         /** @enum {string} */
                         reason: "billing_inactive" | "sync_seat_unassigned";
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "organizations.readModel.get": {
+        parameters: {
+            query?: {
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        currentUser: {
+                            isOrgAdmin: boolean;
+                        };
+                        hasMore: boolean;
+                        lanes: {
+                            directory?: {
+                                organizationId: string;
+                                profileDocumentId: string | null;
+                                users: {
+                                    createdAt: string;
+                                    disabledAt: string | null;
+                                    disabledByUserId: string | null;
+                                    encapsulationKeyFingerprint: string;
+                                    encapsulationPublicKey: string;
+                                    isSelf: boolean;
+                                    joinedAt: string;
+                                    profileDocumentId: string | null;
+                                    signingKeyFingerprint: string;
+                                    signingPublicKey: string;
+                                    /** @enum {string} */
+                                    status: "active" | "disabled";
+                                    updatedAt: string;
+                                    userId: string;
+                                }[];
+                            };
+                            grants?: {
+                                grants: {
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                    createdAt: string;
+                                    depth: number;
+                                    groupId: string | null;
+                                    groupName: string | null;
+                                    isBuiltin: boolean;
+                                    metadataAccessEpoch: number;
+                                    metadataAccessStateHash: string;
+                                    metadataDocumentId: string | null;
+                                    organizationName: string | null;
+                                    parentId: string | null;
+                                    signingKeyFingerprint: string | null;
+                                    subjectId: string;
+                                    /** @enum {string} */
+                                    subjectType: "group" | "organization" | "user";
+                                    updatedAt: string;
+                                    userId: string | null;
+                                }[];
+                                organizationId: string;
+                            };
+                            groupMemberships?: {
+                                deletedGroupIds: string[];
+                                groups: {
+                                    groupId: string;
+                                    members: {
+                                        encapsulationKeyFingerprint: string | null;
+                                        encapsulationPublicKey: string | null;
+                                        /** @enum {string} */
+                                        role: "member" | "admin";
+                                        signingKeyFingerprint: string | null;
+                                        signingPublicKey: string | null;
+                                        userId: string;
+                                    }[];
+                                    stateHash: string;
+                                }[];
+                                organizationId: string;
+                            };
+                            groups?: {
+                                groups: {
+                                    createdAt: string;
+                                    currentState: {
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        memberCount: number;
+                                        stateHash: string;
+                                        version: number;
+                                    } | null;
+                                    groupId: string;
+                                    isBuiltin: boolean;
+                                    name: string;
+                                    organizationId: string;
+                                }[];
+                                memberGroupId: string;
+                                organizationId: string;
+                            };
+                            organizationPolicy?: {
+                                currentState: {
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    stateHash: string;
+                                    version: number;
+                                };
+                                organizationId: string;
+                            };
+                        };
+                        /** @constant */
+                        mode: "delta";
+                        nextCursor: string;
+                        organizationId: string;
+                        /** @constant */
+                        version: 5;
+                    } | {
+                        currentUser: {
+                            isOrgAdmin: boolean;
+                        };
+                        /** @constant */
+                        hasMore: false;
+                        lanes: {
+                            directory: {
+                                organizationId: string;
+                                profileDocumentId: string | null;
+                                users: {
+                                    createdAt: string;
+                                    disabledAt: string | null;
+                                    disabledByUserId: string | null;
+                                    encapsulationKeyFingerprint: string;
+                                    encapsulationPublicKey: string;
+                                    isSelf: boolean;
+                                    joinedAt: string;
+                                    profileDocumentId: string | null;
+                                    signingKeyFingerprint: string;
+                                    signingPublicKey: string;
+                                    /** @enum {string} */
+                                    status: "active" | "disabled";
+                                    updatedAt: string;
+                                    userId: string;
+                                }[];
+                            };
+                            grants: {
+                                grants: {
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                    createdAt: string;
+                                    depth: number;
+                                    groupId: string | null;
+                                    groupName: string | null;
+                                    isBuiltin: boolean;
+                                    metadataAccessEpoch: number;
+                                    metadataAccessStateHash: string;
+                                    metadataDocumentId: string | null;
+                                    organizationName: string | null;
+                                    parentId: string | null;
+                                    signingKeyFingerprint: string | null;
+                                    subjectId: string;
+                                    /** @enum {string} */
+                                    subjectType: "group" | "organization" | "user";
+                                    updatedAt: string;
+                                    userId: string | null;
+                                }[];
+                                organizationId: string;
+                            };
+                            groupMemberships: {
+                                deletedGroupIds: string[];
+                                groups: {
+                                    groupId: string;
+                                    members: {
+                                        encapsulationKeyFingerprint: string | null;
+                                        encapsulationPublicKey: string | null;
+                                        /** @enum {string} */
+                                        role: "member" | "admin";
+                                        signingKeyFingerprint: string | null;
+                                        signingPublicKey: string | null;
+                                        userId: string;
+                                    }[];
+                                    stateHash: string;
+                                }[];
+                                organizationId: string;
+                            };
+                            groups: {
+                                groups: {
+                                    createdAt: string;
+                                    currentState: {
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        memberCount: number;
+                                        stateHash: string;
+                                        version: number;
+                                    } | null;
+                                    groupId: string;
+                                    isBuiltin: boolean;
+                                    name: string;
+                                    organizationId: string;
+                                }[];
+                                memberGroupId: string;
+                                organizationId: string;
+                            };
+                            organizationPolicy: {
+                                currentState: {
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    stateHash: string;
+                                    version: number;
+                                };
+                                organizationId: string;
+                            };
+                        };
+                        /** @constant */
+                        mode: "snapshot";
+                        nextCursor: string;
+                        organizationId: string;
+                        /** @constant */
+                        version: 5;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
                     } & {
                         [key: string]: unknown;
                     };

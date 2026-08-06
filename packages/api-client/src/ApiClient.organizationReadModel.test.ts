@@ -9,6 +9,8 @@ import {
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
 
+const organizationId = "11111111-1111-4111-8111-111111111111";
+
 testApiClient(
   "returns typed organization read-model results with opaque cursors",
   async () => {
@@ -70,7 +72,7 @@ testApiClient(
 
     const client = new ApiClient(apiBaseUrl);
     const result = await client.getOrganizationReadModelResult(
-      "org/1",
+      organizationId,
       "opaque+/=cursor",
       { reportErrors: false },
     );
@@ -78,7 +80,7 @@ testApiClient(
     expect(result.ok).toBe(true);
     expect(calls).toHaveLength(1);
     expect(calls[0]?.url).toBe(
-      `${apiBaseUrl}/organizations/org%2F1/read-model?cursor=opaque%2B%2F%3Dcursor`,
+      `${apiBaseUrl}/organizations/${organizationId}/read-model?cursor=opaque%2B%2F%3Dcursor`,
     );
   },
 );

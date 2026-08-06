@@ -1,10 +1,15 @@
+import {
+  getOrganizationReadModelOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import { getOrganizationReadModel } from "../../services/organizations/orgManager";
+import { pathParamsValidator } from "../../validators/pathParams";
+import { queryParamsValidator } from "../../validators/queryParams";
 import {
   type OrganizationsRouterDeps,
-  parseOrganizationId,
   toOrganizationManagerErrorResponse,
 } from "./shared";
 
@@ -14,14 +19,18 @@ export function createOrganizationReadModelRoute({
 }: OrganizationsRouterDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.get(
-    "/organizations/:organizationId/read-model",
+  route.on(
+    getOrganizationReadModelOperation.method,
+    operationRoutePath(getOrganizationReadModelOperation),
     requireAuth,
+    pathParamsValidator(
+      getOrganizationReadModelOperation.params,
+      "Invalid organizationId",
+    ),
+    queryParamsValidator(getOrganizationReadModelOperation.query),
     async (c) => {
-      const organizationId = parseOrganizationId(c.req.param("organizationId"));
-      if (!organizationId) {
-        return c.json({ error: "Invalid organizationId" }, 400);
-      }
+      const { organizationId } = c.req.valid("param");
+      const { cursor } = c.req.valid("query");
 
       try {
         c.header("Cache-Control", "private, no-store");
@@ -30,7 +39,7 @@ export function createOrganizationReadModelRoute({
             runtime,
             organizationId,
             c.get("session").userId,
-            c.req.query("cursor"),
+            cursor,
           ),
         );
       } catch (error) {

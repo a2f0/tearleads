@@ -6,6 +6,7 @@ import {
   organizationProvisioningRequestRuntimeRefinements,
   organizationProvisioningResponseRuntimeRefinements,
 } from "../organizationProvisioningRefinements";
+import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
   CreateOrganizationGroupRequestSchema,
   isCreateOrganizationGroupRequest,
@@ -13,6 +14,7 @@ import {
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
   OrganizationProvisioningRequestSchema,
+  OrganizationReadModelQuerySchema,
   UpdateOrganizationProfileRequestSchema,
   UpdateOrganizationRosterEntryRequestSchema,
 } from "../request";
@@ -26,12 +28,14 @@ import {
   isOrganizationDirectoryUserResponse,
   isOrganizationGroupMembersResponse,
   isOrganizationProfileResponse,
+  isOrganizationReadModelResponse,
   OrganizationDataUsageResponseSchema,
   OrganizationDirectoryUserResponseSchema,
   OrganizationGroupMembersResponseSchema,
   OrganizationGroupSummaryResponseSchema,
   OrganizationProfileResponseSchema,
   OrganizationProvisioningResponseSchema,
+  OrganizationReadModelResponseSchema,
   PaymentRequiredErrorResponseSchema,
 } from "../response";
 import { uuidV4StringSchema } from "../schema";
@@ -105,6 +109,27 @@ export const getOrganizationDataUsageOperation = defineJsonOperation({
     200: OrganizationDataUsageResponseSchema,
   },
   runtimeRefinements: organizationDataUsageResponseRuntimeRefinements,
+});
+
+export const getOrganizationReadModelOperation = defineJsonOperation({
+  auth: "session",
+  failureResponses: {
+    400: ErrorResponseSchema,
+    401: ErrorResponseSchema,
+    403: ErrorResponseSchema,
+    404: ErrorResponseSchema,
+    500: ErrorResponseSchema,
+  },
+  failureStatuses: [400, 401, 403, 404, 500],
+  id: "organizations.readModel.get",
+  method: "GET",
+  params: OrganizationPathParamsSchema,
+  path: "/organizations/{organizationId}/read-model",
+  query: OrganizationReadModelQuerySchema,
+  responses: {
+    200: OrganizationReadModelResponseSchema,
+  },
+  runtimeRefinements: organizationReadModelResponseRuntimeRefinements,
 });
 
 export const createOrganizationGroupOperation = defineJsonOperation({
@@ -224,6 +249,8 @@ export const isDeleteOrganizationGroupOperationResponse =
   isDeleteOrganizationGroupResponse;
 export const isGetOrganizationDataUsageOperationResponse =
   isOrganizationDataUsageResponse;
+export const isGetOrganizationReadModelOperationResponse =
+  isOrganizationReadModelResponse;
 export const isListOrganizationGroupMembersOperationResponse =
   isOrganizationGroupMembersResponse;
 export const isUpdateOrganizationProfileOperationRequest =

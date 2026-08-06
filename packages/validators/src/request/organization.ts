@@ -25,6 +25,14 @@ export type CreateOrganizationGroupRequest = z.infer<
   typeof CreateOrganizationGroupRequestSchema
 >;
 
+export const OrganizationReadModelQuerySchema = loosePlainObject({
+  cursor: z.string().optional(),
+});
+
+export type OrganizationReadModelQuery = z.infer<
+  typeof OrganizationReadModelQuerySchema
+>;
+
 export const UpdateOrganizationRosterEntryRequestSchema = loosePlainObject({
   profileDocumentId: uuidV4StringSchema.nullable(),
 });

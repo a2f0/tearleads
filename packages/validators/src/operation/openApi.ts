@@ -114,6 +114,35 @@ function openApiPathParameters(
   });
 }
 
+function openApiQueryParameters(
+  operation: JsonOperation,
+  runtimeRefinementIds: Set<string>,
+): object[] {
+  if (operation.query === undefined) {
+    return [];
+  }
+
+  const parameterSchema = openApiSchema(operation.query, runtimeRefinementIds);
+  if (
+    parameterSchema.type !== "object" ||
+    parameterSchema.properties === undefined
+  ) {
+    throw new Error(
+      `${operation.id} query parameters must be an object schema`,
+    );
+  }
+
+  const requiredNames = new Set(parameterSchema.required ?? []);
+  return Object.entries(parameterSchema.properties).map(([name, schema]) => ({
+    explode: true,
+    in: "query",
+    name,
+    required: requiredNames.has(name),
+    schema,
+    style: "form",
+  }));
+}
+
 function openApiResponses(
   operation: JsonOperation,
   runtimeRefinementIds: Set<string>,
@@ -193,7 +222,10 @@ function assertRuntimeRefinements(
 
 function openApiOperation(operation: JsonOperation): OpenApiOperation {
   const runtimeRefinementIds = new Set<string>();
-  const parameters = openApiPathParameters(operation, runtimeRefinementIds);
+  const parameters = [
+    ...openApiPathParameters(operation, runtimeRefinementIds),
+    ...openApiQueryParameters(operation, runtimeRefinementIds),
+  ];
   const requestSchema =
     operation.body === undefined
       ? undefined

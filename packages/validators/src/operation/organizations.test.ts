@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import { organizationDataUsageResponseRuntimeRefinements } from "../organizationDataUsageRefinements";
 import { organizationProvisioningGroupNameRefinement } from "../organizationProvisioningRefinements";
+import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
   CreateOrganizationGroupRequestSchema,
   OrganizationProvisioningRequestSchema,
+  OrganizationReadModelQuerySchema,
   UpdateOrganizationProfileRequestSchema,
   UpdateOrganizationRosterEntryRequestSchema,
 } from "../request";
@@ -16,14 +18,20 @@ import {
   OrganizationGroupSummaryResponseSchema,
   OrganizationProfileResponseSchema,
   OrganizationProvisioningResponseSchema,
+  OrganizationReadModelResponseSchema,
   PaymentRequiredErrorResponseSchema,
 } from "../response";
-import { operationRequestPath, operationRoutePath } from "./definition";
+import {
+  operationRequestPath,
+  operationRequestPathWithQuery,
+  operationRoutePath,
+} from "./definition";
 import {
   createOrganizationGroupOperation,
   createOrganizationOperation,
   deleteOrganizationGroupOperation,
   getOrganizationDataUsageOperation,
+  getOrganizationReadModelOperation,
   listOrganizationGroupMembersOperation,
   OrganizationGroupPathParamsSchema,
   OrganizationPathParamsSchema,
@@ -100,6 +108,69 @@ test("get organization data usage paths derive from the shared operation", () =>
       organizationId: "invalid",
     }),
   ).toThrow("Invalid path parameters for organizations.dataUsage.get");
+});
+
+test("organization read-model operation owns its HTTP contract", () => {
+  expect(getOrganizationReadModelOperation).toMatchObject({
+    auth: "session",
+    failureStatuses: [400, 401, 403, 404, 500],
+    id: "organizations.readModel.get",
+    method: "GET",
+    params: OrganizationPathParamsSchema,
+    query: OrganizationReadModelQuerySchema,
+    responses: { 200: OrganizationReadModelResponseSchema },
+    runtimeRefinements: organizationReadModelResponseRuntimeRefinements,
+  });
+  expect(getOrganizationReadModelOperation.failureResponses).toEqual({
+    400: ErrorResponseSchema,
+    401: ErrorResponseSchema,
+    403: ErrorResponseSchema,
+    404: ErrorResponseSchema,
+    500: ErrorResponseSchema,
+  });
+});
+
+test("organization read-model paths derive from shared path and query schemas", () => {
+  expect(operationRoutePath(getOrganizationReadModelOperation)).toBe(
+    "/organizations/:organizationId/read-model",
+  );
+  expect(
+    operationRequestPathWithQuery(
+      getOrganizationReadModelOperation,
+      { organizationId },
+      { cursor: "opaque+/=cursor" },
+    ),
+  ).toBe(
+    `/organizations/${organizationId}/read-model?cursor=opaque%2B%2F%3Dcursor`,
+  );
+  expect(
+    operationRequestPathWithQuery(
+      getOrganizationReadModelOperation,
+      { organizationId },
+      {},
+    ),
+  ).toBe(`/organizations/${organizationId}/read-model`);
+  expect(
+    operationRequestPathWithQuery(
+      getOrganizationReadModelOperation,
+      { organizationId },
+      { cursor: "" },
+    ),
+  ).toBe(`/organizations/${organizationId}/read-model?cursor=`);
+  expect(() =>
+    operationRequestPathWithQuery(
+      getOrganizationReadModelOperation,
+      { organizationId: "invalid" },
+      {},
+    ),
+  ).toThrow("Invalid path parameters for organizations.readModel.get");
+  expect(() =>
+    operationRequestPathWithQuery(
+      getOrganizationReadModelOperation,
+      { organizationId },
+      { cursor: 1 } as never,
+    ),
+  ).toThrow("Invalid query parameters for organizations.readModel.get");
 });
 
 test("organization management operations own their HTTP contracts", () => {

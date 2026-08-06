@@ -4,6 +4,7 @@ import {
   createOrganizationGroupOperation,
   createOrganizationOperation,
   getOrganizationDataUsageOperation,
+  getOrganizationReadModelOperation,
 } from "./organizations";
 
 const createOrganizationPost = openApiDocument.paths["/organizations"]?.post;
@@ -59,6 +60,38 @@ test("organization data usage OpenAPI documents its shared contract", () => {
   ]);
   expect(operation["x-tearleads-runtime-refinements"]).toEqual(
     getOrganizationDataUsageOperation.runtimeRefinements,
+  );
+});
+
+test("organization read-model OpenAPI documents path, query, and response", () => {
+  const operation =
+    openApiDocument.paths["/organizations/{organizationId}/read-model"]?.get;
+  if (operation === undefined) {
+    throw new Error("Organization read-model OpenAPI operation is missing");
+  }
+
+  expect(operation.operationId).toBe("organizations.readModel.get");
+  expect(operation.parameters).toHaveLength(2);
+  expect(operation.parameters[0]).toMatchObject({
+    in: "path",
+    name: "organizationId",
+    required: true,
+  });
+  expect(operation.parameters[1]).toMatchObject({
+    in: "query",
+    name: "cursor",
+    required: false,
+  });
+  expect(Object.keys(operation.responses)).toEqual([
+    "200",
+    "400",
+    "401",
+    "403",
+    "404",
+    "500",
+  ]);
+  expect(operation["x-tearleads-runtime-refinements"]).toEqual(
+    getOrganizationReadModelOperation.runtimeRefinements,
   );
 });
 

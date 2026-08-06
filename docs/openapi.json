@@ -14468,6 +14468,1297 @@
         ]
       }
     },
+    "/organizations/{organizationId}/read-model": {
+      "get": {
+        "operationId": "organizations.readModel.get",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "currentUser": {
+                          "type": "object",
+                          "properties": {
+                            "isOrgAdmin": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "isOrgAdmin"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "hasMore": {
+                          "type": "boolean"
+                        },
+                        "nextCursor": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "organizationId": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "number",
+                          "const": 5
+                        },
+                        "lanes": {
+                          "type": "object",
+                          "properties": {
+                            "directory": {
+                              "type": "object",
+                              "properties": {
+                                "organizationId": {
+                                  "type": "string"
+                                },
+                                "profileDocumentId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "users": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "createdAt": {
+                                        "type": "string"
+                                      },
+                                      "disabledAt": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "disabledByUserId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "encapsulationKeyFingerprint": {
+                                        "type": "string"
+                                      },
+                                      "encapsulationPublicKey": {
+                                        "type": "string"
+                                      },
+                                      "isSelf": {
+                                        "type": "boolean"
+                                      },
+                                      "joinedAt": {
+                                        "type": "string"
+                                      },
+                                      "profileDocumentId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "signingKeyFingerprint": {
+                                        "type": "string"
+                                      },
+                                      "signingPublicKey": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "active",
+                                          "disabled"
+                                        ]
+                                      },
+                                      "updatedAt": {
+                                        "type": "string"
+                                      },
+                                      "userId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "createdAt",
+                                      "disabledAt",
+                                      "disabledByUserId",
+                                      "encapsulationKeyFingerprint",
+                                      "encapsulationPublicKey",
+                                      "isSelf",
+                                      "joinedAt",
+                                      "profileDocumentId",
+                                      "signingKeyFingerprint",
+                                      "signingPublicKey",
+                                      "status",
+                                      "updatedAt",
+                                      "userId"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "organizationId",
+                                "profileDocumentId",
+                                "users"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "grants": {
+                              "type": "object",
+                              "properties": {
+                                "grants": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "accessLevel": {
+                                        "type": "string",
+                                        "enum": [
+                                          "admin",
+                                          "read",
+                                          "write"
+                                        ]
+                                      },
+                                      "containerId": {
+                                        "type": "string"
+                                      },
+                                      "createdAt": {
+                                        "type": "string"
+                                      },
+                                      "depth": {
+                                        "maximum": 1.7976931348623157e+308,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "isBuiltin": {
+                                        "type": "boolean"
+                                      },
+                                      "metadataAccessEpoch": {
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 1.7976931348623157e+308,
+                                        "type": "integer"
+                                      },
+                                      "metadataAccessStateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "metadataDocumentId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "parentId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "updatedAt": {
+                                        "type": "string"
+                                      },
+                                      "groupId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "groupName": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "organizationName": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "signingKeyFingerprint": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "subjectId": {
+                                        "type": "string"
+                                      },
+                                      "subjectType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization",
+                                          "user"
+                                        ]
+                                      },
+                                      "userId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "accessLevel",
+                                      "containerId",
+                                      "createdAt",
+                                      "depth",
+                                      "isBuiltin",
+                                      "metadataAccessEpoch",
+                                      "metadataAccessStateHash",
+                                      "metadataDocumentId",
+                                      "parentId",
+                                      "updatedAt",
+                                      "groupId",
+                                      "groupName",
+                                      "organizationName",
+                                      "signingKeyFingerprint",
+                                      "subjectId",
+                                      "subjectType",
+                                      "userId"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "organizationId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "grants",
+                                "organizationId"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "groupMemberships": {
+                              "type": "object",
+                              "properties": {
+                                "deletedGroupIds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "groups": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "groupId": {
+                                        "type": "string"
+                                      },
+                                      "members": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "encapsulationKeyFingerprint": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "encapsulationPublicKey": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "role": {
+                                              "type": "string",
+                                              "enum": [
+                                                "member",
+                                                "admin"
+                                              ]
+                                            },
+                                            "signingKeyFingerprint": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "signingPublicKey": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "userId": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "encapsulationKeyFingerprint",
+                                            "encapsulationPublicKey",
+                                            "role",
+                                            "signingKeyFingerprint",
+                                            "signingPublicKey",
+                                            "userId"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "groupId",
+                                      "members",
+                                      "stateHash"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "organizationId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "deletedGroupIds",
+                                "groups",
+                                "organizationId"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "groups": {
+                              "type": "object",
+                              "properties": {
+                                "groups": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "createdAt": {
+                                        "type": "string"
+                                      },
+                                      "currentState": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "keyEpoch": {
+                                                "exclusiveMinimum": 0,
+                                                "maximum": 1.7976931348623157e+308,
+                                                "type": "integer"
+                                              },
+                                              "keyFingerprint": {
+                                                "type": "string",
+                                                "minLength": 1
+                                              },
+                                              "memberCount": {
+                                                "maximum": 1.7976931348623157e+308,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
+                                              "stateHash": {
+                                                "type": "string"
+                                              },
+                                              "version": {
+                                                "exclusiveMinimum": 0,
+                                                "maximum": 1.7976931348623157e+308,
+                                                "type": "integer"
+                                              }
+                                            },
+                                            "required": [
+                                              "keyEpoch",
+                                              "keyFingerprint",
+                                              "memberCount",
+                                              "stateHash",
+                                              "version"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "groupId": {
+                                        "type": "string"
+                                      },
+                                      "isBuiltin": {
+                                        "type": "boolean"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "organizationId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "createdAt",
+                                      "currentState",
+                                      "groupId",
+                                      "isBuiltin",
+                                      "name",
+                                      "organizationId"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "memberGroupId": {
+                                  "type": "string"
+                                },
+                                "organizationId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "groups",
+                                "memberGroupId",
+                                "organizationId"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "organizationPolicy": {
+                              "type": "object",
+                              "properties": {
+                                "currentState": {
+                                  "type": "object",
+                                  "properties": {
+                                    "keyEpoch": {
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 1.7976931348623157e+308,
+                                      "type": "integer"
+                                    },
+                                    "keyFingerprint": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "memberCount": {
+                                      "maximum": 1.7976931348623157e+308,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "stateHash": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "version": {
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 1.7976931348623157e+308,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "keyEpoch",
+                                    "keyFingerprint",
+                                    "memberCount",
+                                    "stateHash",
+                                    "version"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "organizationId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "currentState",
+                                "organizationId"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "mode": {
+                          "type": "string",
+                          "const": "delta"
+                        }
+                      },
+                      "required": [
+                        "currentUser",
+                        "hasMore",
+                        "nextCursor",
+                        "organizationId",
+                        "version",
+                        "lanes",
+                        "mode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "currentUser": {
+                          "type": "object",
+                          "properties": {
+                            "isOrgAdmin": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "isOrgAdmin"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "hasMore": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "nextCursor": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "organizationId": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "number",
+                          "const": 5
+                        },
+                        "lanes": {
+                          "type": "object",
+                          "properties": {
+                            "directory": {
+                              "type": "object",
+                              "properties": {
+                                "organizationId": {
+                                  "type": "string"
+                                },
+                                "profileDocumentId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "users": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "createdAt": {
+                                        "type": "string"
+                                      },
+                                      "disabledAt": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "disabledByUserId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "encapsulationKeyFingerprint": {
+                                        "type": "string"
+                                      },
+                                      "encapsulationPublicKey": {
+                                        "type": "string"
+                                      },
+                                      "isSelf": {
+                                        "type": "boolean"
+                                      },
+                                      "joinedAt": {
+                                        "type": "string"
+                                      },
+                                      "profileDocumentId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "signingKeyFingerprint": {
+                                        "type": "string"
+                                      },
+                                      "signingPublicKey": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "active",
+                                          "disabled"
+                                        ]
+                                      },
+                                      "updatedAt": {
+                                        "type": "string"
+                                      },
+                                      "userId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "createdAt",
+                                      "disabledAt",
+                                      "disabledByUserId",
+                                      "encapsulationKeyFingerprint",
+                                      "encapsulationPublicKey",
+                                      "isSelf",
+                                      "joinedAt",
+                                      "profileDocumentId",
+                                      "signingKeyFingerprint",
+                                      "signingPublicKey",
+                                      "status",
+                                      "updatedAt",
+                                      "userId"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "organizationId",
+                                "profileDocumentId",
+                                "users"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "grants": {
+                              "type": "object",
+                              "properties": {
+                                "grants": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "accessLevel": {
+                                        "type": "string",
+                                        "enum": [
+                                          "admin",
+                                          "read",
+                                          "write"
+                                        ]
+                                      },
+                                      "containerId": {
+                                        "type": "string"
+                                      },
+                                      "createdAt": {
+                                        "type": "string"
+                                      },
+                                      "depth": {
+                                        "maximum": 1.7976931348623157e+308,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "isBuiltin": {
+                                        "type": "boolean"
+                                      },
+                                      "metadataAccessEpoch": {
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 1.7976931348623157e+308,
+                                        "type": "integer"
+                                      },
+                                      "metadataAccessStateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "metadataDocumentId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "parentId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "updatedAt": {
+                                        "type": "string"
+                                      },
+                                      "groupId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "groupName": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "organizationName": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "signingKeyFingerprint": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "subjectId": {
+                                        "type": "string"
+                                      },
+                                      "subjectType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization",
+                                          "user"
+                                        ]
+                                      },
+                                      "userId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "accessLevel",
+                                      "containerId",
+                                      "createdAt",
+                                      "depth",
+                                      "isBuiltin",
+                                      "metadataAccessEpoch",
+                                      "metadataAccessStateHash",
+                                      "metadataDocumentId",
+                                      "parentId",
+                                      "updatedAt",
+                                      "groupId",
+                                      "groupName",
+                                      "organizationName",
+                                      "signingKeyFingerprint",
+                                      "subjectId",
+                                      "subjectType",
+                                      "userId"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "organizationId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "grants",
+                                "organizationId"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "groupMemberships": {
+                              "type": "object",
+                              "properties": {
+                                "deletedGroupIds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "groups": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "groupId": {
+                                        "type": "string"
+                                      },
+                                      "members": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "encapsulationKeyFingerprint": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "encapsulationPublicKey": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "role": {
+                                              "type": "string",
+                                              "enum": [
+                                                "member",
+                                                "admin"
+                                              ]
+                                            },
+                                            "signingKeyFingerprint": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "signingPublicKey": {
+                                              "anyOf": [
+                                                {
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "userId": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "encapsulationKeyFingerprint",
+                                            "encapsulationPublicKey",
+                                            "role",
+                                            "signingKeyFingerprint",
+                                            "signingPublicKey",
+                                            "userId"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "groupId",
+                                      "members",
+                                      "stateHash"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "organizationId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "deletedGroupIds",
+                                "groups",
+                                "organizationId"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "groups": {
+                              "type": "object",
+                              "properties": {
+                                "groups": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "createdAt": {
+                                        "type": "string"
+                                      },
+                                      "currentState": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "keyEpoch": {
+                                                "exclusiveMinimum": 0,
+                                                "maximum": 1.7976931348623157e+308,
+                                                "type": "integer"
+                                              },
+                                              "keyFingerprint": {
+                                                "type": "string",
+                                                "minLength": 1
+                                              },
+                                              "memberCount": {
+                                                "maximum": 1.7976931348623157e+308,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              },
+                                              "stateHash": {
+                                                "type": "string"
+                                              },
+                                              "version": {
+                                                "exclusiveMinimum": 0,
+                                                "maximum": 1.7976931348623157e+308,
+                                                "type": "integer"
+                                              }
+                                            },
+                                            "required": [
+                                              "keyEpoch",
+                                              "keyFingerprint",
+                                              "memberCount",
+                                              "stateHash",
+                                              "version"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "groupId": {
+                                        "type": "string"
+                                      },
+                                      "isBuiltin": {
+                                        "type": "boolean"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "organizationId": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "createdAt",
+                                      "currentState",
+                                      "groupId",
+                                      "isBuiltin",
+                                      "name",
+                                      "organizationId"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "memberGroupId": {
+                                  "type": "string"
+                                },
+                                "organizationId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "groups",
+                                "memberGroupId",
+                                "organizationId"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "organizationPolicy": {
+                              "type": "object",
+                              "properties": {
+                                "currentState": {
+                                  "type": "object",
+                                  "properties": {
+                                    "keyEpoch": {
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 1.7976931348623157e+308,
+                                      "type": "integer"
+                                    },
+                                    "keyFingerprint": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "memberCount": {
+                                      "maximum": 1.7976931348623157e+308,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "stateHash": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "version": {
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 1.7976931348623157e+308,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "keyEpoch",
+                                    "keyFingerprint",
+                                    "memberCount",
+                                    "stateHash",
+                                    "version"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "organizationId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "currentState",
+                                "organizationId"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "directory",
+                            "grants",
+                            "groupMemberships",
+                            "groups",
+                            "organizationPolicy"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "mode": {
+                          "type": "string",
+                          "const": "snapshot"
+                        }
+                      },
+                      "required": [
+                        "currentUser",
+                        "hasMore",
+                        "nextCursor",
+                        "organizationId",
+                        "version",
+                        "lanes",
+                        "mode"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "read-model lanes match the response organization; grants and memberships are unambiguous; snapshot lanes are complete and contain no deletions",
+            "id": "response.organization-read-model-consistency"
+          }
+        ]
+      }
+    },
     "/organizations/{organizationId}/roster/{userId}": {
       "put": {
         "operationId": "organizations.roster.update",
