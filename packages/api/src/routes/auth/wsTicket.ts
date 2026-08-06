@@ -1,3 +1,8 @@
+import {
+  operationRoutePath,
+  webSocketTicketOperation,
+} from "@tearleads/validators/operation";
+import type { WebSocketTicketResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -15,14 +20,19 @@ export function createWsTicketRoute({
 }: WsTicketRouteDeps) {
   const wsTicketRoute = new Hono<SessionEnv>();
 
-  wsTicketRoute.post("/auth/ws-ticket", requireAuth, async (c) => {
-    const session = c.get("session");
-    const ticket = await issueTicket({
-      sessionId: session.id,
-      userId: session.userId,
-    });
-    return c.json({ ticket });
-  });
+  wsTicketRoute.on(
+    webSocketTicketOperation.method,
+    operationRoutePath(webSocketTicketOperation),
+    requireAuth,
+    async (c) => {
+      const session = c.get("session");
+      const ticket = await issueTicket({
+        sessionId: session.id,
+        userId: session.userId,
+      });
+      return c.json<WebSocketTicketResponse>({ ticket });
+    },
+  );
 
   return wsTicketRoute;
 }

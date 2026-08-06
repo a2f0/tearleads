@@ -19,7 +19,7 @@ interface OpenApiResponse {
 interface OpenApiOperation {
   readonly operationId: string;
   readonly parameters: readonly object[];
-  readonly requestBody: {
+  readonly requestBody?: {
     readonly content: Readonly<Record<"application/json", OpenApiMediaType>>;
     readonly required: true;
   };
@@ -194,19 +194,26 @@ function assertRuntimeRefinements(
 function openApiOperation(operation: JsonOperation): OpenApiOperation {
   const runtimeRefinementIds = new Set<string>();
   const parameters = openApiPathParameters(operation, runtimeRefinementIds);
-  const requestSchema = openApiSchema(operation.body, runtimeRefinementIds);
+  const requestSchema =
+    operation.body === undefined
+      ? undefined
+      : openApiSchema(operation.body, runtimeRefinementIds);
   const responses = openApiResponses(operation, runtimeRefinementIds);
   assertRuntimeRefinements(operation, runtimeRefinementIds);
 
   return {
     operationId: operation.id,
     parameters,
-    requestBody: {
-      content: {
-        "application/json": { schema: requestSchema },
-      },
-      required: true,
-    },
+    ...(requestSchema === undefined
+      ? {}
+      : {
+          requestBody: {
+            content: {
+              "application/json": { schema: requestSchema },
+            },
+            required: true as const,
+          },
+        }),
     responses,
     security: operation.auth === "session" ? [{ bearerAuth: [] }] : [],
     ...(operation.runtimeRefinements === undefined

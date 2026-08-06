@@ -1,3 +1,8 @@
+import {
+  logoutOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
+import type { DestroySessionResponse } from "@tearleads/validators/response";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -13,10 +18,15 @@ export function createLogoutRoute({
 }: LogoutRouteDeps) {
   const logoutRoute = new Hono();
 
-  logoutRoute.post("/auth/logout", requireAuth, async (c) => {
-    await destroySession(c);
-    return c.json({ message: "ok" });
-  });
+  logoutRoute.on(
+    logoutOperation.method,
+    operationRoutePath(logoutOperation),
+    requireAuth,
+    async (c) => {
+      await destroySession(c);
+      return c.json<DestroySessionResponse>({ message: "ok" });
+    },
+  );
 
   return logoutRoute;
 }

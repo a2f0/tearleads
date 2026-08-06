@@ -1,25 +1,18 @@
-import { isPlainObject } from "../../isPlainObject";
-import { hasStringProperty, isSha256HexString } from "../../util";
+import { z } from "zod";
+import { loosePlainObject, sha256HexStringSchema } from "../../schema";
 
-export interface UserIdentityResponse {
-  userId: string;
-  signingPublicKey: string;
-  signingKeyFingerprint: string;
-  encapsulationPublicKey: string;
-  encapsulationKeyFingerprint: string;
-}
+export const UserIdentityResponseSchema = loosePlainObject({
+  encapsulationKeyFingerprint: sha256HexStringSchema,
+  encapsulationPublicKey: z.string(),
+  signingKeyFingerprint: sha256HexStringSchema,
+  signingPublicKey: z.string(),
+  userId: z.string(),
+});
+
+export type UserIdentityResponse = z.infer<typeof UserIdentityResponseSchema>;
 
 export function isUserIdentityResponse(
   value: unknown,
 ): value is UserIdentityResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "userId") &&
-    hasStringProperty(value, "signingPublicKey") &&
-    hasStringProperty(value, "signingKeyFingerprint") &&
-    isSha256HexString(value.signingKeyFingerprint) &&
-    hasStringProperty(value, "encapsulationPublicKey") &&
-    hasStringProperty(value, "encapsulationKeyFingerprint") &&
-    isSha256HexString(value.encapsulationKeyFingerprint)
-  );
+  return UserIdentityResponseSchema.safeParse(value).success;
 }
