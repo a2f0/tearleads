@@ -72,6 +72,13 @@ export interface RegistrationBootstrapInput {
   acknowledgedAccessHeads: readonly LocallyAcknowledgedAccessManifestHead[];
   /** Checked inside the mutation queue claim; false skips every write. */
   canStartDurableMutation?: (() => boolean) | undefined;
+  /**
+   * @internal Test-only synchronization seam. Invoked synchronously
+   * immediately before this persist joins the serialized mutation queue — no interleaving can separate the two. Lets
+   * identity-race tests deterministically place an identity replacement
+   * inside the queue-wait window instead of sleeping.
+   */
+  onPersistQueued?: (() => void) | undefined;
   containerId: string;
   initialAdminGroupPolicy: PrincipalPolicyBundleResponse;
   initialMemberGroupPolicy: PrincipalPolicyBundleResponse;
@@ -400,19 +407,23 @@ async function persistRosterProfileDocumentBootstrap(
 
 /**
  * Persists the local root-container bootstrap created during successful
- * registration so container contents can initialize from SQLite on first login.
+ * registration so container contents can initialize from SQLite on first
+ * login. Resolves false when the in-mutex currency check rejected the write
+ * (the identity was replaced while this persist waited for the queue), so
+ * callers do not report a bootstrap that was never persisted.
  */
-async function persistRegistrationBootstrapFromExecSql(
+export async function persistRegistrationBootstrapFromExecSql(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
-): Promise<void> {
-  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+): Promise<boolean> {
+  input.onPersistQueued?.();
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     // In-mutex currency check, adjacent to the serialized-mutation claim
     // (see persistDocumentState): the identity can be replaced while this
     // persist waits for the queue, and its bootstrap must not be written
     // through a client the replacement closed or renewed.
     if (input.canStartDurableMutation && !input.canStartDurableMutation()) {
-      return;
+      return false;
     }
     await sqlContainerContentsPersistence.ensureSchema(lockedExecSql);
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
@@ -432,6 +443,7 @@ async function persistRegistrationBootstrapFromExecSql(
     await persistOrganizationMetadataContainerBootstrap(lockedExecSql, input);
     await persistOrganizationProfileDocumentBootstrap(lockedExecSql, input);
     await persistSystemContainersBootstrap(lockedExecSql, input);
+    return true;
   });
 }
 

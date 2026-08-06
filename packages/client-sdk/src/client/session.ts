@@ -290,6 +290,8 @@ class SessionService implements Session {
         dbClient,
         documentProjectors: this.dependencies.documentProjectors,
         encapsulationKeyPair,
+        isIdentityCurrent: () =>
+          this.dependencies.identity.snapshot === identitySnapshot,
         log: this.dependencies.log,
         logError: this.dependencies.logError,
         organizationProfileName: options?.organizationProfileName,
