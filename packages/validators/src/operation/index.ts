@@ -36,7 +36,26 @@ export {
   webSocketTicketOperation,
 } from "./auth";
 export {
+  type BlobBytesPathParams,
+  BlobBytesPathParamsSchema,
+  type BlobBytesResponseHeaders,
+  BlobBytesResponseHeadersSchema,
+  blobWireHeaderKeys,
+  blobWireHeaderNames,
+  getBlobBytesOperation,
+  isUploadMultipartBlobPartBytesOperationResponse,
+  type MultipartBlobPartHeaders,
+  MultipartBlobPartHeadersSchema,
+  type MultipartBlobPartPathParams,
+  MultipartBlobPartPathParamsSchema,
+  uploadMultipartBlobPartBytesOperation,
+} from "./blobBytes";
+export {
+  defineHttpOperation,
   defineJsonOperation,
+  type HttpOperation,
+  type HttpOperationMediaType,
+  type HttpOperationMethod,
   type JsonOperation,
   type JsonOperationMethod,
   operationRequestPath,

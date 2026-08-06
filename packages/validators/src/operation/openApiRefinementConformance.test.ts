@@ -91,9 +91,10 @@ const witnesses = {
 } satisfies Record<RuntimeRefinementId, RefinementWitness>;
 
 const syncPost = openApiDocument.paths[SYNC_PATH]?.post;
-const requestSchema = syncPost?.requestBody?.content["application/json"].schema;
+const requestSchema =
+  syncPost?.requestBody?.content["application/json"]?.schema;
 const responseSchema =
-  syncPost?.responses["200"]?.content?.["application/json"].schema;
+  syncPost?.responses["200"]?.content?.["application/json"]?.schema;
 
 if (requestSchema === undefined || responseSchema === undefined) {
   throw new Error("Document sync OpenAPI schemas are missing");

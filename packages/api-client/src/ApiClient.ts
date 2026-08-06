@@ -45,7 +45,6 @@ import {
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
   isStripeCheckoutSessionResponse,
-  isUploadMultipartBlobPartResponse,
   type ListContainerDocumentsResponse,
   type ListContainerParentLanesResponse,
   type ListDocumentAttachmentsResponse,
@@ -94,6 +93,7 @@ import {
   completeMultipartBlobStage as multipartComplete,
   getMultipartBlobStage as multipartGet,
   initiateMultipartBlobStage as multipartInitiate,
+  uploadMultipartBlobPartBytes as multipartPartUpload,
 } from "./routes/blobs/multipart";
 import { containerDocsPath } from "./routes/containers/queryParams";
 import { listDocumentAttachments as documentAttachmentsList } from "./routes/documents/attachments";
@@ -127,10 +127,6 @@ import type {
   ResponseRequestFn,
   ResponseRequestValidationFailureInput,
 } from "./types";
-
-const BLOB_PART_BYTE_LENGTH_HEADER = "X-Tearleads-Blob-Part-Byte-Length";
-const BLOB_PART_SHA256_HEADER = "X-Tearleads-Blob-Part-Sha256";
-const BLOB_PART_UPLOAD_ID_HEADER = "X-Tearleads-Blob-Upload-Id";
 
 type ExpiredHandler = () => boolean | Promise<boolean>;
 type PaymentRequiredHandler = (organizationId: string | null) => void;
@@ -1709,16 +1705,17 @@ export class ApiClient {
       { type: "application/octet-stream" },
     );
     return this.request(
-      `/blobs/stages/multipart/${pathSegment(stageId)}/parts/${pathSegment(partNumber)}/bytes`,
-      isUploadMultipartBlobPartResponse,
-      "PUT",
+      multipartPartUpload.path(stageId, partNumber),
+      multipartPartUpload.isResponse,
+      multipartPartUpload.method,
       encryptedBody,
       {
         headers: {
           "Content-Type": "application/octet-stream",
-          [BLOB_PART_BYTE_LENGTH_HEADER]: input.byteLength.toString(),
-          [BLOB_PART_SHA256_HEADER]: input.sha256,
-          [BLOB_PART_UPLOAD_ID_HEADER]: input.uploadId,
+          [multipartPartUpload.headerNames.byteLength]:
+            input.byteLength.toString(),
+          [multipartPartUpload.headerNames.sha256]: input.sha256,
+          [multipartPartUpload.headerNames.uploadId]: input.uploadId,
         },
       },
     );

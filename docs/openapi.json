@@ -12137,6 +12137,260 @@
         ]
       }
     },
+    "/blobs/stages/multipart/{stageId}/parts/{partNumber}/bytes": {
+      "put": {
+        "operationId": "blobs.multipartStages.parts.upload",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "stageId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "path",
+            "name": "partNumber",
+            "required": true,
+            "schema": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "header",
+            "name": "x-tearleads-blob-part-byte-length",
+            "required": true,
+            "schema": {
+              "maxLength": 9,
+              "minLength": 1,
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "header",
+            "name": "x-tearleads-blob-part-sha256",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]+$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "header",
+            "name": "x-tearleads-blob-upload-id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "style": "simple"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "part": {
+                      "type": "object",
+                      "properties": {
+                        "byteLength": {
+                          "exclusiveMinimum": 0,
+                          "maximum": 1.7976931348623157e+308,
+                          "type": "integer"
+                        },
+                        "etag": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "partNumber": {
+                          "exclusiveMinimum": 0,
+                          "maximum": 1.7976931348623157e+308,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "byteLength",
+                        "etag",
+                        "partNumber"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "stageId": {
+                      "type": "string"
+                    },
+                    "uploadId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "part",
+                    "stageId",
+                    "uploadId"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "Declared multipart part byte length is at most 104857600",
+            "id": "blobs.multipartPart.declaredByteLengthMax"
+          }
+        ]
+      }
+    },
     "/blobs/stages/multipart/{stageId}": {
       "get": {
         "operationId": "blobs.multipartStages.get",
@@ -13933,6 +14187,198 @@
         ]
       }
     },
+    "/blobs/{blobId}/bytes": {
+      "get": {
+        "operationId": "blobs.bytes.get",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "blobId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful binary response",
+            "headers": {
+              "x-tearleads-blob-byte-length": {
+                "required": false,
+                "schema": {
+                  "maxLength": 16,
+                  "pattern": "^[0-9]+$",
+                  "type": "string"
+                }
+              },
+              "x-tearleads-blob-id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "x-tearleads-blob-sha256": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "content-length": {
+                "required": false,
+                "schema": {
+                  "maxLength": 16,
+                  "pattern": "^[0-9]+$",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "Blob byte responses include X-Tearleads-Blob-Byte-Length or Content-Length",
+            "id": "blobs.bytes.byteLengthHeader"
+          },
+          {
+            "description": "Blob byte length headers decode to JavaScript safe integers",
+            "id": "blobs.bytes.safeIntegerHeader"
+          }
+        ]
+      }
+    },
     "/documents/{documentId}/attachments": {
       "get": {
         "operationId": "documents.attachments.list",
@@ -14966,16 +15412,16 @@
             "description": "Successful JSON response"
           },
           "400": {
-            "description": "Response without a declared JSON body"
+            "description": "Response without a declared body"
           },
           "401": {
-            "description": "Response without a declared JSON body"
+            "description": "Response without a declared body"
           },
           "402": {
-            "description": "Response without a declared JSON body"
+            "description": "Response without a declared body"
           },
           "403": {
-            "description": "Response without a declared JSON body"
+            "description": "Response without a declared body"
           },
           "404": {
             "content": {
@@ -15032,10 +15478,10 @@
             "description": "Failure JSON response"
           },
           "500": {
-            "description": "Response without a declared JSON body"
+            "description": "Response without a declared body"
           },
           "503": {
-            "description": "Response without a declared JSON body"
+            "description": "Response without a declared body"
           }
         },
         "security": [

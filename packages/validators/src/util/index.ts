@@ -11,6 +11,7 @@ export {
   isAccessManifestBundleWireResponse,
   isOptionalAccessManifestBundleWireArray,
 } from "./accessManifestBundle";
+export { MAX_MULTIPART_BLOB_PART_BYTES } from "./blob";
 export {
   CONTAINER_KEK_LOG_PAGE_LIMIT,
   CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,

@@ -1,4 +1,5 @@
 import {
+  blobWireHeaderNames,
   completeMultipartBlobStageOperation,
   getMultipartBlobStageOperation,
   initiateMultipartBlobStageOperation,
@@ -7,7 +8,9 @@ import {
   isGetMultipartBlobStageOperationResponse,
   isInitiateMultipartBlobStageOperationRequest,
   isInitiateMultipartBlobStageOperationResponse,
+  isUploadMultipartBlobPartBytesOperationResponse,
   operationRequestPath,
+  uploadMultipartBlobPartBytesOperation,
 } from "@tearleads/validators/operation";
 
 export const initiateMultipartBlobStage = {
@@ -34,4 +37,21 @@ export const completeMultipartBlobStage = {
       stageId,
     });
   },
+};
+
+export const uploadMultipartBlobPartBytes = {
+  headerNames: {
+    byteLength: blobWireHeaderNames.partByteLength,
+    sha256: blobWireHeaderNames.partSha256,
+    uploadId: blobWireHeaderNames.partUploadId,
+  },
+  isResponse: isUploadMultipartBlobPartBytesOperationResponse,
+  method: uploadMultipartBlobPartBytesOperation.method,
+  path(stageId: string, partNumber: number) {
+    return operationRequestPath(uploadMultipartBlobPartBytesOperation, {
+      partNumber,
+      stageId,
+    });
+  },
+  requestHeaders: uploadMultipartBlobPartBytesOperation.headers,
 };

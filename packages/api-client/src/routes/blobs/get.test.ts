@@ -1,10 +1,13 @@
 import { expect, test } from "bun:test";
+import { getBlobBytesOperation } from "@tearleads/validators/operation";
 import type {
   RequestFailure,
   ResponseRequestFn,
   ResponseRequestValidationFailureInput,
 } from "../../types";
-import { getBlobBytes } from "./get";
+import { getBlobBytes, getBlobBytesRoute } from "./get";
+
+const blobId = "11111111-1111-4111-8111-111111111111";
 
 // Builds a ResponseRequestFn that resolves to a single canned Response, so the
 // standalone getBlobBytes can be driven without a live ApiClient/msw. reportFailure
@@ -45,7 +48,7 @@ test("uses the streaming response body when present (web / WKWebView fetch)", as
     { headers: BLOB_HEADERS(bytes.byteLength) },
   );
 
-  const result = await getBlobBytes(mockRequest(streamed), "blob-1");
+  const result = await getBlobBytes(mockRequest(streamed), blobId);
 
   expect(result?.blobId).toBe("blob-1");
   expect(result?.byteLength).toBe(bytes.byteLength);
@@ -67,12 +70,37 @@ test("reads a buffered response with no body stream (native HTTP bridge / Capaci
     arrayBuffer: async () => bytes.buffer,
   } as unknown as Response;
 
-  const result = await getBlobBytes(mockRequest(buffered), "blob-1");
+  const result = await getBlobBytes(mockRequest(buffered), blobId);
 
   expect(result).not.toBeNull();
   expect(result?.blobId).toBe("blob-1");
   expect(result?.byteLength).toBe(bytes.byteLength);
   await expect(new Response(result?.encryptedBytes).text()).resolves.toBe(
     "encrypted-blob-bytes",
+  );
+});
+
+test("prefers the blob byte length header over an unusable content length", async () => {
+  const bytes = new TextEncoder().encode("streamed-blob-bytes");
+  const response = new Response(bytes, {
+    headers: {
+      ...BLOB_HEADERS(bytes.byteLength),
+      "Content-Length": "invalid",
+    },
+  });
+
+  const result = await getBlobBytes(mockRequest(response), blobId);
+
+  expect(result?.byteLength).toBe(bytes.byteLength);
+});
+
+test("blob byte client metadata derives from the shared operation", () => {
+  expect(getBlobBytesRoute.method).toBe(getBlobBytesOperation.method);
+  expect(getBlobBytesRoute.path(blobId)).toBe(`/blobs/${blobId}/bytes`);
+  expect(getBlobBytesRoute.responseHeaders).toBe(
+    getBlobBytesOperation.responseHeaders[200],
+  );
+  expect(() => getBlobBytesRoute.path("invalid")).toThrow(
+    "Invalid path parameters for blobs.bytes.get",
   );
 });

@@ -11,6 +11,7 @@ import {
 import { ApiClient } from "./ApiClient";
 
 const stageId = "11111111-1111-4111-8111-111111111111";
+const blobId = "22222222-2222-4222-8222-222222222222";
 
 testApiClient("uses blob multipart stage route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
@@ -151,7 +152,7 @@ testApiClient(
 
 testApiClient("exposes streamed blob download responses", async () => {
   server.use(
-    http.get(`${apiBaseUrl}/blobs/blob-1/bytes`, () => {
+    http.get(`${apiBaseUrl}/blobs/${blobId}/bytes`, () => {
       const encryptedBytes = new TextEncoder().encode("encrypted-blob-bytes");
 
       return new Response(
@@ -164,7 +165,7 @@ testApiClient("exposes streamed blob download responses", async () => {
         {
           headers: {
             "Content-Length": encryptedBytes.byteLength.toString(),
-            "X-Tearleads-Blob-Id": "blob-1",
+            "X-Tearleads-Blob-Id": blobId,
             "X-Tearleads-Blob-Sha256": "sha256-1",
           },
         },
@@ -173,9 +174,9 @@ testApiClient("exposes streamed blob download responses", async () => {
   );
 
   const client = new ApiClient(apiBaseUrl);
-  const blob = await client.getBlobBytes("blob-1");
+  const blob = await client.getBlobBytes(blobId);
 
-  expect(blob?.blobId).toBe("blob-1");
+  expect(blob?.blobId).toBe(blobId);
   expect(blob?.byteLength).toBe(20);
   expect(blob?.sha256).toBe("sha256-1");
   await expect(new Response(blob?.encryptedBytes).text()).resolves.toBe(
@@ -187,7 +188,7 @@ testApiClient(
   "uses blob byte length header when content-length is unavailable",
   async () => {
     server.use(
-      http.get(`${apiBaseUrl}/blobs/blob-1/bytes`, () => {
+      http.get(`${apiBaseUrl}/blobs/${blobId}/bytes`, () => {
         const encryptedBytes = new TextEncoder().encode("encrypted-blob-bytes");
 
         return new Response(
@@ -201,7 +202,7 @@ testApiClient(
             headers: {
               "X-Tearleads-Blob-Byte-Length":
                 encryptedBytes.byteLength.toString(),
-              "X-Tearleads-Blob-Id": "blob-1",
+              "X-Tearleads-Blob-Id": blobId,
               "X-Tearleads-Blob-Sha256": "sha256-1",
             },
           },
@@ -210,7 +211,7 @@ testApiClient(
     );
 
     const client = new ApiClient(apiBaseUrl);
-    const blob = await client.getBlobBytes("blob-1");
+    const blob = await client.getBlobBytes(blobId);
 
     expect(blob?.byteLength).toBe(20);
     await expect(new Response(blob?.encryptedBytes).text()).resolves.toBe(
@@ -221,7 +222,7 @@ testApiClient(
 
 testApiClient("reports malformed blob byte responses", async () => {
   server.use(
-    http.get(`${apiBaseUrl}/blobs/blob-1/bytes`, () => {
+    http.get(`${apiBaseUrl}/blobs/${blobId}/bytes`, () => {
       return HttpResponse.text("encrypted-blob-bytes");
     }),
   );
@@ -232,9 +233,9 @@ testApiClient("reports malformed blob byte responses", async () => {
     errors.push(message);
   });
 
-  await expect(client.getBlobBytes("blob-1")).resolves.toBeNull();
+  await expect(client.getBlobBytes(blobId)).resolves.toBeNull();
   expect(errors).toEqual([
-    "Invalid response shape for /blobs/blob-1/bytes: missing X-Tearleads-Blob-Id, X-Tearleads-Blob-Sha256",
+    `Invalid response shape for /blobs/${blobId}/bytes: missing X-Tearleads-Blob-Id, X-Tearleads-Blob-Sha256`,
   ]);
 });
 
@@ -242,7 +243,7 @@ testApiClient(
   "groups alternative blob byte length headers in malformed responses",
   async () => {
     server.use(
-      http.get(`${apiBaseUrl}/blobs/blob-1/bytes`, () => {
+      http.get(`${apiBaseUrl}/blobs/${blobId}/bytes`, () => {
         return new Response(textStream("encrypted-blob-bytes"));
       }),
     );
@@ -253,9 +254,9 @@ testApiClient(
       errors.push(message);
     });
 
-    await expect(client.getBlobBytes("blob-1")).resolves.toBeNull();
+    await expect(client.getBlobBytes(blobId)).resolves.toBeNull();
     expect(errors).toEqual([
-      "Invalid response shape for /blobs/blob-1/bytes: missing X-Tearleads-Blob-Id, (X-Tearleads-Blob-Byte-Length or Content-Length), X-Tearleads-Blob-Sha256",
+      `Invalid response shape for /blobs/${blobId}/bytes: missing X-Tearleads-Blob-Id, (X-Tearleads-Blob-Byte-Length or Content-Length), X-Tearleads-Blob-Sha256`,
     ]);
   },
 );

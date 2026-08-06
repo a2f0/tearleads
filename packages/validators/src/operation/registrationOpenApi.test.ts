@@ -9,7 +9,10 @@ if (registerPost?.requestBody === undefined) {
 }
 
 const requestSchema =
-  registerPost.requestBody.content["application/json"].schema;
+  registerPost.requestBody.content["application/json"]?.schema;
+if (requestSchema === undefined) {
+  throw new Error("Registration OpenAPI JSON request is missing");
+}
 const { encapsulationPublicKey, signingPublicKey } =
   requestSchema.properties ?? {};
 const ajv = new Ajv2020({ allErrors: true, strict: true });

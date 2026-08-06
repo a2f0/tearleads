@@ -28,11 +28,12 @@ import {
 
 const syncPathItem = openApiDocument.paths[SYNC_PATH];
 const syncPost = syncPathItem?.post;
-const requestSchema = syncPost?.requestBody?.content["application/json"].schema;
+const requestSchema =
+  syncPost?.requestBody?.content["application/json"]?.schema;
 const responseSchema =
-  syncPost?.responses["200"]?.content?.["application/json"].schema;
+  syncPost?.responses["200"]?.content?.["application/json"]?.schema;
 const errorResponseSchema =
-  syncPost?.responses["409"]?.content?.["application/json"].schema;
+  syncPost?.responses["409"]?.content?.["application/json"]?.schema;
 
 if (syncPost === undefined || requestSchema === undefined) {
   throw new Error("Document sync OpenAPI request is missing");
@@ -61,12 +62,15 @@ if (
   throw new Error("Auth OpenAPI request bodies are missing");
 }
 
-const validateChallengeRequest = ajv.compile(
-  challengePost.requestBody.content["application/json"].schema,
-);
-const validateVerifyRequest = ajv.compile(
-  verifyPost.requestBody.content["application/json"].schema,
-);
+const challengeRequestSchema =
+  challengePost.requestBody.content["application/json"]?.schema;
+const verifyRequestSchema =
+  verifyPost.requestBody.content["application/json"]?.schema;
+if (challengeRequestSchema === undefined || verifyRequestSchema === undefined) {
+  throw new Error("Auth OpenAPI JSON request bodies are missing");
+}
+const validateChallengeRequest = ajv.compile(challengeRequestSchema);
+const validateVerifyRequest = ajv.compile(verifyRequestSchema);
 
 test("document sync emits its operation registry as OpenAPI 3.1", () => {
   expect(openApiDocument.openapi).toBe("3.1.0");

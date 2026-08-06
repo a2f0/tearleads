@@ -12,7 +12,10 @@ if (createOrganizationPost?.requestBody === undefined) {
   throw new Error("Create organization OpenAPI request is missing");
 }
 const requestSchema =
-  createOrganizationPost.requestBody.content["application/json"].schema;
+  createOrganizationPost.requestBody.content["application/json"]?.schema;
+if (requestSchema === undefined) {
+  throw new Error("Create organization OpenAPI JSON request is missing");
+}
 
 test("create organization OpenAPI documents its shared contract", () => {
   expect(createOrganizationPost.operationId).toBe("organizations.create");
@@ -133,7 +136,7 @@ test("organization management OpenAPI documents shared contracts", () => {
     "503",
   ]);
   expect(
-    createGroup.requestBody.content["application/json"].schema.required,
+    createGroup.requestBody.content["application/json"]?.schema.required,
   ).toEqual(["groupId", "initialGroupPolicy", "name"]);
   expect(createGroup["x-tearleads-runtime-refinements"]).toEqual(
     createOrganizationGroupOperation.runtimeRefinements,
@@ -144,7 +147,7 @@ test("organization management OpenAPI documents shared contracts", () => {
   expect(groupMembers.operationId).toBe("organizations.groups.members.list");
   expect(updateProfile.operationId).toBe("organizations.profile.update");
   expect(
-    updateProfile.requestBody.content["application/json"].schema.required,
+    updateProfile.requestBody.content["application/json"]?.schema.required,
   ).toEqual(["profileDocumentId"]);
   expect(updateRoster.operationId).toBe("organizations.roster.update");
   expect(updateRoster.parameters[0]).toMatchObject({ name: "organizationId" });

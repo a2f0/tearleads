@@ -42,7 +42,7 @@ test("principal policy OpenAPI documents both shared operations", () => {
     "503",
   ]);
   expect(
-    putPolicy.requestBody.content["application/json"].schema.required,
+    putPolicy.requestBody.content["application/json"]?.schema.required,
   ).toEqual(["encryptedPayload", "memberEnvelopes", "projection", "state"]);
   expect(getPolicy.security).toEqual([{ bearerAuth: [] }]);
   expect(putPolicy.security).toEqual([{ bearerAuth: [] }]);

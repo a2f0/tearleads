@@ -111,7 +111,7 @@ test("multipart control OpenAPI documents shared inputs and responses", () => {
   expect(initiate.operationId).toBe("blobs.multipartStages.initiate");
   expect(initiate.parameters).toEqual([]);
   expect(
-    initiate.requestBody.content["application/json"].schema.required,
+    initiate.requestBody.content["application/json"]?.schema.required,
   ).toEqual(["byteLength", "sha256"]);
   expect(Object.keys(initiate.responses)).toEqual([
     "200",
@@ -138,7 +138,7 @@ test("multipart control OpenAPI documents shared inputs and responses", () => {
   expect(Reflect.get(statusParameter.schema, "pattern")).toBeTypeOf("string");
   expect(complete.operationId).toBe("blobs.multipartStages.complete");
   expect(
-    complete.requestBody.content["application/json"].schema.required,
+    complete.requestBody.content["application/json"]?.schema.required,
   ).toEqual(["parts", "uploadId"]);
   for (const operation of [initiate, status, complete]) {
     expect(operation.security).toEqual([{ bearerAuth: [] }]);
