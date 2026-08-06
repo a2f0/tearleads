@@ -23,6 +23,7 @@ import {
   type LocallyAcknowledgedAccessManifestHead,
 } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import {
   createExecSql,
   type ExecSql,
@@ -405,12 +406,24 @@ async function persistRosterProfileDocumentBootstrap(
   });
 }
 
+// Thrown inside the bootstrap transaction to roll the whole write set back
+// when the pre-commit currency check finds the identity replaced. Private:
+// callers observe the rollback as a false "persisted" result, never as an
+// exception.
+class StaleBootstrapIdentityError extends Error {
+  constructor() {
+    super("Registration bootstrap rolled back: identity replaced");
+  }
+}
+
 /**
  * Persists the local root-container bootstrap created during successful
  * registration so container contents can initialize from SQLite on first
- * login. Resolves false when the in-mutex currency check rejected the write
- * (the identity was replaced while this persist waited for the queue), so
- * callers do not report a bootstrap that was never persisted.
+ * login — atomically: every write lands inside ONE transaction whose last
+ * act re-checks identity currency, so an identity replaced anywhere between
+ * the queue claim and the commit rolls the entire bootstrap back instead of
+ * leaving a partial one. Resolves false when either currency check rejected
+ * the write, so callers do not report a bootstrap that was never persisted.
  */
 export async function persistRegistrationBootstrapFromExecSql(
   execSql: ExecSql,
@@ -425,24 +438,52 @@ export async function persistRegistrationBootstrapFromExecSql(
     if (input.canStartDurableMutation && !input.canStartDurableMutation()) {
       return false;
     }
+    // Idempotent DDL stays outside the atomic boundary.
     await sqlContainerContentsPersistence.ensureSchema(lockedExecSql);
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
-    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-      execSql: lockedExecSql,
-      heads: input.acknowledgedAccessHeads,
-    });
-    await persistRegistrationPrincipalPolicies({
-      adminGroup: input.initialAdminGroupPolicy,
-      execSql: lockedExecSql,
-      memberGroup: input.initialMemberGroupPolicy,
-      organization: input.initialOrganizationPolicy,
-    });
-    await persistRootContainerBootstrap(lockedExecSql, input);
-    await persistRosterProfileContainerBootstrap(lockedExecSql, input);
-    await persistRosterProfileDocumentBootstrap(lockedExecSql, input);
-    await persistOrganizationMetadataContainerBootstrap(lockedExecSql, input);
-    await persistOrganizationProfileDocumentBootstrap(lockedExecSql, input);
-    await persistSystemContainersBootstrap(lockedExecSql, input);
+    try {
+      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async () => {
+          await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+            execSql: lockedExecSql,
+            heads: input.acknowledgedAccessHeads,
+          });
+          await persistRegistrationPrincipalPolicies({
+            adminGroup: input.initialAdminGroupPolicy,
+            execSql: lockedExecSql,
+            memberGroup: input.initialMemberGroupPolicy,
+            organization: input.initialOrganizationPolicy,
+          });
+          await persistRootContainerBootstrap(lockedExecSql, input);
+          await persistRosterProfileContainerBootstrap(lockedExecSql, input);
+          await persistRosterProfileDocumentBootstrap(lockedExecSql, input);
+          await persistOrganizationMetadataContainerBootstrap(
+            lockedExecSql,
+            input,
+          );
+          await persistOrganizationProfileDocumentBootstrap(
+            lockedExecSql,
+            input,
+          );
+          await persistSystemContainersBootstrap(lockedExecSql, input);
+          // Pre-commit currency guard: the sequence above awaits real work,
+          // so the identity can be replaced mid-sequence. Refusing HERE rolls
+          // back every write of this transaction, closing the partial-persist
+          // window a single entry check leaves open.
+          if (
+            input.canStartDurableMutation &&
+            !input.canStartDurableMutation()
+          ) {
+            throw new StaleBootstrapIdentityError();
+          }
+        },
+      );
+    } catch (error: unknown) {
+      if (error instanceof StaleBootstrapIdentityError) {
+        return false;
+      }
+      throw error;
+    }
     return true;
   });
 }

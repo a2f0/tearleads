@@ -8,6 +8,7 @@ import {
   createExecSql,
   type ExecSql,
   type ExecSqlClientLike,
+  resolveCanonicalExecSql,
   runSerializedSqlMutation,
   type SqlArrayRow,
   type SqlRowValue,
@@ -35,6 +36,12 @@ export interface ClientSQLitePersistenceRuntime {
 }
 
 const runtimeByExecSql = new WeakMap<ExecSql, ClientSQLitePersistenceRuntime>();
+// One transaction depth per underlying connection (canonical executor), so a
+// runtime.transaction call made while another transaction is already open on
+// the same connection degrades to a SAVEPOINT scope instead of issuing a
+// second BEGIN. Callers inside a serialized mutation get separate runtime
+// instances per locked executor, so the depth cannot live on the runtime.
+const transactionDepthByCanonicalExecSql = new WeakMap<ExecSql, number>();
 const execSqlByClient = new WeakMap<ExecSqlClientLike, ExecSql>();
 
 function toSqlRowValue(value: unknown): SqlRowValue {
@@ -121,9 +128,41 @@ function createRuntimeForExecSql(
     },
     transaction(operation, config) {
       return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-        withActiveExecSql(lockedExecSql, () =>
-          db.transaction(operation, config),
-        ),
+        withActiveExecSql(lockedExecSql, async () => {
+          const canonical = resolveCanonicalExecSql(execSql);
+          const depth = transactionDepthByCanonicalExecSql.get(canonical) ?? 0;
+          transactionDepthByCanonicalExecSql.set(canonical, depth + 1);
+          try {
+            if (depth === 0) {
+              return await db.transaction(operation, config);
+            }
+
+            // Nested inside an open transaction on this connection: a second
+            // BEGIN would throw, so scope this call to a SAVEPOINT. The
+            // drizzle handle shares the transaction's connection and query
+            // interface, and no caller uses tx.rollback or tx.transaction,
+            // so the database handle stands in for the transaction handle.
+            const savepoint = `runtime_transaction_sp_${depth}`;
+            await lockedExecSql(`SAVEPOINT ${savepoint}`);
+            try {
+              const result = await operation(
+                db as unknown as ClientSQLiteTransaction,
+              );
+              await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`);
+              return result;
+            } catch (error: unknown) {
+              await lockedExecSql(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+              await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`);
+              throw error;
+            }
+          } finally {
+            if (depth === 0) {
+              transactionDepthByCanonicalExecSql.delete(canonical);
+            } else {
+              transactionDepthByCanonicalExecSql.set(canonical, depth);
+            }
+          }
+        }),
       );
     },
   };
