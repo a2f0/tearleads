@@ -22,11 +22,6 @@ export class Blobs {
     return this.storeValue;
   }
 
-  setStore(store: BlobStore): void {
-    this.identityScoped = false;
-    this.storeValue = store;
-  }
-
   useEphemeralStore(): void {
     this.identityScoped = false;
     this.storeValue = this.ephemeralStore;

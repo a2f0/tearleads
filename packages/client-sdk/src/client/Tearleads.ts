@@ -128,7 +128,6 @@ export class Tearleads {
               "identity.generate requires a ready SQLite database.",
             );
           }
-          this.database.requireExecSql("identity.generate");
           if (!session) {
             throw new Error(
               "identity.generate requires an initialized session.",

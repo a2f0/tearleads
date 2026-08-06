@@ -16,6 +16,7 @@ import type {
   RemoveOrganizationGroupUserInput,
 } from "../../client/organizations";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
 import {
   addOrganizationGroupUser,
@@ -133,7 +134,6 @@ test("local admin projections cannot authorize a group membership mutation", asy
   try {
     await expect(
       addOrganizationGroupUser({
-        afterPolicyCommitBeforeCache: async () => {},
         apiClient: {
           createOrganizationGroup: async () => null,
           getCurrentPrincipalPolicy: async (principalType, principalId) => {
@@ -335,7 +335,6 @@ test("a verified Admins member absent from organization policy can mutate anothe
       },
     };
     await addOrganizationGroupUser({
-      afterPolicyCommitBeforeCache: async () => {},
       apiClient,
       beforePolicyCommit: () => {},
       currentUserSecretKey: founderKem.secretKey,
@@ -351,7 +350,6 @@ test("a verified Admins member absent from organization policy can mutate anothe
     });
 
     const result = await addOrganizationGroupUser({
-      afterPolicyCommitBeforeCache: async () => {},
       apiClient,
       beforePolicyCommit: () => {},
       currentUserSecretKey: signerKem.secretKey,
@@ -372,6 +370,16 @@ test("a verified Admins member absent from organization policy can mutate anothe
         role: "member",
       },
     ]);
+    // Production omits afterPolicyCommitBeforeCache entirely; the mutated
+    // bundle must still land in the local cache without it.
+    const cachedPolicy = await loadPrincipalPolicyBundle(
+      execSql,
+      "group",
+      groupId,
+    );
+    expect(cachedPolicy?.currentState.stateHash).toBe(
+      result.currentState.stateHash,
+    );
     expect(organizationPolicy.currentProjection).toEqual([
       {
         userId: founderUserId,
@@ -386,7 +394,6 @@ test("a verified Admins member absent from organization policy can mutate anothe
     expect(organizationPolicyReads).toBeGreaterThan(0);
 
     const emptiedGroup = await removeOrganizationGroupUser({
-      afterPolicyCommitBeforeCache: async () => {},
       apiClient,
       beforePolicyCommit: () => {},
       execSql,
@@ -402,7 +409,6 @@ test("a verified Admins member absent from organization policy can mutate anothe
     expect(emptiedGroup.currentProjection).toEqual([]);
 
     await removeOrganizationGroupUser({
-      afterPolicyCommitBeforeCache: async () => {},
       apiClient,
       beforePolicyCommit: () => {},
       execSql,
@@ -419,7 +425,6 @@ test("a verified Admins member absent from organization policy can mutate anothe
 
     await expect(
       addOrganizationGroupUser({
-        afterPolicyCommitBeforeCache: async () => {},
         apiClient,
         beforePolicyCommit: () => {},
         currentUserSecretKey: signerKem.secretKey,
