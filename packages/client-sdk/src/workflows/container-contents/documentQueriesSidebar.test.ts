@@ -4,11 +4,9 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { primeDocumentsForContainerSubtree } from "./documentPriming";
-import {
-  createContainerDocumentQueriesFromRuntime,
-  listDocumentRuntimeTargetsForContainerSubtreeFromRuntime,
-} from "./documentQueries";
+import { createContainerDocumentQueriesFromRuntime } from "./documentQueries";
 import { saveTestDocument } from "./documentQueries.testFixtures";
+import { listDocumentRuntimeTargetsForContainerSubtreeFromRuntime } from "./documentSubtreeQueries";
 import {
   createContainerDocumentObjectSyncState,
   syncedContainerDocumentObjectSyncState,

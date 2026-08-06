@@ -5,7 +5,6 @@ import {
   documentTables,
 } from "../../data/sqlite/schema";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
-import { listDocumentRuntimeTargetsForContainerSubtreeFromRuntime } from "./documentQueries";
 import type {
   ContainerContentsContainerSubtreeState,
   ContainerContentsDocumentRuntimeTarget,
@@ -13,6 +12,7 @@ import type {
   ContainerDocumentQueriesRuntime,
 } from "./documentQueries/types";
 import { requestDocumentRuntimeTargetSync } from "./documentRuntimeTargetSync";
+import { listDocumentRuntimeTargetsForContainerSubtreeFromRuntime } from "./documentSubtreeQueries";
 import {
   getOrphanedDocumentQueryBind,
   getOrphanedDocumentWhereSql,
