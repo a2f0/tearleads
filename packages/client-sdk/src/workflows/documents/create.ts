@@ -39,7 +39,7 @@ import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch
 import {
   isDocumentManifestAlreadyExistsConflict,
   projectionIntegrityErrorCode,
-} from "./syncFailures";
+} from "./syncFailureClassification";
 
 export async function buildMaterializedDocumentCreatePlan(
   input: {

@@ -92,7 +92,7 @@ export {
   describeDocumentRevalidationFailure,
   describeDocumentSyncSubmitFailure,
   type TerminalSubmitFailureHandler,
-} from "./syncFailures";
+} from "./syncFailureClassification";
 export {
   type DocumentSyncLane,
   registerDocumentSyncLane,
