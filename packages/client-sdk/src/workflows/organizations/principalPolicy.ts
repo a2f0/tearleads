@@ -40,7 +40,6 @@ import type {
 import {
   externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
-  type VerifiedExternalAdminPolicy,
 } from "../principals/externalAdminPolicy";
 import {
   isDirectGroupAdmin,
@@ -110,8 +109,6 @@ interface BuildGroupMembershipMutationInput {
   readonly signingKeyPair: SigningKeyPair;
 }
 
-type GroupPolicyMutationRequest = PutPrincipalPolicyRequest;
-
 type BuildAddGroupUserPolicyInput = BuildGroupMembershipMutationInput & {
   readonly currentUsers: ReadonlyArray<TrustedUserIdentity>;
   readonly currentUserSecretKey: Uint8Array;
@@ -123,10 +120,6 @@ interface LoadedGroupPolicyMutationContext
   readonly adminGroupId: string;
   readonly currentOrgAdminUserIds: readonly string[];
   readonly memberGroupId: string;
-}
-
-function projectionMemberKey(member: { readonly userId: string }): string {
-  return member.userId;
 }
 
 function requireExternalAuthority(
@@ -220,25 +213,15 @@ async function loadGroupPolicyMutationContext(input: {
     execSql: input.execSql,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
-  let externalAdminPolicy:
-    | Promise<VerifiedExternalAdminPolicy | null>
-    | undefined;
-  const loadExternalAdminPolicy = () => {
-    externalAdminPolicy ??= loadOrganizationExternalAdminPolicy({
-      execSql: input.execSql,
-      getCurrentPrincipalPolicy: (principalType, principalId) =>
-        principalType === "group" && principalId === input.groupId
-          ? Promise.resolve(currentPolicy)
-          : input.apiClient.getCurrentPrincipalPolicy(
-              principalType,
-              principalId,
-            ),
-      organizationId: input.organizationId,
-      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    });
-    return externalAdminPolicy;
-  };
-  const adminPolicy = await loadExternalAdminPolicy();
+  const adminPolicy = await loadOrganizationExternalAdminPolicy({
+    execSql: input.execSql,
+    getCurrentPrincipalPolicy: (principalType, principalId) =>
+      principalType === "group" && principalId === input.groupId
+        ? Promise.resolve(currentPolicy)
+        : input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
+    organizationId: input.organizationId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
   if (!adminPolicy) {
     throw new Error("Organization admin authority could not be verified");
   }
@@ -299,7 +282,7 @@ async function commitGroupPolicyMutation(input: {
   readonly execSql: ExecSql;
   readonly expectedHead: ReferencedPrincipalHead;
   readonly groupId: string;
-  readonly request: GroupPolicyMutationRequest;
+  readonly request: PutPrincipalPolicyRequest;
 }): Promise<PrincipalPolicyBundleResponse> {
   const storedPolicy = await input.apiClient.putPrincipalPolicy(
     "group",
@@ -334,7 +317,7 @@ async function commitGroupPolicyMutation(input: {
 async function buildOrgAdminAddGroupUserPolicyRequest(
   input: BuildAddGroupUserPolicyInput,
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
-): Promise<GroupPolicyMutationRequest> {
+): Promise<PutPrincipalPolicyRequest> {
   const groupKem = generateKemSeedAndKeyPair();
   const usersById = new Map([
     ...input.currentUsers.map((user) => [user.userId, user] as const),
@@ -379,7 +362,7 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
   input: BuildAddGroupUserPolicyInput,
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
   targetKey: string,
-): Promise<GroupPolicyMutationRequest> {
+): Promise<PutPrincipalPolicyRequest> {
   const groupSecretKey = await unwrapDek(
     toRecipientEntries(input.currentPolicy.currentMemberEnvelopes.envelopes),
     input.currentUserSecretKey,
@@ -394,7 +377,7 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
 
   const memberEnvelopes = [
     ...input.currentPolicy.currentMemberEnvelopes.envelopes.filter(
-      (envelope) => projectionMemberKey(envelope) !== targetKey,
+      (envelope) => envelope.userId !== targetKey,
     ),
     {
       userId: input.targetUser.userId,
@@ -422,7 +405,7 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
 
 export async function buildAddGroupUserPolicyRequest(
   input: BuildAddGroupUserPolicyInput,
-): Promise<GroupPolicyMutationRequest> {
+): Promise<PutPrincipalPolicyRequest> {
   await verifyGroupPolicy({
     currentPolicy: input.currentPolicy,
     ...(input.externalAuthority
@@ -437,15 +420,9 @@ export async function buildAddGroupUserPolicyRequest(
     input.signerUserId,
   );
 
-  const targetKey = projectionMemberKey({
-    userId: input.targetUser.userId,
-  });
+  const targetKey = input.targetUser.userId;
   const currentProjection = input.currentPolicy.currentProjection;
-  if (
-    currentProjection.some(
-      (member) => projectionMemberKey(member) === targetKey,
-    )
-  ) {
+  if (currentProjection.some((member) => member.userId === targetKey)) {
     throw new Error("User is already a group member");
   }
 
@@ -467,7 +444,7 @@ export async function buildRemoveGroupUserPolicyRequest(
     readonly remainingUsers: ReadonlyArray<TrustedUserIdentity>;
     readonly removedUserId: string;
   },
-): Promise<GroupPolicyMutationRequest> {
+): Promise<PutPrincipalPolicyRequest> {
   await verifyGroupPolicy({
     currentPolicy: input.currentPolicy,
     ...(input.externalAuthority
@@ -482,11 +459,9 @@ export async function buildRemoveGroupUserPolicyRequest(
     input.signerUserId,
   );
 
-  const key = projectionMemberKey({
-    userId: input.removedUserId,
-  });
+  const key = input.removedUserId;
   const projection = input.currentPolicy.currentProjection.filter(
-    (member) => projectionMemberKey(member) !== key,
+    (member) => member.userId !== key,
   );
 
   if (projection.length === input.currentPolicy.currentProjection.length) {
@@ -531,7 +506,7 @@ export async function buildGroupAccessSetShrinkPolicyRequest(
   input: BuildGroupMembershipMutationInput & {
     readonly currentUsers: ReadonlyArray<TrustedUserIdentity>;
   },
-): Promise<GroupPolicyMutationRequest> {
+): Promise<PutPrincipalPolicyRequest> {
   await verifyGroupPolicy({
     currentPolicy: input.currentPolicy,
     ...(input.externalAuthority
@@ -777,11 +752,9 @@ export async function removeOrganizationGroupUser(input: {
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   });
-  const removedKey = projectionMemberKey({
-    userId: input.removedUserId,
-  });
+  const removedKey = input.removedUserId;
   const projection = policyContext.currentPolicy.currentProjection.filter(
-    (member) => projectionMemberKey(member) !== removedKey,
+    (member) => member.userId !== removedKey,
   );
   if (
     projection.length === policyContext.currentPolicy.currentProjection.length
