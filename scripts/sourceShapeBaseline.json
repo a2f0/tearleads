@@ -62,8 +62,8 @@
       "bytes": 22812
     },
     "docs/openapi.json": {
-      "lines": 28960,
-      "bytes": 1288272
+      "lines": 30584,
+      "bytes": 1346540
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -82,8 +82,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1811,
-      "bytes": 58123
+      "lines": 1799,
+      "bytes": 58219
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -374,8 +374,8 @@
       "bytes": 33792
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 10412,
-      "bytes": 463740
+      "lines": 11181,
+      "bytes": 490988
     },
     "scripts/subsystems.ts": {
       "lines": 742,

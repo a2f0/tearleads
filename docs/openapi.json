@@ -11920,6 +11920,1630 @@
         ]
       }
     },
+    "/blobs/{blobId}/attachment-bindings/{bindingId}/detach": {
+      "post": {
+        "operationId": "blobs.attachmentBindings.detach",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "blobId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "path",
+            "name": "bindingId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "authorizingContainerPathRefs": {
+                    "type": "array",
+                    "items": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "containerId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "manifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "containerId",
+                          "manifestHash"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "body": {},
+                  "containerRekeys": {
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "body": {},
+                        "containerManifestHistory": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "destinationParentContainerPath": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "event": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        },
+                        "expectedManifestHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "keyEpoch": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        },
+                        "keyring": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "containerId": {
+                                  "type": "string"
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string"
+                                },
+                                "iv": {
+                                  "maxLength": 16,
+                                  "type": "string"
+                                },
+                                "sealed": {
+                                  "maxLength": 5592352,
+                                  "type": "string"
+                                },
+                                "sealingSuite": {
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "const": 1,
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "iv",
+                                "sealed",
+                                "sealingSuite",
+                                "version"
+                              ],
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "manifest": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        },
+                        "parentContainerPath": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "parentKekState": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "predecessorBridge": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "previousContainerPath": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "previousManifest": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "event": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "manifest": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "manifestHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "state": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "required": [
+                                "event",
+                                "manifest",
+                                "manifestHash",
+                                "state"
+                              ],
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "principalPolicies": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        },
+                        "userRecipientKeys": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        },
+                        "wraps": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "required": [
+                        "body",
+                        "event",
+                        "expectedManifestHash",
+                        "keyEpoch",
+                        "keyring",
+                        "manifest",
+                        "predecessorBridge",
+                        "principalPolicies",
+                        "wraps"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "maxItems": 16,
+                    "type": "array"
+                  },
+                  "event": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "authorizingContainerPathRefs",
+                  "body",
+                  "event"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bindingId": {
+                      "type": "string"
+                    },
+                    "blobId": {
+                      "type": "string"
+                    },
+                    "documentId": {
+                      "type": "string"
+                    },
+                    "slotId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "bindingId",
+                    "blobId",
+                    "documentId",
+                    "slotId"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "billing_inactive",
+                        "sync_seat_unassigned"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "organizationId",
+                    "reason"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/blobs/{blobId}/attachment-bindings": {
+      "post": {
+        "operationId": "blobs.attachmentBindings.bind",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "blobId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "authorizingContainerPathRefs": {
+                    "type": "array",
+                    "items": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "containerId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "manifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "containerId",
+                          "manifestHash"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "body": {},
+                  "containerRekeys": {
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "body": {},
+                        "containerManifestHistory": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "destinationParentContainerPath": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "event": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        },
+                        "expectedManifestHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "keyEpoch": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        },
+                        "keyring": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "containerId": {
+                                  "type": "string"
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string"
+                                },
+                                "iv": {
+                                  "maxLength": 16,
+                                  "type": "string"
+                                },
+                                "sealed": {
+                                  "maxLength": 5592352,
+                                  "type": "string"
+                                },
+                                "sealingSuite": {
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "const": 1,
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpochId",
+                                "iv",
+                                "sealed",
+                                "sealingSuite",
+                                "version"
+                              ],
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "manifest": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        },
+                        "parentContainerPath": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "parentKekState": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "predecessorBridge": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "previousContainerPath": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "previousManifest": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "event": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "manifest": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "manifestHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "state": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "required": [
+                                "event",
+                                "manifest",
+                                "manifestHash",
+                                "state"
+                              ],
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "principalPolicies": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        },
+                        "userRecipientKeys": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        },
+                        "wraps": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "required": [
+                        "body",
+                        "event",
+                        "expectedManifestHash",
+                        "keyEpoch",
+                        "keyring",
+                        "manifest",
+                        "predecessorBridge",
+                        "principalPolicies",
+                        "wraps"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "maxItems": 16,
+                    "type": "array"
+                  },
+                  "contentKeyBundle": {
+                    "type": "object",
+                    "properties": {
+                      "contentKeyEpoch": {
+                        "exclusiveMinimum": 0,
+                        "maximum": 1.7976931348623157e+308,
+                        "type": "integer"
+                      },
+                      "targetHash": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "targets": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "bindingId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "containerId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "containerKeyEpoch": {
+                              "exclusiveMinimum": 0,
+                              "maximum": 1.7976931348623157e+308,
+                              "type": "integer"
+                            },
+                            "containerKeyEpochId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "containerManifestHash": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "documentId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "wrappedKey": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "wrappingMetadata": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "bindingId",
+                            "containerId",
+                            "containerKeyEpoch",
+                            "containerKeyEpochId",
+                            "containerManifestHash",
+                            "documentId",
+                            "wrappedKey",
+                            "wrappingMetadata"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      }
+                    },
+                    "required": [
+                      "contentKeyEpoch",
+                      "targetHash",
+                      "targets"
+                    ],
+                    "additionalProperties": {}
+                  },
+                  "event": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": {}
+                  },
+                  "stagedBlob": {
+                    "type": "object",
+                    "properties": {
+                      "stageId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "writeHeader": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "stageId",
+                      "writeHeader"
+                    ],
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "authorizingContainerPathRefs",
+                  "body",
+                  "contentKeyBundle",
+                  "event"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bindingId": {
+                      "type": "string"
+                    },
+                    "blobId": {
+                      "type": "string"
+                    },
+                    "blobKekTargets": {
+                      "type": "object",
+                      "properties": {
+                        "activeBindingIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "blobAccessManifestHash": {
+                          "type": "string"
+                        },
+                        "blobId": {
+                          "type": "string"
+                        },
+                        "blobKeyTargetHash": {
+                          "type": "string"
+                        },
+                        "documentManifestHashes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "linkedContainerKeyEpochIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "linkedContainerManifestHashes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "organizationId": {
+                          "type": "string"
+                        },
+                        "targets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "required": [
+                        "activeBindingIds",
+                        "blobAccessManifestHash",
+                        "blobId",
+                        "blobKeyTargetHash",
+                        "documentManifestHashes",
+                        "linkedContainerKeyEpochIds",
+                        "linkedContainerManifestHashes",
+                        "organizationId",
+                        "targets"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "contentKeyBundle": {
+                      "type": "object",
+                      "properties": {
+                        "blobId": {
+                          "type": "string"
+                        },
+                        "contentKeyEpoch": {
+                          "exclusiveMinimum": 0,
+                          "maximum": 1.7976931348623157e+308,
+                          "type": "integer"
+                        },
+                        "targetHash": {
+                          "type": "string"
+                        },
+                        "targets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "bindingId": {
+                                "type": "string"
+                              },
+                              "containerId": {
+                                "type": "string"
+                              },
+                              "containerKeyEpoch": {
+                                "exclusiveMinimum": 0,
+                                "maximum": 1.7976931348623157e+308,
+                                "type": "integer"
+                              },
+                              "containerKeyEpochId": {
+                                "type": "string"
+                              },
+                              "containerManifestHash": {
+                                "type": "string"
+                              },
+                              "documentId": {
+                                "type": "string"
+                              },
+                              "wrappedKey": {
+                                "type": "string"
+                              },
+                              "wrappingMetadata": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "bindingId",
+                              "containerId",
+                              "containerKeyEpoch",
+                              "containerKeyEpochId",
+                              "containerManifestHash",
+                              "documentId",
+                              "wrappedKey",
+                              "wrappingMetadata"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "required": [
+                        "blobId",
+                        "contentKeyEpoch",
+                        "targetHash",
+                        "targets"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "documentId": {
+                      "type": "string"
+                    },
+                    "slotId": {
+                      "type": "string"
+                    },
+                    "writeHeaderHash": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "bindingId",
+                    "blobId",
+                    "blobKekTargets",
+                    "contentKeyBundle",
+                    "documentId",
+                    "slotId"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "billing_inactive",
+                        "sync_seat_unassigned"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "organizationId",
+                    "reason"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/documents/{documentId}/attachments": {
+      "get": {
+        "operationId": "documents.attachments.list",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "bindingId": {
+                        "type": "string"
+                      },
+                      "blobId": {
+                        "type": "string"
+                      },
+                      "contentKeyBundle": {
+                        "type": "object",
+                        "properties": {
+                          "blobId": {
+                            "type": "string"
+                          },
+                          "contentKeyEpoch": {
+                            "exclusiveMinimum": 0,
+                            "maximum": 1.7976931348623157e+308,
+                            "type": "integer"
+                          },
+                          "targetHash": {
+                            "type": "string"
+                          },
+                          "targets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "bindingId": {
+                                  "type": "string"
+                                },
+                                "containerId": {
+                                  "type": "string"
+                                },
+                                "containerKeyEpoch": {
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 1.7976931348623157e+308,
+                                  "type": "integer"
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string"
+                                },
+                                "containerManifestHash": {
+                                  "type": "string"
+                                },
+                                "documentId": {
+                                  "type": "string"
+                                },
+                                "wrappedKey": {
+                                  "type": "string"
+                                },
+                                "wrappingMetadata": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "required": [
+                                "bindingId",
+                                "containerId",
+                                "containerKeyEpoch",
+                                "containerKeyEpochId",
+                                "containerManifestHash",
+                                "documentId",
+                                "wrappedKey",
+                                "wrappingMetadata"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          }
+                        },
+                        "required": [
+                          "blobId",
+                          "contentKeyEpoch",
+                          "targetHash",
+                          "targets"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      "slotId": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "bindingId",
+                      "blobId",
+                      "contentKeyBundle",
+                      "slotId"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/documents/{documentId}/sync": {
       "post": {
         "operationId": "documents.sync",

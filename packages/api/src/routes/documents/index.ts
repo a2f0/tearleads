@@ -1,12 +1,8 @@
-import type { ListDocumentAttachmentsResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
-import {
-  ListDocumentAttachmentsError,
-  listDocumentAttachments,
-} from "../../services/documents/listDocumentAttachments";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { createDocumentAttachmentsRoute } from "./attachments";
 import { createDocumentAttributionRoute } from "./attribution";
 import { createDocumentMutationsRoute } from "./mutations";
 import { createDocumentWriterProjectionRoute } from "./writerProjection";
@@ -17,38 +13,6 @@ interface DocumentsRouterDeps {
   readonly runtime: ApiServiceRuntime;
 }
 
-type DocumentsRouteApp = Hono<SessionEnv>;
-
-function addDocumentReadRoutes(
-  documentsRouter: DocumentsRouteApp,
-  requireAuth: MiddlewareHandler<SessionEnv>,
-  runtime: ApiServiceRuntime,
-) {
-  documentsRouter.get(
-    "/documents/:documentId/attachments",
-    requireAuth,
-    async (c) => {
-      const documentId = c.req.param("documentId");
-      const session = c.get("session");
-
-      try {
-        return c.json<ListDocumentAttachmentsResponse>(
-          await listDocumentAttachments(runtime, {
-            documentId,
-            userId: session.userId,
-          }),
-        );
-      } catch (error) {
-        if (error instanceof ListDocumentAttachmentsError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
-      }
-    },
-  );
-}
-
 export function createDocumentsRouter({
   publish,
   requireAuth,
@@ -56,7 +20,10 @@ export function createDocumentsRouter({
 }: DocumentsRouterDeps) {
   const documentsRouter = new Hono<SessionEnv>();
 
-  addDocumentReadRoutes(documentsRouter, requireAuth, runtime);
+  documentsRouter.route(
+    "/",
+    createDocumentAttachmentsRoute({ requireAuth, runtime }),
+  );
   documentsRouter.route(
     "/",
     createDocumentAttributionRoute({ requireAuth, runtime }),

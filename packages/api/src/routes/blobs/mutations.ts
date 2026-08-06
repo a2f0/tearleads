@@ -1,14 +1,14 @@
 import {
-  isBlobAttachmentBindRequest,
-  isBlobAttachmentDetachRequest,
-} from "@tearleads/validators/request";
+  bindBlobAttachmentOperation,
+  detachBlobAttachmentOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
 import {
   BlobMutationError,
@@ -16,33 +16,13 @@ import {
   detachBlobAttachment,
 } from "../../services/blobs/blobMutations";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
+import { pathParamsValidator } from "../../validators/pathParams";
 
 interface BlobMutationsRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
 }
-
-interface JsonValidationContext {
-  json: (body: { readonly error: string }, status: 400) => Response;
-}
-
-function createRequestValidator<T>(isRequest: (value: unknown) => value is T) {
-  return (value: unknown, c: JsonValidationContext): T | Response => {
-    if (!isRequest(value)) {
-      return c.json({ error: "Invalid request" }, 400);
-    }
-
-    return value;
-  };
-}
-
-const validateBlobAttachmentBindRequest = createRequestValidator(
-  isBlobAttachmentBindRequest,
-);
-
-const validateBlobAttachmentDetachRequest = createRequestValidator(
-  isBlobAttachmentDetachRequest,
-);
 
 export function createBlobMutationsRoute({
   requireAuth,
@@ -50,12 +30,17 @@ export function createBlobMutationsRoute({
 }: BlobMutationsRouteDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.post(
-    "/blobs/:blobId/attachment-bindings",
+  route.on(
+    bindBlobAttachmentOperation.method,
+    operationRoutePath(bindBlobAttachmentOperation),
     requireAuth,
-    validator("json", validateBlobAttachmentBindRequest),
+    jsonRequestValidator(bindBlobAttachmentOperation.body),
+    pathParamsValidator(
+      bindBlobAttachmentOperation.params,
+      "Invalid attachment route",
+    ),
     async (c) => {
-      const blobId = c.req.param("blobId");
+      const { blobId } = c.req.valid("param");
       const session = c.get("session");
 
       try {
@@ -78,13 +63,17 @@ export function createBlobMutationsRoute({
     },
   );
 
-  route.post(
-    "/blobs/:blobId/attachment-bindings/:bindingId/detach",
+  route.on(
+    detachBlobAttachmentOperation.method,
+    operationRoutePath(detachBlobAttachmentOperation),
     requireAuth,
-    validator("json", validateBlobAttachmentDetachRequest),
+    jsonRequestValidator(detachBlobAttachmentOperation.body),
+    pathParamsValidator(
+      detachBlobAttachmentOperation.params,
+      "Invalid attachment route",
+    ),
     async (c) => {
-      const bindingId = c.req.param("bindingId");
-      const blobId = c.req.param("blobId");
+      const { bindingId, blobId } = c.req.valid("param");
       const session = c.get("session");
 
       try {
