@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { organizationPresentationDenials } from "../../sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../sqlite/organizationReadModelTableRegistry";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
@@ -82,7 +82,7 @@ export async function clearOrganizationPresentationDenialInTransaction(input: {
   readonly organizationId: string;
   readonly projection: OrganizationPresentationDenialProjection;
   readonly requesterUserId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   await input.tx
     .delete(organizationPresentationDenials)

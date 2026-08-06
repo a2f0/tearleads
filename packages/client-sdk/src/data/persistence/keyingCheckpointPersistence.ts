@@ -13,12 +13,12 @@ import {
 } from "../sqlite/schema";
 import {
   type ClientSQLiteDatabase,
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 
-type CheckpointHandle = ClientSQLiteDatabase | ClientSQLiteTransaction;
+type CheckpointHandle = ClientSQLiteDatabase | ClientSQLiteTransactionScope;
 
 type AccessManifestCheckpointIdentity = Pick<
   AccessManifestCheckpoint,
@@ -89,7 +89,7 @@ export async function loadPrincipalPolicyCheckpointRow(
 }
 
 export async function upsertAccessManifestCheckpointInTransaction(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   checkpoint: AccessManifestCheckpoint,
   updatedAt: string,
 ): Promise<void> {
@@ -109,7 +109,7 @@ export async function upsertAccessManifestCheckpointInTransaction(
 }
 
 export async function upsertPrincipalPolicyCheckpointInTransaction(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   checkpoint: PrincipalPolicyCheckpoint,
   updatedAt: string,
 ): Promise<void> {

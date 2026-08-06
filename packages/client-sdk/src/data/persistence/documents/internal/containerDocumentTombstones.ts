@@ -5,7 +5,7 @@ import {
   documents,
 } from "../../../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
@@ -61,7 +61,7 @@ function buildContainerDocumentTombstoneState(
 }
 
 async function deleteContainerDocumentTombstoneRows(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   uniqueTombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
 ): Promise<void> {
   for (const tombstone of uniqueTombstones) {
@@ -81,7 +81,7 @@ async function updateSelectedContainersForDocumentTombstones(input: {
   documentId: string;
   removedContainerIds: ReadonlySet<string>;
   tombstoneUpdatedAt: string | undefined;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
 }): Promise<string[]> {
   const { documentId, removedContainerIds, tombstoneUpdatedAt, tx } = input;
   // A server document can own more than one local projection row: identity

@@ -7,7 +7,7 @@ import {
   documents,
   dormantContainerMetadata,
 } from "../../sqlite/schema";
-import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 export const CONTAINER_METADATA_APP_KIND = "container-metadata";
 
@@ -18,7 +18,7 @@ interface DormantContainerMetadataRetention {
 }
 
 export async function retainDormantContainerMetadataInTransaction(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   retained: ReadonlyArray<DormantContainerMetadataRetention>,
 ): Promise<void> {
   if (retained.length === 0) {
@@ -39,7 +39,7 @@ export async function retainDormantContainerMetadataInTransaction(
 }
 
 export async function clearDormantContainerMetadataInTransaction(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   containerIds: ReadonlyArray<string>,
 ): Promise<void> {
   if (containerIds.length === 0) {
@@ -53,7 +53,7 @@ export async function clearDormantContainerMetadataInTransaction(
 
 /** Delete every durable row owned by a container-metadata document scope. */
 export async function deleteContainerMetadataDocumentRowsInTransaction(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   containerIds: ReadonlyArray<string>,
 ): Promise<void> {
   const ids = [...containerIds];

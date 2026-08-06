@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { mapSelectedDocumentRecord } from "../../sqlite/documentPersistence";
 import { documentHistoryCheckpoints, documents } from "../../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
@@ -51,7 +51,7 @@ function deriveMetadataEndVersion(metadataUpdates: string): string {
 async function saveContainerMetadataRecord(input: {
   containerId: string;
   record: ContainerMetadataRecord;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
   updatedAt: string;
 }) {
   const { containerId, record, tx, updatedAt } = input;
@@ -109,7 +109,7 @@ export async function saveContainerContentsContainerRows(input: {
   createIntent?: ContainerCreateIntentInput | undefined;
   moveIntent?: ContainerMoveIntentInput | undefined;
   record: ContainerMetadataRecord | null;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
   localUpdatedAt: string;
   serverTimestamps?:
     | {

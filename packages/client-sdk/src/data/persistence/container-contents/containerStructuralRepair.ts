@@ -8,7 +8,7 @@ import {
   documentContainerProjection,
   documentProjection,
 } from "../../sqlite/schema";
-import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   containerContentsSyncLane,
   containerParentSyncLane,
@@ -24,7 +24,7 @@ import { deleteContainerMetadataDocumentRowsInTransaction } from "./dormantConta
 // keep a resolvable organization id after the join source is gone — e.g. when
 // access to a shared org is revoked mid-sync.
 async function loadOrganizationIdsForContainers(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   containerIds: ReadonlyArray<string>,
 ): Promise<Map<string, string>> {
   const rows = await tx
@@ -47,7 +47,7 @@ async function loadOrganizationIdsForContainers(
 // projection then re-homes to the first remaining link (deterministic order)
 // instead of dropping to null.
 async function loadFirstRemainingContainerIdByDocumentId(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   documentIds: ReadonlyArray<string>,
 ): Promise<Map<string, string>> {
   const firstRemainingContainerIdByDocumentId = new Map<string, string>();
@@ -78,7 +78,7 @@ async function loadFirstRemainingContainerIdByDocumentId(
 
 export async function repairDocumentsForRemovedContainersInTransaction(input: {
   containerIds: ReadonlyArray<string>;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
   updatedAt: string;
 }): Promise<void> {
   const { tx, updatedAt } = input;
@@ -145,7 +145,7 @@ export async function repairDocumentsForRemovedContainersInTransaction(input: {
 export async function updateReparentedDescendantContainers(input: {
   descendantReparents: ReadonlyArray<LocalRootDescendantReparentInput>;
   remoteOrganizationId: string;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
   updatedAt: string;
 }): Promise<void> {
   const { descendantReparents, remoteOrganizationId, tx, updatedAt } = input;
@@ -204,7 +204,7 @@ export async function reparentLocalContainerChildren(input: {
   fromContainerId: string;
   remoteOrganizationId: string;
   toContainerId: string;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
   updatedAt: string;
 }): Promise<void> {
   const {
@@ -259,7 +259,7 @@ export async function reparentLocalContainerChildren(input: {
 
 export async function deleteLocalContainerRows(input: {
   containerId: string;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   const { containerId, tx } = input;
   const parentLane = containerSyncWatermarkLaneKey(

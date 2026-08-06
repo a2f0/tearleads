@@ -14,7 +14,7 @@ import {
   containerTables,
 } from "../../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
@@ -123,7 +123,7 @@ function mapSelectedContainerRecord(
 }
 
 export async function saveContainerRows(input: {
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
   record: ContainerRecord;
   localUpdatedAt: string;
 }): Promise<ContainerRecord> {
@@ -275,7 +275,7 @@ export async function saveContainer(
  * can compose it inside one atomic transaction.
  */
 export async function deleteContainerRowsInTransaction(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   ids: ReadonlyArray<string>,
 ): Promise<void> {
   const uniqueIds = Array.from(new Set(ids));

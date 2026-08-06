@@ -4,7 +4,7 @@ import {
   containerMoveIntents,
 } from "../../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -94,7 +94,7 @@ function mapContainerMoveIntentRecord(
 }
 
 export async function saveContainerCreateIntent(input: {
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
   containerId: string;
   createIntent: ContainerCreateIntentInput;
   updatedAt: string;
@@ -134,7 +134,7 @@ export async function saveContainerCreateIntent(input: {
 }
 
 export async function saveContainerMoveIntent(input: {
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
   containerId: string;
   moveIntent: ContainerMoveIntentInput;
   updatedAt: string;
