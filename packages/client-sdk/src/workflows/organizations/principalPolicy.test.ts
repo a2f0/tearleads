@@ -13,11 +13,13 @@ import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUser
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
-import { importOrganizationUser } from "./organizationUserImport";
 import {
   buildAddGroupUserPolicyRequest,
-  buildInitialGroupPolicyRequest,
   buildRemoveGroupUserPolicyRequest,
+} from "./groupPolicyRequests";
+import { importOrganizationUser } from "./organizationUserImport";
+import {
+  buildInitialGroupPolicyRequest,
   createOrganizationGroup,
 } from "./principalPolicy";
 
