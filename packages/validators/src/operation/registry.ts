@@ -9,6 +9,7 @@ import {
   webSocketTicketOperation,
 } from "./auth";
 import { documentSyncOperation } from "./documentSync";
+import { getHealthOperation } from "./health";
 import {
   createOrganizationGroupOperation,
   createOrganizationOperation,
@@ -25,6 +26,7 @@ import {
 } from "./principals";
 
 export const protocolOperations = [
+  getHealthOperation,
   challengeOperation,
   destroySessionOperation,
   listSessionsOperation,

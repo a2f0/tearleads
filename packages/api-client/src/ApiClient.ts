@@ -40,7 +40,6 @@ import {
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeResponse,
   isDocumentWriterProjectionResponse,
-  isHealthResponse,
   isInitiateMultipartBlobStageResponse,
   isListContainerDocumentsResponse,
   isListDocumentAttachmentsResponse,
@@ -96,6 +95,7 @@ import {
 import { containerDocsPath } from "./routes/containers/queryParams";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
 import { documentSync as sync } from "./routes/documents/sync";
+import { getHealth as healthGet } from "./routes/health";
 import { createOrganization as organizationCreate } from "./routes/organizations/create";
 import { createOrganizationGroup as groupCreate } from "./routes/organizations/createGroup";
 import { getOrganizationDataUsage as organizationDataUsage } from "./routes/organizations/dataUsage";
@@ -653,7 +653,7 @@ export class ApiClient {
   }
 
   getHealth() {
-    return this.request("/", isHealthResponse, "GET");
+    return this.request(healthGet.path, healthGet.isResponse, healthGet.method);
   }
 
   registerUser(

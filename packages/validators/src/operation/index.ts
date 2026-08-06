@@ -36,6 +36,10 @@ export {
   isDocumentSyncOperationResponse,
 } from "./documentSync";
 export {
+  getHealthOperation,
+  isGetHealthOperationResponse,
+} from "./health";
+export {
   createOrganizationGroupOperation,
   createOrganizationOperation,
   deleteOrganizationGroupOperation,
