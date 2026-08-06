@@ -1,10 +1,12 @@
-import { isPlainObject } from "../isPlainObject";
-import { hasStringProperty } from "../util";
+import { z } from "zod";
+import { loosePlainObject } from "../schema";
 
-export interface HealthResponse {
-  message: string;
-}
+export const HealthResponseSchema = loosePlainObject({
+  message: z.string(),
+});
+
+export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 
 export function isHealthResponse(value: unknown): value is HealthResponse {
-  return isPlainObject(value) && hasStringProperty(value, "message");
+  return HealthResponseSchema.safeParse(value).success;
 }

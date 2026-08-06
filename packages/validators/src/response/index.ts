@@ -140,7 +140,11 @@ export {
   ErrorResponseSchema,
   isErrorResponse,
 } from "./error";
-export { type HealthResponse, isHealthResponse } from "./health";
+export {
+  type HealthResponse,
+  HealthResponseSchema,
+  isHealthResponse,
+} from "./health";
 export {
   type DeleteOrganizationGroupResponse,
   DeleteOrganizationGroupResponseSchema,
