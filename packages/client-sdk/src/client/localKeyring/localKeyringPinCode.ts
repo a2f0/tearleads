@@ -17,7 +17,7 @@ import {
   type WrappedLocalSecretEnvelope,
   type WrappingKeyHandle,
   type WrappingKeyKeystore,
-} from "./localKeyring";
+} from "./index";
 import {
   createPinCodeWrappingKeyId,
   createPinCodeWrappingKeyMetadata,

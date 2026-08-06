@@ -3,7 +3,7 @@ import type {
   ContainerContentsRootAdopter,
   ContainerContentsRootAdoptionInput,
 } from "../workflows/container-contents/runtime";
-import type { Session } from "./sessionTypes";
+import type { Session } from "./session/sessionTypes";
 
 interface RootContainerAdoptionDependencies {
   readonly getDomainScope: () => DomainScope;

@@ -1,5 +1,5 @@
+import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
-import type { InternalWorkflowRuntimeInput } from "./workflowRuntime";
 
 export async function loadOrganizationGroupPresentationDetails(input: {
   readonly groupId: string;

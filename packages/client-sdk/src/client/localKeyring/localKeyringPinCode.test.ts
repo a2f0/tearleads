@@ -6,7 +6,7 @@ import {
   type LocalKeyringManifestStore,
   type LocalKeyringScope,
   type WrappingKeyKeystore,
-} from "./localKeyring";
+} from "./index";
 import { createPinCodeWrappingKeyKeystore } from "./localKeyringPinCode";
 
 const scope: LocalKeyringScope = {

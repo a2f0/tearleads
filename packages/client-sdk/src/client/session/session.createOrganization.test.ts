@@ -5,11 +5,11 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { respondToOrganizationProvisioning } from "../../test/helpers/organizationProvisioningResponder";
-import type { ExecSql, ExecSqlClientLike } from "../sqlite";
-import { Database } from "./database";
-import { createIdentity, type Identity } from "./identity";
-import { createSession } from "./session";
+import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
+import type { ExecSql, ExecSqlClientLike } from "../../sqlite";
+import { Database } from "../database";
+import { createIdentity, type Identity } from "../identity";
+import { createSession } from "./index";
 
 function createSqlClient(
   execSql: ExecSql,

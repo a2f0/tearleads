@@ -1,5 +1,5 @@
-import { IndexedDbStoreConnection } from "../indexedDbStoreConnection";
 import { unwrapAesGcmSecret, wrapAesGcmSecret } from "./aesGcmWrapping";
+import { IndexedDbStoreConnection } from "./indexedDbStoreConnection";
 import {
   assertAesGcmWrappingCryptoKey,
   hasErrorName,

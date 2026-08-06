@@ -85,7 +85,7 @@ server-visible today, so treat that suite label as reserved, not yet applied.
 | HKDF-SHA-256 | Identity signing/KEM seeds from BIP39 entropy | `packages/crypto/src/identitySeedPhrase.ts` |
 | HKDF-SHA-256 | Per-purpose local keys (sqlite, blob-store, identity-persistence) from the random root | `packages/client-sdk/src/client/localKeyring/rootKey.ts` |
 | HKDF-SHA-256 | Per-content-record AES-GCM keys | `.../documents/shared/crypto.ts`, `.../blob/shared/blobRecordCrypto.ts` |
-| PBKDF2-SHA-256 | PIN-code wrapping key (310k iters) | `packages/client-sdk/src/client/localKeyringPinCodeSupport.ts` |
+| PBKDF2-SHA-256 | PIN-code wrapping key (310k iters) | `packages/client-sdk/src/client/localKeyring/localKeyringPinCodeSupport.ts` |
 | PBKDF2-SHA-256 | Local blob-store key from passphrase (310k iters) | `packages/client-sdk/src/data/blobs/encryptedBlobStore.ts` |
 | PBKDF2-SHA-256 | Password-protected local DB backup key (250k iters) | `packages/app/src/providers/db/localBackupFormat.ts` |
 

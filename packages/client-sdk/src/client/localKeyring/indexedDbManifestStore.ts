@@ -1,4 +1,4 @@
-import { IndexedDbStoreConnection } from "../indexedDbStoreConnection";
+import { IndexedDbStoreConnection } from "./indexedDbStoreConnection";
 import {
   parseLocalKeyringManifest,
   serializeLocalKeyringManifest,

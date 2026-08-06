@@ -4,7 +4,7 @@ import {
   createLocalKeyring,
   createMemoryWrappingKeyKeystore,
   type LocalKeyringScope,
-} from "./localKeyring";
+} from "./index";
 
 // Minimal in-memory IndexedDB supporting just what the manifest store uses:
 // open(name, 1) with onupgradeneeded, a keyPath object store, and get/put/delete

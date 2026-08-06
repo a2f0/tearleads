@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createFakeIndexedDb,
   createTestManifestStorage,
-} from "../../test/helpers/localKeyringFakes";
+} from "../../../test/helpers/localKeyringFakes";
 import {
   createBrowserLocalKeyring,
   createLocalKeyring,
@@ -16,7 +16,7 @@ import {
   localKeyringScopeKey,
   parseLocalKeyringManifest,
   serializeLocalKeyringManifest,
-} from "./localKeyring";
+} from "./index";
 
 const scope: LocalKeyringScope = {
   accountId: "user-1",

@@ -277,15 +277,7 @@ export const subsystems: readonly Subsystem[] = [
     responsibility:
       "Org directory/groups/grants/usage/user-detail read models, roster/profile mutations, and atomic principal-container rematerialization for the client.",
     seam: "tearleads.organizations facade; workflows/organizations",
-    paths: [
-      `${sdk}/workflows/organizations/`,
-      `${sdk}/client/organizations.ts`,
-      `${sdk}/client/organizationWorkflowRuntime.ts`,
-      `${sdk}/client/organizationGroupPresentation.ts`,
-      `${sdk}/client/organizationDataUsage.ts`,
-      `${sdk}/client/organizationReadModels.ts`,
-      `${sdk}/client/organizationMetadataProfileSync.ts`,
-    ],
+    paths: [`${sdk}/workflows/organizations/`, `${sdk}/client/organizations/`],
   },
   {
     name: "Principal Policy (client)",
@@ -333,9 +325,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/client/identity.ts`,
       `${sdk}/client/identityKeyPackage.ts`,
-      `${sdk}/client/session.ts`,
-      `${sdk}/client/sessionIdentityTrust.ts`,
-      `${sdk}/client/sessionTypes.ts`,
+      `${sdk}/client/session/`,
       `${sdk}/client/userIdentities.ts`,
       `${sdk}/data/trustedUserIdentity/`,
     ],
@@ -346,13 +336,7 @@ export const subsystems: readonly Subsystem[] = [
     responsibility:
       "The on-device keyring (manifest storage, scopes, sessions) and its PIN-code unlock support.",
     seam: "createLocalKeyring / createBrowserLocalKeyring exports",
-    paths: [
-      `${sdk}/client/indexedDbStoreConnection.ts`,
-      `${sdk}/client/localKeyring/`,
-      `${sdk}/client/localKeyring.ts`,
-      `${sdk}/client/localKeyringPinCode.ts`,
-      `${sdk}/client/localKeyringPinCodeSupport.ts`,
-    ],
+    paths: [`${sdk}/client/localKeyring/`],
   },
   {
     name: "Client Purchases",

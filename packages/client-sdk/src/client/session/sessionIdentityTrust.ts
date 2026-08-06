@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import type { LocalUserIdentityCandidate } from "../data/trustedUserIdentity";
-import type { Identity, IdentitySnapshot } from "./identity";
+import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
+import type { Identity, IdentitySnapshot } from "../identity";
 
 export type UserIdentityAvailable = (
   userId: string,

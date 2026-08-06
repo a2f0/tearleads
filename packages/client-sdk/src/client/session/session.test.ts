@@ -5,14 +5,14 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { respondToRegistration } from "../../test/helpers/organizationProvisioningResponder";
-import { sqlContainerContentsPersistence } from "../data/persistence/container-contents/containerContentsPersistence";
-import { loadPrincipalPolicyBundle } from "../data/persistence/principalPolicyPersistence";
-import type { ExecSql, ExecSqlClientLike } from "../sqlite";
-import { Database } from "./database";
-import { createIdentity, type Identity } from "./identity";
-import type { Logger } from "./logger";
-import { createSession } from "./session";
+import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
+import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import type { ExecSql, ExecSqlClientLike } from "../../sqlite";
+import { Database } from "../database";
+import { createIdentity, type Identity } from "../identity";
+import type { Logger } from "../logger";
+import { createSession } from "./index";
 
 type TestLogger = {
   log: NonNullable<Logger["log"]>;

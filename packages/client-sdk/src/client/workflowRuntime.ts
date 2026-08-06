@@ -24,7 +24,7 @@ import type { Identity } from "./identity";
 import { createListenerSet } from "./listenerSet";
 import type { Network } from "./network";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
-import type { Session } from "./sessionTypes";
+import type { Session } from "./session/sessionTypes";
 import type { SyncBillingGate } from "./syncBillingGate";
 
 export interface WorkflowRuntimeInput extends WorkflowRuntimeGroups {}

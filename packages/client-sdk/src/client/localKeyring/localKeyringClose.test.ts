@@ -5,7 +5,7 @@ import {
   createMemoryLocalKeyringManifestStore,
   createMemoryWrappingKeyKeystore,
   type LocalKeyringManifestStore,
-} from "./localKeyring";
+} from "./index";
 
 interface FakeObjectStore {
   readonly data: Map<IDBValidKey, unknown>;

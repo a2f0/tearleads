@@ -1,14 +1,14 @@
-import type { DomainScope } from "../data/domainScope";
+import type { DomainScope } from "../../data/domainScope";
 import {
   loadLocalOrganizationDataUsage,
   type OrganizationDataUsage,
   reconcileOrganizationDataUsage,
-} from "../workflows/organizations";
-import { organizationAccessScopeKey } from "../workflows/organizations/organizationPresentationAccessState";
+} from "../../workflows/organizations";
+import { organizationAccessScopeKey } from "../../workflows/organizations/organizationPresentationAccessState";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
-} from "./workflowRuntime";
+} from "../workflowRuntime";
 
 const coordinatorsByRuntime = new WeakMap<
   InternalRuntime,

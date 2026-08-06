@@ -1,7 +1,7 @@
-import { errorMessage } from "../data/errorMessage";
-import { getOrganizationProfileDocumentLocalId } from "../workflows/organizations/organizationProfile";
-import { deriveOrganizationMetadataContainerSystemSlot } from "../workflows/organizations/rosterProfileContainer";
-import type { ContainerContents } from "./containerContents";
+import { errorMessage } from "../../data/errorMessage";
+import { getOrganizationProfileDocumentLocalId } from "../../workflows/organizations/organizationProfile";
+import { deriveOrganizationMetadataContainerSystemSlot } from "../../workflows/organizations/rosterProfileContainer";
+import type { ContainerContents } from "../containerContents";
 
 /**
  * Push the locally-authored organization profile after Members changes. Key

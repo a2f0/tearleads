@@ -4,9 +4,9 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
-import type { Logger } from "./logger";
-import { Tearleads } from "./Tearleads";
+import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
+import type { Logger } from "../logger";
+import { Tearleads } from "../Tearleads";
 
 const quietLogger: Required<Logger> = {
   log: () => undefined,
