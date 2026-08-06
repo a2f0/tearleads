@@ -28,9 +28,6 @@ import {
   type DocumentCreateResponse,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
-  isContainerCreateWithMetadataDocumentResponse,
-  isContainerDeleteResponse,
-  isContainerMutationResponse,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeResponse,
@@ -90,6 +87,15 @@ import {
   initiateMultipartBlobStage as multipartInitiate,
   uploadMultipartBlobPartBytes as multipartPartUpload,
 } from "./routes/blobs/multipart";
+import {
+  containerCreate,
+  containerCreateWithMetadataDocument,
+  containerDelete,
+  containerMove,
+  containerRekey,
+  containerRevoke,
+  containerShare,
+} from "./routes/containers/mutations";
 import {
   type ContainerKekLogOptions,
   containerDocuments,
@@ -1229,9 +1235,9 @@ export class ApiClient {
 
   createContainer(input: ContainerMutationRequest) {
     return this.request(
-      "/containers",
-      isContainerMutationResponse,
-      "POST",
+      containerCreate.path,
+      containerCreate.isResponse,
+      containerCreate.method,
       JSON.stringify(input),
     );
   }
@@ -1241,9 +1247,9 @@ export class ApiClient {
     options: RequestResultOptions = {},
   ): Promise<RequestResult<ContainerMutationResponse>> {
     return this.makeRequestResult(
-      "/containers",
-      isContainerMutationResponse,
-      "POST",
+      containerCreate.path,
+      containerCreate.isResponse,
+      containerCreate.method,
       JSON.stringify(input),
       options,
     );
@@ -1253,9 +1259,9 @@ export class ApiClient {
     input: ContainerCreateWithMetadataDocumentRequest,
   ) {
     return this.request(
-      "/containers/with-metadata-document",
-      isContainerCreateWithMetadataDocumentResponse,
-      "POST",
+      containerCreateWithMetadataDocument.path,
+      containerCreateWithMetadataDocument.isResponse,
+      containerCreateWithMetadataDocument.method,
       JSON.stringify(input),
     );
   }
@@ -1265,9 +1271,9 @@ export class ApiClient {
     options: RequestResultOptions = {},
   ): Promise<RequestResult<ContainerCreateWithMetadataDocumentResponse>> {
     return this.makeRequestResult(
-      "/containers/with-metadata-document",
-      isContainerCreateWithMetadataDocumentResponse,
-      "POST",
+      containerCreateWithMetadataDocument.path,
+      containerCreateWithMetadataDocument.isResponse,
+      containerCreateWithMetadataDocument.method,
       JSON.stringify(input),
       options,
     );
@@ -1275,9 +1281,9 @@ export class ApiClient {
 
   shareContainer(containerId: string, input: ContainerMutationRequest) {
     return this.request(
-      `/containers/${pathSegment(containerId)}/share`,
-      isContainerMutationResponse,
-      "POST",
+      containerShare.path(containerId),
+      containerShare.isResponse,
+      containerShare.method,
       JSON.stringify(input),
     ).finally(() => {
       this.clearWriterProjectionCaches();
@@ -1286,9 +1292,9 @@ export class ApiClient {
 
   revokeContainer(containerId: string, input: ContainerMutationRequest) {
     return this.request(
-      `/containers/${pathSegment(containerId)}/revoke`,
-      isContainerMutationResponse,
-      "POST",
+      containerRevoke.path(containerId),
+      containerRevoke.isResponse,
+      containerRevoke.method,
       JSON.stringify(input),
     ).finally(() => {
       this.clearWriterProjectionCaches();
@@ -1297,9 +1303,9 @@ export class ApiClient {
 
   rekeyContainer(containerId: string, input: ContainerMutationRequest) {
     return this.request(
-      `/containers/${pathSegment(containerId)}/rekey`,
-      isContainerMutationResponse,
-      "POST",
+      containerRekey.path(containerId),
+      containerRekey.isResponse,
+      containerRekey.method,
       JSON.stringify(input),
     ).finally(() => {
       this.clearWriterProjectionCaches();
@@ -1308,9 +1314,9 @@ export class ApiClient {
 
   moveContainer(containerId: string, input: ContainerMutationRequest) {
     return this.request(
-      `/containers/${pathSegment(containerId)}/move`,
-      isContainerMutationResponse,
-      "POST",
+      containerMove.path(containerId),
+      containerMove.isResponse,
+      containerMove.method,
       JSON.stringify(input),
     ).finally(() => {
       this.clearWriterProjectionCaches();
@@ -1319,9 +1325,9 @@ export class ApiClient {
 
   deleteContainer(containerId: string) {
     return this.request(
-      `/containers/${pathSegment(containerId)}`,
-      isContainerDeleteResponse,
-      "DELETE",
+      containerDelete.path(containerId),
+      containerDelete.isResponse,
+      containerDelete.method,
     ).finally(() => {
       this.clearWriterProjectionCaches();
     });
@@ -1332,9 +1338,9 @@ export class ApiClient {
     options: RequestResultOptions = {},
   ): Promise<RequestResult<ContainerDeleteResponse>> {
     return this.makeRequestResult(
-      `/containers/${pathSegment(containerId)}`,
-      isContainerDeleteResponse,
-      "DELETE",
+      containerDelete.path(containerId),
+      containerDelete.isResponse,
+      containerDelete.method,
       undefined,
       options,
     ).finally(() => {
