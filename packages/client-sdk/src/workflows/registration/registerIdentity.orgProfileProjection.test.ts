@@ -3,7 +3,8 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
-import { createDocument, importUpdates } from "@tearleads/loro";
+import { base64ToBytes } from "@tearleads/encoding";
+import { createDocument, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
@@ -258,9 +259,7 @@ test("a later save cannot overwrite the fallback title", async () => {
     const doc = await createDocument(
       await getScopedPeerSeed(DOCUMENTS_APP_KIND),
     );
-    importUpdates(doc, [
-      Uint8Array.from(atob(restore.snapshot), (c) => c.charCodeAt(0)),
-    ]);
+    importSnapshot(doc, base64ToBytes(restore.snapshot));
     await persistDocumentState({
       currentDoc: doc,
       currentRecord: record,
