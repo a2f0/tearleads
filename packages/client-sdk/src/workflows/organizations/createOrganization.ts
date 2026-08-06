@@ -31,6 +31,8 @@ export interface CreateOrganizationInput {
    * The caller discards the result.
    */
   isIdentityCurrent?: (() => boolean) | undefined;
+  /** Forwarded to the bootstrap persist; see its onPersistQueued doc. */
+  onPersistQueued?: (() => void) | undefined;
   log?: ((message: string) => void) | undefined;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
   /** Overrides the seeded organization profile name; see registration. */
@@ -125,6 +127,7 @@ export async function createOrganization(
   await persistOrganizationProvisioningState({
     bootstrap: artifacts.bootstrap,
     canStartDurableMutation: input.isIdentityCurrent,
+    onPersistQueued: input.onPersistQueued,
     containerId: rootContainerId,
     dbClient: input.dbClient,
     documentProjectors: input.documentProjectors,

@@ -31,6 +31,8 @@ type PersistOrganizationProvisioningStateInput = Pick<
 > & {
   /** Forwarded to the bootstrap persist's in-mutex currency check. */
   readonly canStartDurableMutation?: (() => boolean) | undefined;
+  /** Forwarded to the bootstrap persist; see its onPersistQueued doc. */
+  readonly onPersistQueued?: (() => void) | undefined;
   readonly containerId: string;
   readonly dbClient: ExecSqlClientLike;
   readonly documentProjectors?: DocumentProjectorRegistryInput | undefined;
@@ -234,6 +236,7 @@ export async function persistOrganizationProvisioningState(
       {
         acknowledgedAccessHeads: artifacts.acknowledgedAccessHeads,
         canStartDurableMutation: input.canStartDurableMutation,
+        onPersistQueued: input.onPersistQueued,
         containerId: input.containerId,
         documentProjectors: input.documentProjectors,
         initialAdminGroupPolicy: artifacts.initialAdminGroupPolicy,

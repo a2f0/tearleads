@@ -72,6 +72,13 @@ export interface RegistrationBootstrapInput {
   acknowledgedAccessHeads: readonly LocallyAcknowledgedAccessManifestHead[];
   /** Checked inside the mutation queue claim; false skips every write. */
   canStartDurableMutation?: (() => boolean) | undefined;
+  /**
+   * Invoked synchronously immediately before this persist joins the
+   * serialized mutation queue — no interleaving can separate the two. Lets
+   * identity-race tests deterministically place an identity replacement
+   * inside the queue-wait window instead of sleeping.
+   */
+  onPersistQueued?: (() => void) | undefined;
   containerId: string;
   initialAdminGroupPolicy: PrincipalPolicyBundleResponse;
   initialMemberGroupPolicy: PrincipalPolicyBundleResponse;
@@ -409,6 +416,7 @@ export async function persistRegistrationBootstrapFromExecSql(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
 ): Promise<boolean> {
+  input.onPersistQueued?.();
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     // In-mutex currency check, adjacent to the serialized-mutation claim
     // (see persistDocumentState): the identity can be replaced while this

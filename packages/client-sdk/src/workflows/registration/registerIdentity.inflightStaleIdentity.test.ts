@@ -85,6 +85,10 @@ test("registration persists nothing when the identity goes stale in-flight", asy
 
     let identityCurrent = true;
     let identityProbes = 0;
+    let persistQueued!: () => void;
+    const persistEntersQueue = new Promise<void>((resolve) => {
+      persistQueued = resolve;
+    });
     const registration = registerIdentity({
       apiClient,
       containerId: crypto.randomUUID(),
@@ -95,35 +99,22 @@ test("registration persists nothing when the identity goes stale in-flight", asy
         identityProbes += 1;
         return identityCurrent;
       },
+      onPersistQueued: persistQueued,
       organizationProfileName: "Acme Corp",
       pinLocalUserIdentity: async () => undefined,
       signingKeyPair,
     });
 
-    // Wait (bounded) for the remote registration to complete; the only
-    // remaining step is the bootstrap persist, queued behind the held
-    // mutation.
-    const deadline = Date.now() + 5_000;
-    while (capturedOrganizationId === null) {
-      if (Date.now() > deadline) {
-        throw new Error("Registration never reached the remote API");
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1));
-    }
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    // Queue-order instrumentation: this marker enqueues after the persist,
-    // so the probe count it records proves the in-mutex check ran while the
-    // persist was already waiting when the identity flipped below.
-    let probesAtMarker = -1;
-    const marker = runSerializedSqlMutation(workflowExecSql, async () => {
-      probesAtMarker = identityProbes;
-    });
+    // The signal fires synchronously with the persist joining the mutation
+    // queue, so past this await the persist is deterministically waiting
+    // behind the held mutation — the window the in-mutex guard exists for.
+    await persistEntersQueue;
     // The identity is replaced while the persist waits, then the queue frees.
     identityCurrent = false;
     releaseHold();
     await holding;
-    await marker;
-    expect(probesAtMarker).toBe(1);
+    await registration;
+    expect(identityProbes).toBe(1);
 
     // The remote organization exists, but no stale bootstrap row may reach
     // the local database the replacement identity now owns.

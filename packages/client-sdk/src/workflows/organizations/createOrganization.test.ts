@@ -433,6 +433,10 @@ test("createOrganization persists nothing when the identity goes stale in-flight
     await holdStarted;
 
     let identityCurrent = true;
+    let persistQueued!: () => void;
+    const persistEntersQueue = new Promise<void>((resolve) => {
+      persistQueued = resolve;
+    });
     const creation = createOrganization({
       apiClient: {
         createOrganization: async (request) => {
@@ -446,33 +450,22 @@ test("createOrganization persists nothing when the identity goes stale in-flight
         identityProbes += 1;
         return identityCurrent;
       },
+      onPersistQueued: persistQueued,
       signingKeyPair,
       userId: crypto.randomUUID(),
     });
 
-    // Both pre-persist probes must pass (bounded wait) before the
-    // replacement lands, so the in-mutex check is the one that catches it.
-    const deadline = Date.now() + 5_000;
-    while (identityProbes < 2) {
-      if (Date.now() > deadline) {
-        throw new Error("Creation never reached the pre-persist check");
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1));
-    }
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    // Queue-order instrumentation: this marker enqueues after the persist,
-    // so the probe count it records proves the in-mutex check (probe 3) ran
-    // while the persist was already waiting when the identity flipped below.
-    let probesAtMarker = -1;
-    const marker = runSerializedSqlMutation(workflowExecSql, async () => {
-      probesAtMarker = identityProbes;
-    });
+    // The signal fires synchronously with the persist joining the mutation
+    // queue, so past this await both pre-persist probes have passed and the
+    // persist is deterministically waiting behind the held mutation — the
+    // window the in-mutex guard exists for.
+    await persistEntersQueue;
+    expect(identityProbes).toBe(2);
     identityCurrent = false;
     releaseHold();
     await holding;
-    await marker;
-    expect(probesAtMarker).toBe(3);
     const response = await creation;
+    expect(identityProbes).toBe(3);
 
     // The remote organization exists, but no stale bootstrap row may reach
     // the local database the replacement identity now owns.

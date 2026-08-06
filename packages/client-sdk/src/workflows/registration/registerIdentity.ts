@@ -80,6 +80,8 @@ export interface RegisterIdentityInput {
    * cannot write its bootstrap through a client the replacement owns.
    */
   isIdentityCurrent?: (() => boolean) | undefined;
+  /** Forwarded to the bootstrap persist; see its onPersistQueued doc. */
+  onPersistQueued?: (() => void) | undefined;
   encapsulationKeyPair: EncapsulationKeyPair;
   log?: ((message: string) => void) | undefined;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
@@ -393,6 +395,7 @@ export async function registerIdentity(
   await persistOrganizationProvisioningState({
     bootstrap: artifacts.bootstrap,
     canStartDurableMutation: input.isIdentityCurrent,
+    onPersistQueued: input.onPersistQueued,
     containerId: input.containerId,
     dbClient: input.dbClient,
     documentProjectors: input.documentProjectors,
