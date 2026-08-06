@@ -1,14 +1,11 @@
 import { z } from "zod";
-import { isPlainObject } from "../isPlainObject";
-import { arraySchema, loosePlainObject, nonEmptyArraySchema } from "../schema";
 import {
-  type AccessManifestBundleWireResponse,
-  AccessManifestBundleWireResponseSchema,
-  hasArrayProperty,
-  hasStringProperty,
-  isAccessManifestBundleWireResponse,
-  isStringArray,
-} from "../util";
+  arraySchema,
+  loosePlainObject,
+  nonEmptyArraySchema,
+  nonEmptyStringSchema,
+} from "../schema";
+import { AccessManifestBundleWireResponseSchema } from "../util";
 import { ContainerWriterProjectionResponseSchema } from "./container";
 import {
   type DocumentContentKeyBundleResponse,
@@ -44,18 +41,24 @@ export type DocumentCreateResponse = z.infer<
   typeof DocumentCreateResponseSchema
 >;
 
-export interface DocumentLinkSetMutationResponse {
-  id: string;
-  accessManifest: AccessManifestBundleWireResponse;
-  contentKeyBundle: DocumentContentKeyBundleResponse;
-  documentKekTargets: DocumentKekTargetsResponse;
-}
+export const DocumentLinkSetMutationResponseSchema = loosePlainObject({
+  accessManifest: AccessManifestBundleWireResponseSchema,
+  contentKeyBundle: DocumentContentKeyBundleResponseSchema,
+  documentKekTargets: DocumentKekTargetsResponseSchema,
+  id: z.string(),
+});
 
-export interface DocumentPurgeResponse {
-  documentId: string;
-  purgedAt: string;
-  reclaimedBlobStorageKeys: string[];
-}
+export type DocumentLinkSetMutationResponse = z.infer<
+  typeof DocumentLinkSetMutationResponseSchema
+>;
+
+export const DocumentPurgeResponseSchema = loosePlainObject({
+  documentId: nonEmptyStringSchema,
+  purgedAt: nonEmptyStringSchema,
+  reclaimedBlobStorageKeys: arraySchema(z.string()),
+});
+
+export type DocumentPurgeResponse = z.infer<typeof DocumentPurgeResponseSchema>;
 
 export const DocumentWriterProjectionResponseSchema = loosePlainObject({
   authorizingContainerPaths: nonEmptyArraySchema(
@@ -132,37 +135,13 @@ export function isDocumentCreateResponse(
 export function isDocumentLinkSetMutationResponse(
   value: unknown,
 ): value is DocumentLinkSetMutationResponse {
-  const accessManifest = isPlainObject(value)
-    ? Reflect.get(value, "accessManifest")
-    : undefined;
-  const contentKeyBundle = isPlainObject(value)
-    ? Reflect.get(value, "contentKeyBundle")
-    : undefined;
-  const documentKekTargets = isPlainObject(value)
-    ? Reflect.get(value, "documentKekTargets")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "id") &&
-    isAccessManifestBundleWireResponse(accessManifest) &&
-    isDocumentContentKeyBundleResponse(contentKeyBundle) &&
-    isDocumentKekTargetsResponse(documentKekTargets)
-  );
+  return DocumentLinkSetMutationResponseSchema.safeParse(value).success;
 }
 
 export function isDocumentPurgeResponse(
   value: unknown,
 ): value is DocumentPurgeResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "documentId") &&
-    value.documentId.length > 0 &&
-    hasStringProperty(value, "purgedAt") &&
-    value.purgedAt.length > 0 &&
-    hasArrayProperty(value, "reclaimedBlobStorageKeys") &&
-    isStringArray(value.reclaimedBlobStorageKeys)
-  );
+  return DocumentPurgeResponseSchema.safeParse(value).success;
 }
 
 export function isDocumentSyncResponse(

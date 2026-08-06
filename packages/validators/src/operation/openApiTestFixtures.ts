@@ -93,6 +93,81 @@ export function createContainerWithMetadataDocumentResponse() {
   };
 }
 
+function createDocumentContentKeyBundleRequest() {
+  return {
+    contentKeyEpoch: 1,
+    linkSetManifestHash: "link-set-hash",
+    targetHash: "target-hash",
+    targets: [
+      {
+        containerId: "container-1",
+        containerKeyEpoch: 1,
+        containerKeyEpochId: "container-key-epoch-id",
+        containerManifestHash: "manifest-hash",
+        wrappedKey: "wrapped-key",
+        wrappingMetadata: { algorithm: "test" },
+      },
+    ],
+  };
+}
+
+export function createDocumentCreateRequest() {
+  return {
+    body: { documentId: "document-1" },
+    contentKeyBundle: createDocumentContentKeyBundleRequest(),
+    event: { signature: "signed-event" },
+    expectedManifestHash: "document-manifest-hash",
+    futureDocumentCreateField: true,
+    manifest: { documentId: "document-1" },
+  };
+}
+
+export function createDocumentCreateResponse() {
+  return createContainerWithMetadataDocumentResponse().metadataDocument;
+}
+
+export function createDocumentLinkSetMutationRequest() {
+  return {
+    authorizingContainerPathRefs: [
+      [{ containerId: "container-1", manifestHash: "manifest-hash" }],
+    ],
+    body: { documentId: "document-1" },
+    contentKeyBundle: createDocumentContentKeyBundleRequest(),
+    event: { signature: "signed-event" },
+    expectedManifestHash: "document-manifest-hash",
+    futureDocumentLinkField: true,
+    manifest: { documentId: "document-1" },
+    targetContainerPathRefs: [
+      { containerId: "container-1", manifestHash: "manifest-hash" },
+    ],
+  };
+}
+
+export function createDocumentLinkSetMutationResponse() {
+  const contentKeyBundle = createContentKeyBundleResponse();
+  return {
+    accessManifest: createAccessManifestBundle(),
+    contentKeyBundle,
+    documentKekTargets: {
+      documentId: "document-1",
+      documentKeyTargetHash: contentKeyBundle.targetHash,
+      linkedContainerKeyEpochIds: ["container-key-epoch-id"],
+      linkedContainerManifestHashes: ["manifest-hash"],
+      linkSetManifestHash: contentKeyBundle.linkSetManifestHash,
+      targets: [{ containerId: "container-1" }],
+    },
+    id: "document-1",
+  };
+}
+
+export function createDocumentPurgeResponse() {
+  return {
+    documentId: "document-1",
+    purgedAt: "2026-08-06T00:00:00.000Z",
+    reclaimedBlobStorageKeys: ["blobs/document-1"],
+  };
+}
+
 export function createSyncRequest() {
   return {
     authorizingContainerPathRefs: [

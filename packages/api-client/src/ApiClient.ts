@@ -28,9 +28,6 @@ import {
   type DocumentCreateResponse,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
-  isDocumentCreateResponse,
-  isDocumentLinkSetMutationResponse,
-  isDocumentPurgeResponse,
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
   isOrganizationBillingResponse,
@@ -104,6 +101,12 @@ import {
 } from "./routes/containers/reads";
 import { listDocumentAttachments as documentAttachmentsList } from "./routes/documents/attachments";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
+import {
+  documentCreate,
+  documentDelete,
+  documentLink,
+  documentUnlink,
+} from "./routes/documents/mutations";
 import { documentSync as sync } from "./routes/documents/sync";
 import { getHealth as healthGet } from "./routes/health";
 import { createOrganization as organizationCreate } from "./routes/organizations/create";
@@ -1017,9 +1020,9 @@ export class ApiClient {
 
   createDocument(input: DocumentCreateRequest) {
     return this.request(
-      "/documents",
-      isDocumentCreateResponse,
-      "POST",
+      documentCreate.path,
+      documentCreate.isResponse,
+      documentCreate.method,
       JSON.stringify(input),
     );
   }
@@ -1029,9 +1032,9 @@ export class ApiClient {
     options: RequestResultOptions = {},
   ): Promise<RequestResult<DocumentCreateResponse>> {
     return this.makeRequestResult(
-      "/documents",
-      isDocumentCreateResponse,
-      "POST",
+      documentCreate.path,
+      documentCreate.isResponse,
+      documentCreate.method,
       JSON.stringify(input),
       options,
     );
@@ -1451,9 +1454,9 @@ export class ApiClient {
   linkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
     this.invalidateDocumentAttribution(documentId);
     return this.request(
-      `/documents/${pathSegment(documentId)}/link`,
-      isDocumentLinkSetMutationResponse,
-      "POST",
+      documentLink.path(documentId),
+      documentLink.isResponse,
+      documentLink.method,
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
@@ -1467,9 +1470,9 @@ export class ApiClient {
   ) {
     this.invalidateDocumentAttribution(documentId);
     return this.makeRequestResult(
-      `/documents/${pathSegment(documentId)}/link`,
-      isDocumentLinkSetMutationResponse,
-      "POST",
+      documentLink.path(documentId),
+      documentLink.isResponse,
+      documentLink.method,
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
@@ -1525,9 +1528,9 @@ export class ApiClient {
   unlinkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
     this.invalidateDocumentAttribution(documentId);
     return this.request(
-      `/documents/${pathSegment(documentId)}/unlink`,
-      isDocumentLinkSetMutationResponse,
-      "POST",
+      documentUnlink.path(documentId),
+      documentUnlink.isResponse,
+      documentUnlink.method,
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
@@ -1541,9 +1544,9 @@ export class ApiClient {
   ) {
     this.invalidateDocumentAttribution(documentId);
     return this.makeRequestResult(
-      `/documents/${pathSegment(documentId)}/unlink`,
-      isDocumentLinkSetMutationResponse,
-      "POST",
+      documentUnlink.path(documentId),
+      documentUnlink.isResponse,
+      documentUnlink.method,
       JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
@@ -1554,9 +1557,9 @@ export class ApiClient {
   purgeDocument(documentId: string) {
     this.invalidateDocumentAttribution(documentId);
     return this.request(
-      `/documents/${pathSegment(documentId)}`,
-      isDocumentPurgeResponse,
-      "DELETE",
+      documentDelete.path(documentId),
+      documentDelete.isResponse,
+      documentDelete.method,
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
       this.evictDocumentWriterProjection(documentId);
