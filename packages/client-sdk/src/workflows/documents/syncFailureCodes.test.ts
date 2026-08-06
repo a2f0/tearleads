@@ -8,7 +8,7 @@ import {
   isUpstreamDeletedDocumentSyncFailure,
 } from "../../data/documents/shared/responses";
 import type { DocumentSyncSubmitFailure } from "../../data/documents/shared/types";
-import { isRecoverableDocumentUpdateIdConflict } from "./syncFailures";
+import { isRecoverableDocumentUpdateIdConflict } from "./syncFailureClassification";
 
 function failure(
   code: string | undefined,

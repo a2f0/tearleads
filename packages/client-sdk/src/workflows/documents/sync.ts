@@ -85,10 +85,12 @@ import {
   handleUpstreamDeletedDocumentSyncFailure,
   projectionIntegrityErrorCode,
   type RemoteDocumentDeletionHandler,
+  type TerminalSubmitFailureHandler,
+} from "./syncFailureClassification";
+import {
   resolveSyncAttemptWriterProjection,
   retrySyncPlanOrAbandon,
   submitDocumentSyncAttemptIfAllowed,
-  type TerminalSubmitFailureHandler,
 } from "./syncFailures";
 import {
   type RekeyPendingUpdate,

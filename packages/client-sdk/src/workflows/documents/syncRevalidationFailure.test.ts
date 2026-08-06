@@ -3,7 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { DOCUMENT_PROJECTION_ERROR_CODES } from "@tearleads/validators/response";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { syncRemoteDocument } from "./sync";
-import { describeDocumentRevalidationFailure } from "./syncFailures";
+import { describeDocumentRevalidationFailure } from "./syncFailureClassification";
 
 // Edge-case row 13: a read-only pass whose writer-projection read is refused
 // (a coded 409 from the projection route) used to fail silently — one burned
