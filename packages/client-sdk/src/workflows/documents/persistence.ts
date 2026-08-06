@@ -1,5 +1,4 @@
 import { type encodeVersionVector, getTextValue } from "@tearleads/loro";
-import { createPendingUpdateFields } from "../../data/documentSync";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
   DEFAULT_DOCUMENT_KIND,
@@ -10,6 +9,7 @@ import {
   readStoredDocumentState,
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
+import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import type {
   DocumentsPersistence,
   LocalAttachmentRecord,

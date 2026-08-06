@@ -1,6 +1,6 @@
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { createPendingUpdateFields } from "../../data/documentSync";
+import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { importDocumentContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
 import { containerPathRefs } from "../../data/documents/shared/projection";

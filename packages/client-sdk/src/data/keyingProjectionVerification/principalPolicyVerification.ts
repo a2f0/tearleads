@@ -7,7 +7,6 @@ import {
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { parseOrganizationAuthorityDescriptor } from "../organizationAuthorityDescriptor";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import {
   principalPolicyHeadMeetsCheckpoint,
@@ -15,13 +14,14 @@ import {
 } from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
+import { principalPolicyBundleStates } from "../principalPolicyStates";
+import { parseOrganizationAuthorityDescriptor } from "../principals/organizationAuthorityDescriptor";
 import {
   organizationAdminExternalAuthority,
   principalPolicyReferenceFromBundle,
   verifyOrganizationAdminPolicy,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
-} from "../principalPolicyAdminSigners";
-import { principalPolicyBundleStates } from "../principalPolicyStates";
+} from "../principals/principalPolicyAdminSigners";
 import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,

@@ -14,7 +14,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { documentKekTargetsFromContentKeyBundle } from "@tearleads/validators/response";
-import { createPendingUpdateFields } from "../../data/documentSync";
+import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import {
   assertDocumentWriterProjectionConsistent,
   authorizingContainerPathRefs,

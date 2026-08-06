@@ -13,7 +13,7 @@ import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/pers
 import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
-import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../data/principalPolicyAdminSigners";
+import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import {

@@ -1,5 +1,4 @@
 export * from "./data/blobContracts";
-export * from "./data/documentSummary";
 export * from "./data/documents/documentConstants";
 export * from "./data/documents/documentContent";
 export {
@@ -34,6 +33,7 @@ export type {
   DocumentRow,
   DocumentRowSummary,
 } from "./data/documents/documentRowList";
+export * from "./data/documents/documentSummary";
 export {
   resolveOpIdAttribution,
   summarizeDocumentContributors,

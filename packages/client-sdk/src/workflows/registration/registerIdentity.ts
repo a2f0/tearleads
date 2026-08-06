@@ -17,7 +17,7 @@ import type {
 } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
-import { encodeOrganizationAuthorityDescriptor } from "../../data/organizationAuthorityDescriptor";
+import { encodeOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
 import { resolveDocumentCreateAuthor } from "../documents/author";

@@ -8,8 +8,8 @@ import {
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
-import { createPendingUpdateFields } from "../../data/documentSync";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
+import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import {
   type ContainerMetadataRecord,
   sqlContainerContentsPersistence,

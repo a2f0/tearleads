@@ -1,5 +1,5 @@
-import type { DocumentSummary } from "../../../data/documentSummary";
 import type { StoredDocumentKind } from "../../../data/documents/documentKinds";
+import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import type { ContainerDocumentTombstoneInput } from "../../../data/persistence/documents/documentsPersistence";
 import type { ContainerContentsWorkflowSqlRuntime } from "../runtime";
 import type { ContainerDocumentObjectSyncState } from "../syncState";

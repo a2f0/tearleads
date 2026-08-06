@@ -1,4 +1,4 @@
-import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
+import { isDocumentUpdateCreatedEvent } from "../../../data/documents/documentSync";
 import { sequenceUnchanged } from "../../../workflows/documents/syncLane";
 import type { DocumentStoreState } from "./state";
 

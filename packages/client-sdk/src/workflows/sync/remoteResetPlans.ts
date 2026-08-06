@@ -1,7 +1,7 @@
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { sql } from "drizzle-orm";
-import { createPendingUpdateFields } from "../../data/documentSync";
 import { getDocumentAttachments } from "../../data/documents/documentContent";
+import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
 import {
   documentAttachmentBlobProjection,

@@ -16,9 +16,9 @@ import type { RegistrationResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
-import { parseOrganizationAuthorityDescriptor } from "../../data/organizationAuthorityDescriptor";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import {
   buildInitialOrganizationPolicyRequest,

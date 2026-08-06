@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { isDatabaseUnavailableError } from "../../data/databaseUnavailable";
 import type { DocumentWriterPublicKeyResolver } from "../../data/documents/shared/types";
+import { isDatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,

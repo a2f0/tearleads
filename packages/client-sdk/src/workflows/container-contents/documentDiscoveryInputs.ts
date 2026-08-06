@@ -2,7 +2,7 @@ import {
   maxEffectiveAccessLevel,
   normalizeEffectiveAccessLevel,
 } from "../../data/accessLevel";
-import type { DiscoveredDocumentInput } from "../../data/documentSummary";
+import type { DiscoveredDocumentInput } from "../../data/documents/documentSummary";
 import { uniqueSortedStrings } from "../../data/documents/shared/readers";
 import type {
   ContainerDocumentTombstone,

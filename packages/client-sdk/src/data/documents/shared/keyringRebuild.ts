@@ -8,7 +8,7 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerKekLogEpochResponse } from "@tearleads/validators/response";
-import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCrypto";
+import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principals/principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { normalizeContainerKeyWrap } from "./readers";
 

@@ -1,7 +1,7 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { getImportBlobMetadata, versionVectorsEqual } from "@tearleads/loro";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import type { PendingUpdateFields } from "./sqlite/documentPersistence";
+import type { PendingUpdateFields } from "../sqlite/documentPersistence";
 
 interface DocumentUpdateCreatedEvent {
   type: "document_update_created";

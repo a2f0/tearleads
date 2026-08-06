@@ -1,5 +1,5 @@
 import { desc, eq, notInArray } from "drizzle-orm";
-import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../../documentSummary";
+import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../../documents/documentSummary";
 import { loadDocumentRecord } from "../../../sqlite/documentPersistence";
 import {
   documentProjection,

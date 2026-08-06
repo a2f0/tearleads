@@ -19,11 +19,11 @@ import { createDomainSyncSnapshot, createSyncTimestamp } from "./syncTelemetry";
 import type { UploadSyncLane, UploadSyncLaneOptions } from "./uploadLane";
 import { beginUploadLane } from "./uploadLane";
 
-// Re-exported here because lanes reach it as a shouldIgnoreError alongside the
-// rest of the coordinator surface; it lives in data/databaseUnavailable with the
-// error type it discriminates on.
-export { isDatabaseUnavailableError } from "../databaseUnavailable";
 export type { SyncIdleOptions } from "./coordinatorPump";
+// Re-exported here because lanes reach it as a shouldIgnoreError alongside the
+// rest of the coordinator surface; it lives beside this coordinator with the
+// error type it discriminates on.
+export { isDatabaseUnavailableError } from "./databaseUnavailable";
 export type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";
 export {
   didRegainSyncPrerequisites,

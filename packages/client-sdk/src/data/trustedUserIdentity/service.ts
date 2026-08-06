@@ -1,12 +1,12 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { DatabaseUnavailableError } from "../databaseUnavailable";
 import {
   compareOrInsertTrustedUserIdentityPin,
   TrustedUserIdentityPinCorruptError,
   TrustedUserIdentityPinMismatchError,
 } from "../persistence/trustedUserIdentityPinPersistence";
 import { TrustedUserIdentityPinContentionError } from "../persistence/trustedUserIdentityPinTransaction";
+import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import {
   brandTrustedUserIdentity,
   TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,

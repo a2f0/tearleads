@@ -2,7 +2,7 @@
   "approvedStarExports": {
     "packages/client-sdk/src/documents.ts": [
       "./data/blobContracts",
-      "./data/documentSummary",
+      "./data/documents/documentSummary",
       "./data/documents/documentConstants",
       "./data/documents/documentContent"
     ],

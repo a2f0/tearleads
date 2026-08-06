@@ -229,8 +229,6 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/stores/documents/`,
       `${sdk}/client/documents.ts`,
       `${sdk}/documents.ts`,
-      `${sdk}/data/documentSummary.ts`,
-      `${sdk}/data/documentSync.ts`,
     ],
   },
   {
@@ -252,11 +250,7 @@ export const subsystems: readonly Subsystem[] = [
     responsibility:
       "Client-side container CRUD/share workflow operations and the local container persistence shape.",
     seam: "workflows/containers",
-    paths: [
-      `${sdk}/workflows/containers/`,
-      `${sdk}/data/containers/`,
-      `${sdk}/data/containerSystemSlotFormat.ts`,
-    ],
+    paths: [`${sdk}/workflows/containers/`, `${sdk}/data/containers/`],
   },
   {
     name: "Client Blob Storage",
@@ -267,8 +261,8 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/workflows/blobs/`,
       `${sdk}/data/blobs/`,
-      `${sdk}/client/blobs.ts`,
       `${sdk}/data/blobContracts.ts`,
+      `${sdk}/client/blobs.ts`,
     ],
   },
   {
@@ -285,12 +279,7 @@ export const subsystems: readonly Subsystem[] = [
     responsibility:
       "Client-side principal policy workflow operations, admin-signer resolution, and principal-policy crypto helpers.",
     seam: "workflows/principals",
-    paths: [
-      `${sdk}/workflows/principals/`,
-      `${sdk}/data/organizationAuthorityDescriptor.ts`,
-      `${sdk}/data/principalPolicyAdminSigners.ts`,
-      `${sdk}/data/principalPolicyCrypto.ts`,
-    ],
+    paths: [`${sdk}/workflows/principals/`, `${sdk}/data/principals/`],
   },
   {
     name: "Client Registration",
@@ -309,12 +298,11 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/workflows/sync/`,
       `${sdk}/data/sync/`,
+      `${sdk}/data/crdtPeerSeed.ts`,
+      `${sdk}/data/domainScope.ts`,
       `${sdk}/sync/`,
       `${sdk}/stores/local-projection/`,
       `${sdk}/client/deviceFirst.ts`,
-      `${sdk}/data/crdtPeerSeed.ts`,
-      `${sdk}/data/databaseUnavailable.ts`,
-      `${sdk}/data/domainScope.ts`,
     ],
   },
   {

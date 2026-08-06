@@ -4,7 +4,7 @@ import {
   versionVectorsEqual,
 } from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
-import { createPendingUpdateFields } from "../../data/documentSync";
+import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { importDocumentContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
 import type {

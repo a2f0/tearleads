@@ -1,12 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { normalizeEffectiveAccessLevel } from "../../../accessLevel";
-import type { DocumentSummary } from "../../../documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
 import {
   deriveStoredDocumentTitle,
   getUntitledDocumentTitle,
   type StoredDocumentKind,
 } from "../../../documents/documentKinds";
+import type { DocumentSummary } from "../../../documents/documentSummary";
 import { documentProjection, documents } from "../../../sqlite/schema";
 import type { StoredDocumentRecord } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";

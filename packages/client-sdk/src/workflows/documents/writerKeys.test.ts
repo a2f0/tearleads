@@ -6,7 +6,7 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
-import { DatabaseUnavailableError } from "../../data/databaseUnavailable";
+import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { createDocumentWriterPublicKeyResolver } from "./writerKeys";
 
 function createWriteHeader(input: {
