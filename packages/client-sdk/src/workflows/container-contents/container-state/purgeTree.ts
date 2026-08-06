@@ -1,7 +1,7 @@
 import type { DocumentSummary } from "../../../data/documentSummary";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
-import { listDocumentsByContainerIds } from "../../../data/persistence/documents/documentsPersistence";
+import { listDocumentsByContainerIdsOrDocumentIds } from "../../../data/persistence/documents/documentsPersistence";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import {
   purgeLocalContainerDocument,
@@ -147,9 +147,13 @@ async function planSubtreeDocuments(input: {
   readonly execSql: PurgeContainerTreeRuntime["infra"]["execSql"];
   readonly subtreeContainerIds: ReadonlySet<string>;
 }): Promise<SubtreeDocumentPlan> {
-  const documents = await listDocumentsByContainerIds(input.execSql, [
-    ...input.subtreeContainerIds,
-  ]);
+  const documents = await listDocumentsByContainerIdsOrDocumentIds(
+    input.execSql,
+    {
+      containerIds: [...input.subtreeContainerIds],
+      documentIds: [],
+    },
+  );
   const remoteDocumentIds = documents.flatMap((document) =>
     document.documentId ? [document.documentId] : [],
   );

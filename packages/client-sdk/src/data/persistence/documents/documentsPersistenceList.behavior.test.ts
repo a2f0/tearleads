@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
-  listDocumentsByContainerIds,
+  listDocumentsByContainerIdsOrDocumentIds,
   sqlDocumentsPersistence,
 } from "./documentsPersistence";
 
-test("listDocumentsByContainerIds only returns notes for the requested containers", async () => {
+test("listDocumentsByContainerIdsOrDocumentIds scopes notes to the requested containers", async () => {
   const { close, execSql } = await createTestExecSql(
     "documents-persistence-list-behavior-test",
   );
@@ -49,7 +49,10 @@ test("listDocumentsByContainerIds only returns notes for the requested container
     });
 
     await expect(
-      listDocumentsByContainerIds(execSql, ["container-a", "container-c"]),
+      listDocumentsByContainerIdsOrDocumentIds(execSql, {
+        containerIds: ["container-a", "container-c"],
+        documentIds: [],
+      }),
     ).resolves.toEqual([
       {
         accessStateHash: null,

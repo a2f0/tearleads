@@ -275,7 +275,7 @@ export function wrapEncryptedBlobStore(
   return new EncryptedBlobStore(store, options);
 }
 
-export function createEncryptedOpfsBlobStore(
+export function createEncryptedBlobStore(
   namespace: string,
   options: EncryptedBlobStoreOptions,
 ): BlobStore {
@@ -287,13 +287,6 @@ export function createEncryptedOpfsBlobStore(
     ...options,
     namespace,
   });
-}
-
-export function createEncryptedBlobStore(
-  namespace: string,
-  options: EncryptedBlobStoreOptions,
-): BlobStore {
-  return createEncryptedOpfsBlobStore(namespace, options);
 }
 
 export function createLazyEncryptedBlobStore(
