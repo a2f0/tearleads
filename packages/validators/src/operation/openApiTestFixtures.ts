@@ -7,7 +7,11 @@ export function jsonRoundTrip(value: unknown): unknown {
 
 export function createAccessManifestBundle() {
   return {
-    event: { signature: "signed-event" },
+    event: {
+      body: { eventType: "container.create" },
+      event: { signature: "signed-event" },
+      eventHash: "event-hash",
+    },
     manifest: { containerId: "container-1" },
     manifestHash: "manifest-hash",
     state: { epoch: 1 },
@@ -86,6 +90,50 @@ function createContentKeyBundleResponse() {
         wrappingMetadata: { algorithm: "test" },
       },
     ],
+  };
+}
+
+export function createContainerWriterProjectionResponse() {
+  return {
+    containerId: "container-1",
+    containerKeks: [
+      {
+        accessManifestHash: "manifest-hash",
+        containerId: "container-1",
+        containerKeyEpoch: 1,
+        containerKeyEpochId: "container-key-epoch-id",
+        containerManifestHistory: [],
+        keyEpoch: { epoch: 1 },
+        keyEpochHash: "key-epoch-hash",
+        keyring: null,
+        keyTargetHash: "key-target-hash",
+        parentContainerKeyEpochId: null,
+        recipientTargets: [{ recipientKind: "user" }],
+        wraps: [{ wrappedKey: "wrapped-key" }],
+      },
+    ],
+    organizationId: "organization-1",
+    path: [createAccessManifestBundle()],
+  };
+}
+
+export function createDocumentWriterProjectionResponse() {
+  return {
+    authorizingContainerPaths: [createContainerWriterProjectionResponse()],
+    contentKeyBundle: createContentKeyBundleResponse(),
+    documentContainerManifestHistory: [],
+    documentId: "document-1",
+    documentKekTargets: {
+      documentId: "document-1",
+      documentKeyTargetHash: "target-hash",
+      linkedContainerKeyEpochIds: ["container-key-epoch-id"],
+      linkedContainerManifestHashes: ["manifest-hash"],
+      linkSetManifestHash: "link-set-hash",
+      targets: [{ containerId: "container-1" }],
+    },
+    documentManifest: createAccessManifestBundle(),
+    documentManifestContainerPaths: [],
+    documentManifestHistory: [],
   };
 }
 

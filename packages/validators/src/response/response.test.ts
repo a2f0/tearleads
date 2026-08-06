@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import {
   ChallengeResponseSchema,
+  ContainerWriterProjectionResponseSchema,
+  DocumentWriterProjectionResponseSchema,
   ErrorResponseSchema,
   isBlobAttachmentBindResponse,
   isBlobAttachmentDetachResponse,
@@ -1043,8 +1045,14 @@ test("isDocumentSyncResponse", () => {
 });
 
 test("isContainerWriterProjectionResponse", () => {
-  const validResponse = createContainerWriterProjectionResponse();
+  const validResponse = {
+    ...createContainerWriterProjectionResponse(),
+    extension: true,
+  };
 
+  const result =
+    ContainerWriterProjectionResponseSchema.safeParse(validResponse);
+  expect(result.success && result.data).toBe(validResponse);
   expect(isContainerWriterProjectionResponse(validResponse)).toBe(true);
   expect(
     isContainerWriterProjectionResponse({
@@ -1100,8 +1108,12 @@ test("isDocumentWriterProjectionResponse", () => {
     documentKekTargets: createDocumentKekTargetsResponse(),
     contentKeyBundle: createDocumentContentKeyBundleResponse(),
     authorizingContainerPaths: [createContainerWriterProjectionResponse()],
+    extension: true,
   };
 
+  const result =
+    DocumentWriterProjectionResponseSchema.safeParse(validResponse);
+  expect(result.success && result.data).toBe(validResponse);
   expect(isDocumentWriterProjectionResponse(validResponse)).toBe(true);
   expect(
     isDocumentWriterProjectionResponse({

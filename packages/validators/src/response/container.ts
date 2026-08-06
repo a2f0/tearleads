@@ -16,7 +16,6 @@ import {
   positiveIntegerSchema,
 } from "../schema";
 import {
-  type AccessManifestBundleWireResponse,
   AccessManifestBundleWireResponseSchema,
   CONTAINER_KEK_LOG_PAGE_LIMIT,
   CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
@@ -25,10 +24,10 @@ import {
   hasNullableStringProperty,
   hasNumberProperty,
   hasStringProperty,
-  isAccessManifestBundleWireResponse,
   isContainerKekKeyringWireRecord,
   isRecordArray,
 } from "../util";
+import { containerWriterProjectionPathKekCountRefinement } from "../writerProjectionRefinements";
 import {
   type EffectiveAccessLevel,
   isEffectiveAccessLevel,
@@ -200,12 +199,32 @@ export interface ContainerDeleteResponse {
   deletedAt: string;
 }
 
-export interface ContainerWriterProjectionResponse {
-  containerId: string;
-  organizationId: string;
-  path: AccessManifestBundleWireResponse[];
-  containerKeks: ContainerKekResponse[];
-}
+export const ContainerWriterProjectionResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject({
+      containerId: z.string(),
+      containerKeks: arraySchema(ContainerKekResponseSchema),
+      organizationId: z.string(),
+      path: nonEmptyArraySchema(AccessManifestBundleWireResponseSchema),
+    }).superRefine((projection, context) => {
+      if (
+        Array.isArray(projection.containerKeks) &&
+        Array.isArray(projection.path) &&
+        projection.containerKeks.length !== projection.path.length
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "container KEK count must match the manifest path length",
+          path: ["containerKeks"],
+        });
+      }
+    }),
+    [containerWriterProjectionPathKekCountRefinement],
+  );
+
+export type ContainerWriterProjectionResponse = z.infer<
+  typeof ContainerWriterProjectionResponseSchema
+>;
 
 export interface ContainerSummary {
   systemSlot?: ContainerSystemSlot | null;
@@ -306,10 +325,6 @@ export function isListContainersResponse(
   );
 }
 
-function isContainerKekResponse(value: unknown): value is ContainerKekResponse {
-  return ContainerKekResponseSchema.safeParse(value).success;
-}
-
 export function isContainerMutationResponse(
   value: unknown,
 ): value is ContainerMutationResponse {
@@ -329,15 +344,5 @@ export function isContainerDeleteResponse(
 export function isContainerWriterProjectionResponse(
   value: unknown,
 ): value is ContainerWriterProjectionResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "containerId") &&
-    hasStringProperty(value, "organizationId") &&
-    hasArrayProperty(value, "path") &&
-    value.path.length > 0 &&
-    value.path.every(isAccessManifestBundleWireResponse) &&
-    hasArrayProperty(value, "containerKeks") &&
-    value.containerKeks.length === value.path.length &&
-    value.containerKeks.every(isContainerKekResponse)
-  );
+  return ContainerWriterProjectionResponseSchema.safeParse(value).success;
 }

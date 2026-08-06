@@ -138,3 +138,13 @@ export {
   putPrincipalPolicyOperation,
 } from "./principals";
 export { protocolOperations } from "./registry";
+export {
+  type ContainerWriterProjectionPathParams,
+  ContainerWriterProjectionPathParamsSchema,
+  type DocumentWriterProjectionPathParams,
+  DocumentWriterProjectionPathParamsSchema,
+  getContainerWriterProjectionOperation,
+  getDocumentWriterProjectionOperation,
+  isGetContainerWriterProjectionOperationResponse,
+  isGetDocumentWriterProjectionOperationResponse,
+} from "./writerProjections";

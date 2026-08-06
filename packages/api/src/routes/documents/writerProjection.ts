@@ -1,3 +1,7 @@
+import {
+  getDocumentWriterProjectionOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { DOCUMENT_PROJECTION_ERROR_CODES } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
@@ -9,6 +13,7 @@ import {
   getDocumentWriterProjection,
 } from "../../services/documents/writerProjection";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { pathParamsValidator } from "../../validators/pathParams";
 
 interface DocumentWriterProjectionRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -44,16 +49,19 @@ export function createDocumentWriterProjectionRoute({
 }: DocumentWriterProjectionRouteDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.get(
-    "/documents/:documentId/writer-projection",
+  route.on(
+    getDocumentWriterProjectionOperation.method,
+    operationRoutePath(getDocumentWriterProjectionOperation),
     requireAuth,
+    pathParamsValidator(getDocumentWriterProjectionOperation.params),
     async (c) => {
+      const { documentId } = c.req.valid("param");
       const session = c.get("session");
 
       try {
         return c.json<DocumentWriterProjectionResponse>(
           await getDocumentWriterProjection(runtime, {
-            documentId: c.req.param("documentId"),
+            documentId,
             userId: session.userId,
           }),
         );
