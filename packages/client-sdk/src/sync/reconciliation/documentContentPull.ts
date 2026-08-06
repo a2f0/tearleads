@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "../../data/documentSummary";
+import type { DocumentSummary } from "../../data/documents/documentSummary";
 import type { ContainerNode } from "../../stores/container-contents";
 import { isSystemContainerNode } from "../../stores/container-contents";
 

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { DocumentSummary } from "../../data/documentSummary";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";

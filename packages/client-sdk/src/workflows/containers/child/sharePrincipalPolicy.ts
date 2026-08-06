@@ -17,7 +17,7 @@ import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence
 import {
   principalPolicyReferenceFromBundle,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
-} from "../../../data/principalPolicyAdminSigners";
+} from "../../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import {

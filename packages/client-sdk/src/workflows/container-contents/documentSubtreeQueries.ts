@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "../../data/documentSummary";
+import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

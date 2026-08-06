@@ -7,8 +7,8 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { DatabaseUnavailableError } from "../databaseUnavailable";
 import { loadTrustedUserIdentityPin } from "../persistence/trustedUserIdentityPinPersistence";
+import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import { createTrustedUserIdentityService } from "./service";
 import type {
   LocalUserIdentityCandidate,

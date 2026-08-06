@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "../../../data/documentSummary";
+import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { listDocumentsByContainerIdsOrDocumentIds } from "../../../data/persistence/documents/documentsPersistence";

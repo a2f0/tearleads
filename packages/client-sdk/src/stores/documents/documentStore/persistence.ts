@@ -7,12 +7,12 @@ import {
   satisfiesVersionVector,
 } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
-import type { DocumentSummary } from "../../../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
   type DocumentProjectorRegistry,
   projectStoredDocumentState,
 } from "../../../data/documents/documentKinds";
+import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { errorMessage } from "../../../data/errorMessage";
 
 import {

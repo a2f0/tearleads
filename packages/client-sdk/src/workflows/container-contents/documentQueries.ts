@@ -3,7 +3,7 @@ import type { SyncWatermark } from "@tearleads/validators/response";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
-} from "../../data/documentSummary";
+} from "../../data/documents/documentSummary";
 import { ensureContainerTables } from "../../data/persistence/containers/containerPersistence";
 import {
   containerContentsSyncLane,

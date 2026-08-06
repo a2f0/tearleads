@@ -1,7 +1,7 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { formatContainerSystemSlot } from "../../data/containerSystemSlotFormat";
+import { formatContainerSystemSlot } from "../../data/containers/containerSystemSlotFormat";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   initializeStoredDocumentKind,

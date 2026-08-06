@@ -1,4 +1,4 @@
-import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../data/documentSummary";
+import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../data/documents/documentSummary";
 
 export function getOrphanedDocumentWhereSql(input: {
   documentIdSql: string;

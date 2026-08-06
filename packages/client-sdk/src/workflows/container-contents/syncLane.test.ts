@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { DatabaseUnavailableError } from "../../data/databaseUnavailable";
 import { createDomainScope } from "../../data/domainScope";
+import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import {
   didRegainSyncPrerequisites,
   getDomainSyncCoordinatorSnapshot,

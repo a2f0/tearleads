@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "../../data/documentSummary";
+import type { DocumentSummary } from "../../data/documents/documentSummary";
 import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import type { ContainerNode } from "../container-contents/types";
 

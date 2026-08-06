@@ -1,4 +1,4 @@
-import { createPendingUpdateFields } from "../../data/documentSync";
+import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 

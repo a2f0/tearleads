@@ -14,7 +14,7 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
-} from "./persistence/principalPolicyPersistence";
+} from "../persistence/principalPolicyPersistence";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
 
 async function createPrincipalPolicyBundle(input: {

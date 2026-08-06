@@ -1,7 +1,7 @@
 import {
   isDocumentMutationCreatedEvent,
   isDocumentUpdateCreatedEvent,
-} from "../../data/documentSync";
+} from "../../data/documents/documentSync";
 import type { DomainScope } from "../../data/domainScope";
 import type { LocalProjectionStore } from "../../stores/local-projection";
 import { consumeOriginatedDocument } from "./originatedDocuments";

@@ -8,7 +8,7 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm";
-import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../../documentSummary";
+import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../../documents/documentSummary";
 import { documentProjection, documents } from "../../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";

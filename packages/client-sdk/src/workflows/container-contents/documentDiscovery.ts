@@ -1,5 +1,5 @@
-import type { DocumentSummary } from "../../data/documentSummary";
-import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
+import type { DocumentSummary } from "../../data/documents/documentSummary";
+import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import { dedupeReferencedPrincipalStates } from "../../data/keyingProjectionVerification/principalPolicyCache";
 import {
   listAllContainerDocuments,
