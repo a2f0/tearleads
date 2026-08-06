@@ -188,3 +188,44 @@ test("container sync watermarks are persisted independently per lane", async () 
     close();
   }
 });
+
+test("lane reads chunk under SQLite's bind-variable limit", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-sync-watermark-batch-test",
+  );
+
+  try {
+    // Each lane predicate binds two variables, so this many lanes in one
+    // unchunked OR blows SQLite's variable limit before returning a row.
+    const lanes = Array.from({ length: 17_000 }, (_, index) =>
+      containerContentsSyncLane(`container-${index}`),
+    );
+    const saved = containerContentsSyncLane("container-16999");
+    await sqlContainerSyncWatermarkPersistence.saveWatermark(execSql, saved, {
+      id: "tail-lane",
+      updatedAt: "2026-05-05T00:00:00.000Z",
+    });
+    await sqlContainerSyncWatermarkPersistence.markChecked(execSql, saved);
+
+    const watermarks =
+      await sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(
+        execSql,
+        lanes,
+      );
+    expect(watermarks).toHaveLength(lanes.length);
+    expect(
+      watermarks.flatMap((record) => (record ? [record.watermark.id] : [])),
+    ).toEqual(["tail-lane"]);
+
+    const checks = await sqlContainerSyncWatermarkPersistence.loadCheckRecords(
+      execSql,
+      lanes,
+    );
+    expect(checks).toHaveLength(lanes.length);
+    expect(checks.flatMap((record) => (record ? [record.laneId] : []))).toEqual(
+      ["container-16999"],
+    );
+  } finally {
+    close();
+  }
+});
