@@ -48,7 +48,6 @@ import {
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
   isOrganizationBillingResponse,
-  isOrganizationReadModelResponse,
   isPrincipalPolicyBundleResponse,
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
@@ -104,7 +103,7 @@ import { getOrganizationDataUsage as organizationDataUsage } from "./routes/orga
 import { deleteOrganizationGroup as groupDelete } from "./routes/organizations/deleteGroup";
 import { listOrganizationGroupMembers as groupMembers } from "./routes/organizations/groupMembers";
 import { updateOrganizationProfile as profileUpdate } from "./routes/organizations/profile";
-import { organizationReadModelPath } from "./routes/organizations/readModelPath";
+import { getOrganizationReadModel as organizationReadModel } from "./routes/organizations/readModel";
 import { updateOrganizationRosterEntry as rosterUpdate } from "./routes/organizations/roster";
 import { pathSegment } from "./routes/path";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
@@ -826,9 +825,9 @@ export class ApiClient {
     options: RequestResultOptions = {},
   ): Promise<RequestResult<OrganizationReadModelResponse>> {
     return this.makeRequestResult(
-      organizationReadModelPath(organizationId, cursor),
-      isOrganizationReadModelResponse,
-      "GET",
+      organizationReadModel.path(organizationId, cursor),
+      organizationReadModel.isResponse,
+      organizationReadModel.method,
       undefined,
       options,
     );

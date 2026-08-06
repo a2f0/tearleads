@@ -62,8 +62,8 @@
       "bytes": 22812
     },
     "docs/openapi.json": {
-      "lines": 25787,
-      "bytes": 1155659
+      "lines": 27078,
+      "bytes": 1216222
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -374,12 +374,12 @@
       "bytes": 33792
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 9396,
-      "bytes": 421538
+      "lines": 9706,
+      "bytes": 435475
     },
     "scripts/subsystems.ts": {
-      "lines": 741,
-      "bytes": 27188
+      "lines": 742,
+      "bytes": 27230
     },
     "packages/validators/src/response/organizationReadModel.test.ts": {
       "lines": 502,

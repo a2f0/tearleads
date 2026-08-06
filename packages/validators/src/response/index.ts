@@ -245,6 +245,7 @@ export {
   type OrganizationReadModelGroupMembershipsResponse,
   type OrganizationReadModelOrganizationPolicyResponse,
   type OrganizationReadModelResponse,
+  OrganizationReadModelResponseSchema,
   type OrganizationReadModelSnapshotResponse,
 } from "./organizationReadModel";
 export {

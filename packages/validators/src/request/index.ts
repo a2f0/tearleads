@@ -63,6 +63,8 @@ export {
   isCreateOrganizationGroupRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
+  type OrganizationReadModelQuery,
+  OrganizationReadModelQuerySchema,
   type UpdateOrganizationProfileRequest,
   UpdateOrganizationProfileRequestSchema,
   type UpdateOrganizationRosterEntryRequest,

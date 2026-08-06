@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createOrganizationGroupOperation,
   deleteOrganizationGroupOperation,
+  getOrganizationReadModelOperation,
   listOrganizationGroupMembersOperation,
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
@@ -10,6 +11,7 @@ import { createOrganizationGroup } from "./createGroup";
 import { deleteOrganizationGroup } from "./deleteGroup";
 import { listOrganizationGroupMembers } from "./groupMembers";
 import { updateOrganizationProfile } from "./profile";
+import { getOrganizationReadModel } from "./readModel";
 import { updateOrganizationRosterEntry } from "./roster";
 
 const groupId = "22222222-2222-4222-8222-222222222222";
@@ -40,6 +42,18 @@ test("organization management client metadata derives from shared operations", (
   });
   expect(updateOrganizationProfile.path(organizationId)).toBe(
     `/organizations/${organizationId}/profile`,
+  );
+  expect(getOrganizationReadModel).toMatchObject({
+    method: getOrganizationReadModelOperation.method,
+  });
+  expect(getOrganizationReadModel.path(organizationId, "opaque+/=cursor")).toBe(
+    `/organizations/${organizationId}/read-model?cursor=opaque%2B%2F%3Dcursor`,
+  );
+  expect(getOrganizationReadModel.path(organizationId, undefined)).toBe(
+    `/organizations/${organizationId}/read-model`,
+  );
+  expect(() => getOrganizationReadModel.path("invalid", undefined)).toThrow(
+    "Invalid path parameters for organizations.readModel.get",
   );
   expect(updateOrganizationRosterEntry).toMatchObject({
     method: updateOrganizationRosterEntryOperation.method,

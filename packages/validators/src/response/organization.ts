@@ -31,7 +31,7 @@ export type OrganizationContainerGrantSubjectType = z.infer<
   typeof OrganizationContainerGrantSubjectTypeSchema
 >;
 
-export const OrganizationDirectoryUserResponseSchema = loosePlainObject({
+export const OrganizationDirectoryUserResponseShape = {
   createdAt: z.string(),
   disabledAt: z.string().nullable(),
   disabledByUserId: z.string().nullable(),
@@ -45,15 +45,23 @@ export const OrganizationDirectoryUserResponseSchema = loosePlainObject({
   status: OrganizationRosterStatusSchema,
   updatedAt: z.string(),
   userId: z.string(),
-});
+};
+
+export const OrganizationDirectoryUserResponseSchema = loosePlainObject(
+  OrganizationDirectoryUserResponseShape,
+);
 
 export type OrganizationDirectoryUserResponse = z.infer<
   typeof OrganizationDirectoryUserResponseSchema
 >;
 
-const OrganizationDirectoryCurrentUserResponseSchema = loosePlainObject({
+export const OrganizationDirectoryCurrentUserResponseShape = {
   isOrgAdmin: z.boolean(),
-});
+};
+
+const OrganizationDirectoryCurrentUserResponseSchema = loosePlainObject(
+  OrganizationDirectoryCurrentUserResponseShape,
+);
 
 export const OrganizationDirectoryResponseSchema = loosePlainObject({
   currentUser: OrganizationDirectoryCurrentUserResponseSchema,
@@ -75,26 +83,34 @@ export type OrganizationProfileResponse = z.infer<
   typeof OrganizationProfileResponseSchema
 >;
 
-export const OrganizationGroupCurrentStateResponseSchema = loosePlainObject({
+export const OrganizationGroupCurrentStateResponseShape = {
   keyEpoch: positiveIntegerSchema,
   keyFingerprint: nonEmptyStringSchema,
   memberCount: nonNegativeIntegerSchema,
   stateHash: z.string(),
   version: positiveIntegerSchema,
-});
+};
+
+export const OrganizationGroupCurrentStateResponseSchema = loosePlainObject(
+  OrganizationGroupCurrentStateResponseShape,
+);
 
 export type OrganizationGroupCurrentStateResponse = z.infer<
   typeof OrganizationGroupCurrentStateResponseSchema
 >;
 
-export const OrganizationGroupSummaryResponseSchema = loosePlainObject({
+export const OrganizationGroupSummaryResponseShape = {
   createdAt: z.string(),
   currentState: OrganizationGroupCurrentStateResponseSchema.nullable(),
   groupId: z.string(),
   isBuiltin: z.boolean(),
   name: z.string(),
   organizationId: z.string(),
-});
+};
+
+export const OrganizationGroupSummaryResponseSchema = loosePlainObject(
+  OrganizationGroupSummaryResponseShape,
+);
 
 export type OrganizationGroupSummaryResponse = z.infer<
   typeof OrganizationGroupSummaryResponseSchema
@@ -120,14 +136,18 @@ export type ListOrganizationGroupsResponse = z.infer<
   typeof ListOrganizationGroupsResponseSchema
 >;
 
-export const OrganizationGroupMemberResponseSchema = loosePlainObject({
+export const OrganizationGroupMemberResponseShape = {
   encapsulationKeyFingerprint: z.string().nullable(),
   encapsulationPublicKey: z.string().nullable(),
   role: OrganizationRoleSchema,
   signingKeyFingerprint: z.string().nullable(),
   signingPublicKey: z.string().nullable(),
   userId: z.string(),
-});
+};
+
+export const OrganizationGroupMemberResponseSchema = loosePlainObject(
+  OrganizationGroupMemberResponseShape,
+);
 
 export type OrganizationGroupMemberResponse = z.infer<
   typeof OrganizationGroupMemberResponseSchema
@@ -174,7 +194,7 @@ export type OrganizationGroupContainersResponse = z.infer<
   typeof OrganizationGroupContainersResponseSchema
 >;
 
-export const OrganizationContainerGrantResponseSchema = loosePlainObject({
+export const OrganizationContainerGrantResponseShape = {
   ...OrganizationGroupContainerResponseShape,
   groupId: z.string().nullable(),
   groupName: z.string().nullable(),
@@ -183,7 +203,11 @@ export const OrganizationContainerGrantResponseSchema = loosePlainObject({
   subjectId: z.string(),
   subjectType: OrganizationContainerGrantSubjectTypeSchema,
   userId: z.string().nullable(),
-});
+};
+
+export const OrganizationContainerGrantResponseSchema = loosePlainObject(
+  OrganizationContainerGrantResponseShape,
+);
 
 export type OrganizationContainerGrantResponse = z.infer<
   typeof OrganizationContainerGrantResponseSchema

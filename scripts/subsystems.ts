@@ -186,6 +186,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/routes/health.ts`,
       `${api}/validators/jsonRequest.ts`,
       `${api}/validators/pathParams.ts`,
+      `${api}/validators/queryParams.ts`,
     ],
   },
   {

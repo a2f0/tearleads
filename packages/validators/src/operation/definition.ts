@@ -17,6 +17,7 @@ export interface JsonOperation {
   readonly method: JsonOperationMethod;
   readonly params: z.ZodType;
   readonly path: `/${string}`;
+  readonly query?: z.ZodType;
   readonly responses: Readonly<Record<number, z.ZodType>>;
   readonly runtimeRefinements?: readonly RuntimeRefinement[];
 }
@@ -57,4 +58,41 @@ export function operationRequestPath<
 
     return encodeURIComponent(String(value));
   });
+}
+
+export function operationRequestPathWithQuery<
+  QuerySchema extends z.ZodType,
+  Operation extends Pick<JsonOperation, "id" | "params" | "path"> & {
+    readonly query: QuerySchema;
+  },
+>(
+  operation: Operation,
+  params: z.input<Operation["params"]>,
+  query: z.input<QuerySchema>,
+): string {
+  const path = operationRequestPath(operation, params);
+  const result = operation.query.safeParse(query);
+  if (!result.success || !isPlainObject(result.data)) {
+    throw new TypeError(`Invalid query parameters for ${operation.id}`);
+  }
+
+  const searchParams = new URLSearchParams();
+  for (const [name, value] of Object.entries(result.data)) {
+    if (value === undefined) {
+      continue;
+    }
+    if (
+      typeof value !== "string" &&
+      typeof value !== "number" &&
+      typeof value !== "boolean"
+    ) {
+      throw new TypeError(
+        `Invalid query parameter "${name}" for ${operation.id}`,
+      );
+    }
+    searchParams.set(name, String(value));
+  }
+
+  const queryString = searchParams.toString();
+  return queryString.length === 0 ? path : `${path}?${queryString}`;
 }

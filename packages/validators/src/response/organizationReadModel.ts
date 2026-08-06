@@ -1,181 +1,158 @@
-import { isPlainObject } from "../isPlainObject";
+import { z } from "zod";
 import {
-  hasArrayProperty,
-  hasBooleanProperty,
-  hasNullableStringProperty,
-  hasNumberProperty,
-  hasObjectProperty,
-  hasStringProperty,
-} from "../util";
+  registerJsonSchemaRuntimeRefinements,
+  registerJsonSchemaView,
+} from "../jsonSchema";
+import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
+import { arraySchema } from "../schema";
 import {
-  isListOrganizationGroupsResponse,
-  isOrganizationContainerGrantResponse,
-  isOrganizationDirectoryUserResponse,
-  isOrganizationGroupCurrentStateResponse,
-  isOrganizationGroupMemberResponse,
-  type ListOrganizationGroupsResponse,
-  type OrganizationContainerGrantsResponse,
-  type OrganizationDirectoryResponse,
-  type OrganizationGroupCurrentStateResponse,
-  type OrganizationGroupMemberResponse,
+  OrganizationContainerGrantResponseShape,
+  OrganizationDirectoryCurrentUserResponseShape,
+  OrganizationDirectoryUserResponseShape,
+  OrganizationGroupCurrentStateResponseShape,
+  OrganizationGroupMemberResponseShape,
+  OrganizationGroupSummaryResponseShape,
 } from "./organization";
 
-export type OrganizationReadModelDirectoryResponse = Omit<
-  OrganizationDirectoryResponse,
-  "currentUser"
+const OrganizationReadModelDirectoryUserResponseSchema = z.strictObject(
+  OrganizationDirectoryUserResponseShape,
+);
+
+export const OrganizationReadModelDirectoryResponseSchema = z.strictObject({
+  organizationId: z.string(),
+  profileDocumentId: z.string().nullable(),
+  users: arraySchema(OrganizationReadModelDirectoryUserResponseSchema),
+});
+
+export type OrganizationReadModelDirectoryResponse = z.infer<
+  typeof OrganizationReadModelDirectoryResponseSchema
 >;
 
-export type OrganizationReadModelGrantsResponse =
-  OrganizationContainerGrantsResponse;
+const OrganizationReadModelGrantResponseSchema = z.strictObject(
+  OrganizationContainerGrantResponseShape,
+);
 
-export interface OrganizationReadModelGroupMembershipResponse {
-  readonly groupId: string;
-  readonly stateHash: string;
-  readonly members: OrganizationGroupMemberResponse[];
-}
+export const OrganizationReadModelGrantsResponseSchema = z.strictObject({
+  grants: arraySchema(OrganizationReadModelGrantResponseSchema),
+  organizationId: z.string(),
+});
 
-export interface OrganizationReadModelGroupMembershipsResponse {
-  readonly deletedGroupIds: string[];
-  readonly organizationId: string;
-  readonly groups: OrganizationReadModelGroupMembershipResponse[];
-}
+export type OrganizationReadModelGrantsResponse = z.infer<
+  typeof OrganizationReadModelGrantsResponseSchema
+>;
 
-export interface OrganizationReadModelOrganizationPolicyResponse {
-  readonly currentState: OrganizationGroupCurrentStateResponse;
-  readonly organizationId: string;
-}
+const OrganizationReadModelGroupMemberResponseSchema = z.strictObject(
+  OrganizationGroupMemberResponseShape,
+);
 
-interface OrganizationReadModelResponseBase {
-  readonly currentUser: OrganizationDirectoryResponse["currentUser"];
-  readonly hasMore: boolean;
-  readonly nextCursor: string;
-  readonly organizationId: string;
-  readonly version: 5;
-}
+export const OrganizationReadModelGroupMembershipResponseSchema =
+  z.strictObject({
+    groupId: z.string(),
+    members: arraySchema(OrganizationReadModelGroupMemberResponseSchema),
+    stateHash: z.string().min(1),
+  });
 
-export interface OrganizationReadModelSnapshotResponse
-  extends OrganizationReadModelResponseBase {
-  readonly mode: "snapshot";
-  readonly lanes: {
-    readonly directory: OrganizationReadModelDirectoryResponse;
-    readonly grants: OrganizationReadModelGrantsResponse;
-    readonly groupMemberships: OrganizationReadModelGroupMembershipsResponse;
-    readonly groups: ListOrganizationGroupsResponse;
-    readonly organizationPolicy: OrganizationReadModelOrganizationPolicyResponse;
-  };
-}
+export type OrganizationReadModelGroupMembershipResponse = z.infer<
+  typeof OrganizationReadModelGroupMembershipResponseSchema
+>;
 
-export interface OrganizationReadModelDeltaResponse
-  extends OrganizationReadModelResponseBase {
-  readonly mode: "delta";
-  readonly lanes: {
-    readonly directory?: OrganizationReadModelDirectoryResponse;
-    readonly grants?: OrganizationReadModelGrantsResponse;
-    readonly groupMemberships?: OrganizationReadModelGroupMembershipsResponse;
-    readonly groups?: ListOrganizationGroupsResponse;
-    readonly organizationPolicy?: OrganizationReadModelOrganizationPolicyResponse;
-  };
-}
+export const OrganizationReadModelGroupMembershipsResponseSchema =
+  z.strictObject({
+    deletedGroupIds: arraySchema(z.string().min(1)),
+    groups: arraySchema(OrganizationReadModelGroupMembershipResponseSchema),
+    organizationId: z.string(),
+  });
 
-export type OrganizationReadModelResponse =
-  | OrganizationReadModelDeltaResponse
-  | OrganizationReadModelSnapshotResponse;
+export type OrganizationReadModelGroupMembershipsResponse = z.infer<
+  typeof OrganizationReadModelGroupMembershipsResponseSchema
+>;
 
-function hasExactKeys(
-  value: unknown,
-  expectedKeys: readonly string[],
-): boolean {
-  return (
-    isPlainObject(value) &&
-    Object.keys(value).length === expectedKeys.length &&
-    Object.keys(value).every((key) => expectedKeys.includes(key))
-  );
-}
+const OrganizationReadModelGroupCurrentStateResponseSchema = z.strictObject(
+  OrganizationGroupCurrentStateResponseShape,
+);
 
-function isDirectoryLane(
-  value: unknown,
-): value is OrganizationReadModelDirectoryResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "organizationId") &&
-    hasNullableStringProperty(value, "profileDocumentId") &&
-    hasArrayProperty(value, "users") &&
-    value.users.every(isOrganizationDirectoryUserResponse) &&
-    hasExactKeys(value, ["organizationId", "profileDocumentId", "users"]) &&
-    value.users.every((user) =>
-      hasExactKeys(user, [
-        "userId",
-        "signingKeyFingerprint",
-        "signingPublicKey",
-        "encapsulationPublicKey",
-        "encapsulationKeyFingerprint",
-        "createdAt",
-        "isSelf",
-        "status",
-        "profileDocumentId",
-        "joinedAt",
-        "updatedAt",
-        "disabledAt",
-        "disabledByUserId",
-      ]),
-    )
-  );
-}
+const OrganizationReadModelGroupSummaryResponseSchema = z.strictObject({
+  ...OrganizationGroupSummaryResponseShape,
+  currentState: OrganizationReadModelGroupCurrentStateResponseSchema.nullable(),
+});
 
-function isGroupsLane(value: unknown): value is ListOrganizationGroupsResponse {
-  return (
-    isListOrganizationGroupsResponse(value) &&
-    hasExactKeys(value, ["organizationId", "memberGroupId", "groups"]) &&
-    value.groups.every(
-      (group) =>
-        hasExactKeys(group, [
-          "groupId",
-          "organizationId",
-          "name",
-          "createdAt",
-          "isBuiltin",
-          "currentState",
-        ]) &&
-        (group.currentState === null ||
-          hasExactKeys(group.currentState, [
-            "stateHash",
-            "version",
-            "keyEpoch",
-            "keyFingerprint",
-            "memberCount",
-          ])),
-    )
-  );
-}
+const OrganizationReadModelGroupsResponseSchema = z.strictObject({
+  groups: arraySchema(OrganizationReadModelGroupSummaryResponseSchema),
+  memberGroupId: z.string(),
+  organizationId: z.string(),
+});
 
-function isOrganizationPolicyLane(
-  value: unknown,
-): value is OrganizationReadModelOrganizationPolicyResponse {
-  if (
-    !isPlainObject(value) ||
-    !hasStringProperty(value, "organizationId") ||
-    !hasObjectProperty(value, "currentState") ||
-    !hasExactKeys(value, ["organizationId", "currentState"])
-  ) {
-    return false;
-  }
+export const OrganizationReadModelOrganizationPolicyResponseSchema =
+  z.strictObject({
+    currentState: z.strictObject({
+      ...OrganizationGroupCurrentStateResponseShape,
+      stateHash: z.string().min(1),
+    }),
+    organizationId: z.string(),
+  });
 
-  const currentState = value.currentState;
-  return (
-    isOrganizationGroupCurrentStateResponse(currentState) &&
-    currentState.stateHash.length > 0 &&
-    hasExactKeys(currentState, [
-      "stateHash",
-      "version",
-      "keyEpoch",
-      "keyFingerprint",
-      "memberCount",
-    ])
-  );
-}
+export type OrganizationReadModelOrganizationPolicyResponse = z.infer<
+  typeof OrganizationReadModelOrganizationPolicyResponseSchema
+>;
+
+const OrganizationReadModelCurrentUserResponseSchema = z.strictObject(
+  OrganizationDirectoryCurrentUserResponseShape,
+);
+
+const OrganizationReadModelResponseBaseShape = {
+  currentUser: OrganizationReadModelCurrentUserResponseSchema,
+  hasMore: z.boolean(),
+  nextCursor: z.string().min(1),
+  organizationId: z.string(),
+  version: z.literal(5),
+};
+
+export const OrganizationReadModelSnapshotResponseSchema = z.strictObject({
+  ...OrganizationReadModelResponseBaseShape,
+  hasMore: z.literal(false),
+  lanes: z.strictObject({
+    directory: OrganizationReadModelDirectoryResponseSchema,
+    grants: OrganizationReadModelGrantsResponseSchema,
+    groupMemberships: OrganizationReadModelGroupMembershipsResponseSchema,
+    groups: OrganizationReadModelGroupsResponseSchema,
+    organizationPolicy: OrganizationReadModelOrganizationPolicyResponseSchema,
+  }),
+  mode: z.literal("snapshot"),
+});
+
+export type OrganizationReadModelSnapshotResponse = z.infer<
+  typeof OrganizationReadModelSnapshotResponseSchema
+>;
+
+export const OrganizationReadModelDeltaResponseSchema = z.strictObject({
+  ...OrganizationReadModelResponseBaseShape,
+  lanes: z.strictObject({
+    directory: OrganizationReadModelDirectoryResponseSchema.optional(),
+    grants: OrganizationReadModelGrantsResponseSchema.optional(),
+    groupMemberships:
+      OrganizationReadModelGroupMembershipsResponseSchema.optional(),
+    groups: OrganizationReadModelGroupsResponseSchema.optional(),
+    organizationPolicy:
+      OrganizationReadModelOrganizationPolicyResponseSchema.optional(),
+  }),
+  mode: z.literal("delta"),
+});
+
+export type OrganizationReadModelDeltaResponse = z.infer<
+  typeof OrganizationReadModelDeltaResponseSchema
+>;
+
+const OrganizationReadModelResponseSchemaView = z.discriminatedUnion("mode", [
+  OrganizationReadModelDeltaResponseSchema,
+  OrganizationReadModelSnapshotResponseSchema,
+]);
+
+type OrganizationReadModelResponseView = z.infer<
+  typeof OrganizationReadModelResponseSchemaView
+>;
 
 function hasValidGrantSubjectFields(
-  grant: OrganizationContainerGrantsResponse["grants"][number],
+  grant: z.infer<typeof OrganizationReadModelGrantResponseSchema>,
 ): boolean {
   if (grant.subjectType === "user") {
     return (
@@ -201,230 +178,109 @@ function hasValidGrantSubjectFields(
   );
 }
 
-function isGrantsLane(
-  value: unknown,
-): value is OrganizationReadModelGrantsResponse {
-  if (
-    !isPlainObject(value) ||
-    !hasStringProperty(value, "organizationId") ||
-    !hasArrayProperty(value, "grants") ||
-    !hasExactKeys(value, ["organizationId", "grants"])
-  ) {
-    return false;
-  }
-
-  const grantKeys = new Set<string>();
-  for (const grant of value.grants) {
-    if (
-      !isOrganizationContainerGrantResponse(grant) ||
-      !hasExactKeys(grant, [
-        "accessLevel",
-        "containerId",
-        "createdAt",
-        "depth",
-        "isBuiltin",
-        "metadataAccessEpoch",
-        "metadataAccessStateHash",
-        "metadataDocumentId",
-        "parentId",
-        "updatedAt",
-        "subjectType",
-        "subjectId",
-        "userId",
-        "signingKeyFingerprint",
-        "groupId",
-        "groupName",
-        "organizationName",
-      ]) ||
-      !hasValidGrantSubjectFields(grant)
-    ) {
-      return false;
-    }
+function hasValidGrants(
+  grants: OrganizationReadModelGrantsResponse["grants"],
+): boolean {
+  const keys = new Set<string>();
+  return grants.every((grant) => {
     const key = `${grant.subjectType}:${grant.subjectId}:${grant.containerId}`;
-    if (grantKeys.has(key)) {
+    if (!hasValidGrantSubjectFields(grant) || keys.has(key)) {
       return false;
     }
-    grantKeys.add(key);
-  }
-  return true;
+    keys.add(key);
+    return true;
+  });
 }
 
-function isGroupMembership(
-  value: unknown,
-): value is OrganizationReadModelGroupMembershipResponse {
-  if (
-    !isPlainObject(value) ||
-    !hasStringProperty(value, "groupId") ||
-    !hasStringProperty(value, "stateHash") ||
-    value.stateHash.length === 0 ||
-    !hasArrayProperty(value, "members") ||
-    !hasExactKeys(value, ["groupId", "stateHash", "members"])
-  ) {
-    return false;
-  }
-
-  const memberKeys = new Set<string>();
-  for (const member of value.members) {
-    if (
-      !isOrganizationGroupMemberResponse(member) ||
-      !hasExactKeys(member, [
-        "role",
-        "userId",
-        "signingKeyFingerprint",
-        "signingPublicKey",
-        "encapsulationPublicKey",
-        "encapsulationKeyFingerprint",
-      ])
-    ) {
-      return false;
-    }
-    const key = member.userId;
-    if (memberKeys.has(key)) {
-      return false;
-    }
-    memberKeys.add(key);
-  }
-  return true;
-}
-
-function isGroupMembershipsLane(
-  value: unknown,
-): value is OrganizationReadModelGroupMembershipsResponse {
-  if (
-    !isPlainObject(value) ||
-    !hasStringProperty(value, "organizationId") ||
-    !hasArrayProperty(value, "deletedGroupIds") ||
-    !hasArrayProperty(value, "groups") ||
-    !hasExactKeys(value, ["organizationId", "groups", "deletedGroupIds"])
-  ) {
-    return false;
-  }
-
+function hasValidGroupMemberships(
+  lane: OrganizationReadModelGroupMembershipsResponse,
+): boolean {
   const groupIds = new Set<string>();
-  for (const group of value.groups) {
-    if (!isGroupMembership(group) || groupIds.has(group.groupId)) {
+  const validGroups = lane.groups.every((group) => {
+    if (groupIds.has(group.groupId)) {
       return false;
     }
     groupIds.add(group.groupId);
+    const memberIds = new Set<string>();
+    return group.members.every((member) => {
+      if (memberIds.has(member.userId)) {
+        return false;
+      }
+      memberIds.add(member.userId);
+      return true;
+    });
+  });
+  if (!validGroups) {
+    return false;
   }
+
   const deletedGroupIds = new Set<string>();
-  for (const groupId of value.deletedGroupIds) {
-    if (
-      typeof groupId !== "string" ||
-      groupId.length === 0 ||
-      groupIds.has(groupId) ||
-      deletedGroupIds.has(groupId)
-    ) {
+  return lane.deletedGroupIds.every((groupId) => {
+    if (groupIds.has(groupId) || deletedGroupIds.has(groupId)) {
       return false;
     }
     deletedGroupIds.add(groupId);
-  }
-  return true;
+    return true;
+  });
 }
 
-function hasValidCommonFields(value: unknown): value is {
-  readonly currentUser: OrganizationDirectoryResponse["currentUser"];
-  readonly hasMore: boolean;
-  readonly lanes: Record<string, unknown>;
-  readonly mode: string;
-  readonly nextCursor: string;
-  readonly organizationId: string;
-  readonly version: number;
-} {
+function laneOrganizationsMatch(
+  value: OrganizationReadModelResponseView,
+): boolean {
+  const { lanes, organizationId } = value;
   return (
-    isPlainObject(value) &&
-    hasExactKeys(value, [
-      "version",
-      "mode",
-      "organizationId",
-      "nextCursor",
-      "hasMore",
-      "currentUser",
-      "lanes",
-    ]) &&
-    hasNumberProperty(value, "version") &&
-    value.version === 5 &&
-    hasStringProperty(value, "mode") &&
-    hasStringProperty(value, "organizationId") &&
-    hasStringProperty(value, "nextCursor") &&
-    value.nextCursor.length > 0 &&
-    hasBooleanProperty(value, "hasMore") &&
-    hasObjectProperty(value, "currentUser") &&
-    hasBooleanProperty(value.currentUser, "isOrgAdmin") &&
-    hasExactKeys(value.currentUser, ["isOrgAdmin"]) &&
-    hasObjectProperty(value, "lanes")
+    (lanes.directory === undefined ||
+      lanes.directory.organizationId === organizationId) &&
+    (lanes.grants === undefined ||
+      lanes.grants.organizationId === organizationId) &&
+    (lanes.groupMemberships === undefined ||
+      lanes.groupMemberships.organizationId === organizationId) &&
+    (lanes.groups === undefined ||
+      (lanes.groups.organizationId === organizationId &&
+        lanes.groups.groups.every(
+          (group) => group.organizationId === organizationId,
+        ))) &&
+    (lanes.organizationPolicy === undefined ||
+      lanes.organizationPolicy.organizationId === organizationId)
   );
 }
+
+function hasValidReadModelSemantics(
+  value: OrganizationReadModelResponseView,
+): boolean {
+  if (
+    !laneOrganizationsMatch(value) ||
+    (value.lanes.grants !== undefined &&
+      !hasValidGrants(value.lanes.grants.grants)) ||
+    (value.lanes.groupMemberships !== undefined &&
+      !hasValidGroupMemberships(value.lanes.groupMemberships))
+  ) {
+    return false;
+  }
+
+  return (
+    value.mode === "delta" ||
+    value.lanes.groupMemberships.deletedGroupIds.length === 0
+  );
+}
+
+export const OrganizationReadModelResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    registerJsonSchemaView(
+      OrganizationReadModelResponseSchemaView.refine(
+        hasValidReadModelSemantics,
+      ),
+      OrganizationReadModelResponseSchemaView,
+    ),
+    organizationReadModelResponseRuntimeRefinements,
+  );
+
+export type OrganizationReadModelResponse = z.infer<
+  typeof OrganizationReadModelResponseSchema
+>;
 
 export function isOrganizationReadModelResponse(
   value: unknown,
 ): value is OrganizationReadModelResponse {
-  if (!hasValidCommonFields(value)) {
-    return false;
-  }
-
-  if (
-    Object.keys(value.lanes).some(
-      (key) =>
-        key !== "directory" &&
-        key !== "grants" &&
-        key !== "groupMemberships" &&
-        key !== "groups" &&
-        key !== "organizationPolicy",
-    )
-  ) {
-    return false;
-  }
-  const directory = Reflect.get(value.lanes, "directory");
-  const grants = Reflect.get(value.lanes, "grants");
-  const groupMemberships = Reflect.get(value.lanes, "groupMemberships");
-  const groups = Reflect.get(value.lanes, "groups");
-  const organizationPolicy = Reflect.get(value.lanes, "organizationPolicy");
-  const validDirectory = directory === undefined || isDirectoryLane(directory);
-  const validGrants = grants === undefined || isGrantsLane(grants);
-  const validGroupMemberships =
-    groupMemberships === undefined || isGroupMembershipsLane(groupMemberships);
-  const validGroups =
-    groups === undefined ||
-    (isGroupsLane(groups) &&
-      groups.groups.every(
-        (group) => group.organizationId === value.organizationId,
-      ));
-  const validOrganizationPolicy =
-    organizationPolicy === undefined ||
-    isOrganizationPolicyLane(organizationPolicy);
-  if (
-    !validDirectory ||
-    !validGrants ||
-    !validGroupMemberships ||
-    !validGroups ||
-    !validOrganizationPolicy
-  ) {
-    return false;
-  }
-  if (
-    (directory && directory.organizationId !== value.organizationId) ||
-    (grants && grants.organizationId !== value.organizationId) ||
-    (groupMemberships &&
-      groupMemberships.organizationId !== value.organizationId) ||
-    (groups && groups.organizationId !== value.organizationId) ||
-    (organizationPolicy &&
-      organizationPolicy.organizationId !== value.organizationId)
-  ) {
-    return false;
-  }
-
-  if (value.mode === "snapshot") {
-    return (
-      directory !== undefined &&
-      grants !== undefined &&
-      groupMemberships !== undefined &&
-      groupMemberships.deletedGroupIds.length === 0 &&
-      groups !== undefined &&
-      organizationPolicy !== undefined &&
-      !value.hasMore
-    );
-  }
-
-  return value.mode === "delta";
+  return OrganizationReadModelResponseSchema.safeParse(value).success;
 }
