@@ -8,7 +8,6 @@ import {
 import { createDomainScope, type DomainScope } from "../data/domainScope";
 import { disposeDomainSyncCoordinator } from "../data/sync/syncCoordinator";
 import { resolveIdentityTrustDomain } from "../data/trustedUserIdentity";
-import { withOrganizationProfileFallbackTitle } from "../workflows/organizations/organizationProfile";
 import type { ProvisionedSystemContainerSpec } from "../workflows/registration";
 import { type BlobStoreFactory, Blobs } from "./blobs";
 import {
@@ -107,7 +106,7 @@ export class Tearleads {
     this.blobs = new Blobs(options.blobStore, options.blobStoreFactory);
     this.database = new Database(options.database);
     this.documentProjectors = resolveDocumentProjectorRegistry(
-      withOrganizationProfileFallbackTitle(options.documentProjectors),
+      options.documentProjectors,
     );
     this.events = new Events(options.events, () =>
       this.apiClient.clearWriterProjectionCaches(),

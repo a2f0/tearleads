@@ -1,6 +1,9 @@
 import type { LoroList, LoroMap } from "@tearleads/loro";
 import type { ExecSql, SqlTableSchema } from "../sqlite/sqlSchema";
-import { DEFAULT_DOCUMENT_KIND } from "./documentConstants";
+import {
+  DEFAULT_DOCUMENT_KIND,
+  ORGANIZATION_PROFILE_DOCUMENT_KIND,
+} from "./documentConstants";
 import { type DocumentRowSummary, listDocumentRows } from "./documentRowList";
 
 export type StoredDocumentKind = string;
@@ -291,6 +294,13 @@ export function createDocumentProjectorRegistry(
 
       if (kind === DEFAULT_DOCUMENT_KIND) {
         return "Untitled note";
+      }
+
+      // The SDK provisions this kind itself, so hosts that never register a
+      // projector for it still get its stable title instead of the
+      // humanized generic form.
+      if (kind === ORGANIZATION_PROFILE_DOCUMENT_KIND) {
+        return "Organization Profile";
       }
 
       return `Untitled ${registry.getStoredDocumentTypeLabel(kind)}`;

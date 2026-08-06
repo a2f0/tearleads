@@ -13,7 +13,6 @@ import {
   type DocumentClientProjectionSaveInput,
   type DocumentProjectorDefinition,
   readStringDocumentField,
-  resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
 import {
   DOCUMENTS_APP_KIND,
@@ -24,7 +23,6 @@ import { persistDocumentState } from "../documents";
 import {
   getOrganizationProfileDocumentLocalId,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
-  withOrganizationProfileFallbackTitle,
 } from "../organizations/organizationProfile";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 
@@ -263,9 +261,7 @@ test("a later save cannot overwrite the fallback title", async () => {
     await persistDocumentState({
       currentDoc: doc,
       currentRecord: record,
-      documentProjectors: resolveDocumentProjectorRegistry(
-        withOrganizationProfileFallbackTitle([]),
-      ),
+      documentProjectors: [],
       execSql,
       localId,
       patch: {},
@@ -282,58 +278,17 @@ test("a later save cannot overwrite the fallback title", async () => {
   }
 });
 
-test("prototype-backed registries keep their methods through the wrap", () => {
-  const base = createDocumentProjectorRegistry([]);
-  // A class-implemented registry: every method lives on the prototype, so a
-  // spread-based wrap would silently drop them all.
-  class PrototypeRegistry {
-    getDefinition(kind: string) {
-      return base.getDefinition(kind);
-    }
-    getClientProjectionTables() {
-      return base.getClientProjectionTables();
-    }
-    getStoredDocumentTypeLabel(kind: string) {
-      return base.getStoredDocumentTypeLabel(kind);
-    }
-    getUntitledDocumentTitle(kind: string) {
-      return base.getUntitledDocumentTitle(kind);
-    }
-    initializeStoredDocumentKind(
-      ...args: Parameters<typeof base.initializeStoredDocumentKind>
-    ) {
-      return base.initializeStoredDocumentKind(...args);
-    }
-    projectStoredDocumentState(
-      ...args: Parameters<typeof base.projectStoredDocumentState>
-    ) {
-      return base.projectStoredDocumentState(...args);
-    }
-    deleteStoredDocumentClientProjection(
-      ...args: Parameters<typeof base.deleteStoredDocumentClientProjection>
-    ) {
-      return base.deleteStoredDocumentClientProjection(...args);
-    }
-    saveStoredDocumentClientProjection(
-      ...args: Parameters<typeof base.saveStoredDocumentClientProjection>
-    ) {
-      return base.saveStoredDocumentClientProjection(...args);
-    }
-  }
-
-  const wrapped = resolveDocumentProjectorRegistry(
-    withOrganizationProfileFallbackTitle(new PrototypeRegistry()),
-  );
-  expect(wrapped.getClientProjectionTables()).toEqual([]);
+test("the default registry titles the org profile kind", () => {
+  const registry = createDocumentProjectorRegistry([]);
   expect(
-    wrapped.getUntitledDocumentTitle(ORGANIZATION_PROFILE_DOCUMENT_KIND),
+    registry.getUntitledDocumentTitle(ORGANIZATION_PROFILE_DOCUMENT_KIND),
   ).toBe("Organization Profile");
   expect(
-    wrapped.projectStoredDocumentState({
+    registry.projectStoredDocumentState({
       documentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
       structuredFields: { name: "Acme Corp" },
       text: "",
     }).title,
   ).toBe("Organization Profile");
-  expect(wrapped.getUntitledDocumentTitle("note")).toBe("Untitled note");
+  expect(registry.getUntitledDocumentTitle("note")).toBe("Untitled note");
 });

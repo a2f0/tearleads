@@ -30,10 +30,7 @@ import {
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
 import { persistDocumentState } from "../documents/persistence";
-import {
-  ORGANIZATION_PROFILE_DOCUMENT_KIND,
-  withOrganizationProfileFallbackTitle,
-} from "../organizations/organizationProfile";
+import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "../organizations/organizationProfile";
 import {
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
@@ -298,9 +295,7 @@ async function persistOrganizationProfileDocumentBootstrap(
     containerId: organizationProfileDocument.containerId,
     documentId: organizationProfileDocument.documentId,
     documentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
-    documentProjectors: withOrganizationProfileFallbackTitle(
-      input.documentProjectors,
-    ),
+    documentProjectors: input.documentProjectors,
     documentState: organizationProfileDocument.documentState,
     initialUpdate: organizationProfileDocument.initialUpdate,
     initialUpdateCommitted: organizationProfileDocument.initialUpdateCommitted,
