@@ -28,8 +28,6 @@ import {
   type DocumentCreateResponse,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
-  isBlobAttachmentBindResponse,
-  isBlobAttachmentDetachResponse,
   isCompleteMultipartBlobStageResponse,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
@@ -42,7 +40,6 @@ import {
   isDocumentWriterProjectionResponse,
   isInitiateMultipartBlobStageResponse,
   isListContainerDocumentsResponse,
-  isListDocumentAttachmentsResponse,
   isMultipartBlobStageStatusResponse,
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
@@ -89,10 +86,15 @@ import {
   webSocketTicket as authWebSocketTicket,
 } from "./routes/auth/session";
 import {
+  bindBlobAttachment as blobAttachmentBind,
+  detachBlobAttachment as blobAttachmentDetach,
+} from "./routes/blobs/attachments";
+import {
   getBlobBytes,
   type UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
 import { containerDocsPath } from "./routes/containers/queryParams";
+import { listDocumentAttachments as documentAttachmentsList } from "./routes/documents/attachments";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
 import { documentSync as sync } from "./routes/documents/sync";
 import { getHealth as healthGet } from "./routes/health";
@@ -1738,9 +1740,9 @@ export class ApiClient {
 
   bindBlobAttachment(blobId: string, input: BlobAttachmentBindRequest) {
     return this.request(
-      `/blobs/${pathSegment(blobId)}/attachment-bindings`,
-      isBlobAttachmentBindResponse,
-      "POST",
+      blobAttachmentBind.path(blobId),
+      blobAttachmentBind.isResponse,
+      blobAttachmentBind.method,
       JSON.stringify(input),
     )
       .then((response) => {
@@ -1763,9 +1765,9 @@ export class ApiClient {
     input: BlobAttachmentDetachRequest,
   ) {
     return this.request(
-      `/blobs/${pathSegment(blobId)}/attachment-bindings/${pathSegment(bindingId)}/detach`,
-      isBlobAttachmentDetachResponse,
-      "POST",
+      blobAttachmentDetach.path(blobId, bindingId),
+      blobAttachmentDetach.isResponse,
+      blobAttachmentDetach.method,
       JSON.stringify(input),
     )
       .then((response) => {
@@ -1788,9 +1790,9 @@ export class ApiClient {
       documentId,
       () =>
         this.request(
-          `/documents/${pathSegment(documentId)}/attachments`,
-          isListDocumentAttachmentsResponse,
-          "GET",
+          documentAttachmentsList.path(documentId),
+          documentAttachmentsList.isResponse,
+          documentAttachmentsList.method,
         ),
     );
   }

@@ -1,4 +1,9 @@
 import {
+  bindBlobAttachmentOperation,
+  detachBlobAttachmentOperation,
+  listDocumentAttachmentsOperation,
+} from "./attachments";
+import {
   challengeOperation,
   destroySessionOperation,
   listSessionsOperation,
@@ -35,6 +40,9 @@ export const protocolOperations = [
   userIdentityOperation,
   verifyOperation,
   webSocketTicketOperation,
+  bindBlobAttachmentOperation,
+  detachBlobAttachmentOperation,
+  listDocumentAttachmentsOperation,
   createOrganizationOperation,
   getOrganizationDataUsageOperation,
   getOrganizationReadModelOperation,

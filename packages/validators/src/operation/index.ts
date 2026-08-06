@@ -1,4 +1,20 @@
 export {
+  type BlobAttachmentBindingPathParams,
+  BlobAttachmentBindingPathParamsSchema,
+  type BlobAttachmentPathParams,
+  BlobAttachmentPathParamsSchema,
+  bindBlobAttachmentOperation,
+  type DocumentAttachmentsPathParams,
+  DocumentAttachmentsPathParamsSchema,
+  detachBlobAttachmentOperation,
+  isBindBlobAttachmentOperationRequest,
+  isBindBlobAttachmentOperationResponse,
+  isDetachBlobAttachmentOperationRequest,
+  isDetachBlobAttachmentOperationResponse,
+  isListDocumentAttachmentsOperationResponse,
+  listDocumentAttachmentsOperation,
+} from "./attachments";
+export {
   challengeOperation,
   destroySessionOperation,
   isChallengeOperationRequest,
