@@ -333,9 +333,10 @@ When an identity fingerprint is available, the default blob store switches from
 an ephemeral memory store to the identity-scoped store returned by
 `createBlobStore(signingFingerprint)`. Hosts that need a custom blob backend
 pass a fixed `blobStore`, or `blobStoreFactory` for identity-scoped stores, at
-construction. The store still changes namespaces automatically with identity
-(and via `useEphemeralStore`/`useIdentityNamespace`); only arbitrary
-post-construction store replacement is gone.
+construction. The default and factory-backed stores still switch namespaces
+automatically with identity (and via
+`useEphemeralStore`/`useIdentityNamespace`); a fixed `blobStore` is used as
+given, and arbitrary post-construction store replacement is gone.
 
 For browser and Electron hosts, prefer an encrypted local blob store factory:
 
