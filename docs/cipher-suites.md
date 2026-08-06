@@ -34,7 +34,7 @@ conventional SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
 | --- | --- |
 | KEM envelope primitive: encapsulate, then AES-GCM-wrap a DEK to a recipient key | `packages/crypto/src/encapsulation/{wrapDek,unwrapDek,decryptAsRecipient}.ts` |
 | Wrap container KEK to a user or managed principal | `packages/client-sdk/src/data/containers/shared/projection.ts` |
-| Wrap principal (group/org) secret keys to members | `packages/client-sdk/src/workflows/organizations/principalPolicy*.ts` |
+| Wrap principal (group/org) secret keys to members | `packages/client-sdk/src/workflows/organizations/{principalPolicy*,groupPolicy*}.ts` |
 | Identity key-package probe envelope | `packages/client-sdk/src/client/identityKeyPackage.ts` |
 | Identity keypair generation | `packages/crypto/src/encapsulation/generateKeyPair.ts` |
 
