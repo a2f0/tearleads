@@ -188,3 +188,68 @@ test("guardedTransaction rolls everything back when the guard refuses", async ()
     close();
   }
 });
+
+test("three-level nesting releases savepoints innermost first", async () => {
+  const { close, execSql, ids, insert } = await createProbeTable(
+    "nested-transaction-three-levels",
+  );
+  try {
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
+      await runtime.transaction(async () => {
+        await insert(lockedExecSql, "level-1");
+        await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+          async () => {
+            await insert(lockedExecSql, "level-2");
+            // A descendant scope must start immediately instead of waiting
+            // behind its own unresolved parent on the scope chain.
+            await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+              async () => {
+                await insert(lockedExecSql, "level-3");
+              },
+            );
+          },
+        );
+      });
+    });
+
+    expect(await ids()).toEqual(["level-1", "level-2", "level-3"]);
+  } finally {
+    close();
+  }
+});
+
+test("a failed BEGIN leaves the runtime able to transact again", async () => {
+  const { close, execSql } = await createProbeTable(
+    "guarded-transaction-begin-failure",
+  );
+  try {
+    let failNextBegin = true;
+    const flaky = (async (sql, bind, options) => {
+      if (failNextBegin && sql === "BEGIN") {
+        failNextBegin = false;
+        throw new Error("simulated BEGIN failure");
+      }
+      return execSql(sql, bind, options);
+    }) as typeof execSql;
+
+    const runtime = getClientSQLitePersistenceRuntime(flaky);
+    await expect(
+      runtime.guardedTransaction(
+        async () => undefined,
+        () => true,
+      ),
+    ).rejects.toThrow("simulated BEGIN failure");
+
+    // The depth bookkeeping must have been cleared by the failure: a stale
+    // depth would reject this fresh transaction as illegally nested instead
+    // of issuing a real BEGIN.
+    const outcome = await runtime.guardedTransaction(
+      async () => undefined,
+      () => true,
+    );
+    expect(outcome.committed).toBe(true);
+  } finally {
+    close();
+  }
+});

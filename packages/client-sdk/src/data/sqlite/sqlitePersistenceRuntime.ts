@@ -73,11 +73,13 @@ const runtimeByExecSql = new WeakMap<ExecSql, ClientSQLitePersistenceRuntime>();
 const transactionDepthByCanonicalExecSql = new WeakMap<ExecSql, number>();
 // Sibling nested scopes on one connection must not interleave: SQLite
 // savepoints form a stack, so releasing an earlier savepoint would also
-// release a later one started concurrently. Each connection serializes its
-// nested scopes through this promise chain.
-const nestedScopeChainByCanonicalExecSql = new WeakMap<
+// release a later sibling started concurrently. Scopes serialize per
+// NESTING DEPTH — siblings share a depth and queue behind each other, while
+// a descendant runs one level deeper and must NOT wait on its own enclosing
+// scope (that wait can never resolve).
+const nestedScopeChainsByCanonicalExecSql = new WeakMap<
   ExecSql,
-  Promise<unknown>
+  Map<number, Promise<unknown>>
 >();
 const execSqlByClient = new WeakMap<ExecSqlClientLike, ExecSql>();
 
@@ -135,39 +137,51 @@ function createClientSQLiteDatabase(
   });
 }
 
-// Serialize one nested savepoint scope per connection: siblings queue on the
-// connection's chain so their savepoints strictly nest instead of
-// interleaving on the shared stack.
+// Serialize nested savepoint scopes per connection AND depth: a sibling
+// (same depth) queues behind the previous sibling so their savepoints
+// strictly nest instead of interleaving on the shared stack, while a
+// descendant (called from inside an executing scope, so one level deeper)
+// starts on its own depth's chain and never waits on its unresolved parent.
 async function runNestedSavepointScope<T>(
   canonical: ExecSql,
   lockedExecSql: ExecSql,
   operation: () => Promise<T>,
 ): Promise<T> {
-  const previous =
-    nestedScopeChainByCanonicalExecSql.get(canonical) ?? Promise.resolve();
+  const depthAtEntry = transactionDepthByCanonicalExecSql.get(canonical) ?? 0;
+  const chains =
+    nestedScopeChainsByCanonicalExecSql.get(canonical) ??
+    new Map<number, Promise<unknown>>();
+  nestedScopeChainsByCanonicalExecSql.set(canonical, chains);
+  const previous = chains.get(depthAtEntry) ?? Promise.resolve();
+  let tracked: Promise<unknown> = Promise.resolve();
   const scope = previous
     .catch(() => undefined)
     .then(async () => {
       const depth = transactionDepthByCanonicalExecSql.get(canonical) ?? 0;
       transactionDepthByCanonicalExecSql.set(canonical, depth + 1);
       const savepoint = `runtime_transaction_sp_${depth}`;
-      await lockedExecSql(`SAVEPOINT ${savepoint}`);
       try {
+        await lockedExecSql(`SAVEPOINT ${savepoint}`);
         const result = await operation();
         await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`);
         return result;
       } catch (error: unknown) {
-        await lockedExecSql(`ROLLBACK TO SAVEPOINT ${savepoint}`);
-        await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`);
+        await lockedExecSql(`ROLLBACK TO SAVEPOINT ${savepoint}`).catch(
+          () => undefined,
+        );
+        await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`).catch(
+          () => undefined,
+        );
         throw error;
       } finally {
         transactionDepthByCanonicalExecSql.set(canonical, depth);
+        if (chains.get(depthAtEntry) === tracked) {
+          chains.delete(depthAtEntry);
+        }
       }
     });
-  nestedScopeChainByCanonicalExecSql.set(
-    canonical,
-    scope.catch(() => undefined),
-  );
+  tracked = scope.catch(() => undefined);
+  chains.set(depthAtEntry, tracked);
   return scope;
 }
 
@@ -229,8 +243,8 @@ function createRuntimeForExecSql(
           }
 
           transactionDepthByCanonicalExecSql.set(canonical, 1);
-          await lockedExecSql("BEGIN");
           try {
+            await lockedExecSql("BEGIN");
             const result = await operation(db);
             if (!canCommit()) {
               await lockedExecSql("ROLLBACK");
