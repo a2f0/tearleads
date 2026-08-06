@@ -285,10 +285,6 @@
       "lines": 1542,
       "bytes": 49910
     },
-    "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
-      "lines": 929,
-      "bytes": 30411
-    },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 895,
       "bytes": 35552
