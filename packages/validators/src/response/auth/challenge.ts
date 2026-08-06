@@ -1,5 +1,6 @@
-import { z } from "zod";
+import type { z } from "zod";
 import { authChallengeHexStringSchema, loosePlainObject } from "../../schema";
+import { ErrorResponseSchema, isErrorResponse } from "../error";
 
 export const ChallengeResponseSchema = loosePlainObject({
   challenge: authChallengeHexStringSchema,
@@ -13,16 +14,8 @@ export function isChallengeResponse(
   return ChallengeResponseSchema.safeParse(value).success;
 }
 
-export const ChallengeErrorResponseSchema = loosePlainObject({
-  error: z.string(),
-});
-
+export const ChallengeErrorResponseSchema = ErrorResponseSchema;
 export type ChallengeErrorResponse = z.infer<
   typeof ChallengeErrorResponseSchema
 >;
-
-export function isChallengeErrorResponse(
-  value: unknown,
-): value is ChallengeErrorResponse {
-  return ChallengeErrorResponseSchema.safeParse(value).success;
-}
+export const isChallengeErrorResponse = isErrorResponse;

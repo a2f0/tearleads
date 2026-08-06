@@ -1,65 +1,51 @@
-import { isPlainObject } from "../../isPlainObject";
+import { z } from "zod";
 import {
-  hasArrayProperty,
-  hasBooleanProperty,
-  hasNullableStringProperty,
-  hasStringProperty,
-} from "../../util";
+  arraySchema,
+  loosePlainObject,
+  nonEmptyStringSchema,
+  sha256HexStringSchema,
+} from "../../schema";
 
-export interface UserSessionResponse {
-  id: string;
-  createdAt: string;
-  ipAddresses: string[];
-  isCurrent: boolean;
-  lastActiveAt: string;
-  lastActiveIp: string | null;
-  signingKeyFingerprint: string;
-}
+export const UserSessionResponseSchema = loosePlainObject({
+  createdAt: z.string(),
+  id: sha256HexStringSchema,
+  ipAddresses: arraySchema(nonEmptyStringSchema),
+  isCurrent: z.boolean(),
+  lastActiveAt: z.string(),
+  lastActiveIp: nonEmptyStringSchema.nullable(),
+  signingKeyFingerprint: z.string(),
+});
 
-export interface ListSessionsResponse {
-  sessions: UserSessionResponse[];
-}
+export type UserSessionResponse = z.infer<typeof UserSessionResponseSchema>;
 
-export interface DestroySessionResponse {
-  message: "ok";
-}
+export const ListSessionsResponseSchema = loosePlainObject({
+  sessions: arraySchema(UserSessionResponseSchema),
+});
+
+export type ListSessionsResponse = z.infer<typeof ListSessionsResponseSchema>;
+
+export const DestroySessionResponseSchema = loosePlainObject({
+  message: z.literal("ok"),
+});
+
+export type DestroySessionResponse = z.infer<
+  typeof DestroySessionResponseSchema
+>;
 
 export function isUserSessionResponse(
   value: unknown,
 ): value is UserSessionResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "id") &&
-    /^[0-9a-f]{64}$/.test(value.id) &&
-    hasStringProperty(value, "createdAt") &&
-    hasArrayProperty(value, "ipAddresses") &&
-    value.ipAddresses.every(
-      (ipAddress) => typeof ipAddress === "string" && ipAddress.length > 0,
-    ) &&
-    hasBooleanProperty(value, "isCurrent") &&
-    hasStringProperty(value, "lastActiveAt") &&
-    hasNullableStringProperty(value, "lastActiveIp") &&
-    (value.lastActiveIp === null || value.lastActiveIp.length > 0) &&
-    hasStringProperty(value, "signingKeyFingerprint")
-  );
+  return UserSessionResponseSchema.safeParse(value).success;
 }
 
 export function isListSessionsResponse(
   value: unknown,
 ): value is ListSessionsResponse {
-  return (
-    isPlainObject(value) &&
-    hasArrayProperty(value, "sessions") &&
-    value.sessions.every(isUserSessionResponse)
-  );
+  return ListSessionsResponseSchema.safeParse(value).success;
 }
 
 export function isDestroySessionResponse(
   value: unknown,
 ): value is DestroySessionResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "message") &&
-    value.message === "ok"
-  );
+  return DestroySessionResponseSchema.safeParse(value).success;
 }

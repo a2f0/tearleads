@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   ChallengeResponseSchema,
+  ErrorResponseSchema,
   isBlobAttachmentBindResponse,
   isBlobAttachmentDetachResponse,
   isChallengeErrorResponse,
@@ -11,10 +12,12 @@ import {
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
+  isDestroySessionResponse,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
+  isErrorResponse,
   isHealthResponse,
   isInitiateMultipartBlobStageResponse,
   isListContainerDocumentsResponse,
@@ -34,6 +37,7 @@ import {
   isUploadMultipartBlobPartResponse,
   isUserIdentityResponse,
   isUserSessionResponse,
+  isWebSocketTicketResponse,
 } from "./index";
 
 const VALID_CHALLENGE = "a".repeat(64);
@@ -62,6 +66,20 @@ test("isChallengeErrorResponse", () => {
   expect(isChallengeErrorResponse({ error: 123 })).toBe(false);
   expect(isChallengeErrorResponse({})).toBe(false);
   expect(isChallengeErrorResponse(null)).toBe(false);
+});
+
+test("shared auth utility responses", () => {
+  const errorResponse = { error: "Unauthorized", extension: true };
+  const result = ErrorResponseSchema.safeParse(errorResponse);
+
+  expect(result.success).toBe(true);
+  expect(result.success && result.data).toBe(errorResponse);
+  expect(isErrorResponse(errorResponse)).toBe(true);
+  expect(isErrorResponse({ error: 401 })).toBe(false);
+  expect(isDestroySessionResponse({ message: "ok" })).toBe(true);
+  expect(isDestroySessionResponse({ message: "not-ok" })).toBe(false);
+  expect(isWebSocketTicketResponse({ ticket: "ticket-1" })).toBe(true);
+  expect(isWebSocketTicketResponse({ ticket: 1 })).toBe(false);
 });
 
 test("isUserIdentityResponse", () => {

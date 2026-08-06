@@ -12,6 +12,7 @@ export {
   type ChallengeResponse,
   ChallengeResponseSchema,
   type DestroySessionResponse,
+  DestroySessionResponseSchema,
   isChallengeErrorResponse,
   isChallengeResponse,
   isDestroySessionResponse,
@@ -19,14 +20,20 @@ export {
   isUserIdentityResponse,
   isUserSessionResponse,
   isVerifyResponse,
+  isWebSocketTicketResponse,
   type ListSessionsResponse,
+  ListSessionsResponseSchema,
   type UserIdentityResponse,
+  UserIdentityResponseSchema,
   type UserSessionResponse,
+  UserSessionResponseSchema,
   type VerifyFailureResponse,
   VerifyFailureResponseSchema,
   type VerifyResponse,
   type VerifySuccessResponse,
   VerifySuccessResponseSchema,
+  type WebSocketTicketResponse,
+  WebSocketTicketResponseSchema,
 } from "./auth";
 export {
   type BlobAttachmentBindResponse,
@@ -125,6 +132,11 @@ export {
   DocumentSyncErrorResponseSchema,
   isDocumentSyncErrorResponse,
 } from "./documentSyncError";
+export {
+  type ErrorResponse,
+  ErrorResponseSchema,
+  isErrorResponse,
+} from "./error";
 export { type HealthResponse, isHealthResponse } from "./health";
 export {
   type DeleteOrganizationGroupResponse,

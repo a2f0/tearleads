@@ -28,7 +28,7 @@ import {
 
 const syncPathItem = openApiDocument.paths[SYNC_PATH];
 const syncPost = syncPathItem?.post;
-const requestSchema = syncPost?.requestBody.content["application/json"].schema;
+const requestSchema = syncPost?.requestBody?.content["application/json"].schema;
 const responseSchema =
   syncPost?.responses["200"]?.content?.["application/json"].schema;
 const errorResponseSchema =
@@ -54,6 +54,12 @@ const verifyPost = openApiDocument.paths["/auth/verify"]?.post;
 if (challengePost === undefined || verifyPost === undefined) {
   throw new Error("Auth OpenAPI operations are missing");
 }
+if (
+  challengePost.requestBody === undefined ||
+  verifyPost.requestBody === undefined
+) {
+  throw new Error("Auth OpenAPI request bodies are missing");
+}
 
 const validateChallengeRequest = ajv.compile(
   challengePost.requestBody.content["application/json"].schema,
@@ -76,7 +82,7 @@ test("document sync emits its operation registry as OpenAPI 3.1", () => {
     },
   ]);
   expect(syncPost.security).toEqual([{ bearerAuth: [] }]);
-  expect(syncPost.requestBody.required).toBe(true);
+  expect(syncPost.requestBody?.required).toBe(true);
   expect(Object.keys(syncPost.responses)).toEqual([
     "200",
     "400",
@@ -145,6 +151,61 @@ test("auth operations emit their public request and response contracts", () => {
       signature: [0],
     }),
   ).toBe(false);
+});
+
+test("bodyless auth operations omit request bodies and emit path parameters", () => {
+  const listSessionsGet = openApiDocument.paths["/auth/sessions"]?.get;
+  const destroySessionDelete =
+    openApiDocument.paths["/auth/sessions/{sessionId}"]?.delete;
+  const userIdentityGet =
+    openApiDocument.paths["/auth/user-identity/{userId}"]?.get;
+  const logoutPost = openApiDocument.paths["/auth/logout"]?.post;
+  const webSocketTicketPost = openApiDocument.paths["/auth/ws-ticket"]?.post;
+
+  for (const operation of [
+    listSessionsGet,
+    destroySessionDelete,
+    userIdentityGet,
+    logoutPost,
+    webSocketTicketPost,
+  ]) {
+    expect(operation).toBeDefined();
+    expect(operation?.requestBody).toBeUndefined();
+    expect(operation?.security).toEqual([{ bearerAuth: [] }]);
+  }
+
+  expect(destroySessionDelete?.parameters).toEqual([
+    {
+      explode: false,
+      in: "path",
+      name: "sessionId",
+      required: true,
+      schema: {
+        maxLength: 64,
+        minLength: 64,
+        pattern: "^[0-9a-f]+$",
+        type: "string",
+      },
+      style: "simple",
+    },
+  ]);
+  expect(userIdentityGet?.parameters).toEqual([
+    {
+      explode: false,
+      in: "path",
+      name: "userId",
+      required: true,
+      schema: { type: "string" },
+      style: "simple",
+    },
+  ]);
+  expect(Object.keys(destroySessionDelete?.responses ?? {})).toEqual([
+    "200",
+    "400",
+    "401",
+    "404",
+    "500",
+  ]);
 });
 
 test("JSON Schema projection rejects unregistered schemas", () => {

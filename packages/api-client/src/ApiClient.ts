@@ -1,6 +1,5 @@
 import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
@@ -40,7 +39,6 @@ import {
   isCreateOrganizationGroupResponse,
   isCreateOrganizationResponse,
   isDeleteOrganizationGroupResponse,
-  isDestroySessionResponse,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeResponse,
@@ -49,7 +47,6 @@ import {
   isInitiateMultipartBlobStageResponse,
   isListContainerDocumentsResponse,
   isListDocumentAttachmentsResponse,
-  isListSessionsResponse,
   isMultipartBlobStageStatusResponse,
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
@@ -66,7 +63,6 @@ import {
   isStripeCheckoutOptionsResponse,
   isStripeCheckoutSessionResponse,
   isUploadMultipartBlobPartResponse,
-  isUserIdentityResponse,
   type ListContainerDocumentsResponse,
   type ListContainerParentLanesResponse,
   type ListDocumentAttachmentsResponse,
@@ -75,7 +71,6 @@ import {
   type PrincipalPolicyBundleResponse,
   type UserIdentityResponse,
 } from "@tearleads/validators/response";
-import { hasStringProperty } from "@tearleads/validators/util";
 import { BoundedCache } from "./ApiCache";
 import {
   bindPrototypeMethods,
@@ -96,6 +91,13 @@ import {
   challenge as authChallenge,
   verify as authVerify,
 } from "./routes/auth/authenticate";
+import {
+  destroySession as authDestroySession,
+  listSessions as authListSessions,
+  logout as authLogout,
+  userIdentity as authUserIdentity,
+  webSocketTicket as authWebSocketTicket,
+} from "./routes/auth/session";
 import {
   getBlobBytes,
   type UploadMultipartBlobPartBytesRequest,
@@ -134,12 +136,6 @@ interface InFlightWriterProjectionResult<T> {
   readonly invalidationStamp: number;
   readonly resultPromise: Promise<RequestResult<T>>;
   readonly slot: Promise<T | null> | undefined;
-}
-
-function isWebSocketTicketResponse(
-  value: unknown,
-): value is { ticket: string } {
-  return isPlainObject(value) && hasStringProperty(value, "ticket");
 }
 
 export class ApiClient {
@@ -647,9 +643,9 @@ export class ApiClient {
 
   async requestWebSocketTicket(): Promise<string | null> {
     const response = await this.request(
-      "/auth/ws-ticket",
-      isWebSocketTicketResponse,
-      "POST",
+      authWebSocketTicket.path,
+      authWebSocketTicket.isResponse,
+      authWebSocketTicket.method,
     );
     return response?.ticket ?? null;
   }
@@ -748,37 +744,41 @@ export class ApiClient {
   getUserIdentity(userId: string) {
     return cachedRequest(this.userIdentityRequestsByUserId, userId, () =>
       this.request(
-        `/auth/user-identity/${pathSegment(userId)}`,
-        isUserIdentityResponse,
-        "GET",
+        authUserIdentity.path(userId),
+        authUserIdentity.isResponse,
+        authUserIdentity.method,
       ),
     );
   }
 
   getUserIdentityRequestFailure(userId: string) {
     return this.getRequestFailure({
-      method: "GET",
-      path: `/auth/user-identity/${pathSegment(userId)}`,
+      method: authUserIdentity.method,
+      path: authUserIdentity.path(userId),
     });
   }
 
   listSessions() {
-    return this.request("/auth/sessions", isListSessionsResponse, "GET");
+    return this.request(
+      authListSessions.path,
+      authListSessions.isResponse,
+      authListSessions.method,
+    );
   }
 
   destroySession(sessionId: string) {
     return this.request(
-      `/auth/sessions/${pathSegment(sessionId)}`,
-      isDestroySessionResponse,
-      "DELETE",
+      authDestroySession.path(sessionId),
+      authDestroySession.isResponse,
+      authDestroySession.method,
     );
   }
 
   logout() {
     return this.request(
-      "/auth/logout",
-      isDestroySessionResponse,
-      "POST",
+      authLogout.path,
+      authLogout.isResponse,
+      authLogout.method,
       undefined,
       { retryOnSessionExpired: false },
     );

@@ -3,10 +3,23 @@ import { ChallengeRequestSchema, VerifyRequestSchema } from "../request";
 import {
   ChallengeErrorResponseSchema,
   ChallengeResponseSchema,
+  DestroySessionResponseSchema,
+  ErrorResponseSchema,
+  ListSessionsResponseSchema,
+  UserIdentityResponseSchema,
   VerifyFailureResponseSchema,
   VerifySuccessResponseSchema,
+  WebSocketTicketResponseSchema,
 } from "../response";
-import { challengeOperation, verifyOperation } from "./auth";
+import {
+  challengeOperation,
+  destroySessionOperation,
+  listSessionsOperation,
+  logoutOperation,
+  userIdentityOperation,
+  verifyOperation,
+  webSocketTicketOperation,
+} from "./auth";
 import { operationRequestPath, operationRoutePath } from "./definition";
 
 test("auth operations own their HTTP contract metadata", () => {
@@ -22,6 +35,7 @@ test("auth operations own their HTTP contract metadata", () => {
   expect(challengeOperation.failureResponses).toEqual({
     400: ChallengeErrorResponseSchema,
     404: ChallengeErrorResponseSchema,
+    500: ErrorResponseSchema,
   });
 
   expect(verifyOperation).toMatchObject({
@@ -37,12 +51,87 @@ test("auth operations own their HTTP contract metadata", () => {
     400: ChallengeErrorResponseSchema,
     401: VerifyFailureResponseSchema,
     404: VerifyFailureResponseSchema,
+    500: ErrorResponseSchema,
   });
 });
 
-test("auth operation paths are shared without parameters", () => {
+test("session and identity operations own their HTTP contract metadata", () => {
+  expect(logoutOperation).toMatchObject({
+    auth: "session",
+    failureStatuses: [401, 500],
+    id: "auth.logout",
+    method: "POST",
+    path: "/auth/logout",
+    responses: { 200: DestroySessionResponseSchema },
+  });
+  expect(webSocketTicketOperation).toMatchObject({
+    auth: "session",
+    failureStatuses: [401, 500],
+    id: "auth.webSocketTicket",
+    method: "POST",
+    path: "/auth/ws-ticket",
+    responses: { 200: WebSocketTicketResponseSchema },
+  });
+  expect(listSessionsOperation).toMatchObject({
+    auth: "session",
+    failureStatuses: [401, 500],
+    id: "auth.sessions.list",
+    method: "GET",
+    path: "/auth/sessions",
+    responses: { 200: ListSessionsResponseSchema },
+  });
+  expect(destroySessionOperation).toMatchObject({
+    auth: "session",
+    failureStatuses: [400, 401, 404, 500],
+    id: "auth.sessions.destroy",
+    method: "DELETE",
+    path: "/auth/sessions/{sessionId}",
+    responses: { 200: DestroySessionResponseSchema },
+  });
+  expect(userIdentityOperation).toMatchObject({
+    auth: "session",
+    failureStatuses: [401, 404, 500],
+    id: "auth.userIdentity",
+    method: "GET",
+    path: "/auth/user-identity/{userId}",
+    responses: { 200: UserIdentityResponseSchema },
+  });
+
+  for (const operation of [
+    logoutOperation,
+    webSocketTicketOperation,
+    listSessionsOperation,
+    destroySessionOperation,
+    userIdentityOperation,
+  ]) {
+    expect("body" in operation ? operation.body : undefined).toBeUndefined();
+    expect(Object.values(operation.failureResponses)).toContain(
+      ErrorResponseSchema,
+    );
+  }
+});
+
+test("auth operation paths are shared with validated parameters", () => {
   expect(operationRoutePath(challengeOperation)).toBe("/auth/challenge");
   expect(operationRequestPath(challengeOperation, {})).toBe("/auth/challenge");
   expect(operationRoutePath(verifyOperation)).toBe("/auth/verify");
   expect(operationRequestPath(verifyOperation, {})).toBe("/auth/verify");
+  expect(operationRequestPath(logoutOperation, {})).toBe("/auth/logout");
+  expect(operationRequestPath(listSessionsOperation, {})).toBe(
+    "/auth/sessions",
+  );
+  expect(
+    operationRequestPath(destroySessionOperation, {
+      sessionId: "a".repeat(64),
+    }),
+  ).toBe(`/auth/sessions/${"a".repeat(64)}`);
+  expect(() =>
+    operationRequestPath(destroySessionOperation, { sessionId: "invalid" }),
+  ).toThrow("Invalid path parameters for auth.sessions.destroy");
+  expect(
+    operationRequestPath(userIdentityOperation, { userId: "user/id" }),
+  ).toBe("/auth/user-identity/user%2Fid");
+  expect(operationRequestPath(webSocketTicketOperation, {})).toBe(
+    "/auth/ws-ticket",
+  );
 });

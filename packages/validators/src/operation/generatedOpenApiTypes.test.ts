@@ -7,11 +7,16 @@ import type {
 import type {
   ChallengeErrorResponse,
   ChallengeResponse,
+  DestroySessionResponse,
   DocumentNotFoundErrorResponse,
   DocumentSyncErrorResponse,
   DocumentSyncResponse,
+  ErrorResponse,
+  ListSessionsResponse,
+  UserIdentityResponse,
   VerifyFailureResponse,
   VerifySuccessResponse,
+  WebSocketTicketResponse,
 } from "../response";
 import { documentSyncOperation } from "./documentSync";
 import type {
@@ -93,6 +98,27 @@ type GeneratedVerifySuccessResponse =
   GeneratedVerifyOperation["responses"][200]["content"]["application/json"];
 type GeneratedVerifyFailureResponse =
   GeneratedVerifyOperation["responses"][401]["content"]["application/json"];
+type GeneratedLogoutOperation = operations["auth.logout"];
+type GeneratedLogoutResponse =
+  GeneratedLogoutOperation["responses"][200]["content"]["application/json"];
+type GeneratedListSessionsOperation = operations["auth.sessions.list"];
+type GeneratedListSessionsResponse =
+  GeneratedListSessionsOperation["responses"][200]["content"]["application/json"];
+type GeneratedDestroySessionOperation = operations["auth.sessions.destroy"];
+type GeneratedDestroySessionPathParams =
+  GeneratedDestroySessionOperation["parameters"]["path"];
+type GeneratedDestroySessionResponse =
+  GeneratedDestroySessionOperation["responses"][200]["content"]["application/json"];
+type GeneratedDestroySessionErrorResponse =
+  GeneratedDestroySessionOperation["responses"][400]["content"]["application/json"];
+type GeneratedUserIdentityOperation = operations["auth.userIdentity"];
+type GeneratedUserIdentityPathParams =
+  GeneratedUserIdentityOperation["parameters"]["path"];
+type GeneratedUserIdentityResponse =
+  GeneratedUserIdentityOperation["responses"][200]["content"]["application/json"];
+type GeneratedWebSocketTicketOperation = operations["auth.webSocketTicket"];
+type GeneratedWebSocketTicketResponse =
+  GeneratedWebSocketTicketOperation["responses"][200]["content"]["application/json"];
 type EmptyGeneratedComponents = {
   schemas: never;
   responses: never;
@@ -214,5 +240,73 @@ test("generated OpenAPI types match the auth structural contracts", () => {
   >();
   assertType<
     IsEqual<paths["/auth/verify"]["post"], GeneratedVerifyOperation>
+  >();
+
+  assertType<IsAssignable<GeneratedLogoutOperation, { requestBody?: never }>>();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedLogoutResponse>,
+      NormalizeWireType<DestroySessionResponse>
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedListSessionsResponse>,
+      NormalizeWireType<ListSessionsResponse>
+    >
+  >();
+  assertType<
+    IsAssignable<GeneratedDestroySessionPathParams, { sessionId: string }>
+  >();
+  assertType<
+    IsAssignable<{ sessionId: string }, GeneratedDestroySessionPathParams>
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedDestroySessionResponse>,
+      NormalizeWireType<DestroySessionResponse>
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedDestroySessionErrorResponse>,
+      NormalizeWireType<ErrorResponse>
+    >
+  >();
+  assertType<
+    IsAssignable<GeneratedUserIdentityPathParams, { userId: string }>
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedUserIdentityResponse>,
+      NormalizeWireType<UserIdentityResponse>
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedWebSocketTicketResponse>,
+      NormalizeWireType<WebSocketTicketResponse>
+    >
+  >();
+  assertType<
+    IsEqual<paths["/auth/logout"]["post"], GeneratedLogoutOperation>
+  >();
+  assertType<
+    IsEqual<paths["/auth/sessions"]["get"], GeneratedListSessionsOperation>
+  >();
+  assertType<
+    IsEqual<
+      paths["/auth/sessions/{sessionId}"]["delete"],
+      GeneratedDestroySessionOperation
+    >
+  >();
+  assertType<
+    IsEqual<
+      paths["/auth/user-identity/{userId}"]["get"],
+      GeneratedUserIdentityOperation
+    >
+  >();
+  assertType<
+    IsEqual<paths["/auth/ws-ticket"]["post"], GeneratedWebSocketTicketOperation>
   >();
 });

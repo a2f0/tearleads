@@ -1,3 +1,8 @@
+import {
+  operationRoutePath,
+  userIdentityOperation,
+} from "@tearleads/validators/operation";
+import type { UserIdentityResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -6,6 +11,7 @@ import {
   getUserIdentity,
 } from "../../services/auth/getUserIdentity";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { pathParamsValidator } from "../../validators/pathParams";
 
 interface UserIdentityRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -18,14 +24,18 @@ export function createUserIdentityRoute({
 }: UserIdentityRouteDeps) {
   const userIdentityRoute = new Hono();
 
-  userIdentityRoute.get(
-    "/auth/user-identity/:userId",
+  userIdentityRoute.on(
+    userIdentityOperation.method,
+    operationRoutePath(userIdentityOperation),
     requireAuth,
+    pathParamsValidator(userIdentityOperation.params),
     async (c) => {
-      const userId = c.req.param("userId");
+      const { userId } = c.req.valid("param");
 
       try {
-        return c.json(await getUserIdentity(runtime, userId));
+        return c.json<UserIdentityResponse>(
+          await getUserIdentity(runtime, userId),
+        );
       } catch (error) {
         if (error instanceof GetUserIdentityError) {
           return c.json({ error: error.message }, error.status);

@@ -10,7 +10,7 @@ export interface RuntimeRefinement {
 
 export interface JsonOperation {
   readonly auth: "none" | "session";
-  readonly body: z.ZodType;
+  readonly body?: z.ZodType;
   readonly failureResponses?: Readonly<Record<number, z.ZodType>>;
   readonly failureStatuses: readonly number[];
   readonly id: string;

@@ -1,3 +1,8 @@
+import {
+  destroySessionOperation,
+  listSessionsOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type {
   DestroySessionResponse,
   ListSessionsResponse,
@@ -6,7 +11,7 @@ import type {
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv, UserSessionSummary } from "../../middleware/session";
-import { isSessionId } from "../../validators/session";
+import { pathParamsValidator } from "../../validators/pathParams";
 
 export interface SessionsRouteDeps {
   readonly destroyUserSession: (input: {
@@ -39,36 +44,43 @@ export function createSessionsRoute({
 }: SessionsRouteDeps) {
   const sessionsRoute = new Hono<SessionEnv>();
 
-  sessionsRoute.get("/auth/sessions", requireAuth, async (c) => {
-    const session = c.get("session");
-    const currentToken = c.get("sessionToken");
-    const sessions = await listUserSessions({
-      currentToken,
-      userId: session.userId,
-    });
+  sessionsRoute.on(
+    listSessionsOperation.method,
+    operationRoutePath(listSessionsOperation),
+    requireAuth,
+    async (c) => {
+      const session = c.get("session");
+      const currentToken = c.get("sessionToken");
+      const sessions = await listUserSessions({
+        currentToken,
+        userId: session.userId,
+      });
 
-    return c.json<ListSessionsResponse>({
-      sessions: sessions.map(toSessionResponse),
-    });
-  });
+      return c.json<ListSessionsResponse>({
+        sessions: sessions.map(toSessionResponse),
+      });
+    },
+  );
 
-  sessionsRoute.delete("/auth/sessions/:sessionId", requireAuth, async (c) => {
-    const sessionId = c.req.param("sessionId");
-    if (!isSessionId(sessionId)) {
-      return c.json({ error: "Invalid session id" }, 400);
-    }
+  sessionsRoute.on(
+    destroySessionOperation.method,
+    operationRoutePath(destroySessionOperation),
+    requireAuth,
+    pathParamsValidator(destroySessionOperation.params, "Invalid session id"),
+    async (c) => {
+      const { sessionId } = c.req.valid("param");
+      const destroyed = await destroyUserSession({
+        sessionId,
+        userId: c.get("session").userId,
+      });
 
-    const destroyed = await destroyUserSession({
-      sessionId,
-      userId: c.get("session").userId,
-    });
+      if (!destroyed) {
+        return c.json({ error: "Session not found" }, 404);
+      }
 
-    if (!destroyed) {
-      return c.json({ error: "Session not found" }, 404);
-    }
-
-    return c.json<DestroySessionResponse>({ message: "ok" });
-  });
+      return c.json<DestroySessionResponse>({ message: "ok" });
+    },
+  );
 
   return sessionsRoute;
 }

@@ -91,7 +91,7 @@ const witnesses = {
 } satisfies Record<RuntimeRefinementId, RefinementWitness>;
 
 const syncPost = openApiDocument.paths[SYNC_PATH]?.post;
-const requestSchema = syncPost?.requestBody.content["application/json"].schema;
+const requestSchema = syncPost?.requestBody?.content["application/json"].schema;
 const responseSchema =
   syncPost?.responses["200"]?.content?.["application/json"].schema;
 
