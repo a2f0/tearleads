@@ -36,7 +36,11 @@ export {
 } from "./documentSync";
 export {
   createOrganizationOperation,
+  getOrganizationDataUsageOperation,
   isCreateOrganizationOperationRequest,
   isCreateOrganizationOperationResponse,
+  isGetOrganizationDataUsageOperationResponse,
+  type OrganizationPathParams,
+  OrganizationPathParamsSchema,
 } from "./organizations";
 export { protocolOperations } from "./registry";

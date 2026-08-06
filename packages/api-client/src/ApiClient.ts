@@ -50,7 +50,6 @@ import {
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
   isOrganizationBillingResponse,
-  isOrganizationDataUsageResponse,
   isOrganizationDirectoryUserResponse,
   isOrganizationGroupMembersResponse,
   isOrganizationProfileResponse,
@@ -105,6 +104,7 @@ import { containerDocsPath } from "./routes/containers/queryParams";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
 import { documentSync as sync } from "./routes/documents/sync";
 import { createOrganization as organizationCreate } from "./routes/organizations/create";
+import { getOrganizationDataUsage as organizationDataUsage } from "./routes/organizations/dataUsage";
 import { organizationReadModelPath } from "./routes/organizations/readModelPath";
 import { pathSegment } from "./routes/path";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
@@ -839,9 +839,9 @@ export class ApiClient {
     options: RequestResultOptions = {},
   ): Promise<RequestResult<OrganizationDataUsageResponse>> {
     return this.makeRequestResult(
-      `/organizations/${pathSegment(organizationId)}/data-usage`,
-      isOrganizationDataUsageResponse,
-      "GET",
+      organizationDataUsage.path(organizationId),
+      organizationDataUsage.isResponse,
+      organizationDataUsage.method,
       undefined,
       options,
     );
