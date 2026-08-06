@@ -406,16 +406,6 @@ async function persistRosterProfileDocumentBootstrap(
   });
 }
 
-// Thrown inside the bootstrap transaction to roll the whole write set back
-// when the pre-commit currency check finds the identity replaced. Private:
-// callers observe the rollback as a false "persisted" result, never as an
-// exception.
-class StaleBootstrapIdentityError extends Error {
-  constructor() {
-    super("Registration bootstrap rolled back: identity replaced");
-  }
-}
-
 /**
  * Persists the local root-container bootstrap created during successful
  * registration so container contents can initialize from SQLite on first
@@ -441,50 +431,38 @@ export async function persistRegistrationBootstrapFromExecSql(
     // Idempotent DDL stays outside the atomic boundary.
     await sqlContainerContentsPersistence.ensureSchema(lockedExecSql);
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
-    try {
-      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-        async () => {
-          await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
-            execSql: lockedExecSql,
-            heads: input.acknowledgedAccessHeads,
-          });
-          await persistRegistrationPrincipalPolicies({
-            adminGroup: input.initialAdminGroupPolicy,
-            execSql: lockedExecSql,
-            memberGroup: input.initialMemberGroupPolicy,
-            organization: input.initialOrganizationPolicy,
-          });
-          await persistRootContainerBootstrap(lockedExecSql, input);
-          await persistRosterProfileContainerBootstrap(lockedExecSql, input);
-          await persistRosterProfileDocumentBootstrap(lockedExecSql, input);
-          await persistOrganizationMetadataContainerBootstrap(
-            lockedExecSql,
-            input,
-          );
-          await persistOrganizationProfileDocumentBootstrap(
-            lockedExecSql,
-            input,
-          );
-          await persistSystemContainersBootstrap(lockedExecSql, input);
-          // Pre-commit currency guard: the sequence above awaits real work,
-          // so the identity can be replaced mid-sequence. Refusing HERE rolls
-          // back every write of this transaction, closing the partial-persist
-          // window a single entry check leaves open.
-          if (
-            input.canStartDurableMutation &&
-            !input.canStartDurableMutation()
-          ) {
-            throw new StaleBootstrapIdentityError();
-          }
-        },
-      );
-    } catch (error: unknown) {
-      if (error instanceof StaleBootstrapIdentityError) {
-        return false;
-      }
-      throw error;
-    }
-    return true;
+    // Pre-commit currency guard: the write sequence awaits real work, so
+    // the identity can be replaced mid-sequence. The guard runs
+    // synchronously with the COMMIT dispatch, so a refusal rolls the whole
+    // write set back and a pass cannot go stale before the commit is sent —
+    // the partial-persist window a single entry check leaves open.
+    const { committed } = await getClientSQLitePersistenceRuntime(
+      lockedExecSql,
+    ).guardedTransaction(
+      async () => {
+        await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+          execSql: lockedExecSql,
+          heads: input.acknowledgedAccessHeads,
+        });
+        await persistRegistrationPrincipalPolicies({
+          adminGroup: input.initialAdminGroupPolicy,
+          execSql: lockedExecSql,
+          memberGroup: input.initialMemberGroupPolicy,
+          organization: input.initialOrganizationPolicy,
+        });
+        await persistRootContainerBootstrap(lockedExecSql, input);
+        await persistRosterProfileContainerBootstrap(lockedExecSql, input);
+        await persistRosterProfileDocumentBootstrap(lockedExecSql, input);
+        await persistOrganizationMetadataContainerBootstrap(
+          lockedExecSql,
+          input,
+        );
+        await persistOrganizationProfileDocumentBootstrap(lockedExecSql, input);
+        await persistSystemContainersBootstrap(lockedExecSql, input);
+      },
+      () => !input.canStartDurableMutation || input.canStartDurableMutation(),
+    );
+    return committed;
   });
 }
 

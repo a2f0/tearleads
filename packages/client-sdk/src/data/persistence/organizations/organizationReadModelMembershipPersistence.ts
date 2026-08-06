@@ -8,7 +8,7 @@ import {
   organizationReadModelGroupMemberships,
   organizationReadModelGroups,
 } from "../../sqlite/organizationReadModelSchema";
-import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 const GROUP_MEMBERSHIP_BATCH_SIZE = 90;
 const GROUP_MEMBER_INSERT_BATCH_SIZE = 30;
@@ -60,7 +60,7 @@ interface ApplyGroupMembershipsLaneInput {
   readonly lane: OrganizationReadModelGroupMembershipsResponse;
   readonly organizationId: string;
   readonly replaceAll: boolean;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }
 
 async function clearMembershipRows(
@@ -201,7 +201,7 @@ export async function applyGroupMembershipsLane(
 export async function assertStoredGroupMembershipBindings(input: {
   readonly memberGroupId: string;
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   const groups = await input.tx
     .select({

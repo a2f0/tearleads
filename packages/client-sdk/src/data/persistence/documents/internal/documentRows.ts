@@ -12,7 +12,7 @@ import {
   documents,
 } from "../../../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
@@ -53,7 +53,7 @@ export async function hasDocumentRow(
 
 async function loadDocumentRecordInTransaction(input: {
   localId: string;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
 }): Promise<BaseDocumentRecord | null> {
   const { localId, tx } = input;
   const rows = await tx
@@ -113,7 +113,7 @@ function toDocumentRecordRow(input: {
 
 export async function saveDocumentRows(input: {
   document: StoredDocumentRecord;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
   updatedAt: string;
 }): Promise<void> {
   const { document, tx, updatedAt } = input;
@@ -180,7 +180,7 @@ function didStoredDocumentContentChange(
 export async function resolveDocumentSaveTimestamp(input: {
   document: StoredDocumentRecord;
   options?: { updatedAt?: string } | undefined;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
 }): Promise<string> {
   const { document, options, tx } = input;
   if (options?.updatedAt) {

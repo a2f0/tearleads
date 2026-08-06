@@ -38,7 +38,7 @@ export { clientSQLiteSchema } from "./data/sqlite/schema";
 export {
   type ClientSQLiteDatabase as SQLiteDatabase,
   type ClientSQLitePersistenceRuntime as SQLitePersistenceRuntime,
-  type ClientSQLiteTransaction as SQLiteTransaction,
+  type ClientSQLiteTransactionScope as SQLiteTransaction,
   getClientSQLitePersistenceRuntime as getSQLitePersistenceRuntime,
 } from "./data/sqlite/sqlitePersistenceRuntime";
 export {

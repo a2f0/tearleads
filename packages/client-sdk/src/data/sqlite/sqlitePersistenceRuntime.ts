@@ -16,11 +16,29 @@ import {
 
 export type ClientSQLiteSchema = typeof clientSQLiteSchema;
 export type ClientSQLiteDatabase = SqliteRemoteDatabase<ClientSQLiteSchema>;
-export type ClientSQLiteTransaction = Parameters<
-  Parameters<ClientSQLiteDatabase["transaction"]>[0]
->[0];
 export type ClientSQLiteTransactionConfig = NonNullable<
   Parameters<ClientSQLiteDatabase["transaction"]>[1]
+>;
+/**
+ * The handle a runtime transaction callback receives: the transaction's
+ * query interface WITHOUT `rollback` (throw instead — every scope maps an
+ * exception to its own rollback) and WITHOUT `transaction` (nest by calling
+ * `runtime.transaction` again, which scopes to a savepoint). Narrowing the
+ * contract here is what lets a nested scope share the connection-backed
+ * database handle safely.
+ */
+export type ClientSQLiteTransactionScope = Pick<
+  ClientSQLiteDatabase,
+  | "all"
+  | "delete"
+  | "get"
+  | "insert"
+  | "query"
+  | "run"
+  | "select"
+  | "selectDistinct"
+  | "update"
+  | "values"
 >;
 
 export interface ClientSQLitePersistenceRuntime {
@@ -30,9 +48,20 @@ export interface ClientSQLitePersistenceRuntime {
     operation: (db: ClientSQLiteDatabase) => Promise<T> | T,
   ): Promise<T>;
   transaction<T>(
-    operation: (tx: ClientSQLiteTransaction) => Promise<T>,
+    operation: (tx: ClientSQLiteTransactionScope) => Promise<T>,
     config?: ClientSQLiteTransactionConfig,
   ): Promise<T>;
+  /**
+   * A transaction whose commit is gated on a SYNCHRONOUS guard: the guard
+   * runs and — when it passes — the COMMIT is dispatched in the same
+   * synchronous slice, so no JavaScript (an identity replacement included)
+   * can interleave between the decision and the commit dispatch. Resolves
+   * with `committed: false` (all writes rolled back) when the guard refuses.
+   */
+  guardedTransaction<T>(
+    operation: (tx: ClientSQLiteTransactionScope) => Promise<T>,
+    canCommit: () => boolean,
+  ): Promise<{ committed: boolean; result: T | null }>;
 }
 
 const runtimeByExecSql = new WeakMap<ExecSql, ClientSQLitePersistenceRuntime>();
@@ -42,6 +71,14 @@ const runtimeByExecSql = new WeakMap<ExecSql, ClientSQLitePersistenceRuntime>();
 // second BEGIN. Callers inside a serialized mutation get separate runtime
 // instances per locked executor, so the depth cannot live on the runtime.
 const transactionDepthByCanonicalExecSql = new WeakMap<ExecSql, number>();
+// Sibling nested scopes on one connection must not interleave: SQLite
+// savepoints form a stack, so releasing an earlier savepoint would also
+// release a later one started concurrently. Each connection serializes its
+// nested scopes through this promise chain.
+const nestedScopeChainByCanonicalExecSql = new WeakMap<
+  ExecSql,
+  Promise<unknown>
+>();
 const execSqlByClient = new WeakMap<ExecSqlClientLike, ExecSql>();
 
 function toSqlRowValue(value: unknown): SqlRowValue {
@@ -98,6 +135,42 @@ function createClientSQLiteDatabase(
   });
 }
 
+// Serialize one nested savepoint scope per connection: siblings queue on the
+// connection's chain so their savepoints strictly nest instead of
+// interleaving on the shared stack.
+async function runNestedSavepointScope<T>(
+  canonical: ExecSql,
+  lockedExecSql: ExecSql,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const previous =
+    nestedScopeChainByCanonicalExecSql.get(canonical) ?? Promise.resolve();
+  const scope = previous
+    .catch(() => undefined)
+    .then(async () => {
+      const depth = transactionDepthByCanonicalExecSql.get(canonical) ?? 0;
+      transactionDepthByCanonicalExecSql.set(canonical, depth + 1);
+      const savepoint = `runtime_transaction_sp_${depth}`;
+      await lockedExecSql(`SAVEPOINT ${savepoint}`);
+      try {
+        const result = await operation();
+        await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`);
+        return result;
+      } catch (error: unknown) {
+        await lockedExecSql(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+        await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`);
+        throw error;
+      } finally {
+        transactionDepthByCanonicalExecSql.set(canonical, depth);
+      }
+    });
+  nestedScopeChainByCanonicalExecSql.set(
+    canonical,
+    scope.catch(() => undefined),
+  );
+  return scope;
+}
+
 function createRuntimeForExecSql(
   execSql: ExecSql,
 ): ClientSQLitePersistenceRuntime {
@@ -130,37 +203,52 @@ function createRuntimeForExecSql(
       return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
         withActiveExecSql(lockedExecSql, async () => {
           const canonical = resolveCanonicalExecSql(execSql);
-          const depth = transactionDepthByCanonicalExecSql.get(canonical) ?? 0;
-          transactionDepthByCanonicalExecSql.set(canonical, depth + 1);
-          try {
-            if (depth === 0) {
-              return await db.transaction(operation, config);
-            }
+          if ((transactionDepthByCanonicalExecSql.get(canonical) ?? 0) > 0) {
+            return runNestedSavepointScope(canonical, lockedExecSql, () =>
+              operation(db),
+            );
+          }
 
-            // Nested inside an open transaction on this connection: a second
-            // BEGIN would throw, so scope this call to a SAVEPOINT. The
-            // drizzle handle shares the transaction's connection and query
-            // interface, and no caller uses tx.rollback or tx.transaction,
-            // so the database handle stands in for the transaction handle.
-            const savepoint = `runtime_transaction_sp_${depth}`;
-            await lockedExecSql(`SAVEPOINT ${savepoint}`);
-            try {
-              const result = await operation(
-                db as unknown as ClientSQLiteTransaction,
-              );
-              await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`);
-              return result;
-            } catch (error: unknown) {
-              await lockedExecSql(`ROLLBACK TO SAVEPOINT ${savepoint}`);
-              await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`);
-              throw error;
-            }
+          transactionDepthByCanonicalExecSql.set(canonical, 1);
+          try {
+            return await db.transaction(operation, config);
           } finally {
-            if (depth === 0) {
-              transactionDepthByCanonicalExecSql.delete(canonical);
-            } else {
-              transactionDepthByCanonicalExecSql.set(canonical, depth);
+            transactionDepthByCanonicalExecSql.delete(canonical);
+          }
+        }),
+      );
+    },
+    guardedTransaction(operation, canCommit) {
+      return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
+        withActiveExecSql(lockedExecSql, async () => {
+          const canonical = resolveCanonicalExecSql(execSql);
+          if ((transactionDepthByCanonicalExecSql.get(canonical) ?? 0) > 0) {
+            throw new Error(
+              "guardedTransaction cannot nest inside an open transaction",
+            );
+          }
+
+          transactionDepthByCanonicalExecSql.set(canonical, 1);
+          await lockedExecSql("BEGIN");
+          try {
+            const result = await operation(db);
+            if (!canCommit()) {
+              await lockedExecSql("ROLLBACK");
+              return { committed: false, result: null };
             }
+            // The guard passed in THIS synchronous slice and the COMMIT is
+            // dispatched in the same slice: no JavaScript can run between
+            // the two, so the decision cannot go stale before dispatch. (A
+            // host tearing the connection down concurrently is resolved by
+            // SQLite's own commit atomicity, not by anything client-side.)
+            const commit = lockedExecSql("COMMIT");
+            await commit;
+            return { committed: true, result };
+          } catch (error: unknown) {
+            await lockedExecSql("ROLLBACK").catch(() => undefined);
+            throw error;
+          } finally {
+            transactionDepthByCanonicalExecSql.delete(canonical);
           }
         }),
       );

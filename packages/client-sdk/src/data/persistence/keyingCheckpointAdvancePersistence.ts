@@ -11,7 +11,7 @@ import {
   principalPolicyTables,
 } from "../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
@@ -47,7 +47,7 @@ const accessObjectKey = accessManifestObjectKey;
 const principalKey = principalPolicyKey;
 
 async function loadAccessCheckpoint(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   head: AnyVerifiedAccessManifest,
 ) {
   const row = await loadAccessManifestCheckpointRow(tx, head.checkpoint);
@@ -55,7 +55,7 @@ async function loadAccessCheckpoint(
 }
 
 async function loadPolicyCheckpoint(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   policy: VerifiedPrincipalPolicy,
 ) {
   const row = await loadPrincipalPolicyCheckpointRow(tx, policy);
@@ -148,7 +148,7 @@ function validateAccessAdvance(
 }
 
 async function validateAccessAdvances(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   advances: readonly AccessManifestCheckpointAdvance[],
 ): Promise<Map<string, PendingAccessCheckpoint>> {
   const pending = new Map<string, PendingAccessCheckpoint>();
@@ -169,7 +169,7 @@ async function validateAccessAdvances(
 }
 
 async function validatePolicyAdvances(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   policies: readonly VerifiedPrincipalPolicy[],
 ): Promise<Map<string, VerifiedPrincipalPolicy>> {
   const policiesByPrincipal = new Map<string, VerifiedPrincipalPolicy[]>();
@@ -227,7 +227,7 @@ async function validatePolicyAdvances(
 }
 
 async function writeAccessCheckpoints(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   pending: ReadonlyMap<string, PendingAccessCheckpoint>,
   updatedAt: string,
 ): Promise<void> {
@@ -241,7 +241,7 @@ async function writeAccessCheckpoints(
 }
 
 async function writePolicyCheckpoints(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   pending: ReadonlyMap<string, VerifiedPrincipalPolicy>,
   updatedAt: string,
 ): Promise<void> {

@@ -16,7 +16,7 @@ import {
   principalPolicyTables,
 } from "../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
@@ -254,7 +254,7 @@ function assertNoHeadConflict(
 }
 
 async function archiveOlderPolicyBundle(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   storedPolicy: SelectedPrincipalPolicyRow | undefined,
   storedHead: StoredPrincipalPolicyHead | null,
   incomingHead: StoredPrincipalPolicyHead,
@@ -283,7 +283,7 @@ async function archiveOlderPolicyBundle(
 }
 
 async function writePrincipalPolicyBundle(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   bundle: PrincipalPolicyBundleResponse,
   nextRow: PrincipalPolicyRow,
   incomingHead: StoredPrincipalPolicyHead,
@@ -371,7 +371,7 @@ async function writePrincipalPolicyBundle(
 }
 
 export function writePrincipalPolicyBundleInTransaction(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   bundle: PrincipalPolicyBundleResponse,
   updatedAt: string,
 ): Promise<void> {
@@ -384,7 +384,7 @@ export function writePrincipalPolicyBundleInTransaction(
 }
 
 export async function assertPrincipalPolicyBundleStoredInTransaction(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   bundle: PrincipalPolicyBundleResponse,
 ): Promise<void> {
   const expected = policyBundleRow(bundle, bundle.currentState.createdAt);
@@ -405,7 +405,7 @@ export async function assertPrincipalPolicyBundleStoredInTransaction(
 }
 
 export async function retainPrincipalPolicyBundleInTransaction(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   bundle: PrincipalPolicyBundleResponse,
   updatedAt: string,
 ): Promise<void> {

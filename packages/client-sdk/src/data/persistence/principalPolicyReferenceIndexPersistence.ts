@@ -3,7 +3,7 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import { and, eq } from "drizzle-orm";
 import { principalPolicyBundleStates } from "../principalPolicyStates";
 import { principalPolicyBundleReferences } from "../sqlite/schema";
-import type { ClientSQLiteTransaction } from "../sqlite/sqlitePersistenceRuntime";
+import type { ClientSQLiteTransactionScope } from "../sqlite/sqlitePersistenceRuntime";
 
 type PrincipalPolicyReferenceRow =
   typeof principalPolicyBundleReferences.$inferInsert;
@@ -20,7 +20,7 @@ function exactReferenceWhere(row: PrincipalPolicyReferenceRow) {
 }
 
 async function assertNoIndexedConflict(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   row: PrincipalPolicyReferenceRow,
 ): Promise<void> {
   const conflicts = await tx
@@ -47,7 +47,7 @@ async function assertNoIndexedConflict(
 }
 
 export async function indexPrincipalPolicyBundleInTransaction(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   bundle: PrincipalPolicyBundleResponse,
 ): Promise<void> {
   const head = bundle.currentState;

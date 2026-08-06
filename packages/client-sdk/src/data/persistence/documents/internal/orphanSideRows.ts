@@ -20,7 +20,7 @@ import {
   documents,
 } from "../../../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -50,7 +50,7 @@ function requirePredicate(predicate: SQL | undefined): SQL {
 }
 
 function hasNoDocument(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   localId: DocumentSideLocalIdColumn,
   appKind: string | null = DOCUMENTS_APP_KIND,
 ): SQL {
@@ -69,7 +69,7 @@ function hasNoDocument(
 export async function queueDocumentAttachmentBlobReclaims(input: {
   localWhere: SQL;
   pendingWhere: SQL;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   const { localWhere, pendingWhere, tx } = input;
   const [pendingAttachmentRows, localAttachmentRows] = await Promise.all([
@@ -93,7 +93,7 @@ export async function queueDocumentAttachmentBlobReclaims(input: {
 }
 
 async function queueDocumentAttachmentStorageKeys(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   storageKeys: ReadonlyArray<string>,
 ): Promise<void> {
   if (storageKeys.length > 0) {
@@ -157,7 +157,7 @@ interface AttachmentSweepCandidates {
 }
 
 async function selectHistorySweepCandidates(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   olderThan: string,
 ): Promise<HistorySweepCandidates> {
   const checkpoints = await tx
@@ -187,7 +187,7 @@ async function selectHistorySweepCandidates(
 }
 
 async function selectWriteSweepCandidates(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   olderThan: string,
 ): Promise<WriteSweepCandidates> {
   const pendingUpdates = await tx
@@ -217,7 +217,7 @@ async function selectWriteSweepCandidates(
 }
 
 async function selectAttachmentSweepCandidates(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   olderThan: string,
 ): Promise<AttachmentSweepCandidates> {
   const pending = await tx
@@ -252,7 +252,7 @@ async function selectAttachmentSweepCandidates(
 }
 
 async function deleteHistorySweepCandidates(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   candidates: HistorySweepCandidates,
 ): Promise<void> {
   if (candidates.checkpoints.length > 0) {
@@ -285,7 +285,7 @@ async function deleteHistorySweepCandidates(
 }
 
 async function deleteWriteSweepCandidates(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   candidates: WriteSweepCandidates,
 ): Promise<void> {
   if (candidates.pendingUpdates.length > 0) {
@@ -318,7 +318,7 @@ async function deleteWriteSweepCandidates(
 }
 
 async function deleteAttachmentSweepCandidates(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   candidates: AttachmentSweepCandidates,
 ): Promise<void> {
   await queueDocumentAttachmentStorageKeys(tx, [

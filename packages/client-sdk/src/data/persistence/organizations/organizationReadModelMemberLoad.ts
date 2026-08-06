@@ -13,7 +13,7 @@ import {
 } from "../../sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
@@ -62,7 +62,7 @@ function toGroupMember(
 async function loadMembershipRows(input: {
   readonly groupId: string;
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<SelectedGroupMember[]> {
   return input.tx
     .select({
@@ -97,7 +97,7 @@ async function loadMembershipRows(input: {
 async function loadOrganizationReadModelGroupMembersInTransaction(input: {
   readonly groupId: string;
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<OrganizationGroupMembersResponse | null> {
   const [head] = await input.tx
     .select({ stateHash: organizationReadModelGroupMemberships.stateHash })

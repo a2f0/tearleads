@@ -14,7 +14,7 @@ import {
 } from "../../sqlite/organizationDataUsageSchema";
 import { organizationReadModelTables } from "../../sqlite/organizationReadModelTableRegistry";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
@@ -66,7 +66,7 @@ function parseResponse(
 export async function purgeOrganizationDataUsageProjectionInTransaction(input: {
   readonly organizationId: string;
   readonly requesterUserId?: string | undefined;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   requireScope(input.organizationId, input.requesterUserId);
   const condition = input.requesterUserId

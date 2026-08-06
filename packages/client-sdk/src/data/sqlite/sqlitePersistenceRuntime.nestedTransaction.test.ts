@@ -122,3 +122,69 @@ test("sequential top-level transactions still begin fresh", async () => {
     close();
   }
 });
+
+test("overlapping sibling nested scopes serialize on the savepoint stack", async () => {
+  const { close, execSql, ids, insert } = await createProbeTable(
+    "nested-transaction-sibling-overlap",
+  );
+  try {
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
+      await runtime.transaction(async () => {
+        // Two sibling scopes started concurrently: without serialization
+        // they would interleave SAVEPOINT/RELEASE on the shared stack and
+        // the failing sibling's rollback would swallow the other's write.
+        const results = await Promise.allSettled([
+          getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+            async () => {
+              await insert(lockedExecSql, "sibling-kept");
+            },
+          ),
+          getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+            async () => {
+              await insert(lockedExecSql, "sibling-dropped");
+              throw new Error("sibling failure");
+            },
+          ),
+        ]);
+        expect(results.map((result) => result.status)).toEqual([
+          "fulfilled",
+          "rejected",
+        ]);
+      });
+    });
+
+    expect(await ids()).toEqual(["sibling-kept"]);
+  } finally {
+    close();
+  }
+});
+
+test("guardedTransaction rolls everything back when the guard refuses", async () => {
+  const { close, execSql, ids, insert } = await createProbeTable(
+    "guarded-transaction-refusal",
+  );
+  try {
+    let allow = true;
+    const outcome = await runSerializedSqlMutation(
+      execSql,
+      async (lockedExecSql) =>
+        getClientSQLitePersistenceRuntime(lockedExecSql).guardedTransaction(
+          async () => {
+            await insert(lockedExecSql, "doomed");
+            // Nested helper transactions must still join as savepoints.
+            await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+              async () => insert(lockedExecSql, "doomed-nested"),
+            );
+            allow = false;
+          },
+          () => allow,
+        ),
+    );
+
+    expect(outcome.committed).toBe(false);
+    expect(await ids()).toEqual([]);
+  } finally {
+    close();
+  }
+});

@@ -4,14 +4,14 @@ import {
   documentMoveIntents,
   documentProjection,
 } from "../../sqlite/schema";
-import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
 
 interface ContainerDocumentReassignmentInput {
   readonly fromContainerId: string;
   readonly toContainerId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
   readonly updatedAt: string;
 }
 

@@ -13,7 +13,7 @@ import {
   documentPendingUpdates,
 } from "../../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -65,7 +65,7 @@ import { containerReconcilePersistence } from "./containerReconcilePersistence";
 import { repairDocumentsForRemovedContainersInTransaction } from "./containerStructuralRepair";
 
 async function hasPendingContainerMetadataUpdates(input: {
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
   containerId: string;
 }): Promise<boolean> {
   const rows = await input.tx

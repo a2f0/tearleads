@@ -32,7 +32,7 @@ import {
   principalPolicies,
 } from "../../data/sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -75,7 +75,7 @@ export interface ClearRemoteSyncStateResult {
 }
 
 async function readRemoteSyncStateSnapshot(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
 ): Promise<RemoteSyncStateSnapshot> {
   const containerRows = await tx
     .select({ id: containers.id, parentId: containers.parentId })
@@ -114,7 +114,7 @@ async function readRemoteSyncStateSnapshot(
 }
 
 async function clearRemoteDerivedRows(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
 ): Promise<void> {
   await tx.delete(organizationDataUsageCategories).run();
   await tx.delete(organizationDataUsageSnapshots).run();
@@ -147,7 +147,7 @@ async function clearRemoteDerivedRows(
 }
 
 async function resetRemoteColumns(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   now: string,
 ): Promise<void> {
   await tx
@@ -185,7 +185,7 @@ async function resetRemoteColumns(
 async function queueResetDocumentUpdates(input: {
   documentUpdates: readonly ResetDocumentUpdate[];
   now: string;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   if (input.documentUpdates.length === 0) {
     return;
@@ -211,7 +211,7 @@ async function queueResetDocumentUpdates(input: {
 async function queueResetContainerCreates(input: {
   containerRows: readonly ResetContainerRow[];
   now: string;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
 }): Promise<number> {
   const containerRows = input.containerRows.filter(
     (
@@ -250,7 +250,7 @@ async function queueResetContainerCreates(input: {
 async function queueResetAttachmentUploads(input: {
   attachmentUploads: readonly ResetAttachmentUpload[];
   now: string;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   if (input.attachmentUploads.length > 0) {
     await input.tx
@@ -300,7 +300,7 @@ async function queueResetAttachmentUploads(input: {
 
 async function clearRemoteSyncStateInTransaction(input: {
   plans: Awaited<ReturnType<typeof buildResetPlans>>;
-  tx: ClientSQLiteTransaction;
+  tx: ClientSQLiteTransactionScope;
 }): Promise<ClearRemoteSyncStateResult> {
   const now = new Date().toISOString();
   const snapshot = await readRemoteSyncStateSnapshot(input.tx);

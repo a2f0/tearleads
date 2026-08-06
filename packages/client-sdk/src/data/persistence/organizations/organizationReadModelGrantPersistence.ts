@@ -8,7 +8,7 @@ import {
 } from "@tearleads/validators/response";
 import { asc, eq } from "drizzle-orm";
 import { organizationReadModelContainerGrants } from "../../sqlite/organizationReadModelSchema";
-import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { OrganizationReadModelIntegrityError } from "./organizationReadModelProtocol";
 
 const GRANT_INSERT_BATCH_SIZE = 40;
@@ -71,7 +71,7 @@ function assertGrantsLane(input: {
 export async function applyOrganizationReadModelGrantsLane(input: {
   readonly lane: OrganizationContainerGrantsResponse;
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   assertGrantsLane(input);
   await input.tx
@@ -137,7 +137,7 @@ function toGrant(row: SelectedGrant): OrganizationContainerGrantResponse {
 
 export async function loadOrganizationReadModelGrantsInTransaction(input: {
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<OrganizationContainerGrantsResponse> {
   const rows = await input.tx
     .select()
