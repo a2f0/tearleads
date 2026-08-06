@@ -48,12 +48,14 @@ export {
 export { reclaimDocumentOrphanBlobs } from "./orphanBlobReclaims";
 export {
   type DiscardedDocumentShellResult,
+  deletePersistedDocument,
+  discardPersistedDocumentToShell,
+} from "./persistedDocumentRemoval";
+export {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
-  deletePersistedDocument,
-  discardPersistedDocumentToShell,
   enqueuePendingDocumentUpdate,
   type LocalAttachmentRecord,
   listPendingDocumentUpdates,
