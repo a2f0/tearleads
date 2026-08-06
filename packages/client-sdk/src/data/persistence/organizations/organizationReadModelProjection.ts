@@ -15,7 +15,7 @@ import {
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
-import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { loadOrganizationReadModelGrantsInTransaction } from "./organizationReadModelGrantPersistence";
 import {
   ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
@@ -209,7 +209,7 @@ function toPolicyHead(
 }
 
 async function loadDirectoryRows(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   organizationId: string,
 ): Promise<SelectedDirectoryUser[]> {
   return tx
@@ -241,7 +241,7 @@ async function loadDirectoryRows(
 }
 
 async function loadGroupRows(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   organizationId: string,
 ): Promise<SelectedGroup[]> {
   return tx
@@ -264,7 +264,7 @@ async function loadGroupRows(
 }
 
 async function loadPolicyHeadRows(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   organizationId: string,
 ): Promise<SelectedPolicyHead[]> {
   return tx
@@ -287,7 +287,7 @@ async function loadPolicyHeadRows(
 }
 
 async function loadMembershipEdges(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   organizationId: string,
 ): Promise<OrganizationReadModelMembershipEdge[]> {
   return tx
@@ -348,7 +348,7 @@ function validatePolicyHeads(input: {
 export async function loadOrganizationReadModelProjectionInTransaction(input: {
   readonly currentUserId: string;
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<OrganizationReadModelProjection | null> {
   const [state] = await input.tx
     .select({

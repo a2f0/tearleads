@@ -7,7 +7,7 @@ import {
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteDatabase,
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
@@ -97,7 +97,7 @@ function containerParentLaneId(parentId: string | null): string {
  * cascade.
  */
 export async function deleteContainerWatermarksInTransaction(
-  tx: ClientSQLiteDatabase | ClientSQLiteTransaction,
+  tx: ClientSQLiteDatabase | ClientSQLiteTransactionScope,
   containerIds: ReadonlyArray<string>,
 ): Promise<void> {
   const uniqueContainerIds = Array.from(new Set(containerIds));

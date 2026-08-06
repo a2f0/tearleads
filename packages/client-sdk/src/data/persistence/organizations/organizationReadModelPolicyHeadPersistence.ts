@@ -5,7 +5,7 @@ import type {
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { organizationReadModelPolicyHeads } from "../../sqlite/organizationReadModelSchema";
-import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import type { OrganizationReadModelPolicyHead } from "./organizationReadModelProjection";
 
 const POLICY_HEAD_INSERT_BATCH_SIZE = 100;
@@ -31,7 +31,7 @@ function toPolicyHeadRow(input: {
 export async function replaceGroupPolicyHeads(input: {
   readonly groups: ListOrganizationGroupsResponse;
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   await input.tx
     .delete(organizationReadModelPolicyHeads)
@@ -73,7 +73,7 @@ export async function replaceGroupPolicyHeads(input: {
 export async function applyOrganizationPolicyLane(input: {
   readonly organizationId: string;
   readonly organizationPolicy: OrganizationReadModelOrganizationPolicyResponse;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   const row = toPolicyHeadRow({
     currentState: input.organizationPolicy.currentState,

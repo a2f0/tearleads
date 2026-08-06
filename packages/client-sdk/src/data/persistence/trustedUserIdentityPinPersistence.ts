@@ -5,7 +5,7 @@ import {
 } from "../sqlite/schema";
 import {
   type ClientSQLiteDatabase,
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
@@ -262,7 +262,7 @@ function parseStoredPin(
 }
 
 async function selectStoredPin(
-  db: ClientSQLiteDatabase | ClientSQLiteTransaction,
+  db: ClientSQLiteDatabase | ClientSQLiteTransactionScope,
   scope: PinScope,
 ): Promise<TrustedUserIdentityPin | null> {
   const rows = await db

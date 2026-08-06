@@ -13,7 +13,7 @@ import {
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
-import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 function inactiveUserScope(
   input: {
@@ -45,7 +45,7 @@ export async function pruneInactiveOrganizationRequestersInTransaction(input: {
   readonly activeUserIds: readonly string[];
   readonly organizationId: string;
   readonly retainUserId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   await input.tx
     .delete(organizationReadModelRequesters)
@@ -89,7 +89,7 @@ export async function pruneInactiveOrganizationRequestersInTransaction(input: {
 export async function purgeOrganizationReadModelProjectionInTransaction(input: {
   readonly onlyRequesterUserId?: string | undefined;
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   await input.tx
     .delete(organizationReadModelPolicyHeads)

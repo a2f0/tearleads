@@ -14,7 +14,7 @@ import {
   principalPolicyTables,
 } from "../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
@@ -53,7 +53,7 @@ export function locallyAuthoredAccessManifestHead(plan: {
 const objectKey = accessManifestObjectKey;
 
 async function loadCheckpoint(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   checkpoint: AccessManifestCheckpoint,
 ): Promise<AccessManifestCheckpoint | null> {
   const row = await loadAccessManifestCheckpointRow(tx, checkpoint);
@@ -85,7 +85,7 @@ function validateAcknowledgedHead(
 }
 
 async function validateAcknowledgedHeads(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   heads: readonly LocallyAcknowledgedAccessManifestHead[],
 ): Promise<Map<string, AccessManifestCheckpoint>> {
   const pending = new Map<string, AccessManifestCheckpoint>();
@@ -104,7 +104,7 @@ async function validateAcknowledgedHeads(
 }
 
 async function writeAcknowledgedHeads(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   pending: ReadonlyMap<string, AccessManifestCheckpoint>,
   updatedAt: string,
 ): Promise<void> {
@@ -139,7 +139,7 @@ export async function advanceLocallyAcknowledgedAccessManifestHeadsAtomically(in
 }
 
 async function loadAcknowledgedPolicyCheckpoint(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   policy: VerifiedPrincipalPolicy,
 ): Promise<PrincipalPolicyCheckpoint | null> {
   const row = await loadPrincipalPolicyCheckpointRow(tx, policy);

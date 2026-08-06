@@ -13,7 +13,7 @@ import {
 } from "../../sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../sqlite/schema";
 import {
-  type ClientSQLiteTransaction,
+  type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
@@ -58,7 +58,7 @@ interface CurrentOrganizationReadModelState {
 async function replaceDirectoryLane(input: {
   readonly directory: OrganizationReadModelDirectoryResponse;
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   await input.tx
     .delete(organizationReadModelDirectoryUsers)
@@ -103,7 +103,7 @@ async function upsertRequester(input: {
   readonly isOrgAdmin: boolean;
   readonly now: string;
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   const requesterRow = {
     organizationId: input.organizationId,
@@ -141,7 +141,7 @@ async function pruneRequestersForDirectoryLane(input: {
   readonly currentUserId: string;
   readonly directory: OrganizationReadModelDirectoryResponse;
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   await pruneInactiveOrganizationRequestersInTransaction({
     activeUserIds: input.directory.users
@@ -156,7 +156,7 @@ async function pruneRequestersForDirectoryLane(input: {
 async function replaceGroupsLane(input: {
   readonly groups: ListOrganizationGroupsResponse;
   readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   await input.tx
     .delete(organizationReadModelGroups)
@@ -185,7 +185,7 @@ async function replaceGroupsLane(input: {
 }
 
 async function loadCurrentState(
-  tx: ClientSQLiteTransaction,
+  tx: ClientSQLiteTransactionScope,
   organizationId: string,
 ): Promise<CurrentOrganizationReadModelState | null> {
   const [current] = await tx
@@ -219,7 +219,7 @@ function resolveApplyDisposition(input: {
 
 async function replaceResponseLanes(input: {
   readonly response: OrganizationReadModelResponse;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   const directory = input.response.lanes.directory;
   if (directory) {
@@ -268,7 +268,7 @@ async function applyResponseLanes(input: {
   readonly currentUserId: string;
   readonly memberGroupId: string;
   readonly response: OrganizationReadModelResponse;
-  readonly tx: ClientSQLiteTransaction;
+  readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   await replaceResponseLanes({ response: input.response, tx: input.tx });
   const directoryLane = input.response.lanes.directory;
