@@ -10,6 +10,8 @@ document projections.
 - `rows.ts` maps SQLite rows into query DTOs and sync-state summaries.
 - `../pendingWrites.ts` composes the identity-wide pending-write diagnostic;
   `../pendingWrites/` owns its source queries, Loro coverage check, and grouping.
+- `../documentSubtreeQueries.ts` owns the container-subtree traversal and the
+  batched summary/runtime-target queries built on it.
 
 Keep the public query interface, persistence adapters, and runtime facade
 wiring in `../documentQueries.ts`.
