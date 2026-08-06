@@ -455,9 +455,19 @@ test("createOrganization persists nothing when the identity goes stale in-flight
     while (identityProbes < 2) {
       await new Promise((resolve) => setTimeout(resolve, 1));
     }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    // Queue-order instrumentation: this marker enqueues after the persist,
+    // so the probe count it records proves the in-mutex check (probe 3) ran
+    // while the persist was already waiting when the identity flipped below.
+    let probesAtMarker = -1;
+    const marker = runSerializedSqlMutation(workflowExecSql, async () => {
+      probesAtMarker = identityProbes;
+    });
     identityCurrent = false;
     releaseHold();
     await holding;
+    await marker;
+    expect(probesAtMarker).toBe(3);
     const response = await creation;
 
     // The remote organization exists, but no stale bootstrap row may reach

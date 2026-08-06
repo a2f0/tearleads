@@ -84,13 +84,17 @@ test("registration persists nothing when the identity goes stale in-flight", asy
     await holdStarted;
 
     let identityCurrent = true;
+    let identityProbes = 0;
     const registration = registerIdentity({
       apiClient,
       containerId: crypto.randomUUID(),
       dbClient: client,
       documentProjectors: [],
       encapsulationKeyPair,
-      isIdentityCurrent: () => identityCurrent,
+      isIdentityCurrent: () => {
+        identityProbes += 1;
+        return identityCurrent;
+      },
       organizationProfileName: "Acme Corp",
       pinLocalUserIdentity: async () => undefined,
       signingKeyPair,
@@ -101,10 +105,20 @@ test("registration persists nothing when the identity goes stale in-flight", asy
     while (capturedOrganizationId === null) {
       await new Promise((resolve) => setTimeout(resolve, 1));
     }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    // Queue-order instrumentation: this marker enqueues after the persist,
+    // so the probe count it records proves the in-mutex check ran while the
+    // persist was already waiting when the identity flipped below.
+    let probesAtMarker = -1;
+    const marker = runSerializedSqlMutation(workflowExecSql, async () => {
+      probesAtMarker = identityProbes;
+    });
     // The identity is replaced while the persist waits, then the queue frees.
     identityCurrent = false;
     releaseHold();
     await holding;
+    await marker;
+    expect(probesAtMarker).toBe(1);
 
     // The remote organization exists, but no stale bootstrap row may reach
     // the local database the replacement identity now owns.
