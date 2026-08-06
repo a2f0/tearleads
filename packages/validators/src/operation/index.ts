@@ -34,4 +34,9 @@ export {
   isDocumentSyncOperationRequest,
   isDocumentSyncOperationResponse,
 } from "./documentSync";
+export {
+  createOrganizationOperation,
+  isCreateOrganizationOperationRequest,
+  isCreateOrganizationOperationResponse,
+} from "./organizations";
 export { protocolOperations } from "./registry";

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type {
   ChallengeRequest,
+  CreateOrganizationRequest,
   DocumentSyncRequest,
   RegistrationRequest,
   VerifyRequest,
@@ -8,6 +9,7 @@ import type {
 import type {
   ChallengeErrorResponse,
   ChallengeResponse,
+  CreateOrganizationResponse,
   DestroySessionResponse,
   DocumentNotFoundErrorResponse,
   DocumentSyncErrorResponse,
@@ -107,6 +109,13 @@ type GeneratedRegistrationResponse =
   GeneratedRegisterOperation["responses"][200]["content"]["application/json"];
 type GeneratedRegistrationErrorResponse =
   GeneratedRegisterOperation["responses"][409]["content"]["application/json"];
+type GeneratedCreateOrganizationOperation = operations["organizations.create"];
+type GeneratedCreateOrganizationRequest =
+  GeneratedCreateOrganizationOperation["requestBody"]["content"]["application/json"];
+type GeneratedCreateOrganizationResponse =
+  GeneratedCreateOrganizationOperation["responses"][200]["content"]["application/json"];
+type GeneratedCreateOrganizationErrorResponse =
+  GeneratedCreateOrganizationOperation["responses"][400]["content"]["application/json"];
 type GeneratedLogoutOperation = operations["auth.logout"];
 type GeneratedLogoutResponse =
   GeneratedLogoutOperation["responses"][200]["content"]["application/json"];
@@ -330,5 +339,29 @@ test("generated OpenAPI types match the auth structural contracts", () => {
   >();
   assertType<
     IsEqual<paths["/auth/ws-ticket"]["post"], GeneratedWebSocketTicketOperation>
+  >();
+});
+
+test("generated OpenAPI types match the create organization contract", () => {
+  assertType<
+    IsEqual<
+      paths["/organizations"]["post"],
+      GeneratedCreateOrganizationOperation
+    >
+  >();
+  assertType<
+    IsAssignable<GeneratedCreateOrganizationRequest, CreateOrganizationRequest>
+  >();
+  assertType<
+    IsAssignable<
+      GeneratedCreateOrganizationResponse,
+      CreateOrganizationResponse
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedCreateOrganizationErrorResponse>,
+      NormalizeWireType<ErrorResponse>
+    >
   >();
 });
