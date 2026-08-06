@@ -42,7 +42,7 @@ function createStore(
     getSnapshot: () => READY_SNAPSHOT,
     removeAttachment: () => undefined,
     removeRow: async () => undefined,
-    replaceAttachment: () => undefined,
+    replaceAttachment: () => Promise.resolve(),
     requestRemoteSync: onRemoteSync,
     requestSync: () => undefined,
     relink: async () => null,
