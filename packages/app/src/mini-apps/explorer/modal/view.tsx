@@ -10,7 +10,7 @@ import {
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../labels";
-import type { MoveTargetOption } from "../targetOptions";
+import type { MoveTargetOption } from "../model/targetOptions";
 import { ExplorerTargetSelect } from "./ExplorerTargetSelect";
 import {
   getExplorerModalSubmitLabel,

@@ -22,11 +22,11 @@ import {
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../../providers/logging/LogProvider";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
-import type { IdentityBusyState } from "./IdentityManagerActionToolbar";
 import { CURRENT_SESSION_MUTATION_ID } from "./IdentityManagerConstants";
 import { getIdentityState } from "./IdentityManagerIdentityState";
-import { useIdentityManagerRefreshMenu } from "./IdentityManagerRefreshMenu";
-import { useIdentitySwitcher } from "./useIdentitySwitcher";
+import { useIdentityManagerRefreshMenu } from "./menu/IdentityManagerRefreshMenu";
+import { useIdentitySwitcher } from "./switcher/useIdentitySwitcher";
+import type { IdentityBusyState } from "./toolbar/IdentityManagerActionToolbar";
 
 type DatabaseContextValue = ReturnType<typeof useDatabase>;
 type LogContextValue = ReturnType<typeof useLog>;

@@ -21,11 +21,11 @@ import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import { isExplorerOrphanedDocumentsId } from "../../../../stores/explorer/orphanedDocuments";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
-import { ExplorerContainerIcon } from "../../ExplorerContainerIcon";
-import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
 import { useExplorerContainerFileDropTarget } from "../../hooks/useExplorerContainerFileDropTarget";
 import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../../labels";
+import { ExplorerContainerIcon } from "../../shared/ExplorerContainerIcon";
+import { ExplorerSyncStateBadge } from "../../shared/ExplorerSyncStateBadge";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import {
   getNextExplorerItemSort,

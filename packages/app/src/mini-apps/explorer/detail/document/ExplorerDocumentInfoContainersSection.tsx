@@ -4,12 +4,12 @@ import {
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
-import { ExplorerContainerIcon } from "../../ExplorerContainerIcon";
 import {
   EXPLORER_LABELS,
   getExplorerDocumentInfoEpochLabel,
   getExplorerDocumentInfoPathLengthLabel,
 } from "../../labels";
+import { ExplorerContainerIcon } from "../../shared/ExplorerContainerIcon";
 import { compactId } from "../compactId";
 
 export function ExplorerDocumentInfoAuthorizingContainersSection(params: {

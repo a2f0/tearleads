@@ -205,7 +205,7 @@
       "lines": 494,
       "bytes": 20521
     },
-    "packages/app/src/mini-apps/explorer/ExplorerTree.test.tsx": {
+    "packages/app/src/mini-apps/explorer/sidebar/ExplorerTree.test.tsx": {
       "lines": 677,
       "bytes": 19682
     },
@@ -416,7 +416,7 @@
     "packages/app/src/mini-apps/explorer/hooks/useExplorerPanelState.ts": {
       "biomeIgnore": 1
     },
-    "packages/app/src/mini-apps/explorer/useExplorerSidebarWindows.ts": {
+    "packages/app/src/mini-apps/explorer/sidebar/useExplorerSidebarWindows.ts": {
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/org-manager/billing/BillingCheckout.css": {

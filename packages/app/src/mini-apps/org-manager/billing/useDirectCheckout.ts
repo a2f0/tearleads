@@ -6,8 +6,8 @@ import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDirectCheckout as useDirectCheckoutCapability } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import { checkoutOptionErrorMessage } from "../billingCheckoutErrors";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { checkoutOptionErrorMessage } from "./billingCheckoutErrors";
 import { readCheckoutAppearance } from "./checkoutAppearance";
 
 /**

@@ -20,8 +20,8 @@ import {
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../../../stores/contacts/contactLabels";
-import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
 import { getExplorerDocumentSubtitle } from "../../labels";
+import { ExplorerSyncStateBadge } from "../../shared/ExplorerSyncStateBadge";
 
 export { getLinkedContainerDetails } from "./ExplorerLinkedContainers";
 

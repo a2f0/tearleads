@@ -1,6 +1,6 @@
 import { PaneStatus } from "../../components/pane/status/PaneStatus";
 import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
-import { SystemMonitorLog } from "./SystemMonitorLog";
+import { SystemMonitorLog } from "./log/SystemMonitorLog";
 import { useSystemMonitor } from "./SystemMonitorProvider";
 
 // When pinned, the monitor renders inline as the direct children of .pane-main

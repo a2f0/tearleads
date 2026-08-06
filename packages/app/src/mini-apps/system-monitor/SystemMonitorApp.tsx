@@ -19,18 +19,18 @@ import {
 } from "../../navigation/AppNavigationProvider";
 import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import "./SystemMonitor.css";
+import { SystemMonitorEnvironment } from "./environment/SystemMonitorEnvironment";
+import { SystemMonitorFeatureFlags } from "./feature-flags/SystemMonitorFeatureFlags";
+import { SystemMonitorLog } from "./log/SystemMonitorLog";
+import { useSystemMonitorCopyReportAction } from "./report/useSystemMonitorCopyReportAction";
+import { useSystemMonitorReport } from "./report/useSystemMonitorReport";
 import {
   DEFAULT_SYSTEM_MONITOR_TAB,
   formatSystemMonitorRouteSegments,
   parseSystemMonitorRouteSegments,
   type SystemMonitorTabId,
 } from "./routes";
-import { SystemMonitorEnvironment } from "./SystemMonitorEnvironment";
-import { SystemMonitorFeatureFlags } from "./SystemMonitorFeatureFlags";
-import { SystemMonitorLog } from "./SystemMonitorLog";
 import { useSystemMonitor } from "./SystemMonitorProvider";
-import { useSystemMonitorCopyReportAction } from "./useSystemMonitorCopyReportAction";
-import { useSystemMonitorReport } from "./useSystemMonitorReport";
 import { useSystemMonitorWorkerActions } from "./useSystemMonitorWorkerActions";
 
 type SystemMonitorTab = MiniAppTabDescriptor<SystemMonitorTabId>;

@@ -1,9 +1,9 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
-import type { ExplorerContainerRulesContext } from "../containerRules";
 import { useExplorerModalController } from "../modal/controller";
 import type { ExplorerModalState } from "../modal/types";
-import type { MoveTargetOption } from "../targetOptions";
+import type { ExplorerContainerRulesContext } from "../model/containerRules";
+import type { MoveTargetOption } from "../model/targetOptions";
 import type {
   ExplorerDocumentMutationAction,
   ExplorerModelExplorer,

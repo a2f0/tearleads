@@ -12,15 +12,15 @@ import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirma
 import { useCompactRoutedMode } from "../../navigation/useCompactRoutedMode";
 import "./IdentityManager.css";
 import { useIdentityManager } from "./IdentityManagerController";
-import { IdentityManagerGeneralSection } from "./IdentityManagerGeneralSection";
-import { IdentityManagerMenu } from "./IdentityManagerMenu";
-import { IdentityManagerPinCodeSection } from "./IdentityManagerPinCodeSection";
-import { IdentityManagerRecoveryKeySection } from "./IdentityManagerRecoveryKeySection";
-import { SessionDetailSection } from "./IdentityManagerSessionDetail";
-import { SessionsSection } from "./IdentityManagerSessions";
 import { useIdentityManagerSidebarPanel } from "./IdentityManagerSidebar";
-import { IdentitySwitcher } from "./IdentitySwitcher";
+import { IdentityManagerMenu } from "./menu/IdentityManagerMenu";
+import { IdentityManagerGeneralSection } from "./panels/IdentityManagerGeneralSection";
+import { IdentityManagerPinCodeSection } from "./panels/IdentityManagerPinCodeSection";
+import { IdentityManagerRecoveryKeySection } from "./panels/IdentityManagerRecoveryKeySection";
 import type { IdentityManagerView } from "./routes";
+import { SessionDetailSection } from "./sessions/IdentityManagerSessionDetail";
+import { SessionsSection } from "./sessions/IdentityManagerSessions";
+import { IdentitySwitcher } from "./switcher/IdentitySwitcher";
 import { useIdentityManagerRoute } from "./useIdentityManagerRoute";
 
 type IdentityManagerModel = ReturnType<typeof useIdentityManager>;

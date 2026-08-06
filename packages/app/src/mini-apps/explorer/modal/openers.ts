@@ -5,7 +5,7 @@ import {
   canRenameContainerByRules,
   canWriteContainerNode,
   type ExplorerContainerRulesContext,
-} from "../containerRules";
+} from "../model/containerRules";
 import {
   type ExplorerTargetLookups,
   getDocumentLinkedContainerIds,
@@ -13,7 +13,7 @@ import {
   getDocumentMoveTargetOptions,
   getMoveTargetOptions,
   type MoveTargetOption,
-} from "../targetOptions";
+} from "../model/targetOptions";
 import type { ExplorerModalState } from "./types";
 
 export function clearExplorerModalState(

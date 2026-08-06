@@ -3,14 +3,14 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import { useMemo } from "react";
 import { isFileBackedDocumentKind } from "../../../document-types/registry";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import type { ExplorerContainerRulesContext } from "../containerRules";
 import type { ExplorerContextMenuState } from "../context-menu/ExplorerContextMenu";
-import { getDocumentByLocalId } from "../documentSummaries";
+import type { ExplorerContainerRulesContext } from "../model/containerRules";
+import { getDocumentByLocalId } from "../model/documentSummaries";
 import {
   getDocumentLinkedContainerIds,
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
-} from "../targetOptions";
+} from "../model/targetOptions";
 import { getSelectedDocumentMutationState } from "./selectedDocumentMutationState";
 
 interface ExplorerContextMenuDocumentState {

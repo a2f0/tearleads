@@ -4,6 +4,17 @@ ls:
 
   # `exists` budgets one suffix-depth cohort at a time. Path-specific blocks
   # override global rules, so each cohort repeats the filename check.
+  packages/app/src/mini-apps/explorer:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-9
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-6
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
+
+  packages/app/src/mini-apps/explorer/*:
+    .dir: regex:(context-menu|detail|hooks|modal|model|purge-progress|shared|sidebar|toolbar)
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-33
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-16
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
+
   packages/app/src/mini-apps/explorer/detail:
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-15
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-6
@@ -18,6 +29,25 @@ ls:
   packages/app/src/mini-apps/explorer/detail/*/*:
     .dir: exists:0
 
+  # detail/* keeps its four subject dirs above; every other explorer feature
+  # folder stays flat so files cannot dodge the cohort budgets.
+  packages/app/src/mini-apps/explorer/{context-menu,hooks,modal,model,purge-progress,shared,sidebar,toolbar}/*:
+    .dir: exists:0
+
+  packages/app/src/mini-apps/identity-manager:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-10
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-4
+
+  packages/app/src/mini-apps/identity-manager/*:
+    .dir: regex:(menu|panels|sessions|switcher|toolbar)
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-8
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-2
+
+  packages/app/src/mini-apps/identity-manager/*/*:
+    .dir: exists:0
+
   packages/app/src/mini-apps/org-manager:
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-15
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-6
@@ -25,11 +55,25 @@ ls:
 
   packages/app/src/mini-apps/org-manager/*:
     .dir: regex:(billing|context-menu|directory|grants|groups|hooks|organization|policy-history)
-    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-22
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-23
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-14
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
 
   packages/app/src/mini-apps/org-manager/*/*:
+    .dir: exists:0
+
+  packages/app/src/mini-apps/system-monitor:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-12
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-4
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-2
+
+  packages/app/src/mini-apps/system-monitor/*:
+    .dir: regex:(environment|feature-flags|log|report)
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-5
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-2
+
+  packages/app/src/mini-apps/system-monitor/*/*:
     .dir: exists:0
 
 # A leading `**/` ignore forces ls-lint to walk the entire tree (including every

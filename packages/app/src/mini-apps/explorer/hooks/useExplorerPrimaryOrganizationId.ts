@@ -1,7 +1,7 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { usePrimaryLocalOrganization } from "../../../providers/sdk/usePrimaryLocalOrganization";
-import { resolveExplorerPrimaryOrganizationId } from "../primaryOrganization";
+import { resolveExplorerPrimaryOrganizationId } from "../model/primaryOrganization";
 
 export function useExplorerPrimaryOrganizationId(input: {
   readonly appData: RuntimeSnapshot;

@@ -12,8 +12,8 @@ import type {
   ExplorerContainerContextMenuVariant,
   ExplorerContextMenuState,
 } from "../context-menu/ExplorerContextMenu";
+import type { MoveTargetOption } from "../model/targetOptions";
 import type { ExplorerPurgeRun } from "../purge-progress/useExplorerPurgeRun";
-import type { MoveTargetOption } from "../targetOptions";
 import type { ExplorerDocumentMutationAction } from "./explorerModelTypes";
 import type { ExplorerDocumentModalState } from "./useExplorerDocumentModalState";
 import type { ExplorerRouteState } from "./useExplorerRoute";

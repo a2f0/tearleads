@@ -10,7 +10,7 @@ import { type MouseEvent, useRef } from "react";
 import {
   createExplorerContainerRulesContext,
   type ExplorerContainerRulesContext,
-} from "../containerRules";
+} from "../model/containerRules";
 import {
   type ExplorerContextMenuState,
   useExplorerContextMenu,

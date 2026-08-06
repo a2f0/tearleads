@@ -20,15 +20,15 @@ import type { AvatarUrlByContactId } from "../../../document-types/contact/useCo
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import type { BlobPickTarget } from "../../shared/blob-pick/BlobPickProvider";
+import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
+import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
+import type { OpenInlineDocument } from "../hooks/useInlineDocumentAction";
 import {
   canAdminContainerNode,
   canWriteContainerNode,
-} from "../containerRules";
-import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
-import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
-import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
-import type { OpenInlineDocument } from "../hooks/useInlineDocumentAction";
+} from "../model/containerRules";
 import type { ExplorerRoute } from "../routes";
+import { ExplorerDatabaseErrorStatus } from "../shared/ExplorerDatabaseErrorStatus";
 import type { MiniAppWindowPosition } from "../types";
 import type { ExplorerAttributionUserLabelResolver } from "./attributionDisplay";
 import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";

@@ -1,7 +1,7 @@
 import { type RefObject, useMemo } from "react";
 import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniAppSelectMenu";
-import { ExplorerContainerIcon } from "../ExplorerContainerIcon";
-import type { MoveTargetOption } from "../targetOptions";
+import type { MoveTargetOption } from "../model/targetOptions";
+import { ExplorerContainerIcon } from "../shared/ExplorerContainerIcon";
 
 interface ExplorerTargetSelectProps {
   ariaLabel: string;

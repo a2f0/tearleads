@@ -27,18 +27,18 @@ import {
   useExplorerDroppedFileImport,
 } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { useBlobOrganizationNames } from "../../shared/blob-pick/blob-list/useBlobOrganizationNames";
-import {
-  canUploadToContainerIdByRules,
-  type ExplorerContainerRulesContext,
-} from "../containerRules";
 import { useExplorerContextMenu } from "../context-menu/ExplorerContextMenu";
-import { useExplorerSidebarPanel } from "../ExplorerTree";
-import type { ExplorerTreeEntry } from "../explorerTreeModel";
 import {
   EXPLORER_LABELS,
   getExplorerDroppedFileImportFailureLog,
   getExplorerDroppedFileTooLargeError,
 } from "../labels";
+import {
+  canUploadToContainerIdByRules,
+  type ExplorerContainerRulesContext,
+} from "../model/containerRules";
+import { useExplorerSidebarPanel } from "../sidebar/ExplorerTree";
+import type { ExplorerTreeEntry } from "../sidebar/explorerTreeModel";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
 import type { ExplorerPanelState } from "./explorerPanelStateTypes";
 import { useExplorerContainerTrashActions } from "./useExplorerContainerTrashActions";

@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
-import { createExplorerContainerRulesContext } from "../containerRules";
+import { createExplorerContainerRulesContext } from "../model/containerRules";
 import {
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
-} from "../targetOptions";
+} from "../model/targetOptions";
 import { getSelectedDocumentMutationState } from "./selectedDocumentMutationState";
 
 const editableRuntime = {
