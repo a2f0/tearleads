@@ -337,10 +337,6 @@
       "lines": 958,
       "bytes": 31412
     },
-    "packages/client-sdk/src/workflows/containers/child/share.ts": {
-      "lines": 726,
-      "bytes": 24311
-    },
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
       "lines": 1769,
       "bytes": 62568
