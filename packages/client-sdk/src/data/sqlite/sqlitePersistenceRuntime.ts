@@ -8,6 +8,7 @@ import {
   createExecSql,
   type ExecSql,
   type ExecSqlClientLike,
+  resetConnectionSchemaMemo,
   resolveCanonicalExecSql,
   runSerializedSqlMutation,
   type SqlArrayRow,
@@ -172,6 +173,7 @@ async function runNestedSavepointScope<T>(
         await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`).catch(
           () => undefined,
         );
+        resetConnectionSchemaMemo(canonical);
         throw error;
       } finally {
         transactionDepthByCanonicalExecSql.set(canonical, depth);
@@ -214,9 +216,15 @@ function createRuntimeForExecSql(
       );
     },
     transaction(operation, config) {
+      // A caller already inside an open transaction on this connection MUST
+      // reach us through the transaction's locked executor (the runtime that
+      // executor resolves to detects the open transaction below and joins it
+      // as a savepoint scope). Re-entering through the canonical executor
+      // queues here for full isolation — the contract every persistence
+      // helper follows by passing its received locked executor down.
+      const canonical = resolveCanonicalExecSql(execSql);
       return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
         withActiveExecSql(lockedExecSql, async () => {
-          const canonical = resolveCanonicalExecSql(execSql);
           if ((transactionDepthByCanonicalExecSql.get(canonical) ?? 0) > 0) {
             return runNestedSavepointScope(canonical, lockedExecSql, () =>
               operation(db),
@@ -226,6 +234,13 @@ function createRuntimeForExecSql(
           transactionDepthByCanonicalExecSql.set(canonical, 1);
           try {
             return await db.transaction(operation, config);
+          } catch (error: unknown) {
+            // The rollback undid any DDL this transaction ran, but the
+            // per-connection ensure memo still claims it exists — reset it
+            // so later operations re-ensure instead of hitting missing
+            // tables.
+            resetConnectionSchemaMemo(canonical);
+            throw error;
           } finally {
             transactionDepthByCanonicalExecSql.delete(canonical);
           }
@@ -248,6 +263,7 @@ function createRuntimeForExecSql(
             const result = await operation(db);
             if (!canCommit()) {
               await lockedExecSql("ROLLBACK");
+              resetConnectionSchemaMemo(canonical);
               return { committed: false, result: null };
             }
             // The guard passed in THIS synchronous slice and the COMMIT is
@@ -260,6 +276,7 @@ function createRuntimeForExecSql(
             return { committed: true, result };
           } catch (error: unknown) {
             await lockedExecSql("ROLLBACK").catch(() => undefined);
+            resetConnectionSchemaMemo(canonical);
             throw error;
           } finally {
             transactionDepthByCanonicalExecSql.delete(canonical);
