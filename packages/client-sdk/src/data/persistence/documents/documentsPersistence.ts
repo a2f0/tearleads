@@ -366,43 +366,12 @@ export async function applyContainerDocumentTombstones(
   tombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
 ): Promise<DocumentSummary[]> {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await sqlStoredDocumentsPersistence.ensureSchema(lockedExecSql);
+    await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
     return applyContainerDocumentTombstonesWithExec(lockedExecSql, tombstones);
   });
 }
 
-export async function listDocumentsByContainerIds(
-  execSql: ExecSql,
-  containerIds: ReadonlyArray<string>,
-): Promise<DocumentSummary[]> {
-  const uniqueContainerIds = [...new Set(containerIds)];
-
-  if (uniqueContainerIds.length === 0) {
-    return [];
-  }
-
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const rows = await db
-    .select(documentSummarySelection)
-    .from(documentProjection)
-    .leftJoin(documents, documentSummaryJoin)
-    .where(
-      and(
-        inArray(documentProjection.containerId, uniqueContainerIds),
-        notInArray(documentProjection.documentKind, [
-          ...HIDDEN_DOCUMENT_SUMMARY_KINDS,
-        ]),
-      ),
-    )
-    .orderBy(
-      desc(documentProjection.updatedAt),
-      desc(documentProjection.localId),
-    );
-
-  return rows.map(mapDocumentSummary);
-}
-
-async function listDocumentsByContainerIdsOrDocumentIds(
+export async function listDocumentsByContainerIdsOrDocumentIds(
   execSql: ExecSql,
   input: {
     containerIds: ReadonlyArray<string>;
@@ -446,7 +415,7 @@ async function listDocumentsByContainerIdsOrDocumentIds(
   return rows.map(mapDocumentSummary);
 }
 
-const sqlStoredDocumentsPersistence: DocumentsPersistence = {
+export const sqlDocumentsPersistence: DocumentsPersistence = {
   ensureSchema: ensureDocumentsSchema,
   async listDocuments(execSql) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
@@ -681,7 +650,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       execSql,
       expectedDocumentId,
       localId,
-      persistence: sqlStoredDocumentsPersistence,
+      persistence: sqlDocumentsPersistence,
     });
   },
   async upsertDiscoveredDocument(execSql, input) {
@@ -694,7 +663,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   },
   async relinkPersistedDocument(execSql, input) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await sqlStoredDocumentsPersistence.ensureSchema(lockedExecSql);
+      await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
       return relinkPersistedDocumentWithExec(lockedExecSql, input);
     });
   },
@@ -919,6 +888,3 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     });
   },
 };
-
-export const sqlDocumentsPersistence: DocumentsPersistence =
-  sqlStoredDocumentsPersistence;

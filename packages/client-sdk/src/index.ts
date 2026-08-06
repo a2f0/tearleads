@@ -301,7 +301,6 @@ export type {
 export {
   createBlobStore,
   createEncryptedBlobStore,
-  createEncryptedOpfsBlobStore,
   createLazyEncryptedBlobStore,
   createMemoryBlobStore,
   decryptDocumentAttachmentBlob,

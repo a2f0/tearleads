@@ -8,7 +8,7 @@ import {
 } from "../blobContracts";
 import { ENCRYPTED_BLOB_CHUNK_SIZE } from "./encryptedBlobEnvelope";
 import {
-  createEncryptedOpfsBlobStore,
+  createEncryptedBlobStore,
   createLazyEncryptedBlobStore,
   wrapEncryptedBlobStore,
 } from "./encryptedBlobStore";
@@ -442,7 +442,7 @@ test("encrypted blob store rejects missing and invalid runtime keys", () => {
 
 test("encrypted OPFS blob store stores encrypted files under the namespace", async () => {
   await withFakeOpfs(async (rootDirectory) => {
-    const store = createEncryptedOpfsBlobStore("identity-a", {
+    const store = createEncryptedBlobStore("identity-a", {
       key: "test-key",
       kdfIterations: 1,
     });

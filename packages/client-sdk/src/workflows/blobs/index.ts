@@ -17,7 +17,6 @@ export type {
 } from "../../data/blobs/encryptedBlobStore";
 export {
   createEncryptedBlobStore,
-  createEncryptedOpfsBlobStore,
   createLazyEncryptedBlobStore,
   wrapEncryptedBlobStore,
 } from "../../data/blobs/encryptedBlobStore";

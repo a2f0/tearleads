@@ -11,7 +11,6 @@ import {
   createContainerDocumentObjectSyncState,
   createDocumentProjectorRegistry,
   createEncryptedBlobStore,
-  createEncryptedOpfsBlobStore,
   createIndexedDbWrappingKeyKeystore,
   createLocalKeyring,
   createLocalStorageLocalKeyringManifestStore,
@@ -54,7 +53,6 @@ test("root entrypoint exposes public facade symbols", () => {
   expect(clearRemoteSyncState).toBeFunction();
   expect(createBlobByteSource).toBeFunction();
   expect(createEncryptedBlobStore).toBeFunction();
-  expect(createEncryptedOpfsBlobStore).toBeFunction();
   expect(createBrowserLocalKeyring).toBeFunction();
   expect(createIndexedDbWrappingKeyKeystore).toBeFunction();
   expect(createLocalKeyring).toBeFunction();
@@ -144,7 +142,6 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "createDocumentsWorkflowRuntime",
   "createDomainScope",
   "createEncryptedBlobStore",
-  "createEncryptedOpfsBlobStore",
   "createIndexedDbLocalKeyringManifestStore",
   "createIndexedDbWrappingKeyKeystore",
   "createInitialRootMetadataBootstrap",
