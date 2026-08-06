@@ -30,12 +30,10 @@ import {
   type DocumentWriterProjectionResponse,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
-  isContainerKekLogResponse,
   isContainerMutationResponse,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeResponse,
-  isListContainerDocumentsResponse,
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
   isOrganizationBillingResponse,
@@ -61,7 +59,6 @@ import {
   errorMessage,
   evictWriterProjectionIfSyncChanged,
   hasHeader,
-  isListContainerParentLanesResponseForRequest,
   listContainerDocumentsRequestKey,
   listContainerParentLanesRequestKey,
   normalizeApiBaseUrl,
@@ -93,7 +90,12 @@ import {
   initiateMultipartBlobStage as multipartInitiate,
   uploadMultipartBlobPartBytes as multipartPartUpload,
 } from "./routes/blobs/multipart";
-import { containerDocsPath } from "./routes/containers/queryParams";
+import {
+  type ContainerKekLogOptions,
+  containerDocuments,
+  containerKekLog,
+  containerParentLanes,
+} from "./routes/containers/reads";
 import { listDocumentAttachments as documentAttachmentsList } from "./routes/documents/attachments";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
 import { documentSync as sync } from "./routes/documents/sync";
@@ -1051,23 +1053,12 @@ export class ApiClient {
    */
   getContainerKekLog(
     containerId: string,
-    options: {
-      readonly afterKeyEpoch?: number;
-      readonly keyringForEpoch?: number;
-    } = {},
+    options: ContainerKekLogOptions = {},
   ) {
-    const query = new URLSearchParams();
-    if (options.keyringForEpoch !== undefined) {
-      query.set("keyringForEpoch", String(options.keyringForEpoch));
-    }
-    if (options.afterKeyEpoch !== undefined) {
-      query.set("afterKeyEpoch", String(options.afterKeyEpoch));
-    }
-    const suffix = query.size > 0 ? `?${query.toString()}` : "";
     return this.request(
-      `/containers/${pathSegment(containerId)}/kek-log${suffix}`,
-      isContainerKekLogResponse,
-      "GET",
+      containerKekLog.path(containerId, options),
+      containerKekLog.isResponse,
+      containerKekLog.method,
     );
   }
 
@@ -1486,10 +1477,10 @@ export class ApiClient {
       listContainerParentLanesRequestKey(input),
       () =>
         this.request<ListContainerParentLanesResponse>(
-          "/containers/parent-lanes/query",
+          containerParentLanes.path,
           (value): value is ListContainerParentLanesResponse =>
-            isListContainerParentLanesResponseForRequest(input, value),
-          "POST",
+            containerParentLanes.isResponseForRequest(input, value),
+          containerParentLanes.method,
           JSON.stringify(input),
         ),
     );
@@ -1504,9 +1495,9 @@ export class ApiClient {
       listContainerDocumentsRequestKey(containerId, options),
       () =>
         this.request<ListContainerDocumentsResponse>(
-          containerDocsPath(containerId, options),
-          isListContainerDocumentsResponse,
-          "GET",
+          containerDocuments.path(containerId, options),
+          containerDocuments.isResponse,
+          containerDocuments.method,
         ),
     );
   }
@@ -1517,9 +1508,9 @@ export class ApiClient {
     requestOptions: RequestResultOptions = {},
   ): Promise<RequestResult<ListContainerDocumentsResponse>> {
     return this.makeRequestResult(
-      containerDocsPath(containerId, options),
-      isListContainerDocumentsResponse,
-      "GET",
+      containerDocuments.path(containerId, options),
+      containerDocuments.isResponse,
+      containerDocuments.method,
       undefined,
       requestOptions,
     );

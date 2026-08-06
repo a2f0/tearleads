@@ -14379,6 +14379,1044 @@
         ]
       }
     },
+    "/containers/parent-lanes/query": {
+      "post": {
+        "operationId": "containers.parentLanes.query",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lanes": {
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "laneId": {
+                          "maxLength": 64,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "limit": {
+                          "maximum": 500,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "parentId": {
+                          "anyOf": [
+                            {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "watermark": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "updatedAt": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "updatedAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "laneId",
+                        "parentId",
+                        "watermark"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 4,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "lanes"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "laneId": {
+                            "maxLength": 64,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "page": {
+                            "type": "object",
+                            "properties": {
+                              "hasMore": {
+                                "type": "boolean"
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "createdAt": {
+                                      "type": "string"
+                                    },
+                                    "depth": {
+                                      "maximum": 1.7976931348623157e+308,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "effectiveAccessLevel": {
+                                      "type": "string",
+                                      "enum": [
+                                        "admin",
+                                        "read",
+                                        "write"
+                                      ]
+                                    },
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "metadataAccessEpoch": {
+                                      "type": "number",
+                                      "minimum": -1.7976931348623157e+308,
+                                      "maximum": 1.7976931348623157e+308
+                                    },
+                                    "metadataAccessStateHash": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "metadataDocumentId": {
+                                      "type": "string"
+                                    },
+                                    "metadataReferencedPrincipals": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "keyEpoch": {
+                                            "type": "number",
+                                            "minimum": -1.7976931348623157e+308,
+                                            "maximum": 1.7976931348623157e+308
+                                          },
+                                          "keyFingerprint": {
+                                            "type": "string"
+                                          },
+                                          "principalId": {
+                                            "type": "string"
+                                          },
+                                          "principalType": {
+                                            "type": "string",
+                                            "enum": [
+                                              "group",
+                                              "organization"
+                                            ]
+                                          },
+                                          "stateHash": {
+                                            "type": "string"
+                                          },
+                                          "version": {
+                                            "type": "number",
+                                            "minimum": -1.7976931348623157e+308,
+                                            "maximum": 1.7976931348623157e+308
+                                          }
+                                        },
+                                        "required": [
+                                          "keyEpoch",
+                                          "keyFingerprint",
+                                          "principalId",
+                                          "principalType",
+                                          "stateHash",
+                                          "version"
+                                        ],
+                                        "additionalProperties": {}
+                                      }
+                                    },
+                                    "organizationId": {
+                                      "type": "string"
+                                    },
+                                    "parentId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "systemSlot": {
+                                      "anyOf": [
+                                        {
+                                          "pattern": "^sys_v1_[A-Za-z0-9_-]{43}$",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "updatedAt": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "createdAt",
+                                    "depth",
+                                    "effectiveAccessLevel",
+                                    "id",
+                                    "metadataAccessEpoch",
+                                    "metadataAccessStateHash",
+                                    "metadataDocumentId",
+                                    "metadataReferencedPrincipals",
+                                    "organizationId",
+                                    "parentId",
+                                    "updatedAt"
+                                  ],
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "nextWatermark": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "updatedAt": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "updatedAt"
+                                    ],
+                                    "additionalProperties": {}
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "tombstones": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string"
+                                    },
+                                    "depth": {
+                                      "maximum": 1.7976931348623157e+308,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "parentId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "enum": [
+                                        "access_revoked",
+                                        "deleted"
+                                      ]
+                                    },
+                                    "updatedAt": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "depth",
+                                    "parentId",
+                                    "reason",
+                                    "updatedAt"
+                                  ],
+                                  "additionalProperties": {}
+                                }
+                              }
+                            },
+                            "required": [
+                              "hasMore",
+                              "items",
+                              "nextWatermark",
+                              "tombstones"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "laneId",
+                          "page"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "maxItems": 4,
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "results"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "container parent-lane request lane ids must be unique",
+            "id": "request.container-parent-lane-unique-ids"
+          },
+          {
+            "description": "container parent-lane request page limits must total at most 500",
+            "id": "request.container-parent-lane-page-total"
+          },
+          {
+            "description": "container parent-lane response lane ids must be unique",
+            "id": "response.container-parent-lane-unique-ids"
+          }
+        ]
+      }
+    },
+    "/containers/{containerId}/documents": {
+      "get": {
+        "operationId": "containers.documents.list",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "containerId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "watermarkUpdatedAt",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "watermarkId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hasMore": {
+                      "type": "boolean"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "currentAccessEpoch": {
+                            "type": "number",
+                            "minimum": -1.7976931348623157e+308,
+                            "maximum": 1.7976931348623157e+308
+                          },
+                          "currentAccessStateHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "effectiveAccessLevel": {
+                            "type": "string",
+                            "enum": [
+                              "admin",
+                              "read",
+                              "write"
+                            ]
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "linkedContainerIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "referencedPrincipals": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "keyEpoch": {
+                                  "type": "number",
+                                  "minimum": -1.7976931348623157e+308,
+                                  "maximum": 1.7976931348623157e+308
+                                },
+                                "keyFingerprint": {
+                                  "type": "string"
+                                },
+                                "principalId": {
+                                  "type": "string"
+                                },
+                                "principalType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "group",
+                                    "organization"
+                                  ]
+                                },
+                                "stateHash": {
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "type": "number",
+                                  "minimum": -1.7976931348623157e+308,
+                                  "maximum": 1.7976931348623157e+308
+                                }
+                              },
+                              "required": [
+                                "keyEpoch",
+                                "keyFingerprint",
+                                "principalId",
+                                "principalType",
+                                "stateHash",
+                                "version"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "createdAt",
+                          "currentAccessEpoch",
+                          "currentAccessStateHash",
+                          "effectiveAccessLevel",
+                          "id",
+                          "linkedContainerIds",
+                          "referencedPrincipals",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "nextWatermark": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "updatedAt"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "tombstones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "containerId": {
+                            "type": "string"
+                          },
+                          "documentId": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "containerId",
+                          "documentId",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "hasMore",
+                    "items",
+                    "nextWatermark",
+                    "tombstones"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "container-document watermark fields must be supplied together with a parseable date",
+            "id": "request.container-documents-watermark"
+          }
+        ]
+      }
+    },
+    "/containers/{containerId}/kek-log": {
+      "get": {
+        "operationId": "containers.kekLog.get",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "containerId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "keyringForEpoch",
+            "required": false,
+            "schema": {
+              "maximum": 65536,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "afterKeyEpoch",
+            "required": false,
+            "schema": {
+              "maximum": 65536,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "containerId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "epochs": {
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accessManifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "bridge": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "containerKeyEpoch": {
+                            "exclusiveMinimum": 0,
+                            "maximum": 1.7976931348623157e+308,
+                            "type": "integer"
+                          },
+                          "containerKeyEpochId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "keyring": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "containerId": {
+                                    "type": "string"
+                                  },
+                                  "containerKeyEpochId": {
+                                    "type": "string"
+                                  },
+                                  "iv": {
+                                    "maxLength": 16,
+                                    "type": "string"
+                                  },
+                                  "sealed": {
+                                    "maxLength": 5592352,
+                                    "type": "string"
+                                  },
+                                  "sealingSuite": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "const": 1,
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "containerId",
+                                  "containerKeyEpochId",
+                                  "iv",
+                                  "sealed",
+                                  "sealingSuite",
+                                  "version"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "parentContainerKeyEpochId": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "wraps": {
+                            "items": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "maxItems": 16,
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "accessManifestHash",
+                          "bridge",
+                          "containerKeyEpoch",
+                          "containerKeyEpochId",
+                          "keyring",
+                          "parentContainerKeyEpochId",
+                          "wraps"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      "maxItems": 256,
+                      "type": "array"
+                    },
+                    "hasMore": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "containerId",
+                    "epochs",
+                    "hasMore"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "a container KEK log page contains at most one sealed keyring",
+            "id": "response.container-kek-log-single-keyring"
+          }
+        ]
+      }
+    },
     "/containers/{containerId}/writer-projection": {
       "get": {
         "operationId": "containers.writerProjection.get",

@@ -204,6 +204,21 @@ export function nonEmptyArraySchema<ItemSchema extends z.ZodType>(
   );
 }
 
+export function boundedNonEmptyArraySchema<ItemSchema extends z.ZodType>(
+  itemSchema: ItemSchema,
+  maxItems: number,
+) {
+  return registerJsonSchemaFragment(
+    arraySchema(itemSchema, maxItems).refine((values) => values.length > 0),
+    {
+      items: toJsonSchema(itemSchema),
+      maxItems,
+      minItems: 1,
+      type: "array",
+    },
+  );
+}
+
 /**
  * Validates a shaped plain object without returning Zod's reconstructed
  * loose-object output. Extension keys, prototypes, and signed input identity

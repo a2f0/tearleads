@@ -1,12 +1,15 @@
-import { ListContainerParentLanesRequestSchema } from "@tearleads/validators/request";
+import {
+  listContainerParentLanesOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
 import { listContainerParentLanes } from "../../services/containers/listContainerParentLanes";
 import { ListContainersError } from "../../services/containers/listContainers";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
 
 interface ListContainerParentLanesRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -19,16 +22,11 @@ export function createListContainerParentLanesRoute({
 }: ListContainerParentLanesRouteDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.post(
-    "/containers/parent-lanes/query",
+  route.on(
+    listContainerParentLanesOperation.method,
+    operationRoutePath(listContainerParentLanesOperation),
     requireAuth,
-    validator("json", (value, c) => {
-      const parsed = ListContainerParentLanesRequestSchema.safeParse(value);
-      if (!parsed.success) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-      return parsed.data;
-    }),
+    jsonRequestValidator(listContainerParentLanesOperation.body),
     async (c) => {
       try {
         return c.json<ListContainerParentLanesResponse>(

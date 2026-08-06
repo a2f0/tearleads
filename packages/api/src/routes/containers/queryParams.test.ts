@@ -1,14 +1,25 @@
 import { expect, test } from "bun:test";
-import { parseOptionalInteger } from "./queryParams";
+import { parseOptionalWatermark } from "./queryParams";
 
-test("parseOptionalInteger accepts absent and canonical safe decimal integers", () => {
-  expect(parseOptionalInteger(undefined)).toBeUndefined();
-  expect(parseOptionalInteger("1")).toBe(1);
-  expect(parseOptionalInteger("500")).toBe(500);
+test("parseOptionalWatermark accepts an absent watermark", () => {
+  expect(parseOptionalWatermark(undefined, undefined)).toBeUndefined();
 });
 
-test("parseOptionalInteger rejects non-decimal and unsafe integer encodings", () => {
-  expect(Number.isNaN(parseOptionalInteger("1e2"))).toBe(true);
-  expect(Number.isNaN(parseOptionalInteger("-1"))).toBe(true);
-  expect(Number.isNaN(parseOptionalInteger("9007199254740993"))).toBe(true);
+test("parseOptionalWatermark preserves complete and partial watermarks", () => {
+  expect(
+    parseOptionalWatermark("2026-08-06T12:00:00.000Z", "document-1"),
+  ).toEqual({
+    id: "document-1",
+    updatedAt: "2026-08-06T12:00:00.000Z",
+  });
+  expect(parseOptionalWatermark("2026-08-06T12:00:00.000Z", undefined)).toEqual(
+    {
+      id: "",
+      updatedAt: "2026-08-06T12:00:00.000Z",
+    },
+  );
+  expect(parseOptionalWatermark(undefined, "document-1")).toEqual({
+    id: "document-1",
+    updatedAt: "",
+  });
 });

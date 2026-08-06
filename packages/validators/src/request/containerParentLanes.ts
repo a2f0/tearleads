@@ -1,54 +1,84 @@
 import { z } from "zod";
+import {
+  containerParentLaneRequestPageTotalRefinement,
+  containerParentLaneRequestUniqueIdsRefinement,
+} from "../containerReadRefinements";
+import { ContainerParentLaneIdSchema } from "../containerReadSchemas";
+import {
+  registerJsonSchemaFragment,
+  registerJsonSchemaRuntimeRefinements,
+  registerJsonSchemaView,
+} from "../jsonSchema";
+import {
+  boundedNonEmptyArraySchema,
+  boundedPositiveIntegerSchema,
+  uuidV4StringSchema,
+} from "../schema";
 
 const DEFAULT_CONTAINER_PARENT_LANE_PAGE_LIMIT = 100;
 const MAX_CONTAINER_PARENT_LANE_BATCH_PAGE_TOTAL = 500;
 
 const ContainerParentLaneWatermarkSchema = z.strictObject({
   id: z.string().min(1),
-  updatedAt: z
-    .string()
-    .refine(
-      (value) => !Number.isNaN(new Date(value).getTime()),
-      "Invalid watermark date",
-    ),
+  updatedAt: registerJsonSchemaFragment(
+    z
+      .string()
+      .refine(
+        (value) => !Number.isNaN(new Date(value).getTime()),
+        "Invalid watermark date",
+      ),
+    { minLength: 1, type: "string" },
+  ),
 });
 
 const ContainerParentLaneRequestSchema = z.strictObject({
-  laneId: z.string().min(1).max(64),
-  limit: z.number().int().min(1).max(500).optional(),
-  parentId: z.uuidv4().nullable(),
+  laneId: ContainerParentLaneIdSchema,
+  limit: boundedPositiveIntegerSchema(500).optional(),
+  parentId: uuidV4StringSchema.nullable(),
   watermark: ContainerParentLaneWatermarkSchema.nullable(),
 });
 
-export const ListContainerParentLanesRequestSchema = z
-  .strictObject({
-    lanes: z.array(ContainerParentLaneRequestSchema).min(1).max(4),
-  })
-  .superRefine(({ lanes }, context) => {
-    const laneIds = new Set<string>();
-    let requestedPageTotal = 0;
+const ListContainerParentLanesRequestViewSchema = z.strictObject({
+  lanes: boundedNonEmptyArraySchema(ContainerParentLaneRequestSchema, 4),
+});
 
-    lanes.forEach((lane, index) => {
-      if (laneIds.has(lane.laneId)) {
-        context.addIssue({
-          code: "custom",
-          message: "Container parent lane id is duplicated",
-          path: ["lanes", index, "laneId"],
-        });
-      }
-      laneIds.add(lane.laneId);
-      requestedPageTotal +=
-        lane.limit ?? DEFAULT_CONTAINER_PARENT_LANE_PAGE_LIMIT;
-    });
+export const ListContainerParentLanesRequestSchema =
+  registerJsonSchemaRuntimeRefinements(
+    registerJsonSchemaView(
+      ListContainerParentLanesRequestViewSchema.superRefine(
+        ({ lanes }, context) => {
+          const laneIds = new Set<string>();
+          let requestedPageTotal = 0;
 
-    if (requestedPageTotal > MAX_CONTAINER_PARENT_LANE_BATCH_PAGE_TOTAL) {
-      context.addIssue({
-        code: "custom",
-        message: "Container parent lane batch page total exceeds 500",
-        path: ["lanes"],
-      });
-    }
-  });
+          lanes.forEach((lane, index) => {
+            if (laneIds.has(lane.laneId)) {
+              context.addIssue({
+                code: "custom",
+                message: "Container parent lane id is duplicated",
+                path: ["lanes", index, "laneId"],
+              });
+            }
+            laneIds.add(lane.laneId);
+            requestedPageTotal +=
+              lane.limit ?? DEFAULT_CONTAINER_PARENT_LANE_PAGE_LIMIT;
+          });
+
+          if (requestedPageTotal > MAX_CONTAINER_PARENT_LANE_BATCH_PAGE_TOTAL) {
+            context.addIssue({
+              code: "custom",
+              message: "Container parent lane batch page total exceeds 500",
+              path: ["lanes"],
+            });
+          }
+        },
+      ),
+      ListContainerParentLanesRequestViewSchema,
+    ),
+    [
+      containerParentLaneRequestUniqueIdsRefinement,
+      containerParentLaneRequestPageTotalRefinement,
+    ],
+  );
 
 export type ListContainerParentLanesRequest = z.infer<
   typeof ListContainerParentLanesRequestSchema

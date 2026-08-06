@@ -1,15 +1,13 @@
-import { isPlainObject } from "../isPlainObject";
-import { hasStringProperty } from "../util";
+import { z } from "zod";
+import { loosePlainObject } from "../schema";
 
-export interface SyncWatermark {
-  id: string;
-  updatedAt: string;
-}
+export const SyncWatermarkSchema = loosePlainObject({
+  id: z.string(),
+  updatedAt: z.string(),
+});
+
+export type SyncWatermark = z.infer<typeof SyncWatermarkSchema>;
 
 export function isSyncWatermark(value: unknown): value is SyncWatermark {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "id") &&
-    hasStringProperty(value, "updatedAt")
-  );
+  return SyncWatermarkSchema.safeParse(value).success;
 }
