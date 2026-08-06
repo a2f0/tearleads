@@ -309,10 +309,6 @@
       "lines": 547,
       "bytes": 18887
     },
-    "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
-      "lines": 623,
-      "bytes": 20063
-    },
     "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
       "lines": 722,
       "bytes": 23942
