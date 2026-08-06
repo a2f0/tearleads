@@ -313,10 +313,6 @@
       "lines": 547,
       "bytes": 18887
     },
-    "packages/client-sdk/src/stores/documents/documentStore/initialization.ts": {
-      "lines": 585,
-      "bytes": 20900
-    },
     "packages/client-sdk/src/stores/documents/documentStore/persistence.ts": {
       "lines": 639,
       "bytes": 21053
