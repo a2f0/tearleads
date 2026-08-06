@@ -17,6 +17,10 @@ import {
   getBlobBytesOperation,
   uploadMultipartBlobPartBytesOperation,
 } from "./blobBytes";
+import {
+  getDocumentAttributionOperation,
+  listDocumentAttributionRangesOperation,
+} from "./documentAttribution";
 import { documentSyncOperation } from "./documentSync";
 import { getHealthOperation } from "./health";
 import {
@@ -57,6 +61,8 @@ export const protocolOperations = [
   completeMultipartBlobStageOperation,
   uploadMultipartBlobPartBytesOperation,
   listDocumentAttachmentsOperation,
+  getDocumentAttributionOperation,
+  listDocumentAttributionRangesOperation,
   createOrganizationOperation,
   getOrganizationDataUsageOperation,
   getOrganizationReadModelOperation,

@@ -15,6 +15,7 @@ export interface RuntimeRefinement {
 export interface HttpOperation {
   readonly auth: "none" | "session";
   readonly body?: z.ZodType;
+  readonly emptyResponseStatuses?: readonly number[];
   readonly failureResponses?: Readonly<Record<number, z.ZodType>>;
   readonly failureStatuses: readonly number[];
   readonly headers?: z.ZodType;

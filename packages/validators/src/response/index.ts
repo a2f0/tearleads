@@ -100,13 +100,17 @@ export {
   type ContainerDocumentSummary,
   type ContainerDocumentSyncTombstone,
   type DocumentEditAttributionRangeResponse,
+  DocumentEditAttributionRangeResponseSchema,
   type DocumentEditAttributionResponse,
+  DocumentEditAttributionResponseSchema,
   type DocumentEditAttributionSegmentResponse,
+  DocumentEditAttributionSegmentResponseSchema,
   isDocumentEditAttributionResponse,
   isListContainerDocumentsResponse,
   isListDocumentEditAttributionRangesResponse,
   type ListContainerDocumentsResponse,
   type ListDocumentEditAttributionRangesResponse,
+  ListDocumentEditAttributionRangesResponseSchema,
 } from "./document";
 export {
   type DocumentContentKeyBundleResponse,

@@ -1,8 +1,14 @@
 import {
-  type DocumentEditAttributionResponse,
-  isDocumentEditAttributionResponse,
-  isListDocumentEditAttributionRangesResponse,
-  type ListDocumentEditAttributionRangesResponse,
+  getDocumentAttributionOperation,
+  isGetDocumentAttributionOperationResponse,
+  isListDocumentAttributionRangesOperationResponse,
+  listDocumentAttributionRangesOperation,
+  operationRequestPath,
+  operationRequestPathWithQuery,
+} from "@tearleads/validators/operation";
+import type {
+  DocumentEditAttributionResponse,
+  ListDocumentEditAttributionRangesResponse,
 } from "@tearleads/validators/response";
 import { BoundedCache } from "../../ApiCache";
 import { dedupedRequest } from "../../requestInternals";
@@ -10,8 +16,36 @@ import type {
   ListDocumentEditAttributionRangesOptions,
   RequestFn,
 } from "../../types";
-import { pathSegment } from "../path";
-import { documentAttributionRangesPath } from "./queryParams";
+
+export const getDocumentAttribution = {
+  isResponse: isGetDocumentAttributionOperationResponse,
+  method: getDocumentAttributionOperation.method,
+  path(documentId: string) {
+    return operationRequestPath(getDocumentAttributionOperation, {
+      documentId,
+    });
+  },
+};
+
+export const listDocumentAttributionRanges = {
+  isResponse: isListDocumentAttributionRangesOperationResponse,
+  method: listDocumentAttributionRangesOperation.method,
+  path(
+    documentId: string,
+    options: ListDocumentEditAttributionRangesOptions = {},
+  ) {
+    const { cursor, ...query } = options;
+    return operationRequestPathWithQuery(
+      listDocumentAttributionRangesOperation,
+      { documentId },
+      {
+        cursor: cursor ?? undefined,
+        expectedRevision: query.expectedRevision,
+        limit: query.limit,
+      },
+    );
+  },
+};
 
 export class DocumentAttributionRequests {
   private readonly compactByGeneration = new BoundedCache<
@@ -52,9 +86,9 @@ export class DocumentAttributionRequests {
       `${documentId}\u0000${this.generation(documentId)}\u0000${requestKey}`,
       () =>
         this.request(
-          `/documents/${pathSegment(documentId)}/attribution`,
-          isDocumentEditAttributionResponse,
-          "GET",
+          getDocumentAttribution.path(documentId),
+          getDocumentAttribution.isResponse,
+          getDocumentAttribution.method,
         ),
     );
   }
@@ -63,10 +97,14 @@ export class DocumentAttributionRequests {
     documentId: string,
     options: ListDocumentEditAttributionRangesOptions = {},
   ) {
-    const path = documentAttributionRangesPath(documentId, options);
+    const path = listDocumentAttributionRanges.path(documentId, options);
     const cacheKey = `${this.generation(documentId)}\u0000${path}`;
     return dedupedRequest(this.rangesByPath, cacheKey, () =>
-      this.request(path, isListDocumentEditAttributionRangesResponse, "GET"),
+      this.request(
+        path,
+        listDocumentAttributionRanges.isResponse,
+        listDocumentAttributionRanges.method,
+      ),
     );
   }
 }

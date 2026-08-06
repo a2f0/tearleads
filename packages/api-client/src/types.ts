@@ -1,3 +1,4 @@
+import type { DocumentAttributionRangesQuery } from "@tearleads/validators/operation";
 import type {
   PrincipalPolicyBundleResponse,
   SyncWatermark,
@@ -11,11 +12,12 @@ export interface ListContainerDocumentsOptions {
   watermark?: SyncWatermark | null;
 }
 
-export interface ListDocumentEditAttributionRangesOptions {
-  cursor?: string | null;
-  expectedRevision?: number;
-  limit?: number;
-}
+export type ListDocumentEditAttributionRangesOptions = Omit<
+  DocumentAttributionRangesQuery,
+  "cursor"
+> & {
+  cursor?: DocumentAttributionRangesQuery["cursor"] | null;
+};
 
 export interface RequestResultOptions {
   readonly headers?: Record<string, string> | undefined;

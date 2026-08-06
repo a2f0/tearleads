@@ -1,4 +1,16 @@
+import { z } from "zod";
+import { documentAttributionCounterRangeRefinement } from "../documentAttributionRefinements";
 import { isPlainObject } from "../isPlainObject";
+import {
+  registerJsonSchemaRuntimeRefinements,
+  registerJsonSchemaView,
+} from "../jsonSchema";
+import {
+  arraySchema,
+  loosePlainObject,
+  nonEmptyStringSchema,
+  safeNonNegativeIntegerSchema,
+} from "../schema";
 import {
   hasArrayProperty,
   hasNumberProperty,
@@ -75,124 +87,127 @@ function isContainerDocumentSyncTombstone(
   );
 }
 
-export interface DocumentEditAttributionSegmentResponse {
-  peerId: string;
-  startCounter: number;
-  endCounter: number;
-  writerUserId: string;
-  writerKeyFingerprint: string;
-  authorityKind: "direct" | "baseline";
-}
+const DocumentEditAttributionSegmentShape = {
+  authorityKind: z.literal(["direct", "baseline"]),
+  endCounter: safeNonNegativeIntegerSchema,
+  peerId: nonEmptyStringSchema,
+  startCounter: safeNonNegativeIntegerSchema,
+  writerKeyFingerprint: nonEmptyStringSchema,
+  writerUserId: nonEmptyStringSchema,
+} as const;
 
-export interface DocumentEditAttributionRangeResponse
-  extends DocumentEditAttributionSegmentResponse {
-  updateId: string;
-}
+const DocumentEditAttributionSegmentResponseViewSchema = z.looseObject(
+  DocumentEditAttributionSegmentShape,
+);
 
-export interface DocumentEditAttributionResponse {
-  attributionRevision: number;
-  documentId: string;
-  segments: DocumentEditAttributionSegmentResponse[];
+export const DocumentEditAttributionSegmentResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    registerJsonSchemaView(
+      loosePlainObject(DocumentEditAttributionSegmentShape).refine(
+        (segment) => segment.startCounter < segment.endCounter,
+        { message: "Attribution segment start must precede its end" },
+      ),
+      DocumentEditAttributionSegmentResponseViewSchema,
+    ),
+    [documentAttributionCounterRangeRefinement],
+  );
+
+export type DocumentEditAttributionSegmentResponse = z.infer<
+  typeof DocumentEditAttributionSegmentResponseSchema
+>;
+
+const DocumentEditAttributionRangeShape = {
+  ...DocumentEditAttributionSegmentShape,
+  updateId: nonEmptyStringSchema,
+} as const;
+
+const DocumentEditAttributionRangeResponseViewSchema = z.looseObject(
+  DocumentEditAttributionRangeShape,
+);
+
+export const DocumentEditAttributionRangeResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    registerJsonSchemaView(
+      loosePlainObject(DocumentEditAttributionRangeShape).refine(
+        (range) => range.startCounter < range.endCounter,
+        { message: "Attribution range start must precede its end" },
+      ),
+      DocumentEditAttributionRangeResponseViewSchema,
+    ),
+    [documentAttributionCounterRangeRefinement],
+  );
+
+export type DocumentEditAttributionRangeResponse = z.infer<
+  typeof DocumentEditAttributionRangeResponseSchema
+>;
+
+export const DocumentEditAttributionResponseSchema = loosePlainObject({
+  attributionRevision: safeNonNegativeIntegerSchema,
+  documentId: nonEmptyStringSchema,
+  segments: arraySchema(DocumentEditAttributionSegmentResponseSchema),
   /** True when the compact interval list hit the API response safety limit. */
-  truncated?: boolean;
-}
+  truncated: z.boolean().optional(),
+});
 
-export interface ListDocumentEditAttributionRangesResponse {
-  attributionRevision: number;
-  documentId: string;
-  hasMore: boolean;
-  items: DocumentEditAttributionRangeResponse[];
-  nextCursor: string | null;
-}
+export type DocumentEditAttributionResponse = z.infer<
+  typeof DocumentEditAttributionResponseSchema
+>;
 
-function isNonnegativeSafeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
-}
+const DocumentEditAttributionRangesPageShape = {
+  attributionRevision: safeNonNegativeIntegerSchema,
+  documentId: nonEmptyStringSchema,
+  items: arraySchema(DocumentEditAttributionRangeResponseSchema, 500),
+} as const;
 
-function isDocumentEditAttributionSegmentResponse(
-  value: unknown,
-): value is DocumentEditAttributionSegmentResponse {
-  const authorityKind = isPlainObject(value)
-    ? Reflect.get(value, "authorityKind")
-    : undefined;
-  const startCounter = isPlainObject(value)
-    ? Reflect.get(value, "startCounter")
-    : undefined;
-  const endCounter = isPlainObject(value)
-    ? Reflect.get(value, "endCounter")
-    : undefined;
+const ListDocumentEditAttributionRangesResponseViewSchema = z.union([
+  loosePlainObject({
+    ...DocumentEditAttributionRangesPageShape,
+    hasMore: z.literal(true),
+    nextCursor: nonEmptyStringSchema,
+  }),
+  loosePlainObject({
+    ...DocumentEditAttributionRangesPageShape,
+    hasMore: z.literal(false),
+    nextCursor: z.null(),
+  }),
+]);
 
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "peerId") &&
-    value.peerId.length > 0 &&
-    isNonnegativeSafeInteger(startCounter) &&
-    isNonnegativeSafeInteger(endCounter) &&
-    startCounter < endCounter &&
-    hasStringProperty(value, "writerUserId") &&
-    value.writerUserId.length > 0 &&
-    hasStringProperty(value, "writerKeyFingerprint") &&
-    value.writerKeyFingerprint.length > 0 &&
-    (authorityKind === "direct" || authorityKind === "baseline")
+export const ListDocumentEditAttributionRangesResponseSchema =
+  registerJsonSchemaView(
+    loosePlainObject({
+      ...DocumentEditAttributionRangesPageShape,
+      hasMore: z.boolean(),
+      nextCursor: z.string().nullable(),
+    }).superRefine((page, context) => {
+      const cursorMatchesPage = page.hasMore
+        ? page.nextCursor !== null && page.nextCursor.length > 0
+        : page.nextCursor === null;
+      if (!cursorMatchesPage) {
+        context.addIssue({
+          code: "custom",
+          message: "Attribution range cursor must match the page state",
+          path: ["nextCursor"],
+        });
+      }
+    }),
+    ListDocumentEditAttributionRangesResponseViewSchema,
   );
-}
 
-function isDocumentEditAttributionRangeResponse(
-  value: unknown,
-): value is DocumentEditAttributionRangeResponse {
-  const updateId = isPlainObject(value)
-    ? Reflect.get(value, "updateId")
-    : undefined;
-  return (
-    isDocumentEditAttributionSegmentResponse(value) &&
-    typeof updateId === "string" &&
-    updateId.length > 0
-  );
-}
+export type ListDocumentEditAttributionRangesResponse = z.infer<
+  typeof ListDocumentEditAttributionRangesResponseSchema
+>;
 
 export function isDocumentEditAttributionResponse(
   value: unknown,
 ): value is DocumentEditAttributionResponse {
-  const truncated = isPlainObject(value)
-    ? Reflect.get(value, "truncated")
-    : undefined;
-  return (
-    isPlainObject(value) &&
-    isNonnegativeSafeInteger(Reflect.get(value, "attributionRevision")) &&
-    hasStringProperty(value, "documentId") &&
-    value.documentId.length > 0 &&
-    hasArrayProperty(value, "segments") &&
-    value.segments.every(isDocumentEditAttributionSegmentResponse) &&
-    (truncated === undefined || typeof truncated === "boolean")
-  );
+  return DocumentEditAttributionResponseSchema.safeParse(value).success;
 }
 
 export function isListDocumentEditAttributionRangesResponse(
   value: unknown,
 ): value is ListDocumentEditAttributionRangesResponse {
-  const attributionRevision = isPlainObject(value)
-    ? Reflect.get(value, "attributionRevision")
-    : undefined;
-  const nextCursor = isPlainObject(value)
-    ? Reflect.get(value, "nextCursor")
-    : undefined;
-  const hasMore = isPlainObject(value)
-    ? Reflect.get(value, "hasMore")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isNonnegativeSafeInteger(attributionRevision) &&
-    hasStringProperty(value, "documentId") &&
-    value.documentId.length > 0 &&
-    typeof hasMore === "boolean" &&
-    hasArrayProperty(value, "items") &&
-    value.items.length <= 500 &&
-    value.items.every(isDocumentEditAttributionRangeResponse) &&
-    (hasMore
-      ? typeof nextCursor === "string" && nextCursor.length > 0
-      : nextCursor === null)
-  );
+  return ListDocumentEditAttributionRangesResponseSchema.safeParse(value)
+    .success;
 }
 
 export function isListContainerDocumentsResponse(
