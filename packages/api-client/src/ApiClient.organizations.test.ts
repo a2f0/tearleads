@@ -17,6 +17,8 @@ import {
 import { ApiClient } from "./ApiClient";
 
 const dataUsageOrganizationId = "11111111-1111-4111-8111-111111111111";
+const organizationGroupId = "22222222-2222-4222-8222-222222222222";
+const organizationRosterUserId = "33333333-3333-4333-8333-333333333333";
 
 function organizationDataUsageResponse() {
   return {
@@ -164,7 +166,7 @@ testApiClient(
             members: [],
           });
         }
-        if (request.url.endsWith("/roster/user-1")) {
+        if (request.url.endsWith(`/roster/${organizationRosterUserId}`)) {
           return HttpResponse.json({
             userId: "user-1",
             signingKeyFingerprint: "signing-fingerprint",
@@ -224,23 +226,34 @@ testApiClient(
       (await client.getOrganizationDataUsageResult(dataUsageOrganizationId)).ok,
     ).toBe(true);
     expect(
-      await client.updateOrganizationRosterEntry("org-1", "user-1", {
+      await client.updateOrganizationRosterEntry(
+        dataUsageOrganizationId,
+        organizationRosterUserId,
+        { profileDocumentId: null },
+      ),
+    ).not.toBeNull();
+    expect(
+      await client.updateOrganizationProfile(dataUsageOrganizationId, {
         profileDocumentId: null,
       }),
     ).not.toBeNull();
     expect(
-      await client.updateOrganizationProfile("org-1", {
-        profileDocumentId: null,
-      }),
+      await client.createOrganizationGroup(
+        dataUsageOrganizationId,
+        groupRequest,
+      ),
     ).not.toBeNull();
     expect(
-      await client.createOrganizationGroup("org-1", groupRequest),
+      await client.deleteOrganizationGroup(
+        dataUsageOrganizationId,
+        organizationGroupId,
+      ),
     ).not.toBeNull();
     expect(
-      await client.deleteOrganizationGroup("org-1", "group-1"),
-    ).not.toBeNull();
-    expect(
-      await client.listOrganizationGroupMembers("org-1", "group-1"),
+      await client.listOrganizationGroupMembers(
+        dataUsageOrganizationId,
+        organizationGroupId,
+      ),
     ).not.toBeNull();
     expect(
       await client.putPrincipalPolicy("group", "group-1", policyRequest),
@@ -260,27 +273,27 @@ testApiClient(
       },
       {
         body: JSON.stringify({ profileDocumentId: null }),
-        input: `${apiBaseUrl}/organizations/org-1/roster/user-1`,
+        input: `${apiBaseUrl}/organizations/${dataUsageOrganizationId}/roster/${organizationRosterUserId}`,
         method: "PUT",
       },
       {
         body: JSON.stringify({ profileDocumentId: null }),
-        input: `${apiBaseUrl}/organizations/org-1/profile`,
+        input: `${apiBaseUrl}/organizations/${dataUsageOrganizationId}/profile`,
         method: "PUT",
       },
       {
         body: JSON.stringify(groupRequest),
-        input: `${apiBaseUrl}/organizations/org-1/groups`,
+        input: `${apiBaseUrl}/organizations/${dataUsageOrganizationId}/groups`,
         method: "POST",
       },
       {
         body: "",
-        input: `${apiBaseUrl}/organizations/org-1/groups/group-1`,
+        input: `${apiBaseUrl}/organizations/${dataUsageOrganizationId}/groups/${organizationGroupId}`,
         method: "DELETE",
       },
       {
         body: null,
-        input: `${apiBaseUrl}/organizations/org-1/groups/group-1/members`,
+        input: `${apiBaseUrl}/organizations/${dataUsageOrganizationId}/groups/${organizationGroupId}/members`,
         method: "GET",
       },
       {

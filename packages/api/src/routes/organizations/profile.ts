@@ -1,12 +1,15 @@
-import { isUpdateOrganizationProfileRequest } from "@tearleads/validators/request";
+import {
+  operationRoutePath,
+  updateOrganizationProfileOperation,
+} from "@tearleads/validators/operation";
 import type { OrganizationProfileResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
-import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
 import { updateOrganizationProfile } from "../../services/organizations/orgManager";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
+import { pathParamsValidator } from "../../validators/pathParams";
 import {
   type OrganizationsRouterDeps,
-  parseOrganizationId,
   toOrganizationManagerErrorResponse,
 } from "./shared";
 
@@ -16,21 +19,17 @@ export function createOrganizationProfileRoute({
 }: OrganizationsRouterDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.put(
-    "/organizations/:organizationId/profile",
+  route.on(
+    updateOrganizationProfileOperation.method,
+    operationRoutePath(updateOrganizationProfileOperation),
     requireAuth,
-    validator("json", (value, c) => {
-      if (!isUpdateOrganizationProfileRequest(value)) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-
-      return value;
-    }),
+    jsonRequestValidator(updateOrganizationProfileOperation.body),
+    pathParamsValidator(
+      updateOrganizationProfileOperation.params,
+      "Invalid organizationId",
+    ),
     async (c) => {
-      const organizationId = parseOrganizationId(c.req.param("organizationId"));
-      if (!organizationId) {
-        return c.json({ error: "Invalid organizationId" }, 400);
-      }
+      const { organizationId } = c.req.valid("param");
 
       try {
         return c.json<OrganizationProfileResponse>(

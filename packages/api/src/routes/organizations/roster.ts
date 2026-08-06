@@ -1,13 +1,15 @@
-import { isUpdateOrganizationRosterEntryRequest } from "@tearleads/validators/request";
+import {
+  operationRoutePath,
+  updateOrganizationRosterEntryOperation,
+} from "@tearleads/validators/operation";
 import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
-import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
 import { updateOrganizationRosterEntry } from "../../services/organizations/orgManager";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
+import { pathParamsValidator } from "../../validators/pathParams";
 import {
   type OrganizationsRouterDeps,
-  parseOrganizationId,
-  parseUserId,
   toOrganizationManagerErrorResponse,
 } from "./shared";
 
@@ -17,22 +19,17 @@ export function createOrganizationRosterRoute({
 }: OrganizationsRouterDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.put(
-    "/organizations/:organizationId/roster/:userId",
+  route.on(
+    updateOrganizationRosterEntryOperation.method,
+    operationRoutePath(updateOrganizationRosterEntryOperation),
     requireAuth,
-    validator("json", (value, c) => {
-      if (!isUpdateOrganizationRosterEntryRequest(value)) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-
-      return value;
-    }),
+    jsonRequestValidator(updateOrganizationRosterEntryOperation.body),
+    pathParamsValidator(
+      updateOrganizationRosterEntryOperation.params,
+      "Invalid roster route",
+    ),
     async (c) => {
-      const organizationId = parseOrganizationId(c.req.param("organizationId"));
-      const userId = parseUserId(c.req.param("userId"));
-      if (!organizationId || !userId) {
-        return c.json({ error: "Invalid roster route" }, 400);
-      }
+      const { organizationId, userId } = c.req.valid("param");
 
       try {
         return c.json<OrganizationDirectoryUserResponse>(

@@ -1,19 +1,22 @@
-import { isCreateOrganizationGroupRequest } from "@tearleads/validators/request";
+import {
+  createOrganizationGroupOperation,
+  deleteOrganizationGroupOperation,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
 import type {
   DeleteOrganizationGroupResponse,
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
 import { Hono } from "hono";
-import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
 import {
   createOrganizationGroup,
   deleteOrganizationGroup,
 } from "../../services/organizations/orgManager";
+import { jsonRequestValidator } from "../../validators/jsonRequest";
+import { pathParamsValidator } from "../../validators/pathParams";
 import {
   type OrganizationsRouterDeps,
-  parseGroupId,
-  parseOrganizationId,
   toOrganizationManagerErrorResponse,
 } from "./shared";
 
@@ -23,21 +26,17 @@ export function createOrganizationMutationsRoute({
 }: OrganizationsRouterDeps) {
   const route = new Hono<SessionEnv>();
 
-  route.post(
-    "/organizations/:organizationId/groups",
+  route.on(
+    createOrganizationGroupOperation.method,
+    operationRoutePath(createOrganizationGroupOperation),
     requireAuth,
-    validator("json", (value, c) => {
-      if (!isCreateOrganizationGroupRequest(value)) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-
-      return value;
-    }),
+    jsonRequestValidator(createOrganizationGroupOperation.body),
+    pathParamsValidator(
+      createOrganizationGroupOperation.params,
+      "Invalid organizationId",
+    ),
     async (c) => {
-      const organizationId = parseOrganizationId(c.req.param("organizationId"));
-      if (!organizationId) {
-        return c.json({ error: "Invalid organizationId" }, 400);
-      }
+      const { organizationId } = c.req.valid("param");
 
       try {
         return c.json<OrganizationGroupSummaryResponse>(
@@ -59,15 +58,16 @@ export function createOrganizationMutationsRoute({
     },
   );
 
-  route.delete(
-    "/organizations/:organizationId/groups/:groupId",
+  route.on(
+    deleteOrganizationGroupOperation.method,
+    operationRoutePath(deleteOrganizationGroupOperation),
     requireAuth,
+    pathParamsValidator(
+      deleteOrganizationGroupOperation.params,
+      "Invalid organization group route",
+    ),
     async (c) => {
-      const organizationId = parseOrganizationId(c.req.param("organizationId"));
-      const groupId = parseGroupId(c.req.param("groupId"));
-      if (!organizationId || !groupId) {
-        return c.json({ error: "Invalid organization group route" }, 400);
-      }
+      const { groupId, organizationId } = c.req.valid("param");
 
       try {
         return c.json<DeleteOrganizationGroupResponse>(

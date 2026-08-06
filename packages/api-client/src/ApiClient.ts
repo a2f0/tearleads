@@ -36,8 +36,6 @@ import {
   isContainerKekLogResponse,
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,
-  isCreateOrganizationGroupResponse,
-  isDeleteOrganizationGroupResponse,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeResponse,
@@ -50,9 +48,6 @@ import {
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
   isOrganizationBillingResponse,
-  isOrganizationDirectoryUserResponse,
-  isOrganizationGroupMembersResponse,
-  isOrganizationProfileResponse,
   isOrganizationReadModelResponse,
   isPrincipalPolicyBundleResponse,
   isStripeCancelResponse,
@@ -104,8 +99,13 @@ import { containerDocsPath } from "./routes/containers/queryParams";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
 import { documentSync as sync } from "./routes/documents/sync";
 import { createOrganization as organizationCreate } from "./routes/organizations/create";
+import { createOrganizationGroup as groupCreate } from "./routes/organizations/createGroup";
 import { getOrganizationDataUsage as organizationDataUsage } from "./routes/organizations/dataUsage";
+import { deleteOrganizationGroup as groupDelete } from "./routes/organizations/deleteGroup";
+import { listOrganizationGroupMembers as groupMembers } from "./routes/organizations/groupMembers";
+import { updateOrganizationProfile as profileUpdate } from "./routes/organizations/profile";
 import { organizationReadModelPath } from "./routes/organizations/readModelPath";
+import { updateOrganizationRosterEntry as rosterUpdate } from "./routes/organizations/roster";
 import { pathSegment } from "./routes/path";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import type {
@@ -956,9 +956,9 @@ export class ApiClient {
     input: UpdateOrganizationRosterEntryRequest,
   ) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/roster/${pathSegment(userId)}`,
-      isOrganizationDirectoryUserResponse,
-      "PUT",
+      rosterUpdate.path(organizationId, userId),
+      rosterUpdate.isResponse,
+      rosterUpdate.method,
       JSON.stringify(input),
     );
   }
@@ -968,9 +968,9 @@ export class ApiClient {
     input: UpdateOrganizationProfileRequest,
   ) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/profile`,
-      isOrganizationProfileResponse,
-      "PUT",
+      profileUpdate.path(organizationId),
+      profileUpdate.isResponse,
+      profileUpdate.method,
       JSON.stringify(input),
     );
   }
@@ -980,26 +980,26 @@ export class ApiClient {
     input: CreateOrganizationGroupRequest,
   ) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/groups`,
-      isCreateOrganizationGroupResponse,
-      "POST",
+      groupCreate.path(organizationId),
+      groupCreate.isResponse,
+      groupCreate.method,
       JSON.stringify(input),
     );
   }
 
   deleteOrganizationGroup(organizationId: string, groupId: string) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/groups/${pathSegment(groupId)}`,
-      isDeleteOrganizationGroupResponse,
-      "DELETE",
+      groupDelete.path(organizationId, groupId),
+      groupDelete.isResponse,
+      groupDelete.method,
     ).finally(() => this.clearWriterProjectionCaches());
   }
 
   listOrganizationGroupMembers(organizationId: string, groupId: string) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/groups/${pathSegment(groupId)}/members`,
-      isOrganizationGroupMembersResponse,
-      "GET",
+      groupMembers.path(organizationId, groupId),
+      groupMembers.isResponse,
+      groupMembers.method,
     );
   }
 

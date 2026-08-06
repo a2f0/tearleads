@@ -1,4 +1,6 @@
+import { z } from "zod";
 import { isPlainObject } from "../isPlainObject";
+import { loosePlainObject } from "../schema";
 import {
   hasArrayProperty,
   hasBooleanProperty,
@@ -113,23 +115,20 @@ export function isOrganizationBillingResponse(
  * sync. Carries the target organization and whether billing or the caller's
  * seat assignment blocked the write.
  */
-export interface PaymentRequiredErrorResponse {
-  error: string;
-  organizationId: string;
-  reason: "billing_inactive" | "sync_seat_unassigned";
-}
+export const PaymentRequiredErrorResponseSchema = loosePlainObject({
+  error: z.string(),
+  organizationId: z.string(),
+  reason: z.literal(["billing_inactive", "sync_seat_unassigned"]),
+});
+
+export type PaymentRequiredErrorResponse = z.infer<
+  typeof PaymentRequiredErrorResponseSchema
+>;
 
 export function isPaymentRequiredErrorResponse(
   value: unknown,
 ): value is PaymentRequiredErrorResponse {
   // Keep the reason mandatory for the same flag-day contract: a caller must be
   // able to distinguish an inactive organization from an unassigned user.
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "error") &&
-    hasStringProperty(value, "organizationId") &&
-    hasStringProperty(value, "reason") &&
-    (value.reason === "billing_inactive" ||
-      value.reason === "sync_seat_unassigned")
-  );
+  return PaymentRequiredErrorResponseSchema.safeParse(value).success;
 }
