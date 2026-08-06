@@ -10,6 +10,8 @@ import {
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
 
+const stageId = "11111111-1111-4111-8111-111111111111";
+
 testApiClient("uses blob multipart stage route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
@@ -22,7 +24,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
           completed: false,
           expiresAt: "2026-05-18T12:00:00.000Z",
           sha256: "sha256-1",
-          stageId: "stage-1",
+          stageId,
           uploadId: "upload-1",
           uploadedParts: [{ byteLength: 6, etag: "etag-1", partNumber: 1 }],
         });
@@ -30,7 +32,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
       if (request.method === "PUT") {
         return HttpResponse.json({
           part: { byteLength: 6, etag: "etag-1", partNumber: 1 },
-          stageId: "stage-1",
+          stageId,
           uploadId: "upload-1",
         });
       }
@@ -39,7 +41,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
           byteLength: 12,
           expiresAt: "2026-05-18T12:00:00.000Z",
           sha256: "sha256-1",
-          stageId: "stage-1",
+          stageId,
         });
       }
 
@@ -47,7 +49,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
         byteLength: 12,
         expiresAt: "2026-05-18T12:00:00.000Z",
         sha256: "sha256-1",
-        stageId: "stage-1",
+        stageId,
         uploadId: "upload-1",
         uploadedParts: [],
       });
@@ -71,12 +73,12 @@ testApiClient("uses blob multipart stage route namespace", async () => {
   expect(
     await client.initiateMultipartBlobStage(initiateRequest),
   ).not.toBeNull();
-  expect(await client.getMultipartBlobStage("stage-1")).not.toBeNull();
+  expect(await client.getMultipartBlobStage(stageId)).not.toBeNull();
   expect(
-    await client.uploadMultipartBlobPartBytes("stage-1", 1, partBytesRequest),
+    await client.uploadMultipartBlobPartBytes(stageId, 1, partBytesRequest),
   ).not.toBeNull();
   expect(
-    await client.completeMultipartBlobStage("stage-1", completeRequest),
+    await client.completeMultipartBlobStage(stageId, completeRequest),
   ).not.toBeNull();
 
   expect(
@@ -93,17 +95,17 @@ testApiClient("uses blob multipart stage route namespace", async () => {
     },
     {
       body: null,
-      input: `${apiBaseUrl}/blobs/stages/multipart/stage-1`,
+      input: `${apiBaseUrl}/blobs/stages/multipart/${stageId}`,
       method: "GET",
     },
     {
       body: "part-2",
-      input: `${apiBaseUrl}/blobs/stages/multipart/stage-1/parts/1/bytes`,
+      input: `${apiBaseUrl}/blobs/stages/multipart/${stageId}/parts/1/bytes`,
       method: "PUT",
     },
     {
       body: JSON.stringify(completeRequest),
-      input: `${apiBaseUrl}/blobs/stages/multipart/stage-1/complete`,
+      input: `${apiBaseUrl}/blobs/stages/multipart/${stageId}/complete`,
       method: "POST",
     },
   ]);
@@ -115,7 +117,7 @@ testApiClient(
   async () => {
     server.use(
       http.put(
-        `${apiBaseUrl}/blobs/stages/multipart/stage-1/parts/2/bytes`,
+        `${apiBaseUrl}/blobs/stages/multipart/${stageId}/parts/2/bytes`,
         () =>
           HttpResponse.json(
             { error: "Blob sha256 does not match multipart upload" },
@@ -128,7 +130,7 @@ testApiClient(
     const encryptedPartBytes = new TextEncoder().encode("part-2");
 
     await expect(
-      client.uploadMultipartBlobPartBytes("stage-1", 2, {
+      client.uploadMultipartBlobPartBytes(stageId, 2, {
         byteLength: encryptedPartBytes.byteLength,
         encryptedBytes: encryptedPartBytes,
         sha256:
@@ -139,10 +141,10 @@ testApiClient(
     expect(
       client.getRequestFailure({
         method: "PUT",
-        path: "/blobs/stages/multipart/stage-1/parts/2/bytes",
+        path: `/blobs/stages/multipart/${stageId}/parts/2/bytes`,
       })?.message,
     ).toBe(
-      "PUT /blobs/stages/multipart/stage-1/parts/2/bytes: 409 Conflict: Blob sha256 does not match multipart upload",
+      `PUT /blobs/stages/multipart/${stageId}/parts/2/bytes: 409 Conflict: Blob sha256 does not match multipart upload`,
     );
   },
 );

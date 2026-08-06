@@ -15,6 +15,8 @@ import {
 import { isUuidV4String, UUID_V4_PATTERN } from "./util/uuid";
 
 const LOWERCASE_HEX_PATTERN = "^[0-9a-f]+$";
+const UUID_PATTERN =
+  "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$";
 
 export const sha256HexStringSchema = registerJsonSchemaFragment(
   z.custom<string>(isSha256HexString),
@@ -42,6 +44,15 @@ export const uuidV4StringSchema = registerJsonSchemaFragment(
   ),
   {
     pattern: UUID_V4_PATTERN.source,
+    type: "string",
+  },
+);
+
+/** Accepts RFC 4122 UUID versions 1-5, matching the API's legacy route guard. */
+export const uuidStringSchema = registerJsonSchemaFragment(
+  z.string().regex(new RegExp(UUID_PATTERN, "u")),
+  {
+    pattern: UUID_PATTERN,
     type: "string",
   },
 );
