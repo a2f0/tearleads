@@ -15,7 +15,12 @@ import { respondToOrganizationProvisioning } from "../../../test/helpers/organiz
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
-import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import {
+  createExecSql,
+  type ExecSql,
+  type ExecSqlClientLike,
+  runSerializedSqlMutation,
+} from "../../data/sqlite/sqlSchema";
 import { listPendingWrites } from "../container-contents/pendingWrites";
 import { deriveContainerSystemSlot } from "../container-contents/systemSlot";
 import { createOrganization } from "./createOrganization";
@@ -404,28 +409,56 @@ test("createOrganization persists nothing when the identity goes stale in-flight
     "organizations-create-organization-inflight-stale-test",
   );
   let captured: CreateOrganizationRequest | null = null;
-  // Call 1 passes the pre-create check and call 2 the pre-persist check; the
-  // identity is replaced while persistence waits for the mutation queue, so
-  // the in-mutex currency check (call 3+) sees it stale.
   let identityProbes = 0;
 
   try {
-    const response = await createOrganization({
+    const client = createClient(execSql);
+    // Genuinely hold the mutation queue the bootstrap persist serializes on:
+    // the pre-create and pre-persist checks (probes 1 and 2) pass while the
+    // queue is busy, the identity is replaced while the persist waits, and
+    // only the in-mutex currency check sees it stale.
+    const workflowExecSql = createExecSql(client);
+    let releaseHold!: () => void;
+    const held = new Promise<void>((resolve) => {
+      releaseHold = resolve;
+    });
+    let holdEntered!: () => void;
+    const holdStarted = new Promise<void>((resolve) => {
+      holdEntered = resolve;
+    });
+    const holding = runSerializedSqlMutation(workflowExecSql, async () => {
+      holdEntered();
+      await held;
+    });
+    await holdStarted;
+
+    let identityCurrent = true;
+    const creation = createOrganization({
       apiClient: {
         createOrganization: async (request) => {
           captured = request;
           return respondToOrganizationProvisioning(request);
         },
       },
-      dbClient: createClient(execSql),
+      dbClient: client,
       encapsulationKeyPair,
       isIdentityCurrent: () => {
         identityProbes += 1;
-        return identityProbes <= 2;
+        return identityCurrent;
       },
       signingKeyPair,
       userId: crypto.randomUUID(),
     });
+
+    // Both pre-persist probes must pass before the replacement lands, so the
+    // in-mutex check is the one that catches it.
+    while (identityProbes < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
+    identityCurrent = false;
+    releaseHold();
+    await holding;
+    const response = await creation;
 
     // The remote organization exists, but no stale bootstrap row may reach
     // the local database the replacement identity now owns.
