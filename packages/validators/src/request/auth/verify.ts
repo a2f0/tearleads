@@ -1,23 +1,18 @@
-import { isPlainObject } from "../../isPlainObject";
+import type { z } from "zod";
 import {
-  hasArrayProperty,
-  hasStringProperty,
-  isByteArrayOfLength,
-  isSha256HexString,
-  ML_DSA87_SIGNATURE_BYTES,
-} from "../../util";
+  fixedLengthByteArraySchema,
+  loosePlainObject,
+  sha256HexStringSchema,
+} from "../../schema";
+import { ML_DSA87_SIGNATURE_BYTES } from "../../util";
 
-export interface VerifyRequest {
-  fingerprint: string;
-  signature: number[];
-}
+export const VerifyRequestSchema = loosePlainObject({
+  fingerprint: sha256HexStringSchema,
+  signature: fixedLengthByteArraySchema(ML_DSA87_SIGNATURE_BYTES),
+});
+
+export type VerifyRequest = z.infer<typeof VerifyRequestSchema>;
 
 export function isVerifyRequest(value: unknown): value is VerifyRequest {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "fingerprint") &&
-    isSha256HexString(value.fingerprint) &&
-    hasArrayProperty(value, "signature") &&
-    isByteArrayOfLength(value.signature, ML_DSA87_SIGNATURE_BYTES)
-  );
+  return VerifyRequestSchema.safeParse(value).success;
 }

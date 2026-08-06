@@ -8,7 +8,7 @@ import {
 import { DocumentSyncRequestSchema } from "../request";
 import { DocumentSyncResponseSchema } from "../response";
 import { documentSyncOperation } from "./documentSync";
-import { documentSyncOpenApiDocument } from "./openApi";
+import { openApiDocument } from "./openApi";
 import {
   createSyncRequest,
   createSyncResponse,
@@ -90,7 +90,7 @@ const witnesses = {
   },
 } satisfies Record<RuntimeRefinementId, RefinementWitness>;
 
-const syncPost = documentSyncOpenApiDocument.paths[SYNC_PATH]?.post;
+const syncPost = openApiDocument.paths[SYNC_PATH]?.post;
 const requestSchema = syncPost?.requestBody.content["application/json"].schema;
 const responseSchema =
   syncPost?.responses["200"]?.content?.["application/json"].schema;

@@ -10,6 +10,7 @@ import {
   submitRegistration,
 } from "../../../test/helpers/api";
 import { del } from "../../adapters/redis";
+import { routeApp } from "../../routeApp";
 
 const signingKeys = generateSigningSeedAndKeyPair();
 const kemKeys = generateKemSeedAndKeyPair();
@@ -39,4 +40,15 @@ test("returns a challenge for a known fingerprint", async () => {
 test("returns 404 for an unknown fingerprint", async () => {
   const res = await requestChallenge("0".repeat(64));
   expect(res.status).toBe(404);
+});
+
+test("rejects malformed challenge requests through the shared schema", async () => {
+  const res = await routeApp.request("/auth/challenge", {
+    body: JSON.stringify({ fingerprint: "not-a-fingerprint" }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ error: "Invalid request" });
 });

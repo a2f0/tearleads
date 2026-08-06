@@ -8,7 +8,9 @@ export {
 } from "./accessLevel";
 export {
   type ChallengeErrorResponse,
+  ChallengeErrorResponseSchema,
   type ChallengeResponse,
+  ChallengeResponseSchema,
   type DestroySessionResponse,
   isChallengeErrorResponse,
   isChallengeResponse,
@@ -20,7 +22,11 @@ export {
   type ListSessionsResponse,
   type UserIdentityResponse,
   type UserSessionResponse,
+  type VerifyFailureResponse,
+  VerifyFailureResponseSchema,
   type VerifyResponse,
+  type VerifySuccessResponse,
+  VerifySuccessResponseSchema,
 } from "./auth";
 export {
   type BlobAttachmentBindResponse,

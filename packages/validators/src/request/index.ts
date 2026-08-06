@@ -1,9 +1,11 @@
 export type { AccessManifestBundleWire } from "../util/accessManifestBundle";
 export {
   type ChallengeRequest,
+  ChallengeRequestSchema,
   isChallengeRequest,
   isVerifyRequest,
   type VerifyRequest,
+  VerifyRequestSchema,
 } from "./auth";
 export {
   type BlobAttachmentBindRequest,

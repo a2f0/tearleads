@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { isRegistrationResponse, isVerifyResponse } from "./index";
+import {
+  isRegistrationResponse,
+  isVerifyResponse,
+  VerifyFailureResponseSchema,
+  VerifySuccessResponseSchema,
+} from "./index";
 
 const VALID_CHALLENGE = "a".repeat(64);
 
@@ -110,21 +115,31 @@ test("isRegistrationResponse", () => {
 });
 
 test("isVerifyResponse", () => {
+  const successResponse = {
+    authenticated: true as const,
+    extension: true,
+    organizationId: "org-1",
+    token: "abc123",
+    userId: "user-1",
+  };
+  const successResult = VerifySuccessResponseSchema.safeParse(successResponse);
+  expect(successResult.success).toBe(true);
+  expect(successResult.success && successResult.data).toBe(successResponse);
+  const failureResponse = {
+    authenticated: false as const,
+    error: "bad sig",
+    extension: true,
+  };
+  const failureResult = VerifyFailureResponseSchema.safeParse(failureResponse);
+  expect(failureResult.success).toBe(true);
+  expect(failureResult.success && failureResult.data).toBe(failureResponse);
+
   expect(isVerifyResponse({ authenticated: true })).toBe(false);
-  expect(
-    isVerifyResponse({
-      authenticated: true,
-      organizationId: "org-1",
-      token: "abc123",
-      userId: "user-1",
-    }),
-  ).toBe(true);
+  expect(isVerifyResponse(successResponse)).toBe(true);
   expect(isVerifyResponse({ authenticated: true, token: "abc123" })).toBe(
     false,
   );
-  expect(isVerifyResponse({ authenticated: false, error: "bad sig" })).toBe(
-    true,
-  );
+  expect(isVerifyResponse(failureResponse)).toBe(true);
   expect(isVerifyResponse({ authenticated: false })).toBe(true);
   expect(isVerifyResponse({ authenticated: false, token: "abc123" })).toBe(
     false,

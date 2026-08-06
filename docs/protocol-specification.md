@@ -20,10 +20,17 @@ delegate to them. `documentSyncOperation` owns method, auth, parameters,
 statuses, and the canonical path. Parsing never coerces, defaults, strips, or
 replaces signed input.
 
+Auth challenge and verification use the same contract path:
+`ChallengeRequestSchema`, `VerifyRequestSchema`, and their response schemas are
+the runtime wire grammar, while `challengeOperation` and `verifyOperation` own
+their HTTP metadata. Legacy predicates remain compatibility wrappers over the
+schemas for API client and SDK consumers.
+
 [`openapi.json`](./openapi.json) and checked generated TypeScript are structural
-views. Zod remains runtime authority; each `x-tearleads-runtime-refinements` gap
-needs an executable OpenAPI-accepts/Zod-rejects witness. Crypto, transactions,
-convergence, and formal guarantees remain separate.
+views of the operations migrated into the registry. Zod remains runtime
+authority; each `x-tearleads-runtime-refinements` gap needs an executable
+OpenAPI-accepts/Zod-rejects witness. Crypto, transactions, convergence, and
+formal guarantees remain separate.
 
 Related documents:
 
