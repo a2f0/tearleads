@@ -1,13 +1,14 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
+import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import {
   initializeStoredDocumentKind,
   writeStoredDocumentFields,
 } from "../../data/documents/documentKinds";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
 
-export const ORGANIZATION_PROFILE_DOCUMENT_KIND = "organization_profile";
+export { ORGANIZATION_PROFILE_DOCUMENT_KIND };
 export const DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME = "Personal Org";
 
 export function getOrganizationProfileDocumentLocalId(input: {
