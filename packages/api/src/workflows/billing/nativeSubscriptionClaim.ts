@@ -20,6 +20,7 @@ import type { ActiveNativeSubscription } from "../../billing/revenueCatApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
+import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
 
@@ -320,19 +321,17 @@ export async function runAuthorizeNativeSubscriptionClaimWorkflow(
   organizationId: string,
   sessionUserId: string,
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
-      executor: tx,
-      organizationId,
-      requireAdmin: true,
-      userId: sessionUserId,
-    });
-    await requirePersonalOrganization({
-      executor: tx,
-      organizationId,
-      userId: sessionUserId,
-    });
-  });
+  await withOrganizationAdminTransaction(
+    db,
+    { organizationId, userId: sessionUserId },
+    async (tx) => {
+      await requirePersonalOrganization({
+        executor: tx,
+        organizationId,
+        userId: sessionUserId,
+      });
+    },
+  );
 }
 
 /** A transfer webhook arrived before the signed-in claim established intent. */

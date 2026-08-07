@@ -12,7 +12,7 @@ import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billin
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import type { OrganizationBillingHistoryEvent } from "../../billing/organizationBilling";
 import { isRevenueCatGrantEventType } from "../../billing/revenuecatWebhook";
-import { requireDirectOrganizationAccess } from "../organizations/access";
+import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
 import { isRecognizedNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 
 /** Newest merged events returned to a client; older audit rows stay durable. */
@@ -441,55 +441,52 @@ export async function runGetOrganizationBillingHistoryWorkflow(
   organizationId: string,
   sessionUserId: string,
 ): Promise<OrganizationBillingHistoryEvent[]> {
-  return db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
-      executor: tx,
-      organizationId,
-      requireAdmin: true,
-      userId: sessionUserId,
-    });
+  return withOrganizationAdminTransaction(
+    db,
+    { organizationId, userId: sessionUserId },
+    async (tx) => {
+      const lifecycleRows = await loadLifecycleHistory(tx, organizationId);
+      const internalLifecycleRows = await loadInternalLifecycleHistory(
+        tx,
+        organizationId,
+      );
+      const seatRows = await loadSeatHistory(tx, organizationId);
+      const invoiceRows = await loadInvoiceHistory(tx, organizationId);
+      const lifecycleProviderEventIds = new Set(
+        lifecycleRows.map((row) => row.providerEventId),
+      );
+      const internalLifecycleSourceIds = new Set(
+        internalLifecycleRows.map((row) => row.sourceId),
+      );
+      const lifecycleSeatRows = await loadLifecycleSeatHistory(
+        tx,
+        organizationId,
+        [...lifecycleProviderEventIds],
+      );
+      const seatsByProviderEventId = correlatedSeatRows(lifecycleSeatRows);
+      const lifecycleEvents = projectLifecycleHistory(
+        lifecycleRows,
+        seatsByProviderEventId,
+        organizationId,
+      );
+      const internalLifecycleEvents = projectInternalLifecycleHistory(
+        internalLifecycleRows,
+      );
+      const seatEvents = projectSeatHistory(
+        seatRows,
+        lifecycleProviderEventIds,
+        internalLifecycleSourceIds,
+      );
+      const invoiceEvents = projectInvoiceHistory(invoiceRows);
 
-    const lifecycleRows = await loadLifecycleHistory(tx, organizationId);
-    const internalLifecycleRows = await loadInternalLifecycleHistory(
-      tx,
-      organizationId,
-    );
-    const seatRows = await loadSeatHistory(tx, organizationId);
-    const invoiceRows = await loadInvoiceHistory(tx, organizationId);
-    const lifecycleProviderEventIds = new Set(
-      lifecycleRows.map((row) => row.providerEventId),
-    );
-    const internalLifecycleSourceIds = new Set(
-      internalLifecycleRows.map((row) => row.sourceId),
-    );
-    const lifecycleSeatRows = await loadLifecycleSeatHistory(
-      tx,
-      organizationId,
-      [...lifecycleProviderEventIds],
-    );
-    const seatsByProviderEventId = correlatedSeatRows(lifecycleSeatRows);
-    const lifecycleEvents = projectLifecycleHistory(
-      lifecycleRows,
-      seatsByProviderEventId,
-      organizationId,
-    );
-    const internalLifecycleEvents = projectInternalLifecycleHistory(
-      internalLifecycleRows,
-    );
-    const seatEvents = projectSeatHistory(
-      seatRows,
-      lifecycleProviderEventIds,
-      internalLifecycleSourceIds,
-    );
-    const invoiceEvents = projectInvoiceHistory(invoiceRows);
-
-    return [
-      ...lifecycleEvents,
-      ...internalLifecycleEvents,
-      ...seatEvents,
-      ...invoiceEvents,
-    ]
-      .sort(compareHistoryEvents)
-      .slice(0, BILLING_HISTORY_EVENT_LIMIT);
-  });
+      return [
+        ...lifecycleEvents,
+        ...internalLifecycleEvents,
+        ...seatEvents,
+        ...invoiceEvents,
+      ]
+        .sort(compareHistoryEvents)
+        .slice(0, BILLING_HISTORY_EVENT_LIMIT);
+    },
+  );
 }

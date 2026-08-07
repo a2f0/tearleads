@@ -86,3 +86,25 @@
 - Decision notes: accepted because the factories own only the repeated provider
   and projection envelopes while each document type continues to supply its
   domain component, reader, metadata, and title fallback.
+
+### 2026-08-07 - Organization admin transactions
+
+- Status: accepted
+- Classification: exact duplication
+- Equivalence claim: each migrated workflow still starts one database
+  transaction, requires direct organization-admin access before its workflow
+  body, uses that transaction for every subsequent query and lock, and
+  propagates the same return values and errors.
+- Risk notes: authorization order and transaction identity, especially the
+  principal-lock sequence in group deletion.
+- Files changed: organization mutation access, group deletion, and billing
+  workflow callers.
+- Baseline: the full API memory and SQLite matrix passed at `4ba6a5d6`.
+- Verification: TypeScript, architecture, source-shape, and the full API memory
+  and SQLite matrix pass after the refactor.
+- Delta: seven duplicated transaction/admin preambles replaced by one helper;
+  15 production lines added net because the callback boundary adds explicit
+  nesting at each call site.
+- Decision notes: centralize only the exact immediate-admin-gate shape in
+  `withOrganizationAdminTransaction`; distinct conditional and serialized
+  authorization flows remain local.
