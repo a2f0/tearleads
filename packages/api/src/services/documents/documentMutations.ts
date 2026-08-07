@@ -11,30 +11,25 @@ import {
   runPurgeDocumentWorkflow,
   type SyncDocumentInput,
 } from "../../workflows/documents/mutations";
+import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { DocumentMutationError } from "../../workflows/documents/mutations";
 
-export async function createDocument(
-  runtime: ApiServiceRuntime,
-  input: CreateDocumentInput,
-): Promise<DocumentCreateResponse> {
-  return runCreateDocumentWorkflow(runtime.db, input);
-}
+export const createDocument = createDatabaseWorkflowService<
+  CreateDocumentInput,
+  DocumentCreateResponse
+>(runCreateDocumentWorkflow);
 
-export async function mutateDocumentLinkSet(
-  runtime: ApiServiceRuntime,
-  input: MutateDocumentLinkSetInput,
-): Promise<DocumentLinkSetMutationWorkflowResult> {
-  return runDocumentLinkSetMutationWorkflow(runtime.db, input);
-}
+export const mutateDocumentLinkSet = createDatabaseWorkflowService<
+  MutateDocumentLinkSetInput,
+  DocumentLinkSetMutationWorkflowResult
+>(runDocumentLinkSetMutationWorkflow);
 
-export async function syncDocument(
-  runtime: ApiServiceRuntime,
-  input: SyncDocumentInput,
-): Promise<DocumentSyncWorkflowResult> {
-  return runDocumentSyncWorkflow(runtime.db, input);
-}
+export const syncDocument = createDatabaseWorkflowService<
+  SyncDocumentInput,
+  DocumentSyncWorkflowResult
+>(runDocumentSyncWorkflow);
 
 export async function purgeDocument(
   runtime: ApiServiceRuntime,

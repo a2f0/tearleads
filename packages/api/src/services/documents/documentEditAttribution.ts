@@ -9,6 +9,7 @@ import {
   runPreparedDocumentEditAttributionDataWorkflow,
   validateDocumentEditAttributionRangesRequest,
 } from "../../workflows/documents/documentEditAttribution";
+import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   documentEditAttributionCacheKey,
@@ -33,12 +34,10 @@ interface ListDocumentEditAttributionRangesInput
 
 export { DocumentEditAttributionError };
 
-export async function prepareDocumentEditAttribution(
-  runtime: ApiServiceRuntime,
-  input: DocumentEditAttributionInput,
-): Promise<PreparedDocumentEditAttribution> {
-  return runPrepareDocumentEditAttributionWorkflow(runtime.db, input);
-}
+export const prepareDocumentEditAttribution = createDatabaseWorkflowService<
+  DocumentEditAttributionInput,
+  PreparedDocumentEditAttribution
+>(runPrepareDocumentEditAttributionWorkflow);
 
 interface AttributionInFlightState {
   readonly attribution: Map<string, Promise<SerializedDocumentEditAttribution>>;

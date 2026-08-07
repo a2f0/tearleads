@@ -462,3 +462,30 @@
   growth, preserve blob-only target replacement and fixed content-key epoch
   rules, and keep table-specific Drizzle operations in the variants. The core
   owns only behavior shared by both stores.
+
+### 2026-08-07 - Database workflow service facades
+
+- Status: accepted
+- Classification: repeated route-facing runtime-to-database adapter
+- Equivalence claim: the converted container, document, and principal services
+  remain async two-argument functions, pass the identical `runtime.db` and input
+  object to the same workflow, and preserve workflow results and rejections.
+- Risk notes: exported declaration inference, async promise adoption, workflow
+  test-only optional parameters, and the route/service/workflow dependency
+  direction. Private workflow input types retain explicit service-facing shapes.
+- Files changed: side-effect-free `services/databaseWorkflowService.ts`, eight
+  database-only service facades, architecture docs/registry, and direct adapter
+  coverage.
+- Baseline: immediately preceding API memory and SQLite matrices each passed
+  1,010 tests with three expected skips at `bf75fd98`.
+- Verification: TypeScript, Biome, OpenAPI and protocol checks, Knip,
+  architecture, source-shape, Markdown, and `bun run check:affected` pass; the
+  API memory and SQLite matrices each report 1,011 passes and three expected
+  skips, including the direct adapter test.
+- Delta: 21 production lines removed net across the service layer while eleven
+  repeated async wrappers now use one typed adapter.
+- Decision notes: retain the enforced route -> service -> workflow boundary.
+  Database-only service facades select `runtime.db`; routes do not import
+  workflows or select infrastructure. Keep the non-async delete facade and the
+  optional-input trial-expiry worker seam explicit because their call contracts
+  differ from the shared async two-argument shape.

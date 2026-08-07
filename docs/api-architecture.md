@@ -212,6 +212,11 @@ This boundary exists so that:
 - app tests do not need to import the full API server entrypoint
 - MSW does not need a second fake implementation of backend behavior
 
+Database-only services still retain this facade. They use
+`createDatabaseWorkflowService` to select `runtime.db` without repeating a
+delegate-only wrapper. Production routes must not bypass the service boundary
+by importing workflows or selecting the database themselves.
+
 Rule:
 
 - if a use case is important enough to test from app UI through MSW, it must
