@@ -11,7 +11,7 @@ import {
   organizationRosterEntries,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
+import { isSqliteApiDatabase, lockRowForUpdate } from "../../utils/sqlDialect";
 import { pruneOrganizationReadModelChangesInTransaction } from "./readModelRetention";
 
 export interface ObservedOrganizationReadModelChange {
@@ -234,9 +234,7 @@ export async function lockOrganizationReadModelHeadForUpdateInTransaction(
     .from(organizationReadModelHeads)
     .where(eq(organizationReadModelHeads.organizationId, organizationId))
     .limit(1);
-  const [head] = isSqliteApiDatabase()
-    ? await lockQuery
-    : await lockQuery.for("update");
+  const [head] = await lockRowForUpdate(lockQuery);
   return head !== undefined;
 }
 

@@ -12,7 +12,7 @@ import {
   documentAttachmentAuditEvents,
 } from "@tearleads/api-shared/schema";
 import { and, asc, eq, inArray, isNotNull, lte, or } from "drizzle-orm";
-import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
+import { lockRowForUpdate } from "../../../utils/sqlDialect";
 
 // A blob soft-deleted by purge is reclaimed only after this grace period, giving
 // an in-flight or shortly-following re-bind time to revive it before the
@@ -123,9 +123,7 @@ async function reclaimOneBlob(
       .from(blobs)
       .where(and(eq(blobs.id, blobId), isNotNull(blobs.dereferencedAt)))
       .limit(1);
-    const [blob] = isSqliteApiDatabase()
-      ? await lockQuery
-      : await lockQuery.for("update");
+    const [blob] = await lockRowForUpdate(lockQuery);
     if (!blob) {
       // Revived or already reclaimed since selection.
       return { kind: "skipped" };
