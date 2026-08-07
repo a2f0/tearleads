@@ -1,37 +1,12 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
 import type { AccessEventType, VerifiedAccessEvent } from "@tearleads/crypto";
 import { verifySignedAccessEvent } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import { eq } from "drizzle-orm";
 import { readProjectionAccessEvent } from "../../../../keyingProjectionRecords";
 import { readKeyingCanonicalJson } from "../../../../utils/canonicalJson";
+import { loadSignerPublicKey } from "../../../signerPublicKey";
 import { ContainerMutationError, mutationShapeError } from "../errors";
 import type { MutateContainerInput } from "../types";
-
-async function loadSignerPublicKey(
-  executor: DatabaseTransaction,
-  input: {
-    readonly fingerprint: string;
-    readonly userId: string;
-  },
-): Promise<Uint8Array> {
-  const [user] = await executor
-    .select({
-      fingerprint: users.fingerprint,
-      signingPublicKey: users.signingPublicKey,
-    })
-    .from(users)
-    .where(eq(users.id, input.userId))
-    .limit(1);
-
-  if (!user || user.fingerprint !== input.fingerprint) {
-    throw new ContainerMutationError("Forbidden", 403);
-  }
-
-  return base64ToBytes(user.signingPublicKey);
-}
 
 export async function verifyMutationEvent(
   executor: DatabaseTransaction,
@@ -67,7 +42,10 @@ export async function verifyMutationEvent(
       "Container mutation event body",
     ),
     event,
-    signerPublicKey: await loadSignerPublicKey(executor, input),
+    signerPublicKey: await loadSignerPublicKey(executor, {
+      ...input,
+      error: (message, status) => new ContainerMutationError(message, status),
+    }),
   });
 
   if (!verifiedEvent.ok) {

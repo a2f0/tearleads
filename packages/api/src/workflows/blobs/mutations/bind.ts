@@ -14,8 +14,8 @@ import {
   storeBlobContentWriteHeader,
 } from "../../../access/write/blobContentKeyStore";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
-import { loadSignerPublicKey } from "../../documents/mutations";
 import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";
+import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
   type AttachmentAuthorizationProof,
   applyAttachmentContainerRekeys,
@@ -149,7 +149,10 @@ async function bindBlobAttachmentTransaction(
   // Run sequentially: both queries share the single transaction
   // connection, so issuing them concurrently only trips pg's
   // already-executing-query deprecation without any real parallelism.
-  const signingPublicKey = await loadSignerPublicKey(tx, input);
+  const signingPublicKey = await loadSignerPublicKey(tx, {
+    ...input,
+    error: (message, status) => new BlobMutationError(message, status),
+  });
   const proof = await verifyAttachmentAuthorizationProof({
     bodyDocumentId: bindBody.documentId,
     executor: tx,

@@ -155,6 +155,27 @@
   all three callers while caller-specific completion and storage checks remain
   local.
 
+### 2026-08-07 - Mutation signer public-key loader
+
+- Status: accepted
+- Classification: exact and parametric duplication
+- Equivalence claim: each migrated path still selects the signing key and its
+  fingerprint by user id, rejects a missing user or fingerprint mismatch with
+  `Forbidden`/403, and decodes the same stored base64 key bytes.
+- Risk notes: signer identity binding and domain error types. Documents,
+  Containers, and Blobs continue to construct their own mutation error class.
+- Files changed: the shared signer-key loader and direct tests, document,
+  container, and blob mutation callers, and the Access Plane & Keying subsystem
+  registry/docs.
+- Baseline: the full API memory and SQLite matrix passed at `620984c3`.
+- Verification: three direct loader tests, TypeScript, architecture,
+  source-shape, and `bun run check:affected` pass; the affected API matrix
+  reports 1,002 tests passing on both memory and SQLite.
+- Delta: five production lines removed net, with 80 lines of direct identity and
+  decode characterization coverage added.
+- Decision notes: place the cross-domain loader at the keying workflow seam and
+  inject only error construction, keeping mutation facades domain-owned.
+
 ### 2026-08-07 - Window chrome-item registration
 
 - Status: accepted
