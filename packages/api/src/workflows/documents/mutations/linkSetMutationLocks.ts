@@ -5,6 +5,7 @@ import {
   lockAccessManifestHeadsForShare,
   lockAccessManifestHeadsForUpdate,
 } from "../../../access/read/accessManifestStore";
+import { uniqueSortedStrings } from "../../../utils/array";
 import { DocumentMutationError } from "./errors";
 
 type DocumentLinkSetMutationLockStep =
@@ -25,7 +26,7 @@ export function uniqueSortedContainerIds(
   if (containerIds.some((containerId) => !isUuidV4String(containerId))) {
     throw new DocumentMutationError("Document container id is invalid", 400);
   }
-  return [...new Set(containerIds)].sort();
+  return uniqueSortedStrings(containerIds);
 }
 
 /**

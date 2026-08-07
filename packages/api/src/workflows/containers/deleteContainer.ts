@@ -10,6 +10,7 @@ import {
 import type { ContainerDeleteResponse } from "@tearleads/validators/response";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { lockAccessManifestHeadsForUpdate } from "../../access/read/accessManifestStore";
+import { uniqueSortedStrings } from "../../utils/array";
 import { uuidValue } from "../../utils/sqlDialect";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { teardownContainerMetadataDocument } from "../documents/mutations/purgeDocument";
@@ -86,7 +87,7 @@ async function persistDeletedContainerTombstones(input: {
   readonly updatedAt: Date;
   readonly userIds: readonly string[];
 }): Promise<void> {
-  const userIds = [...new Set(input.userIds)].sort();
+  const userIds = uniqueSortedStrings(input.userIds);
   if (userIds.length === 0) {
     return;
   }

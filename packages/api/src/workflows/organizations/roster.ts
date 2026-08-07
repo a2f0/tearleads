@@ -5,6 +5,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import { and, eq, inArray, ne } from "drizzle-orm";
+import { uniqueSortedStrings } from "../../utils/array";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import { recordOrganizationReadModelChangeAudience } from "./readModelChanges";
 import type { UserKeyRow } from "./users";
@@ -82,7 +83,7 @@ export async function upsertActiveOrganizationRosterEntries(input: {
   readonly organizationId: string;
   readonly userIds: readonly string[];
 }): Promise<string[]> {
-  const userIds = [...new Set(input.userIds)].sort();
+  const userIds = uniqueSortedStrings(input.userIds);
   if (userIds.length === 0) {
     return [];
   }
@@ -132,7 +133,7 @@ async function disableOrganizationRosterEntries(input: {
   readonly organizationId: string;
   readonly userIds: readonly string[];
 }): Promise<string[]> {
-  const userIds = [...new Set(input.userIds)].sort();
+  const userIds = uniqueSortedStrings(input.userIds);
   if (userIds.length === 0) {
     return [];
   }

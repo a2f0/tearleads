@@ -19,6 +19,7 @@ import type {
 } from "@tearleads/crypto";
 import { verifyContainerKekState } from "@tearleads/crypto";
 import { asc, desc, eq, inArray } from "drizzle-orm";
+import { uniqueSortedStrings } from "../../../utils/array";
 import {
   EPOCH_COLUMNS_WITHOUT_KEYRING,
   getContainerKeyEpochKeyring,
@@ -275,7 +276,7 @@ export async function getContainerKeyEpochsById(
   containerKeyEpochIds: readonly string[],
   executor: DatabaseSession,
 ): Promise<Map<string, StoredContainerKeyEpoch>> {
-  const uniqueContainerKeyEpochIds = [...new Set(containerKeyEpochIds)].sort();
+  const uniqueContainerKeyEpochIds = uniqueSortedStrings(containerKeyEpochIds);
 
   if (uniqueContainerKeyEpochIds.length === 0) {
     return new Map();

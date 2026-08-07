@@ -20,6 +20,7 @@ import {
   readProjectionValue,
   readProjectionVersion,
 } from "../keyingProjectionRecords";
+import { uniqueSortedStrings } from "../utils/array";
 import {
   type ContainerAccessProjection,
   type ContainerAccessProjectionResult,
@@ -343,7 +344,7 @@ async function listActiveBlobDocumentIds(input: {
       ),
     );
 
-  return [...new Set(rows.map((row) => row.documentId))].sort();
+  return uniqueSortedStrings(rows.map((row) => row.documentId));
 }
 
 export async function resolveReadableBlobAccess(input: {

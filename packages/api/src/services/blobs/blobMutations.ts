@@ -2,6 +2,7 @@ import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
+import { uniqueSortedStrings } from "../../utils/array";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { summarizeSha256Stream } from "../../utils/sha256";
 import {
@@ -36,7 +37,7 @@ function listBlobKekTargetContainerIds(
     return typeof containerId === "string" ? [containerId] : [];
   });
 
-  return [...new Set(containerIds)].sort();
+  return uniqueSortedStrings(containerIds);
 }
 
 export function createAttachmentBindDocumentEvent(
@@ -63,7 +64,7 @@ export function createAttachmentDetachDocumentEvent(input: {
 }): Record<string, unknown> {
   return {
     type: "document_update_created",
-    containerIds: [...new Set(input.containerIds)].sort(),
+    containerIds: uniqueSortedStrings(input.containerIds),
     documentId: input.response.documentId,
     origin: input.origin,
   };

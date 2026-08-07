@@ -1,10 +1,11 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { groups } from "@tearleads/api-shared/schema";
 import { inArray, sql } from "drizzle-orm";
+import { uniqueSortedStrings } from "../../utils/array";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 
 export function sortGroupReferenceIds(groupIds: readonly string[]): string[] {
-  return [...new Set(groupIds)].sort();
+  return uniqueSortedStrings(groupIds);
 }
 
 async function deriveLockKeys(
