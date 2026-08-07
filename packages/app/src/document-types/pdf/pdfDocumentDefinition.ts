@@ -1,28 +1,17 @@
 import { FilePdfIcon } from "@phosphor-icons/react/dist/csr/FilePdf";
 import {
-  deriveFileDocumentTitle,
+  createFileDocumentType,
   readPdfDocumentFieldsFromRecord,
 } from "../shared/fileDocumentDefinition";
-import type { AppDocumentProjectorDefinition } from "../types";
 
 export const PDF_DOCUMENT_KIND = "pdf";
 const PDF_DOCUMENT_UNTITLED_TITLE = "Untitled PDF";
 
-export const pdfDocumentProjectorDefinition: AppDocumentProjectorDefinition = {
+export const pdfDocumentProjectorDefinition = createFileDocumentType({
   createIcon: FilePdfIcon,
   createLabel: "PDF",
   kind: PDF_DOCUMENT_KIND,
   label: "PDF",
-  project: ({ structuredFields }) => {
-    const validated = readPdfDocumentFieldsFromRecord(structuredFields);
-    return {
-      fieldValidationIssues: validated.issues,
-      structuredFields: { ...validated.fields },
-      title: deriveFileDocumentTitle(
-        validated.fields,
-        PDF_DOCUMENT_UNTITLED_TITLE,
-      ),
-    };
-  },
+  readFields: readPdfDocumentFieldsFromRecord,
   untitledTitle: PDF_DOCUMENT_UNTITLED_TITLE,
-};
+});

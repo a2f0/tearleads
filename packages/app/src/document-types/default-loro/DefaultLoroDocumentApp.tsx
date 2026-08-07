@@ -1,14 +1,10 @@
 import { useMemo } from "react";
-import {
-  DEFAULT_DOCUMENT_ID,
-  DocumentsProvider,
-  useDocument,
-} from "../../stores/documents/DocumentsProvider";
+import { useDocument } from "../../stores/documents/DocumentsProvider";
+import { createDocumentTypeApp } from "../shared/createDocumentTypeApp";
 import {
   StructuredDocument,
   StructuredDocumentReadFields,
 } from "../shared/StructuredDocument";
-import type { DocumentTypeAppProps } from "../types";
 import "./DefaultLoroDocument.css";
 
 interface DefaultLoroDocumentSnapshot {
@@ -82,20 +78,7 @@ function DefaultLoroDocument() {
   );
 }
 
-export function DefaultLoroDocumentApp({
-  containerId,
-  documentId,
-  localId = DEFAULT_DOCUMENT_ID,
-  readOnly,
-}: DocumentTypeAppProps) {
-  return (
-    <DocumentsProvider
-      localId={localId}
-      readOnly={readOnly}
-      {...(containerId === undefined ? {} : { containerId })}
-      {...(documentId === undefined ? {} : { documentId })}
-    >
-      <DefaultLoroDocument />
-    </DocumentsProvider>
-  );
-}
+export const DefaultLoroDocumentApp = createDocumentTypeApp(
+  undefined,
+  DefaultLoroDocument,
+);

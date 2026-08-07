@@ -8,11 +8,16 @@ import type { ComponentType } from "react";
 import { AudioDocumentApp } from "./audio/AudioDocumentApp";
 import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
 import { BloodPressureDocumentApp } from "./blood-pressure/BloodPressureApp";
+import { BLOOD_PRESSURE_DOCUMENT_KIND } from "./blood-pressure/bloodPressureDocumentDefinition";
 import { ContactDocumentApp } from "./contact/ContactDocumentApp";
+import { CONTACT_DOCUMENT_KIND } from "./contact/contactDocumentDefinition";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";
+import { CREDIT_CARD_DOCUMENT_KIND } from "./credit-card/creditCardDocumentDefinition";
 import { DefaultLoroDocumentApp } from "./default-loro/DefaultLoroDocumentApp";
 import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
+import { DRIVER_LICENSE_DOCUMENT_KIND } from "./drivers-license/driverLicenseDocumentDefinition";
 import { EnvFileDocumentApp } from "./env-file/EnvFileApp";
+import { ENV_FILE_DOCUMENT_KIND } from "./env-file/envFileDocumentDefinition";
 import { GenericFileDocumentApp } from "./generic-file/GenericFileDocumentApp";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { ImageDocumentApp } from "./image/ImageDocumentApp";
@@ -21,6 +26,7 @@ import { JsonFileDocumentApp } from "./json-file/JsonFileDocumentApp";
 import { JSON_FILE_DOCUMENT_KIND } from "./json-file/jsonFileDocumentDefinition";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
 import { PassportDocumentApp } from "./passport/PassportApp";
+import { PASSPORT_DOCUMENT_KIND } from "./passport/passportDocumentDefinition";
 import { PdfDocumentApp } from "./pdf/PdfDocumentApp";
 import { PDF_DOCUMENT_KIND } from "./pdf/pdfDocumentDefinition";
 import {
@@ -32,6 +38,7 @@ import type { DocumentTypeAppProps } from "./types";
 import { VideoDocumentApp } from "./video/VideoDocumentApp";
 import { VIDEO_DOCUMENT_KIND } from "./video/videoDocumentDefinition";
 import { WeightDocumentApp } from "./weight/WeightApp";
+import { WEIGHT_DOCUMENT_KIND } from "./weight/weightDocumentDefinition";
 
 interface DocumentTypeDefinition {
   App: ComponentType<DocumentTypeAppProps>;
@@ -45,19 +52,19 @@ const documentTypeAppsByKind = new Map<
   ComponentType<DocumentTypeAppProps>
 >([
   [APP_DEFAULT_DOCUMENT_KIND, NoteDocumentApp],
-  ["contact", ContactDocumentApp],
-  ["drivers_license", DriverLicenseDocumentApp],
-  ["credit_card", CreditCardDocumentApp],
-  ["passport", PassportDocumentApp],
-  ["env_file", EnvFileDocumentApp],
-  ["blood_pressure", BloodPressureDocumentApp],
-  ["weight", WeightDocumentApp],
-  ["json_file", JsonFileDocumentApp],
-  ["image", ImageDocumentApp],
-  ["audio", AudioDocumentApp],
-  ["video", VideoDocumentApp],
-  ["pdf", PdfDocumentApp],
-  ["generic_file", GenericFileDocumentApp],
+  [CONTACT_DOCUMENT_KIND, ContactDocumentApp],
+  [DRIVER_LICENSE_DOCUMENT_KIND, DriverLicenseDocumentApp],
+  [CREDIT_CARD_DOCUMENT_KIND, CreditCardDocumentApp],
+  [PASSPORT_DOCUMENT_KIND, PassportDocumentApp],
+  [ENV_FILE_DOCUMENT_KIND, EnvFileDocumentApp],
+  [BLOOD_PRESSURE_DOCUMENT_KIND, BloodPressureDocumentApp],
+  [WEIGHT_DOCUMENT_KIND, WeightDocumentApp],
+  [JSON_FILE_DOCUMENT_KIND, JsonFileDocumentApp],
+  [IMAGE_DOCUMENT_KIND, ImageDocumentApp],
+  [AUDIO_DOCUMENT_KIND, AudioDocumentApp],
+  [VIDEO_DOCUMENT_KIND, VideoDocumentApp],
+  [PDF_DOCUMENT_KIND, PdfDocumentApp],
+  [GENERIC_FILE_DOCUMENT_KIND, GenericFileDocumentApp],
 ]);
 
 export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =

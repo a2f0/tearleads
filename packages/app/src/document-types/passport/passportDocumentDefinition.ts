@@ -2,10 +2,13 @@ import { BookOpenUserIcon } from "@phosphor-icons/react/dist/csr/BookOpenUser";
 import {
   type DocumentFieldValidationIssue,
   readStringDocumentField,
+  type StoredDocumentKind,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
 import { addDateOnlyFormatIssue } from "../shared/documentFieldUtils";
 import type { AppDocumentProjectorDefinition } from "../types";
+
+export const PASSPORT_DOCUMENT_KIND = "passport" satisfies StoredDocumentKind;
 
 export interface PassportDocumentFields {
   expirationDate: string;
@@ -46,7 +49,7 @@ export const passportDocumentProjectorDefinition: AppDocumentProjectorDefinition
   {
     createIcon: BookOpenUserIcon,
     createLabel: "Passport",
-    kind: "passport",
+    kind: PASSPORT_DOCUMENT_KIND,
     label: "passport",
     project: ({ structuredFields }) => {
       const validated = readPassportFieldsFromRecord(structuredFields);

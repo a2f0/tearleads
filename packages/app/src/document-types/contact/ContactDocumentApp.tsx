@@ -1,26 +1,8 @@
-import {
-  DEFAULT_DOCUMENT_ID,
-  DocumentsProvider,
-} from "../../stores/documents/DocumentsProvider";
-import type { DocumentTypeAppProps } from "../types";
+import { createDocumentTypeApp } from "../shared/createDocumentTypeApp";
 import { ContactDocument } from "./ContactDocument";
+import { CONTACT_DOCUMENT_KIND } from "./contactDocumentDefinition";
 
-export function ContactDocumentApp({
-  containerId,
-  documentId,
-  initialEditing,
-  localId = DEFAULT_DOCUMENT_ID,
-  readOnly,
-}: DocumentTypeAppProps) {
-  return (
-    <DocumentsProvider
-      localId={localId}
-      readOnly={readOnly}
-      {...(containerId === undefined ? {} : { containerId })}
-      {...(documentId === undefined ? {} : { documentId })}
-      initialDocumentKind="contact"
-    >
-      <ContactDocument initialEditing={initialEditing} />
-    </DocumentsProvider>
-  );
-}
+export const ContactDocumentApp = createDocumentTypeApp(
+  CONTACT_DOCUMENT_KIND,
+  ContactDocument,
+);

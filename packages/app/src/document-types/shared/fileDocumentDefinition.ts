@@ -1,40 +1,72 @@
+import type { Icon } from "@phosphor-icons/react";
 import {
   type DocumentFieldValidationIssue,
   readStringDocumentField,
+  type StoredDocumentKind,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
+import type { AppDocumentProjectorDefinition } from "../types";
 
-interface FileDocumentFields {
+type FileDocumentFields = {
   byteLength: string;
   fileName: string;
   mimeType: string;
   sourceLastModified: string;
-}
+};
 
-interface ImageDocumentFields extends FileDocumentFields {
+type ImageDocumentFields = FileDocumentFields & {
   height: string;
   width: string;
-}
+};
 
-interface AudioDocumentFields extends FileDocumentFields {
+type AudioDocumentFields = FileDocumentFields & {
   durationMs: string;
-}
+};
 
-interface VideoDocumentFields extends FileDocumentFields {
+type VideoDocumentFields = FileDocumentFields & {
   durationMs: string;
   height: string;
   width: string;
-}
+};
 
-interface PdfDocumentFields extends FileDocumentFields {
+type PdfDocumentFields = FileDocumentFields & {
   pageCount: string;
-}
+};
 
-export function deriveFileDocumentTitle(
+function deriveFileDocumentTitle(
   fields: FileDocumentFields,
   fallbackTitle: string,
 ): string {
   return fields.fileName.trim() || fallbackTitle;
+}
+
+export function createFileDocumentType<
+  TFields extends FileDocumentFields,
+>(config: {
+  createIcon: Icon;
+  createLabel: string;
+  kind: StoredDocumentKind;
+  label: string;
+  readFields: (
+    source: Readonly<Record<string, unknown>>,
+  ) => ValidatedDocumentFields<TFields>;
+  untitledTitle: string;
+}): AppDocumentProjectorDefinition {
+  return {
+    createIcon: config.createIcon,
+    createLabel: config.createLabel,
+    kind: config.kind,
+    label: config.label,
+    project: ({ structuredFields }) => {
+      const validated = config.readFields(structuredFields);
+      return {
+        fieldValidationIssues: validated.issues,
+        structuredFields: { ...validated.fields },
+        title: deriveFileDocumentTitle(validated.fields, config.untitledTitle),
+      };
+    },
+    untitledTitle: config.untitledTitle,
+  };
 }
 
 function readFileDocumentBaseFields(

@@ -2,9 +2,12 @@ import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import {
   type DocumentFieldValidationIssue,
   readStringDocumentField,
+  type StoredDocumentKind,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
 import type { AppDocumentProjectorDefinition } from "../types";
+
+export const CONTACT_DOCUMENT_KIND = "contact" satisfies StoredDocumentKind;
 
 export interface ContactDocumentFields {
   encapsulationPublicKey: string;
@@ -54,7 +57,7 @@ export const contactDocumentProjectorDefinition: AppDocumentProjectorDefinition 
   {
     createIcon: AddressBookIcon,
     createLabel: "Contact",
-    kind: "contact",
+    kind: CONTACT_DOCUMENT_KIND,
     label: "contact",
     project: ({ structuredFields }) => {
       const validated = readContactFieldsFromRecord(structuredFields);

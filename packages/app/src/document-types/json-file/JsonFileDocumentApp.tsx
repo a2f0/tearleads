@@ -1,27 +1,8 @@
-import {
-  DEFAULT_DOCUMENT_ID,
-  DocumentsProvider,
-} from "../../stores/documents/DocumentsProvider";
-import type { DocumentTypeAppProps } from "../types";
+import { createDocumentTypeApp } from "../shared/createDocumentTypeApp";
 import { JsonFileDocument } from "./JsonFileDocument";
 import { JSON_FILE_DOCUMENT_KIND } from "./jsonFileDocumentDefinition";
 
-export function JsonFileDocumentApp({
-  containerId,
-  documentId,
-  initialEditing,
-  localId = DEFAULT_DOCUMENT_ID,
-  readOnly,
-}: DocumentTypeAppProps) {
-  return (
-    <DocumentsProvider
-      localId={localId}
-      readOnly={readOnly}
-      {...(containerId === undefined ? {} : { containerId })}
-      {...(documentId === undefined ? {} : { documentId })}
-      initialDocumentKind={JSON_FILE_DOCUMENT_KIND}
-    >
-      <JsonFileDocument initialEditing={initialEditing} />
-    </DocumentsProvider>
-  );
-}
+export const JsonFileDocumentApp = createDocumentTypeApp(
+  JSON_FILE_DOCUMENT_KIND,
+  JsonFileDocument,
+);
