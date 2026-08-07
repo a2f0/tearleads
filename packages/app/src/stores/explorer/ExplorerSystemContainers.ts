@@ -3,9 +3,7 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { useEffect, useState } from "react";
 import {
-  deriveUserSystemContainers,
   EXPLORER_TRASH_CONTAINER_NAME,
   findUserSystemContainer,
   isTrashSystemContainerNode,
@@ -438,43 +436,6 @@ export function getExplorerVisibleSystemSlots(
     visibleSlots.add(systemSlot);
   }
   return visibleSlots;
-}
-
-export function useExplorerSystemContainerSlots(input: {
-  logError: (message: string | Error, cause?: unknown) => void;
-  signingPrivateKey: Uint8Array | null;
-}): ReadonlyArray<UserSystemContainer> {
-  const [systemContainers, setSystemContainers] = useState<
-    ReadonlyArray<UserSystemContainer>
-  >([]);
-
-  useEffect(() => {
-    if (!input.signingPrivateKey) {
-      setSystemContainers([]);
-      return;
-    }
-
-    const signingPrivateKey = input.signingPrivateKey;
-    let cancelled = false;
-    void deriveUserSystemContainers(signingPrivateKey)
-      .then((nextSystemContainers) => {
-        if (!cancelled) {
-          setSystemContainers(nextSystemContainers);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setSystemContainers([]);
-          input.logError("Failed to derive explorer system slots", error);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [input.logError, input.signingPrivateKey]);
-
-  return systemContainers;
 }
 
 export function canProvisionExplorerSystemContainers(input: {

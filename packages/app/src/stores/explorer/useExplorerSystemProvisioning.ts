@@ -1,5 +1,7 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useUserSystemContainers } from "../../providers/system-bootstrap/UserSystemContainersProvider";
+import { useAsyncDerivedState } from "../../utils/useAsyncDerivedState";
 import {
   type BuiltInSystemContainer,
   deriveBuiltInSystemContainers,
@@ -8,7 +10,6 @@ import {
   findContactsSystemContainerSlot,
   findTrashSystemContainerSlot,
   getExplorerVisibleSystemSlots,
-  useExplorerSystemContainerSlots,
 } from "./ExplorerSystemContainers";
 
 interface ExplorerSystemProvisioning {
@@ -21,45 +22,23 @@ interface ExplorerSystemProvisioning {
 const EMPTY_BUILT_IN_SYSTEM_CONTAINERS: ReadonlyArray<BuiltInSystemContainer> =
   [];
 
+const getEmptyBuiltInSystemContainers = () => EMPTY_BUILT_IN_SYSTEM_CONTAINERS;
+
+const deriveOrganizationBuiltInSystemContainers = (organizationId: string) =>
+  deriveBuiltInSystemContainers({ organizationId });
+
 function useBuiltInSystemContainers(input: {
   enabled: boolean;
   logError: (message: string | Error, cause?: unknown) => void;
   organizationId: string | null;
 }): ReadonlyArray<BuiltInSystemContainer> {
-  const [builtInSystemContainers, setBuiltInSystemContainers] = useState<
-    ReadonlyArray<BuiltInSystemContainer>
-  >(EMPTY_BUILT_IN_SYSTEM_CONTAINERS);
-
-  useEffect(() => {
-    if (!input.enabled || !input.organizationId) {
-      setBuiltInSystemContainers(EMPTY_BUILT_IN_SYSTEM_CONTAINERS);
-      return;
-    }
-
-    let cancelled = false;
-    const organizationId = input.organizationId;
-    void deriveBuiltInSystemContainers({ organizationId })
-      .then((nextBuiltInSystemContainers) => {
-        if (!cancelled) {
-          setBuiltInSystemContainers(nextBuiltInSystemContainers);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setBuiltInSystemContainers(EMPTY_BUILT_IN_SYSTEM_CONTAINERS);
-          input.logError(
-            "Failed to derive built-in explorer system slots",
-            error,
-          );
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [input.enabled, input.logError, input.organizationId]);
-
-  return builtInSystemContainers;
+  return useAsyncDerivedState({
+    createEmptyValue: getEmptyBuiltInSystemContainers,
+    derive: deriveOrganizationBuiltInSystemContainers,
+    errorMessage: "Failed to derive built-in explorer system slots",
+    logError: input.logError,
+    source: input.enabled ? input.organizationId : null,
+  });
 }
 
 /**
@@ -69,14 +48,10 @@ function useBuiltInSystemContainers(input: {
  */
 export function useExplorerSystemProvisioning(input: {
   organizationId: string | null;
-  signingPrivateKey: Uint8Array | null;
   showBuiltInSystemContainers: boolean;
   logError: (message: string | Error, cause?: unknown) => void;
 }): ExplorerSystemProvisioning {
-  const systemContainers = useExplorerSystemContainerSlots({
-    logError: input.logError,
-    signingPrivateKey: input.signingPrivateKey,
-  });
+  const systemContainers = useUserSystemContainers();
   const builtInSystemContainers = useBuiltInSystemContainers({
     enabled: input.showBuiltInSystemContainers,
     logError: input.logError,

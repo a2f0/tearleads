@@ -151,7 +151,6 @@ export function ExplorerProvider({
     visibleSystemSlots,
   } = useExplorerSystemProvisioning({
     organizationId: runtime.auth.organizationId,
-    signingPrivateKey: runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
     showBuiltInSystemContainers,
     logError: tearleads.logError,
   });

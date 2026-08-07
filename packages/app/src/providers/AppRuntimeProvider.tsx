@@ -17,6 +17,7 @@ import { PurchasesProvider } from "./purchases/PurchasesProvider";
 import { TearleadsProvider } from "./sdk/TearleadsProvider";
 import { SyncModeProvider } from "./sync-mode/SyncModeProvider";
 import { SystemBootstrapProvider } from "./system-bootstrap/SystemBootstrapProvider";
+import { UserSystemContainersProvider } from "./system-bootstrap/UserSystemContainersProvider";
 
 interface AppRuntimeProviderProps extends PropsWithChildren {
   hostConfig: AppHostConfig;
@@ -46,22 +47,24 @@ export function AppRuntimeProvider({
                       <DatabaseProvider>
                         <IdentityProvider>
                           <CryptoSessionProvider>
-                            <DeviceFirstProvider>
-                              <SystemBootstrapProvider
-                                enabled={autoProvisionEnabled}
-                              >
-                                <IdentityAutopilot
+                            <UserSystemContainersProvider>
+                              <DeviceFirstProvider>
+                                <SystemBootstrapProvider
                                   enabled={autoProvisionEnabled}
-                                />
-                                {hostConfig.profile.features
-                                  .seedPeerIdentities && (
-                                  <DemoPeerBootstrap
+                                >
+                                  <IdentityAutopilot
                                     enabled={autoProvisionEnabled}
                                   />
-                                )}
-                                <BillingProvider>{children}</BillingProvider>
-                              </SystemBootstrapProvider>
-                            </DeviceFirstProvider>
+                                  {hostConfig.profile.features
+                                    .seedPeerIdentities && (
+                                    <DemoPeerBootstrap
+                                      enabled={autoProvisionEnabled}
+                                    />
+                                  )}
+                                  <BillingProvider>{children}</BillingProvider>
+                                </SystemBootstrapProvider>
+                              </DeviceFirstProvider>
+                            </UserSystemContainersProvider>
                           </CryptoSessionProvider>
                         </IdentityProvider>
                       </DatabaseProvider>

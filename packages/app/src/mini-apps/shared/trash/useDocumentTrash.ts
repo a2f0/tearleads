@@ -2,11 +2,11 @@ import type { DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useMemo } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
+import { useUserSystemContainers } from "../../../providers/system-bootstrap/UserSystemContainersProvider";
 import { useDeviceFirstContainerContents } from "../../../stores/device-first/DeviceFirstProvider";
 import {
   findTrashSystemContainerSlot,
   isContainerUnderTrashByLookup,
-  useExplorerSystemContainerSlots,
 } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   ensureTrashSystemContainer,
@@ -38,10 +38,7 @@ export function useDocumentTrash(): DocumentTrash {
   const { containerStore: store, runtime } = useDeviceFirstContainerContents();
   const snapshot = useTearleadsExternalStoreSnapshot(store);
 
-  const systemContainers = useExplorerSystemContainerSlots({
-    logError: tearleads.logError,
-    signingPrivateKey: runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
-  });
+  const systemContainers = useUserSystemContainers();
   const trashSystemSlot = findTrashSystemContainerSlot(systemContainers);
   const currentOrganizationId = runtime.auth.organizationId;
 

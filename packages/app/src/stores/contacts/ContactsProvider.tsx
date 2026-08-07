@@ -26,8 +26,12 @@ import {
   usePrimaryLocalOrganization,
 } from "../../providers/sdk/usePrimaryLocalOrganization";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
+import { useUserSystemContainers } from "../../providers/system-bootstrap/UserSystemContainersProvider";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
-import { CONTACTS_CONTAINER_NAME } from "../systemContainers";
+import {
+  CONTACTS_CONTAINER_NAME,
+  findUserSystemContainer,
+} from "../systemContainers";
 import {
   ensureTrashSystemContainer,
   resolveDeleteToTrashTarget,
@@ -36,7 +40,6 @@ import type { ContactsStore } from "./contactStore";
 import {
   getContactsContainerId,
   resolveContactsProjectionRootContainerId,
-  useContactsSystemSlots,
 } from "./contactsSystemSlot";
 import type { ContactsContextValue } from "./types";
 import { useContactsStoreForContainer } from "./useContactsStoreForContainer";
@@ -120,15 +123,14 @@ function useContactsOrganizationPolicy(input: { appData: RuntimeSnapshot }) {
 
 function useContactsSystemContainerResolution(input: {
   appData: RuntimeSnapshot;
-  logError: (message: string | Error, cause?: unknown) => void;
   nodes: Parameters<typeof resolveContactsContainer>[0]["nodes"];
-  signingPrivateKey: Uint8Array | null;
 }) {
-  const { appData, logError, nodes, signingPrivateKey } = input;
-  const { contactsSystemSlot, trashSystemSlot } = useContactsSystemSlots({
-    logError,
-    signingPrivateKey,
-  });
+  const { appData, nodes } = input;
+  const systemContainers = useUserSystemContainers();
+  const contactsSystemSlot =
+    findUserSystemContainer(systemContainers, "contacts")?.systemSlot ?? null;
+  const trashSystemSlot =
+    findUserSystemContainer(systemContainers, "trash")?.systemSlot ?? null;
   const contactsContainer = useMemo(() => {
     // Contacts is a personal system container. Activating a custom org changes
     // the tree runtime, but the Contacts projection must stay on the
@@ -295,11 +297,7 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const { contactsContainer, contactsSystemSlot, trashSystemSlot } =
     useContactsSystemContainerResolution({
       appData,
-      logError: tearleads.logError,
       nodes: containerContentsSnapshot.nodes,
-      signingPrivateKey:
-        containerContentsRuntime.crypto.signingKeyPair?.signingPrivateKey ??
-        null,
     });
   // Contacts stays projected on the default org while a custom org is active,
   // so the org equality keeps bootstrap from creating another Contacts folder
