@@ -1,9 +1,7 @@
-import { blobStages } from "@tearleads/api-shared/schema";
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { summarizeSha256Stream } from "../../utils/sha256";
 import {
@@ -14,6 +12,7 @@ import {
   runBindBlobAttachmentWorkflow,
   runDetachBlobAttachmentWorkflow,
 } from "../../workflows/blobs/mutations";
+import { loadOwnedActiveBlobStage } from "../../workflows/blobs/stageAccess";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { BlobMutationError } from "../../workflows/blobs/mutations";
@@ -90,29 +89,11 @@ async function prevalidateMultipartBlobStage(
     return null;
   }
 
-  const [stage] = await runtime.db
-    .select({
-      byteLength: blobStages.byteLength,
-      completedAt: blobStages.completedAt,
-      expiresAt: blobStages.expiresAt,
-      id: blobStages.id,
-      ownerUserId: blobStages.ownerUserId,
-      sha256: blobStages.sha256,
-      storageKey: blobStages.storageKey,
-    })
-    .from(blobStages)
-    .where(eq(blobStages.id, stagedBlob.stageId))
-    .limit(1);
-
-  if (!stage) {
-    throw new BlobMutationError("Blob stage not found", 404);
-  }
-  if (stage.ownerUserId !== input.userId) {
-    throw new BlobMutationError("Forbidden", 403);
-  }
-  if (stage.expiresAt.getTime() <= Date.now()) {
-    throw new BlobMutationError("Blob stage has expired", 409);
-  }
+  const stage = await loadOwnedActiveBlobStage(runtime.db, {
+    error: (message, status) => new BlobMutationError(message, status),
+    stageId: stagedBlob.stageId,
+    userId: input.userId,
+  });
 
   if (stage.completedAt === null) {
     throw new BlobMutationError("Blob multipart stage is not complete", 409);
