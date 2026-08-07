@@ -11,7 +11,6 @@ import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/dist/csr/WarningCircle";
 import type { ReactNode } from "react";
-import { useCallback, useRef } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
 import { EXPLORER_LABELS } from "../labels";
@@ -405,7 +404,7 @@ export function ExplorerContextMenuLayer(params: {
   contextMenu: ExplorerContextMenuState | null;
   deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
   downloadDocument: (localId: string) => void;
-  startImport: (containerId: string, files: ReadonlyArray<File>) => void;
+  triggerUpload: (containerId: string) => void;
   moveContainerToTrash: (containerId: string) => Promise<unknown>;
   openEmptyTrashModal: (containerId: string) => void;
   openCreateChildModal: (containerId: string) => void;
@@ -420,14 +419,6 @@ export function ExplorerContextMenuLayer(params: {
   openRenameModal: (containerId: string) => void;
   purgeDocument: (localId: string, containerId: string) => Promise<unknown>;
 }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadContainerIdRef = useRef<string | null>(null);
-
-  const triggerUpload = useCallback((containerId: string) => {
-    uploadContainerIdRef.current = containerId;
-    fileInputRef.current?.click();
-  }, []);
-
   let menuElement: ReactNode = null;
   if (params.contextMenu) {
     if (isExplorerDocumentContextMenu(params.contextMenu)) {
@@ -442,36 +433,10 @@ export function ExplorerContextMenuLayer(params: {
         <ExplorerContainerContextMenu
           {...params}
           contextMenu={params.contextMenu}
-          triggerUpload={triggerUpload}
         />
       );
     }
   }
 
-  return (
-    <>
-      {menuElement}
-      <input
-        ref={fileInputRef}
-        className="explorer-file-input"
-        style={{ display: "none" }}
-        type="file"
-        multiple
-        onChange={(event) => {
-          const files = Array.from(event.target.files ?? []);
-          const uploadContainerId = uploadContainerIdRef.current;
-          try {
-            if (files.length > 0 && uploadContainerId) {
-              params.startImport(uploadContainerId, files);
-            }
-          } finally {
-            if (fileInputRef.current) {
-              fileInputRef.current.value = "";
-            }
-            uploadContainerIdRef.current = null;
-          }
-        }}
-      />
-    </>
-  );
+  return menuElement;
 }

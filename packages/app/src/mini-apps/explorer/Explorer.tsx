@@ -428,7 +428,7 @@ function ExplorerContent() {
         contextMenu={model.contextMenuState.contextMenu}
         deleteDocument={model.deleteDocument}
         downloadDocument={downloadDocument}
-        startImport={model.uploadManager.startImport}
+        triggerUpload={toolbarUpload.triggerUpload}
         moveContainerToTrash={model.moveContainerToTrash}
         openDocumentInfoRoute={routeState.openDocumentInfoRoute}
         openContainerInfoRoute={routeState.openContainerInfoRoute}
