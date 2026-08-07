@@ -200,6 +200,22 @@ export {
 } from "./principals";
 export { protocolOperations } from "./registry";
 export {
+  cancelStripeSubscriptionOperation,
+  createStripeCheckoutOperation,
+  createStripeCheckoutSessionOperation,
+  createStripePortalOperation,
+  getStripeCheckoutOptionsOperation,
+  isCancelStripeSubscriptionOperationResponse,
+  isCreateStripeCheckoutOperationResponse,
+  isCreateStripeCheckoutSessionOperationRequest,
+  isCreateStripeCheckoutSessionOperationResponse,
+  isCreateStripePortalOperationRequest,
+  isCreateStripePortalOperationResponse,
+  isGetStripeCheckoutOptionsOperationResponse,
+  type StripeCheckoutPathParams,
+  StripeCheckoutPathParamsSchema,
+} from "./stripeCheckout";
+export {
   type ContainerWriterProjectionPathParams,
   ContainerWriterProjectionPathParamsSchema,
   type DocumentWriterProjectionPathParams,

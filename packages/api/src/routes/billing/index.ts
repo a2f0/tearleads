@@ -3,10 +3,8 @@ import type { SessionEnv } from "../../middleware/session";
 import type { OrganizationsRouterDeps } from "../organizations/shared";
 import { createOrganizationBillingRoute } from "./organizationBilling";
 import { createRevenueCatWebhookRoute } from "./revenuecatWebhook";
-import {
-  createStripeCheckoutRoute,
-  createStripeWebhookRoute,
-} from "./stripeCheckout";
+import { createStripeCheckoutRoute } from "./stripeCheckout";
+import { createStripeWebhookRoute } from "./stripeWebhook";
 
 /**
  * Billing routes are authed but NOT behind the paid sync gate: an admin must be

@@ -4,6 +4,8 @@ import {
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
   isStripeCheckoutSessionResponse,
+  isStripePortalResponse,
+  StripeCheckoutOptionsResponseSchema,
 } from "./stripeCheckout";
 
 const OPTION = {
@@ -29,6 +31,19 @@ test("accepts a well-formed options response, including an empty list", () => {
       ],
     }),
   ).toBe(true);
+});
+
+test("Stripe response schemas preserve extensions and input identity", () => {
+  const input = {
+    options: [{ ...OPTION, futureOptionField: true }],
+    futureResponseField: true,
+  };
+  const result = StripeCheckoutOptionsResponseSchema.safeParse(input);
+
+  expect(result.success).toBe(true);
+  if (result.success) {
+    expect(result.data as unknown).toBe(input);
+  }
 });
 
 test("rejects malformed options", () => {
@@ -102,4 +117,13 @@ test("accepts and rejects checkout-session responses", () => {
   expect(isStripeCheckoutSessionResponse({})).toBe(false);
   expect(isStripeCheckoutSessionResponse({ url: 5 })).toBe(false);
   expect(isStripeCheckoutSessionResponse(null)).toBe(false);
+});
+
+test("accepts and rejects portal responses", () => {
+  expect(
+    isStripePortalResponse({ portalUrl: "https://billing.stripe.com/x" }),
+  ).toBe(true);
+  expect(isStripePortalResponse({ portalUrl: null })).toBe(true);
+  expect(isStripePortalResponse({})).toBe(false);
+  expect(isStripePortalResponse({ portalUrl: 5 })).toBe(false);
 });

@@ -52,12 +52,17 @@ export const SYNC_BILLING_TIERS = [
 ] as const;
 
 export type SyncBillingTier = (typeof SYNC_BILLING_TIERS)[number];
-export type SyncBillingTierId = SyncBillingTier["id"];
+
+export const SyncBillingTierIdSchema = z.literal(
+  SYNC_BILLING_TIERS.map((tier) => tier.id),
+);
+
+export type SyncBillingTierId = z.infer<typeof SyncBillingTierIdSchema>;
 
 export function isSyncBillingTierId(
   value: unknown,
 ): value is SyncBillingTierId {
-  return SYNC_BILLING_TIERS.some((tier) => tier.id === value);
+  return SyncBillingTierIdSchema.safeParse(value).success;
 }
 
 export function getSyncBillingTier(tierId: SyncBillingTierId): SyncBillingTier {

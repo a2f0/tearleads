@@ -70,6 +70,13 @@ import {
   putPrincipalPolicyOperation,
 } from "./principals";
 import {
+  cancelStripeSubscriptionOperation,
+  createStripeCheckoutOperation,
+  createStripeCheckoutSessionOperation,
+  createStripePortalOperation,
+  getStripeCheckoutOptionsOperation,
+} from "./stripeCheckout";
+import {
   getContainerWriterProjectionOperation,
   getDocumentWriterProjectionOperation,
 } from "./writerProjections";
@@ -116,6 +123,11 @@ export const protocolOperations = [
   getOrganizationBillingManagementUrlOperation,
   claimNativeOrganizationSubscriptionOperation,
   startOrganizationTrialOperation,
+  getStripeCheckoutOptionsOperation,
+  createStripeCheckoutOperation,
+  createStripeCheckoutSessionOperation,
+  createStripePortalOperation,
+  cancelStripeSubscriptionOperation,
   getOrganizationDataUsageOperation,
   getOrganizationReadModelOperation,
   createOrganizationGroupOperation,

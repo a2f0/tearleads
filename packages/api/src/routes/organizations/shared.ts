@@ -1,4 +1,3 @@
-import { isUuidV4String } from "@tearleads/validators/util";
 import type { MiddlewareHandler } from "hono";
 import type { ApiCorsOrigins } from "../../corsOrigins";
 import type { SessionEnv } from "../../middleware/session";
@@ -31,8 +30,4 @@ export function toOrganizationManagerErrorResponse(
   }
 
   return null;
-}
-
-export function parseOrganizationId(value: string): string | null {
-  return isUuidV4String(value) ? value : null;
 }
