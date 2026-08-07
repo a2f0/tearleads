@@ -30,6 +30,7 @@ test("sidebar resize handle supports primary pointer dragging", () => {
   fireEvent.pointerDown(handle, {
     button: 2,
     clientX: 100,
+    isPrimary: true,
     pointerId: 1,
   });
   fireEvent.pointerMove(document, { clientX: 136, pointerId: 1 });
@@ -38,11 +39,22 @@ test("sidebar resize handle supports primary pointer dragging", () => {
   fireEvent.pointerDown(handle, {
     button: 0,
     clientX: 100,
+    isPrimary: true,
     pointerId: 2,
+    pointerType: "touch",
   });
   expect(document.body.style.cursor).toBe("col-resize");
   expect(document.body.style.userSelect).toBe("none");
 
+  fireEvent.pointerDown(handle, {
+    button: 0,
+    clientX: 200,
+    isPrimary: false,
+    pointerId: 3,
+    pointerType: "touch",
+  });
+  fireEvent.pointerMove(document, { clientX: 236, pointerId: 3 });
+  expect(handle.getAttribute("aria-valuenow")).toBe("160");
   fireEvent.pointerMove(document, { clientX: 136, pointerId: 1 });
   expect(handle.getAttribute("aria-valuenow")).toBe("160");
   fireEvent.pointerMove(document, { clientX: 136, pointerId: 2 });
@@ -59,7 +71,8 @@ test("sidebar resize handle supports primary pointer dragging", () => {
   fireEvent.pointerDown(handle, {
     button: 0,
     clientX: 100,
-    pointerId: 3,
+    isPrimary: true,
+    pointerId: 4,
   });
   view.unmount();
   expect(document.body.style.cursor).toBe("");

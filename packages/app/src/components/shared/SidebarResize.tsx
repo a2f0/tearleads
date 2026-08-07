@@ -112,7 +112,7 @@ export function useSidebarResize({
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLHRElement>) => {
-      if (event.button !== 0) {
+      if (event.button !== 0 || !event.isPrimary) {
         return;
       }
 

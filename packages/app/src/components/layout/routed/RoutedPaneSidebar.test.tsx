@@ -21,6 +21,7 @@ test("tablet sidebar resize handle supports pointer dragging", () => {
   fireEvent.pointerDown(handle, {
     button: 0,
     clientX: 100,
+    isPrimary: true,
     pointerId: 1,
   });
   fireEvent.pointerMove(document, { clientX: 136, pointerId: 1 });
