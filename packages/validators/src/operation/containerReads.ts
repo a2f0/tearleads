@@ -22,14 +22,15 @@ import {
   ListContainerDocumentsResponseSchema,
   ListContainerParentLanesResponseSchema,
 } from "../response";
-import { loosePlainObject } from "../schema";
+import { loosePlainObject, plainObjectSchema } from "../schema";
 import { MAX_CONTAINER_KEY_EPOCH } from "../util";
 import { defineJsonOperation } from "./definition";
 
 const DIGITS_PATTERN = /^\d+$/u;
 
 function listPageLimitSchema() {
-  return registerJsonSchemaFragment(
+  const jsonSchema = { minimum: 1, type: "integer" } as const;
+  const inputSchema = registerJsonSchemaFragment(
     z.union([z.number(), z.string()]).superRefine((value, context) => {
       if (typeof value === "string" && !DIGITS_PATTERN.test(value)) {
         context.addIssue({ code: "custom", message: "Invalid limit" });
@@ -41,8 +42,10 @@ function listPageLimitSchema() {
         context.addIssue({ code: "custom", message: "Invalid limit" });
       }
     }),
-    { minimum: 1, type: "integer" },
+    jsonSchema,
   );
+
+  return registerJsonSchemaFragment(inputSchema.transform(Number), jsonSchema);
 }
 
 /**
@@ -82,12 +85,16 @@ const listContainerDocumentsQueryShape = {
   watermarkId: z.string().optional(),
   limit: listPageLimitSchema().optional(),
 } as const;
+const listContainerDocumentsQueryObjectSchema = z.looseObject(
+  listContainerDocumentsQueryShape,
+);
 
 export const ListContainerDocumentsQuerySchema =
   registerJsonSchemaRuntimeRefinements(
     registerJsonSchemaView(
-      loosePlainObject(listContainerDocumentsQueryShape).superRefine(
-        ({ watermarkId, watermarkUpdatedAt }, context) => {
+      plainObjectSchema
+        .pipe(listContainerDocumentsQueryObjectSchema)
+        .superRefine(({ watermarkId, watermarkUpdatedAt }, context) => {
           const isValid =
             (watermarkId === undefined && watermarkUpdatedAt === undefined) ||
             (watermarkId !== undefined &&
@@ -102,9 +109,8 @@ export const ListContainerDocumentsQuerySchema =
               path: ["watermarkUpdatedAt"],
             });
           }
-        },
-      ),
-      z.looseObject(listContainerDocumentsQueryShape),
+        }),
+      listContainerDocumentsQueryObjectSchema,
     ),
     containerDocumentRuntimeRefinements,
   );

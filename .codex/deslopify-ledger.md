@@ -220,6 +220,30 @@
 - Decision notes: infer `SessionData` from the schema so the runtime validator
   and TypeScript contract cannot drift independently.
 
+### 2026-08-07 - Container-list limit normalization
+
+- Status: accepted
+- Classification: redundant boundary coercion and schema/output drift
+- Equivalence claim: container-document routes accept and reject the same
+  numeric and digit-string limits, emit the same OpenAPI integer contract, and
+  pass the same numeric limit to the service; the shared query schema now owns
+  the string-to-number conversion.
+- Risk notes: request parsing and OpenAPI projection. Registered transforms
+  project only their explicitly declared input schema, and their input side is
+  still checked for forbidden coercion or normalization.
+- Files changed: validator JSON Schema projection and direct tests, the
+  container-read operation schema, and its API route consumer.
+- Baseline: the existing four validator tests passed at `f9684d85`; that base's
+  affected API matrix reported 1,005 passing tests on both database backends.
+- Verification: focused validator/OpenAPI and route tests, TypeScript, Biome,
+  source-shape, and OpenAPI generation/compatibility checks pass;
+  `bun run check:affected` also passes all 15 unit-test tasks and 38 web E2E
+  tests.
+- Delta: one route-local coercion removed; 13 production lines added net to
+  make registered input-transform projection explicit and fail closed.
+- Decision notes: retain the query schema's plain-object requirement while
+  returning Zod's parsed object, so its inferred numeric limit matches runtime.
+
 ### 2026-08-07 - Window chrome-item registration
 
 - Status: accepted
