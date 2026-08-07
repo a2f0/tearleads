@@ -1,5 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { prop, readString } from "./stripeHttp";
+import {
+  prop,
+  readNonnegativeInteger,
+  readPositiveInteger,
+  readString,
+  readUnixTimestamp,
+} from "./stripeHttp";
 
 /**
  * Stripe webhook verification and event extraction for the direct web
@@ -132,17 +138,6 @@ interface StripePaidInvoiceLineListSnapshot {
   readonly lines: readonly StripePaidInvoiceLineSnapshot[];
 }
 
-function readNonnegativeInteger(value: unknown): number | null {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
-    ? value
-    : null;
-}
-
-function readPositiveInteger(value: unknown): number | null {
-  const integer = readNonnegativeInteger(value);
-  return integer !== null && integer > 0 ? integer : null;
-}
-
 function readUnitAmount(value: unknown): number | null {
   if (typeof value === "number") {
     return readNonnegativeInteger(value);
@@ -184,14 +179,6 @@ function readBillingReason(value: unknown): StripeInvoiceBillingReason | null {
     default:
       return null;
   }
-}
-
-function readUnixTimestamp(value: unknown): Date | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return null;
-  }
-  const date = new Date(value * 1000);
-  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function firstPresent<T>(
