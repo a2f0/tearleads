@@ -145,6 +145,38 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/billing/revenuecat/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["billing.revenuecat.webhook.receive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/billing/stripe/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["billing.stripe.webhook.receive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/blobs/{blobId}/attachment-bindings": {
         parameters: {
             query?: never;
@@ -5109,6 +5141,210 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "billing.revenuecat.webhook.receive": {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    api_version?: string;
+                    event: ({
+                        environment?: string | null;
+                        event_timestamp_ms: number;
+                        id: string;
+                        store?: string | null;
+                        transferred_from: string[];
+                        transferred_to: string[];
+                        /** @constant */
+                        type: "TRANSFER";
+                    } & {
+                        [key: string]: unknown;
+                    }) | ({
+                        app_user_id: string;
+                        currency?: string | null;
+                        entitlement_ids?: string[];
+                        environment?: string | null;
+                        event_timestamp_ms: number;
+                        expiration_at_ms?: number | null;
+                        id: string;
+                        metadata?: {
+                            [key: string]: string | number | boolean | null;
+                        } | null;
+                        new_product_id?: string | null;
+                        original_transaction_id?: string | null;
+                        period_type?: string | null;
+                        price_in_purchased_currency?: number | null;
+                        product_id?: string | null;
+                        purchased_at_ms?: number | null;
+                        store?: string | null;
+                        subscriber_attributes?: {
+                            [key: string]: {
+                                value: string | null;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        };
+                        transaction_id?: string | null;
+                        type: string;
+                    } & {
+                        [key: string]: unknown;
+                    });
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        outcome: "applied" | "duplicate" | "ignored";
+                        /** @constant */
+                        received: true;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "billing.stripe.webhook.receive": {
+        parameters: {
+            query?: never;
+            header?: {
+                "stripe-signature"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        outcome: "associated" | "ignored" | "reconciled";
+                        /** @constant */
+                        received: true;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

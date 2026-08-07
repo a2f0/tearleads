@@ -14,6 +14,10 @@ import {
   webSocketTicketOperation,
 } from "./auth";
 import {
+  receiveRevenueCatWebhookOperation,
+  receiveStripeWebhookOperation,
+} from "./billingWebhooks";
+import {
   getBlobBytesOperation,
   uploadMultipartBlobPartBytesOperation,
 } from "./blobBytes";
@@ -92,6 +96,8 @@ export const protocolOperations = [
   verifyOperation,
   webSocketTicketOperation,
   getBlobBytesOperation,
+  receiveRevenueCatWebhookOperation,
+  receiveStripeWebhookOperation,
   bindBlobAttachmentOperation,
   detachBlobAttachmentOperation,
   initiateMultipartBlobStageOperation,
