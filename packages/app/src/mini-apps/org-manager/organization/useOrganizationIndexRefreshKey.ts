@@ -27,7 +27,7 @@ export function useOrganizationIndexRefreshKey(input: {
   readonly tearleads: Tearleads;
 }): string {
   const tree = useMemo(
-    () => input.tearleads.containerContents.openTree(),
+    () => input.tearleads.deviceFirst.open().containerStore,
     [input.scopeKey, input.tearleads],
   );
   const snapshot = useTearleadsExternalStoreSnapshot(tree);

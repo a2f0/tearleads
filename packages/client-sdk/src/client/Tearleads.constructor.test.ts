@@ -40,23 +40,28 @@ describe("Tearleads constructor", () => {
     expect(sdk.session.containerId).toBeNull();
     expect(sdk.documents.open).toBeFunction();
     expect(sdk.containerContents.openTree).toBeFunction();
+    expect(sdk.deviceFirst.open).toBeFunction();
     expect(sdk.deviceFirst.openView).toBeFunction();
     expect(sdk.deviceFirst.reconciler).toBeFunction();
     expect(sdk.organizations.loadDirectoryAndGroups).toBeFunction();
   });
 
-  test("device-first view and reconciler are shared across a domain scope", () => {
+  test("device-first reads, writes, and reconciler are shared across a domain scope", () => {
     const sdk = new Tearleads();
 
-    // openView()/reconciler() are cached per domain scope, so every mini-app in
-    // the same storage/identity context shares one read view and one background
-    // reconciler. This is what makes it safe for the explorer, contacts, and
-    // org-manager mini-apps to open the view concurrently: they coordinate
-    // through a single shared active-container pointer and reconcile queue
-    // rather than racing divergent copies.
-    const view = sdk.deviceFirst.openView();
+    // Every mini-app in the same storage/identity context shares the local tree
+    // mutation store, projection view, and background reconciler rather than
+    // opening nominally separate read and write seams.
+    const contents = sdk.deviceFirst.open();
+    expect(sdk.deviceFirst.open()).toBe(contents);
+    expect(contents.containerStore).toBe(sdk.containerContents.openTree());
+    expect(contents.containerStore.createChild).toBeFunction();
+    expect(contents.containerStore.moveContainer).toBeFunction();
+    expect(contents.containerStore.renameContainer).toBeFunction();
+
+    const view = contents.view;
     expect(sdk.deviceFirst.openView()).toBe(view);
-    expect(sdk.deviceFirst.reconciler()).toBe(sdk.deviceFirst.reconciler());
+    expect(sdk.deviceFirst.reconciler()).toBe(contents.reconciler);
 
     expect(view.getSnapshot).toBeFunction();
     expect(view.subscribe).toBeFunction();

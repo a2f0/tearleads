@@ -1,7 +1,6 @@
 import type {
   ContainerContentsStoreRuntime,
-  LocalProjectionView,
-  ReconciliationService,
+  DeviceFirstContainerContents,
 } from "@tearleads/client-sdk";
 import {
   createContext,
@@ -13,12 +12,10 @@ import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
-import { useContainerContentsDeviceFirst } from "./useContainerContentsDeviceFirst";
+import { useDeviceFirstBinding } from "./useDeviceFirstBinding";
 
-interface DeviceFirstContextValue {
-  reconciler: ReconciliationService;
-  runtime: ContainerContentsStoreRuntime;
-  view: LocalProjectionView;
+interface DeviceFirstContextValue extends DeviceFirstContainerContents {
+  readonly runtime: ContainerContentsStoreRuntime;
 }
 
 const DeviceFirstContext = createContext<DeviceFirstContextValue | null>(null);
@@ -30,14 +27,14 @@ export function DeviceFirstProvider({ children }: PropsWithChildren) {
     () => tearleads.containerContents.workflowRuntime(),
     [appData, tearleads],
   );
-  const { reconciler, view } = useContainerContentsDeviceFirst({
+  const deviceFirst = useDeviceFirstBinding({
     events: appData.state.events,
     logLabel: "Container contents",
     runtime,
   });
   const value = useMemo(
-    () => ({ reconciler, runtime, view }),
-    [reconciler, runtime, view],
+    () => ({ ...deviceFirst, runtime }),
+    [deviceFirst, runtime],
   );
 
   return (

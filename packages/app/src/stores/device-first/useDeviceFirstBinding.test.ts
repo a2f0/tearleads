@@ -5,7 +5,7 @@ import {
   buildReconciliationContainerRouting,
   buildReconciliationContainerRoutingKey,
   takePendingReconciliationEvents,
-} from "./useContainerContentsDeviceFirst";
+} from "./useDeviceFirstBinding";
 
 function summary(input: {
   containerId: string;

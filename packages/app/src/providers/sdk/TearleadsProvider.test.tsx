@@ -396,9 +396,11 @@ test("marks SDK events disconnected when the WebSocket binding changes URL", asy
     expect(tearleads.events.connected).toBe(false);
     expect(tearleads.events.connectionGeneration).toBe(0);
 
-    spyOn(tearleads.containerContents, "openTree").mockReturnValue(
-      readyEmptyContainerTree as never,
-    );
+    const deviceFirst = tearleads.deviceFirst.open();
+    spyOn(tearleads.deviceFirst, "open").mockReturnValue({
+      ...deviceFirst,
+      containerStore: readyEmptyContainerTree as never,
+    });
     act(() => firstSocket.dispatchInterestState([]));
     expect(tearleads.events.connected).toBe(false);
     expect(tearleads.events.connectionGeneration).toBe(0);

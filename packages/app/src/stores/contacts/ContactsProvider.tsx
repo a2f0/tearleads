@@ -22,6 +22,7 @@ import {
   usePrimaryLocalOrganization,
 } from "../../providers/sdk/usePrimaryLocalOrganization";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
+import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
 import { CONTACTS_CONTAINER_NAME } from "../systemContainers";
 import {
   ensureTrashSystemContainer,
@@ -261,12 +262,10 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     () => tearleads.containerContents.workflowRuntime(),
     [appData, tearleads],
   );
+  const { containerStore: containerContentsStore } =
+    useDeviceFirstContainerContents();
   const hasRootContainerId = Boolean(
     containerContentsRuntime.state.containerId,
-  );
-  const containerContentsStore = useMemo(
-    () => tearleads.containerContents.openTree({ logLabel: "Contacts" }),
-    [containerContentsRuntime.state.domainScope, tearleads],
   );
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
     containerContentsStore,
@@ -307,13 +306,6 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     [contactsContainer.canWrite, store],
   );
 
-  useEffect(() => {
-    if (!hasRootContainerId) {
-      return;
-    }
-
-    containerContentsStore.updateRuntime(containerContentsRuntime);
-  }, [containerContentsRuntime, containerContentsStore, hasRootContainerId]);
   useContactsSystemContainerBootstrap({
     canBootstrap: canBootstrapActiveContactsContainer,
     contactsSystemSlot,

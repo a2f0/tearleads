@@ -96,7 +96,7 @@ Client capabilities:
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
 | `tearleads.documents` | document editing, lists, deletion, subscriptions, and runtime composition |
 | `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
-| `tearleads.deviceFirst` | device-first local projection view (instant cached tree + document summaries) and the background reconciler that syncs remote state into it |
+| `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, plus exact-head history from verified policy storage |
 | `tearleads.userIdentities` | pinned user identity bundles for cryptographic workflows |
 
@@ -105,7 +105,7 @@ scope with the active database and identity so document and container/document
 stores share a sync and subscription boundary. Product app code should use:
 `tearleads.documents.open(...)`, `tearleads.documents.list(...)`,
 `tearleads.documents.subscribe(listener, { containerId })`,
-`tearleads.containerContents.openTree()`, and
+`tearleads.deviceFirst.open().containerStore`, and
 `tearleads.containerContents.documentQueries()`. For orphan recovery, queries
 accept a null container plus the active organization; use the indexed
 `hasOrphanedDocuments(...)` visibility probe. Import internals only when
@@ -188,17 +188,17 @@ follow `nextCursor` only while Edit Ranges is visible. Cursors bind the document
 incarnation and attribution revision, so stale pages fail instead of mixing
 histories.
 
-### Device-first reads and background reconciliation
+### Device-first reads, writes, and background reconciliation
 
-`tearleads.deviceFirst` renders container/document state instantly from the
-local cache while remote reconciliation runs in the background.
-`deviceFirst.openView()` returns a `LocalProjectionView` whose
-`LocalProjectionSnapshot` carries the tree plus document summaries by container;
-its `ready` reflects **local** hydration only (never auth/network).
-`deviceFirst.reconciler()` returns the `ReconciliationService` that owns remote
-discovery, reconciling the active container first. Both share the
-`openTree()` domain scope. See
-[device-first-reconciliation.md](./device-first-reconciliation.md).
+`tearleads.deviceFirst.open()` returns one shared scope containing the locally
+durable `containerStore`, the synchronously readable `view`, and the background
+`reconciler`. Ordinary tree writes persist and update subscribers locally, then
+converge through durable sync lanes without blocking on the network. The view's
+`ready` reflects **local** hydration only (never auth/network), while the
+reconciler owns remote discovery and prioritizes the active container.
+Security-sensitive sharing, remote deletion, and purge operations retain their
+explicit online/remote-authority requirements. See
+[device-first.md](./device-first.md).
 
 ## Constructor Options
 

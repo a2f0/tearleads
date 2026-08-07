@@ -46,23 +46,27 @@ function createResyncHarness(options?: {
   };
 
   const reconciler = () => {
-    if (options?.throwOnReconciler) {
-      throw new Error("runtime not ready");
-    }
     return {
       enqueueContainer: (
         containerId: string,
         scope: string,
         force: boolean,
       ) => {
+        if (options?.throwOnReconciler) {
+          throw new Error("runtime not ready");
+        }
         enqueueCalls.push({ containerId, force, scope });
       },
     };
   };
 
   const tearleads = {
-    containerContents: { openTree },
-    deviceFirst: { reconciler },
+    deviceFirst: {
+      open: () => ({
+        containerStore: openTree(),
+        reconciler: reconciler(),
+      }),
+    },
   } as unknown as Tearleads;
 
   return { enqueueCalls, refreshCalls, refreshRootLaneOptions, tearleads };

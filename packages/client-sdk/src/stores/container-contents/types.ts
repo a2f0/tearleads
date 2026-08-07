@@ -104,6 +104,14 @@ export type ContainerGroupRewrapPreparation =
       status: "prepared";
     };
 
+/**
+ * Shared per-scope container tree and mutation store.
+ *
+ * Ordinary metadata/topology writes (`createChild`, `moveContainer`,
+ * `renameContainer`, and `setContainerIcon`) commit to local persistence and
+ * update subscribers before their queued remote sync converges. Destructive
+ * and access-control operations retain their explicit remote-authority gates.
+ */
 export interface ContainerContentsStore {
   createChild: (
     parentId: string,

@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useDeviceFirstContainerContents } from "../../stores/device-first/DeviceFirstProvider";
 import {
   canProvisionExplorerSystemContainers,
   findExplorerSystemNode,
@@ -48,8 +49,6 @@ interface SystemBootstrapContextValue {
   readonly isBootstrapping: boolean;
   readonly status: SystemBootstrapStatus;
 }
-
-const SYSTEM_BOOTSTRAP_LOG_LABEL = "System bootstrap";
 
 const SystemBootstrapContext =
   createContext<SystemBootstrapContextValue | null>(null);
@@ -282,17 +281,7 @@ export function SystemBootstrapProvider({
 }: PropsWithChildren<{ readonly enabled?: boolean | undefined }>) {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
-  const runtime = useMemo(
-    () => tearleads.containerContents.workflowRuntime(),
-    [appData, tearleads],
-  );
-  const store = useMemo(
-    () =>
-      tearleads.containerContents.openTree({
-        logLabel: SYSTEM_BOOTSTRAP_LOG_LABEL,
-      }),
-    [runtime.state.domainScope, tearleads],
-  );
+  const { containerStore: store } = useDeviceFirstContainerContents();
   const snapshot = useTearleadsExternalStoreSnapshot(store);
   const systemContainers = useUserSystemContainers({
     logError: tearleads.logError,
@@ -324,17 +313,6 @@ export function SystemBootstrapProvider({
     enabled,
     logError: tearleads.logError,
   });
-
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-    if (runtime.infra.dbStatus === "ready" && !runtime.state.containerId) {
-      return;
-    }
-
-    store.updateRuntime(runtime);
-  }, [enabled, store, runtime]);
 
   usePromoteLocalSystemContainers({
     currentOrganizationId: appData.auth.organizationId,

@@ -1,9 +1,8 @@
 import type {
   ContainerContentsStoreRuntime,
   ContainerNode,
+  DeviceFirstContainerContents,
   DocumentSummary,
-  LocalProjectionView,
-  ReconciliationService,
 } from "@tearleads/client-sdk";
 import { enqueueReconciliationForEvents } from "@tearleads/client-sdk";
 import { useEffect, useMemo, useRef } from "react";
@@ -320,17 +319,16 @@ export function takePendingReconciliationEvents(input: {
 }
 
 /**
- * Wire a mini-app to the device-first SDK seam: the local projection view
- * (instant local reads) and the background reconciler. Server events are routed
- * into the reconciler here so the provider never drives network from a render
- * effect. The view + reconciler are cached per domain scope, so every mini-app
- * in the same scope shares one read view and one reconciler.
+ * Bind React to the SDK's complete device-first seam: locally durable container
+ * writes, the synchronous local projection, and background reconciliation.
+ * Server events are routed here so render effects never own network work. All
+ * three handles are cached and shared per domain scope.
  */
-export function useContainerContentsDeviceFirst(input: {
+export function useDeviceFirstBinding(input: {
   runtime: ContainerContentsStoreRuntime;
   events: ReadonlyArray<unknown>;
   logLabel: string;
-}): { reconciler: ReconciliationService; view: LocalProjectionView } {
+}): DeviceFirstContainerContents {
   const tearleads = useTearleads();
   const { events, logLabel, runtime } = input;
   const domainScope = runtime.state.domainScope;
@@ -340,14 +338,11 @@ export function useContainerContentsDeviceFirst(input: {
     processedEventScopeRef.current = domainScope;
     processedEventKeysRef.current = new Set();
   }
-  const view = useMemo(
-    () => tearleads.deviceFirst.openView({ logLabel }),
+  const deviceFirst = useMemo(
+    () => tearleads.deviceFirst.open({ logLabel }),
     [domainScope, logLabel, tearleads],
   );
-  const reconciler = useMemo(
-    () => tearleads.deviceFirst.reconciler(),
-    [domainScope, tearleads],
-  );
+  const { reconciler, view } = deviceFirst;
   const viewSnapshot = useTearleadsExternalStoreSnapshot(view);
   // Stabilise routing by content: container snapshots can churn for sync-state
   // changes, but event routing only needs to re-run when the routed ids or their
@@ -400,5 +395,5 @@ export function useContainerContentsDeviceFirst(input: {
     });
   }, [domainScope, events, reconciler, reconciliationRouting, view]);
 
-  return { reconciler, view };
+  return deviceFirst;
 }

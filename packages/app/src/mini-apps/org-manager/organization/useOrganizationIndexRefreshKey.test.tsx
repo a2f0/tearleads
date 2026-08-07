@@ -36,7 +36,7 @@ function createRefreshHarness() {
     },
   };
   const tearleads = {
-    containerContents: { openTree: () => tree },
+    deviceFirst: { open: () => ({ containerStore: tree }) },
     documents: {
       subscribe: (
         listener: (document: { readonly documentKind: string }) => void,

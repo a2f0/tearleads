@@ -36,7 +36,7 @@ export interface LocalProjectionReconciledDelta {
     | undefined;
 }
 
-/** App-facing read handle returned by `tearleads.deviceFirst.openView()`. */
+/** Read side of the app-facing `tearleads.deviceFirst.open()` handle. */
 export interface LocalProjectionView {
   getSnapshot: () => LocalProjectionSnapshot;
   subscribe: (listener: () => void) => () => void;

@@ -88,7 +88,11 @@ export {
   type DatabaseSnapshot,
   type DatabaseStatus,
 } from "./database";
-export type { DeviceFirst, LocalProjectionView } from "./deviceFirst";
+export type {
+  DeviceFirst,
+  DeviceFirstContainerContents,
+  LocalProjectionView,
+} from "./deviceFirst";
 export type {
   DocumentAttachmentStatus,
   DocumentAttachmentUpload,

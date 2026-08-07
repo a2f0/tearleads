@@ -85,9 +85,14 @@ test("replaces the socket on native refresh and reconciles the acknowledged gap"
     spyOn(tearleads.containerContents, "openTree").mockReturnValue(
       readyEmptyContainerTree as never,
     );
-    spyOn(tearleads.deviceFirst, "reconciler").mockReturnValue({
-      reconcileNow: async () => {
-        reconcileCalls += 1;
+    const deviceFirst = tearleads.deviceFirst.open();
+    spyOn(tearleads.deviceFirst, "open").mockReturnValue({
+      ...deviceFirst,
+      containerStore: readyEmptyContainerTree,
+      reconciler: {
+        reconcileNow: async () => {
+          reconcileCalls += 1;
+        },
       },
     } as never);
 
