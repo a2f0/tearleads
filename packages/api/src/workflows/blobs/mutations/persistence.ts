@@ -13,7 +13,7 @@ import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { appendDocumentAttachmentAuditEntries } from "../../../documents/documentAttachmentAuditEvents";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
-import { isSqliteApiDatabase, nowExpression } from "../../../utils/sqlDialect";
+import { lockRowForUpdate, nowExpression } from "../../../utils/sqlDialect";
 import { loadOwnedActiveBlobStage } from "../stageAccess";
 import {
   BlobMutationError,
@@ -102,9 +102,7 @@ async function ensureBlobExists(input: {
     .from(blobs)
     .where(eq(blobs.id, input.blobId))
     .limit(1);
-  const [blob] = isSqliteApiDatabase()
-    ? await lockQuery
-    : await lockQuery.for("update");
+  const [blob] = await lockRowForUpdate(lockQuery);
   if (!blob) {
     throw new BlobMutationError("Blob not found", 404);
   }

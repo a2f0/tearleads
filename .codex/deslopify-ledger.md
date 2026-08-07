@@ -176,6 +176,50 @@
 - Decision notes: place the cross-domain loader at the keying workflow seam and
   inject only error construction, keeping mutation facades domain-owned.
 
+### 2026-08-07 - SQL row-update lock helper
+
+- Status: accepted
+- Classification: exact and parametric duplication
+- Equivalence claim: every migrated query still executes unchanged on SQLite
+  and applies the same no-option `FOR UPDATE` lock before execution on
+  PostgreSQL; result rows and caller-owned missing-row handling are unchanged.
+- Risk notes: query-builder thenable behavior, database dialect selection, and
+  transaction lock timing. Table-scoped `FOR UPDATE { of: ... }` and `FOR SHARE`
+  paths remain local because their lock semantics differ.
+- Files changed: the SQL dialect helper and direct test, three document audit
+  writers, and seven Billing, Blobs, and Organizations workflow lock sites.
+- Baseline: the full API memory and SQLite matrix passed at `ef663ef9`.
+- Verification: the direct dialect test, TypeScript, architecture,
+  source-shape, and `bun run check:affected` pass; the affected API matrix
+  reports 1,003 tests passing on both memory and SQLite.
+- Delta: four production lines removed net, with one direct dialect-branch test
+  added.
+- Decision notes: accept a structurally typed thenable query so the helper
+  preserves Drizzle result inference without depending on a concrete dialect
+  query-builder class.
+
+### 2026-08-07 - Session data schema
+
+- Status: accepted
+- Classification: handwritten validation replaced by declarative schema
+- Equivalence claim: the predicate retains its boolean/type-guard API and the
+  same plain-object, lowercase hex, UUID v4, safe timestamp, nonempty IP list,
+  nullable last-active IP, and extra-field acceptance rules.
+- Risk notes: persisted session parsing and bearer authentication. The schema
+  keeps the existing plain-object precondition and exact utility predicates,
+  including the array `every` semantics used by stored JSON sessions.
+- Files changed: API session validation and direct tests, plus the API package's
+  explicit Zod production dependency and lockfile entry.
+- Baseline: two direct characterization tests passed against the handwritten
+  guard at `273c79cb`.
+- Verification: the same two tests, TypeScript, architecture, source-shape,
+  production/all-source Knip, and `bun run check:affected` pass; the affected
+  API matrix reports 1,005 tests passing on both memory and SQLite.
+- Delta: ten validation-source lines removed net, with 40 lines of direct
+  boundary characterization coverage added.
+- Decision notes: infer `SessionData` from the schema so the runtime validator
+  and TypeScript contract cannot drift independently.
+
 ### 2026-08-07 - Window chrome-item registration
 
 - Status: accepted

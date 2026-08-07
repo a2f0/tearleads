@@ -41,6 +41,7 @@
         "drizzle-orm": "0.45.1",
         "hono": "4.7.11",
         "redis": "5.11.0",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@tearleads/bob-and-alice": "workspace:*",
