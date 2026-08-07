@@ -15,6 +15,10 @@ import {
   type CompletedBlobObject,
 } from "../../adapters/blobObjectStore";
 import { summarizeSha256Stream } from "../../utils/sha256";
+import {
+  loadOwnedActiveBlobStage,
+  type OwnedActiveBlobStage,
+} from "../../workflows/blobs/stageAccess";
 import type { ApiServiceRuntime } from "../runtime";
 
 type MultipartBlobStageStatus = 400 | 403 | 404 | 409 | 500;
@@ -22,17 +26,6 @@ type MultipartBlobStageStatus = 400 | 403 | 404 | 409 | 500;
 interface AuthenticatedMultipartBlobStageInput {
   readonly stageId: string;
   readonly userId: string;
-}
-
-interface LoadedMultipartBlobStage {
-  readonly byteLength: number;
-  readonly completedAt: Date | null;
-  readonly expiresAt: Date;
-  readonly id: string;
-  readonly ownerUserId: string;
-  readonly sha256: string;
-  readonly storageKey: string;
-  readonly uploadId: string;
 }
 
 export interface CleanupExpiredBlobStagesInput {
@@ -111,49 +104,20 @@ function assertUploadIdMatches(input: {
   }
 }
 
-function assertStageIsPromotable(stage: LoadedMultipartBlobStage): void {
-  if (stage.ownerUserId.length === 0) {
-    throw new MultipartBlobStageError("Blob stage not found", 404);
-  }
-  if (stage.expiresAt.getTime() <= Date.now()) {
-    throw new MultipartBlobStageError("Blob stage has expired", 409);
-  }
-}
-
 async function loadMultipartBlobStage(
   runtime: ApiServiceRuntime,
   input: AuthenticatedMultipartBlobStageInput,
-): Promise<LoadedMultipartBlobStage> {
-  const [stage] = await runtime.db
-    .select({
-      byteLength: blobStages.byteLength,
-      completedAt: blobStages.completedAt,
-      expiresAt: blobStages.expiresAt,
-      id: blobStages.id,
-      ownerUserId: blobStages.ownerUserId,
-      sha256: blobStages.sha256,
-      storageKey: blobStages.storageKey,
-      uploadId: blobStages.uploadId,
-    })
-    .from(blobStages)
-    .where(eq(blobStages.id, input.stageId))
-    .limit(1);
-
-  if (!stage) {
-    throw new MultipartBlobStageError("Blob stage not found", 404);
-  }
-  if (stage.ownerUserId !== input.userId) {
-    throw new MultipartBlobStageError("Forbidden", 403);
-  }
-
-  assertStageIsPromotable(stage);
-
-  return stage;
+): Promise<OwnedActiveBlobStage> {
+  return loadOwnedActiveBlobStage(runtime.db, {
+    error: (message, status) => new MultipartBlobStageError(message, status),
+    stageId: input.stageId,
+    userId: input.userId,
+  });
 }
 
 async function listStageParts(
   runtime: ApiServiceRuntime,
-  stage: LoadedMultipartBlobStage,
+  stage: OwnedActiveBlobStage,
 ) {
   if (stage.completedAt !== null) {
     return [];
@@ -340,7 +304,7 @@ export async function uploadMultipartBlobPartBytes(
 }
 
 function multipartStageCompleteResponse(
-  stage: LoadedMultipartBlobStage,
+  stage: OwnedActiveBlobStage,
 ): CompleteMultipartBlobStageResponse {
   return {
     byteLength: stage.byteLength,
@@ -355,7 +319,7 @@ function multipartStageCompleteResponse(
 // completion convergence is retry-driven (see the recovery path below).
 async function markMultipartStageComplete(
   runtime: ApiServiceRuntime,
-  stage: LoadedMultipartBlobStage,
+  stage: OwnedActiveBlobStage,
 ): Promise<void> {
   await runtime.db
     .update(blobStages)
@@ -372,7 +336,7 @@ async function markMultipartStageComplete(
 // validation would reject.
 async function assertCompletedMultipartObjectMatches(
   runtime: ApiServiceRuntime,
-  stage: LoadedMultipartBlobStage,
+  stage: OwnedActiveBlobStage,
   assembled: { readonly byteLength: number; readonly sha256: string },
 ): Promise<void> {
   if (assembled.byteLength !== stage.byteLength) {
@@ -400,7 +364,7 @@ async function assertCompletedMultipartObjectMatches(
 // is not a recoverable not_found or no object is present.
 async function recoverCompletedMultipartStage(
   runtime: ApiServiceRuntime,
-  stage: LoadedMultipartBlobStage,
+  stage: OwnedActiveBlobStage,
   error: unknown,
 ): Promise<CompleteMultipartBlobStageResponse> {
   if (!(error instanceof BlobObjectStoreError) || error.code !== "not_found") {
