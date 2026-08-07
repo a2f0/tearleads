@@ -9,6 +9,7 @@ import {
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
+import { uniqueSortedStrings } from "../../../../utils/array";
 import { isUniqueViolation } from "../../../../utils/databaseErrors";
 import { DocumentMutationError, documentNotFound } from "../errors";
 
@@ -132,7 +133,7 @@ export async function replaceDocumentContainerLinks(input: {
     .from(documentContainerLinks)
     .where(eq(documentContainerLinks.documentId, input.documentId));
   const previousContainerIds = previousRows.map((row) => row.containerId);
-  const nextContainerIds = [...new Set(input.linkedContainerIds)].sort();
+  const nextContainerIds = uniqueSortedStrings(input.linkedContainerIds);
   const removedContainerIds = previousContainerIds.filter(
     (containerId) => !nextContainerIds.includes(containerId),
   );

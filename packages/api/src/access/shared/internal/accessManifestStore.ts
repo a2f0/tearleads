@@ -23,6 +23,7 @@ import type {
 } from "@tearleads/crypto";
 import { makeVerifiedAccessEvent } from "@tearleads/crypto";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
+import { uniqueSortedStrings as unique } from "../../../utils/array";
 import {
   canonicalJsonEquals,
   readKeyingCanonicalJson,
@@ -370,7 +371,7 @@ export async function getAccessManifestBundles(
   manifestHashes: readonly string[],
   executor: DatabaseSession,
 ): Promise<Map<string, StoredAccessManifestBundle>> {
-  const uniqueManifestHashes = [...new Set(manifestHashes)].sort();
+  const uniqueManifestHashes = unique(manifestHashes);
   if (uniqueManifestHashes.length === 0) {
     return new Map<string, StoredAccessManifestBundle>();
   }
@@ -389,7 +390,7 @@ export async function getAccessManifestBundles(
     .where(
       inArray(
         accessEvents.eventHash,
-        [...new Set(manifests.map((manifest) => manifest.eventHash))].sort(),
+        unique(manifests.map(({ eventHash }) => eventHash)),
       ),
     );
   const eventByHash = new Map(events.map((event) => [event.eventHash, event]));
@@ -733,7 +734,7 @@ async function lockAccessManifestHeads(
   executor: DatabaseSession,
   mode: "share" | "update",
 ): Promise<void> {
-  const uniqueObjectIds = [...new Set(objectIds)].sort();
+  const uniqueObjectIds = unique(objectIds);
   if (uniqueObjectIds.length === 0) {
     return;
   }
@@ -777,8 +778,7 @@ export async function getCurrentAccessManifestHeads(
   objectIds: readonly string[],
   executor: DatabaseSession,
 ): Promise<Map<string, StoredAccessManifestHead>> {
-  const uniqueObjectIds = [...new Set(objectIds)].sort();
-
+  const uniqueObjectIds = unique(objectIds);
   if (uniqueObjectIds.length === 0) {
     return new Map();
   }
@@ -859,7 +859,7 @@ export async function listAccessManifestDocumentLinkProjections(
   manifestHashes: readonly string[],
   executor: DatabaseSession,
 ): Promise<StoredAccessManifestDocumentLinkProjection[]> {
-  const uniqueManifestHashes = [...new Set(manifestHashes)].sort();
+  const uniqueManifestHashes = unique(manifestHashes);
 
   if (uniqueManifestHashes.length === 0) {
     return [];

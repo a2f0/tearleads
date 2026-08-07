@@ -8,6 +8,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { uniqueSortedStrings } from "../../utils/array";
 import {
   asContainerWriterProjectionError,
   buildContainerAccessProjection,
@@ -150,7 +151,7 @@ export async function resolveContainerAccessProjectionBatch(input: {
 }): Promise<Map<string, ContainerAccessProjectionResult>> {
   const context =
     input.context ?? createContainerWriterProjectionContext(input.executor);
-  const containerIds = [...new Set(input.containerIds)].sort();
+  const containerIds = uniqueSortedStrings(input.containerIds);
   const results = new Map<string, ContainerAccessProjectionResult>();
   const accessPaths = new Map<string, ContainerAccessPath>();
 

@@ -243,3 +243,30 @@
   make registered input-transform projection explicit and fail closed.
 - Decision notes: retain the query schema's plain-object requirement while
   returning Zod's parsed object, so its inferred numeric limit matches runtime.
+
+### 2026-08-07 - Canonical API string-set ordering
+
+- Status: accepted
+- Classification: exact and comparator-sensitive duplication
+- Equivalence claim: one API utility replaces four local helpers and 26 inline
+  string deduplicate/sort expressions. Default JavaScript sorting and the
+  existing canonical comparator both use UTF-16 code-unit order; the one
+  locale-based helper only receives normalized UUIDs, fingerprints, update
+  ids, and protocol hashes, whose established order is unchanged.
+- Risk notes: signed manifest inputs, dependency hashes, database lock order,
+  and deterministic response projections. Numeric epoch sorting remains local
+  and unchanged.
+- Files changed: the API array utility and direct test plus its Access,
+  Services, Routes, and Workflows consumers.
+- Baseline: the canonical identifier characterization test passed against the
+  locale-based helper at `da397991`; that base's affected suite passed all 15
+  unit-test tasks and 38 web E2E tests.
+- Verification: the direct helper and five lock/manifest-focused test files,
+  TypeScript, Biome, architecture, source-shape, and `bun run check:affected`
+  pass; the affected API matrix reports 1,007 tests passing on both memory and
+  SQLite.
+- Delta: three production lines removed net, with 29 lines of direct comparator
+  characterization added.
+- Decision notes: canonicalize on the existing explicit `compareStrings`
+  code-unit comparator, matching crypto's canonical ordering and JavaScript's
+  default string sort without depending on host locale.

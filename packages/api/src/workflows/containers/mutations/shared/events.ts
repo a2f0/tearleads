@@ -3,6 +3,7 @@ import type { AccessEventType, VerifiedAccessEvent } from "@tearleads/crypto";
 import { verifySignedAccessEvent } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { readProjectionAccessEvent } from "../../../../keyingProjectionRecords";
+import { uniqueSortedStrings } from "../../../../utils/array";
 import { readKeyingCanonicalJson } from "../../../../utils/canonicalJson";
 import { loadSignerPublicKey } from "../../../signerPublicKey";
 import { ContainerMutationError, mutationShapeError } from "../errors";
@@ -87,7 +88,7 @@ function expectedAccessEventDependencyHashes(
     }
   }
 
-  return [...new Set(hashes)].sort();
+  return uniqueSortedStrings(hashes);
 }
 
 export function assertAccessEventDependenciesMatchRequest(

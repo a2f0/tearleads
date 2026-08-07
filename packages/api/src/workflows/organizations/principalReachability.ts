@@ -1,6 +1,7 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { principalMembershipProjection } from "@tearleads/api-shared/schema";
 import { sql } from "drizzle-orm";
+import { uniqueSortedStrings } from "../../utils/array";
 import { currentPrincipalStateHashSql } from "../principals/currentPrincipalStateSql";
 
 function readReachableGroupId(row: unknown): string {
@@ -34,7 +35,7 @@ export async function listUserReachableCurrentGroupIds(input: {
   groupIds: readonly string[];
   userId: string;
 }): Promise<Set<string>> {
-  const groupIds = [...new Set(input.groupIds)].sort();
+  const groupIds = uniqueSortedStrings(input.groupIds);
   if (groupIds.length === 0) {
     return new Set();
   }

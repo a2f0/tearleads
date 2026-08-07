@@ -33,6 +33,7 @@ import {
   resolveCurrentDocumentKekTargets,
 } from "../../access/read/documentKekTargets";
 import { createProjectionReaders } from "../../keyingProjectionRecords";
+import { uniqueSortedStrings } from "../../utils/array";
 import {
   type ContainerWriterProjectionContext,
   createContainerWriterProjectionContext,
@@ -212,7 +213,7 @@ async function loadProjectionManifestBundlesByHash(input: {
   readonly manifestHashes: readonly string[];
   readonly cache: Map<string, LoadedProjectionManifestBundle>;
 }): Promise<LoadedProjectionManifestBundle[]> {
-  const uniqueManifestHashes = [...new Set(input.manifestHashes)].sort();
+  const uniqueManifestHashes = uniqueSortedStrings(input.manifestHashes);
   const missingManifestHashes = uniqueManifestHashes.filter(
     (manifestHash) => !input.cache.has(manifestHash),
   );

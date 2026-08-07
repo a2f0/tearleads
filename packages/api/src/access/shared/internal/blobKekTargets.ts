@@ -6,7 +6,7 @@ import {
   computeBlobContentKeyTargetHash,
 } from "@tearleads/crypto";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { compareStrings } from "../../../utils/array";
+import { compareStrings, uniqueSortedStrings } from "../../../utils/array";
 import {
   getCurrentAccessManifestHeads,
   listAccessManifestDocumentLinkProjections,
@@ -43,10 +43,6 @@ interface AssertBlobKekTargetsCurrentInput {
   readonly blobId: string;
   readonly expectedTargets?: readonly BlobContentKeyTarget[];
   readonly expectedTargetHash?: string;
-}
-
-function uniqueSortedStrings(values: readonly string[]): string[] {
-  return [...new Set(values)].sort(compareStrings);
 }
 
 function blobTargetKey(target: BlobContentKeyTarget): string {
