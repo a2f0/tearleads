@@ -15,8 +15,8 @@ import {
 } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
-import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
+import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 
 type StripeCheckoutMode = "hosted" | "inline";
@@ -218,22 +218,20 @@ export async function runResolveOrgSubscriptionForAdminWorkflow(
   organizationId: string,
   sessionUserId: string,
 ): Promise<{ providerSubscriptionId: string | null }> {
-  return db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
-      executor: tx,
-      organizationId,
-      requireAdmin: true,
-      userId: sessionUserId,
-    });
-    const [row] = await tx
-      .select({
-        providerSubscriptionId: organizationBilling.providerSubscriptionId,
-      })
-      .from(organizationBilling)
-      .where(eq(organizationBilling.organizationId, organizationId))
-      .limit(1);
-    return { providerSubscriptionId: row?.providerSubscriptionId ?? null };
-  });
+  return withOrganizationAdminTransaction(
+    db,
+    { organizationId, userId: sessionUserId },
+    async (tx) => {
+      const [row] = await tx
+        .select({
+          providerSubscriptionId: organizationBilling.providerSubscriptionId,
+        })
+        .from(organizationBilling)
+        .where(eq(organizationBilling.organizationId, organizationId))
+        .limit(1);
+      return { providerSubscriptionId: row?.providerSubscriptionId ?? null };
+    },
+  );
 }
 
 /**
@@ -249,55 +247,53 @@ export async function runRequireCheckoutEligibleWorkflow(
   organizationId: string,
   sessionUserId: string,
 ): Promise<{ seatQuantity: number; tierId: SyncBillingTierId }> {
-  return db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
-      executor: tx,
-      organizationId,
-      requireAdmin: true,
-      userId: sessionUserId,
-    });
-    const [row] = await tx
-      .select({
-        memberGroupId: organizations.memberGroupId,
-        status: organizationBilling.status,
-      })
-      .from(organizations)
-      .leftJoin(
-        organizationBilling,
-        eq(organizationBilling.organizationId, organizations.id),
-      )
-      .where(eq(organizations.id, organizationId))
-      .limit(1);
-    if (!row) {
-      throw new OrganizationManagerError("Organization not found", 404);
-    }
-    if (row.status === "active") {
-      throw new OrganizationManagerError(
-        "The organization already has an active subscription",
-        409,
-      );
-    }
+  return withOrganizationAdminTransaction(
+    db,
+    { organizationId, userId: sessionUserId },
+    async (tx) => {
+      const [row] = await tx
+        .select({
+          memberGroupId: organizations.memberGroupId,
+          status: organizationBilling.status,
+        })
+        .from(organizations)
+        .leftJoin(
+          organizationBilling,
+          eq(organizationBilling.organizationId, organizations.id),
+        )
+        .where(eq(organizations.id, organizationId))
+        .limit(1);
+      if (!row) {
+        throw new OrganizationManagerError("Organization not found", 404);
+      }
+      if (row.status === "active") {
+        throw new OrganizationManagerError(
+          "The organization already has an active subscription",
+          409,
+        );
+      }
 
-    // Access validation above already establishes that the organization exists.
-    // Count the signed Members-group projection in this same transaction so the
-    // quantity sent to Stripe is server-authoritative and belongs to the exact
-    // roster state that passed the checkout gate. The stored licensed seat count
-    // is intentionally not used: before a first subscription it can still be 0.
-    const activeUserIds = await listUsersReachableFromCurrentGroup({
-      executor: tx,
-      groupId: row.memberGroupId,
-    });
-    if (activeUserIds.length === 0) {
-      throw new OrganizationManagerError(
-        "The organization has no active members",
-        409,
-        BILLING_ERROR_CODES.checkoutNoActiveMembers,
-      );
-    }
+      // Access validation above already establishes that the organization exists.
+      // Count the signed Members-group projection in this same transaction so the
+      // quantity sent to Stripe is server-authoritative and belongs to the exact
+      // roster state that passed the checkout gate. The stored licensed seat count
+      // is intentionally not used: before a first subscription it can still be 0.
+      const activeUserIds = await listUsersReachableFromCurrentGroup({
+        executor: tx,
+        groupId: row.memberGroupId,
+      });
+      if (activeUserIds.length === 0) {
+        throw new OrganizationManagerError(
+          "The organization has no active members",
+          409,
+          BILLING_ERROR_CODES.checkoutNoActiveMembers,
+        );
+      }
 
-    const tier = requireAvailableTier(activeUserIds.length);
-    return { seatQuantity: activeUserIds.length, tierId: tier.id };
-  });
+      const tier = requireAvailableTier(activeUserIds.length);
+      return { seatQuantity: activeUserIds.length, tierId: tier.id };
+    },
+  );
 }
 
 /**
@@ -319,36 +315,34 @@ export async function runAcquireStripeCheckoutAttemptWorkflow(
   now: Date = new Date(),
   createAttemptId: () => string = randomUUID,
 ): Promise<StripeCheckoutAttempt> {
-  return db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
-      executor: tx,
-      organizationId,
-      requireAdmin: true,
-      userId: sessionUserId,
-    });
-    const billing = await lockStripeCheckoutBilling(tx, organizationId);
-    const seatQuantity = await requireStripeCheckoutSeatQuantity(
-      tx,
-      organizationId,
-    );
-    const activeAttempt = resolveActiveStripeCheckoutAttempt({
-      billing,
-      mode,
-      now,
-      seatQuantity,
-      sessionUserId,
-    });
-    return (
-      activeAttempt ??
-      createStripeCheckoutAttempt({
-        createAttemptId,
-        executor: tx,
+  return withOrganizationAdminTransaction(
+    db,
+    { organizationId, userId: sessionUserId },
+    async (tx) => {
+      const billing = await lockStripeCheckoutBilling(tx, organizationId);
+      const seatQuantity = await requireStripeCheckoutSeatQuantity(
+        tx,
+        organizationId,
+      );
+      const activeAttempt = resolveActiveStripeCheckoutAttempt({
+        billing,
         mode,
         now,
-        organizationId,
         seatQuantity,
         sessionUserId,
-      })
-    );
-  });
+      });
+      return (
+        activeAttempt ??
+        createStripeCheckoutAttempt({
+          createAttemptId,
+          executor: tx,
+          mode,
+          now,
+          organizationId,
+          seatQuantity,
+          sessionUserId,
+        })
+      );
+    },
+  );
 }
