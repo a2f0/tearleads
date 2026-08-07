@@ -137,6 +137,7 @@ export const subsystems: readonly Subsystem[] = [
     seam: "access/read/*.ts and access/write/*.ts facades (composed only by workflows)",
     paths: [
       `${api}/access/`,
+      `${api}/keyingProjectionManifestRecords.ts`,
       `${api}/keyingProjectionRecords.ts`,
       `${api}/workflows/keyingReadAccess.ts`,
     ],

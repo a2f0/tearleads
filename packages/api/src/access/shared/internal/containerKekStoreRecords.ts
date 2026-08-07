@@ -161,33 +161,29 @@ export function toStoredContainerKeyWrap(
   };
 }
 
-export function toContainerKeyEpoch(
-  storedEpoch: StoredContainerKeyEpoch,
-): ContainerKeyEpoch {
+export function toContainerKeyEpoch(epoch: ContainerKeyEpoch) {
   return {
-    id: storedEpoch.id,
-    containerId: storedEpoch.containerId,
-    keyEpoch: storedEpoch.keyEpoch,
-    accessManifestHash: storedEpoch.accessManifestHash,
-    parentContainerKeyEpochId: storedEpoch.parentContainerKeyEpochId,
-    createdByEventHash: storedEpoch.createdByEventHash,
-    createdByManifestHash: storedEpoch.createdByManifestHash,
-  };
+    id: epoch.id,
+    containerId: epoch.containerId,
+    keyEpoch: epoch.keyEpoch,
+    accessManifestHash: epoch.accessManifestHash,
+    parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
+    createdByEventHash: epoch.createdByEventHash,
+    createdByManifestHash: epoch.createdByManifestHash,
+  } satisfies ContainerKeyEpoch;
 }
 
-export function toContainerKeyWrap(
-  storedWrap: StoredContainerKeyWrap,
-): ContainerKeyWrap {
+export function toContainerKeyWrap(wrap: ContainerKeyWrap) {
   return {
-    containerKeyEpochId: storedWrap.containerKeyEpochId,
-    recipientKind: storedWrap.recipientKind,
-    recipientId: storedWrap.recipientId,
-    recipientKeyEpochId: storedWrap.recipientKeyEpochId,
-    recipientKeyFingerprint: storedWrap.recipientKeyFingerprint,
-    kemCipherText: storedWrap.kemCipherText,
-    wrappedKey: storedWrap.wrappedKey,
-    wrapManifestHash: storedWrap.wrapManifestHash,
-  };
+    containerKeyEpochId: wrap.containerKeyEpochId,
+    recipientKind: wrap.recipientKind,
+    recipientId: wrap.recipientId,
+    recipientKeyEpochId: wrap.recipientKeyEpochId,
+    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+    kemCipherText: wrap.kemCipherText,
+    wrappedKey: wrap.wrappedKey,
+    wrapManifestHash: wrap.wrapManifestHash,
+  } satisfies ContainerKeyWrap;
 }
 
 export function containerKeyWrapConflictWhere(wrap: ContainerKeyWrap) {

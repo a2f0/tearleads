@@ -45,3 +45,20 @@
 - Delta: 19 production lines removed net, with focused characterization
   coverage added.
 - Decision notes: centralize the duplicated readers in `stripeHttp.ts`.
+
+### 2026-08-07 - Keying projection records
+
+- Status: accepted
+- Classification: exact and parametric duplication
+- Equivalence claim: manifest and key-record field selection, array copying,
+  projection validation, and error construction are unchanged.
+- Risk notes: cryptographic serialization and API response projection; shared
+  helpers preserve field order and caller-specific error factories.
+- Files changed: keying projection readers, access-manifest records, container
+  key records, and their workflow consumers.
+- Baseline: the full API memory and SQLite matrix passed at `af42d4f6`.
+- Verification: two direct mapper tests, TypeScript, and
+  `bun run check:affected` pass.
+- Delta: 210 production lines removed net.
+- Decision notes: expose one canonical mapper per record and bind projection
+  readers once through `createProjectionReaders`.

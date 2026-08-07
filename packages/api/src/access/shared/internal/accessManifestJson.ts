@@ -1,13 +1,17 @@
 import type {
   AnyVerifiedAccessManifest,
   ContainerAccessManifestState,
-  DocumentLinkSetManifestState,
   KeyingCanonicalJson,
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import {
+  containerAccessManifestStateRecord,
+  documentLinkSetStateRecord,
+  projectionReferencedPrincipalHeadRecord,
+} from "../../../keyingProjectionRecords";
 
 export function accessEventDependencyHashes(
   event: VerifiedAccessEvent,
@@ -23,51 +27,6 @@ export function accessManifestReferencedHeads(
   }));
 }
 
-function containerDirectGrantsCanonicalJson(
-  directGrants: ContainerAccessManifestState["directGrants"],
-): KeyingCanonicalJson {
-  return directGrants.map((grant) => ({
-    accessLevel: grant.accessLevel,
-    subjectId: grant.subjectId,
-    subjectType: grant.subjectType,
-  }));
-}
-
-function containerAccessManifestStateCanonicalJson(
-  state: ContainerAccessManifestState,
-): KeyingCanonicalJson {
-  return {
-    version: state.version,
-    containerId: state.containerId,
-    organizationId: state.organizationId,
-    epoch: state.epoch,
-    previousManifestHash: state.previousManifestHash,
-    eventHash: state.eventHash,
-    parentContainerId: state.parentContainerId,
-    parentManifestHash: state.parentManifestHash,
-    metadataDocumentId: state.metadataDocumentId,
-    containerKeyEpochId: state.containerKeyEpochId,
-    directGrants: containerDirectGrantsCanonicalJson(state.directGrants),
-    referencedPrincipalHeads: referencedPrincipalHeadsCanonicalJson(
-      state.referencedPrincipalHeads,
-    ),
-  };
-}
-
-function documentLinkSetStateCanonicalJson(
-  state: DocumentLinkSetManifestState,
-): KeyingCanonicalJson {
-  return {
-    version: state.version,
-    documentId: state.documentId,
-    organizationId: state.organizationId,
-    epoch: state.epoch,
-    previousManifestHash: state.previousManifestHash,
-    eventHash: state.eventHash,
-    linkedContainerIds: [...state.linkedContainerIds],
-  };
-}
-
 function unrecognizedAccessManifestState(state: never): never {
   throw new Error(`Unrecognized access manifest state: ${String(state)}`);
 }
@@ -81,11 +40,11 @@ export function accessManifestState(
 
   const { state } = manifest;
   if ("containerId" in state) {
-    return containerAccessManifestStateCanonicalJson(state);
+    return containerAccessManifestStateRecord(state);
   }
 
   if ("documentId" in state) {
-    return documentLinkSetStateCanonicalJson(state);
+    return documentLinkSetStateRecord(state);
   }
 
   return unrecognizedAccessManifestState(state);
@@ -131,15 +90,8 @@ export function containerManifestState(
 
 export function referencedPrincipalHeadsCanonicalJson(
   principalHeads: readonly ReferencedPrincipalHead[],
-): KeyingCanonicalJson {
-  return principalHeads.map((principalHead) => ({
-    principalType: principalHead.principalType,
-    principalId: principalHead.principalId,
-    version: principalHead.version,
-    keyEpoch: principalHead.keyEpoch,
-    stateHash: principalHead.stateHash,
-    keyFingerprint: principalHead.keyFingerprint,
-  }));
+) {
+  return principalHeads.map(projectionReferencedPrincipalHeadRecord);
 }
 
 export function isString(value: unknown): value is string {

@@ -22,6 +22,11 @@ import {
 } from "../../../../keyingProjectionRecords";
 import { mutationShapeError } from "../errors";
 
+export {
+  toContainerKeyEpoch as containerKeyEpochRecord,
+  toContainerKeyWrap as containerKeyWrapRecord,
+} from "../../../../access/read/containerKekStore";
+
 export function isKekRecipientKind(
   value: unknown,
 ): value is ContainerKeyWrap["recipientKind"] {
@@ -131,20 +136,6 @@ export function readContainerKeyEpoch(
   };
 }
 
-export function containerKeyEpochRecord(
-  keyEpoch: ContainerKeyEpoch,
-): Record<string, unknown> {
-  return {
-    id: keyEpoch.id,
-    containerId: keyEpoch.containerId,
-    keyEpoch: keyEpoch.keyEpoch,
-    accessManifestHash: keyEpoch.accessManifestHash,
-    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-    createdByEventHash: keyEpoch.createdByEventHash,
-    createdByManifestHash: keyEpoch.createdByManifestHash,
-  };
-}
-
 function readContainerKeyWrap(value: unknown, label: string): ContainerKeyWrap {
   const record = readProjectionPlainRecord(value, label, mutationShapeError);
   const recipientKind = readProjectionValue(record, "recipientKind");
@@ -209,21 +200,6 @@ export function readContainerKeyWraps(
   return value.map((entry, index) =>
     readContainerKeyWrap(entry, `${label}[${index}]`),
   );
-}
-
-export function containerKeyWrapRecord(
-  wrap: ContainerKeyWrap,
-): Record<string, unknown> {
-  return {
-    containerKeyEpochId: wrap.containerKeyEpochId,
-    recipientKind: wrap.recipientKind,
-    recipientId: wrap.recipientId,
-    recipientKeyEpochId: wrap.recipientKeyEpochId,
-    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-    kemCipherText: wrap.kemCipherText,
-    wrappedKey: wrap.wrappedKey,
-    wrapManifestHash: wrap.wrapManifestHash,
-  };
 }
 
 function readContainerKekRecipientTarget(
