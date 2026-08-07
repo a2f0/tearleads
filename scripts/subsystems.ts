@@ -183,6 +183,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/corsOrigins.ts`,
       `${api}/index.ts`,
       `${api}/appTestRuntime.ts`,
+      `${api}/services/databaseWorkflowService.ts`,
       `${api}/services/runtime.ts`,
       `${api}/routes/health.ts`,
       `${api}/routes/errorResponse.ts`,

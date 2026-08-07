@@ -10,20 +10,17 @@ import {
   type CreateContainerWithMetadataDocumentInput,
   runCreateContainerWithMetadataDocumentWorkflow,
 } from "../../workflows/containers/mutations/createContainerWithMetadataDocument";
-import type { ApiServiceRuntime } from "../runtime";
+import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 
 export { ContainerMutationError } from "../../workflows/containers/mutations";
 
-export async function mutateContainer(
-  runtime: ApiServiceRuntime,
-  input: MutateContainerInput,
-): Promise<ContainerMutationResponse> {
-  return runContainerMutationWorkflow(runtime.db, input);
-}
+export const mutateContainer = createDatabaseWorkflowService<
+  MutateContainerInput,
+  ContainerMutationResponse
+>(runContainerMutationWorkflow);
 
-export async function createContainerWithMetadataDocument(
-  runtime: ApiServiceRuntime,
-  input: CreateContainerWithMetadataDocumentInput,
-): Promise<ContainerCreateWithMetadataDocumentResponse> {
-  return runCreateContainerWithMetadataDocumentWorkflow(runtime.db, input);
-}
+export const createContainerWithMetadataDocument =
+  createDatabaseWorkflowService<
+    CreateContainerWithMetadataDocumentInput,
+    ContainerCreateWithMetadataDocumentResponse
+  >(runCreateContainerWithMetadataDocumentWorkflow);

@@ -464,3 +464,60 @@
   behavior and the optional-challenge implementation used directly for
   `loginWithChallenge`. Memoize only the exposed context fields so private
   persistence state cannot trigger consumers.
+
+### 2026-08-07 - Content-key store variants
+
+- Status: accepted
+- Classification: structurally duplicated persistence orchestration
+- Equivalence claim: document and blob bundle reads, first-writer conflict
+  handling, current-target validation, metadata refreshes, target
+  reconciliation, projections, and write-header idempotency retain their exact
+  stored rows, return values, error classes, messages, statuses, and document
+  sync error codes.
+- Risk notes: same-epoch races, stale document projections, additive document
+  targets, blob target replacement without byte replacement, content-key epoch
+  gates, and reused write-header record domains.
+- Files changed: the document and blob content-key stores now configure one
+  shared typed store core; the obsolete blob store file-size baseline was
+  removed.
+- Baseline: the API memory and SQLite matrices each passed 1,010 tests with
+  three expected skips at `8a5c00ed` before the store-core extraction.
+- Verification: TypeScript, Biome, OpenAPI and protocol checks, Knip,
+  architecture, source-shape, Markdown, and `bun run check:affected` pass; the
+  affected API matrix again reports 1,010 passes and three expected skips on
+  each database engine.
+- Delta: the two domain variants shrink by 188 production lines combined, the
+  blob variant returns under the default source-shape budget, and the shared
+  426-line core replaces the paired algorithms with one implementation and
+  explicit domain adapters.
+- Decision notes: preserve document-only link-set metadata and additive target
+  growth, preserve blob-only target replacement and fixed content-key epoch
+  rules, and keep table-specific Drizzle operations in the variants. The core
+  owns only behavior shared by both stores.
+
+### 2026-08-07 - Database workflow service facades
+
+- Status: accepted
+- Classification: repeated route-facing runtime-to-database adapter
+- Equivalence claim: the converted container, document, and principal services
+  remain async two-argument functions, pass the identical `runtime.db` and input
+  object to the same workflow, and preserve workflow results and rejections.
+- Risk notes: exported declaration inference, async promise adoption, workflow
+  test-only optional parameters, and the route/service/workflow dependency
+  direction. Private workflow input types retain explicit service-facing shapes.
+- Files changed: side-effect-free `services/databaseWorkflowService.ts`, eight
+  database-only service facades, architecture docs/registry, and direct adapter
+  coverage.
+- Baseline: immediately preceding API memory and SQLite matrices each passed
+  1,010 tests with three expected skips at `bf75fd98`.
+- Verification: TypeScript, Biome, OpenAPI and protocol checks, Knip,
+  architecture, source-shape, Markdown, and `bun run check:affected` pass; the
+  API memory and SQLite matrices each report 1,011 passes and three expected
+  skips, including the direct adapter test.
+- Delta: 21 production lines removed net across the service layer while eleven
+  repeated async wrappers now use one typed adapter.
+- Decision notes: retain the enforced route -> service -> workflow boundary.
+  Database-only service facades select `runtime.db`; routes do not import
+  workflows or select infrastructure. Keep the non-async delete facade and the
+  optional-input trial-expiry worker seam explicit because their call contracts
+  differ from the shared async two-argument shape.

@@ -1,15 +1,6 @@
-import type { ContainerKekLogResponse } from "@tearleads/validators/response";
 import { runContainerKekLogWorkflow } from "../../workflows/containers/kekLog";
-import type { ApiServiceRuntime } from "../runtime";
+import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 
-export async function getContainerKekLog(
-  runtime: ApiServiceRuntime,
-  input: {
-    readonly afterKeyEpoch: number;
-    readonly containerId: string;
-    readonly keyringForEpoch: number;
-    readonly userId: string;
-  },
-): Promise<ContainerKekLogResponse> {
-  return runContainerKekLogWorkflow(runtime.db, input);
-}
+export const getContainerKekLog = createDatabaseWorkflowService(
+  runContainerKekLogWorkflow,
+);
