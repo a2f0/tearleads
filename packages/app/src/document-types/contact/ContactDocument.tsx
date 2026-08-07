@@ -1,9 +1,4 @@
-import {
-  type Dispatch,
-  type SetStateAction,
-  useCallback,
-  useMemo,
-} from "react";
+import { useMemo } from "react";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import {
   useDocument,
@@ -45,23 +40,17 @@ export function ContactDocumentFields({
   isEditing,
   ready,
   canWrite,
-  setEditing,
+  toggleEditing,
   setStructuredFields,
   values,
 }: {
   isEditing: boolean;
   ready: boolean;
   canWrite: boolean;
-  setEditing: Dispatch<SetStateAction<boolean>>;
+  toggleEditing: () => void;
   setStructuredFields: ContactStructuredFieldSetter;
   values: ContactFieldValues;
 }) {
-  // Kept reference-stable so the toolbar action it feeds does not re-register
-  // on every render.
-  const toggleEditing = useCallback(
-    () => setEditing((editing) => !editing),
-    [setEditing],
-  );
   useStructuredDocumentEditAction({
     disabled: !ready || !canWrite,
     id: "contact-document-toggle-edit",
@@ -131,7 +120,7 @@ export function ContactDocument(params: {
 }) {
   const { canWrite, ready, setStructuredFields, structuredFields } =
     useDocument();
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
+  const [isEditing, , toggleEditing] = useStructuredDocumentEditing(
     canWrite,
     params.initialEditing,
   );
@@ -149,7 +138,7 @@ export function ContactDocument(params: {
           isEditing={isEditing}
           ready={ready}
           canWrite={canWrite}
-          setEditing={setIsEditing}
+          toggleEditing={toggleEditing}
           setStructuredFields={setStructuredFields}
           values={values}
         />

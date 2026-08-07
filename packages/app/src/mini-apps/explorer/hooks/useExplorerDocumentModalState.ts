@@ -1,38 +1,13 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
 import { useExplorerModalController } from "../modal/controller";
-import type { ExplorerModalState } from "../modal/types";
+import type { ExplorerModalController } from "../modal/types";
 import type { ExplorerContainerRulesContext } from "../model/containerRules";
-import type { MoveTargetOption } from "../model/targetOptions";
 import type {
   ExplorerDocumentMutationAction,
   ExplorerModelExplorer,
 } from "./explorerModelTypes";
 
-export interface ExplorerDocumentModalState {
-  backgroundActionError: string | null;
-  closeModal: () => void;
-  draftName: string;
-  draftTargetContainerId: string;
-  handleModalSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  isSubmittingModal: boolean;
-  modalError: string | null;
-  modalState: ExplorerModalState | null;
-  moveTargetOptions: ReadonlyArray<MoveTargetOption>;
-  nameInputRef: RefObject<HTMLInputElement | null>;
-  openCreateChildModal: (nodeId: string) => void;
-  openEmptyTrashModal: (nodeId: string) => void;
-  openLinkDocumentModal: (documentLocalId: string) => void;
-  openMoveDocumentModal: (documentLocalId: string) => void;
-  openMoveModal: (nodeId: string) => void;
-  openPurgeModal: (nodeId: string) => void;
-  openRenameModal: (nodeId: string) => void;
-  openSharePeerModal: (nodeId: string) => void;
-  setDraftName: Dispatch<SetStateAction<string>>;
-  setDraftTargetContainerId: Dispatch<SetStateAction<string>>;
-  setModalError: Dispatch<SetStateAction<string | null>>;
-  targetSelectRef: RefObject<HTMLButtonElement | null>;
-}
+export type ExplorerDocumentModalState = ExplorerModalController;
 
 export function useExplorerDocumentModalState(params: {
   explorer: ExplorerModelExplorer;

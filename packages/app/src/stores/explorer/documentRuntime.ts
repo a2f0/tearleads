@@ -22,8 +22,8 @@ export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
 
 export function isIgnorableDatabaseWorkerError(error: unknown): boolean {
   return (
-    error instanceof Error &&
-    (error.message === "Database worker client has been destroyed." ||
+    isDestroyedDatabaseWorkerError(error) ||
+    (error instanceof Error &&
       error.message === "Database client is unavailable.")
   );
 }

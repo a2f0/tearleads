@@ -8,7 +8,10 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { useWindowItemRegistry } from "./useWindowItemRegistry";
+import {
+  selectHighestPriorityItem,
+  useWindowItemRegistry,
+} from "./useWindowItemRegistry";
 import { useWindowToolbarReservationRegistry } from "./useWindowToolbarReservationRegistry";
 import {
   createBackAction,
@@ -17,7 +20,6 @@ import {
   type RegisteredWindowTitleBarAction,
   sameBackAction,
   sameTitleBarAction,
-  selectBackAction,
   useRegisteredWindowBackAction,
   useRegisteredWindowTitleBarAction,
   type WindowBackAction,
@@ -34,7 +36,6 @@ import {
   type RegisteredWindowRefreshMenuItem,
   sameMenuItem,
   sameRefreshMenuItem,
-  selectRefreshMenuItem,
 } from "./windowMenuRegistrations";
 
 interface WindowRefreshMenuItemInput {
@@ -126,7 +127,7 @@ function useWindowMenuContextValue(): WindowMenuContextValue {
     [fileMenu.items],
   );
   const refreshMenuItem = useMemo(
-    () => createRefreshMenuItem(selectRefreshMenuItem(refresh.items)),
+    () => createRefreshMenuItem(selectHighestPriorityItem(refresh.items)),
     [refresh.items],
   );
   const viewMenuItemList = useMemo(
@@ -141,7 +142,7 @@ function useWindowMenuContextValue(): WindowMenuContextValue {
     [titleBar.items],
   );
   const backAction = useMemo(
-    () => createBackAction(selectBackAction(back.items)),
+    () => createBackAction(selectHighestPriorityItem(back.items)),
     [back.items],
   );
 

@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
@@ -12,7 +12,6 @@ import {
   useStructuredDocumentEditAction,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
-import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
 import {
   type AddTrackerRow,
   useSavedTrackerRows,
@@ -254,17 +253,13 @@ export function EnvFileFields(params: {
     variables,
   } = params;
   const controlsDisabled = disabled || !ready;
-  const {
-    entryPending: newVariablePending,
-    onPendingChange,
-    toggleEditing,
-  } = usePendingTrackerEntry(onToggleEditing);
+  const [newVariablePending, onPendingChange] = useState(false);
   useStructuredDocumentEditAction({
     disabled: controlsDisabled || newVariablePending,
     editingLabel: "Save",
     id: "env-file-toggle-edit",
     isEditing,
-    onToggleEditing: toggleEditing,
+    onToggleEditing,
   });
 
   if (!isEditing) {

@@ -3,6 +3,7 @@ import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import {
   type PropsWithChildren,
   type ReactNode,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -72,7 +73,14 @@ export function useStructuredDocumentEditing(
     }
   }, [canWrite, pendingInitialEditing]);
 
-  return [isEditing, setIsEditing] as const;
+  // Kept reference-stable so the toolbar action it feeds does not re-register
+  // on every render.
+  const toggleEditing = useCallback(
+    () => setIsEditing((editing) => !editing),
+    [],
+  );
+
+  return [isEditing, setIsEditing, toggleEditing] as const;
 }
 
 // The type label and load/sync status this once rendered duplicated the host

@@ -16,11 +16,8 @@ import {
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
-import {
-  type BuiltInSystemContainer,
-  EXPLORER_TRASH_CONTAINER_ICON,
-  EXPLORER_TRASH_CONTAINER_NAME,
-} from "../systemContainers";
+import type { BuiltInSystemContainer } from "../systemContainers";
+import { ensureTrashSystemContainer } from "../systemContainerTrash";
 import {
   canResolveExplorerTrashContainer,
   findExplorerSystemNode,
@@ -62,21 +59,6 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
 }
 
 const ExplorerContext = createContext<ExplorerContextModel | null>(null);
-const EXPLORER_TRASH_CONTAINER_ENSURE_OPTIONS = {
-  deferRemoteBootstrap: true,
-  icon: EXPLORER_TRASH_CONTAINER_ICON,
-} as const;
-
-function ensureExplorerTrashContainer(
-  store: ContainerContentsStore,
-  trashSystemSlot: ContainerSystemSlot,
-): Promise<ContainerNode | null> {
-  return store.ensureSystemContainer(
-    trashSystemSlot,
-    EXPLORER_TRASH_CONTAINER_NAME,
-    EXPLORER_TRASH_CONTAINER_ENSURE_OPTIONS,
-  );
-}
 
 function useEnsureExplorerTrashContainer(
   context: ExplorerContextModel,
@@ -110,7 +92,7 @@ function useEnsureExplorerTrashContainer(
     }
 
     try {
-      return await ensureExplorerTrashContainer(store, trashSystemSlot);
+      return await ensureTrashSystemContainer(store, trashSystemSlot);
     } catch (error) {
       logError("Failed to ensure explorer trash container", error);
       return null;

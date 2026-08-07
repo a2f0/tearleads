@@ -2,21 +2,12 @@ import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
-import {
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactNode,
-  useMemo,
-} from "react";
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import {
-  addMiniAppTableHeaderAction,
-  getVisibleMiniAppTableColumnIds,
-  MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
   MiniAppCompactTableCell,
   type MiniAppCompactTableField,
-  MiniAppCompactTableHeader,
   MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableCell,
@@ -24,8 +15,6 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
-  miniAppRowActionsColumn,
-  useMiniAppColumnVisibility,
   useMiniAppCompactTableRows,
 } from "../../../components/mini-app/MiniAppTable";
 import {
@@ -36,6 +25,7 @@ import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint, isKeyboardActivationKey } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { useOrgManagerTableColumns } from "../orgManagerTableColumns";
 
 export type DirectoryContextMenuHandler = (
   event: MouseEvent<HTMLElement>,
@@ -194,90 +184,14 @@ function getDirectoryCompactField(
   }
 }
 
-function useDirectoryTableColumns(
-  showActions: boolean,
-  compact: boolean,
-): {
-  columns: ReadonlyArray<MiniAppTableColumn>;
-  visibleColumnIds: ReadonlyArray<DirectoryTableColumnId>;
-} {
-  const columnVisibility = useMiniAppColumnVisibility<DirectoryTableColumnId>({
-    storageKey: "tearleads.org-manager.directory:hidden-columns",
-    toggleableColumnIds: DIRECTORY_TOGGLEABLE_COLUMN_IDS,
-  });
-  const visibleColumnIds = useMemo(
-    () =>
-      getVisibleMiniAppTableColumnIds(
-        DIRECTORY_TABLE_COLUMN_IDS,
-        columnVisibility.hiddenColumns,
-      ),
-    [columnVisibility.hiddenColumns],
-  );
-  const columns = useMemo(() => {
-    const columnMenu = (
-      <MiniAppColumnMenuButton
-        ariaLabel={ORG_MANAGER_LABELS.columns}
-        hiddenColumns={columnVisibility.hiddenColumns}
-        options={DIRECTORY_COLUMN_MENU_OPTIONS}
-        stateLabels={{
-          off: ORG_MANAGER_LABELS.columnsMenuStateOff,
-          on: ORG_MANAGER_LABELS.columnsMenuStateOn,
-        }}
-        toggleColumn={columnVisibility.toggleColumn}
-      />
-    );
-    const dataColumns = DIRECTORY_TABLE_COLUMNS.filter(
-      (column) => !columnVisibility.hiddenColumns.has(column.id),
-    );
-    if (compact) {
-      const compactColumn = {
-        header: (
-          <MiniAppCompactTableHeader
-            primary={visibleColumnIds.slice(0, 1).map((id) => ({
-              id,
-              text: DIRECTORY_COLUMN_LABELS[id],
-            }))}
-            secondary={visibleColumnIds.slice(1).map((id) => ({
-              id,
-              text: DIRECTORY_COLUMN_LABELS[id],
-            }))}
-          />
-        ),
-        id: "summary",
-      } satisfies MiniAppTableColumn;
-
-      return showActions
-        ? [
-            compactColumn,
-            miniAppRowActionsColumn(
-              ORG_MANAGER_LABELS.rowActionsColumn,
-              columnMenu,
-            ),
-          ]
-        : addMiniAppTableHeaderAction([compactColumn], columnMenu);
-    }
-    // When the touch kebab column trails the table it is the trailing edge, so
-    // the column-menu trigger rides in its header to stay flush right — on the
-    // last data column it would sit one narrow column in from the edge.
-    return showActions
-      ? [
-          ...dataColumns,
-          miniAppRowActionsColumn(
-            ORG_MANAGER_LABELS.rowActionsColumn,
-            columnMenu,
-          ),
-        ]
-      : addMiniAppTableHeaderAction(dataColumns, columnMenu);
-  }, [
-    compact,
-    columnVisibility.hiddenColumns,
-    columnVisibility.toggleColumn,
-    showActions,
-    visibleColumnIds,
-  ]);
-
-  return { columns, visibleColumnIds };
-}
+const DIRECTORY_TABLE_COLUMNS_CONFIG = {
+  allColumnIds: DIRECTORY_TABLE_COLUMN_IDS,
+  columnLabels: DIRECTORY_COLUMN_LABELS,
+  dataColumns: DIRECTORY_TABLE_COLUMNS,
+  menuOptions: DIRECTORY_COLUMN_MENU_OPTIONS,
+  storageKey: "tearleads.org-manager.directory:hidden-columns",
+  toggleableColumnIds: DIRECTORY_TOGGLEABLE_COLUMN_IDS,
+};
 
 function DirectoryUserRow({
   compact,
@@ -383,7 +297,8 @@ export function DirectoryTable({
   // menu is wired.
   const showActions =
     useRoutedLayoutActive() && Boolean(openRosterUserContextMenu);
-  const { columns, visibleColumnIds } = useDirectoryTableColumns(
+  const { columns, visibleColumnIds } = useOrgManagerTableColumns(
+    DIRECTORY_TABLE_COLUMNS_CONFIG,
     showActions,
     compact,
   );

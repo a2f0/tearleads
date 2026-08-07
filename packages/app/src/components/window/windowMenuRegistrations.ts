@@ -54,21 +54,6 @@ export function sameRefreshMenuItem(
   );
 }
 
-/** Highest priority wins; a single refresh item renders per window. */
-export function selectRefreshMenuItem(
-  items: ReadonlyMap<object, RegisteredWindowRefreshMenuItem>,
-): RegisteredWindowRefreshMenuItem | null {
-  let selected: RegisteredWindowRefreshMenuItem | null = null;
-
-  for (const item of items.values()) {
-    if (!selected || item.priority > selected.priority) {
-      selected = item;
-    }
-  }
-
-  return selected;
-}
-
 export function createMenuItems(
   items: ReadonlyMap<object, RegisteredWindowMenuItem>,
 ): WindowMenuItem[] {

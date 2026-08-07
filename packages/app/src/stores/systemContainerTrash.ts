@@ -12,11 +12,9 @@ import {
   EXPLORER_TRASH_CONTAINER_NAME,
 } from "./systemContainers";
 
-// Options MUST stay exactly {deferRemoteBootstrap, icon} — matching the Explorer
-// provider (stores/explorer/ExplorerProvider.tsx). deferRemoteBootstrap creates
-// the Trash locally so a not-yet-synced / payment-lapsed org still gets one;
-// adding deferRemoteSync would suppress the create-intent and permanently strand
-// the queued document move-intent replay.
+// deferRemoteBootstrap creates the Trash locally so a not-yet-synced /
+// payment-lapsed org still gets one; adding deferRemoteSync would suppress the
+// create-intent and permanently strand the queued document move-intent replay.
 const TRASH_ENSURE_OPTIONS = {
   deferRemoteBootstrap: true,
   icon: EXPLORER_TRASH_CONTAINER_ICON,

@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { useCallback, useState } from "react";
 import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
 import type { MenuPosition } from "../../shared/Menu";
-import { PaneMenu } from "../../shared/PaneMenu";
 import { useWindowStateData } from "../../window/WindowStateProvider";
+import { PaneMenu } from "../shell/PaneMenu";
 import "./PaneFooter.css";
 import { PaneFooterWindowButton } from "./PaneFooterWindowButton";
 

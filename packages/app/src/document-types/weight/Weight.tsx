@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import {
   MiniAppInput,
   MiniAppSelect,
@@ -15,7 +15,6 @@ import {
   useStructuredDocumentEditAction,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
-import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
 import {
   type AddTrackerRow,
   useSavedTrackerRows,
@@ -291,17 +290,13 @@ export function WeightFields(params: {
     unitInputId,
   } = params;
   const controlsDisabled = disabled || !ready;
-  const {
-    entryPending: newEntryPending,
-    onPendingChange,
-    toggleEditing,
-  } = usePendingTrackerEntry(onToggleEditing);
+  const [newEntryPending, onPendingChange] = useState(false);
   useStructuredDocumentEditAction({
     disabled: controlsDisabled || newEntryPending,
     editingLabel: "Save",
     id: "weight-toggle-edit",
     isEditing,
-    onToggleEditing: toggleEditing,
+    onToggleEditing,
   });
 
   if (!isEditing) {

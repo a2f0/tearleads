@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo } from "react";
+import { useId, useMemo } from "react";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
@@ -182,15 +182,9 @@ export function Passport(params: PassportProps) {
     () => readPassportFields(structuredFields),
     [structuredFields],
   );
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
+  const [isEditing, , toggleEditing] = useStructuredDocumentEditing(
     canWrite,
     params.initialEditing,
-  );
-  // Kept reference-stable so the toolbar action it feeds does not re-register
-  // on every render.
-  const toggleEditing = useCallback(
-    () => setIsEditing((editing) => !editing),
-    [setIsEditing],
   );
   const inputIds = {
     expirationDate: useId(),

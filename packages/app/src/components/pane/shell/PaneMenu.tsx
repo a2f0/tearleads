@@ -1,8 +1,8 @@
 import { useCallback } from "react";
-import { useIdentity } from "../../providers/identity/IdentityProvider";
-import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
-import { PaneContextMenuItems } from "../pane/shell/PaneContextMenuItems";
-import { Menu, type MenuPosition } from "./Menu";
+import { useIdentity } from "../../../providers/identity/IdentityProvider";
+import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
+import { Menu, type MenuPosition } from "../../shared/Menu";
+import { PaneContextMenuItems } from "./PaneContextMenuItems";
 
 export function PaneMenu({
   position,
