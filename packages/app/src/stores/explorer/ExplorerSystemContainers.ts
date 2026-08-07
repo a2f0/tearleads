@@ -185,34 +185,6 @@ export function getExplorerSystemContainerId<
   );
 }
 
-export function getExplorerTrashContainerId(
-  nodes: ReadonlyArray<ContainerNode> | null | undefined,
-  trashSystemSlot: ContainerSystemSlot | null,
-  organizationId?: string | null | undefined,
-  rootContainerId?: string | null | undefined,
-): string | null {
-  return getExplorerSystemContainerId(
-    nodes,
-    trashSystemSlot,
-    organizationId,
-    rootContainerId,
-  );
-}
-
-export function getExplorerTrashDeleteTargetId(
-  nodes: ReadonlyArray<ContainerNode> | null | undefined,
-  trashSystemSlot: ContainerSystemSlot | null,
-  organizationId?: string | null | undefined,
-  rootContainerId?: string | null | undefined,
-): string | null {
-  return getExplorerTrashContainerId(
-    nodes,
-    trashSystemSlot,
-    organizationId,
-    rootContainerId,
-  );
-}
-
 // Find the "Trash" system folder that belongs to another organization's shared
 // root. The owner's trash carries an opaque per-owner HMAC systemSlot the viewer
 // cannot derive, so — exactly like the shared-folder visibility classifier — it
@@ -293,7 +265,7 @@ export function resolveExplorerDeleteTrashTarget(input: {
 
   return {
     canFallBackToOwnTrash: true,
-    trashContainerId: getExplorerTrashDeleteTargetId(
+    trashContainerId: getExplorerSystemContainerId(
       nodes,
       trashSystemSlot,
       currentOrganizationId,

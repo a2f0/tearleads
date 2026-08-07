@@ -2,7 +2,7 @@ import type { ContainerNode } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import { getContactsContainerId } from "../../../stores/contacts/contactsSystemSlot";
+import { getExplorerSystemContainerId } from "../../../stores/explorer/ExplorerSystemContainers";
 import { useExplorerPrimaryOrganizationId } from "./useExplorerPrimaryOrganizationId";
 
 interface PrimarySystemContainerResolutionInput {
@@ -29,7 +29,7 @@ export function resolveExplorerPrimarySystemContainerIds(
     )?.id ?? null;
 
   return {
-    contactsContainerId: getContactsContainerId(
+    contactsContainerId: getExplorerSystemContainerId(
       input.nodes,
       input.contactsSystemSlot,
       input.primaryOrganizationId,

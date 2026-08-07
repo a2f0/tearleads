@@ -28,6 +28,7 @@ import {
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { useUserSystemContainers } from "../../providers/system-bootstrap/UserSystemContainersProvider";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
+import { getExplorerSystemContainerId } from "../explorer/ExplorerSystemContainers";
 import {
   CONTACTS_CONTAINER_NAME,
   findUserSystemContainer,
@@ -37,10 +38,7 @@ import {
   resolveDeleteToTrashTarget,
 } from "../systemContainerTrash";
 import type { ContactsStore } from "./contactStore";
-import {
-  getContactsContainerId,
-  resolveContactsProjectionRootContainerId,
-} from "./contactsSystemSlot";
+import { resolveContactsProjectionRootContainerId } from "./contactsSystemSlot";
 import type { ContactsContextValue } from "./types";
 import { useContactsStoreForContainer } from "./useContactsStoreForContainer";
 
@@ -81,14 +79,14 @@ function resolveContactsContainer(input: {
   >;
   organizationId: string | null | undefined;
   rootContainerId: string | null | undefined;
-  systemSlot: Parameters<typeof getContactsContainerId>[1];
+  systemSlot: Parameters<typeof getExplorerSystemContainerId>[1];
 }): {
   canWrite: boolean;
   id: string | null;
   organizationId: string | null;
   rootContainerId: string | null;
 } {
-  const id = getContactsContainerId(
+  const id = getExplorerSystemContainerId(
     input.nodes,
     input.systemSlot,
     input.organizationId,
