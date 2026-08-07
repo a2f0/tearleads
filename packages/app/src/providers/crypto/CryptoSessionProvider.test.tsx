@@ -94,7 +94,7 @@ test("crypto session context changes only with its exposed state", async () => {
     expect(values).toHaveLength(1);
     expect(values[0]).toBe(firstValue);
     expect(Object.is(firstValue?.login, firstValue?.loginWithChallenge)).toBe(
-      true,
+      false,
     );
 
     await act(async () => {
@@ -108,14 +108,19 @@ test("crypto session context changes only with its exposed state", async () => {
     await act(async () => {
       expect(await firstValue?.login()).toBe(true);
       expect(await firstValue?.loginWithChallenge("challenge")).toBe(true);
+      expect(
+        await (
+          firstValue?.login as (incidentalArgument: string) => Promise<boolean>
+        )("ignored"),
+      ).toBe(true);
     });
-    expect(login.mock.calls).toEqual([[undefined], ["challenge"]]);
+    expect(login.mock.calls).toEqual([[undefined], ["challenge"], [undefined]]);
 
     identity.signingKeyPair = null;
     await act(async () => {
       expect(await firstValue?.login()).toBe(false);
     });
-    expect(login).toHaveBeenCalledTimes(2);
+    expect(login).toHaveBeenCalledTimes(3);
 
     firstValue?.logout();
     expect(logout).toHaveBeenCalledTimes(1);

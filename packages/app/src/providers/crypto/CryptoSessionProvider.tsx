@@ -124,14 +124,15 @@ function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
     },
     [tearleads],
   );
+  const login = useCallback(() => authenticate(), [authenticate]);
 
   return useMemo(
     () => ({
-      login: authenticate,
+      login,
       loginWithChallenge: authenticate,
       logout,
     }),
-    [authenticate, logout],
+    [authenticate, login, logout],
   );
 }
 
