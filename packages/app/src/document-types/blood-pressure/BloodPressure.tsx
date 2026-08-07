@@ -1,22 +1,14 @@
-import { useId, useState } from "react";
+import { useId } from "react";
 import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
-import { useDocument } from "../../stores/documents/DocumentsProvider";
-import {
-  type RowWriterResolver,
-  useDocumentRowWriters,
-} from "../../stores/documents/useDocumentRowWriters";
+import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import {
   StructuredDocument,
   StructuredDocumentField,
   StructuredDocumentFields,
-  useStructuredDocumentEditAction,
 } from "../shared/StructuredDocument";
-import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
-import {
-  type AddTrackerRow,
-  useSavedTrackerRows,
-} from "../shared/useSavedTrackerRows";
-import { useTargetedTrackerEditing } from "../shared/useTargetedTrackerEditing";
+import { TrackerDocument } from "../shared/TrackerDocument";
+import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
+import { useTrackerDocument } from "../shared/useTrackerDocument";
 import {
   type BloodPressureField,
   BloodPressureReadingEditRow,
@@ -35,6 +27,7 @@ import {
   BLOOD_PRESSURE_NOTES_FIELD,
   BLOOD_PRESSURE_PULSE_FIELD,
   BLOOD_PRESSURE_SYSTOLIC_FIELD,
+  BLOOD_PRESSURE_TRACKER_NAME_FIELD,
 } from "./bloodPressureDocumentDefinition";
 import {
   type BloodPressureReadingRow,
@@ -43,179 +36,7 @@ import {
 } from "./bloodPressureReadings";
 import "./BloodPressure.css";
 
-function BloodPressureReadFields(params: {
-  currentAuthorId: string | null;
-  controlsDisabled: boolean;
-  entryPending: boolean;
-  onAddReading: AddTrackerRow<BloodPressureQuickReading>;
-  onEnterEdit?: ((id: string) => void) | undefined;
-  onPendingChange: (pending: boolean) => void;
-  readings: ReadonlyArray<BloodPressureReadingRow>;
-  resolveRowWriter?: RowWriterResolver | undefined;
-}) {
-  const {
-    currentAuthorId,
-    controlsDisabled,
-    entryPending,
-    onAddReading,
-    onEnterEdit,
-    onPendingChange,
-    readings,
-    resolveRowWriter,
-  } = params;
-
-  return (
-    <div className="tracker-document-fields">
-      <section className="blood-pressure-reading-list tracker-entry-list">
-        <strong>Readings</strong>
-        {onEnterEdit ? (
-          <BloodPressureQuickAdd
-            controlsDisabled={controlsDisabled}
-            onAddReading={onAddReading}
-            onPendingChange={onPendingChange}
-          />
-        ) : null}
-        {/* A reading being typed into the expanded quick-add form is the whole
-            of the list's business until it is saved, so the (empty) table stays
-            out of the way rather than heading it with a "no readings" row. */}
-        {readings.length === 0 && entryPending ? null : (
-          <BloodPressureReadTable
-            currentAuthorId={currentAuthorId}
-            onEnterEdit={entryPending ? undefined : onEnterEdit}
-            readings={readings}
-            resolveRowWriter={resolveRowWriter}
-          />
-        )}
-        <div className="blood-pressure-reading-list-footer tracker-entry-list-footer">
-          {readings.length} entries
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function BloodPressureEditFields(params: {
-  currentAuthorId: string | null;
-  controlsDisabled: boolean;
-  entryPending: boolean;
-  editingReadingId: string | null;
-  onAddReading: AddTrackerRow<BloodPressureQuickReading>;
-  onRemoveReading: (id: string) => void;
-  onRenameTracker: (value: string) => void;
-  onPendingChange: (pending: boolean) => void;
-  onUpdateReading: UpdateReading;
-  readings: ReadonlyArray<BloodPressureReadingRow>;
-  ready: boolean;
-  resolveRowWriter?: RowWriterResolver | undefined;
-  trackerName: string;
-  trackerNameInputId: string;
-}) {
-  const {
-    currentAuthorId,
-    controlsDisabled,
-    entryPending,
-    editingReadingId,
-    onAddReading,
-    onRemoveReading,
-    onRenameTracker,
-    onPendingChange,
-    onUpdateReading,
-    readings,
-    ready,
-    resolveRowWriter,
-    trackerName,
-    trackerNameInputId,
-  } = params;
-  const { isRowSaved, saveAddedRow, setRowSaved } = useSavedTrackerRows(
-    readings,
-    editingReadingId,
-  );
-
-  return (
-    <div className="tracker-document-fields">
-      <StructuredDocumentFields>
-        <StructuredDocumentField
-          inputId={trackerNameInputId}
-          label="Tracker Name"
-        >
-          <MiniAppInput
-            id={trackerNameInputId}
-            aria-label="Blood pressure tracker name"
-            value={trackerName}
-            onChange={(event) => onRenameTracker(event.target.value)}
-            placeholder={ready ? "Morning readings" : "Loading..."}
-            disabled={controlsDisabled}
-            autoComplete="off"
-          />
-        </StructuredDocumentField>
-      </StructuredDocumentFields>
-      <section className="blood-pressure-reading-list tracker-entry-list">
-        <strong>Readings</strong>
-        <BloodPressureQuickAdd
-          controlsDisabled={controlsDisabled}
-          onAddReading={(reading) => {
-            const addedRow = onAddReading(reading);
-            void saveAddedRow(addedRow);
-            return addedRow;
-          }}
-          onPendingChange={onPendingChange}
-        />
-        {readings.length === 0 && !entryPending ? (
-          <div className="tracker-empty-state">No readings</div>
-        ) : null}
-        <BloodPressureEditRows
-          currentAuthorId={currentAuthorId}
-          controlsDisabled={controlsDisabled}
-          isRowSaved={isRowSaved}
-          onRemoveReading={onRemoveReading}
-          onUpdateReading={onUpdateReading}
-          readings={readings}
-          resolveRowWriter={resolveRowWriter}
-          setRowSaved={setRowSaved}
-        />
-        <div className="blood-pressure-reading-list-footer tracker-entry-list-footer">
-          {readings.length} entries
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function BloodPressureEditRows(params: {
-  currentAuthorId: string | null;
-  controlsDisabled: boolean;
-  isRowSaved: (id: string) => boolean;
-  onRemoveReading: (id: string) => void;
-  onUpdateReading: UpdateReading;
-  readings: ReadonlyArray<BloodPressureReadingRow>;
-  resolveRowWriter?: RowWriterResolver | undefined;
-  setRowSaved: (id: string, saved: boolean) => void;
-}) {
-  return params.readings.map((reading, index) =>
-    params.isRowSaved(reading.id) ? (
-      <BloodPressureReadingReadRow
-        key={reading.id}
-        currentAuthorId={params.currentAuthorId}
-        index={index}
-        onEnterEdit={() => params.setRowSaved(reading.id, false)}
-        reading={reading}
-        resolveRowWriter={params.resolveRowWriter}
-      />
-    ) : (
-      <BloodPressureReadingEditRow
-        key={reading.id}
-        controlsDisabled={params.controlsDisabled}
-        index={index}
-        onRemoveReading={params.onRemoveReading}
-        onSaveReading={(id) => params.setRowSaved(id, true)}
-        onUpdateReading={params.onUpdateReading}
-        reading={reading}
-      />
-    ),
-  );
-}
-
-export function BloodPressureFields(params: {
+interface BloodPressureFieldsProps {
   currentAuthorId?: string | null;
   disabled?: boolean | undefined;
   editingReadingId?: string | null | undefined;
@@ -231,66 +52,96 @@ export function BloodPressureFields(params: {
   resolveRowWriter?: RowWriterResolver | undefined;
   trackerName: string;
   trackerNameInputId: string;
+}
+
+function BloodPressureEditFields(params: {
+  controlsDisabled: boolean;
+  onRenameTracker: (value: string) => void;
+  ready: boolean;
+  trackerName: string;
+  trackerNameInputId: string;
 }) {
-  const {
-    currentAuthorId = null,
-    disabled = false,
-    editingReadingId = null,
-    isEditing = true,
-    onAddReading,
-    onEnterEdit,
-    onRemoveReading,
-    onRenameTracker,
-    onToggleEditing,
-    onUpdateReading,
-    readings,
-    ready,
-    resolveRowWriter,
-    trackerName,
-    trackerNameInputId,
-  } = params;
-  const controlsDisabled = disabled || !ready;
-  const [newReadingPending, onPendingChange] = useState(false);
-  useStructuredDocumentEditAction({
-    disabled: controlsDisabled || newReadingPending,
-    editingLabel: "Save",
-    id: "blood-pressure-toggle-edit",
-    isEditing,
-    onToggleEditing,
-  });
-
-  if (!isEditing) {
-    return (
-      <BloodPressureReadFields
-        currentAuthorId={currentAuthorId}
-        controlsDisabled={controlsDisabled}
-        entryPending={newReadingPending}
-        onAddReading={onAddReading}
-        onEnterEdit={onEnterEdit}
-        onPendingChange={onPendingChange}
-        readings={readings}
-        resolveRowWriter={resolveRowWriter}
-      />
-    );
-  }
-
   return (
-    <BloodPressureEditFields
-      key={editingReadingId ?? "document"}
-      currentAuthorId={currentAuthorId}
-      controlsDisabled={controlsDisabled}
-      entryPending={newReadingPending}
-      editingReadingId={editingReadingId}
-      onAddReading={onAddReading}
-      onRemoveReading={onRemoveReading}
-      onRenameTracker={onRenameTracker}
-      onPendingChange={onPendingChange}
-      onUpdateReading={onUpdateReading}
-      readings={readings}
-      ready={ready}
-      resolveRowWriter={resolveRowWriter}
-      trackerName={trackerName}
-      trackerNameInputId={trackerNameInputId}
+    <StructuredDocumentFields>
+      <StructuredDocumentField
+        inputId={params.trackerNameInputId}
+        label="Tracker Name"
+      >
+        <MiniAppInput
+          id={params.trackerNameInputId}
+          aria-label="Blood pressure tracker name"
+          value={params.trackerName}
+          onChange={(event) => params.onRenameTracker(event.target.value)}
+          placeholder={params.ready ? "Morning readings" : "Loading..."}
+          disabled={params.controlsDisabled}
+          autoComplete="off"
+        />
+      </StructuredDocumentField>
+    </StructuredDocumentFields>
+  );
+}
+
+export function BloodPressureFields(params: BloodPressureFieldsProps) {
+  return (
+    <TrackerDocument
+      currentAuthorId={params.currentAuthorId ?? null}
+      disabled={params.disabled ?? false}
+      editingRowId={params.editingReadingId ?? null}
+      editActionId="blood-pressure-toggle-edit"
+      emptyLabel="No readings"
+      footerClassName="blood-pressure-reading-list-footer"
+      isEditing={params.isEditing ?? true}
+      listClassName="blood-pressure-reading-list"
+      listLabel="Readings"
+      onAddRow={params.onAddReading}
+      onEnterEdit={params.onEnterEdit}
+      onToggleEditing={params.onToggleEditing}
+      ready={params.ready}
+      renderEditFields={(controlsDisabled) => (
+        <BloodPressureEditFields
+          controlsDisabled={controlsDisabled}
+          onRenameTracker={params.onRenameTracker}
+          ready={params.ready}
+          trackerName={params.trackerName}
+          trackerNameInputId={params.trackerNameInputId}
+        />
+      )}
+      renderEditRow={(reading, index, context) => (
+        <BloodPressureReadingEditRow
+          controlsDisabled={context.controlsDisabled}
+          index={index}
+          onRemoveReading={params.onRemoveReading}
+          onSaveReading={context.onSave}
+          onUpdateReading={params.onUpdateReading}
+          reading={reading}
+        />
+      )}
+      renderQuickAdd={(context) => (
+        <BloodPressureQuickAdd
+          controlsDisabled={context.controlsDisabled}
+          onAddReading={context.onAddRow}
+          onPendingChange={context.onPendingChange}
+        />
+      )}
+      renderReadRow={(reading, index, _rows, context) => (
+        <BloodPressureReadingReadRow
+          currentAuthorId={context.currentAuthorId}
+          index={index}
+          onEnterEdit={context.onEnterEdit}
+          reading={reading}
+          resolveRowWriter={context.resolveRowWriter}
+        />
+      )}
+      renderReadTable={(context) => (
+        <BloodPressureReadTable
+          currentAuthorId={context.currentAuthorId}
+          onEnterEdit={context.onEnterEdit}
+          readings={params.readings}
+          resolveRowWriter={context.resolveRowWriter}
+        />
+      )}
+      resolveRowWriter={params.resolveRowWriter}
+      rows={params.readings}
     />
   );
 }
@@ -298,80 +149,44 @@ export function BloodPressureFields(params: {
 export function BloodPressure(params: {
   initialEditing?: boolean | undefined;
 }) {
-  const {
-    addRow,
-    canWrite,
-    currentAuthorId,
-    ready,
-    removeRow,
-    rows,
-    setStructuredFields,
-    structuredFields,
-    updateRowFields,
-  } = useDocument();
+  const tracker = useTrackerDocument(params.initialEditing);
+  const trackerName = readTrackerNameField(tracker.structuredFields);
+  const readings = toBloodPressureReadingRows(tracker.rows, tracker.readCell);
   const trackerNameInputId = useId();
-  const {
-    editingRowId: editingReadingId,
-    enterRowEdit,
-    isEditing,
-    toggleEditing,
-  } = useTargetedTrackerEditing(canWrite, params.initialEditing);
-  const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
-  const resolveRowWriter = useDocumentRowWriters(rows.length > 0);
-
-  const trackerName = readTrackerNameField(structuredFields);
-  const readings = toBloodPressureReadingRows(rows, readCell);
-
-  function handleUpdateReading(
-    id: string,
-    field: BloodPressureField,
-    value: string,
-  ) {
-    stageCell(id, field, value);
-    if (canWrite) {
-      void updateRowFields(id, { [field]: value });
-    }
-  }
 
   return (
     <StructuredDocument
       fields={
         <BloodPressureFields
-          currentAuthorId={currentAuthorId}
-          disabled={!ready || !canWrite}
-          editingReadingId={editingReadingId}
-          isEditing={isEditing && canWrite}
-          resolveRowWriter={resolveRowWriter}
-          onEnterEdit={enterRowEdit}
-          onAddReading={(reading) => {
-            if (canWrite) {
-              return addRow({
-                [BLOOD_PRESSURE_SYSTOLIC_FIELD]: reading.systolic,
-                [BLOOD_PRESSURE_DIASTOLIC_FIELD]: reading.diastolic,
-                [BLOOD_PRESSURE_PULSE_FIELD]: reading.pulse,
-                [BLOOD_PRESSURE_MEASURED_AT_FIELD]: reading.measuredAt,
-                [BLOOD_PRESSURE_NOTES_FIELD]: reading.notes,
-              });
-            }
-            return Promise.resolve(null);
-          }}
-          onRemoveReading={(id) => {
-            if (canWrite) {
-              void removeRow(id);
-            }
-            clearRow(id);
-          }}
-          onRenameTracker={(value) => {
-            if (canWrite) {
-              void setStructuredFields(BLOOD_PRESSURE_DOCUMENT_KIND, {
-                trackerName: value,
-              });
-            }
-          }}
-          onToggleEditing={toggleEditing}
-          onUpdateReading={handleUpdateReading}
+          currentAuthorId={tracker.currentAuthorId}
+          disabled={!tracker.ready || !tracker.canWrite}
+          editingReadingId={tracker.editingRowId}
+          isEditing={tracker.isEditing && tracker.canWrite}
+          onAddReading={(reading) =>
+            tracker.addRow({
+              [BLOOD_PRESSURE_SYSTOLIC_FIELD]: reading.systolic,
+              [BLOOD_PRESSURE_DIASTOLIC_FIELD]: reading.diastolic,
+              [BLOOD_PRESSURE_PULSE_FIELD]: reading.pulse,
+              [BLOOD_PRESSURE_MEASURED_AT_FIELD]: reading.measuredAt,
+              [BLOOD_PRESSURE_NOTES_FIELD]: reading.notes,
+            })
+          }
+          onEnterEdit={tracker.enterRowEdit}
+          onRemoveReading={tracker.removeRow}
+          onRenameTracker={(value) =>
+            tracker.setFields(BLOOD_PRESSURE_DOCUMENT_KIND, {
+              [BLOOD_PRESSURE_TRACKER_NAME_FIELD]: value,
+            })
+          }
+          onToggleEditing={tracker.toggleEditing}
+          onUpdateReading={(
+            id: string,
+            field: BloodPressureField,
+            value: string,
+          ) => tracker.updateRow(id, field, value)}
           readings={readings}
-          ready={ready}
+          ready={tracker.ready}
+          resolveRowWriter={tracker.resolveRowWriter}
           trackerName={trackerName}
           trackerNameInputId={trackerNameInputId}
         />

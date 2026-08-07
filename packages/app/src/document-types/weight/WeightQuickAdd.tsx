@@ -1,10 +1,5 @@
-import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
-import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
-import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { type FormEvent, useState } from "react";
-import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { TrackerInputField } from "../shared/TrackerFormControls";
-import { useClearPendingOnUnmount } from "../shared/usePendingTrackerEntry";
+import { TrackerQuickAdd } from "../shared/TrackerQuickAdd";
 import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import {
   isValidWeightMeasurement,
@@ -30,108 +25,58 @@ export function WeightQuickAdd(params: {
   unit: WeightUnit;
 }) {
   const { controlsDisabled, onAddEntry, onPendingChange, unit } = params;
-  const [entry, setEntry] = useState(EMPTY_ENTRY);
-  const [open, setOpen] = useState(false);
-  const valid = isValidWeightMeasurement(entry.weight);
-
-  useClearPendingOnUnmount(onPendingChange);
-
-  function close() {
-    setEntry(EMPTY_ENTRY);
-    setOpen(false);
-    onPendingChange(false);
-  }
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (controlsDisabled || !valid) {
-      return;
-    }
-
-    void onAddEntry(entry);
-    close();
-  }
-
-  if (!open) {
-    return (
-      <MiniAppButton
-        className="weight-add-button tracker-add-button"
-        withIcon
-        disabled={controlsDisabled}
-        onClick={() => {
-          setOpen(true);
-          onPendingChange(true);
-        }}
-      >
-        <PlusIcon aria-hidden size={14} />
-        Add Entry
-      </MiniAppButton>
-    );
-  }
 
   return (
-    <form className="weight-entry-row tracker-edit-row" onSubmit={submit}>
-      <TrackerInputField
-        aria-invalid={entry.weight.length > 0 && !valid ? "true" : undefined}
-        aria-label="Quick add weight"
-        autoComplete="off"
-        className="weight-entry-field-weight tracker-entry-field--measurement"
-        disabled={controlsDisabled}
-        inputMode="decimal"
-        label={`Weight (${unit})`}
-        onChange={(event) =>
-          setEntry((current) => ({
-            ...current,
-            weight: event.target.value,
-          }))
-        }
-        placeholder={unit === "kg" ? "82.5" : "180.5"}
-        value={entry.weight}
-      />
-      <TrackerInputField
-        aria-label="Quick add measured at"
-        className="weight-entry-field-measured tracker-entry-field--measured-at"
-        disabled={controlsDisabled}
-        label="Measured At"
-        onChange={(event) =>
-          setEntry((current) => ({
-            ...current,
-            measuredAt: event.target.value,
-          }))
-        }
-        type="datetime-local"
-        value={entry.measuredAt}
-      />
-      <TrackerInputField
-        aria-label="Quick add notes"
-        autoComplete="off"
-        className="weight-entry-notes-field"
-        disabled={controlsDisabled}
-        label="Notes"
-        onChange={(event) =>
-          setEntry((current) => ({
-            ...current,
-            notes: event.target.value,
-          }))
-        }
-        placeholder="Before breakfast"
-        value={entry.notes}
-      />
-      <div className="weight-quick-add-actions tracker-quick-add-actions">
-        <MiniAppButton
-          withIcon
-          disabled={controlsDisabled || !valid}
-          type="submit"
-        >
-          <CheckIcon aria-hidden size={14} />
-          Save Entry
-        </MiniAppButton>
-        {/* Loading can begin with a draft open, so Cancel must stay available. */}
-        <MiniAppButton withIcon onClick={close}>
-          <XIcon aria-hidden size={14} />
-          Cancel
-        </MiniAppButton>
-      </div>
-    </form>
+    <TrackerQuickAdd
+      actionsClassName="weight-quick-add-actions"
+      addLabel="Add Entry"
+      buttonClassName="weight-add-button"
+      className="weight-entry-row"
+      controlsDisabled={controlsDisabled}
+      emptyEntry={EMPTY_ENTRY}
+      isValid={(entry) => isValidWeightMeasurement(entry.weight)}
+      onAddEntry={onAddEntry}
+      onPendingChange={onPendingChange}
+      renderFields={(entry, onChange) => (
+        <>
+          <TrackerInputField
+            aria-invalid={
+              entry.weight.length > 0 && !isValidWeightMeasurement(entry.weight)
+                ? "true"
+                : undefined
+            }
+            aria-label="Quick add weight"
+            autoComplete="off"
+            className="weight-entry-field-weight tracker-entry-field--measurement"
+            disabled={controlsDisabled}
+            inputMode="decimal"
+            label={`Weight (${unit})`}
+            onChange={(event) => onChange("weight", event.target.value)}
+            placeholder={unit === "kg" ? "82.5" : "180.5"}
+            value={entry.weight}
+          />
+          <TrackerInputField
+            aria-label="Quick add measured at"
+            className="weight-entry-field-measured tracker-entry-field--measured-at"
+            disabled={controlsDisabled}
+            label="Measured At"
+            onChange={(event) => onChange("measuredAt", event.target.value)}
+            type="datetime-local"
+            value={entry.measuredAt}
+          />
+          <TrackerInputField
+            aria-label="Quick add notes"
+            autoComplete="off"
+            className="weight-entry-notes-field"
+            disabled={controlsDisabled}
+            label="Notes"
+            onChange={(event) => onChange("notes", event.target.value)}
+            placeholder="Before breakfast"
+            value={entry.notes}
+          />
+        </>
+      )}
+      saveLabel="Save Entry"
+    />
   );
 }

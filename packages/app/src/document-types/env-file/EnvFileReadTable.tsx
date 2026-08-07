@@ -1,11 +1,6 @@
-import { useMemo, useState } from "react";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
-import { DocumentRowDetailOverlay } from "../shared/DocumentRowDetail";
-import { TrackerReadActions } from "../shared/TrackerReadActions";
-import {
-  type TrackerReadColumn,
-  TrackerReadTable,
-} from "../shared/TrackerReadTable";
+import { TrackerIndexTable } from "../shared/TrackerIndexTable";
+import type { TrackerReadColumn } from "../shared/TrackerReadTable";
 import {
   type TrackerIndexRow,
   trackerOrdinalColumn,
@@ -21,6 +16,12 @@ import {
 } from "./envFileVariables";
 
 type EnvFileIndexRow = TrackerIndexRow<EnvVariableRow>;
+
+function buildEnvFileRows(
+  variables: ReadonlyArray<EnvVariableRow>,
+): EnvFileIndexRow[] {
+  return variables.map((entry, index) => ({ entry, index }));
+}
 
 function getEnvFileColumns(context: {
   currentAuthorId: string | null;
@@ -91,63 +92,24 @@ export function EnvFileReadTable(params: {
   variables: ReadonlyArray<EnvVariableRow>;
 }) {
   const { currentAuthorId, onEnterEdit, resolveRowWriter, variables } = params;
-  const [detailRowId, setDetailRowId] = useState<string | null>(null);
-  const rows = useMemo(
-    () => variables.map((entry, index) => ({ entry, index })),
-    [variables],
-  );
-  const columns = useMemo(
-    () => getEnvFileColumns({ currentAuthorId, resolveRowWriter }),
-    [currentAuthorId, resolveRowWriter],
-  );
-  const detailRow = rows.find((row) => row.entry.id === detailRowId) ?? null;
-  const detailKey = detailRow?.entry.key.trim() ?? "";
 
   return (
-    <>
-      <TrackerReadTable
-        actionsLabel="Actions"
-        ariaLabel="Variables"
-        columns={columns}
-        columnStorageKey="tearleads.env-file.variables:hidden-columns:v2"
-        defaultSortColumnId="ordinal"
-        emptyLabel="No variables"
-        renderActions={(row) => (
-          <TrackerReadActions
-            actionsAriaLabel={`Env variable ${row.index + 1} actions`}
-            detailLabel="Details"
-            detailsOpen={detailRowId === row.entry.id}
-            directAriaLabel={`Env variable ${row.index + 1} details`}
-            onEnterEdit={
-              onEnterEdit ? () => onEnterEdit(row.entry.id) : undefined
-            }
-            onOpenDetails={() => setDetailRowId(row.entry.id)}
-          />
-        )}
-        rowKey={(row) => row.entry.id}
-        rows={rows}
-        sortMenuLabel="Sort variables"
-      />
-      {detailRow ? (
-        <DocumentRowDetailOverlay
-          createdAt={detailRow.entry.createdAt}
-          createdBy={
-            resolveRowWriter?.(detailRow.entry.createdByPeer) ??
-            detailRow.entry.createdBy
-          }
-          currentAuthorId={currentAuthorId}
-          fields={toEnvVariableDetailFields(detailRow.entry, resolveRowWriter)}
-          onClose={() => setDetailRowId(null)}
-          title={
-            detailKey.length > 0 ? detailKey : `Variable ${detailRow.index + 1}`
-          }
-          updatedAt={detailRow.entry.updatedAt}
-          updatedBy={
-            resolveRowWriter?.(detailRow.entry.updatedByPeer) ??
-            detailRow.entry.updatedBy
-          }
-        />
-      ) : null}
-    </>
+    <TrackerIndexTable
+      actionsAriaLabel={(row) => `Env variable ${row.index + 1} actions`}
+      ariaLabel="Variables"
+      buildRows={buildEnvFileRows}
+      columnStorageKey="tearleads.env-file.variables:hidden-columns:v2"
+      currentAuthorId={currentAuthorId}
+      detailFields={toEnvVariableDetailFields}
+      detailLabel="Details"
+      detailTitle={(row) => row.entry.key.trim() || `Variable ${row.index + 1}`}
+      directAriaLabel={(row) => `Env variable ${row.index + 1} details`}
+      emptyLabel="No variables"
+      entries={variables}
+      getColumns={getEnvFileColumns}
+      onEnterEdit={onEnterEdit}
+      resolveRowWriter={resolveRowWriter}
+      sortMenuLabel="Sort variables"
+    />
   );
 }

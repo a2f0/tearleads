@@ -2,6 +2,13 @@ import type { DocumentRow } from "@tearleads/client-sdk";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import type { RowDetailField } from "../shared/DocumentRowDetail";
 import {
+  type ReadTrackerRowCell,
+  readStructuredTrackerField,
+  type TrackerRow,
+  trackerDetailFields,
+  trackerRowMetadata,
+} from "../shared/trackerRows";
+import {
   formatTrackerMeasuredAt,
   TRACKER_EMPTY_VALUE,
 } from "../shared/trackerValues";
@@ -14,41 +21,31 @@ import {
   BLOOD_PRESSURE_TRACKER_NAME_FIELD,
 } from "./bloodPressureDocumentDefinition";
 
-type ReadRowCell = (id: string, field: string, storeValue: string) => string;
-
-export interface BloodPressureReadingRow {
-  id: string;
+export interface BloodPressureReadingRow extends TrackerRow {
   systolic: string;
   diastolic: string;
   pulse: string;
   measuredAt: string;
   notes: string;
-  createdAt: string;
-  createdBy: string;
-  createdByPeer: string | null;
-  updatedAt: string;
-  updatedBy: string;
-  updatedByPeer: string | null;
-  // Per-cell last-editor peers, keyed by the row's field keys, for field-level
-  // attribution in the row detail.
-  fieldEditors: Record<string, string | null>;
 }
 
 export function readTrackerNameField(
   structuredFields: Readonly<Record<string, string>>,
 ): string {
-  const value = structuredFields[BLOOD_PRESSURE_TRACKER_NAME_FIELD];
-  return typeof value === "string" ? value : "";
+  return readStructuredTrackerField(
+    structuredFields,
+    BLOOD_PRESSURE_TRACKER_NAME_FIELD,
+  );
 }
 
 // Fold the store's generic rows into typed reading views, applying the caller's
 // optimistic in-flight cell overlay so controlled inputs stay smooth.
 export function toBloodPressureReadingRows(
   rows: ReadonlyArray<DocumentRow>,
-  readCell: ReadRowCell,
+  readCell: ReadTrackerRowCell,
 ): BloodPressureReadingRow[] {
   return rows.map((row) => ({
-    id: row.id,
+    ...trackerRowMetadata(row),
     systolic: readCell(
       row.id,
       BLOOD_PRESSURE_SYSTOLIC_FIELD,
@@ -74,13 +71,6 @@ export function toBloodPressureReadingRows(
       BLOOD_PRESSURE_NOTES_FIELD,
       row.fields[BLOOD_PRESSURE_NOTES_FIELD] ?? "",
     ),
-    createdAt: row.createdAt,
-    createdBy: row.createdBy,
-    createdByPeer: row.createdByPeer,
-    updatedAt: row.updatedAt,
-    updatedBy: row.updatedBy,
-    updatedByPeer: row.updatedByPeer,
-    fieldEditors: row.fieldEditors,
   }));
 }
 
@@ -112,33 +102,35 @@ export function toBloodPressureReadingDetailFields(
   reading: BloodPressureReadingRow,
   resolveRowWriter?: RowWriterResolver | undefined,
 ): RowDetailField[] {
-  const fieldWriter = (field: string): string | null =>
-    resolveRowWriter?.(reading.fieldEditors[field] ?? null) ?? null;
-  return [
-    {
-      label: "Systolic",
-      value: reading.systolic,
-      writerUserId: fieldWriter(BLOOD_PRESSURE_SYSTOLIC_FIELD),
-    },
-    {
-      label: "Diastolic",
-      value: reading.diastolic,
-      writerUserId: fieldWriter(BLOOD_PRESSURE_DIASTOLIC_FIELD),
-    },
-    {
-      label: "Pulse",
-      value: reading.pulse,
-      writerUserId: fieldWriter(BLOOD_PRESSURE_PULSE_FIELD),
-    },
-    {
-      label: "Measured at",
-      value: formatMeasuredAt(reading),
-      writerUserId: fieldWriter(BLOOD_PRESSURE_MEASURED_AT_FIELD),
-    },
-    {
-      label: "Notes",
-      value: reading.notes,
-      writerUserId: fieldWriter(BLOOD_PRESSURE_NOTES_FIELD),
-    },
-  ];
+  return trackerDetailFields(
+    reading,
+    [
+      {
+        field: BLOOD_PRESSURE_SYSTOLIC_FIELD,
+        label: "Systolic",
+        value: (row) => row.systolic,
+      },
+      {
+        field: BLOOD_PRESSURE_DIASTOLIC_FIELD,
+        label: "Diastolic",
+        value: (row) => row.diastolic,
+      },
+      {
+        field: BLOOD_PRESSURE_PULSE_FIELD,
+        label: "Pulse",
+        value: (row) => row.pulse,
+      },
+      {
+        field: BLOOD_PRESSURE_MEASURED_AT_FIELD,
+        label: "Measured at",
+        value: formatMeasuredAt,
+      },
+      {
+        field: BLOOD_PRESSURE_NOTES_FIELD,
+        label: "Notes",
+        value: (row) => row.notes,
+      },
+    ],
+    resolveRowWriter,
+  );
 }

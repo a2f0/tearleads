@@ -112,6 +112,10 @@
   font-size: var(--font-size-sm);
 }
 
+.tracker-read-row--two-cells {
+  grid-template-columns: minmax(9rem, 0.8fr) minmax(12rem, 1fr) auto auto;
+}
+
 .tracker-read-actions {
   justify-self: end;
 }
@@ -166,6 +170,10 @@
 
   .tracker-read-row {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .tracker-read-row--two-cells {
+    grid-template-columns: 1fr;
   }
 
   .tracker-read-index {

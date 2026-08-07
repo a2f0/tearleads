@@ -33,7 +33,7 @@ export function EnvFileVariableReadValue(params: {
   return (
     <span className="env-file-variable-read-value-with-actions">
       <span
-        className="env-file-variable-read-value"
+        className="tracker-read-value"
         title={valueTitle && valueTitle.length > 0 ? valueTitle : undefined}
       >
         {getEnvFileVariableReadValue(variable, isValueRevealed)}

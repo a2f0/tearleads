@@ -2,25 +2,19 @@ import type { DocumentRow } from "@tearleads/client-sdk";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import type { RowDetailField } from "../shared/DocumentRowDetail";
 import {
+  type ReadTrackerRowCell,
+  type TrackerRow,
+  trackerDetailFields,
+  trackerRowMetadata,
+} from "../shared/trackerRows";
+import {
   ENV_FILE_VARIABLE_KEY_FIELD,
   ENV_FILE_VARIABLE_VALUE_FIELD,
 } from "./envFileDocumentDefinition";
 
-type ReadRowCell = (id: string, field: string, storeValue: string) => string;
-
-export interface EnvVariableRow {
-  id: string;
+export interface EnvVariableRow extends TrackerRow {
   key: string;
   value: string;
-  createdAt: string;
-  createdBy: string;
-  createdByPeer: string | null;
-  updatedAt: string;
-  updatedBy: string;
-  updatedByPeer: string | null;
-  // Per-cell last-editor peers, keyed by the row's field keys, for field-level
-  // attribution in the variable detail.
-  fieldEditors: Record<string, string | null>;
 }
 
 const ENV_FILE_EMPTY_VALUE = "None";
@@ -31,10 +25,10 @@ const ENV_FILE_VISIBLE_VALUE_LENGTH = 4;
 // optimistic in-flight cell overlay so controlled inputs stay smooth.
 export function toEnvVariableRows(
   rows: ReadonlyArray<DocumentRow>,
-  readCell: ReadRowCell,
+  readCell: ReadTrackerRowCell,
 ): EnvVariableRow[] {
   return rows.map((row) => ({
-    id: row.id,
+    ...trackerRowMetadata(row),
     key: readCell(
       row.id,
       ENV_FILE_VARIABLE_KEY_FIELD,
@@ -45,13 +39,6 @@ export function toEnvVariableRows(
       ENV_FILE_VARIABLE_VALUE_FIELD,
       row.fields[ENV_FILE_VARIABLE_VALUE_FIELD] ?? "",
     ),
-    createdAt: row.createdAt,
-    createdBy: row.createdBy,
-    createdByPeer: row.createdByPeer,
-    updatedAt: row.updatedAt,
-    updatedBy: row.updatedBy,
-    updatedByPeer: row.updatedByPeer,
-    fieldEditors: row.fieldEditors,
   }));
 }
 
@@ -85,18 +72,20 @@ export function toEnvVariableDetailFields(
   variable: EnvVariableRow,
   resolveRowWriter?: RowWriterResolver | undefined,
 ): RowDetailField[] {
-  const fieldWriter = (field: string): string | null =>
-    resolveRowWriter?.(variable.fieldEditors[field] ?? null) ?? null;
-  return [
-    {
-      label: "Key",
-      value: variable.key,
-      writerUserId: fieldWriter(ENV_FILE_VARIABLE_KEY_FIELD),
-    },
-    {
-      label: "Value",
-      value: getEnvFileVariableReadValue(variable),
-      writerUserId: fieldWriter(ENV_FILE_VARIABLE_VALUE_FIELD),
-    },
-  ];
+  return trackerDetailFields(
+    variable,
+    [
+      {
+        field: ENV_FILE_VARIABLE_KEY_FIELD,
+        label: "Key",
+        value: (row) => row.key,
+      },
+      {
+        field: ENV_FILE_VARIABLE_VALUE_FIELD,
+        label: "Value",
+        value: getEnvFileVariableReadValue,
+      },
+    ],
+    resolveRowWriter,
+  );
 }
