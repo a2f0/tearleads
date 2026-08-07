@@ -14,6 +14,7 @@ import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { appendDocumentAttachmentAuditEntries } from "../../../documents/documentAttachmentAuditEvents";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { isSqliteApiDatabase, nowExpression } from "../../../utils/sqlDialect";
+import { loadOwnedActiveBlobStage } from "../stageAccess";
 import {
   BlobMutationError,
   type PrevalidatedMultipartBlobStage,
@@ -133,29 +134,11 @@ export async function promoteStagedBlobIfPresent(input: {
     throw new BlobMutationError("Blob already exists", 409);
   }
 
-  const [stage] = await input.executor
-    .select({
-      byteLength: blobStages.byteLength,
-      completedAt: blobStages.completedAt,
-      expiresAt: blobStages.expiresAt,
-      id: blobStages.id,
-      ownerUserId: blobStages.ownerUserId,
-      sha256: blobStages.sha256,
-      storageKey: blobStages.storageKey,
-    })
-    .from(blobStages)
-    .where(eq(blobStages.id, input.request.stagedBlob.stageId))
-    .limit(1);
-
-  if (!stage) {
-    throw new BlobMutationError("Blob stage not found", 404);
-  }
-  if (stage.ownerUserId !== input.userId) {
-    throw new BlobMutationError("Forbidden", 403);
-  }
-  if (stage.expiresAt.getTime() <= Date.now()) {
-    throw new BlobMutationError("Blob stage has expired", 409);
-  }
+  const stage = await loadOwnedActiveBlobStage(input.executor, {
+    error: (message, status) => new BlobMutationError(message, status),
+    stageId: input.request.stagedBlob.stageId,
+    userId: input.userId,
+  });
 
   if (stage.completedAt === null) {
     throw new BlobMutationError("Blob multipart stage is not complete", 409);

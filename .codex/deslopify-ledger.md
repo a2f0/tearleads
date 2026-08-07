@@ -108,3 +108,25 @@
   one validation path and 51 lines of direct boundary coverage.
 - Decision notes: payload validation remains caller-owned through parser
   callbacks so domain formats and error classes do not leak into the utility.
+
+### 2026-08-07 - Blob-stage access guard
+
+- Status: accepted
+- Classification: exact and parametric duplication
+- Equivalence claim: each migrated path still loads a stage by id, rejects a
+  missing stage with 404, rejects a foreign owner with 403, and rejects an
+  expired stage with 409 in the same order, using the caller's error class.
+- Risk notes: authorization order, wall-clock expiry, and transaction identity.
+  Completion checks and object-store validation remain caller-owned.
+- Files changed: the shared blob-stage access helper and its direct test, blob
+  mutation prevalidation and persistence, and multipart-stage services.
+- Baseline: 21 focused blob-stage tests passed on the memory backend at
+  `1ab1c84b`.
+- Verification: 22 focused tests, TypeScript, architecture, source-shape, and
+  `bun run check:affected` pass; the affected API matrix reports 999 tests
+  passing on both memory and SQLite.
+- Delta: 20 production lines removed net, with 99 lines of direct access-guard
+  characterization coverage added.
+- Decision notes: the helper returns the complete stage projection required by
+  all three callers while caller-specific completion and storage checks remain
+  local.
