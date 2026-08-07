@@ -6,10 +6,8 @@ import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManage
 import type { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {
-  clearErrorIfRequested,
   type DataUsageRefreshOptions,
-  getRefreshBehavior,
-  setLoadingIfManaged,
+  runScopedRefresher,
   setUnknownError,
 } from "../refresh";
 import { resolveDataUsageRefresh } from "./dataUsageRefreshState";
@@ -61,57 +59,49 @@ export function useOrgManagerDataUsageRefresher(
   } = input;
   const organizationId = input.appData.auth.organizationId;
   return useCallback(
-    async (options: DataUsageRefreshOptions = {}) => {
-      const isCurrentRequest = beginRequest("dataUsage");
-      const { shouldClearError, shouldManageLoading } =
-        getRefreshBehavior(options);
-      if (!canLoadAuthenticatedOrgData) {
-        dataUsageRef.current = null;
-        setDataUsage(null);
-        return;
-      }
-
-      setLoadingIfManaged(shouldManageLoading, setLoading, true);
-      clearErrorIfRequested(shouldClearError, setError);
-
-      try {
-        const nextUsage = options.localOnly
-          ? await orgManagerActions.loadLocalDataUsage()
-          : await orgManagerActions.loadDataUsage();
-        if (!isCurrentRequest()) {
-          return;
-        }
-        if (!organizationId) {
-          dataUsageRef.current = null;
-          setDataUsage(null);
-          return;
-        }
-        const resolution = resolveDataUsageRefresh({
-          current: dataUsageRef.current,
-          localOnly: options.localOnly ?? false,
-          next: nextUsage,
-          organizationId,
-        });
-        dataUsageRef.current = resolution.value;
-        setDataUsage(resolution.value);
-        if (resolution.shouldReportMissing) {
-          setError(ORG_MANAGER_LABELS.failedLoadDataUsage);
-        }
-      } catch (error) {
-        if (isCurrentRequest()) {
-          setUnknownError(setError, error);
-        }
-      } finally {
-        if (isCurrentRequest()) {
-          setLoadingIfManaged(shouldManageLoading, setLoading, false);
+    (options: DataUsageRefreshOptions = {}) =>
+      runScopedRefresher({
+        apply: (nextUsage) => {
+          if (!organizationId) {
+            dataUsageRef.current = null;
+            setDataUsage(null);
+            return;
+          }
+          const resolution = resolveDataUsageRefresh({
+            current: dataUsageRef.current,
+            localOnly: options.localOnly ?? false,
+            next: nextUsage,
+            organizationId,
+          });
+          dataUsageRef.current = resolution.value;
+          setDataUsage(resolution.value);
+          if (resolution.shouldReportMissing) {
+            setError(ORG_MANAGER_LABELS.failedLoadDataUsage);
+          }
+        },
+        beginRequest,
+        load: canLoadAuthenticatedOrgData
+          ? () =>
+              options.localOnly
+                ? orgManagerActions.loadLocalDataUsage()
+                : orgManagerActions.loadDataUsage()
+          : null,
+        onError: (error) => setUnknownError(setError, error),
+        onSettled: () =>
           settleDataUsageIfAnswered({
             hasUsage: dataUsageRef.current !== null,
             localOnly: options.localOnly ?? false,
             markDataUsageSettled,
-          });
-        }
-      }
-    },
+          }),
+        onUnavailable: () => {
+          dataUsageRef.current = null;
+          setDataUsage(null);
+        },
+        options,
+        requestKind: "dataUsage",
+        setError,
+        setLoading,
+      }),
     [
       beginRequest,
       canLoadAuthenticatedOrgData,

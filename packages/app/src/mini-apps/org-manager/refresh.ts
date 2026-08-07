@@ -5,6 +5,17 @@ import type {
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import type { OrgManagerView } from "./routes";
 
+export type OrgManagerResource =
+  | "dataUsage"
+  | "directory"
+  | "grants"
+  | "groupContainers"
+  | "groupDetails"
+  | "organizationPolicyHistory"
+  | "userDetail";
+
+export type OrgManagerRequestKind = OrgManagerResource | "refresh";
+
 export type DirectoryRefreshOptions = {
   afterMutation?: boolean;
   clearError?: boolean;
@@ -147,6 +158,59 @@ export function setLoadingIfManaged(
 ) {
   if (shouldManageLoading) {
     setLoading(loading);
+  }
+}
+
+interface ScopedRefresherInput<Result> {
+  readonly apply: (result: Result) => void;
+  readonly beginRequest: (kind: OrgManagerRequestKind) => () => boolean;
+  readonly load: (() => Promise<Result>) | null;
+  readonly onError?: (error: unknown) => void;
+  readonly onSettled?: () => void;
+  readonly onUnavailable?: (isCurrentRequest: () => boolean) => void;
+  readonly options?: RefreshBehaviorOptions;
+  readonly requestKind: OrgManagerRequestKind;
+  readonly setError: (error: string | null) => void;
+  readonly setLoading?: (loading: boolean) => void;
+}
+
+export async function runScopedRefresher<Result>(
+  input: ScopedRefresherInput<Result>,
+): Promise<void> {
+  const isCurrentRequest = input.beginRequest(input.requestKind);
+  if (input.load === null) {
+    input.onUnavailable?.(isCurrentRequest);
+    return;
+  }
+
+  const { shouldClearError, shouldManageLoading } = getRefreshBehavior(
+    input.options ?? {},
+  );
+  if (input.setLoading) {
+    setLoadingIfManaged(shouldManageLoading, input.setLoading, true);
+  }
+  clearErrorIfRequested(shouldClearError, input.setError);
+
+  try {
+    const result = await input.load();
+    if (isCurrentRequest()) {
+      input.apply(result);
+    }
+  } catch (error) {
+    if (isCurrentRequest()) {
+      if (input.onError) {
+        input.onError(error);
+      } else {
+        setUnknownError(input.setError, error);
+      }
+    }
+  } finally {
+    if (isCurrentRequest()) {
+      if (input.setLoading) {
+        setLoadingIfManaged(shouldManageLoading, input.setLoading, false);
+      }
+      input.onSettled?.();
+    }
   }
 }
 
