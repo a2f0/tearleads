@@ -1,9 +1,9 @@
 import { bytesToHex, generateChallenge } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { hasStringProperty, isUuidV4String } from "@tearleads/validators/util";
-import { getdel, set } from "./adapters/redis";
-import { isLiveUserSession } from "./middleware/session";
-import { isSessionId } from "./validators/session";
+import { getdel, set } from "../adapters/redis";
+import { isLiveUserSession } from "../middleware/session";
+import { isSessionId } from "../validators/session";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 
 // One-time, short-lived ticket that authenticates a websocket upgrade. Browsers

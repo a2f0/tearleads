@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from "bun:test";
-import { clearInMemoryRedisData } from "./adapters/inMemoryRedis";
+import { clearInMemoryRedisData } from "../adapters/inMemoryRedis";
 import { createWsInterestStore, wsInterestStore } from "./wsInterestStore";
 
 function createRecordingDeps() {

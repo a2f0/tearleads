@@ -11,7 +11,7 @@ import {
   srem,
   sscanMembers,
 } from "../adapters/redis";
-import { notifySessionRevoked } from "../sessionRevocation";
+import { notifySessionRevoked } from "../realtime/sessionRevocation";
 import type { SessionCreateInput, SessionData } from "../validators/session";
 import { isSessionData, isSessionId } from "../validators/session";
 

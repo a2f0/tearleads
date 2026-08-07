@@ -192,7 +192,7 @@ function shouldDropServerEvent(event: Record<string, unknown>): boolean {
 }
 
 /**
- * Test twin of the production `WsEventRouter` (packages/api/src/wsRouting.ts).
+ * Test twin of the production `WsEventRouter` (packages/api/src/realtime/wsRouting.ts).
  * The routing semantics the budget tests measure must match production:
  *
  * - container-scoped events go to sockets that declared interest;

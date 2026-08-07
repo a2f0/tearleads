@@ -1,5 +1,5 @@
-import { publish } from "./adapters/redisPubSub";
-import type { SessionData } from "./validators/session";
+import { publish } from "../adapters/redisPubSub";
+import type { SessionData } from "../validators/session";
 import { wsInterestStore } from "./wsInterestStore";
 
 const SESSION_REVOKED_EVENT_TYPE = "session_revoked";

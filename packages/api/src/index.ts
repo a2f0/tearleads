@@ -4,10 +4,10 @@ import {
 } from "@tearleads/api-shared/postgres";
 import { MAX_UPLOAD_PART_BYTES } from "./adapters/blobObjectStore";
 import type { RouteRequestBindings } from "./middleware/session";
-import { createRealtimeGateway } from "./realtimeGateway";
+import { createRealtimeGateway } from "./realtime/realtimeGateway";
+import type { WebSocketTicketIdentity } from "./realtime/wsIdentity";
+import { consumeWebSocketTicket } from "./realtime/wsTicket";
 import { routeApp } from "./routeApp";
-import type { WebSocketTicketIdentity } from "./wsIdentity";
-import { consumeWebSocketTicket } from "./wsTicket";
 
 if (getDefaultApiDatabaseKind() === "memory") {
   await initializeApiDatabase();

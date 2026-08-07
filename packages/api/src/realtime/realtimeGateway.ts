@@ -1,5 +1,5 @@
 import type { ServerWebSocket } from "bun";
-import { addListener } from "./adapters/redisPubSub";
+import { addListener } from "../adapters/redisPubSub";
 import { sendSafely } from "./wsConnection";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 import { wsInterestStore } from "./wsInterestStore";
@@ -39,9 +39,9 @@ async function authorizeOrganizationAccessWithWorkflow(
   // gateway has no persistence or object-store side effects. The workflow is
   // the same authoritative access check used by the HTTP read model.
   const [runtimeModule, accessModule, errorModule] = await Promise.all([
-    import("./services/runtime"),
-    import("./workflows/organizations/access"),
-    import("./workflows/organizations/errors"),
+    import("../services/runtime"),
+    import("../workflows/organizations/access"),
+    import("../workflows/organizations/errors"),
   ]);
   try {
     await runtimeModule.getDefaultApiServiceRuntime().db.transaction((tx) =>

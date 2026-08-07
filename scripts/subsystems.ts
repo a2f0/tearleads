@@ -150,13 +150,13 @@ export const subsystems: readonly Subsystem[] = [
       "Process-local fan-out of Redis pub/sub events to interested sockets: the WS lifecycle, interest index, Redis interest mirror, and upgrade tickets.",
     seam: "createRealtimeGateway, assembled and started by index.ts",
     paths: [
-      `${api}/realtimeGateway.ts`,
-      `${api}/wsConnection.ts`,
-      `${api}/wsOrganizationRouting.ts`,
-      `${api}/wsRouting.ts`,
-      `${api}/wsInterestStore.ts`,
-      `${api}/wsTicket.ts`,
-      `${api}/wsIdentity.ts`,
+      `${api}/realtime/realtimeGateway.ts`,
+      `${api}/realtime/wsConnection.ts`,
+      `${api}/realtime/wsOrganizationRouting.ts`,
+      `${api}/realtime/wsRouting.ts`,
+      `${api}/realtime/wsInterestStore.ts`,
+      `${api}/realtime/wsTicket.ts`,
+      `${api}/realtime/wsIdentity.ts`,
     ],
   },
   {
@@ -164,10 +164,10 @@ export const subsystems: readonly Subsystem[] = [
     package: "api",
     responsibility:
       "Bearer-token session storage, activity/IP tracking, request-IP binding, and session revocation (clear WS interest + publish session_revoked).",
-    seam: "middleware/session.ts (requireAuth) and sessionRevocation.ts",
+    seam: "middleware/session.ts (requireAuth) and realtime/sessionRevocation.ts",
     paths: [
       `${api}/middleware/session.ts`,
-      `${api}/sessionRevocation.ts`,
+      `${api}/realtime/sessionRevocation.ts`,
       `${api}/validators/session.ts`,
     ],
   },
