@@ -3,6 +3,7 @@ import { MAX_PRINCIPAL_STATE_VERSION } from "@tearleads/validators/util";
 import { ML_KEM1024_PUBLIC_KEY_BYTES } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
 import { computePrincipalMemberEnvelopesRoot } from "./principalMemberEnvelopes";
+import { throwPrincipalPolicyValidationError } from "./principalPolicyValidationError";
 import {
   comparePrincipalProjectionMembers,
   comparePrincipalStateMembers,
@@ -248,26 +249,30 @@ async function validatePrincipalEncapsulationKey(
   try {
     publicKey = base64ToBytes(state.encapsulationPublicKey);
   } catch {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
       "Principal state encapsulationPublicKey must use canonical base64 encoding",
     );
   }
 
   if (bytesToBase64(publicKey) !== state.encapsulationPublicKey) {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
       "Principal state encapsulationPublicKey must use canonical base64 encoding",
     );
   }
 
   if (publicKey.length !== ML_KEM1024_PUBLIC_KEY_BYTES) {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
       `Principal state encapsulationPublicKey must contain exactly ${ML_KEM1024_PUBLIC_KEY_BYTES} bytes`,
     );
   }
 
   const publicKeyFingerprint = await toFingerprint(publicKey);
   if (publicKeyFingerprint !== state.keyFingerprint) {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
       "Principal state keyFingerprint does not match encapsulationPublicKey",
     );
   }

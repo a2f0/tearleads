@@ -17,6 +17,10 @@ import {
   verifyPrincipalPolicyExternalAuthorityProgress,
 } from "./principalPolicyExternalAuthority";
 import { verifyPrincipalPolicyMemberEnvelopes } from "./principalPolicyMemberEnvelopes";
+import {
+  getPrincipalPolicyTransitionMismatch,
+  throwPrincipalPolicyTransitionError,
+} from "./principalPolicyTransition";
 import { runVerifier, throwVerification } from "./shared";
 import type {
   KeyingVerificationResult,
@@ -32,18 +36,6 @@ import type {
 } from "./types";
 import { makeVerifiedPrincipalPolicy } from "./types";
 
-function principalProjectionMemberKey(
-  member: PrincipalProjectionMember,
-): string {
-  return member.userId;
-}
-
-function principalProjectionRoleRank(
-  role: PrincipalProjectionMember["role"],
-): number {
-  return role === "admin" ? 2 : 1;
-}
-
 function projectionIncludesAdminUser(
   projection: readonly PrincipalProjectionMember[],
   userId: string,
@@ -51,126 +43,6 @@ function projectionIncludesAdminUser(
   return projection.some(
     (member) => member.userId === userId && member.role === "admin",
   );
-}
-
-function hasPrincipalPolicyProjectionShrink(input: {
-  currentProjection: readonly PrincipalProjectionMember[];
-  previousProjection: readonly PrincipalProjectionMember[];
-}): boolean {
-  const currentProjectionByMember = new Map<string, PrincipalProjectionMember>(
-    input.currentProjection.map((member) => [
-      principalProjectionMemberKey(member),
-      member,
-    ]),
-  );
-
-  return input.previousProjection.some((previousMember) => {
-    const currentMember = currentProjectionByMember.get(
-      principalProjectionMemberKey(previousMember),
-    );
-
-    if (!currentMember) {
-      return true;
-    }
-
-    return (
-      principalProjectionRoleRank(currentMember.role) <
-      principalProjectionRoleRank(previousMember.role)
-    );
-  });
-}
-
-function principalPolicyKeyMaterialChanged(input: {
-  currentState: SignedPrincipalState;
-  previousState: SignedPrincipalState;
-}): boolean {
-  return (
-    input.currentState.encapsulationPublicKey !==
-      input.previousState.encapsulationPublicKey ||
-    input.currentState.keyFingerprint !== input.previousState.keyFingerprint
-  );
-}
-
-export function getPrincipalPolicyTransitionMismatchReason(input: {
-  readonly current: {
-    readonly projection: readonly PrincipalProjectionMember[];
-    readonly state: SignedPrincipalState;
-  };
-  readonly previous: {
-    readonly projection: readonly PrincipalProjectionMember[];
-    readonly state: PrincipalPolicySignedState;
-  };
-}): string | null {
-  const { current, previous } = input;
-
-  if (
-    current.state.principalType !== previous.state.principalType ||
-    current.state.principalId !== previous.state.principalId
-  ) {
-    return "Principal policy transition principal mismatch";
-  }
-
-  if (current.state.version !== previous.state.version + 1) {
-    return "Principal policy transition version is not contiguous";
-  }
-
-  if (current.state.prevStateHash !== previous.state.stateHash) {
-    return "Principal policy transition previous hash mismatch";
-  }
-
-  if (current.state.keyEpoch < previous.state.keyEpoch) {
-    return "Principal policy key epoch cannot decrease";
-  }
-
-  const previousProjection = normalizePrincipalProjectionMembers(
-    previous.projection,
-  );
-  const currentProjection = normalizePrincipalProjectionMembers(
-    current.projection,
-  );
-  const keyMaterialChanged = principalPolicyKeyMaterialChanged({
-    currentState: current.state,
-    previousState: previous.state,
-  });
-
-  if (
-    current.state.keyEpoch === previous.state.keyEpoch &&
-    keyMaterialChanged
-  ) {
-    return "Principal policy key change requires a new key epoch";
-  }
-
-  if (current.state.keyEpoch > previous.state.keyEpoch && !keyMaterialChanged) {
-    return "Principal policy key epoch advance requires new key material";
-  }
-
-  if (
-    hasPrincipalPolicyProjectionShrink({
-      currentProjection,
-      previousProjection,
-    }) &&
-    (current.state.keyEpoch <= previous.state.keyEpoch || !keyMaterialChanged)
-  ) {
-    return "Principal policy shrink requires a new key epoch and key material";
-  }
-
-  return null;
-}
-
-function mapPrincipalPolicyTransitionError(message: string): void {
-  if (
-    message.includes("key epoch") ||
-    message.includes("key change") ||
-    message.includes("shrink")
-  ) {
-    throwVerification("key_epoch_reuse", message);
-  }
-
-  if (message.includes("previous hash")) {
-    throwVerification("stale_predecessor", message);
-  }
-
-  throwVerification("invalid_shape", message);
 }
 
 function normalizePrincipalPolicySignerKey(
@@ -531,13 +403,13 @@ function verifySuccessorPrincipalPolicyChainEntry(input: {
     );
   }
 
-  const transitionMismatch = getPrincipalPolicyTransitionMismatchReason({
+  const transitionMismatch = getPrincipalPolicyTransitionMismatch({
     current: input.normalizedEntry,
     previous: input.previousEntry,
   });
 
   if (transitionMismatch) {
-    mapPrincipalPolicyTransitionError(transitionMismatch);
+    throwPrincipalPolicyTransitionError(transitionMismatch);
   }
 }
 

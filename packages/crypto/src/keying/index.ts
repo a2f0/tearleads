@@ -27,6 +27,14 @@ export type {
   PrincipalPolicyExternalAuthority,
   PrincipalPolicyExternalAuthorityState,
 } from "./principalPolicyExternalAuthorityTypes";
+export type {
+  PrincipalPolicyTransitionMismatch,
+  PrincipalPolicyTransitionMismatchCode,
+} from "./principalPolicyTransition";
+export {
+  getPrincipalPolicyTransitionMismatch,
+  getPrincipalPolicyTransitionMismatchReason,
+} from "./principalPolicyTransition";
 export * from "./transparency";
 export * from "./types";
 export * from "./writeHeader";
