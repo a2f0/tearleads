@@ -26,34 +26,6 @@ export interface RegisteredWindowRefreshMenuItem {
   refreshing: boolean;
 }
 
-export function sameMenuItem(
-  left: RegisteredWindowMenuItem | undefined,
-  right: RegisteredWindowMenuItem,
-): boolean {
-  return (
-    left !== undefined &&
-    left.disabled === right.disabled &&
-    left.id === right.id &&
-    left.label === right.label &&
-    left.onClick === right.onClick &&
-    left.priority === right.priority
-  );
-}
-
-export function sameRefreshMenuItem(
-  left: RegisteredWindowRefreshMenuItem | undefined,
-  right: RegisteredWindowRefreshMenuItem,
-): boolean {
-  return (
-    left !== undefined &&
-    left.disabled === right.disabled &&
-    left.label === right.label &&
-    left.onRefresh === right.onRefresh &&
-    left.priority === right.priority &&
-    left.refreshing === right.refreshing
-  );
-}
-
 export function createMenuItems(
   items: ReadonlyMap<object, RegisteredWindowMenuItem>,
 ): WindowMenuItem[] {

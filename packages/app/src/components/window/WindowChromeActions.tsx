@@ -1,10 +1,5 @@
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-} from "react";
+import type { ReactNode } from "react";
+import { useWindowItemRegistration } from "./useWindowItemRegistration";
 import type { WindowTitleBarAction } from "./WindowTitleBar";
 
 export interface WindowTitleBarActionInput {
@@ -52,35 +47,6 @@ export interface WindowBackAction {
   onClick: () => void;
 }
 
-export function sameTitleBarAction(
-  left: RegisteredWindowTitleBarAction | undefined,
-  right: RegisteredWindowTitleBarAction,
-): boolean {
-  return (
-    left !== undefined &&
-    left.disabled === right.disabled &&
-    left.icon === right.icon &&
-    left.id === right.id &&
-    left.label === right.label &&
-    left.onClick === right.onClick &&
-    left.placement === right.placement &&
-    left.priority === right.priority
-  );
-}
-
-export function sameBackAction(
-  left: RegisteredWindowBackAction | undefined,
-  right: RegisteredWindowBackAction,
-): boolean {
-  return (
-    left !== undefined &&
-    left.disabled === right.disabled &&
-    left.label === right.label &&
-    left.onClick === right.onClick &&
-    left.priority === right.priority
-  );
-}
-
 export function createTitleBarActions(
   items: ReadonlyMap<object, RegisteredWindowTitleBarAction>,
 ): WindowTitleBarAction[] {
@@ -110,6 +76,37 @@ export function createTitleBarActions(
   }));
 }
 
+function createRegisteredTitleBarAction(
+  item: WindowTitleBarActionInput,
+  onClick: () => unknown,
+): RegisteredWindowTitleBarAction | null {
+  if (!item.icon) {
+    return null;
+  }
+
+  return {
+    disabled: item.disabled ?? false,
+    icon: item.icon,
+    id: item.id,
+    label: item.label,
+    onClick,
+    placement: item.placement ?? null,
+    priority: item.priority ?? 0,
+  };
+}
+
+function createRegisteredBackAction(
+  item: WindowBackActionInput,
+  onClick: () => unknown,
+): RegisteredWindowBackAction {
+  return {
+    disabled: item.disabled ?? false,
+    label: item.label,
+    onClick,
+    priority: item.priority ?? 0,
+  };
+}
+
 export function createBackAction(
   item: RegisteredWindowBackAction | null,
 ): WindowBackAction | null {
@@ -134,55 +131,13 @@ export function useRegisteredWindowTitleBarAction(
   ) => void,
   unregisterTitleBarAction: (id: object) => void,
 ): void {
-  const registrationIdRef = useRef<object>({});
-  const onClickRef = useRef<WindowTitleBarActionInput["onClick"] | null>(null);
-  const enabled = item !== null;
-  const disabled = item?.disabled ?? false;
-  const icon = item?.icon ?? null;
-  const itemId = item?.id ?? "";
-  const label = item?.label ?? "";
-  const onClick = item?.onClick ?? null;
-  const placement = item?.placement ?? null;
-  const priority = item?.priority ?? 0;
-
-  useLayoutEffect(() => {
-    onClickRef.current = onClick;
-  }, [onClick]);
-
-  const handleClick = useCallback(() => {
-    return onClickRef.current?.();
-  }, []);
-
-  useEffect(() => {
-    const registrationId = registrationIdRef.current;
-
-    if (!enabled || !icon) {
-      return;
-    }
-
-    registerTitleBarAction(registrationId, {
-      disabled,
-      icon,
-      id: itemId,
-      label,
-      onClick: handleClick,
-      placement,
-      priority,
-    });
-
-    return () => unregisterTitleBarAction(registrationId);
-  }, [
-    disabled,
-    enabled,
-    handleClick,
-    icon,
-    itemId,
-    label,
-    placement,
-    priority,
-    registerTitleBarAction,
-    unregisterTitleBarAction,
-  ]);
+  useWindowItemRegistration({
+    action: item?.onClick ?? null,
+    createRegisteredItem: createRegisteredTitleBarAction,
+    input: item,
+    registerItem: registerTitleBarAction,
+    unregisterItem: unregisterTitleBarAction,
+  });
 }
 
 export function useRegisteredWindowBackAction(
@@ -190,44 +145,11 @@ export function useRegisteredWindowBackAction(
   registerBackAction: (id: object, item: RegisteredWindowBackAction) => void,
   unregisterBackAction: (id: object) => void,
 ): void {
-  const registrationIdRef = useRef<object>({});
-  const onClickRef = useRef<WindowBackActionInput["onClick"] | null>(null);
-  const enabled = item !== null;
-  const disabled = item?.disabled ?? false;
-  const label = item?.label ?? "";
-  const onClick = item?.onClick ?? null;
-  const priority = item?.priority ?? 0;
-
-  useLayoutEffect(() => {
-    onClickRef.current = onClick;
-  }, [onClick]);
-
-  const handleClick = useCallback(() => {
-    return onClickRef.current?.();
-  }, []);
-
-  useEffect(() => {
-    const registrationId = registrationIdRef.current;
-
-    if (!enabled) {
-      return;
-    }
-
-    registerBackAction(registrationId, {
-      disabled,
-      label,
-      onClick: handleClick,
-      priority,
-    });
-
-    return () => unregisterBackAction(registrationId);
-  }, [
-    disabled,
-    enabled,
-    handleClick,
-    label,
-    priority,
-    registerBackAction,
-    unregisterBackAction,
-  ]);
+  useWindowItemRegistration({
+    action: item?.onClick ?? null,
+    createRegisteredItem: createRegisteredBackAction,
+    input: item,
+    registerItem: registerBackAction,
+    unregisterItem: unregisterBackAction,
+  });
 }

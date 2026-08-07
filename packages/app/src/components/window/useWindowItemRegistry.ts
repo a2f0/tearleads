@@ -6,6 +6,27 @@ interface WindowItemRegistry<T> {
   unregisterItem: (id: object) => void;
 }
 
+export function sameWindowItem<T extends object>(
+  left: T | undefined,
+  right: T,
+): boolean {
+  if (!left) {
+    return false;
+  }
+
+  const leftEntries = Object.entries(left);
+  const rightEntries = Object.entries(right);
+  return (
+    leftEntries.length === rightEntries.length &&
+    rightEntries.every(([rightKey, rightValue]) =>
+      leftEntries.some(
+        ([leftKey, leftValue]) =>
+          leftKey === rightKey && leftValue === rightValue,
+      ),
+    )
+  );
+}
+
 export function useWindowItemRegistry<T>(
   sameItem: (left: T | undefined, right: T) => boolean,
 ): WindowItemRegistry<T> {
