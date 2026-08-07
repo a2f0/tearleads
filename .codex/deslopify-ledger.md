@@ -432,3 +432,33 @@
 - Decision notes: keep layout-specific width defaults, DOM wrappers, and narrow
   versus touch-sized handle geometry local; share only the sizing lifecycle,
   ARIA contract, pointer listeners, keyboard behavior, and common chrome.
+
+### 2026-08-07 - Content-key store variants
+
+- Status: accepted
+- Classification: structurally duplicated persistence orchestration
+- Equivalence claim: document and blob bundle reads, first-writer conflict
+  handling, current-target validation, metadata refreshes, target
+  reconciliation, projections, and write-header idempotency retain their exact
+  stored rows, return values, error classes, messages, statuses, and document
+  sync error codes.
+- Risk notes: same-epoch races, stale document projections, additive document
+  targets, blob target replacement without byte replacement, content-key epoch
+  gates, and reused write-header record domains.
+- Files changed: the document and blob content-key stores now configure one
+  shared typed store core; the obsolete blob store file-size baseline was
+  removed.
+- Baseline: the API memory and SQLite matrices each passed 1,010 tests with
+  three expected skips at `8a5c00ed` before the store-core extraction.
+- Verification: TypeScript, Biome, OpenAPI and protocol checks, Knip,
+  architecture, source-shape, Markdown, and `bun run check:affected` pass; the
+  affected API matrix again reports 1,010 passes and three expected skips on
+  each database engine.
+- Delta: the two domain variants shrink by 188 production lines combined, the
+  blob variant returns under the default source-shape budget, and the shared
+  426-line core replaces the paired algorithms with one implementation and
+  explicit domain adapters.
+- Decision notes: preserve document-only link-set metadata and additive target
+  growth, preserve blob-only target replacement and fixed content-key epoch
+  rules, and keep table-specific Drizzle operations in the variants. The core
+  owns only behavior shared by both stores.

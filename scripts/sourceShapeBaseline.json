@@ -93,10 +93,6 @@
       "lines": 885,
       "bytes": 26519
     },
-    "packages/api/src/access/shared/internal/blobContentKeyStore.ts": {
-      "lines": 582,
-      "bytes": 16045
-    },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 606,
       "bytes": 19027
