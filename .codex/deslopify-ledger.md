@@ -84,3 +84,27 @@
 - Decision notes: centralize only the exact immediate-admin-gate shape in
   `withOrganizationAdminTransaction`; distinct conditional and serialized
   authorization flows remain local.
+
+### 2026-08-07 - Base64url cursor codec
+
+- Status: accepted with explicit input hardening
+- Classification: parametric duplication
+- Equivalence claim: every cursor emitted by either workflow keeps the same
+  JSON payload and base64url bytes; valid organization and attribution cursors
+  retain their versions, scope checks, stale-cursor behavior, offsets, and
+  caller-specific errors.
+- Risk notes: cursor compatibility and denial-of-service bounds. Attribution
+  cursors now intentionally inherit the organization codec's canonical
+  round-trip check and 512-character ceiling, so non-canonical aliases and
+  oversized payloads are rejected as invalid.
+- Files changed: shared cursor utility and tests, organization read-model and
+  document-attribution cursor consumers, and the Shared Utilities subsystem
+  registry/docs.
+- Baseline: six focused cursor and pagination tests passed at `f40f18a7`.
+- Verification: eight focused tests, TypeScript, architecture, source-shape,
+  and `bun run check:affected` pass; the affected API matrix reports 998 tests
+  passing on both memory and SQLite.
+- Delta: 11 duplicated caller lines removed net; the 36-line shared codec adds
+  one validation path and 51 lines of direct boundary coverage.
+- Decision notes: payload validation remains caller-owned through parser
+  callbacks so domain formats and error classes do not leak into the utility.
