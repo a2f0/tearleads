@@ -13,9 +13,14 @@ interface DocumentTypeContentProps {
   localId: string;
 }
 
+type DocumentsProviderComponent = ComponentType<
+  Parameters<typeof DocumentsProvider>[0]
+>;
+
 export function createDocumentTypeApp(
   initialDocumentKind: StoredDocumentKind | undefined,
   Document: ComponentType<DocumentTypeContentProps>,
+  Provider: DocumentsProviderComponent = DocumentsProvider,
 ): ComponentType<DocumentTypeAppProps> {
   function DocumentTypeApp({
     containerId,
@@ -25,7 +30,7 @@ export function createDocumentTypeApp(
     readOnly,
   }: DocumentTypeAppProps) {
     return (
-      <DocumentsProvider
+      <Provider
         localId={localId}
         readOnly={readOnly}
         {...(containerId === undefined ? {} : { containerId })}
@@ -37,7 +42,7 @@ export function createDocumentTypeApp(
           initialEditing={initialEditing}
           localId={localId}
         />
-      </DocumentsProvider>
+      </Provider>
     );
   }
 

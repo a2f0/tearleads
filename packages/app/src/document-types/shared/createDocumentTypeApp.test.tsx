@@ -1,29 +1,24 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { cleanup, render } from "@testing-library/react";
-import type { PropsWithChildren } from "react";
+import {
+  DEFAULT_DOCUMENT_ID,
+  type DocumentsProvider as RealDocumentsProvider,
+} from "../../stores/documents/DocumentsProvider";
+import {
+  createDocumentTypeApp,
+  createFileDocumentTypeApp,
+} from "./createDocumentTypeApp";
 
-const DEFAULT_LOCAL_ID = "default-local-id";
 let contentProps: Record<string, unknown> | null = null;
 let providerProps: Record<string, unknown> | null = null;
 
-mock.module("../../stores/documents/DocumentsProvider", () => ({
-  DEFAULT_DOCUMENT_ID: DEFAULT_LOCAL_ID,
-  DocumentsProvider: ({
-    children,
-    ...props
-  }: PropsWithChildren<Record<string, unknown>>) => {
-    providerProps = props;
-    return children;
-  },
-  useDocument: () => {
-    throw new Error("Not used by the document app factory test.");
-  },
-  useDocumentReadOnly: () => false,
-}));
-
-const { createDocumentTypeApp, createFileDocumentTypeApp } = await import(
-  "./createDocumentTypeApp"
-);
+function TestProvider({
+  children,
+  ...props
+}: Parameters<typeof RealDocumentsProvider>[0]) {
+  providerProps = { ...props };
+  return children;
+}
 
 afterEach(() => {
   cleanup();
@@ -41,17 +36,17 @@ test("omits undefined optional provider inputs", () => {
     return null;
   }
 
-  const App = createDocumentTypeApp(undefined, TestDocument);
+  const App = createDocumentTypeApp(undefined, TestDocument, TestProvider);
   render(<App />);
 
   expect(providerProps).toEqual({
-    localId: DEFAULT_LOCAL_ID,
+    localId: DEFAULT_DOCUMENT_ID,
     readOnly: undefined,
   });
   expect(contentProps).toEqual({
     containerId: null,
     initialEditing: undefined,
-    localId: DEFAULT_LOCAL_ID,
+    localId: DEFAULT_DOCUMENT_ID,
   });
 });
 
