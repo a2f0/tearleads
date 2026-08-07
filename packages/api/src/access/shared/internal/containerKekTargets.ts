@@ -5,6 +5,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { ContainerKekTarget } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
+import { uniqueSortedStrings as unique } from "../../../utils/array";
 import { isRecord } from "../../../utils/record";
 import {
   isSqlBooleanValue,
@@ -191,13 +192,11 @@ async function loadCurrentContainerManifestTargetClosure(input: {
   readonly containerIds: readonly string[];
   readonly executor: DatabaseSession;
 }): Promise<Map<string, ContainerManifestTarget>> {
-  const seedContainerIds = [...new Set(input.containerIds)].sort();
+  const seedContainerIds = unique(input.containerIds);
   // Validate the full ancestor chain from the signed current manifest heads.
-  // The KEK parent edge is part of that signed state, so relying on structural
-  // container rows here would let the write guard drift from the cryptographic
-  // material it is meant to protect. A recursive CTE keeps deep hierarchies to a
-  // single database round trip while still failing closed if any parent head is
-  // missing, stale, malformed, or cyclic.
+  // Structural container rows cannot replace the signed KEK parent edge. The
+  // recursive CTE keeps deep hierarchies to one round trip and fails closed on
+  // missing, stale, malformed, or cyclic parent heads.
   const result = await input.executor.execute(sql`
     with recursive ancestor_path as (
       select
@@ -553,7 +552,7 @@ export async function resolveCurrentContainerKekTargets(
   containerIds: readonly string[],
   executor: DatabaseSession,
 ): Promise<Map<string, ContainerKekTarget>> {
-  const uniqueContainerIds = [...new Set(containerIds)].sort();
+  const uniqueContainerIds = unique(containerIds);
 
   if (uniqueContainerIds.length === 0) {
     return new Map();

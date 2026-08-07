@@ -14,6 +14,7 @@ import type {
   SyncWatermark,
 } from "@tearleads/validators/response";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { uniqueSortedStrings } from "../../utils/array";
 import { textExpression } from "../../utils/sqlDialect";
 import type {
   ContainerAccessProjection,
@@ -292,7 +293,7 @@ async function loadLinkedContainerIdsByManifestHash(
   ] of linkedContainerIdsByManifestHash) {
     linkedContainerIdsByManifestHash.set(
       manifestHash,
-      [...new Set(linkedContainerIds)].sort(),
+      uniqueSortedStrings(linkedContainerIds),
     );
   }
 

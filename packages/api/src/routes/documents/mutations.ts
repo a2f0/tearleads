@@ -32,6 +32,7 @@ import {
   syncDocument,
 } from "../../services/documents/documentMutations";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { uniqueSortedStrings } from "../../utils/array";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
@@ -84,7 +85,7 @@ export function createDocumentMutationCreatedEvent(input: {
 
   return {
     type: "document_mutation_created",
-    containerIds: [...new Set(containerIds)].sort(),
+    containerIds: uniqueSortedStrings(containerIds),
     documentId: input.documentId,
     eventType: input.eventType,
     origin: input.origin,
@@ -142,7 +143,7 @@ export function createDocumentPurgeEvent(input: {
 }): Record<string, unknown> {
   return {
     type: "document_mutation_created",
-    containerIds: [...new Set(input.containerIds)].sort(),
+    containerIds: uniqueSortedStrings(input.containerIds),
     documentId: input.documentId,
     eventType: "document.purge",
     origin: input.origin,

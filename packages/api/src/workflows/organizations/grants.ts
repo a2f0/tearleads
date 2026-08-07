@@ -8,16 +8,13 @@ import {
   type OrganizationContainerGrantResponse,
 } from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
+import { uniqueSortedStrings } from "../../utils/array";
 import {
   listOrganizationContainerGrantRows,
   type OrganizationContainerGrantRow,
   toOrganizationGroupContainerResponse,
 } from "./containerGrants";
 import { loadUsersById, type UserKeyRow } from "./users";
-
-function uniqueSortedStrings(values: readonly string[]): string[] {
-  return [...new Set(values)].sort();
-}
 
 async function loadGroupNamesById(input: {
   executor: DatabaseSession;

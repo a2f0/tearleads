@@ -11,6 +11,7 @@ import {
   BlobKekTargetError,
   resolveCurrentBlobKekTargets,
 } from "../../access/read/blobKekTargets";
+import { uniqueSortedStrings } from "../../utils/array";
 import { toContentKeyBundleResponse } from "../blobs/mutations/records";
 import {
   KeyingReadAccessError,
@@ -95,7 +96,7 @@ export async function runListDocumentAttachmentsWorkflow(
 
   const contentKeyBundleEntries = await gatherWithExecutor(
     executor,
-    [...new Set(rows.map((row) => row.blobId))].sort(),
+    uniqueSortedStrings(rows.map((row) => row.blobId)),
     (blobId) => loadCurrentBlobContentKeyBundleEntry(blobId, executor),
   );
   const contentKeyBundleByBlobId = new Map<

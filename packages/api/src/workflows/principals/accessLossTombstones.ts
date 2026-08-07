@@ -11,6 +11,7 @@ import {
   getCurrentPrincipalStates,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
+import { uniqueSortedStrings } from "../../utils/array";
 
 type ManagedPrincipalType = StoredPrincipalState["principalType"];
 interface PrincipalReference {
@@ -48,10 +49,6 @@ interface PrincipalPolicyAccessLossRow {
 
 function principalKey(principal: PrincipalReference): string {
   return `${principal.principalType}:${principal.principalId}`;
-}
-
-function uniqueSortedStrings(values: Iterable<string>): string[] {
-  return [...new Set(values)].sort();
 }
 
 function toPrincipalReference(

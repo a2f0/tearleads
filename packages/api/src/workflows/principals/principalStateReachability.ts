@@ -4,16 +4,13 @@ import {
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
+import { uniqueSortedStrings } from "../../utils/array";
 
 function projectionStateKey(input: {
   readonly principalId: string;
   readonly stateHash: string;
 }): string {
   return `${input.principalId}:${input.stateHash}`;
-}
-
-function uniqueSortedStrings(values: Iterable<string>): string[] {
-  return [...new Set(values)].sort();
 }
 
 async function loadProjectionMembersByState(input: {
