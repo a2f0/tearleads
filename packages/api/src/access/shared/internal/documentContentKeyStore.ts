@@ -12,6 +12,13 @@ import type { WriteHeader } from "@tearleads/crypto";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import {
+  carryForwardContentKeyTargets,
+  createContentKeyStore,
+  createContentWriteHeaderStore,
+  projectLatestContentKeyBundle,
+  currentTargetsCanCarryPreviousBundle as sharedCurrentTargetsCanCarryPreviousBundle,
+} from "./contentKeyStore";
+import {
   assertTargetHashMatches,
   assertTargetsMatchCurrent,
   type CurrentDocumentKekTargets,
@@ -29,7 +36,6 @@ import {
   assertDocumentKekTargetsCurrent,
   DocumentKekTargetError,
 } from "./documentKekTargets";
-import { targetEnvelopeBundlesEqual } from "./targetEnvelopeBundles";
 
 export type {
   DocumentContentKeyTargetEnvelope,
@@ -128,62 +134,46 @@ export async function getDocumentContentKeyBundle(
   contentKeyEpoch: number,
   executor: DatabaseSession,
 ): Promise<StoredDocumentContentKeyBundle | null> {
-  const row = await loadDocumentContentKeyEpochRow(
+  return documentContentKeyStore.getBundle(
     documentId,
     contentKeyEpoch,
     executor,
   );
-  return row ? toStoredBundle(row, executor) : null;
 }
 
 async function getLatestDocumentContentKeyBundle(
   documentId: string,
   executor: DatabaseSession,
 ): Promise<StoredDocumentContentKeyBundle | null> {
-  const row = await loadLatestDocumentContentKeyEpochRow(documentId, executor);
-  return row ? toStoredBundle(row, executor) : null;
+  return documentContentKeyStore.getLatestBundle(documentId, executor);
 }
 
 export async function getLatestDocumentContentKeyEpoch(
   documentId: string,
   executor: DatabaseSession,
 ): Promise<number | null> {
-  const row = await loadLatestDocumentContentKeyEpochRow(documentId, executor);
-  return row?.contentKeyEpoch ?? null;
+  return documentContentKeyStore.getLatestContentKeyEpoch(documentId, executor);
 }
 
 function refreshedBundleForCurrentTargets(input: {
   readonly bundle: StoredDocumentContentKeyBundle;
   readonly currentTargets: CurrentDocumentKekTargets;
 }): StoredDocumentContentKeyBundle | null {
-  const previousEnvelopeByContainerId = new Map(
-    input.bundle.targets.map((target) => [target.containerId, target]),
-  );
-
-  if (
-    previousEnvelopeByContainerId.size !== input.currentTargets.targets.length
-  ) {
-    return null;
-  }
-
-  const targets: DocumentContentKeyTargetEnvelope[] = [];
-  for (const currentTarget of input.currentTargets.targets) {
-    const previousEnvelope = previousEnvelopeByContainerId.get(
-      currentTarget.containerId,
-    );
-
-    if (
-      !previousEnvelope ||
-      !targetKeyMaterialEqual(previousEnvelope, currentTarget)
-    ) {
-      return null;
-    }
-
-    targets.push({
+  const targets = carryForwardContentKeyTargets({
+    currentTargets: input.currentTargets.targets,
+    previousTargets: input.bundle.targets,
+    requireSameTargetCount: true,
+    sortTargetEnvelopes,
+    targetKey: (target) => target.containerId,
+    targetKeyMaterialEqual,
+    toEnvelope: (currentTarget, previousEnvelope) => ({
       ...currentTarget,
       wrappedKey: previousEnvelope.wrappedKey,
       wrappingMetadata: previousEnvelope.wrappingMetadata,
-    });
+    }),
+  });
+  if (!targets) {
+    return null;
   }
 
   return {
@@ -198,26 +188,12 @@ function currentTargetsCanCarryPreviousBundle(input: {
   readonly bundle: StoredDocumentContentKeyBundle;
   readonly currentTargets: CurrentDocumentKekTargets;
 }): boolean {
-  const previousEnvelopeByContainerId = new Map(
-    input.bundle.targets.map((target) => [target.containerId, target]),
-  );
-  const currentTargetByContainerId = new Map(
-    input.currentTargets.targets.map((target) => [target.containerId, target]),
-  );
-  for (const previousEnvelope of previousEnvelopeByContainerId.values()) {
-    const currentTarget = currentTargetByContainerId.get(
-      previousEnvelope.containerId,
-    );
-
-    if (
-      !currentTarget ||
-      !targetKeyMaterialEqual(previousEnvelope, currentTarget)
-    ) {
-      return false;
-    }
-  }
-
-  return true;
+  return sharedCurrentTargetsCanCarryPreviousBundle({
+    currentTargets: input.currentTargets.targets,
+    previousTargets: input.bundle.targets,
+    targetKey: (target) => target.containerId,
+    targetKeyMaterialEqual,
+  });
 }
 
 interface LatestDocumentContentKeyBundleProjection {
@@ -239,38 +215,23 @@ export async function getLatestDocumentContentKeyBundleProjection(
   },
   executor: DatabaseSession,
 ): Promise<LatestDocumentContentKeyBundleProjection | null> {
-  const bundle = await getLatestDocumentContentKeyBundle(
-    input.documentId,
-    executor,
-  );
-  if (!bundle) {
-    return null;
-  }
-
-  if (
-    bundle.linkSetManifestHash !== input.currentTargets.linkSetManifestHash ||
-    bundle.targetHash !== input.currentTargets.documentKeyTargetHash
-  ) {
-    const refreshedBundle = refreshedBundleForCurrentTargets({
-      bundle,
-      currentTargets: input.currentTargets,
-    });
-    if (refreshedBundle) {
+  return projectLatestContentKeyBundle({
+    assertTargetsCurrent: (bundle) =>
       assertTargetsMatchCurrent({
         currentTargets: input.currentTargets,
-        targets: refreshedBundle.targets,
-      });
-      return { bundle: refreshedBundle, stale: false };
-    }
-
-    return { bundle, stale: true };
-  }
-  assertTargetsMatchCurrent({
-    currentTargets: input.currentTargets,
-    targets: bundle.targets,
+        targets: bundle.targets,
+      }),
+    getLatestBundle: () =>
+      getLatestDocumentContentKeyBundle(input.documentId, executor),
+    metadataIsCurrent: (bundle) =>
+      bundle.linkSetManifestHash === input.currentTargets.linkSetManifestHash &&
+      bundle.targetHash === input.currentTargets.documentKeyTargetHash,
+    refreshForCurrentTargets: (bundle) =>
+      refreshedBundleForCurrentTargets({
+        bundle,
+        currentTargets: input.currentTargets,
+      }),
   });
-
-  return { bundle, stale: false };
 }
 
 export async function getLatestCurrentDocumentContentKeyBundle(
@@ -346,66 +307,6 @@ async function updateDocumentContentKeyTargets(input: {
         ),
       );
   }
-}
-
-async function createDocumentContentKeyBundle(
-  input: StoreDocumentContentKeyBundleInput,
-  executor: DatabaseSession,
-): Promise<StoredDocumentContentKeyBundle> {
-  const [row] = await executor
-    .insert(documentContentKeyEpochs)
-    .values({
-      documentId: input.documentId,
-      contentKeyEpoch: input.contentKeyEpoch,
-      linkSetManifestHash: input.linkSetManifestHash,
-      targetHash: input.targetHash,
-    })
-    .onConflictDoNothing({
-      target: [
-        documentContentKeyEpochs.documentId,
-        documentContentKeyEpochs.contentKeyEpoch,
-      ],
-    })
-    .returning();
-
-  const epochRow =
-    row ??
-    (await loadDocumentContentKeyEpochRow(
-      input.documentId,
-      input.contentKeyEpoch,
-      executor,
-    ));
-
-  if (!epochRow) {
-    throw new DocumentContentKeyBundleError(
-      "Failed to load document content-key epoch",
-      409,
-    );
-  }
-
-  await insertDocumentContentKeyTargets({
-    documentContentKeyEpochId: epochRow.id,
-    executor,
-    targets: input.targets,
-  });
-
-  const storedBundle = await toStoredBundle(epochRow, executor);
-  if (
-    !targetEnvelopeBundlesEqual(
-      storedBundle.targets,
-      input.targets,
-      sortTargetEnvelopes,
-      targetEnvelopeEqual,
-    )
-  ) {
-    // Coded stateStale: a concurrent writer committed this epoch first (e.g.
-    // two devices healing a stale bundle race to epoch+1). The loser must
-    // refetch the projection and rebuild against the winner's bundle, which
-    // is exactly the client's stateStale retry path.
-    throw staleBundle("Document content-key bundle conflict");
-  }
-
-  return storedBundle;
 }
 
 async function addDocumentContentKeyTargetsToExistingBundle(input: {
@@ -576,95 +477,105 @@ async function refreshExistingBundleMetadata(input: {
   };
 }
 
+const documentContentKeyStore = createContentKeyStore<
+  DocumentContentKeyTargetEnvelope,
+  StoreDocumentContentKeyBundleInput,
+  typeof documentContentKeyEpochs.$inferSelect,
+  StoredDocumentContentKeyBundle,
+  CurrentDocumentKekTargets,
+  boolean
+>({
+  // A concurrent writer can commit an epoch first. The loser must refetch and
+  // rebuild through the client's coded stateStale retry path.
+  createBundleConflictError: () =>
+    staleBundle("Document content-key bundle conflict"),
+  createMissingEpochError: () =>
+    new DocumentContentKeyBundleError(
+      "Failed to load document content-key epoch",
+      409,
+    ),
+  getIdentifier: (input) => input.documentId,
+  insertEpochRow: async (input, executor) => {
+    const [row] = await executor
+      .insert(documentContentKeyEpochs)
+      .values({
+        documentId: input.documentId,
+        contentKeyEpoch: input.contentKeyEpoch,
+        linkSetManifestHash: input.linkSetManifestHash,
+        targetHash: input.targetHash,
+      })
+      .onConflictDoNothing({
+        target: [
+          documentContentKeyEpochs.documentId,
+          documentContentKeyEpochs.contentKeyEpoch,
+        ],
+      })
+      .returning();
+    return row ?? null;
+  },
+  insertTargets: (epochId, targets, executor) =>
+    insertDocumentContentKeyTargets({
+      documentContentKeyEpochId: epochId,
+      executor,
+      targets,
+    }),
+  loadEpochRow: loadDocumentContentKeyEpochRow,
+  loadLatestEpochRow: loadLatestDocumentContentKeyEpochRow,
+  prepareStore: ({ currentTargets, input, latestBundle }) => {
+    const latestTargetsStillCurrent =
+      !latestBundle ||
+      currentTargetsCanCarryPreviousBundle({
+        bundle: latestBundle,
+        currentTargets,
+      });
+    assertContentKeyEpochCanBeStored({
+      contentKeyEpoch: input.contentKeyEpoch,
+      latestBundle,
+      latestTargetsStillCurrent,
+    });
+    return latestTargetsStillCurrent;
+  },
+  reconcileExistingBundle: ({
+    existingBundle,
+    executor,
+    input,
+    latestBundle,
+    preparation: latestTargetsStillCurrent,
+  }) => {
+    if (
+      latestBundle &&
+      input.contentKeyEpoch === latestBundle.contentKeyEpoch &&
+      latestTargetsStillCurrent
+    ) {
+      return addDocumentContentKeyTargetsToExistingBundle({
+        existingBundle,
+        nextBundle: input,
+        executor,
+      });
+    }
+
+    // The submitted epoch was superseded by a concurrent bundle write.
+    throw staleBundle("Document content-key bundle conflict");
+  },
+  refreshExistingBundleMetadata,
+  sortTargetEnvelopes,
+  targetEnvelopeEqual,
+  toStoredBundle,
+  validateCurrentTargets: validateCurrentTargetsForBundle,
+});
+
 export async function storeDocumentContentKeyBundle(
   input: StoreDocumentContentKeyBundleInput,
   database: ApiDatabase,
 ): Promise<StoredDocumentContentKeyBundleWithTargets> {
-  return database.transaction((tx) =>
-    storeDocumentContentKeyBundleInTransaction(input, tx),
-  );
+  return documentContentKeyStore.store(input, database);
 }
 
 export async function storeDocumentContentKeyBundleInTransaction(
   input: StoreDocumentContentKeyBundleInput,
   executor: DatabaseTransaction,
 ): Promise<StoredDocumentContentKeyBundleWithTargets> {
-  const currentTargets = await validateCurrentTargetsForBundle(input, executor);
-  const latestBundle = await getLatestDocumentContentKeyBundle(
-    input.documentId,
-    executor,
-  );
-
-  const latestTargetsStillCurrent =
-    !latestBundle ||
-    currentTargetsCanCarryPreviousBundle({
-      bundle: latestBundle,
-      currentTargets,
-    });
-
-  assertContentKeyEpochCanBeStored({
-    contentKeyEpoch: input.contentKeyEpoch,
-    latestBundle,
-    latestTargetsStillCurrent,
-  });
-
-  const existingBundle = await getDocumentContentKeyBundle(
-    input.documentId,
-    input.contentKeyEpoch,
-    executor,
-  );
-  // Return the target snapshot that was validated immediately before the
-  // content-key write. Callers can reuse it for response/write-header
-  // assembly without performing a second full KEK-target walk, while the store
-  // remains the only authority that decides whether the write targets are
-  // current.
-  const withCurrentTargets = (
-    bundle: StoredDocumentContentKeyBundle,
-  ): StoredDocumentContentKeyBundleWithTargets => ({
-    ...bundle,
-    currentTargets,
-  });
-
-  if (!existingBundle) {
-    return withCurrentTargets(
-      await createDocumentContentKeyBundle(input, executor),
-    );
-  }
-
-  if (
-    targetEnvelopeBundlesEqual(
-      existingBundle.targets,
-      input.targets,
-      sortTargetEnvelopes,
-      targetEnvelopeEqual,
-    )
-  ) {
-    return withCurrentTargets(
-      await refreshExistingBundleMetadata({
-        existingBundle,
-        nextBundle: input,
-        executor,
-      }),
-    );
-  }
-
-  if (
-    latestBundle &&
-    input.contentKeyEpoch === latestBundle.contentKeyEpoch &&
-    latestTargetsStillCurrent
-  ) {
-    return withCurrentTargets(
-      await addDocumentContentKeyTargetsToExistingBundle({
-        existingBundle,
-        nextBundle: input,
-        executor,
-      }),
-    );
-  }
-
-  // Coded stateStale: the submitted epoch was superseded by a concurrent
-  // bundle write; a refetched projection lets the client rebuild and retry.
-  throw staleBundle("Document content-key bundle conflict");
+  return documentContentKeyStore.storeInTransaction(input, executor);
 }
 
 /**
@@ -741,83 +652,74 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
   };
 }
 
+interface StoreDocumentContentWriteHeaderInput {
+  readonly documentId: string;
+  readonly header: WriteHeader;
+  readonly headerHash: string;
+  readonly updateId: string;
+}
+
+const documentContentWriteHeaderStore =
+  createContentWriteHeaderStore<StoreDocumentContentWriteHeaderInput>({
+    createConflictError: () =>
+      new DocumentContentKeyBundleError("Document write header conflict", 409),
+    createObjectMismatchError: () =>
+      new DocumentContentKeyBundleError(
+        "Document write header does not match document",
+        409,
+      ),
+    expectedObjectKind: "document",
+    getObjectId: (input) => input.documentId,
+    getRecordId: (input) => input.updateId,
+    insert: async (input, executor) => {
+      const [inserted] = await executor
+        .insert(documentContentWriteHeaders)
+        .values({
+          updateId: input.updateId,
+          documentId: input.documentId,
+          organizationId: input.header.organizationId,
+          contentKeyEpoch: input.header.contentKeyEpoch,
+          accessManifestHash: input.header.accessManifestHash,
+          targetHash: input.header.targetHash,
+          encryptionSuite: input.header.encryptionSuite,
+          contentRecordId: input.header.contentRecordId,
+          nonceDomainHash: input.header.nonceDomainHash,
+          headerHash: input.headerHash,
+          header: input.header,
+        })
+        .onConflictDoNothing()
+        .returning({ headerHash: documentContentWriteHeaders.headerHash });
+      return inserted !== undefined;
+    },
+    list: (updateIds, executor) =>
+      executor
+        .select({
+          recordId: documentContentWriteHeaders.updateId,
+          header: documentContentWriteHeaders.header,
+          headerHash: documentContentWriteHeaders.headerHash,
+        })
+        .from(documentContentWriteHeaders)
+        .where(inArray(documentContentWriteHeaders.updateId, updateIds)),
+    loadHeaderHash: async (updateId, executor) => {
+      const [existing] = await executor
+        .select({ headerHash: documentContentWriteHeaders.headerHash })
+        .from(documentContentWriteHeaders)
+        .where(eq(documentContentWriteHeaders.updateId, updateId))
+        .limit(1);
+      return existing?.headerHash ?? null;
+    },
+  });
+
 export async function storeDocumentContentWriteHeader(
-  input: {
-    readonly documentId: string;
-    readonly header: WriteHeader;
-    readonly headerHash: string;
-    readonly updateId: string;
-  },
+  input: StoreDocumentContentWriteHeaderInput,
   executor: DatabaseSession,
 ): Promise<void> {
-  if (
-    input.header.objectKind !== "document" ||
-    input.header.objectId !== input.documentId
-  ) {
-    throw new DocumentContentKeyBundleError(
-      "Document write header does not match document",
-      409,
-    );
-  }
-
-  const [inserted] = await executor
-    .insert(documentContentWriteHeaders)
-    .values({
-      updateId: input.updateId,
-      documentId: input.documentId,
-      organizationId: input.header.organizationId,
-      contentKeyEpoch: input.header.contentKeyEpoch,
-      accessManifestHash: input.header.accessManifestHash,
-      targetHash: input.header.targetHash,
-      encryptionSuite: input.header.encryptionSuite,
-      contentRecordId: input.header.contentRecordId,
-      nonceDomainHash: input.header.nonceDomainHash,
-      headerHash: input.headerHash,
-      header: input.header,
-    })
-    .onConflictDoNothing()
-    .returning({ headerHash: documentContentWriteHeaders.headerHash });
-
-  if (inserted) {
-    return;
-  }
-
-  const [existing] = await executor
-    .select({ headerHash: documentContentWriteHeaders.headerHash })
-    .from(documentContentWriteHeaders)
-    .where(eq(documentContentWriteHeaders.updateId, input.updateId))
-    .limit(1);
-
-  if (!existing || existing.headerHash !== input.headerHash) {
-    throw new DocumentContentKeyBundleError(
-      "Document write header conflict",
-      409,
-    );
-  }
+  return documentContentWriteHeaderStore.store(input, executor);
 }
 
 export async function listDocumentContentWriteHeaders(
   updateIds: readonly string[],
   executor: DatabaseSession,
 ): Promise<Map<string, { header: WriteHeader; headerHash: string }>> {
-  const uniqueUpdateIds = [...new Set(updateIds)];
-  if (uniqueUpdateIds.length === 0) {
-    return new Map();
-  }
-
-  const rows = await executor
-    .select({
-      updateId: documentContentWriteHeaders.updateId,
-      header: documentContentWriteHeaders.header,
-      headerHash: documentContentWriteHeaders.headerHash,
-    })
-    .from(documentContentWriteHeaders)
-    .where(inArray(documentContentWriteHeaders.updateId, uniqueUpdateIds));
-
-  return new Map(
-    rows.map((row) => [
-      row.updateId,
-      { header: row.header, headerHash: row.headerHash },
-    ]),
-  );
+  return documentContentWriteHeaderStore.list(updateIds, executor);
 }
