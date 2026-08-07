@@ -1,6 +1,28 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
 import { requireDirectOrganizationAccess } from "./access";
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "./readModelChanges";
+
+export function withOrganizationAdminTransaction<T>(
+  db: ApiDatabase,
+  input: {
+    readonly organizationId: string;
+    readonly userId: string;
+  },
+  callback: (tx: DatabaseTransaction) => Promise<T>,
+): Promise<T> {
+  return db.transaction(async (tx) => {
+    await requireDirectOrganizationAccess({
+      executor: tx,
+      organizationId: input.organizationId,
+      requireAdmin: true,
+      userId: input.userId,
+    });
+    return callback(tx);
+  });
+}
 
 /**
  * Reject obvious outsiders before taking the organization write lock, then

@@ -19,6 +19,7 @@ import {
 } from "../../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
+import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
 import {
   loadOrganizationBilling,
@@ -289,57 +290,58 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
   hasStripeSubscription: boolean;
   status: OrganizationBillingStatus;
 }> {
-  return db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
-      executor: tx,
-      organizationId,
-      requireAdmin: true,
-      userId: sessionUserId,
-    });
-    const [row] = await tx
-      .select({
-        provider: organizationBilling.provider,
-        providerCustomerId: organizationBilling.providerCustomerId,
-        providerProductId: organizationBilling.providerProductId,
-        providerSubscriptionId: organizationBilling.providerSubscriptionId,
-        providerTransactionId: organizationBilling.providerTransactionId,
-        stripePriceId: organizationBillingStripeSeats.priceId,
-        stripeSubscriptionId: organizationBillingStripeSeats.subscriptionId,
-        stripeSubscriptionItemId:
-          organizationBillingStripeSeats.subscriptionItemId,
-        status: organizationBilling.status,
-      })
-      .from(organizationBilling)
-      .leftJoin(
-        organizationBillingStripeSeats,
-        eq(
-          organizationBillingStripeSeats.organizationId,
-          organizationBilling.organizationId,
-        ),
-      )
-      .where(eq(organizationBilling.organizationId, organizationId))
-      .limit(1);
-    if (!row) {
-      throw new OrganizationManagerError("Organization billing not found", 404);
-    }
-    return {
-      provider: row.provider,
-      providerCustomerId: row.providerCustomerId,
-      providerProductId: row.providerProductId,
-      providerSubscriptionId: row.providerSubscriptionId,
-      providerTransactionId: row.providerTransactionId,
-      hasActiveStripeSubscription: hasActiveStripeBinding({
-        priceId: row.stripePriceId,
-        subscriptionId: row.stripeSubscriptionId,
-        subscriptionItemId: row.stripeSubscriptionItemId,
-      }),
-      hasStripeSubscription: hasStripeBindingIdentity({
-        subscriptionId: row.stripeSubscriptionId,
-        subscriptionItemId: row.stripeSubscriptionItemId,
-      }),
-      status: row.status,
-    };
-  });
+  return withOrganizationAdminTransaction(
+    db,
+    { organizationId, userId: sessionUserId },
+    async (tx) => {
+      const [row] = await tx
+        .select({
+          provider: organizationBilling.provider,
+          providerCustomerId: organizationBilling.providerCustomerId,
+          providerProductId: organizationBilling.providerProductId,
+          providerSubscriptionId: organizationBilling.providerSubscriptionId,
+          providerTransactionId: organizationBilling.providerTransactionId,
+          stripePriceId: organizationBillingStripeSeats.priceId,
+          stripeSubscriptionId: organizationBillingStripeSeats.subscriptionId,
+          stripeSubscriptionItemId:
+            organizationBillingStripeSeats.subscriptionItemId,
+          status: organizationBilling.status,
+        })
+        .from(organizationBilling)
+        .leftJoin(
+          organizationBillingStripeSeats,
+          eq(
+            organizationBillingStripeSeats.organizationId,
+            organizationBilling.organizationId,
+          ),
+        )
+        .where(eq(organizationBilling.organizationId, organizationId))
+        .limit(1);
+      if (!row) {
+        throw new OrganizationManagerError(
+          "Organization billing not found",
+          404,
+        );
+      }
+      return {
+        provider: row.provider,
+        providerCustomerId: row.providerCustomerId,
+        providerProductId: row.providerProductId,
+        providerSubscriptionId: row.providerSubscriptionId,
+        providerTransactionId: row.providerTransactionId,
+        hasActiveStripeSubscription: hasActiveStripeBinding({
+          priceId: row.stripePriceId,
+          subscriptionId: row.stripeSubscriptionId,
+          subscriptionItemId: row.stripeSubscriptionItemId,
+        }),
+        hasStripeSubscription: hasStripeBindingIdentity({
+          subscriptionId: row.stripeSubscriptionId,
+          subscriptionItemId: row.stripeSubscriptionItemId,
+        }),
+        status: row.status,
+      };
+    },
+  );
 }
 
 export async function runStartOrganizationTrialWorkflow(
