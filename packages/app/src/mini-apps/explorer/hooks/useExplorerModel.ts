@@ -190,7 +190,6 @@ export function useExplorerModel(
   const { handleOpenCatchup, handleRefresh, isRefreshing, refreshError } =
     useExplorerInteractionState({
       activeContainerId: selection.activeContainerId,
-      appData,
       explorer,
       mergeDocumentSummaries,
       onDocumentLinksChanged: handleDocumentLinksChanged,

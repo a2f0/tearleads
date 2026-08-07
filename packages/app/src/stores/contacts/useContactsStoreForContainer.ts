@@ -2,10 +2,8 @@ import type { ResolvedUserIdentity, Tearleads } from "@tearleads/client-sdk";
 import { toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { useEffect, useMemo } from "react";
-import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../providers/sdk/TearleadsProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
 import {
   type ContactsRuntime,
   type ContactsStore,
@@ -68,18 +66,17 @@ function useContactsRuntime(
   resolveTrashContainerForDocument: ContactsRuntime["resolveTrashContainerForDocument"],
 ): ContactsRuntime {
   const tearleads = useTearleads();
-  const appData = useTearleadsRuntime();
-  const documentsRuntime = useMemo(
+  const documentsRuntime = useRuntimeScopedMemo(
     () => tearleads.documents.workflowRuntime(contactsContainerId),
-    [appData, contactsContainerId, tearleads],
+    [contactsContainerId, tearleads],
   );
-  const documentLinks = useMemo(
+  const documentLinks = useRuntimeScopedMemo(
     () => tearleads.containerContents.documentLinks(),
-    [appData, tearleads],
+    [tearleads],
   );
-  const documentQueries = useMemo(
+  const documentQueries = useRuntimeScopedMemo(
     () => tearleads.containerContents.documentQueries(),
-    [appData, tearleads],
+    [tearleads],
   );
   return useMemo(
     () =>

@@ -12,6 +12,7 @@ import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
 import { useDeviceFirstBinding } from "./useDeviceFirstBinding";
 
 interface DeviceFirstContextValue extends DeviceFirstContainerContents {
@@ -23,9 +24,9 @@ const DeviceFirstContext = createContext<DeviceFirstContextValue | null>(null);
 export function DeviceFirstProvider({ children }: PropsWithChildren) {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
-  const runtime = useMemo(
+  const runtime = useRuntimeScopedMemo(
     () => tearleads.containerContents.workflowRuntime(),
-    [appData, tearleads],
+    [tearleads],
   );
   const deviceFirst = useDeviceFirstBinding({
     events: appData.state.events,

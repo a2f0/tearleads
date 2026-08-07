@@ -25,6 +25,7 @@ import {
   resolveContactsBootstrapPolicy,
   usePrimaryLocalOrganization,
 } from "../../providers/sdk/usePrimaryLocalOrganization";
+import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { useUserSystemContainers } from "../../providers/system-bootstrap/UserSystemContainersProvider";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
@@ -277,9 +278,9 @@ function useContactsSystemContainerBootstrap(input: {
 export function ContactsProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const appData = useTearleadsRuntime();
-  const containerContentsRuntime = useMemo(
+  const containerContentsRuntime = useRuntimeScopedMemo(
     () => tearleads.containerContents.workflowRuntime(),
-    [appData, tearleads],
+    [tearleads],
   );
   const { containerStore: containerContentsStore } =
     useDeviceFirstContainerContents();

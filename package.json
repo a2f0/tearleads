@@ -37,7 +37,7 @@
     "lint:ansible": "ansible-lint ansible/",
     "lint:architecture": "bun scripts/lintArchitecture.ts",
     "lint:binary-files": "sh scripts/checks/checkBinaryFiles.sh",
-    "lint:biome": "biome check --error-on-warnings",
+    "lint:biome": "biome check --error-on-warnings && bun scripts/checks/checkRuntimeScopedMemoDependencies.ts",
     "lint:branch-name": "bun scripts/lintBranchName.ts",
     "lint:commit-msg": "sh -lc 'NPX=$(command -v npx); \"$NPX\" --yes --package @commitlint/cli --package @commitlint/config-conventional commitlint --config commitlint.config.mts --edit \"$1\"' --",
     "lint:files": "ls-lint",

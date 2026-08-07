@@ -267,3 +267,33 @@ test("primes each distinct summary-list instance once per view", () => {
   expect(primeDiscoveredDocuments).toHaveBeenCalledTimes(2);
   expect(primeDiscoveredDocuments).toHaveBeenLastCalledWith(listB);
 });
+
+test("callback rotation does not re-prime an unchanged projection", () => {
+  const list = [createSummary("you")];
+  const { view } = createFakeView(contactsMap(list));
+  const mergeDocumentSummaries = mock(() => {});
+  const onDocumentLinksChanged = mock(() => {});
+  const firstPrime = mock(() => {});
+  const secondPrime = mock(() => {});
+  const rendered = renderHook(
+    (props: { primeDiscoveredDocuments: typeof firstPrime }) =>
+      useExplorerViewProjectionSync({
+        activeContainerId: "contacts",
+        mergeDocumentSummaries,
+        onDocumentLinksChanged,
+        primeDiscoveredDocuments: props.primeDiscoveredDocuments,
+        view,
+      }),
+    { initialProps: { primeDiscoveredDocuments: firstPrime } },
+  );
+
+  expect(firstPrime).toHaveBeenCalledTimes(1);
+  expect(onDocumentLinksChanged).toHaveBeenCalledTimes(1);
+
+  act(() => {
+    rendered.rerender({ primeDiscoveredDocuments: secondPrime });
+  });
+
+  expect(secondPrime).not.toHaveBeenCalled();
+  expect(onDocumentLinksChanged).toHaveBeenCalledTimes(1);
+});
