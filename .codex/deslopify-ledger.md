@@ -235,7 +235,8 @@
 - Baseline: 62 window-component tests passed before the refactor.
 - Verification: the app TypeScript build and 64 window-component tests pass,
   including direct coverage for stable identity, latest-action dispatch, and
-  disabled cleanup.
-- Delta: 80 production lines removed net before this ledger entry.
+  field-change re-registration and disabled cleanup.
+- Delta: 57 production lines removed net before this ledger entry.
 - Decision notes: normalize each item shape at its owning boundary while the
-  shared hook owns only ref plumbing, shallow stabilization, and effects.
+  shared hook owns only ref plumbing, commit-time shallow comparison, and
+  effects.

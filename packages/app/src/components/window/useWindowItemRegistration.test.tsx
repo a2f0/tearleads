@@ -74,9 +74,22 @@ test("registration keeps its identity and invokes the latest action", () => {
   expect(firstActionCount).toBe(0);
   expect(secondActionCount).toBe(1);
 
+  view.rerender({
+    input: {
+      label: "Reload",
+      onAction: () => {
+        secondActionCount += 1;
+      },
+    },
+  });
+  expect(registrations.keys().next().value).toBe(registrationId);
+  expect(registrations.values().next().value?.label).toBe("Reload");
+  expect(registerCount).toBe(2);
+  expect(unregisterCount).toBe(1);
+
   view.rerender({ input: null });
   expect(registrations.size).toBe(0);
-  expect(unregisterCount).toBe(1);
+  expect(unregisterCount).toBe(2);
 });
 
 test("window item equality compares every registered field", () => {

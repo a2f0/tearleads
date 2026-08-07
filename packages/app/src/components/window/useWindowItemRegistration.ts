@@ -14,19 +14,10 @@ interface WindowItemRegistrationOptions<Input, RegisteredItem extends object> {
   unregisterItem: (id: object) => void;
 }
 
-function useStableWindowItem<T extends object>(item: T | null): T | null {
-  const stableItemRef = useRef<T | null>(null);
-  const stableItem = stableItemRef.current;
-
-  if (
-    (item === null && stableItem !== null) ||
-    (item !== null &&
-      (stableItem === null || !sameWindowItem(stableItem, item)))
-  ) {
-    stableItemRef.current = item;
-  }
-
-  return stableItemRef.current;
+interface ActiveWindowItemRegistration<T extends object> {
+  readonly item: T | null;
+  readonly registerItem: (id: object, item: T) => void;
+  readonly unregisterItem: (id: object) => void;
 }
 
 export function useWindowItemRegistration<Input, RegisteredItem extends object>(
@@ -35,6 +26,8 @@ export function useWindowItemRegistration<Input, RegisteredItem extends object>(
   const { action, createRegisteredItem, input, registerItem, unregisterItem } =
     options;
   const actionRef = useRef<WindowItemAction | null>(null);
+  const activeRegistrationRef =
+    useRef<ActiveWindowItemRegistration<RegisteredItem> | null>(null);
   const registrationIdRef = useRef<object>({});
 
   useLayoutEffect(() => {
@@ -42,17 +35,47 @@ export function useWindowItemRegistration<Input, RegisteredItem extends object>(
   }, [action]);
 
   const handleAction = useCallback(() => actionRef.current?.(), []);
-  const registeredItem = useStableWindowItem(
-    input === null ? null : createRegisteredItem(input, handleAction),
-  );
+  const registeredItem =
+    input === null ? null : createRegisteredItem(input, handleAction);
 
   useEffect(() => {
-    if (registeredItem === null) {
+    const activeRegistration = activeRegistrationRef.current;
+    const activeItem = activeRegistration?.item ?? null;
+    const itemMatches =
+      activeItem === registeredItem ||
+      (activeItem !== null &&
+        registeredItem !== null &&
+        sameWindowItem(activeItem, registeredItem));
+    if (
+      itemMatches &&
+      activeRegistration?.registerItem === registerItem &&
+      activeRegistration.unregisterItem === unregisterItem
+    ) {
       return;
     }
 
     const registrationId = registrationIdRef.current;
-    registerItem(registrationId, registeredItem);
-    return () => unregisterItem(registrationId);
-  }, [registeredItem, registerItem, unregisterItem]);
+    if (activeRegistration?.item) {
+      activeRegistration.unregisterItem(registrationId);
+    }
+    if (registeredItem) {
+      registerItem(registrationId, registeredItem);
+    }
+    activeRegistrationRef.current = {
+      item: registeredItem,
+      registerItem,
+      unregisterItem,
+    };
+  });
+
+  useEffect(
+    () => () => {
+      const activeRegistration = activeRegistrationRef.current;
+      if (activeRegistration?.item) {
+        activeRegistration.unregisterItem(registrationIdRef.current);
+      }
+      activeRegistrationRef.current = null;
+    },
+    [],
+  );
 }
