@@ -1,24 +1,4 @@
-import {
-  DEFAULT_DOCUMENT_ID,
-  DocumentsProvider,
-} from "../../stores/documents/DocumentsProvider";
-import type { DocumentTypeAppProps } from "../types";
+import { createDocumentTypeApp } from "../shared/createDocumentTypeApp";
 import { NoteDocument } from "./NoteDocument";
 
-export function NoteDocumentApp({
-  containerId,
-  documentId,
-  localId = DEFAULT_DOCUMENT_ID,
-  readOnly,
-}: DocumentTypeAppProps) {
-  return (
-    <DocumentsProvider
-      localId={localId}
-      readOnly={readOnly}
-      {...(containerId === undefined ? {} : { containerId })}
-      {...(documentId === undefined ? {} : { documentId })}
-    >
-      <NoteDocument containerId={containerId ?? null} localId={localId} />
-    </DocumentsProvider>
-  );
-}
+export const NoteDocumentApp = createDocumentTypeApp(undefined, NoteDocument);

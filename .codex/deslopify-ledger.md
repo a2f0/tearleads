@@ -45,3 +45,25 @@
 - Delta: 19 production lines removed net, with focused characterization
   coverage added.
 - Decision notes: centralize the duplicated readers in `stripeHttp.ts`.
+
+### 2026-08-07 - Document app and file-type factories
+
+- Status: accepted
+- Classification: exact and parametric duplication
+- Equivalence claim: all fifteen document app exports retain their provider
+  inputs, default local ID, initial document kind, read-only behavior, and child
+  inputs. The five file-backed projector definitions retain their icons, labels,
+  validated structured fields, filename-derived titles, and untitled fallbacks.
+- Risk notes: exact optional provider props and the document kind registry were
+  the primary risks. Undefined provider inputs remain omitted, and each wrapper
+  now shares the same canonical kind constant as its projector and registry
+  entry.
+- Files changed: document app wrappers, file-backed projector definitions,
+  canonical document-kind constants, the registry, and two shared factories.
+- Baseline: 297 document-type tests passed before the refactor.
+- Verification: the app TypeScript build and the same 297 document-type tests
+  passed after the refactor; broader repository checks run before shipping.
+- Delta: 258 production lines removed net before this ledger entry.
+- Decision notes: accepted because the factories own only the repeated provider
+  and projection envelopes while each document type continues to supply its
+  domain component, reader, metadata, and title fallback.

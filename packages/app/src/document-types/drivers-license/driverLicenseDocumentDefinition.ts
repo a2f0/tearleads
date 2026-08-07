@@ -2,10 +2,14 @@ import { IdentificationCardIcon } from "@phosphor-icons/react/dist/csr/Identific
 import {
   type DocumentFieldValidationIssue,
   readStringDocumentField,
+  type StoredDocumentKind,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
 import { addDateOnlyFormatIssue } from "../shared/documentFieldUtils";
 import type { AppDocumentProjectorDefinition } from "../types";
+
+export const DRIVER_LICENSE_DOCUMENT_KIND =
+  "drivers_license" satisfies StoredDocumentKind;
 
 export interface DriverLicenseDocumentFields {
   expirationDate: string;
@@ -37,7 +41,7 @@ export const driverLicenseDocumentProjectorDefinition: AppDocumentProjectorDefin
   {
     createIcon: IdentificationCardIcon,
     createLabel: "Driver's License",
-    kind: "drivers_license",
+    kind: DRIVER_LICENSE_DOCUMENT_KIND,
     label: "driver's license",
     project: ({ structuredFields }) => {
       const validated = readDriverLicenseFieldsFromRecord(structuredFields);

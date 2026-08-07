@@ -2,10 +2,14 @@ import { CreditCardIcon } from "@phosphor-icons/react/dist/csr/CreditCard";
 import {
   type DocumentFieldValidationIssue,
   readStringDocumentField,
+  type StoredDocumentKind,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
 import { addFormatIssue } from "../shared/documentFieldUtils";
 import type { AppDocumentProjectorDefinition } from "../types";
+
+export const CREDIT_CARD_DOCUMENT_KIND =
+  "credit_card" satisfies StoredDocumentKind;
 
 export interface CreditCardDocumentFields {
   cardNumber: string;
@@ -85,7 +89,7 @@ export const creditCardDocumentProjectorDefinition: AppDocumentProjectorDefiniti
   {
     createIcon: CreditCardIcon,
     createLabel: "Credit Card",
-    kind: "credit_card",
+    kind: CREDIT_CARD_DOCUMENT_KIND,
     label: "credit card",
     project: ({ structuredFields }) => {
       const validated = readCreditCardFieldsFromRecord(structuredFields);

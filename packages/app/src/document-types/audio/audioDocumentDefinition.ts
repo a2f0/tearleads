@@ -1,29 +1,17 @@
 import { FileAudioIcon } from "@phosphor-icons/react/dist/csr/FileAudio";
 import {
-  deriveFileDocumentTitle,
+  createFileDocumentType,
   readAudioDocumentFieldsFromRecord,
 } from "../shared/fileDocumentDefinition";
-import type { AppDocumentProjectorDefinition } from "../types";
 
 export const AUDIO_DOCUMENT_KIND = "audio";
 const AUDIO_DOCUMENT_UNTITLED_TITLE = "Untitled audio";
 
-export const audioDocumentProjectorDefinition: AppDocumentProjectorDefinition =
-  {
-    createIcon: FileAudioIcon,
-    createLabel: "Audio",
-    kind: AUDIO_DOCUMENT_KIND,
-    label: "audio",
-    project: ({ structuredFields }) => {
-      const validated = readAudioDocumentFieldsFromRecord(structuredFields);
-      return {
-        fieldValidationIssues: validated.issues,
-        structuredFields: { ...validated.fields },
-        title: deriveFileDocumentTitle(
-          validated.fields,
-          AUDIO_DOCUMENT_UNTITLED_TITLE,
-        ),
-      };
-    },
-    untitledTitle: AUDIO_DOCUMENT_UNTITLED_TITLE,
-  };
+export const audioDocumentProjectorDefinition = createFileDocumentType({
+  createIcon: FileAudioIcon,
+  createLabel: "Audio",
+  kind: AUDIO_DOCUMENT_KIND,
+  label: "audio",
+  readFields: readAudioDocumentFieldsFromRecord,
+  untitledTitle: AUDIO_DOCUMENT_UNTITLED_TITLE,
+});
