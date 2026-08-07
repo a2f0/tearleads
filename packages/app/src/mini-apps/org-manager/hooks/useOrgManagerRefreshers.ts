@@ -28,6 +28,7 @@ import {
   type GroupDetailsEffectKey,
   getRefreshBehavior,
   type RefreshBehaviorOptions,
+  runScopedRefresher,
   setLoadingIfManaged,
   setUnknownError,
 } from "../refresh";
@@ -381,42 +382,30 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
   );
 
   const refreshGrants = useCallback(
-    async (options: GrantsRefreshOptions = {}) => {
-      const isCurrentRequest = beginRequest("grants");
-      const { shouldClearError, shouldManageLoading } =
-        getRefreshBehavior(options);
-      if (!canLoadAuthenticatedOrgData) {
-        setGrants(null);
-        return;
-      }
+    (options: GrantsRefreshOptions = {}) =>
+      runScopedRefresher({
+        apply: (nextGrants) => {
+          if (nextGrants === null) {
+            setGrants(null);
+            setError(ORG_MANAGER_LABELS.failedLoadGrants);
+            return;
+          }
 
-      setLoadingIfManaged(shouldManageLoading, setLoading, true);
-      clearErrorIfRequested(shouldClearError, setError);
-
-      try {
-        const nextGrants = await orgManagerActions.loadGrants();
-        if (!isCurrentRequest()) {
-          return;
-        }
-        if (nextGrants === null) {
-          setGrants(null);
-          setError(ORG_MANAGER_LABELS.failedLoadGrants);
-          return;
-        }
-
-        setGrants(nextGrants);
-      } catch (nextError) {
-        if (isCurrentRequest()) {
+          setGrants(nextGrants);
+        },
+        beginRequest,
+        load: canLoadAuthenticatedOrgData ? orgManagerActions.loadGrants : null,
+        onError: (nextError) => {
           setGrants(null);
           setUnknownError(setError, nextError);
-        }
-      } finally {
-        if (isCurrentRequest()) {
-          setLoadingIfManaged(shouldManageLoading, setLoading, false);
-          markGrantsSettled();
-        }
-      }
-    },
+        },
+        onSettled: markGrantsSettled,
+        onUnavailable: () => setGrants(null),
+        options,
+        requestKind: "grants",
+        setError,
+        setLoading,
+      }),
     [
       canLoadAuthenticatedOrgData,
       beginRequest,
@@ -429,35 +418,24 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
   );
 
   const refreshOrganizationPolicyHistory = useCallback(
-    async (options: RefreshBehaviorOptions = {}) => {
-      const isCurrentRequest = beginRequest("organizationPolicy");
-      const { shouldClearError, shouldManageLoading } =
-        getRefreshBehavior(options);
-      if (!canLoadAuthenticatedOrgData) {
-        setOrganizationPolicyHistory(null);
-        return;
-      }
-
-      setLoadingIfManaged(shouldManageLoading, setLoading, true);
-      clearErrorIfRequested(shouldClearError, setError);
-
-      try {
-        const nextPolicyHistory = await orgManagerActions.loadPolicyHistory();
-        if (isCurrentRequest()) {
-          setOrganizationPolicyHistory(nextPolicyHistory);
-        }
-      } catch (nextError) {
-        if (isCurrentRequest()) {
+    (options: RefreshBehaviorOptions = {}) =>
+      runScopedRefresher({
+        apply: setOrganizationPolicyHistory,
+        beginRequest,
+        load: canLoadAuthenticatedOrgData
+          ? orgManagerActions.loadPolicyHistory
+          : null,
+        onError: (nextError) => {
           setOrganizationPolicyHistory(null);
           setUnknownError(setError, nextError);
-        }
-      } finally {
-        if (isCurrentRequest()) {
-          setLoadingIfManaged(shouldManageLoading, setLoading, false);
-          markOrganizationPolicyHistorySettled();
-        }
-      }
-    },
+        },
+        onSettled: markOrganizationPolicyHistorySettled,
+        onUnavailable: () => setOrganizationPolicyHistory(null),
+        options,
+        requestKind: "organizationPolicyHistory",
+        setError,
+        setLoading,
+      }),
     [
       canLoadAuthenticatedOrgData,
       beginRequest,

@@ -1,15 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
-
-/** A resource whose first fetch the views must not mistake for an empty one. */
-type OrgManagerSettledResource =
-  | "dataUsage"
-  | "directory"
-  | "grants"
-  | "groupDetails"
-  | "organizationPolicyHistory";
+import type { OrgManagerResource } from "../refresh";
 
 const EMPTY_SETTLED_RESOURCES: Readonly<
-  Partial<Record<OrgManagerSettledResource, string>>
+  Partial<Record<OrgManagerResource, string>>
 > = {};
 
 /**
@@ -24,14 +17,8 @@ const EMPTY_SETTLED_RESOURCES: Readonly<
  * effect ordering to get right.
  */
 function useOrgManagerSettledKeys(scopeKey: string): {
-  isSettled: (
-    resource: OrgManagerSettledResource,
-    key: string | null,
-  ) => boolean;
-  markSettled: (
-    resource: OrgManagerSettledResource,
-    key: string | null,
-  ) => void;
+  isSettled: (resource: OrgManagerResource, key: string | null) => boolean;
+  markSettled: (resource: OrgManagerResource, key: string | null) => void;
 } {
   // Settlements belong to the scope that produced them. Keeping them in a map
   // keyed only by resource would let a revisited scope reuse its old entry —
@@ -40,9 +27,7 @@ function useOrgManagerSettledKeys(scopeKey: string): {
   // just starting. Stamping the whole record with its scope drops every stale
   // entry at once.
   const [settled, setSettled] = useState<{
-    readonly resources: Readonly<
-      Partial<Record<OrgManagerSettledResource, string>>
-    >;
+    readonly resources: Readonly<Partial<Record<OrgManagerResource, string>>>;
     readonly scopeKey: string;
   }>(() => ({ resources: {}, scopeKey }));
   // Reset on the scope transition itself, not merely when reading. A pure
@@ -58,7 +43,7 @@ function useOrgManagerSettledKeys(scopeKey: string): {
     settled.scopeKey === scopeKey ? settled.resources : EMPTY_SETTLED_RESOURCES;
 
   const isSettled = useCallback(
-    (resource: OrgManagerSettledResource, key: string | null) =>
+    (resource: OrgManagerResource, key: string | null) =>
       // A null key is "nothing selected", which is settled by definition: there
       // is no fetch outstanding for it.
       key === null || resources[resource] === key,
@@ -66,7 +51,7 @@ function useOrgManagerSettledKeys(scopeKey: string): {
   );
 
   const markSettled = useCallback(
-    (resource: OrgManagerSettledResource, key: string | null) => {
+    (resource: OrgManagerResource, key: string | null) => {
       if (key === null) {
         return;
       }

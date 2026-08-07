@@ -13,8 +13,8 @@ import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvid
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { prepareRosterImport } from "../groups/orgManagerMutationOperations";
 import { useOrgManagerMembershipMutations } from "../groups/useOrgManagerMembershipMutations";
-import { setUnknownError } from "../refresh";
 import type { OrgManagerView } from "../routes";
+import { runScopedOrgMutation } from "./runScopedOrgMutation";
 import { useOrgManagerDisableRosterUser } from "./useOrgManagerDisableRosterUser";
 import type { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
 import { useOrgManagerRevokeGrant } from "./useOrgManagerRevokeGrant";
@@ -129,34 +129,27 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       return;
     }
     const operationOrganizationId = appData.auth.organizationId;
-    if (!isOperationActive(operationOrganizationId)) {
-      return;
-    }
-    setMutating(true);
-    setError(null);
-    try {
-      const createdGroup = await orgManagerActions.createGroup(
-        groupNameDraft.trim(),
-      );
-      if (!isOperationActive(operationOrganizationId)) {
-        return;
-      }
-      setGroupNameDraft("");
-      setIsCreateGroupDialogOpen(false);
-      await refreshDirectoryAndGroups({ afterMutation: true });
-      if (!isOperationActive(operationOrganizationId)) {
-        return;
-      }
-      openGroupRoute(createdGroup.groupId);
-    } catch (nextError) {
-      if (isOperationActive(operationOrganizationId)) {
-        setUnknownError(setError, nextError);
-      }
-    } finally {
-      if (isOperationActive(operationOrganizationId)) {
-        setMutating(false);
-      }
-    }
+    await runScopedOrgMutation({
+      isOperationActive,
+      operationOrganizationId,
+      run: async () => {
+        const createdGroup = await orgManagerActions.createGroup(
+          groupNameDraft.trim(),
+        );
+        if (!isOperationActive(operationOrganizationId)) {
+          return;
+        }
+        setGroupNameDraft("");
+        setIsCreateGroupDialogOpen(false);
+        await refreshDirectoryAndGroups({ afterMutation: true });
+        if (!isOperationActive(operationOrganizationId)) {
+          return;
+        }
+        openGroupRoute(createdGroup.groupId);
+      },
+      setError,
+      setMutating,
+    });
   }, [
     appData.auth.organizationId,
     appData.auth.userId,
@@ -182,38 +175,30 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
         return;
       }
       const operationOrganizationId = targetGroup.organizationId;
-      if (!isOperationActive(operationOrganizationId)) {
-        return;
-      }
+      await runScopedOrgMutation({
+        isOperationActive,
+        operationOrganizationId,
+        run: async () => {
+          const wasSelectedGroup = selectedGroupIdRef.current === groupId;
+          if (wasSelectedGroup) {
+            selectGroup(null);
+            setMembers(null);
+            setGroupContainers(null);
+            setGroupPolicyHistory(null);
+          }
 
-      setMutating(true);
-      setError(null);
-      try {
-        const wasSelectedGroup = selectedGroupIdRef.current === groupId;
-        if (wasSelectedGroup) {
-          selectGroup(null);
-          setMembers(null);
-          setGroupContainers(null);
-          setGroupPolicyHistory(null);
-        }
-
-        await orgManagerActions.deleteGroup(groupId);
-        if (!isOperationActive(operationOrganizationId)) {
-          return;
-        }
-        await refreshDirectoryAndGroups({
-          afterMutation: true,
-          skipNextGroupDetailsEffect: true,
-        });
-      } catch (nextError) {
-        if (isOperationActive(operationOrganizationId)) {
-          setUnknownError(setError, nextError);
-        }
-      } finally {
-        if (isOperationActive(operationOrganizationId)) {
-          setMutating(false);
-        }
-      }
+          await orgManagerActions.deleteGroup(groupId);
+          if (!isOperationActive(operationOrganizationId)) {
+            return;
+          }
+          await refreshDirectoryAndGroups({
+            afterMutation: true,
+            skipNextGroupDetailsEffect: true,
+          });
+        },
+        setError,
+        setMutating,
+      });
     },
     [
       canDeleteGroup,
@@ -246,47 +231,39 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       return;
     }
     const operationOrganizationId = directory.organizationId;
-    if (!isOperationActive(operationOrganizationId)) {
-      return;
-    }
+    await runScopedOrgMutation({
+      isOperationActive,
+      operationOrganizationId,
+      run: async () => {
+        const targetUser = await prepareRosterImport({
+          directory,
+          isOperationActive,
+          memberGroupId,
+          operationOrganizationId,
+          orgManagerActions,
+          setError,
+          targetUserId,
+        });
+        if (!targetUser) {
+          return;
+        }
 
-    setMutating(true);
-    setError(null);
-    try {
-      const targetUser = await prepareRosterImport({
-        directory,
-        isOperationActive,
-        memberGroupId,
-        operationOrganizationId,
-        orgManagerActions,
-        setError,
-        targetUserId,
-      });
-      if (!targetUser) {
-        return;
-      }
-
-      setImportUserIdDraft("");
-      setIsImportUserDialogOpen(false);
-      await refreshDirectoryAndGroups({
-        afterMutation: true,
-        skipNextGroupDetailsEffect: true,
-      });
-      if (!isOperationActive(operationOrganizationId)) {
-        return;
-      }
-      setOrgManagerView("directory");
-      selectUser(targetUser.userId);
-      await refreshSelectedUserDetail(targetUser.userId);
-    } catch (nextError) {
-      if (isOperationActive(operationOrganizationId)) {
-        setUnknownError(setError, nextError);
-      }
-    } finally {
-      if (isOperationActive(operationOrganizationId)) {
-        setMutating(false);
-      }
-    }
+        setImportUserIdDraft("");
+        setIsImportUserDialogOpen(false);
+        await refreshDirectoryAndGroups({
+          afterMutation: true,
+          skipNextGroupDetailsEffect: true,
+        });
+        if (!isOperationActive(operationOrganizationId)) {
+          return;
+        }
+        setOrgManagerView("directory");
+        selectUser(targetUser.userId);
+        await refreshSelectedUserDetail(targetUser.userId);
+      },
+      setError,
+      setMutating,
+    });
   }, [
     appData.auth.userId,
     appData.crypto.encapsulationKeyPair,

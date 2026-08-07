@@ -9,7 +9,7 @@ import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvid
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { refreshAfterGroupMutation } from "../groups/orgManagerMutationOperations";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { setUnknownError } from "../refresh";
+import { runScopedOrgMutation } from "./runScopedOrgMutation";
 import type { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
 
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
@@ -163,56 +163,49 @@ async function disableRosterUser(
   ) {
     return;
   }
+  const memberGroupId = input.memberGroupId;
   const operationOrganizationId = input.directory.organizationId;
-  if (!input.isOperationActive(operationOrganizationId)) {
-    return;
-  }
+  await runScopedOrgMutation({
+    isOperationActive: input.isOperationActive,
+    operationOrganizationId,
+    run: async () => {
+      const mutationTargets = await loadRosterDisableMembershipTargets({
+        adminGroupId,
+        disabledUserId: input.disabledUserId,
+        isOperationActive: input.isOperationActive,
+        memberGroupId,
+        organizationId: operationOrganizationId,
+        orgManagerActions: input.orgManagerActions,
+        setError: input.setError,
+      });
+      if (!mutationTargets) {
+        return;
+      }
 
-  input.setMutating(true);
-  input.setError(null);
-  try {
-    const mutationTargets = await loadRosterDisableMembershipTargets({
-      adminGroupId,
-      disabledUserId: input.disabledUserId,
-      isOperationActive: input.isOperationActive,
-      memberGroupId: input.memberGroupId,
-      organizationId: operationOrganizationId,
-      orgManagerActions: input.orgManagerActions,
-      setError: input.setError,
-    });
-    if (!mutationTargets) {
-      return;
-    }
+      const removed = await removeRosterDisableMembershipTargets({
+        disabledUserId: input.disabledUserId,
+        isOperationActive: input.isOperationActive,
+        organizationId: operationOrganizationId,
+        orgManagerActions: input.orgManagerActions,
+        targets: mutationTargets,
+      });
+      if (!removed) {
+        return;
+      }
 
-    const removed = await removeRosterDisableMembershipTargets({
-      disabledUserId: input.disabledUserId,
-      isOperationActive: input.isOperationActive,
-      organizationId: operationOrganizationId,
-      orgManagerActions: input.orgManagerActions,
-      targets: mutationTargets,
-    });
-    if (!removed) {
-      return;
-    }
-
-    await refreshAfterGroupMutation({
-      invalidateSelectedGroupDetails: input.invalidateSelectedGroupDetails,
-      isOperationActive: input.isOperationActive,
-      operationOrganizationId,
-      refreshDirectoryAndGroups: input.refreshDirectoryAndGroups,
-      refreshSelectedGroupDetails: input.refreshSelectedGroupDetails,
-      refreshSelectedUserDetail: input.refreshSelectedUserDetail,
-      selectedUserIdRef: input.selectedUserIdRef,
-    });
-  } catch (error) {
-    if (input.isOperationActive(operationOrganizationId)) {
-      setUnknownError(input.setError, error);
-    }
-  } finally {
-    if (input.isOperationActive(operationOrganizationId)) {
-      input.setMutating(false);
-    }
-  }
+      await refreshAfterGroupMutation({
+        invalidateSelectedGroupDetails: input.invalidateSelectedGroupDetails,
+        isOperationActive: input.isOperationActive,
+        operationOrganizationId,
+        refreshDirectoryAndGroups: input.refreshDirectoryAndGroups,
+        refreshSelectedGroupDetails: input.refreshSelectedGroupDetails,
+        refreshSelectedUserDetail: input.refreshSelectedUserDetail,
+        selectedUserIdRef: input.selectedUserIdRef,
+      });
+    },
+    setError: input.setError,
+    setMutating: input.setMutating,
+  });
 }
 
 export function useOrgManagerDisableRosterUser(

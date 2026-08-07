@@ -245,10 +245,6 @@
       "lines": 524,
       "bytes": 16833
     },
-    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerRefreshers.ts": {
-      "lines": 508,
-      "bytes": 16510
-    },
     "packages/app/src/stores/explorer/ExplorerProvider.syncAgent.test.ts": {
       "lines": 503,
       "bytes": 14866

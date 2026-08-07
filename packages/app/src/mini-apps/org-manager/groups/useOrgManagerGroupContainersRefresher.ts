@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import type { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { setUnknownError } from "../refresh";
+import { runScopedRefresher, setUnknownError } from "../refresh";
 
 export function useOrgManagerGroupContainersRefresher(input: {
   beginRequest: ReturnType<typeof useOrgManagerRequestGuard>;
@@ -23,29 +23,28 @@ export function useOrgManagerGroupContainersRefresher(input: {
     setGroupContainers,
   } = input;
   return useCallback(
-    async (groupId: string | null) => {
-      const isCurrentRequest = beginRequest("groupContainers");
-      if (!canLoadAuthenticatedOrgData || !groupId) {
-        setGroupContainers(null);
-        return;
-      }
-
-      try {
-        const containers = await orgManagerActions.loadGroupContainers(groupId);
-        if (!isCurrentRequest()) {
-          return;
-        }
-        setGroupContainers(containers);
-        if (containers === null) {
-          setError(ORG_MANAGER_LABELS.failedLoadGroupContainers);
-        }
-      } catch (error) {
-        if (isCurrentRequest()) {
+    (groupId: string | null) =>
+      runScopedRefresher({
+        apply: (containers) => {
+          setGroupContainers(containers);
+          if (containers === null) {
+            setError(ORG_MANAGER_LABELS.failedLoadGroupContainers);
+          }
+        },
+        beginRequest,
+        load:
+          canLoadAuthenticatedOrgData && groupId
+            ? () => orgManagerActions.loadGroupContainers(groupId)
+            : null,
+        onError: (error) => {
           setGroupContainers(null);
           setUnknownError(setError, error);
-        }
-      }
-    },
+        },
+        onUnavailable: () => setGroupContainers(null),
+        options: { clearError: false, manageLoading: false },
+        requestKind: "groupContainers",
+        setError,
+      }),
     [
       beginRequest,
       canLoadAuthenticatedOrgData,
