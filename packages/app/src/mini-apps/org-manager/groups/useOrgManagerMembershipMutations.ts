@@ -6,9 +6,9 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import { runScopedOrgMutation } from "../hooks/runScopedOrgMutation";
 import type { useOrgManagerRefreshers } from "../hooks/useOrgManagerRefreshers";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { setUnknownError } from "../refresh";
 import {
   addRosterUserToGroup,
   refreshAfterGroupMutation,
@@ -54,6 +54,8 @@ async function addUserToSelectedGroup(
   ) {
     return;
   }
+  const memberGroupId = params.memberGroupId;
+  const selectedGroupId = params.selectedGroupId;
   const operationOrganizationId = params.directory.organizationId;
   if (!params.isOperationActive(operationOrganizationId)) {
     return;
@@ -66,40 +68,36 @@ async function addUserToSelectedGroup(
     return;
   }
 
-  params.setMutating(true);
-  params.setError(null);
-  try {
-    const policyBundle = await addRosterUserToGroup({
-      directoryUser,
-      groupId: params.selectedGroupId,
-      isAdminGroup: params.selectedGroupIsAdminsGroup,
-      isOperationActive: params.isOperationActive,
-      memberGroupId: params.memberGroupId,
-      operationOrganizationId,
-      orgManagerActions: params.orgManagerActions,
-      setError: params.setError,
-      targetUserId,
-    });
-    if (!policyBundle) {
-      return;
-    }
-    params.setAddUserId("");
-    await refreshAfterGroupMutation({
-      invalidateSelectedGroupDetails: params.invalidateSelectedGroupDetails,
-      isOperationActive: params.isOperationActive,
-      operationOrganizationId,
-      refreshDirectoryAndGroups: params.refreshDirectoryAndGroups,
-      refreshSelectedGroupDetails: params.refreshSelectedGroupDetails,
-    });
-  } catch (error) {
-    if (params.isOperationActive(operationOrganizationId)) {
-      setUnknownError(params.setError, error);
-    }
-  } finally {
-    if (params.isOperationActive(operationOrganizationId)) {
-      params.setMutating(false);
-    }
-  }
+  await runScopedOrgMutation({
+    isOperationActive: params.isOperationActive,
+    operationOrganizationId,
+    run: async () => {
+      const policyBundle = await addRosterUserToGroup({
+        directoryUser,
+        groupId: selectedGroupId,
+        isAdminGroup: params.selectedGroupIsAdminsGroup,
+        isOperationActive: params.isOperationActive,
+        memberGroupId,
+        operationOrganizationId,
+        orgManagerActions: params.orgManagerActions,
+        setError: params.setError,
+        targetUserId,
+      });
+      if (!policyBundle) {
+        return;
+      }
+      params.setAddUserId("");
+      await refreshAfterGroupMutation({
+        invalidateSelectedGroupDetails: params.invalidateSelectedGroupDetails,
+        isOperationActive: params.isOperationActive,
+        operationOrganizationId,
+        refreshDirectoryAndGroups: params.refreshDirectoryAndGroups,
+        refreshSelectedGroupDetails: params.refreshSelectedGroupDetails,
+      });
+    },
+    setError: params.setError,
+    setMutating: params.setMutating,
+  });
 }
 
 async function removeUserFromSelectedGroup(
@@ -115,36 +113,30 @@ async function removeUserFromSelectedGroup(
   ) {
     return;
   }
+  const selectedGroupId = params.selectedGroupId;
   const operationOrganizationId = params.directory.organizationId;
-  if (!params.isOperationActive(operationOrganizationId)) {
-    return;
-  }
-  params.setMutating(true);
-  params.setError(null);
-  try {
-    await params.orgManagerActions.removeUserFromGroup(
-      params.selectedGroupId,
-      removedUserId,
-    );
-    if (!params.isOperationActive(operationOrganizationId)) {
-      return;
-    }
-    await refreshAfterGroupMutation({
-      invalidateSelectedGroupDetails: params.invalidateSelectedGroupDetails,
-      isOperationActive: params.isOperationActive,
-      operationOrganizationId,
-      refreshDirectoryAndGroups: params.refreshDirectoryAndGroups,
-      refreshSelectedGroupDetails: params.refreshSelectedGroupDetails,
-    });
-  } catch (error) {
-    if (params.isOperationActive(operationOrganizationId)) {
-      setUnknownError(params.setError, error);
-    }
-  } finally {
-    if (params.isOperationActive(operationOrganizationId)) {
-      params.setMutating(false);
-    }
-  }
+  await runScopedOrgMutation({
+    isOperationActive: params.isOperationActive,
+    operationOrganizationId,
+    run: async () => {
+      await params.orgManagerActions.removeUserFromGroup(
+        selectedGroupId,
+        removedUserId,
+      );
+      if (!params.isOperationActive(operationOrganizationId)) {
+        return;
+      }
+      await refreshAfterGroupMutation({
+        invalidateSelectedGroupDetails: params.invalidateSelectedGroupDetails,
+        isOperationActive: params.isOperationActive,
+        operationOrganizationId,
+        refreshDirectoryAndGroups: params.refreshDirectoryAndGroups,
+        refreshSelectedGroupDetails: params.refreshSelectedGroupDetails,
+      });
+    },
+    setError: params.setError,
+    setMutating: params.setMutating,
+  });
 }
 
 export function useOrgManagerMembershipMutations(

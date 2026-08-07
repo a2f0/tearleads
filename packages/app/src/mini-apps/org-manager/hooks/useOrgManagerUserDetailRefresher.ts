@@ -3,7 +3,11 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { type GroupDetailsRefreshOptions, setUnknownError } from "../refresh";
+import {
+  type GroupDetailsRefreshOptions,
+  runScopedRefresher,
+  setUnknownError,
+} from "../refresh";
 import type { useOrgManagerRequestGuard } from "./useOrgManagerRequestGuard";
 
 export function useOrgManagerUserDetailRefresher(input: {
@@ -23,40 +27,34 @@ export function useOrgManagerUserDetailRefresher(input: {
     setUserDetail,
   } = input;
   return useCallback(
-    async (userId: string | null, options: GroupDetailsRefreshOptions = {}) => {
-      const isCurrentRequest = beginRequest("userDetail");
-      if (!canLoadAuthenticatedOrgData || !userId) {
-        setUserDetail(null);
-        setLoadingUserDetail(false);
-        return;
-      }
-
-      setLoadingUserDetail(true);
-      if (options.clearError ?? true) {
-        setError(null);
-      }
-      try {
-        const nextDetail = await orgManagerActions.loadUserDetail(userId);
-        if (!isCurrentRequest()) {
-          return;
-        }
-        if (nextDetail === null) {
-          setUserDetail(null);
-          setError(ORG_MANAGER_LABELS.failedLoadUserDetail);
-          return;
-        }
-        setUserDetail(nextDetail);
-      } catch (error) {
-        if (isCurrentRequest()) {
+    (userId: string | null, options: GroupDetailsRefreshOptions = {}) =>
+      runScopedRefresher({
+        apply: (nextDetail) => {
+          if (nextDetail === null) {
+            setUserDetail(null);
+            setError(ORG_MANAGER_LABELS.failedLoadUserDetail);
+            return;
+          }
+          setUserDetail(nextDetail);
+        },
+        beginRequest,
+        load:
+          canLoadAuthenticatedOrgData && userId
+            ? () => orgManagerActions.loadUserDetail(userId)
+            : null,
+        onError: (error) => {
           setUserDetail(null);
           setUnknownError(setError, error);
-        }
-      } finally {
-        if (isCurrentRequest()) {
+        },
+        onUnavailable: () => {
+          setUserDetail(null);
           setLoadingUserDetail(false);
-        }
-      }
-    },
+        },
+        options,
+        requestKind: "userDetail",
+        setError,
+        setLoading: setLoadingUserDetail,
+      }),
     [
       beginRequest,
       canLoadAuthenticatedOrgData,

@@ -1,14 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
+import type { OrgManagerRequestKind } from "../refresh";
 
-export type OrgManagerRequestKind =
-  | "dataUsage"
-  | "directory"
-  | "grants"
-  | "groupContainers"
-  | "groupDetails"
-  | "organizationPolicy"
-  | "refresh"
-  | "userDetail";
+export type { OrgManagerRequestKind } from "../refresh";
 
 interface RequestScopeState {
   active: boolean;

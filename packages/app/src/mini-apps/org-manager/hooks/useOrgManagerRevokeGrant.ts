@@ -12,7 +12,7 @@ import {
   removeRevokedGrantFromGroupContainers,
   removeRevokedGrantFromUserDetail,
 } from "../grants/grantState";
-import { setUnknownError } from "../refresh";
+import { runScopedOrgMutation } from "./runScopedOrgMutation";
 
 export function useOrgManagerRevokeGrant(input: {
   isOperationActive: (organizationId: string) => boolean;
@@ -29,39 +29,31 @@ export function useOrgManagerRevokeGrant(input: {
   return useCallback(
     async (grant: OrganizationContainerGrant) => {
       const operationOrganizationId = input.organizationId;
-      if (
-        grant.isBuiltin ||
-        !operationOrganizationId ||
-        !input.isOperationActive(operationOrganizationId)
-      ) {
+      if (grant.isBuiltin || !operationOrganizationId) {
         return;
       }
 
-      input.setMutating(true);
-      input.setError(null);
-      try {
-        await input.orgManagerActions.revokeGrant(grant);
-        if (!input.isOperationActive(operationOrganizationId)) {
-          return;
-        }
-        input.setGrants((current) =>
-          removeRevokedGrantFromGrantState(current, grant),
-        );
-        input.setGroupContainers((current) =>
-          removeRevokedGrantFromGroupContainers(current, grant),
-        );
-        input.setUserDetail((current) =>
-          removeRevokedGrantFromUserDetail(current, grant),
-        );
-      } catch (error) {
-        if (input.isOperationActive(operationOrganizationId)) {
-          setUnknownError(input.setError, error);
-        }
-      } finally {
-        if (input.isOperationActive(operationOrganizationId)) {
-          input.setMutating(false);
-        }
-      }
+      await runScopedOrgMutation({
+        isOperationActive: input.isOperationActive,
+        operationOrganizationId,
+        run: async () => {
+          await input.orgManagerActions.revokeGrant(grant);
+          if (!input.isOperationActive(operationOrganizationId)) {
+            return;
+          }
+          input.setGrants((current) =>
+            removeRevokedGrantFromGrantState(current, grant),
+          );
+          input.setGroupContainers((current) =>
+            removeRevokedGrantFromGroupContainers(current, grant),
+          );
+          input.setUserDetail((current) =>
+            removeRevokedGrantFromUserDetail(current, grant),
+          );
+        },
+        setError: input.setError,
+        setMutating: input.setMutating,
+      });
     },
     [input],
   );

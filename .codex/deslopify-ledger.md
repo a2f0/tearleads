@@ -264,3 +264,30 @@
 - Decision notes: normalize each item shape at its owning boundary while the
   shared hook owns only ref plumbing, commit-time shallow comparison, and
   effects.
+
+### 2026-08-07 - Org Manager operation envelopes
+
+- Status: accepted
+- Classification: exact async control-flow duplication and vocabulary drift
+- Equivalence claim: the six scoped refreshers and seven organization
+  mutations retain their availability guards, request/operation freshness,
+  loading and mutating transitions, error clearing and reporting, settled
+  marks, result application, and mutation-specific follow-up sequencing.
+- Risk notes: organization switches, stale responses, and abandoned mutations.
+  The shared runners continue to suppress every stale completion and leave a
+  stale scope's busy state untouched; per-call loading and error policies stay
+  explicit at each refresher.
+- Files changed: Org Manager refresh and mutation hooks, two shared lifecycle
+  runners with direct tests, the request/settlement resource vocabulary, and
+  the obsolete refresher file-size baseline.
+- Baseline: 395 Org Manager tests passed at `0d04f4c2`.
+- Verification: app TypeScript, Biome, architecture, file-layout,
+  source-shape, protocol, dependency, and `bun run check:affected` checks pass;
+  the focused Org Manager suite reports 399 tests passing, the affected app
+  suite reports 2,249 passing and one skipped, and all 38 web E2E tests pass.
+- Delta: 17 production lines removed net, with 160 lines of direct lifecycle
+  coverage added.
+- Decision notes: use one canonical `organizationPolicyHistory` resource name;
+  represent an unavailable refresh with a null loader so an invalid identifier
+  cannot reach its data action; keep domain-specific result handling inside
+  each hook.
