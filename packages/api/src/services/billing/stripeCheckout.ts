@@ -253,6 +253,16 @@ type StripeWebhookOutcome =
   | { status: "unauthorized" }
   | { status: "unconfigured" };
 
+type StripeWebhookAuthentication =
+  | { status: "authenticated" }
+  | { status: "unauthorized" }
+  | { status: "unconfigured" };
+
+type StripeAuthenticatedWebhookOutcome = Exclude<
+  StripeWebhookOutcome,
+  { status: "unauthorized" | "unconfigured" }
+>;
+
 interface PaidSubscriptionInvoiceInput {
   readonly binding: NonNullable<
     Awaited<ReturnType<typeof getSubscriptionBinding>>
@@ -268,7 +278,7 @@ interface PaidSubscriptionInvoiceInput {
 async function fulfillSeatPeriodInvoice(
   input: PaidSubscriptionInvoiceInput,
   renewalInvoiceId: string | null,
-): Promise<StripeWebhookOutcome> {
+): Promise<StripeAuthenticatedWebhookOutcome> {
   const { binding, invoice } = input;
   if (
     !binding.priceId ||
@@ -343,7 +353,7 @@ async function fulfillSeatPeriodInvoice(
 
 async function applyPaidSubscriptionInvoice(
   input: PaidSubscriptionInvoiceInput,
-): Promise<StripeWebhookOutcome> {
+): Promise<StripeAuthenticatedWebhookOutcome> {
   const { invoice } = input;
   if (invoice.billingReason === "subscription_cycle" && !invoice.invoiceId) {
     return { status: "ignored", reason: "Renewal invoice carries no id" };
@@ -391,12 +401,11 @@ async function applyPaidSubscriptionInvoice(
   );
 }
 
-/** Verifies and fulfills one paid Stripe webhook delivery. */
-export async function processStripeWebhook(
-  runtime: ApiServiceRuntime,
+/** Authenticates a Stripe delivery against its exact raw request body. */
+export function authenticateStripeWebhook(
   input: { payload: string; signatureHeader: string | undefined },
   deps: StripeCheckoutServiceDeps = {},
-): Promise<StripeWebhookOutcome> {
+): StripeWebhookAuthentication {
   const env = deps.stripe?.env ?? process.env;
   const secret = readStripeWebhookSecret(env);
   if (!secret) {
@@ -411,13 +420,15 @@ export async function processStripeWebhook(
   ) {
     return { status: "unauthorized" };
   }
+  return { status: "authenticated" };
+}
 
-  let event: unknown;
-  try {
-    event = JSON.parse(input.payload);
-  } catch {
-    return { status: "ignored", reason: "Invalid JSON payload" };
-  }
+/** Fulfills a provider-authenticated, boundary-parsed Stripe event. */
+export async function processAuthenticatedStripeWebhook(
+  runtime: ApiServiceRuntime,
+  event: unknown,
+  deps: StripeCheckoutServiceDeps = {},
+): Promise<StripeAuthenticatedWebhookOutcome> {
   const invoice = extractPaidSubscriptionInvoice(event);
   if (!invoice) {
     return { status: "ignored", reason: "Not a paid subscription invoice" };
@@ -460,4 +471,24 @@ export async function processStripeWebhook(
     organizationId: binding.organizationId,
     runtime,
   });
+}
+
+/** Compatibility facade that authenticates, parses, and fulfills a delivery. */
+export async function processStripeWebhook(
+  runtime: ApiServiceRuntime,
+  input: { payload: string; signatureHeader: string | undefined },
+  deps: StripeCheckoutServiceDeps = {},
+): Promise<StripeWebhookOutcome> {
+  const authentication = authenticateStripeWebhook(input, deps);
+  if (authentication.status !== "authenticated") {
+    return authentication;
+  }
+
+  let event: unknown;
+  try {
+    event = JSON.parse(input.payload);
+  } catch {
+    return { status: "ignored", reason: "Invalid JSON payload" };
+  }
+  return processAuthenticatedStripeWebhook(runtime, event, deps);
 }

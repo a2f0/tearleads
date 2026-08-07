@@ -1,8 +1,17 @@
+import {
+  billingWebhookWireHeaderKeys,
+  operationRoutePath,
+  receiveStripeWebhookOperation,
+} from "@tearleads/validators/operation";
 import { Hono } from "hono";
 import { RevenueCatAssociationError } from "../../billing/revenueCatStripeAssociation";
 import { StripeApiError } from "../../billing/stripeApi";
 import type { SessionEnv } from "../../middleware/session";
-import { processStripeWebhook } from "../../services/billing/stripeCheckout";
+import {
+  authenticateStripeWebhook,
+  processAuthenticatedStripeWebhook,
+} from "../../services/billing/stripeCheckout";
+import { headersValidator } from "../../validators/headers";
 import type { OrganizationsRouterDeps } from "../organizations/shared";
 
 /**
@@ -14,38 +23,65 @@ export function createStripeWebhookRoute(
 ) {
   const route = new Hono<SessionEnv>();
 
-  route.post("/billing/stripe/webhook", async (c) => {
-    let outcome: Awaited<ReturnType<typeof processStripeWebhook>>;
-    try {
-      outcome = await processStripeWebhook(runtime, {
-        payload: await c.req.text(),
-        signatureHeader: c.req.header("Stripe-Signature"),
+  route.on(
+    receiveStripeWebhookOperation.method,
+    operationRoutePath(receiveStripeWebhookOperation),
+    headersValidator(receiveStripeWebhookOperation.headers),
+    async (c) => {
+      const payload = await c.req.text();
+      const headers = c.req.valid("header");
+      const authentication = authenticateStripeWebhook({
+        payload,
+        signatureHeader: headers[billingWebhookWireHeaderKeys.stripeSignature],
       });
-    } catch (error) {
-      if (
-        error instanceof StripeApiError ||
-        error instanceof RevenueCatAssociationError
-      ) {
-        console.error("Stripe webhook processing failed:", error.message);
-        return c.json({ error: "Provider request failed" }, 503);
-      }
-      throw error;
-    }
-    switch (outcome.status) {
-      case "unconfigured":
+      if (authentication.status === "unconfigured") {
         console.error(
           "Stripe webhook rejected: STRIPE_WEBHOOK_SECRET is not configured",
         );
         return c.json({ error: "Webhook not configured" }, 503);
-      case "unauthorized":
+      }
+      if (authentication.status === "unauthorized") {
         return c.json({ error: "Invalid signature" }, 401);
-      case "retry":
-        console.error(`Stripe webhook deferred: ${outcome.reason}`);
-        return c.json({ error: outcome.reason }, 503);
-      default:
-        return c.json({ received: true, outcome: outcome.status });
-    }
-  });
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(payload);
+      } catch {
+        return c.json({ received: true, outcome: "ignored" });
+      }
+      const request = receiveStripeWebhookOperation.body.safeParse(parsed);
+      if (!request.success) {
+        return c.json({ received: true, outcome: "ignored" });
+      }
+
+      let outcome: Awaited<
+        ReturnType<typeof processAuthenticatedStripeWebhook>
+      >;
+      try {
+        outcome = await processAuthenticatedStripeWebhook(
+          runtime,
+          request.data,
+        );
+      } catch (error) {
+        if (
+          error instanceof StripeApiError ||
+          error instanceof RevenueCatAssociationError
+        ) {
+          console.error("Stripe webhook processing failed:", error.message);
+          return c.json({ error: "Provider request failed" }, 503);
+        }
+        throw error;
+      }
+      switch (outcome.status) {
+        case "retry":
+          console.error(`Stripe webhook deferred: ${outcome.reason}`);
+          return c.json({ error: outcome.reason }, 503);
+        default:
+          return c.json({ received: true, outcome: outcome.status });
+      }
+    },
+  );
 
   return route;
 }

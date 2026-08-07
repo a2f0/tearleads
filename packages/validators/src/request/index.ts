@@ -110,13 +110,23 @@ export {
   isRevenueCatTransferWebhookEvent,
   isRevenueCatWebhookRequest,
   type RevenueCatIncomingWebhookEvent,
+  RevenueCatIncomingWebhookEventSchema,
   type RevenueCatSubscriberAttribute,
+  RevenueCatSubscriberAttributeSchema,
   type RevenueCatTransferWebhookEvent,
+  RevenueCatTransferWebhookEventSchema,
   type RevenueCatWebhookEvent,
+  RevenueCatWebhookEventSchema,
   type RevenueCatWebhookRequest,
+  RevenueCatWebhookRequestSchema,
 } from "./revenuecatWebhook";
 export {
   isStripeReturnUrlRequest,
   type StripeReturnUrlRequest,
   StripeReturnUrlRequestSchema,
 } from "./stripeCheckout";
+export {
+  isStripeWebhookRequest,
+  type StripeWebhookRequest,
+  StripeWebhookRequestSchema,
+} from "./stripeWebhook";

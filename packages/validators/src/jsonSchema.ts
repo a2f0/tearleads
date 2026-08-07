@@ -37,6 +37,7 @@ const supportedJsonWireSchemaTypes = new Set([
   "number",
   "object",
   "optional",
+  "record",
   "string",
   "unknown",
   "union",

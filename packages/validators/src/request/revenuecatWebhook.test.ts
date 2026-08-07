@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { isRevenueCatWebhookRequest } from "./revenuecatWebhook";
+import {
+  isRevenueCatWebhookRequest,
+  RevenueCatWebhookRequestSchema,
+} from "./revenuecatWebhook";
 
 function webhook(overrides: Record<string, unknown> = {}) {
   return {
@@ -27,6 +30,22 @@ test("accepts finite non-negative integer RevenueCat timestamps", () => {
   expect(isRevenueCatWebhookRequest(webhook({ purchased_at_ms: null }))).toBe(
     true,
   );
+});
+
+test("RevenueCat schemas preserve provider extensions and input identity", () => {
+  const input = webhook({
+    future_event_field: { nested: true },
+    subscriber_attributes: {
+      orgId: { future_attribute_field: 1, value: "org-1" },
+    },
+  });
+  const result = RevenueCatWebhookRequestSchema.safeParse(input);
+
+  expect(result.success).toBe(true);
+  if (result.success) {
+    expect(result.data as unknown).toBe(input);
+    expect(result.data.event).toBe(input.event);
+  }
 });
 
 test("rejects invalid RevenueCat timestamps before they reach Date writes", () => {
