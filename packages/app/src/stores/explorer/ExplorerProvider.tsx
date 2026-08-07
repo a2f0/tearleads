@@ -13,6 +13,10 @@ import {
   useContext,
   useMemo,
 } from "react";
+import {
+  defineFacadeKeys,
+  projectFacade,
+} from "../../providers/sdk/projectFacade";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
@@ -59,6 +63,29 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
 }
 
 const ExplorerContext = createContext<ExplorerContextModel | null>(null);
+
+type ExplorerContextStoreFacade = Pick<
+  ContainerContentsStore,
+  Extract<keyof ContainerContentsStore, keyof ContainerContentsContextValue>
+>;
+
+const explorerContextStoreKeys = defineFacadeKeys<ExplorerContextStoreFacade>()(
+  [
+    "createChild",
+    "deleteContainer",
+    "emptyTrash",
+    "ensureSystemContainer",
+    "moveContainer",
+    "purgeContainer",
+    "refresh",
+    "refreshRootLane",
+    "renameContainer",
+    "requestSync",
+    "setContainerIcon",
+    "shareWithGroup",
+    "shareWithUser",
+  ],
+);
 
 function useEnsureExplorerTrashContainer(
   context: ExplorerContextModel,
@@ -189,7 +216,7 @@ export function useExplorer(): ExplorerContextValue {
       // explorer UI no longer wires it to any menu action — folders are removed
       // by moving them to Trash and purging from there — so the narrower
       // ExplorerModelExplorer omits it.
-      ...store,
+      ...projectFacade(store, explorerContextStoreKeys),
       ...snapshot,
       builtInSystemContainers,
       canResolveTrashContainer:

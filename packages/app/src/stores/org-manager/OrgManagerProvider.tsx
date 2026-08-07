@@ -13,6 +13,10 @@ import {
   useRef,
 } from "react";
 import {
+  defineFacadeKeys,
+  projectBoundFacade,
+} from "../../providers/sdk/projectFacade";
+import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
@@ -46,30 +50,38 @@ type OrgManagerContextValue = Organizations & OrgManagerBehavior;
 
 const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
 
-export function extendBoundFacade<
-  Facade extends object,
-  Extension extends object,
->(facade: Facade, extension: Extension): Facade & Extension;
-export function extendBoundFacade(facade: object, extension: object): object {
-  const boundMethods = new Map<PropertyKey, unknown>();
-  return new Proxy(extension, {
-    get(target, property, receiver) {
-      if (Reflect.has(target, property)) {
-        return Reflect.get(target, property, receiver);
-      }
-      const value = Reflect.get(facade, property, facade);
-      if (typeof value !== "function") {
-        return value;
-      }
-      if (!boundMethods.has(property)) {
-        boundMethods.set(property, value.bind(facade));
-      }
-      return boundMethods.get(property);
-    },
-    has: (target, property) =>
-      Reflect.has(target, property) || Reflect.has(facade, property),
-  });
-}
+const organizationActionKeys = defineFacadeKeys<Organizations>()([
+  "addUserToGroup",
+  "createGroup",
+  "deleteGroup",
+  "importUserById",
+  "loadBilling",
+  "loadBillingForOrganization",
+  "loadBillingHistory",
+  "loadBillingManagementUrl",
+  "loadStripeCheckoutOptions",
+  "createStripeCheckout",
+  "createStripeCheckoutSession",
+  "cancelStripeSubscription",
+  "claimNativeSubscription",
+  "loadDataUsage",
+  "loadLocalDataUsage",
+  "loadDirectoryAndGroups",
+  "loadDirectoryAndGroupsAfterMutation",
+  "loadLocalDirectoryAndGroups",
+  "loadGroupMembers",
+  "loadGroupPresentationDetails",
+  "loadGroupContainers",
+  "loadGrants",
+  "listLocalOrganizations",
+  "loadPolicyHistory",
+  "loadUserDetail",
+  "updateRosterEntry",
+  "updateProfile",
+  "removeUserFromGroup",
+  "revokeGrant",
+  "startTrial",
+]);
 
 function useOrgManagerOperationScope(): Pick<
   OrgManagerBehavior,
@@ -230,6 +242,10 @@ function useEnsureOrganizationProfileDocument(
 
 export function OrgManagerProvider({ children }: PropsWithChildren) {
   const { organizations } = useTearleads();
+  const organizationActions = useMemo(
+    () => projectBoundFacade(organizations, organizationActionKeys),
+    [organizations],
+  );
   const { captureOperationScope, isOperationScopeActive } =
     useOrgManagerOperationScope();
   const { containerStore: containerContentsStore } =
@@ -255,15 +271,15 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     });
 
   const value = useMemo<OrgManagerContextValue>(
-    () =>
-      extendBoundFacade(organizations, {
-        captureOperationScope,
-        ensureOrganizationMetadataContainer,
-        ensureOrganizationProfileDocument,
-        ensureRosterProfileContainer,
-        ensureRosterProfileDocument,
-        isOperationScopeActive,
-      }),
+    () => ({
+      ...organizationActions,
+      captureOperationScope,
+      ensureOrganizationMetadataContainer,
+      ensureOrganizationProfileDocument,
+      ensureRosterProfileContainer,
+      ensureRosterProfileDocument,
+      isOperationScopeActive,
+    }),
     [
       captureOperationScope,
       ensureOrganizationMetadataContainer,
@@ -271,7 +287,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       isOperationScopeActive,
-      organizations,
+      organizationActions,
     ],
   );
 

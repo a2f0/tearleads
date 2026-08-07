@@ -14,6 +14,10 @@ import {
   useMemo,
 } from "react";
 import {
+  defineFacadeKeys,
+  projectFacade,
+} from "../../providers/sdk/projectFacade";
+import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
@@ -30,6 +34,26 @@ const DocumentContext = createContext<DocumentStore | null>(null);
 // (edit buttons) can be hidden rather than merely disabled. Defaults to false,
 // so consumers that never pass `readOnly` are unaffected.
 const DocumentReadOnlyContext = createContext<boolean>(false);
+
+type DocumentContextStoreFacade = Pick<
+  DocumentStore,
+  Extract<keyof DocumentStore, keyof DocumentContextValue>
+>;
+
+const documentContextStoreKeys = defineFacadeKeys<DocumentContextStoreFacade>()(
+  [
+    "addRow",
+    "attachFiles",
+    "removeAttachment",
+    "removeRow",
+    "replaceAttachment",
+    "requestSync",
+    "relink",
+    "setStructuredFields",
+    "setText",
+    "updateRowFields",
+  ],
+);
 
 interface DocumentsProviderProps extends PropsWithChildren {
   localId?: string;
@@ -126,7 +150,7 @@ export function useDocument(): DocumentContextValue {
 
   return useMemo(
     () => ({
-      ...store,
+      ...projectFacade(store, documentContextStoreKeys),
       ...snapshot,
       // Fold the host read-only flag into both write gates so every editor and
       // attachment control (which all derive from these two booleans) goes

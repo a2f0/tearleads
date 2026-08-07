@@ -325,23 +325,26 @@
 - Classification: exact facade and snapshot projection duplication
 - Equivalence claim: Org Manager, document, explorer, and contacts consumers
   retain the same SDK actions, snapshot fields, write gates, filtered explorer
-  nodes, behavioral helpers, and memoized function identities.
+  nodes, behavioral helpers, enumerable public surfaces, and memoized function
+  identities without exposing store lifecycle or maintenance methods.
 - Risk notes: organization actions are prototype methods that require their SDK
-  receiver; the extended facade binds and caches them. Document read-only gates
-  and the explorer's visible-node and Trash projections still override spread
-  source values explicitly.
+  receiver; their projection binds them once per SDK facade. Plain store actions
+  retain their original function references. Document read-only gates and the
+  explorer's visible-node and Trash projections still override snapshot values
+  explicitly.
 - Files changed: the four app store providers, canonical organization mutation
-  call sites and tests, one direct facade-binding test, and the obsolete Org
-  Manager provider source-shape suppression.
+  call sites and tests, shared facade projection with direct surface tests, and
+  the obsolete Org Manager provider source-shape suppression.
 - Baseline: 581 focused Org Manager, document, explorer, and contacts tests
   passed at `d8816129`.
-- Verification: app TypeScript, the 582-test focused matrix, Biome,
+- Verification: app TypeScript, the 583-test focused matrix, Biome,
   source-shape, package assertions, Knip, architecture, protocol, OpenAPI, file,
   binary, Ruby, shell, and Markdown checks pass; `bun run check:affected`
-  reports 2,250 app tests passing with one skip and all 38 web E2E tests passing.
-- Delta: 172 production lines removed net, with 22 lines of direct receiver and
-  identity characterization coverage added.
+  reports 2,251 app tests passing with one skip and all 38 web E2E tests passing.
+- Delta: 45 production lines removed net, with 29 lines of direct surface,
+  receiver, and identity characterization coverage added.
 - Decision notes: use the SDK `Organizations` contract directly and its
-  canonical object mutation inputs. A delegating facade is required instead of
-  a literal spread because class prototype methods are not enumerable; the
-  three plain-object stores and their snapshots can be spread directly.
+  canonical object mutation inputs. Type-exhaustive public-key lists prevent
+  context and SDK surfaces from drifting: organization class methods are bound
+  into an enumerable object, plain-store functions are copied by identity, and
+  complete snapshot contracts are spread directly.
