@@ -61,6 +61,12 @@ test("container read operations preserve query compatibility", () => {
     ContainerKekLogQuerySchema.safeParse({ afterKeyEpoch: "malformed" })
       .success,
   ).toBe(true);
+  expect(ListContainerDocumentsQuerySchema.parse({ limit: "25" })).toEqual({
+    limit: 25,
+  });
+  expect(ListContainerDocumentsQuerySchema.parse({ limit: 25 })).toEqual({
+    limit: 25,
+  });
 
   const invalidLimit = ListContainerDocumentsQuerySchema.safeParse({
     limit: "0",

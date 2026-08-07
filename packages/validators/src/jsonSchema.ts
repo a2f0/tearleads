@@ -306,6 +306,21 @@ function assertJsonWireSchema(
       `JSON wire schemas must not overwrite values at ${location}`,
     );
   }
+  if (definition.type === "pipe" && jsonSchemaViewRegistry.has(schema)) {
+    // A direct view explicitly describes the pipe's wire input. Its input
+    // remains subject to every fail-closed wire-schema check.
+    const inputSchema = Reflect.get(definition, "in");
+    if (!isZodSchema(inputSchema)) {
+      throw new Error(`Registered input transform is invalid at ${location}`);
+    }
+    assertJsonWireSchema(
+      inputSchema,
+      `${location}.input`,
+      seenSchemas,
+      seenValues,
+    );
+    return;
+  }
   if (forbiddenJsonWireSchemaTypes.has(definition.type)) {
     throw new Error(
       `JSON wire schemas must not use ${definition.type} at ${location}`,
