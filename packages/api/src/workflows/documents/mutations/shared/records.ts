@@ -1,6 +1,4 @@
 import type {
-  AccessManifest,
-  AccessManifestCheckpoint,
   ContentObjectKind,
   ContentRecordEncryptionSuite,
   DocumentLinkSetManifestState,
@@ -31,6 +29,8 @@ import type {
 } from "../../../../access/read/documentContentKeyStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
 import {
+  accessManifestCheckpoint,
+  documentLinkSetStateRecord,
   projectionAccessManifestRecord,
   projectionVerifiedAccessEventRecord,
   readProjectionAccessEvent,
@@ -102,33 +102,6 @@ function readDocumentLinkSetState(
       `${label}.linkedContainerIds`,
       documentShapeError,
     ),
-  };
-}
-
-function documentLinkSetStateRecord(
-  state: DocumentLinkSetManifestState,
-): Record<string, unknown> {
-  return {
-    version: state.version,
-    documentId: state.documentId,
-    organizationId: state.organizationId,
-    epoch: state.epoch,
-    previousManifestHash: state.previousManifestHash,
-    eventHash: state.eventHash,
-    linkedContainerIds: [...state.linkedContainerIds],
-  };
-}
-
-function accessManifestCheckpoint(input: {
-  readonly manifest: AccessManifest;
-  readonly manifestHash: string;
-}): AccessManifestCheckpoint {
-  return {
-    objectKind: input.manifest.objectKind,
-    objectId: input.manifest.objectId,
-    organizationId: input.manifest.organizationId,
-    epoch: input.manifest.epoch,
-    manifestHash: input.manifestHash,
   };
 }
 

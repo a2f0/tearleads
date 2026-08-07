@@ -6,7 +6,6 @@ import { documents } from "@tearleads/api-shared/schema";
 import type {
   AccessManifest,
   DocumentLinkSetManifestState,
-  KeyingCanonicalJson,
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
@@ -33,18 +32,7 @@ import {
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
 } from "../../access/read/documentKekTargets";
-import {
-  projectionAccessManifestRecord,
-  projectionVerifiedAccessEventRecord,
-  readProjectionNullableString,
-  readProjectionPlainRecord,
-  readProjectionPositiveInteger,
-  readProjectionRecord,
-  readProjectionString,
-  readProjectionStringArray,
-  readProjectionValue,
-  readProjectionVersion,
-} from "../../keyingProjectionRecords";
+import { createProjectionReaders } from "../../keyingProjectionRecords";
 import {
   type ContainerWriterProjectionContext,
   createContainerWriterProjectionContext,
@@ -90,49 +78,18 @@ function projectionError(message: string): DocumentWriterProjectionError {
   return new DocumentWriterProjectionError(message, 409);
 }
 
-function readPlainRecord(value: unknown, label: string) {
-  return readProjectionPlainRecord(value, label, projectionError);
-}
-
-function readCanonicalRecord(value: KeyingCanonicalJson, label: string) {
-  return readProjectionRecord(value, label, projectionError);
-}
-
-function readString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-) {
-  return readProjectionString(record, key, label, projectionError);
-}
-
-function readNullableString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-) {
-  return readProjectionNullableString(record, key, label, projectionError);
-}
-
-function readPositiveInteger(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-) {
-  return readProjectionPositiveInteger(record, key, label, projectionError);
-}
-
-function readStringArray(value: unknown, label: string) {
-  return readProjectionStringArray(value, label, projectionError);
-}
-
-function readVersion(record: Record<string, unknown>, label: string) {
-  return readProjectionVersion(record, label, projectionError);
-}
-
-const readValue = readProjectionValue;
-const accessManifestRecord = projectionAccessManifestRecord;
-const verifiedAccessEventRecord = projectionVerifiedAccessEventRecord;
+const {
+  accessManifestRecord,
+  readCanonicalRecord,
+  readNullableString,
+  readPlainRecord,
+  readPositiveInteger,
+  readString,
+  readStringArray,
+  readValue,
+  readVersion,
+  verifiedAccessEventRecord,
+} = createProjectionReaders(projectionError);
 
 function toAccessManifestBundleWireResponse(
   input: NonNullable<Awaited<ReturnType<typeof getAccessManifestBundle>>>,

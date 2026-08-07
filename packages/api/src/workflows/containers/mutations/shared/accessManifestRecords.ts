@@ -1,16 +1,15 @@
 import type {
-  AccessManifest,
-  AccessManifestCheckpoint,
   ContainerAccessLevel,
   ContainerAccessManifestState,
   ContainerDirectGrant,
   ContainerGrantSubjectType,
-  ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
+  accessManifestCheckpoint,
+  containerAccessManifestStateRecord,
   readProjectionAccessManifest,
   readProjectionNullableString,
   readProjectionPlainRecord,
@@ -72,19 +71,6 @@ function readContainerDirectGrants(
   );
 }
 
-export function referencedPrincipalHeadRecord(
-  principalHead: ReferencedPrincipalHead,
-) {
-  return {
-    principalType: principalHead.principalType,
-    principalId: principalHead.principalId,
-    version: principalHead.version,
-    keyEpoch: principalHead.keyEpoch,
-    stateHash: principalHead.stateHash,
-    keyFingerprint: principalHead.keyFingerprint,
-  };
-}
-
 function readContainerAccessState(
   value: unknown,
   label: string,
@@ -92,7 +78,7 @@ function readContainerAccessState(
   const record = readProjectionPlainRecord(value, label, mutationShapeError);
   readProjectionVersion(record, label, mutationShapeError);
 
-  return {
+  return containerAccessManifestStateRecord({
     version: 1,
     containerId: readProjectionString(
       record,
@@ -157,41 +143,7 @@ function readContainerAccessState(
       `${label}.referencedPrincipalHeads`,
       mutationShapeError,
     ),
-  };
-}
-
-export function containerAccessStateRecord(
-  state: ContainerAccessManifestState,
-): Record<string, unknown> {
-  return {
-    version: state.version,
-    containerId: state.containerId,
-    organizationId: state.organizationId,
-    epoch: state.epoch,
-    previousManifestHash: state.previousManifestHash,
-    eventHash: state.eventHash,
-    parentContainerId: state.parentContainerId,
-    parentManifestHash: state.parentManifestHash,
-    metadataDocumentId: state.metadataDocumentId,
-    containerKeyEpochId: state.containerKeyEpochId,
-    directGrants: state.directGrants.map((grant) => ({ ...grant })),
-    referencedPrincipalHeads: state.referencedPrincipalHeads.map(
-      referencedPrincipalHeadRecord,
-    ),
-  };
-}
-
-function accessManifestCheckpoint(input: {
-  readonly manifest: AccessManifest;
-  readonly manifestHash: string;
-}): AccessManifestCheckpoint {
-  return {
-    objectKind: input.manifest.objectKind,
-    objectId: input.manifest.objectId,
-    organizationId: input.manifest.organizationId,
-    epoch: input.manifest.epoch,
-    manifestHash: input.manifestHash,
-  };
+  });
 }
 
 export function readVerifiedContainerManifest(

@@ -10,7 +10,15 @@ import type {
 import { makeVerifiedAccessEvent } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { AccessEventBundleWireResponse } from "@tearleads/validators/util";
+import { projectionReferencedPrincipalHeadRecord } from "./keyingProjectionManifestRecords";
 import { isKeyingCanonicalJson } from "./utils/canonicalJson";
+
+export {
+  accessManifestCheckpoint,
+  containerAccessManifestStateRecord,
+  documentLinkSetStateRecord,
+  projectionReferencedPrincipalHeadRecord,
+} from "./keyingProjectionManifestRecords";
 
 type ProjectionErrorFactory = (message: string) => Error;
 
@@ -286,19 +294,6 @@ export function readProjectionVerifiedAccessEvent(
   });
 }
 
-function projectionReferencedPrincipalHeadRecord(
-  principalHead: ReferencedPrincipalHead,
-): Record<string, unknown> {
-  return {
-    principalType: principalHead.principalType,
-    principalId: principalHead.principalId,
-    version: principalHead.version,
-    keyEpoch: principalHead.keyEpoch,
-    stateHash: principalHead.stateHash,
-    keyFingerprint: principalHead.keyFingerprint,
-  };
-}
-
 function readProjectionReferencedPrincipalHead(
   value: unknown,
   label: string,
@@ -401,5 +396,51 @@ export function readProjectionAccessManifest(
       error,
     ),
     keyTargetHash: readProjectionString(record, "keyTargetHash", label, error),
+  };
+}
+
+export function createProjectionReaders(error: ProjectionErrorFactory) {
+  return {
+    accessManifestRecord: projectionAccessManifestRecord,
+    readAccessManifest(value: unknown, label: string) {
+      return readProjectionAccessManifest(value, label, error);
+    },
+    readCanonicalRecord(value: KeyingCanonicalJson, label: string) {
+      return readProjectionRecord(value, label, error);
+    },
+    readNullableString(
+      record: Record<string, unknown>,
+      key: string,
+      label: string,
+    ) {
+      return readProjectionNullableString(record, key, label, error);
+    },
+    readPlainRecord(value: unknown, label: string) {
+      return readProjectionPlainRecord(value, label, error);
+    },
+    readPositiveInteger(
+      record: Record<string, unknown>,
+      key: string,
+      label: string,
+    ) {
+      return readProjectionPositiveInteger(record, key, label, error);
+    },
+    readReferencedPrincipalHeads(value: unknown, label: string) {
+      return readProjectionReferencedPrincipalHeads(value, label, error);
+    },
+    readString(record: Record<string, unknown>, key: string, label: string) {
+      return readProjectionString(record, key, label, error);
+    },
+    readStringArray(value: unknown, label: string) {
+      return readProjectionStringArray(value, label, error);
+    },
+    readValue: readProjectionValue,
+    readVerifiedAccessEvent(value: unknown, label: string) {
+      return readProjectionVerifiedAccessEvent(value, label, error);
+    },
+    readVersion(record: Record<string, unknown>, label: string) {
+      return readProjectionVersion(record, label, error);
+    },
+    verifiedAccessEventRecord: projectionVerifiedAccessEventRecord,
   };
 }

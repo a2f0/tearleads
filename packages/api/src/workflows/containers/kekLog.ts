@@ -8,6 +8,7 @@ import {
   getCurrentContainerKeyEpoch,
   listContainerKeyEpochPage,
   listContainerKeyWrapsByEpochId,
+  toContainerKeyWrap,
 } from "../../access/read/containerKekStore";
 import { resolveContainerAccessProjection } from "./writerProjection";
 
@@ -68,16 +69,7 @@ function logEpochResponse(input: {
     containerKeyEpochId: input.epoch.id,
     keyring: input.keyring ? { ...input.keyring } : null,
     parentContainerKeyEpochId: input.epoch.parentContainerKeyEpochId,
-    wraps: input.wraps.map((wrap) => ({
-      containerKeyEpochId: wrap.containerKeyEpochId,
-      recipientKind: wrap.recipientKind,
-      recipientId: wrap.recipientId,
-      recipientKeyEpochId: wrap.recipientKeyEpochId,
-      recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-      kemCipherText: wrap.kemCipherText,
-      wrappedKey: wrap.wrappedKey,
-      wrapManifestHash: wrap.wrapManifestHash,
-    })),
+    wraps: input.wraps.map(toContainerKeyWrap),
   };
 }
 
