@@ -3,10 +3,10 @@ import {
   hasNumberProperty,
   hasStringProperty,
 } from "@tearleads/validators/util";
+import { decodeCursor, encodeCursor } from "../../utils/cursor";
 import { OrganizationManagerError } from "./errors";
 
 const MAX_CURSOR = 9_223_372_036_854_775_807n;
-const CURSOR_PATTERN = /^[A-Za-z0-9_-]+$/u;
 const DECIMAL_PATTERN = /^(0|[1-9]\d*)$/u;
 
 interface OrganizationReadModelCursorPayload {
@@ -22,6 +22,27 @@ function invalidCursor(): OrganizationManagerError {
   );
 }
 
+function parseOrganizationReadModelCursor(
+  payload: unknown,
+): OrganizationReadModelCursorPayload | undefined {
+  if (
+    !isPlainObject(payload) ||
+    Object.keys(payload).length !== 3 ||
+    !hasNumberProperty(payload, "version") ||
+    payload.version !== 5 ||
+    !hasStringProperty(payload, "organizationId") ||
+    !hasStringProperty(payload, "cursor") ||
+    !DECIMAL_PATTERN.test(payload.cursor)
+  ) {
+    return undefined;
+  }
+  return {
+    cursor: payload.cursor,
+    organizationId: payload.organizationId,
+    version: 5,
+  };
+}
+
 export function encodeOrganizationReadModelCursor(
   organizationId: string,
   cursor: bigint,
@@ -31,44 +52,19 @@ export function encodeOrganizationReadModelCursor(
     organizationId,
     cursor: cursor.toString(),
   };
-  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  return encodeCursor(payload);
 }
 
 export function decodeOrganizationReadModelCursor(
   value: string,
   organizationId: string,
 ): bigint {
-  if (value.length === 0 || value.length > 512 || !CURSOR_PATTERN.test(value)) {
-    throw invalidCursor();
-  }
-
-  let decoded: string;
-  try {
-    const bytes = Buffer.from(value, "base64url");
-    if (bytes.toString("base64url") !== value) {
-      throw invalidCursor();
-    }
-    decoded = bytes.toString("utf8");
-  } catch {
-    throw invalidCursor();
-  }
-
-  let payload: unknown;
-  try {
-    payload = JSON.parse(decoded);
-  } catch {
-    throw invalidCursor();
-  }
-  if (
-    !isPlainObject(payload) ||
-    Object.keys(payload).length !== 3 ||
-    !hasNumberProperty(payload, "version") ||
-    payload.version !== 5 ||
-    !hasStringProperty(payload, "organizationId") ||
-    payload.organizationId !== organizationId ||
-    !hasStringProperty(payload, "cursor") ||
-    !DECIMAL_PATTERN.test(payload.cursor)
-  ) {
+  const payload = decodeCursor(
+    value,
+    parseOrganizationReadModelCursor,
+    invalidCursor,
+  );
+  if (payload.organizationId !== organizationId) {
     throw invalidCursor();
   }
 
