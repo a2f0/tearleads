@@ -1,0 +1,31 @@
+.sidebar-resize-handle {
+  position: relative;
+  z-index: 1;
+  align-self: stretch;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
+}
+
+.sidebar-resize-handle::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-dark);
+  content: "";
+  opacity: var(--opacity-disabled);
+}
+
+.sidebar-resize-handle:hover::before,
+.sidebar-resize-handle:focus-visible::before {
+  width: 2px;
+  opacity: var(--opacity-subtle);
+}
+
+.sidebar-resize-handle:focus-visible {
+  outline: none;
+}

@@ -19,6 +19,53 @@ test("sidebar resize handle exposes separator semantics", () => {
   expect(handle.getAttribute("aria-valuenow")).toBe("160");
 });
 
+test("sidebar resize handle supports primary pointer dragging", () => {
+  const view = render(
+    <WindowSidebar sidebar={<div>Sidebar</div>}>
+      <div>Content</div>
+    </WindowSidebar>,
+  );
+  const handle = view.getByRole("separator", { name: "Resize sidebar" });
+
+  fireEvent.pointerDown(handle, {
+    button: 2,
+    clientX: 100,
+    pointerId: 1,
+  });
+  fireEvent.pointerMove(document, { clientX: 136, pointerId: 1 });
+  expect(handle.getAttribute("aria-valuenow")).toBe("160");
+
+  fireEvent.pointerDown(handle, {
+    button: 0,
+    clientX: 100,
+    pointerId: 2,
+  });
+  expect(document.body.style.cursor).toBe("col-resize");
+  expect(document.body.style.userSelect).toBe("none");
+
+  fireEvent.pointerMove(document, { clientX: 136, pointerId: 1 });
+  expect(handle.getAttribute("aria-valuenow")).toBe("160");
+  fireEvent.pointerMove(document, { clientX: 136, pointerId: 2 });
+  expect(handle.getAttribute("aria-valuenow")).toBe("196");
+  fireEvent.pointerMove(document, { clientX: 1_000, pointerId: 2 });
+  expect(handle.getAttribute("aria-valuenow")).toBe("400");
+  fireEvent.pointerMove(document, { clientX: -1_000, pointerId: 2 });
+  expect(handle.getAttribute("aria-valuenow")).toBe("80");
+
+  fireEvent.pointerCancel(document, { pointerId: 2 });
+  expect(document.body.style.cursor).toBe("");
+  expect(document.body.style.userSelect).toBe("");
+
+  fireEvent.pointerDown(handle, {
+    button: 0,
+    clientX: 100,
+    pointerId: 3,
+  });
+  view.unmount();
+  expect(document.body.style.cursor).toBe("");
+  expect(document.body.style.userSelect).toBe("");
+});
+
 test("sidebar resize handle supports keyboard resizing", () => {
   const view = render(
     <WindowSidebar sidebar={<div>Sidebar</div>}>

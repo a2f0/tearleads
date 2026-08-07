@@ -402,3 +402,33 @@
 - Decision notes: keep file selection and target cleanup in
   `useExplorerToolbarUpload`; the context-menu layer now owns only action
   visibility and delegates the target container to the shared trigger.
+
+### 2026-08-07 - Shared sidebar resizing
+
+- Status: accepted
+- Classification: parametric React event, sizing, accessibility, and CSS
+  duplication
+- Equivalence claim: windowed and routed tablet sidebars retain their respective
+  160px and measured/CSS-backed 224px defaults, 80–400px bounds, 10px keyboard
+  steps, Shift multiplier, Home/End behavior, separator semantics, variant handle
+  geometry, and document-body cursor/selection cleanup. The intentional input
+  change is that the windowed sidebar now uses the routed sidebar's primary
+  pointer-event model, adding touch support and ignoring non-primary drags.
+- Risk notes: pointer ownership, drag cancellation, unmount cleanup, and the
+  routed sidebar's initially measured width. The shared hook keeps width nullable
+  when CSS owns the initial routed width and filters move/end events by pointer
+  id.
+- Files changed: shared sidebar resize hook, handle, and chrome CSS plus the
+  windowed and routed sidebar consumers and windowed pointer characterization.
+- Baseline: five focused windowed/routed sidebar tests passed at `10db7954`.
+- Verification: app TypeScript, Biome, architecture, source-shape, six focused
+  sidebar tests, and all 92 window/routed-layout tests pass. The affected suite
+  reports 2,257 app tests passing with one skip; 35 of 38 web E2E tests passed in
+  its first run, and the three concurrent app-shell startup timeouts passed 3/3
+  on an immediate isolated retry.
+- Delta: 71 production lines removed net while consolidating both event
+  lifecycles and the common handle chrome; pointer bounds and cleanup coverage
+  added.
+- Decision notes: keep layout-specific width defaults, DOM wrappers, and narrow
+  versus touch-sized handle geometry local; share only the sizing lifecycle,
+  ARIA contract, pointer listeners, keyboard behavior, and common chrome.

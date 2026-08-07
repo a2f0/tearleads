@@ -14,37 +14,12 @@
 }
 
 .window-sidebar-handle {
-  position: relative;
-  z-index: 1;
   width: 6px;
-  align-self: stretch;
-  flex-shrink: 0;
   margin: 0 -2px;
-  padding: 0;
-  border: 0;
-  cursor: col-resize;
-  background: transparent;
 }
 
 .window-sidebar-handle::before {
-  position: absolute;
-  top: 0;
-  bottom: 0;
   left: 2px;
-  width: 1px;
-  background: var(--color-dark);
-  content: "";
-  opacity: var(--opacity-disabled);
-}
-
-.window-sidebar-handle:hover::before,
-.window-sidebar-handle:focus-visible::before {
-  width: 2px;
-  opacity: var(--opacity-subtle);
-}
-
-.window-sidebar-handle:focus-visible {
-  outline: none;
 }
 
 .window-sidebar-content {
