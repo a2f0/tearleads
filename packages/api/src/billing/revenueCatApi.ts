@@ -6,6 +6,7 @@ import {
   REVENUECAT_API_ORIGIN,
   readRevenueCatV2Credentials,
 } from "./revenueCatConfig";
+import { readString } from "./stripeHttp";
 
 /** Fail soft rather than hang if RevenueCat stalls mid-request. */
 const REQUEST_TIMEOUT_MS = 5000;
@@ -59,10 +60,6 @@ interface CustomerSubscriptionsResult {
   readonly subscriptions: ResolvedSubscription[];
 }
 
-function readNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
 function readDate(value: unknown): Date | null {
   if (typeof value !== "string") return null;
   const milliseconds = Date.parse(value);
@@ -94,18 +91,16 @@ function readSubscription(item: unknown): ResolvedSubscription {
     currentPeriodStartsAt: readDate(
       "current_period_starts_at" in item ? item.current_period_starts_at : null,
     ),
-    environment: readNonEmptyString(
-      "environment" in item ? item.environment : null,
-    ),
+    environment: readString("environment" in item ? item.environment : null),
     givesAccess: "gives_access" in item && item.gives_access === true,
-    managementUrl: readNonEmptyString(
+    managementUrl: readString(
       "management_url" in item ? item.management_url : null,
     ),
-    productResourceId: readNonEmptyString(
+    productResourceId: readString(
       "product_id" in item ? item.product_id : null,
     ),
-    store: readNonEmptyString("store" in item ? item.store : null),
-    storeIdentifier: readNonEmptyString(
+    store: readString("store" in item ? item.store : null),
+    storeIdentifier: readString(
       "store_subscription_identifier" in item
         ? item.store_subscription_identifier
         : null,
@@ -144,7 +139,7 @@ async function fetchProductStoreIdentifier(input: {
   if (!response.ok) return null;
   const body: unknown = await response.json();
   return typeof body === "object" && body !== null && "store_identifier" in body
-    ? readNonEmptyString(body.store_identifier)
+    ? readString(body.store_identifier)
     : null;
 }
 

@@ -4,6 +4,7 @@ import {
 } from "@tearleads/validators/billing";
 import {
   prop,
+  readPositiveInteger,
   readString,
   resolveDeps,
   type StripeApiDeps,
@@ -23,12 +24,6 @@ export interface StripeSyncOption {
   readonly interval: string | null;
   /** Number of intervals in one billing period; null when Stripe omits it. */
   readonly intervalCount: number | null;
-}
-
-function readPositiveInteger(value: unknown): number | null {
-  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
-    ? value
-    : null;
 }
 
 /** Fetches and validates the configured monthly USD Price for one tier. */
