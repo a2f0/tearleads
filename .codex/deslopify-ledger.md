@@ -376,3 +376,29 @@
   organization class methods are bound into an enumerable object, plain-store
   functions are copied by identity, and complete snapshot contracts are spread
   directly.
+
+### 2026-08-07 - Explorer upload picker
+
+- Status: accepted
+- Classification: exact React ref, file-input, and change-handler duplication
+- Equivalence claim: toolbar and context-menu uploads still open a hidden,
+  multi-file picker, capture the selected target container before the picker
+  opens, pass the same files to `startImport`, clear the picker value after each
+  selection, and discard the captured target after both populated and empty
+  changes. The intentional DOM change is that Explorer mounts one shared picker
+  instead of two identical hidden inputs.
+- Risk notes: file-input ref lifetime and stale container targets. The surviving
+  hook remains mounted at the Explorer root, and direct coverage proves a change
+  without a new trigger cannot reuse the prior target.
+- Files changed: Explorer composition, its context-menu layer and harness, and
+  the toolbar upload hook with direct characterization coverage.
+- Baseline: 18 context-menu and toolbar tests passed at `b3c84651` before the
+  refactor.
+- Verification: app TypeScript and Biome pass; all 489 Explorer tests pass,
+  including the attachment request-volume flow through the context-menu action.
+  Broader repository checks run before shipping.
+- Delta: 33 production lines removed net and one redundant hidden DOM input
+  eliminated; direct picker lifecycle coverage added.
+- Decision notes: keep file selection and target cleanup in
+  `useExplorerToolbarUpload`; the context-menu layer now owns only action
+  visibility and delegates the target container to the shared trigger.

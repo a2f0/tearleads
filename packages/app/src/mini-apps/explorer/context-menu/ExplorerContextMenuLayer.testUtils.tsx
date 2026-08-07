@@ -18,11 +18,6 @@ export const rootNode: ContainerNode = {
   syncState: syncedContainerDocumentObjectSyncState,
 };
 
-export const noopStartImport: (
-  containerId: string,
-  files: ReadonlyArray<File>,
-) => void = () => undefined;
-
 export function ExplorerContextMenuLayerHarness(params: {
   canCreateChildContextMenuNode?: boolean;
   canCreateStructuredDocumentContextMenuNode?: boolean;
@@ -37,7 +32,7 @@ export function ExplorerContextMenuLayerHarness(params: {
   contextMenu?: ExplorerContextMenuState | null;
   deleteDocument?: (localId: string, containerId: string) => Promise<unknown>;
   downloadDocument?: (localId: string) => void;
-  startImport: (containerId: string, files: ReadonlyArray<File>) => void;
+  triggerUpload?: (containerId: string) => void;
   moveContainerToTrash?: (containerId: string) => Promise<unknown>;
   openContainerInfoRoute?: (containerId: string) => void;
   openNewContactDocument?: (containerId: string) => void;
@@ -84,7 +79,7 @@ export function ExplorerContextMenuLayerHarness(params: {
       contextMenu={contextMenu}
       deleteDocument={params.deleteDocument ?? (async () => null)}
       downloadDocument={params.downloadDocument ?? (() => {})}
-      startImport={params.startImport}
+      triggerUpload={params.triggerUpload ?? (() => {})}
       moveContainerToTrash={params.moveContainerToTrash ?? (async () => null)}
       openContainerInfoRoute={params.openContainerInfoRoute ?? (() => {})}
       openCreateChildModal={() => {}}
