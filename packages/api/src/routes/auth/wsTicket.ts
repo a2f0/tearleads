@@ -6,8 +6,8 @@ import type { WebSocketTicketResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
-import type { WebSocketTicketIdentity } from "../../wsIdentity";
-import { issueWebSocketTicket } from "../../wsTicket";
+import type { WebSocketTicketIdentity } from "../../realtime/wsIdentity";
+import { issueWebSocketTicket } from "../../realtime/wsTicket";
 
 interface WsTicketRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;

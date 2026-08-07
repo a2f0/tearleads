@@ -9,6 +9,6 @@ export {
   createRequireAuth,
   createSessionTokenIssuer,
 } from "./middleware/session";
+export { createWebSocketTicketConsumer } from "./realtime/wsTicket";
 export { createRouteApp } from "./routeApp";
-export { createWebSocketTicketConsumer } from "./wsTicket";
 export { db };
