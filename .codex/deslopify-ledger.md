@@ -557,3 +557,33 @@
   signal while eliminating duplicate Explorer/Contacts derivations and duplicate
   error reports. Keep built-in organization slots local to Explorer because they
   are feature-flagged presentation state rather than identity-wide runtime state.
+
+### 2026-08-07 - Direct system-container ID resolution
+
+- Status: accepted
+- Classification: exact forwarding aliases
+- Equivalence claim: Explorer Trash, Contacts, primary-organization Contacts,
+  and delete-target lookups pass the same node arrays, derived slots,
+  organization ids, and active-root ids to `getExplorerSystemContainerId`, so
+  null handling and active-root-before-organization precedence are unchanged.
+- Risk notes: the aliases carried domain-specific names that could conceal a
+  call-shape difference. The implementation signatures were identical, and the
+  retained characterization matrix covers null inputs, slot matching,
+  same-slot multi-organization selection, active-root convergence, Contacts
+  projection, and own/foreign Trash deletion.
+- Files changed: Explorer system-container resolution/provider and tests,
+  Contacts provider/projection-root module and tests, and the primary-system-
+  containers hook.
+- Baseline: 23 focused Explorer, Contacts, multi-organization, and primary-
+  system-container tests passed at `0a711d6a` before the refactor.
+- Verification: app TypeScript, Biome, and the same 23 focused tests pass.
+  `bun run check:affected` passes every static gate, 2,262 app tests with one
+  intentional skip, and all 38 web end-to-end tests.
+- Delta: 50 production lines removed net; the two Trash aliases and Contacts
+  alias are deleted, and every production caller now names the single resolver.
+  Two assertions that only repeated the base resolver's null checks through a
+  deleted alias were removed; all behavioral cases remain.
+- Decision notes: keep `getExplorerSystemContainerId` as the one typed lookup
+  seam because its generic node shape already supports both full Explorer nodes
+  and narrow Contacts projection nodes. Retain domain-specific policy in callers
+  rather than encoding names in no-op wrappers.

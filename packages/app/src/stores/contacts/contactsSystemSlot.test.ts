@@ -1,8 +1,6 @@
 import { expect, test } from "bun:test";
-import {
-  getContactsContainerId,
-  resolveContactsProjectionRootContainerId,
-} from "./contactsSystemSlot";
+import { getExplorerSystemContainerId } from "../explorer/ExplorerSystemContainers";
+import { resolveContactsProjectionRootContainerId } from "./contactsSystemSlot";
 
 const CONTACTS_SYSTEM_SLOT =
   "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -30,7 +28,7 @@ test("contacts container lookup uses the active root while org metadata converge
   const contactsSystemSlot = CONTACTS_SYSTEM_SLOT;
 
   expect(
-    getContactsContainerId(
+    getExplorerSystemContainerId(
       [
         {
           id: "personal-contacts",
@@ -56,7 +54,7 @@ test("contacts container lookup still resolves synced containers by organization
   const contactsSystemSlot = CONTACTS_SYSTEM_SLOT;
 
   expect(
-    getContactsContainerId(
+    getExplorerSystemContainerId(
       [
         {
           id: "work-contacts",
@@ -76,7 +74,7 @@ test("contacts container lookup prefers the active root over an earlier organiza
   const contactsSystemSlot = CONTACTS_SYSTEM_SLOT;
 
   expect(
-    getContactsContainerId(
+    getExplorerSystemContainerId(
       [
         {
           id: "stale-work-contacts",

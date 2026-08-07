@@ -6,7 +6,6 @@ import {
 import {
   canProvisionExplorerSystemContainers,
   getExplorerSystemContainerId,
-  getExplorerTrashContainerId,
   getVisibleExplorerNodes,
 } from "./ExplorerProvider";
 import { resolveExplorerDeleteTrashTarget } from "./ExplorerSystemContainers";
@@ -182,8 +181,6 @@ test("explorer node helpers tolerate nullish node snapshots", () => {
   expect(getVisibleExplorerNodes(undefined)).toEqual([]);
   expect(getExplorerSystemContainerId(null, trashSystemSlot)).toBeNull();
   expect(getExplorerSystemContainerId(undefined, trashSystemSlot)).toBeNull();
-  expect(getExplorerTrashContainerId(null, trashSystemSlot)).toBeNull();
-  expect(getExplorerTrashContainerId(undefined, trashSystemSlot)).toBeNull();
 });
 
 test("explorer system container provisioning tolerates nullish node snapshots", () => {
@@ -343,7 +340,7 @@ test("explorer resolves the trash system container from system nodes", () => {
   const trashSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
   expect(
-    getExplorerTrashContainerId(
+    getExplorerSystemContainerId(
       [
         {
           id: "root-container",
@@ -372,7 +369,7 @@ test("explorer resolves local-only trash containers", () => {
   const trashSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
   expect(
-    getExplorerTrashContainerId(
+    getExplorerSystemContainerId(
       [
         {
           id: "trash-container",

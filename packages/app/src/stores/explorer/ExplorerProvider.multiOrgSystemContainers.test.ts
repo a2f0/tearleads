@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
   getExplorerSystemContainerId,
-  getExplorerTrashContainerId,
   getVisibleExplorerNodes,
 } from "./ExplorerProvider";
 
@@ -77,11 +76,11 @@ test("explorer resolves same-slot trash by organization when requested", () => {
     },
   ];
 
-  expect(getExplorerTrashContainerId(nodes, trashSystemSlot, "work-org")).toBe(
+  expect(getExplorerSystemContainerId(nodes, trashSystemSlot, "work-org")).toBe(
     "work-trash",
   );
   expect(
-    getExplorerTrashContainerId(nodes, trashSystemSlot, "personal-org"),
+    getExplorerSystemContainerId(nodes, trashSystemSlot, "personal-org"),
   ).toBe("personal-trash");
 });
 

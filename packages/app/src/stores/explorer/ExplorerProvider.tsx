@@ -25,7 +25,7 @@ import { ensureTrashSystemContainer } from "../systemContainerTrash";
 import {
   canResolveExplorerTrashContainer,
   findExplorerSystemNode,
-  getExplorerTrashDeleteTargetId,
+  getExplorerSystemContainerId,
   getVisibleExplorerNodes,
 } from "./ExplorerSystemContainers";
 import { useExplorerSystemProvisioning } from "./useExplorerSystemProvisioning";
@@ -33,7 +33,6 @@ import { useExplorerSystemProvisioning } from "./useExplorerSystemProvisioning";
 export {
   canProvisionExplorerSystemContainers,
   getExplorerSystemContainerId,
-  getExplorerTrashContainerId,
   getVisibleExplorerNodes,
 } from "./ExplorerSystemContainers";
 
@@ -228,7 +227,7 @@ export function useExplorer(): ExplorerContextValue {
         visibleSystemSlots,
         currentOrganizationId,
       ),
-      trashContainerId: getExplorerTrashDeleteTargetId(
+      trashContainerId: getExplorerSystemContainerId(
         snapshot.nodes,
         trashSystemSlot,
         currentOrganizationId,
