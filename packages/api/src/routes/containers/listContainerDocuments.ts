@@ -38,12 +38,7 @@ export function createListContainerDocumentsRoute({
     async (c) => {
       const session = c.get("session");
       const { containerId } = c.req.valid("param");
-      const {
-        limit: limitValue,
-        watermarkId,
-        watermarkUpdatedAt,
-      } = c.req.valid("query");
-      const limit = limitValue === undefined ? undefined : Number(limitValue);
+      const { limit, watermarkId, watermarkUpdatedAt } = c.req.valid("query");
       // The query schema enforces both watermark params present or both absent.
       const watermark =
         watermarkUpdatedAt !== undefined && watermarkId !== undefined
