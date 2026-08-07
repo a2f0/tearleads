@@ -3,12 +3,15 @@ import {
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
-import {
-  type DocumentCreateRequest,
-  isProvisionedDocumentRequest,
-  type OrganizationProvisioningRequest,
+import type {
+  DocumentCreateRequest,
+  OrganizationProvisioningRequest,
+  ProvisionedDocumentRequest,
 } from "@tearleads/validators/request";
-import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
+import type {
+  ContainerCreateWithMetadataDocumentResponse,
+  DocumentCreateResponse,
+} from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { createDocumentWithExecutor } from "../documents/mutations";
 import { appendProvisionedDocumentInitialUpdate } from "../documents/mutations/syncDocument";
@@ -18,6 +21,10 @@ interface ProfileProvisioningSigner {
   readonly fingerprint: string;
   readonly signingPublicKey: Uint8Array;
 }
+
+type ProfileContainer =
+  | ContainerCreateWithMetadataDocumentResponse["container"]
+  | null;
 
 export function readDocumentCreateRequestId(
   request: DocumentCreateRequest,
@@ -29,7 +36,7 @@ export function readDocumentCreateRequestId(
 }
 
 function readDocumentLinkedContainerIds(
-  document: Awaited<ReturnType<typeof createDocumentWithExecutor>>,
+  document: DocumentCreateResponse,
 ): string[] {
   const state = document.accessManifest?.state;
   if (!state || typeof state !== "object") {
@@ -43,162 +50,146 @@ function readDocumentLinkedContainerIds(
     : [];
 }
 
-export async function createInitialRosterProfileDocument(
-  tx: DatabaseTransaction,
-  input: OrganizationProvisioningRequest,
-  signer: ProfileProvisioningSigner,
-  profileContainer:
-    | ContainerCreateWithMetadataDocumentResponse["container"]
-    | null,
-) {
-  if (!input.initialRosterProfileDocument) {
-    return null;
-  }
+/**
+ * Creates one provisioning profile document, verifies it landed with the
+ * client-declared id and is linked to exactly its profile container, and then
+ * records the document id via `recordProfileDocumentId` (which returns false if
+ * the row it should update is missing).
+ */
+async function createInitialProfileDocument(input: {
+  labels: {
+    containerMismatch: string;
+    missingContainer: string;
+    missingId: string;
+    recordNotFound: string;
+    responseMismatch: string;
+  };
+  profileContainer: ProfileContainer;
+  recordProfileDocumentId: (documentId: string) => Promise<boolean>;
+  request: ProvisionedDocumentRequest;
+  signer: ProfileProvisioningSigner;
+  tx: DatabaseTransaction;
+  userId: string;
+}): Promise<DocumentCreateResponse> {
+  const { labels, profileContainer, request, signer, tx, userId } = input;
   if (!profileContainer) {
-    throw new OrganizationProvisioningError(
-      "Initial roster profile document requires a profile container",
-      400,
-    );
+    throw new OrganizationProvisioningError(labels.missingContainer, 400);
   }
 
-  const requestDocumentId = readDocumentCreateRequestId(
-    input.initialRosterProfileDocument,
-  );
+  const requestDocumentId = readDocumentCreateRequestId(request);
   if (!requestDocumentId) {
-    throw new OrganizationProvisioningError(
-      "Initial roster profile document id is unavailable",
-      400,
-    );
+    throw new OrganizationProvisioningError(labels.missingId, 400);
   }
 
   const created = await createDocumentWithExecutor({
     executor: tx,
     fingerprint: signer.fingerprint,
-    request: input.initialRosterProfileDocument,
-    userId: input.userId,
+    request,
+    userId,
   });
   if (created.id !== requestDocumentId) {
-    throw new OrganizationProvisioningError(
-      "Initial roster profile response does not match request",
-      400,
-    );
+    throw new OrganizationProvisioningError(labels.responseMismatch, 400);
   }
   const linkedContainerIds = readDocumentLinkedContainerIds(created);
   if (
     linkedContainerIds.length !== 1 ||
     linkedContainerIds[0] !== profileContainer.containerId
   ) {
-    throw new OrganizationProvisioningError(
-      "Initial roster profile document does not match roster profile container",
-      400,
-    );
+    throw new OrganizationProvisioningError(labels.containerMismatch, 400);
   }
 
-  if (isProvisionedDocumentRequest(input.initialRosterProfileDocument)) {
-    await appendProvisionedDocumentInitialUpdate({
-      documentId: created.id,
-      executor: tx,
-      fingerprint: signer.fingerprint,
-      request: input.initialRosterProfileDocument.initialSync,
-      signingPublicKey: signer.signingPublicKey,
-      userId: input.userId,
-    });
-  }
+  await appendProvisionedDocumentInitialUpdate({
+    documentId: created.id,
+    executor: tx,
+    fingerprint: signer.fingerprint,
+    request: request.initialSync,
+    signingPublicKey: signer.signingPublicKey,
+    userId,
+  });
 
-  const [rosterEntry] = await tx
-    .update(organizationRosterEntries)
-    .set({ profileDocumentId: created.id, updatedAt: new Date() })
-    .where(
-      and(
-        eq(organizationRosterEntries.organizationId, input.organizationId),
-        eq(organizationRosterEntries.userId, input.userId),
-      ),
-    )
-    .returning({
-      profileDocumentId: organizationRosterEntries.profileDocumentId,
-    });
-
-  if (!rosterEntry) {
-    throw new OrganizationProvisioningError(
-      "Initial roster entry not found",
-      500,
-    );
+  if (!(await input.recordProfileDocumentId(created.id))) {
+    throw new OrganizationProvisioningError(labels.recordNotFound, 500);
   }
   return created;
+}
+
+export async function createInitialRosterProfileDocument(
+  tx: DatabaseTransaction,
+  input: OrganizationProvisioningRequest,
+  signer: ProfileProvisioningSigner,
+  profileContainer: ProfileContainer,
+): Promise<DocumentCreateResponse | null> {
+  if (!input.initialRosterProfileDocument) {
+    return null;
+  }
+
+  return createInitialProfileDocument({
+    labels: {
+      containerMismatch:
+        "Initial roster profile document does not match roster profile container",
+      missingContainer:
+        "Initial roster profile document requires a profile container",
+      missingId: "Initial roster profile document id is unavailable",
+      recordNotFound: "Initial roster entry not found",
+      responseMismatch:
+        "Initial roster profile response does not match request",
+    },
+    profileContainer,
+    recordProfileDocumentId: async (documentId) => {
+      const [rosterEntry] = await tx
+        .update(organizationRosterEntries)
+        .set({ profileDocumentId: documentId, updatedAt: new Date() })
+        .where(
+          and(
+            eq(organizationRosterEntries.organizationId, input.organizationId),
+            eq(organizationRosterEntries.userId, input.userId),
+          ),
+        )
+        .returning({
+          profileDocumentId: organizationRosterEntries.profileDocumentId,
+        });
+      return rosterEntry !== undefined;
+    },
+    request: input.initialRosterProfileDocument,
+    signer,
+    tx,
+    userId: input.userId,
+  });
 }
 
 export async function createInitialOrganizationProfileDocument(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
   signer: ProfileProvisioningSigner,
-  profileContainer:
-    | ContainerCreateWithMetadataDocumentResponse["container"]
-    | null,
-) {
+  profileContainer: ProfileContainer,
+): Promise<DocumentCreateResponse | null> {
   if (!input.initialOrganizationProfileDocument) {
     return null;
   }
-  if (!profileContainer) {
-    throw new OrganizationProvisioningError(
-      "Initial organization profile document requires a profile container",
-      400,
-    );
-  }
 
-  const requestDocumentId = readDocumentCreateRequestId(
-    input.initialOrganizationProfileDocument,
-  );
-  if (!requestDocumentId) {
-    throw new OrganizationProvisioningError(
-      "Initial organization profile document id is unavailable",
-      400,
-    );
-  }
-
-  const created = await createDocumentWithExecutor({
-    executor: tx,
-    fingerprint: signer.fingerprint,
+  return createInitialProfileDocument({
+    labels: {
+      containerMismatch:
+        "Initial organization profile document does not match organization metadata container",
+      missingContainer:
+        "Initial organization profile document requires a profile container",
+      missingId: "Initial organization profile document id is unavailable",
+      recordNotFound: "Initial organization not found",
+      responseMismatch:
+        "Initial organization profile response does not match request",
+    },
+    profileContainer,
+    recordProfileDocumentId: async (documentId) => {
+      const [organization] = await tx
+        .update(organizations)
+        .set({ profileDocumentId: documentId })
+        .where(eq(organizations.id, input.organizationId))
+        .returning({ profileDocumentId: organizations.profileDocumentId });
+      return organization !== undefined;
+    },
     request: input.initialOrganizationProfileDocument,
+    signer,
+    tx,
     userId: input.userId,
   });
-  if (created.id !== requestDocumentId) {
-    throw new OrganizationProvisioningError(
-      "Initial organization profile response does not match request",
-      400,
-    );
-  }
-  const linkedContainerIds = readDocumentLinkedContainerIds(created);
-  if (
-    linkedContainerIds.length !== 1 ||
-    linkedContainerIds[0] !== profileContainer.containerId
-  ) {
-    throw new OrganizationProvisioningError(
-      "Initial organization profile document does not match organization metadata container",
-      400,
-    );
-  }
-
-  if (isProvisionedDocumentRequest(input.initialOrganizationProfileDocument)) {
-    await appendProvisionedDocumentInitialUpdate({
-      documentId: created.id,
-      executor: tx,
-      fingerprint: signer.fingerprint,
-      request: input.initialOrganizationProfileDocument.initialSync,
-      signingPublicKey: signer.signingPublicKey,
-      userId: input.userId,
-    });
-  }
-
-  const [organization] = await tx
-    .update(organizations)
-    .set({ profileDocumentId: created.id })
-    .where(eq(organizations.id, input.organizationId))
-    .returning({ profileDocumentId: organizations.profileDocumentId });
-  if (!organization) {
-    throw new OrganizationProvisioningError(
-      "Initial organization not found",
-      500,
-    );
-  }
-  return created;
 }

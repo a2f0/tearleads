@@ -20,6 +20,7 @@ import type { ApiServiceRuntime } from "../../services/runtime";
 import { headersValidator } from "../../validators/headers";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
+import { respondToStatusError } from "../errorResponse";
 
 type LoadDocumentEditAttribution = typeof loadPreparedDocumentEditAttribution;
 type ListDocumentEditAttributionRanges =
@@ -120,11 +121,7 @@ function registerCompactAttributionRoute(
         );
         return c.body(body.json);
       } catch (error) {
-        if (error instanceof DocumentEditAttributionError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, DocumentEditAttributionError);
       }
     },
   );
@@ -168,11 +165,7 @@ function registerAttributionRangesRoute(
         c.header(documentAttributionWireHeaderNames.vary, "Accept-Encoding");
         return c.json<ListDocumentEditAttributionRangesResponse>(response);
       } catch (error) {
-        if (error instanceof DocumentEditAttributionError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, DocumentEditAttributionError);
       }
     },
   );

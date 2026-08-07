@@ -58,12 +58,10 @@ async function resolveSolePurgeContainerId(input: {
     );
   }
 
+  // Exactly one element after the guards above; the check only narrows types.
   const [containerId] = containerIds;
   if (!containerId) {
-    throw new DocumentMutationError(
-      "Document is not linked to any container",
-      409,
-    );
+    throw new Error("unreachable: containerIds has exactly one element");
   }
 
   return containerId;

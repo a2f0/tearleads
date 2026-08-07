@@ -1,14 +1,7 @@
 import { validator } from "hono/validator";
+import type { SafeParseSchema } from "./schema";
 
-interface HeadersSchema<Output> {
-  safeParse(
-    value: unknown,
-  ):
-    | { readonly data: Output; readonly success: true }
-    | { readonly success: false };
-}
-
-export function headersValidator<Output>(schema: HeadersSchema<Output>) {
+export function headersValidator<Output>(schema: SafeParseSchema<Output>) {
   return validator("header", (value, c) => {
     const normalizedHeaders = Object.fromEntries(
       Object.entries(value).map(([name, headerValue]) => [

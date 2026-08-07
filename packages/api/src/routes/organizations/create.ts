@@ -10,6 +10,7 @@ import {
   OrganizationProvisioningError,
 } from "../../services/organizations/createOrganization";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
+import { respondToStatusError } from "../errorResponse";
 import type { OrganizationsRouterDeps } from "./shared";
 
 export function createOrganizationCreateRoute({
@@ -35,11 +36,7 @@ export function createOrganizationCreateRoute({
           ),
         );
       } catch (error) {
-        if (error instanceof OrganizationProvisioningError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, OrganizationProvisioningError);
       }
     },
   );

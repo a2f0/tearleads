@@ -155,7 +155,7 @@ export async function appendDocumentUpdateAuditEntries(
       auditEntryId: crypto.randomUUID(),
       encryptedUpdateByteLength: textEncoder.encode(update.encryptedData)
         .byteLength,
-      encryptedUpdateSha256: await sha256Hex(update.encryptedData),
+      encryptedUpdateSha256: sha256Hex(update.encryptedData),
       sourceVersionVector: update.sourceVersionVector ?? null,
     })),
   );

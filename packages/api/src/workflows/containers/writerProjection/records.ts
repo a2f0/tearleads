@@ -317,35 +317,6 @@ export function stripContainerKeyWrap(
   };
 }
 
-function containerKeyEpochRecord(
-  keyEpoch: ContainerKeyEpoch,
-): Record<string, unknown> {
-  return {
-    id: keyEpoch.id,
-    containerId: keyEpoch.containerId,
-    keyEpoch: keyEpoch.keyEpoch,
-    accessManifestHash: keyEpoch.accessManifestHash,
-    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-    createdByEventHash: keyEpoch.createdByEventHash,
-    createdByManifestHash: keyEpoch.createdByManifestHash,
-  };
-}
-
-function containerKeyWrapRecord(
-  wrap: ContainerKeyWrap,
-): Record<string, unknown> {
-  return {
-    containerKeyEpochId: wrap.containerKeyEpochId,
-    recipientKind: wrap.recipientKind,
-    recipientId: wrap.recipientId,
-    recipientKeyEpochId: wrap.recipientKeyEpochId,
-    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-    kemCipherText: wrap.kemCipherText,
-    wrappedKey: wrap.wrappedKey,
-    wrapManifestHash: wrap.wrapManifestHash,
-  };
-}
-
 function containerKekRecipientTargetRecord(
   target: ContainerKekRecipientTarget,
 ): Record<string, unknown> {
@@ -368,7 +339,7 @@ export function containerKekResponse(
     containerKeyEpochId: kekState.containerKeyEpochId,
     containerKeyEpoch: kekState.containerKeyEpoch,
     keyring: keyring ? { ...keyring } : null,
-    keyEpoch: containerKeyEpochRecord(kekState.keyEpoch),
+    keyEpoch: { ...stripContainerKeyEpoch(kekState.keyEpoch) },
     keyEpochHash: kekState.keyEpochHash,
     keyTargetHash: kekState.keyTargetHash,
     parentContainerKeyEpochId: kekState.parentContainerKeyEpochId,
@@ -376,6 +347,6 @@ export function containerKekResponse(
     recipientTargets: kekState.recipientTargets.map(
       containerKekRecipientTargetRecord,
     ),
-    wraps: kekState.wraps.map(containerKeyWrapRecord),
+    wraps: kekState.wraps.map((wrap) => ({ ...stripContainerKeyWrap(wrap) })),
   };
 }

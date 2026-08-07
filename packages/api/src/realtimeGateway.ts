@@ -244,12 +244,7 @@ class OrganizationInterestAuthorizer {
         resolve(authorized);
       };
       timer = setTimeout(() => finish(false), this.authorizationTimeoutMs);
-      if (typeof timer === "object" && timer !== null) {
-        const unref = Reflect.get(timer, "unref");
-        if (typeof unref === "function") {
-          Reflect.apply(unref, timer, []);
-        }
-      }
+      timer.unref();
       void authorization.then(finish);
     });
   }

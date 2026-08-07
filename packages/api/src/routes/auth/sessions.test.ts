@@ -13,7 +13,7 @@ import {
   submitRegistration,
   submitVerify,
 } from "../../../test/helpers/api";
-import type { RouteRequestBindings } from "../../requestContext";
+import type { RouteRequestBindings } from "../../middleware/session";
 import { routeApp } from "../../routeApp";
 
 interface RegisteredTestUser {

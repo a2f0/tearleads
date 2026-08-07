@@ -12,6 +12,7 @@ import {
 } from "../../services/containers/writerProjection";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { respondToStatusError } from "../errorResponse";
 
 interface ContainerWriterProjectionRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -41,11 +42,7 @@ export function createContainerWriterProjectionRoute({
           }),
         );
       } catch (error) {
-        if (error instanceof ContainerWriterProjectionError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, ContainerWriterProjectionError);
       }
     },
   );

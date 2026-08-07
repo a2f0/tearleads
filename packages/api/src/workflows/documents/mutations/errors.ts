@@ -8,6 +8,11 @@ import {
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
 import { DocumentContentKeyBundleError } from "../../../access/write/documentContentKeyStore";
 import { DocumentUpdateReadError } from "../../../documents/documentUpdateStore";
+import { keyingVerificationHttpStatus } from "../../../keyingProjectionRecords";
+import {
+  isSerializationFailure,
+  isUniqueViolation,
+} from "../../../utils/databaseErrors";
 import { ContainerMutationError } from "../../containers/mutations";
 import { ContainerWriterProjectionError } from "../../containers/writerProjection/types";
 import { PrincipalPolicyProjectionError } from "../../principals/principalPolicyProjection";
@@ -62,28 +67,6 @@ export function documentNotFound(): DocumentMutationError {
     404,
     DOCUMENT_NOT_FOUND_ERROR_CODE,
   );
-}
-
-function mapVerificationStatus(
-  error: KeyingVerificationError,
-): DocumentMutationStatus {
-  if (
-    error.code === "signature_mismatch" ||
-    error.code === "signer_mismatch" ||
-    error.code === "unauthorized"
-  ) {
-    return 403;
-  }
-
-  if (
-    error.code === "invalid_domain" ||
-    error.code === "invalid_shape" ||
-    error.code === "object_mismatch"
-  ) {
-    return 400;
-  }
-
-  return 409;
 }
 
 /**
@@ -142,7 +125,7 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
   if (error instanceof KeyingVerificationError) {
     return new DocumentMutationError(
       error.message,
-      mapVerificationStatus(error),
+      keyingVerificationHttpStatus(error),
     );
   }
 
@@ -153,7 +136,7 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
     return new DocumentMutationError("Document sync write conflict", 409);
   }
 
-  if (isTransientTransactionFailure(error)) {
+  if (isSerializationFailure(error)) {
     // Deadlock detection / serialization failure: the losing transaction was
     // rolled back by the database and a retry is expected to succeed.
     return new DocumentMutationError(
@@ -163,26 +146,4 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
   }
 
   return null;
-}
-
-function findSqlStateCode(error: unknown): string | null {
-  let current: unknown = error;
-  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
-    const code = Reflect.get(current, "code");
-    if (typeof code === "string") {
-      return code;
-    }
-    current = current.cause;
-  }
-  return null;
-}
-
-export function isUniqueViolation(error: unknown): boolean {
-  const code = findSqlStateCode(error);
-  return code === "23505" || code?.startsWith("SQLITE_CONSTRAINT") === true;
-}
-
-function isTransientTransactionFailure(error: unknown): boolean {
-  const code = findSqlStateCode(error);
-  return code === "40001" || code === "40P01";
 }

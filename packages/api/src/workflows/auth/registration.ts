@@ -6,12 +6,12 @@ import { users } from "@tearleads/api-shared/schema";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import {
-  OrganizationProvisioningError,
   type OrganizationProvisioningSigner,
   provisionOrganizationInTransaction,
   toOrganizationProvisioningError,
-  validateOrganizationProvisioningInput,
 } from "../organizations/provisionOrganization";
+import { OrganizationProvisioningError } from "../organizations/provisionOrganizationError";
+import { validateOrganizationProvisioningInput } from "../organizations/provisionOrganizationValidation";
 
 export { OrganizationProvisioningError as RegistrationError };
 

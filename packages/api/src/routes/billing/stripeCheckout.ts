@@ -18,6 +18,7 @@ import {
 } from "../../services/billing/stripeCheckout";
 import { getStripeCheckoutOptions } from "../../services/billing/stripeCheckoutOptions";
 import { pathParamsValidator } from "../../validators/pathParams";
+import type { SafeParseSchema } from "../../validators/schema";
 import {
   type OrganizationsRouterDeps,
   toOrganizationManagerErrorResponse,
@@ -63,16 +64,8 @@ function parseReturnUrl(
  * the hosted checkout session): parse the body, reject a missing/foreign URL
  * with 400, then run the org-admin-gated handler.
  */
-interface ReturnUrlRequestSchema<Output extends { returnUrl: string }> {
-  safeParse(
-    value: unknown,
-  ):
-    | { readonly data: Output; readonly success: true }
-    | { readonly success: false };
-}
-
 function returnUrlRequestValidator<Output extends { returnUrl: string }>(
-  schema: ReturnUrlRequestSchema<Output>,
+  schema: SafeParseSchema<Output>,
   allowedOrigins: ApiCorsOrigins,
 ): MiddlewareHandler<SessionEnv, string, { out: { json: Output } }> {
   return async (c, next) => {

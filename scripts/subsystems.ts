@@ -167,7 +167,6 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/middleware/session.ts`,
       `${api}/sessionRevocation.ts`,
       `${api}/validators/session.ts`,
-      `${api}/requestContext.ts`,
     ],
   },
   {
@@ -184,10 +183,12 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/appTestRuntime.ts`,
       `${api}/services/runtime.ts`,
       `${api}/routes/health.ts`,
+      `${api}/routes/errorResponse.ts`,
       `${api}/validators/headers.ts`,
       `${api}/validators/jsonRequest.ts`,
       `${api}/validators/pathParams.ts`,
       `${api}/validators/queryParams.ts`,
+      `${api}/validators/schema.ts`,
     ],
   },
   {
@@ -206,11 +207,13 @@ export const subsystems: readonly Subsystem[] = [
     name: "Shared Utilities",
     package: "api",
     responsibility:
-      "Package-neutral helpers reused across subsystems: array helpers, canonical JSON, SHA-256, SQL dialect, and UUID generation.",
+      "Package-neutral helpers reused across subsystems: array helpers, canonical JSON, SHA-256, SQL dialect, UUID generation, database error classification, and best-effort event publishing.",
     seam: "utils/* direct import",
     paths: [
       `${api}/utils/array.ts`,
       `${api}/utils/canonicalJson.ts`,
+      `${api}/utils/databaseErrors.ts`,
+      `${api}/utils/publishBestEffort.ts`,
       `${api}/utils/record.ts`,
       `${api}/utils/sha256.ts`,
       `${api}/utils/sqlDialect.ts`,

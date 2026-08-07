@@ -3,8 +3,8 @@ import {
   initializeApiDatabase,
 } from "@tearleads/api-shared/postgres";
 import { MAX_UPLOAD_PART_BYTES } from "./adapters/blobObjectStore";
+import type { RouteRequestBindings } from "./middleware/session";
 import { createRealtimeGateway } from "./realtimeGateway";
-import type { RouteRequestBindings } from "./requestContext";
 import { routeApp } from "./routeApp";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 import { consumeWebSocketTicket } from "./wsTicket";

@@ -10,6 +10,7 @@ import { listContainerParentLanes } from "../../services/containers/listContaine
 import { ListContainersError } from "../../services/containers/listContainers";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
+import { respondToStatusError } from "../errorResponse";
 
 interface ListContainerParentLanesRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -37,11 +38,7 @@ export function createListContainerParentLanesRoute({
           ),
         );
       } catch (error) {
-        if (error instanceof ListContainersError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, ListContainersError);
       }
     },
   );

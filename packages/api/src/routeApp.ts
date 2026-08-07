@@ -15,7 +15,7 @@ import { createContainersRouter } from "./routes/containers";
 import { createDocumentsRouter } from "./routes/documents";
 import { createHealthRoute } from "./routes/health";
 import { createOrganizationsRouter } from "./routes/organizations";
-import { createPrincipalsRouter } from "./routes/principals";
+import { createPrincipalPolicyRoute } from "./routes/principals/policy";
 import {
   publishOrganizationReadModelChanged,
   resolveCommittedOrganizationReadModelChanges,
@@ -183,7 +183,7 @@ export function createRouteApp(
   );
   routeApp.route(
     "/",
-    createPrincipalsRouter({
+    createPrincipalPolicyRoute({
       publish: resolvedPublish,
       requireAuth: resolvedRequireAuth,
       runtime: resolvedRuntime,

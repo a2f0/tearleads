@@ -1,16 +1,7 @@
 import { validator } from "hono/validator";
+import type { SafeParseSchema } from "./schema";
 
-interface JsonRequestSchema<Output> {
-  safeParse(
-    value: unknown,
-  ):
-    | { readonly data: Output; readonly success: true }
-    | { readonly success: false };
-}
-
-export function jsonRequestValidator<Output>(
-  schema: JsonRequestSchema<Output>,
-) {
+export function jsonRequestValidator<Output>(schema: SafeParseSchema<Output>) {
   return validator("json", (value, c) => {
     const result = schema.safeParse(value);
     if (!result.success) {

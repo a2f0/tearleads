@@ -34,14 +34,26 @@ test("runConflictBoundary recognizes the exact SQLite predecessor constraint", a
   );
 });
 
-test("runConflictBoundary does not classify arbitrary constraint-name text", async () => {
+test("runConflictBoundary propagates arbitrary constraint-name text unwrapped", async () => {
   const message =
     "request context mentioned container_key_epochs_predecessor_idx";
-  const rejection = runConflictBoundary(() =>
-    Promise.reject(new Error(message)),
-  );
+  const original = new Error(message);
+  const rejection = runConflictBoundary(() => Promise.reject(original));
+
+  // Not a database conflict: it must reach the 500 handler as-is, not become
+  // a retriable 409.
+  await expect(rejection).rejects.toBe(original);
+});
+
+test("runConflictBoundary maps coded unique violations to a 409", async () => {
+  const databaseError = Object.assign(new Error("duplicate key"), {
+    code: "23505",
+  });
+  const queryError = new Error("Failed query", { cause: databaseError });
+
+  const rejection = runConflictBoundary(() => Promise.reject(queryError));
 
   await expect(rejection).rejects.toEqual(
-    new ContainerMutationError(message, 409),
+    new ContainerMutationError("Failed query", 409),
   );
 });

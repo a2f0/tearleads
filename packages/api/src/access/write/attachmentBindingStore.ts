@@ -3,4 +3,4 @@ export {
   storeVerifiedAttachmentBindingInTransaction,
   storeVerifiedAttachmentDetach,
   storeVerifiedAttachmentDetachInTransaction,
-} from "./internal/attachmentBindingStore";
+} from "../shared/internal/attachmentBindingStore";

@@ -1,5 +1,12 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalPolicyStaleErrorResponse } from "@tearleads/validators/response";
+import { keyingVerificationHttpStatus } from "../../../keyingProjectionRecords";
+import {
+  errorCauseChain,
+  isLockContention,
+  isSerializationFailure,
+  isUniqueViolation,
+} from "../../../utils/databaseErrors";
 import type { ContainerMutationStatus } from "./types";
 
 type ContainerMutationErrorBody =
@@ -21,28 +28,6 @@ export function mutationShapeError(message: string): ContainerMutationError {
   return new ContainerMutationError(message, 400);
 }
 
-function mapVerificationStatus(
-  error: KeyingVerificationError,
-): ContainerMutationStatus {
-  if (
-    error.code === "signature_mismatch" ||
-    error.code === "signer_mismatch" ||
-    error.code === "unauthorized"
-  ) {
-    return 403;
-  }
-
-  if (error.code === "invalid_domain" || error.code === "invalid_shape") {
-    return 400;
-  }
-
-  if (error.code === "object_mismatch") {
-    return 400;
-  }
-
-  return 409;
-}
-
 export function toMutationError(error: unknown): ContainerMutationError | null {
   if (error instanceof ContainerMutationError) {
     return error;
@@ -51,7 +36,7 @@ export function toMutationError(error: unknown): ContainerMutationError | null {
   if (error instanceof KeyingVerificationError) {
     return new ContainerMutationError(
       error.message,
-      mapVerificationStatus(error),
+      keyingVerificationHttpStatus(error),
     );
   }
 
@@ -63,25 +48,19 @@ const SQLITE_PREDECESSOR_SUCCESSOR_CONSTRAINT =
   "UNIQUE constraint failed: container_key_epochs.predecessor_container_key_epoch_id";
 
 function hasPredecessorSuccessorConstraint(error: unknown): boolean {
-  let current = error;
-  for (let depth = 0; depth < 4 && current !== null; depth += 1) {
-    if (typeof current !== "object") {
-      return false;
-    }
-    if (
-      Reflect.get(current, "constraint") === PREDECESSOR_SUCCESSOR_CONSTRAINT
-    ) {
-      return true;
-    }
-    const message = Reflect.get(current, "message");
-    if (message === SQLITE_PREDECESSOR_SUCCESSOR_CONSTRAINT) {
-      return true;
-    }
-    current = Reflect.get(current, "cause");
-  }
-  return false;
+  return errorCauseChain(error).some(
+    (candidate) =>
+      Reflect.get(candidate, "constraint") ===
+        PREDECESSOR_SUCCESSOR_CONSTRAINT ||
+      candidate.message === SQLITE_PREDECESSOR_SUCCESSOR_CONSTRAINT,
+  );
 }
 
+/**
+ * Converts concurrent-write database failures (unique-constraint races,
+ * serialization failures, lock contention) into retriable 409s. Anything
+ * unclassified is a programming error and propagates to the 500 handler.
+ */
 export async function runConflictBoundary<T>(
   operation: () => Promise<T>,
 ): Promise<T> {
@@ -102,9 +81,17 @@ export async function runConflictBoundary<T>(
       );
     }
 
-    throw new ContainerMutationError(
-      error instanceof Error ? error.message : String(error),
-      409,
-    );
+    if (
+      isUniqueViolation(error) ||
+      isSerializationFailure(error) ||
+      isLockContention(error)
+    ) {
+      throw new ContainerMutationError(
+        error instanceof Error ? error.message : String(error),
+        409,
+      );
+    }
+
+    throw error;
   }
 }

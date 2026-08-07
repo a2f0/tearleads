@@ -12,6 +12,7 @@ import { ContainerWriterProjectionError } from "../../services/containers/writer
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
+import { respondToStatusError } from "../errorResponse";
 
 interface ContainerKekLogRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -46,11 +47,7 @@ export function createContainerKekLogRoute({
           }),
         );
       } catch (error) {
-        if (error instanceof ContainerWriterProjectionError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, ContainerWriterProjectionError);
       }
     },
   );

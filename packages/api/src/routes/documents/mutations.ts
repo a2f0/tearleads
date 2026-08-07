@@ -32,6 +32,7 @@ import {
   syncDocument,
 } from "../../services/documents/documentMutations";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { publishBestEffort } from "../../utils/publishBestEffort";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 
@@ -98,14 +99,11 @@ export async function publishDocumentMutationCreatedEvent(input: {
   readonly request: DocumentLinkSetMutationRequest;
   readonly response: DocumentLinkSetMutationResponse;
 }): Promise<void> {
-  try {
-    await input.publish(createDocumentMutationCreatedEvent(input));
-  } catch (error) {
-    // The link-set transaction already committed. Realtime is a lossy hint;
-    // HTTP reconciliation remains authoritative, so a broker outage must not
-    // turn a successful mutation into a misleading 500/retry.
-    console.error("Failed to publish document mutation event:", error);
-  }
+  await publishBestEffort(
+    input.publish,
+    createDocumentMutationCreatedEvent(input),
+    "document mutation event",
+  );
 }
 
 export function createDocumentUpdateCreatedEvent(input: {
@@ -130,11 +128,11 @@ export async function publishDocumentUpdateCreatedEvent(input: {
   readonly publish: DocumentMutationsRouteDeps["publish"];
   readonly updateIds: readonly string[];
 }): Promise<void> {
-  try {
-    await input.publish(createDocumentUpdateCreatedEvent(input));
-  } catch (error) {
-    console.error("Failed to publish document update event:", error);
-  }
+  await publishBestEffort(
+    input.publish,
+    createDocumentUpdateCreatedEvent(input),
+    "document update event",
+  );
 }
 
 export function createDocumentPurgeEvent(input: {
@@ -157,13 +155,11 @@ export async function publishDocumentPurgeEvent(input: {
   readonly origin: DocumentMutationOrigin;
   readonly publish: DocumentMutationsRouteDeps["publish"];
 }): Promise<void> {
-  try {
-    await input.publish(createDocumentPurgeEvent(input));
-  } catch (error) {
-    // The purge and its tombstone already committed. Realtime only wakes peers
-    // to consume that tombstone, so publication must not change the HTTP result.
-    console.error("Failed to publish document purge event:", error);
-  }
+  await publishBestEffort(
+    input.publish,
+    createDocumentPurgeEvent(input),
+    "document purge event",
+  );
 }
 
 function handleDocumentMutationError(error: unknown) {

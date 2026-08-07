@@ -4,7 +4,10 @@ import {
 } from "@tearleads/validators/operation";
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
-import { readRequestIpAddress } from "../../middleware/session";
+import {
+  readRequestIpAddress,
+  type SessionEnv,
+} from "../../middleware/session";
 import {
   isDuplicateRegistrationFingerprintError,
   RegistrationError,
@@ -12,9 +15,10 @@ import {
 } from "../../services/auth/registration";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
+import { respondToStatusError } from "../errorResponse";
 
 export function createRegisterRoute(runtime: ApiServiceRuntime) {
-  const registerRoute = new Hono();
+  const registerRoute = new Hono<SessionEnv>();
 
   registerRoute.on(
     registerOperation.method,
@@ -32,11 +36,7 @@ export function createRegisterRoute(runtime: ApiServiceRuntime) {
           return c.json({ error: "Key already exists, try logging in" }, 409);
         }
 
-        if (error instanceof RegistrationError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, RegistrationError);
       }
     },
   );

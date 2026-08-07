@@ -22,7 +22,7 @@ import {
 } from "../../../../keyingProjectionRecords";
 import { mutationShapeError } from "../errors";
 
-function isKekRecipientKind(
+export function isKekRecipientKind(
   value: unknown,
 ): value is ContainerKeyWrap["recipientKind"] {
   return (

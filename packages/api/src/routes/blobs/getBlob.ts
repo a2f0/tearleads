@@ -9,6 +9,7 @@ import type { SessionEnv } from "../../middleware/session";
 import { GetBlobError, getBlobBytes } from "../../services/blobs/getBlob";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { respondToStatusError } from "../errorResponse";
 
 interface GetBlobRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -50,11 +51,7 @@ export function createGetBlobRoute({ requireAuth, runtime }: GetBlobRouteDeps) {
           },
         });
       } catch (error) {
-        if (error instanceof GetBlobError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, GetBlobError);
       }
     },
   );

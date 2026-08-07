@@ -2,6 +2,7 @@ import type {
   AccessEvent,
   AccessManifest,
   KeyingCanonicalJson,
+  KeyingVerificationError,
   ManagedPrincipalKind,
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
@@ -12,6 +13,34 @@ import type { AccessEventBundleWireResponse } from "@tearleads/validators/util";
 import { isKeyingCanonicalJson } from "./utils/canonicalJson";
 
 type ProjectionErrorFactory = (message: string) => Error;
+
+/**
+ * Maps a KeyingVerificationError to the HTTP status shared by the container,
+ * document, and blob mutation boundaries: bad signatures and authorization
+ * failures are 403, malformed shapes 400, and everything else (stale state,
+ * epoch races) a retriable 409.
+ */
+export function keyingVerificationHttpStatus(
+  error: KeyingVerificationError,
+): 400 | 403 | 409 {
+  if (
+    error.code === "signature_mismatch" ||
+    error.code === "signer_mismatch" ||
+    error.code === "unauthorized"
+  ) {
+    return 403;
+  }
+
+  if (
+    error.code === "invalid_domain" ||
+    error.code === "invalid_shape" ||
+    error.code === "object_mismatch"
+  ) {
+    return 400;
+  }
+
+  return 409;
+}
 
 export function readProjectionPlainRecord(
   value: unknown,
@@ -120,7 +149,9 @@ export function readProjectionVersion(
   }
 }
 
-function isAccessEventType(value: unknown): value is AccessEvent["eventType"] {
+export function isAccessEventType(
+  value: unknown,
+): value is AccessEvent["eventType"] {
   return (
     value === "attachment.bind" ||
     value === "attachment.detach" ||

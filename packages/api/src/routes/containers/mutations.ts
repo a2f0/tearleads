@@ -22,6 +22,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
+import { isAccessEventType } from "../../keyingProjectionRecords";
 import type { SessionEnv } from "../../middleware/session";
 import {
   DeleteContainerError,
@@ -33,8 +34,10 @@ import {
   mutateContainer,
 } from "../../services/containers/mutations";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { publishBestEffort } from "../../utils/publishBestEffort";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { respondToStatusError } from "../errorResponse";
 
 interface ContainerMutationsRouteDeps {
   readonly publish: (event: Record<string, unknown>) => Promise<void>;
@@ -59,23 +62,6 @@ interface AddContainerMutationRouteInput extends ContainerMutationsRouteDeps {
   readonly route: Hono<SessionEnv>;
 }
 
-interface ContainerMutationBodyCandidate {
-  readonly eventType?: unknown;
-}
-
-function isContainerMutationBodyCandidate(
-  value: unknown,
-): value is ContainerMutationBodyCandidate {
-  return isPlainObject(value);
-}
-
-function readRecordValue(
-  record: Record<string, unknown>,
-  key: string,
-): unknown {
-  return record[key];
-}
-
 function readNullableString(value: unknown): string | null | undefined {
   if (value === null) {
     return null;
@@ -84,52 +70,26 @@ function readNullableString(value: unknown): string | null | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function isAccessEventType(value: unknown): value is AccessEventType {
-  return (
-    value === "attachment.bind" ||
-    value === "attachment.detach" ||
-    value === "container.create" ||
-    value === "container.grant" ||
-    value === "container.move" ||
-    value === "container.rekey" ||
-    value === "container.revoke" ||
-    value === "document.link" ||
-    value === "document.unlink"
-  );
-}
-
 function readContainerMutationBodyEventType(
   request: ContainerMutationRequest,
 ): AccessEventType | null {
-  if (!isContainerMutationBodyCandidate(request.body)) {
+  if (!isPlainObject(request.body)) {
     return null;
   }
 
-  const eventType = request.body.eventType;
+  const eventType = Reflect.get(request.body, "eventType");
   return isAccessEventType(eventType) ? eventType : null;
-}
-
-function readPreviousParentIdFromManifest(
-  previousManifest: unknown,
-): string | null | undefined {
-  if (!isPlainObject(previousManifest)) {
-    return undefined;
-  }
-
-  const previousState = readRecordValue(previousManifest, "state");
-  if (!isPlainObject(previousState)) {
-    return undefined;
-  }
-
-  return readNullableString(
-    readRecordValue(previousState, "parentContainerId"),
-  );
 }
 
 function readContainerMutationPreviousParentId(
   request: ContainerMutationRequest,
 ): string | null | undefined {
-  return readPreviousParentIdFromManifest(request.previousManifest);
+  const previousState = request.previousManifest?.state;
+  if (!previousState) {
+    return undefined;
+  }
+
+  return readNullableString(Reflect.get(previousState, "parentContainerId"));
 }
 
 // A grant to a single user names its recipient in the request body. That
@@ -144,30 +104,17 @@ function readGrantUserRecipientId(
   if (!isPlainObject(request.body)) {
     return null;
   }
-  const grant = readRecordValue(request.body, "grant");
+  const grant = Reflect.get(request.body, "grant");
   if (!isPlainObject(grant)) {
     return null;
   }
-  const subjectType = readRecordValue(grant, "subjectType");
-  const subjectId = readRecordValue(grant, "subjectId");
+  const subjectType = Reflect.get(grant, "subjectType");
+  const subjectId = Reflect.get(grant, "subjectId");
   return subjectType === "user" &&
     typeof subjectId === "string" &&
     subjectId.length > 0
     ? subjectId
     : null;
-}
-
-async function publishContainerMutationEventBestEffort(
-  publish: ContainerMutationsRouteDeps["publish"],
-  event: Record<string, unknown>,
-): Promise<void> {
-  try {
-    await publish(event);
-  } catch (error) {
-    // The mutation is already committed. Realtime is lossy, so a broker outage
-    // must not turn the write into a misleading retryable response.
-    console.error("Failed to publish container mutation notification:", error);
-  }
 }
 
 export async function publishContainerMutationCreated(input: {
@@ -182,32 +129,37 @@ export async function publishContainerMutationCreated(input: {
     readContainerMutationBodyEventType(input.request) ??
     input.expectedEventType;
 
-  await publishContainerMutationEventBestEffort(input.publish, {
-    type: "container_mutation_created",
-    containerId: input.response.containerId,
-    eventType,
-    // Tag the event with the authoring session so the ws router skips echoing it
-    // back over this exact socket, while still delivering to every OTHER session
-    // of the same identity (e.g. a recovered peer) so they re-list the affected
-    // parent lane and surface the new/moved container. This mirrors the document
-    // mutation path; the router strips `origin` before forwarding to clients.
-    // Excluding by identity signing fingerprint instead — as the client used to
-    // — wrongly suppressed a sibling peer's create, since both peers derive the
-    // same signing key from the shared seed phrase.
-    origin: input.origin,
-    parentId: input.response.parentId,
-    ...(previousParentId === undefined ? {} : { previousParentId }),
-    updatedAt: input.response.updatedAt,
-  });
+  await publishBestEffort(
+    input.publish,
+    {
+      type: "container_mutation_created",
+      containerId: input.response.containerId,
+      eventType,
+      // Tag the event with the authoring session so the ws router skips echoing it
+      // back over this exact socket, while still delivering to every OTHER session
+      // of the same identity (e.g. a recovered peer) so they re-list the affected
+      // parent lane and surface the new/moved container. This mirrors the document
+      // mutation path; the router strips `origin` before forwarding to clients.
+      // Excluding by identity signing fingerprint instead — as the client used to
+      // — wrongly suppressed a sibling peer's create, since both peers derive the
+      // same signing key from the shared seed phrase.
+      origin: input.origin,
+      parentId: input.response.parentId,
+      ...(previousParentId === undefined ? {} : { previousParentId }),
+      updatedAt: input.response.updatedAt,
+    },
+    "container mutation notification",
+  );
 
   // Everything but a plain create changes who can read the container or rotates
   // its key epoch, so tell sockets interested in it to resync their access (and
   // drop stale interest) before they receive further scoped events.
   if (eventType !== "container.create") {
-    await publishContainerMutationEventBestEffort(input.publish, {
-      type: "access_changed",
-      containerId: input.response.containerId,
-    });
+    await publishBestEffort(
+      input.publish,
+      { type: "access_changed", containerId: input.response.containerId },
+      "container mutation notification",
+    );
   }
 
   // access_changed only reaches sockets already interested in this container. A
@@ -218,10 +170,11 @@ export async function publishContainerMutationCreated(input: {
   if (eventType === "container.grant") {
     const recipientUserId = readGrantUserRecipientId(input.request);
     if (recipientUserId) {
-      await publishContainerMutationEventBestEffort(input.publish, {
-        type: "shared_with_you",
-        userId: recipientUserId,
-      });
+      await publishBestEffort(
+        input.publish,
+        { type: "shared_with_you", userId: recipientUserId },
+        "container mutation notification",
+      );
     }
   }
 }
@@ -402,11 +355,7 @@ export function createContainerMutationsRoute({
         }
         return c.json<ContainerDeleteResponse>(response);
       } catch (error) {
-        if (error instanceof DeleteContainerError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, DeleteContainerError);
       }
     },
   );

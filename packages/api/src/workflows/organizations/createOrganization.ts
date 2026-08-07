@@ -4,14 +4,14 @@ import { base64ToBytes } from "@tearleads/encoding";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import {
-  OrganizationProvisioningError,
   type OrganizationProvisioningSigner,
   type ProvisionedOrganization,
   type ProvisionOrganizationOptions,
   provisionOrganizationInTransaction,
   toOrganizationProvisioningError,
-  validateOrganizationProvisioningInput,
 } from "./provisionOrganization";
+import { OrganizationProvisioningError } from "./provisionOrganizationError";
+import { validateOrganizationProvisioningInput } from "./provisionOrganizationValidation";
 
 /**
  * Server-side label for an organization created after registration. The real

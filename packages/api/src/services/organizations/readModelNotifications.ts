@@ -1,3 +1,4 @@
+import { publishBestEffort } from "../../utils/publishBestEffort";
 import {
   type CommittedOrganizationReadModelChange,
   listCommittedOrganizationReadModelChanges,
@@ -44,12 +45,9 @@ export async function publishOrganizationReadModelChanged(input: {
   readonly publish: ApiServiceRuntime["eventPublisher"]["publish"];
   readonly recipientUserIds: readonly string[];
 }): Promise<void> {
-  try {
-    await input.publish(createOrganizationReadModelChangedEvent(input));
-  } catch (error) {
-    console.error(
-      "Failed to publish organization read-model notification:",
-      error,
-    );
-  }
+  await publishBestEffort(
+    input.publish,
+    createOrganizationReadModelChangedEvent(input),
+    "organization read-model notification",
+  );
 }

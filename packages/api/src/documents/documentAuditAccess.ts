@@ -29,7 +29,7 @@ export async function documentAuditAccessFromManifest(
   return {
     accessEpoch: manifest.state.epoch,
     accessManifestHash: manifest.manifestHash,
-    accessStateHash: await sha256Hex(
+    accessStateHash: sha256Hex(
       serializeKeyingCanonicalJson(
         documentLinkSetStateAuditRecord(manifest.state),
       ),

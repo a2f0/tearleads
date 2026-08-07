@@ -18,6 +18,7 @@ import {
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { respondToStatusError } from "../errorResponse";
 
 interface BlobMutationsRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -54,11 +55,7 @@ export function createBlobMutationsRoute({
           }),
         );
       } catch (error) {
-        if (error instanceof BlobMutationError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, BlobMutationError);
       }
     },
   );
@@ -88,11 +85,7 @@ export function createBlobMutationsRoute({
           }),
         );
       } catch (error) {
-        if (error instanceof BlobMutationError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, BlobMutationError);
       }
     },
   );

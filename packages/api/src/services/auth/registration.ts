@@ -12,7 +12,7 @@ import {
   RegistrationError,
   runRegistrationWorkflow,
 } from "../../workflows/auth/registration";
-import { toOrganizationProvisioningResponse } from "../../workflows/organizations/provisionOrganization";
+import { toOrganizationProvisioningResponse } from "../../workflows/organizations/provisionOrganizationResponse";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { isDuplicateRegistrationFingerprintError, RegistrationError };
