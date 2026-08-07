@@ -4,7 +4,10 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import { principalMemberEnvelopes, users } from "@tearleads/api-shared/schema";
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
-import { computePrincipalMemberEnvelopesRoot } from "@tearleads/crypto";
+import {
+  computePrincipalMemberEnvelopesRoot,
+  throwPrincipalPolicyValidationError,
+} from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
@@ -85,7 +88,8 @@ async function loadCurrentPrincipalMemberRecipientsForState(
   );
 
   if (!currentState) {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "missing_state",
       `Missing current principal state for ${principalType}:${principalId}`,
     );
   }
@@ -106,7 +110,8 @@ async function loadCurrentPrincipalMemberRecipientsForState(
   for (const member of currentProjection) {
     const recipient = userRecipientsById.get(member.userId);
     if (!recipient) {
-      throw new Error(
+      throwPrincipalPolicyValidationError(
+        "state_conflict",
         `Missing user recipient key for principal state member ${member.userId}`,
       );
     }
@@ -200,7 +205,8 @@ function buildPrincipalMemberEnvelopeRows(input: {
     input.recipients.map((recipient) => [recipient.userId, recipient]),
   );
   if (input.envelopes.length !== expectedRecipients.size) {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "state_conflict",
       "Principal member envelopes must match the current direct member set",
     );
   }
@@ -209,14 +215,16 @@ function buildPrincipalMemberEnvelopeRows(input: {
     const recipientKey = envelope.userId;
     const expectedRecipient = expectedRecipients.get(recipientKey);
     if (!expectedRecipient) {
-      throw new Error(
+      throwPrincipalPolicyValidationError(
+        "state_conflict",
         `Principal member envelope targets unknown member ${recipientKey}`,
       );
     }
     if (
       expectedRecipient.memberKeyFingerprint !== envelope.memberKeyFingerprint
     ) {
-      throw new Error(
+      throwPrincipalPolicyValidationError(
+        "state_conflict",
         `Principal member envelope fingerprint mismatch for ${recipientKey}`,
       );
     }
@@ -224,7 +232,8 @@ function buildPrincipalMemberEnvelopeRows(input: {
       envelope.kemCipherText.length === 0 ||
       envelope.wrappedKey.length === 0
     ) {
-      throw new Error(
+      throwPrincipalPolicyValidationError(
+        "invalid_artifact",
         `Principal member envelope is missing wrapped material for ${recipientKey}`,
       );
     }
@@ -239,7 +248,8 @@ function buildPrincipalMemberEnvelopeRows(input: {
   });
 
   if (expectedRecipients.size > 0) {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "state_conflict",
       "Principal member envelopes must cover the current direct member set",
     );
   }
@@ -279,7 +289,10 @@ async function insertAndVerifyPrincipalMemberEnvelopeRows(input: {
     (await computePrincipalMemberEnvelopesRoot(persisted)) !==
       input.submittedRoot
   ) {
-    throw new Error("Principal member envelope conflict");
+    throwPrincipalPolicyValidationError(
+      "state_conflict",
+      "Principal member envelope conflict",
+    );
   }
   return persisted;
 }
@@ -294,20 +307,25 @@ export async function replaceCurrentPrincipalMemberEnvelopesInTransaction(
     executor,
   );
   if (!currentState) {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "missing_state",
       `Missing current principal state for ${input.principalType}:${input.principalId}`,
     );
   }
 
   if (currentState.stateHash !== input.stateHash) {
-    throw new Error("Principal member envelopes must target the current state");
+    throwPrincipalPolicyValidationError(
+      "state_conflict",
+      "Principal member envelopes must target the current state",
+    );
   }
 
   const submittedRoot = await computePrincipalMemberEnvelopesRoot(
     input.envelopes,
   );
   if (submittedRoot !== currentState.memberEnvelopesRoot) {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
       "Principal member envelopes do not match the signed state root",
     );
   }
@@ -320,7 +338,10 @@ export async function replaceCurrentPrincipalMemberEnvelopesInTransaction(
   );
   if (stored.length > 0) {
     if ((await computePrincipalMemberEnvelopesRoot(stored)) !== submittedRoot) {
-      throw new Error("Principal member envelope conflict");
+      throwPrincipalPolicyValidationError(
+        "state_conflict",
+        "Principal member envelope conflict",
+      );
     }
     return stored;
   }

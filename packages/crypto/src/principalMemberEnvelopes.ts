@@ -4,12 +4,18 @@ import {
   ML_KEM1024_SECRET_KEY_BYTES,
 } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
+import { PrincipalPolicyValidationError } from "./principalPolicyValidationError";
 import type { PrincipalStateMemberEnvelope } from "./principalStateTypes";
 import { AES_GCM_TAG_BYTES } from "./symmetric";
 
 const TEXT_ENCODER = new TextEncoder();
 
-export class PrincipalMemberEnvelopeValidationError extends Error {}
+export class PrincipalMemberEnvelopeValidationError extends PrincipalPolicyValidationError {
+  constructor(message: string) {
+    super("invalid_artifact", message);
+    this.name = "PrincipalMemberEnvelopeValidationError";
+  }
+}
 
 function invalidEnvelope(message: string): never {
   throw new PrincipalMemberEnvelopeValidationError(message);

@@ -102,6 +102,8 @@ export type {
   PrincipalPolicySignedState,
   PrincipalPolicySignerPublicKey,
   PrincipalPolicyStateChainEntry,
+  PrincipalPolicyTransitionMismatch,
+  PrincipalPolicyTransitionMismatchCode,
   PrincipalPolicyTransparencyLeaf,
   ReferencedPrincipalHead,
   SignedTransparencyTreeHead,
@@ -194,6 +196,7 @@ export {
   derivePrincipalRecipientKeyEpochId,
   documentContentRecordMetadata,
   expectedSealedContainerKekKeyringBytes,
+  getPrincipalPolicyTransitionMismatch,
   getPrincipalPolicyTransitionMismatchReason,
   identityStateTransparencyLeaf,
   isContainerKekMaterialId,
@@ -242,6 +245,11 @@ export {
   normalizePrincipalStateMemberEnvelopes,
   PrincipalMemberEnvelopeValidationError,
 } from "./principalMemberEnvelopes";
+export type { PrincipalPolicyValidationErrorCode } from "./principalPolicyValidationError";
+export {
+  PrincipalPolicyValidationError,
+  throwPrincipalPolicyValidationError,
+} from "./principalPolicyValidationError";
 export type {
   ManagedRecipientPrincipalType,
   PrincipalProjectionMember,

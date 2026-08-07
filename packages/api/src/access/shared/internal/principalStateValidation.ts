@@ -3,9 +3,10 @@ import {
   computePrincipalMembershipRoot,
   computePrincipalProjectionRoot,
   computePrincipalStatePayloadCiphertextHash,
-  getPrincipalPolicyTransitionMismatchReason,
+  getPrincipalPolicyTransitionMismatch,
   type PrincipalProjectionMember,
   type SignedPrincipalState,
+  throwPrincipalPolicyValidationError,
 } from "@tearleads/crypto";
 import type {
   PrincipalStateBundleInput,
@@ -32,7 +33,7 @@ export function validatePrincipalPolicyTransition(input: {
     return;
   }
 
-  const mismatchReason = getPrincipalPolicyTransitionMismatchReason({
+  const mismatch = getPrincipalPolicyTransitionMismatch({
     current: {
       state: input.currentState,
       projection: input.currentProjection,
@@ -43,8 +44,8 @@ export function validatePrincipalPolicyTransition(input: {
     },
   });
 
-  if (mismatchReason) {
-    throw new Error(mismatchReason);
+  if (mismatch) {
+    throwPrincipalPolicyValidationError("state_conflict", mismatch.message);
   }
 }
 
@@ -65,15 +66,22 @@ export async function validatePrincipalStateArtifacts(
     computePrincipalMemberEnvelopesRoot(input.memberEnvelopes),
   ]);
   if (computedProjectionRoot !== input.state.projectionRoot) {
-    throw new Error("Principal state projectionRoot does not match projection");
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
+      "Principal state projectionRoot does not match projection",
+    );
   }
 
   if (computedMembershipRoot !== input.state.membershipRoot) {
-    throw new Error("Principal state membershipRoot does not match projection");
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
+      "Principal state membershipRoot does not match projection",
+    );
   }
 
   if (computedEnvelopesRoot !== input.state.memberEnvelopesRoot) {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
       "Principal state memberEnvelopesRoot does not match member envelopes",
     );
   }
@@ -83,18 +91,23 @@ export async function validatePrincipalStateArtifacts(
       input.encryptedPayload.ciphertext,
     );
   if (computedPayloadCiphertextHash !== input.encryptedPayload.ciphertextHash) {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
       "Principal state payload ciphertext hash does not match ciphertext",
     );
   }
 
   if (computedPayloadCiphertextHash !== input.state.payloadCiphertextHash) {
-    throw new Error(
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
       "Principal state payloadCiphertextHash does not match encrypted payload",
     );
   }
 
   if (input.projection.length !== input.state.memberCount) {
-    throw new Error("Principal state memberCount does not match projection");
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
+      "Principal state memberCount does not match projection",
+    );
   }
 }

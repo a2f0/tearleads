@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "../encapsulation/generateKeyPair";
 import type { PrincipalProjectionMember } from "../principalState";
-import { verifyPrincipalPolicyBundle } from "./index";
+import {
+  getPrincipalPolicyTransitionMismatch,
+  verifyPrincipalPolicyBundle,
+} from "./index";
 import {
   createBundle,
   createPolicySigner,
@@ -168,6 +171,16 @@ test("verifyPrincipalPolicyBundle rejects role demotion and same-epoch key chang
     signerPublicKeys: [signer],
   });
   expectVerificationError(demotionResult, "key_epoch_reuse");
+  expect(
+    getPrincipalPolicyTransitionMismatch({
+      current: demoted.entry,
+      previous: first.entry,
+    }),
+  ).toEqual({
+    code: "shrink_without_key_rotation",
+    message:
+      "Principal policy shrink requires a new key epoch and key material",
+  });
 
   const sameEpochKeyChange = await signPolicyState({
     principalId,

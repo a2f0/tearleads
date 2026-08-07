@@ -7,15 +7,14 @@ import {
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
-  users,
 } from "@tearleads/api-shared/schema";
 import {
   computePrincipalStateHash,
   type ManagedRecipientPrincipalType,
+  throwPrincipalPolicyValidationError as rejectPrincipalPolicy,
   type SignedPrincipalState,
   verifySignedPrincipalState,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { firstPerKey, uniqueSortedStrings } from "../../../utils/array";
 import {
@@ -38,6 +37,7 @@ import {
   toStoredPrincipalState,
   toStoredProjectionMember,
 } from "./principalStateRecords";
+import { loadPrincipalStateSigner } from "./principalStateSigner";
 import {
   projectionIncludesAdminUser,
   validatePrincipalPolicyTransition,
@@ -258,34 +258,6 @@ export async function listPrincipalProjectionMembersForStates(
   return projectionByState;
 }
 
-async function loadPrincipalStateSigner(
-  state: SignedPrincipalState,
-  executor: DatabaseSession,
-): Promise<{ signingPublicKey: Uint8Array; userId: string }> {
-  const [signer] = await executor
-    .select({
-      id: users.id,
-      fingerprint: users.fingerprint,
-      signingPublicKey: users.signingPublicKey,
-    })
-    .from(users)
-    .where(eq(users.id, state.signerUserId))
-    .limit(1);
-
-  if (!signer) {
-    throw new Error("Principal state signer user not found");
-  }
-
-  if (signer.fingerprint !== state.signerUserKeyFingerprint) {
-    throw new Error("Principal state signer fingerprint mismatch");
-  }
-
-  return {
-    signingPublicKey: base64ToBytes(signer.signingPublicKey),
-    userId: signer.id,
-  };
-}
-
 async function validatePrincipalStateChain(
   state: SignedPrincipalState,
   stateHash: string,
@@ -299,14 +271,20 @@ async function validatePrincipalStateChain(
 
   if (!currentState) {
     if (state.prevStateHash !== null || state.version !== 1) {
-      throw new Error("Principal state previous hash mismatch");
+      rejectPrincipalPolicy(
+        "state_conflict",
+        "Principal state previous hash mismatch",
+      );
     }
     return null;
   }
 
   if (state.version === currentState.version) {
     if (stateHash !== currentState.stateHash) {
-      throw new Error("Principal state version conflict");
+      rejectPrincipalPolicy(
+        "state_conflict",
+        "Principal state version conflict",
+      );
     }
     return currentState;
   }
@@ -315,7 +293,10 @@ async function validatePrincipalStateChain(
     state.version !== currentState.version + 1 ||
     state.prevStateHash !== currentState.stateHash
   ) {
-    throw new Error("Principal state previous hash mismatch");
+    rejectPrincipalPolicy(
+      "state_conflict",
+      "Principal state previous hash mismatch",
+    );
   }
 
   return currentState;
@@ -336,7 +317,8 @@ async function validatePrincipalStateSignerAuthorization(input: {
       )
     ) {
       if (input.normalizedInput.state.externalAuthority !== null) {
-        throw new Error(
+        rejectPrincipalPolicy(
+          "unauthorized_signer",
           "Directly authorized principal state cannot cite external authority",
         );
       }
@@ -358,7 +340,10 @@ async function validatePrincipalStateSignerAuthorization(input: {
     }
 
     if (!isExternalAdmin) {
-      throw new Error("Principal state signer must be an admin");
+      rejectPrincipalPolicy(
+        "unauthorized_signer",
+        "Principal state signer must be an admin",
+      );
     }
 
     return null;
@@ -377,7 +362,8 @@ async function validatePrincipalStateSignerAuthorization(input: {
   );
   let isExternalAdmin = false;
   if (isDirectAdmin && input.normalizedInput.state.externalAuthority !== null) {
-    throw new Error(
+    rejectPrincipalPolicy(
+      "unauthorized_signer",
       "Directly authorized principal state cannot cite external authority",
     );
   }
@@ -395,7 +381,10 @@ async function validatePrincipalStateSignerAuthorization(input: {
   }
 
   if (!isDirectAdmin && !isExternalAdmin) {
-    throw new Error("Principal state signer must be an admin");
+    rejectPrincipalPolicy(
+      "unauthorized_signer",
+      "Principal state signer must be an admin",
+    );
   }
 
   return previousProjection;
@@ -459,7 +448,7 @@ async function ensureStoredPrincipalStateMatches(
   }
 
   if (storedState.stateHash !== input.stateHash) {
-    throw new Error("Principal state version conflict");
+    rejectPrincipalPolicy("state_conflict", "Principal state version conflict");
   }
 
   return storedState;
@@ -507,7 +496,7 @@ async function ensureStoredPrincipalPayloadMatches(
     storedPayload.ciphertextHash !==
       input.normalizedInput.encryptedPayload.ciphertextHash
   ) {
-    throw new Error("Principal state payload conflict");
+    rejectPrincipalPolicy("state_conflict", "Principal state payload conflict");
   }
 }
 
@@ -550,7 +539,10 @@ async function ensureStoredPrincipalProjectionMatches(
   );
 
   if (storedProjection.length !== input.normalizedInput.projection.length) {
-    throw new Error("Principal state projection conflict");
+    rejectPrincipalPolicy(
+      "state_conflict",
+      "Principal state projection conflict",
+    );
   }
 
   const storedProjectionKeys = new Set(
@@ -558,7 +550,10 @@ async function ensureStoredPrincipalProjectionMatches(
   );
   for (const member of input.normalizedInput.projection) {
     if (!storedProjectionKeys.has(projectionMemberKey(member))) {
-      throw new Error("Principal state projection conflict");
+      rejectPrincipalPolicy(
+        "state_conflict",
+        "Principal state projection conflict",
+      );
     }
   }
 }
@@ -605,7 +600,7 @@ async function ensureStoredPrincipalEpochKeyMatches(
       input.normalizedInput.state.encapsulationPublicKey ||
     storedEpochKey.keyFingerprint !== input.normalizedInput.state.keyFingerprint
   ) {
-    throw new Error("Principal epoch key conflict");
+    rejectPrincipalPolicy("state_conflict", "Principal epoch key conflict");
   }
 }
 
@@ -626,7 +621,10 @@ export async function storeVerifiedPrincipalStateInTransaction(
       signer.signingPublicKey,
     ))
   ) {
-    throw new Error("Invalid principal state signature");
+    rejectPrincipalPolicy(
+      "unauthorized_signer",
+      "Invalid principal state signature",
+    );
   }
 
   await validatePrincipalStateArtifacts(normalizedInput);
