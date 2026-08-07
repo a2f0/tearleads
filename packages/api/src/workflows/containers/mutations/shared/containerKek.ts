@@ -24,7 +24,9 @@ import { inArray } from "drizzle-orm";
 import {
   getContainerKeyEpochKeyring,
   getCurrentContainerKeyEpoch,
+  toContainerKeyEpoch,
 } from "../../../../access/read/containerKekStore";
+import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
 import { ContainerMutationError } from "../errors";
 import {
   readContainerKekKeyring,
@@ -34,7 +36,6 @@ import {
   readVerifiedContainerKekState,
   userRecipientKeysFromRequest,
 } from "./containerKekRecords";
-import { canonicalJsonEquals, toContainerKeyEpoch } from "./util";
 
 interface VerifyContainerKekFromRequestArtifacts {
   readonly containerManifestHistory?:

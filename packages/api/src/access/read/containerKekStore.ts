@@ -10,3 +10,7 @@ export {
   listContainerKeyEpochPage,
   listContainerKeyWrapsByEpochId,
 } from "../shared/internal/containerKekStoreQueries";
+export {
+  toContainerKeyEpoch,
+  toContainerKeyWrap,
+} from "../shared/internal/containerKekStoreRecords";

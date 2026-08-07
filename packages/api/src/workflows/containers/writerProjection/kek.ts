@@ -12,15 +12,13 @@ import { inArray } from "drizzle-orm";
 import {
   getContainerKeyEpochById,
   listContainerKeyWraps,
+  toContainerKeyEpoch,
+  toContainerKeyWrap,
 } from "../../../access/read/containerKekStore";
 import { loadContainerManifestBundleByHash } from "./accessPaths";
 import { cachedProjectionValue } from "./context";
 import { principalPolicyCacheKey } from "./principalPolicies";
-import {
-  stripContainerKeyEpoch,
-  stripContainerKeyWrap,
-  toVerifiedContainerManifest,
-} from "./records";
+import { toVerifiedContainerManifest } from "./records";
 import {
   type ContainerKekManifestHistory,
   type ContainerKekProjection,
@@ -58,7 +56,7 @@ function containerKekStateCacheKey(input: {
 export async function loadContainerKekManifestHistory(input: {
   readonly context: ContainerWriterProjectionContext;
   readonly currentManifest: VerifiedContainerAccessManifest;
-  readonly keyEpoch: ReturnType<typeof stripContainerKeyEpoch>;
+  readonly keyEpoch: ReturnType<typeof toContainerKeyEpoch>;
   readonly wraps: readonly ContainerKeyWrap[];
   // Limit traversal to the mutated container's own manifest lineage (skip the
   // walk up to parent containers). Used by the mutation response, where the
@@ -257,10 +255,10 @@ async function loadUncachedContainerKekState(
     );
   }
 
-  const keyEpoch = stripContainerKeyEpoch(storedKeyEpoch);
+  const keyEpoch = toContainerKeyEpoch(storedKeyEpoch);
   const wraps = (
     await listContainerKeyWraps(containerKeyEpochId, context.executor)
-  ).map(stripContainerKeyWrap);
+  ).map(toContainerKeyWrap);
   const containerManifestHistory = await loadContainerKekManifestHistory({
     context,
     currentManifest: manifest,

@@ -15,7 +15,9 @@ import { eq, sql } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../../../access/write/containerKekStore";
 import {
+  containerAccessManifestStateRecord as accessStateRecord,
   projectionAccessManifestRecord,
+  projectionReferencedPrincipalHeadRecord,
   projectionVerifiedAccessEventRecord,
 } from "../../../../keyingProjectionRecords";
 import {
@@ -39,10 +41,6 @@ import type {
   StoredContainerRow,
   VerifiedContainerAccessState,
 } from "../types";
-import {
-  containerAccessStateRecord,
-  referencedPrincipalHeadRecord,
-} from "./accessManifestRecords";
 import type { VerifiedContainerKekMutationState } from "./containerKek";
 import {
   containerKekRecipientTargetRecord,
@@ -502,7 +500,7 @@ async function persistMoveAccessLossTombstones(input: {
     });
 }
 
-function containerKekResponseRecord(
+function kekResponseRecord(
   storedKekState: Awaited<
     ReturnType<typeof storeVerifiedContainerKekStateInTransaction>
   >,
@@ -641,15 +639,15 @@ export async function persistVerifiedMutation(
       event: projectionVerifiedAccessEventRecord(manifest.event),
       manifest: projectionAccessManifestRecord(manifest.manifest),
       manifestHash: manifest.manifestHash,
-      state: containerAccessStateRecord(manifest.state),
+      state: accessStateRecord(manifest.state),
     },
-    containerKek: containerKekResponseRecord(
+    containerKek: kekResponseRecord(
       storedKekState,
       containerManifestHistory,
       keyring,
     ),
     referencedPrincipalHeads: manifest.manifest.referencedPrincipalHeads.map(
-      referencedPrincipalHeadRecord,
+      projectionReferencedPrincipalHeadRecord,
     ),
   };
 }

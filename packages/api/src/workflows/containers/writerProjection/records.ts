@@ -1,14 +1,11 @@
 import type {
   AccessManifest,
-  AccessManifestCheckpoint,
   ContainerAccessLevel,
   ContainerAccessManifestState,
   ContainerDirectGrant,
   ContainerGrantSubjectType,
   ContainerKekKeyring,
   ContainerKekRecipientTarget,
-  ContainerKeyEpoch,
-  ContainerKeyWrap,
   KeyingCanonicalJson,
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
@@ -20,18 +17,13 @@ import type {
   ContainerKekResponse,
 } from "@tearleads/validators/response";
 import {
-  projectionAccessManifestRecord,
-  projectionVerifiedAccessEventRecord,
-  readProjectionAccessManifest,
-  readProjectionNullableString,
-  readProjectionPlainRecord,
-  readProjectionPositiveInteger,
-  readProjectionRecord,
-  readProjectionReferencedPrincipalHeads,
-  readProjectionString,
-  readProjectionValue,
-  readProjectionVerifiedAccessEvent,
-  readProjectionVersion,
+  toContainerKeyEpoch,
+  toContainerKeyWrap,
+} from "../../../access/read/containerKekStore";
+import {
+  accessManifestCheckpoint,
+  containerAccessManifestStateRecord,
+  createProjectionReaders,
 } from "../../../keyingProjectionRecords";
 import type { ContainerKekProjection } from "./types";
 import { ContainerWriterProjectionError } from "./types";
@@ -40,57 +32,20 @@ function projectionError(message: string): ContainerWriterProjectionError {
   return new ContainerWriterProjectionError(message, 409);
 }
 
-function readPlainRecord(value: unknown, label: string) {
-  return readProjectionPlainRecord(value, label, projectionError);
-}
-
-function readCanonicalRecord(value: KeyingCanonicalJson, label: string) {
-  return readProjectionRecord(value, label, projectionError);
-}
-
-function readString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-) {
-  return readProjectionString(record, key, label, projectionError);
-}
-
-function readNullableString(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-) {
-  return readProjectionNullableString(record, key, label, projectionError);
-}
-
-function readPositiveInteger(
-  record: Record<string, unknown>,
-  key: string,
-  label: string,
-) {
-  return readProjectionPositiveInteger(record, key, label, projectionError);
-}
-
-function readVersion(record: Record<string, unknown>, label: string) {
-  return readProjectionVersion(record, label, projectionError);
-}
-
-const readValue = readProjectionValue;
-const accessManifestRecord = projectionAccessManifestRecord;
-const verifiedAccessEventRecord = projectionVerifiedAccessEventRecord;
-
-function readAccessManifest(value: unknown, label: string) {
-  return readProjectionAccessManifest(value, label, projectionError);
-}
-
-function readVerifiedAccessEvent(value: unknown, label: string) {
-  return readProjectionVerifiedAccessEvent(value, label, projectionError);
-}
-
-function readReferencedPrincipalHeads(value: unknown, label: string) {
-  return readProjectionReferencedPrincipalHeads(value, label, projectionError);
-}
+const {
+  accessManifestRecord,
+  readAccessManifest,
+  readCanonicalRecord,
+  readNullableString,
+  readPlainRecord,
+  readPositiveInteger,
+  readReferencedPrincipalHeads,
+  readString,
+  readValue,
+  readVerifiedAccessEvent,
+  readVersion,
+  verifiedAccessEventRecord,
+} = createProjectionReaders(projectionError);
 
 function isContainerAccessLevel(value: unknown): value is ContainerAccessLevel {
   return value === "admin" || value === "read" || value === "write";
@@ -232,19 +187,6 @@ export function toManifestBundleResponse(input: {
   };
 }
 
-function accessManifestCheckpoint(input: {
-  readonly manifest: AccessManifest;
-  readonly manifestHash: string;
-}): AccessManifestCheckpoint {
-  return {
-    objectKind: input.manifest.objectKind,
-    objectId: input.manifest.objectId,
-    organizationId: input.manifest.organizationId,
-    epoch: input.manifest.epoch,
-    manifestHash: input.manifestHash,
-  };
-}
-
 export function toVerifiedContainerManifest(
   bundle: AccessManifestBundleWireResponse,
 ): VerifiedContainerAccessManifest {
@@ -272,7 +214,7 @@ function readContainerAccessState(
   const state = readContainerAccessStateFields(record);
   assertContainerManifestMatchesState(manifest, state);
 
-  return {
+  return containerAccessManifestStateRecord({
     version: 1,
     containerId: state.containerId,
     organizationId: state.organizationId,
@@ -285,36 +227,7 @@ function readContainerAccessState(
     containerKeyEpochId: state.containerKeyEpochId,
     directGrants: state.directGrants,
     referencedPrincipalHeads: state.referencedPrincipalHeads,
-  };
-}
-
-export function stripContainerKeyEpoch(
-  keyEpoch: ContainerKeyEpoch,
-): ContainerKeyEpoch {
-  return {
-    id: keyEpoch.id,
-    containerId: keyEpoch.containerId,
-    keyEpoch: keyEpoch.keyEpoch,
-    accessManifestHash: keyEpoch.accessManifestHash,
-    parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-    createdByEventHash: keyEpoch.createdByEventHash,
-    createdByManifestHash: keyEpoch.createdByManifestHash,
-  };
-}
-
-export function stripContainerKeyWrap(
-  wrap: ContainerKeyWrap,
-): ContainerKeyWrap {
-  return {
-    containerKeyEpochId: wrap.containerKeyEpochId,
-    recipientKind: wrap.recipientKind,
-    recipientId: wrap.recipientId,
-    recipientKeyEpochId: wrap.recipientKeyEpochId,
-    recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-    kemCipherText: wrap.kemCipherText,
-    wrappedKey: wrap.wrappedKey,
-    wrapManifestHash: wrap.wrapManifestHash,
-  };
+  });
 }
 
 function containerKekRecipientTargetRecord(
@@ -339,7 +252,7 @@ export function containerKekResponse(
     containerKeyEpochId: kekState.containerKeyEpochId,
     containerKeyEpoch: kekState.containerKeyEpoch,
     keyring: keyring ? { ...keyring } : null,
-    keyEpoch: { ...stripContainerKeyEpoch(kekState.keyEpoch) },
+    keyEpoch: { ...toContainerKeyEpoch(kekState.keyEpoch) },
     keyEpochHash: kekState.keyEpochHash,
     keyTargetHash: kekState.keyTargetHash,
     parentContainerKeyEpochId: kekState.parentContainerKeyEpochId,
@@ -347,6 +260,6 @@ export function containerKekResponse(
     recipientTargets: kekState.recipientTargets.map(
       containerKekRecipientTargetRecord,
     ),
-    wraps: kekState.wraps.map((wrap) => ({ ...stripContainerKeyWrap(wrap) })),
+    wraps: kekState.wraps.map((wrap) => ({ ...toContainerKeyWrap(wrap) })),
   };
 }

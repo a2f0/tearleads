@@ -14,10 +14,10 @@ import type {
 } from "@tearleads/validators/request";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
 import { readProjectionAccessManifest } from "../../../../keyingProjectionRecords";
+import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
 import { ContainerMutationError, mutationShapeError } from "../errors";
 import type { ContainerMutationContext } from "../types";
 import { readVerifiedContainerManifest } from "./accessManifestRecords";
-import { canonicalJsonEquals } from "./util";
 
 interface VerifyContainerManifestFromRequestArtifacts {
   readonly destinationParentContainerPath?:
