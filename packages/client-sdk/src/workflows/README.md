@@ -38,12 +38,12 @@ Custom hosts that construct a container-contents store directly must pair
 recovery capability compile-time required; general query workflows can continue
 to use `createContainerContentsWorkflowRuntime(...)`.
 
-The device-first read/reconcile seam lives outside the workflow facades, in
-`src/stores/local-projection` (the synchronously-readable `LocalProjectionStore`)
-and `src/sync/reconciliation` (the background `ReconciliationService` that owns
-remote document discovery over the sync coordinator). Product UIs consume both
-through the `tearleads.deviceFirst` SDK facade rather than these modules
-directly. See `docs/developer/device-first-reconciliation.md`.
+The device-first read/write/reconcile seam lives outside the workflow facades.
+`tearleads.deviceFirst.open()` binds the locally durable per-scope container
+mutation store to `src/stores/local-projection` (synchronous reads) and
+`src/sync/reconciliation` (background remote discovery). Product UIs consume
+that unified handle rather than owning those modules or reopening the tree
+store independently. See `docs/developer/device-first.md`.
 
 The `blobs` facade also exports encrypted local blob store helpers, including
 `createLazyEncryptedBlobStore` for hosts that load encryption keys from an async

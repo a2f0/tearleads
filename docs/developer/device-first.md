@@ -1,23 +1,23 @@
-# Device-First Reads & Background Reconciliation
+# Device-First Reads, Writes & Background Reconciliation
 
-The `tearleads.deviceFirst` facade (`client/deviceFirst.ts`) gives the app a
-device-first read path: the container tree and the active container's document
-list render synchronously from the local SQLite/OPFS projection, with zero
-network on the critical path. Remote reconciliation runs in the background and
-patches the same view in place.
+The `tearleads.deviceFirst` facade (`client/deviceFirst.ts`) gives the app one
+device-first scope for reads, writes, and reconciliation. The container tree
+and active container's document list render synchronously from local
+SQLite/OPFS, ordinary container writes commit locally and queue durable sync,
+and remote reconciliation patches the same state in the background.
 
-It is built from two layers in `client-sdk`:
+Its public handle joins three parts in `client-sdk`:
 
+- **`ContainerContentsStore`** (`stores/container-contents/`): the shared
+  locally durable tree and ordinary container mutation path.
 - **Layer A — `LocalProjectionStore`** (`stores/local-projection/`): the
   device-first, synchronously-readable view of a domain scope.
 - **Layer B — `ReconciliationService`** (`sync/reconciliation/`): the sole owner
   of remote I/O, draining a priority queue over the existing
   `DomainSyncCoordinator` lanes.
 
-The explorer, contacts, and org-manager mini-apps consume both through the
-shared `useContainerContentsDeviceFirst` hook
-(`packages/app/src/stores/device-first/`); none of them drive discovery from
-render effects.
+`DeviceFirstProvider` shares all three with the app; mini-apps neither reopen
+the tree nor drive discovery from render effects.
 
 ## Device-first invariant
 
@@ -34,6 +34,11 @@ The local read path is network-free.
 `listContainerDocumentSidebarWindow`) reads purely from SQLite, and the
 projection it reads is authoritative for first paint.
 
+Ordinary container topology/metadata writes resolve after local persistence and
+durable queueing; document-store edits follow the same rule. Remote authority
+is unchanged: sharing, purging, remote-container deletion, and an explicitly
+synchronous system-container probe may still await the network.
+
 Nullable container windows and `hasOrphanedDocuments` expose and gate orphan
 recovery without replacing empty-tree state.
 
@@ -45,6 +50,9 @@ recovery without replacing empty-tree state.
   ┌──────────────────────────────────────────────────────────────┐
   │ client-sdk                                                    │
   │                                                              │
+  │   ContainerContentsStore         (local writes + tree state)│
+  │                 │ shared by                               │
+  │                 ▼                                         │
   │   Layer A: LocalProjectionStore   (device-first, sync reads) │
   │     - hydrate-once from SQLite/OPFS per DomainScope          │
   │     - container tree + document summaries snapshot          │
@@ -257,73 +265,57 @@ React imports (enforced by the lane rules + dependency-cruiser).
 
 ### Public SDK surface
 
-The top-level facade `tearleads.deviceFirst` spans containers and documents, so
-it does not live under `containerContents`. It is defined in
-`client/deviceFirst.ts` and constructed in `Tearleads.ts` like the other
-facades.
+The top-level facade spans containers and documents:
 
 ```ts
 // client/deviceFirst.ts  →  tearleads.deviceFirst
+interface DeviceFirstContainerContents {
+  containerStore: ContainerContentsStore;   // local tree + locally durable writes
+  view: LocalProjectionView;                 // Layer A read handle
+  reconciler: ReconciliationService;         // Layer B background handle
+}
+
 interface DeviceFirst {
-  openView(options?): LocalProjectionView;   // Layer A handle (snapshot + subscribe + setActiveContainer)
-  reconciler(): ReconciliationService;       // Layer B handle
+  open(options?): DeviceFirstContainerContents;
 }
 ```
 
-`LocalProjectionView` is the app-facing read handle (snapshot + subscribe +
-`setActiveContainer` passthrough). The app imports only `tearleads.deviceFirst`
-returns and their exported *types*, never the store/service internals.
-`discoverContainerDocuments` is driven by the reconciler (Layer B), not the app.
-`openTree` remains the path every mini-app uses for tree mutations
-(create/move/rename/share) and system-container reads, which are not part of the
-read/reconcile seam.
+`containerStore` owns local tree mutations, `view` owns the subscribable read
+projection, and `reconciler` owns background discovery. Legacy `openView()` and
+`reconciler()` selectors alias the corresponding `open()` fields; new consumers
+use the unified handle.
 
 ## App-side consumption (`packages/app`)
 
 The app subscribes rather than orchestrating network:
 
-- `ExplorerProvider.tsx` opens the device-first view and calls
+- `DeviceFirstProvider.tsx` opens the shared device-first scope once and owns
+  runtime propagation for its container store and local projection.
+- `ExplorerProvider.tsx` consumes the shared store/view and calls
   `view.setActiveContainer(activeContainerId)`, which drives Layer B priority.
 - `useExplorerDocumentSummaryState.ts` / `useExplorerDocumentViewModel.ts` read
   summaries from the `LocalProjectionView` snapshot.
-- `useExplorerRefreshAction.ts` awaits `reconciler().reconcileNow()`.
+- `useExplorerRefreshAction.ts` awaits `reconciler.reconcileNow()`.
 
-The mini-app reads one subscribable view.
+### Shared binding across mini-apps (explorer, contacts, org-manager)
 
-### Shared hook across mini-apps (explorer, contacts, org-manager)
+`useDeviceFirstBinding.ts` opens the bundle, propagates runtime through `view`
+(and its underlying container store), and routes server events. The provider
+shares it with Explorer, Contacts, Org Manager, bootstrap, and Trash actions.
 
-`stores/device-first/useContainerContentsDeviceFirst.ts` is the shared hook that
-opens the per-scope view + reconciler, drives `view.updateRuntime` from an
-effect, and routes server events through `enqueueReconciliationForEvents`. The
-explorer, contacts, and org-manager providers all call it. Contacts and
-org-manager keep their `openTree()` store for tree reads and system-container
-mutations, and use the hook for background reconciliation and event routing.
+`open()` is cached per `DomainScope`; consumers share one mutation store,
+projection, reconciler, and active-container pointer. Only Explorer sets that
+pointer. It reprioritizes work without changing idle/event coverage.
 
-`openView()` and `reconciler()` are cached per `DomainScope` (`WeakMap` in
-`client/deviceFirst.ts` + `local-projection/registry.ts`) over the same
-per-scope container store. When several mini-apps are open in one scope they
-share one read view, one reconciler, and one active-container pointer, so they
-coordinate rather than racing divergent copies (asserted in
-`Tearleads.constructor.test.ts`). Only the explorer claims the active pointer
-(via `useExplorerInteractionState`, driven by user navigation);
-contacts/org-manager open the view for instant reads + background reconcile and
-never call `setActiveContainer`. Setting the pointer only re-prioritizes the
-reconcile queue — idle backfill + event enqueues still cover every known
-container — so concurrent pointers cause priority churn but no data loss.
-
-Contacts additionally subscribes to persisted-document notifications. This is
-the bridge from a late recovery pull into an already-initialized Contacts store:
-once the encrypted contact body is persisted and projected, the contact enters
-the visible snapshot without closing/reopening the mini-app. Organization
-switching similarly watches root-set changes and organization-profile
-persistence so a user-scoped root-discovery hint updates an already-open
-switcher.
+Persisted-document notifications repaint an open Contacts store after late
+recovery. Root-set and organization-profile signals likewise refresh the open
+organization switcher.
 
 ## Why first paint is device-first (trace)
 
 Already-registered user opens Explorer:
 
-1. `openView()` returns a store hydrated from SQLite. `ready=true` from local
+1. `open().view` returns a projection hydrated from SQLite. `ready=true` from local
    load.
 2. First paint: tree + active container's document summaries from the snapshot.
    No network awaited.
@@ -336,6 +328,12 @@ Freshly-registered user: registration persists the root + metadata locally
 (`persistRegistrationBootstrap`), so step 1 finds the root container; auth-gain
 reconciles in place instead of wiping the projection; discovery for the active
 container happens in the background.
+
+Ordinary container write:
+
+1. The mini-app calls `open().containerStore.moveContainer(...)`.
+2. The store persists the change/intent and updates subscribers.
+3. The promise settles without waiting for HTTP; the sync lane converges later.
 
 ## Scope boundaries
 

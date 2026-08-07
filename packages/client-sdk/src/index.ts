@@ -34,6 +34,7 @@ export type {
   DatabaseSnapshot,
   DatabaseStatus,
   DeviceFirst,
+  DeviceFirstContainerContents,
   DocumentAttachmentStatus,
   DocumentAttachmentUpload,
   DocumentAttributionRangesInput,

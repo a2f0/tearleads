@@ -1,10 +1,8 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo } from "react";
-import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../../providers/sdk/TearleadsProvider";
+import { useCallback, useMemo } from "react";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
+import { useDeviceFirstContainerContents } from "../../../stores/device-first/DeviceFirstProvider";
 import {
   findTrashSystemContainerSlot,
   isContainerUnderTrashByLookup,
@@ -32,37 +30,20 @@ interface DocumentTrash {
 // Org-aware move-to-trash for mini-apps that are NOT the Explorer (Notes today).
 // It mirrors Explorer's delete sequence — resolve the document's own-org Trash,
 // lazily create the viewer's own Trash, no-op if already trashed — via the shared
-// stores/systemContainerTrash core, then performs the container move. It opens the
-// shared container tree read-only for reads; the lazy create is the only mutation.
+// stores/systemContainerTrash core, then performs the container move through the
+// shared device-first store; both the lazy Trash create and move persist locally
+// before their remote sync lanes converge.
 export function useDocumentTrash(): DocumentTrash {
   const tearleads = useTearleads();
-  const appData = useTearleadsRuntime();
-
-  const runtime = useMemo(
-    () => tearleads.containerContents.workflowRuntime(),
-    [appData, tearleads],
-  );
-  const hasRootContainerId = Boolean(runtime.state.containerId);
-  const store = useMemo(
-    () => tearleads.containerContents.openTree({ logLabel: "Trash" }),
-    [runtime.state.domainScope, tearleads],
-  );
+  const { containerStore: store, runtime } = useDeviceFirstContainerContents();
   const snapshot = useTearleadsExternalStoreSnapshot(store);
-
-  useEffect(() => {
-    if (!hasRootContainerId) {
-      return;
-    }
-
-    store.updateRuntime(runtime);
-  }, [hasRootContainerId, runtime, store]);
 
   const systemContainers = useExplorerSystemContainerSlots({
     logError: tearleads.logError,
     signingPrivateKey: runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
   });
   const trashSystemSlot = findTrashSystemContainerSlot(systemContainers);
-  const currentOrganizationId = appData.auth.organizationId;
+  const currentOrganizationId = runtime.auth.organizationId;
 
   // Build the id→node lookup once per tree snapshot: isContainerTrashed runs on
   // every render of a consuming component, so rebuilding the map on each call

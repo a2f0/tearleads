@@ -125,8 +125,8 @@ export async function resyncContainerAccess(
     // Re-validate just the affected container (force re-discovery), not the
     // whole tree; a single access change should not re-sync everything.
     tearleads.deviceFirst
-      .reconciler()
-      .enqueueContainer(containerId, "active", true);
+      .open()
+      .reconciler.enqueueContainer(containerId, "active", true);
   } catch {
     // Reconciler unavailable (runtime not ready); the refresh below still runs.
   }
@@ -142,7 +142,7 @@ export async function resyncContainerAccess(
     // every event, which is the bulk of the membership-change request storm
     // (#1281); scoping to root + the one relevant parent lane keeps the
     // revocation/discovery/deletion guarantees while dropping that crawl.
-    const tree = tearleads.containerContents.openTree();
+    const tree = tearleads.deviceFirst.open().containerStore;
     const flaggedParentId =
       tree.getSnapshot().nodes.find((node) => node.id === containerId)
         ?.parentId ?? null;
@@ -184,7 +184,9 @@ async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
 
   const runSweep = async (): Promise<void> => {
     try {
-      await tearleads.deviceFirst.reconciler().reconcileRootContainersNow();
+      await tearleads.deviceFirst
+        .open()
+        .reconciler.reconcileRootContainersNow();
     } catch {
       // Runtime not ready; the next reconnect or manual refresh re-lists roots.
     }
@@ -313,8 +315,8 @@ function markServerEventsConnected(
     // before this sweep closes the lossy interval. This also catches re-keys in
     // unopened containers, which open-document reconnect probes cannot.
     void tearleads.deviceFirst
-      .reconciler()
-      .reconcileNow()
+      .open()
+      .reconciler.reconcileNow()
       .catch(() => log("WebSocket: reconnect catch-up unavailable"));
   }
   log("WebSocket: interest declaration acknowledged");

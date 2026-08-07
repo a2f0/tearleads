@@ -4,6 +4,7 @@ import {
   isDatabaseUnavailableError,
 } from "../data/sync/syncCoordinator";
 import {
+  type ContainerContentsStore,
   type ContainerContentsStoreOptions,
   isAutomaticRootCatchupContainerNode,
   isReconcilableContainerNode,
@@ -40,17 +41,35 @@ import type { InternalRuntime } from "./workflowRuntime";
 
 export type { LocalProjectionView } from "../stores/local-projection";
 
+/** One domain scope's local read, local-write, and reconciliation handles. */
+export interface DeviceFirstContainerContents {
+  /**
+   * Locally durable container tree and mutation store. Ordinary tree writes
+   * update this store after local persistence and queue remote convergence in
+   * the background; security-sensitive remote operations keep their explicit
+   * online requirements.
+   */
+  readonly containerStore: ContainerContentsStore;
+  /** Background remote reconciliation; never awaited for first paint. */
+  readonly reconciler: ReconciliationService;
+  /** Synchronously readable container/document projection. */
+  readonly view: LocalProjectionView;
+}
+
 /**
- * Device-first facade. Bundles the synchronous local projection (Layer A) with
- * the background reconciler (Layer B) so the app can render from the local
- * SQLite/OPFS cache immediately and let remote reconciliation patch the view.
+ * Device-first facade. Opens a shared scope that pairs immediate local reads
+ * and locally durable writes with background remote convergence.
  */
 export interface DeviceFirst {
-  /** Open the device-first container/document view for the current scope. */
+  /** Open all device-first handles for the current domain scope. */
+  open(
+    options?: ContainerContentsStoreOptions | undefined,
+  ): DeviceFirstContainerContents;
+  /** @deprecated Prefer `open().view` so reads and writes share one seam. */
   openView(
     options?: ContainerContentsStoreOptions | undefined,
   ): LocalProjectionView;
-  /** Handle to the background reconciliation service for the current scope. */
+  /** @deprecated Prefer `open().reconciler`. */
   reconciler(): ReconciliationService;
   /** Stop the current scope's reconciler (if one was created) on teardown. */
   dispose(): void;
@@ -64,11 +83,9 @@ export function createDeviceFirst(
 }
 
 interface DeviceFirstScopeEntry {
+  contents: DeviceFirstContainerContents;
   disconnectReconciliationTriggers: () => void;
-  service: ReconciliationService;
-  store: LocalProjectionStore;
   unsubscribePersistedDocumentDeletions: () => void;
-  view: LocalProjectionView;
 }
 
 function createInitialDocumentProbeHost(
@@ -132,14 +149,20 @@ class DeviceFirstService implements DeviceFirst {
     private readonly containerContents: ContainerContents,
   ) {}
 
+  open(
+    options?: ContainerContentsStoreOptions | undefined,
+  ): DeviceFirstContainerContents {
+    return this.getOrCreateEntry(options).contents;
+  }
+
   openView(
     options?: ContainerContentsStoreOptions | undefined,
   ): LocalProjectionView {
-    return this.getOrCreateEntry(options).view;
+    return this.open(options).view;
   }
 
   reconciler(): ReconciliationService {
-    return this.getOrCreateEntry().service;
+    return this.open().reconciler;
   }
 
   dispose(): void {
@@ -149,7 +172,7 @@ class DeviceFirstService implements DeviceFirst {
     // all down. Force-stop each scope's coordinator (which runs the reconciler
     // lane) alongside stopping the service.
     for (const [domainScope, entry] of this.entriesByScope) {
-      entry.service.stop();
+      entry.contents.reconciler.stop();
       entry.disconnectReconciliationTriggers();
       entry.unsubscribePersistedDocumentDeletions();
       disposeDomainSyncCoordinator(domainScope);
@@ -168,8 +191,8 @@ class DeviceFirstService implements DeviceFirst {
     const domainScope = runtime.state.domainScope;
     const existing = this.entriesByScope.get(domainScope);
     if (existing) {
-      // Do not call updateRuntime here: openView()/reconciler() run during
-      // React render, and updateRuntime emits synchronously. Hosts drive runtime
+      // Do not call updateRuntime here: facade selectors run during React
+      // render, and updateRuntime emits synchronously. Hosts drive runtime
       // updates through view.updateRuntime() from an effect instead.
       return existing;
     }
@@ -201,11 +224,13 @@ class DeviceFirstService implements DeviceFirst {
     };
 
     const entry: DeviceFirstScopeEntry = {
+      contents: {
+        containerStore: store.getContainerStore(),
+        reconciler: service,
+        view,
+      },
       disconnectReconciliationTriggers,
-      service,
-      store,
       unsubscribePersistedDocumentDeletions,
-      view,
     };
     this.entriesByScope.set(domainScope, entry);
     return entry;

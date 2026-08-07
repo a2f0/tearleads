@@ -41,7 +41,11 @@ function acknowledgeInitialDeclaration(
 }
 
 function tearleadsWithStore(openTree: () => unknown): Tearleads {
-  return { containerContents: { openTree } } as unknown as Tearleads;
+  return {
+    deviceFirst: {
+      open: () => ({ containerStore: openTree() }),
+    },
+  } as unknown as Tearleads;
 }
 
 function fakeSocket(readyState: number) {

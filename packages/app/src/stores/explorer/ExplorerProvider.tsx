@@ -11,7 +11,6 @@ import {
   type PropsWithChildren,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
 } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
@@ -130,11 +129,12 @@ export function ExplorerProvider({
   showBuiltInSystemContainers = false,
 }: PropsWithChildren<{ showBuiltInSystemContainers?: boolean }>) {
   const tearleads = useTearleads();
-  const { reconciler, runtime, view } = useDeviceFirstContainerContents();
-  const store = useMemo(
-    () => tearleads.containerContents.openTree({ logLabel: "Explorer" }),
-    [runtime.state.domainScope, tearleads],
-  );
+  const {
+    containerStore: store,
+    reconciler,
+    runtime,
+    view,
+  } = useDeviceFirstContainerContents();
   const {
     builtInSystemContainers,
     contactsSystemSlot,
@@ -172,14 +172,6 @@ export function ExplorerProvider({
       visibleSystemSlots,
     ],
   );
-
-  useEffect(() => {
-    if (runtime.infra.dbStatus === "ready" && !runtime.state.containerId) {
-      return;
-    }
-
-    store.updateRuntime(runtime);
-  }, [store, runtime]);
 
   return (
     <ExplorerContext.Provider value={contextValue}>

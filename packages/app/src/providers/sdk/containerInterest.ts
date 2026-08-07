@@ -45,9 +45,9 @@ export function startContainerInterestDeclaration(
   ws: WebSocket,
   baseline: ReadonlySet<string>,
 ): ContainerInterestDeclaration {
-  let store: ReturnType<Tearleads["containerContents"]["openTree"]>;
+  let store: ReturnType<Tearleads["deviceFirst"]["open"]>["containerStore"];
   try {
-    store = tearleads.containerContents.openTree();
+    store = tearleads.deviceFirst.open().containerStore;
   } catch {
     return {
       acknowledge: () => false,
