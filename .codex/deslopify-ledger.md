@@ -432,3 +432,33 @@
 - Decision notes: keep layout-specific width defaults, DOM wrappers, and narrow
   versus touch-sized handle geometry local; share only the sizing lifecycle,
   ARIA contract, pointer listeners, keyboard behavior, and common chrome.
+
+### 2026-08-07 - Stable crypto session context
+
+- Status: accepted
+- Classification: React context identity churn and redundant authentication
+  wrappers
+- Equivalence claim: `login` still returns false without a signing key and
+  otherwise calls SDK login without a challenge; `loginWithChallenge` passes its
+  challenge unchanged; logout and every session setter retain their SDK targets.
+  The intentional identity change is that both login properties now reference
+  the same stable optional-challenge callback, and an unchanged exposed session
+  snapshot retains the same context object across provider-only renders.
+- Risk notes: over-memoization could hide SDK session updates, and collapsing the
+  login wrappers could change their call shapes. Direct provider coverage proves
+  that an exposed snapshot change publishes a new value, both login forms retain
+  their arguments/results, missing keys still fail closed, and logout delegates.
+- Files changed: `CryptoSessionProvider` and direct context/action identity
+  characterization coverage.
+- Baseline: 16 focused crypto-session, authentication, and identity-autopilot
+  tests passed at `fc87f765` before the refactor.
+- Verification: app TypeScript, Biome, architecture, source-shape, 19 focused
+  crypto/identity tests, and all 212 provider tests pass. The affected suite
+  reports 2,258 app tests passing with one skip and all 38 web E2E tests passing;
+  every static, OpenAPI, and protocol-model gate passes.
+- Delta: one per-render login closure and two wrapper identities eliminated; the
+  explicit memo dependency contract adds 27 production lines net, with direct
+  stable-versus-changing context coverage added.
+- Decision notes: retain the two public login property names for compatibility,
+  but back them with one optional-challenge implementation. Memoize only the
+  exposed context fields so private persistence state cannot trigger consumers.

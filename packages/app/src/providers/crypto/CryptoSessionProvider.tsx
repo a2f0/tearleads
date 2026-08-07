@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -124,16 +125,14 @@ function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
     [tearleads],
   );
 
-  const loginWithChallenge = useCallback(
-    (challengeHex: string) => authenticate(challengeHex),
-    [authenticate],
+  return useMemo(
+    () => ({
+      login: authenticate,
+      loginWithChallenge: authenticate,
+      logout,
+    }),
+    [authenticate, logout],
   );
-
-  return {
-    login: () => authenticate(),
-    loginWithChallenge,
-    logout,
-  };
 }
 
 interface CryptoSessionPersistenceState {
@@ -358,6 +357,44 @@ function useSdkBackedCryptoSessionState(
   };
 }
 
+function useCryptoSessionContextValue(
+  sessionState: ReturnType<typeof useSdkBackedCryptoSessionState>,
+  sessionRestoreSettled: boolean,
+  actions: ReturnType<typeof useCryptoAuthActions>,
+) {
+  const { login, loginWithChallenge, logout } = actions;
+  return useMemo<CryptoSessionContextValue>(
+    () => ({
+      authToken: sessionState.authToken,
+      containerId: sessionState.containerId,
+      isAuthenticated: sessionState.isAuthenticated,
+      login,
+      loginWithChallenge,
+      logout,
+      organizationId: sessionState.organizationId,
+      sessionRestoreSettled,
+      setContainerId: sessionState.setContainerId,
+      setOrganizationId: sessionState.setOrganizationId,
+      setUserId: sessionState.setUserId,
+      userId: sessionState.userId,
+    }),
+    [
+      login,
+      loginWithChallenge,
+      logout,
+      sessionRestoreSettled,
+      sessionState.authToken,
+      sessionState.containerId,
+      sessionState.isAuthenticated,
+      sessionState.organizationId,
+      sessionState.setContainerId,
+      sessionState.setOrganizationId,
+      sessionState.setUserId,
+      sessionState.userId,
+    ],
+  );
+}
+
 export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const { log, logError } = useLog();
@@ -414,27 +451,17 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     sessionState,
     signingFingerprint,
   });
-  const { login, loginWithChallenge, logout } = useCryptoAuthActions(tearleads);
   const sessionRestoreSettled =
     checkedPersistedSessionFingerprint === signingFingerprint;
+  const actions = useCryptoAuthActions(tearleads);
+  const contextValue = useCryptoSessionContextValue(
+    sessionState,
+    sessionRestoreSettled,
+    actions,
+  );
 
   return (
-    <CryptoSessionContext.Provider
-      value={{
-        userId: sessionState.userId,
-        organizationId: sessionState.organizationId,
-        containerId: sessionState.containerId,
-        authToken: sessionState.authToken,
-        isAuthenticated: sessionState.isAuthenticated,
-        sessionRestoreSettled,
-        setUserId: sessionState.setUserId,
-        setOrganizationId: sessionState.setOrganizationId,
-        setContainerId: sessionState.setContainerId,
-        login,
-        loginWithChallenge,
-        logout,
-      }}
-    >
+    <CryptoSessionContext.Provider value={contextValue}>
       {children}
     </CryptoSessionContext.Provider>
   );
