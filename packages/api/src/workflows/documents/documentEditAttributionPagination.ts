@@ -1,9 +1,9 @@
-import { Buffer } from "node:buffer";
 import type {
   DocumentEditAttributionRangeResponse,
   ListDocumentEditAttributionRangesResponse,
 } from "@tearleads/validators/response";
 import type { DocumentEditAttributionSegment } from "../../documents/documentEditAttribution";
+import { decodeCursor, encodeCursor } from "../../utils/cursor";
 
 interface AttributionIdentity {
   readonly attributionScope: string;
@@ -47,51 +47,44 @@ function invalidRangeCursor(): DocumentEditAttributionError {
 }
 
 function encodeRangeCursor(cursor: AttributionRangeCursor): string {
-  return Buffer.from(JSON.stringify(cursor)).toString("base64url");
+  return encodeCursor(cursor);
+}
+
+function parseRangeCursor(
+  decoded: unknown,
+): AttributionRangeCursor | undefined {
+  if (typeof decoded !== "object" || decoded === null) {
+    return undefined;
+  }
+  const version = Reflect.get(decoded, "version");
+  const documentId = Reflect.get(decoded, "documentId");
+  const attributionScope = Reflect.get(decoded, "attributionScope");
+  const attributionRevision = Reflect.get(decoded, "attributionRevision");
+  const offset = Reflect.get(decoded, "offset");
+  if (
+    version !== 1 ||
+    typeof documentId !== "string" ||
+    typeof attributionScope !== "string" ||
+    typeof attributionRevision !== "number" ||
+    !Number.isSafeInteger(attributionRevision) ||
+    attributionRevision < 0 ||
+    typeof offset !== "number" ||
+    !Number.isSafeInteger(offset) ||
+    offset < 0
+  ) {
+    return undefined;
+  }
+  return {
+    attributionRevision,
+    attributionScope,
+    documentId,
+    offset,
+    version,
+  };
 }
 
 function decodeRangeCursor(value: string): AttributionRangeCursor {
-  try {
-    if (!/^[A-Za-z0-9_-]+$/u.test(value)) {
-      throw invalidRangeCursor();
-    }
-    const decoded: unknown = JSON.parse(
-      Buffer.from(value, "base64url").toString("utf8"),
-    );
-    if (typeof decoded !== "object" || decoded === null) {
-      throw invalidRangeCursor();
-    }
-    const version = Reflect.get(decoded, "version");
-    const documentId = Reflect.get(decoded, "documentId");
-    const attributionScope = Reflect.get(decoded, "attributionScope");
-    const attributionRevision = Reflect.get(decoded, "attributionRevision");
-    const offset = Reflect.get(decoded, "offset");
-    if (
-      version !== 1 ||
-      typeof documentId !== "string" ||
-      typeof attributionScope !== "string" ||
-      typeof attributionRevision !== "number" ||
-      !Number.isSafeInteger(attributionRevision) ||
-      attributionRevision < 0 ||
-      typeof offset !== "number" ||
-      !Number.isSafeInteger(offset) ||
-      offset < 0
-    ) {
-      throw invalidRangeCursor();
-    }
-    return {
-      attributionRevision,
-      attributionScope,
-      documentId,
-      offset,
-      version,
-    };
-  } catch (error) {
-    if (error instanceof DocumentEditAttributionError) {
-      throw error;
-    }
-    throw invalidRangeCursor();
-  }
+  return decodeCursor(value, parseRangeCursor, invalidRangeCursor);
 }
 
 function normalizeRangeLimit(limit: number | undefined): number {
