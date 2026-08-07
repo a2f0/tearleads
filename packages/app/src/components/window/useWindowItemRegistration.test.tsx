@@ -98,5 +98,14 @@ test("window item equality compares every registered field", () => {
 
   expect(sameWindowItem(undefined, item)).toBe(false);
   expect(sameWindowItem({ ...item }, item)).toBe(true);
+  expect(
+    sameWindowItem(
+      { ...item, priority: Number.NaN },
+      {
+        ...item,
+        priority: Number.NaN,
+      },
+    ),
+  ).toBe(true);
   expect(sameWindowItem({ ...item, priority: 1 }, item)).toBe(false);
 });

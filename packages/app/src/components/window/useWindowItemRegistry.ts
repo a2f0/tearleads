@@ -21,7 +21,7 @@ export function sameWindowItem<T extends object>(
     rightEntries.every(([rightKey, rightValue]) =>
       leftEntries.some(
         ([leftKey, leftValue]) =>
-          leftKey === rightKey && leftValue === rightValue,
+          leftKey === rightKey && Object.is(leftValue, rightValue),
       ),
     )
   );
